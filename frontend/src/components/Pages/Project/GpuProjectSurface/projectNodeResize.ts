@@ -22,6 +22,7 @@ import {
   isResizeDoubleClick,
   resolveResizableGrid,
   resolveSectionResizeStopSize,
+  SIZE_MODE,
 } from "state/actions/sections/sectionResizePolicy";
 import {
   applyLocalSectionSizeChange,
@@ -310,18 +311,26 @@ function stopProjectNodeResize(
     const finalSize = toProjectSectionResizeSize(
       getNumericProjectResizeSize(change.layout, change.nodeId),
     );
+    const roundedFinalSize = {
+      height: Math.round(finalSize.height),
+      width: Math.round(finalSize.width),
+    };
     const changedSize = resolveSectionResizeStopSize({
       direction: change.direction as ResizeHandleDirection,
-      finalSize: {
-        height: Math.round(finalSize.height),
-        width: Math.round(finalSize.width),
-      },
+      finalSize: roundedFinalSize,
       sizeMode: dimensions.sizeMode,
       aspectRatio: !impl.isMinimized && Boolean(impl.aspectRatio),
       isDoubleClick,
     });
-    const clampedSize = clampChangedSize({
+    const persistenceSize = completeProjectNodeResizeStopSize({
       changedSize,
+      finalSize: roundedFinalSize,
+      isDoubleClick,
+      sizeMode: dimensions.sizeMode,
+      startSectionSize: session.startSectionSize,
+    });
+    const clampedSize = clampChangedSize({
+      changedSize: persistenceSize,
       minHeight: dimensions.minHeight,
       minWidth: dimensions.minWidth,
       aspectRatio: !impl.isMinimized && Boolean(impl.aspectRatio),
@@ -332,6 +341,70 @@ function stopProjectNodeResize(
     applyLocalSectionSizeChange(change.nodeId, session.startSectionSize);
   }
   finishProjectNodeResize(change.nodeId, sessionRef);
+}
+
+function completeProjectNodeResizeStopSize({
+  changedSize,
+  finalSize,
+  isDoubleClick,
+  sizeMode,
+  startSectionSize,
+}: {
+  changedSize: Partial<SectionSize>;
+  finalSize: { height: number; width: number };
+  isDoubleClick: boolean;
+  sizeMode: { height: string; width: string };
+  startSectionSize: SectionSize | null;
+}): Partial<SectionSize> {
+  if (isDoubleClick) {
+    return changedSize;
+  }
+
+  const nextSize = { ...changedSize };
+  if (
+    canCompleteUnchangedResizeAxis({
+      changedAxis: nextSize.width,
+      currentAxis: nextSize.height,
+      sizeMode: sizeMode.height,
+      startAxis: startSectionSize?.height,
+    })
+  ) {
+    nextSize.height = finalSize.height;
+  }
+  if (
+    canCompleteUnchangedResizeAxis({
+      changedAxis: nextSize.height,
+      currentAxis: nextSize.width,
+      sizeMode: sizeMode.width,
+      startAxis: startSectionSize?.width,
+    })
+  ) {
+    nextSize.width = finalSize.width;
+  }
+  return nextSize;
+}
+
+function canCompleteUnchangedResizeAxis({
+  changedAxis,
+  currentAxis,
+  sizeMode,
+  startAxis,
+}: {
+  changedAxis: SectionSize["height"] | undefined;
+  currentAxis: SectionSize["height"] | undefined;
+  sizeMode: string;
+  startAxis: SectionSize["height"] | undefined;
+}): boolean {
+  if (changedAxis === undefined) {
+    return false;
+  }
+  if (currentAxis !== undefined) {
+    return false;
+  }
+  if (typeof startAxis !== "number") {
+    return false;
+  }
+  return sizeMode !== SIZE_MODE.auto_only;
 }
 
 function cancelProjectNodeResize(

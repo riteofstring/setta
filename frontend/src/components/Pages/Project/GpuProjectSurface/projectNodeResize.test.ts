@@ -64,7 +64,12 @@ function seedProjectState(
     height: 120,
     width: 200,
   }) as unknown as NonNullable<CreateChatSectionImplOptions["size"]>,
+  layoutSize: { height?: number; width?: number } = {},
 ) {
+  const sectionWidth = typeof size.width === "number" ? size.width : 200;
+  const sectionHeight = typeof size.height === "number" ? size.height : 120;
+  const layoutWidth = layoutSize.width ?? sectionWidth;
+  const layoutHeight = layoutSize.height ?? sectionHeight;
   useSettings.setState(createSettingsState());
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
@@ -97,7 +102,13 @@ function seedProjectState(
     state.projectConfig.sectionVariantMap = { [sectionId]: variantId };
     state.parentSectionMap = { [sectionId]: null };
     state.projectConfig.topLevelSections = {
-      [sectionId]: { x: 0, y: 0, zIndex: 1, w: 200, h: 120 },
+      [sectionId]: {
+        x: 0,
+        y: 0,
+        zIndex: 1,
+        w: layoutWidth,
+        h: layoutHeight,
+      },
     };
     state.previewSectionVariantMap = {};
   });
@@ -108,8 +119,8 @@ function seedProjectState(
         {
           id: sectionId,
           position: { x: 0, y: 0 },
-          width: toTopLevelSectionOuterDimension(200),
-          height: toTopLevelSectionOuterDimension(120),
+          width: toTopLevelSectionOuterDimension(layoutWidth),
+          height: toTopLevelSectionOuterDimension(layoutHeight),
           zIndex: 1,
           tempZIndex: 1,
         },
@@ -123,16 +134,20 @@ function createResizeChange({
   phase,
   width,
   height,
+  direction = "bottomRight",
+  startWidth = toTopLevelSectionOuterDimension(200),
+  startHeight = toTopLevelSectionOuterDimension(120),
 }: {
   phase: "start" | "resize" | "stop";
   width: number;
   height: number;
+  direction?: "right" | "bottom" | "bottomRight";
+  startWidth?: number;
+  startHeight?: number;
 }) {
-  const startWidth = toTopLevelSectionOuterDimension(200);
-  const startHeight = toTopLevelSectionOuterDimension(120);
   return {
     active: phase !== "stop",
-    direction: "bottomRight" as const,
+    direction,
     layout: {
       height,
       nodeId: sectionId,
@@ -215,6 +230,72 @@ describe("project GPU node resize adapter", () => {
         projectConfigId,
         sectionSizes: {
           [sectionId]: { width: 500, height: 260 },
+        },
+      },
+    });
+  });
+
+  it("preserves live section width when persisting a later height-only resize", () => {
+    resetProjectStores();
+    seedProjectState(
+      createSectionSize({
+        height: 260,
+        width: 200,
+      }) as unknown as NonNullable<CreateChatSectionImplOptions["size"]>,
+      { height: 260, width: 500 },
+    );
+    const sessionRef = { current: createProjectNodeResizeSession() };
+    const options = createProjectNodeResizeOptions({
+      canEditLayout: true,
+      flowInteractionKeys: {
+        panActivationKeyPressed: false,
+        selectionKeyPressed: false,
+        zoomActivationKeyPressed: false,
+      },
+      isFollowTransitioning: false,
+      sessionRef,
+    });
+    const startWidth = toTopLevelSectionOuterDimension(500);
+    const startHeight = toTopLevelSectionOuterDimension(260);
+    const stopHeight = toTopLevelSectionOuterDimension(360);
+
+    options.onNodeResizeStart(
+      createResizeChange({
+        direction: "bottom",
+        phase: "start",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: startHeight,
+      }),
+    );
+    options.onNodeResize(
+      createResizeChange({
+        direction: "bottom",
+        phase: "resize",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: stopHeight,
+      }),
+    );
+    options.onNodeResizeStop(
+      createResizeChange({
+        direction: "bottom",
+        phase: "stop",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: stopHeight,
+      }),
+    );
+
+    expect(setSectionSizes).toHaveBeenCalledOnce();
+    expect(vi.mocked(setSectionSizes).mock.calls[0]?.[0]).toMatchObject({
+      body: {
+        projectConfigId,
+        sectionSizes: {
+          [sectionId]: { width: 500, height: 360 },
         },
       },
     });
