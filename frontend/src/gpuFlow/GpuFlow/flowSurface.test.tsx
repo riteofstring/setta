@@ -87,7 +87,7 @@ describe("GpuFlow", () => {
     expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
   });
 
-  it("renders drag preview affordances from the layout store", () => {
+  it("renders drag preview affordances from the layout store inside the canvas source subtree", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [
         {
@@ -121,11 +121,23 @@ describe("GpuFlow", () => {
       />,
     );
 
-    expect(markup).toContain('data-gpu-flow-drag-preview-layer="true"');
-    expect(markup).toContain('data-gpu-flow-drop-marker="true"');
-    expect(markup).toContain('data-gpu-flow-drop-marker-parent="parent-node"');
-    expect(markup).toContain('data-gpu-flow-drag-preview-node="dragging-node"');
-    expect(markup).toContain("translate(4px, 8px) scale(1.5)");
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const dragPreviewNodeSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-drag-preview-node:dragging-node"',
+    );
+    const dropMarkerSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-drop-marker"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(dragPreviewNodeSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(dragPreviewNodeSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(dropMarkerSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(dropMarkerSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("data-gpu-flow-drag-preview-layer");
+    expect(markup).not.toContain("data-gpu-flow-drop-marker=");
+    expect(markup).not.toContain("data-gpu-flow-drag-preview-node=");
+    expect(markup).not.toContain("translate(4px, 8px) scale(1.5)");
   });
 
   it("prefers subscribed layout store nodes over scene snapshot nodes", () => {

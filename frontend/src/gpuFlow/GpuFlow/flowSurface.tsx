@@ -152,7 +152,7 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
-import { useGpuFlowNodeDragPreviewLayer } from "./nodeDragPreviewOverlay";
+import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import {
@@ -383,9 +383,22 @@ export function GpuFlow({
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
     });
+  const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
+    useGpuFlowNodeDragPreviewSources({
+      layoutStore,
+      nodeDomTransformSyncCacheRef,
+      nodeElementByIdRef,
+      surfaceRef,
+      textureManagerRef,
+      transformOnlyPaintNodeIdsRef,
+    });
   const htmlSurfaceOverlays = useMemo(
-    () => [...retainedContentSurfaces, ...edgeLabelSurfaces],
-    [edgeLabelSurfaces, retainedContentSurfaces],
+    () => [
+      ...retainedContentSurfaces,
+      ...edgeLabelSurfaces,
+      ...nodeDragPreviewSurfaces,
+    ],
+    [edgeLabelSurfaces, nodeDragPreviewSurfaces, retainedContentSurfaces],
   );
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
@@ -935,10 +948,6 @@ export function GpuFlow({
   const userSelectionElement = (
     <GpuUserSelectionOverlay rect={userSelectionRect} />
   );
-  const nodeDragPreviewElement = useGpuFlowNodeDragPreviewLayer({
-    layoutStore,
-    viewportStore,
-  });
   const nodesSelectionElement = useGpuFlowSelectionDragLayer({
     containerRef,
     layoutStore,
@@ -972,6 +981,7 @@ export function GpuFlow({
             {children}
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
+            {nodeDragPreviewSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}
@@ -979,7 +989,6 @@ export function GpuFlow({
             viewportStore={viewportStore}
           />
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
-          {nodeDragPreviewElement}
           {userSelectionElement}
           {nodesSelectionElement}
         </div>
