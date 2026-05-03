@@ -63,7 +63,7 @@ const DARK_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   labelText: "rgb(203, 213, 225)",
   nestGuide: "rgba(148, 163, 184, 0.24)",
   rowBackground: "hsl(220, 25%, 8.5%)",
-  rowDivider: "rgba(71, 85, 105, 0.42)",
+  rowDivider: "rgba(71, 85, 105, 0.3)",
   rowDraggingBackground: "rgba(51, 65, 85, 0.72)",
   rowErrorBackground: "rgba(127, 29, 29, 0.3)",
   rowFocusedBackground: "rgba(2, 132, 199, 0.22)",
