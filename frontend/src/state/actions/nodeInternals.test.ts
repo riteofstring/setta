@@ -13,25 +13,16 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
   updateNodeDimensionsFromGpuIntrinsicSize,
   updateNodeDimensionsFromGpuResize,
 } from "./nodeInternals";
-import {
-  debounced_route_set_top_level_section_layout,
-  getSectionDescendants,
-} from "./sectionInfos";
-
-vi.mock("./edgeHandles", () => ({
-  scheduleEdgeHandlePositionUpdate: vi.fn(),
-}));
+import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
 
 vi.mock("./sectionInfos", () => ({
   debounced_route_set_top_level_section_layout: vi.fn(),
-  getSectionDescendants: vi.fn(() => []),
 }));
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
@@ -104,9 +95,6 @@ function createMeasuredElement({
 describe("nodeInternals", () => {
   beforeEach(() => {
     resetProjectStores();
-    vi.mocked(getSectionDescendants).mockImplementation((sectionId) => [
-      sectionId,
-    ]);
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
     setupGpuViewportStore();
@@ -124,10 +112,7 @@ describe("nodeInternals", () => {
   it("ignores DOM measurements and defers fitView until code areas finish rendering", () => {
     useNodeInternals.setState({
       x: new Map([
-        [
-          "section-1",
-          createNode({ id: "section-1", width: 100, height: 80 }),
-        ],
+        ["section-1", createNode({ id: "section-1", width: 100, height: 80 })],
       ]),
     });
     useMisc.setState({
@@ -179,9 +164,6 @@ describe("nodeInternals", () => {
     const node = useNodeInternals.getState().x.get("section-1");
     expect(node?.width).toBe(140);
     expect(node?.height).toBe(80);
-    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
-      "section-1",
-    ]);
     expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
   });
 
@@ -209,16 +191,10 @@ describe("nodeInternals", () => {
     const node = useNodeInternals.getState().x.get("section-1");
     expect(node?.width).toBe(550);
     expect(node?.height).toBe(352);
-    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
-      "section-1",
-    ]);
     expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
   });
 
-  it("schedules edge handle refreshes for GPU-resized section descendants", () => {
-    vi.mocked(getSectionDescendants).mockImplementation((sectionId) =>
-      sectionId === "section-1" ? ["section-1", "child-1"] : [sectionId],
-    );
+  it("keeps GPU-resized section dimensions in project state", () => {
     useNodeInternals.setState({
       x: new Map([
         ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
@@ -231,10 +207,10 @@ describe("nodeInternals", () => {
       height: 120,
     });
 
-    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
-      "section-1",
-      "child-1",
-    ]);
+    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
+      width: 240,
+      height: 120,
+    });
   });
 
   it("refreshes existing selected-node bounds when a selected node GPU-resizes", () => {

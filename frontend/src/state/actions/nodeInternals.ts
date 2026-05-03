@@ -14,13 +14,10 @@ import {
   useLocalStorage,
   useMisc,
   useNodeInternals,
-  useProjectState,
   useSectionRefs,
   ZustandNodeInternalsState,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
-import { getSectionDescendants } from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
   id: string;
@@ -157,7 +154,6 @@ function updateNodeDimensionsFromGpuLayouts({
     return 0;
   }
   useNodeInternals.setState({ x: newNodes });
-  scheduleEdgeHandlePositionUpdatesForDimensionUpdates(changedNodeIds);
   updateSelectionBoundsForDimensionUpdates(newNodes, changedNodeIds);
   maybeCompleteInitialFitViewForGpuLayoutUpdate(completeInitialFitView);
   return changedNodeIds.length;
@@ -187,22 +183,6 @@ function getNodeWithGpuLayoutDimensions(
 
 function hasViewportNode() {
   return gpuFlowViewportStore.getState().domNode !== null;
-}
-
-function scheduleEdgeHandlePositionUpdatesForDimensionUpdates(
-  changedNodeIds: readonly string[],
-) {
-  if (changedNodeIds.length === 0) {
-    return;
-  }
-  const projectState = useProjectState.getState();
-  const sectionIds = new Set<string>();
-  for (const nodeId of changedNodeIds) {
-    for (const descendantId of getSectionDescendants(nodeId, projectState)) {
-      sectionIds.add(descendantId);
-    }
-  }
-  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 function updateSelectionBoundsForDimensionUpdates(
@@ -297,15 +277,6 @@ export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
     node.position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
-  const sectionIds = new Set<string>();
-  const projectState = useProjectState.getState();
-  for (const item of nodeDragItems) {
-    const descendants = getSectionDescendants(item.id, projectState);
-    for (const id of descendants) {
-      sectionIds.add(id);
-    }
-  }
-  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 export function raiseTempZIndex(nodes: Array<Node>) {
@@ -341,15 +312,6 @@ export function moveNodes(
     node.position = move.position;
   }
   useNodeInternals.setState({ x: newNodes });
-  const projectState = useProjectState.getState();
-  const sectionIds = new Set<string>();
-  for (const move of nodeMoves) {
-    const descendants = getSectionDescendants(move.id, projectState);
-    for (const id of descendants) {
-      sectionIds.add(id);
-    }
-  }
-  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 function getNewNodes() {

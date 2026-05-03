@@ -17,6 +17,7 @@ import {
 } from "./gpuFlowDomClasses";
 import { handlePointerDown } from "./Handle/handler";
 import type { ValidConnectionFunc } from "./Handle/utils";
+import type { GpuFlowLayoutStoreApi } from "./layoutStore";
 import type { GpuViewportInput } from "./viewportMath";
 import {
   gpuFlowViewportStore,
@@ -38,10 +39,12 @@ const alwaysValidConnection: ValidConnectionFunc = () => true;
 
 export function GpuEdgeReconnectAnchorLayer({
   anchors,
+  layoutStore,
   options,
   viewportStore = gpuFlowViewportStore,
 }: {
   readonly anchors: readonly GpuEdgeReconnectAnchor[];
+  readonly layoutStore?: GpuFlowLayoutStoreApi | null | undefined;
   readonly options: GpuEdgeReconnectOptions;
   readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 }) {
@@ -51,6 +54,7 @@ export function GpuEdgeReconnectAnchorLayer({
   return (
     <GpuEdgeReconnectAnchorViewportLayer
       anchors={anchors}
+      layoutStore={layoutStore}
       options={options}
       viewportStore={viewportStore}
     />
@@ -59,10 +63,12 @@ export function GpuEdgeReconnectAnchorLayer({
 
 function GpuEdgeReconnectAnchorViewportLayer({
   anchors,
+  layoutStore,
   options,
   viewportStore,
 }: {
   readonly anchors: readonly GpuEdgeReconnectAnchor[];
+  readonly layoutStore?: GpuFlowLayoutStoreApi | null | undefined;
   readonly options: GpuEdgeReconnectOptions;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
@@ -81,6 +87,7 @@ function GpuEdgeReconnectAnchorViewportLayer({
         <GpuEdgeReconnectAnchorElement
           anchor={anchor}
           key={anchor.id}
+          layoutStore={layoutStore}
           options={options}
           viewportStore={viewportStore}
         />
@@ -108,10 +115,12 @@ export function getGpuEdgeReconnectAnchorStyle(
 
 function GpuEdgeReconnectAnchorElement({
   anchor,
+  layoutStore,
   options,
   viewportStore,
 }: {
   readonly anchor: GpuEdgeReconnectAnchor;
+  readonly layoutStore?: GpuFlowLayoutStoreApi | null | undefined;
   readonly options: GpuEdgeReconnectOptions;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
@@ -132,6 +141,7 @@ function GpuEdgeReconnectAnchorElement({
       handleId: anchor.fixedHandleId,
       isTarget: anchor.fixedIsTarget,
       isValidConnection: options.isValidConnection ?? alwaysValidConnection,
+      layoutStore,
       nodeId: anchor.fixedSectionId,
       onConnect: (connection) => {
         options.onReconnect(anchor.edgeId, connection);

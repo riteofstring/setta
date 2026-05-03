@@ -4,18 +4,20 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 import { memo, useLayoutEffect, useRef } from "react";
-import {
-  registerEdgeHandle,
-  unregisterEdgeHandle,
-  updateEdgeHandlePosition,
-} from "state/actions/edgeHandles";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
-import { useNodeId } from "../NodeIdContext";
 import type { Connection, HandleProps } from "../flowTypes";
 import {
   getGpuFlowHandlePositionClass,
   GPU_FLOW_CLASS_NAMES,
 } from "../gpuFlowDomClasses";
+import { useGpuFlowLayoutStoreContext } from "../layoutStoreContext";
+import { useNodeId } from "../NodeIdContext";
+import {
+  measureGpuFlowPortElementLocalRect,
+  registerGpuFlowPortDescriptor,
+  unregisterGpuFlowPortDescriptor,
+  updateGpuFlowPortDescriptorLocalRect,
+} from "../ports/portGeometry";
 import { gpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -74,6 +76,7 @@ function HandleComponent({
   ...rest
 }: HandleComponentProps) {
   const handleRef = useRef<HTMLDivElement>(null);
+  const layoutStore = useGpuFlowLayoutStoreContext();
   const nodeId = useNodeId();
   const handleId = id ?? null;
 
@@ -81,28 +84,47 @@ function HandleComponent({
     if (!nodeId || !handleId) {
       return;
     }
-    const key = registerEdgeHandle({
-      sectionId: nodeId,
-      portId: handleId,
-      type,
-      side: position,
-      element: handleRef.current,
-      isConnectableEnd: isConnectable && isConnectableEnd,
-    });
-    updateEdgeHandlePosition(key);
     const element = handleRef.current;
-    if (!element || typeof ResizeObserver === "undefined") {
-      return () => unregisterEdgeHandle(nodeId, handleId, type);
+    if (!element) {
+      return;
+    }
+    const localRect = measureGpuFlowPortElementLocalRect(element);
+    if (!localRect) {
+      return;
+    }
+    const key = registerGpuFlowPortDescriptor({
+      element,
+      isConnectableEnd: isConnectable && isConnectableEnd,
+      isConnectableStart: isConnectable && isConnectableStart,
+      localRect,
+      nodeId,
+      portId: handleId,
+      side: position,
+      type,
+    });
+    if (typeof ResizeObserver === "undefined") {
+      return () => unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
     }
     const observer = new ResizeObserver(() => {
-      updateEdgeHandlePosition(key);
+      const nextLocalRect = measureGpuFlowPortElementLocalRect(element);
+      if (nextLocalRect) {
+        updateGpuFlowPortDescriptorLocalRect(key, nextLocalRect);
+      }
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
-      unregisterEdgeHandle(nodeId, handleId, type);
+      unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
     };
-  }, [nodeId, handleId, type, position, isConnectable, isConnectableEnd]);
+  }, [
+    nodeId,
+    handleId,
+    type,
+    position,
+    isConnectable,
+    isConnectableStart,
+    isConnectableEnd,
+  ]);
 
   const onConnectExtended = (params: Connection) => {
     onConnect?.(params);
@@ -117,6 +139,7 @@ function HandleComponent({
       handlePointerDown({
         event,
         handleId,
+        layoutStore,
         nodeId,
         onConnect: onConnectExtended,
         isTarget: (connectionStartSemanticType ?? type) === "target",

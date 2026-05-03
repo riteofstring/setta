@@ -1,5 +1,3 @@
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
-
 import {
   StateMachineUIConfig,
   type AgenticEdge,
@@ -8,6 +6,7 @@ import {
 } from "utils/generatedTypes";
 
 import type { ConnectionStatus } from "../../flowTypes";
+import { makeGpuFlowPortKey } from "../../ports/portGeometry";
 
 import { parseGpuHexColor, type GpuRgbaColor } from "../../gpuColors";
 
@@ -21,7 +20,10 @@ import {
   type GpuEdgeHitTestResult,
 } from "../edgeGeometry";
 
-import type { GpuEdgeBufferInput, GpuEdgeVisualFamily } from "../edgeGpuBuffers";
+import type {
+  GpuEdgeBufferInput,
+  GpuEdgeVisualFamily,
+} from "../edgeGpuBuffers";
 
 import {
   getAgenticEdgeKey,
@@ -128,8 +130,9 @@ export type GpuEdgeSceneHitTestResult = GpuEdgeHitTestResult & {
   readonly entry: GpuEdgeSceneEntry;
 };
 
-export type WorkflowEdge =
-  SingleConfig["projectConfig"]["stateMachineEdges"][number];
+export type WorkflowEdge = NonNullable<
+  SingleConfig["projectConfig"]["stateMachineEdges"]
+>[number];
 
 export type TopLevelSections =
   SingleConfig["projectConfig"]["topLevelSections"];
@@ -528,7 +531,7 @@ export function buildGpuConnectionLineEntries({
   }
   const start =
     handlePositions[
-      makeEdgeHandleKey(
+      makeGpuFlowPortKey(
         connectionLine.startHandle.sectionId,
         connectionLine.startHandle.handleId,
         connectionLine.startHandle.type,
@@ -683,11 +686,11 @@ export function resolveGpuDataEdgeEndpoints({
   }
   const source =
     handlePositions[
-      makeEdgeHandleKey(edge.sourceSectionId, edge.sourcePortId, "source")
+      makeGpuFlowPortKey(edge.sourceSectionId, edge.sourcePortId, "source")
     ];
   const target =
     handlePositions[
-      makeEdgeHandleKey(edge.targetSectionId, edge.targetPortId, "target")
+      makeGpuFlowPortKey(edge.targetSectionId, edge.targetPortId, "target")
     ];
   if (!source || !target) {
     return null;

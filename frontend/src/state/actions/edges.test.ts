@@ -1,17 +1,17 @@
 import { HandlePosition, type Connection } from "gpuFlow/flowTypes";
 import {
+  registerGpuFlowPortDescriptor,
+  unregisterGpuFlowPortDescriptor,
+  useGpuFlowPortRegistry,
+} from "gpuFlow/ports/portGeometry";
+import {
   createEdge,
   deleteEdges,
   reconnectEdge,
   setEdges,
   updateEdge,
 } from "openapi/http";
-import {
-  useEdgeHandleRegistry,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
+import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCore,
@@ -102,28 +102,19 @@ function seedEdgeState(edges: Array<Edge>) {
     };
     state.previewSectionVariantMap = {};
   });
-  const sourceKey = makeEdgeHandleKey(sourceSectionId, sourcePortId, "source");
-  const targetKey = makeEdgeHandleKey(targetSectionId, targetPortId, "target");
-  useEdgeHandleRegistry.setState({
-    handles: {},
-    positions: {
-      [sourceKey]: {
-        sectionId: sourceSectionId,
-        portId: sourcePortId,
-        type: "source",
-        side: HandlePosition.Right,
-        x: 10,
-        y: 10,
-      },
-      [targetKey]: {
-        sectionId: targetSectionId,
-        portId: targetPortId,
-        type: "target",
-        side: HandlePosition.Left,
-        x: 20,
-        y: 20,
-      },
-    },
+  registerGpuFlowPortDescriptor({
+    localRect: { height: 10, width: 10, x: 5, y: 5 },
+    nodeId: sourceSectionId,
+    portId: sourcePortId,
+    side: HandlePosition.Right,
+    type: "source",
+  });
+  registerGpuFlowPortDescriptor({
+    localRect: { height: 10, width: 10, x: 15, y: 15 },
+    nodeId: targetSectionId,
+    portId: targetPortId,
+    side: HandlePosition.Left,
+    type: "target",
   });
 }
 function createConnection(): Connection {
@@ -147,6 +138,7 @@ describe("edges actions", () => {
   });
   afterEach(() => {
     resetProjectStores();
+    useGpuFlowPortRegistry.getState().reset();
   });
   it("posts createEdge with the canonical connection payload", () => {
     seedEdgeState([]);
@@ -217,7 +209,8 @@ describe("edges actions", () => {
     });
     expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
 
-    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
+    unregisterGpuFlowPortDescriptor(sourceSectionId, sourcePortId, "source");
+    unregisterGpuFlowPortDescriptor(targetSectionId, targetPortId, "target");
     reconnectEdgeFromConnection("edge-1", createConnection());
     expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
   });

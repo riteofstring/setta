@@ -4,11 +4,16 @@ import type {
 } from "react";
 
 import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
-import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
-import { useEdgeHandleRegistry, useLocalStorage } from "state/definitions";
+import { useLocalStorage } from "state/definitions";
 import type { Connection, HandleType } from "../flowTypes";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
+import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import {
+  buildGpuFlowPortEndpoints,
+  makeGpuFlowPortKey,
+  useGpuFlowPortRegistry,
+} from "../ports/portGeometry";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -36,6 +41,7 @@ type NativeHandlePointerEvent = MouseEvent | TouchEvent;
 export function handlePointerDown({
   event,
   handleId,
+  layoutStore,
   nodeId,
   onConnect,
   isTarget,
@@ -46,6 +52,7 @@ export function handlePointerDown({
 }: {
   event: HandlePointerEvent;
   handleId: string | null;
+  layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
   onConnect: (connection: Connection) => void;
   isTarget: boolean;
@@ -65,11 +72,13 @@ export function handlePointerDown({
   const handleType = getHandleType(edgeUpdaterType, clickedHandle);
   const containerBounds = domNode?.getBoundingClientRect();
 
+  if (!layoutStore) {
+    throw new Error("GpuFlow handle connections require a layout store.");
+  }
+
   if (!containerBounds || !handleType) {
     return;
   }
-
-  recomputeEdgeHandlePositions();
 
   let prevActiveHandle: Element | null = null;
   let connectionPosition = getEventPosition(event, containerBounds);
@@ -79,19 +88,11 @@ export function handlePointerDown({
   let handleDomNode: Element | null = null;
   let connectionGestureCleanedUp = false;
 
-  const handlePositions = Object.values(
-    useEdgeHandleRegistry.getState().positions,
-  ).map((handle) => ({
-    sectionId: handle.sectionId,
-    portId: handle.portId,
-    type: handle.type,
-    x: handle.x,
-    y: handle.y,
-  }));
+  const handlePositions = getConnectionHandlePositions(layoutStore);
 
   const handleLookup = getHandleLookup(
     handlePositions,
-    `${nodeId}-${handleId}-${handleType}`,
+    handleId ? makeGpuFlowPortKey(nodeId, handleId, handleType) : null,
   );
   const fromType: HandleType = isTarget ? "target" : "source";
   const validateHandle = (
@@ -365,6 +366,22 @@ export function handlePointerDown({
 
   doc.addEventListener("pointercancel", onConnectionCancel, true);
   doc.addEventListener("keydown", onKeyDown as EventListener, true);
+}
+
+function getConnectionHandlePositions(
+  layoutStore: GpuFlowLayoutStoreApi,
+): ConnectionHandle[] {
+  const endpoints = buildGpuFlowPortEndpoints({
+    layoutNodes: layoutStore.getState().getNodes(),
+    ports: useGpuFlowPortRegistry.getState().descriptors,
+  });
+  return Object.values(endpoints).map((endpoint) => ({
+    sectionId: endpoint.nodeId,
+    portId: endpoint.portId,
+    type: endpoint.type,
+    x: endpoint.x,
+    y: endpoint.y,
+  }));
 }
 
 function getEventPosition(

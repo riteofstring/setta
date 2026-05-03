@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
 import type { MouseEvent as ReactMouseEvent } from "react";
-import {
-  type EdgeHandlePosition,
-  type EdgeHandleRecord,
-  useEdgeHandleRegistry,
-} from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HandlePosition } from "../flowTypes";
+import { createGpuFlowLayoutStore } from "../layoutStore";
+import {
+  makeGpuFlowPortKey,
+  registerGpuFlowPortDescriptor,
+  useGpuFlowPortRegistry,
+} from "../ports/portGeometry";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -25,13 +25,14 @@ describe("GPU edge handle connection lifecycle", () => {
 
   afterEach(() => {
     document.body.innerHTML = "";
-    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
+    useGpuFlowPortRegistry.getState().reset();
     vi.unstubAllGlobals();
   });
 
   it("cancels an active connection on Escape and ignores the later mouseup", () => {
     const { container, sourceHandle, targetHandle } = createHandleFixture();
     const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
     store.getState().setDomNode(container);
     registerTargetHandle(targetHandle);
     mockElementFromPoint(sourceHandle);
@@ -45,6 +46,7 @@ describe("GPU edge handle connection lifecycle", () => {
       handleId: "out",
       isTarget: false,
       isValidConnection: () => true,
+      layoutStore,
       nodeId: "source",
       onConnect,
       store,
@@ -80,6 +82,7 @@ describe("GPU edge handle connection lifecycle", () => {
   it("clears valid-handle preview classes on browser cancel events", () => {
     const { container, sourceHandle, targetHandle } = createHandleFixture();
     const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
     store.getState().setDomNode(container);
     registerTargetHandle(targetHandle);
     mockElementFromPoint(sourceHandle);
@@ -94,6 +97,7 @@ describe("GPU edge handle connection lifecycle", () => {
       handleId: "out",
       isTarget: false,
       isValidConnection: () => true,
+      layoutStore,
       nodeId: "source",
       onConnect,
       store,
@@ -136,6 +140,7 @@ describe("GPU edge handle connection lifecycle", () => {
   it("cancels touch connections on touchcancel", () => {
     const { container, sourceHandle } = createHandleFixture();
     const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
     store.getState().setDomNode(container);
     mockElementFromPoint(sourceHandle);
     const onConnect = vi.fn();
@@ -148,6 +153,7 @@ describe("GPU edge handle connection lifecycle", () => {
       handleId: "out",
       isTarget: false,
       isValidConnection: () => true,
+      layoutStore,
       nodeId: "source",
       onConnect,
       store,
@@ -222,26 +228,36 @@ function createHandleElement({
 }
 
 function registerTargetHandle(targetHandle: HTMLElement) {
-  useEdgeHandleRegistry.setState({
-    handles: {
-      [makeEdgeHandleKey("target", "in", "target")]: {
-        element: targetHandle,
-        portId: "in",
-        sectionId: "target",
-        side: HandlePosition.Left,
-        type: "target",
+  expect(
+    registerGpuFlowPortDescriptor({
+      element: targetHandle,
+      localRect: { height: 0, width: 0, x: 100, y: 50 },
+      nodeId: "target",
+      portId: "in",
+      side: HandlePosition.Left,
+      type: "target",
+    }),
+  ).toBe(makeGpuFlowPortKey("target", "in", "target"));
+}
+
+function createHandleLayoutStore() {
+  return createGpuFlowLayoutStore({
+    nodes: [
+      {
+        height: 100,
+        nodeId: "source",
+        width: 160,
+        x: 0,
+        y: 0,
       },
-    } satisfies Record<string, EdgeHandleRecord>,
-    positions: {
-      [makeEdgeHandleKey("target", "in", "target")]: {
-        portId: "in",
-        sectionId: "target",
-        side: HandlePosition.Left,
-        type: "target",
-        x: 100,
-        y: 50,
+      {
+        height: 100,
+        nodeId: "target",
+        width: 160,
+        x: 0,
+        y: 0,
       },
-    } satisfies Record<string, EdgeHandlePosition>,
+    ],
   });
 }
 

@@ -17,22 +17,17 @@ import { postGpuFlowFrameChromeReproEvent } from "../chromeReproPerf";
 
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
-import type {
-  GpuEdgeReconnectAnchor,
-  GpuEdgeScene,
-  GpuEdgeSceneLabel,
-} from "../edges/edgeSources";
+import type { GpuEdgeScene, GpuEdgeSceneLabel } from "../edges/edgeSources";
 
 import type { GpuFlowRuntime } from "../gpuDevice";
 
 import { GpuEdgeLabelLayer } from "../GpuEdgeLabels";
 
-import {
-  GpuEdgeReconnectAnchorLayer,
-  type GpuEdgeReconnectOptions,
-} from "../GpuEdgeReconnectAnchors";
+import type { GpuEdgeReconnectOptions } from "../GpuEdgeReconnectAnchors";
 
 import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
+
+import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
 
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 
@@ -107,7 +102,6 @@ import type { GpuViewportInput } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
-  type GpuUserSelectionRect,
 } from "../viewportStore";
 
 import {
@@ -125,7 +119,13 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 
+import { renderGpuFlowEdgeReconnectElement } from "./edgeReconnectElement";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
+import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
+import {
+  getVisibleGpuUserSelectionRect,
+  GpuUserSelectionOverlay,
+} from "./selectionOverlay";
 
 export type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -220,9 +220,6 @@ export type GpuFlowNodeLayerState = {
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 
 export const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
-
-export const EMPTY_EDGE_RECONNECT_ANCHORS: readonly GpuEdgeReconnectAnchor[] =
-  [];
 
 export function GpuFlow({
   children,
@@ -511,6 +508,8 @@ export function GpuFlow({
     viewportStore,
   ]);
 
+  useGpuFlowPortLocalRectSync(layoutStore);
+
   useEffect(() => {
     if (!edgeInteraction) {
       return;
@@ -759,70 +758,39 @@ export function GpuFlow({
       viewportStore={viewportStore}
     />
   );
-  const edgeReconnectElement = edgeReconnect ? (
-    <GpuEdgeReconnectAnchorLayer
-      anchors={edgeScene?.reconnectAnchors ?? EMPTY_EDGE_RECONNECT_ANCHORS}
-      options={edgeReconnect}
-      viewportStore={viewportStore}
-    />
-  ) : null;
+  const edgeReconnectElement = renderGpuFlowEdgeReconnectElement({
+    edgeReconnect,
+    edgeScene,
+    layoutStore,
+    viewportStore,
+  });
 
   return (
-    <div
-      className={className}
-      data-tab-scope="canvas"
-      ref={containerRef}
-      style={style}
-    >
-      <GpuSurface
-        className={surfaceClassName}
-        deviceOptions={deviceOptions}
-        onFrame={handleFrame}
-        onPaint={handlePaint}
-        onReady={handleReady}
-        onResize={handleResize}
-        ref={surfaceRef}
-      >
-        {nodeLayerElement}
-        {children}
-      </GpuSurface>
-      {userSelectionElement}
-      {edgeLabelElement}
-      {edgeReconnectElement}
-    </div>
-  );
-}
-
-export function GpuUserSelectionOverlay({
-  rect,
-}: {
-  readonly rect: GpuUserSelectionRect | null;
-}) {
-  if (!rect) {
-    return null;
-  }
-  return (
-    <div
-      className="setta-gpu-flow__selection-layer"
-      data-gpu-flow-selection-layer="true"
-    >
+    <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
       <div
-        className="setta-gpu-flow__selection"
-        data-gpu-flow-selection="true"
-        style={{
-          height: rect.height,
-          transform: `translate(${rect.x}px, ${rect.y}px)`,
-          width: rect.width,
-        }}
-      />
-    </div>
+        className={className}
+        data-tab-scope="canvas"
+        ref={containerRef}
+        style={style}
+      >
+        <GpuSurface
+          className={surfaceClassName}
+          deviceOptions={deviceOptions}
+          onFrame={handleFrame}
+          onPaint={handlePaint}
+          onReady={handleReady}
+          onResize={handleResize}
+          ref={surfaceRef}
+        >
+          {nodeLayerElement}
+          {children}
+        </GpuSurface>
+        {userSelectionElement}
+        {edgeLabelElement}
+        {edgeReconnectElement}
+      </div>
+    </GpuFlowLayoutStoreContext.Provider>
   );
-}
-
-export function getVisibleGpuUserSelectionRect(
-  state: ReturnType<GpuFlowViewportStoreApi["getState"]>,
-): GpuUserSelectionRect | null {
-  return state.userSelectionActive ? state.userSelectionRect : null;
 }
 
 export function resolveGpuFlowEdgeDrawInputs({

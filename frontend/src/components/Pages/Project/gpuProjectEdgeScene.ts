@@ -2,11 +2,18 @@ import {
   buildGpuEdgeScene,
   type GpuAgenticMissingEdgeSource,
   type GpuConnectionLineSource,
+  type GpuEdgeHandlePosition,
   type GpuEdgeNodeFrame,
   type GpuEdgeScene,
 } from "gpuFlow/edges/edgeSources";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
+import {
+  buildGpuFlowPortEndpoints,
+  useGpuFlowPortRegistry,
+  type GpuFlowPortDescriptor,
+  type GpuFlowPortEndpoint,
+} from "gpuFlow/ports/portGeometry";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { screenToFlowPosition } from "gpuFlow/viewportMath";
 import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
@@ -18,11 +25,7 @@ import {
   isWorkflowHandleId,
   toggleStateMachineEdgeSelection,
 } from "state/actions/stateMachineEdges";
-import {
-  useAIFollow,
-  useEdgeHandleRegistry,
-  useProjectState,
-} from "state/definitions";
+import { useAIFollow, useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
@@ -32,9 +35,7 @@ type SectionVariantMap = ProjectConfig["sectionVariantMap"];
 type SectionVariants = ProjectState["sectionVariants"];
 type SectionImpls = ProjectState["sectionImpls"];
 type TopLevelSections = ProjectConfig["topLevelSections"];
-type EdgeHandlePositions = ReturnType<
-  typeof useEdgeHandleRegistry.getState
->["positions"];
+type PortDescriptors = Readonly<Record<string, GpuFlowPortDescriptor>>;
 type ProjectGpuConnectionState = Pick<
   GpuFlowViewportStore,
   | "connectionPosition"
@@ -50,8 +51,8 @@ type ProjectGpuEdgeVisibility = {
 
 export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly connectionState: ProjectGpuConnectionState;
-  readonly handlePositions: EdgeHandlePositions;
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
+  readonly portDescriptors: PortDescriptors;
   readonly projectConfig: ProjectConfig;
   readonly scopeViolationEdges:
     | readonly GpuAgenticMissingEdgeSource[]
@@ -93,7 +94,7 @@ export function useProjectGpuEdgeScene({
     }),
     shallow,
   );
-  const handlePositions = useEdgeHandleRegistry((state) => state.positions);
+  const portDescriptors = useGpuFlowPortRegistry((state) => state.descriptors);
   const connectionState = useGpuFlowViewportStore(
     selectProjectGpuConnectionState,
     shallow,
@@ -106,8 +107,8 @@ export function useProjectGpuEdgeScene({
     () =>
       buildProjectGpuEdgeScene({
         connectionState,
-        handlePositions,
         layoutNodes,
+        portDescriptors,
         projectConfig,
         scopeViolationEdges,
         sectionImpls,
@@ -117,8 +118,8 @@ export function useProjectGpuEdgeScene({
       }),
     [
       connectionState,
-      handlePositions,
       layoutNodes,
+      portDescriptors,
       projectConfig,
       scopeViolationEdges,
       sectionImpls,
@@ -131,8 +132,8 @@ export function useProjectGpuEdgeScene({
 
 export function buildProjectGpuEdgeScene({
   connectionState,
-  handlePositions,
   layoutNodes,
+  portDescriptors,
   projectConfig,
   scopeViolationEdges,
   sectionImpls,
@@ -140,6 +141,12 @@ export function buildProjectGpuEdgeScene({
   showAgenticEdges,
   showDataEdges,
 }: BuildProjectGpuEdgeSceneInput): GpuEdgeScene {
+  const handlePositions = buildProjectGpuEdgeHandlePositions(
+    buildGpuFlowPortEndpoints({
+      layoutNodes,
+      ports: portDescriptors,
+    }),
+  );
   return buildGpuEdgeScene({
     agenticEdges: showAgenticEdges ? projectConfig.agenticEdges ?? [] : [],
     connectionLine: resolveProjectGpuConnectionLine({
@@ -163,6 +170,24 @@ export function buildProjectGpuEdgeScene({
     topLevelSections: projectConfig.topLevelSections,
     workflowEdges: projectConfig.stateMachineEdges ?? [],
   });
+}
+
+function buildProjectGpuEdgeHandlePositions(
+  portEndpoints: Readonly<Record<string, GpuFlowPortEndpoint>>,
+): Readonly<Record<string, GpuEdgeHandlePosition>> {
+  return Object.fromEntries(
+    Object.entries(portEndpoints).map(([key, endpoint]) => [
+      key,
+      {
+        portId: endpoint.portId,
+        sectionId: endpoint.nodeId,
+        side: endpoint.side,
+        type: endpoint.type,
+        x: endpoint.x,
+        y: endpoint.y,
+      },
+    ]),
+  );
 }
 
 export function selectProjectGpuEdge({

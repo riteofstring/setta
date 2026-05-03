@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 
-import {
-  useEdgeHandleRegistry,
-  type EdgeHandleRecord,
-} from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectionMode, HandlePosition } from "../flowTypes";
+import {
+  registerGpuFlowPortDescriptor,
+  useGpuFlowPortRegistry,
+} from "../ports/portGeometry";
 import {
   getClosestHandle,
   isValidHandle,
@@ -67,7 +66,7 @@ function mockElementsFromPoint(elements: Element[]) {
 describe("isValidHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
-    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
+    useGpuFlowPortRegistry.getState().reset();
     mockElementsFromPoint([]);
   });
 
@@ -116,18 +115,14 @@ describe("isValidHandle", () => {
     const sharedDot = document.createElement("div");
     sharedDot.className = "setta-gpu-flow__handle arg-edge-handle";
     document.body.appendChild(sharedDot);
-    useEdgeHandleRegistry.setState({
-      handles: {
-        [makeEdgeHandleKey("section-b", "input-port", "target")]: {
-          element: sharedDot,
-          isConnectableEnd: true,
-          portId: "input-port",
-          sectionId: "section-b",
-          side: HandlePosition.Left,
-          type: "target",
-        },
-      } satisfies Record<string, EdgeHandleRecord>,
-      positions: {},
+    registerGpuFlowPortDescriptor({
+      element: sharedDot,
+      isConnectableEnd: true,
+      localRect: { height: 8, width: 8, x: 10, y: 20 },
+      nodeId: "section-b",
+      portId: "input-port",
+      side: HandlePosition.Left,
+      type: "target",
     });
     const isValidConnection = vi.fn(() => true);
 
@@ -167,18 +162,14 @@ describe("isValidHandle", () => {
     const sharedDot = document.createElement("div");
     sharedDot.className = "setta-gpu-flow__handle arg-edge-handle";
     document.body.appendChild(sharedDot);
-    useEdgeHandleRegistry.setState({
-      handles: {
-        [makeEdgeHandleKey("section-b", "input-port", "target")]: {
-          element: sharedDot,
-          isConnectableEnd: false,
-          portId: "input-port",
-          sectionId: "section-b",
-          side: HandlePosition.Left,
-          type: "target",
-        },
-      } satisfies Record<string, EdgeHandleRecord>,
-      positions: {},
+    registerGpuFlowPortDescriptor({
+      element: sharedDot,
+      isConnectableEnd: false,
+      localRect: { height: 8, width: 8, x: 10, y: 20 },
+      nodeId: "section-b",
+      portId: "input-port",
+      side: HandlePosition.Left,
+      type: "target",
     });
     const isValidConnection = vi.fn(() => true);
 
@@ -214,7 +205,7 @@ describe("isValidHandle", () => {
 describe("getClosestHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
-    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
+    useGpuFlowPortRegistry.getState().reset();
     mockElementsFromPoint([]);
   });
 

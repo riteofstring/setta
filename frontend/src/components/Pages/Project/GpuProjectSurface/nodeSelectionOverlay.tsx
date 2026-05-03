@@ -51,18 +51,13 @@ import { setActiveSectionIds } from "state/actions/activeSections";
 
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 
-import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
-
 import {
   getNodes,
   raiseTempZIndex,
   updateNodePositions,
 } from "state/actions/nodeInternals";
 
-import {
-  getCurrEffectiveSectionImpl,
-  getSectionDescendants,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 
 import { setZIndices } from "state/actions/sections/sectionPositions";
 
@@ -439,9 +434,6 @@ export function handleProjectNodeDrag(
     layoutStore,
     movedNodeIds: change.items.map((item) => item.nodeId),
   });
-  scheduleProjectNodeDragEdgeHandleUpdates(
-    change.items.map((item) => item.nodeId),
-  );
 }
 
 export function handleProjectNodeDragStop(
@@ -607,17 +599,6 @@ function raiseGpuLayoutDragTempZIndex(
       reason: "drag",
     },
   );
-}
-
-function scheduleProjectNodeDragEdgeHandleUpdates(nodeIds: readonly string[]) {
-  const projectState = useProjectState.getState();
-  const sectionIds = new Set<string>();
-  for (const nodeId of nodeIds) {
-    for (const sectionId of getSectionDescendants(nodeId, projectState)) {
-      sectionIds.add(sectionId);
-    }
-  }
-  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 export function toNodeDragItems(

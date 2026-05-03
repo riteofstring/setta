@@ -21,6 +21,7 @@ vi.mock("state/actions/stateMachineEdges", () => {
 });
 
 import { HandlePosition } from "gpuFlow/flowTypes";
+import type { GpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
@@ -407,32 +408,29 @@ function createBuildInput(
       connectionStatus: null,
       transform: [0, 0, 1],
     },
-    handlePositions: {
+    portDescriptors: {
       "source:out:source": {
+        localRect: { height: 0, width: 0, x: 120, y: 40 },
+        nodeId: "source",
         portId: "out",
-        sectionId: "source",
         side: HandlePosition.Right,
         type: "source",
-        x: 220,
-        y: 140,
       },
       "source:workflow-source:source": {
+        localRect: { height: 0, width: 0, x: 120, y: 40 },
+        nodeId: "source",
         portId: "workflow-source",
-        sectionId: "source",
         side: HandlePosition.Right,
         type: "source",
-        x: 220,
-        y: 140,
       },
       "target:in:target": {
+        localRect: { height: 0, width: 0, x: 0, y: 45 },
+        nodeId: "target",
         portId: "in",
-        sectionId: "target",
         side: HandlePosition.Left,
         type: "target",
-        x: 420,
-        y: 160,
       },
-    },
+    } satisfies Record<string, GpuFlowPortDescriptor>,
     layoutNodes: [
       {
         height: 80,

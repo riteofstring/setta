@@ -1,6 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 
-import type { HandlePosition, HandleType, Node } from "gpuFlow/flowTypes";
+import type { Node } from "gpuFlow/flowTypes";
 
 import type {
   HttpapiExternalAgentPreflightStatus,
@@ -847,40 +847,6 @@ export const useSectionRefs = withProjectState(
           selfOnly: {},
         })),
       ),
-    ),
-  ),
-);
-
-export type EdgeHandleRecord = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  element: HTMLElement | null;
-  isConnectableEnd?: boolean;
-};
-
-export type EdgeHandlePosition = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  x: number;
-  y: number;
-};
-
-export type ZustandEdgeHandleRegistry = {
-  handles: Record<string, EdgeHandleRecord>;
-  positions: Record<string, EdgeHandlePosition>;
-};
-
-export const useEdgeHandleRegistry = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandEdgeHandleRegistry>(() => ({
-        handles: {},
-        positions: {},
-      })),
     ),
   ),
 );
