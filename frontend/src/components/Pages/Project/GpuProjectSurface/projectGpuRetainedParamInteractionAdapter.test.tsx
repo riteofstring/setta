@@ -677,7 +677,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("replays retained canvas activation pointer sequences into mounted pointer controls", async () => {
+  it("focuses pointer-marked controls without replaying old DOM control pointer sequences", async () => {
     mocks.paramInputRenderMode.current = "pointer-activation";
     const activationPoint = { x: 58, y: 22 };
     const originalElementFromPoint = document.elementFromPoint;
@@ -702,23 +702,12 @@ describe("project GPU retained param DOM islands", () => {
         activationPoint.x,
         activationPoint.y,
       );
-      expect(mocks.paramInputActivationPointerDown).toHaveBeenCalledTimes(1);
-      expect(mocks.paramInputActivationPointerDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          clientX: activationPoint.x,
-          clientY: activationPoint.y,
-          pointerId: 1,
-        }),
-      );
-      expect(mocks.paramInputActivationPointerUp).toHaveBeenCalledTimes(1);
-      expect(mocks.paramInputActivationPointerUp).toHaveBeenCalledWith(
-        expect.objectContaining({
-          clientX: activationPoint.x,
-          clientY: activationPoint.y,
-          pointerId: 1,
-        }),
-      );
+      expect(mocks.paramInputActivationPointerDown).not.toHaveBeenCalled();
+      expect(mocks.paramInputActivationPointerUp).not.toHaveBeenCalled();
       expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
     } finally {
       Object.defineProperty(document, "elementFromPoint", {
         configurable: true,

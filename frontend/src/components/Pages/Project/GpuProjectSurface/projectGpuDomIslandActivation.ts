@@ -11,8 +11,6 @@ const PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR = [
 ].join(",");
 const PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR =
   '[data-gpu-flow-activation="mousedown"]';
-const PROJECT_GPU_DOM_ISLAND_POINTER_ACTIVATION_SELECTOR =
-  '[data-gpu-flow-activation="pointer"]';
 const PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR =
   '[data-gpu-flow-activation-target="true"]';
 
@@ -195,7 +193,6 @@ function getProjectGpuDomIslandClosestTarget(
 
 function isProjectGpuDomIslandActivationTarget(target: HTMLElement): boolean {
   return (
-    shouldPointerActivateProjectGpuDomIslandTarget(target) ||
     shouldMouseActivateProjectGpuDomIslandTarget(target) ||
     shouldClickProjectGpuDomIslandActivationTarget(target) ||
     target.tabIndex >= 0
@@ -212,35 +209,7 @@ function dispatchProjectGpuDomIslandActivationTarget(
   target: HTMLElement,
   activation: NonNullable<GpuDomIsland["activation"]>,
 ): boolean {
-  if (dispatchProjectGpuDomIslandPointerActivationTarget(target, activation)) {
-    return true;
-  }
   return dispatchProjectGpuDomIslandMouseActivationTarget(target, activation);
-}
-
-function dispatchProjectGpuDomIslandPointerActivationTarget(
-  target: HTMLElement,
-  activation: NonNullable<GpuDomIsland["activation"]>,
-): boolean {
-  if (!shouldPointerActivateProjectGpuDomIslandTarget(target)) {
-    return false;
-  }
-  const pointerId = 1;
-  target.dispatchEvent(
-    createProjectGpuDomIslandPointerActivationEvent("pointerdown", {
-      activation,
-      buttons: 1,
-      pointerId,
-    }),
-  );
-  target.dispatchEvent(
-    createProjectGpuDomIslandPointerActivationEvent("pointerup", {
-      activation,
-      buttons: 0,
-      pointerId,
-    }),
-  );
-  return true;
 }
 
 function dispatchProjectGpuDomIslandMouseActivationTarget(
@@ -265,14 +234,6 @@ function dispatchProjectGpuDomIslandMouseActivationTarget(
     }),
   );
   return true;
-}
-
-function shouldPointerActivateProjectGpuDomIslandTarget(
-  target: HTMLElement,
-): boolean {
-  return (
-    target.closest(PROJECT_GPU_DOM_ISLAND_POINTER_ACTIVATION_SELECTOR) !== null
-  );
 }
 
 function shouldMouseActivateProjectGpuDomIslandTarget(
@@ -307,54 +268,4 @@ function isNativePickerProjectGpuDomIslandInputType(type: string): boolean {
     "time",
     "week",
   ].includes(type);
-}
-
-function createProjectGpuDomIslandPointerActivationEvent(
-  type: "pointerdown" | "pointerup",
-  {
-    activation,
-    buttons,
-    pointerId,
-  }: {
-    readonly activation: NonNullable<GpuDomIsland["activation"]>;
-    readonly buttons: number;
-    readonly pointerId: number;
-  },
-): Event {
-  const init = {
-    bubbles: true,
-    button: 0,
-    buttons,
-    cancelable: true,
-    clientX: activation.clientPoint.x,
-    clientY: activation.clientPoint.y,
-    composed: true,
-    detail: 1,
-    screenX: activation.clientPoint.x,
-    screenY: activation.clientPoint.y,
-  };
-  if (typeof PointerEvent === "function") {
-    return new PointerEvent(type, {
-      ...init,
-      isPrimary: true,
-      pointerId,
-      pointerType: "mouse",
-    });
-  }
-  const event = new MouseEvent(type, init);
-  Object.defineProperties(event, {
-    isPrimary: {
-      configurable: true,
-      value: true,
-    },
-    pointerId: {
-      configurable: true,
-      value: pointerId,
-    },
-    pointerType: {
-      configurable: true,
-      value: "mouse",
-    },
-  });
-  return event;
 }
