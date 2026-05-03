@@ -637,6 +637,8 @@ export function GpuFlow({
           surfaceElement: container,
           viewport: nodeLayerRef.current.viewport,
           visualScene: nodeLayerRef.current.visualScene,
+          requireVisualSceneHitSurfaces:
+            nodeLayerRef.current.scene !== undefined,
         }),
       store: viewportStore,
     });
@@ -772,6 +774,8 @@ export function GpuFlow({
             nodeId,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
             projector: sourceInteractionProjector,
+            requireVisualSceneHitSurfaces:
+              nodeLayerRef.current.scene !== undefined,
             surfaceElement: containerRef.current ?? runtime.canvas,
             viewport: nodeLayerRef.current.viewport,
             visualScene: nodeLayerRef.current.visualScene,
@@ -810,6 +814,8 @@ export function GpuFlow({
                   },
                 }
               : {}),
+            requireVisualSceneHitSurfaces:
+              nodeLayerRef.current.scene !== undefined,
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
             visualScene: nodeLayerRef.current.visualScene,
@@ -839,6 +845,8 @@ export function GpuFlow({
                 surfaceY: projection.surfaceY,
               });
             },
+            requireVisualSceneHitSurfaces:
+              nodeLayerRef.current.scene !== undefined,
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
             visualScene: nodeLayerRef.current.visualScene,

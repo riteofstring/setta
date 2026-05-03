@@ -20,6 +20,7 @@ export function resolveGpuFlowNodeResizeTarget({
   elementByNodeId,
   event,
   nodes,
+  requireVisualSceneHitSurfaces,
   sourceInteractionProjector,
   surfaceElement,
   viewport,
@@ -29,6 +30,7 @@ export function resolveGpuFlowNodeResizeTarget({
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly event: PointerEvent;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly sourceInteractionProjector: HtmlSurfaceInteractionProjector;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
@@ -66,6 +68,7 @@ export function resolveGpuFlowNodeResizeTarget({
         surfaceY: projection.surfaceY,
       });
     },
+    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
