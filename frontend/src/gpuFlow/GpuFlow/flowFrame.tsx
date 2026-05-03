@@ -25,9 +25,7 @@ import {
 
 import {
   EMPTY_GPU_NODE_LAYOUTS,
-  GpuFlowNodeLayerState,
-  hasRenderableGpuFlowCanvasSize,
-  hasRenderableGpuFlowLayer,
+  type GpuFlowNodeLayerState,
 } from "./flowSurface";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
@@ -92,6 +90,16 @@ export function ensureNodeLayerResources({
     htmlSurfaceRenderer: htmlSurfaceRendererRef.current,
     textureManager: textureManagerRef.current,
   };
+}
+
+function hasRenderableGpuFlowLayer(layer: GpuFlowNodeLayerState): boolean {
+  return Boolean(
+    layer.nodes || layer.edges || layer.grid || layer.edgeLabelSurfaces?.length,
+  );
+}
+
+function hasRenderableGpuFlowCanvasSize(canvasSize: GpuCanvasSize): boolean {
+  return canvasSize.cssWidth > 0 && canvasSize.cssHeight > 0;
 }
 
 export function destroyNodeLayerResources(

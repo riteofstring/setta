@@ -1,10 +1,8 @@
 import { GPU_FLOW_SELECTORS } from "gpuFlow/gpuFlowDomClasses";
 import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
 
 export type ProjectGpuDndMode = {
@@ -28,9 +26,8 @@ const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
   GPU_FLOW_SELECTORS.nodesSelectionRect,
   GPU_FLOW_SELECTORS.selection,
   GPU_FLOW_SELECTORS.handle,
+  GPU_FLOW_SELECTORS.portalRoot,
   ".section-resize-handle",
-  `#${CODEMIRROR_TOOLTIP_PARENT_ID}`,
-  `#${SETTA_POPOVER_PORTAL_PARENT_ID}`,
   `.${NO_DRAG_CLASS_NAME}`,
   `.${NO_PAN_CLASS_NAME}`,
   `.${NO_WHEEL_CLASS_NAME}`,

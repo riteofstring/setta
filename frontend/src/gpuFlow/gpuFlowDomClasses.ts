@@ -19,6 +19,7 @@ export const GPU_FLOW_CLASS_NAMES = {
   nodesSelectionRect: "setta-gpu-flow__nodes-selection-rect",
   pane: "setta-gpu-flow__pane",
   panel: "setta-gpu-flow__panel",
+  portalRoot: "setta-gpu-flow__portal-root",
   root: "setta-gpu-flow-root",
   selection: "setta-gpu-flow__selection",
   viewport: "setta-gpu-flow__canvas",
@@ -30,6 +31,7 @@ export const GPU_FLOW_SELECTORS = {
   node: `.${GPU_FLOW_CLASS_NAMES.node}`,
   nodesSelectionRect: `.${GPU_FLOW_CLASS_NAMES.nodesSelectionRect}`,
   pane: `.${GPU_FLOW_CLASS_NAMES.pane}`,
+  portalRoot: "[data-gpu-flow-portal-root='true']",
   root: `.${GPU_FLOW_CLASS_NAMES.root}`,
   selection: `.${GPU_FLOW_CLASS_NAMES.selection}`,
 } as const;

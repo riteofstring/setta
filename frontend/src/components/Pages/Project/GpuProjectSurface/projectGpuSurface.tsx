@@ -66,7 +66,7 @@ import {
   useProjectGpuLayoutAdapter,
   type ProjectGpuLayoutAdapter,
 } from "./projectGpuLayoutAdapter";
-import { ProjectGpuPortalRoots } from "./projectGpuPortalRoots";
+import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -103,7 +103,7 @@ import {
   resolveProjectWireColor,
 } from "./nodeSelectionOverlay";
 
-export type ProjectSurfaceDimensions = {
+type ProjectSurfaceDimensions = {
   readonly height: number;
   readonly width: number;
 };
@@ -127,7 +127,7 @@ export type ProjectGpuSelectionChange = {
   readonly selectedNodeIds: readonly string[];
 };
 
-export type ProjectGpuSurfaceSettings = ReturnType<
+type ProjectGpuSurfaceSettings = ReturnType<
   typeof useProjectGpuSurfaceSettings
 >;
 
@@ -137,23 +137,13 @@ export type ProjectFlowInteractionKeys = {
   readonly zoomActivationKeyPressed: boolean;
 };
 
-export const PROJECT_SURFACE_STYLE: CSSProperties = {
+const PROJECT_SURFACE_STYLE: CSSProperties = {
   height: "100%",
   overflow: "hidden",
   overflowAnchor: "none",
   position: "relative",
   userSelect: "none",
   width: "100%",
-};
-
-export const SELECTION_ARROW_KEY_DIFFS: Record<
-  string,
-  { x: number; y: number }
-> = {
-  ArrowDown: { x: 0, y: 1 },
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-  ArrowUp: { x: 0, y: -1 },
 };
 
 export function GpuProjectSurface() {
@@ -234,7 +224,7 @@ export function GpuProjectSurface() {
   );
 }
 
-export function ProjectGpuFlowLayer({
+function ProjectGpuFlowLayer({
   canEditStructure,
   canEditLayout,
   darkMode,
@@ -306,6 +296,7 @@ export function ProjectGpuFlowLayer({
     flowInteractionKeys,
     isFollowTransitioning,
   });
+  const portals = getProjectGpuPortalDescriptors();
   const handleNodeElementChange = useProjectNodeIntrinsicSizeObserver(
     layoutStore,
     nodeLayouts,
@@ -365,17 +356,16 @@ export function ProjectGpuFlowLayer({
       onNodeElementChange={handleNodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
+      portals={portals}
       renderNode={renderProjectGpuNode}
       selection={selectionOptions}
       selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
-    >
-      <ProjectGpuPortalRoots />
-    </GpuFlow>
+    />
   );
 }
 
-export function useProjectGpuSelectionDragDndHandle({
+function useProjectGpuSelectionDragDndHandle({
   isMovingFree,
   primarySelectionId,
   selectionDragElement,
@@ -407,9 +397,7 @@ export function useProjectGpuSelectionDragDndHandle({
   }, [isMovingFree, selectionDragElement]);
 }
 
-export function useProjectGpuDndViewportTransitionCancel(
-  dndMode: ProjectGpuDndMode,
-) {
+function useProjectGpuDndViewportTransitionCancel(dndMode: ProjectGpuDndMode) {
   useEffect(() => {
     if (dndMode.isMovingFree || dndMode.isSorting) {
       cancelViewportTransition();
@@ -417,7 +405,7 @@ export function useProjectGpuDndViewportTransitionCancel(
   }, [dndMode.isMovingFree, dndMode.isSorting]);
 }
 
-export function useProjectGpuEdgeSelection(canEditStructure: boolean) {
+function useProjectGpuEdgeSelection(canEditStructure: boolean) {
   return useCallback(
     (event: Pick<GpuEdgeInteractionEvent, "edgeId" | "family">) => {
       selectProjectGpuEdge({
@@ -430,7 +418,7 @@ export function useProjectGpuEdgeSelection(canEditStructure: boolean) {
   );
 }
 
-export function getProjectEdgeInteractionOptions({
+function getProjectEdgeInteractionOptions({
   isFollowTransitioning,
   selectEdge,
 }: {
@@ -460,7 +448,7 @@ export function getProjectEdgeInteractionOptions({
   };
 }
 
-export function getProjectEdgeReconnectOptions({
+function getProjectEdgeReconnectOptions({
   isFollowTransitioning,
 }: {
   readonly isFollowTransitioning: boolean;
@@ -486,11 +474,11 @@ export function getProjectEdgeReconnectOptions({
   };
 }
 
-export function renderProjectGpuNode(node: GpuNodeLayout) {
+function renderProjectGpuNode(node: GpuNodeLayout) {
   return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
 }
 
-export function getProjectGpuEdgePaletteInput({
+function getProjectGpuEdgePaletteInput({
   darkMode,
   settings,
 }: {
@@ -502,7 +490,7 @@ export function getProjectGpuEdgePaletteInput({
   };
 }
 
-export function handleProjectFlowResize(
+function handleProjectFlowResize(
   _: unknown,
   size: { readonly cssHeight: number; readonly cssWidth: number },
 ) {
@@ -512,7 +500,7 @@ export function handleProjectFlowResize(
   });
 }
 
-export function getProjectSurfaceDataAttributes({
+function getProjectSurfaceDataAttributes({
   isConnecting,
   showAgenticEdges,
   showDataEdges,
@@ -528,7 +516,7 @@ export function getProjectSurfaceDataAttributes({
   };
 }
 
-export function getProjectNodeDragOptions({
+function getProjectNodeDragOptions({
   flowInteractionKeys,
   isFollowTransitioning,
   layoutStore,
@@ -566,7 +554,7 @@ export function getProjectNodeDragOptions({
   };
 }
 
-export function getProjectSelectionDragOptions({
+function getProjectSelectionDragOptions({
   activeNodeIds,
   dndMode,
   primarySelectionId,
@@ -599,7 +587,7 @@ export function getProjectSelectionDragOptions({
   };
 }
 
-export function getProjectPanZoomOptions({
+function getProjectPanZoomOptions({
   dndMode,
   flowInteractionKeys,
   settings,
@@ -629,7 +617,7 @@ export function getProjectPanZoomOptions({
   };
 }
 
-export function booleanDataAttribute(value: boolean): "true" | "false" {
+function booleanDataAttribute(value: boolean): "true" | "false" {
   return value ? "true" : "false";
 }
 
@@ -662,7 +650,7 @@ export function useProjectGpuSurfaceSettings() {
   );
 }
 
-export function useProjectViewportSettingsSync(
+function useProjectViewportSettingsSync(
   settings: ReturnType<typeof useProjectGpuSurfaceSettings>,
 ) {
   useEffect(() => {
@@ -674,7 +662,7 @@ export function useProjectViewportSettingsSync(
   }, [settings.defaultZoomLevel, settings.maxZoom, settings.minZoom]);
 }
 
-export function useProjectSurfaceDimensions(
+function useProjectSurfaceDimensions(
   ref: RefObject<HTMLDivElement | null>,
 ): ProjectSurfaceDimensions {
   const [dimensions, setDimensions] = useState<ProjectSurfaceDimensions>({

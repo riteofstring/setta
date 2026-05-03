@@ -6,30 +6,46 @@ import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
 
 describe("GpuFlow", () => {
-  it("mounts children and edge labels inside the canvas source subtree", () => {
+  it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         edgeScene={edgeSceneWithLabel()}
+        portals={[
+          {
+            className: "project-source-portal",
+            coordinateSpace: "source-local",
+            id: "project-source-portal-root",
+          },
+          {
+            className: "project-viewport-portal",
+            coordinateSpace: "viewport",
+            id: "project-viewport-portal-root",
+          },
+        ]}
         viewportStore={createGpuFlowViewportStore({
           transform: [0, 0, 1],
         })}
-      >
-        <div id="project-owned-portal-root" />
-      </GpuFlow>,
+      />,
     );
 
     const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
-    const portalIndex = markup.indexOf('id="project-owned-portal-root"');
+    const sourcePortalIndex = markup.indexOf('id="project-source-portal-root"');
+    const viewportPortalIndex = markup.indexOf(
+      'id="project-viewport-portal-root"',
+    );
     const edgeLabelSourceIndex = markup.indexOf(
       'data-gpu-flow-source-id="data-edge-label:edge-a"',
     );
     const canvasCloseIndex = markup.indexOf("</canvas>");
 
     expect(canvasOpenIndex).toBeGreaterThan(-1);
-    expect(portalIndex).toBeGreaterThan(canvasOpenIndex);
-    expect(portalIndex).toBeLessThan(canvasCloseIndex);
+    expect(sourcePortalIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(sourcePortalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
     expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(viewportPortalIndex).toBeGreaterThan(canvasCloseIndex);
+    expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
+    expect(markup).toContain('data-gpu-flow-portal-space="viewport"');
     expect(markup).not.toContain("data-gpu-flow-edge-label-layer");
   });
 

@@ -1,11 +1,9 @@
 /* @vitest-environment jsdom */
 
 import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
@@ -233,12 +231,9 @@ describe("gpu project interaction guards", () => {
     expect(isProjectPaneBackgroundTarget(target)).toBe(false);
   });
 
-  it.each([
-    ["CodeMirror tooltip portal", CODEMIRROR_TOOLTIP_PARENT_ID],
-    ["popover portal", SETTA_POPOVER_PORTAL_PARENT_ID],
-  ])("rejects %s content as a pane background target", (_label, id) => {
+  it("rejects GpuFlow portal root content as a pane background target", () => {
     const { surface } = createProjectPaneFixture();
-    const target = appendNestedTarget(surface, { id });
+    const target = appendNestedTarget(surface, { gpuFlowPortalRoot: true });
 
     expect(isProjectPaneBackgroundTarget(target)).toBe(false);
   });
@@ -267,6 +262,7 @@ function appendNestedTarget(
   parent: Element,
   options: {
     readonly className?: string | undefined;
+    readonly gpuFlowPortalRoot?: boolean | undefined;
     readonly id?: string | undefined;
   },
 ) {
@@ -276,6 +272,9 @@ function appendNestedTarget(
   }
   if (options.id) {
     wrapper.id = options.id;
+  }
+  if (options.gpuFlowPortalRoot) {
+    wrapper.dataset.gpuFlowPortalRoot = "true";
   }
   const target = document.createElement("button");
   wrapper.append(target);

@@ -24,23 +24,9 @@ html.dark .setta-gpu-flow__minimap {
 }
 
 .setta-codemirror-tooltips {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
   z-index: 300;
-  pointer-events: auto;
-  overflow: visible;
 }
 
 .setta-popover-portals {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
   z-index: 320;
-  pointer-events: auto;
-  overflow: visible;
 }

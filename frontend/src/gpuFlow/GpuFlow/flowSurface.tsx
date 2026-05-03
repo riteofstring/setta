@@ -128,6 +128,12 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 
+import {
+  assertGpuFlowPortalGroupsRenderable,
+  GpuFlowPortalLayer,
+  partitionGpuFlowPortals,
+  type GpuFlowPortalDescriptor,
+} from "../portals/portalManager";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import {
@@ -190,6 +196,7 @@ type GpuFlowProps = Pick<
     | false
     | Omit<GpuPanZoomControllerOptions, "element" | "requestFrame" | "store">
     | undefined;
+  portals?: readonly GpuFlowPortalDescriptor[] | undefined;
   renderNode?: ((node: GpuNodeLayout) => ReactNode) | undefined;
   selection?:
     | false
@@ -259,6 +266,7 @@ export function GpuFlow({
   onReady,
   onResize,
   panZoom,
+  portals,
   renderNode,
   selection,
   selectionDrag,
@@ -823,6 +831,8 @@ export function GpuFlow({
     selectionDrag,
     viewportStore,
   });
+  const portalGroups = partitionGpuFlowPortals(portals);
+  assertGpuFlowPortalGroupsRenderable(portalGroups);
 
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
@@ -843,8 +853,10 @@ export function GpuFlow({
         >
           {nodeLayerElement}
           {children}
+          <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
           {edgeLabelSourceElement}
         </GpuSurface>
+        <GpuFlowPortalLayer portals={portalGroups.viewport} />
         {userSelectionElement}
         {nodesSelectionElement}
       </div>
@@ -983,18 +995,4 @@ function renderGpuFlowNodeLayerFrame({
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
   requestRemainingTextureUploadFrame(surfaceRef, layerResult);
-}
-
-export function hasRenderableGpuFlowLayer(
-  layer: GpuFlowNodeLayerState,
-): boolean {
-  return Boolean(
-    layer.nodes || layer.edges || layer.grid || layer.edgeLabelSurfaces?.length,
-  );
-}
-
-export function hasRenderableGpuFlowCanvasSize(
-  canvasSize: GpuCanvasSize,
-): boolean {
-  return canvasSize.cssWidth > 0 && canvasSize.cssHeight > 0;
 }
