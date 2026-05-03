@@ -1,6 +1,6 @@
 # GpuFlow Visual Fidelity Checkpoint Review
 
-Generated: 2026-05-06T12:56:24.780Z
+Generated: 2026-05-06T13:25:36.815Z
 
 ## Summary
 
@@ -15,36 +15,32 @@ Generated: 2026-05-06T12:56:24.780Z
 
 ## Iteration Notes
 
-- Inspected real Settings `settings-all-settings-section-settings-section-chatwindowing`
-  baseline/candidate/diff crops. The retained candidate used root-row value
-  column geometry for nested shortcut rows, while the DOM baseline shifts
-  nested child values right by the extra leading gutter and renders an inset
-  nested rail.
-- Updated retained row layout so nested controls, control hit records, popup
-  anchors, and DOM-island rects apply the depth gutter from the shared row
-  layout. The Setta project adapter now passes the same `0.75rem` nested
-  gutter used by the old param grid into generic `GpuFlow` retained content.
-- Updated the retained nested guide from a thin dashed edge marker to an inset
-  6px rail. This also reduced synthetic `nested-param-tree` deltas without
-  changing the retained label font, weight, or root-row origin.
-- Reran the full Chrome-for-Testing 149 checkpoint. Counts improved from
-  44 pass / 130 blocking to 46 pass / 128 blocking, with 0 capture-blocked
-  fixtures and 0 runtime page-error groups. Targeted Settings improvements:
-  `chatwindowing` desktop `0.1057 -> 0.0926` changed pixels and
-  `6.07 -> 5.38` mean delta, compact desktop `0.0993 -> 0.0861` and
-  `5.98 -> 5.28`, narrow `0.1103 -> 0.0964` and `5.41 -> 5.00`.
-- `languageserver` desktop and compact desktop now pass; `sectionsizingpolicy`
-  improved substantially across all viewports but remains blocking. Remaining
-  Settings blockers are not accepted differences.
+- Inspected real Settings `backend`, `chatwindowing`, and `gui` desktop
+  baseline/candidate/diff crops after the nested retained row geometry fix.
+  The clearest shared label-specific drift was retained row labels truncating
+  earlier than the DOM baseline even though the value/control column geometry
+  was broadly aligned.
+- Updated the shared retained row canvas label renderer to keep the DOM-matched
+  left text inset while removing the extra synthetic right inset from measured
+  truncation width. This makes long retained labels consume the full label rect,
+  matching the old `ParamTextLabel` grid column behavior more closely.
+- Reran the full Chrome-for-Testing 149 checkpoint after the visible renderer
+  change. Overall counts remain 46 pass / 128 blocking with 0 capture-blocked
+  fixtures and 0 runtime page-error groups. Synthetic fixtures remain passing
+  across all required viewports.
+- Remaining real Settings blockers are not accepted differences. The next
+  shared drift to inspect is the residual typography/control antialiasing and
+  geometry mismatch visible across `backend`, `chatwindowing`, `gui`, and
+  `sectionsizingpolicy`.
 
 ## Runtime Signals
 
-- baseline-primary: 174 captures, 0 page errors, 16 console warnings/errors.
-  - console x9: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
+- baseline-primary: 174 captures, 0 page errors, 18 console warnings/errors.
+  - console x12: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
   - console x4: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
   - console x2: Failed to load resource: the server responded with a status of 404 (Not Found)
-- candidate: 174 captures, 0 page errors, 18 console warnings/errors.
-  - console x12: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
+- candidate: 174 captures, 0 page errors, 16 console warnings/errors.
+  - console x9: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
   - console x4: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
   - console x2: Failed to load resource: the server responded with a status of 404 (Not Found)
 
@@ -52,43 +48,43 @@ Generated: 2026-05-06T12:56:24.780Z
 
 | Fixture | Viewport | Status | Reason | Changed Pixels | Mean Delta |
 | --- | --- | --- | --- | ---: | ---: |
-| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0045 | 0.27 |
-| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0045 | 0.27 |
+| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.26 |
+| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.26 |
 | dense-param-dict | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0055 | 0.11 |
 | nested-param-tree | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0040 | 0.11 |
 | callable-edge-handles | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0068 | 0.30 |
-| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.27 |
-| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0038 | 0.24 |
-| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0036 | 0.23 |
-| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0028 | 0.19 |
-| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0028 | 0.19 |
-| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0043 | 0.26 |
-| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0053 | 0.35 |
-| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0053 | 0.35 |
+| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0043 | 0.26 |
+| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0037 | 0.23 |
+| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0034 | 0.22 |
+| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0027 | 0.18 |
+| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0027 | 0.18 |
+| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0042 | 0.26 |
+| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0051 | 0.34 |
+| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0051 | 0.34 |
 | dense-param-dict | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.10 |
 | nested-param-tree | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0038 | 0.11 |
 | callable-edge-handles | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0067 | 0.30 |
-| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0063 | 0.39 |
-| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0053 | 0.35 |
-| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0053 | 0.35 |
-| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0046 | 0.32 |
-| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0046 | 0.32 |
-| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0062 | 0.40 |
-| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
+| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0061 | 0.38 |
+| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0051 | 0.34 |
+| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0051 | 0.34 |
+| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.30 |
+| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.30 |
+| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0060 | 0.38 |
+| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
 | dense-param-dict | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
 | nested-param-tree | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
 | callable-edge-handles | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
-| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
-| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0110 | 0.76 |
+| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
+| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.71 |
 | settings-all-settings-pane | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0390 | 1.45 |
 | settings-all-settings-section-settings-section-shortcuts | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0455 | 2.20 |
 | settings-all-settings-section-settings-section-gui | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0660 | 3.08 |
-| settings-all-settings-section-settings-section-backend | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0785 | 3.84 |
+| settings-all-settings-section-settings-section-backend | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0790 | 3.86 |
 | settings-all-settings-section-settings-section-chatwindowing | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0926 | 5.38 |
 | settings-all-settings-section-settings-section-sectionsizingpolicy | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0376 | 1.90 |
 | settings-all-settings-section-settings-section-languageserver | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0188 | 1.19 |
@@ -135,7 +131,7 @@ Generated: 2026-05-06T12:56:24.780Z
 | settings-all-settings-pane | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0135 | 0.66 |
 | settings-all-settings-section-settings-section-shortcuts | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0451 | 2.19 |
 | settings-all-settings-section-settings-section-gui | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0582 | 2.69 |
-| settings-all-settings-section-settings-section-backend | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0752 | 3.71 |
+| settings-all-settings-section-settings-section-backend | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0757 | 3.73 |
 | settings-all-settings-section-settings-section-chatwindowing | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0861 | 5.28 |
 | settings-all-settings-section-settings-section-sectionsizingpolicy | compact-desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0372 | 1.89 |
 | settings-all-settings-section-settings-section-languageserver | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0186 | 1.19 |
@@ -182,7 +178,7 @@ Generated: 2026-05-06T12:56:24.780Z
 | settings-all-settings-pane | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0244 | 0.97 |
 | settings-all-settings-section-settings-section-shortcuts | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0972 | 3.30 |
 | settings-all-settings-section-settings-section-gui | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0682 | 2.45 |
-| settings-all-settings-section-settings-section-backend | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.1161 | 4.47 |
+| settings-all-settings-section-settings-section-backend | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.1166 | 4.46 |
 | settings-all-settings-section-settings-section-chatwindowing | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0964 | 5.00 |
 | settings-all-settings-section-settings-section-sectionsizingpolicy | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0757 | 2.91 |
 | settings-all-settings-section-settings-section-languageserver | narrow | blocking-regression | Automated pixel diff exceeds checkpoint tolerance. | 0.0384 | 1.78 |

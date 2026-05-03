@@ -93,7 +93,7 @@ export function drawGpuRetainedContentLabel({
     state,
   });
   const paddingX = getGpuRetainedContentLabelPaddingX(appearance);
-  const maxWidth = Math.max(0, rect.width - paddingX * 2);
+  const maxWidth = Math.max(0, rect.width - paddingX);
   ctx.fillText(
     truncateGpuRetainedContentLabelText(ctx, text, maxWidth),
     rect.x + paddingX,
