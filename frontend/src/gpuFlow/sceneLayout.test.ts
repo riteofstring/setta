@@ -147,6 +147,68 @@ describe("GPU flow scene layout", () => {
     });
   });
 
+  it("preserves adapter-owned canvas content surfaces after section layout", () => {
+    const scene = resolveGpuFlowSceneLayout({
+      ...sceneWithSections([
+        sectionNode({
+          id: "section-a",
+          worldRect: rect(10, 20, 100, 80),
+        }),
+      ]),
+      contentSurfaces: [
+        {
+          clipRect: rect(10, 20, 100, 40),
+          id: "section-a:param-content:unpinned",
+          ownerSectionId: "section-a",
+          rect: rect(10, 20, 100, 40),
+          renderer: {
+            kind: "canvas-content",
+            surfaceId: "section-a:param-content:unpinned",
+          },
+          zIndex: 1,
+        },
+      ],
+    });
+
+    expect(scene.contentSurfaces).toEqual([
+      expect.objectContaining({
+        id: "section-a",
+        ownerSectionId: "section-a",
+        renderer: { kind: "dom-section", surfaceId: "section-a" },
+      }),
+      expect.objectContaining({
+        id: "section-a:param-content:unpinned",
+        ownerSectionId: "section-a",
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "section-a:param-content:unpinned",
+        },
+      }),
+    ]);
+  });
+
+  it("fails loudly for duplicate content surface ids", () => {
+    expect(() =>
+      resolveGpuFlowSceneLayout({
+        ...sceneWithSections([
+          sectionNode({
+            id: "section-a",
+          }),
+        ]),
+        contentSurfaces: [
+          {
+            clipRect: rect(0, 0, 100, 80),
+            id: "section-a",
+            ownerSectionId: "section-a",
+            rect: rect(0, 0, 100, 80),
+            renderer: { kind: "canvas-content", surfaceId: "section-a" },
+            zIndex: 1,
+          },
+        ],
+      }),
+    ).toThrow("Duplicate GPU flow content surface section-a.");
+  });
+
   it("fails loudly when child order does not match parent ownership", () => {
     expect(() =>
       resolveGpuFlowSceneLayout(

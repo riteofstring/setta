@@ -11,6 +11,7 @@ import {
 } from "gpuFlow/layoutStore";
 import type { GpuNodeResizeDirection } from "gpuFlow/resizeHandles";
 import {
+  createGpuFlowContentSurfacesFromSections,
   getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
   type GpuSectionContentRendererDescriptor,
@@ -71,6 +72,7 @@ import {
   type ListRootSectionImpl,
   type SectionSizingPolicy,
 } from "utils/generatedTypes";
+import { createProjectGpuParamContentSurfaces } from "./projectGpuParamContentAdapter";
 
 export type ProjectGpuLayoutAdapter = {
   readonly layoutStore: GpuFlowLayoutStoreApi;
@@ -323,13 +325,23 @@ export function getProjectGpuFlowScene(
     });
   }
 
-  return resolveGpuFlowSceneLayout({
+  const layoutScene = resolveGpuFlowSceneLayout({
     contentSurfaces: [],
     domIslands: [],
     edges: [],
     revision: options.revision ?? 0,
     sections,
   });
+  return {
+    ...layoutScene,
+    contentSurfaces: createGpuFlowContentSurfacesFromSections(
+      layoutScene.sections,
+      createProjectGpuParamContentSurfaces({
+        projectState,
+        sections: layoutScene.sections,
+      }),
+    ),
+  };
 }
 
 export function getProjectGpuLayoutNodesFromNodeInternals(state: {

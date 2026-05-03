@@ -1,5 +1,6 @@
 import type { GpuNodeLayout } from "./htmlSurfaces/frame";
 import type { GpuNodeResizeDirection } from "./resizeHandles";
+import type { GpuRetainedContentScene } from "./retainedContentScene";
 import { rectsIntersect, type GpuPoint, type GpuRect } from "./viewportMath";
 
 export const GPU_FLOW_SCENE_DIRTY_FLAGS = [
@@ -82,6 +83,7 @@ export type GpuContentSurface = {
   readonly id: string;
   readonly ownerSectionId: string;
   readonly rect: GpuRect;
+  readonly retainedScene?: GpuRetainedContentScene | undefined;
   readonly renderer: GpuSectionContentRendererDescriptor;
   readonly zIndex: number;
 };
@@ -126,22 +128,26 @@ export function getGpuFlowSceneDomSectionNodes(
 
 export function createGpuFlowContentSurfacesFromSections(
   sections: readonly GpuSectionSceneNode[],
+  contentSurfaces: readonly GpuContentSurface[] = [],
 ): readonly GpuContentSurface[] {
-  return sections.flatMap((section) => {
-    if (section.contentRenderer.kind === "scene-only") {
-      return [];
-    }
-    return [
-      {
-        clipRect: section.clipRect,
-        id: section.contentRenderer.surfaceId,
-        ownerSectionId: section.sectionId,
-        rect: section.worldRect,
-        renderer: section.contentRenderer,
-        zIndex: section.zIndex ?? 0,
-      },
-    ];
-  });
+  return validateGpuFlowContentSurfaceIds([
+    ...sections.flatMap((section) => {
+      if (section.contentRenderer.kind === "scene-only") {
+        return [];
+      }
+      return [
+        {
+          clipRect: section.clipRect,
+          id: section.contentRenderer.surfaceId,
+          ownerSectionId: section.sectionId,
+          rect: section.worldRect,
+          renderer: section.contentRenderer,
+          zIndex: section.zIndex ?? 0,
+        },
+      ];
+    }),
+    ...contentSurfaces,
+  ]);
 }
 
 export function isGpuSectionSceneNodeInsideClip(
@@ -156,4 +162,17 @@ export function isGpuSectionSceneNodeInsideClip(
 
 function isPositiveGpuRect(rect: GpuRect): boolean {
   return rect.width > 0 && rect.height > 0;
+}
+
+function validateGpuFlowContentSurfaceIds(
+  contentSurfaces: readonly GpuContentSurface[],
+): readonly GpuContentSurface[] {
+  const seenSurfaceIds = new Set<string>();
+  for (const surface of contentSurfaces) {
+    if (seenSurfaceIds.has(surface.id)) {
+      throw new Error(`Duplicate GPU flow content surface ${surface.id}.`);
+    }
+    seenSurfaceIds.add(surface.id);
+  }
+  return contentSurfaces;
 }

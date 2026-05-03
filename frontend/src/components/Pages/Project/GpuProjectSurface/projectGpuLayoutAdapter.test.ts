@@ -3,12 +3,18 @@ import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import type { ZustandProjectState } from "state/definitions";
 import {
+  CodeObjTypeEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
+  createCodeParamCodeObjImpl,
   createCore,
   createDictSectionImpl,
   createGroupSectionImpl,
   createProjectConfig,
+  createShownParamIDs,
   createSingleConfig,
   createVariant,
+  type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -157,6 +163,140 @@ describe("project GPU layout adapter", () => {
         .getNodes()
         .map((node) => node.nodeId),
     ).toEqual(["group-a", "child-a", "child-b"]);
+  });
+
+  it("derives retained dict param content surfaces from shown param metadata", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "child-param": "child-param-variant",
+              "edge-param": "edge-param-variant",
+              "parent-param": "parent-param-variant",
+              "root-param": "root-param-variant",
+            },
+            edgeInputParams: ["child-param"],
+            id: "dict-a-impl",
+            paramFilter: "child",
+            selectedParams: ["child-param"],
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["parent-param", "edge-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "parent-param",
+      "parent-param-variant",
+      "parent-param-impl",
+      createNestedParamImpl("parent-param-impl", ["child-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "child-param",
+      "child-param-variant",
+      "child-param-impl",
+      createCodeParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "child-param-impl",
+        name: "child",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "edge-param",
+      "edge-param-variant",
+      "edge-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "edge-param-impl",
+        name: "edge",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "child-param": ["parent-param", "child-param"],
+          "edge-param": ["edge-param"],
+          "parent-param": ["parent-param"],
+        },
+        topLevelParamIds: ["parent-param", "edge-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 2,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(paramSurface).toMatchObject({
+      clipRect: { height: 122, width: 262, x: 10, y: 20 },
+      ownerSectionId: "dict-a",
+      rect: { height: 122, width: 262, x: 10, y: 20 },
+      renderer: {
+        kind: "canvas-content",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      zIndex: 3,
+    });
+    expect(paramSurface?.retainedScene).toMatchObject({
+      contentRect: { height: 56, width: 262, x: 0, y: 0 },
+      ownerSectionId: "dict-a",
+      rowHeight: 28,
+      viewportRect: { height: 122, width: 262, x: 0, y: 0 },
+      visibleRange: { endIndex: 2, rowCount: 2, startIndex: 0 },
+    });
+    expect(
+      paramSurface?.retainedScene?.rows.map((row) => ({
+        controlKind: row.controlKind,
+        depth: row.depth,
+        id: row.id,
+        label: row.label,
+        ports: row.ports,
+        selected: row.state.selected,
+      })),
+    ).toEqual([
+      {
+        controlKind: "nested",
+        depth: 0,
+        id: "parent-param",
+        label: "parent-param",
+        ports: [],
+        selected: false,
+      },
+      {
+        controlKind: "text-like",
+        depth: 1,
+        id: "child-param",
+        label: "child-param",
+        ports: [{ id: "child-param", kind: "input", side: "left" }],
+        selected: true,
+      },
+    ]);
+    expect(paramSurface?.retainedScene?.portAnchors).toEqual([
+      expect.objectContaining({
+        id: "child-param",
+        kind: "input",
+        localPosition: { x: 0, y: 42 },
+        ownerRowId: "child-param",
+      }),
+    ]);
   });
 
   it("replaces the renderer layout store from scene-owned DOM surfaces", () => {
@@ -455,6 +595,47 @@ function sectionSize(size: {
   // create*SectionImpl accepts the runtime section-size shape but its generated
   // option type still exposes the Go wrapper representation.
   return size as never;
+}
+
+function createNestedParamImpl(
+  id: string,
+  children: readonly string[],
+): BaseCodeObjImplUnion {
+  return {
+    children: [...children],
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    description: "",
+    id,
+    isPreset: false,
+    name: id,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.NestedParam,
+    typeAnnotation: "",
+  };
+}
+
+function addParamToProjectState(
+  state: ZustandProjectState,
+  paramId: string,
+  variantId: string,
+  implId: string,
+  impl: BaseCodeObjImplUnion,
+) {
+  state.codeObjs[paramId] = createCore({
+    defaultVariant: variantId,
+    displayName: "",
+    id: paramId,
+    name: paramId,
+    variants: [variantId],
+  });
+  state.codeObjVariants[variantId] = createVariant({
+    id: variantId,
+    impl: implId,
+    name: variantId,
+    nonPresetImpls: [],
+  });
+  state.codeObjImpls[implId] = impl;
 }
 
 function projectStateWithSections({

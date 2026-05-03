@@ -9,7 +9,10 @@ export function resolveGpuFlowSceneLayout(scene: GpuFlowScene): GpuFlowScene {
   const sections = resolveGpuFlowSectionSceneLayout(scene.sections);
   return {
     ...scene,
-    contentSurfaces: createGpuFlowContentSurfacesFromSections(sections),
+    contentSurfaces: createGpuFlowContentSurfacesFromSections(
+      sections,
+      scene.contentSurfaces,
+    ),
     sections,
   };
 }

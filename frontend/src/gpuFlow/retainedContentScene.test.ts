@@ -1,0 +1,168 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  createGpuRetainedRowContentScene,
+  resolveGpuRetainedContentVisibleRowRange,
+  type GpuRetainedContentRowInput,
+} from "./retainedContentScene";
+
+describe("retained content scene", () => {
+  it("virtualizes retained rows from scroll offset and viewport height", () => {
+    const rows = Array.from({ length: 1_000 }, (_, index) =>
+      row(`param-${index}`),
+    );
+
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      overscanRows: 1,
+      rowHeight: 20,
+      rows,
+      scrollOffset: { x: 0, y: 400 },
+      viewportRect: { height: 60, width: 240, x: 0, y: 0 },
+    });
+
+    expect(scene.contentRect).toEqual({
+      height: 20_000,
+      width: 240,
+      x: 0,
+      y: 0,
+    });
+    expect(scene.visibleRange).toEqual({
+      endIndex: 24,
+      rowCount: 1_000,
+      startIndex: 19,
+    });
+    expect(scene.rows.map((visibleRow) => visibleRow.id)).toEqual([
+      "param-19",
+      "param-20",
+      "param-21",
+      "param-22",
+      "param-23",
+    ]);
+    expect(scene.rows[0]?.projectedRect).toEqual({
+      height: 20,
+      width: 240,
+      x: 0,
+      y: -20,
+    });
+    expect(scene.rows[4]?.projectedRect).toEqual({
+      height: 20,
+      width: 240,
+      x: 0,
+      y: 60,
+    });
+  });
+
+  it("emits row draw commands, hit records, and local port anchors from one layout", () => {
+    const scene = createGpuRetainedRowContentScene({
+      controlWidth: 80,
+      id: "surface-a",
+      indentWidth: 10,
+      ownerSectionId: "section-a",
+      portHitSize: 10,
+      rowHeight: 24,
+      rows: [
+        row("parent", { controlKind: "nested", depth: 0 }),
+        row("child", {
+          controlKind: "text-like",
+          depth: 1,
+          ports: [{ id: "child-input", kind: "input", side: "left" }],
+          state: { selected: true },
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 48, width: 220, x: 4, y: 6 },
+    });
+
+    expect(scene.drawCommands).toEqual([
+      expect.objectContaining({ kind: "row-background", rowId: "parent" }),
+      expect.objectContaining({
+        kind: "row-label",
+        rect: { height: 24, width: 132, x: 4, y: 6 },
+        rowId: "parent",
+        text: "parent",
+      }),
+      expect.objectContaining({
+        controlKind: "nested",
+        kind: "row-control",
+        rect: { height: 24, width: 80, x: 144, y: 6 },
+        rowId: "parent",
+      }),
+      expect.objectContaining({
+        kind: "row-background",
+        rowId: "child",
+        state: expect.objectContaining({ selected: true }),
+      }),
+      expect.objectContaining({
+        depth: 1,
+        kind: "nest-guide",
+        rowId: "child",
+      }),
+      expect.objectContaining({
+        kind: "row-label",
+        rect: { height: 24, width: 122, x: 14, y: 30 },
+        rowId: "child",
+        text: "child",
+      }),
+      expect.objectContaining({
+        controlKind: "text-like",
+        kind: "row-control",
+        rowId: "child",
+      }),
+    ]);
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "row:child",
+          kind: "row",
+          rect: { height: 24, width: 220, x: 4, y: 30 },
+        }),
+        expect.objectContaining({
+          id: "control:child",
+          kind: "control",
+          rect: { height: 24, width: 80, x: 144, y: 30 },
+        }),
+        expect.objectContaining({
+          id: "port:child-input",
+          kind: "port",
+          rect: { height: 10, width: 10, x: -1, y: 37 },
+        }),
+      ]),
+    );
+    expect(scene.portAnchors).toEqual([
+      {
+        hitRect: { height: 10, width: 10, x: -1, y: 37 },
+        id: "child-input",
+        kind: "input",
+        localPosition: { x: 4, y: 42 },
+        ownerRowId: "child",
+      },
+    ]);
+  });
+
+  it("fails loudly for invalid retained row metrics", () => {
+    expect(() =>
+      resolveGpuRetainedContentVisibleRowRange({
+        overscanRows: 0,
+        rowCount: 10,
+        rowHeight: 0,
+        scrollOffsetY: 0,
+        viewportHeight: 100,
+      }),
+    ).toThrow("retained row height must be a finite positive number.");
+  });
+});
+
+function row(
+  id: string,
+  overrides: Partial<GpuRetainedContentRowInput> = {},
+): GpuRetainedContentRowInput {
+  return {
+    controlKind: "text-like",
+    depth: 0,
+    id,
+    label: id,
+    ...overrides,
+  };
+}
