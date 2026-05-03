@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createGpuRetainedRowContentScene,
+  createGpuRetainedRowContentSceneWithScrollOffset,
   resolveGpuRetainedContentVisibleRowRange,
   type GpuRetainedContentRowInput,
 } from "./retainedContentScene";
@@ -60,6 +61,43 @@ describe("retained content scene", () => {
       width: 240,
       x: 0,
       y: 60,
+    });
+  });
+
+  it("recreates retained row scenes from source metadata for renderer-owned scroll", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      overscanRows: 1,
+      rowHeight: 20,
+      rows: Array.from({ length: 20 }, (_, index) => row(`param-${index}`)),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 60, width: 240, x: 0, y: 0 },
+    });
+
+    const scrolled = createGpuRetainedRowContentSceneWithScrollOffset({
+      scene,
+      scrollOffset: { x: 0, y: 120 },
+    });
+
+    expect(scrolled.scrollOffset).toEqual({ x: 0, y: 120 });
+    expect(scrolled.visibleRange).toEqual({
+      endIndex: 10,
+      rowCount: 20,
+      startIndex: 5,
+    });
+    expect(scrolled.rows.map((visibleRow) => visibleRow.id)).toEqual([
+      "param-5",
+      "param-6",
+      "param-7",
+      "param-8",
+      "param-9",
+    ]);
+    expect(scrolled.rows[1]?.projectedRect).toEqual({
+      height: 20,
+      width: 240,
+      x: 0,
+      y: 0,
     });
   });
 

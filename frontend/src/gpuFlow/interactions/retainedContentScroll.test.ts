@@ -12,9 +12,11 @@ import { attachGpuRetainedContentScrollController } from "./retainedContentScrol
 describe("GPU retained content scroll controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.unstubAllGlobals();
   });
 
   it("routes wheel scrolling through retained content offsets", () => {
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
@@ -39,6 +41,8 @@ describe("GPU retained content scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    expect(scrollOffsets.size).toBe(0);
+    animationFrames.flush();
     expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
       x: 0,
       y: 36,
@@ -49,6 +53,7 @@ describe("GPU retained content scroll controller", () => {
   });
 
   it("clamps negative horizontal wheel deltas before notifying scroll owners", () => {
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
@@ -74,10 +79,64 @@ describe("GPU retained content scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
     expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
       x: 0,
       y: 36,
     });
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+
+    cleanup();
+  });
+
+  it("coalesces retained wheel changes into one animation-frame scroll flush", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      requestFrame,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 10,
+      }),
+    );
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 15,
+      }),
+    );
+
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+    animationFrames.flush();
+
+    expect(onScrollOffsetsChange).toHaveBeenCalledTimes(1);
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 25,
+    });
+    expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
 
     cleanup();
@@ -117,6 +176,7 @@ describe("GPU retained content scroll controller", () => {
   );
 
   it("does not preserve plain GpuFlow portal buttons as native wheel targets", () => {
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     const { root, target } = createMarkedWheelTarget(
       "data-gpu-flow-portal-root",
@@ -144,6 +204,7 @@ describe("GPU retained content scroll controller", () => {
     target.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
     expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
       x: 0,
       y: 36,
@@ -153,6 +214,7 @@ describe("GPU retained content scroll controller", () => {
   });
 
   it("does not preserve generic source-surface interactive wheel targets", () => {
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     const { root, target } = createMarkedWheelTarget(
       "data-gpu-flow-interactive",
@@ -180,6 +242,7 @@ describe("GPU retained content scroll controller", () => {
     target.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
     expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
       x: 0,
       y: 36,
@@ -272,5 +335,28 @@ function textLikeControlDescriptor(
     kind: "text-like",
     rendererFamily: "text-like",
     commitPolicy: "native-island",
+  };
+}
+
+function installAnimationFrameStub() {
+  let nextId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const id = nextId;
+    nextId += 1;
+    callbacks.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+    callbacks.delete(id);
+  });
+  return {
+    flush() {
+      const pending = [...callbacks.entries()];
+      callbacks.clear();
+      for (const [id, callback] of pending) {
+        callback(id);
+      }
+    },
   };
 }

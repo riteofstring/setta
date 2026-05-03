@@ -509,6 +509,7 @@ export function GpuFlow({
   useGpuFlowRetainedContentControllers({
     containerRef,
     layoutStore,
+    nodeElementByIdRef,
     nodeLayerRef,
     retainedContentConnection,
     retainedContentInteraction,
@@ -516,6 +517,7 @@ export function GpuFlow({
     retainedContentScroll,
     scenePortConnection,
     surfaceRef,
+    textureManagerRef,
     viewportStore,
   });
 

@@ -1,3 +1,4 @@
+import { createGpuRetainedRowContentSceneWithScrollOffset } from "./retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -15,6 +16,11 @@ type GpuRetainedContentDragAutoScrollResult = GpuRetainedContentScrollResult;
 
 type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+};
+
+export type GpuRetainedContentSceneScrollUpdateResult = {
+  readonly scene: GpuFlowScene;
+  readonly surface: GpuRetainedContentSurfaceWithScene;
 };
 
 const DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MARGIN_PX = 36;
@@ -194,6 +200,47 @@ export function clampGpuRetainedContentScrollOffset({
   return {
     x: clampNumber(scrollOffset.x, 0, maxOffset.x),
     y: clampNumber(scrollOffset.y, 0, maxOffset.y),
+  };
+}
+
+export function applyGpuRetainedContentScrollOffsetToScene({
+  scene,
+  scrollOffset,
+  surfaceId,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly scrollOffset: GpuPoint;
+  readonly surfaceId: string;
+}): GpuRetainedContentSceneScrollUpdateResult | null {
+  const surfaceIndex = scene.contentSurfaces.findIndex(
+    (candidate) => candidate.id === surfaceId,
+  );
+  if (surfaceIndex < 0) {
+    return null;
+  }
+  const surface = scene.contentSurfaces[surfaceIndex];
+  if (
+    !surface ||
+    surface.renderer.kind !== "canvas-content" ||
+    !surface.retainedScene
+  ) {
+    return null;
+  }
+  const nextSurface: GpuRetainedContentSurfaceWithScene = {
+    ...surface,
+    retainedScene: createGpuRetainedRowContentSceneWithScrollOffset({
+      scene: surface.retainedScene,
+      scrollOffset,
+    }),
+  };
+  const nextSurfaces = scene.contentSurfaces.slice();
+  nextSurfaces[surfaceIndex] = nextSurface;
+  return {
+    scene: {
+      ...scene,
+      contentSurfaces: nextSurfaces,
+    },
+    surface: nextSurface,
   };
 }
 

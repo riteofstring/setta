@@ -40,6 +40,10 @@ export function attachGpuRetainedContentScrollController(
 class GpuRetainedContentScrollController {
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentScrollControllerOptions;
+  private pendingAnimationFrame: GpuRetainedContentScrollAnimationFrame | null =
+    null;
+  private pendingScrollOffsets: GpuRetainedContentScrollOffsetMap | null = null;
+  private readonly pendingSurfaceIds = new Set<string>();
   private readonly store: GpuFlowViewportStoreApi;
 
   constructor(options: GpuRetainedContentScrollControllerOptions) {
@@ -59,15 +63,13 @@ class GpuRetainedContentScrollController {
     this.element.removeEventListener("wheel", this.onWheel, {
       capture: true,
     });
+    this.cancelPendingScrollFlush();
+    this.pendingScrollOffsets = null;
+    this.pendingSurfaceIds.clear();
   }
 
   private readonly onWheel = (event: WheelEvent) => {
-    if (
-      event.defaultPrevented ||
-      event.ctrlKey ||
-      this.options.disabled?.(event) ||
-      shouldPreserveNativeWheelTarget(event)
-    ) {
+    if (this.shouldSkipWheelEvent(event)) {
       return;
     }
     const scene = this.options.getScene();
@@ -78,16 +80,95 @@ class GpuRetainedContentScrollController {
       event,
       point: getWheelFlowPoint(event, this.element, this.store),
       scene,
-      scrollOffsets: this.options.getScrollOffsets(),
+      scrollOffsets:
+        this.pendingScrollOffsets ?? this.options.getScrollOffsets(),
     });
     if (!result.changed) {
       return;
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    this.options.onScrollOffsetsChange(result.scrollOffsets, result);
-    this.options.requestFrame?.("viewport");
+    this.pendingScrollOffsets = result.scrollOffsets;
+    if (result.surfaceId) {
+      this.pendingSurfaceIds.add(result.surfaceId);
+    }
+    this.schedulePendingScrollFlush();
   };
+
+  private shouldSkipWheelEvent(event: WheelEvent): boolean {
+    return (
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      Boolean(this.options.disabled?.(event)) ||
+      shouldPreserveNativeWheelTarget(event)
+    );
+  }
+
+  private schedulePendingScrollFlush() {
+    if (this.pendingAnimationFrame) {
+      return;
+    }
+    this.pendingAnimationFrame = requestGpuRetainedContentScrollFrame(() => {
+      this.pendingAnimationFrame = null;
+      this.flushPendingScroll();
+    });
+  }
+
+  private flushPendingScroll() {
+    const scrollOffsets = this.pendingScrollOffsets;
+    if (!scrollOffsets || this.pendingSurfaceIds.size === 0) {
+      return;
+    }
+    const surfaceIds = [...this.pendingSurfaceIds];
+    this.pendingScrollOffsets = null;
+    this.pendingSurfaceIds.clear();
+    for (const surfaceId of surfaceIds) {
+      this.options.onScrollOffsetsChange(scrollOffsets, {
+        changed: true,
+        scrollOffsets,
+        surfaceId,
+      });
+    }
+    this.options.requestFrame?.("viewport");
+  }
+
+  private cancelPendingScrollFlush() {
+    if (!this.pendingAnimationFrame) {
+      return;
+    }
+    cancelGpuRetainedContentScrollFrame(this.pendingAnimationFrame);
+    this.pendingAnimationFrame = null;
+  }
+}
+
+type GpuRetainedContentScrollAnimationFrame = {
+  readonly id: number;
+  readonly kind: "animation-frame" | "timeout";
+};
+
+function requestGpuRetainedContentScrollFrame(
+  callback: FrameRequestCallback,
+): GpuRetainedContentScrollAnimationFrame {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    return {
+      id: globalThis.requestAnimationFrame(callback),
+      kind: "animation-frame",
+    };
+  }
+  return {
+    id: globalThis.setTimeout(() => callback(performance.now()), 16),
+    kind: "timeout",
+  };
+}
+
+function cancelGpuRetainedContentScrollFrame(
+  frame: GpuRetainedContentScrollAnimationFrame,
+) {
+  if (frame.kind === "animation-frame") {
+    globalThis.cancelAnimationFrame(frame.id);
+    return;
+  }
+  globalThis.clearTimeout(frame.id);
 }
 
 function getWheelFlowPoint(

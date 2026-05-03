@@ -1,6 +1,8 @@
 import { useEffect, type MutableRefObject } from "react";
 
+import { redrawGpuRetainedContentSourceElement } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import {
   attachGpuRetainedContentConnectionController,
   type GpuRetainedContentConnectionControllerOptions,
@@ -22,6 +24,7 @@ import {
   type GpuScenePortConnectionControllerOptions,
 } from "../interactions/scenePortConnection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import { applyGpuRetainedContentScrollOffsetToScene } from "../retainedContentScroll";
 import type { GpuFlowScene } from "../scene";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
@@ -71,12 +74,14 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly nodeLayerRef: MutableRefObject<{
     readonly scene: GpuFlowScene | undefined;
   }>;
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly retainedContentConnection: GpuFlowRetainedContentConnectionOptions;
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
   readonly scenePortConnection: GpuFlowScenePortConnectionOptions;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
 
@@ -84,12 +89,14 @@ export function useGpuFlowRetainedContentControllers({
   containerRef,
   layoutStore,
   nodeLayerRef,
+  nodeElementByIdRef,
   retainedContentConnection,
   retainedContentInteraction,
   retainedContentKeyboard,
   retainedContentScroll,
   scenePortConnection,
   surfaceRef,
+  textureManagerRef,
   viewportStore,
 }: GpuFlowRetainedContentControllerOptions) {
   useEffect(() => {
@@ -175,6 +182,16 @@ export function useGpuFlowRetainedContentControllers({
       ...retainedContentScroll,
       element: container,
       getScene: () => nodeLayerRef.current.scene,
+      onScrollOffsetsChange: (scrollOffsets, result) => {
+        retainedContentScroll.onScrollOffsetsChange(scrollOffsets, result);
+        applyGpuFlowRetainedContentScrollResult({
+          nodeElementByIdRef,
+          nodeLayerRef,
+          result,
+          surfaceRef,
+          textureManagerRef,
+        });
+      },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
@@ -183,8 +200,10 @@ export function useGpuFlowRetainedContentControllers({
   }, [
     containerRef,
     nodeLayerRef,
+    nodeElementByIdRef,
     retainedContentScroll,
     surfaceRef,
+    textureManagerRef,
     viewportStore,
   ]);
 
@@ -213,4 +232,64 @@ export function useGpuFlowRetainedContentControllers({
     scenePortConnection,
     viewportStore,
   ]);
+}
+
+function applyGpuFlowRetainedContentScrollResult({
+  nodeElementByIdRef,
+  nodeLayerRef,
+  result,
+  surfaceRef,
+  textureManagerRef,
+}: {
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly nodeLayerRef: MutableRefObject<{
+    readonly scene: GpuFlowScene | undefined;
+  }>;
+  readonly result: {
+    readonly scrollOffsets: ReadonlyMap<
+      string,
+      { readonly x: number; readonly y: number }
+    >;
+    readonly surfaceId: string | null;
+  };
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
+}) {
+  const surfaceId = result.surfaceId;
+  const scene = nodeLayerRef.current.scene;
+  if (!surfaceId || !scene) {
+    return;
+  }
+  const scrollOffset = result.scrollOffsets.get(surfaceId);
+  if (!scrollOffset) {
+    return;
+  }
+  const update = applyGpuRetainedContentScrollOffsetToScene({
+    scene,
+    scrollOffset,
+    surfaceId,
+  });
+  if (!update) {
+    return;
+  }
+  nodeLayerRef.current = {
+    ...nodeLayerRef.current,
+    scene: update.scene,
+  };
+  const sourceElement = nodeElementByIdRef.current.get(surfaceId);
+  if (
+    sourceElement &&
+    redrawGpuRetainedContentSourceElement({
+      element: sourceElement,
+      surface: update.surface,
+    })
+  ) {
+    textureManagerRef.current?.markSurfaceTextureDirty({
+      content: true,
+      reason: "content",
+      requestPaint: false,
+      surfaceId,
+    });
+    surfaceRef.current?.requestPaint();
+  }
 }

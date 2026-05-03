@@ -55,7 +55,7 @@ export function useProjectGpuSearchReveal({
     }
     const reveal = resolveProjectGpuRetainedParamSearchReveal({
       scene: layoutAdapter.scene,
-      scrollOffsets: layoutAdapter.contentScrollOffsets,
+      scrollOffsets: layoutAdapter.getContentScrollOffsets(),
       target: focusedSearchTarget,
     });
     if (!reveal) {

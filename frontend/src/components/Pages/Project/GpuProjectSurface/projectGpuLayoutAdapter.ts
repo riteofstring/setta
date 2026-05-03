@@ -31,7 +31,7 @@ import {
   type GpuSectionSceneScrollOffsetMap,
 } from "gpuFlow/sceneScroll";
 import type { GpuRect } from "gpuFlow/viewportMath";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import { getActiveViewModeTopLevelSections } from "state/actions/sectionInfos/codeObjectsAndLayout";
 import {
@@ -89,12 +89,12 @@ import {
   type ProjectGpuSceneRevealSectionOptions,
 } from "./projectGpuSceneReveal";
 import { getProjectGpuSceneRevision } from "./projectGpuSceneRevision";
+import { resolveProjectGpuSectionAutoHeight } from "./projectGpuSectionAutoSize";
 import {
   getProjectGpuRenderableTopLevelSectionIds,
   getRenderableProjectChildSectionIds,
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
-import { resolveProjectGpuSectionAutoHeight } from "./projectGpuSectionAutoSize";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
@@ -105,8 +105,10 @@ export type {
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
+type ContentScrollSetter = (offsets: GpuRetainedContentScrollOffsetMap) => void;
+
 export type ProjectGpuLayoutAdapter = {
-  readonly contentScrollOffsets: GpuRetainedContentScrollOffsetMap;
+  readonly getContentScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
   readonly scene: GpuFlowScene;
@@ -118,9 +120,8 @@ export type ProjectGpuLayoutAdapter = {
   readonly setSceneScrollOffsets: (
     scrollOffsets: GpuSectionSceneScrollOffsetMap,
   ) => void;
-  readonly setContentScrollOffsets: (
-    scrollOffsets: GpuRetainedContentScrollOffsetMap,
-  ) => void;
+  readonly setContentScrollOffsets: ContentScrollSetter;
+  readonly setTransientContentScrollOffsets: ContentScrollSetter;
 };
 
 type ProjectSectionSceneAspectRatioFields = {
@@ -167,8 +168,11 @@ export function useProjectGpuLayoutAdapter({
   const layoutStore = useProjectGpuLayoutStore();
   const [sceneScrollOffsets, setSceneScrollOffsets] =
     useState<GpuSectionSceneScrollOffsetMap>(() => new Map());
-  const [contentScrollOffsets, setContentScrollOffsets] =
-    useState<GpuRetainedContentScrollOffsetMap>(() => new Map());
+  const contentScrollOffsetsRef = useRef<GpuRetainedContentScrollOffsetMap>(
+    new Map(),
+  );
+  const [contentScrollOffsetsVersion, setContentScrollOffsetsVersion] =
+    useState(0);
   const projectState = useProjectState((state) => state);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
@@ -194,7 +198,7 @@ export function useProjectGpuLayoutAdapter({
         activeParamCanvasControl,
         activeParamCanvasPopup,
         activeParamDomIsland,
-        contentScrollOffsets,
+        contentScrollOffsets: contentScrollOffsetsRef.current,
         paramEditPolicy: {
           canEditParams,
           canEditStructure,
@@ -213,7 +217,7 @@ export function useProjectGpuLayoutAdapter({
       activeParamCanvasPopup,
       canEditParams,
       canEditStructure,
-      contentScrollOffsets,
+      contentScrollOffsetsVersion,
       darkMode,
       hoveredParamTarget,
       passwordRevealStates,
@@ -238,8 +242,19 @@ export function useProjectGpuLayoutAdapter({
   );
   const setNextContentScrollOffsets = useCallback(
     (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
-      setContentScrollOffsets(new Map(scrollOffsets));
+      contentScrollOffsetsRef.current = new Map(scrollOffsets);
+      setContentScrollOffsetsVersion((version) => version + 1);
     },
+    [],
+  );
+  const setTransientContentScrollOffsets = useCallback(
+    (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
+      contentScrollOffsetsRef.current = new Map(scrollOffsets);
+    },
+    [],
+  );
+  const getContentScrollOffsets = useCallback(
+    () => contentScrollOffsetsRef.current,
     [],
   );
   const revealSceneSection = useCallback(
@@ -262,7 +277,7 @@ export function useProjectGpuLayoutAdapter({
   );
   return useMemo(
     () => ({
-      contentScrollOffsets,
+      getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
       revealSceneSection,
@@ -270,9 +285,10 @@ export function useProjectGpuLayoutAdapter({
       sceneScrollOffsets,
       setContentScrollOffsets: setNextContentScrollOffsets,
       setSceneScrollOffsets: setNextSceneScrollOffsets,
+      setTransientContentScrollOffsets,
     }),
     [
-      contentScrollOffsets,
+      getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
       revealSceneSection,
@@ -280,6 +296,7 @@ export function useProjectGpuLayoutAdapter({
       sceneScrollOffsets,
       setNextContentScrollOffsets,
       setNextSceneScrollOffsets,
+      setTransientContentScrollOffsets,
     ],
   );
 }

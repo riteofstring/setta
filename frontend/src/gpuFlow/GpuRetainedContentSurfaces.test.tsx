@@ -1,9 +1,12 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   getGpuRetainedContentSourceStyle,
   getGpuRetainedContentSurfaceLayouts,
   GpuRetainedContentSurfaceLayer,
+  redrawGpuRetainedContentSourceElement,
 } from "./GpuRetainedContentSurfaces";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuContentSurface } from "./scene";
@@ -75,6 +78,26 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     );
     expect(markup).not.toContain("data-gpu-flow-retained-content-source");
   });
+
+  it("redraws a retained source canvas imperatively for renderer-owned scroll", () => {
+    const surface = emptyRetainedSurface();
+    const host = document.createElement("div");
+    const canvas = document.createElement("canvas");
+    const context = createCanvasContextStub();
+    vi.spyOn(canvas, "getContext").mockReturnValue(context);
+    canvas.setAttribute("data-gpu-flow-retained-content-canvas", "true");
+    host.append(canvas);
+
+    const redrawn = redrawGpuRetainedContentSourceElement({
+      element: host,
+      surface,
+    });
+
+    expect(redrawn).toBe(true);
+    expect(canvas.width).toBeGreaterThan(0);
+    expect(context.clearRect).toHaveBeenCalled();
+    expect(context.fillRect).toHaveBeenCalled();
+  });
 });
 
 function retainedSurface(
@@ -112,6 +135,31 @@ function retainedSurface(
   };
 }
 
+function emptyRetainedSurface(): GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+} {
+  const rect = { height: 96, width: 240, x: 12, y: 34 };
+  return {
+    clipRect: rect,
+    id: "dict-a:param-content:unpinned",
+    ownerSectionId: "dict-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "dict-a:param-content:unpinned",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "dict-a:param-content:unpinned",
+      ownerSectionId: "dict-a",
+      rowHeight: 28,
+      rows: [],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 96, width: 240, x: 0, y: 0 },
+    }),
+    zIndex: 7,
+  };
+}
+
 function textLikeControlDescriptor() {
   return {
     defaultDisplayValue: "",
@@ -121,4 +169,18 @@ function textLikeControlDescriptor() {
     rendererFamily: "text-like",
     commitPolicy: "native-island" as const,
   };
+}
+
+function createCanvasContextStub(): CanvasRenderingContext2D {
+  return {
+    beginPath: vi.fn(),
+    clearRect: vi.fn(),
+    clip: vi.fn(),
+    fillRect: vi.fn(),
+    rect: vi.fn(),
+    restore: vi.fn(),
+    save: vi.fn(),
+    setTransform: vi.fn(),
+    translate: vi.fn(),
+  } as unknown as CanvasRenderingContext2D;
 }

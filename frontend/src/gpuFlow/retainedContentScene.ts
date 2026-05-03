@@ -360,6 +360,30 @@ const DEFAULT_LABEL_APPEARANCE: GpuRetainedContentLabelAppearance = {
 };
 const DEFAULT_OVERSCAN_ROWS = 2;
 const DEFAULT_PORT_HIT_SIZE = 12;
+const retainedContentSceneSourceInputs = new WeakMap<
+  GpuRetainedContentScene,
+  Required<
+    Pick<
+      CreateGpuRetainedRowContentSceneInput,
+      | "controlRightInset"
+      | "controlWidth"
+      | "indentWidth"
+      | "labelControlGap"
+      | "overscanRows"
+      | "portHitSize"
+    >
+  > &
+    Pick<
+      CreateGpuRetainedRowContentSceneInput,
+      | "activePopup"
+      | "dragPreview"
+      | "id"
+      | "ownerSectionId"
+      | "rowHeight"
+      | "rows"
+      | "viewportRect"
+    >
+>();
 
 export function createGpuRetainedRowContentScene(
   input: CreateGpuRetainedRowContentSceneInput,
@@ -371,6 +395,7 @@ export function createGpuRetainedRowContentScene(
   const indentWidth = input.indentWidth ?? DEFAULT_INDENT_WIDTH;
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
   const portHitSize = input.portHitSize ?? DEFAULT_PORT_HIT_SIZE;
+  const overscanRows = input.overscanRows ?? DEFAULT_OVERSCAN_ROWS;
   const draggingRowIds = new Set(input.dragPreview?.draggingRowIds ?? []);
   const rowMetrics = createGpuRetainedContentRowMetrics({
     rowHeight: input.rowHeight,
@@ -388,7 +413,7 @@ export function createGpuRetainedRowContentScene(
   const visibleRange = resolveGpuRetainedContentVisibleRowRangeFromMetrics({
     rowMetrics,
     rowHeight: input.rowHeight,
-    overscanRows: input.overscanRows ?? DEFAULT_OVERSCAN_ROWS,
+    overscanRows,
     scrollOffsetY: input.scrollOffset.y,
     viewportHeight: input.viewportRect.height,
   });
@@ -406,7 +431,7 @@ export function createGpuRetainedRowContentScene(
       }),
     );
 
-  return {
+  const scene = {
     contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
       activePopup: input.activePopup,
@@ -444,6 +469,41 @@ export function createGpuRetainedRowContentScene(
     visibleRange,
     viewportRect: input.viewportRect,
   };
+  retainedContentSceneSourceInputs.set(scene, {
+    activePopup: input.activePopup,
+    controlRightInset,
+    controlWidth,
+    dragPreview: input.dragPreview,
+    id: input.id,
+    indentWidth,
+    labelControlGap,
+    overscanRows,
+    ownerSectionId: input.ownerSectionId,
+    portHitSize,
+    rowHeight: input.rowHeight,
+    rows: input.rows,
+    viewportRect: input.viewportRect,
+  });
+  return scene;
+}
+
+export function createGpuRetainedRowContentSceneWithScrollOffset({
+  scene,
+  scrollOffset,
+}: {
+  readonly scene: GpuRetainedContentScene;
+  readonly scrollOffset: GpuPoint;
+}): GpuRetainedContentScene {
+  const sourceInput = retainedContentSceneSourceInputs.get(scene);
+  if (!sourceInput) {
+    throw new Error(
+      "Cannot scroll retained content scene without retained row source metadata.",
+    );
+  }
+  return createGpuRetainedRowContentScene({
+    ...sourceInput,
+    scrollOffset,
+  });
 }
 
 export function getGpuRetainedRowContentHeight({

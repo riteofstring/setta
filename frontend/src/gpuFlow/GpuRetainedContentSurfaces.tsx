@@ -144,6 +144,39 @@ export function getGpuRetainedContentSourceStyle(
   };
 }
 
+export function redrawGpuRetainedContentSourceElement({
+  element,
+  surface,
+}: {
+  readonly element: HTMLElement;
+  readonly surface: GpuContentSurface;
+}): boolean {
+  if (!isGpuRetainedContentSurface(surface)) {
+    return false;
+  }
+  const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
+  if (!sourceSurface) {
+    return false;
+  }
+  const canvas = element.querySelector<HTMLCanvasElement>(
+    '[data-gpu-flow-retained-content-canvas="true"]',
+  );
+  if (!canvas) {
+    return false;
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return false;
+  }
+  prepareGpuRetainedContentCanvas(canvas, sourceSurface);
+  drawGpuRetainedContentSurface(ctx, sourceSurface, {
+    palette: getGpuRetainedContentCanvasPalette(
+      isGpuRetainedContentCanvasDarkMode(canvas),
+    ),
+  });
+  return true;
+}
+
 function GpuRetainedContentCanvas({
   onSurfaceDraw,
   surface,

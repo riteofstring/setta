@@ -532,8 +532,8 @@ function ProjectGpuFlowLayer({
         passwordRevealStates,
         retainedContentScroll: {
           getScene: () => layoutAdapter.scene,
-          getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
-          onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
+          getScrollOffsets: layoutAdapter.getContentScrollOffsets,
+          onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
         },
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
@@ -823,8 +823,8 @@ function getProjectRetainedContentScrollOptions({
 }) {
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
-    getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
-    onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
+    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
+    onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
   };
 }
 
@@ -850,7 +850,7 @@ function getProjectRetainedContentKeyboardOptions({
         projectState: useProjectState.getState(),
         scene,
       }),
-    getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
+    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
     onNavigation: (event: GpuRetainedContentKeyboardNavigationEvent) => {
       layoutAdapter.setContentScrollOffsets(event.scrollOffsets);
       selectOnlyParam(event.target.ownerSectionId, event.target.rowId);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import {
+  applyGpuRetainedContentScrollOffsetToScene,
   clampGpuRetainedContentScrollOffset,
   resolveGpuRetainedContentDragAutoScroll,
   resolveGpuRetainedContentWheelScroll,
@@ -160,6 +161,29 @@ describe("retained content scroll", () => {
 
     expect(result.changed).toBe(false);
     expect(result.scrollOffsets).toBe(offsets);
+  });
+
+  it("applies retained content scroll to only the affected scene surface", () => {
+    const params = retainedSurface({
+      id: "params",
+      rect: { height: 80, width: 160, x: 0, y: 0 },
+    });
+    const sibling = retainedSurface({
+      id: "sibling",
+      rect: { height: 80, width: 160, x: 200, y: 0 },
+    });
+    const scene = sceneWithSurfaces([params, sibling]);
+
+    const update = applyGpuRetainedContentScrollOffsetToScene({
+      scene,
+      scrollOffset: { x: 0, y: 84 },
+      surfaceId: "params",
+    });
+
+    expect(update?.surface.retainedScene.scrollOffset).toEqual({ x: 0, y: 84 });
+    expect(update?.surface.retainedScene.rows[0]?.id).toBe("param-1");
+    expect(update?.scene.contentSurfaces[0]).toBe(update?.surface);
+    expect(update?.scene.contentSurfaces[1]).toBe(sibling);
   });
 
   it("autoscrolls a retained surface from a drag point near the viewport edge", () => {
