@@ -14,6 +14,7 @@ import {
   DateSelectionModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
+  createButtonParamCodeObjImpl,
   createChatSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
@@ -729,6 +730,93 @@ describe("project GPU layout adapter", () => {
         zIndex: 4,
       },
     ]);
+  });
+
+  it("does not synthesize retained controls for params without a section-param UI owner", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "button-param": "button-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["button-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "button-param",
+      "button-param-variant",
+      "button-param-impl",
+      createButtonParamCodeObjImpl({
+        id: "button-param-impl",
+        name: "button",
+        type: CodeObjTypeEnum.ButtonParam,
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "button-param": ["button-param"],
+        },
+        topLevelParamIds: ["button-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:button-param",
+        paramInfoId: "button-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(paramSurface?.retainedScene?.rows).toEqual([
+      expect.objectContaining({
+        controlKind: null,
+        id: "button-param",
+      }),
+    ]);
+    expect(paramSurface?.retainedScene?.hitRecords).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "control:button-param",
+          kind: "control",
+        }),
+      ]),
+    );
+    expect(paramSurface?.retainedScene?.drawCommands).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "row-control",
+          rowId: "button-param",
+        }),
+      ]),
+    );
+    expect(scene.domIslands).toEqual([]);
   });
 
   it("derives editable retained param labels as explicit DOM islands", () => {

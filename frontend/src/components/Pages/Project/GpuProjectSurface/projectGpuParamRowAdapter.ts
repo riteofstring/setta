@@ -69,7 +69,6 @@ export function createProjectGpuParamRowInput({
   const codeObjType = codeObjImpl.type as CodeObjType;
   return {
     controlKind: getProjectGpuParamControlKind({
-      fallbackType: codeObjType,
       isParent: row.isParent,
       rendererFamily: getSectionParamUIRendererFamily(codeObjType),
     }),
@@ -193,16 +192,14 @@ function isProjectGpuRetainedParamTargetForRow(
 }
 
 function getProjectGpuParamControlKind({
-  fallbackType,
   isParent,
   rendererFamily,
 }: {
-  readonly fallbackType: CodeObjType;
   readonly isParent: boolean;
   readonly rendererFamily: SectionParamUIRendererFamily | null;
-}): string {
+}): string | null {
   if (isParent) {
     return "nested";
   }
-  return rendererFamily ?? fallbackType;
+  return rendererFamily;
 }
