@@ -363,9 +363,28 @@ describe("project GPU layout adapter", () => {
         surfaceId: "dict-a:param-content:unpinned",
       },
       darkMode: false,
+      hoveredParamTarget: {
+        hitRecordId: "row:parent-param",
+        paramInfoId: "parent-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
       revision: 4,
     });
 
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(
+      paramSurface?.retainedScene?.rows.map((row) => ({
+        focused: row.state.focused,
+        hovered: row.state.hovered,
+        id: row.id,
+      })),
+    ).toEqual([
+      { focused: false, hovered: true, id: "parent-param" },
+      { focused: true, hovered: false, id: "child-param" },
+    ]);
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",

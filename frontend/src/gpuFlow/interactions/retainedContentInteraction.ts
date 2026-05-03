@@ -42,6 +42,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
   readonly shouldHandleHit?:
     | ((hit: GpuRetainedContentInteractionHit) => boolean)
     | undefined;
+  readonly shouldHandlePointerMoveHit?:
+    | ((hit: GpuRetainedContentInteractionHit) => boolean)
+    | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
@@ -164,7 +167,10 @@ class GpuRetainedContentInteractionController {
       }
       return;
     }
-    const hit = this.hitTestEvent(event);
+    const hit = this.hitTestEvent(
+      event,
+      this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,
+    );
     const nextHoveredHitKey = hit ? getRetainedContentHitKey(hit) : null;
     if (this.hoveredHitKey === nextHoveredHitKey) {
       return;
@@ -214,6 +220,9 @@ class GpuRetainedContentInteractionController {
 
   private hitTestEvent(
     event: Pick<PointerEvent, "clientX" | "clientY" | "target">,
+    hitFilter:
+      | ((hit: GpuRetainedContentInteractionHit) => boolean)
+      | undefined = this.options.shouldHandleHit,
   ): GpuRetainedContentInteractionHit | null {
     if (
       isRetainedContentInteractionDisabled(this.options.disabled) ||
@@ -227,7 +236,7 @@ class GpuRetainedContentInteractionController {
       getScene: this.options.getScene,
       store: this.store,
     });
-    if (!hit || this.options.shouldHandleHit?.(hit) === false) {
+    if (!hit || hitFilter?.(hit) === false) {
       return null;
     }
     return hit;

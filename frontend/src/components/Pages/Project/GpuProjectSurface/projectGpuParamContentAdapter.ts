@@ -49,32 +49,57 @@ export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
 type ProjectGpuParamListKey = "pinned" | "unpinned";
 
-export type ProjectGpuActiveParamDomIsland = {
+export type ProjectGpuRetainedParamTarget = {
   readonly hitRecordId: string;
   readonly paramInfoId: string;
   readonly sectionId: string;
   readonly surfaceId: string;
 };
 
+export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget;
+
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
   readonly rows: readonly GpuRetainedContentRowInput[];
 };
 
+type ProjectGpuRetainedParamInteractionState = {
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
+  readonly hoveredParamTarget?:
+    | ProjectGpuRetainedParamTarget
+    | null
+    | undefined;
+};
+
 export function createProjectGpuParamContentSurfaces({
+  activeParamDomIsland,
   contentScrollOffsets,
+  hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
   sections,
 }: {
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly hoveredParamTarget?:
+    | ProjectGpuRetainedParamTarget
+    | null
+    | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly sections: readonly GpuSectionSceneNode[];
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
     createProjectGpuParamContentSurfacesForSection({
+      activeParamDomIsland,
       contentScrollOffsets,
+      hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
       section,
@@ -139,12 +164,22 @@ export function createProjectGpuParamDomIslands({
 }
 
 function createProjectGpuParamContentSurfacesForSection({
+  activeParamDomIsland,
   contentScrollOffsets,
+  hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
   section,
 }: {
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly hoveredParamTarget?:
+    | ProjectGpuRetainedParamTarget
+    | null
+    | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly section: GpuSectionSceneNode;
@@ -163,6 +198,10 @@ function createProjectGpuParamContentSurfacesForSection({
     projectState,
     sectionId: section.sectionId,
     sectionImpl: dictSectionImpl,
+    retainedInteractionState: {
+      activeParamDomIsland,
+      hoveredParamTarget,
+    },
   });
   return createProjectGpuParamListContentSurfaces({
     contentScrollOffsets,
@@ -174,10 +213,12 @@ function createProjectGpuParamContentSurfacesForSection({
 
 function createProjectGpuParamListRows({
   projectState,
+  retainedInteractionState,
   sectionId,
   sectionImpl,
 }: {
   readonly projectState: ZustandProjectState;
+  readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
 }): readonly ProjectGpuParamListRows[] {
@@ -215,8 +256,10 @@ function createProjectGpuParamListRows({
         rows: createProjectGpuParamRows({
           filteredRows,
           projectState,
+          retainedInteractionState,
           sectionId,
           sectionImpl,
+          surfaceId: getProjectGpuParamContentSurfaceId(sectionId, key),
         }),
       },
     ];
@@ -287,13 +330,17 @@ function normalizeProjectGpuShownParamRows({
 function createProjectGpuParamRows({
   filteredRows,
   projectState,
+  retainedInteractionState,
   sectionId,
   sectionImpl,
+  surfaceId,
 }: {
   readonly filteredRows: FilteredParamRows;
   readonly projectState: ZustandProjectState;
+  readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
+  readonly surfaceId: string;
 }): readonly GpuRetainedContentRowInput[] {
   const tree = buildParamTreeView(
     projectState,
@@ -331,10 +378,42 @@ function createProjectGpuParamRows({
         ? [{ id: row.id, kind: "input", side: "left" }]
         : [],
       state: {
+        focused: isProjectGpuRetainedParamTargetForRow(
+          retainedInteractionState.activeParamDomIsland,
+          {
+            paramInfoId: row.id,
+            sectionId,
+            surfaceId,
+          },
+        ),
+        hovered: isProjectGpuRetainedParamTargetForRow(
+          retainedInteractionState.hoveredParamTarget,
+          {
+            paramInfoId: row.id,
+            sectionId,
+            surfaceId,
+          },
+        ),
         selected: selectedParamIds.has(row.id),
       },
     };
   });
+}
+
+function isProjectGpuRetainedParamTargetForRow(
+  target: ProjectGpuRetainedParamTarget | null | undefined,
+  row: {
+    readonly paramInfoId: string;
+    readonly sectionId: string;
+    readonly surfaceId: string;
+  },
+): boolean {
+  return Boolean(
+    target &&
+      target.paramInfoId === row.paramInfoId &&
+      target.sectionId === row.sectionId &&
+      target.surfaceId === row.surfaceId,
+  );
 }
 
 function getProjectGpuParamControlKind({

@@ -77,9 +77,13 @@ import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
   type ProjectGpuActiveParamDomIsland,
+  type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
 
-export type { ProjectGpuActiveParamDomIsland } from "./projectGpuParamContentAdapter";
+export type {
+  ProjectGpuActiveParamDomIsland,
+  ProjectGpuRetainedParamTarget,
+} from "./projectGpuParamContentAdapter";
 
 export type ProjectGpuLayoutAdapter = {
   readonly contentScrollOffsets: GpuRetainedContentScrollOffsetMap;
@@ -127,9 +131,14 @@ const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
 export function useProjectGpuLayoutAdapter({
   activeParamDomIsland,
+  hoveredParamTarget,
 }: {
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
+  readonly hoveredParamTarget?:
+    | ProjectGpuRetainedParamTarget
     | null
     | undefined;
 } = {}): ProjectGpuLayoutAdapter {
@@ -155,12 +164,14 @@ export function useProjectGpuLayoutAdapter({
         revision: getProjectGpuSceneRevision(projectState),
         activeParamDomIsland,
         contentScrollOffsets,
+        hoveredParamTarget,
         scrollOffsets: sceneScrollOffsets,
       }),
     [
       activeParamDomIsland,
       contentScrollOffsets,
       darkMode,
+      hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
       resizeEventBySectionId,
@@ -288,6 +299,10 @@ export function getProjectGpuFlowScene(
       | ProjectGpuActiveParamDomIsland
       | null
       | undefined;
+    readonly hoveredParamTarget?:
+      | ProjectGpuRetainedParamTarget
+      | null
+      | undefined;
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
     readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
@@ -374,7 +389,9 @@ export function getProjectGpuFlowScene(
     sections,
   });
   const paramContentSurfaces = createProjectGpuParamContentSurfaces({
+    activeParamDomIsland: options.activeParamDomIsland,
     contentScrollOffsets: options.contentScrollOffsets,
+    hoveredParamTarget: options.hoveredParamTarget,
     measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
     projectState,
     sections: layoutScene.sections,

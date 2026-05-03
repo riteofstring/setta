@@ -77,6 +77,7 @@ import {
   useProjectGpuLayoutAdapter,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuLayoutAdapter,
+  type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
@@ -161,7 +162,12 @@ export function GpuProjectSurface() {
   const dimensions = useProjectSurfaceDimensions(rootRef);
   const [activeParamDomIsland, setActiveParamDomIsland] =
     useState<ProjectGpuActiveParamDomIsland | null>(null);
-  const layoutAdapter = useProjectGpuLayoutAdapter({ activeParamDomIsland });
+  const [hoveredParamTarget, setHoveredParamTarget] =
+    useState<ProjectGpuRetainedParamTarget | null>(null);
+  const layoutAdapter = useProjectGpuLayoutAdapter({
+    activeParamDomIsland,
+    hoveredParamTarget,
+  });
   const settings = useProjectGpuSurfaceSettings();
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
@@ -235,6 +241,7 @@ export function GpuProjectSurface() {
         canEditLayout={canEditLayout}
         layoutAdapter={layoutAdapter}
         onActiveParamDomIslandChange={setActiveParamDomIsland}
+        onHoveredParamTargetChange={setHoveredParamTarget}
         readyToRender={readyToRender}
         settings={settings}
       />
@@ -251,6 +258,7 @@ function ProjectGpuFlowLayer({
   isFollowTransitioning,
   layoutAdapter,
   onActiveParamDomIslandChange,
+  onHoveredParamTargetChange,
   readyToRender,
   settings,
 }: {
@@ -263,6 +271,9 @@ function ProjectGpuFlowLayer({
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
   readonly onActiveParamDomIslandChange: (
     island: ProjectGpuActiveParamDomIsland | null,
+  ) => void;
+  readonly onHoveredParamTargetChange: (
+    target: ProjectGpuRetainedParamTarget | null,
   ) => void;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
@@ -382,8 +393,13 @@ function ProjectGpuFlowLayer({
       getProjectRetainedContentInteractionOptions({
         flowInteractionKeys,
         onActiveParamDomIslandChange,
+        onHoveredParamTargetChange,
       }),
-    [flowInteractionKeys, onActiveParamDomIslandChange],
+    [
+      flowInteractionKeys,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange,
+    ],
   );
   if (!readyToRender) {
     return null;
@@ -637,18 +653,41 @@ function getProjectRetainedContentScrollOptions({
 function getProjectRetainedContentInteractionOptions({
   flowInteractionKeys,
   onActiveParamDomIslandChange,
+  onHoveredParamTargetChange,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly onActiveParamDomIslandChange: (
     island: ProjectGpuActiveParamDomIsland | null,
+  ) => void;
+  readonly onHoveredParamTargetChange: (
+    target: ProjectGpuRetainedParamTarget | null,
   ) => void;
 }) {
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
     onHitClick: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentClick(event, onActiveParamDomIslandChange),
+    onHitPointerLeave: () => onHoveredParamTargetChange(null),
+    onHitPointerMove: (event: {
+      readonly hit: GpuRetainedContentInteractionHit | null;
+    }) =>
+      onHoveredParamTargetChange(
+        event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
+      ),
+    shouldHandlePointerMoveHit: () => true,
     shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
       shouldHandleProjectRetainedContentHit(event),
+  };
+}
+
+function toProjectGpuRetainedParamTarget(
+  event: GpuRetainedContentInteractionHit,
+): ProjectGpuRetainedParamTarget {
+  return {
+    hitRecordId: event.hit.id,
+    paramInfoId: event.hit.ownerRowId,
+    sectionId: event.ownerSectionId,
+    surfaceId: event.surfaceId,
   };
 }
 

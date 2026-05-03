@@ -120,6 +120,71 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("can expose hover hits separately from pointer ownership hits", () => {
+    const element = createHostElement();
+    const onHitPointerLeave = vi.fn();
+    const onHitPointerMove = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerLeave,
+      onHitPointerMove,
+      shouldHandleHit: (hit) => hit.hit.kind === "control",
+      shouldHandlePointerMoveHit: (hit) => hit.hit.kind === "row",
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 42,
+      pointerId: 1,
+    });
+    element.dispatchEvent(pointerDown);
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 20,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 220,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerleave", {
+        buttons: 0,
+        clientX: 220,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(onHitPointerMove).toHaveBeenNthCalledWith(1, {
+      hit: expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "row:param-1",
+          kind: "row",
+          ownerRowId: "param-1",
+        }),
+      }),
+      nativeEvent: expect.any(MouseEvent),
+    });
+    expect(onHitPointerMove).toHaveBeenNthCalledWith(2, {
+      hit: null,
+      nativeEvent: expect.any(MouseEvent),
+    });
+    expect(onHitPointerLeave).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("preserves native active DOM island targets", () => {
     const element = createHostElement();
     const input = document.createElement("input");
