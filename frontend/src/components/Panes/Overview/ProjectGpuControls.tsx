@@ -1,5 +1,12 @@
 import { SettaPluginCanvasControlPlacementEnum } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
+import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
+import { fitView, resetZoom, zoomBy } from "gpuFlow/viewportActions";
+import {
+  gpuFlowViewportStore,
+  type GpuFlowViewportStoreApi,
+} from "gpuFlow/viewportStore";
 import {
   usePluginCanvasControls,
   usePluginRuntimeStore,
@@ -37,13 +44,6 @@ import {
 } from "state/actions/localStorage";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
-import { GPU_FLOW_CLASS_NAMES } from "./gpuFlowDomClasses";
-import type { GpuFlowLayoutStoreApi } from "./layoutStore";
-import { fitView, resetZoom, zoomBy } from "./viewportActions";
-import {
-  gpuFlowViewportStore,
-  type GpuFlowViewportStoreApi,
-} from "./viewportStore";
 
 const ACTIVE_CONTROL_CLASS_NAME =
   "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
@@ -56,7 +56,7 @@ const EMPTY_PLUGIN_CAPABILITIES: string[] = [];
 const ZOOM_STEP_FACTOR = 1.2;
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
 
-type GpuControlsProps = {
+type ProjectGpuControlsProps = {
   readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
   readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
@@ -480,10 +480,10 @@ function decodeGpuZoomLimitState(state: number): {
   };
 }
 
-function GpuControlsComponent({
+function ProjectGpuControlsComponent({
   layoutStore,
   viewportStore = gpuFlowViewportStore,
-}: GpuControlsProps) {
+}: ProjectGpuControlsProps) {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } =
     useGpuControlsZoomState(viewportStore);
@@ -537,6 +537,6 @@ function GpuControlsComponent({
   );
 }
 
-GpuControlsComponent.displayName = "GpuControls";
+ProjectGpuControlsComponent.displayName = "ProjectGpuControls";
 
-export const GpuControls = memo(GpuControlsComponent);
+export const ProjectGpuControls = memo(ProjectGpuControlsComponent);

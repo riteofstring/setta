@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { fitGpuControlsViewFromLayoutStore } from "./GpuControls";
-import { createGpuFlowLayoutStore } from "./layoutStore";
-import { createGpuFlowViewportStore } from "./viewportStore";
+import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
+import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { fitGpuControlsViewFromLayoutStore } from "./ProjectGpuControls";
 
-describe("GpuControls fit view", () => {
+describe("ProjectGpuControls fit view", () => {
   it("fits the viewport from layout-store bounds", () => {
     const viewportStore = createGpuFlowViewportStore({
       height: 600,

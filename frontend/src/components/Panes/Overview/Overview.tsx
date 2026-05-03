@@ -4,7 +4,6 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import { GpuControls } from "gpuFlow/GpuControls";
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
 import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
@@ -62,6 +61,7 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
+import { ProjectGpuControls } from "./ProjectGpuControls";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -531,7 +531,7 @@ function OverviewRail({
           ))}
         </NavbarMenuDropdown>
       </Menubar.Root>
-      <GpuControls layoutStore={layoutStore} />
+      <ProjectGpuControls layoutStore={layoutStore} />
       <Link
         to={SETTINGS_ROUTER_PATH}
         state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
