@@ -63,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
 import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
 import {
@@ -218,6 +219,14 @@ export function GpuProjectSurface() {
         showDataEdges,
       })}
       data-tab-scope="canvas"
+      onPointerDownCapture={(event) => {
+        if (
+          activeParamDomIsland &&
+          shouldClearProjectGpuActiveParamDomIslandOnPointerDown(event.target)
+        ) {
+          setActiveParamDomIsland(null);
+        }
+      }}
       onClick={(event) => {
         if (isProjectPaneBackgroundTarget(event.target)) {
           setActiveParamDomIsland(null);
