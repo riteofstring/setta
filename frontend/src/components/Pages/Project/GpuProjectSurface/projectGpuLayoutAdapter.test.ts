@@ -1898,6 +1898,7 @@ describe("project GPU layout adapter", () => {
     ).toEqual({
       attachments: [
         {
+          id: "artifact-a",
           kind: "file",
           name: "input.csv",
           sizeLabel: "2 KB",

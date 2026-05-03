@@ -513,6 +513,7 @@ describe("retained content scene", () => {
           control: {
             attachments: [
               {
+                id: "artifact-a",
                 kind: "file",
                 name: "input.csv",
                 sizeLabel: "2 KB",
@@ -540,6 +541,7 @@ describe("retained content scene", () => {
     expect(scene.rows[0]?.control).toEqual({
       attachments: [
         {
+          id: "artifact-a",
           kind: "file",
           name: "input.csv",
           sizeLabel: "2 KB",
@@ -562,7 +564,12 @@ describe("retained content scene", () => {
         expect.objectContaining({
           control: expect.objectContaining({
             attachments: expect.arrayContaining([
-              { kind: "file", name: "input.csv", sizeLabel: "2 KB" },
+              {
+                id: "artifact-a",
+                kind: "file",
+                name: "input.csv",
+                sizeLabel: "2 KB",
+              },
             ]),
             kind: "dropzone",
             commitPolicy: "native-island",
@@ -570,6 +577,18 @@ describe("retained content scene", () => {
           controlKind: "dropzone",
           kind: "row-control",
           rowId: "dropzone-param",
+        }),
+      ]),
+    );
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          attachmentId: "artifact-a",
+          attachmentIndex: 0,
+          id: "control-subpart:dropzone-param:dropzone-attachment-delete:artifact-a",
+          kind: "control-subpart",
+          ownerRowId: "dropzone-param",
+          subpartKind: "dropzone-attachment-delete",
         }),
       ]),
     );

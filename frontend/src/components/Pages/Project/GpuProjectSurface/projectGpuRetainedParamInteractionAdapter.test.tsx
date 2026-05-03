@@ -39,7 +39,9 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
+  ArtifactTypeEnum,
   CodeObjTypeEnum,
+  DropzoneModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   TimeControlModeEnum,
@@ -48,6 +50,7 @@ import {
   createCodeParamCodeObjImpl,
   createCore,
   createDictSectionImpl,
+  createDropzoneParamCodeObjImpl,
   createNestedParamCodeObjImpl,
   createProjectConfig,
   createSingleConfig,
@@ -55,6 +58,7 @@ import {
   createVariant,
   type ColorPickerParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
+  type DropzoneParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
@@ -83,6 +87,10 @@ const mocks = vi.hoisted(() => ({
   paramNameInputProps: vi.fn(),
   requestAnimationFrameMock: vi.fn(),
   cancelAnimationFrameMock: vi.fn(),
+  deleteArtifactsMock: vi.fn((args: object) => ({
+    args,
+    route: "deleteArtifacts",
+  })),
   setActiveIdsMock: vi.fn((args: object) => ({
     args,
     route: "setActiveIds",
@@ -190,6 +198,7 @@ vi.mock("openapi/http", async (importOriginal) => {
   const actual = await importOriginal<typeof import("openapi/http")>();
   return {
     ...actual,
+    deleteArtifacts: mocks.deleteArtifactsMock,
     setActiveIds: mocks.setActiveIdsMock,
     setParamEnteredValue: mocks.setParamEnteredValueMock,
   };
@@ -268,6 +277,7 @@ describe("project GPU retained param DOM islands", () => {
     mocks.paramNameInputProps.mockClear();
     mocks.requestAnimationFrameMock.mockClear();
     mocks.cancelAnimationFrameMock.mockClear();
+    mocks.deleteArtifactsMock.mockClear();
     mocks.setActiveIdsMock.mockClear();
     mocks.setParamEnteredValueMock.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
@@ -1556,6 +1566,152 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("deletes retained dropzone attachments from canvas without mounting a DOM island", async () => {
+    seedDropzoneParamProjectState(
+      JSON.stringify({
+        attachments: [
+          {
+            kind: "file",
+            id: "artifact-a",
+            name: "input.csv",
+            size: 2048,
+          },
+        ],
+      }),
+    );
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            attachments: [
+              {
+                id: "artifact-a",
+                kind: "file",
+                name: "input.csv",
+                sizeLabel: "2 KB",
+              },
+            ],
+            canAttachMore: false,
+            defaultDisplayValue: "",
+            displayValue: JSON.stringify({
+              attachments: [
+                {
+                  kind: "file",
+                  id: "artifact-a",
+                  name: "input.csv",
+                  size: 2048,
+                },
+              ],
+            }),
+            kind: "dropzone",
+            label: "1 attachment",
+            maxAttachments: 1,
+            mode: DropzoneModeEnum.STATEFUL,
+            placeholder: "Drop a file here",
+            remainingSlots: 0,
+            rendererFamily: "dropzone",
+            commitPolicy: "native-island",
+          },
+          controlKind: "dropzone",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+    });
+    const deleteHit = retainedScene.hitRecords.find(
+      (candidate) =>
+        candidate.kind === "control-subpart" &&
+        candidate.subpartKind === "dropzone-attachment-delete",
+    );
+    if (!deleteHit) {
+      throw new Error("Expected retained dropzone delete hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: deleteHit,
+      localPoint: {
+        x: deleteHit.rect.x + deleteHit.rect.width / 2,
+        y: deleteHit.rect.y + deleteHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(true);
+    options.onHitClick(event);
+
+    expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramInfoId: "param-1",
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+      body: {
+        frontendOpId: expect.any(String),
+        paramInfoId: "param-1",
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        sectionVariantId: "section-1-variant",
+        value: expect.any(String),
+      },
+    });
+    const setValue = (
+      mocks.setParamEnteredValueMock.mock.calls[0]?.[0] as {
+        body: { value: string };
+      }
+    ).body.value;
+    expect(setValue).toBe("");
+    expect(mocks.deleteArtifactsMock).toHaveBeenCalledWith({
+      body: {
+        artifacts: [
+          {
+            id: "artifact-a",
+            type: ArtifactTypeEnum.File,
+          },
+        ],
+      },
+    });
+    expect(useProjectState.getState().codeObjImpls["param-1-impl"]?.value).toBe(
+      "",
+    );
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -2325,6 +2481,115 @@ function seedDropdownParamProjectState(value: string) {
     typeAnnotation: "",
     value,
   } satisfies DropdownParamCodeObjImpl;
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: paramImpl,
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function seedDropzoneParamProjectState(value: string) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const paramImpl = createDropzoneParamCodeObjImpl({
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "",
+    description: "",
+    id: paramImplId,
+    isPreset: false,
+    maxAttachments: 1,
+    mode: DropzoneModeEnum.STATEFUL,
+    name: "param-1",
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    placeholder: "Drop a file here",
+    type: CodeObjTypeEnum.DropzoneParam,
+    typeAnnotation: "",
+    value,
+  }) satisfies DropzoneParamCodeObjImpl;
 
   useProjectState.setState(
     createSingleConfig({

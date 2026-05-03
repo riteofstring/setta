@@ -1,3 +1,4 @@
+import { createGpuRetainedContentControlSubpartHitRecords } from "./retainedContentControlSubpartHits";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -34,6 +35,7 @@ export type GpuRetainedContentDropdownChoice = {
 };
 
 export type GpuRetainedContentDropzoneAttachment = {
+  readonly id: string | null;
   readonly kind: "file" | "text";
   readonly name: string;
   readonly sizeLabel: string | null;
@@ -233,11 +235,20 @@ export type GpuRetainedContentDrawCommand =
 
 export type GpuRetainedContentHitRecord = {
   readonly id: string;
-  readonly kind: "control" | "label" | "popup-option" | "port" | "row";
+  readonly attachmentId?: string | undefined;
+  readonly attachmentIndex?: number | undefined;
+  readonly kind:
+    | "control"
+    | "control-subpart"
+    | "label"
+    | "popup-option"
+    | "port"
+    | "row";
   readonly optionIndex?: number | undefined;
   readonly optionValue?: string | undefined;
   readonly ownerRowId: string;
   readonly rect: GpuRect;
+  readonly subpartKind?: "dropzone-attachment-delete" | undefined;
 };
 
 export type GpuRetainedContentPortAnchor = {
@@ -756,6 +767,10 @@ function createGpuRetainedContentHitRecords({
 }): GpuRetainedContentHitRecord[] {
   const hitRecords: GpuRetainedContentHitRecord[] = [];
   for (const row of rows) {
+    const controlRect = createGpuRetainedContentControlRect({
+      controlWidth,
+      rowRect: row.projectedRect,
+    });
     hitRecords.push({
       id: `row:${row.id}`,
       kind: "row",
@@ -767,10 +782,7 @@ function createGpuRetainedContentHitRecords({
       kind: "label",
       ownerRowId: row.id,
       rect: createGpuRetainedContentLabelRect({
-        controlRect: createGpuRetainedContentControlRect({
-          controlWidth,
-          rowRect: row.projectedRect,
-        }),
+        controlRect,
         labelControlGap,
         labelX: row.projectedRect.x + row.depth * indentWidth,
         rowRect: row.projectedRect,
@@ -781,11 +793,14 @@ function createGpuRetainedContentHitRecords({
         id: `control:${row.id}`,
         kind: "control",
         ownerRowId: row.id,
-        rect: createGpuRetainedContentControlRect({
-          controlWidth,
-          rowRect: row.projectedRect,
-        }),
+        rect: controlRect,
       });
+      hitRecords.push(
+        ...createGpuRetainedContentControlSubpartHitRecords({
+          controlRect,
+          row,
+        }),
+      );
     }
     for (const anchor of createGpuRetainedContentPortAnchors({
       portHitSize,

@@ -2,10 +2,6 @@ import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateInd
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
 import {
-  commitParamInputValueChange,
-  getParamInputPreviewState,
-} from "components/Params/ParamItems/paramValueUpdates";
-import {
   resolveParamBackgroundClass,
   resolveParamBorderClass,
 } from "components/Params/paramRowAppearance";
@@ -93,22 +89,23 @@ import {
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
 import {
-  commitProjectGpuRetainedColorPickerPopupOption,
   getProjectGpuRetainedColorPickerPopupTarget,
   isProjectGpuRetainedColorPickerPopupOptionHit,
 } from "./projectGpuRetainedParamColorPickerAdapter";
 import {
-  commitProjectGpuRetainedDropdownPopupOption,
   getProjectGpuRetainedDropdownPopupTarget,
   isProjectGpuRetainedDropdownPopupOptionHit,
 } from "./projectGpuRetainedParamDropdownAdapter";
+import { isProjectGpuRetainedDropzoneAttachmentDeleteHit } from "./projectGpuRetainedParamDropzoneAdapter";
 import {
   commitProjectGpuRetainedRangedControlClick,
   handleProjectGpuRetainedRangedControlDragEnd,
   handleProjectGpuRetainedRangedControlDragMove,
   isProjectGpuRetainedParamRangedControlHit,
 } from "./projectGpuRetainedParamRangedControlAdapter";
+import { commitProjectGpuRetainedSwitchParamClick } from "./projectGpuRetainedParamSwitchAdapter";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -385,14 +382,12 @@ function handleProjectRetainedContentClick(
     interaction: "input-focus",
     sectionId: event.ownerSectionId,
   });
-  if (commitProjectGpuRetainedColorPickerPopupOption(event)) {
-    onActiveParamCanvasPopupChange(null);
-    onActiveParamDomIslandChange(null);
-    return;
-  }
-  if (commitProjectGpuRetainedDropdownPopupOption(event)) {
-    onActiveParamCanvasPopupChange(null);
-    onActiveParamDomIslandChange(null);
+  if (
+    handleProjectRetainedContentCanvasCommitClick(event, {
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+    })
+  ) {
     return;
   }
   if (
@@ -440,7 +435,7 @@ function handleProjectRetainedContentCanvasControlClick(
   }
   if (row.control.kind === "switch") {
     onActiveParamCanvasPopupChange(null);
-    commitProjectRetainedSwitchParamClick({
+    commitProjectGpuRetainedSwitchParamClick({
       checked: row.control.checked,
       paramInfoId: event.hit.ownerRowId,
       sectionId: event.ownerSectionId,
@@ -463,35 +458,6 @@ function handleProjectRetainedContentCanvasControlClick(
     return true;
   }
   return false;
-}
-
-function commitProjectRetainedSwitchParamClick({
-  checked,
-  paramInfoId,
-  sectionId,
-}: {
-  readonly checked: boolean;
-  readonly paramInfoId: string;
-  readonly sectionId: string;
-}) {
-  const projectState = useProjectState.getState();
-  const previewState = getParamInputPreviewState(
-    projectState,
-    sectionId,
-    paramInfoId,
-  );
-  if (!previewState) {
-    throw new Error(
-      `Missing GPU retained switch param ${paramInfoId} in section ${sectionId}.`,
-    );
-  }
-  commitParamInputValueChange({
-    nextValue: checked ? "false" : "true",
-    paramInfoId,
-    previousValue: previewState.baseValue,
-    previewState,
-    sectionId,
-  });
 }
 
 function handleProjectRetainedContentDragStart(
@@ -760,6 +726,9 @@ function isProjectRetainedParamCanvasPopupHit(
 function isProjectRetainedParamCanvasControlHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
+  if (isProjectGpuRetainedDropzoneAttachmentDeleteHit(event)) {
+    return true;
+  }
   if (event.hit.kind !== "control") {
     return false;
   }

@@ -4,6 +4,7 @@ import {
   drawGpuRetainedContentDropzoneControl,
   getGpuRetainedContentDropzoneSecondaryText,
 } from "./retainedContentDropzoneCanvas";
+import { getGpuRetainedContentDropzoneAttachmentDeleteLayout } from "./retainedContentDropzoneLayout";
 import type { GpuRetainedContentControlDescriptor } from "./retainedContentScene";
 
 describe("retained content dropzone canvas", () => {
@@ -11,8 +12,13 @@ describe("retained content dropzone canvas", () => {
     const ctx = createCanvasContextRecorder();
     const control = dropzoneControl({
       attachments: [
-        { kind: "file", name: "input.csv", sizeLabel: "2 KB" },
-        { kind: "text", name: "notes.txt", sizeLabel: null },
+        {
+          id: "artifact-a",
+          kind: "file",
+          name: "input.csv",
+          sizeLabel: "2 KB",
+        },
+        { id: "text-a", kind: "text", name: "notes.txt", sizeLabel: null },
       ],
       canAttachMore: false,
       label: "2 attachments",
@@ -38,6 +44,22 @@ describe("retained content dropzone canvas", () => {
       expect.any(Number),
       expect.any(Number),
     );
+    expect(
+      getGpuRetainedContentDropzoneAttachmentDeleteLayout({
+        control,
+        rect: { height: 28, width: 132, x: 0, y: 0 },
+      }),
+    ).toEqual({
+      attachment: {
+        id: "artifact-a",
+        kind: "file",
+        name: "input.csv",
+        sizeLabel: "2 KB",
+      },
+      attachmentId: "artifact-a",
+      attachmentIndex: 0,
+      rect: { height: 16, width: 16, x: 106, y: 6 },
+    });
   });
 
   it("summarizes empty dropzone capacity for closed canvas displays", () => {

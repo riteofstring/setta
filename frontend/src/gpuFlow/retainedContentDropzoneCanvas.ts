@@ -1,3 +1,7 @@
+import {
+  getGpuRetainedContentDropzoneAttachmentDeleteLayout,
+  getGpuRetainedContentDropzoneOuterRect,
+} from "./retainedContentDropzoneLayout";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowState,
@@ -26,11 +30,19 @@ export function drawGpuRetainedContentDropzoneControl({
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
   const disabled = state?.disabled ?? false;
-  const outer = insetRect(rect, 6, 4);
+  const outer = getGpuRetainedContentDropzoneOuterRect(rect);
   const iconRect = getGpuRetainedContentDropzoneIconRect(outer);
+  const deleteLayout = getGpuRetainedContentDropzoneAttachmentDeleteLayout({
+    control,
+    rect,
+  });
   const textRect = {
     height: outer.height,
-    width: Math.max(0, outer.width - iconRect.width - 8),
+    width: Math.max(
+      0,
+      (deleteLayout ? deleteLayout.rect.x - 4 : outer.x + outer.width) -
+        (iconRect.x + iconRect.width + 6),
+    ),
     x: iconRect.x + iconRect.width + 6,
     y: outer.y,
   };
@@ -53,6 +65,13 @@ export function drawGpuRetainedContentDropzoneControl({
     disabled,
     rect: textRect,
   });
+  if (deleteLayout) {
+    drawGpuRetainedContentDropzoneDeleteButton({
+      ctx,
+      disabled,
+      rect: deleteLayout.rect,
+    });
+  }
 }
 
 function drawGpuRetainedContentDropzoneIcon({
@@ -122,6 +141,34 @@ function drawGpuRetainedContentDropzoneText({
   ctx.textAlign = "start";
 }
 
+function drawGpuRetainedContentDropzoneDeleteButton({
+  ctx,
+  disabled,
+  rect,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly rect: GpuRect;
+}) {
+  ctx.fillStyle = disabled ? "#f1f5f9" : "#fee2e2";
+  fillRoundRect(ctx, rect, rect.height / 2);
+  ctx.strokeStyle = disabled ? "#cbd5e1" : "#fecaca";
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, rect, rect.height / 2);
+
+  const inset = Math.max(4, rect.width * 0.3);
+  ctx.beginPath();
+  ctx.moveTo(rect.x + inset, rect.y + inset);
+  ctx.lineTo(rect.x + rect.width - inset, rect.y + rect.height - inset);
+  ctx.moveTo(rect.x + rect.width - inset, rect.y + inset);
+  ctx.lineTo(rect.x + inset, rect.y + rect.height - inset);
+  ctx.strokeStyle = disabled ? "#94a3b8" : "#b91c1c";
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.stroke();
+  ctx.lineCap = "butt";
+}
+
 export function getGpuRetainedContentDropzoneSecondaryText(
   control: GpuRetainedContentDropzoneControl,
 ): string {
@@ -153,15 +200,6 @@ function getGpuRetainedContentDropzoneIconRect(outer: GpuRect): GpuRect {
     width: size,
     x: outer.x + 4,
     y: outer.y + (outer.height - size) / 2,
-  };
-}
-
-function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
-  return {
-    height: Math.max(0, rect.height - insetY * 2),
-    width: Math.max(0, rect.width - insetX * 2),
-    x: rect.x + insetX,
-    y: rect.y + insetY,
   };
 }
 

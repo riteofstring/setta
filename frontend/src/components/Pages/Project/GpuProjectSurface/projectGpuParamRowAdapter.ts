@@ -573,6 +573,7 @@ function toProjectGpuDropzoneAttachment(
   attachment: DropzoneStoredAttachment,
 ): GpuRetainedContentDropzoneAttachment {
   return {
+    id: attachment.id ?? null,
     kind: attachment.kind,
     name: attachment.name,
     sizeLabel:
