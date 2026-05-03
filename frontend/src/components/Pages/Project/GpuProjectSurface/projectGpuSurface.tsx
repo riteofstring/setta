@@ -84,6 +84,10 @@ import type {
 } from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import {
+  useProjectGpuRetainedParamCanvasControlKeyboard,
+  useProjectGpuRetainedParamCanvasControlWheel,
+} from "./projectGpuRetainedParamCanvasControlInput";
+import {
   getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
   getProjectScenePortConnectionOptions,
@@ -174,6 +178,8 @@ export function GpuProjectSurface() {
     useState<ProjectGpuActiveParamDomIsland | null>(null);
   const [activeParamCanvasPopup, setActiveParamCanvasPopup] =
     useState<ProjectGpuActiveParamCanvasPopup | null>(null);
+  const [activeParamCanvasControl, setActiveParamCanvasControl] =
+    useState<ProjectGpuRetainedParamTarget | null>(null);
   const dismissActiveParamCanvasPopup = useCallback(() => {
     setActiveParamCanvasPopup(null);
   }, []);
@@ -182,6 +188,7 @@ export function GpuProjectSurface() {
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
     useState<ProjectGpuRetainedParamDragPreview | null>(null);
   const layoutAdapter = useProjectGpuLayoutAdapter({
+    activeParamCanvasControl,
     activeParamCanvasPopup,
     activeParamDomIsland,
     hoveredParamTarget,
@@ -232,6 +239,18 @@ export function GpuProjectSurface() {
     rootRef,
     scene: layoutAdapter.scene,
   });
+  useProjectGpuRetainedParamCanvasControlKeyboard({
+    activeParamCanvasControl,
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
+  useProjectGpuRetainedParamCanvasControlWheel({
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    onActiveParamCanvasControlChange: setActiveParamCanvasControl,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
   useTabScope({
     behavior: "canvas",
     order: 20,
@@ -258,6 +277,7 @@ export function GpuProjectSurface() {
       }}
       onClick={(event) => {
         if (isProjectPaneBackgroundTarget(event.target)) {
+          setActiveParamCanvasControl(null);
           setActiveParamDomIsland(null);
           dismissActiveParamCanvasPopup();
         }
@@ -289,12 +309,20 @@ export function GpuProjectSurface() {
         onActiveParamCanvasPopupChange={(popup) => {
           setActiveParamCanvasPopup(popup);
           if (popup) {
+            setActiveParamCanvasControl(null);
+            setActiveParamDomIsland(null);
+          }
+        }}
+        onActiveParamCanvasControlChange={(target) => {
+          setActiveParamCanvasControl(target);
+          if (target) {
             setActiveParamDomIsland(null);
           }
         }}
         onActiveParamDomIslandChange={(island) => {
           setActiveParamDomIsland(island);
           if (island) {
+            setActiveParamCanvasControl(null);
             setActiveParamCanvasPopup(null);
           }
         }}
@@ -316,6 +344,7 @@ function ProjectGpuFlowLayer({
   isFollowTransitioning,
   layoutAdapter,
   onActiveParamCanvasPopupChange,
+  onActiveParamCanvasControlChange,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onRetainedParamDragPreviewChange,
@@ -331,6 +360,9 @@ function ProjectGpuFlowLayer({
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
   readonly onActiveParamCanvasPopupChange: (
     popup: ProjectGpuActiveParamCanvasPopup | null,
+  ) => void;
+  readonly onActiveParamCanvasControlChange: (
+    target: ProjectGpuRetainedParamTarget | null,
   ) => void;
   readonly onActiveParamDomIslandChange: (
     island: ProjectGpuActiveParamDomIsland | null,
@@ -461,6 +493,7 @@ function ProjectGpuFlowLayer({
       getProjectRetainedContentInteractionOptions({
         canEditStructure,
         onActiveParamCanvasPopupChange,
+        onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
         onRetainedParamDragPreviewChange,
@@ -476,6 +509,7 @@ function ProjectGpuFlowLayer({
       canEditStructure,
       flowInteractionKeys,
       onActiveParamCanvasPopupChange,
+      onActiveParamCanvasControlChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
       onRetainedParamDragPreviewChange,

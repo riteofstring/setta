@@ -90,6 +90,7 @@ import {
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
+import { toProjectGpuRetainedCanvasControlTarget } from "./projectGpuRetainedParamCanvasControlInput";
 import {
   getProjectGpuRetainedColorPickerPopupTarget,
   isProjectGpuRetainedColorPickerPopupOptionHit,
@@ -120,9 +121,20 @@ type ProjectGpuRetainedContentScrollApi = {
   ) => void;
 };
 
+type ActiveParamCanvasControlHandler = (
+  target: ProjectGpuRetainedParamTarget | null,
+) => void;
+type ActiveParamDomIslandHandler = (
+  island: ProjectGpuActiveParamDomIsland | null,
+) => void;
+type ActiveParamPopupHandler = (
+  popup: ProjectGpuActiveParamCanvasPopup | null,
+) => void;
+
 export function getProjectRetainedContentInteractionOptions({
   canEditStructure,
-  onActiveParamCanvasPopupChange,
+  onActiveParamCanvasPopupChange = ignoreProjectGpuActiveParamCanvasPopup,
+  onActiveParamCanvasControlChange = ignoreProjectGpuActiveParamCanvasControl,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onRetainedParamDragPreviewChange,
@@ -131,12 +143,9 @@ export function getProjectRetainedContentInteractionOptions({
   zoomActivationKeyPressed,
 }: {
   readonly canEditStructure: boolean;
-  readonly onActiveParamCanvasPopupChange?:
-    | ((popup: ProjectGpuActiveParamCanvasPopup | null) => void)
-    | undefined;
-  readonly onActiveParamDomIslandChange: (
-    island: ProjectGpuActiveParamDomIsland | null,
-  ) => void;
+  readonly onActiveParamCanvasPopupChange?: ActiveParamPopupHandler;
+  readonly onActiveParamCanvasControlChange?: ActiveParamCanvasControlHandler;
+  readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
   readonly onHoveredParamTargetChange: (
     target: ProjectGpuRetainedParamTarget | null,
   ) => void;
@@ -147,14 +156,13 @@ export function getProjectRetainedContentInteractionOptions({
   readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   readonly zoomActivationKeyPressed: boolean;
 }) {
-  const handleActiveParamCanvasPopupChange =
-    onActiveParamCanvasPopupChange ?? ignoreProjectGpuActiveParamCanvasPopup;
   return {
     disabled: () => zoomActivationKeyPressed,
     onHitClick: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentClick(event, {
         canEditStructure,
-        onActiveParamCanvasPopupChange: handleActiveParamCanvasPopupChange,
+        onActiveParamCanvasPopupChange,
+        onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
       }),
     onHitDragCancel: (event: GpuRetainedContentDragCancelEvent) =>
@@ -183,7 +191,8 @@ export function getProjectRetainedContentInteractionOptions({
       }),
     onHitDragStart: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentDragStart(event, {
-        onActiveParamCanvasPopupChange: handleActiveParamCanvasPopupChange,
+        onActiveParamCanvasPopupChange,
+        onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
         onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
@@ -196,7 +205,8 @@ export function getProjectRetainedContentInteractionOptions({
         event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
       ),
     onPointerDownMiss: () => {
-      handleActiveParamCanvasPopupChange(null);
+      onActiveParamCanvasPopupChange(null);
+      onActiveParamCanvasControlChange(null);
     },
     shouldHandleDragMoveHit: (event: GpuRetainedContentInteractionHit) =>
       event.hit.kind === "row" ||
@@ -214,6 +224,7 @@ export function getProjectRetainedContentInteractionOptions({
 }
 
 const ignoreProjectGpuActiveParamCanvasPopup = () => undefined;
+const ignoreProjectGpuActiveParamCanvasControl = () => undefined;
 
 export function getProjectRetainedContentConnectionOptions({
   canEditStructure,
@@ -363,15 +374,13 @@ function handleProjectRetainedContentClick(
   {
     canEditStructure,
     onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
     onActiveParamDomIslandChange,
   }: {
     readonly canEditStructure: boolean;
-    readonly onActiveParamCanvasPopupChange: (
-      popup: ProjectGpuActiveParamCanvasPopup | null,
-    ) => void;
-    readonly onActiveParamDomIslandChange: (
-      island: ProjectGpuActiveParamDomIsland | null,
-    ) => void;
+    readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
+    readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
+    readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
   },
 ) {
   if (useMisc.getState().isSelectingParams) {
@@ -390,6 +399,8 @@ function handleProjectRetainedContentClick(
     interaction: "input-focus",
     sectionId: event.ownerSectionId,
   });
+  const controlTarget = toProjectGpuRetainedCanvasControlTarget(event);
+  onActiveParamCanvasControlChange(controlTarget);
   if (
     handleProjectRetainedContentCanvasCommitClick(event, {
       onActiveParamCanvasPopupChange,
@@ -411,6 +422,7 @@ function handleProjectRetainedContentClick(
     return;
   }
   onActiveParamCanvasPopupChange(null);
+  onActiveParamCanvasControlChange(null);
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {
@@ -480,16 +492,14 @@ function handleProjectRetainedContentDragStart(
   event: GpuRetainedContentInteractionEvent,
   {
     onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
     onActiveParamDomIslandChange,
     onRetainedParamDragPreviewChange,
     retainedParamDragSessionRef,
   }: {
-    readonly onActiveParamCanvasPopupChange: (
-      popup: ProjectGpuActiveParamCanvasPopup | null,
-    ) => void;
-    readonly onActiveParamDomIslandChange: (
-      island: ProjectGpuActiveParamDomIsland | null,
-    ) => void;
+    readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
+    readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
+    readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
     readonly onRetainedParamDragPreviewChange: (
       preview: ProjectGpuRetainedParamDragPreview | null,
     ) => void;
@@ -502,6 +512,8 @@ function handleProjectRetainedContentDragStart(
       sectionId: event.ownerSectionId,
     });
     retainedParamDragSessionRef.current = null;
+    const controlTarget = toProjectGpuRetainedCanvasControlTarget(event);
+    onActiveParamCanvasControlChange(controlTarget);
     onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);
     return;
@@ -514,6 +526,7 @@ function handleProjectRetainedContentDragStart(
     surfaceId: event.surfaceId,
   });
   retainedParamDragSessionRef.current = session;
+  onActiveParamCanvasControlChange(null);
   if (session) {
     onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);

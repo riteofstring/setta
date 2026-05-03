@@ -3,9 +3,14 @@
 import type {
   GpuRetainedContentDragEvent,
   GpuRetainedContentInteractionEvent,
+  GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
 import { getGpuRetainedContentRotaryKnobRect } from "gpuFlow/retainedContentControls";
-import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import {
+  createGpuRetainedRowContentScene,
+  type GpuRetainedContentHitRecord,
+  type GpuRetainedContentScene,
+} from "gpuFlow/retainedContentScene";
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -230,6 +235,10 @@ import {
   PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
+import {
+  handleProjectGpuRetainedParamCanvasControlKeyDown,
+  handleProjectGpuRetainedParamCanvasControlWheel,
+} from "./projectGpuRetainedParamCanvasControlInput";
 import {
   getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
@@ -1272,6 +1281,209 @@ describe("project GPU retained param DOM islands", () => {
           sectionId: "section-1",
           sectionVariantId: "section-1-variant",
           value: "2",
+        },
+      });
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("toggles retained switch controls from canvas keyboard without mounting a DOM island", async () => {
+    seedSwitchParamProjectState("false");
+    vi.useFakeTimers();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 48,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            checked: false,
+            defaultDisplayValue: "false",
+            displayValue: "false",
+            kind: "switch",
+            rendererFamily: "switch",
+            commitPolicy: "immediate",
+          },
+          controlKind: "switch",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = getRetainedControlHit(retainedScene);
+
+    try {
+      expect(
+        handleProjectGpuRetainedParamCanvasControlKeyDown({
+          activeParamCanvasControl: {
+            hitRecordId: controlHit.id,
+            paramInfoId: "param-1",
+            sectionId: "section-1",
+            surfaceId: "section-1:param-content:unpinned",
+          },
+          event: { code: "Space", key: " " },
+          scene: retainedContentTestScene(retainedScene),
+        }),
+      ).toBe(true);
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.paramInputProps).not.toHaveBeenCalled();
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "true",
+        },
+      });
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("commits retained ranged control keyboard adjustments from canvas", async () => {
+    seedSliderParamProjectState("4");
+    vi.useFakeTimers();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "0",
+            displayValue: "4",
+            kind: "slider",
+            rendererFamily: "slider",
+            commitPolicy: "preview-commit",
+            max: 10,
+            min: 0,
+            step: 1,
+            value: 4,
+          },
+          controlKind: "slider",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+    });
+    const controlHit = getRetainedControlHit(retainedScene);
+
+    try {
+      expect(
+        handleProjectGpuRetainedParamCanvasControlKeyDown({
+          activeParamCanvasControl: {
+            hitRecordId: controlHit.id,
+            paramInfoId: "param-1",
+            sectionId: "section-1",
+            surfaceId: "section-1:param-content:unpinned",
+          },
+          event: { code: "ArrowRight", key: "ArrowRight" },
+          scene: retainedContentTestScene(retainedScene),
+        }),
+      ).toBe(true);
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.paramInputProps).not.toHaveBeenCalled();
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "5",
+        },
+      });
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("commits retained ranged control wheel adjustments from canvas", async () => {
+    seedRotaryParamProjectState("5");
+    vi.useFakeTimers();
+    const onActiveParamCanvasControlChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "0",
+            displayValue: "5",
+            kind: "rotary",
+            rendererFamily: "rotary",
+            commitPolicy: "preview-commit",
+            max: 10,
+            min: 0,
+            step: 1,
+            value: 5,
+          },
+          controlKind: "rotary",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+    });
+    const controlHit = getRetainedControlHit(retainedScene);
+
+    try {
+      expect(
+        handleProjectGpuRetainedParamCanvasControlWheel({
+          event: { deltaX: 0, deltaY: -40 },
+          hit: retainedContentInteractionHit(retainedScene, controlHit),
+          onActiveParamCanvasControlChange,
+        }),
+      ).toBe(true);
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.paramInputProps).not.toHaveBeenCalled();
+      expect(onActiveParamCanvasControlChange).toHaveBeenCalledWith({
+        hitRecordId: controlHit.id,
+        paramInfoId: "param-1",
+        sectionId: "section-1",
+        surfaceId: "section-1:param-content:unpinned",
+      });
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "6",
         },
       });
     } finally {
@@ -2334,6 +2546,69 @@ const EMPTY_TEST_SCENE: GpuFlowScene = {
   revision: 0,
   sections: [],
 };
+
+function retainedContentTestScene(
+  retainedScene: GpuRetainedContentScene,
+): GpuFlowScene {
+  return {
+    contentSurfaces: [
+      {
+        clipRect: {
+          height: retainedScene.viewportRect.height,
+          width: retainedScene.viewportRect.width,
+          x: 0,
+          y: 0,
+        },
+        id: retainedScene.id,
+        ownerSectionId: retainedScene.ownerSectionId,
+        rect: {
+          height: retainedScene.viewportRect.height,
+          width: retainedScene.viewportRect.width,
+          x: 0,
+          y: 0,
+        },
+        retainedScene,
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: retainedScene.id,
+        },
+        zIndex: 1,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 0,
+    sections: [],
+  };
+}
+
+function retainedContentInteractionHit(
+  retainedScene: GpuRetainedContentScene,
+  hit: GpuRetainedContentHitRecord,
+): GpuRetainedContentInteractionHit {
+  return {
+    flowPoint: { x: hit.rect.x, y: hit.rect.y },
+    hit,
+    localPoint: { x: hit.rect.x, y: hit.rect.y },
+    ownerSectionId: retainedScene.ownerSectionId,
+    retainedScene,
+    screenPoint: { x: hit.rect.x, y: hit.rect.y },
+    surfaceId: retainedScene.id,
+    zIndex: 1,
+  };
+}
+
+function getRetainedControlHit(
+  retainedScene: GpuRetainedContentScene,
+): GpuRetainedContentHitRecord {
+  const controlHit = retainedScene.hitRecords.find(
+    (candidate) => candidate.kind === "control",
+  );
+  if (!controlHit) {
+    throw new Error("Expected retained control hit.");
+  }
+  return controlHit;
+}
 
 function resolveDisabledOption(
   disabled: boolean | (() => boolean) | undefined,

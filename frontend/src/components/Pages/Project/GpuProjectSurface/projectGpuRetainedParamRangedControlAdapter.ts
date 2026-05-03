@@ -8,9 +8,11 @@ import type {
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
 import {
+  resolveGpuRetainedRangedControlCommandValue,
   resolveGpuRetainedRotaryValueFromPoint,
   resolveGpuRetainedSliderValueFromPoint,
   type GpuRetainedContentRangedControlDescriptor,
+  type GpuRetainedContentRangedControlKeyboardCommand,
 } from "gpuFlow/retainedContentControls";
 import type { GpuRetainedContentRow } from "gpuFlow/retainedContentScene";
 import type { GpuFlowScene } from "gpuFlow/scene";
@@ -76,6 +78,36 @@ export function handleProjectGpuRetainedRangedControlDragEnd(
   });
 }
 
+export function commitProjectGpuRetainedRangedParamCommandValue({
+  command,
+  control,
+  options,
+  paramInfoId,
+  sectionId,
+}: {
+  readonly command: GpuRetainedContentRangedControlKeyboardCommand;
+  readonly control: GpuRetainedContentRangedControlDescriptor;
+  readonly options?: { readonly skipBackendUpdate?: boolean } | undefined;
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+}): boolean {
+  const nextValue = resolveGpuRetainedRangedControlCommandValue({
+    command,
+    control,
+  });
+  if (nextValue === null) {
+    return false;
+  }
+  commitProjectGpuRetainedRangedParamValue({
+    control,
+    nextValue,
+    options,
+    paramInfoId,
+    sectionId,
+  });
+  return true;
+}
+
 function handleProjectGpuRetainedRangedControlDragValue(
   event: GpuRetainedContentDragEvent,
   {
@@ -119,6 +151,33 @@ function commitProjectGpuRetainedRangedParamPointerValue({
   readonly point: GpuPoint;
   readonly sectionId: string;
 }) {
+  const nextValue = resolveProjectGpuRetainedRangedValueFromPoint({
+    control,
+    point,
+    rect: hitRect,
+  });
+  commitProjectGpuRetainedRangedParamValue({
+    control,
+    nextValue,
+    options,
+    paramInfoId,
+    sectionId,
+  });
+}
+
+function commitProjectGpuRetainedRangedParamValue({
+  control,
+  nextValue,
+  options,
+  paramInfoId,
+  sectionId,
+}: {
+  readonly control: GpuRetainedContentRangedControlDescriptor;
+  readonly nextValue: number;
+  readonly options?: { readonly skipBackendUpdate?: boolean } | undefined;
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+}) {
   const projectState = useProjectState.getState();
   const previewState = getParamInputPreviewState(
     projectState,
@@ -130,11 +189,6 @@ function commitProjectGpuRetainedRangedParamPointerValue({
       `Missing GPU retained ${control.kind} param ${paramInfoId} in section ${sectionId}.`,
     );
   }
-  const nextValue = resolveProjectGpuRetainedRangedValueFromPoint({
-    control,
-    point,
-    rect: hitRect,
-  });
   commitParamInputValueChange({
     nextValue,
     options,

@@ -88,6 +88,7 @@ type ProjectGpuParamTreeRowLike = {
 };
 
 export function createProjectGpuParamRowInput({
+  activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
   codeObjImpl,
@@ -104,6 +105,10 @@ export function createProjectGpuParamRowInput({
   selectedParamIds,
   surfaceId,
 }: {
+  readonly activeParamCanvasControl?:
+    | ProjectGpuRetainedParamTargetLike
+    | null
+    | undefined;
   readonly activeParamCanvasPopup?:
     | ProjectGpuRetainedParamCanvasPopupLike
     | null
@@ -163,6 +168,7 @@ export function createProjectGpuParamRowInput({
       ? [{ id: row.id, kind: "input", side: "left" }]
       : [],
     state: createProjectGpuParamRowState({
+      activeParamCanvasControl,
       activeParamDomIsland,
       disabled,
       draggingParamIds,
@@ -852,6 +858,7 @@ function isProjectGpuSwitchValueChecked(value: string): boolean {
 }
 
 function createProjectGpuParamRowState({
+  activeParamCanvasControl,
   activeParamDomIsland,
   disabled,
   draggingParamIds,
@@ -863,6 +870,10 @@ function createProjectGpuParamRowState({
   selectedParamIds,
   surfaceId,
 }: {
+  readonly activeParamCanvasControl?:
+    | ProjectGpuRetainedParamTargetLike
+    | null
+    | undefined;
   readonly activeParamDomIsland?:
     | ProjectGpuRetainedParamTargetLike
     | null
@@ -886,11 +897,17 @@ function createProjectGpuParamRowState({
     disabled: Boolean(disabled),
     dragging: draggingParamIds?.has(rowId) ?? false,
     error: (sectionParamTypeErrors[rowId]?.length ?? 0) > 0,
-    focused: isProjectGpuRetainedParamTargetForRow(activeParamDomIsland, {
-      paramInfoId: rowId,
-      sectionId,
-      surfaceId,
-    }),
+    focused:
+      isProjectGpuRetainedParamTargetForRow(activeParamDomIsland, {
+        paramInfoId: rowId,
+        sectionId,
+        surfaceId,
+      }) ||
+      isProjectGpuRetainedParamTargetForRow(activeParamCanvasControl, {
+        paramInfoId: rowId,
+        sectionId,
+        surfaceId,
+      }),
     hovered: isProjectGpuRetainedParamTargetForRow(hoveredParamTarget, {
       paramInfoId: rowId,
       sectionId,

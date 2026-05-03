@@ -140,28 +140,29 @@ const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
 const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
+type OptionalParamCanvasPopup =
+  | ProjectGpuActiveParamCanvasPopup
+  | null
+  | undefined;
+type OptionalParamDomIsland = ProjectGpuActiveParamDomIsland | null | undefined;
+type OptionalParamDragPreview =
+  | ProjectGpuRetainedParamDragPreview
+  | null
+  | undefined;
+type OptionalParamTarget = ProjectGpuRetainedParamTarget | null | undefined;
+
 export function useProjectGpuLayoutAdapter({
+  activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
   hoveredParamTarget,
   retainedParamDragPreview,
 }: {
-  readonly activeParamCanvasPopup?:
-    | ProjectGpuActiveParamCanvasPopup
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
-    | ProjectGpuActiveParamDomIsland
-    | null
-    | undefined;
-  readonly hoveredParamTarget?:
-    | ProjectGpuRetainedParamTarget
-    | null
-    | undefined;
-  readonly retainedParamDragPreview?:
-    | ProjectGpuRetainedParamDragPreview
-    | null
-    | undefined;
+  readonly activeParamCanvasControl?: OptionalParamTarget;
+  readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
+  readonly activeParamDomIsland?: OptionalParamDomIsland;
+  readonly hoveredParamTarget?: OptionalParamTarget;
+  readonly retainedParamDragPreview?: OptionalParamDragPreview;
 } = {}): ProjectGpuLayoutAdapter {
   const layoutStore = useProjectGpuLayoutStore();
   const [sceneScrollOffsets, setSceneScrollOffsets] =
@@ -192,6 +193,7 @@ export function useProjectGpuLayoutAdapter({
           sizingPolicy,
         },
         revision: getProjectGpuSceneRevision(projectState),
+        activeParamCanvasControl,
         activeParamCanvasPopup,
         activeParamDomIsland,
         contentScrollOffsets,
@@ -207,6 +209,7 @@ export function useProjectGpuLayoutAdapter({
         typeErrors,
       }),
     [
+      activeParamCanvasControl,
       activeParamDomIsland,
       activeParamCanvasPopup,
       canEditParams,
@@ -306,26 +309,15 @@ export function getProjectGpuFlowScene(
     readonly contentScrollOffsets?:
       | GpuRetainedContentScrollOffsetMap
       | undefined;
-    readonly activeParamCanvasPopup?:
-      | ProjectGpuActiveParamCanvasPopup
-      | null
-      | undefined;
-    readonly activeParamDomIsland?:
-      | ProjectGpuActiveParamDomIsland
-      | null
-      | undefined;
-    readonly hoveredParamTarget?:
-      | ProjectGpuRetainedParamTarget
-      | null
-      | undefined;
+    readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
+    readonly activeParamCanvasControl?: OptionalParamTarget;
+    readonly activeParamDomIsland?: OptionalParamDomIsland;
+    readonly hoveredParamTarget?: OptionalParamTarget;
     readonly projectSearch?:
       | Pick<ZustandProjectSearch, "focused" | "lookup">
       | undefined;
     readonly paramEditPolicy?: ProjectGpuParamEditPolicy | undefined;
-    readonly retainedParamDragPreview?:
-      | ProjectGpuRetainedParamDragPreview
-      | null
-      | undefined;
+    readonly retainedParamDragPreview?: OptionalParamDragPreview;
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
     readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
@@ -415,6 +407,7 @@ export function getProjectGpuFlowScene(
     sections,
   });
   const paramContentSurfaces = createProjectGpuParamContentSurfaces({
+    activeParamCanvasControl: options.activeParamCanvasControl,
     activeParamCanvasPopup: options.activeParamCanvasPopup,
     activeParamDomIsland: options.activeParamDomIsland,
     contentScrollOffsets: options.contentScrollOffsets,

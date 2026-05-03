@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  getGpuRetainedContentRangedControlKeyboardCommand,
+  getGpuRetainedContentRangedControlWheelCommand,
   getGpuRetainedContentRotaryKnobRect,
   getGpuRetainedContentSliderTrackRect,
+  isGpuRetainedContentSwitchKeyboardToggle,
+  resolveGpuRetainedRangedControlCommandValue,
   resolveGpuRetainedRotaryValueFromPoint,
   resolveGpuRetainedSliderValueFromPoint,
   snapGpuRetainedNumericControlValue,
@@ -91,7 +95,103 @@ describe("retained content controls", () => {
       }),
     ).toBe(10);
   });
+
+  it("resolves ranged keyboard commands through retained numeric step math", () => {
+    const control = sliderControl({
+      max: 10,
+      min: 0,
+      step: 0.5,
+      value: 4,
+    });
+
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getKeyboardCommand("ArrowRight"),
+        control,
+      }),
+    ).toBe(4.5);
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getKeyboardCommand("PageUp"),
+        control,
+      }),
+    ).toBe(9);
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getKeyboardCommand("Home"),
+        control,
+      }),
+    ).toBe(0);
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getKeyboardCommand("End"),
+        control,
+      }),
+    ).toBe(10);
+  });
+
+  it("resolves ranged wheel commands from the dominant wheel axis", () => {
+    const control = rotaryControl({
+      max: 10,
+      min: 0,
+      step: 1,
+      value: 5,
+    });
+
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getWheelCommand({ deltaX: 0, deltaY: -24 }),
+        control,
+      }),
+    ).toBe(6);
+    expect(
+      resolveGpuRetainedRangedControlCommandValue({
+        command: getWheelCommand({ deltaX: 30, deltaY: 2 }),
+        control,
+      }),
+    ).toBe(4);
+  });
+
+  it("recognizes retained switch keyboard activation", () => {
+    expect(
+      isGpuRetainedContentSwitchKeyboardToggle({
+        code: "Space",
+        key: "Spacebar",
+      }),
+    ).toBe(true);
+    expect(
+      isGpuRetainedContentSwitchKeyboardToggle({ code: "Enter", key: "Enter" }),
+    ).toBe(true);
+    expect(
+      isGpuRetainedContentSwitchKeyboardToggle({ code: "KeyA", key: "a" }),
+    ).toBe(false);
+  });
 });
+
+function getKeyboardCommand(key: string) {
+  const command = getGpuRetainedContentRangedControlKeyboardCommand({ key });
+  if (!command) {
+    throw new Error(`Expected retained keyboard command for ${key}.`);
+  }
+  return command;
+}
+
+function getWheelCommand({
+  deltaX,
+  deltaY,
+}: {
+  readonly deltaX: number;
+  readonly deltaY: number;
+}) {
+  const command = getGpuRetainedContentRangedControlWheelCommand({
+    deltaX,
+    deltaY,
+  });
+  if (!command) {
+    throw new Error("Expected retained wheel command.");
+  }
+  return command;
+}
 
 function sliderControl(
   overrides: Partial<GpuRetainedContentSliderControlDescriptor>,

@@ -13,7 +13,13 @@ export type GpuRetainedContentRangedControlDescriptor =
   | GpuRetainedContentSliderControlDescriptor
   | GpuRetainedContentRotaryControlDescriptor;
 
+export type GpuRetainedContentRangedControlKeyboardCommand =
+  | { readonly kind: "max" }
+  | { readonly kind: "min" }
+  | { readonly kind: "step"; readonly units: number };
+
 const MAX_NUMERIC_CONTROL_DISPLAY_DECIMALS = 3;
+const RANGED_CONTROL_PAGE_STEP_UNITS = 10;
 const SLIDER_CONTROL_INSET_X = 6;
 const SLIDER_CONTROL_INSET_Y = 5;
 const SLIDER_VALUE_LABEL_GAP = 6;
@@ -173,6 +179,86 @@ export function resolveGpuRetainedRotaryValueFromPoint({
     angle,
     control,
   });
+}
+
+export function getGpuRetainedContentRangedControlKeyboardCommand(
+  event: Pick<KeyboardEvent, "key">,
+): GpuRetainedContentRangedControlKeyboardCommand | null {
+  if (event.key === "Home") {
+    return { kind: "min" };
+  }
+  if (event.key === "End") {
+    return { kind: "max" };
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+    return { kind: "step", units: -1 };
+  }
+  if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+    return { kind: "step", units: 1 };
+  }
+  if (event.key === "PageDown") {
+    return { kind: "step", units: -RANGED_CONTROL_PAGE_STEP_UNITS };
+  }
+  if (event.key === "PageUp") {
+    return { kind: "step", units: RANGED_CONTROL_PAGE_STEP_UNITS };
+  }
+  return null;
+}
+
+export function getGpuRetainedContentRangedControlWheelCommand(
+  event: Pick<WheelEvent, "deltaX" | "deltaY">,
+): GpuRetainedContentRangedControlKeyboardCommand | null {
+  const dominantDelta =
+    Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+      ? event.deltaY
+      : event.deltaX;
+  if (dominantDelta === 0) {
+    return null;
+  }
+  return {
+    kind: "step",
+    units: dominantDelta > 0 ? -1 : 1,
+  };
+}
+
+export function resolveGpuRetainedRangedControlCommandValue({
+  command,
+  control,
+}: {
+  readonly command: GpuRetainedContentRangedControlKeyboardCommand;
+  readonly control: GpuRetainedContentRangedControlDescriptor;
+}): number | null {
+  if (command.kind === "min") {
+    return snapGpuRetainedNumericControlValue({
+      max: control.max,
+      min: control.min,
+      step: control.step,
+      value: control.min,
+    });
+  }
+  if (command.kind === "max") {
+    return snapGpuRetainedNumericControlValue({
+      max: control.max,
+      min: control.min,
+      step: control.step,
+      value: control.max,
+    });
+  }
+  if (!isGpuRetainedAdjustableStep(control.step)) {
+    return null;
+  }
+  return snapGpuRetainedNumericControlValue({
+    max: control.max,
+    min: control.min,
+    step: control.step,
+    value: control.value + command.units * control.step,
+  });
+}
+
+export function isGpuRetainedContentSwitchKeyboardToggle(
+  event: Pick<KeyboardEvent, "code" | "key">,
+): boolean {
+  return event.key === "Enter" || event.key === " " || event.code === "Space";
 }
 
 export function snapGpuRetainedNumericControlValue({

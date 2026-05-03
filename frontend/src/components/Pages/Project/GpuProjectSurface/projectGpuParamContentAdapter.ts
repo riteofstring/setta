@@ -85,28 +85,28 @@ export type ProjectGpuActiveParamCanvasPopup =
       readonly visibleMonth: ProjectGpuDateCalendarVisibleMonth;
     });
 
+type OptionalParamCanvasPopup =
+  | ProjectGpuActiveParamCanvasPopup
+  | null
+  | undefined;
+type OptionalParamDomIsland = ProjectGpuActiveParamDomIsland | null | undefined;
+type OptionalParamDragPreview =
+  | ProjectGpuRetainedParamDragPreview
+  | null
+  | undefined;
+type OptionalParamTarget = ProjectGpuRetainedParamTarget | null | undefined;
+
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
   readonly rows: readonly GpuRetainedContentRowInput[];
 };
 
 type ProjectGpuRetainedParamInteractionState = {
-  readonly activeParamCanvasPopup?:
-    | ProjectGpuActiveParamCanvasPopup
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
-    | ProjectGpuActiveParamDomIsland
-    | null
-    | undefined;
-  readonly hoveredParamTarget?:
-    | ProjectGpuRetainedParamTarget
-    | null
-    | undefined;
-  readonly retainedParamDragPreview?:
-    | ProjectGpuRetainedParamDragPreview
-    | null
-    | undefined;
+  readonly activeParamCanvasControl?: OptionalParamTarget;
+  readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
+  readonly activeParamDomIsland?: OptionalParamDomIsland;
+  readonly hoveredParamTarget?: OptionalParamTarget;
+  readonly retainedParamDragPreview?: OptionalParamDragPreview;
 };
 
 export type ProjectGpuParamEditPolicy = {
@@ -131,6 +131,7 @@ export const DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY: ProjectGpuParamEditPolicy =
   };
 
 export function createProjectGpuParamContentSurfaces({
+  activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
   contentScrollOffsets,
@@ -143,32 +144,22 @@ export function createProjectGpuParamContentSurfaces({
   sections,
   typeErrors,
 }: {
-  readonly activeParamCanvasPopup?:
-    | ProjectGpuActiveParamCanvasPopup
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
-    | ProjectGpuActiveParamDomIsland
-    | null
-    | undefined;
+  readonly activeParamCanvasControl?: OptionalParamTarget;
+  readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
+  readonly activeParamDomIsland?: OptionalParamDomIsland;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
-  readonly hoveredParamTarget?:
-    | ProjectGpuRetainedParamTarget
-    | null
-    | undefined;
+  readonly hoveredParamTarget?: OptionalParamTarget;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
-  readonly retainedParamDragPreview?:
-    | ProjectGpuRetainedParamDragPreview
-    | null
-    | undefined;
+  readonly retainedParamDragPreview?: OptionalParamDragPreview;
   readonly sections: readonly GpuSectionSceneNode[];
   readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
     createProjectGpuParamContentSurfacesForSection({
+      activeParamCanvasControl,
       activeParamCanvasPopup,
       activeParamDomIsland,
       contentScrollOffsets,
@@ -431,6 +422,7 @@ function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
 }
 
 function createProjectGpuParamContentSurfacesForSection({
+  activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
   contentScrollOffsets,
@@ -443,27 +435,16 @@ function createProjectGpuParamContentSurfacesForSection({
   section,
   typeErrors,
 }: {
-  readonly activeParamCanvasPopup?:
-    | ProjectGpuActiveParamCanvasPopup
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
-    | ProjectGpuActiveParamDomIsland
-    | null
-    | undefined;
+  readonly activeParamCanvasControl?: OptionalParamTarget;
+  readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
+  readonly activeParamDomIsland?: OptionalParamDomIsland;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy: ProjectGpuParamEditPolicy;
-  readonly hoveredParamTarget?:
-    | ProjectGpuRetainedParamTarget
-    | null
-    | undefined;
+  readonly hoveredParamTarget?: OptionalParamTarget;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
-  readonly retainedParamDragPreview?:
-    | ProjectGpuRetainedParamDragPreview
-    | null
-    | undefined;
+  readonly retainedParamDragPreview?: OptionalParamDragPreview;
   readonly section: GpuSectionSceneNode;
   readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuContentSurface[] {
@@ -485,6 +466,7 @@ function createProjectGpuParamContentSurfacesForSection({
     editPolicy,
     typeErrors,
     retainedInteractionState: {
+      activeParamCanvasControl,
       activeParamCanvasPopup,
       activeParamDomIsland,
       hoveredParamTarget,
@@ -677,6 +659,8 @@ function createProjectGpuParamRows({
       );
     }
     return createProjectGpuParamRowInput({
+      activeParamCanvasControl:
+        retainedInteractionState.activeParamCanvasControl,
       activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
       activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
       codeObjImpl,
