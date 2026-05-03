@@ -21,7 +21,7 @@ export function createGpuRetainedContentStatusBadgeRect({
   labelControlGap,
   rowRect,
 }: {
-  readonly controlRect: GpuRect;
+  readonly controlRect?: GpuRect | null | undefined;
   readonly labelControlGap: number;
   readonly rowRect: GpuRect;
 }): GpuRect | null {
@@ -29,10 +29,11 @@ export function createGpuRetainedContentStatusBadgeRect({
   if (size <= 0) {
     return null;
   }
+  const rightEdge = controlRect?.x ?? rowRect.x + rowRect.width;
   return {
     height: size,
     width: size,
-    x: controlRect.x - labelControlGap - size,
+    x: rightEdge - labelControlGap - size,
     y: rowRect.y + (rowRect.height - size) / 2,
   };
 }

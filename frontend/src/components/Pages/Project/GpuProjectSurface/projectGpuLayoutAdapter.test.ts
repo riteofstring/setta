@@ -1833,14 +1833,11 @@ describe("project GPU layout adapter", () => {
         id: "parent-param",
       }),
     );
-    expect(paramSurface?.retainedScene?.hitRecords).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "control:parent-param",
-          kind: "control",
-        }),
-      ]),
-    );
+    expect(
+      paramSurface?.retainedScene?.hitRecords.some(
+        (record) => record.id === "control:parent-param",
+      ),
+    ).toBe(false);
     expect(scene.domIslands).toEqual([]);
   });
 

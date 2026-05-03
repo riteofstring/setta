@@ -87,23 +87,16 @@ describe("retained content scene", () => {
     expect(scene.drawCommands).toEqual([
       expect.objectContaining({
         dividerRects: [
-          { height: 24, width: 132, x: 4, y: 6 },
-          { height: 24, width: 80, x: 144, y: 6 },
+          { height: 24, width: 220, x: 4, y: 6 },
         ],
         kind: "row-background",
         rowId: "parent",
       }),
       expect.objectContaining({
         kind: "row-label",
-        rect: { height: 24, width: 132, x: 4, y: 6 },
+        rect: { height: 24, width: 220, x: 4, y: 6 },
         rowId: "parent",
         text: "parent",
-      }),
-      expect.objectContaining({
-        controlKind: "nested",
-        kind: "row-control",
-        rect: { height: 24, width: 80, x: 144, y: 6 },
-        rowId: "parent",
       }),
       expect.objectContaining({
         kind: "row-background",

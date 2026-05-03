@@ -69,13 +69,6 @@ export type GpuRetainedContentControlDescriptor =
   | {
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
-      readonly kind: "generic";
-      readonly rendererFamily: string;
-      readonly commitPolicy: GpuRetainedContentControlCommitPolicy;
-    }
-  | {
-      readonly defaultDisplayValue: string;
-      readonly displayValue: string;
       readonly editorKind: "code" | "text" | "textarea";
       readonly kind: "text-like";
       readonly rendererFamily: string;
@@ -548,11 +541,13 @@ function createGpuRetainedContentHitRecords({
 }): GpuRetainedContentHitRecord[] {
   const hitRecords: GpuRetainedContentHitRecord[] = [];
   for (const row of rows) {
-    const controlRect = createGpuRetainedContentControlRect({
-      rightInset: controlRightInset,
-      controlWidth,
-      rowRect: row.projectedRect,
-    });
+    const controlRect = row.control
+      ? createGpuRetainedContentControlRect({
+          rightInset: controlRightInset,
+          controlWidth,
+          rowRect: row.projectedRect,
+        })
+      : null;
     const statusBadgeRect = row.status
       ? createGpuRetainedContentStatusBadgeRect({
           controlRect,
@@ -578,7 +573,7 @@ function createGpuRetainedContentHitRecords({
         statusBadgeRect,
       }),
     });
-    if (row.control) {
+    if (row.control && controlRect) {
       hitRecords.push({
         id: `control:${row.id}`,
         kind: "control",
@@ -694,20 +689,14 @@ function createGpuRetainedContentControl(
   if (!input.controlKind) {
     return null;
   }
-  if (input.controlKind !== "nested") {
-    throw new Error(
-      `Retained content row ${input.id} declared control kind ${JSON.stringify(
-        input.controlKind,
-      )} without a concrete control descriptor.`,
-    );
+  if (input.controlKind === "nested") {
+    return null;
   }
-  return {
-    defaultDisplayValue: "",
-    displayValue: input.controlKind,
-    kind: "generic",
-    rendererFamily: input.controlKind,
-    commitPolicy: "native-island",
-  };
+  throw new Error(
+    `Retained content row ${input.id} declared control kind ${JSON.stringify(
+      input.controlKind,
+    )} without a concrete control descriptor.`,
+  );
 }
 
 function getGpuRetainedContentPopupChoiceValue(

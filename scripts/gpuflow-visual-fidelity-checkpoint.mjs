@@ -206,6 +206,11 @@ const fixtureDefinitions = [
     requiredSelectors: ["section/dict-section"],
   },
   {
+    description: "Nested dict param rows with retained indentation.",
+    id: "nested-param-tree",
+    requiredSelectors: ["section/nested-dict-section"],
+  },
+  {
     description: "Callable section with param rows and connection handles.",
     id: "callable-edge-handles",
     requiredSelectors: ["section/callable-section"],
@@ -794,6 +799,18 @@ async function createFixtureSections(page, projectConfigId) {
     body: {
       controlCodeObjType: null,
       implOverrides: null,
+      implType: "Dict",
+      name: "VF Nested Dict",
+      position: { x: 680, y: 1080 },
+      topLevelSections: null,
+      viewportBounds: null,
+    },
+    operationName: "createTopLevelSection",
+  });
+  createOperations.push({
+    body: {
+      controlCodeObjType: null,
+      implOverrides: null,
       implType: "Callable",
       name: "VF Callable",
       position: { x: 680, y: 650 },
@@ -813,7 +830,8 @@ async function createFixtureSections(page, projectConfigId) {
     ids[control.id] = created[index]?.sectionId;
   });
   ids.dict = created[controlSections.length]?.sectionId;
-  ids.callable = created[controlSections.length + 1]?.sectionId;
+  ids.nested = created[controlSections.length + 1]?.sectionId;
+  ids.callable = created[controlSections.length + 2]?.sectionId;
   for (const [key, sectionId] of Object.entries(ids)) {
     if (!sectionId) {
       throw new Error(`Missing section id for ${key}.`);
@@ -829,6 +847,7 @@ async function createFixtureSections(page, projectConfigId) {
     }
   }
   sizePatch[ids.dict] = { height: 420, width: 560 };
+  sizePatch[ids.nested] = { height: 260, width: 560 };
   sizePatch[ids.callable] = { height: 420, width: 560 };
   await applyProjectMutations(page, projectConfigId, [
     {
@@ -856,6 +875,7 @@ async function createFixtureSections(page, projectConfigId) {
     },
   ]);
 
+  await configureNestedParamTree(page, projectConfigId, ids.nested);
   await configureControlParams(page, projectConfigId, ids);
   return ids;
 }
@@ -866,8 +886,107 @@ function resolveFixtureSectionPositions(ids) {
     positions[ids[control.id]] = { x: control.x, y: control.y };
   }
   positions[ids.dict] = { x: 40, y: 650 };
+  positions[ids.nested] = { x: 680, y: 1080 };
   positions[ids.callable] = { x: 680, y: 650 };
   return positions;
+}
+
+async function configureNestedParamTree(page, projectConfigId, sectionId) {
+  await applyProjectMutations(
+    page,
+    projectConfigId,
+    Array.from({ length: 5 }, () => ({
+      body: { sectionId },
+      operationName: "addKwarg",
+    })),
+  );
+  const paramIds = await resolveNestedFixtureParamIds(page, sectionId, 5);
+  const [parentId, childId, grandchildId, siblingId, leafId] = paramIds;
+  await applyProjectMutations(page, projectConfigId, [
+    {
+      body: { codeObjId: parentId, frontendOpId: null, name: "parent" },
+      operationName: "setCodeObjName",
+    },
+    {
+      body: { codeObjId: childId, frontendOpId: null, name: "child" },
+      operationName: "setCodeObjName",
+    },
+    {
+      body: { codeObjId: grandchildId, frontendOpId: null, name: "grandchild" },
+      operationName: "setCodeObjName",
+    },
+    {
+      body: { codeObjId: siblingId, frontendOpId: null, name: "sibling" },
+      operationName: "setCodeObjName",
+    },
+    {
+      body: { codeObjId: leafId, frontendOpId: null, name: "leaf" },
+      operationName: "setCodeObjName",
+    },
+    {
+      body: {
+        frontendOpId: null,
+        newIndex: 0,
+        newParentId: parentId,
+        paramIds: [childId, siblingId],
+        sectionId,
+      },
+      operationName: "moveParams",
+    },
+    {
+      body: {
+        frontendOpId: null,
+        newIndex: 0,
+        newParentId: childId,
+        paramIds: [grandchildId],
+        sectionId,
+      },
+      operationName: "moveParams",
+    },
+  ]);
+}
+
+async function resolveNestedFixtureParamIds(page, sectionId, expectedCount) {
+  const paramIds = await page.evaluate(async ({ expectedCount, sectionId }) => {
+    const { useProjectState } = await import("/src/state/definitions");
+    const state = useProjectState.getState();
+    const variantId = state.projectConfig?.sectionVariantMap?.[sectionId];
+    const shown = state.shownParamIds?.[variantId];
+    const visibleTopLevelIds = [
+      ...(Array.isArray(shown?.pinned?.topLevelParamIds)
+        ? shown.pinned.topLevelParamIds
+        : []),
+      ...(Array.isArray(shown?.unpinned?.topLevelParamIds)
+        ? shown.unpinned.topLevelParamIds
+        : []),
+    ];
+    if (visibleTopLevelIds.length >= expectedCount) {
+      return visibleTopLevelIds.slice(-expectedCount);
+    }
+    const sectionImplId = state.sectionVariants?.[variantId]?.impl;
+    const sectionImpl = state.sectionImpls?.[sectionImplId];
+    const rootParamId = sectionImpl?.topLevelParamId;
+    const rootVariantId = sectionImpl?.codeObjVariantMap?.[rootParamId];
+    const rootImplId = state.codeObjVariants?.[rootVariantId]?.impl;
+    const rootImpl = state.codeObjImpls?.[rootImplId];
+    const children = Array.isArray(rootImpl?.children)
+      ? rootImpl.children
+      : [];
+    return children.slice(-expectedCount);
+  }, { expectedCount, sectionId });
+  if (!Array.isArray(paramIds) || paramIds.length !== expectedCount) {
+    throw new Error(
+      `Missing nested fixture param ids for ${sectionId}: expected ${expectedCount}, got ${JSON.stringify(
+        paramIds,
+      )}.`,
+    );
+  }
+  for (const [index, paramId] of paramIds.entries()) {
+    if (typeof paramId !== "string" || paramId.length === 0) {
+      throw new Error(`Invalid nested fixture param id at index ${index}.`);
+    }
+  }
+  return paramIds;
 }
 
 async function configureControlParams(page, projectConfigId, ids) {
@@ -1014,6 +1133,16 @@ async function captureViewportFixtures({
     runArtifactDir,
     runRecord,
     sectionId: project.ids.dict,
+    viewport,
+  });
+  await captureSectionClip({
+    fixtureId: "nested-param-tree",
+    page,
+    position: project.positions[project.ids.nested],
+    run,
+    runArtifactDir,
+    runRecord,
+    sectionId: project.ids.nested,
     viewport,
   });
   await captureSectionClip({

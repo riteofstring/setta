@@ -105,11 +105,13 @@ function createGpuRetainedContentRowDrawCommands({
   readonly statusOverlays: readonly GpuRetainedContentDrawCommand[];
 } {
   const labelX = row.projectedRect.x + row.depth * indentWidth;
-  const controlRect = createGpuRetainedContentControlRect({
-    controlWidth,
-    rightInset: controlRightInset,
-    rowRect: row.projectedRect,
-  });
+  const controlRect = row.control
+    ? createGpuRetainedContentControlRect({
+        controlWidth,
+        rightInset: controlRightInset,
+        rowRect: row.projectedRect,
+      })
+    : null;
   const statusCommands = createGpuRetainedContentRowStatusCommands({
     controlRect,
     labelControlGap,
@@ -128,7 +130,6 @@ function createGpuRetainedContentRowDrawCommands({
       dividerRects: createGpuRetainedContentRowDividerRects({
         controlRect,
         labelRect,
-        row,
       }),
       kind: "row-background",
       rect: row.projectedRect,
@@ -157,7 +158,7 @@ function createGpuRetainedContentRowDrawCommands({
     text: row.label,
   });
   commands.push(...statusCommands.badges);
-  if (row.control) {
+  if (row.control && controlRect) {
     commands.push({
       control: row.control,
       controlKind: row.control.rendererFamily,
@@ -175,13 +176,11 @@ function createGpuRetainedContentRowDrawCommands({
 function createGpuRetainedContentRowDividerRects({
   controlRect,
   labelRect,
-  row,
 }: {
-  readonly controlRect: GpuRect;
+  readonly controlRect: GpuRect | null;
   readonly labelRect: GpuRect;
-  readonly row: GpuRetainedContentRow;
 }): readonly GpuRect[] {
-  return [labelRect, ...(row.control ? [controlRect] : [])].filter(
+  return [labelRect, ...(controlRect ? [controlRect] : [])].filter(
     (rect) => rect.width > 0 && rect.height > 0,
   );
 }
@@ -192,7 +191,7 @@ function createGpuRetainedContentRowStatusCommands({
   row,
   viewportRect,
 }: {
-  readonly controlRect: GpuRect;
+  readonly controlRect: GpuRect | null;
   readonly labelControlGap: number;
   readonly row: GpuRetainedContentRow;
   readonly viewportRect: GpuRect;

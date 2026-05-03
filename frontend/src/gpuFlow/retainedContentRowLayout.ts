@@ -7,7 +7,7 @@ export function createGpuRetainedContentLabelRect({
   rowRect,
   statusBadgeRect,
 }: {
-  readonly controlRect: GpuRect;
+  readonly controlRect?: GpuRect | null | undefined;
   readonly labelControlGap: number;
   readonly labelX: number;
   readonly rowRect: GpuRect;
@@ -15,7 +15,9 @@ export function createGpuRetainedContentLabelRect({
 }): GpuRect {
   const rightEdge = statusBadgeRect
     ? statusBadgeRect.x - labelControlGap
-    : controlRect.x - labelControlGap;
+    : controlRect
+      ? controlRect.x - labelControlGap
+      : rowRect.x + rowRect.width;
   return {
     height: rowRect.height,
     width: Math.max(0, rightEdge - labelX),
