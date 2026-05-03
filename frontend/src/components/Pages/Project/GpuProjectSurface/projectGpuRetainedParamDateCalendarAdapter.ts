@@ -8,6 +8,7 @@ import type {
 } from "gpuFlow/interactions/retainedContentInteraction";
 import type { GpuRetainedContentRow } from "gpuFlow/retainedContentScene";
 import { useProjectState } from "state/definitions";
+import { shiftCalendarMonth } from "utils/calendarGrid";
 import { resolveCalendarDateSelectionValue } from "utils/calendarSelection";
 import type { ProjectGpuActiveParamCanvasPopup } from "./projectGpuLayoutAdapter";
 
@@ -32,6 +33,35 @@ export function getProjectGpuRetainedDateCalendarPopupTarget(
     paramInfoId: event.hit.ownerRowId,
     sectionId: event.ownerSectionId,
     surfaceId: event.surfaceId,
+    visibleMonth: row.control.calendar.month,
+  };
+}
+
+export function getProjectGpuRetainedDateCalendarNavigationTarget(
+  event: GpuRetainedContentInteractionEvent,
+): ProjectGpuActiveParamCanvasPopup | null {
+  if (!isProjectGpuRetainedDateCalendarPopupNavigationHit(event)) {
+    return null;
+  }
+  const row = getProjectGpuRetainedDateCalendarHitRow(event);
+  if (
+    !row?.control ||
+    row.control.kind !== "date-time" ||
+    row.control.mode !== "date-calendar" ||
+    !row.control.calendar
+  ) {
+    return null;
+  }
+  return {
+    hitRecordId: event.hit.id,
+    kind: "date-calendar",
+    paramInfoId: event.hit.ownerRowId,
+    sectionId: event.ownerSectionId,
+    surfaceId: event.surfaceId,
+    visibleMonth: shiftCalendarMonth(
+      row.control.calendar.month,
+      event.hit.navigationDirection,
+    ),
   };
 }
 
@@ -69,6 +99,29 @@ export function isProjectGpuRetainedDateCalendarPopupCellHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
   if (event.hit.kind !== "popup-date-cell") {
+    return false;
+  }
+  const row = getProjectGpuRetainedDateCalendarHitRow(event);
+  return (
+    row?.control?.kind === "date-time" &&
+    row.control.mode === "date-calendar" &&
+    Boolean(row.control.calendar)
+  );
+}
+
+export function isProjectGpuRetainedDateCalendarPopupNavigationHit(
+  event: GpuRetainedContentInteractionHit,
+): event is GpuRetainedContentInteractionHit & {
+  readonly hit: GpuRetainedContentInteractionHit["hit"] & {
+    readonly kind: "popup-date-navigation";
+    readonly navigationDirection: -1 | 1;
+  };
+} {
+  if (
+    event.hit.kind !== "popup-date-navigation" ||
+    (event.hit.navigationDirection !== -1 &&
+      event.hit.navigationDirection !== 1)
+  ) {
     return false;
   }
   const row = getProjectGpuRetainedDateCalendarHitRow(event);

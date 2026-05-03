@@ -1153,6 +1153,7 @@ describe("project GPU layout adapter", () => {
         paramInfoId: "date-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
+        visibleMonth: { monthIndex: 4, year: 2026 },
       },
       darkMode: false,
       revision: 10,
@@ -1171,6 +1172,7 @@ describe("project GPU layout adapter", () => {
         summaryText: "2 selected",
         commitPolicy: "immediate",
         calendar: expect.objectContaining({
+          month: { monthIndex: 4, year: 2026 },
           monthTitle: "May 2026",
           selectedDates: ["2026-05-04", "2026-05-05"],
           selectionMode: DateSelectionModeEnum.multiple,
@@ -1189,8 +1191,36 @@ describe("project GPU layout adapter", () => {
           kind: "popup-date-cell",
           ownerRowId: "date-param",
         }),
+        expect.objectContaining({
+          kind: "popup-date-navigation",
+          navigationDirection: -1,
+          ownerRowId: "date-param",
+        }),
       ]),
     );
+
+    const previousMonthScene = getProjectGpuFlowScene(projectState, {
+      activeParamCanvasPopup: {
+        hitRecordId: "popup-date-navigation:date-param:-1",
+        kind: "date-calendar",
+        paramInfoId: "date-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+        visibleMonth: { monthIndex: 3, year: 2026 },
+      },
+      darkMode: false,
+      revision: 11,
+    });
+    expect(
+      previousMonthScene.contentSurfaces.find(
+        (surface) => surface.id === "dict-a:param-content:unpinned",
+      )?.retainedScene?.rows[0]?.control,
+    ).toMatchObject({
+      calendar: expect.objectContaining({
+        month: { monthIndex: 3, year: 2026 },
+        monthTitle: "April 2026",
+      }),
+    });
   });
 
   it("keeps retained slider controls canvas-owned with concrete descriptors", () => {
@@ -1842,6 +1872,7 @@ describe("project GPU layout adapter", () => {
         paramInfoId: "date-calendar-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
+        visibleMonth: { monthIndex: 4, year: 2026 },
       },
       darkMode: false,
       revision: 4,

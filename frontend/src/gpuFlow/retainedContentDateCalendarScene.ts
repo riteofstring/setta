@@ -39,6 +39,14 @@ export function createGpuRetainedContentDateCalendarDrawCommands({
       rect: popup.headerRect,
       rowId: popup.row.id,
     },
+    ...popup.navigation.map(
+      (navigation): GpuRetainedContentDrawCommand => ({
+        direction: navigation.direction,
+        kind: "control-popup-date-calendar-navigation",
+        rect: navigation.rect,
+        rowId: popup.row.id,
+      }),
+    ),
     ...popup.weekdays.map(
       (weekday): GpuRetainedContentDrawCommand => ({
         kind: "control-popup-date-calendar-weekday",
@@ -85,12 +93,21 @@ export function createGpuRetainedContentDateCalendarHitRecords({
   if (!popup) {
     return [];
   }
-  return popup.cells.map((cell) => ({
-    cellIndex: cell.cellIndex,
-    cellIsoDate: cell.cell.isoDate,
-    id: `popup-date-cell:${popup.row.id}:${cell.cell.isoDate}`,
-    kind: "popup-date-cell",
-    ownerRowId: popup.row.id,
-    rect: cell.rect,
-  }));
+  return [
+    ...popup.navigation.map((navigation) => ({
+      id: `popup-date-navigation:${popup.row.id}:${navigation.direction}`,
+      kind: "popup-date-navigation" as const,
+      navigationDirection: navigation.direction,
+      ownerRowId: popup.row.id,
+      rect: navigation.rect,
+    })),
+    ...popup.cells.map((cell) => ({
+      cellIndex: cell.cellIndex,
+      cellIsoDate: cell.cell.isoDate,
+      id: `popup-date-cell:${popup.row.id}:${cell.cell.isoDate}`,
+      kind: "popup-date-cell" as const,
+      ownerRowId: popup.row.id,
+      rect: cell.rect,
+    })),
+  ];
 }

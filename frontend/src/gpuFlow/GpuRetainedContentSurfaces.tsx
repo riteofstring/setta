@@ -22,6 +22,7 @@ import {
 import {
   drawGpuRetainedContentDateCalendarCell,
   drawGpuRetainedContentDateCalendarHeader,
+  drawGpuRetainedContentDateCalendarNavigation,
   drawGpuRetainedContentDateCalendarSummary,
   drawGpuRetainedContentDateCalendarWeekday,
 } from "./retainedContentDateCalendarPopupCanvas";
@@ -291,6 +292,14 @@ function drawGpuRetainedContentPopupCommand({
     drawGpuRetainedContentDateCalendarHeader({
       ctx,
       monthTitle: command.monthTitle,
+      rect: command.rect,
+    });
+    return true;
+  }
+  if (command.kind === "control-popup-date-calendar-navigation") {
+    drawGpuRetainedContentDateCalendarNavigation({
+      ctx,
+      direction: command.direction,
       rect: command.rect,
     });
     return true;

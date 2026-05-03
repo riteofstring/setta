@@ -32,6 +32,27 @@ export function drawGpuRetainedContentDateCalendarHeader({
   ctx.textAlign = "start";
 }
 
+export function drawGpuRetainedContentDateCalendarNavigation({
+  ctx,
+  direction,
+  rect,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly direction: -1 | 1;
+  readonly rect: GpuRect;
+}) {
+  ctx.font = DATE_CALENDAR_HEADER_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#2563eb";
+  ctx.fillText(
+    direction === -1 ? "<" : ">",
+    rect.x + rect.width / 2,
+    rect.y + rect.height / 2,
+  );
+  ctx.textAlign = "start";
+}
+
 export function drawGpuRetainedContentDateCalendarWeekday({
   ctx,
   rect,

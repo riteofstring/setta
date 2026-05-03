@@ -9,11 +9,13 @@ export type GpuRetainedContentHitRecord = {
     | "control-subpart"
     | "label"
     | "popup-date-cell"
+    | "popup-date-navigation"
     | "popup-option"
     | "port"
     | "row";
   readonly cellIndex?: number | undefined;
   readonly cellIsoDate?: string | undefined;
+  readonly navigationDirection?: -1 | 1 | undefined;
   readonly optionIndex?: number | undefined;
   readonly optionValue?: string | undefined;
   readonly ownerRowId: string;

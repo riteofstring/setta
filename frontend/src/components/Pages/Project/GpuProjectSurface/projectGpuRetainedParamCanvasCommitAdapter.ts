@@ -4,7 +4,10 @@ import type {
   ProjectGpuActiveParamDomIsland,
 } from "./projectGpuLayoutAdapter";
 import { commitProjectGpuRetainedColorPickerPopupOption } from "./projectGpuRetainedParamColorPickerAdapter";
-import { commitProjectGpuRetainedDateCalendarPopupCell } from "./projectGpuRetainedParamDateCalendarAdapter";
+import {
+  commitProjectGpuRetainedDateCalendarPopupCell,
+  getProjectGpuRetainedDateCalendarNavigationTarget,
+} from "./projectGpuRetainedParamDateCalendarAdapter";
 import { commitProjectGpuRetainedDropdownPopupOption } from "./projectGpuRetainedParamDropdownAdapter";
 import { commitProjectGpuRetainedDropzoneAttachmentDelete } from "./projectGpuRetainedParamDropzoneAdapter";
 
@@ -29,6 +32,13 @@ export function handleProjectRetainedContentCanvasCommitClick(
   }
   if (commitProjectGpuRetainedDropdownPopupOption(event)) {
     onActiveParamCanvasPopupChange(null);
+    onActiveParamDomIslandChange(null);
+    return true;
+  }
+  const dateCalendarNavigation =
+    getProjectGpuRetainedDateCalendarNavigationTarget(event);
+  if (dateCalendarNavigation) {
+    onActiveParamCanvasPopupChange(dateCalendarNavigation);
     onActiveParamDomIslandChange(null);
     return true;
   }

@@ -97,6 +97,7 @@ import {
 import {
   getProjectGpuRetainedDateCalendarPopupTarget,
   isProjectGpuRetainedDateCalendarPopupCellHit,
+  isProjectGpuRetainedDateCalendarPopupNavigationHit,
 } from "./projectGpuRetainedParamDateCalendarAdapter";
 import {
   getProjectGpuRetainedDropdownPopupTarget,
@@ -728,7 +729,8 @@ function isProjectRetainedParamCanvasPopupHit(
   return (
     isProjectGpuRetainedColorPickerPopupOptionHit(event) ||
     isProjectGpuRetainedDropdownPopupOptionHit(event) ||
-    isProjectGpuRetainedDateCalendarPopupCellHit(event)
+    isProjectGpuRetainedDateCalendarPopupCellHit(event) ||
+    isProjectGpuRetainedDateCalendarPopupNavigationHit(event)
   );
 }
 

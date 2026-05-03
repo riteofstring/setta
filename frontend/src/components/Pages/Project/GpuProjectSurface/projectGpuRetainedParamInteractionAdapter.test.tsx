@@ -1583,6 +1583,7 @@ describe("project GPU retained param DOM islands", () => {
           calendar: {
             cells: calendarCells("2026-05-04"),
             includeTime: false,
+            month: { monthIndex: 4, year: 2026 },
             monthTitle: "May 2026",
             selectedDates: ["2026-05-04"],
             selectedTimeValue: "00:00",
@@ -1660,6 +1661,7 @@ describe("project GPU retained param DOM islands", () => {
         paramInfoId: "param-1",
         sectionId: "section-1",
         surfaceId: "section-1:param-content:unpinned",
+        visibleMonth: { monthIndex: 4, year: 2026 },
       });
       expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
       expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
@@ -1724,6 +1726,107 @@ describe("project GPU retained param DOM islands", () => {
       vi.runOnlyPendingTimers();
       vi.useRealTimers();
     }
+  });
+
+  it("navigates retained date calendar months from canvas without mounting a DOM island", () => {
+    seedDateParamProjectState('["2026-05-04"]');
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const rows = [
+      {
+        control: {
+          calendar: {
+            cells: calendarCells("2026-05-04"),
+            includeTime: false,
+            month: { monthIndex: 4, year: 2026 },
+            monthTitle: "May 2026",
+            selectedDates: ["2026-05-04"],
+            selectedTimeValue: "00:00",
+            selectionMode: "multiple" as const,
+            summaryText: "1 selected",
+            weekdayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          },
+          defaultDisplayValue: "",
+          displayValue: '["2026-05-04"]',
+          kind: "date-time" as const,
+          label: "Calendar",
+          mode: "date-calendar" as const,
+          rendererFamily: "date-time",
+          summaryText: "1 selected",
+          commitPolicy: "immediate" as const,
+        },
+        controlKind: "date-time",
+        depth: 0,
+        id: "param-1",
+        label: "Param 1",
+      },
+    ];
+    const popupScene = createGpuRetainedRowContentScene({
+      activePopup: { kind: "date-calendar", ownerRowId: "param-1" },
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows,
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 260, width: 260, x: 0, y: 0 },
+    });
+    const nextMonthHit = popupScene.hitRecords.find(
+      (candidate) =>
+        candidate.kind === "popup-date-navigation" &&
+        candidate.navigationDirection === 1,
+    );
+    if (!nextMonthHit) {
+      throw new Error("Expected retained date calendar navigation hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: nextMonthHit,
+      localPoint: {
+        x: nextMonthHit.rect.x + nextMonthHit.rect.width / 2,
+        y: nextMonthHit.rect.y + nextMonthHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 244,
+        clientY: 58,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene: popupScene,
+      screenPoint: { x: 244, y: 58 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(true);
+    options.onHitClick(event);
+
+    expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith({
+      hitRecordId: "popup-date-navigation:param-1:1",
+      kind: "date-calendar",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      surfaceId: "section-1:param-content:unpinned",
+      visibleMonth: { monthIndex: 5, year: 2026 },
+    });
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramInfoId: "param-1",
+      }),
+    );
+    expect(mocks.setParamEnteredValueMock).not.toHaveBeenCalled();
   });
 
   it("deletes retained dropzone attachments from canvas without mounting a DOM island", async () => {

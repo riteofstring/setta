@@ -31,6 +31,10 @@ type GpuRetainedContentActiveDateCalendarLayout = {
   }[];
   readonly headerRect: GpuRect;
   readonly monthTitle: string;
+  readonly navigation: readonly {
+    readonly direction: -1 | 1;
+    readonly rect: GpuRect;
+  }[];
   readonly row: GpuRetainedContentDateCalendarRow;
   readonly summaryRect: GpuRect;
   readonly summaryText: string;
@@ -45,6 +49,7 @@ const DATE_CALENDAR_COLUMN_COUNT = 7;
 const DATE_CALENDAR_MARGIN = 4;
 const DATE_CALENDAR_PADDING = 8;
 const DATE_CALENDAR_HEADER_HEIGHT = 26;
+const DATE_CALENDAR_NAVIGATION_WIDTH = 36;
 const DATE_CALENDAR_WEEKDAY_HEIGHT = 18;
 const DATE_CALENDAR_CELL_HEIGHT = 22;
 const DATE_CALENDAR_SUMMARY_HEIGHT = 18;
@@ -116,6 +121,26 @@ export function createGpuRetainedContentActiveDateCalendarLayout({
       })),
     headerRect,
     monthTitle: row.control.calendar.monthTitle,
+    navigation: [
+      {
+        direction: -1,
+        rect: {
+          height: headerRect.height,
+          width: DATE_CALENDAR_NAVIGATION_WIDTH,
+          x: headerRect.x,
+          y: headerRect.y,
+        },
+      },
+      {
+        direction: 1,
+        rect: {
+          height: headerRect.height,
+          width: DATE_CALENDAR_NAVIGATION_WIDTH,
+          x: headerRect.x + headerRect.width - DATE_CALENDAR_NAVIGATION_WIDTH,
+          y: headerRect.y,
+        },
+      },
+    ],
     row,
     summaryRect,
     summaryText: row.control.calendar.summaryText,

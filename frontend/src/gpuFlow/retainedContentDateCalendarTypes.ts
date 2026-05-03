@@ -17,9 +17,15 @@ export type GpuRetainedContentDateCalendarCell = {
   readonly today: boolean;
 };
 
+export type GpuRetainedContentDateCalendarMonth = {
+  readonly monthIndex: number;
+  readonly year: number;
+};
+
 export type GpuRetainedContentDateCalendarDescriptor = {
   readonly cells: readonly GpuRetainedContentDateCalendarCell[];
   readonly includeTime: boolean;
+  readonly month: GpuRetainedContentDateCalendarMonth;
   readonly monthTitle: string;
   readonly selectedDates: readonly string[];
   readonly selectedTimeValue: string;
@@ -39,6 +45,12 @@ export type GpuRetainedContentDateCalendarDrawCommand =
   | {
       readonly kind: "control-popup-date-calendar-header";
       readonly monthTitle: string;
+      readonly rect: GpuRect;
+      readonly rowId: string;
+    }
+  | {
+      readonly direction: -1 | 1;
+      readonly kind: "control-popup-date-calendar-navigation";
       readonly rect: GpuRect;
       readonly rowId: string;
     }

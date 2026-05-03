@@ -658,6 +658,7 @@ describe("retained content scene", () => {
             calendar: {
               cells: calendarCells("2026-05-04"),
               includeTime: false,
+              month: { monthIndex: 4, year: 2026 },
               monthTitle: "May 2026",
               selectedDates: ["2026-05-04"],
               selectedTimeValue: "00:00",
@@ -689,6 +690,16 @@ describe("retained content scene", () => {
           rowId: "date-param",
         }),
         expect.objectContaining({
+          direction: -1,
+          kind: "control-popup-date-calendar-navigation",
+          rowId: "date-param",
+        }),
+        expect.objectContaining({
+          direction: 1,
+          kind: "control-popup-date-calendar-navigation",
+          rowId: "date-param",
+        }),
+        expect.objectContaining({
           kind: "control-popup-date-calendar-weekday",
           rowId: "date-param",
           text: "Sun",
@@ -714,6 +725,18 @@ describe("retained content scene", () => {
           cellIsoDate: "2026-05-04",
           id: "popup-date-cell:date-param:2026-05-04",
           kind: "popup-date-cell",
+          ownerRowId: "date-param",
+        }),
+        expect.objectContaining({
+          id: "popup-date-navigation:date-param:-1",
+          kind: "popup-date-navigation",
+          navigationDirection: -1,
+          ownerRowId: "date-param",
+        }),
+        expect.objectContaining({
+          id: "popup-date-navigation:date-param:1",
+          kind: "popup-date-navigation",
+          navigationDirection: 1,
           ownerRowId: "date-param",
         }),
       ]),

@@ -70,9 +70,19 @@ export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget & {
   readonly activation?: GpuDomIsland["activation"] | undefined;
 };
 
-export type ProjectGpuActiveParamCanvasPopup = ProjectGpuRetainedParamTarget & {
-  readonly kind: "color-picker" | "date-calendar" | "dropdown";
+type ProjectGpuDateCalendarVisibleMonth = {
+  readonly monthIndex: number;
+  readonly year: number;
 };
+
+export type ProjectGpuActiveParamCanvasPopup =
+  | (ProjectGpuRetainedParamTarget & {
+      readonly kind: "color-picker" | "dropdown";
+    })
+  | (ProjectGpuRetainedParamTarget & {
+      readonly kind: "date-calendar";
+      readonly visibleMonth: ProjectGpuDateCalendarVisibleMonth;
+    });
 
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
@@ -666,6 +676,7 @@ function createProjectGpuParamRows({
       );
     }
     return createProjectGpuParamRowInput({
+      activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
       activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
       codeObjImpl,
       disabled: resolveProjectGpuRetainedParamRowDisabled({
