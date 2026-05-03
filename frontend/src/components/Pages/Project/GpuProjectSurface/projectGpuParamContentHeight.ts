@@ -1,10 +1,14 @@
 import type { ZustandProjectState } from "state/definitions";
 import type { BaseSectionImplUnion } from "utils/generatedTypes";
-import { countProjectGpuParamRetainedListRows } from "./projectGpuParamContentAdapter";
 import {
   resolveProjectGpuParamAutoContentHeight,
+  resolveProjectGpuParamContentVerticalChromeHeight,
   resolveProjectGpuParamFixedContentHeight,
 } from "./projectGpuParamContentLayout";
+import {
+  countProjectGpuParamRetainedListRows,
+  getProjectGpuParamRetainedListRowStats,
+} from "./projectGpuParamContentRowStats";
 import {
   getProjectGpuParamContentEdgeStripPortCounts,
   isProjectGpuParamContentSectionImpl,
@@ -68,5 +72,40 @@ export function getProjectGpuParamAutoContentHeightForSection({
     reserveEmptyContentHeight:
       !sectionImpl.isMinimized &&
       !("hideParams" in sectionImpl && Boolean(sectionImpl.hideParams)),
+  });
+}
+
+export function getProjectGpuParamContentVerticalChromeHeightForSection({
+  projectState,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+}): number | null {
+  if (!isProjectGpuParamContentSectionImpl(sectionImpl)) {
+    return null;
+  }
+  const pinnedStats = getProjectGpuParamRetainedListRowStats({
+    key: "pinned",
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
+  const unpinnedStats = sectionImpl.hideUnpinnedParams
+    ? null
+    : getProjectGpuParamRetainedListRowStats({
+        key: "unpinned",
+        projectState,
+        sectionId,
+        sectionImpl,
+      });
+  return resolveProjectGpuParamContentVerticalChromeHeight({
+    hasNestedBlockBottomChrome:
+      pinnedStats.hasNestedBlockBottomChrome ||
+      Boolean(unpinnedStats?.hasNestedBlockBottomChrome) ||
+      (pinnedStats.endsWithNestedRow &&
+        Boolean(unpinnedStats && unpinnedStats.rowCount > 0)),
   });
 }

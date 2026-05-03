@@ -60,6 +60,7 @@ import {
   getProjectGpuLayoutNode,
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
+import { PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX } from "./projectGpuParamContentLayout";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
@@ -612,7 +613,7 @@ describe("project GPU layout adapter", () => {
     const expectedHeight =
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
       KWARGS_CONTROLS_SCENE_HEIGHT_PX +
-      18 +
+      PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
       3 * 24;
 
     expect(section?.worldRect).toMatchObject({
@@ -626,6 +627,105 @@ describe("project GPU layout adapter", () => {
         (surface) => surface.id === "dict-a:param-content:unpinned",
       )?.retainedScene?.contentRect.height,
     ).toBe(72);
+  });
+
+  it("adds nested retained row chrome to auto-height param sections", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "child-param": "child-param-variant",
+              "parent-param": "parent-param-variant",
+              "root-param": "root-param-variant",
+              "sibling-param": "sibling-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: "auto", width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["parent-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "parent-param",
+      "parent-param-variant",
+      "parent-param-impl",
+      createNestedParamImpl("parent-param-impl", ["child-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "child-param",
+      "child-param-variant",
+      "child-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "child-param-impl",
+        name: "child-param",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "sibling-param",
+      "sibling-param-variant",
+      "sibling-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "sibling-param-impl",
+        name: "sibling-param",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "child-param": ["parent-param", "child-param"],
+          "parent-param": ["parent-param"],
+          "sibling-param": ["sibling-param"],
+        },
+        topLevelParamIds: ["parent-param", "sibling-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 2,
+    });
+    const section = scene.sections.find(
+      (candidate) => candidate.sectionId === "dict-a",
+    );
+    const expectedHeight =
+      PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+      KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+      PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+      4 +
+      3 * 24;
+
+    expect(section?.worldRect).toMatchObject({
+      height: expectedHeight,
+      width: 262,
+      x: 10,
+      y: 20,
+    });
+    expect(
+      scene.contentSurfaces
+        .find((surface) => surface.id === "dict-a:param-content:unpinned")
+        ?.retainedScene?.rows.map((row) => [row.id, row.depth]),
+    ).toEqual([
+      ["parent-param", 0],
+      ["child-param", 1],
+      ["sibling-param", 0],
+    ]);
   });
 
   it("reserves blank retained content height for empty auto-height param sections", () => {
@@ -692,7 +792,7 @@ describe("project GPU layout adapter", () => {
     expect(section?.worldRect.height).toBe(
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
-        18 +
+        PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
         24,
     );
     expect(

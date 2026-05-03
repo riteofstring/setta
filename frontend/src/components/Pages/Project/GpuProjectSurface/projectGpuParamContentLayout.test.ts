@@ -1,11 +1,13 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import { describe, expect, it } from "vitest";
 import {
+  PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX,
   getProjectGpuParamContentControlWidth,
   getProjectGpuParamContentLabelColumnWidth,
   getProjectGpuParamContentMetrics,
   getProjectGpuParamListSurfaceHeight,
   resolveProjectGpuParamAutoContentHeight,
+  resolveProjectGpuParamContentVerticalChromeHeight,
 } from "./projectGpuParamContentLayout";
 
 describe("project GPU param content layout", () => {
@@ -69,6 +71,19 @@ describe("project GPU param content layout", () => {
         unpinnedRowCount: 0,
       }),
     ).toBe(0);
+  });
+
+  it("adds retained vertical chrome only for nested param rows", () => {
+    expect(
+      resolveProjectGpuParamContentVerticalChromeHeight({
+        hasNestedBlockBottomChrome: false,
+      }),
+    ).toBe(PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX);
+    expect(
+      resolveProjectGpuParamContentVerticalChromeHeight({
+        hasNestedBlockBottomChrome: true,
+      }),
+    ).toBe(PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX + 4);
   });
 
   it("derives retained label/control columns from the param column-width contract", () => {

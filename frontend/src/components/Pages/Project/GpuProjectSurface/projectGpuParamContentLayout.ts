@@ -8,6 +8,21 @@ export const PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX = 12;
 export const PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX = 9;
 
 const PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX = 5;
+export const PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX = 18;
+const PROJECT_GPU_PARAM_CONTENT_NESTED_VERTICAL_CHROME_PX = 4;
+
+export function resolveProjectGpuParamContentVerticalChromeHeight({
+  hasNestedBlockBottomChrome,
+}: {
+  readonly hasNestedBlockBottomChrome: boolean;
+}): number {
+  return (
+    PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+    (hasNestedBlockBottomChrome
+      ? PROJECT_GPU_PARAM_CONTENT_NESTED_VERTICAL_CHROME_PX
+      : 0)
+  );
+}
 
 export function getProjectGpuParamContentLabelColumnWidth({
   maxNestedDepth,

@@ -19,6 +19,7 @@ import {
   type SingleConfig,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+import { PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX } from "./projectGpuParamContentLayout";
 import {
   getProjectNodeIntrinsicSizeObserverNodeIds,
   measureIntrinsicElementHeight,
@@ -180,7 +181,64 @@ describe("projectNodeIntrinsicSize", () => {
       height:
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
-        18 +
+        PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+        3 * 24,
+    });
+    expect(element.style.height).toBe("80px");
+  });
+
+  it("keeps base retained auto height chrome when a nested block reaches the bottom", () => {
+    const projectState = projectStateWithNestedRetainedParamSection();
+    useProjectState.setState(projectState);
+    const element = document.createElement("div");
+    installMeasuredBox(element, { autoHeight: 80, autoWidth: 260 });
+    element.style.height = "80px";
+
+    expect(resolveProjectNodeIntrinsicSize("dict-a", element)).toEqual({
+      height:
+        PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+        PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+        2 * 24,
+    });
+    expect(element.style.height).toBe("80px");
+  });
+
+  it("adds retained auto height chrome when root rows continue after a nested block", () => {
+    const projectState = projectStateWithNestedRetainedParamSection({
+      includeTrailingSibling: true,
+    });
+    useProjectState.setState(projectState);
+    const element = document.createElement("div");
+    installMeasuredBox(element, { autoHeight: 80, autoWidth: 260 });
+    element.style.height = "80px";
+
+    expect(resolveProjectNodeIntrinsicSize("dict-a", element)).toEqual({
+      height:
+        PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+        PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+        4 +
+        3 * 24,
+    });
+    expect(element.style.height).toBe("80px");
+  });
+
+  it("adds retained auto height chrome for multi-child nested blocks at the bottom", () => {
+    const projectState = projectStateWithNestedRetainedParamSection({
+      includeSecondNestedChild: true,
+    });
+    useProjectState.setState(projectState);
+    const element = document.createElement("div");
+    installMeasuredBox(element, { autoHeight: 80, autoWidth: 260 });
+    element.style.height = "80px";
+
+    expect(resolveProjectNodeIntrinsicSize("dict-a", element)).toEqual({
+      height:
+        PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+        PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
+        4 +
         3 * 24,
     });
     expect(element.style.height).toBe("80px");
@@ -310,6 +368,135 @@ function projectStateWithRetainedParamSection({
       createCodeParamCodeObjImpl({
         id: `${paramId}-impl`,
         name: paramId,
+      }) as BaseCodeObjImplUnion,
+    );
+  }
+  return projectState;
+}
+
+function projectStateWithNestedRetainedParamSection({
+  includeSecondNestedChild = false,
+  includeTrailingSibling = false,
+}: {
+  readonly includeSecondNestedChild?: boolean;
+  readonly includeTrailingSibling?: boolean;
+} = {}): ZustandProjectState {
+  const rootParamId = "root-param";
+  const parentParamId = "parent-param";
+  const childParamId = "child-param";
+  const secondChildParamId = "second-child-param";
+  const siblingParamId = "sibling-param";
+  const nestedChildIds = includeSecondNestedChild
+    ? [childParamId, secondChildParamId]
+    : [childParamId];
+  const shownTopLevelParamIds = includeTrailingSibling
+    ? [parentParamId, siblingParamId]
+    : [parentParamId];
+  const shownParamPaths = {
+    [childParamId]: [parentParamId, childParamId],
+    [parentParamId]: [parentParamId],
+    ...(includeSecondNestedChild
+      ? { [secondChildParamId]: [parentParamId, secondChildParamId] }
+      : {}),
+    ...(includeTrailingSibling ? { [siblingParamId]: [siblingParamId] } : {}),
+  };
+  const projectState = createSingleConfig({
+    projectConfig: createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { "dict-a": "dict-a-variant" },
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 0, y: 0, zIndex: 0 },
+      },
+    }),
+    sectionImpls: {
+      "dict-a-impl": createDictSectionImpl({
+        codeObjVariantMap: {
+          [childParamId]: `${childParamId}-variant`,
+          [parentParamId]: `${parentParamId}-variant`,
+          [rootParamId]: `${rootParamId}-variant`,
+          ...(includeSecondNestedChild
+            ? { [secondChildParamId]: `${secondChildParamId}-variant` }
+            : {}),
+          ...(includeTrailingSibling
+            ? { [siblingParamId]: `${siblingParamId}-variant` }
+            : {}),
+        },
+        id: "dict-a-impl",
+        size: sectionSize({ height: "auto", width: 260 }),
+        topLevelParamId: rootParamId,
+      }),
+    },
+    sectionVariants: {
+      "dict-a-variant": createVariant({
+        id: "dict-a-variant",
+        impl: "dict-a-impl",
+        name: "dict-a-variant",
+        nonPresetImpls: [],
+      }),
+    },
+    sections: {
+      "dict-a": createCore({
+        defaultVariant: "dict-a-variant",
+        id: "dict-a",
+        name: "dict-a",
+        variants: ["dict-a-variant"],
+      }),
+    },
+    shownParamIds: {
+      "dict-a-variant": createShownParamIDs({
+        unpinned: {
+          requiredParamIdsToPaths: shownParamPaths,
+          topLevelParamIds: shownTopLevelParamIds,
+        },
+      }),
+    },
+  }) as ZustandProjectState;
+  projectState.previewSectionVariantMap = {};
+  addParamToProjectState(
+    projectState,
+    rootParamId,
+    `${rootParamId}-variant`,
+    `${rootParamId}-impl`,
+    createNestedParamImpl(`${rootParamId}-impl`, [parentParamId]),
+  );
+  addParamToProjectState(
+    projectState,
+    parentParamId,
+    `${parentParamId}-variant`,
+    `${parentParamId}-impl`,
+    createNestedParamImpl(`${parentParamId}-impl`, nestedChildIds),
+  );
+  addParamToProjectState(
+    projectState,
+    childParamId,
+    `${childParamId}-variant`,
+    `${childParamId}-impl`,
+    createCodeParamCodeObjImpl({
+      id: `${childParamId}-impl`,
+      name: childParamId,
+    }) as BaseCodeObjImplUnion,
+  );
+  if (includeSecondNestedChild) {
+    addParamToProjectState(
+      projectState,
+      secondChildParamId,
+      `${secondChildParamId}-variant`,
+      `${secondChildParamId}-impl`,
+      createCodeParamCodeObjImpl({
+        id: `${secondChildParamId}-impl`,
+        name: secondChildParamId,
+      }) as BaseCodeObjImplUnion,
+    );
+  }
+  if (includeTrailingSibling) {
+    addParamToProjectState(
+      projectState,
+      siblingParamId,
+      `${siblingParamId}-variant`,
+      `${siblingParamId}-impl`,
+      createCodeParamCodeObjImpl({
+        id: `${siblingParamId}-impl`,
+        name: siblingParamId,
       }) as BaseCodeObjImplUnion,
     );
   }

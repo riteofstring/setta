@@ -25,8 +25,6 @@ import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImplWithTypeGuardIfPresent,
-  getCurrSectionVariantId,
-  getCurrShownParamIds,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState, ZustandTypeErrors } from "state/definitions";
 import {
@@ -45,6 +43,10 @@ import {
   PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
+import {
+  getProjectGpuShownParamRowsIfPresent,
+  normalizeProjectGpuShownParamRows,
+} from "./projectGpuParamContentRowStats";
 import {
   getProjectGpuParamContentEdgeStripPortCounts,
   isProjectGpuParamContentSectionImpl,
@@ -552,67 +554,6 @@ function createProjectGpuParamListRows({
   });
 }
 
-function getProjectGpuShownParamRowsIfPresent({
-  key,
-  projectState,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly key: ProjectGpuParamListKey;
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
-}) {
-  const sectionVariantId = getCurrSectionVariantId(
-    projectState,
-    sectionId,
-    true,
-  );
-  if (!projectState.shownParamIds[sectionVariantId]) {
-    if (Object.keys(sectionImpl.codeObjVariantMap).length > 0) {
-      throw new Error(
-        `Missing shown param ids for GPU param content section ${sectionId}.`,
-      );
-    }
-    return null;
-  }
-  return getCurrShownParamIds(projectState, sectionId, key === "pinned", true);
-}
-
-function normalizeProjectGpuShownParamRows({
-  key,
-  sectionId,
-  shown,
-}: {
-  readonly key: ProjectGpuParamListKey;
-  readonly sectionId: string;
-  readonly shown: ReturnType<typeof getCurrShownParamIds>;
-}): {
-  readonly requiredParamIdsToPaths: Record<string, string[]>;
-  readonly topLevelParamIds: string[];
-} {
-  if (!Array.isArray(shown.topLevelParamIds)) {
-    throw new Error(
-      `Invalid ${key} shown param ids for GPU param content section ${sectionId}.`,
-    );
-  }
-  const requiredParamIdsToPaths: Record<string, string[]> = {};
-  for (const [paramId, path] of Object.entries(
-    shown.requiredParamIdsToPaths ?? {},
-  )) {
-    if (!Array.isArray(path)) {
-      throw new Error(
-        `Invalid shown param path for GPU param content row ${paramId} in section ${sectionId}.`,
-      );
-    }
-    requiredParamIdsToPaths[paramId] = [...path];
-  }
-  return {
-    requiredParamIdsToPaths,
-    topLevelParamIds: [...shown.topLevelParamIds],
-  };
-}
-
 function createProjectGpuParamRows({
   editPolicy,
   filteredRows,
@@ -845,49 +786,6 @@ function getProjectGpuParamListRowCount(
   key: ProjectGpuParamListKey,
 ): number {
   return listRows.find((list) => list.key === key)?.rows.length ?? 0;
-}
-
-export function countProjectGpuParamRetainedListRows({
-  key,
-  projectState,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly key: ProjectGpuParamListKey;
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
-}): number {
-  const shown = getProjectGpuShownParamRowsIfPresent({
-    key,
-    projectState,
-    sectionId,
-    sectionImpl,
-  });
-  if (!shown) {
-    return 0;
-  }
-  const normalizedShown = normalizeProjectGpuShownParamRows({
-    key,
-    sectionId,
-    shown,
-  });
-  const filteredRows = resolveFilteredParamRows({
-    paramFilter: sectionImpl.paramFilter,
-    paramIds: normalizedShown.topLevelParamIds,
-    requiredParamIdsToPaths: normalizedShown.requiredParamIdsToPaths,
-    sectionId,
-    state: projectState,
-  });
-  if (filteredRows.paramIds.length === 0) {
-    return 0;
-  }
-  return buildParamTreeView(
-    projectState,
-    sectionId,
-    filteredRows.paramIds,
-    filteredRows.requiredParamIdsToPaths,
-  ).flat.length;
 }
 
 function getProjectGpuParamRetainedContentActivePopupInput({
