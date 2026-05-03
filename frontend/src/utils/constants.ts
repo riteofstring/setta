@@ -152,7 +152,6 @@ export const SETTA_POPOVER_PORTAL_PARENT_ID = "setta-popover-portals";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 const KWARGS_CONTROLS_HEIGHT_KEY_PREFIX = "kwargs-controls-height";
-const PINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "pinned-params-area-height";
 const PARAMS_FIXED_HEIGHT_KEY_PREFIX = "params-fixed-height";
 const SECTION_HEADER_HEIGHT_KEY_PREFIX = "section-header-height";
 const SECTION_SEARCH_HEIGHT_KEY_PREFIX = "section-search-height";
@@ -160,10 +159,6 @@ const SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX = "section-style-preview-color";
 
 export function getKwargsControlsHeightKey(sectionId: string) {
   return `${KWARGS_CONTROLS_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getPinnedParamsAreaHeightKey(sectionId: string) {
-  return `${PINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
 export function getParamsFixedHeightKey(sectionId: string) {

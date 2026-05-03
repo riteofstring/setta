@@ -19,10 +19,6 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 
 import {
-  getPinnedParamsAreaHeightKey,
-} from "utils/constants";
-
-import {
   isBaseSectionWithParamsImpl,
   type SectionType,
 } from "utils/generatedTypes";
@@ -40,7 +36,6 @@ import {
   selectEdgeStripState,
   selectUnpinnedParamsState,
   shouldApplyUnpinnedAreaMinHeight,
-  useMeasuredParamAreaMinHeight,
 } from "./groupContainer";
 
 export function EdgesStrip({
@@ -163,9 +158,6 @@ type PinnedParamsAreaProps = {
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionType;
-  contentRef: React.RefObject<HTMLDivElement | null>;
-  headerRef: React.RefObject<HTMLElement | null>;
-  rowsRef: React.RefObject<HTMLDivElement | null>;
 };
 
 type GetUnpinnedParamsProps = {
@@ -210,24 +202,9 @@ export function GetPinnedParams({
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const headerRef = useRef<HTMLElement | null>(null);
-  const rowsRef = useRef<HTMLDivElement | null>(null);
-  const heightKey = getPinnedParamsAreaHeightKey(sectionId);
-
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
   }, [maxNestedDepth]);
-
-  useMeasuredParamAreaMinHeight({
-    enabled: renderParamRows,
-    sectionId,
-    heightKey,
-    paramIds: topLevelParamIds,
-    contentRef,
-    headerRef,
-    rowsRef,
-  });
 
   return (
     topLevelParamIds.length > 0 && (
@@ -241,9 +218,6 @@ export function GetPinnedParams({
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
-        contentRef={contentRef}
-        headerRef={headerRef}
-        rowsRef={rowsRef}
       />
     )
   );
@@ -259,9 +233,6 @@ function PinnedParamsArea({
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
-  contentRef,
-  headerRef,
-  rowsRef,
 }: PinnedParamsAreaProps) {
   const pinnedBgClassName = hasSectionStyleTheme
     ? "bg-[color:var(--setta-section-style-panel-bg)]"
@@ -289,9 +260,8 @@ function PinnedParamsArea({
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
-        ref={contentRef}
       >
-        <header className="flex w-full gap-1 px-2" ref={headerRef}>
+        <header className="flex w-full gap-1 px-2">
           <i
             className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
           />
@@ -305,7 +275,6 @@ function PinnedParamsArea({
         {renderParamRows && (
           <div
             className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-            ref={rowsRef}
           >
             <ParamDndList
               sectionId={sectionId}

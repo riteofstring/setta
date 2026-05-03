@@ -9,7 +9,6 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
-  getPinnedParamsAreaHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
@@ -247,7 +246,6 @@ describe("project GPU layout adapter", () => {
     const searchKey = getSectionSearchHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
-    const pinnedKey = getPinnedParamsAreaHeightKey(sectionId);
     const hiddenHeaderKey = getSectionHeaderHeightKey(hiddenSectionId);
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
@@ -257,7 +255,6 @@ describe("project GPU layout adapter", () => {
       [headerKey]: 24,
       [kwargsKey]: Number.NaN,
       [paramsFixedKey]: 36,
-      [pinnedKey]: -1,
       [searchKey]: 20,
       unrelated: 99,
     });
@@ -266,7 +263,6 @@ describe("project GPU layout adapter", () => {
     expect(measuredHeights).toEqual({
       [kwargsKey]: 0,
       [paramsFixedKey]: 36,
-      [pinnedKey]: 0,
       [headerKey]: 24,
       [searchKey]: 20,
     });

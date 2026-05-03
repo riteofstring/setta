@@ -8,7 +8,6 @@ import {
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
-  getPinnedParamsAreaHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
@@ -24,7 +23,6 @@ const PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS: readonly ProjectGpuSceneMe
   [
     getKwargsControlsHeightKey,
     getParamsFixedHeightKey,
-    getPinnedParamsAreaHeightKey,
     getSectionHeaderHeightKey,
     getSectionSearchHeightKey,
   ];

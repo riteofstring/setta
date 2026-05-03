@@ -2,7 +2,6 @@ import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
-  getPinnedParamsAreaHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
@@ -54,10 +53,6 @@ export function getProjectGpuParamContentMetrics({
     inputPortCount: edgeInputPortCount,
     outputPortCount: edgeOutputPortCount,
   });
-  const pinnedHeight = getProjectSceneMeasuredHeightFromRecord(
-    measuredHeightsByKey,
-    getPinnedParamsAreaHeightKey(sectionId),
-  );
   const paramsFixedHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getParamsFixedHeightKey(sectionId),
@@ -70,7 +65,6 @@ export function getProjectGpuParamContentMetrics({
       PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX,
     edgesHeight,
     paramsFixedHeight,
-    pinnedHeight,
   };
 }
 
@@ -92,18 +86,14 @@ export function getProjectGpuParamListLocalY({
 export function getProjectGpuParamListSurfaceHeight({
   contentHeight,
   listKey,
-  metrics,
   remainingHeight,
 }: {
   readonly contentHeight: number;
   readonly listKey: ProjectGpuParamListKey;
-  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
   readonly remainingHeight: number;
 }): number {
   if (listKey === "pinned") {
-    const pinnedHeight =
-      metrics.pinnedHeight > 0 ? metrics.pinnedHeight : contentHeight;
-    return Math.min(remainingHeight, pinnedHeight);
+    return Math.min(remainingHeight, contentHeight);
   }
   return remainingHeight;
 }

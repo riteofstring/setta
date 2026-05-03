@@ -758,7 +758,6 @@ function createProjectGpuParamListContentSurfaces({
     const height = getProjectGpuParamListSurfaceHeight({
       contentHeight,
       listKey: list.key,
-      metrics,
       remainingHeight,
     });
     if (height <= 0) {

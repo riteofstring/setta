@@ -6,8 +6,6 @@ import { Handle } from "gpuFlow/Handle";
 
 import { getProjectGpuHandleConnectionProps } from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 
-import _ from "lodash";
-
 import React, {
   useCallback,
   useEffect,
@@ -30,11 +28,7 @@ import {
 
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 
-import {
-  useProjectState,
-  useResizeEvent,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useTemporaryMiscState } from "state/definitions";
 
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 
@@ -51,17 +45,10 @@ import {
 import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
-  type SectionSize,
   type SectionSizingPolicy,
   type SectionType,
 } from "utils/generatedTypes";
 
-import {
-  buildParamAreaMeasureKey,
-  measureParamAreaMinHeight,
-} from "../paramAreaMeasurements";
-
-import { attachParamAreaObservers } from "../paramAreaObservers";
 import {
   attachParamFixedHeightObservers,
   type ParamFixedHeightObservation,
@@ -773,141 +760,4 @@ export function getPinnedParamsBgClassName(sectionTypeName: SectionType) {
     return "bg-setta-50 dark:bg-blue-950/30";
   }
   return "bg-setta-100/50 dark:bg-blue-950/30";
-}
-
-export function useMeasuredParamAreaMinHeight({
-  enabled = true,
-  sectionId,
-  heightKey,
-  paramIds,
-  contentRef,
-  headerRef,
-  rowsRef,
-}: {
-  enabled?: boolean;
-  sectionId: string;
-  heightKey: string;
-  paramIds: Array<string>;
-  contentRef: React.RefObject<HTMLElement | null>;
-  headerRef?: React.RefObject<HTMLElement | null>;
-  rowsRef: React.RefObject<HTMLElement | null>;
-}) {
-  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
-  const lastMeasuredHeightRef = useRef<number | null>(null);
-  const { sectionWidth, columnWidth } = useProjectState((state) => {
-    if (!state.sections[sectionId]) {
-      return { sectionWidth: null, columnWidth: null };
-    }
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return {
-      sectionWidth: getSectionWidthForParamAreaMeasure(impl.size?.width),
-      columnWidth: impl.columnWidth,
-    };
-  }, _.isEqual);
-  const measureKey = buildParamAreaMeasureKey({
-    paramIds,
-    sectionWidth,
-    columnWidth,
-  });
-
-  useLayoutEffect(() => {
-    if (!enabled) {
-      lastMeasuredHeightRef.current = 0;
-      useTemporaryMiscState.setState({
-        [heightKey]: 0,
-      });
-      return;
-    }
-    let frameId = 0;
-    let cleanupObservers: (() => void) | null = null;
-
-    const updateHeight = (nextHeight: number) => {
-      if (lastMeasuredHeightRef.current === nextHeight) {
-        return;
-      }
-      lastMeasuredHeightRef.current = nextHeight;
-      useTemporaryMiscState.setState({
-        [heightKey]: nextHeight,
-      });
-    };
-
-    if (paramIds.length === 0) {
-      updateHeight(0);
-      return;
-    }
-
-    const content = contentRef.current;
-    const rows = rowsRef.current;
-    if (!content || !rows) {
-      updateHeight(0);
-      return;
-    }
-
-    const measure = () => {
-      const rowElements =
-        rows.querySelectorAll<HTMLElement>("[data-param-row]");
-      if (rowElements.length === 0) {
-        updateHeight(0);
-        return;
-      }
-      const rowHeights = Array.from(rowElements, (row) => row.offsetHeight);
-      const headerHeight = headerRef?.current?.offsetHeight ?? 0;
-      const style = window.getComputedStyle(content);
-      const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
-      const nextHeight = measureParamAreaMinHeight({
-        rowHeights,
-        headerHeight,
-        paddingTop,
-        paddingBottom,
-      });
-      updateHeight(nextHeight);
-    };
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(measure);
-    };
-
-    scheduleMeasure();
-
-    cleanupObservers = attachParamAreaObservers({
-      rowsElement: rows,
-      headerElement: headerRef?.current ?? null,
-      onMeasure: scheduleMeasure,
-    });
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      cleanupObservers?.();
-    };
-  }, [enabled, heightKey, measureKey, resizeEvent]);
-
-  useEffect(() => {
-    return () => {
-      useTemporaryMiscState.setState({
-        [heightKey]: 0,
-      });
-    };
-  }, [heightKey]);
-}
-
-function getSectionWidthForParamAreaMeasure(
-  width: unknown,
-): SectionSize["width"] | null {
-  if (width === null || width === undefined) {
-    return null;
-  }
-  if (typeof width === "number" || width === "auto") {
-    return width;
-  }
-  throw new Error("Invalid section width for param area measurement.");
 }
