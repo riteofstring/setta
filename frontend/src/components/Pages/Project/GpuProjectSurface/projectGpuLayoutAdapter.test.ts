@@ -33,6 +33,7 @@ import {
   createVariant,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
+  type ColorPickerParamCodeObjImpl,
   type SingleConfig,
   type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -1475,6 +1476,107 @@ describe("project GPU layout adapter", () => {
     });
   });
 
+  it("keeps native retained color picker islands control-sized", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "native-color-param": "native-color-param-variant",
+              "palette-color-param": "palette-color-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 420, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 420, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", [
+        "native-color-param",
+        "palette-color-param",
+      ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "native-color-param",
+      "native-color-param-variant",
+      "native-color-param-impl",
+      createColorPickerParamImpl({
+        colorChoices: [],
+        id: "native-color-param-impl",
+        name: "native-color",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "palette-color-param",
+      "palette-color-param-variant",
+      "palette-color-param-impl",
+      createColorPickerParamImpl({
+        colorChoices: [{ color: "#ef4444", description: "Red" }],
+        id: "palette-color-param-impl",
+        name: "palette-color",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "native-color-param": ["native-color-param"],
+          "palette-color-param": ["palette-color-param"],
+        },
+        topLevelParamIds: ["native-color-param", "palette-color-param"],
+      },
+    });
+
+    const nativeScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:native-color-param",
+        paramInfoId: "native-color-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 6,
+    });
+
+    expect(nativeScene.domIslands[0]).toMatchObject({
+      contentRect: { height: 28, width: 112, x: 0, y: 0 },
+      kind: "retained-content-control",
+      ownerSectionId: "dict-a",
+      rect: { height: 28, width: 112 },
+    });
+
+    const paletteScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:palette-color-param",
+        paramInfoId: "palette-color-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 7,
+    });
+
+    expect(paletteScene.domIslands[0]).toMatchObject({
+      contentRect: { height: 28, width: 112, x: 112, y: 0 },
+      kind: "retained-content-control",
+      ownerSectionId: "dict-a",
+      rect: { height: 260, width: 224 },
+    });
+  });
+
   it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {
     const paramIds = Array.from({ length: 8 }, (_, index) => `param-${index}`);
     const projectState = projectStateWithSections({
@@ -1890,6 +1992,32 @@ function createTimeParamImpl({
     typeAnnotation: "",
     value: "12:30",
   } satisfies TimeParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
+}
+
+function createColorPickerParamImpl({
+  colorChoices,
+  id,
+  name,
+}: {
+  readonly colorChoices: ColorPickerParamCodeObjImpl["colorChoices"];
+  readonly id: string;
+  readonly name: string;
+}): BaseCodeObjImplUnion {
+  const impl = {
+    colorChoices: colorChoices ? [...colorChoices] : colorChoices,
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "#000000",
+    description: "",
+    id,
+    isPreset: false,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.ColorPickerParam,
+    typeAnnotation: "",
+    value: "#000000",
+  } satisfies ColorPickerParamCodeObjImpl;
   return impl as BaseCodeObjImplUnion;
 }
 

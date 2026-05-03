@@ -5,6 +5,7 @@ import {
   CodeObjTypeEnum,
   DateControlModeEnum,
   isBaseParamCodeObjImpl,
+  type ColorPickerParamCodeObjImpl,
   type DateParamCodeObjImpl,
 } from "utils/generatedTypes";
 
@@ -87,7 +88,16 @@ function getProjectGpuParamActiveControlGeometry({
   if (controlKind === "dropzone") {
     return { kind: "dropzone" };
   }
-  if (controlKind === "color-picker" || controlKind === "dropdown") {
+  if (controlKind === "color-picker") {
+    return isProjectGpuColorPickerPopoverControl({
+      paramInfoId,
+      projectState,
+      sectionId,
+    })
+      ? { kind: "popover" }
+      : { kind: "default" };
+  }
+  if (controlKind === "dropdown") {
     return { kind: "popover" };
   }
   if (controlKind !== "date-time") {
@@ -114,6 +124,45 @@ function getProjectGpuParamActiveControlGeometry({
     };
   }
   return { kind: "default" };
+}
+
+function isProjectGpuColorPickerPopoverControl({
+  paramInfoId,
+  projectState,
+  sectionId,
+}: {
+  readonly paramInfoId: string;
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+}): boolean {
+  const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    projectState,
+    sectionId,
+    paramInfoId,
+    isBaseParamCodeObjImpl,
+  );
+  if (!codeObjImpl) {
+    throw new Error(
+      `Missing GPU retained color-picker param ${paramInfoId} in section ${sectionId}.`,
+    );
+  }
+  if (!isProjectGpuColorPickerParamCodeObjImpl(codeObjImpl)) {
+    throw new Error(
+      `GPU retained color-picker control ${paramInfoId} in section ${sectionId} resolved to unsupported param type ${codeObjImpl.type}.`,
+    );
+  }
+  return (codeObjImpl.colorChoices?.length ?? 0) > 0;
+}
+
+function isProjectGpuColorPickerParamCodeObjImpl(
+  codeObjImpl: unknown,
+): codeObjImpl is ColorPickerParamCodeObjImpl {
+  return (
+    typeof codeObjImpl === "object" &&
+    codeObjImpl !== null &&
+    "type" in codeObjImpl &&
+    codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam
+  );
 }
 
 function isProjectGpuDateParamCodeObjImpl(
