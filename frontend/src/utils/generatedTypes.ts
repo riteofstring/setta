@@ -3955,7 +3955,19 @@ export function createProjectConfigMetadata(
 
 export type ProjectParamUpdateContent = gt.ProjectParamUpdateContent;
 
+export function createProjectParamUpdateContent(
+  options: CreateOptions<ProjectParamUpdateContent> = {} as CreateOptions<ProjectParamUpdateContent>,
+): ProjectParamUpdateContent {
+  return options as ProjectParamUpdateContent;
+}
+
 export type ProjectParamUpdateMessage = gt.ProjectParamUpdateMessage;
+
+export function createProjectParamUpdateMessage(
+  options: CreateOptions<ProjectParamUpdateMessage> = {} as CreateOptions<ProjectParamUpdateMessage>,
+): ProjectParamUpdateMessage {
+  return options as ProjectParamUpdateMessage;
+}
 
 export type ProjectPluginData = gt.ProjectPluginData;
 
@@ -5348,7 +5360,7 @@ export function createSettingsChatWindowing(
   options: Partial<SettingsChatWindowing> = {},
 ): SettingsChatWindowing {
   const defaults = {
-    autoCreateInitialChat: true,
+    autoCreateInitialChat: false,
     restorePriorStateOnUnmaximize: true,
     shortcuts: {
       canvasToggle: "Shift + Esc",
@@ -5573,7 +5585,7 @@ export function createSettingsState(
       showDefaultConfigOnLoad: true,
     },
     chatWindowing: {
-      autoCreateInitialChat: true,
+      autoCreateInitialChat: false,
       restorePriorStateOnUnmaximize: true,
       shortcuts: {
         canvasToggle: "Shift + Esc",

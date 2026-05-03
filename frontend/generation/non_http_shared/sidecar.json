@@ -10075,7 +10075,7 @@
       "profile": "frontend",
       "type": "SettingsChatWindowing",
       "value": {
-        "autoCreateInitialChat": true,
+        "autoCreateInitialChat": false,
         "restorePriorStateOnUnmaximize": true,
         "shortcuts": {
           "canvasToggle": "Shift + Esc",
@@ -10261,7 +10261,7 @@
           "showDefaultConfigOnLoad": true
         },
         "chatWindowing": {
-          "autoCreateInitialChat": true,
+          "autoCreateInitialChat": false,
           "restorePriorStateOnUnmaximize": true,
           "shortcuts": {
             "canvasToggle": "Shift + Esc",
