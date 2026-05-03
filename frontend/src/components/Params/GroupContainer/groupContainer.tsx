@@ -466,6 +466,7 @@ export type EdgeInputPortRowProps = {
   isSelectingParams: boolean;
   canConnect: boolean;
   appearance: EdgeStripAppearance;
+  renderInteractiveHandle?: boolean;
 };
 
 export function EdgeInputPortRow({
@@ -475,6 +476,7 @@ export function EdgeInputPortRow({
   isSelectingParams,
   canConnect,
   appearance,
+  renderInteractiveHandle = true,
 }: EdgeInputPortRowProps) {
   const rowClassName = `relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowHoverClassName} ${
     selected
@@ -496,21 +498,33 @@ export function EdgeInputPortRow({
       data-edge-param-id={port.id}
       data-edge-param-side="in"
     >
-      <Handle
-        id={port.id}
-        type="target"
-        position={HandlePosition.Left}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        {...connectionProps}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={handleClassName}
-        onClick={(event) =>
-          toggleSelectedEdgeParam(event, isSelectingParams, sectionId, port.id)
-        }
-      />
+      {renderInteractiveHandle ? (
+        <Handle
+          id={port.id}
+          type="target"
+          position={HandlePosition.Left}
+          onConnect={createEdgeFromConnection}
+          isValidConnection={isValidDataEdgeConnection}
+          {...connectionProps}
+          isConnectable={canConnect}
+          isConnectableStart={canConnect}
+          isConnectableEnd={canConnect}
+          className={handleClassName}
+          onClick={(event) =>
+            toggleSelectedEdgeParam(
+              event,
+              isSelectingParams,
+              sectionId,
+              port.id,
+            )
+          }
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-left ${handleClassName}`}
+        />
+      )}
       <span className="truncate">{port.label}</span>
     </div>
   );
@@ -768,6 +782,7 @@ export function _ParamGroupContainer({
         <EdgesStrip
           sectionId={sectionId}
           bgColor={bgColor}
+          renderInteractiveInputHandles={renderParamRows}
           renderInteractiveOutputHandles={renderParamRows}
         />
         <GetPinnedParams

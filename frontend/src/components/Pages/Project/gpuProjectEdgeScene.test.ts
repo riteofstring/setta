@@ -433,6 +433,40 @@ describe("gpuProjectEdgeScene", () => {
     });
   });
 
+  it("uses retained param anchors before edge-strip input fallback anchors", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        portDescriptors: {
+          "source:out:source": {
+            localRect: { height: 0, width: 0, x: 120, y: 40 },
+            nodeId: "source",
+            portId: "out",
+            side: HandlePosition.Right,
+            type: "source",
+          },
+        },
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: retainedParamAnchorWithEdgeStripFallbackScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 420, y: 129 },
+      },
+    });
+  });
+
   it("uses section scene anchors for edge-strip output positions", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
@@ -463,6 +497,40 @@ describe("gpuProjectEdgeScene", () => {
       geometry: {
         source: { x: 221, y: 160 },
         target: { x: 420, y: 160 },
+      },
+    });
+  });
+
+  it("uses section scene anchors for edge-strip input positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        portDescriptors: {
+          "source:out:source": {
+            localRect: { height: 0, width: 0, x: 120, y: 40 },
+            nodeId: "source",
+            portId: "out",
+            side: HandlePosition.Right,
+            type: "source",
+          },
+        },
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: edgeStripInputAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 419, y: 175 },
       },
     });
   });
@@ -670,6 +738,47 @@ function edgeStripOutputAnchorScene(): GpuFlowScene {
         ],
         sectionId: "source",
         worldRect: { height: 80, width: 120, x: 100, y: 100 },
+      }),
+    ],
+  };
+}
+
+function edgeStripInputAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 60 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function retainedParamAnchorWithEdgeStripFallbackScene(): GpuFlowScene {
+  return {
+    ...retainedParamAnchorScene(),
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 60 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
       }),
     ],
   };

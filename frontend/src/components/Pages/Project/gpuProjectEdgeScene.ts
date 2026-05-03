@@ -232,8 +232,8 @@ function buildProjectGpuEdgeHandlePositions(
   );
   return {
     ...domHandlePositions,
-    ...buildProjectGpuRetainedContentHandlePositions(scene),
     ...buildProjectGpuSectionSceneHandlePositions(scene),
+    ...buildProjectGpuRetainedContentHandlePositions(scene),
   };
 }
 

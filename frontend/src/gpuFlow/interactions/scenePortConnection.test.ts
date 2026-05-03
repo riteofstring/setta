@@ -135,6 +135,39 @@ describe("GPU scene port connection controller", () => {
     detach();
   });
 
+  it("starts target gestures from section scene input anchors", () => {
+    const { element, surface } = createGpuFlowSurface();
+    const store = createGpuFlowViewportStore({
+      transform: [10, -20, 2],
+    });
+    store.getState().setDomNode(element);
+    const layoutStore = createGpuFlowLayoutStore();
+    const detach = attachGpuScenePortConnectionController({
+      element,
+      getScene: () => createFlowScene(),
+      layoutStore,
+      onConnect: vi.fn(),
+      store,
+    });
+
+    const prevented = !dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 188,
+      clientY: 160,
+      pointerId: 1,
+    });
+
+    expect(prevented).toBe(true);
+    expect(handlePointerDownMock).toHaveBeenCalledTimes(1);
+    expect(handlePointerDownMock.mock.calls[0]?.[0]).toMatchObject({
+      edgeUpdaterType: "target",
+      handleId: "in",
+      isTarget: true,
+      nodeId: "section-1",
+    });
+    detach();
+  });
+
   it("ignores disabled, non-primary, and non-port pointer starts", () => {
     const { element, surface } = createGpuFlowSurface();
     const store = createGpuFlowViewportStore({
@@ -210,6 +243,11 @@ function createFlowScene(): GpuFlowScene {
         nodeId: "section-1",
         parentSectionId: null,
         portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 25 },
+          },
           {
             id: "out",
             kind: "output",

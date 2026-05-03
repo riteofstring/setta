@@ -1,6 +1,31 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { EdgeOutputPortRow, type EdgeStripAppearance } from "./groupContainer";
+import {
+  EdgeInputPortRow,
+  EdgeOutputPortRow,
+  type EdgeStripAppearance,
+} from "./groupContainer";
+
+describe("EdgeInputPortRow", () => {
+  it("renders passive input handles when scene metadata owns GPU input ports", () => {
+    const markup = renderToStaticMarkup(
+      <EdgeInputPortRow
+        appearance={edgeStripAppearanceFixture()}
+        canConnect
+        isSelectingParams={false}
+        port={{ id: "in", label: "prompt" }}
+        renderInteractiveHandle={false}
+        sectionId="section-a"
+        selected={false}
+      />,
+    );
+
+    expect(markup).toContain("setta-gpu-flow__handle-left");
+    expect(markup).toContain("arg-edge-handle--target");
+    expect(markup).not.toContain("data-handleid");
+    expect(markup).not.toContain("connectionindicator");
+  });
+});
 
 describe("EdgeOutputPortRow", () => {
   it("renders passive output handles when scene metadata owns GPU output ports", () => {

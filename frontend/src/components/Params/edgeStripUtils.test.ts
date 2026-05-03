@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveEdgeStripHeight,
+  resolveEdgeStripInputPortAnchorLocalPosition,
   resolveEdgeStripOutputPortAnchorLocalPosition,
 } from "./edgeStripUtils";
 
@@ -53,5 +54,14 @@ describe("resolveEdgeStripHeight", () => {
         stripLocalY: 16,
       }),
     ).toEqual({ x: 121, y: 132 });
+  });
+
+  it("derives input port anchor positions from the shared strip row layout", () => {
+    expect(
+      resolveEdgeStripInputPortAnchorLocalPosition({
+        portIndex: 1,
+        stripLocalY: 16,
+      }),
+    ).toEqual({ x: -1, y: 104 });
   });
 });

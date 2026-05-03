@@ -61,6 +61,27 @@ export function resolveEdgeStripOutputPortAnchorLocalPosition({
   };
 }
 
+export function resolveEdgeStripInputPortAnchorLocalPosition({
+  portIndex,
+  stripLocalY,
+}: {
+  readonly portIndex: number;
+  readonly stripLocalY: number;
+}): { readonly x: number; readonly y: number } {
+  if (!Number.isInteger(portIndex) || portIndex < 0) {
+    throw new Error("Edge strip input port index must be non-negative.");
+  }
+  assertFiniteNumber("Edge strip local y", stripLocalY);
+  return {
+    x: -EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+    y:
+      stripLocalY +
+      EDGE_STRIP_BASE_HEIGHT +
+      portIndex * (EDGE_PORT_ROW_HEIGHT + EDGE_PORT_ROW_GAP) +
+      EDGE_PORT_ROW_HEIGHT / 2,
+  };
+}
+
 function assertFiniteNumber(name: string, value: number): void {
   if (!Number.isFinite(value)) {
     throw new Error(`${name} must be finite.`);

@@ -1,5 +1,6 @@
 import {
   EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+  resolveEdgeStripInputPortAnchorLocalPosition,
   resolveEdgeStripOutputPortAnchorLocalPosition,
 } from "components/Params/edgeStripUtils";
 import type { Node } from "gpuFlow/flowTypes";
@@ -624,7 +625,7 @@ function getProjectSectionScenePortAnchors({
   }
 
   if (!sectionImpl.isMinimized) {
-    return getProjectSectionSceneEdgeStripOutputPortAnchors({
+    return getProjectSectionSceneEdgeStripPortAnchors({
       resizePolicyContext,
       sectionId,
       sectionImpl,
@@ -633,27 +634,24 @@ function getProjectSectionScenePortAnchors({
   }
 
   const anchorY = worldRect.height / 2;
+  const minimizedInputX = -EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX;
+  const minimizedOutputX =
+    worldRect.width + EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX;
   return [
     ...(sectionImpl.edgeInputParams ?? []).map((paramId) => ({
       id: paramId,
       kind: "input" as const,
-      localPosition: {
-        x: -EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
-        y: anchorY,
-      },
+      localPosition: { x: minimizedInputX, y: anchorY },
     })),
     ...(sectionImpl.edgeOutputPorts ?? []).map((port) => ({
       id: port.id,
       kind: "output" as const,
-      localPosition: {
-        x: worldRect.width + EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
-        y: anchorY,
-      },
+      localPosition: { x: minimizedOutputX, y: anchorY },
     })),
   ];
 }
 
-function getProjectSectionSceneEdgeStripOutputPortAnchors({
+function getProjectSectionSceneEdgeStripPortAnchors({
   resizePolicyContext,
   sectionId,
   sectionImpl,
@@ -662,22 +660,34 @@ function getProjectSectionSceneEdgeStripOutputPortAnchors({
   readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion & {
+    readonly edgeInputParams?: readonly string[] | null;
     readonly edgeOutputPorts?: readonly { readonly id: string }[] | null;
   };
   readonly worldRect: GpuRect;
 }): readonly GpuPortAnchorDescriptor[] {
-  return (sectionImpl.edgeOutputPorts ?? []).map((port, portIndex) => ({
-    id: port.id,
-    kind: "output" as const,
-    localPosition: resolveEdgeStripOutputPortAnchorLocalPosition({
-      portIndex,
-      sectionWidth: worldRect.width,
-      stripLocalY: getProjectSectionSceneEdgeStripLocalY({
-        resizePolicyContext,
-        sectionId,
+  const stripLocalY = getProjectSectionSceneEdgeStripLocalY({
+    resizePolicyContext,
+    sectionId,
+  });
+  return [
+    ...(sectionImpl.edgeInputParams ?? []).map((paramId, portIndex) => ({
+      id: paramId,
+      kind: "input" as const,
+      localPosition: resolveEdgeStripInputPortAnchorLocalPosition({
+        portIndex,
+        stripLocalY,
       }),
-    }),
-  }));
+    })),
+    ...(sectionImpl.edgeOutputPorts ?? []).map((port, portIndex) => ({
+      id: port.id,
+      kind: "output" as const,
+      localPosition: resolveEdgeStripOutputPortAnchorLocalPosition({
+        portIndex,
+        sectionWidth: worldRect.width,
+        stripLocalY,
+      }),
+    })),
+  ];
 }
 
 function getProjectSectionSceneEdgeStripLocalY({

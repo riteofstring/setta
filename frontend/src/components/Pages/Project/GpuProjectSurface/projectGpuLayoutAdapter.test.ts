@@ -409,6 +409,11 @@ describe("project GPU layout adapter", () => {
         ?.portAnchors,
     ).toEqual([
       {
+        id: "input-b",
+        kind: "input",
+        localPosition: { x: -1, y: 60 },
+      },
+      {
         id: "output-b",
         kind: "output",
         localPosition: { x: 123, y: 60 },
