@@ -162,6 +162,7 @@ describe("GPU flow scene scroll", () => {
 
     expect(result).toMatchObject({
       changed: true,
+      handled: true,
       parentSectionId: "nested-parent",
     });
     expect(result.scrollOffsets.get("nested-parent")).toEqual({
@@ -209,6 +210,138 @@ describe("GPU flow scene scroll", () => {
     expect(result.scrollOffsets.get("parent")).toEqual({
       x: 104,
       y: 0,
+    });
+  });
+
+  it("marks section wheel boundaries as handled without offset changes", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 100, 100),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+      ]),
+    );
+    const offsets = new Map([["parent", { x: 0, y: 66 }]]);
+
+    const result = resolveGpuSectionSceneWheelScroll({
+      event: wheelEvent({ deltaY: 30 }),
+      point: { x: 20, y: 20 },
+      scene,
+      scrollOffsets: offsets,
+    });
+
+    expect(result).toEqual({
+      changed: false,
+      handled: true,
+      parentSectionId: "parent",
+      scrollOffsets: offsets,
+    });
+  });
+
+  it("marks section shift-wheel horizontal boundaries as handled", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 12, y: 0 },
+          id: "parent",
+          layoutMode: "kanban",
+          worldRect: rect(0, 0, 100, 80),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+      ]),
+    );
+    const offsets = new Map([["parent", { x: 104, y: 0 }]]);
+
+    const result = resolveGpuSectionSceneWheelScroll({
+      event: wheelEvent({ deltaY: 30, shiftKey: true }),
+      point: { x: 40, y: 20 },
+      scene,
+      scrollOffsets: offsets,
+    });
+
+    expect(result).toEqual({
+      changed: false,
+      handled: true,
+      parentSectionId: "parent",
+      scrollOffsets: offsets,
+    });
+  });
+
+  it("marks off-target section wheel events as unhandled", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 100, 100),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+      ]),
+    );
+    const offsets = new Map([["parent", { x: 0, y: 12 }]]);
+
+    const result = resolveGpuSectionSceneWheelScroll({
+      event: wheelEvent({ deltaY: 30 }),
+      point: { x: 200, y: 20 },
+      scene,
+      scrollOffsets: offsets,
+    });
+
+    expect(result).toEqual({
+      changed: false,
+      handled: false,
+      parentSectionId: null,
+      scrollOffsets: offsets,
     });
   });
 

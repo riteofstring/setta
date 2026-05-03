@@ -10,15 +10,32 @@ export type GpuRetainedContentScrollResult = {
   readonly surfaceId: string | null;
 };
 
-type GpuRetainedContentWheelScrollResult = GpuRetainedContentScrollResult;
+type GpuRetainedContentWheelScrollResult =
+  GpuRetainedContentScrollResult & {
+    readonly handled: boolean;
+  };
 
 type GpuRetainedContentDragAutoScrollResult = GpuRetainedContentScrollResult;
 
-export type GpuRetainedContentWheelScrollOffsetResult = {
-  readonly changed: boolean;
-  readonly scrollOffset: GpuPoint | null;
-  readonly surfaceId: string | null;
-};
+export type GpuRetainedContentWheelScrollOffsetResult =
+  | {
+      readonly changed: false;
+      readonly handled: false;
+      readonly scrollOffset: null;
+      readonly surfaceId: null;
+    }
+  | {
+      readonly changed: false;
+      readonly handled: true;
+      readonly scrollOffset: null;
+      readonly surfaceId: string;
+    }
+  | {
+      readonly changed: true;
+      readonly handled: true;
+      readonly scrollOffset: GpuPoint;
+      readonly surfaceId: string;
+    };
 
 type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
@@ -158,17 +175,20 @@ export function resolveGpuRetainedContentWheelScroll({
     scene,
     scrollOffsets,
   });
-  if (
-    !offsetResult.changed ||
-    !offsetResult.surfaceId ||
-    !offsetResult.scrollOffset
-  ) {
-    return unchangedGpuRetainedContentScroll(scrollOffsets);
+  if (!offsetResult.handled) {
+    return unchangedGpuRetainedContentWheelScrollNoTarget(scrollOffsets);
+  }
+  if (!offsetResult.changed) {
+    return unchangedGpuRetainedContentWheelScroll(
+      scrollOffsets,
+      offsetResult.surfaceId,
+    );
   }
   const nextOffsets = new Map(scrollOffsets);
   nextOffsets.set(offsetResult.surfaceId, offsetResult.scrollOffset);
   return {
     changed: true,
+    handled: true,
     scrollOffsets: nextOffsets,
     surfaceId: offsetResult.surfaceId,
   };
@@ -220,10 +240,11 @@ export function resolveGpuRetainedContentWheelScrollOffset({
     viewportRect: context.surface.retainedScene.viewportRect,
   });
   if (nextOffset.x === currentOffset.x && nextOffset.y === currentOffset.y) {
-    return unchangedGpuRetainedContentWheelScrollOffset();
+    return unchangedGpuRetainedContentWheelScrollOffset(context.surface.id);
   }
   return {
     changed: true,
+    handled: true,
     scrollOffset: nextOffset,
     surfaceId: context.surface.id,
   };
@@ -636,9 +657,43 @@ function unchangedGpuRetainedContentScroll(
   };
 }
 
-function unchangedGpuRetainedContentWheelScrollOffset(): GpuRetainedContentWheelScrollOffsetResult {
+function unchangedGpuRetainedContentWheelScroll(
+  scrollOffsets: GpuRetainedContentScrollOffsetMap,
+  surfaceId: string,
+): GpuRetainedContentWheelScrollResult {
   return {
     changed: false,
+    handled: true,
+    scrollOffsets,
+    surfaceId,
+  };
+}
+
+function unchangedGpuRetainedContentWheelScrollNoTarget(
+  scrollOffsets: GpuRetainedContentScrollOffsetMap,
+): GpuRetainedContentWheelScrollResult {
+  return {
+    changed: false,
+    handled: false,
+    scrollOffsets,
+    surfaceId: null,
+  };
+}
+
+function unchangedGpuRetainedContentWheelScrollOffset(
+  surfaceId?: string | undefined,
+): GpuRetainedContentWheelScrollOffsetResult {
+  if (surfaceId) {
+    return {
+      changed: false,
+      handled: true,
+      scrollOffset: null,
+      surfaceId,
+    };
+  }
+  return {
+    changed: false,
+    handled: false,
     scrollOffset: null,
     surfaceId: null,
   };

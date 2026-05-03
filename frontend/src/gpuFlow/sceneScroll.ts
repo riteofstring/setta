@@ -16,7 +16,9 @@ export type GpuSectionSceneScrollResult = {
 
 type GpuSectionSceneDragAutoScrollResult = GpuSectionSceneScrollResult;
 
-type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult;
+export type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult & {
+  readonly handled: boolean;
+};
 
 export type GpuSectionSceneRevealRectResult = GpuSectionSceneScrollResult;
 
@@ -134,7 +136,7 @@ export function resolveGpuSectionSceneWheelScroll({
     scene,
   });
   if (!context) {
-    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+    return unchangedGpuSectionSceneWheelScrollNoTarget(scrollOffsets);
   }
   const delta = getGpuSectionSceneWheelScrollAxisDelta({
     axis: context.axis,
@@ -142,14 +144,17 @@ export function resolveGpuSectionSceneWheelScroll({
     viewportRect: context.viewportRect,
   });
   if (delta === 0) {
-    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+    return unchangedGpuSectionSceneWheelScroll(
+      scrollOffsets,
+      context.parent.sectionId,
+    );
   }
   const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
     axis: context.axis,
     parent: context.parent,
     sectionById: context.sectionById,
   });
-  return resolveGpuSectionSceneScrollAxisOffset({
+  const result = resolveGpuSectionSceneScrollAxisOffset({
     axis: context.axis,
     maxOffset,
     nextAxisOffset:
@@ -161,6 +166,16 @@ export function resolveGpuSectionSceneWheelScroll({
     parent: context.parent,
     scrollOffsets,
   });
+  if (!result.changed) {
+    return unchangedGpuSectionSceneWheelScroll(
+      scrollOffsets,
+      context.parent.sectionId,
+    );
+  }
+  return {
+    ...result,
+    handled: true,
+  };
 }
 
 export function resolveGpuSectionSceneRevealRect({
@@ -299,6 +314,29 @@ function unchangedGpuSectionSceneDragAutoScroll(
 ): GpuSectionSceneDragAutoScrollResult {
   return {
     changed: false,
+    parentSectionId: null,
+    scrollOffsets,
+  };
+}
+
+function unchangedGpuSectionSceneWheelScroll(
+  scrollOffsets: GpuSectionSceneScrollOffsetMap,
+  parentSectionId: string,
+): GpuSectionSceneWheelScrollResult {
+  return {
+    changed: false,
+    handled: true,
+    parentSectionId,
+    scrollOffsets,
+  };
+}
+
+function unchangedGpuSectionSceneWheelScrollNoTarget(
+  scrollOffsets: GpuSectionSceneScrollOffsetMap,
+): GpuSectionSceneWheelScrollResult {
+  return {
+    changed: false,
+    handled: false,
     parentSectionId: null,
     scrollOffsets,
   };

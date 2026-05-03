@@ -13,6 +13,7 @@ import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
+import { isGpuViewportWheelGestureActive } from "./wheelOwnership";
 
 export type GpuSectionSceneScrollControllerOptions = {
   readonly disabled?:
@@ -99,6 +100,7 @@ class GpuSectionSceneScrollController {
       event.defaultPrevented ||
       event.ctrlKey ||
       this.options.disabled?.(event) ||
+      isGpuViewportWheelGestureActive(this.store) ||
       shouldPreserveNativeWheelTarget(event)
     ) {
       return;
@@ -113,18 +115,25 @@ class GpuSectionSceneScrollController {
       scene,
       scrollOffsets: this.options.getScrollOffsets(),
     });
-    this.applyScrollResult(event, result);
+    if (!result.handled) {
+      return;
+    }
+    this.applyScrollResult(event, result, { consumeUnchanged: true });
   };
 
   private applyScrollResult(
     event: KeyboardEvent | WheelEvent,
     result: GpuSectionSceneScrollResult,
+    options: { readonly consumeUnchanged?: boolean | undefined } = {},
   ) {
-    if (!result.changed) {
+    if (!result.changed && !options.consumeUnchanged) {
       return;
     }
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (!result.changed) {
+      return;
+    }
     this.options.onScrollOffsetsChange(result.scrollOffsets, result);
     this.options.requestFrame?.("viewport");
   }

@@ -10,11 +10,14 @@ import type {
 import { resolveGpuFlowSceneLayout } from "../sceneLayout";
 import type { GpuSectionSceneScrollOffsetMap } from "../sceneScroll";
 import type { GpuPoint, GpuRect } from "../viewportMath";
+import { createGpuFlowViewportStore } from "../viewportStore";
+import { attachGpuPanZoomController } from "./panZoom";
 import { attachGpuSectionSceneScrollController } from "./sceneScroll";
 
 describe("GPU section scene scroll controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.useRealTimers();
   });
 
   it("routes page-key scrolling through renderer-owned scene offsets", () => {
@@ -79,7 +82,220 @@ describe("GPU section scene scroll controller", () => {
 
     cleanup();
   });
+
+  it("skips section wheel handling while viewport wheel pan owns the burst", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = scrollableScene();
+    let scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuSectionSceneScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const requestFrame = vi.fn();
+    const store = createGpuFlowViewportStore();
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+    const cleanup = attachGpuSectionSceneScrollController({
+      element,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      requestFrame,
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 30,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(scrollOffsets.size).toBe(0);
+
+    cleanup();
+  });
+
+  it.each(["pointerPanning", "paneDragging", "wheelZooming"] as const)(
+    "skips section wheel handling while viewport %s is active",
+    (flag) => {
+      const element = document.createElement("div");
+      document.body.append(element);
+      const scene = scrollableScene();
+      let scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map();
+      const onScrollOffsetsChange = vi.fn(
+        (nextOffsets: GpuSectionSceneScrollOffsetMap) => {
+          scrollOffsets = nextOffsets;
+        },
+      );
+      const store = createGpuFlowViewportStore();
+      store.getState().setViewportInteractionFlags(viewportWheelFlags[flag]);
+      const cleanup = attachGpuSectionSceneScrollController({
+        element,
+        getScene: () => scene,
+        getScrollOffsets: () => scrollOffsets,
+        onScrollOffsetsChange,
+        store,
+      });
+
+      const event = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 30,
+      });
+      element.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+      expect(scrollOffsets.size).toBe(0);
+
+      cleanup();
+    },
+  );
+
+  it("consumes section boundary wheel events without scroll updates", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = scrollableScene();
+    const scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map([
+      ["parent", { x: 0, y: 66 }],
+    ]);
+    const onScrollOffsetsChange = vi.fn();
+    const requestFrame = vi.fn();
+    const bubbleListener = vi.fn();
+    element.addEventListener("wheel", bubbleListener);
+    const cleanup = attachGpuSectionSceneScrollController({
+      element,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      requestFrame,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 30,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(bubbleListener).not.toHaveBeenCalled();
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("keeps section boundary wheel events from falling through to viewport pan", () => {
+    vi.useFakeTimers();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = scrollableScene();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map([
+      ["parent", { x: 0, y: 66 }],
+    ]);
+    const onScrollOffsetsChange = vi.fn();
+    const cleanupScroll = attachGpuSectionSceneScrollController({
+      element,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+    const cleanupPan = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 30,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    expect(store.getState().panScrolling).toBe(false);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+
+    cleanupPan();
+    cleanupScroll();
+  });
+
+  it("lets viewport wheel pan continue over sections during an active burst", () => {
+    vi.useFakeTimers();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = scrollableScene();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+    let scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuSectionSceneScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const cleanupScroll = attachGpuSectionSceneScrollController({
+      element,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+    const cleanupPan = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 30,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.getState().transform).toEqual([0, -15, 1]);
+    expect(scrollOffsets.size).toBe(0);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+
+    cleanupPan();
+    cleanupScroll();
+  });
 });
+
+const viewportWheelFlags = {
+  paneDragging: { paneDragging: true },
+  pointerPanning: { pointerPanning: true },
+  wheelZooming: { wheelZooming: true },
+} as const;
 
 function scrollableScene(): GpuFlowScene {
   return resolveGpuFlowSceneLayout(

@@ -15,6 +15,7 @@ import {
   GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   isGpuRetainedContentNativeTarget,
 } from "./retainedContentInteraction";
+import { isGpuViewportWheelGestureActive } from "./wheelOwnership";
 
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
@@ -83,21 +84,19 @@ class GpuRetainedContentScrollController {
       scrollOffsets:
         this.pendingScrollOffsets ?? this.options.getScrollOffsets(),
     });
-    if (!result.changed) {
+    if (!result.handled) {
       return;
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    const surfaceId = result.surfaceId;
-    const scrollOffset = result.scrollOffset;
-    if (!surfaceId || !scrollOffset) {
+    if (!result.changed) {
       return;
     }
     if (!this.pendingScrollOffsets) {
       this.pendingScrollOffsets = new Map(this.options.getScrollOffsets());
     }
-    this.pendingScrollOffsets.set(surfaceId, scrollOffset);
-    this.pendingSurfaceIds.add(surfaceId);
+    this.pendingScrollOffsets.set(result.surfaceId, result.scrollOffset);
+    this.pendingSurfaceIds.add(result.surfaceId);
     this.schedulePendingScrollFlush();
   };
 
@@ -106,6 +105,7 @@ class GpuRetainedContentScrollController {
       event.defaultPrevented ||
       event.ctrlKey ||
       Boolean(this.options.disabled?.(event)) ||
+      isGpuViewportWheelGestureActive(this.store) ||
       shouldPreserveNativeWheelTarget(event)
     );
   }

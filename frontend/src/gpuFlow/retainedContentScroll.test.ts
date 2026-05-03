@@ -5,6 +5,7 @@ import {
   clampGpuRetainedContentScrollOffset,
   resolveGpuRetainedContentDragAutoScroll,
   resolveGpuRetainedContentWheelScroll,
+  resolveGpuRetainedContentWheelScrollOffset,
 } from "./retainedContentScroll";
 import type { GpuContentSurface, GpuDomIsland, GpuFlowScene } from "./scene";
 
@@ -89,6 +90,8 @@ describe("retained content scroll", () => {
     });
 
     expect(result.changed).toBe(false);
+    expect(result.handled).toBe(true);
+    expect(result.surfaceId).toBe("params");
     expect(result.scrollOffsets).toBe(offsets);
   });
 
@@ -142,6 +145,8 @@ describe("retained content scroll", () => {
     });
 
     expect(result.changed).toBe(false);
+    expect(result.handled).toBe(true);
+    expect(result.surfaceId).toBe("params");
     expect(result.scrollOffsets).toBe(offsets);
   });
 
@@ -160,7 +165,29 @@ describe("retained content scroll", () => {
     });
 
     expect(result.changed).toBe(false);
+    expect(result.handled).toBe(false);
     expect(result.scrollOffsets).toBe(offsets);
+  });
+
+  it("marks retained boundary wheel offsets as handled without a next offset", () => {
+    const result = resolveGpuRetainedContentWheelScrollOffset({
+      event: wheel({ deltaY: 24 }),
+      point: { x: 20, y: 20 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: new Map([["params", { x: 0, y: 200 }]]),
+    });
+
+    expect(result).toEqual({
+      changed: false,
+      handled: true,
+      scrollOffset: null,
+      surfaceId: "params",
+    });
   });
 
   it("applies retained content scroll to only the affected scene surface", () => {

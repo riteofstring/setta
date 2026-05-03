@@ -7,11 +7,14 @@ import {
 } from "../retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
+import { createGpuFlowViewportStore } from "../viewportStore";
+import { attachGpuPanZoomController } from "./panZoom";
 import { attachGpuRetainedContentScrollController } from "./retainedContentScroll";
 
 describe("GPU retained content scroll controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -140,6 +143,213 @@ describe("GPU retained content scroll controller", () => {
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     cleanup();
+  });
+
+  it("skips retained wheel handling while viewport wheel pan owns the burst", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const requestFrame = vi.fn();
+    const store = createGpuFlowViewportStore();
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      requestFrame,
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(scrollOffsets.size).toBe(0);
+
+    cleanup();
+  });
+
+  it.each(["pointerPanning", "paneDragging", "wheelZooming"] as const)(
+    "skips retained wheel handling while viewport %s is active",
+    (flag) => {
+      const element = document.createElement("div");
+      document.body.append(element);
+      let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+      const onScrollOffsetsChange = vi.fn(
+        (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
+          scrollOffsets = nextOffsets;
+        },
+      );
+      const store = createGpuFlowViewportStore();
+      store.getState().setViewportInteractionFlags(viewportWheelFlags[flag]);
+      const cleanup = attachGpuRetainedContentScrollController({
+        element,
+        getScene: () => retainedContentScene(),
+        getScrollOffsets: () => scrollOffsets,
+        onScrollOffsetsChange,
+        store,
+      });
+
+      const event = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 36,
+      });
+      element.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+      expect(scrollOffsets.size).toBe(0);
+
+      cleanup();
+    },
+  );
+
+  it("consumes retained boundary wheel events without flushing scroll updates", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map([
+      ["dict-a:param-content:unpinned", { x: 0, y: 200 }],
+    ]);
+    const onScrollOffsetsChange = vi.fn();
+    const requestFrame = vi.fn();
+    const bubbleListener = vi.fn();
+    element.addEventListener("wheel", bubbleListener);
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      requestFrame,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(bubbleListener).not.toHaveBeenCalled();
+    animationFrames.flush();
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("consumes retained shift-wheel boundary events without viewport pan fallthrough", () => {
+    vi.useFakeTimers();
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map([
+      ["dict-a:param-content:unpinned", { x: 100, y: 0 }],
+    ]);
+    const onScrollOffsetsChange = vi.fn();
+    const cleanupScroll = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene({ contentWidth: 260 }),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+    const cleanupPan = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+      shiftKey: true,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    expect(store.getState().panScrolling).toBe(false);
+    animationFrames.flush();
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+
+    cleanupPan();
+    cleanupScroll();
+  });
+
+  it("lets viewport wheel pan continue over retained content during an active burst", () => {
+    vi.useFakeTimers();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const cleanupScroll = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+    const cleanupPan = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.getState().transform).toEqual([0, -18, 1]);
+    expect(scrollOffsets.size).toBe(0);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+
+    cleanupPan();
+    cleanupScroll();
   });
 
   it.each(preservedWheelTargetCases)(
@@ -275,6 +485,12 @@ const preservedWheelTargetCases: readonly [
   ],
 ];
 
+const viewportWheelFlags = {
+  paneDragging: { paneDragging: true },
+  pointerPanning: { pointerPanning: true },
+  wheelZooming: { wheelZooming: true },
+} as const;
+
 function createMarkedWheelTarget(
   attribute: string,
   tagName: "button" | "input" | "span" = "span",
@@ -286,9 +502,13 @@ function createMarkedWheelTarget(
   return { root, target };
 }
 
-function retainedContentScene(): GpuFlowScene {
+function retainedContentScene({
+  contentWidth,
+}: {
+  readonly contentWidth?: number | undefined;
+} = {}): GpuFlowScene {
   return {
-    contentSurfaces: [retainedSurface()],
+    contentSurfaces: [retainedSurface({ contentWidth })],
     domIslands: [],
     edges: [],
     revision: 1,
@@ -296,8 +516,26 @@ function retainedContentScene(): GpuFlowScene {
   };
 }
 
-function retainedSurface(): GpuContentSurface {
+function retainedSurface({
+  contentWidth,
+}: {
+  readonly contentWidth?: number | undefined;
+} = {}): GpuContentSurface {
   const rect = { height: 80, width: 160, x: 0, y: 0 };
+  const retainedScene = createGpuRetainedRowContentScene({
+    id: "dict-a:param-content:unpinned",
+    ownerSectionId: "dict-a",
+    rowHeight: 28,
+    rows: Array.from({ length: 10 }, (_, index) => ({
+      control: textLikeControlDescriptor(`Value ${index}`),
+      controlKind: "text-like",
+      depth: 0,
+      id: `param-${index}`,
+      label: `Param ${index}`,
+    })),
+    scrollOffset: { x: 0, y: 0 },
+    viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+  });
   return {
     clipRect: rect,
     id: "dict-a:param-content:unpinned",
@@ -307,20 +545,16 @@ function retainedSurface(): GpuContentSurface {
       kind: "canvas-content",
       surfaceId: "dict-a:param-content:unpinned",
     },
-    retainedScene: createGpuRetainedRowContentScene({
-      id: "dict-a:param-content:unpinned",
-      ownerSectionId: "dict-a",
-      rowHeight: 28,
-      rows: Array.from({ length: 10 }, (_, index) => ({
-        control: textLikeControlDescriptor(`Value ${index}`),
-        controlKind: "text-like",
-        depth: 0,
-        id: `param-${index}`,
-        label: `Param ${index}`,
-      })),
-      scrollOffset: { x: 0, y: 0 },
-      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
-    }),
+    retainedScene:
+      contentWidth === undefined
+        ? retainedScene
+        : {
+            ...retainedScene,
+            contentRect: {
+              ...retainedScene.contentRect,
+              width: contentWidth,
+            },
+          },
     zIndex: 1,
   };
 }
