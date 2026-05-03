@@ -7,6 +7,7 @@ import {
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
 import { drawGpuRetainedContentButtonControl } from "./retainedContentButtonCanvas";
+import { fillRoundRect, strokeRoundRect } from "./retainedContentCanvasDrawing";
 import {
   drawGpuRetainedContentColorPickerControl,
   drawGpuRetainedContentColorPickerPopupOption,
@@ -40,6 +41,10 @@ import type {
   GpuRetainedContentRowState,
   GpuRetainedContentScene,
 } from "./retainedContentScene";
+import {
+  drawGpuRetainedContentStatusBadge,
+  drawGpuRetainedContentStatusOverlay,
+} from "./retainedContentStatusCanvas";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
@@ -254,6 +259,21 @@ function drawGpuRetainedContentRowCommand({
       rect: command.rect,
       rowCount: command.rowCount,
       text: command.text,
+    });
+    return true;
+  }
+  if (command.kind === "row-status-badge") {
+    drawGpuRetainedContentStatusBadge({
+      ctx,
+      rect: command.rect,
+    });
+    return true;
+  }
+  if (command.kind === "row-status-overlay") {
+    drawGpuRetainedContentStatusOverlay({
+      ctx,
+      rect: command.rect,
+      status: command.status,
     });
     return true;
   }
@@ -918,48 +938,6 @@ function getGpuRetainedContentCanvasStyle(
     height: surface.rect.height,
     width: surface.rect.width,
   };
-}
-
-function fillRoundRect(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-  radius: number,
-) {
-  createRoundRectPath(ctx, rect, radius);
-  ctx.fill();
-}
-
-function strokeRoundRect(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-  radius: number,
-) {
-  createRoundRectPath(ctx, rect, radius);
-  ctx.stroke();
-}
-
-function createRoundRectPath(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-  radius: number,
-) {
-  const clampedRadius = Math.max(
-    0,
-    Math.min(radius, rect.width / 2, rect.height / 2),
-  );
-  const right = rect.x + rect.width;
-  const bottom = rect.y + rect.height;
-  ctx.beginPath();
-  ctx.moveTo(rect.x + clampedRadius, rect.y);
-  ctx.lineTo(right - clampedRadius, rect.y);
-  ctx.quadraticCurveTo(right, rect.y, right, rect.y + clampedRadius);
-  ctx.lineTo(right, bottom - clampedRadius);
-  ctx.quadraticCurveTo(right, bottom, right - clampedRadius, bottom);
-  ctx.lineTo(rect.x + clampedRadius, bottom);
-  ctx.quadraticCurveTo(rect.x, bottom, rect.x, bottom - clampedRadius);
-  ctx.lineTo(rect.x, rect.y + clampedRadius);
-  ctx.quadraticCurveTo(rect.x, rect.y, rect.x + clampedRadius, rect.y);
-  ctx.closePath();
 }
 
 function strokeInsetRect(

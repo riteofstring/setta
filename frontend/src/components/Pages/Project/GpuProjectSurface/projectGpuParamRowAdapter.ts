@@ -23,6 +23,7 @@ import type {
   GpuRetainedContentDropzoneAttachment,
   GpuRetainedContentRowInput,
   GpuRetainedContentRowState,
+  GpuRetainedContentRowStatus,
 } from "gpuFlow/retainedContentScene";
 import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import type {
@@ -66,6 +67,7 @@ import {
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
+import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
 import {
   getProjectGpuDateCalendarVisibleMonth,
   validateProjectGpuDateCalendarVisibleMonth,
@@ -137,7 +139,7 @@ export function createProjectGpuParamRowInput({
   readonly row: ProjectGpuParamTreeRowLike;
   readonly sectionId: string;
   readonly sectionParamTypeErrors: Readonly<
-    Record<string, readonly unknown[] | undefined>
+    Record<string, readonly string[] | undefined>
   >;
   readonly selectedParamIds: ReadonlySet<string>;
   readonly surfaceId: string;
@@ -153,6 +155,7 @@ export function createProjectGpuParamRowInput({
     sectionId,
     surfaceId,
   });
+  const status = createProjectGpuParamRowStatus(sectionParamTypeErrors[row.id]);
   return {
     control: createProjectGpuParamControlDescriptor({
       codeObjImpl,
@@ -178,10 +181,11 @@ export function createProjectGpuParamRowInput({
       projectSearch,
       rowId: row.id,
       sectionId,
-      sectionParamTypeErrors,
       selectedParamIds,
       surfaceId,
+      status,
     }),
+    status,
   };
 }
 
@@ -874,9 +878,9 @@ function createProjectGpuParamRowState({
   projectSearch,
   rowId,
   sectionId,
-  sectionParamTypeErrors,
   selectedParamIds,
   surfaceId,
+  status,
 }: {
   readonly activeParamCanvasControl?:
     | ProjectGpuRetainedParamTargetLike
@@ -895,16 +899,14 @@ function createProjectGpuParamRowState({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly rowId: string;
   readonly sectionId: string;
-  readonly sectionParamTypeErrors: Readonly<
-    Record<string, readonly unknown[] | undefined>
-  >;
   readonly selectedParamIds: ReadonlySet<string>;
   readonly surfaceId: string;
+  readonly status: GpuRetainedContentRowStatus | null;
 }): Partial<GpuRetainedContentRowState> {
   return {
     disabled: Boolean(disabled),
     dragging: draggingParamIds?.has(rowId) ?? false,
-    error: (sectionParamTypeErrors[rowId]?.length ?? 0) > 0,
+    error: status !== null,
     focused:
       isProjectGpuRetainedParamTargetForRow(activeParamDomIsland, {
         paramInfoId: rowId,

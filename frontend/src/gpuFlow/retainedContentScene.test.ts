@@ -156,6 +156,55 @@ describe("retained content scene", () => {
     ]);
   });
 
+  it("emits retained row status badges and overlays from row metadata", () => {
+    const scene = createGpuRetainedRowContentScene({
+      controlWidth: 80,
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 28,
+      rows: [
+        row("param-a", {
+          state: { hovered: true },
+          status: {
+            kind: "error",
+            messages: ["expected str, got int"],
+            summary: "expected str, got int",
+          },
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 80, width: 260, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.state.error).toBe(true);
+    expect(scene.rows[0]?.status).toEqual({
+      kind: "error",
+      messages: ["expected str, got int"],
+      summary: "expected str, got int",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "row-status-badge",
+          rect: { height: 16, width: 16, x: 156, y: 6 },
+          rowId: "param-a",
+          status: expect.objectContaining({
+            kind: "error",
+            summary: "expected str, got int",
+          }),
+        }),
+        expect.objectContaining({
+          kind: "row-status-overlay",
+          rect: { height: 42, width: 248, x: 6, y: 28 },
+          rowId: "param-a",
+          status: expect.objectContaining({
+            messages: ["expected str, got int"],
+          }),
+        }),
+      ]),
+    );
+  });
+
   it("emits retained drag state, drop markers, and preview commands", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

@@ -1,19 +1,26 @@
 import { createGpuRetainedContentControlSubpartHitRecords } from "./retainedContentControlSubpartHits";
-import {
-  createGpuRetainedContentDateCalendarDrawCommands,
-  createGpuRetainedContentDateCalendarHitRecords,
-} from "./retainedContentDateCalendarScene";
+import { createGpuRetainedContentDateCalendarHitRecords } from "./retainedContentDateCalendarScene";
 import type {
   GpuRetainedContentDateCalendarDescriptor,
   GpuRetainedContentDateCalendarDrawCommand,
   GpuRetainedContentDateTimeMode,
 } from "./retainedContentDateCalendarTypes";
+import { createGpuRetainedContentDrawCommands } from "./retainedContentDrawCommands";
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
-import { clampInteger, clampNumber } from "./retainedContentMath";
+import { clampInteger } from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
+import {
+  createGpuRetainedContentControlRect,
+  createGpuRetainedContentLabelRect,
+} from "./retainedContentRowLayout";
+import {
+  createGpuRetainedContentStatusBadgeRect,
+  type GpuRetainedContentRowStatus,
+} from "./retainedContentRowStatus";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
+export type { GpuRetainedContentRowStatus } from "./retainedContentRowStatus";
 
 export type GpuRetainedContentRowState = {
   readonly disabled: boolean;
@@ -166,6 +173,7 @@ export type GpuRetainedContentRowInput = {
   readonly label: string;
   readonly ports?: readonly GpuRetainedContentRowPortInput[] | undefined;
   readonly state?: Partial<GpuRetainedContentRowState> | undefined;
+  readonly status?: GpuRetainedContentRowStatus | null | undefined;
 };
 
 export type GpuRetainedContentRow = {
@@ -179,6 +187,7 @@ export type GpuRetainedContentRow = {
   readonly ports: readonly GpuRetainedContentRowPortInput[];
   readonly projectedRect: GpuRect;
   readonly state: GpuRetainedContentRowState;
+  readonly status: GpuRetainedContentRowStatus | null;
 };
 
 type GpuRetainedContentVisibleRowRange = {
@@ -208,6 +217,18 @@ export type GpuRetainedContentDrawCommand =
       readonly rect: GpuRect;
       readonly rowId: string;
       readonly text: string;
+    }
+  | {
+      readonly kind: "row-status-badge";
+      readonly rect: GpuRect;
+      readonly rowId: string;
+      readonly status: GpuRetainedContentRowStatus;
+    }
+  | {
+      readonly kind: "row-status-overlay";
+      readonly rect: GpuRect;
+      readonly rowId: string;
+      readonly status: GpuRetainedContentRowStatus;
     }
   | {
       readonly control: GpuRetainedContentControlDescriptor;
@@ -436,6 +457,7 @@ function createGpuRetainedContentRow({
     x: 0,
     y: index * rowHeight,
   };
+  const status = input.status ?? null;
   return {
     contentRect,
     control: createGpuRetainedContentControl(input),
@@ -450,19 +472,22 @@ function createGpuRetainedContentRow({
       x: viewportRect.x + contentRect.x - scrollOffset.x,
       y: viewportRect.y + contentRect.y - scrollOffset.y,
     },
-    state: createGpuRetainedContentRowState(input.state, dragging),
+    state: createGpuRetainedContentRowState(input.state, dragging, status),
+    status,
   };
 }
 
 function createGpuRetainedContentRowState(
   inputState: Partial<GpuRetainedContentRowState> | undefined,
   dragging: boolean,
+  status: GpuRetainedContentRowStatus | null,
 ): GpuRetainedContentRowState {
   return {
     disabled: getGpuRetainedContentRowStateFlag(inputState, "disabled"),
     dragging:
       dragging || getGpuRetainedContentRowStateFlag(inputState, "dragging"),
-    error: getGpuRetainedContentRowStateFlag(inputState, "error"),
+    error:
+      Boolean(status) || getGpuRetainedContentRowStateFlag(inputState, "error"),
     focused: getGpuRetainedContentRowStateFlag(inputState, "focused"),
     hovered: getGpuRetainedContentRowStateFlag(inputState, "hovered"),
     searchFocused: getGpuRetainedContentRowStateFlag(
@@ -482,283 +507,6 @@ function getGpuRetainedContentRowStateFlag(
   key: keyof GpuRetainedContentRowState,
 ): boolean {
   return Boolean(inputState?.[key]);
-}
-
-function createGpuRetainedContentDrawCommands({
-  activePopup,
-  controlWidth,
-  dragPreview,
-  indentWidth,
-  labelControlGap,
-  rowHeight,
-  rowInputs,
-  rows,
-  viewportRect,
-}: {
-  readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
-  readonly controlWidth: number;
-  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
-  readonly indentWidth: number;
-  readonly labelControlGap: number;
-  readonly rowHeight: number;
-  readonly rowInputs: readonly GpuRetainedContentRowInput[];
-  readonly rows: readonly GpuRetainedContentRow[];
-  readonly viewportRect: GpuRect;
-}): GpuRetainedContentDrawCommand[] {
-  const commands: GpuRetainedContentDrawCommand[] = [];
-  for (const row of rows) {
-    commands.push({
-      kind: "row-background",
-      rect: row.projectedRect,
-      rowId: row.id,
-      state: row.state,
-    });
-    if (row.depth > 0) {
-      commands.push({
-        depth: row.depth,
-        kind: "nest-guide",
-        rect: {
-          height: row.projectedRect.height,
-          width: Math.max(1, Math.min(2, indentWidth / 4)),
-          x: row.projectedRect.x + (row.depth - 0.5) * indentWidth,
-          y: row.projectedRect.y,
-        },
-        rowId: row.id,
-      });
-    }
-    const labelX = row.projectedRect.x + row.depth * indentWidth;
-    const controlRect = createGpuRetainedContentControlRect({
-      controlWidth,
-      rowRect: row.projectedRect,
-    });
-    commands.push({
-      depth: row.depth,
-      kind: "row-label",
-      rect: createGpuRetainedContentLabelRect({
-        controlRect,
-        labelControlGap,
-        labelX,
-        rowRect: row.projectedRect,
-      }),
-      rowId: row.id,
-      text: row.label,
-    });
-    if (row.control) {
-      commands.push({
-        control: row.control,
-        controlKind: row.control.rendererFamily,
-        kind: "row-control",
-        rect: controlRect,
-        rowId: row.id,
-      });
-    }
-  }
-  const marker = createGpuRetainedContentDropMarkerCommand({
-    dragPreview,
-    indentWidth,
-    rows,
-    viewportRect,
-  });
-  if (marker) {
-    commands.push(marker);
-  }
-  const preview = createGpuRetainedContentDragPreviewCommand({
-    dragPreview,
-    rowHeight,
-    rowInputs,
-    viewportRect,
-  });
-  if (preview) {
-    commands.push(preview);
-  }
-  const popup = createGpuRetainedContentActivePopupLayout({
-    activePopup,
-    controlRect: (row) =>
-      createGpuRetainedContentControlRect({
-        controlWidth,
-        rowRect: row.projectedRect,
-      }),
-    rows,
-    viewportRect,
-  });
-  if (popup) {
-    commands.push({
-      kind: "control-popup-background",
-      rect: popup.backgroundRect,
-      rowId: popup.row.id,
-    });
-    for (const option of popup.options) {
-      commands.push({
-        highlighted: option.highlighted,
-        kind: "control-popup-option",
-        option: option.choice,
-        optionIndex: option.optionIndex,
-        rect: option.rect,
-        rowId: popup.row.id,
-        selected: option.selected,
-      });
-    }
-  }
-  commands.push(
-    ...createGpuRetainedContentDateCalendarDrawCommands({
-      activePopup,
-      controlRect: (row) =>
-        createGpuRetainedContentControlRect({
-          controlWidth,
-          rowRect: row.projectedRect,
-        }),
-      rows,
-      viewportRect,
-    }),
-  );
-  return commands;
-}
-
-function createGpuRetainedContentDropMarkerCommand({
-  dragPreview,
-  indentWidth,
-  rows,
-  viewportRect,
-}: {
-  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
-  readonly indentWidth: number;
-  readonly rows: readonly GpuRetainedContentRow[];
-  readonly viewportRect: GpuRect;
-}): GpuRetainedContentDrawCommand | null {
-  const marker = dragPreview?.dropMarker;
-  if (!marker) {
-    return null;
-  }
-  const row = rows.find((candidate) => candidate.id === marker.rowId);
-  if (!row) {
-    return null;
-  }
-  const rect = createGpuRetainedContentDropMarkerRect({
-    edge: marker.edge,
-    indentWidth,
-    row,
-    viewportRect,
-  });
-  if (!rect) {
-    return null;
-  }
-  return {
-    edge: marker.edge,
-    kind: "row-drop-marker",
-    rect,
-    rowId: row.id,
-  };
-}
-
-function createGpuRetainedContentDropMarkerRect({
-  edge,
-  indentWidth,
-  row,
-  viewportRect,
-}: {
-  readonly edge: GpuRetainedContentDropMarkerEdge;
-  readonly indentWidth: number;
-  readonly row: GpuRetainedContentRow;
-  readonly viewportRect: GpuRect;
-}): GpuRect | null {
-  const markerHeight = edge === "inside" ? 3 : 2;
-  const y = getGpuRetainedContentDropMarkerY(edge, row, markerHeight);
-  if (
-    y + markerHeight < viewportRect.y ||
-    y > viewportRect.y + viewportRect.height
-  ) {
-    return null;
-  }
-  return {
-    height: markerHeight,
-    width: Math.max(
-      0,
-      viewportRect.width -
-        getGpuRetainedContentDropMarkerInsetX(edge, row, indentWidth) -
-        4,
-    ),
-    x:
-      viewportRect.x +
-      getGpuRetainedContentDropMarkerInsetX(edge, row, indentWidth),
-    y,
-  };
-}
-
-function getGpuRetainedContentDropMarkerY(
-  edge: GpuRetainedContentDropMarkerEdge,
-  row: GpuRetainedContentRow,
-  markerHeight: number,
-): number {
-  if (edge === "inside") {
-    return row.projectedRect.y + row.projectedRect.height - markerHeight - 4;
-  }
-  const markerCenterY =
-    edge === "before"
-      ? row.projectedRect.y
-      : row.projectedRect.y + row.projectedRect.height;
-  return markerCenterY - markerHeight / 2;
-}
-
-function getGpuRetainedContentDropMarkerInsetX(
-  edge: GpuRetainedContentDropMarkerEdge,
-  row: GpuRetainedContentRow,
-  indentWidth: number,
-): number {
-  return edge === "inside" ? 4 + (row.depth + 1) * indentWidth : 4;
-}
-
-function createGpuRetainedContentDragPreviewCommand({
-  dragPreview,
-  rowHeight,
-  rowInputs,
-  viewportRect,
-}: {
-  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
-  readonly rowHeight: number;
-  readonly rowInputs: readonly GpuRetainedContentRowInput[];
-  readonly viewportRect: GpuRect;
-}): GpuRetainedContentDrawCommand | null {
-  const firstDraggingRowId = dragPreview?.draggingRowIds[0];
-  const pointerLocal = dragPreview?.pointerLocal;
-  if (!firstDraggingRowId || !pointerLocal) {
-    return null;
-  }
-  const firstRow = rowInputs.find((row) => row.id === firstDraggingRowId);
-  if (!firstRow) {
-    return null;
-  }
-  const horizontalMargin = 8;
-  const previewWidth = Math.max(
-    0,
-    Math.min(220, viewportRect.width - horizontalMargin * 2),
-  );
-  if (previewWidth <= 0) {
-    return null;
-  }
-  const previewHeight = Math.min(rowHeight, viewportRect.height);
-  const x = clampNumber(
-    pointerLocal.x + horizontalMargin,
-    viewportRect.x + horizontalMargin,
-    viewportRect.x + viewportRect.width - previewWidth - horizontalMargin,
-  );
-  const y = clampNumber(
-    pointerLocal.y - previewHeight / 2,
-    viewportRect.y,
-    viewportRect.y + viewportRect.height - previewHeight,
-  );
-  const rowCount = dragPreview.draggingRowIds.length;
-  return {
-    kind: "row-drag-preview",
-    rect: {
-      height: previewHeight,
-      width: previewWidth,
-      x,
-      y,
-    },
-    rowCount,
-    rowId: firstRow.id,
-    text: firstRow.label,
-  };
 }
 
 function createGpuRetainedContentHitRecords({
@@ -784,6 +532,13 @@ function createGpuRetainedContentHitRecords({
       controlWidth,
       rowRect: row.projectedRect,
     });
+    const statusBadgeRect = row.status
+      ? createGpuRetainedContentStatusBadgeRect({
+          controlRect,
+          labelControlGap,
+          rowRect: row.projectedRect,
+        })
+      : null;
     hitRecords.push({
       id: `row:${row.id}`,
       kind: "row",
@@ -799,6 +554,7 @@ function createGpuRetainedContentHitRecords({
         labelControlGap,
         labelX: row.projectedRect.x + row.depth * indentWidth,
         rowRect: row.projectedRect,
+        statusBadgeRect,
       }),
     });
     if (row.control) {
@@ -928,41 +684,6 @@ function getGpuRetainedContentPopupChoiceValue(
   choice: GpuRetainedContentPopupChoice,
 ): string {
   return "color" in choice ? choice.color : choice.value;
-}
-
-function createGpuRetainedContentLabelRect({
-  controlRect,
-  labelControlGap,
-  labelX,
-  rowRect,
-}: {
-  readonly controlRect: GpuRect;
-  readonly labelControlGap: number;
-  readonly labelX: number;
-  readonly rowRect: GpuRect;
-}): GpuRect {
-  return {
-    height: rowRect.height,
-    width: Math.max(0, controlRect.x - labelControlGap - labelX),
-    x: labelX,
-    y: rowRect.y,
-  };
-}
-
-function createGpuRetainedContentControlRect({
-  controlWidth,
-  rowRect,
-}: {
-  readonly controlWidth: number;
-  readonly rowRect: GpuRect;
-}): GpuRect {
-  const width = Math.min(controlWidth, rowRect.width);
-  return {
-    height: rowRect.height,
-    width,
-    x: rowRect.x + rowRect.width - width,
-    y: rowRect.y,
-  };
 }
 
 function validateGpuRetainedRowContentSceneInput(

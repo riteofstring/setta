@@ -322,6 +322,7 @@ describe("project GPU layout adapter", () => {
         searchFocused: row.state.searchFocused,
         searchMatched: row.state.searchMatched,
         selected: row.state.selected,
+        status: row.status,
       })),
     ).toEqual([
       {
@@ -334,6 +335,7 @@ describe("project GPU layout adapter", () => {
         searchFocused: false,
         searchMatched: true,
         selected: false,
+        status: null,
       },
       {
         controlKind: "text-like",
@@ -345,6 +347,11 @@ describe("project GPU layout adapter", () => {
         searchFocused: true,
         searchMatched: true,
         selected: true,
+        status: {
+          kind: "error",
+          messages: ["expected str, got int"],
+          summary: "expected str, got int",
+        },
       },
     ]);
     expect(paramSurface?.retainedScene?.portAnchors).toEqual([
