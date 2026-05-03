@@ -74,6 +74,11 @@ import {
 } from "../interactions/nodeDrag";
 
 import {
+  attachGpuNodeResizeController,
+  type GpuNodeResizeControllerOptions,
+} from "../interactions/nodeResize";
+
+import {
   attachGpuPanZoomController,
   type GpuPanZoomControllerOptions,
 } from "../interactions/panZoom";
@@ -116,6 +121,8 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 
+import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
+
 export type GpuFlowProps = Pick<
   GpuSurfaceProps,
   "deviceOptions" | "onFrame" | "onPaint" | "onReady" | "onResize"
@@ -147,6 +154,13 @@ export type GpuFlowProps = Pick<
     | Omit<
         GpuNodeDragControllerOptions,
         "element" | "getNodes" | "requestFrame" | "store"
+      >
+    | undefined;
+  nodeResize?:
+    | false
+    | Omit<
+        GpuNodeResizeControllerOptions,
+        "element" | "getNodes" | "requestFrame" | "resolveResizeTarget" | "store"
       >
     | undefined;
   onNodeLayerFrame?:
@@ -217,6 +231,7 @@ export function GpuFlow({
   nodeClassName,
   nodeTextureMemoryBudgetBytes,
   nodeDrag,
+  nodeResize,
   nodes,
   onFrame,
   onNodeElementChange,
@@ -428,6 +443,41 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [nodeDrag, viewportStore]);
+
+  useEffect(() => {
+    if (nodeResize === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuNodeResizeController({
+      ...nodeResize,
+      element: container,
+      getNodes: () => nodeLayerRef.current.nodes ?? [],
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+      resolveResizeTarget: (event) =>
+        resolveGpuFlowNodeResizeTarget({
+          event,
+          elementByNodeId: nodeElementByIdRef.current,
+          effectProjectors: htmlSurfaceEffectProjectors,
+          nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+          sourceInteractionProjector,
+          surfaceElement: container,
+          viewport: nodeLayerRef.current.viewport,
+          visualScene: nodeLayerRef.current.visualScene,
+        }),
+      store: viewportStore,
+    });
+  }, [
+    htmlSurfaceEffectProjectors,
+    nodeResize,
+    sourceInteractionProjector,
+    viewportStore,
+  ]);
 
   useEffect(() => {
     if (!edgeInteraction) {

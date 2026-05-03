@@ -10,6 +10,7 @@ import {
 } from "./htmlSurfaces/hitScene";
 import type { HtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
 import { resolveGpuNodeZIndex } from "./nodeZIndex";
+import { GPU_NODE_RESIZE_HANDLE_SELECTOR } from "./resizeHandles";
 import { type GpuViewportInput } from "./viewportMath";
 
 type GpuNodeTargetDescriptor =
@@ -60,8 +61,6 @@ type ResolveGpuNodePointerHandoffTargetInput = {
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 };
 
-const RESIZE_HANDLE_SELECTOR = ".section-resize-handle";
-
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
   "input",
@@ -84,7 +83,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
   "[role='spinbutton']",
   "[role='switch']",
   "[role='textbox']",
-  RESIZE_HANDLE_SELECTOR,
+  GPU_NODE_RESIZE_HANDLE_SELECTOR,
   ".cm-content",
   ".cm-editor",
   ".xterm",
@@ -296,7 +295,7 @@ export function isGpuNodeResizeHandleEventTarget(
   target: EventTarget | Node | null,
 ): boolean {
   const element = toElement(target);
-  return Boolean(element?.closest(RESIZE_HANDLE_SELECTOR));
+  return Boolean(element?.closest(GPU_NODE_RESIZE_HANDLE_SELECTOR));
 }
 
 export function createGpuNodeTargetDescriptor(
