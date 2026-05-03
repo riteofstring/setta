@@ -6,6 +6,7 @@ import {
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
+import { getProjectSceneMeasuredHeightFromRecord } from "./projectGpuSceneResizePolicy";
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
@@ -33,27 +34,27 @@ export function getProjectGpuParamContentMetrics({
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly sectionId: string;
 }) {
-  const headerHeight = getMeasuredHeight(
+  const headerHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getSectionHeaderHeightKey(sectionId),
   );
-  const searchHeight = getMeasuredHeight(
+  const searchHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getSectionSearchHeightKey(sectionId),
   );
-  const kwargsHeight = getMeasuredHeight(
+  const kwargsHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getKwargsControlsHeightKey(sectionId),
   );
-  const edgesHeight = getMeasuredHeight(
+  const edgesHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getEdgesStripHeightKey(sectionId),
   );
-  const pinnedHeight = getMeasuredHeight(
+  const pinnedHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getPinnedParamsAreaHeightKey(sectionId),
   );
-  const paramsFixedHeight = getMeasuredHeight(
+  const paramsFixedHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getParamsFixedHeightKey(sectionId),
   );
@@ -121,14 +122,4 @@ export function getProjectGpuParamNextLocalY({
     );
   }
   return listLocalY + height;
-}
-
-function getMeasuredHeight(
-  measuredHeightsByKey: Readonly<Record<string, unknown>> | undefined,
-  key: string,
-): number {
-  const value = measuredHeightsByKey?.[key];
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? value
-    : 0;
 }

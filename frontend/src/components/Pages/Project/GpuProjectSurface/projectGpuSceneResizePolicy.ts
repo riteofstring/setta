@@ -12,8 +12,20 @@ export function getProjectSceneMeasuredHeight(
   resizePolicyContext: ProjectGpuSceneResizePolicyContext,
   key: string,
 ): number {
-  const height = resizePolicyContext.measuredHeightsByKey[key];
-  return typeof height === "number" ? height : 0;
+  return getProjectSceneMeasuredHeightFromRecord(
+    resizePolicyContext.measuredHeightsByKey,
+    key,
+  );
+}
+
+export function getProjectSceneMeasuredHeightFromRecord(
+  measuredHeightsByKey: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): number {
+  const height = measuredHeightsByKey?.[key];
+  return typeof height === "number" && Number.isFinite(height) && height > 0
+    ? height
+    : 0;
 }
 
 export function getProjectSectionSceneResizeDirections(
