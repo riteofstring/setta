@@ -19,6 +19,12 @@ import {
   getGpuRetainedContentSliderTrackRect,
   getGpuRetainedContentSliderValueLabelRect,
 } from "./retainedContentControls";
+import {
+  drawGpuRetainedContentDateCalendarCell,
+  drawGpuRetainedContentDateCalendarHeader,
+  drawGpuRetainedContentDateCalendarSummary,
+  drawGpuRetainedContentDateCalendarWeekday,
+} from "./retainedContentDateCalendarPopupCanvas";
 import { drawGpuRetainedContentDateTimeControl } from "./retainedContentDateTimeCanvas";
 import {
   drawGpuRetainedContentDropdownControl,
@@ -185,47 +191,20 @@ function drawGpuRetainedContentCommand({
   readonly ctx: CanvasRenderingContext2D;
   readonly rowState: GpuRetainedContentRowState | undefined;
 }) {
-  if (command.kind === "row-background") {
-    drawGpuRetainedContentRowBackground(ctx, command.rect, command.state);
-    return;
-  }
-  if (command.kind === "nest-guide") {
-    drawGpuRetainedContentNestGuide(ctx, command.rect);
-    return;
-  }
-  if (command.kind === "row-drop-marker") {
-    drawGpuRetainedContentDropMarker(ctx, command.rect);
-    return;
-  }
-  if (command.kind === "row-drag-preview") {
-    drawGpuRetainedContentDragPreview({
+  if (
+    drawGpuRetainedContentRowCommand({
+      command,
       ctx,
-      rect: command.rect,
-      rowCount: command.rowCount,
-      text: command.text,
-    });
+    })
+  ) {
     return;
   }
-  if (command.kind === "control-popup-background") {
-    drawGpuRetainedContentControlPopupBackground(ctx, command.rect);
-    return;
-  }
-  if (command.kind === "control-popup-option") {
-    if ("color" in command.option) {
-      drawGpuRetainedContentColorPickerPopupOption({
-        ctx,
-        option: command.option,
-        rect: command.rect,
-        selected: command.selected,
-      });
-      return;
-    }
-    drawGpuRetainedContentDropdownPopupOption({
+  if (
+    drawGpuRetainedContentPopupCommand({
+      command,
       ctx,
-      option: command.option,
-      rect: command.rect,
-      selected: command.selected,
-    });
+    })
+  ) {
     return;
   }
   if (command.kind === "row-label") {
@@ -237,13 +216,110 @@ function drawGpuRetainedContentCommand({
     });
     return;
   }
-  drawGpuRetainedContentControl({
-    control: command.control,
-    controlKind: command.controlKind,
-    ctx,
-    rect: command.rect,
-    state: rowState,
-  });
+  if (command.kind === "row-control") {
+    drawGpuRetainedContentControl({
+      control: command.control,
+      controlKind: command.controlKind,
+      ctx,
+      rect: command.rect,
+      state: rowState,
+    });
+  }
+}
+
+function drawGpuRetainedContentRowCommand({
+  command,
+  ctx,
+}: {
+  readonly command: GpuRetainedContentDrawCommand;
+  readonly ctx: CanvasRenderingContext2D;
+}): boolean {
+  if (command.kind === "row-background") {
+    drawGpuRetainedContentRowBackground(ctx, command.rect, command.state);
+    return true;
+  }
+  if (command.kind === "nest-guide") {
+    drawGpuRetainedContentNestGuide(ctx, command.rect);
+    return true;
+  }
+  if (command.kind === "row-drop-marker") {
+    drawGpuRetainedContentDropMarker(ctx, command.rect);
+    return true;
+  }
+  if (command.kind === "row-drag-preview") {
+    drawGpuRetainedContentDragPreview({
+      ctx,
+      rect: command.rect,
+      rowCount: command.rowCount,
+      text: command.text,
+    });
+    return true;
+  }
+  return false;
+}
+
+function drawGpuRetainedContentPopupCommand({
+  command,
+  ctx,
+}: {
+  readonly command: GpuRetainedContentDrawCommand;
+  readonly ctx: CanvasRenderingContext2D;
+}): boolean {
+  if (command.kind === "control-popup-background") {
+    drawGpuRetainedContentControlPopupBackground(ctx, command.rect);
+    return true;
+  }
+  if (command.kind === "control-popup-option") {
+    if ("color" in command.option) {
+      drawGpuRetainedContentColorPickerPopupOption({
+        ctx,
+        option: command.option,
+        rect: command.rect,
+        selected: command.selected,
+      });
+      return true;
+    }
+    drawGpuRetainedContentDropdownPopupOption({
+      ctx,
+      option: command.option,
+      rect: command.rect,
+      selected: command.selected,
+    });
+    return true;
+  }
+  if (command.kind === "control-popup-date-calendar-header") {
+    drawGpuRetainedContentDateCalendarHeader({
+      ctx,
+      monthTitle: command.monthTitle,
+      rect: command.rect,
+    });
+    return true;
+  }
+  if (command.kind === "control-popup-date-calendar-weekday") {
+    drawGpuRetainedContentDateCalendarWeekday({
+      ctx,
+      rect: command.rect,
+      text: command.text,
+    });
+    return true;
+  }
+  if (command.kind === "control-popup-date-calendar-cell") {
+    drawGpuRetainedContentDateCalendarCell({
+      cell: command.cell,
+      ctx,
+      rect: command.rect,
+    });
+    return true;
+  }
+  if (command.kind === "control-popup-date-calendar-summary") {
+    drawGpuRetainedContentDateCalendarSummary({
+      ctx,
+      rect: command.rect,
+      text: command.text,
+    });
+    return true;
+  }
+  return false;
 }
 
 function drawGpuRetainedContentRowBackground(

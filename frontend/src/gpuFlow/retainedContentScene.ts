@@ -1,6 +1,18 @@
 import { createGpuRetainedContentControlSubpartHitRecords } from "./retainedContentControlSubpartHits";
+import {
+  createGpuRetainedContentDateCalendarDrawCommands,
+  createGpuRetainedContentDateCalendarHitRecords,
+} from "./retainedContentDateCalendarScene";
+import type {
+  GpuRetainedContentDateCalendarDescriptor,
+  GpuRetainedContentDateCalendarDrawCommand,
+  GpuRetainedContentDateTimeMode,
+} from "./retainedContentDateCalendarTypes";
+import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import type { GpuPoint, GpuRect } from "./viewportMath";
+
+export type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 
 export type GpuRetainedContentRowState = {
   readonly disabled: boolean;
@@ -40,13 +52,6 @@ export type GpuRetainedContentDropzoneAttachment = {
   readonly name: string;
   readonly sizeLabel: string | null;
 };
-
-type GpuRetainedContentDateTimeMode =
-  | "date-calendar"
-  | "date-input"
-  | "date-time-input"
-  | "time-display"
-  | "time-input";
 
 export type GpuRetainedContentPopupChoice =
   | GpuRetainedContentColorChoice
@@ -133,6 +138,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly commitPolicy: "native-island";
     }
   | {
+      readonly calendar: GpuRetainedContentDateCalendarDescriptor | null;
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "date-time";
@@ -140,7 +146,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly mode: GpuRetainedContentDateTimeMode;
       readonly rendererFamily: string;
       readonly summaryText: string | null;
-      readonly commitPolicy: "native-island";
+      readonly commitPolicy: GpuRetainedContentControlCommitPolicy;
     };
 
 export type GpuRetainedContentRowInput = {
@@ -173,7 +179,7 @@ type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentActivePopupInput = {
-  readonly kind: "color-picker" | "dropdown";
+  readonly kind: "color-picker" | "date-calendar" | "dropdown";
   readonly ownerRowId: string;
 };
 
@@ -231,25 +237,8 @@ export type GpuRetainedContentDrawCommand =
       readonly rect: GpuRect;
       readonly rowId: string;
       readonly selected: boolean;
-    };
-
-export type GpuRetainedContentHitRecord = {
-  readonly id: string;
-  readonly attachmentId?: string | undefined;
-  readonly attachmentIndex?: number | undefined;
-  readonly kind:
-    | "control"
-    | "control-subpart"
-    | "label"
-    | "popup-option"
-    | "port"
-    | "row";
-  readonly optionIndex?: number | undefined;
-  readonly optionValue?: string | undefined;
-  readonly ownerRowId: string;
-  readonly rect: GpuRect;
-  readonly subpartKind?: "dropzone-attachment-delete" | undefined;
-};
+    }
+  | GpuRetainedContentDateCalendarDrawCommand;
 
 export type GpuRetainedContentPortAnchor = {
   readonly hitRect: GpuRect;
@@ -598,6 +587,18 @@ function createGpuRetainedContentDrawCommands({
       });
     }
   }
+  commands.push(
+    ...createGpuRetainedContentDateCalendarDrawCommands({
+      activePopup,
+      controlRect: (row) =>
+        createGpuRetainedContentControlRect({
+          controlWidth,
+          rowRect: row.projectedRect,
+        }),
+      rows,
+      viewportRect,
+    }),
+  );
   return commands;
 }
 
@@ -837,6 +838,18 @@ function createGpuRetainedContentHitRecords({
       });
     }
   }
+  hitRecords.push(
+    ...createGpuRetainedContentDateCalendarHitRecords({
+      activePopup,
+      controlRect: (row) =>
+        createGpuRetainedContentControlRect({
+          controlWidth,
+          rowRect: row.projectedRect,
+        }),
+      rows,
+      viewportRect,
+    }),
+  );
   return hitRecords;
 }
 

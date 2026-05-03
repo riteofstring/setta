@@ -56,6 +56,7 @@ function dateTimeControl(
   > = {},
 ): Extract<GpuRetainedContentControlDescriptor, { kind: "date-time" }> {
   return {
+    calendar: null,
     defaultDisplayValue: "",
     displayValue: "2026-05-04",
     kind: "date-time",

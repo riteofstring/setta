@@ -41,6 +41,10 @@ import "testUtils/reactRefreshPreamble";
 import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DropzoneModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
@@ -49,6 +53,7 @@ import {
   TimeDisplayFormatEnum,
   createCodeParamCodeObjImpl,
   createCore,
+  createDateParamCodeObjImpl,
   createDictSectionImpl,
   createDropzoneParamCodeObjImpl,
   createNestedParamCodeObjImpl,
@@ -57,6 +62,7 @@ import {
   createSwitchParamCodeObjImpl,
   createVariant,
   type ColorPickerParamCodeObjImpl,
+  type DateParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
   type DropzoneParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
@@ -1566,6 +1572,160 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("commits retained date calendar cells from canvas without mounting a DOM island", async () => {
+    seedDateParamProjectState('["2026-05-04"]');
+    vi.useFakeTimers();
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const rows = [
+      {
+        control: {
+          calendar: {
+            cells: calendarCells("2026-05-04"),
+            includeTime: false,
+            monthTitle: "May 2026",
+            selectedDates: ["2026-05-04"],
+            selectedTimeValue: "00:00",
+            selectionMode: "multiple" as const,
+            summaryText: "1 selected",
+            weekdayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          },
+          defaultDisplayValue: "",
+          displayValue: '["2026-05-04"]',
+          kind: "date-time" as const,
+          label: "Calendar",
+          mode: "date-calendar" as const,
+          rendererFamily: "date-time",
+          summaryText: "1 selected",
+          commitPolicy: "immediate" as const,
+        },
+        controlKind: "date-time",
+        depth: 0,
+        id: "param-1",
+        label: "Param 1",
+      },
+    ];
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows,
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 260, width: 260, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const controlEvent = {
+      hit: controlHit,
+      localPoint: {
+        x: controlHit.rect.x + controlHit.rect.width / 2,
+        y: controlHit.rect.y + controlHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    try {
+      expect(options.shouldHandleHit?.(controlEvent)).toBe(true);
+      options.onHitClick(controlEvent);
+
+      expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith({
+        hitRecordId: "control:param-1",
+        kind: "date-calendar",
+        paramInfoId: "param-1",
+        sectionId: "section-1",
+        surfaceId: "section-1:param-content:unpinned",
+      });
+      expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+      expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          paramInfoId: "param-1",
+        }),
+      );
+
+      const popupScene = createGpuRetainedRowContentScene({
+        activePopup: { kind: "date-calendar", ownerRowId: "param-1" },
+        controlWidth: 112,
+        id: "section-1:param-content:unpinned",
+        ownerSectionId: "section-1",
+        rowHeight: 28,
+        rows,
+        scrollOffset: { x: 0, y: 0 },
+        viewportRect: { height: 260, width: 260, x: 0, y: 0 },
+      });
+      const nextDateHit = popupScene.hitRecords.find(
+        (candidate) =>
+          candidate.kind === "popup-date-cell" &&
+          candidate.cellIsoDate === "2026-05-05",
+      );
+      if (!nextDateHit) {
+        throw new Error("Expected retained date cell hit.");
+      }
+      const cellEvent = {
+        ...controlEvent,
+        hit: nextDateHit,
+        localPoint: {
+          x: nextDateHit.rect.x + nextDateHit.rect.width / 2,
+          y: nextDateHit.rect.y + nextDateHit.rect.height / 2,
+        },
+        retainedScene: popupScene,
+      } satisfies GpuRetainedContentInteractionEvent;
+
+      expect(options.shouldHandleHit?.(cellEvent)).toBe(true);
+      options.onHitClick(cellEvent);
+
+      expect(onActiveParamCanvasPopupChange).toHaveBeenLastCalledWith(null);
+      expect(onActiveParamDomIslandChange).toHaveBeenLastCalledWith(null);
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: '["2026-05-04","2026-05-05"]',
+        },
+      });
+      expect(
+        useProjectState.getState().codeObjImpls["param-1-impl"]?.value,
+      ).toBe('["2026-05-04","2026-05-05"]');
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it("deletes retained dropzone attachments from canvas without mounting a DOM island", async () => {
     seedDropzoneParamProjectState(
       JSON.stringify({
@@ -2564,6 +2724,131 @@ function seedDropdownParamProjectState(value: string) {
       },
     }) as ZustandProjectState,
   );
+}
+
+function seedDateParamProjectState(value: string) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const paramImpl = createDateParamCodeObjImpl({
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+    dateControlMode: DateControlModeEnum.calendar,
+    dateDisplayFormat: DateDisplayFormatEnum.iso,
+    dateIncludesTime: false,
+    dateSelectionMode: DateSelectionModeEnum.multiple,
+    defaultVal: "",
+    description: "",
+    id: paramImplId,
+    isPreset: false,
+    name: "param-1",
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.DateParam,
+    typeAnnotation: "",
+    value,
+  }) satisfies DateParamCodeObjImpl;
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: paramImpl,
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function calendarCells(selectedIsoDate: string) {
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = index + 1;
+    const isoDate = `2026-05-${String(day).padStart(2, "0")}`;
+    return {
+      dayOfMonth: day,
+      inCurrentMonth: true,
+      isoDate,
+      selected: isoDate === selectedIsoDate,
+      today: false,
+    };
+  });
 }
 
 function seedDropzoneParamProjectState(value: string) {

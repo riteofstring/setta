@@ -95,6 +95,10 @@ import {
   isProjectGpuRetainedColorPickerPopupOptionHit,
 } from "./projectGpuRetainedParamColorPickerAdapter";
 import {
+  getProjectGpuRetainedDateCalendarPopupTarget,
+  isProjectGpuRetainedDateCalendarPopupCellHit,
+} from "./projectGpuRetainedParamDateCalendarAdapter";
+import {
   getProjectGpuRetainedDropdownPopupTarget,
   isProjectGpuRetainedDropdownPopupOptionHit,
 } from "./projectGpuRetainedParamDropdownAdapter";
@@ -446,18 +450,22 @@ function handleProjectRetainedContentCanvasControlClick(
     onActiveParamCanvasPopupChange(null);
     return true;
   }
-  const colorPickerPopupTarget =
-    getProjectGpuRetainedColorPickerPopupTarget(event);
-  if (colorPickerPopupTarget) {
-    onActiveParamCanvasPopupChange(colorPickerPopupTarget);
-    return true;
-  }
-  const dropdownPopupTarget = getProjectGpuRetainedDropdownPopupTarget(event);
-  if (dropdownPopupTarget) {
-    onActiveParamCanvasPopupChange(dropdownPopupTarget);
+  const popupTarget = getProjectGpuRetainedCanvasPopupTarget(event);
+  if (popupTarget) {
+    onActiveParamCanvasPopupChange(popupTarget);
     return true;
   }
   return false;
+}
+
+function getProjectGpuRetainedCanvasPopupTarget(
+  event: GpuRetainedContentInteractionEvent,
+): ProjectGpuActiveParamCanvasPopup | null {
+  return (
+    getProjectGpuRetainedColorPickerPopupTarget(event) ??
+    getProjectGpuRetainedDropdownPopupTarget(event) ??
+    getProjectGpuRetainedDateCalendarPopupTarget(event)
+  );
 }
 
 function handleProjectRetainedContentDragStart(
@@ -719,7 +727,8 @@ function isProjectRetainedParamCanvasPopupHit(
 ): boolean {
   return (
     isProjectGpuRetainedColorPickerPopupOptionHit(event) ||
-    isProjectGpuRetainedDropdownPopupOptionHit(event)
+    isProjectGpuRetainedDropdownPopupOptionHit(event) ||
+    isProjectGpuRetainedDateCalendarPopupCellHit(event)
   );
 }
 

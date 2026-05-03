@@ -12,6 +12,7 @@ import {
   formatGpuRetainedNumericControlValue,
   snapGpuRetainedNumericControlValue,
 } from "gpuFlow/retainedContentControls";
+import type { GpuRetainedContentDateCalendarDescriptor } from "gpuFlow/retainedContentDateCalendarTypes";
 import type {
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
@@ -27,6 +28,10 @@ import type {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
+  buildCalendarMonthGrid,
+  resolveCalendarAnchorDate,
+} from "utils/calendarGrid";
+import {
   parseCalendarSelectedDates,
   resolveCalendarSummaryText,
 } from "utils/calendarSelection";
@@ -35,11 +40,13 @@ import {
   DateControlModeEnum,
   DateSelectionModeEnum,
   DropzoneModeEnum,
+  TextParamUIConfig,
   TimeControlModeEnum,
   TimeDisplayFormatEnum,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
   type DateParamCodeObjImpl,
+  type DateSelectionMode,
   type DropdownParamCodeObjImpl,
   type DropzoneParamCodeObjImpl,
   type PasswordParamCodeObjImpl,
@@ -51,6 +58,7 @@ import {
   formatDateForDisplay,
   formatDateTimeForDisplay,
   formatTimeForDisplay,
+  getLocalTodayIsoDate,
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 
@@ -295,7 +303,12 @@ function createProjectGpuDateControlDescriptor({
   readonly controlKind: string;
 }): GpuRetainedContentControlDescriptor {
   const displayValue = getProjectGpuDateControlDisplayValue(codeObjImpl);
+  const mode = getProjectGpuDateControlMode(codeObjImpl);
   return {
+    calendar:
+      mode === "date-calendar"
+        ? createProjectGpuDateCalendarDescriptor(codeObjImpl)
+        : null,
     defaultDisplayValue: getProjectGpuDateControlDisplayValue({
       ...codeObjImpl,
       value: codeObjImpl.defaultVal,
@@ -303,10 +316,10 @@ function createProjectGpuDateControlDescriptor({
     displayValue,
     kind: "date-time",
     label: getProjectGpuDateControlLabel(codeObjImpl),
-    mode: getProjectGpuDateControlMode(codeObjImpl),
+    mode,
     rendererFamily: controlKind,
     summaryText: getProjectGpuDateControlSummaryText(codeObjImpl),
-    commitPolicy: "native-island",
+    commitPolicy: mode === "date-calendar" ? "immediate" : "native-island",
   };
 }
 
@@ -318,6 +331,7 @@ function createProjectGpuTimeControlDescriptor({
   readonly controlKind: string;
 }): GpuRetainedContentControlDescriptor {
   return {
+    calendar: null,
     defaultDisplayValue: getProjectGpuTimeControlDisplayValue({
       ...codeObjImpl,
       value: codeObjImpl.defaultVal,
@@ -402,6 +416,85 @@ function getProjectGpuDateControlSummaryText(
     dateDisplayFormat: codeObjImpl.dateDisplayFormat,
     timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
   });
+}
+
+function createProjectGpuDateCalendarDescriptor(
+  codeObjImpl: DateParamCodeObjImpl,
+): GpuRetainedContentDateCalendarDescriptor {
+  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  const selectionMode = getProjectGpuDateCalendarSelectionMode(codeObjImpl);
+  const splitDateTime = splitIsoDateAndTimeParts(value);
+  const selectedDates = parseCalendarSelectedDates(
+    value,
+    selectionMode,
+    codeObjImpl.dateIncludesTime,
+  );
+  const anchor = resolveCalendarAnchorDate(selectedDates[0] ?? "");
+  const selectedDateSet = new Set(selectedDates);
+  const todayIso = getLocalTodayIsoDate();
+  const summaryText = resolveCalendarSummaryText({
+    selectedDates,
+    value,
+    selectionMode,
+    includeTime: codeObjImpl.dateIncludesTime,
+    splitDateTime,
+    dateDisplayFormat: codeObjImpl.dateDisplayFormat,
+    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+  });
+  return {
+    cells: buildCalendarMonthGrid({
+      year: anchor.year,
+      monthIndex: anchor.monthIndex,
+      weekStartsOn: codeObjImpl.dateCalendarWeekStart,
+    }).map((cell) => ({
+      dayOfMonth: cell.dayOfMonth,
+      inCurrentMonth: cell.inCurrentMonth,
+      isoDate: cell.isoDate,
+      selected: selectedDateSet.has(cell.isoDate),
+      today: cell.isoDate === todayIso,
+    })),
+    includeTime: codeObjImpl.dateIncludesTime,
+    monthTitle: formatProjectGpuDateCalendarMonthTitle(
+      anchor.year,
+      anchor.monthIndex,
+    ),
+    selectedDates,
+    selectedTimeValue: splitDateTime?.time24 ?? "00:00",
+    selectionMode,
+    summaryText,
+    weekdayLabels: getProjectGpuDateCalendarWeekdayLabels(
+      codeObjImpl.dateCalendarWeekStart,
+    ),
+  };
+}
+
+function getProjectGpuDateCalendarSelectionMode(
+  codeObjImpl: DateParamCodeObjImpl,
+): DateSelectionMode {
+  return codeObjImpl.dateIncludesTime
+    ? DateSelectionModeEnum.single
+    : codeObjImpl.dateSelectionMode;
+}
+
+function getProjectGpuDateCalendarWeekdayLabels(
+  weekStart: DateParamCodeObjImpl["dateCalendarWeekStart"],
+): readonly string[] {
+  const labels = TextParamUIConfig.calendarWeekdayLabelsByWeekStart[weekStart];
+  if (!labels) {
+    throw new Error(`Missing GPU retained weekday labels for ${weekStart}.`);
+  }
+  return labels;
+}
+
+function formatProjectGpuDateCalendarMonthTitle(
+  year: number,
+  monthIndex: number,
+): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
 function createProjectGpuColorPickerControlDescriptor({

@@ -1147,8 +1147,9 @@ describe("project GPU layout adapter", () => {
     });
 
     const scene = getProjectGpuFlowScene(projectState, {
-      activeParamDomIsland: {
+      activeParamCanvasPopup: {
         hitRecordId: "control:date-param",
+        kind: "date-calendar",
         paramInfoId: "date-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
@@ -1168,19 +1169,28 @@ describe("project GPU layout adapter", () => {
         mode: "date-calendar",
         rendererFamily: "date-time",
         summaryText: "2 selected",
-        commitPolicy: "native-island",
+        commitPolicy: "immediate",
+        calendar: expect.objectContaining({
+          monthTitle: "May 2026",
+          selectedDates: ["2026-05-04", "2026-05-05"],
+          selectionMode: DateSelectionModeEnum.multiple,
+          summaryText: "2 selected",
+          weekdayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+        }),
       },
       controlKind: "date-time",
       id: "date-param",
     });
-    expect(scene.domIslands).toEqual([
-      expect.objectContaining({
-        kind: "retained-content-control",
-        source: expect.objectContaining({
+    expect(scene.domIslands).toEqual([]);
+    expect(dateSurface?.retainedScene?.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cellIsoDate: "2026-05-04",
+          kind: "popup-date-cell",
           ownerRowId: "date-param",
         }),
-      }),
-    ]);
+      ]),
+    );
   });
 
   it("keeps retained slider controls canvas-owned with concrete descriptors", () => {
@@ -1721,7 +1731,7 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
-  it("expands native retained param islands while dropdown popups stay canvas-owned", () => {
+  it("keeps canvas-owned retained popups out of native retained param islands", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -1826,8 +1836,9 @@ describe("project GPU layout adapter", () => {
     });
 
     const dateCalendarScene = getProjectGpuFlowScene(projectState, {
-      activeParamDomIsland: {
+      activeParamCanvasPopup: {
         hitRecordId: "control:date-calendar-param",
+        kind: "date-calendar",
         paramInfoId: "date-calendar-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
@@ -1835,14 +1846,19 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 4,
     });
-    const dateCalendarIsland = dateCalendarScene.domIslands[0];
+    const dateCalendarSurface = dateCalendarScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
 
-    expect(dateCalendarIsland).toMatchObject({
-      contentRect: { height: 292, width: 252, x: 0, y: 0 },
-      kind: "retained-content-control",
-      ownerSectionId: "dict-a",
-      rect: { height: 292, width: 252 },
-    });
+    expect(dateCalendarScene.domIslands).toEqual([]);
+    expect(dateCalendarSurface?.retainedScene?.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "popup-date-cell",
+          ownerRowId: "date-calendar-param",
+        }),
+      ]),
+    );
 
     const dropdownScene = getProjectGpuFlowScene(projectState, {
       activeParamCanvasPopup: {

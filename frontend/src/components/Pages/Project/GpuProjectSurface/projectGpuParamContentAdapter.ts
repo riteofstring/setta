@@ -71,7 +71,7 @@ export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget & {
 };
 
 export type ProjectGpuActiveParamCanvasPopup = ProjectGpuRetainedParamTarget & {
-  readonly kind: "color-picker" | "dropdown";
+  readonly kind: "color-picker" | "date-calendar" | "dropdown";
 };
 
 type ProjectGpuParamListRows = {

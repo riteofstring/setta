@@ -602,6 +602,7 @@ describe("retained content scene", () => {
       rows: [
         row("date-param", {
           control: {
+            calendar: null,
             defaultDisplayValue: "",
             displayValue: "May 4, 2026",
             kind: "date-time",
@@ -609,7 +610,7 @@ describe("retained content scene", () => {
             mode: "date-calendar",
             rendererFamily: "date-time",
             summaryText: "May 4, 2026",
-            commitPolicy: "native-island",
+            commitPolicy: "immediate",
           },
           controlKind: "date-time",
         }),
@@ -619,6 +620,7 @@ describe("retained content scene", () => {
     });
 
     expect(scene.rows[0]?.control).toEqual({
+      calendar: null,
       defaultDisplayValue: "",
       displayValue: "May 4, 2026",
       kind: "date-time",
@@ -626,7 +628,7 @@ describe("retained content scene", () => {
       mode: "date-calendar",
       rendererFamily: "date-time",
       summaryText: "May 4, 2026",
-      commitPolicy: "native-island",
+      commitPolicy: "immediate",
     });
     expect(scene.drawCommands).toEqual(
       expect.arrayContaining([
@@ -639,6 +641,80 @@ describe("retained content scene", () => {
           controlKind: "date-time",
           kind: "row-control",
           rowId: "date-param",
+        }),
+      ]),
+    );
+  });
+
+  it("emits retained date calendar popup commands and cell hits", () => {
+    const scene = createGpuRetainedRowContentScene({
+      activePopup: { kind: "date-calendar", ownerRowId: "date-param" },
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("date-param", {
+          control: {
+            calendar: {
+              cells: calendarCells("2026-05-04"),
+              includeTime: false,
+              monthTitle: "May 2026",
+              selectedDates: ["2026-05-04"],
+              selectedTimeValue: "00:00",
+              selectionMode: "single",
+              summaryText: "2026-05-04",
+              weekdayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            },
+            defaultDisplayValue: "",
+            displayValue: "2026-05-04",
+            kind: "date-time",
+            label: "Calendar",
+            mode: "date-calendar",
+            rendererFamily: "date-time",
+            summaryText: "2026-05-04",
+            commitPolicy: "immediate",
+          },
+          controlKind: "date-time",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 260, width: 260, x: 0, y: 0 },
+    });
+
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "control-popup-date-calendar-header",
+          monthTitle: "May 2026",
+          rowId: "date-param",
+        }),
+        expect.objectContaining({
+          kind: "control-popup-date-calendar-weekday",
+          rowId: "date-param",
+          text: "Sun",
+        }),
+        expect.objectContaining({
+          cell: expect.objectContaining({
+            isoDate: "2026-05-04",
+            selected: true,
+          }),
+          kind: "control-popup-date-calendar-cell",
+          rowId: "date-param",
+        }),
+        expect.objectContaining({
+          kind: "control-popup-date-calendar-summary",
+          rowId: "date-param",
+          text: "2026-05-04",
+        }),
+      ]),
+    );
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cellIsoDate: "2026-05-04",
+          id: "popup-date-cell:date-param:2026-05-04",
+          kind: "popup-date-cell",
+          ownerRowId: "date-param",
         }),
       ]),
     );
@@ -699,4 +775,18 @@ function row(
     label: id,
     ...overrides,
   };
+}
+
+function calendarCells(selectedIsoDate: string) {
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = index + 1;
+    const isoDate = `2026-05-${String(day).padStart(2, "0")}`;
+    return {
+      dayOfMonth: day,
+      inCurrentMonth: true,
+      isoDate,
+      selected: isoDate === selectedIsoDate,
+      today: false,
+    };
+  });
 }
