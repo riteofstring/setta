@@ -1,7 +1,4 @@
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -28,11 +25,6 @@ describe("project GPU portal adapter", () => {
         className: "setta-retained-param-validation",
         coordinateSpace: "viewport",
         id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
-      },
-      {
-        className: "setta-popover-portals",
-        coordinateSpace: "viewport",
-        id: SETTA_POPOVER_PORTAL_PARENT_ID,
       },
     ]);
   });

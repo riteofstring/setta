@@ -1,9 +1,6 @@
 import type { GpuFlowPortalDescriptor } from "gpuFlow/portals/portalManager";
 
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 
 export const PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID =
   "setta-gpu-retained-codemirror-tooltips";
@@ -25,11 +22,6 @@ const PROJECT_GPU_PORTALS = [
     className: "setta-retained-param-validation",
     coordinateSpace: "viewport",
     id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
-  },
-  {
-    className: "setta-popover-portals",
-    coordinateSpace: "viewport",
-    id: SETTA_POPOVER_PORTAL_PARENT_ID,
   },
 ] as const satisfies readonly GpuFlowPortalDescriptor[];
 
