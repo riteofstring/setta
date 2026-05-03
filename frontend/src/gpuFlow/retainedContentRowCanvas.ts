@@ -10,9 +10,10 @@ const RETAINED_CONTENT_ROW_SANS_FONT_FAMILY =
 const RETAINED_CONTENT_ROW_MONO_FONT_FAMILY =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 const RETAINED_CONTENT_ROW_TEXT_SIZE = "12px";
-const RETAINED_CONTENT_ROW_LABEL_PADDING_X = 15;
+const RETAINED_CONTENT_ROW_LABEL_MONO_PADDING_X = 15;
+const RETAINED_CONTENT_ROW_LABEL_SANS_PADDING_X = 16;
 const RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y = 3;
-const RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y = 1;
+const RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y = 2;
 
 export function drawGpuRetainedContentRowBackground({
   ctx,
@@ -90,11 +91,12 @@ export function drawGpuRetainedContentLabel({
     palette,
     state,
   });
+  const paddingX = getGpuRetainedContentLabelPaddingX(appearance);
   ctx.fillText(
     text,
-    rect.x + RETAINED_CONTENT_ROW_LABEL_PADDING_X,
+    rect.x + paddingX,
     rect.y + rect.height / 2 + getGpuRetainedContentLabelOffsetY(appearance),
-    Math.max(0, rect.width - RETAINED_CONTENT_ROW_LABEL_PADDING_X * 2),
+    Math.max(0, rect.width - paddingX * 2),
   );
 }
 
@@ -115,6 +117,14 @@ function getGpuRetainedContentLabelOffsetY(
   return appearance.fontFamily === "mono"
     ? RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y
     : RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y;
+}
+
+function getGpuRetainedContentLabelPaddingX(
+  appearance: GpuRetainedContentLabelAppearance,
+): number {
+  return appearance.fontFamily === "mono"
+    ? RETAINED_CONTENT_ROW_LABEL_MONO_PADDING_X
+    : RETAINED_CONTENT_ROW_LABEL_SANS_PADDING_X;
 }
 
 function getGpuRetainedContentLabelColor({

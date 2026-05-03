@@ -43,7 +43,7 @@ describe("retained content row canvas", () => {
 
     expect(ctx.font).toContain("600 12px Inter");
     expect(ctx.fillStyle).toBe(palette.labelText);
-    expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 15, 13, 90);
+    expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 16, 14, 88);
   });
 });
 
