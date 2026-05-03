@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
-import type { GpuDomIsland } from "gpuFlow/scene";
+import type { GpuRetainedContentInteractionEvent } from "gpuFlow/interactions/retainedContentInteraction";
+import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -110,6 +112,7 @@ import {
 } from "./projectGpuPortalAdapter";
 import {
   getProjectRetainedContentConnectionOptions,
+  getProjectRetainedContentInteractionOptions,
   getProjectScenePortConnectionOptions,
   getProjectScenePortConnectionPolicy,
   renderProjectGpuDomIsland,
@@ -234,8 +237,8 @@ describe("project GPU retained param DOM islands", () => {
     const rendered = await renderIsland(
       retainedParamIsland({
         activation: {
+          clientPoint: activationPoint,
           kind: "pointer",
-          screenPoint: activationPoint,
         },
       }),
     );
@@ -254,6 +257,67 @@ describe("project GPU retained param DOM islands", () => {
       });
       await cleanupRenderedIsland(rendered);
     }
+  });
+
+  it("records viewport client coordinates for retained DOM island activation", () => {
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+
+    options.onHitClick({
+      hit: controlHit,
+      localPoint: { x: 120, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 120, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent);
+
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activation: {
+          clientPoint: { x: 220, y: 96 },
+          kind: "pointer",
+        },
+      }),
+    );
   });
 
   it("mounts retained param name inputs against the viewport CodeMirror tooltip portal", async () => {
@@ -459,6 +523,14 @@ describe("project GPU scene port connection options", () => {
     expect(resolveDisabledOption(options.disabled)).toBe(true);
   });
 });
+
+const EMPTY_TEST_SCENE: GpuFlowScene = {
+  contentSurfaces: [],
+  domIslands: [],
+  edges: [],
+  revision: 0,
+  sections: [],
+};
 
 function resolveDisabledOption(
   disabled: boolean | (() => boolean) | undefined,

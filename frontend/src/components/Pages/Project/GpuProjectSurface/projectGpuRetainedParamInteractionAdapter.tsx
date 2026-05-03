@@ -342,8 +342,11 @@ function handleProjectRetainedContentClick(
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {
+        clientPoint: {
+          x: event.nativeEvent.clientX,
+          y: event.nativeEvent.clientY,
+        },
         kind: "pointer",
-        screenPoint: event.screenPoint,
       },
       hitRecordId: event.hit.id,
       paramInfoId: event.hit.ownerRowId,
@@ -796,8 +799,8 @@ function useProjectGpuDomIslandActivation<RootElement extends HTMLElement>({
     }
   }, [
     activation?.kind,
-    activation?.screenPoint.x,
-    activation?.screenPoint.y,
+    activation?.clientPoint.x,
+    activation?.clientPoint.y,
     clickActivationTarget,
     paramInfoId,
     rootRef,
@@ -835,8 +838,8 @@ function getProjectGpuDomIslandPointedElement(
   }
   const element = elementFromPoint.call(
     root.ownerDocument,
-    activation.screenPoint.x,
-    activation.screenPoint.y,
+    activation.clientPoint.x,
+    activation.clientPoint.y,
   );
   return element && root.contains(element) ? element : null;
 }
@@ -862,7 +865,7 @@ function getProjectGpuDomIslandActivationKey(
   if (!activation) {
     return null;
   }
-  return `${activation.kind}:${activation.screenPoint.x}:${activation.screenPoint.y}`;
+  return `${activation.kind}:${activation.clientPoint.x}:${activation.clientPoint.y}`;
 }
 
 function shouldClickProjectGpuDomIslandActivationTarget(

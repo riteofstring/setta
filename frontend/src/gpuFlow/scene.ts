@@ -108,8 +108,8 @@ type GpuDomIslandSource =
     };
 
 type GpuDomIslandActivation = {
+  readonly clientPoint: GpuPoint;
   readonly kind: "pointer";
-  readonly screenPoint: GpuPoint;
 };
 
 export type GpuDomIsland = {

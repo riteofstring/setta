@@ -686,8 +686,8 @@ describe("project GPU layout adapter", () => {
     const scene = getProjectGpuFlowScene(projectState, {
       activeParamDomIsland: {
         activation: {
+          clientPoint: { x: 190, y: 62 },
           kind: "pointer",
-          screenPoint: { x: 190, y: 62 },
         },
         hitRecordId: "control:child-param",
         paramInfoId: "child-param",
@@ -720,8 +720,8 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([
       {
         activation: {
+          clientPoint: { x: 190, y: 62 },
           kind: "pointer",
-          screenPoint: { x: 190, y: 62 },
         },
         clipOwnerId: "dict-a:param-content:unpinned",
         contentRect: { height: 28, width: 112, x: 0, y: 0 },
