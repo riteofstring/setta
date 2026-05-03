@@ -14,17 +14,20 @@ describe("project GPU portal adapter", () => {
         className: "setta-codemirror-tooltips",
         coordinateSpace: "source-local",
         id: CODEMIRROR_TOOLTIP_PARENT_ID,
+        retainedContentNative: true,
       },
       {
         className:
           "setta-codemirror-tooltips setta-retained-codemirror-tooltips",
         coordinateSpace: "viewport",
         id: PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+        retainedContentNative: true,
       },
       {
         className: "setta-retained-param-validation",
         coordinateSpace: "viewport",
         id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+        retainedContentNative: true,
       },
     ]);
   });

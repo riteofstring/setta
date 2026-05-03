@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import {
+  createGpuRetainedRowContentScene,
+  type GpuRetainedContentControlDescriptor,
+} from "../retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { attachGpuRetainedContentKeyboardController } from "./retainedContentKeyboard";
 
@@ -61,6 +64,7 @@ describe("GPU retained content keyboard controller", () => {
     interactiveControl.dataset.gpuFlowInteractive = "true";
     const portalRoot = document.createElement("div");
     portalRoot.dataset.gpuFlowPortalRoot = "true";
+    portalRoot.dataset.gpuFlowRetainedContentNative = "true";
     const portalOption = document.createElement("div");
     portalRoot.append(portalOption);
     element.append(input, domIsland, interactiveControl, portalRoot);
@@ -90,6 +94,35 @@ describe("GPU retained content keyboard controller", () => {
       expect(event.defaultPrevented).toBe(false);
     }
     expect(onNavigation).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("does not preserve plain GpuFlow portal roots as native keyboard targets", () => {
+    const element = createHostElement();
+    const portalRoot = document.createElement("div");
+    portalRoot.dataset.gpuFlowPortalRoot = "true";
+    const portalOption = document.createElement("div");
+    portalRoot.append(portalOption);
+    element.append(portalRoot);
+    const onNavigation = vi.fn();
+    const cleanup = attachGpuRetainedContentKeyboardController({
+      element,
+      getCurrentTarget: () => ({
+        ownerSectionId: "dict-a",
+        rowId: "param-2",
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => new Map(),
+      onNavigation,
+    });
+
+    const event = createKeyboardEvent("ArrowDown");
+    portalOption.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onNavigation).toHaveBeenCalledTimes(1);
 
     cleanup();
   });
@@ -127,6 +160,7 @@ function retainedSurface(): GpuContentSurface {
       ownerSectionId: "dict-a",
       rowHeight: 28,
       rows: Array.from({ length: 10 }, (_, index) => ({
+        control: textLikeControlDescriptor(`Value ${index}`),
         controlKind: "text-like",
         depth: 0,
         id: `param-${index}`,
@@ -136,6 +170,19 @@ function retainedSurface(): GpuContentSurface {
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 1,
+  };
+}
+
+function textLikeControlDescriptor(
+  displayValue: string,
+): GpuRetainedContentControlDescriptor {
+  return {
+    defaultDisplayValue: "",
+    displayValue,
+    editorKind: "text",
+    kind: "text-like",
+    rendererFamily: "text-like",
+    commitPolicy: "native-island",
   };
 }
 

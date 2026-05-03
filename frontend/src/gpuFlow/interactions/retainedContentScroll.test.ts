@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import {
+  createGpuRetainedRowContentScene,
+  type GpuRetainedContentControlDescriptor,
+} from "../retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { attachGpuRetainedContentScrollController } from "./retainedContentScroll";
@@ -77,6 +80,41 @@ describe("GPU retained content scroll controller", () => {
       cleanup();
     },
   );
+
+  it("does not preserve plain GpuFlow portal roots as native wheel targets", () => {
+    const element = document.createElement("div");
+    const { root, target } = createMarkedWheelTarget(
+      "data-gpu-flow-portal-root",
+    );
+    element.append(root);
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    target.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+
+    cleanup();
+  });
 });
 
 type PreservedWheelTargetFixture = {
@@ -104,8 +142,8 @@ const preservedWheelTargetCases: readonly [
     () => createMarkedWheelTarget("data-gpu-flow-interactive"),
   ],
   [
-    "GpuFlow portal roots",
-    () => createMarkedWheelTarget("data-gpu-flow-portal-root"),
+    "retained native portal roots",
+    () => createMarkedWheelTarget("data-gpu-flow-retained-content-native"),
   ],
 ];
 
@@ -145,6 +183,7 @@ function retainedSurface(): GpuContentSurface {
       ownerSectionId: "dict-a",
       rowHeight: 28,
       rows: Array.from({ length: 10 }, (_, index) => ({
+        control: textLikeControlDescriptor(`Value ${index}`),
         controlKind: "text-like",
         depth: 0,
         id: `param-${index}`,
@@ -154,5 +193,18 @@ function retainedSurface(): GpuContentSurface {
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 1,
+  };
+}
+
+function textLikeControlDescriptor(
+  displayValue: string,
+): GpuRetainedContentControlDescriptor {
+  return {
+    defaultDisplayValue: "",
+    displayValue,
+    editorKind: "text",
+    kind: "text-like",
+    rendererFamily: "text-like",
+    commitPolicy: "native-island",
   };
 }

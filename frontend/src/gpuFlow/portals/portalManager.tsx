@@ -13,6 +13,7 @@ export type GpuFlowPortalDescriptor = {
   readonly className?: string | undefined;
   readonly coordinateSpace: GpuFlowPortalCoordinateSpace;
   readonly id: string;
+  readonly retainedContentNative?: boolean | undefined;
   readonly testId?: string | undefined;
 };
 
@@ -81,6 +82,9 @@ function renderGpuFlowPortalRoot(portal: GpuFlowPortalDescriptor) {
       className={getGpuFlowPortalClassName(portal)}
       data-gpu-flow-portal-root="true"
       data-gpu-flow-portal-space={portal.coordinateSpace}
+      data-gpu-flow-retained-content-native={
+        portal.retainedContentNative ? "true" : undefined
+      }
       data-testid={portal.testId}
       id={portal.id}
       key={portal.id}

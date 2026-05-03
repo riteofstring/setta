@@ -1,5 +1,4 @@
 import { NO_PAN_CLASS_NAME } from "utils/constants";
-import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   hitTestGpuRetainedContentScene,
@@ -111,7 +110,6 @@ type ActiveRetainedContentPointer = {
 
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
 export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
-  GPU_FLOW_SELECTORS.portalRoot,
   '[data-gpu-flow-dom-island="true"]',
   '[data-gpu-flow-interactive="true"]',
   '[data-gpu-flow-retained-content-native="true"]',
