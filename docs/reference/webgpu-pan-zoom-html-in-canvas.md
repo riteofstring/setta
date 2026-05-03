@@ -420,5 +420,5 @@ Current completion evidence includes:
 
 Historical reports from earlier renderer phases may describe superseded
 implementations. Use this reference and the active plan in
-`docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md` for the current
+`docs/plans/gpuflow-scene-ownership-architecture-plan.md` for the current
 architecture.
