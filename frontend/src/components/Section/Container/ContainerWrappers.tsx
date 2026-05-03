@@ -1,9 +1,17 @@
-import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import type { SectionRefRegistrationMode } from "state/hooks/sectionRef";
 import { Container } from "./ContainerCore";
+
+type GpuSceneSectionContainerProps = {
+  readonly children: React.ReactNode;
+  readonly isEditingViewMode: boolean;
+  readonly isGroup: boolean;
+  readonly isUserView: boolean;
+  readonly sectionId: string;
+  readonly visibility: boolean;
+};
 
 function _GpuSceneSectionContainer({
   isGroup,
@@ -12,7 +20,7 @@ function _GpuSceneSectionContainer({
   isEditingViewMode,
   isUserView,
   children,
-}) {
+}: GpuSceneSectionContainerProps) {
   const ancestorHasSameVisibility = useProjectState((x) =>
     getAncestorSameVisibility(sectionId, x),
   );
@@ -55,54 +63,13 @@ export const GpuSceneSectionContainer = React.memo(
     p.isUserView === n.isUserView,
 );
 
-function _StaticSectionContainer({
-  isGroup,
-  sectionId,
-  isTopLevel,
-  visibility,
-  isEditingViewMode,
-  isUserView,
-  children,
-}) {
-  const ancestorHasSameVisibility = useProjectState((x) =>
-    getAncestorSameVisibility(sectionId, x),
-  );
-  const className = isTopLevel ? "h-full w-full" : "";
-  const fullStyle = {
-    ...maybeGetOpacityStyle(
-      visibility,
-      isEditingViewMode,
-      ancestorHasSameVisibility,
-    ),
-  };
-
-  return (
-    <Container
-      isGroup={isGroup}
-      sectionId={sectionId}
-      trueDragListeners={{}}
-      isEditingViewMode={isEditingViewMode}
-      isUserView={isUserView}
-      className={className}
-      style={fullStyle}
-    >
-      {children}
-    </Container>
-  );
-}
-
 function maybeGetOpacityStyle(
-  visibility,
-  isEditingViewMode,
-  ancestorHasSameVisibility,
-) {
+  visibility: boolean,
+  isEditingViewMode: boolean,
+  ancestorHasSameVisibility: boolean,
+): React.CSSProperties {
   if (!visibility && isEditingViewMode) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
   }
   return {};
 }
-
-export const StaticSectionContainer = React.memo(
-  _StaticSectionContainer,
-  _.isEqual,
-);

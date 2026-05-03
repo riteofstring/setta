@@ -13,22 +13,15 @@ import {
 } from "utils/codegenTargets";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { ContainerSwitch } from "./ContainerSwitch";
+import { GpuSceneSectionContainer } from "./ContainerWrappers";
 import { SectionContainerCore } from "./SectionContainerCore";
 
 type SectionContainerProps = {
   sectionId: string;
   isTopLevel: boolean;
-  renderParamRows?: boolean;
-  sceneSurface?: boolean;
 };
 
-function _SectionContainer({
-  sectionId,
-  isTopLevel,
-  renderParamRows,
-  sceneSurface = false,
-}: SectionContainerProps) {
+function _SectionContainer({ sectionId, isTopLevel }: SectionContainerProps) {
   const {
     visibility,
     isEditingViewMode,
@@ -58,10 +51,6 @@ function _SectionContainer({
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
     };
   }, shallow);
-  const shouldRenderParamRows = getSectionContainerRenderParamRows(
-    renderParamRows,
-    sceneSurface,
-  );
 
   if (
     shouldHideSection({
@@ -77,24 +66,20 @@ function _SectionContainer({
 
   return (
     <NodeIdContext.Provider value={sectionId}>
-      <ContainerSwitch
+      <GpuSceneSectionContainer
         isGroup={isGroup}
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        sceneSurface={sceneSurface}
       >
         <StandardSectionSurface
           sectionId={sectionId}
           isTopLevel={isTopLevel}
           isGroup={isGroup}
           isUserView={isUserView}
-          renderParamRows={shouldRenderParamRows}
-          sceneSurface={sceneSurface}
         />
-      </ContainerSwitch>
+      </GpuSceneSectionContainer>
     </NodeIdContext.Provider>
   );
 }
@@ -109,33 +94,8 @@ function areSectionContainerPropsEqual(
   next: SectionContainerProps,
 ): boolean {
   return (
-    prev.sectionId === next.sectionId &&
-    prev.isTopLevel === next.isTopLevel &&
-    sectionContainerRenderOptionsEqual(prev, next)
+    prev.sectionId === next.sectionId && prev.isTopLevel === next.isTopLevel
   );
-}
-
-function sectionContainerRenderOptionsEqual(
-  prev: SectionContainerProps,
-  next: SectionContainerProps,
-): boolean {
-  return (
-    getSectionContainerRenderParamRows(
-      prev.renderParamRows,
-      prev.sceneSurface,
-    ) ===
-      getSectionContainerRenderParamRows(
-        next.renderParamRows,
-        next.sceneSurface,
-      ) && (prev.sceneSurface ?? false) === (next.sceneSurface ?? false)
-  );
-}
-
-function getSectionContainerRenderParamRows(
-  renderParamRows: boolean | undefined,
-  sceneSurface: boolean | undefined,
-): boolean {
-  return renderParamRows ?? !(sceneSurface ?? false);
 }
 
 function shouldHideSection({
@@ -159,15 +119,11 @@ function StandardSectionSurface({
   isTopLevel,
   isGroup,
   isUserView,
-  renderParamRows,
-  sceneSurface,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   isGroup: boolean;
   isUserView: boolean;
-  renderParamRows: boolean;
-  sceneSurface: boolean;
 }) {
   if (isGroup) {
     return null;
@@ -177,9 +133,9 @@ function StandardSectionSurface({
       sectionId={sectionId}
       isTopLevel={isTopLevel}
       isUserView={isUserView}
-      fillSurface={sceneSurface || isTopLevel}
-      renderParamRows={renderParamRows}
-      scenePortGeometry={sceneSurface}
+      fillSurface
+      renderParamRows={false}
+      scenePortGeometry
     />
   );
 }

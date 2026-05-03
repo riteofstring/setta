@@ -99,20 +99,9 @@ vi.mock("./AgenticEdgeHandles", () => ({
   ),
 }));
 
-vi.mock("./ContainerSwitch", () => ({
-  ContainerSwitch: ({
-    children,
-    sceneSurface = false,
-  }: {
-    children: ReactNode;
-    sceneSurface?: boolean;
-  }) => (
-    <div
-      data-testid="mock-container-switch"
-      data-scene-surface={String(sceneSurface)}
-    >
-      {children}
-    </div>
+vi.mock("./ContainerWrappers", () => ({
+  GpuSceneSectionContainer: ({ children }: { children: ReactNode }) => (
+    <div data-testid="mock-gpu-scene-section-container">{children}</div>
   ),
 }));
 
@@ -195,7 +184,6 @@ describe("SectionContainer", () => {
 
     expect(markup).toContain('data-testid="mock-section-container-core"');
     expect(markup).not.toContain("data-joined-code-terminal-group");
-    expect(markup).not.toContain('data-testid="mock-agentic-edge-handles"');
   });
 
   it("does not render child section DOM for groups", () => {
@@ -206,7 +194,7 @@ describe("SectionContainer", () => {
     );
 
     expect(markup).not.toContain('data-testid="mock-section-container-core"');
-    expect(markup).toContain('data-testid="mock-container-switch"');
+    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
   });
 
   it("does not activate parent-owned nested content for embedded terminals", () => {
@@ -223,28 +211,24 @@ describe("SectionContainer", () => {
     expect(markup).not.toContain("data-joined-code-terminal-group");
   });
 
-  it("marks GPU scene surfaces as scene-owned without nested content ownership", () => {
+  it("marks all project section surfaces as scene-owned without nested content ownership", () => {
     const markup = renderToStaticMarkup(
-      <SectionContainer
-        sectionId="section-1"
-        isTopLevel={false}
-        sceneSurface
-      />,
+      <SectionContainer sectionId="section-1" isTopLevel={false} />,
     );
 
-    expect(markup).toContain('data-scene-surface="true"');
+    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
     expect(markup).toContain('data-fill-surface="true"');
     expect(markup).toContain('data-render-param-rows="false"');
   });
 
-  it("keeps top-level surfaces filled and GPU-resized without scene-owned mode", () => {
+  it("keeps top-level surfaces scene-owned with retained param rows", () => {
     const markup = renderToStaticMarkup(
       <SectionContainer sectionId="section-1" isTopLevel />,
     );
 
-    expect(markup).toContain('data-scene-surface="false"');
+    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
     expect(markup).toContain('data-fill-surface="true"');
-    expect(markup).toContain('data-render-param-rows="true"');
+    expect(markup).toContain('data-render-param-rows="false"');
   });
 
   it("skips generated python sections when python codegen is unavailable", () => {
