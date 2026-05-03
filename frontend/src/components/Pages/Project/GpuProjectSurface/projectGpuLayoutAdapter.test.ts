@@ -4,10 +4,15 @@ import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import type { ZustandProjectState } from "state/definitions";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   createCodeParamCodeObjImpl,
   createCore,
+  createDateParamCodeObjImpl,
   createDictSectionImpl,
   createDropdownParamCodeObjImpl,
   createDropzoneParamCodeObjImpl,
@@ -461,19 +466,20 @@ describe("project GPU layout adapter", () => {
           id: "dict-a",
           impl: createDictSectionImpl({
             codeObjVariantMap: {
+              "date-calendar-param": "date-calendar-param-variant",
               "dropdown-param": "dropdown-param-variant",
               "dropzone-param": "dropzone-param-variant",
               "root-param": "root-param-variant",
             },
             id: "dict-a-impl",
-            size: sectionSize({ height: 320, width: 360 }),
+            size: sectionSize({ height: 420, width: 360 }),
             topLevelParamId: "root-param",
           }),
           parentId: null,
         },
       ],
       topLevelSections: {
-        "dict-a": { h: 320, w: 360, x: 10, y: 20, zIndex: 2 },
+        "dict-a": { h: 420, w: 360, x: 10, y: 20, zIndex: 2 },
       },
     });
     addParamToProjectState(
@@ -482,9 +488,26 @@ describe("project GPU layout adapter", () => {
       "root-param-variant",
       "root-param-impl",
       createNestedParamImpl("root-param-impl", [
+        "date-calendar-param",
         "dropdown-param",
         "dropzone-param",
       ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "date-calendar-param",
+      "date-calendar-param-variant",
+      "date-calendar-param-impl",
+      createDateParamCodeObjImpl({
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+        dateControlMode: DateControlModeEnum.calendar,
+        dateDisplayFormat: DateDisplayFormatEnum.iso,
+        dateIncludesTime: true,
+        dateSelectionMode: DateSelectionModeEnum.single,
+        id: "date-calendar-param-impl",
+        name: "date-calendar",
+        type: CodeObjTypeEnum.DateParam,
+      }),
     );
     addParamToProjectState(
       projectState,
@@ -511,11 +534,35 @@ describe("project GPU layout adapter", () => {
     projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
       unpinned: {
         requiredParamIdsToPaths: {
+          "date-calendar-param": ["date-calendar-param"],
           "dropdown-param": ["dropdown-param"],
           "dropzone-param": ["dropzone-param"],
         },
-        topLevelParamIds: ["dropdown-param", "dropzone-param"],
+        topLevelParamIds: [
+          "date-calendar-param",
+          "dropdown-param",
+          "dropzone-param",
+        ],
       },
+    });
+
+    const dateCalendarScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:date-calendar-param",
+        paramInfoId: "date-calendar-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+    const dateCalendarIsland = dateCalendarScene.domIslands[0];
+
+    expect(dateCalendarIsland).toMatchObject({
+      contentRect: { height: 292, width: 252, x: 0, y: 0 },
+      kind: "retained-content-control",
+      ownerSectionId: "dict-a",
+      rect: { height: 292, width: 252 },
     });
 
     const dropdownScene = getProjectGpuFlowScene(projectState, {

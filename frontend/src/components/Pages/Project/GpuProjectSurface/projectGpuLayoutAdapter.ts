@@ -414,6 +414,7 @@ export function getProjectGpuFlowScene(
     domIslands: createProjectGpuParamDomIslands({
       activeParamDomIsland: options.activeParamDomIsland,
       contentSurfaces: paramContentSurfaces,
+      projectState,
     }),
     contentSurfaces: createGpuFlowContentSurfacesFromSections(
       layoutScene.sections,

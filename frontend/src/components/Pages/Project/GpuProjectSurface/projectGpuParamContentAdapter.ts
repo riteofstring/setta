@@ -22,7 +22,6 @@ import type {
   GpuFlowScene,
   GpuSectionSceneNode,
 } from "gpuFlow/scene";
-import type { GpuRect } from "gpuFlow/viewportMath";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -47,13 +46,14 @@ import {
   type CodeObjType,
   type DictSectionImpl,
 } from "utils/generatedTypes";
+import {
+  getProjectGpuParamDomIslandGeometry,
+  intersectProjectGpuParamRects,
+  translateProjectGpuParamLocalRect,
+} from "./projectGpuParamDomIslandGeometry";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
-const PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_HEIGHT_PX = 260;
-const PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX = 224;
-const PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_HEIGHT_PX = 132;
-const PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX = 240;
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
@@ -192,12 +192,14 @@ export function createProjectGpuParamContentSurfaces({
 export function createProjectGpuParamDomIslands({
   activeParamDomIsland,
   contentSurfaces,
+  projectState,
 }: {
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
     | null
     | undefined;
   readonly contentSurfaces: readonly GpuContentSurface[];
+  readonly projectState: ZustandProjectState;
 }): readonly GpuDomIsland[] {
   if (!activeParamDomIsland) {
     return [];
@@ -230,6 +232,9 @@ export function createProjectGpuParamDomIslands({
     clipRect: surface.clipRect,
     controlKind: row.controlKind,
     controlRect: translateProjectGpuParamLocalRect(hit.rect, surface.rect),
+    paramInfoId: hit.ownerRowId,
+    projectState,
+    sectionId: activeParamDomIsland.sectionId,
   });
   if (!geometry) {
     return [];
@@ -251,106 +256,6 @@ export function createProjectGpuParamDomIslands({
       zIndex: surface.zIndex + 1,
     },
   ];
-}
-
-function getProjectGpuParamDomIslandGeometry({
-  clipRect,
-  controlKind,
-  controlRect,
-}: {
-  readonly clipRect: GpuRect;
-  readonly controlKind: string | null;
-  readonly controlRect: GpuRect;
-}): { readonly contentRect: GpuRect; readonly rect: GpuRect } | null {
-  const islandRect = intersectProjectGpuParamRects(
-    getProjectGpuParamDomIslandOuterRect({ controlKind, controlRect }),
-    clipRect,
-  );
-  if (islandRect.width <= 0 || islandRect.height <= 0) {
-    return null;
-  }
-  const contentRect = getProjectGpuParamDomIslandContentRect({
-    controlKind,
-    controlRect,
-    islandRect,
-  });
-  if (contentRect.width <= 0 || contentRect.height <= 0) {
-    return null;
-  }
-  return { contentRect, rect: islandRect };
-}
-
-function getProjectGpuParamDomIslandOuterRect({
-  controlKind,
-  controlRect,
-}: {
-  readonly controlKind: string | null;
-  readonly controlRect: GpuRect;
-}): GpuRect {
-  if (controlKind === "dropzone") {
-    return {
-      height: Math.max(
-        controlRect.height,
-        PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_HEIGHT_PX,
-      ),
-      width: Math.max(
-        controlRect.width,
-        PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX,
-      ),
-      x:
-        controlRect.x -
-        Math.max(
-          0,
-          PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX - controlRect.width,
-        ),
-      y: controlRect.y,
-    };
-  }
-  if (controlKind === "color-picker" || controlKind === "dropdown") {
-    return {
-      height: Math.max(
-        controlRect.height,
-        PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_HEIGHT_PX,
-      ),
-      width: Math.max(
-        controlRect.width,
-        PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX,
-      ),
-      x:
-        controlRect.x -
-        Math.max(
-          0,
-          PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX - controlRect.width,
-        ),
-      y: controlRect.y,
-    };
-  }
-  return controlRect;
-}
-
-function getProjectGpuParamDomIslandContentRect({
-  controlKind,
-  controlRect,
-  islandRect,
-}: {
-  readonly controlKind: string | null;
-  readonly controlRect: GpuRect;
-  readonly islandRect: GpuRect;
-}): GpuRect {
-  if (controlKind === "dropzone") {
-    return {
-      height: islandRect.height,
-      width: islandRect.width,
-      x: 0,
-      y: 0,
-    };
-  }
-  return {
-    height: controlRect.height,
-    width: controlRect.width,
-    x: controlRect.x - islandRect.x,
-    y: controlRect.y - islandRect.y,
-  };
 }
 
 function isProjectGpuRetainedParamSurface(
@@ -880,29 +785,4 @@ function getProjectGpuParamDomIslandId({
   sectionId,
 }: Pick<ProjectGpuActiveParamDomIsland, "paramInfoId" | "sectionId">): string {
   return `param-control:${sectionId}:${paramInfoId}`;
-}
-
-function translateProjectGpuParamLocalRect(
-  localRect: GpuRect,
-  sectionRect: GpuRect,
-): GpuRect {
-  return {
-    height: Math.min(localRect.height, sectionRect.height),
-    width: Math.min(localRect.width, sectionRect.width),
-    x: sectionRect.x + localRect.x,
-    y: sectionRect.y + localRect.y,
-  };
-}
-
-function intersectProjectGpuParamRects(left: GpuRect, right: GpuRect): GpuRect {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const maxX = Math.min(left.x + left.width, right.x + right.width);
-  const maxY = Math.min(left.y + left.height, right.y + right.height);
-  return {
-    height: Math.max(0, maxY - y),
-    width: Math.max(0, maxX - x),
-    x,
-    y,
-  };
 }
