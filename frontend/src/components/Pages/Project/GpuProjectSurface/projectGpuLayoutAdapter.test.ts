@@ -253,6 +253,14 @@ describe("project GPU layout adapter", () => {
     const scene = getProjectGpuFlowScene(projectState, {
       darkMode: false,
       revision: 2,
+      typeErrors: {
+        "dict-a": {
+          callable: [],
+          params: {
+            "child-param": ["expected str, got int"],
+          },
+        },
+      },
     });
 
     const paramSurface = scene.contentSurfaces.find(
@@ -282,6 +290,7 @@ describe("project GPU layout adapter", () => {
         id: row.id,
         label: row.label,
         ports: row.ports,
+        error: row.state.error,
         selected: row.state.selected,
       })),
     ).toEqual([
@@ -291,6 +300,7 @@ describe("project GPU layout adapter", () => {
         id: "parent-param",
         label: "parent-param",
         ports: [],
+        error: false,
         selected: false,
       },
       {
@@ -299,6 +309,7 @@ describe("project GPU layout adapter", () => {
         id: "child-param",
         label: "child-param",
         ports: [{ id: "child-param", kind: "input", side: "left" }],
+        error: true,
         selected: true,
       },
     ]);

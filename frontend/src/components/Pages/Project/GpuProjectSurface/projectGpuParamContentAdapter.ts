@@ -31,7 +31,7 @@ import {
   getCurrShownParamIds,
   getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
-import type { ZustandProjectState } from "state/definitions";
+import type { ZustandProjectState, ZustandTypeErrors } from "state/definitions";
 import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
@@ -167,6 +167,7 @@ export function createProjectGpuParamContentSurfaces({
   projectState,
   retainedParamDragPreview,
   sections,
+  typeErrors,
 }: {
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
@@ -184,6 +185,7 @@ export function createProjectGpuParamContentSurfaces({
     | null
     | undefined;
   readonly sections: readonly GpuSectionSceneNode[];
+  readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
     createProjectGpuParamContentSurfacesForSection({
@@ -194,6 +196,7 @@ export function createProjectGpuParamContentSurfaces({
       projectState,
       retainedParamDragPreview,
       section,
+      typeErrors,
     }),
   );
 }
@@ -419,6 +422,7 @@ function createProjectGpuParamContentSurfacesForSection({
   projectState,
   retainedParamDragPreview,
   section,
+  typeErrors,
 }: {
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
@@ -436,6 +440,7 @@ function createProjectGpuParamContentSurfacesForSection({
     | null
     | undefined;
   readonly section: GpuSectionSceneNode;
+  readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuContentSurface[] {
   const sectionImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
     projectState,
@@ -451,6 +456,7 @@ function createProjectGpuParamContentSurfacesForSection({
     projectState,
     sectionId: section.sectionId,
     sectionImpl: dictSectionImpl,
+    typeErrors,
     retainedInteractionState: {
       activeParamDomIsland,
       hoveredParamTarget,
@@ -471,11 +477,13 @@ function createProjectGpuParamListRows({
   retainedInteractionState,
   sectionId,
   sectionImpl,
+  typeErrors,
 }: {
   readonly projectState: ZustandProjectState;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
+  readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly ProjectGpuParamListRows[] {
   return (["pinned", "unpinned"] as const).flatMap((key) => {
     if (key === "unpinned" && sectionImpl.hideUnpinnedParams) {
@@ -515,6 +523,7 @@ function createProjectGpuParamListRows({
           sectionId,
           sectionImpl,
           surfaceId: getProjectGpuParamContentSurfaceId(sectionId, key),
+          typeErrors,
         }),
       },
     ];
@@ -589,6 +598,7 @@ function createProjectGpuParamRows({
   sectionId,
   sectionImpl,
   surfaceId,
+  typeErrors,
 }: {
   readonly filteredRows: FilteredParamRows;
   readonly projectState: ZustandProjectState;
@@ -596,6 +606,7 @@ function createProjectGpuParamRows({
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
   readonly surfaceId: string;
+  readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuRetainedContentRowInput[] {
   const tree = buildParamTreeView(
     projectState,
@@ -605,6 +616,7 @@ function createProjectGpuParamRows({
   );
   const selectedParamIds = new Set(sectionImpl.selectedParams ?? []);
   const edgeInputParamIds = new Set(sectionImpl.edgeInputParams);
+  const sectionParamTypeErrors = typeErrors?.[sectionId]?.params ?? {};
   const draggingParamIds =
     retainedInteractionState.retainedParamDragPreview?.sectionId ===
       sectionId &&
@@ -658,6 +670,7 @@ function createProjectGpuParamRows({
             surfaceId,
           },
         ),
+        error: (sectionParamTypeErrors[row.id]?.length ?? 0) > 0,
         selected: selectedParamIds.has(row.id),
       },
     };

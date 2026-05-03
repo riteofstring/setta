@@ -60,7 +60,9 @@ import {
   useResizeEvent,
   useSettings,
   useTemporaryMiscState,
+  useTypeErrors,
   type ZustandProjectState,
+  type ZustandTypeErrors,
 } from "state/definitions";
 import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
 import {
@@ -97,7 +99,6 @@ export type {
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
-
 export type ProjectGpuLayoutAdapter = {
   readonly contentScrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly layoutStore: GpuFlowLayoutStoreApi;
@@ -120,15 +121,12 @@ export type ProjectGpuSceneRevealSectionOptions = {
   readonly align?: GpuSectionSceneRevealRectAlignment | undefined;
   readonly marginPx?: number | undefined;
 };
-
 type ProjectSectionSceneAspectRatioFields = {
   readonly aspectRatio?: boolean | null | undefined;
   readonly aspectRatioExtraHeight?: number | null | undefined;
   readonly aspectRatioExtraWidth?: number | null | undefined;
 };
-
 let projectGpuLayoutStoreSyncSubscriberCount = 0;
-
 const DEFAULT_NESTED_SECTION_WIDTH = 250;
 const DEFAULT_NESTED_SECTION_HEIGHT = 150;
 const NESTED_VERTICAL_SECTION_GAP_PX = 8;
@@ -164,6 +162,7 @@ export function useProjectGpuLayoutAdapter({
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
   const measuredHeightsByKey = useTemporaryMiscState((state) => state);
+  const typeErrors = useTypeErrors((state) => state.errors);
   const scene = useMemo(
     () =>
       getProjectGpuFlowScene(projectState, {
@@ -179,6 +178,7 @@ export function useProjectGpuLayoutAdapter({
         hoveredParamTarget,
         retainedParamDragPreview,
         scrollOffsets: sceneScrollOffsets,
+        typeErrors,
       }),
     [
       activeParamDomIsland,
@@ -191,6 +191,7 @@ export function useProjectGpuLayoutAdapter({
       resizeEventBySectionId,
       sceneScrollOffsets,
       sizingPolicy,
+      typeErrors,
     ],
   );
   useProjectGpuLayoutStoreSceneSync(layoutStore, scene);
@@ -324,6 +325,7 @@ export function getProjectGpuFlowScene(
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
     readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
+    readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
   },
 ): GpuFlowScene {
   const sections: GpuSectionSceneNode[] = [];
@@ -414,6 +416,7 @@ export function getProjectGpuFlowScene(
     projectState,
     retainedParamDragPreview: options.retainedParamDragPreview,
     sections: layoutScene.sections,
+    typeErrors: options.typeErrors,
   });
   return {
     ...layoutScene,
@@ -455,6 +458,7 @@ function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
       getProjectGpuFlowScene(projectState, {
         darkMode: useLocalStorage.getState().darkMode,
         revision: getProjectGpuSceneRevision(projectState),
+        typeErrors: useTypeErrors.getState().errors,
       }),
     );
   }
