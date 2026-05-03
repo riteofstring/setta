@@ -27,8 +27,8 @@ describe("retained content text-like canvas", () => {
     expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
     expect(ctx.fillStyle).toBe(palette.textLikeText);
-    expect(ctx.font).toContain("10px Inter");
-    expect(ctx.fillText).toHaveBeenCalledWith("sample", 13, 14, 154);
+    expect(ctx.font).toContain("12px ui-monospace");
+    expect(ctx.fillText).toHaveBeenCalledWith("sample", 14, 17, 152);
   });
 
   it("uses the retained CodeMirror literal color for primitive values", () => {
@@ -51,8 +51,8 @@ describe("retained content text-like canvas", () => {
     });
 
     expect(ctx.fillStyle).toBe(palette.textLikeCodeAtomText);
-    expect(ctx.font).toContain("10px Inter");
-    expect(ctx.fillText).toHaveBeenCalledWith("false", 13, 14, 154);
+    expect(ctx.font).toContain("12px ui-monospace");
+    expect(ctx.fillText).toHaveBeenCalledWith("false", 14, 17, 152);
   });
 });
 

@@ -3,16 +3,16 @@ import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
+import { GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT } from "./retainedContentRowLayout";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowState,
 } from "./retainedContentScene";
 import type { GpuRect } from "./viewportMath";
 
-const TEXT_LIKE_CONTROL_FONT =
-  "10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-const TEXT_LIKE_CODE_FONT =
-  "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+const TEXT_LIKE_VALUE_FONT =
+  '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+const TEXT_LIKE_ROW_TEXT_OFFSET_Y = 3;
 
 export function drawGpuRetainedContentTextLikeControl({
   control,
@@ -43,7 +43,7 @@ export function drawGpuRetainedContentTextLikeControl({
     fillRoundRect(ctx, outer, 4);
     strokeRoundRect(ctx, outer, 4);
   }
-  ctx.font = getTextLikeControlFont(control);
+  ctx.font = TEXT_LIKE_VALUE_FONT;
   ctx.textAlign = "start";
   ctx.textBaseline = "middle";
   ctx.fillStyle = getTextLikeControlTextColor({
@@ -51,11 +51,12 @@ export function drawGpuRetainedContentTextLikeControl({
     disabled,
     palette,
   });
+  const textMetrics = getTextLikeControlTextMetrics({ outer, palette, rect });
   ctx.fillText(
     getTextLikeControlText(control),
-    outer.x + 7,
-    outer.y + outer.height / 2,
-    Math.max(0, outer.width - 14),
+    textMetrics.x,
+    textMetrics.y,
+    textMetrics.maxWidth,
   );
 }
 
@@ -136,12 +137,34 @@ function getTextLikeControlStrokeColor(
   return palette.textLikeBorder;
 }
 
-function getTextLikeControlFont(
-  control: Extract<GpuRetainedContentControlDescriptor, { kind: "text-like" }>,
-): string {
-  return control.editorKind === "code"
-    ? TEXT_LIKE_CODE_FONT
-    : TEXT_LIKE_CONTROL_FONT;
+function getTextLikeControlTextMetrics({
+  outer,
+  palette,
+  rect,
+}: {
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly rect: GpuRect;
+}): {
+  readonly maxWidth: number;
+  readonly x: number;
+  readonly y: number;
+} {
+  if (palette.textLikeVisualStyle === "row-text") {
+    return {
+      maxWidth: Math.max(
+        0,
+        rect.width - GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT * 2,
+      ),
+      x: rect.x + GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
+      y: outer.y + outer.height / 2 + TEXT_LIKE_ROW_TEXT_OFFSET_Y,
+    };
+  }
+  return {
+    maxWidth: Math.max(0, outer.width - 14),
+    x: outer.x + 7,
+    y: outer.y + outer.height / 2,
+  };
 }
 
 function getTextLikeControlText(
