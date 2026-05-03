@@ -284,4 +284,40 @@ describe("nodeInternals", () => {
       },
     ]);
   });
+
+  it("characterizes ResizeObserver entries as forced graph dimension updates", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
+      ]),
+    });
+    const observedSourceHost = createMeasuredElement({
+      id: "section-1",
+      width: 260,
+      height: 140,
+    });
+
+    const updates = getNodeUpdateInformation(
+      [{ target: observedSourceHost } as ResizeObserverEntry],
+      true,
+    );
+
+    expect(updates).toEqual([
+      {
+        id: "section-1",
+        nodeElement: observedSourceHost,
+        forceUpdate: true,
+      },
+    ]);
+
+    updateNodeDimensions(updates);
+
+    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
+      width: 260,
+      height: 140,
+    });
+    expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
+      1,
+    );
+  });
 });
