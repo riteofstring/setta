@@ -7,6 +7,7 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentDragPreviewInput,
   type GpuRetainedContentHitRecord,
+  type GpuRetainedContentRow,
   type GpuRetainedContentRowInput,
 } from "gpuFlow/retainedContentScene";
 import {
@@ -335,11 +336,12 @@ function getProjectGpuParamDomIslandResolvedRecord({
   );
   if (
     !row ||
-    !isProjectGpuParamDomIslandHitActive(
+    !isProjectGpuParamDomIslandHitActive({
       hit,
       activeParamDomIsland,
       projectState,
-    )
+      row,
+    })
   ) {
     return null;
   }
@@ -365,19 +367,31 @@ function getProjectGpuParamDomIslandResolvedRecord({
   };
 }
 
-function isProjectGpuParamDomIslandHitActive(
-  hit: GpuRetainedContentHitRecord,
-  activeParamDomIsland: ProjectGpuActiveParamDomIsland,
-  projectState: ZustandProjectState,
+function isProjectGpuParamDomIslandHitActive({
+  activeParamDomIsland,
+  hit,
+  projectState,
+  row,
+}: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly hit: GpuRetainedContentHitRecord;
+  readonly projectState: ZustandProjectState;
+  readonly row: Pick<GpuRetainedContentRow, "controlKind">;
+}): boolean {
+  if (hit.kind === "control") {
+    return isProjectGpuRetainedParamControlDomIslandActive(row);
+  }
+  return isProjectGpuRetainedParamLabelEditable({
+    paramInfoId: hit.ownerRowId,
+    projectState,
+    sectionId: activeParamDomIsland.sectionId,
+  });
+}
+
+function isProjectGpuRetainedParamControlDomIslandActive(
+  row: Pick<GpuRetainedContentRow, "controlKind">,
 ): boolean {
-  return (
-    hit.kind === "control" ||
-    isProjectGpuRetainedParamLabelEditable({
-      paramInfoId: hit.ownerRowId,
-      projectState,
-      sectionId: activeParamDomIsland.sectionId,
-    })
-  );
+  return Boolean(row.controlKind && row.controlKind !== "nested");
 }
 
 function isProjectGpuRetainedParamSurface(
