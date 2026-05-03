@@ -84,6 +84,11 @@ import {
 } from "../interactions/panZoom";
 
 import {
+  attachGpuSectionSceneScrollController,
+  type GpuSectionSceneScrollControllerOptions,
+} from "../interactions/sceneScroll";
+
+import {
   attachGpuSelectionController,
   type GpuSelectionControllerOptions,
 } from "../interactions/selection";
@@ -203,6 +208,13 @@ type GpuFlowProps = Pick<
     | undefined;
   selectionDrag?: GpuFlowSelectionDragOptions;
   scene?: GpuFlowScene | undefined;
+  sceneScroll?:
+    | false
+    | Omit<
+        GpuSectionSceneScrollControllerOptions,
+        "element" | "getScene" | "requestFrame" | "store"
+      >
+    | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -240,6 +252,7 @@ export type GpuFlowNodeLayerState = {
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
+  readonly scene: GpuFlowScene | undefined;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 };
@@ -276,6 +289,7 @@ export function GpuFlow({
   selection,
   selectionDrag,
   scene,
+  sceneScroll,
   style,
   surfaceClassName,
   uploadBudget,
@@ -351,6 +365,7 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    scene,
     uploadBudget,
     viewport: viewport ?? viewportStore.getState().transform,
   });
@@ -434,6 +449,7 @@ export function GpuFlow({
       marginCssPx,
       nodes,
       nodeTextureMemoryBudgetBytes,
+      scene,
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
@@ -457,9 +473,29 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    scene,
     uploadBudget,
     viewportStore,
   ]);
+
+  useEffect(() => {
+    if (sceneScroll === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container || !sceneScroll) {
+      return;
+    }
+    return attachGpuSectionSceneScrollController({
+      ...sceneScroll,
+      element: container,
+      getScene: () => nodeLayerRef.current.scene,
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+      store: viewportStore,
+    });
+  }, [sceneScroll, viewportStore]);
 
   useEffect(() => {
     if (panZoom === false) {

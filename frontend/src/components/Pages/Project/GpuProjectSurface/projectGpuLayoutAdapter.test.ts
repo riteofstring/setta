@@ -289,6 +289,86 @@ describe("project GPU layout adapter", () => {
         .map((node) => node.nodeId),
     ).toEqual(["group-a", "child-a", "child-b"]);
   });
+
+  it("applies renderer-owned scene scroll offsets before syncing layout nodes", () => {
+    const scene = getProjectGpuFlowScene(
+      projectStateWithSections({
+        sections: [
+          {
+            id: "group-a",
+            impl: createGroupSectionImpl({
+              children: ["child-a", "child-b", "child-c"],
+              id: "group-a-impl",
+              size: sectionSize({ height: "auto", width: "auto" }),
+            }),
+            parentId: null,
+          },
+          {
+            id: "child-a",
+            impl: createDictSectionImpl({
+              id: "child-a-impl",
+              size: sectionSize({ height: 50, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+          {
+            id: "child-b",
+            impl: createDictSectionImpl({
+              id: "child-b-impl",
+              size: sectionSize({ height: 50, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+          {
+            id: "child-c",
+            impl: createDictSectionImpl({
+              id: "child-c-impl",
+              size: sectionSize({ height: 50, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+        ],
+        topLevelSections: {
+          "group-a": { h: 100, w: 200, x: 10, y: 20, zIndex: 1 },
+        },
+      }),
+      {
+        darkMode: false,
+        scrollOffsets: new Map([["group-a", { x: 0, y: 40 }]]),
+      },
+    );
+
+    expect(
+      scene.sections.find((section) => section.sectionId === "group-a"),
+    ).toMatchObject({
+      scrollOffset: { x: 0, y: 40 },
+    });
+    expect(
+      scene.sections.find((section) => section.sectionId === "child-a"),
+    ).toMatchObject({
+      clipRect: { height: 10, width: 80, x: 10, y: 20 },
+      worldRect: { height: 50, width: 80, x: 10, y: -20 },
+    });
+    expect(
+      scene.sections.find((section) => section.sectionId === "child-c"),
+    ).toMatchObject({
+      worldRect: { height: 50, width: 80, x: 10, y: 96 },
+    });
+
+    const store = createGpuFlowLayoutStore();
+    syncProjectGpuLayoutStoreFromScene(store, scene);
+    expect(
+      store
+        .getState()
+        .getNodes()
+        .map((node) => [node.nodeId, node.y]),
+    ).toEqual([
+      ["group-a", 20],
+      ["child-a", -20],
+      ["child-b", 38],
+      ["child-c", 96],
+    ]);
+  });
 });
 
 function projectNode(

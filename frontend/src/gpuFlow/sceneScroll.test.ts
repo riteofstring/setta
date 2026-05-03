@@ -9,6 +9,7 @@ import { resolveGpuFlowSceneLayout } from "./sceneLayout";
 import {
   applyGpuSectionSceneScrollOffsets,
   resolveGpuSectionSceneDragAutoScroll,
+  resolveGpuSectionSceneWheelScroll,
 } from "./sceneScroll";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -108,6 +109,106 @@ describe("GPU flow scene scroll", () => {
       y: 126,
     });
   });
+
+  it("resolves wheel scroll against the deepest renderer-owned child viewport", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["nested-parent", "outer-child"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "outer-parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 200, 140),
+        }),
+        sectionNode({
+          childIds: ["inner-a", "inner-b", "inner-c"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "nested-parent",
+          layoutMode: "vertical",
+          localRect: rect(0, 0, 160, 80),
+          parentId: "outer-parent",
+        }),
+        sectionNode({
+          id: "outer-child",
+          localRect: rect(0, 0, 160, 80),
+          parentId: "outer-parent",
+        }),
+        sectionNode({
+          id: "inner-a",
+          localRect: rect(0, 0, 120, 50),
+          parentId: "nested-parent",
+        }),
+        sectionNode({
+          id: "inner-b",
+          localRect: rect(0, 0, 120, 50),
+          parentId: "nested-parent",
+        }),
+        sectionNode({
+          id: "inner-c",
+          localRect: rect(0, 0, 120, 50),
+          parentId: "nested-parent",
+        }),
+      ]),
+    );
+
+    const result = resolveGpuSectionSceneWheelScroll({
+      event: wheelEvent({ deltaY: 30 }),
+      point: { x: 20, y: 20 },
+      scene,
+      scrollOffsets: new Map(),
+    });
+
+    expect(result).toMatchObject({
+      changed: true,
+      parentSectionId: "nested-parent",
+    });
+    expect(result.scrollOffsets.get("nested-parent")).toEqual({
+      x: 0,
+      y: 30,
+    });
+    expect(result.scrollOffsets.has("outer-parent")).toBe(false);
+  });
+
+  it("clamps wheel scroll and applies horizontal deltas for kanban parents", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 12, y: 0 },
+          id: "parent",
+          layoutMode: "kanban",
+          worldRect: rect(0, 0, 100, 80),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "parent",
+        }),
+      ]),
+    );
+
+    const result = resolveGpuSectionSceneWheelScroll({
+      event: wheelEvent({ deltaX: 500 }),
+      point: { x: 40, y: 20 },
+      scene,
+      scrollOffsets: new Map(),
+    });
+
+    expect(result.scrollOffsets.get("parent")).toEqual({
+      x: 104,
+      y: 0,
+    });
+  });
 });
 
 function sceneWithSections(
@@ -193,4 +294,23 @@ function sectionNode({
 
 function rect(x: number, y: number, width: number, height: number): GpuRect {
   return { height, width, x, y };
+}
+
+function wheelEvent({
+  deltaMode = 0,
+  deltaX = 0,
+  deltaY = 0,
+  shiftKey = false,
+}: {
+  readonly deltaMode?: number | undefined;
+  readonly deltaX?: number | undefined;
+  readonly deltaY?: number | undefined;
+  readonly shiftKey?: boolean | undefined;
+}): Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY" | "shiftKey"> {
+  return {
+    deltaMode,
+    deltaX,
+    deltaY,
+    shiftKey,
+  };
 }

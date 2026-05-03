@@ -14,8 +14,14 @@ export type GpuSectionSceneDragAutoScrollResult = {
   readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
 };
 
+export type GpuSectionSceneWheelScrollResult =
+  GpuSectionSceneDragAutoScrollResult;
+
 const DEFAULT_SCENE_DRAG_AUTO_SCROLL_MARGIN_PX = 48;
 const DEFAULT_SCENE_DRAG_AUTO_SCROLL_MAX_SPEED_PX = 20;
+const GPU_SECTION_SCENE_WHEEL_DELTA_LINE = 1;
+const GPU_SECTION_SCENE_WHEEL_DELTA_PAGE = 2;
+const GPU_SECTION_SCENE_WHEEL_LINE_DELTA_PX = 20;
 
 export function applyGpuSectionSceneScrollOffsets(
   scene: GpuFlowScene,
@@ -61,6 +67,64 @@ export function resolveGpuSectionSceneDragAutoScroll({
     draggedRect,
     marginPx,
     maxSpeedPx,
+    viewportRect: context.viewportRect,
+  });
+  if (delta === 0) {
+    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+  }
+  const currentOffset =
+    scrollOffsets.get(context.parent.sectionId) ?? context.parent.scrollOffset;
+  const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
+    axis: context.axis,
+    parent: context.parent,
+    sectionById: context.sectionById,
+  });
+  const nextAxisOffset = clampNumber(
+    getGpuPointValueOnAxis(currentOffset, context.axis) + delta,
+    0,
+    maxOffset,
+  );
+  if (nextAxisOffset === getGpuPointValueOnAxis(currentOffset, context.axis)) {
+    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+  }
+  const nextOffsets = new Map(scrollOffsets);
+  nextOffsets.set(context.parent.sectionId, {
+    ...currentOffset,
+    [context.axis]: nextAxisOffset,
+  });
+  return {
+    changed: true,
+    parentSectionId: context.parent.sectionId,
+    scrollOffsets: nextOffsets,
+  };
+}
+
+export function resolveGpuSectionSceneWheelScroll({
+  event,
+  point,
+  scene,
+  scrollOffsets,
+}: {
+  readonly event: Pick<
+    WheelEvent,
+    "deltaMode" | "deltaX" | "deltaY" | "shiftKey"
+  >;
+  readonly point: GpuPoint;
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
+}): GpuSectionSceneWheelScrollResult {
+  assertFiniteNumber("section scene wheel point x", point.x);
+  assertFiniteNumber("section scene wheel point y", point.y);
+  const context = getGpuSectionSceneWheelScrollContext({
+    point,
+    scene,
+  });
+  if (!context) {
+    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+  }
+  const delta = getGpuSectionSceneWheelScrollAxisDelta({
+    axis: context.axis,
+    event,
     viewportRect: context.viewportRect,
   });
   if (delta === 0) {
@@ -178,6 +242,78 @@ function getGpuSectionSceneDragAutoScrollContext({
   };
 }
 
+function getGpuSectionSceneWheelScrollContext({
+  point,
+  scene,
+}: {
+  readonly point: GpuPoint;
+  readonly scene: GpuFlowScene;
+}): {
+  readonly axis: "x" | "y";
+  readonly parent: GpuSectionSceneNode;
+  readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
+  readonly viewportRect: GpuRect;
+} | null {
+  const sectionById = getGpuSectionSceneNodeById(scene);
+  const candidates = scene.sections
+    .map((section, index) => ({ index, section }))
+    .filter(({ section }) =>
+      isGpuSectionSceneWheelScrollCandidate({
+        point,
+        section,
+        sectionById,
+      }),
+    )
+    .map(({ index, section }) => ({
+      axis: getGpuSectionSceneScrollAxis(section.layoutMode) as "x" | "y",
+      depth: getGpuSectionSceneNodeDepth(section, sectionById),
+      index,
+      section,
+      viewportRect: getGpuSectionSceneVisibleChildViewportRect(section),
+    }))
+    .sort(
+      (left, right) =>
+        right.depth - left.depth ||
+        (right.section.zIndex ?? 0) - (left.section.zIndex ?? 0) ||
+        right.index - left.index,
+    );
+  const winner = candidates[0];
+  if (!winner) {
+    return null;
+  }
+  return {
+    axis: winner.axis,
+    parent: winner.section,
+    sectionById,
+    viewportRect: winner.viewportRect,
+  };
+}
+
+function isGpuSectionSceneWheelScrollCandidate({
+  point,
+  section,
+  sectionById,
+}: {
+  readonly point: GpuPoint;
+  readonly section: GpuSectionSceneNode;
+  readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
+}): boolean {
+  const axis = getGpuSectionSceneScrollAxis(section.layoutMode);
+  if (!axis || section.childSectionIds.length === 0) {
+    return false;
+  }
+  const viewportRect = getGpuSectionSceneVisibleChildViewportRect(section);
+  return (
+    getGpuRectSizeOnAxis(viewportRect, axis) > 0 &&
+    getGpuSectionSceneMaxScrollOffsetOnAxis({
+      axis,
+      parent: section,
+      sectionById,
+    }) > 0 &&
+    gpuRectContainsPoint(viewportRect, point)
+  );
+}
+
 function getGpuSectionSceneScrollAxis(
   layoutMode: GpuSectionSceneLayoutMode,
 ): "x" | "y" | null {
@@ -272,6 +408,50 @@ function getGpuSectionSceneMaxScrollOffsetOnAxis({
   return Math.max(contentEnd - getGpuRectSizeOnAxis(viewportRect, axis), 0);
 }
 
+function getGpuSectionSceneWheelScrollAxisDelta({
+  axis,
+  event,
+  viewportRect,
+}: {
+  readonly axis: "x" | "y";
+  readonly event: Pick<
+    WheelEvent,
+    "deltaMode" | "deltaX" | "deltaY" | "shiftKey"
+  >;
+  readonly viewportRect: GpuRect;
+}): number {
+  const { deltaX, deltaY } = getGpuSectionSceneWheelPixelDelta(
+    event,
+    viewportRect,
+  );
+  if (axis === "x") {
+    return deltaX !== 0 ? deltaX : event.shiftKey ? deltaY : 0;
+  }
+  return deltaY;
+}
+
+function getGpuSectionSceneWheelPixelDelta(
+  event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
+  viewportRect: GpuRect,
+): { readonly deltaX: number; readonly deltaY: number } {
+  if (event.deltaMode === GPU_SECTION_SCENE_WHEEL_DELTA_LINE) {
+    return {
+      deltaX: event.deltaX * GPU_SECTION_SCENE_WHEEL_LINE_DELTA_PX,
+      deltaY: event.deltaY * GPU_SECTION_SCENE_WHEEL_LINE_DELTA_PX,
+    };
+  }
+  if (event.deltaMode === GPU_SECTION_SCENE_WHEEL_DELTA_PAGE) {
+    return {
+      deltaX: event.deltaX * viewportRect.width,
+      deltaY: event.deltaY * viewportRect.height,
+    };
+  }
+  return {
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+  };
+}
+
 function getGpuPointValueOnAxis(point: GpuPoint, axis: "x" | "y"): number {
   return axis === "x" ? point.x : point.y;
 }
@@ -290,6 +470,34 @@ function getGpuRectMaxOnAxis(rect: GpuRect, axis: "x" | "y"): number {
 
 function getGpuRectSizeOnAxis(rect: GpuRect, axis: "x" | "y"): number {
   return axis === "x" ? rect.width : rect.height;
+}
+
+function getGpuSectionSceneNodeDepth(
+  section: GpuSectionSceneNode,
+  sectionById: ReadonlyMap<string, GpuSectionSceneNode>,
+): number {
+  let depth = 0;
+  let currentSectionId = section.parentSectionId;
+  while (currentSectionId !== null) {
+    const current = sectionById.get(currentSectionId);
+    if (!current) {
+      throw new Error(`Missing parent section scene node ${currentSectionId}.`);
+    }
+    depth += 1;
+    currentSectionId = current.parentSectionId;
+  }
+  return depth;
+}
+
+function gpuRectContainsPoint(rect: GpuRect, point: GpuPoint): boolean {
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
 }
 
 function intersectGpuRects(left: GpuRect, right: GpuRect): GpuRect {

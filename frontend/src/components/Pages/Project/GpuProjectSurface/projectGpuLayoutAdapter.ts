@@ -20,8 +20,9 @@ import {
   type GpuSectionSceneResizePolicy,
 } from "gpuFlow/scene";
 import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
+import type { GpuSectionSceneScrollOffsetMap } from "gpuFlow/sceneScroll";
 import type { GpuRect } from "gpuFlow/viewportMath";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getCurrEffectiveSectionImplIfPresent,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -70,6 +71,10 @@ export type ProjectGpuLayoutAdapter = {
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
   readonly scene: GpuFlowScene;
+  readonly sceneScrollOffsets: GpuSectionSceneScrollOffsetMap;
+  readonly setSceneScrollOffsets: (
+    scrollOffsets: GpuSectionSceneScrollOffsetMap,
+  ) => void;
 };
 
 type ProjectGpuSceneResizePolicyContext = {
@@ -95,6 +100,8 @@ const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
 export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
   const layoutStore = useProjectGpuLayoutStore();
+  const [sceneScrollOffsets, setSceneScrollOffsets] =
+    useState<GpuSectionSceneScrollOffsetMap>(() => new Map());
   const projectState = useProjectState((state) => state);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
@@ -110,21 +117,41 @@ export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
           sizingPolicy,
         },
         revision: getProjectGpuSceneRevision(projectState),
+        scrollOffsets: sceneScrollOffsets,
       }),
     [
       darkMode,
       measuredHeightsByKey,
       projectState,
       resizeEventBySectionId,
+      sceneScrollOffsets,
       sizingPolicy,
     ],
   );
   useProjectGpuLayoutStoreSceneSync(layoutStore, scene);
   const nodeLayouts =
     useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
+  const setNextSceneScrollOffsets = useCallback(
+    (scrollOffsets: GpuSectionSceneScrollOffsetMap) => {
+      setSceneScrollOffsets(new Map(scrollOffsets));
+    },
+    [],
+  );
   return useMemo(
-    () => ({ layoutStore, nodeLayouts, scene }),
-    [layoutStore, nodeLayouts, scene],
+    () => ({
+      layoutStore,
+      nodeLayouts,
+      scene,
+      sceneScrollOffsets,
+      setSceneScrollOffsets: setNextSceneScrollOffsets,
+    }),
+    [
+      layoutStore,
+      nodeLayouts,
+      scene,
+      sceneScrollOffsets,
+      setNextSceneScrollOffsets,
+    ],
   );
 }
 
@@ -151,6 +178,7 @@ export function getProjectGpuFlowScene(
     readonly darkMode: boolean;
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
+    readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
   },
 ): GpuFlowScene {
   const sections: GpuSectionSceneNode[] = [];
@@ -208,6 +236,7 @@ export function getProjectGpuFlowScene(
       resizePolicyContext,
       sectionImpl,
       sectionId,
+      scrollOffsets: options.scrollOffsets,
       worldRect,
     });
     pushProjectSectionSceneNode({
@@ -219,6 +248,7 @@ export function getProjectGpuFlowScene(
       parentNode: sceneNode,
       projectState,
       resizePolicyContext,
+      scrollOffsets: options.scrollOffsets,
       sections,
       seenSectionIds,
     });
@@ -285,12 +315,14 @@ function appendProjectChildSectionSceneNodes({
   parentNode,
   projectState,
   resizePolicyContext,
+  scrollOffsets,
   sections,
   seenSectionIds,
 }: {
   readonly parentNode: GpuSectionSceneNode;
   readonly projectState: ZustandProjectState;
   readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
   readonly sections: GpuSectionSceneNode[];
   readonly seenSectionIds: Set<string>;
 }) {
@@ -331,6 +363,7 @@ function appendProjectChildSectionSceneNodes({
       resizePolicyContext,
       sectionImpl: childImpl,
       sectionId: childSectionId,
+      scrollOffsets,
       worldRect: localRect,
     });
     pushProjectSectionSceneNode({
@@ -342,6 +375,7 @@ function appendProjectChildSectionSceneNodes({
       parentNode: childNode,
       projectState,
       resizePolicyContext,
+      scrollOffsets,
       sections,
       seenSectionIds,
     });
@@ -358,6 +392,7 @@ function createProjectSectionSceneNode({
   resizePolicyContext,
   sectionId,
   sectionImpl,
+  scrollOffsets,
   worldRect,
 }: {
   readonly childSectionIds: readonly string[];
@@ -369,6 +404,7 @@ function createProjectSectionSceneNode({
   readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
+  readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
   readonly worldRect: GpuRect;
 }): GpuSectionSceneNode {
   const bodyRect = worldRect;
@@ -395,7 +431,7 @@ function createProjectSectionSceneNode({
       sectionId,
       sectionImpl,
     }),
-    scrollOffset: { x: 0, y: 0 },
+    scrollOffset: scrollOffsets?.get(sectionId) ?? { x: 0, y: 0 },
     sectionId,
     worldRect,
   };
