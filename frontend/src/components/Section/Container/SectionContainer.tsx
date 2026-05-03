@@ -1,5 +1,4 @@
 import { NodeIdContext } from "gpuFlow/NodeIdContext";
-import _ from "lodash";
 import React from "react";
 import {
   getActiveViewModeConfig,
@@ -23,12 +22,9 @@ import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 import { getOutlineColor } from "./utils";
 
-type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
-
 type SectionContainerProps = {
   sectionId: string;
   isTopLevel: boolean;
-  dragListeners?: SectionDragListeners;
   renderNestedContent?: boolean;
   renderParamRows?: boolean;
   sceneSurface?: boolean;
@@ -37,7 +33,6 @@ type SectionContainerProps = {
 function _SectionContainer({
   sectionId,
   isTopLevel,
-  dragListeners,
   renderNestedContent = true,
   renderParamRows,
   sceneSurface = false,
@@ -124,7 +119,6 @@ function _SectionContainer({
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
         sceneSurface={sceneSurface}
-        {...(dragListeners !== undefined ? { dragListeners } : {})}
       >
         <SectionContainerContent
           sectionId={sectionId}
@@ -156,8 +150,7 @@ function areSectionContainerPropsEqual(
   return (
     prev.sectionId === next.sectionId &&
     prev.isTopLevel === next.isTopLevel &&
-    sectionContainerRenderOptionsEqual(prev, next) &&
-    _.isEqual(prev.dragListeners, next.dragListeners)
+    sectionContainerRenderOptionsEqual(prev, next)
   );
 }
 

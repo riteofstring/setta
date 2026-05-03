@@ -50,7 +50,6 @@ export {
   getSectionShouldRender,
   getSectionType,
   getSectionViewModeVisibility,
-  manualDndChildrenReset,
   processProjectStateUpdateFromBackend,
   resetAllSectionsToDefaultVersions,
   resetSectionsToDefaultVersions,

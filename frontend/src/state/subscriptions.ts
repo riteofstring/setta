@@ -1,4 +1,3 @@
-import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
@@ -19,7 +18,6 @@ import {
   debouncedDispatchViewportUpdate,
   dispatchViewportUpdateImmediately,
   getCurrEffectiveSectionImpl,
-  getDisplayedSectionIdToChildren,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
@@ -30,14 +28,6 @@ declare global {
 }
 
 export function subscribe() {
-  useProjectState.subscribe(
-    getDisplayedSectionIdToChildren,
-    (x) => {
-      updateDndChildren(x);
-    },
-    { equalityFn: _.isEqual },
-  );
-
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {
       const configState = state.projectConfig;

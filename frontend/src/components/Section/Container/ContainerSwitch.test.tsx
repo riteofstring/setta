@@ -4,17 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { ContainerSwitch } from "./ContainerSwitch";
 
 vi.mock("./ContainerWrappers", () => ({
-  DndSlotAndDndWatcher: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-dnd-slot">{children}</div>
-  ),
   GpuSceneSectionContainer: ({ children }: { children: ReactNode }) => (
     <div data-testid="mock-gpu-scene-container">{children}</div>
   ),
-}));
-
-vi.mock("./TopLevelContainer", () => ({
-  TopLevelContainer: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-top-level-container">{children}</div>
+  StaticSectionContainer: ({ children }: { children: ReactNode }) => (
+    <div data-testid="mock-static-section-container">{children}</div>
   ),
 }));
 
@@ -35,17 +29,16 @@ describe("ContainerSwitch", () => {
     );
 
     expect(markup).toContain('data-testid="mock-gpu-scene-container"');
-    expect(markup).not.toContain('data-testid="mock-dnd-slot"');
-    expect(markup).not.toContain('data-testid="mock-top-level-container"');
+    expect(markup).not.toContain('data-testid="mock-static-section-container"');
   });
 
-  it("keeps standalone nested sections on the nested dnd wrapper", () => {
+  it("routes standalone nested sections through the static section container", () => {
     const markup = renderToStaticMarkup(
       <ContainerSwitch {...baseProps} isTopLevel={false}>
         content
       </ContainerSwitch>,
     );
 
-    expect(markup).toContain('data-testid="mock-dnd-slot"');
+    expect(markup).toContain('data-testid="mock-static-section-container"');
   });
 });

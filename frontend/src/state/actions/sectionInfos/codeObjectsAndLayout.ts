@@ -1,7 +1,5 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 
-import { updateDndChildren } from "forks/dnd-kit/dndChildren";
-
 import type { Node } from "gpuFlow/flowTypes";
 
 import {
@@ -275,12 +273,6 @@ export function getSectionImplChildren(
     return [];
   }
   return [...sectionImpl.children];
-}
-
-export function manualDndChildrenReset() {
-  updateDndChildren(
-    getDisplayedSectionIdToChildren(useProjectState.getState()),
-  );
 }
 
 function getComparableProjectState(

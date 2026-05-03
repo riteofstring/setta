@@ -1,13 +1,11 @@
 import {
-  DndSlotAndDndWatcher,
   GpuSceneSectionContainer,
+  StaticSectionContainer,
 } from "./ContainerWrappers";
-import { TopLevelContainer } from "./TopLevelContainer";
 
 export function ContainerSwitch({
   isGroup,
   sectionId,
-  dragListeners,
   children,
   isTopLevel,
   visibility,
@@ -17,7 +15,6 @@ export function ContainerSwitch({
 }: {
   isGroup: boolean;
   sectionId: string;
-  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
   children: React.ReactNode;
   isTopLevel: boolean;
   visibility: boolean;
@@ -39,27 +36,16 @@ export function ContainerSwitch({
     );
   }
 
-  return isTopLevel ? (
-    <TopLevelContainer
-      isGroup={isGroup}
-      sectionId={sectionId}
-      visibility={visibility}
-      isEditingViewMode={isEditingViewMode}
-      isUserView={isUserView}
-    >
-      {children}
-    </TopLevelContainer>
-  ) : (
-    <DndSlotAndDndWatcher
+  return (
+    <StaticSectionContainer
       isGroup={isGroup}
       sectionId={sectionId}
       isTopLevel={isTopLevel}
-      dragListeners={dragListeners}
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
     >
       {children}
-    </DndSlotAndDndWatcher>
+    </StaticSectionContainer>
   );
 }
