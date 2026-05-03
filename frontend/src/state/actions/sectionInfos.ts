@@ -34,6 +34,7 @@ export {
 export type { ManagedChatSectionAuthorityState } from "./sectionInfos/projectStateCore";
 
 export {
+  copyExistingTopLevelSectionLayouts,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   deleteAllActiveSections,
