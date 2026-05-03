@@ -14,6 +14,7 @@ const PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR =
 const PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR =
   '[data-gpu-flow-activation-target="true"]';
 const PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES = new Set([
+  "button",
   "combobox",
   "listbox",
   "option",
@@ -122,7 +123,9 @@ function getProjectGpuDomIslandActivationTarget(
     PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
   );
   if (pointedExplicitTarget) {
-    return pointedExplicitTarget;
+    return isProjectGpuDomIslandExplicitActivationTarget(pointedExplicitTarget)
+      ? pointedExplicitTarget
+      : null;
   }
   const pointedTarget = getProjectGpuDomIslandClosestInteractiveTarget(
     root,
@@ -131,16 +134,14 @@ function getProjectGpuDomIslandActivationTarget(
   if (pointedTarget && isProjectGpuDomIslandActivationTarget(pointedTarget)) {
     return pointedTarget;
   }
-  const descendantExplicitTarget =
-    pointedTarget?.querySelector<HTMLElement>(
-      PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
-    ) ?? null;
+  const descendantExplicitTarget = pointedTarget
+    ? getProjectGpuDomIslandExplicitActivationTarget(pointedTarget)
+    : null;
   if (descendantExplicitTarget) {
     return descendantExplicitTarget;
   }
-  const fallbackExplicitTarget = root.querySelector<HTMLElement>(
-    PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
-  );
+  const fallbackExplicitTarget =
+    getProjectGpuDomIslandExplicitActivationTarget(root);
   if (fallbackExplicitTarget) {
     return fallbackExplicitTarget;
   }
@@ -193,7 +194,23 @@ function getProjectGpuDomIslandClosestTarget(
   return null;
 }
 
+function getProjectGpuDomIslandExplicitActivationTarget(
+  root: HTMLElement,
+): HTMLElement | null {
+  for (const candidate of root.querySelectorAll<HTMLElement>(
+    PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
+  )) {
+    if (isProjectGpuDomIslandExplicitActivationTarget(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 function isProjectGpuDomIslandActivationTarget(target: HTMLElement): boolean {
+  if (hasProjectGpuDomIslandCanvasOwnedRole(target)) {
+    return false;
+  }
   return (
     shouldMouseActivateProjectGpuDomIslandTarget(target) ||
     shouldClickProjectGpuDomIslandActivationTarget(target) ||
@@ -254,23 +271,38 @@ function dispatchProjectGpuDomIslandMouseActivationTarget(
 function shouldMouseActivateProjectGpuDomIslandTarget(
   target: HTMLElement,
 ): boolean {
+  const activationTarget = target.closest(
+    PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR,
+  );
   return (
-    target.closest(PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR) !== null
+    activationTarget instanceof HTMLElement &&
+    !hasProjectGpuDomIslandCanvasOwnedRole(activationTarget)
   );
 }
 
 function shouldClickProjectGpuDomIslandActivationTarget(
   target: HTMLElement,
 ): boolean {
-  if (
-    target.matches(PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR)
-  ) {
+  if (hasProjectGpuDomIslandCanvasOwnedRole(target)) {
+    return false;
+  }
+  if (isProjectGpuDomIslandExplicitActivationTarget(target)) {
     return true;
   }
   if (target instanceof HTMLInputElement) {
     return isNativePickerProjectGpuDomIslandInputType(target.type);
   }
   return false;
+}
+
+function isProjectGpuDomIslandExplicitActivationTarget(
+  target: HTMLElement,
+): boolean {
+  return (
+    target.matches(
+      PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
+    ) && !hasProjectGpuDomIslandCanvasOwnedRole(target)
+  );
 }
 
 function shouldFocusProjectGpuDomIslandActivationTarget(
@@ -286,11 +318,18 @@ function shouldFocusProjectGpuDomIslandActivationTarget(
 }
 
 function hasProjectGpuDomIslandCanvasOwnedRole(target: HTMLElement): boolean {
-  const role = target.getAttribute("role");
-  return (
-    role !== null &&
-    PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES.has(role.toLowerCase())
-  );
+  for (let element: HTMLElement | null = target; element; ) {
+    const role = element.getAttribute("role");
+    if (role) {
+      for (const rolePart of role.toLowerCase().split(/\s+/)) {
+        if (PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES.has(rolePart)) {
+          return true;
+        }
+      }
+    }
+    element = element.parentElement;
+  }
+  return false;
 }
 
 function isNativePickerProjectGpuDomIslandInputType(type: string): boolean {

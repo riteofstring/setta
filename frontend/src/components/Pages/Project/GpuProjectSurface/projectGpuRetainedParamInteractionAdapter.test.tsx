@@ -96,6 +96,8 @@ const mocks = vi.hoisted(() => ({
     current: "native-color-input" as
       | "button-role-div"
       | "combobox-input"
+      | "explicit-button-role-target"
+      | "explicit-switch-role-target"
       | "explicit-activation-target"
       | "mousedown-activation"
       | "native-color-input"
@@ -237,6 +239,32 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
         <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
           <button
             type="button"
+            data-gpu-flow-activation-target="true"
+            data-testid="param-input"
+            onClick={mocks.paramInputActivationClick}
+          />
+        </div>
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "explicit-button-role-target") {
+      return (
+        <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
+          <button
+            type="button"
+            role="button"
+            data-gpu-flow-activation-target="true"
+            data-testid="param-input"
+            onClick={mocks.paramInputActivationClick}
+          />
+        </div>
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "explicit-switch-role-target") {
+      return (
+        <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
+          <button
+            type="button"
+            role="switch"
             data-gpu-flow-activation-target="true"
             data-testid="param-input"
             onClick={mocks.paramInputActivationClick}
@@ -735,6 +763,50 @@ describe("project GPU retained param DOM islands", () => {
       await cleanupRenderedIsland(rendered);
     }
   });
+
+  it.each([
+    ["button", "explicit-button-role-target"],
+    ["switch", "explicit-switch-role-target"],
+  ] as const)(
+    "does not activate explicit canvas-owned %s role targets",
+    async (_role, renderMode) => {
+      mocks.paramInputRenderMode.current = renderMode;
+      const activationPoint = { x: 49, y: 17 };
+      const originalElementFromPoint = document.elementFromPoint;
+      const elementFromPointSpy = vi.fn(() =>
+        document.querySelector('[data-testid="param-input-wrapper"]'),
+      );
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: elementFromPointSpy,
+      });
+      const rendered = await renderIsland(
+        retainedParamIsland({
+          activation: {
+            clientPoint: activationPoint,
+            kind: "pointer",
+          },
+        }),
+      );
+
+      try {
+        expect(elementFromPointSpy).toHaveBeenCalledWith(
+          activationPoint.x,
+          activationPoint.y,
+        );
+        expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+        expect(document.activeElement).not.toBe(
+          rendered.host.querySelector('[data-testid="param-input"]'),
+        );
+      } finally {
+        Object.defineProperty(document, "elementFromPoint", {
+          configurable: true,
+          value: originalElementFromPoint,
+        });
+        await cleanupRenderedIsland(rendered);
+      }
+    },
+  );
 
   it("replays retained canvas activation mousedown into mounted CodeMirror shells", async () => {
     mocks.paramInputRenderMode.current = "mousedown-activation";
