@@ -360,6 +360,7 @@ export function getProjectGpuFlowScene(
       layout,
       node,
       projectState,
+      resizePolicyContext,
       sectionId,
       sectionImpl,
     });
@@ -883,17 +884,20 @@ function createRectFromTopLevelLayoutNode({
   layout,
   node,
   projectState,
+  resizePolicyContext,
   sectionId,
   sectionImpl,
 }: {
   readonly layout: ReturnType<typeof getActiveViewModeTopLevelSections>[string];
   readonly node: GpuFlowLayoutNode;
   readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
 }): GpuRect {
-  const autoHeight = resolveProjectGpuSectionAutoHeight({
+  const autoHeight = resolveProjectGpuSectionAutoHeightDimension({
     projectState,
+    resizePolicyContext,
     sectionId,
     sectionImpl,
   });
@@ -916,6 +920,57 @@ function createRectFromTopLevelLayoutNode({
     x: node.x,
     y: node.y,
   };
+}
+
+function resolveProjectGpuSectionAutoHeightDimension({
+  projectState,
+  resizePolicyContext,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+}): number | null {
+  const autoHeight = resolveProjectGpuSectionAutoHeight({
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
+  if (autoHeight === null) {
+    return null;
+  }
+  const dimensions = resolveSectionMinMaxDims({
+    sectionId,
+    projectState,
+    sizingPolicy: resizePolicyContext.sizingPolicy,
+    resizeEvent: resizePolicyContext.resizeEventBySectionId[sectionId],
+    measuredHeights: {
+      kwargsControlsHeight:
+        getProjectSectionSceneKwargsControlsHeight(sectionImpl),
+      paramsFixedHeight: getProjectSectionSceneParamsFixedHeight({
+        projectState,
+        sectionId,
+        sectionImpl,
+      }),
+      sectionHeaderHeight: getProjectSectionSceneHeaderHeight(),
+      sectionSearchHeight: getProjectSectionSceneSearchHeight(sectionImpl),
+    },
+  });
+  return clampProjectGpuSectionSceneDimension(
+    autoHeight,
+    toTopLevelSectionOuterDimension(dimensions.minHeight),
+    toTopLevelSectionOuterDimension(dimensions.maxHeight),
+  );
+}
+
+function clampProjectGpuSectionSceneDimension(
+  value: number,
+  min: number,
+  max: number,
+): number {
+  return Math.max(min, Math.min(value, max));
 }
 
 function resolveProjectSectionSceneDimension(

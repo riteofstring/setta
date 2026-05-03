@@ -57,10 +57,14 @@ import {
 } from "./retainedContentStatusCanvas";
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 import type { GpuContentSurface } from "./scene";
-import type { GpuRect } from "./viewportMath";
+import type { GpuPoint, GpuRect } from "./viewportMath";
 
 type GpuRetainedContentSurface = GpuContentSurface & {
   readonly retainedScene: GpuRetainedContentScene;
+};
+
+type GpuRetainedContentSourceSurface = GpuRetainedContentSurface & {
+  readonly sourceClipOffset: GpuPoint;
 };
 
 type GpuRetainedContentSurfaceLayerProps = {
@@ -117,7 +121,7 @@ export function getGpuRetainedContentSurfaceLayouts(
 }
 
 function toGpuRetainedContentSurfaceLayout(
-  surface: GpuRetainedContentSurface,
+  surface: GpuRetainedContentSourceSurface,
 ): GpuHtmlSurfaceOverlayLayout {
   return {
     height: surface.rect.height,
@@ -132,9 +136,10 @@ function toGpuRetainedContentSurfaceLayout(
 export function getGpuRetainedContentSourceStyle(
   surface: GpuRetainedContentSurface,
 ): CSSProperties {
+  const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
   return {
-    height: surface.rect.height,
-    width: surface.rect.width,
+    height: sourceSurface?.rect.height ?? 0,
+    width: sourceSurface?.rect.width ?? 0,
   };
 }
 
@@ -178,7 +183,7 @@ function GpuRetainedContentCanvas({
 
 function drawGpuRetainedContentSurface(
   ctx: CanvasRenderingContext2D,
-  surface: GpuRetainedContentSurface,
+  surface: GpuRetainedContentSourceSurface,
   { palette }: { readonly palette: GpuRetainedContentCanvasPalette },
 ) {
   const scene = surface.retainedScene;
@@ -193,6 +198,7 @@ function drawGpuRetainedContentSurface(
   ctx.clip();
   ctx.fillStyle = palette.surfaceBackground;
   ctx.fillRect(0, 0, width, height);
+  ctx.translate(-surface.sourceClipOffset.x, -surface.sourceClipOffset.y);
 
   for (const command of scene.drawCommands) {
     drawGpuRetainedContentCommand({
@@ -842,7 +848,7 @@ function drawGpuRetainedContentDragPreview({
 function configureGpuRetainedContentSourceElement({
   host,
   source,
-}: HtmlSurfaceSourceElementConfig<GpuRetainedContentSurface>) {
+}: HtmlSurfaceSourceElementConfig<GpuRetainedContentSourceSurface>) {
   host.dataset.gpuFlowRetainedContentSource = "true";
   host.dataset.ownerSectionId = source.ownerSectionId;
   host.setAttribute("data-testid", `gpu-retained-content-source-${source.id}`);
@@ -853,15 +859,20 @@ function configureGpuRetainedContentSourceElement({
 }
 
 function getGpuRetainedContentSurfaceId(
-  surface: GpuRetainedContentSurface,
+  surface: GpuRetainedContentSourceSurface,
 ): string {
   return surface.id;
 }
 
 function getGpuRetainedContentSourceSurfaces(
   surfaces: readonly GpuContentSurface[] | undefined,
-): readonly GpuRetainedContentSurface[] {
-  return (surfaces ?? []).filter(isGpuRetainedContentSurface);
+): readonly GpuRetainedContentSourceSurface[] {
+  return (surfaces ?? [])
+    .filter(isGpuRetainedContentSurface)
+    .map(clipGpuRetainedContentSourceSurface)
+    .filter((surface): surface is GpuRetainedContentSourceSurface =>
+      Boolean(surface),
+    );
 }
 
 function isGpuRetainedContentSurface(
@@ -877,7 +888,7 @@ function isGpuRetainedContentSurface(
 
 function prepareGpuRetainedContentCanvas(
   canvas: HTMLCanvasElement,
-  surface: GpuRetainedContentSurface,
+  surface: GpuRetainedContentSourceSurface,
 ) {
   const dpr = getGpuRetainedContentDevicePixelRatio();
   const cssWidth = Math.max(0, surface.rect.width);
@@ -897,13 +908,51 @@ function prepareGpuRetainedContentCanvas(
 }
 
 function getGpuRetainedContentCanvasStyle(
-  surface: GpuRetainedContentSurface,
+  surface: GpuRetainedContentSourceSurface,
 ): CSSProperties {
   return {
     display: "block",
     height: surface.rect.height,
     width: surface.rect.width,
   };
+}
+
+function clipGpuRetainedContentSourceSurface(
+  surface: GpuRetainedContentSurface,
+): GpuRetainedContentSourceSurface | null {
+  const rect = intersectGpuRetainedContentRects(surface.rect, surface.clipRect);
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  const previousOffset =
+    "sourceClipOffset" in surface
+      ? (surface.sourceClipOffset as GpuPoint)
+      : { x: 0, y: 0 };
+  return {
+    ...surface,
+    rect,
+    sourceClipOffset: {
+      x: previousOffset.x + rect.x - surface.rect.x,
+      y: previousOffset.y + rect.y - surface.rect.y,
+    },
+  };
+}
+
+function intersectGpuRetainedContentRects(
+  left: GpuRect,
+  right: GpuRect,
+): GpuRect {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
+  return { height, width, x, y };
 }
 
 function insetRect(rect: GpuRect, x: number, y: number): GpuRect {

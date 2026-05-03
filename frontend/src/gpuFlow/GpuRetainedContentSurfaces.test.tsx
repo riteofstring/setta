@@ -28,6 +28,41 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     });
   });
 
+  it("clips retained content source geometry to the renderer clip rect", () => {
+    const surface = retainedSurface({
+      clipRect: { height: 40, width: 200, x: 32, y: 70 },
+      rect: { height: 96, width: 240, x: 12, y: 34 },
+    });
+
+    expect(getGpuRetainedContentSurfaceLayouts([surface])).toEqual([
+      {
+        height: 40,
+        surfaceId: "dict-a:param-content:unpinned",
+        width: 200,
+        x: 32,
+        y: 70,
+        zIndex: 7,
+      },
+    ]);
+    expect(getGpuRetainedContentSourceStyle(surface)).toEqual({
+      height: 40,
+      width: 200,
+    });
+  });
+
+  it("drops retained content source geometry outside the renderer clip rect", () => {
+    const surface = retainedSurface({
+      clipRect: { height: 20, width: 200, x: 12, y: 200 },
+      rect: { height: 96, width: 240, x: 12, y: 34 },
+    });
+
+    expect(getGpuRetainedContentSurfaceLayouts([surface])).toEqual([]);
+    expect(getGpuRetainedContentSourceStyle(surface)).toEqual({
+      height: 0,
+      width: 0,
+    });
+  });
+
   it("renders retained content source anchors inside the canvas subtree", () => {
     const markup = renderToStaticMarkup(
       <canvas>
@@ -42,12 +77,14 @@ describe("GpuRetainedContentSurfaceLayer", () => {
   });
 });
 
-function retainedSurface(): GpuContentSurface & {
+function retainedSurface(
+  overrides: Partial<Pick<GpuContentSurface, "clipRect" | "rect">> = {},
+): GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
 } {
-  const rect = { height: 96, width: 240, x: 12, y: 34 };
+  const rect = overrides.rect ?? { height: 96, width: 240, x: 12, y: 34 };
   return {
-    clipRect: rect,
+    clipRect: overrides.clipRect ?? rect,
     id: "dict-a:param-content:unpinned",
     ownerSectionId: "dict-a",
     rect,

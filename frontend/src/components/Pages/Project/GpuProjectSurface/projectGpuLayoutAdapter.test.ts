@@ -35,6 +35,7 @@ import {
   createGroupSectionImpl,
   createPasswordParamCodeObjImpl,
   createProjectConfig,
+  createSettingsState,
   createShownParamIDs,
   createSingleConfig,
   createStateMachineGateSectionImpl,
@@ -625,6 +626,99 @@ describe("project GPU layout adapter", () => {
         (surface) => surface.id === "dict-a:param-content:unpinned",
       )?.retainedScene?.contentRect.height,
     ).toBe(72);
+  });
+
+  it("caps auto-height param section geometry to the section sizing policy", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "root-param": "root-param-variant",
+              ...Object.fromEntries(
+                Array.from({ length: 20 }, (_, index) => [
+                  `param-${index}`,
+                  `param-${index}-variant`,
+                ]),
+              ),
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: "auto", width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    const paramIds = Array.from({ length: 20 }, (_, index) => `param-${index}`);
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", paramIds),
+    );
+    for (const paramId of paramIds) {
+      addParamToProjectState(
+        projectState,
+        paramId,
+        `${paramId}-variant`,
+        `${paramId}-impl`,
+        createCodeParamCodeObjImpl({
+          id: `${paramId}-impl`,
+          name: paramId,
+        }),
+      );
+    }
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: Object.fromEntries(
+          paramIds.map((paramId) => [paramId, [paramId]]),
+        ),
+        topLevelParamIds: paramIds,
+      },
+    });
+    const defaultSizingPolicy = createSettingsState().sectionSizingPolicy;
+    const sizingPolicy = {
+      ...defaultSizingPolicy,
+      globals: {
+        ...defaultSizingPolicy.globals,
+        autoMaxHeight: 96,
+      },
+    };
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      resizePolicyContext: {
+        resizeEventBySectionId: {},
+        sizingPolicy,
+      },
+      revision: 2,
+    });
+    const section = scene.sections.find(
+      (candidate) => candidate.sectionId === "dict-a",
+    );
+    const unpinnedSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    const expectedCappedHeight = 102;
+    const expectedContentTop =
+      PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+      KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+      5;
+
+    expect(section?.worldRect.height).toBe(expectedCappedHeight);
+    expect(unpinnedSurface?.rect).toMatchObject({
+      height: expectedCappedHeight - expectedContentTop,
+      y: 20 + expectedContentTop,
+    });
+    expect(unpinnedSurface?.retainedScene?.viewportRect.height).toBe(
+      expectedCappedHeight - expectedContentTop,
+    );
   });
 
   it("emits retained duplicate-name status from the param duplicate index", () => {
