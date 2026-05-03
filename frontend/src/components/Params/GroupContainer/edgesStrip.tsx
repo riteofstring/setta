@@ -20,7 +20,6 @@ import { useShareCapabilities } from "state/hooks/share";
 
 import {
   getPinnedParamsAreaHeightKey,
-  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 
 import {
@@ -345,7 +344,6 @@ export function GetUnpinnedParams({
 
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const resolvedMinHeight = resolveUnpinnedParamsAreaMinHeight(
     sizingPolicy,
     hasPinnedParams,
@@ -371,15 +369,6 @@ export function GetUnpinnedParams({
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
   }, [maxNestedDepth]);
-
-  useMeasuredParamAreaMinHeight({
-    enabled: renderParamRows,
-    sectionId,
-    heightKey,
-    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
-    contentRef: containerRef,
-    rowsRef: containerRef,
-  });
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

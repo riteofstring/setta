@@ -13,7 +13,6 @@ import {
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
-  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import {
   ButtonActionModeEnum,
@@ -255,7 +254,6 @@ describe("project GPU layout adapter", () => {
       [hiddenHeaderKey]: 64,
       [getSectionHeaderHeightKey("other-section")]: 42,
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
-      [getUnpinnedParamsAreaHeightKey(sectionId)]: 88,
       [headerKey]: 24,
       [kwargsKey]: Number.NaN,
       [paramsFixedKey]: 36,
