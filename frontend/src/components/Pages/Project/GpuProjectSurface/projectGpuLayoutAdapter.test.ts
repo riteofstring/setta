@@ -2073,6 +2073,22 @@ describe("project GPU layout adapter", () => {
       ]),
     );
 
+    const staleDateCalendarDomIslandScene = getProjectGpuFlowScene(
+      projectState,
+      {
+        activeParamDomIsland: {
+          hitRecordId: "control:date-calendar-param",
+          paramInfoId: "date-calendar-param",
+          sectionId: "dict-a",
+          surfaceId: "dict-a:param-content:unpinned",
+        },
+        darkMode: false,
+        revision: 4,
+      },
+    );
+
+    expect(staleDateCalendarDomIslandScene.domIslands).toEqual([]);
+
     const dropdownScene = getProjectGpuFlowScene(projectState, {
       activeParamCanvasPopup: {
         hitRecordId: "control:dropdown-param",
@@ -2098,6 +2114,19 @@ describe("project GPU layout adapter", () => {
         }),
       ]),
     );
+
+    const staleDropdownDomIslandScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:dropdown-param",
+        paramInfoId: "dropdown-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+
+    expect(staleDropdownDomIslandScene.domIslands).toEqual([]);
 
     const dropzoneScene = getProjectGpuFlowScene(projectState, {
       activeParamDomIsland: {
@@ -2284,6 +2313,19 @@ describe("project GPU layout adapter", () => {
         }),
       ]),
     );
+
+    const stalePaletteDomIslandScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:palette-color-param",
+        paramInfoId: "palette-color-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 8,
+    });
+
+    expect(stalePaletteDomIslandScene.domIslands).toEqual([]);
   });
 
   it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {

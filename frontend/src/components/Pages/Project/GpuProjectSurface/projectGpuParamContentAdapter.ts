@@ -339,9 +339,6 @@ function getProjectGpuParamDomIslandResolvedRecord({
     clipRect: surface.clipRect,
     controlKind: hit.kind === "control" ? row.controlKind : null,
     controlRect: translateProjectGpuParamLocalRect(hit.rect, surface.rect),
-    paramInfoId: hit.ownerRowId,
-    projectState,
-    sectionId: activeParamDomIsland.sectionId,
   });
   if (!geometry) {
     return null;
