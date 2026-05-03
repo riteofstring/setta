@@ -1,10 +1,7 @@
 import type { ResizeHandleDirection } from "state/actions/sections/sectionSizes";
+import { SIZE_MODE } from "state/actions/sections/sectionResizePolicy";
 
-export const SIZE_MODE = {
-  any: "any",
-  auto_only: "auto_only",
-  manual_only: "manual_only",
-};
+export { SIZE_MODE };
 
 const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
 

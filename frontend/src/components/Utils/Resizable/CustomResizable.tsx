@@ -14,12 +14,19 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
-  adjustSizeToBeAtLeastMin,
   getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
   setSelfParentSiblingChildrenWidths,
   type ResizeHandleDirection,
 } from "state/actions/sections/sectionSizes";
+import {
+  clampChangedSize,
+  getResizableEnable,
+  getResizeAxisAvailability,
+  resolveResizableGrid,
+  shouldEmitResizeEndEvent,
+  SIZE_MODE,
+} from "state/actions/sections/sectionResizePolicy";
 import {
   useLocalStorage,
   useMisc,
@@ -43,7 +50,6 @@ import {
   getChangedSize,
   getResizeHandleClickState,
   isResizeDoubleClick,
-  SIZE_MODE,
 } from "./utils";
 const AUTO_CLAMP_TOLERANCE = 2;
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
@@ -535,59 +541,6 @@ function useAspectRatio(sectionId: string) {
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.resizeEvent[sectionId] = resizeEvent;
 }
-type ResizeEndDecisionInput = {
-  resizeStarted: boolean;
-  resizeAttempted: boolean;
-  isZeroDelta: boolean;
-  isDoubleClick: boolean;
-};
-export function shouldEmitResizeEndEvent({
-  resizeStarted,
-  resizeAttempted,
-  isZeroDelta,
-  isDoubleClick,
-}: ResizeEndDecisionInput): boolean {
-  if (!resizeStarted) {
-    return false;
-  }
-  if (isZeroDelta && !isDoubleClick && !resizeAttempted) {
-    return false;
-  }
-  return true;
-}
-function clampNumericDimension(
-  value: SectionSize["height"] | undefined,
-  minValue: number,
-) {
-  return typeof value === "number" ? Math.max(value, minValue) : value;
-}
-export function clampChangedSize({
-  changedSize,
-  minHeight,
-  minWidth,
-  aspectRatio,
-}: {
-  changedSize: Partial<SectionSize>;
-  minHeight: number;
-  minWidth: number;
-  aspectRatio: boolean;
-}) {
-  const { height, width } = changedSize;
-  if (typeof height === "number" && typeof width === "number") {
-    if (aspectRatio) {
-      return adjustSizeToBeAtLeastMin(height, width, minHeight, minWidth);
-    }
-    return {
-      height: Math.max(height, minHeight),
-      width: Math.max(width, minWidth),
-    };
-  }
-  return {
-    ...changedSize,
-    height: clampNumericDimension(height, minHeight),
-    width: clampNumericDimension(width, minWidth),
-  };
-}
 function persistSectionSizeChange(
   sectionId: string,
   nextSize: Partial<SectionSize>,
@@ -789,71 +742,6 @@ function getAutoClampSize({
     minHeight,
     minWidth,
   });
-}
-export function getResizeAxisAvailability({
-  maxHeight,
-  maxWidth,
-  minHeight,
-  minWidth,
-  sizeMode,
-}: {
-  maxHeight: number;
-  maxWidth: number;
-  minHeight: number;
-  minWidth: number;
-  sizeMode: { width: string; height: string };
-}) {
-  return {
-    heightResizable:
-      minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only,
-    widthResizable:
-      minWidth !== maxWidth && sizeMode.width !== SIZE_MODE.auto_only,
-  };
-}
-export function getResizableEnable({
-  disablePointerEvents,
-  positionAndSizeLocked,
-  heightResizable,
-  widthResizable,
-}: {
-  disablePointerEvents: boolean;
-  positionAndSizeLocked: boolean;
-  heightResizable: boolean;
-  widthResizable: boolean;
-}) {
-  if (disablePointerEvents || positionAndSizeLocked) {
-    return false;
-  }
-  return {
-    top: false,
-    left: false,
-    bottom: heightResizable,
-    right: widthResizable,
-    topRight: false,
-    bottomRight: heightResizable && widthResizable,
-    topLeft: false,
-    bottomLeft: false,
-  };
-}
-export function resolveResizableGrid({
-  snapGrid,
-  snapToGrid,
-}: {
-  snapGrid: readonly [number, number];
-  snapToGrid: boolean;
-}): readonly [number, number] | undefined {
-  if (!snapToGrid) {
-    return undefined;
-  }
-  const [xGrid, yGrid] = snapGrid;
-  assertFinitePositiveResizeGridValue("snap grid x", xGrid);
-  assertFinitePositiveResizeGridValue("snap grid y", yGrid);
-  return snapGrid;
-}
-function assertFinitePositiveResizeGridValue(name: string, value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a finite positive number.`);
-  }
 }
 function getMetaControlHandleClass(
   direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,

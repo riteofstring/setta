@@ -1,4 +1,3 @@
-import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,6 +11,7 @@ import {
   adjustSizeToBeAtLeastMin,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
+import { SIZE_MODE } from "state/actions/sections/sectionResizePolicy";
 import {
   useProjectState,
   useResizeEvent,
