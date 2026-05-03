@@ -25,7 +25,13 @@ import {
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
 import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import { useEffect, useRef, type MutableRefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type MutableRefObject,
+} from "react";
+import { flushSync } from "react-dom";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
@@ -333,15 +339,17 @@ function handleProjectRetainedContentClick(
     interaction: "input-focus",
     sectionId: event.ownerSectionId,
   });
-  onActiveParamDomIslandChange({
-    activation: {
-      kind: "pointer",
-      screenPoint: event.screenPoint,
-    },
-    hitRecordId: event.hit.id,
-    paramInfoId: event.hit.ownerRowId,
-    sectionId: event.ownerSectionId,
-    surfaceId: event.surfaceId,
+  flushSync(() => {
+    onActiveParamDomIslandChange({
+      activation: {
+        kind: "pointer",
+        screenPoint: event.screenPoint,
+      },
+      hitRecordId: event.hit.id,
+      paramInfoId: event.hit.ownerRowId,
+      sectionId: event.ownerSectionId,
+      surfaceId: event.surfaceId,
+    });
   });
 }
 
@@ -763,32 +771,29 @@ function useProjectGpuDomIslandActivation<RootElement extends HTMLElement>({
 }) {
   const consumedActivationKeyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const frameId = requestAnimationFrame(() => {
-      const root = rootRef.current;
-      if (!root) {
-        return;
-      }
-      const target = getProjectGpuDomIslandActivationTarget(root, activation);
-      target?.focus({ preventScroll: true });
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+    const target = getProjectGpuDomIslandActivationTarget(root, activation);
+    target?.focus({ preventScroll: true });
 
-      const activationKey = getProjectGpuDomIslandActivationKey(activation);
-      if (!activationKey) {
-        return;
-      }
-      if (consumedActivationKeyRef.current === activationKey) {
-        return;
-      }
-      consumedActivationKeyRef.current = activationKey;
-      if (
-        clickActivationTarget &&
-        target &&
-        shouldClickProjectGpuDomIslandActivationTarget(target)
-      ) {
-        target.click();
-      }
-    });
-    return () => cancelAnimationFrame(frameId);
+    const activationKey = getProjectGpuDomIslandActivationKey(activation);
+    if (!activationKey) {
+      return;
+    }
+    if (consumedActivationKeyRef.current === activationKey) {
+      return;
+    }
+    consumedActivationKeyRef.current = activationKey;
+    if (
+      clickActivationTarget &&
+      target &&
+      shouldClickProjectGpuDomIslandActivationTarget(target)
+    ) {
+      target.click();
+    }
   }, [
     activation?.kind,
     activation?.screenPoint.x,

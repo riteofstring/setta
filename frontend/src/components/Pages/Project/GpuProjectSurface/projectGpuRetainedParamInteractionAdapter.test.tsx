@@ -50,6 +50,8 @@ const mocks = vi.hoisted(() => ({
   paramInputActivationClick: vi.fn(),
   paramInputProps: vi.fn(),
   paramNameInputProps: vi.fn(),
+  requestAnimationFrameMock: vi.fn(),
+  cancelAnimationFrameMock: vi.fn(),
   subscribeToGpuViewportRepositionMock: vi.fn(),
   unsubscribeViewportRepositionMock: vi.fn(),
 }));
@@ -140,14 +142,19 @@ async function cleanupRenderedIsland(rendered: RenderedIsland) {
 describe("project GPU retained param DOM islands", () => {
   beforeEach(() => {
     resetProjectStores();
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    });
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    mocks.requestAnimationFrameMock.mockImplementation(
+      (callback: FrameRequestCallback) => {
+        callback(0);
+        return 1;
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", mocks.requestAnimationFrameMock);
+    vi.stubGlobal("cancelAnimationFrame", mocks.cancelAnimationFrameMock);
     mocks.paramInputProps.mockClear();
     mocks.paramInputActivationClick.mockClear();
     mocks.paramNameInputProps.mockClear();
+    mocks.requestAnimationFrameMock.mockClear();
+    mocks.cancelAnimationFrameMock.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
     mocks.unsubscribeViewportRepositionMock.mockClear();
     useTypeErrors.setState({ errors: {}, userRequested: false });
@@ -214,7 +221,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("replays the retained canvas activation click into mounted control islands", async () => {
+  it("replays the retained canvas activation click into mounted control islands without waiting for animation frame", async () => {
     const activationPoint = { x: 42, y: 64 };
     const originalElementFromPoint = document.elementFromPoint;
     const elementFromPointSpy = vi.fn(() =>
@@ -239,6 +246,7 @@ describe("project GPU retained param DOM islands", () => {
         activationPoint.y,
       );
       expect(mocks.paramInputActivationClick).toHaveBeenCalledTimes(1);
+      expect(mocks.requestAnimationFrameMock).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(document, "elementFromPoint", {
         configurable: true,
