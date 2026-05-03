@@ -281,6 +281,7 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
   if (island.kind === "retained-content-label") {
     return (
       <ProjectGpuParamNameDomIsland
+        activation={island.activation}
         contentRect={island.contentRect}
         domIslandId={island.id}
         paramInfoId={island.source.ownerRowId}
@@ -293,6 +294,7 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
   }
   return (
     <ProjectGpuParamControlDomIsland
+      activation={island.activation}
       contentRect={island.contentRect}
       paramInfoId={island.source.ownerRowId}
       sectionId={island.ownerSectionId}
@@ -332,6 +334,10 @@ function handleProjectRetainedContentClick(
     sectionId: event.ownerSectionId,
   });
   onActiveParamDomIslandChange({
+    activation: {
+      kind: "pointer",
+      screenPoint: event.screenPoint,
+    },
     hitRecordId: event.hit.id,
     paramInfoId: event.hit.ownerRowId,
     sectionId: event.ownerSectionId,
@@ -578,10 +584,12 @@ function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
 }
 
 function ProjectGpuParamControlDomIsland({
+  activation,
   contentRect,
   paramInfoId,
   sectionId,
 }: {
+  readonly activation?: GpuDomIsland["activation"] | undefined;
   readonly contentRect: GpuDomIsland["contentRect"];
   readonly paramInfoId: string;
   readonly sectionId: string;
@@ -591,22 +599,13 @@ function ProjectGpuParamControlDomIsland({
     (state) => state.errors[sectionId]?.params?.[paramInfoId]?.join("\n") ?? "",
   );
 
-  useEffect(() => {
-    const frameId = requestAnimationFrame(() => {
-      const focusTarget = rootRef.current?.querySelector<HTMLElement>(
-        [
-          "[data-gpu-flow-interactive='true']",
-          "button",
-          "input",
-          "select",
-          "textarea",
-          "[tabindex]:not([tabindex='-1'])",
-        ].join(","),
-      );
-      focusTarget?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frameId);
-  }, [paramInfoId, sectionId]);
+  useProjectGpuDomIslandActivation({
+    activation,
+    clickActivationTarget: true,
+    paramInfoId,
+    rootRef,
+    sectionId,
+  });
 
   useEffect(() => subscribeToGpuViewportReposition(), []);
 
@@ -639,11 +638,13 @@ function ProjectGpuParamControlDomIsland({
 }
 
 function ProjectGpuParamNameDomIsland({
+  activation,
   contentRect,
   domIslandId,
   paramInfoId,
   sectionId,
 }: {
+  readonly activation?: GpuDomIsland["activation"] | undefined;
   readonly contentRect: GpuDomIsland["contentRect"];
   readonly domIslandId: string;
   readonly paramInfoId: string;
@@ -689,22 +690,13 @@ function ProjectGpuParamNameDomIsland({
     isSearchResult,
   });
 
-  useEffect(() => {
-    const frameId = requestAnimationFrame(() => {
-      const focusTarget = rootRef.current?.querySelector<HTMLElement>(
-        [
-          "[data-gpu-flow-interactive='true']",
-          "button",
-          "input",
-          "select",
-          "textarea",
-          "[tabindex]:not([tabindex='-1'])",
-        ].join(","),
-      );
-      focusTarget?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frameId);
-  }, [paramInfoId, sectionId]);
+  useProjectGpuDomIslandActivation({
+    activation,
+    clickActivationTarget: false,
+    paramInfoId,
+    rootRef,
+    sectionId,
+  });
 
   useEffect(() => subscribeToGpuViewportReposition(), []);
 
@@ -745,6 +737,156 @@ function ProjectGpuParamNameDomIsland({
       </div>
     </div>
   );
+}
+
+const PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR = [
+  "[data-gpu-flow-interactive='true']",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function useProjectGpuDomIslandActivation<RootElement extends HTMLElement>({
+  activation,
+  clickActivationTarget,
+  paramInfoId,
+  rootRef,
+  sectionId,
+}: {
+  readonly activation?: GpuDomIsland["activation"] | undefined;
+  readonly clickActivationTarget: boolean;
+  readonly paramInfoId: string;
+  readonly rootRef: MutableRefObject<RootElement | null>;
+  readonly sectionId: string;
+}) {
+  const consumedActivationKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      const root = rootRef.current;
+      if (!root) {
+        return;
+      }
+      const target = getProjectGpuDomIslandActivationTarget(root, activation);
+      target?.focus({ preventScroll: true });
+
+      const activationKey = getProjectGpuDomIslandActivationKey(activation);
+      if (!activationKey) {
+        return;
+      }
+      if (consumedActivationKeyRef.current === activationKey) {
+        return;
+      }
+      consumedActivationKeyRef.current = activationKey;
+      if (
+        clickActivationTarget &&
+        target &&
+        shouldClickProjectGpuDomIslandActivationTarget(target)
+      ) {
+        target.click();
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [
+    activation?.kind,
+    activation?.screenPoint.x,
+    activation?.screenPoint.y,
+    clickActivationTarget,
+    paramInfoId,
+    rootRef,
+    sectionId,
+  ]);
+}
+
+function getProjectGpuDomIslandActivationTarget(
+  root: HTMLElement,
+  activation: GpuDomIsland["activation"] | undefined,
+): HTMLElement | null {
+  const pointedElement = getProjectGpuDomIslandPointedElement(root, activation);
+  const pointedTarget = getProjectGpuDomIslandClosestInteractiveTarget(
+    root,
+    pointedElement,
+  );
+  if (pointedTarget) {
+    return pointedTarget;
+  }
+  return root.querySelector<HTMLElement>(
+    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
+  );
+}
+
+function getProjectGpuDomIslandPointedElement(
+  root: HTMLElement,
+  activation: GpuDomIsland["activation"] | undefined,
+): Element | null {
+  if (!activation) {
+    return null;
+  }
+  const elementFromPoint = root.ownerDocument.elementFromPoint;
+  if (!elementFromPoint) {
+    return null;
+  }
+  const element = elementFromPoint.call(
+    root.ownerDocument,
+    activation.screenPoint.x,
+    activation.screenPoint.y,
+  );
+  return element && root.contains(element) ? element : null;
+}
+
+function getProjectGpuDomIslandClosestInteractiveTarget(
+  root: HTMLElement,
+  element: Element | null,
+): HTMLElement | null {
+  const target = element?.closest(PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR);
+  if (
+    target instanceof HTMLElement &&
+    root.contains(target) &&
+    target !== root
+  ) {
+    return target;
+  }
+  return null;
+}
+
+function getProjectGpuDomIslandActivationKey(
+  activation: GpuDomIsland["activation"] | undefined,
+): string | null {
+  if (!activation) {
+    return null;
+  }
+  return `${activation.kind}:${activation.screenPoint.x}:${activation.screenPoint.y}`;
+}
+
+function shouldClickProjectGpuDomIslandActivationTarget(
+  target: HTMLElement,
+): boolean {
+  if (target instanceof HTMLButtonElement) {
+    return true;
+  }
+  if (target instanceof HTMLSelectElement) {
+    return true;
+  }
+  if (target instanceof HTMLInputElement) {
+    return isClickActivatedProjectGpuDomIslandInputType(target.type);
+  }
+  const role = target.getAttribute("role");
+  return role === "button" || role === "combobox" || role === "switch";
+}
+
+function isClickActivatedProjectGpuDomIslandInputType(type: string): boolean {
+  return ![
+    "email",
+    "number",
+    "password",
+    "search",
+    "tel",
+    "text",
+    "time",
+    "url",
+  ].includes(type);
 }
 
 function hasProjectGpuParamNameDomIslandChildren(

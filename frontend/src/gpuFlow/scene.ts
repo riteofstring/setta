@@ -107,7 +107,13 @@ export type GpuDomIslandSource =
       readonly kind: "custom";
     };
 
+export type GpuDomIslandActivation = {
+  readonly kind: "pointer";
+  readonly screenPoint: GpuPoint;
+};
+
 export type GpuDomIsland = {
+  readonly activation?: GpuDomIslandActivation | undefined;
   readonly clipOwnerId: string;
   readonly contentRect: GpuRect;
   readonly id: string;

@@ -47,6 +47,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  paramInputActivationClick: vi.fn(),
   paramInputProps: vi.fn(),
   paramNameInputProps: vi.fn(),
   subscribeToGpuViewportRepositionMock: vi.fn(),
@@ -62,9 +63,12 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
   }) => {
     mocks.paramInputProps(props);
     return (
-      <div
+      <button
+        type="button"
+        data-gpu-flow-interactive="true"
         data-testid="param-input"
         data-tooltip-parent={props.tooltipParentDivId ?? ""}
+        onClick={mocks.paramInputActivationClick}
       />
     );
   },
@@ -142,6 +146,7 @@ describe("project GPU retained param DOM islands", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     mocks.paramInputProps.mockClear();
+    mocks.paramInputActivationClick.mockClear();
     mocks.paramNameInputProps.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
     mocks.unsubscribeViewportRepositionMock.mockClear();
@@ -205,6 +210,40 @@ describe("project GPU retained param DOM islands", () => {
         }),
       );
     } finally {
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("replays the retained canvas activation click into mounted control islands", async () => {
+    const activationPoint = { x: 42, y: 64 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          kind: "pointer",
+          screenPoint: activationPoint,
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
       await cleanupRenderedIsland(rendered);
     }
   });
@@ -419,7 +458,9 @@ function resolveDisabledOption(
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
 }
 
-function retainedParamIsland(): GpuDomIsland {
+function retainedParamIsland(
+  overrides: Partial<GpuDomIsland> = {},
+): GpuDomIsland {
   return {
     clipOwnerId: "section-1:param-content:unpinned",
     contentRect: { height: 28, width: 160, x: 0, y: 0 },
@@ -434,6 +475,7 @@ function retainedParamIsland(): GpuDomIsland {
       surfaceId: "section-1:param-content:unpinned",
     },
     zIndex: 3,
+    ...overrides,
   };
 }
 

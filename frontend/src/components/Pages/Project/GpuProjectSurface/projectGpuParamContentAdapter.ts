@@ -64,7 +64,9 @@ export type ProjectGpuRetainedParamTarget = {
   readonly surfaceId: string;
 };
 
-export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget;
+export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget & {
+  readonly activation?: GpuDomIsland["activation"] | undefined;
+};
 
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
@@ -229,6 +231,9 @@ export function createProjectGpuParamDomIslands({
   const { geometry, hit, kind, surface } = resolved;
   return [
     {
+      ...(activeParamDomIsland.activation
+        ? { activation: activeParamDomIsland.activation }
+        : {}),
       clipOwnerId: surface.id,
       contentRect: geometry.contentRect,
       id: getProjectGpuParamDomIslandId(activeParamDomIsland),
