@@ -81,10 +81,11 @@ describe("GPU retained content scroll controller", () => {
     },
   );
 
-  it("does not preserve plain GpuFlow portal roots as native wheel targets", () => {
+  it("does not preserve plain GpuFlow portal buttons as native wheel targets", () => {
     const element = document.createElement("div");
     const { root, target } = createMarkedWheelTarget(
       "data-gpu-flow-portal-root",
+      "button",
     );
     element.append(root);
     document.body.append(element);
@@ -127,32 +128,30 @@ const preservedWheelTargetCases: readonly [
   () => PreservedWheelTargetFixture,
 ][] = [
   [
-    "native input targets",
-    () => {
-      const input = document.createElement("input");
-      return { root: input, target: input };
-    },
-  ],
-  [
-    "explicit DOM island wrappers",
-    () => createMarkedWheelTarget("data-gpu-flow-dom-island"),
+    "native input targets inside explicit DOM island wrappers",
+    () => createMarkedWheelTarget("data-gpu-flow-dom-island", "input"),
   ],
   [
     "custom interactive controls",
-    () => createMarkedWheelTarget("data-gpu-flow-interactive"),
+    () => createMarkedWheelTarget("data-gpu-flow-interactive", "button"),
   ],
   [
     "retained native portal roots",
-    () => createMarkedWheelTarget("data-gpu-flow-retained-content-native"),
+    () =>
+      createMarkedWheelTarget(
+        "data-gpu-flow-retained-content-native",
+        "button",
+      ),
   ],
 ];
 
 function createMarkedWheelTarget(
   attribute: string,
+  tagName: "button" | "input" | "span" = "span",
 ): PreservedWheelTargetFixture {
   const root = document.createElement("div");
   root.setAttribute(attribute, "true");
-  const target = document.createElement("span");
+  const target = document.createElement(tagName);
   root.append(target);
   return { root, target };
 }

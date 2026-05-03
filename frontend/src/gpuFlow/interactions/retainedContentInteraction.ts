@@ -113,12 +113,6 @@ export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-dom-island="true"]',
   '[data-gpu-flow-interactive="true"]',
   '[data-gpu-flow-retained-content-native="true"]',
-  "button",
-  "input",
-  "select",
-  "textarea",
-  '[contenteditable=""]',
-  '[contenteditable="true"]',
 ] as const;
 
 export function attachGpuRetainedContentInteractionController(

@@ -57,17 +57,20 @@ describe("GPU retained content keyboard controller", () => {
 
   it("preserves native keyboard targets", () => {
     const element = createHostElement();
-    const input = document.createElement("input");
     const domIsland = document.createElement("div");
     domIsland.dataset.gpuFlowDomIsland = "true";
+    const domIslandInput = document.createElement("input");
+    domIsland.append(domIslandInput);
     const interactiveControl = document.createElement("div");
     interactiveControl.dataset.gpuFlowInteractive = "true";
+    const interactiveButton = document.createElement("button");
+    interactiveControl.append(interactiveButton);
     const portalRoot = document.createElement("div");
     portalRoot.dataset.gpuFlowPortalRoot = "true";
     portalRoot.dataset.gpuFlowRetainedContentNative = "true";
-    const portalOption = document.createElement("div");
+    const portalOption = document.createElement("button");
     portalRoot.append(portalOption);
-    element.append(input, domIsland, interactiveControl, portalRoot);
+    element.append(domIsland, interactiveControl, portalRoot);
     const onNavigation = vi.fn();
     const cleanup = attachGpuRetainedContentKeyboardController({
       element,
@@ -81,12 +84,7 @@ describe("GPU retained content keyboard controller", () => {
       onNavigation,
     });
 
-    const preservedTargets = [
-      input,
-      domIsland,
-      interactiveControl,
-      portalOption,
-    ];
+    const preservedTargets = [domIslandInput, interactiveButton, portalOption];
     for (const target of preservedTargets) {
       const event = createKeyboardEvent("ArrowDown");
       target.dispatchEvent(event);
@@ -98,11 +96,11 @@ describe("GPU retained content keyboard controller", () => {
     cleanup();
   });
 
-  it("does not preserve plain GpuFlow portal roots as native keyboard targets", () => {
+  it("does not preserve plain GpuFlow portal buttons as native keyboard targets", () => {
     const element = createHostElement();
     const portalRoot = document.createElement("div");
     portalRoot.dataset.gpuFlowPortalRoot = "true";
-    const portalOption = document.createElement("div");
+    const portalOption = document.createElement("button");
     portalRoot.append(portalOption);
     element.append(portalRoot);
     const onNavigation = vi.fn();

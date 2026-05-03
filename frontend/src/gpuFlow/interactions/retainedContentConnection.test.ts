@@ -226,7 +226,7 @@ function retainedSurface(): GpuContentSurface {
       rowHeight: 20,
       rows: [
         {
-          controlKind: "text",
+          controlKind: null,
           depth: 0,
           id: "param-1",
           label: "Param 1",
