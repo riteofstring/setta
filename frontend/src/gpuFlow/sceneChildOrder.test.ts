@@ -6,6 +6,7 @@ import type {
   GpuSectionSceneNode,
 } from "./scene";
 import {
+  resolveGpuSectionSceneChildMoveDropMarker,
   resolveGpuSectionSceneChildMovePlan,
   resolveGpuSectionSceneChildMovePreviewSections,
   resolveGpuSectionSceneChildReorderPlan,
@@ -306,6 +307,100 @@ describe("GPU flow scene child order", () => {
     expect(getSection(preview, "child-a")).toMatchObject({
       parentSectionId: "parent-b",
       worldRect: { x: 300, y: 50 },
+    });
+  });
+
+  it("resolves vertical insertion markers from preview scene geometry", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a", "child-b", "child-c"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 50, 100, 40),
+      }),
+      sectionNode({
+        id: "child-c",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 100, 100, 40),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMovePlan({
+      draggedRect: rect(0, 126, 100, 40),
+      scene,
+      sectionId: "child-a",
+    });
+
+    if (!plan) {
+      throw new Error("Expected vertical marker plan.");
+    }
+
+    expect(resolveGpuSectionSceneChildMoveDropMarker({ plan, scene })).toEqual({
+      axis: "y",
+      childNodeId: "child-a",
+      index: 2,
+      parentNodeId: "parent",
+      rect: { height: 4, width: 104, x: 8, y: 98 },
+    });
+  });
+
+  it("resolves horizontal insertion markers on the child-order axis", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a", "child-b", "child-c"],
+        childLayoutGap: { x: 10, y: 0 },
+        id: "parent",
+        layoutMode: "horizontal",
+        worldRect: rect(0, 0, 220, 120),
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 40, 100),
+        parentId: "parent",
+        worldRect: rect(0, 0, 40, 100),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 40, 100),
+        parentId: "parent",
+        worldRect: rect(50, 0, 40, 100),
+      }),
+      sectionNode({
+        id: "child-c",
+        localRect: rect(0, 0, 40, 100),
+        parentId: "parent",
+        worldRect: rect(100, 0, 40, 100),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMovePlan({
+      draggedRect: rect(30, 0, 40, 100),
+      scene,
+      sectionId: "child-c",
+    });
+
+    if (!plan) {
+      throw new Error("Expected horizontal marker plan.");
+    }
+
+    expect(resolveGpuSectionSceneChildMoveDropMarker({ plan, scene })).toEqual({
+      axis: "x",
+      childNodeId: "child-c",
+      index: 1,
+      parentNodeId: "parent",
+      rect: { height: 104, width: 4, x: 48, y: 8 },
     });
   });
 

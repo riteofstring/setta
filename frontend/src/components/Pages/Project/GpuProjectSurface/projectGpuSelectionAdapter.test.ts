@@ -119,6 +119,7 @@ describe("GPU project selection adapter", () => {
       tempZIndex: 1000,
       zIndex: 0,
     });
+    expect(layoutStore.getState().dragPreview).toBeNull();
     expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
       tempZIndex: 0,
       zIndex: 0,
@@ -367,6 +368,15 @@ describe("GPU project selection adapter", () => {
       x: 0,
       y: 158,
     });
+    expect(layoutStore.getState().dragPreview).toMatchObject({
+      draggedNodeIds: ["child-a"],
+      dropMarker: {
+        axis: "y",
+        childNodeId: "child-a",
+        index: 2,
+        parentNodeId: "parent",
+      },
+    });
     expect(getSectionImplChildren("parent")).toEqual([
       "child-a",
       "child-b",
@@ -398,6 +408,10 @@ describe("GPU project selection adapter", () => {
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
       y: 316,
+    });
+    expect(layoutStore.getState().dragPreview).toMatchObject({
+      draggedNodeIds: ["child-a"],
+      dropMarker: null,
     });
     expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
@@ -449,6 +463,7 @@ describe("GPU project selection adapter", () => {
       x: 0,
       y: 0,
     });
+    expect(layoutStore.getState().dragPreview).toBeNull();
     expect(callOpenAPIMock).not.toHaveBeenCalled();
 
     layoutStore.getState().patchNodes(
@@ -483,6 +498,7 @@ describe("GPU project selection adapter", () => {
       x: 0,
       y: 0,
     });
+    expect(layoutStore.getState().dragPreview).toBeNull();
     expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
 
@@ -526,6 +542,7 @@ describe("GPU project selection adapter", () => {
     expect(useProjectState.getState().parentSectionMap["child-a"]).toBe(
       "parent-b",
     );
+    expect(layoutStore.getState().dragPreview).toBeNull();
     expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
     expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
   });

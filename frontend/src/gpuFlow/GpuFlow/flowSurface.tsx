@@ -131,6 +131,7 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
+import { useGpuFlowNodeDragPreviewLayer } from "./nodeDragPreviewOverlay";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import {
@@ -837,6 +838,10 @@ export function GpuFlow({
   const userSelectionElement = (
     <GpuUserSelectionOverlay rect={userSelectionRect} />
   );
+  const nodeDragPreviewElement = useGpuFlowNodeDragPreviewLayer({
+    layoutStore,
+    viewportStore,
+  });
   const nodesSelectionElement = useGpuFlowSelectionDragLayer({
     containerRef,
     layoutStore,
@@ -870,6 +875,7 @@ export function GpuFlow({
           {edgeLabelSourceElement}
         </GpuSurface>
         <GpuFlowPortalLayer portals={portalGroups.viewport} />
+        {nodeDragPreviewElement}
         {userSelectionElement}
         {nodesSelectionElement}
       </div>

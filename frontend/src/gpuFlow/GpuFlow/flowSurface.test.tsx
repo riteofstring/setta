@@ -76,6 +76,47 @@ describe("GpuFlow", () => {
     expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
   });
 
+  it("renders drag preview affordances from the layout store", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          interactionFlags: { dragging: true },
+          nodeId: "dragging-node",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+    layoutStore.getState().setDragPreview({
+      draggedNodeIds: ["dragging-node"],
+      dropMarker: {
+        axis: "y",
+        childNodeId: "dragging-node",
+        index: 2,
+        parentNodeId: "parent-node",
+        rect: { height: 4, width: 180, x: 12, y: 96 },
+      },
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [4, 8, 1.5],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-drag-preview-layer="true"');
+    expect(markup).toContain('data-gpu-flow-drop-marker="true"');
+    expect(markup).toContain('data-gpu-flow-drop-marker-parent="parent-node"');
+    expect(markup).toContain('data-gpu-flow-drag-preview-node="dragging-node"');
+    expect(markup).toContain("translate(4px, 8px) scale(1.5)");
+  });
+
   it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [

@@ -1,3 +1,4 @@
+import type { GpuFlowLayoutDropMarker } from "./layoutStore";
 import type {
   GpuFlowScene,
   GpuSectionSceneLayoutMode,
@@ -18,6 +19,9 @@ export type GpuSectionSceneChildReorderPlan = {
 };
 
 export type GpuSectionSceneChildMovePlan = GpuSectionSceneChildReorderPlan;
+
+const GPU_SECTION_CHILD_INSERTION_MARKER_INSET = 8;
+const GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS = 4;
 
 export function resolveGpuSectionSceneChildMovePreviewSections({
   plan,
@@ -78,6 +82,63 @@ export function resolveGpuSectionSceneChildMovePreviewSections({
   return resolveGpuFlowSectionSceneLayout(nextSections);
 }
 
+export function resolveGpuSectionSceneChildMoveDropMarker({
+  plan,
+  scene,
+}: {
+  readonly plan: GpuSectionSceneChildMovePlan;
+  readonly scene: GpuFlowScene;
+}): GpuFlowLayoutDropMarker | null {
+  const sectionById = getGpuSectionSceneNodeById(scene);
+  const parent = sectionById.get(plan.parentSectionId);
+  if (!parent) {
+    throw new Error(
+      `Missing drop marker parent section scene node ${plan.parentSectionId}.`,
+    );
+  }
+  const previewSections = resolveGpuSectionSceneChildMovePreviewSections({
+    plan,
+    scene,
+  });
+  const previewSectionById = new Map(
+    previewSections.map((section) => [section.sectionId, section]),
+  );
+  const previewParent = previewSectionById.get(plan.parentSectionId);
+  const previewChild = previewSectionById.get(plan.childSectionId);
+  if (!previewParent) {
+    throw new Error(
+      `Missing drop marker preview parent section scene node ${plan.parentSectionId}.`,
+    );
+  }
+  if (!previewChild) {
+    throw new Error(
+      `Missing drop marker preview child section scene node ${plan.childSectionId}.`,
+    );
+  }
+  const dropRect = getGpuSectionSceneChildDropRect(previewParent);
+  if (dropRect.width <= 0 || dropRect.height <= 0) {
+    return null;
+  }
+  const axis = getGpuSectionSceneChildOrderAxis(parent.layoutMode);
+  const markerCenter = getGpuRectMinOnAxis(previewChild.worldRect, axis);
+  return {
+    axis,
+    childNodeId: plan.childSectionId,
+    index: plan.nextIndex,
+    parentNodeId: plan.parentSectionId,
+    rect:
+      axis === "x"
+        ? resolveHorizontalGpuSectionSceneDropMarkerRect({
+            dropRect,
+            markerCenter,
+          })
+        : resolveVerticalGpuSectionSceneDropMarkerRect({
+            dropRect,
+            markerCenter,
+          }),
+  };
+}
+
 function getGpuSectionSceneChildPreviewBaseLocalRectByParentId({
   affectedParentIds,
   sectionById,
@@ -135,6 +196,44 @@ function normalizeGpuSectionSceneChildPreviewLocalRect({
     };
   }
   return section;
+}
+
+function resolveVerticalGpuSectionSceneDropMarkerRect({
+  dropRect,
+  markerCenter,
+}: {
+  readonly dropRect: GpuRect;
+  readonly markerCenter: number;
+}): GpuRect {
+  const inset = Math.min(
+    GPU_SECTION_CHILD_INSERTION_MARKER_INSET,
+    dropRect.width / 2,
+  );
+  return {
+    height: GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS,
+    width: Math.max(dropRect.width - inset * 2, 0),
+    x: dropRect.x + inset,
+    y: markerCenter - GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS / 2,
+  };
+}
+
+function resolveHorizontalGpuSectionSceneDropMarkerRect({
+  dropRect,
+  markerCenter,
+}: {
+  readonly dropRect: GpuRect;
+  readonly markerCenter: number;
+}): GpuRect {
+  const inset = Math.min(
+    GPU_SECTION_CHILD_INSERTION_MARKER_INSET,
+    dropRect.height / 2,
+  );
+  return {
+    height: Math.max(dropRect.height - inset * 2, 0),
+    width: GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS,
+    x: markerCenter - GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS / 2,
+    y: dropRect.y + inset,
+  };
 }
 
 export function resolveGpuSectionSceneChildMovePlan({
@@ -443,6 +542,10 @@ function getGpuSectionSceneChildOrderAxis(
 
 function getGpuRectCenterOnAxis(rect: GpuRect, axis: "x" | "y"): number {
   return axis === "x" ? rect.x + rect.width / 2 : rect.y + rect.height / 2;
+}
+
+function getGpuRectMinOnAxis(rect: GpuRect, axis: "x" | "y"): number {
+  return axis === "x" ? rect.x : rect.y;
 }
 
 function getGpuRectCenter(rect: GpuRect): {

@@ -20,6 +20,7 @@ import {
 
 import {
   isGpuSectionSceneOrderedChildLayout,
+  resolveGpuSectionSceneChildMoveDropMarker,
   resolveGpuSectionSceneChildMovePlan,
   resolveGpuSectionSceneChildMovePreviewSections,
 } from "gpuFlow/sceneChildOrder";
@@ -61,6 +62,7 @@ export function handleProjectNodeDragStart(
   layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
 ) {
+  layoutStore.getState().setDragPreview(null);
   raiseGpuLayoutDragTempZIndex(
     layoutStore,
     change.items.map((item) => item.nodeId),
@@ -84,6 +86,7 @@ export function handleProjectNodeDragStop(
   if (commitProjectNestedNodeDragStop(layoutStore, change, scene)) {
     return;
   }
+  layoutStore.getState().setDragPreview(null);
   updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
@@ -100,6 +103,7 @@ export function handleProjectNodeDragCancel(
   if (restoreProjectNestedNodeDragCancel(layoutStore, change, scene)) {
     return;
   }
+  layoutStore.getState().setDragPreview(null);
   updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
@@ -221,6 +225,7 @@ function commitProjectNestedNodeDragStop(
     return true;
   }
 
+  layoutStore.getState().setDragPreview(null);
   moveSectionsWithBackend({
     newIndex: plan.nextIndex,
     newParentId: plan.parentSectionId,
@@ -258,6 +263,7 @@ function previewProjectNestedNodeDrag(
   if (!item) {
     patchProjectNestedDragPreviewLayout(layoutStore, scene.sections, {
       draggedNodeIds,
+      dropMarker: null,
     });
     return true;
   }
@@ -276,6 +282,10 @@ function previewProjectNestedNodeDrag(
       : scene.sections,
     {
       draggedNodeIds,
+      dropMarker:
+        plan?.changed === true
+          ? resolveGpuSectionSceneChildMoveDropMarker({ plan, scene })
+          : null,
     },
   );
   return true;
@@ -286,10 +296,18 @@ function patchProjectNestedDragPreviewLayout(
   targetSections: readonly GpuSectionSceneNode[],
   {
     draggedNodeIds,
+    dropMarker,
   }: {
     readonly draggedNodeIds: ReadonlySet<string>;
+    readonly dropMarker: ReturnType<
+      typeof resolveGpuSectionSceneChildMoveDropMarker
+    >;
   },
 ) {
+  layoutStore.getState().setDragPreview({
+    draggedNodeIds: [...draggedNodeIds],
+    dropMarker,
+  });
   const targetById = new Map(
     targetSections.map((section) => [section.sectionId, section]),
   );
@@ -438,6 +456,7 @@ function restoreProjectSceneLayoutStore(
   layoutStore: GpuFlowLayoutStoreApi,
   scene: GpuFlowScene,
 ) {
+  layoutStore.getState().setDragPreview(null);
   layoutStore.getState().replaceNodes(getGpuFlowSceneDomSectionNodes(scene), {
     phase: "commit",
     reason: "project-sync",
