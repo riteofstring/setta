@@ -89,10 +89,12 @@ const mocks = vi.hoisted(() => ({
   paramInputRenderMode: {
     current: "button" as
       | "button"
+      | "button-role-div"
       | "combobox-input"
       | "explicit-activation-target"
       | "mousedown-activation"
-      | "pointer-activation",
+      | "pointer-activation"
+      | "switch-button",
   },
   paramInputProps: vi.fn(),
   paramNameInputProps: vi.fn(),
@@ -160,6 +162,18 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
         />
       );
     }
+    if (mocks.paramInputRenderMode.current === "button-role-div") {
+      return (
+        <div
+          role="button"
+          data-gpu-flow-interactive="true"
+          data-testid="param-input"
+          data-tooltip-parent={props.tooltipParentDivId ?? ""}
+          onClick={mocks.paramInputActivationClick}
+          tabIndex={0}
+        />
+      );
+    }
     if (mocks.paramInputRenderMode.current === "explicit-activation-target") {
       return (
         <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
@@ -170,6 +184,18 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
             onClick={mocks.paramInputActivationClick}
           />
         </div>
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "switch-button") {
+      return (
+        <button
+          type="button"
+          role="switch"
+          data-gpu-flow-interactive="true"
+          data-testid="param-input"
+          data-tooltip-parent={props.tooltipParentDivId ?? ""}
+          onClick={mocks.paramInputActivationClick}
+        />
       );
     }
     return (
@@ -396,7 +422,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("replays retained canvas activation clicks into mounted combobox text inputs", async () => {
+  it("focuses mounted combobox text inputs without replaying a click", async () => {
     mocks.paramInputRenderMode.current = "combobox-input";
     const activationPoint = { x: 44, y: 12 };
     const originalElementFromPoint = document.elementFromPoint;
@@ -421,7 +447,86 @@ describe("project GPU retained param DOM islands", () => {
         activationPoint.x,
         activationPoint.y,
       );
-      expect(mocks.paramInputActivationClick).toHaveBeenCalledTimes(1);
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("focuses mounted button-role elements without replaying a click", async () => {
+    mocks.paramInputRenderMode.current = "button-role-div";
+    const activationPoint = { x: 45, y: 13 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("does not replay retained canvas activation clicks into mounted switch role buttons", async () => {
+    mocks.paramInputRenderMode.current = "switch-button";
+    const activationPoint = { x: 46, y: 14 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
     } finally {
       Object.defineProperty(document, "elementFromPoint", {
         configurable: true,

@@ -291,8 +291,8 @@ function shouldClickProjectGpuDomIslandActivationTarget(
   ) {
     return true;
   }
-  if (isClickActivatedProjectGpuDomIslandRole(target.getAttribute("role"))) {
-    return true;
+  if (isCanvasOwnedProjectGpuDomIslandRole(target.getAttribute("role"))) {
+    return false;
   }
   if (target instanceof HTMLButtonElement) {
     return true;
@@ -306,8 +306,8 @@ function shouldClickProjectGpuDomIslandActivationTarget(
   return false;
 }
 
-function isClickActivatedProjectGpuDomIslandRole(role: string | null): boolean {
-  return role === "button" || role === "combobox" || role === "switch";
+function isCanvasOwnedProjectGpuDomIslandRole(role: string | null): boolean {
+  return role === "combobox" || role === "switch";
 }
 
 function isClickActivatedProjectGpuDomIslandInputType(type: string): boolean {
