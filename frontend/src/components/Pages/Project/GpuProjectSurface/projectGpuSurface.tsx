@@ -583,7 +583,7 @@ function getProjectNodeDragOptions({
     },
     getSelectedNodeIds: getActiveSectionUIIds,
     nodeDragThresholdPx: 1,
-    onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change),
+    onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change, scene),
     onNodeDragCancel: (change) =>
       handleProjectNodeDragCancel(layoutStore, change, scene),
     onNodeDragStart: (change) =>

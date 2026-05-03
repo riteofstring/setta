@@ -3,6 +3,7 @@ import type {
   GpuSectionSceneLayoutMode,
   GpuSectionSceneNode,
 } from "./scene";
+import { resolveGpuFlowSectionSceneLayout } from "./sceneLayout";
 import type { GpuRect } from "./viewportMath";
 
 export type GpuSectionSceneChildReorderPlan = {
@@ -17,6 +18,124 @@ export type GpuSectionSceneChildReorderPlan = {
 };
 
 export type GpuSectionSceneChildMovePlan = GpuSectionSceneChildReorderPlan;
+
+export function resolveGpuSectionSceneChildMovePreviewSections({
+  plan,
+  scene,
+}: {
+  readonly plan: GpuSectionSceneChildMovePlan;
+  readonly scene: GpuFlowScene;
+}): readonly GpuSectionSceneNode[] {
+  const affectedParentIds = new Set([
+    plan.parentSectionId,
+    plan.previousParentSectionId,
+  ]);
+  const sectionById = getGpuSectionSceneNodeById(scene);
+  const baseLocalRectByParentId =
+    getGpuSectionSceneChildPreviewBaseLocalRectByParentId({
+      affectedParentIds,
+      sectionById,
+    });
+  const nextSections = scene.sections.map((section) => {
+    let nextSection = section;
+    if (section.sectionId === plan.childSectionId) {
+      nextSection = {
+        ...section,
+        parentSectionId: plan.parentSectionId,
+      };
+    } else if (section.sectionId === plan.parentSectionId) {
+      nextSection = {
+        ...section,
+        childSectionIds: plan.childSectionIds,
+      };
+    } else if (section.sectionId === plan.previousParentSectionId) {
+      nextSection = {
+        ...section,
+        childSectionIds: section.childSectionIds.filter(
+          (childSectionId) => childSectionId !== plan.childSectionId,
+        ),
+      };
+    }
+
+    const parentSectionId = nextSection.parentSectionId;
+    if (!parentSectionId || !affectedParentIds.has(parentSectionId)) {
+      return nextSection;
+    }
+    const baseLocalRect = baseLocalRectByParentId.get(parentSectionId);
+    if (!baseLocalRect) {
+      return nextSection;
+    }
+    const parent = sectionById.get(parentSectionId);
+    if (!parent) {
+      return nextSection;
+    }
+    return normalizeGpuSectionSceneChildPreviewLocalRect({
+      baseLocalRect,
+      parentLayoutMode: parent.layoutMode,
+      section: nextSection,
+    });
+  });
+  return resolveGpuFlowSectionSceneLayout(nextSections);
+}
+
+function getGpuSectionSceneChildPreviewBaseLocalRectByParentId({
+  affectedParentIds,
+  sectionById,
+}: {
+  readonly affectedParentIds: ReadonlySet<string>;
+  readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
+}): ReadonlyMap<string, GpuRect> {
+  const baseLocalRectByParentId = new Map<string, GpuRect>();
+  for (const parentSectionId of affectedParentIds) {
+    const parent = sectionById.get(parentSectionId);
+    if (!parent) {
+      continue;
+    }
+    const firstChild = parent.childSectionIds
+      .map((childSectionId) => sectionById.get(childSectionId) ?? null)
+      .find((child) => child !== null);
+    baseLocalRectByParentId.set(
+      parentSectionId,
+      firstChild?.localRect ?? {
+        height: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+      },
+    );
+  }
+  return baseLocalRectByParentId;
+}
+
+function normalizeGpuSectionSceneChildPreviewLocalRect({
+  baseLocalRect,
+  parentLayoutMode,
+  section,
+}: {
+  readonly baseLocalRect: GpuRect;
+  readonly parentLayoutMode: GpuSectionSceneLayoutMode;
+  readonly section: GpuSectionSceneNode;
+}): GpuSectionSceneNode {
+  if (parentLayoutMode === "horizontal" || parentLayoutMode === "kanban") {
+    return {
+      ...section,
+      localRect: {
+        ...section.localRect,
+        x: baseLocalRect.x,
+      },
+    };
+  }
+  if (parentLayoutMode === "vertical") {
+    return {
+      ...section,
+      localRect: {
+        ...section.localRect,
+        y: baseLocalRect.y,
+      },
+    };
+  }
+  return section;
+}
 
 export function resolveGpuSectionSceneChildMovePlan({
   canDropInParent,

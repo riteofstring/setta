@@ -7,6 +7,7 @@ import type {
 } from "./scene";
 import {
   resolveGpuSectionSceneChildMovePlan,
+  resolveGpuSectionSceneChildMovePreviewSections,
   resolveGpuSectionSceneChildReorderPlan,
 } from "./sceneChildOrder";
 import type { GpuPoint, GpuRect } from "./viewportMath";
@@ -194,6 +195,120 @@ describe("GPU flow scene child order", () => {
     });
   });
 
+  it("resolves same-parent live preview sections with stationary siblings displaced", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a", "child-b", "child-c"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent",
+        layoutMode: "vertical",
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 50, 100, 40),
+      }),
+      sectionNode({
+        id: "child-c",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 100, 100, 40),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMovePlan({
+      draggedRect: rect(0, 126, 100, 40),
+      scene,
+      sectionId: "child-a",
+    });
+
+    if (!plan) {
+      throw new Error("Expected same-parent preview plan.");
+    }
+    const preview = resolveGpuSectionSceneChildMovePreviewSections({
+      plan,
+      scene,
+    });
+
+    expect(getSection(preview, "parent").childSectionIds).toEqual([
+      "child-b",
+      "child-c",
+      "child-a",
+    ]);
+    expect(getSection(preview, "child-b").worldRect).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(getSection(preview, "child-c").worldRect).toMatchObject({
+      x: 0,
+      y: 50,
+    });
+    expect(getSection(preview, "child-a").worldRect).toMatchObject({
+      x: 0,
+      y: 100,
+    });
+  });
+
+  it("resolves cross-parent live preview sections by updating both parent orders", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent-a",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        childIds: ["child-b"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent-b",
+        layoutMode: "vertical",
+        worldRect: rect(300, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent-a",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent-b",
+        worldRect: rect(300, 0, 100, 40),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMovePlan({
+      draggedRect: rect(300, 80, 100, 40),
+      scene,
+      sectionId: "child-a",
+    });
+
+    if (!plan) {
+      throw new Error("Expected cross-parent preview plan.");
+    }
+    const preview = resolveGpuSectionSceneChildMovePreviewSections({
+      plan,
+      scene,
+    });
+
+    expect(getSection(preview, "parent-a").childSectionIds).toEqual([]);
+    expect(getSection(preview, "parent-b").childSectionIds).toEqual([
+      "child-b",
+      "child-a",
+    ]);
+    expect(getSection(preview, "child-a")).toMatchObject({
+      parentSectionId: "parent-b",
+      worldRect: { x: 300, y: 50 },
+    });
+  });
+
   it("allows dropping into an empty ordered parent body", () => {
     const scene = sceneWithSections([
       sectionNode({
@@ -280,6 +395,17 @@ function sceneWithSections(
     revision: 1,
     sections,
   };
+}
+
+function getSection(
+  sections: readonly GpuSectionSceneNode[],
+  sectionId: string,
+): GpuSectionSceneNode {
+  const section = sections.find((item) => item.sectionId === sectionId);
+  if (!section) {
+    throw new Error(`Missing test section ${sectionId}.`);
+  }
+  return section;
 }
 
 function sectionNode({

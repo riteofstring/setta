@@ -27,6 +27,7 @@ import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { getProjectGpuFlowScene } from "./projectGpuLayoutAdapter";
 import {
   canDragProjectNode,
+  handleProjectNodeDrag,
   handleProjectNodeDragCancel,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
@@ -255,6 +256,10 @@ describe("GPU project selection adapter", () => {
         children: ["child-a", "child-b", "child-c"],
         id: "parent",
         kind: "group",
+        sectionHeight: 500,
+        sectionWidth: 260,
+        topLevelHeight: 500,
+        topLevelWidth: 260,
       },
       { id: "child-a", parentId: "parent" },
       { id: "child-b", parentId: "parent" },
@@ -308,6 +313,93 @@ describe("GPU project selection adapter", () => {
     expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
     expect(useNodeInternals.getState().x.has("child-a")).toBe(false);
     expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("previews nested sibling displacement in the GPU layout store during drag", () => {
+    loadProjectStateForSections([
+      {
+        children: ["child-a", "child-b", "child-c"],
+        id: "parent",
+        kind: "group",
+        sectionHeight: 500,
+        sectionWidth: 260,
+        topLevelHeight: 500,
+        topLevelWidth: 260,
+      },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+      { id: "child-c", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+
+    handleProjectNodeDrag(
+      layoutStore,
+      {
+        delta: { x: 0, y: 360 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 360 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
+      x: 0,
+      y: 158,
+    });
+    expect(getSectionImplChildren("parent")).toEqual([
+      "child-a",
+      "child-b",
+      "child-c",
+    ]);
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
+
+    handleProjectNodeDrag(
+      layoutStore,
+      {
+        delta: { x: 0, y: 10 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 10 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
+      x: 0,
+      y: 158,
+    });
+    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
+      x: 0,
+      y: 316,
+    });
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
 
   it("restores scene layout without backend calls when nested drag does not reorder or is cancelled", () => {
@@ -445,6 +537,10 @@ type MovementSectionInput = {
   readonly kind?: "code" | "group" | undefined;
   readonly parentId?: string | null | undefined;
   readonly positionAndSizeLocked?: boolean | undefined;
+  readonly sectionHeight?: number | undefined;
+  readonly sectionWidth?: number | undefined;
+  readonly topLevelHeight?: number | undefined;
+  readonly topLevelWidth?: number | undefined;
 };
 
 type MovementNodeInput = {
@@ -504,8 +600,8 @@ function loadProjectStateForSections(
     parentSectionMap[section.id] = parentId;
     if (parentId === null) {
       topLevelSections[section.id] = {
-        h: 160,
-        w: 200,
+        h: section.topLevelHeight ?? 160,
+        w: section.topLevelWidth ?? 200,
         x: index * 240,
         y: index * 120,
         zIndex: index,
@@ -522,16 +618,19 @@ function loadProjectStateForSections(
       name: variantId,
       nonPresetImpls: [implId],
     });
+    const size = getMovementSectionSize(section);
     sectionImpls[implId] =
       section.kind === "group"
         ? createGroupSectionImpl({
             children: [...(section.children ?? [])],
             id: implId,
             positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+            ...(size ? { size } : {}),
           })
         : createCodeSectionImpl({
             id: implId,
             positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+            ...(size ? { size } : {}),
           });
   }
 
@@ -548,6 +647,19 @@ function loadProjectStateForSections(
       sectionVariants,
     }),
   );
+}
+
+function getMovementSectionSize(section: MovementSectionInput): never | null {
+  if (
+    section.sectionHeight === undefined &&
+    section.sectionWidth === undefined
+  ) {
+    return null;
+  }
+  return {
+    height: section.sectionHeight ?? "auto",
+    width: section.sectionWidth ?? "auto",
+  } as never;
 }
 
 function getSectionImplChildren(sectionId: string): readonly string[] {

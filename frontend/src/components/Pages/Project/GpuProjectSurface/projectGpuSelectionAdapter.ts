@@ -6,7 +6,11 @@ import type {
   GpuSelectionKeyboardNudgeChange,
 } from "gpuFlow/interactions/selectionDrag";
 
-import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
+import type {
+  GpuFlowLayoutNode,
+  GpuFlowLayoutNodePatch,
+  GpuFlowLayoutStoreApi,
+} from "gpuFlow/layoutStore";
 
 import {
   getGpuFlowSceneDomSectionNodes,
@@ -17,6 +21,7 @@ import {
 import {
   isGpuSectionSceneOrderedChildLayout,
   resolveGpuSectionSceneChildMovePlan,
+  resolveGpuSectionSceneChildMovePreviewSections,
 } from "gpuFlow/sceneChildOrder";
 
 import type { GpuRect } from "gpuFlow/viewportMath";
@@ -66,10 +71,9 @@ export function handleProjectNodeDragStart(
 export function handleProjectNodeDrag(
   layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
+  scene?: GpuFlowScene | undefined,
 ) {
-  void layoutStore;
-  void change;
-  // Live node positions and selected bounds are owned by GpuFlow during drag.
+  previewProjectNestedNodeDrag(layoutStore, change, scene);
 }
 
 export function handleProjectNodeDragStop(
@@ -238,6 +242,116 @@ function restoreProjectNestedNodeDragCancel(
   restoreProjectSceneLayoutStore(layoutStore, scene);
   useMisc.setState({ mouseDownDraggingSection: false });
   return true;
+}
+
+function previewProjectNestedNodeDrag(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+  scene: GpuFlowScene | undefined,
+): boolean {
+  const nestedItems = getProjectNestedNodeDragItems(change, scene);
+  if (!scene || nestedItems.length === 0) {
+    return false;
+  }
+  const draggedNodeIds = new Set(change.items.map((item) => item.nodeId));
+  const item = nestedItems.length === 1 ? nestedItems[0] : null;
+  if (!item) {
+    patchProjectNestedDragPreviewLayout(layoutStore, scene.sections, {
+      draggedNodeIds,
+    });
+    return true;
+  }
+
+  const plan = resolveGpuSectionSceneChildMovePlan({
+    canDropInParent: (parent, child) =>
+      canDropProjectSceneChildInParent(parent.sectionId, child.sectionId),
+    draggedRect: getProjectNodeDragItemRect(item),
+    scene,
+    sectionId: item.nodeId,
+  });
+  patchProjectNestedDragPreviewLayout(
+    layoutStore,
+    plan?.changed
+      ? resolveGpuSectionSceneChildMovePreviewSections({ plan, scene })
+      : scene.sections,
+    {
+      draggedNodeIds,
+    },
+  );
+  return true;
+}
+
+function patchProjectNestedDragPreviewLayout(
+  layoutStore: GpuFlowLayoutStoreApi,
+  targetSections: readonly GpuSectionSceneNode[],
+  {
+    draggedNodeIds,
+  }: {
+    readonly draggedNodeIds: ReadonlySet<string>;
+  },
+) {
+  const targetById = new Map(
+    targetSections.map((section) => [section.sectionId, section]),
+  );
+  const patches = layoutStore
+    .getState()
+    .getNodes()
+    .flatMap((node) =>
+      getProjectNestedDragPreviewNodePatch({
+        draggedNodeIds,
+        node,
+        targetById,
+      }),
+    );
+  if (patches.length === 0) {
+    return;
+  }
+  layoutStore.getState().patchNodes(patches, {
+    phase: "change",
+    reason: "drag",
+  });
+}
+
+function getProjectNestedDragPreviewNodePatch({
+  draggedNodeIds,
+  node,
+  targetById,
+}: {
+  readonly draggedNodeIds: ReadonlySet<string>;
+  readonly node: GpuFlowLayoutNode;
+  readonly targetById: ReadonlyMap<string, GpuSectionSceneNode>;
+}): readonly GpuFlowLayoutNodePatch[] {
+  if (draggedNodeIds.has(node.nodeId)) {
+    return [];
+  }
+  const target = targetById.get(node.nodeId);
+  if (!target || target.parentSectionId === null) {
+    return [];
+  }
+  if (isProjectNestedDragPreviewNodeAligned(node, target)) {
+    return [];
+  }
+  return [
+    {
+      height: target.height,
+      nodeId: node.nodeId,
+      width: target.width,
+      x: target.x,
+      y: target.y,
+    },
+  ];
+}
+
+function isProjectNestedDragPreviewNodeAligned(
+  node: GpuFlowLayoutNode,
+  target: GpuSectionSceneNode,
+): boolean {
+  return (
+    node.x === target.x &&
+    node.y === target.y &&
+    node.width === target.width &&
+    node.height === target.height
+  );
 }
 
 function canDragProjectSceneChildNode(
