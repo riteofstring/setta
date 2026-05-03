@@ -45,7 +45,6 @@ type ParamContainerProps = {
   dndRef?: React.Ref<HTMLElement>;
   dndStyle?: React.CSSProperties;
   dndClassName?: string;
-  dndPointerDirtyPassive?: boolean;
   listKey: ParamListKey;
 };
 
@@ -55,7 +54,6 @@ type ParamArticleProps = {
   children: React.ReactNode;
   dndAttributes?: Record<string, unknown>;
   dndListeners?: Record<string, unknown>;
-  dndPointerDirtyPassive?: boolean;
   dndRef?: React.Ref<HTMLElement>;
   floatingBoxHandlers?: Record<string, unknown>;
   onClick?: React.MouseEventHandler<HTMLElement>;
@@ -258,7 +256,6 @@ function ParamRowArticle({
   children,
   dndAttributes,
   dndListeners,
-  dndPointerDirtyPassive,
   dndRef,
   floatingBoxHandlers,
   onClick,
@@ -273,9 +270,6 @@ function ParamRowArticle({
       style={articleStyle}
       data-gpu-flow-control={`param-row:${sectionId}:${paramInfoId}`}
       data-gpu-flow-interactive="true"
-      {...(dndPointerDirtyPassive
-        ? { "data-gpu-flow-passive-pointer-dirty": "true" }
-        : {})}
       data-param-row="true"
       {...(floatingBoxHandlers as React.HTMLAttributes<HTMLElement>)}
       onMouseDownCapture={onMouseDown}
@@ -511,7 +505,6 @@ function _ParamContainer({
   bg,
   dndAttributes,
   dndListeners,
-  dndPointerDirtyPassive,
   dndRef,
   dndStyle,
   dndClassName,
@@ -554,7 +547,6 @@ function _ParamContainer({
   const articleProps = {
     dndAttributes,
     dndListeners,
-    dndPointerDirtyPassive,
     dndRef,
     floatingBoxHandlers,
     onClick,

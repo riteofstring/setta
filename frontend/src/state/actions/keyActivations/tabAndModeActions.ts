@@ -28,18 +28,18 @@ import {
   getTabShortcutInfo,
 } from "./shortcutParsing";
 
-export function getEventSectionNode(event: KeyboardEvent) {
+function getEventSectionNode(event: KeyboardEvent) {
   const target = event.target instanceof HTMLElement ? event.target : null;
   return target?.closest(".setta-gpu-flow__node");
 }
 
-export function getDocumentActiveElement() {
+function getDocumentActiveElement() {
   return document.activeElement instanceof HTMLElement
     ? document.activeElement
     : null;
 }
 
-export function isRootDocumentElement(element: HTMLElement | null) {
+function isRootDocumentElement(element: HTMLElement | null) {
   return (
     !element ||
     element === document.body ||
@@ -47,14 +47,14 @@ export function isRootDocumentElement(element: HTMLElement | null) {
   );
 }
 
-export function blurDocumentActiveElement() {
+function blurDocumentActiveElement() {
   const activeElement = getDocumentActiveElement();
   if (!isRootDocumentElement(activeElement)) {
     activeElement.blur();
   }
 }
 
-export function ensureDocumentFallbackFocus() {
+function ensureDocumentFallbackFocus() {
   if (isRootDocumentElement(getDocumentActiveElement())) {
     return;
   }
@@ -65,7 +65,7 @@ export function ensureDocumentFallbackFocus() {
   document.documentElement.focus({ preventScroll: true });
 }
 
-export function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
+function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
   const sectionId = sectionNode.getAttribute("data-id");
   if (!sectionId || !getActiveSectionUIIds().includes(sectionId)) {
     return;
@@ -132,7 +132,7 @@ export function getTabParamActionForShortcuts(
   );
 }
 
-export function resolveTabParamAction(event: KeyboardEvent) {
+function resolveTabParamAction(event: KeyboardEvent) {
   const shortcuts = useSettings.getState().shortcuts;
   return getTabParamActionForShortcuts(
     shortcuts.paramIndentShortcut,
@@ -141,7 +141,7 @@ export function resolveTabParamAction(event: KeyboardEvent) {
   );
 }
 
-export function activeSectionHasSelectedParams(): boolean {
+function activeSectionHasSelectedParams(): boolean {
   const state = useProjectState.getState();
   const activeId = getActiveSectionUIIds()[0];
   if (!activeId) {

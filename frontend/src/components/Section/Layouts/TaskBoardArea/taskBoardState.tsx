@@ -35,21 +35,21 @@ import {
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 
-export const TASK_DND_PREFIX = "task-board-task:";
+const TASK_DND_PREFIX = "task-board-task:";
 
-export const COLUMN_DND_PREFIX = "task-board-column:";
+const COLUMN_DND_PREFIX = "task-board-column:";
 
 export const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
 
-export const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
+const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
 
-export const TASK_BOARD_GPU_CONTROL_PREFIX = "task-board";
+const TASK_BOARD_GPU_CONTROL_PREFIX = "task-board";
 
 export const TASK_BOARD_GPU_SURFACE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 export const TASK_BOARD_GPU_CONTROL_CLASS_NAME = `${TASK_BOARD_GPU_SURFACE_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME}`;
 
-export const TASK_BOARD_GPU_SCROLL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
+const TASK_BOARD_GPU_SCROLL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
 
 export const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
 
@@ -62,7 +62,7 @@ export type TaskLane = {
   tasks: TaskBoardTask[];
 };
 
-export type TaskDropPlacement = "before" | "after";
+type TaskDropPlacement = "before" | "after";
 
 export type TaskDropTarget = {
   targetTaskId: string | null;
@@ -70,7 +70,7 @@ export type TaskDropTarget = {
   targetPlacement: TaskDropPlacement | null;
 };
 
-export type TaskBoardDndSource = {
+type TaskBoardDndSource = {
   element?: Element | null;
   handle?: Element | null;
 };
@@ -90,7 +90,7 @@ export function getTaskBoardScrollClassName(baseClassName: string): string {
   return `${TASK_BOARD_GPU_SCROLL_CLASS_NAME} ${baseClassName}`;
 }
 
-export function eventTargetsNoDragElement(event: Event): boolean {
+function eventTargetsNoDragElement(event: Event): boolean {
   const target = event.target;
   if (!(target instanceof Element)) {
     return false;
@@ -135,9 +135,7 @@ export function toColumnDndId(columnId: string): string {
   return `${COLUMN_DND_PREFIX}${columnId}`;
 }
 
-export function getTaskIdFromDndIdentifier(
-  id: UniqueIdentifier,
-): string | null {
+function getTaskIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   const idText = String(id);
   if (!idText.startsWith(TASK_DND_PREFIX)) {
     return null;
@@ -145,9 +143,7 @@ export function getTaskIdFromDndIdentifier(
   return idText.slice(TASK_DND_PREFIX.length);
 }
 
-export function getColumnIdFromDndIdentifier(
-  id: UniqueIdentifier,
-): string | null {
+function getColumnIdFromDndIdentifier(id: UniqueIdentifier): string | null {
   const idText = String(id);
   if (!idText.startsWith(COLUMN_DND_PREFIX)) {
     return null;
@@ -155,7 +151,7 @@ export function getColumnIdFromDndIdentifier(
   return idText.slice(COLUMN_DND_PREFIX.length);
 }
 
-export function getTaskIdFromDndData(data: unknown): string | null {
+function getTaskIdFromDndData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
   }
@@ -170,7 +166,7 @@ export function getTaskIdFromDndData(data: unknown): string | null {
   return taskId;
 }
 
-export function getColumnIdFromDndData(data: unknown): string | null {
+function getColumnIdFromDndData(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
   }
@@ -194,7 +190,7 @@ export function resolveSourceTaskIdFromDragEvent(
   );
 }
 
-export function resolveTaskDropPlacementFromCollisions({
+function resolveTaskDropPlacementFromCollisions({
   collisions,
   overId,
   sourceTaskId,
@@ -231,7 +227,7 @@ export function resolveTaskDropPlacementFromCollisions({
   return "before";
 }
 
-export function resolveTaskBoardOverId({
+function resolveTaskBoardOverId({
   sourceTaskId,
   overId,
   collisions,
@@ -251,7 +247,7 @@ export function resolveTaskBoardOverId({
   );
 }
 
-export function collectTaskBoardCandidateIds(
+function collectTaskBoardCandidateIds(
   overId: UniqueIdentifier | null,
   collisions: DragOverEvent["collisions"] | DragEndEvent["collisions"],
 ): UniqueIdentifier[] {
@@ -270,14 +266,14 @@ export function collectTaskBoardCandidateIds(
   return candidateIds;
 }
 
-export function findTaskBoardCandidateId(
+function findTaskBoardCandidateId(
   candidateIds: UniqueIdentifier[],
   predicate: (candidateId: UniqueIdentifier) => boolean,
 ): UniqueIdentifier | null {
   return candidateIds.find(predicate) ?? null;
 }
 
-export function isTaskBoardTaskDropCandidate(
+function isTaskBoardTaskDropCandidate(
   candidateId: UniqueIdentifier,
   sourceTaskId: string,
 ): boolean {
@@ -285,15 +281,13 @@ export function isTaskBoardTaskDropCandidate(
   return candidateTaskId !== null && candidateTaskId !== sourceTaskId;
 }
 
-export function isTaskBoardColumnDropCandidate(
+function isTaskBoardColumnDropCandidate(
   candidateId: UniqueIdentifier,
 ): boolean {
   return getColumnIdFromDndIdentifier(candidateId) !== null;
 }
 
-export function isTaskBoardListDropCandidate(
-  candidateId: UniqueIdentifier,
-): boolean {
+function isTaskBoardListDropCandidate(candidateId: UniqueIdentifier): boolean {
   return String(candidateId) === TASK_BOARD_LIST_DROP_ID;
 }
 
@@ -343,7 +337,7 @@ export function resolveTaskBoardDropTarget({
   );
 }
 
-export function resolveTaskBoardDropTargetTaskID(
+function resolveTaskBoardDropTargetTaskID(
   sourceTaskId: string,
   overData: unknown,
   resolvedOverId: UniqueIdentifier,
@@ -357,7 +351,7 @@ export function resolveTaskBoardDropTargetTaskID(
   return targetTaskId;
 }
 
-export function buildTaskBoardTaskDropTarget({
+function buildTaskBoardTaskDropTarget({
   sourceTaskId,
   targetTaskId,
   resolvedOverId,
@@ -391,7 +385,7 @@ export function buildTaskBoardTaskDropTarget({
   };
 }
 
-export function buildTaskBoardColumnDropTarget(
+function buildTaskBoardColumnDropTarget(
   resolvedOverId: UniqueIdentifier,
   overData: unknown,
   fallbackColumnId: string | null,
@@ -412,7 +406,7 @@ export function buildTaskBoardColumnDropTarget(
   };
 }
 
-export function resolveTaskDropTargetFromDelta({
+function resolveTaskDropTargetFromDelta({
   tasks,
   sourceTaskId,
   fallbackColumnId,
@@ -476,7 +470,7 @@ export function resolveTaskDropTargetFromDelta({
   };
 }
 
-export function resolveTaskDropTargetDeltaOffset(
+function resolveTaskDropTargetDeltaOffset(
   deltaY: number,
   itemHeight: number | null,
 ): number | null {
@@ -494,7 +488,7 @@ export function resolveTaskDropTargetDeltaOffset(
   return offset;
 }
 
-export function resolveTaskDropTargetCandidates({
+function resolveTaskDropTargetCandidates({
   tasks,
   sourceTask,
   fallbackColumnId,
@@ -526,7 +520,7 @@ export function resolveTaskDropTargetCandidates({
   };
 }
 
-export function resolveTaskDropTargetColumnID(
+function resolveTaskDropTargetColumnID(
   viewMode: TaskBoardViewMode,
   sourceColumnId: string | null,
   targetTask: TaskBoardTask,
@@ -545,7 +539,7 @@ export function getTaskDueMode(dueDateIso: string): TaskDueMode {
   return "date";
 }
 
-export function isDoneColumnName(columnName: string): boolean {
+function isDoneColumnName(columnName: string): boolean {
   return columnName.trim().toLowerCase() === "done";
 }
 
@@ -624,7 +618,7 @@ export type ReorderTaskArgs = {
   targetPlacement?: TaskDropPlacement;
 };
 
-export function resolveReorderTargetColumnID(
+function resolveReorderTargetColumnID(
   tasks: TaskBoardTask[],
   columns: TaskBoardColumn[],
   sourceTask: TaskBoardTask,
@@ -640,7 +634,7 @@ export function resolveReorderTargetColumnID(
   );
 }
 
-export function resolveReorderTargetIndex(
+function resolveReorderTargetIndex(
   tasksWithoutSource: TaskBoardTask[],
   targetTaskId: string | undefined,
   targetPlacement: TaskDropPlacement | undefined,
@@ -659,7 +653,7 @@ export function resolveReorderTargetIndex(
   );
 }
 
-export function resolveReorderTaskIndexByTargetTask(
+function resolveReorderTaskIndexByTargetTask(
   tasksWithoutSource: TaskBoardTask[],
   targetTaskId: string,
   targetPlacement: TaskDropPlacement | undefined,
@@ -674,7 +668,7 @@ export function resolveReorderTaskIndexByTargetTask(
   return targetIndexWithoutSource + (placement === "after" ? 1 : 0);
 }
 
-export function resolveReorderTaskIndexByTargetColumn(
+function resolveReorderTaskIndexByTargetColumn(
   tasksWithoutSource: TaskBoardTask[],
   resolvedTargetColumnId: string | null,
 ): number {

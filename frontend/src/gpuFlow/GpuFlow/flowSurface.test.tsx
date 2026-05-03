@@ -2,15 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
+import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import type {
+  GpuContentSurface,
+  GpuFlowScene,
+  GpuSectionSceneNode,
+} from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
-import {
-  GpuFlow,
-  resolveGpuFlowIgnoredContentPaintNodeIds,
-} from "./flowSurface";
-import {
-  isGpuFlowPanZoomInteractionActive,
-  shouldSkipGpuFlowSourceDomTransformSync,
-} from "./flowPanZoomFramePolicy";
+import { GpuFlow } from "./flowSurface";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
@@ -29,6 +28,7 @@ describe("GpuFlow", () => {
             id: "project-viewport-portal-root",
           },
         ]}
+        scene={sceneWithRetainedContentSurface()}
         viewportStore={createGpuFlowViewportStore({
           transform: [0, 0, 1],
         })}
@@ -43,6 +43,9 @@ describe("GpuFlow", () => {
     const edgeLabelSourceIndex = markup.indexOf(
       'data-gpu-flow-source-id="data-edge-label:edge-a"',
     );
+    const retainedContentSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="dict-a:param-content:unpinned"',
+    );
     const canvasCloseIndex = markup.indexOf("</canvas>");
 
     expect(canvasOpenIndex).toBeGreaterThan(-1);
@@ -50,6 +53,8 @@ describe("GpuFlow", () => {
     expect(sourcePortalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
     expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(retainedContentSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(retainedContentSourceIndex).toBeLessThan(canvasCloseIndex);
     expect(viewportPortalIndex).toBeGreaterThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
     expect(markup).toContain('data-gpu-flow-portal-space="viewport"');
@@ -82,60 +87,199 @@ describe("GpuFlow", () => {
     expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
   });
 
-  it("uses active resize paint suppression before configured interaction suppression", () => {
-    const configured = new Set(["param-drag-section"]);
+  it("renders drag preview affordances from the layout store inside the canvas source subtree", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          interactionFlags: { dragging: true },
+          nodeId: "dragging-node",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+    layoutStore.getState().setDragPreview({
+      draggedNodeIds: ["dragging-node"],
+      dropMarker: {
+        axis: "y",
+        childNodeId: "dragging-node",
+        index: 2,
+        parentNodeId: "parent-node",
+        rect: { height: 4, width: 180, x: 12, y: 96 },
+      },
+    });
 
-    expect(
-      resolveGpuFlowIgnoredContentPaintNodeIds({
-        activeResizeNodeId: null,
-        configuredNodeIds: configured,
-        nodeResizing: false,
-      }),
-    ).toBe(configured);
-    expect(
-      resolveGpuFlowIgnoredContentPaintNodeIds({
-        activeResizeNodeId: "resize-section",
-        configuredNodeIds: configured,
-        nodeResizing: true,
-      }),
-    ).toEqual(["resize-section"]);
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [4, 8, 1.5],
+        })}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const dragPreviewNodeSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-drag-preview-node:dragging-node"',
+    );
+    const dropMarkerSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-drop-marker"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(dragPreviewNodeSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(dragPreviewNodeSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(dropMarkerSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(dropMarkerSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("data-gpu-flow-drag-preview-layer");
+    expect(markup).not.toContain("data-gpu-flow-drop-marker=");
+    expect(markup).not.toContain("data-gpu-flow-drag-preview-node=");
+    expect(markup).not.toContain("translate(4px, 8px) scale(1.5)");
   });
 
-  it("keeps viewport pan and zoom frames off the source DOM transform path", () => {
-    expect(
-      isGpuFlowPanZoomInteractionActive({
-        panActivationKeyPressed: false,
-        panScrolling: false,
-        pointerPanning: false,
-        wheelZooming: false,
-      }),
-    ).toBe(false);
-    expect(
-      isGpuFlowPanZoomInteractionActive({
-        panActivationKeyPressed: false,
-        panScrolling: false,
-        pointerPanning: true,
-        wheelZooming: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldSkipGpuFlowSourceDomTransformSync({
-        panZoomInteractionActive: false,
-        viewportFrame: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldSkipGpuFlowSourceDomTransformSync({
-        panZoomInteractionActive: true,
-        viewportFrame: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldSkipGpuFlowSourceDomTransformSync({
-        panZoomInteractionActive: false,
-        viewportFrame: false,
-      }),
-    ).toBe(false);
+  it("renders selection affordances as retained canvas sources", () => {
+    const viewportStore = createGpuFlowViewportStore({
+      transform: [4, 8, 2],
+    });
+    viewportStore.getState().setUserSelection({
+      active: true,
+      rect: {
+        height: 60,
+        startX: 20,
+        startY: 30,
+        width: 100,
+        x: 20,
+        y: 30,
+      },
+    });
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 80,
+      width: 120,
+      x: 10,
+      y: 20,
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        selectionDrag={{
+          primaryNodeId: "section-a",
+          selectedNodeIds: ["section-a"],
+        }}
+        viewportStore={viewportStore}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const userSelectionSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-user-selection"',
+    );
+    const nodesSelectionSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-nodes-selection"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(userSelectionSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(userSelectionSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(nodesSelectionSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(nodesSelectionSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("data-gpu-flow-selection-layer");
+    expect(markup).not.toContain("data-gpu-flow-selection=");
+    expect(markup).not.toContain("data-gpu-flow-nodes-selection-rect");
+    expect(markup).not.toContain("setta-gpu-flow__nodes-selection-rect");
+  });
+
+  it("renders resize affordances as retained canvas sources", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [sectionSceneNode("section-a")],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        selectionDrag={{
+          primaryNodeId: "section-a",
+          selectedNodeIds: ["section-a"],
+        }}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const resizeSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-node-resize-handles:section-a"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(resizeSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(resizeSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("section-resize-handle");
+    expect(markup).not.toContain("data-resize-direction");
+  });
+
+  it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          nodeId: "live-node-a",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        scene={sceneWithSection("scene-node-a")}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-source-id="live-node-a"');
+    expect(markup).not.toContain('data-gpu-flow-source-id="scene-node-a"');
+  });
+
+  it("renders scene DOM islands inside the canvas source subtree", () => {
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        renderDomIsland={(island) => (
+          <div data-rendered-dom-island={island.id} />
+        )}
+        scene={sceneWithDomIsland()}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [4, 8, 1.5],
+        })}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const domIslandIndex = markup.indexOf('data-gpu-flow-dom-island="true"');
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(domIslandIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(domIslandIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).toContain('data-gpu-flow-dom-island="true"');
+    expect(markup).toContain('data-gpu-flow-dom-island-id="island-a"');
+    expect(markup).toContain(
+      'data-gpu-flow-dom-island-kind="retained-content-control"',
+    );
+    expect(markup).toContain('class="setta-gpu-flow__dom-island nodrag nopan"');
+    expect(markup).toContain('data-rendered-dom-island="island-a"');
+    expect(markup).not.toContain("setta-gpu-flow__dom-island-layer");
+    expect(markup).toContain("left:19px");
+    expect(markup).toContain("top:38px");
+    expect(markup).toContain("transform:scale(1.5)");
   });
 });
 
@@ -157,5 +301,136 @@ function edgeSceneWithLabel(): GpuEdgeScene {
       },
     ],
     reconnectAnchors: [],
+  };
+}
+
+function sceneWithRetainedContentSurface(): GpuFlowScene {
+  return {
+    contentSurfaces: [retainedContentSurface()],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function retainedContentSurface(): GpuContentSurface {
+  const rect = { height: 120, width: 240, x: 10, y: 20 };
+  return {
+    clipRect: rect,
+    id: "dict-a:param-content:unpinned",
+    ownerSectionId: "dict-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "dict-a:param-content:unpinned",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "dict-a:param-content:unpinned",
+      ownerSectionId: "dict-a",
+      rowHeight: 28,
+      rows: [
+        {
+          control: textLikeControlDescriptor(),
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-a",
+          label: "Param A",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
+    zIndex: 2,
+  };
+}
+
+function textLikeControlDescriptor() {
+  return {
+    defaultDisplayValue: "",
+    displayValue: "",
+    editorKind: "text" as const,
+    kind: "text-like" as const,
+    rendererFamily: "text-like",
+    commitPolicy: "native-island" as const,
+  };
+}
+
+function sceneWithSection(sectionId: string): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [sectionSceneNode(sectionId)],
+  };
+}
+
+function sceneWithDomIsland(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [
+      {
+        clipOwnerId: "surface-a",
+        contentRect: { height: 20, width: 40, x: 0, y: 0 },
+        id: "island-a",
+        kind: "retained-content-control",
+        ownerSectionId: "section-a",
+        rect: { height: 20, width: 40, x: 10, y: 20 },
+        source: {
+          hitRecordId: "control:param-a",
+          kind: "retained-content",
+          ownerRowId: "param-a",
+          surfaceId: "surface-a",
+        },
+        zIndex: 9,
+      },
+    ],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
+  const rect = {
+    height: 80,
+    width: 120,
+    x: 10,
+    y: 20,
+  };
+  return {
+    ...rect,
+    bodyRect: rect,
+    childLayout: { gap: { x: 0, y: 0 } },
+    childSectionIds: [],
+    childViewportRect: null,
+    chromeRect: rect,
+    clipRect: rect,
+    contentRenderer: {
+      kind: "dom-section",
+      surfaceId: sectionId,
+    },
+    dirty: [],
+    interactionLayer: "content",
+    layoutMode: "none",
+    localRect: rect,
+    nodeId: sectionId,
+    parentSectionId: null,
+    portAnchors: [],
+    resizePolicy: {
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      directions: ["right", "bottom", "bottomRight"],
+      locked: false,
+      maxHeight: 100_000,
+      maxWidth: 100_000,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset: { x: 0, y: 0 },
+    sectionId,
+    worldRect: rect,
   };
 }

@@ -24,14 +24,14 @@ export type HtmlSurfaceFlatHitSurface = FlowRect &
     readonly kind: "flat";
   };
 
-export type HtmlSurfaceTiledFlatHitSurface = HtmlSurfaceHitSurfaceBase & {
+type HtmlSurfaceTiledFlatHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly kind: "tiled-flat";
   readonly rect: FlowRect;
   readonly sourceHeight: number;
   readonly sourceWidth: number;
 };
 
-export type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
+type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly bounds: FlowRect;
   readonly indices: Uint32Array;
   readonly kind: "mesh";
@@ -40,7 +40,7 @@ export type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly vertices: readonly SurfaceVertex[];
 };
 
-export type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
+type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly bounds: FlowRect;
   readonly effectId: string;
   readonly kind: "effect";
@@ -49,7 +49,7 @@ export type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly sourceWidth: number;
 };
 
-export type HtmlSurfaceHitSurface =
+type HtmlSurfaceHitSurface =
   | HtmlSurfaceFlatHitSurface
   | HtmlSurfaceTiledFlatHitSurface
   | HtmlSurfaceMeshHitSurface
@@ -74,7 +74,7 @@ export type HtmlSurfaceHitProjection = {
   readonly zIndex: number;
 };
 
-export type HtmlSurfaceEffectHitProjectorInput = {
+type HtmlSurfaceEffectHitProjectorInput = {
   readonly surface: HtmlSurfaceEffectHitSurface;
   readonly surfaceX: number;
   readonly surfaceY: number;
@@ -104,11 +104,6 @@ type SurfacePoint = {
   readonly x: number;
   readonly y: number;
 };
-
-const sortedHitSurfaceEntriesByScene = new WeakMap<
-  HtmlSurfaceHitScene,
-  readonly HtmlSurfaceHitSurfaceEntry[]
->();
 
 export function createHtmlSurfaceHitScene({
   effectSurfaces = [],
@@ -448,11 +443,7 @@ function resolveHitSurfaceEntry({
 function createSortedHitSurfaceEntries(
   scene: HtmlSurfaceHitScene,
 ): readonly HtmlSurfaceHitSurfaceEntry[] {
-  const cached = sortedHitSurfaceEntriesByScene.get(scene);
-  if (cached) {
-    return cached;
-  }
-  const entries = [
+  return [
     ...toHitSurfaceEntries(scene.flatSurfaces, 0),
     ...toHitSurfaceEntries(scene.tiledFlatSurfaces, scene.flatSurfaces.length),
     ...toHitSurfaceEntries(
@@ -466,8 +457,6 @@ function createSortedHitSurfaceEntries(
         scene.meshSurfaces.length,
     ),
   ].sort(compareHitSurfaceEntries);
-  sortedHitSurfaceEntriesByScene.set(scene, entries);
-  return entries;
 }
 
 function toHitSurfaceEntries<TSurface extends HtmlSurfaceHitSurface>(

@@ -14,6 +14,7 @@ import {
 describe("GPU node drag controller", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    vi.unstubAllGlobals();
   });
 
   it("groups selected nodes only when the grabbed node is selected", () => {
@@ -189,155 +190,6 @@ describe("GPU node drag controller", () => {
     expect(viewportStore.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
-    detach();
-  });
-
-  it("starts a drag from a resolved canvas hit target", () => {
-    const element = createFlowElement();
-    const canvas = document.createElement("canvas");
-    canvas.dataset.gpuFlowSurface = "true";
-    element.append(canvas);
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: [node("a", 5, 10, 30, 40)],
-    });
-    const viewportStore = createGpuFlowViewportStore();
-    const onNodeDrag = vi.fn();
-    const requestFrame = vi.fn();
-    const detach = attachGpuNodeDragController({
-      autoPanOnNodeDrag: false,
-      element,
-      layoutStore,
-      nodeDragThresholdPx: 1,
-      onNodeDrag,
-      requestFrame,
-      resolveDragTarget: (event) =>
-        event.target === canvas ? { nodeId: "a" } : null,
-      store: viewportStore,
-    });
-
-    dispatchPointer(canvas, "pointerdown", {
-      button: 0,
-      clientX: 30,
-      clientY: 50,
-      pointerId: 1,
-    });
-    dispatchPointer(document, "pointermove", {
-      button: 0,
-      clientX: 50,
-      clientY: 70,
-      pointerId: 1,
-    });
-
-    expect(onNodeDrag).toHaveBeenCalledWith({
-      active: true,
-      delta: { x: 20, y: 20 },
-      items: [
-        expect.objectContaining({
-          nodeId: "a",
-          position: { x: 25, y: 30 },
-        }),
-      ],
-      nodeId: "a",
-      phase: "drag",
-    });
-    expect(layoutStore.getState().getNode("a")).toMatchObject({
-      interactionFlags: { dragging: true },
-      x: 25,
-      y: 30,
-    });
-    expect(requestFrame).toHaveBeenCalledWith("viewport");
-
-    dispatchPointer(document, "pointerup", {
-      button: 0,
-      clientX: 50,
-      clientY: 70,
-      pointerId: 1,
-    });
-
-    expect(layoutStore.getState().getNode("a")).toMatchObject({
-      x: 25,
-      y: 30,
-    });
-    expect(
-      layoutStore.getState().getNode("a")?.interactionFlags,
-    ).toBeUndefined();
-    detach();
-  });
-
-  it("can ignore a projected source nodrag wrapper without dragging controls", () => {
-    const element = createFlowElement();
-    const source = document.createElement("div");
-    source.className = "nodrag";
-    const button = document.createElement("button");
-    source.append(button);
-    element.append(source);
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: [node("a", 5, 10, 30, 40)],
-    });
-    const viewportStore = createGpuFlowViewportStore();
-    const onNodeDrag = vi.fn();
-    const detach = attachGpuNodeDragController({
-      autoPanOnNodeDrag: false,
-      element,
-      layoutStore,
-      nodeDragThresholdPx: 1,
-      onNodeDrag,
-      resolveDragTarget: () => ({
-        ignoreNoDragClass: true,
-        nodeId: "a",
-        targetElement: source,
-      }),
-      store: viewportStore,
-    });
-
-    dispatchPointer(source, "pointerdown", {
-      button: 0,
-      clientX: 30,
-      clientY: 50,
-      pointerId: 1,
-    });
-    dispatchPointer(document, "pointermove", {
-      button: 0,
-      clientX: 40,
-      clientY: 60,
-      pointerId: 1,
-    });
-
-    expect(onNodeDrag).toHaveBeenCalledWith({
-      active: true,
-      delta: { x: 10, y: 10 },
-      items: [
-        expect.objectContaining({
-          nodeId: "a",
-          position: { x: 15, y: 20 },
-        }),
-      ],
-      nodeId: "a",
-      phase: "drag",
-    });
-
-    dispatchPointer(document, "pointerup", {
-      button: 0,
-      clientX: 40,
-      clientY: 60,
-      pointerId: 1,
-    });
-    onNodeDrag.mockClear();
-
-    dispatchPointer(button, "pointerdown", {
-      button: 0,
-      clientX: 30,
-      clientY: 50,
-      pointerId: 2,
-    });
-    dispatchPointer(document, "pointermove", {
-      button: 0,
-      clientX: 40,
-      clientY: 60,
-      pointerId: 2,
-    });
-
-    expect(onNodeDrag).not.toHaveBeenCalled();
     detach();
   });
 
@@ -591,6 +443,61 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "drag",
     });
+    detach();
+  });
+
+  it("emits drag frame callbacks while the pointer is stationary", () => {
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const element = createFlowElement();
+    const nodeElement = createNodeElement("a");
+    element.append(nodeElement);
+    const onNodeDragFrame = vi.fn(() => true);
+    const requestFrame = vi.fn();
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      element,
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
+      onNodeDragFrame,
+      requestFrame,
+    });
+
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    });
+    requestFrame.mockClear();
+    frameCallbacks.shift()?.(0);
+
+    expect(onNodeDragFrame).toHaveBeenCalledWith({
+      active: true,
+      delta: { x: 0, y: 0 },
+      items: [
+        expect.objectContaining({ nodeId: "a", position: { x: 10, y: 10 } }),
+      ],
+      nodeId: "a",
+      phase: "drag",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+    expect(frameCallbacks.length).toBe(1);
+
     detach();
   });
 

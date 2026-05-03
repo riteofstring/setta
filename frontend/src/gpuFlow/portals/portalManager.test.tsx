@@ -33,6 +33,7 @@ describe("GpuFlow portal manager", () => {
             className: "project-root",
             coordinateSpace: "source-local",
             id: "source-root",
+            retainedContentNative: true,
             testId: "source-root-testid",
           },
         ]}
@@ -42,6 +43,7 @@ describe("GpuFlow portal manager", () => {
     expect(markup).toContain('id="source-root"');
     expect(markup).toContain('data-gpu-flow-portal-root="true"');
     expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
+    expect(markup).toContain('data-gpu-flow-retained-content-native="true"');
     expect(markup).toContain('data-testid="source-root-testid"');
     expect(markup).toContain("project-root");
     expect(markup).toContain("<span>child</span>");
@@ -64,7 +66,7 @@ describe("GpuFlow portal manager", () => {
         coordinateSpace: "viewport",
       }),
     ).toBe(
-      "setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport setta-root",
+      "setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport nodrag nopan setta-root",
     );
   });
 });

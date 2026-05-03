@@ -1,6 +1,5 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -48,6 +47,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { getSectionChromeMode, type SectionChromeMode } from "./sectionChrome";
 import { SectionResizeFrame } from "./SectionResizeFrame";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
@@ -57,13 +57,14 @@ export { getGpuFlowSectionAreaRendererTypes } from "./sectionAreaRendererMetadat
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
-  isTopLevel: boolean;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  renderParamRows?: boolean;
+  scenePortGeometry?: boolean;
 };
 
 type SectionContainerResizableSnapshot = {
@@ -82,12 +83,12 @@ type AreaSwitchProps = {
   chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
   chatModeOverride?: ChatWindowMode;
   projectChatId?: string | null;
+  renderParamRows?: boolean;
+  syncDomPortGeometry: boolean;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   projectChatSurfaceId?: string;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 };
-
-type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
 
 type SectionAreaRenderer = (props: AreaSwitchProps) => React.ReactNode;
 
@@ -108,19 +109,6 @@ function getSectionContainerResizableSnapshot(
     hasEmbeddedTerminal:
       embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
   };
-}
-
-function getSectionChromeMode(
-  sectionTypeName: SectionType,
-  textBlockMetaControlStyle: boolean,
-): SectionChromeMode {
-  if (sectionTypeName === SectionTypeEnum.MetaControl) {
-    return "meta-control";
-  }
-  if (textBlockMetaControlStyle) {
-    return "text-block-meta";
-  }
-  return "header";
 }
 
 function FloatingMenuSlot({ children }: { children: React.ReactNode }) {
@@ -166,6 +154,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme,
   chromeMode,
   hideHeader,
+  trackMeasuredHeight,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -175,6 +164,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme: boolean;
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
+  trackMeasuredHeight: boolean;
 }) {
   if (chromeMode === "meta-control" && !isUserView) {
     return (
@@ -219,6 +209,7 @@ function SectionPrimaryChrome({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       }
+      trackMeasuredHeight={trackMeasuredHeight}
     />
   );
 }
@@ -241,6 +232,7 @@ function SectionContainerChrome({
   chromeMode,
   hideHeader,
   positionAndSizeLocked,
+  scenePortGeometry,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -251,6 +243,7 @@ function SectionContainerChrome({
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
   positionAndSizeLocked: boolean;
+  scenePortGeometry: boolean;
 }) {
   const showMetaControlDragHandle = shouldShowMetaControlDragHandle(
     chromeMode,
@@ -274,6 +267,7 @@ function SectionContainerChrome({
         hasSectionStyleTheme={hasSectionStyleTheme}
         chromeMode={chromeMode}
         hideHeader={hideHeader}
+        trackMeasuredHeight={!scenePortGeometry}
       />
       {isRoot ? <Incrementer sectionId={sectionId} isRoot={isRoot} /> : null}
     </>
@@ -281,15 +275,33 @@ function SectionContainerChrome({
 }
 
 export const SECTION_AREA_RENDERERS = {
-  [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
+  [SectionTypeEnum.Callable]: ({
+    sectionId,
+    bgColor,
+    isMinimized,
+    renderParamRows = true,
+    syncDomPortGeometry,
+  }) => (
     <CallableArea
       sectionId={sectionId}
       bgColor={bgColor}
       isMinimized={isMinimized}
+      renderParamRows={renderParamRows}
+      syncDomPortGeometry={syncDomPortGeometry}
     />
   ),
-  [SectionTypeEnum.Dict]: ({ sectionId, bgColor }) => (
-    <DictArea sectionId={sectionId} bgColor={bgColor} />
+  [SectionTypeEnum.Dict]: ({
+    sectionId,
+    bgColor,
+    renderParamRows = true,
+    syncDomPortGeometry,
+  }) => (
+    <DictArea
+      sectionId={sectionId}
+      bgColor={bgColor}
+      renderParamRows={renderParamRows}
+      trackMeasuredHeight={syncDomPortGeometry}
+    />
   ),
   [SectionTypeEnum.Image]: ({ sectionId }) => (
     <ImageArea sectionId={sectionId} />
@@ -310,8 +322,18 @@ export const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.MetaControl]: ({ sectionId }) => (
     <MetaControlArea sectionId={sectionId} />
   ),
-  [SectionTypeEnum.GlobalVariables]: ({ sectionId, bgColor }) => (
-    <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />
+  [SectionTypeEnum.GlobalVariables]: ({
+    sectionId,
+    bgColor,
+    renderParamRows = true,
+    syncDomPortGeometry,
+  }) => (
+    <GlobalVariablesArea
+      sectionId={sectionId}
+      bgColor={bgColor}
+      renderParamRows={renderParamRows}
+      trackMeasuredHeight={syncDomPortGeometry}
+    />
   ),
   [SectionTypeEnum.Code]: ({ sectionId }) => <CodeArea sectionId={sectionId} />,
   [SectionTypeEnum.GenPythonCode]: ({ sectionId }) => (
@@ -379,13 +401,14 @@ export const SECTION_AREA_RENDERERS = {
 
 function _SectionContainerCoreResizable({
   sectionId,
-  isTopLevel,
   sectionTypeName,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  renderParamRows = true,
+  scenePortGeometry = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -436,6 +459,7 @@ function _SectionContainerCoreResizable({
         chromeMode={chromeMode}
         hideHeader={hideHeader}
         positionAndSizeLocked={positionAndSizeLocked}
+        scenePortGeometry={scenePortGeometry}
       />
       <CanvasSectionBody
         sectionId={sectionId}
@@ -443,17 +467,15 @@ function _SectionContainerCoreResizable({
         bgColor={bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
+        renderParamRows={renderParamRows}
+        syncDomPortGeometry={!scenePortGeometry}
       />
     </>
   );
 
-  if (isTopLevel) {
-    return (
-      <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
-    );
-  }
-
-  return <CustomResizable {...resizeFrameProps}>{content}</CustomResizable>;
+  return (
+    <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
+  );
 }
 
 export const SectionContainerCoreResizable = React.memo(
@@ -469,6 +491,8 @@ export function AreaSwitch({
   chatHost = "section_layout",
   chatModeOverride,
   projectChatId,
+  renderParamRows = true,
+  syncDomPortGeometry,
   setProjectChatId,
   projectChatSurfaceId,
   onProjectChatBlockedErrorCodeChange,
@@ -485,6 +509,8 @@ export function AreaSwitch({
     chatHost,
     ...(chatModeOverride !== undefined ? { chatModeOverride } : {}),
     ...(projectChatId !== undefined ? { projectChatId } : {}),
+    renderParamRows,
+    syncDomPortGeometry,
     ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
     ...(projectChatSurfaceId !== undefined ? { projectChatSurfaceId } : {}),
     ...(onProjectChatBlockedErrorCodeChange !== undefined
@@ -500,12 +526,16 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
+  renderParamRows,
+  syncDomPortGeometry,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  renderParamRows: boolean;
+  syncDomPortGeometry: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -539,6 +569,8 @@ function CanvasSectionBody({
       bgColor={bgColor}
       isMinimized={isMinimized}
       isUserView={isUserView}
+      renderParamRows={renderParamRows}
+      syncDomPortGeometry={syncDomPortGeometry}
     />
   );
 }

@@ -24,7 +24,7 @@ export type TiledFlatSurfaceDrawTile = {
   readonly zIndex: number;
 };
 
-export type HtmlSurfaceTiledFlatPassOptions = {
+type HtmlSurfaceTiledFlatPassOptions = {
   readonly getFlatSurfacePipeline: () => GPURenderPipeline;
   readonly getTextureBindGroup: (
     tile: TiledFlatSurfaceDrawTile,
@@ -164,32 +164,17 @@ export function createTiledFlatSurfaceDrawTiles(
 ): readonly TiledFlatSurfaceDrawTile[] {
   const tiles: TiledFlatSurfaceDrawTile[] = [];
   for (const surface of surfaces) {
-    const scaleX = resolveTiledFlatSurfaceScale(
-      surface.rect.width,
-      surface.texture.cssWidth,
-    );
-    const scaleY = resolveTiledFlatSurfaceScale(
-      surface.rect.height,
-      surface.texture.cssHeight,
-    );
     for (const tile of surface.tiles) {
       tiles.push({
-        height: tile.cssHeight * scaleY,
+        height: tile.cssHeight,
         surfaceId: tile.tileId,
         texture: tile,
-        width: tile.cssWidth * scaleX,
-        x: surface.rect.x + tile.cssX * scaleX,
-        y: surface.rect.y + tile.cssY * scaleY,
+        width: tile.cssWidth,
+        x: surface.rect.x + tile.cssX,
+        y: surface.rect.y + tile.cssY,
         zIndex: surface.zIndex,
       });
     }
   }
   return tiles;
-}
-
-function resolveTiledFlatSurfaceScale(
-  visualSize: number,
-  textureCssSize: number,
-): number {
-  return textureCssSize > 0 ? visualSize / textureCssSize : 1;
 }

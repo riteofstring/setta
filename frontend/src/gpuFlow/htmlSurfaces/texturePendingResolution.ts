@@ -43,7 +43,7 @@ export type PendingHtmlSurfaceTextureRecord = Mutable<
   >
 >;
 
-export type PendingResolutionTextureEntry = Mutable<
+type PendingResolutionTextureEntry = Mutable<
   Pick<
     HtmlSurfaceTextureRecord,
     | "clampedByMaxTexture"
@@ -72,7 +72,7 @@ export type PendingResolutionTextureEntry = Mutable<
   pendingTextureRecord: PendingHtmlSurfaceTextureRecord | null;
 };
 
-export type TextureUploadBudgetOptions = Pick<
+type TextureUploadBudgetOptions = Pick<
   HtmlSurfaceTextureUploadBudget,
   "maxBytes" | "maxDurationMs" | "maxUploads" | "now"
 >;

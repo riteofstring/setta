@@ -68,7 +68,7 @@ export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
   | ProjectChatThreadBlockedErrorCode;
 
-export type ProjectChatHistoryEntry = ReturnType<
+type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
 
@@ -196,7 +196,7 @@ export function resolveProjectChatRuntimeNativeSlashCommandTokens({
   );
 }
 
-export function buildProjectChatNativePromptSlashCommand(
+function buildProjectChatNativePromptSlashCommand(
   command: string,
 ): ChatSlashCommandDefinition {
   return {
@@ -207,7 +207,7 @@ export function buildProjectChatNativePromptSlashCommand(
   };
 }
 
-export function resolveProjectChatRecognizedCustomSlashCommands({
+function resolveProjectChatRecognizedCustomSlashCommands({
   customCommandDefinitions,
   customCommandsExecutable,
   customCommandUnavailableFeedback,
@@ -227,7 +227,7 @@ export function resolveProjectChatRecognizedCustomSlashCommands({
   }));
 }
 
-export function appendUniqueSlashCommands({
+function appendUniqueSlashCommands({
   target,
   seenCommandTokens,
   commands,
@@ -334,7 +334,7 @@ export function resolveProjectChatComposerSlashCommandSets({
   };
 }
 
-export type ProjectChatHydrationRetryStatus =
+type ProjectChatHydrationRetryStatus =
   | "in_flight"
   | "succeeded"
   | "failed"
@@ -348,15 +348,15 @@ export type ProjectChatHydrationRetryEntry = {
   lastTouchedAt: number;
 };
 
-export const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
+const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
 
-export const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
+const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
 
-export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
 
-export const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
+const PROJECT_CHAT_HYDRATION_MAX_CACHE_ENTRIES = 300;
 
-export type ProjectChatHydrationRetryDecision =
+type ProjectChatHydrationRetryDecision =
   | { type: "success" }
   | { type: "terminal_failure" }
   | {
@@ -369,9 +369,7 @@ export type ProjectChatHydrationRetryDecision =
       nextAttempt: number;
     };
 
-export function resolveProjectChatHydrationRetryDelayMs(
-  attempt: number,
-): number {
+function resolveProjectChatHydrationRetryDelayMs(attempt: number): number {
   const normalizedAttempt = Math.max(1, attempt);
   const exponentialDelayMs =
     PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS * 2 ** (normalizedAttempt - 1);
@@ -426,7 +424,7 @@ export function shouldSkipProjectChatHydration(
   return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
 }
 
-export function buildProjectChatHydrationRouteKeyPrefix({
+function buildProjectChatHydrationRouteKeyPrefix({
   projectConfigId,
   chatId,
 }: {
@@ -510,14 +508,14 @@ export function buildProjectChatSubmitReadinessKey({
   });
 }
 
-export type ProjectChatEngineAvailabilityInput = {
+type ProjectChatEngineAvailabilityInput = {
   engineConfigId: string | null;
   externalEngineAvailable: boolean;
   hasLLMConfig: boolean;
   isExternalEngine: boolean;
 };
 
-export function isProjectChatEngineAvailable({
+function isProjectChatEngineAvailable({
   engineConfigId,
   externalEngineAvailable,
   hasLLMConfig,
@@ -529,13 +527,12 @@ export function isProjectChatEngineAvailable({
   return isExternalEngine ? externalEngineAvailable : hasLLMConfig;
 }
 
-export type ResolveProjectChatRedoTargetInput =
-  ProjectChatEngineAvailabilityInput & {
-    chatId: string | null | undefined;
-    lastChatId: string | null;
-    waitingForResponse: boolean;
-    requiresNewThreadContinuation: boolean;
-  };
+type ResolveProjectChatRedoTargetInput = ProjectChatEngineAvailabilityInput & {
+  chatId: string | null | undefined;
+  lastChatId: string | null;
+  waitingForResponse: boolean;
+  requiresNewThreadContinuation: boolean;
+};
 
 export function resolveProjectChatRedoTarget({
   chatId,
@@ -635,11 +632,11 @@ export function trimProjectChatHydrationCache({
   return removedCacheKeys;
 }
 
-export type ProjectChatContextUsage = ReturnType<
+type ProjectChatContextUsage = ReturnType<
   typeof getDefaultChatDetails
 >["contextUsage"];
 
-export type ProjectChatContextTelemetry = ChatContextTelemetry;
+type ProjectChatContextTelemetry = ChatContextTelemetry;
 
 export function resolveProjectChatContextTelemetry(
   contextUsage: ProjectChatContextUsage,
@@ -647,27 +644,27 @@ export function resolveProjectChatContextTelemetry(
   return resolveAuthoritativeContextTelemetry(contextUsage);
 }
 
-export type ProjectChatRuntimeActivityEntry =
+type ProjectChatRuntimeActivityEntry =
   ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
 
-export type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
+type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
 
-export const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
   {
     activeBackgroundTerminals: [],
     activeSubagents: [],
   };
 
-export const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
+const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
   "command_execution",
 ]);
 
-export const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
+const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
   "setta__run_agent_profile",
   "run_agent_profile",
 ]);
 
-export function resolveToolRuntimeCategory(
+function resolveToolRuntimeCategory(
   toolName: string,
 ): "background_terminal" | "subagent" | null {
   const normalizedToolName = normalizeToolName(toolName);
@@ -684,7 +681,7 @@ export function resolveToolRuntimeCategory(
   return null;
 }
 
-export function resolveStreamingAssistantMessage(
+function resolveStreamingAssistantMessage(
   messages: Array<BaseChatMessageUnion>,
 ): AssistantChatMessage | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -696,7 +693,7 @@ export function resolveStreamingAssistantMessage(
   return null;
 }
 
-export function resolveRuntimeActivityEntryLabel(
+function resolveRuntimeActivityEntryLabel(
   toolCall: ToolCall,
   normalizedToolName: string,
 ): string {
@@ -720,7 +717,7 @@ export function resolveRuntimeActivityEntryLabel(
   return `${normalizedToolName} (${toolCall.id})`;
 }
 
-export function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
+function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
   category: "background_terminal" | "subagent";
   entry: ProjectChatRuntimeActivityEntry;
 } | null {
@@ -742,7 +739,7 @@ export function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
   };
 }
 
-export function collectCompletedProjectChatToolCallIds(
+function collectCompletedProjectChatToolCallIds(
   messages: Array<BaseChatMessageUnion>,
 ): Set<string> {
   const completedToolCallIds = new Set<string>();
@@ -754,7 +751,7 @@ export function collectCompletedProjectChatToolCallIds(
   return completedToolCallIds;
 }
 
-export function collectActiveProjectChatRuntimeActivityDetails({
+function collectActiveProjectChatRuntimeActivityDetails({
   toolCalls,
   completedToolCallIds,
 }: {
@@ -834,7 +831,7 @@ export function isProjectChatRunType(runType: string | null): boolean {
   );
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

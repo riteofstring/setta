@@ -154,114 +154,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
-  it("skips pointer handoff while viewport pan activation owns the pointer", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const button = document.createElement("button");
-    button.dataset.gpuFlowControl = "enabled";
-    nodeElement.append(button);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, button);
-    if (!descriptor) {
-      throw new Error("Expected a handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
-      descriptor,
-      nodeId: "node-a",
-    }));
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 1,
-      requestFrame: vi.fn(),
-      resolvePointerHandoffTarget,
-      shouldSkipPointerHandoff: () => true,
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 25,
-      clientY: 35,
-      pointerId: 7,
-    });
-    canvas.dispatchEvent(pointerDown);
-
-    expect(pointerDown.defaultPrevented).toBe(false);
-    expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-
-    detach();
-    canvas.remove();
-  });
-
-  it("skips dirty events while viewport pan activation owns interaction", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const input = document.createElement("input");
-    nodeElement.append(input);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 1,
-      requestFrame,
-      shouldSkipDirtyEvent: () => true,
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    input.dispatchEvent(new Event("focusin", { bubbles: true }));
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    document.dispatchEvent(new Event("selectionchange"));
-
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-    expect(requestFrame).not.toHaveBeenCalled();
-
-    detach();
-    canvas.remove();
-  });
-
-  it("skips dirty marks for suppressed interaction nodes without activating them", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const input = document.createElement("input");
-    nodeElement.append(input);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const shouldSkipDirtyMark = vi.fn(({ nodeId }) => nodeId === "node-a");
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 1,
-      requestFrame,
-      shouldSkipDirtyMark,
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(shouldSkipDirtyMark).toHaveBeenCalledWith({
-      nodeId: "node-a",
-      priority: "interactive",
-      reason: "input",
-    });
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.setSurfaceTexturePriority).not.toHaveBeenCalled();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-    expect(requestFrame).not.toHaveBeenCalled();
-
-    detach();
-    canvas.remove();
-  });
-
   it("hands off a passive node wrapper pointerdown by coordinates", async () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -400,49 +292,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
-  it("leaves resize handle pointer handoff for the resize controller", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const resizeHandle = document.createElement("div");
-    resizeHandle.className =
-      "section-resize-handle section-resize-handle-bottom-right";
-    nodeElement.append(resizeHandle);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, resizeHandle);
-    if (!descriptor) {
-      throw new Error("Expected a resize handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 1,
-      requestFrame,
-      resolvePointerHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 25,
-      clientY: 35,
-      pointerId: 14,
-    });
-    canvas.dispatchEvent(pointerDown);
-
-    expect(pointerDown.defaultPrevented).toBe(false);
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-    expect(requestFrame).not.toHaveBeenCalled();
-
-    detach();
-    canvas.remove();
-  });
-
   it("activates resize handles on hover without broad control hover handoff", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -548,50 +397,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
-  it("does not refresh resize hover ownership during active pointer drags", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const resizeHandle = document.createElement("div");
-    resizeHandle.className =
-      "section-resize-handle section-resize-handle-bottom-right";
-    nodeElement.append(resizeHandle);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, resizeHandle);
-    if (!descriptor) {
-      throw new Error("Expected a resize handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
-      descriptor,
-      nodeId: "node-a",
-    }));
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 1,
-      requestFrame: vi.fn(),
-      resolvePointerHandoffTarget,
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    document.dispatchEvent(
-      createPointerEvent("pointermove", {
-        buttons: 1,
-        clientX: 25,
-        clientY: 35,
-        pointerId: 15,
-      }),
-    );
-
-    expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-
-    detach();
-    canvas.remove();
-  });
-
   it("mirrors virtual handoff target cursors without projecting hover sources", () => {
     const canvas = document.createElement("div");
     const nodeElement = createNodeElement("node-a");
@@ -601,10 +406,7 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.append(button, input);
     canvas.append(nodeElement);
     document.body.append(canvas);
-    const buttonDescriptor = createGpuNodeTargetDescriptor(
-      nodeElement,
-      button,
-    );
+    const buttonDescriptor = createGpuNodeTargetDescriptor(nodeElement, button);
     const inputDescriptor = createGpuNodeTargetDescriptor(nodeElement, input);
     if (!buttonDescriptor || !inputDescriptor) {
       throw new Error("Expected handoff target descriptors");
@@ -701,7 +503,7 @@ describe("gpu node interaction dirty tracking", () => {
       }),
     );
 
-    expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
+    expect(resolvePointerHandoffTarget).toHaveBeenCalledTimes(1);
     expect(controller.getActiveNodeId()).toBeNull();
     expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
     expect(requestFrame).not.toHaveBeenCalled();
@@ -742,7 +544,7 @@ describe("gpu node interaction dirty tracking", () => {
       }),
     );
 
-    expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
+    expect(resolvePointerHandoffTarget).toHaveBeenCalledTimes(1);
     expect(controller.getActiveNodeId()).toBeNull();
     expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
     expect(requestFrame).not.toHaveBeenCalled();
@@ -751,7 +553,7 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
-  it("leaves projected resize handle pointerdown for the resize controller", () => {
+  it("allows native resize handles from projected capture sources", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     nodeElement.classList.add("setta-gpu-flow__html-source");
@@ -785,9 +587,15 @@ describe("gpu node interaction dirty tracking", () => {
     );
 
     expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-    expect(requestFrame).not.toHaveBeenCalled();
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      priority: "interactive",
+      reason: "pointer",
+      surfaceId: "node-a",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     detach();
     canvas.remove();
@@ -1177,63 +985,6 @@ describe("gpu node interaction dirty tracking", () => {
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     expect(controller.getActiveNodeId()).toBe("node-a");
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
-
-    detach();
-  });
-
-  it("keeps passive pointer-dirty targets projected without dirtying every pointermove", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const dragRow = document.createElement("article");
-    dragRow.dataset.gpuFlowInteractive = "true";
-    dragRow.dataset.gpuFlowPassivePointerDirty = "true";
-    nodeElement.append(dragRow);
-    canvas.append(nodeElement);
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const projectPointerInteraction = vi.fn();
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      projectPointerInteraction,
-      requestFrame,
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas);
-
-    dragRow.dispatchEvent(
-      createPointerEvent("pointerdown", {
-        clientX: 10,
-        clientY: 10,
-        pointerId: 1,
-      }),
-    );
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
-
-    document.dispatchEvent(
-      createPointerEvent("pointermove", {
-        clientX: 30,
-        clientY: 40,
-        pointerId: 1,
-      }),
-    );
-
-    expect(projectPointerInteraction).toHaveBeenCalledTimes(1);
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-
-    document.dispatchEvent(
-      createPointerEvent("pointerup", {
-        clientX: 30,
-        clientY: 40,
-        pointerId: 1,
-      }),
-    );
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
 
     detach();
   });

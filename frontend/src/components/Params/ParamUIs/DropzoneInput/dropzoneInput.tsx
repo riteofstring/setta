@@ -80,7 +80,7 @@ import {
   resolveStatelessDisplayLimit,
 } from "./dropzoneActions";
 
-export async function handleServerFilePathsAction(
+async function handleServerFilePathsAction(
   context: DropzoneActionContext,
   paths: string[],
 ): Promise<void> {
@@ -147,9 +147,7 @@ export async function handleServerFilePathsAction(
   }
 }
 
-export async function deleteFileAttachment(
-  artifactId: string,
-): Promise<boolean> {
+async function deleteFileAttachment(artifactId: string): Promise<boolean> {
   const res = await callOpenAPI(
     deleteArtifacts({
       body: {
@@ -171,7 +169,7 @@ export async function deleteFileAttachment(
   return true;
 }
 
-export async function handleDeleteStatefulAttachmentAction(
+async function handleDeleteStatefulAttachmentAction(
   commitContext: DropzoneCommitContext,
   statefulAttachments: DropzoneStoredAttachment[],
   value: string,
@@ -194,7 +192,7 @@ export async function handleDeleteStatefulAttachmentAction(
   await deleteFileAttachment(attachmentId);
 }
 
-export type DropzoneUiHandlers = {
+type DropzoneUiHandlers = {
   handleLocalFileInputChange: (event: ChangeEvent<HTMLInputElement>) => void;
   openLocalFilePicker: () => void;
   openServerFilePicker: () => void;
@@ -208,7 +206,7 @@ export type DropzoneUiHandlers = {
   ) => Promise<void>;
 };
 
-export type CreateDropzoneUiHandlersArgs = {
+type CreateDropzoneUiHandlersArgs = {
   actionContext: DropzoneActionContext;
   canAttachMore: boolean;
   canUseServerPicker: boolean;
@@ -221,12 +219,12 @@ export type CreateDropzoneUiHandlersArgs = {
   value: string;
 };
 
-export function resolveDroppedText(event: DragEvent<HTMLDivElement>): string {
+function resolveDroppedText(event: DragEvent<HTMLDivElement>): string {
   const text = event.dataTransfer.getData("text/plain");
   return text || event.dataTransfer.getData("text");
 }
 
-export function createDropzoneUiHandlers({
+function createDropzoneUiHandlers({
   actionContext,
   canAttachMore,
   canUseServerPicker,
@@ -340,7 +338,7 @@ export function createDropzoneUiHandlers({
   };
 }
 
-export function DropzoneAttachmentList({
+function DropzoneAttachmentList({
   attachments,
   classNames,
   mode,
@@ -495,7 +493,7 @@ export function DropzoneInputConfigForParam({
   );
 }
 
-export function DropzoneInputConfig({
+function DropzoneInputConfig({
   config,
   onChange,
   isDisabled,
@@ -597,7 +595,7 @@ export function DropzoneInputConfig({
   );
 }
 
-export type DropzoneInputViewProps = {
+type DropzoneInputViewProps = {
   fileInputRef: RefObject<HTMLInputElement | null>;
   classNames: DropzoneClassNames;
   gpuFlowControlId: string;
@@ -611,7 +609,7 @@ export type DropzoneInputViewProps = {
   mode: DropzoneModeEnum;
 };
 
-export function useDropzoneInputController({
+function useDropzoneInputController({
   sectionId,
   paramInfoId,
   value,
@@ -718,7 +716,7 @@ export function useDropzoneInputController({
   };
 }
 
-export function DropzoneInputView({
+function DropzoneInputView({
   fileInputRef,
   classNames,
   gpuFlowControlId,
@@ -758,6 +756,7 @@ export function DropzoneInputView({
         <button
           type="button"
           className={classNames.controlButton}
+          data-gpu-flow-activation-target="true"
           onClick={uiHandlers.openLocalFilePicker}
           disabled={isDisabled || isUploading || !canAttachMore}
         >
@@ -767,6 +766,7 @@ export function DropzoneInputView({
           <button
             type="button"
             className={classNames.controlButton}
+            data-gpu-flow-activation-target="true"
             onClick={uiHandlers.openServerFilePicker}
             disabled={isDisabled || isUploading || !canAttachMore}
           >

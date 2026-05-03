@@ -389,6 +389,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectview.CodeObjValuePolicy{}),
 		reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}),
 		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}),
+		reflect.TypeOf(projectview.ParamUIRendererFamily("")),
+		reflect.TypeOf(projectview.ParamUIRendererConfigValue{}),
 		reflect.TypeOf(projectview.ProjectChatWindowModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),

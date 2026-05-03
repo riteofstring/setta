@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
@@ -12,6 +13,7 @@ export type GpuFlowPortalDescriptor = {
   readonly className?: string | undefined;
   readonly coordinateSpace: GpuFlowPortalCoordinateSpace;
   readonly id: string;
+  readonly retainedContentNative?: boolean | undefined;
   readonly testId?: string | undefined;
 };
 
@@ -80,6 +82,9 @@ function renderGpuFlowPortalRoot(portal: GpuFlowPortalDescriptor) {
       className={getGpuFlowPortalClassName(portal)}
       data-gpu-flow-portal-root="true"
       data-gpu-flow-portal-space={portal.coordinateSpace}
+      data-gpu-flow-retained-content-native={
+        portal.retainedContentNative ? "true" : undefined
+      }
       data-testid={portal.testId}
       id={portal.id}
       key={portal.id}
@@ -95,6 +100,8 @@ export function getGpuFlowPortalClassName(
   return [
     GPU_FLOW_CLASS_NAMES.portalRoot,
     `${GPU_FLOW_CLASS_NAMES.portalRoot}--${portal.coordinateSpace}`,
+    NO_DRAG_CLASS_NAME,
+    NO_PAN_CLASS_NAME,
     portal.className,
   ]
     .filter(Boolean)

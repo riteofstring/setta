@@ -79,7 +79,7 @@ export function dirtyTextureTileSummary(
   };
 }
 
-export function dirtyTextureTiles(
+function dirtyTextureTiles(
   record: DirtyTextureRecord | undefined,
 ): readonly HtmlSurfaceTextureTileRecord[] {
   if (!record || (!record.dirtyContent && !record.dirtyResolution)) {

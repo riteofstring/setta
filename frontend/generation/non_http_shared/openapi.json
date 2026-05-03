@@ -8800,6 +8800,66 @@
         "title": "ParamNameType",
         "type": "string"
       },
+      "ParamUIRendererConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "dateTimeParamTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "rendererFamiliesByType": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ParamUIRendererFamily"
+            },
+            "type": "object"
+          },
+          "rendererTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          },
+          "specializedRendererFamilies": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ParamUIRendererFamily"
+            },
+            "type": "object"
+          },
+          "textLikeParamTypes": {
+            "items": {
+              "$ref": "#/components/schemas/CodeObjType"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "textLikeParamTypes",
+          "dateTimeParamTypes",
+          "rendererTypes",
+          "rendererFamiliesByType",
+          "specializedRendererFamilies"
+        ],
+        "title": "ParamUIRendererConfigValue",
+        "type": "object"
+      },
+      "ParamUIRendererFamily": {
+        "enum": [
+          "text-like",
+          "date-time",
+          "button",
+          "slider",
+          "rotary",
+          "switch",
+          "color-picker",
+          "dropdown",
+          "password",
+          "dropzone"
+        ],
+        "title": "ParamUIRendererFamily",
+        "type": "string"
+      },
       "ParameterPassingStyle": {
         "enum": [
           "DEFAULT",

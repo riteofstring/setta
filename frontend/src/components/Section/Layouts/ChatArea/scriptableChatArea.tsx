@@ -85,17 +85,17 @@ import {
 
 import { ManagedChatArea } from "./managedChatArea";
 
-export type ChatActionPayload = ChatSendEvent | ChatStopEvent;
+type ChatActionPayload = ChatSendEvent | ChatStopEvent;
 
 export type ChatSectionChatId = string | null;
 
-export type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
+type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 
 export type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
 
-export type EmitChatSendActionArgs = {
+type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
   text: string;
@@ -105,13 +105,13 @@ export type EmitChatSendActionArgs = {
   timestampMs: number;
 };
 
-export type EmitChatStopActionArgs = {
+type EmitChatStopActionArgs = {
   sectionId: string;
   managed: boolean;
   timestampMs: number;
 };
 
-export type ManagedChatSubmitGuardInput = {
+type ManagedChatSubmitGuardInput = {
   message: string;
   attachments: ChatFileAttachment[];
   canUseManagedChat: boolean;
@@ -145,7 +145,7 @@ export function canSubmitManagedChatMessage({
   return true;
 }
 
-export function emitChatAction(payload: ChatActionPayload) {
+function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
     type: DependencyValueTypeEnum.Literal,
@@ -278,7 +278,7 @@ export function ChatArea({
   );
 }
 
-export type ScriptableChatAreaProps = {
+type ScriptableChatAreaProps = {
   sectionId: string;
   transcriptionProfileId: string | null;
   messages: Array<ChatSectionState["messages"][number]>;
@@ -291,7 +291,7 @@ export type ScriptableChatAreaProps = {
   dictationMode: ChatDictationMode;
 };
 
-export function ScriptableChatArea({
+function ScriptableChatArea({
   sectionId,
   transcriptionProfileId,
   messages,
@@ -816,7 +816,7 @@ export function ScriptableChatArea({
   );
 }
 
-export function ChatSectionHistoryList({
+function ChatSectionHistoryList({
   entries,
   activeChatId,
   initialLoadComplete,

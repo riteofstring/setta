@@ -135,8 +135,6 @@ describe("GPU pan/zoom controller", () => {
 
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
-    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
-    vi.advanceTimersByTime(180);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
   });
@@ -171,8 +169,6 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().wheelZooming).toBe(false);
     vi.advanceTimersByTime(150);
     expect(store.getState().panScrolling).toBe(false);
-    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
-    vi.advanceTimersByTime(180);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
   });
@@ -352,39 +348,7 @@ describe("GPU pan/zoom controller", () => {
     detach();
   });
 
-  it("lets callers block pointer pan starts from visual node hits", () => {
-    const element = createSurfaceElement();
-    const store = createGpuFlowViewportStore({
-      transform: [0, 0, 1],
-    });
-    const detach = attachGpuPanZoomController({
-      canStartPointerPan: () => false,
-      element,
-      isMacOS: false,
-      requestFrame: vi.fn(),
-      store,
-    });
-
-    dispatchPointer(element, "pointerdown", {
-      button: 0,
-      clientX: 10,
-      clientY: 10,
-      pointerId: 1,
-    });
-    dispatchPointer(element, "pointermove", {
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-      pointerId: 1,
-    });
-
-    expect(store.getState().transform).toEqual([0, 0, 1]);
-    expect(store.getState().paneDragging).toBe(false);
-    detach();
-  });
-
-  it("requests viewport frames during pointer pan and settles textures after pan end", () => {
-    vi.useFakeTimers();
+  it("requests viewport frames during pointer pan and defers texture upload until pan end", () => {
     const element = createSurfaceElement();
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 2],
@@ -433,10 +397,6 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().pointerPanning).toBe(false);
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(179);
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(1);
     expect(requestFrame).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();

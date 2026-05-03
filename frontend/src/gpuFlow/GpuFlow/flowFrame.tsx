@@ -36,7 +36,7 @@ import {
   type GpuFlowNodeLayerState,
 } from "./flowSurface";
 
-export function resolveRenderableGpuFlowLayerFrameInput({
+function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
@@ -78,7 +78,7 @@ export function resolveRenderableGpuFlowLayerFrameInput({
   };
 }
 
-export function ensureNodeLayerResources({
+function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
   runtime,
   textureManagerRef,
@@ -163,14 +163,14 @@ function setGpuFlowNodeInteractionElementState(
   element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
 }
 
-export function completeGpuNodeInteractionFrame(
+function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
-export function requestRemainingTextureUploadFrame(
+function requestRemainingTextureUploadFrame(
   surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {
@@ -198,8 +198,6 @@ export function renderGpuFlowNodeLayerFrame({
   htmlSurfaceRendererRef,
   runtime,
   surfaceRef,
-  skipSourceDomTransformSync,
-  skipTextureUploads,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
   visibleNodeIdsRef,
@@ -218,8 +216,6 @@ export function renderGpuFlowNodeLayerFrame({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-  readonly skipSourceDomTransformSync: boolean;
-  readonly skipTextureUploads: boolean;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
@@ -244,9 +240,6 @@ export function renderGpuFlowNodeLayerFrame({
       nodeInteractionRef,
     }),
     canvasSize,
-    deferRerasterizationNodeIds: resolveDeferredRerasterizationNodeIds(
-      activeResizeNodeIdRef,
-    ),
     deferResolutionUpdates,
     domTransformCache: nodeDomTransformSyncCacheRef.current,
     edges: layer.edges,
@@ -260,8 +253,6 @@ export function renderGpuFlowNodeLayerFrame({
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
     renderer: resources.htmlSurfaceRenderer,
-    skipSourceDomTransformSync,
-    skipTextureUploads,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
@@ -286,14 +277,6 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
-}
-
-function resolveDeferredRerasterizationNodeIds(
-  activeResizeNodeIdRef: MutableRefObject<string | null>,
-): readonly string[] | undefined {
-  return activeResizeNodeIdRef.current
-    ? [activeResizeNodeIdRef.current]
-    : undefined;
 }
 
 function resolveActiveGpuFlowNodeId({

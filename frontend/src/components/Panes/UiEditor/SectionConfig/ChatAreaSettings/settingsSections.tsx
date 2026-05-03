@@ -43,7 +43,7 @@ export type ChatSectionSettingsPayload = Pick<
 export type AgenticSummaryCacheStatusRouteResponse =
   ResponseDataAndStatus<AgenticSummaryCacheStatus>;
 
-export type ContextModeOption = {
+type ContextModeOption = {
   id: AgenticEdgeContextModeEnum;
   label: string;
 };
@@ -59,7 +59,7 @@ export type SimpleLinkRow = {
   label: string;
 };
 
-export type AgenticScopeEntry = {
+type AgenticScopeEntry = {
   id: string;
   label: string;
 };
@@ -87,20 +87,20 @@ export const CONTEXT_MODE_OPTIONS: ContextModeOption[] =
     label: option.label,
   }));
 
-export type ChatModeFieldProps = {
+type ChatModeFieldProps = {
   modeItems: AllItemsType<string>;
   value: string | null | undefined;
   isDisabled: boolean;
   onChange: (value: string | null) => void;
 };
 
-export type ManagedModeToggleProps = {
+type ManagedModeToggleProps = {
   isDisabled: boolean;
   managed: boolean;
   onChange: (value: boolean) => void;
 };
 
-export type ManagedChatSettingsProps = {
+type ManagedChatSettingsProps = {
   managed: boolean;
   isDisabled: boolean;
   canManageManagedChatThreads: boolean;
@@ -127,14 +127,14 @@ export type ManagedChatSettingsProps = {
   onNewChat: () => void;
 };
 
-export type SummaryCacheStatusPanelProps = {
+type SummaryCacheStatusPanelProps = {
   loading: boolean;
   error: string | null;
   status: AgenticSummaryCacheStatus | null;
   onRefresh: () => void;
 };
 
-export type ManagedChatLLMSettingsProps = {
+type ManagedChatLLMSettingsProps = {
   engineType: EngineTypeEnum | null;
   isDisabled: boolean;
   thinking: boolean | undefined;
@@ -145,7 +145,7 @@ export type ManagedChatLLMSettingsProps = {
   noConfigsAvailable: boolean;
 };
 
-export type ContextLinksSectionProps = {
+type ContextLinksSectionProps = {
   items: AllItemsType<string>;
   canEditLinks: boolean;
   rows: ContextLinkRow[];
@@ -163,7 +163,7 @@ export type ContextLinksSectionProps = {
   onRefreshSummaryCacheStatus: () => void;
 };
 
-export type SimpleLinkSectionProps = {
+type SimpleLinkSectionProps = {
   title: string;
   items: AllItemsType<string>;
   canEditLinks: boolean;
@@ -175,7 +175,7 @@ export type SimpleLinkSectionProps = {
   emptyText: string;
 };
 
-export type ContextAndLinksCardProps = {
+type ContextAndLinksCardProps = {
   contextItems: AllItemsType<string>;
   scopeItems: AllItemsType<string>;
   agentItems: AllItemsType<string>;
@@ -199,24 +199,24 @@ export type ContextAndLinksCardProps = {
   onRefreshSummaryCacheStatus: () => void;
 };
 
-export type AgenticScopeCardProps = {
+type AgenticScopeCardProps = {
   blocks: AgenticScopeBlock[];
 };
 
-export type SectionCoreSummary = {
+type SectionCoreSummary = {
   displayName?: string | null;
   name?: string | null;
 };
 
-export type SectionVariantSummary = {
+type SectionVariantSummary = {
   impl: string;
 };
 
-export type SectionImplSummary = {
+type SectionImplSummary = {
   type: SectionTypeEnum;
 };
 
-export type SectionOptionsLookup = {
+type SectionOptionsLookup = {
   sectionId: string;
   sections: Record<string, SectionCoreSummary>;
   sectionVariants: Record<string, SectionVariantSummary>;
@@ -231,7 +231,7 @@ export function resolveSectionLabel(
   return labelsById[sectionId] ?? sectionId;
 }
 
-export function resolveSectionDisplayName(
+function resolveSectionDisplayName(
   core: SectionCoreSummary,
   sectionId: string,
 ): string {
@@ -449,7 +449,7 @@ export function ManagedChatSettings({
   );
 }
 
-export function ManagedChatLLMSettings({
+function ManagedChatLLMSettings({
   engineType,
   isDisabled,
   thinking,
@@ -503,7 +503,7 @@ export function ManagedChatLLMSettings({
   );
 }
 
-export function SummaryCacheStatusPanel({
+function SummaryCacheStatusPanel({
   loading,
   error,
   status,
@@ -573,7 +573,7 @@ export function SummaryCacheStatusPanel({
   );
 }
 
-export function ContextLinksSection({
+function ContextLinksSection({
   items,
   canEditLinks,
   rows,
@@ -660,7 +660,7 @@ export function ContextLinksSection({
   );
 }
 
-export function SimpleLinkSection({
+function SimpleLinkSection({
   title,
   items,
   canEditLinks,

@@ -167,7 +167,7 @@ export function GitCommitRow({
   );
 }
 
-export function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
+function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
   const {
     selectedCommitDetails,
     selectedCommitDetailsIsLoading,
@@ -223,7 +223,7 @@ export function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
   );
 }
 
-export function ExpandedGraphGutter({
+function ExpandedGraphGutter({
   laneColorIds,
   laneEndIndices,
   joinFromLaneIndices,
@@ -273,7 +273,7 @@ export function ExpandedGraphGutter({
   );
 }
 
-export function ExpandedCommitRow({
+function ExpandedCommitRow({
   details,
   selectedFilePath,
 }: {
@@ -375,7 +375,7 @@ export function ExpandedCommitRow({
   );
 }
 
-export function CommitFileRow({
+function CommitFileRow({
   file,
   isSelected,
 }: {
@@ -439,7 +439,7 @@ export function CommitFileRow({
   );
 }
 
-export function PathWithMutedDir({ path }: { path: string }) {
+function PathWithMutedDir({ path }: { path: string }) {
   const idx = path.lastIndexOf("/");
   if (idx === -1) {
     return <span>{path}</span>;
@@ -480,7 +480,7 @@ export function ColumnResizeHandle({
   );
 }
 
-export function rgbFromHex(hex: string): [number, number, number] | null {
+function rgbFromHex(hex: string): [number, number, number] | null {
   const value = hex.startsWith("#") ? hex.slice(1) : hex;
   if (value.length !== 6) {
     return null;
@@ -494,7 +494,7 @@ export function rgbFromHex(hex: string): [number, number, number] | null {
   return [r, g, b];
 }
 
-export function rgbaFromHex(hex: string, alpha: number): string {
+function rgbaFromHex(hex: string, alpha: number): string {
   const rgb = rgbFromHex(hex);
   if (!rgb) {
     return hex;
@@ -503,7 +503,7 @@ export function rgbaFromHex(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function DecorationPill({
+function DecorationPill({
   chip,
   laneColor,
 }: {
@@ -556,7 +556,7 @@ export function DecorationPill({
   );
 }
 
-export function GitGraphCell({
+function GitGraphCell({
   laneIndex,
   laneColorIds,
   laneStartIndices,

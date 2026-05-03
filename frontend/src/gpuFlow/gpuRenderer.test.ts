@@ -6,6 +6,7 @@ import {
   applyGpuCanvasSize,
   attachGpuCanvasResizeObserver,
   createGpuFrameScheduler,
+  measureGpuCanvasClientSize,
   resolveGpuCanvasSizeFromEntry,
   type GpuCanvasSize,
 } from "./gpuRenderer";
@@ -145,6 +146,25 @@ describe("GPU canvas sizing", () => {
       devicePixelRatio: 2,
       pixelHeight: 91,
       pixelWidth: 247,
+    });
+  });
+
+  it("measures initial canvas size from client dimensions without screen rects", () => {
+    const canvas = document.createElement("canvas");
+    Object.defineProperties(canvas, {
+      clientHeight: { configurable: true, value: 90 },
+      clientWidth: { configurable: true, value: 160 },
+    });
+    canvas.getBoundingClientRect = () => {
+      throw new Error("initial GPU canvas sizing must not read screen rects");
+    };
+
+    expect(measureGpuCanvasClientSize(canvas, 2)).toEqual({
+      cssHeight: 90,
+      cssWidth: 160,
+      devicePixelRatio: 2,
+      pixelHeight: 180,
+      pixelWidth: 320,
     });
   });
 

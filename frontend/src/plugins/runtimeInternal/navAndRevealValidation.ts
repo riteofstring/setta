@@ -234,7 +234,7 @@ export function removeInactivePluginStyles(activePluginIds: Set<string>): void {
   }
 }
 
-export function getPluginSettingRevealHandler(
+function getPluginSettingRevealHandler(
   pluginId: string,
   revealKey: string,
 ): PluginSettingRevealHandler | null {
@@ -245,7 +245,7 @@ export function getPluginSettingRevealHandler(
   return handlersByKey.get(revealKey) ?? null;
 }
 
-export function buildPluginSettingRevealFailure(
+function buildPluginSettingRevealFailure(
   pluginId: string,
   revealKey: string,
   reason:
@@ -296,9 +296,7 @@ export function buildPluginSettingRevealFailure(
   };
 }
 
-export function resolvePluginSettingRevealFailureMessage(
-  error: unknown,
-): string {
+function resolvePluginSettingRevealFailureMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }

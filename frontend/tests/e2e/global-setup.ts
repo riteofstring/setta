@@ -1,6 +1,5 @@
 import type { ConsoleMessage } from "@playwright/test";
 import { chromium, type FullConfig } from "@playwright/test";
-import { resolveChromeLaunchArgs } from "./chromeLaunchArgs";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -11,9 +10,9 @@ const PROJECT_URL =
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-const CHROME_EXECUTABLE_PATH =
-  process.env.SETTA_CHROME_BIN ?? process.env.CHROME_BIN;
-const BROWSER_LAUNCH_ARGS = resolveChromeLaunchArgs();
+const CHROME_EXECUTABLE_PATH = process.env.SETTA_CHROME_BIN ?? process.env.CHROME_BIN;
+const BROWSER_LAUNCH_ARGS =
+  process.platform === "darwin" ? ["--use-mock-keychain"] : [];
 
 async function globalSetup(config: FullConfig) {
   if (!BOOTSTRAP_TOKEN) {
@@ -22,16 +21,12 @@ async function globalSetup(config: FullConfig) {
     );
   }
   await waitForBackend(BACKEND_ORIGIN, 60000);
-  const storagePath = config.projects[0]?.use?.storageState as
-    | string
-    | undefined;
+  const storagePath = config.projects[0]?.use?.storageState as string | undefined;
   if (!storagePath) {
     throw new Error("storageState path missing in Playwright config.");
   }
   const browser = await chromium.launch({
-    ...(CHROME_EXECUTABLE_PATH
-      ? { executablePath: CHROME_EXECUTABLE_PATH }
-      : {}),
+    ...(CHROME_EXECUTABLE_PATH ? { executablePath: CHROME_EXECUTABLE_PATH } : {}),
     args: BROWSER_LAUNCH_ARGS,
   });
   const context = await browser.newContext();
@@ -96,10 +91,7 @@ async function globalSetup(config: FullConfig) {
 
 export default globalSetup;
 
-async function waitForBackend(
-  origin: string,
-  timeoutMs: number,
-): Promise<void> {
+async function waitForBackend(origin: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown = null;
   while (Date.now() < deadline) {

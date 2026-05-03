@@ -195,7 +195,7 @@ export function HomeFileBrowserColumn() {
   );
 }
 
-export type ProjectGalleryContentProps = {
+type ProjectGalleryContentProps = {
   projects: Array<HomeProject>;
   isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
@@ -214,7 +214,7 @@ export type ProjectGalleryContentProps = {
   dataTestId?: string;
 };
 
-export function HomeProjectGalleryViewToggle({
+function HomeProjectGalleryViewToggle({
   galleryViewMode,
 }: {
   galleryViewMode: "thumbnails" | "list";
@@ -251,7 +251,7 @@ export function HomeProjectGalleryViewToggle({
   );
 }
 
-export function ProjectGalleryContent({
+function ProjectGalleryContent({
   galleryViewMode,
   projects,
   isFavoriteSection,
@@ -430,7 +430,7 @@ export function HomeProjectGallery({
   );
 }
 
-export function ProjectGallerySection({
+function ProjectGallerySection({
   title,
   children,
   dataTestId,
@@ -451,7 +451,7 @@ export function ProjectGallerySection({
   );
 }
 
-export function ProjectGridItems({
+function ProjectGridItems({
   projects,
   isFavoriteSection,
   defaultProjectConfigId,
@@ -520,7 +520,7 @@ export function ProjectGridItems({
   );
 }
 
-export function ProjectCard({
+function ProjectCard({
   project,
   isFavorite,
   isDefault,
@@ -590,7 +590,7 @@ export function ProjectCard({
   );
 }
 
-export function ThumbnailWrapper({
+function ThumbnailWrapper({
   project,
   onSelectProject,
   onOpenProject,
@@ -634,7 +634,7 @@ export function ThumbnailWrapper({
   );
 }
 
-export function ProjectThumbnailSelectionButton({
+function ProjectThumbnailSelectionButton({
   iconButtonBaseClass,
   isSelected,
   onToggleProjectSelection,
@@ -667,7 +667,7 @@ export function ProjectThumbnailSelectionButton({
   );
 }
 
-export function ProjectThumbnailFavoriteButton({
+function ProjectThumbnailFavoriteButton({
   iconButtonBaseClass,
   isFavorite,
   onToggleFavoriteProjectConfig,
@@ -702,7 +702,7 @@ export function ProjectThumbnailFavoriteButton({
   );
 }
 
-export function ProjectThumbnailDefaultButton({
+function ProjectThumbnailDefaultButton({
   iconButtonBaseClass,
   isDefault,
   onSetDefaultProject,
@@ -738,7 +738,7 @@ export function ProjectThumbnailDefaultButton({
   );
 }
 
-export function ProjectThumbnailOverlay({
+function ProjectThumbnailOverlay({
   isDefault,
   isDeploymentMode,
   isFavorite,
@@ -805,7 +805,7 @@ export function ProjectThumbnailOverlay({
   );
 }
 
-export function ThumbnailArea({
+function ThumbnailArea({
   project,
   isSelected,
   onToggleProjectSelection,

@@ -124,7 +124,7 @@ export type GpuEdgeSceneLabel = {
   readonly zIndex?: number | undefined;
 };
 
-export type GpuEdgeReconnectEndpoint = "source" | "target";
+type GpuEdgeReconnectEndpoint = "source" | "target";
 
 export type GpuEdgeReconnectAnchor = {
   readonly edgeId: string;
@@ -152,24 +152,21 @@ export type GpuEdgeSceneHitTestResult = GpuEdgeHitTestResult & {
   readonly entry: GpuEdgeSceneEntry;
 };
 
-export type GpuDataEdgeEntriesInput = {
+type GpuDataEdgeEntriesInput = {
   readonly edges: readonly GpuDataEdgeSource[];
   readonly handlePositions: Readonly<Record<string, GpuEdgeHandlePosition>>;
 };
 
-export type GpuDataEdgeGeometryInput = Omit<
-  GpuDataEdgeEntriesInput,
-  "edges"
-> & {
+type GpuDataEdgeGeometryInput = Omit<GpuDataEdgeEntriesInput, "edges"> & {
   readonly edge: GpuDataEdgeSource;
 };
 
-export type GpuDataEdgeEndpoints = {
+type GpuDataEdgeEndpoints = {
   readonly source: GpuEdgeHandlePosition;
   readonly target: GpuEdgeHandlePosition;
 };
 
-export type GpuAgenticEdgeEntriesInput = {
+type GpuAgenticEdgeEntriesInput = {
   readonly edges: readonly GpuAgenticEdgeSource[];
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
   readonly runningSourceSectionIds?: ReadonlySet<string> | undefined;
@@ -178,12 +175,12 @@ export type GpuAgenticEdgeEntriesInput = {
     | undefined;
 };
 
-export type GpuWorkflowEdgeEntriesInput = {
+type GpuWorkflowEdgeEntriesInput = {
   readonly edges: readonly GpuWorkflowEdgeSource[];
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
 };
 
-export type BuildGpuEdgeSceneInput = {
+type BuildGpuEdgeSceneInput = {
   readonly agenticEdges?: readonly GpuAgenticEdgeSource[] | undefined;
   readonly connectionLine?: GpuConnectionLineSource | null | undefined;
   readonly dataEdges?: readonly GpuDataEdgeSource[] | undefined;
@@ -200,25 +197,25 @@ export type BuildGpuEdgeSceneInput = {
 
 export type NodeAnchorSide = "left" | "right";
 
-export const CONNECTION_LINE_EDGE_ID = "connection:active";
+const CONNECTION_LINE_EDGE_ID = "connection:active";
 
-export const DATA_EDGE_LABEL_HEIGHT = 18;
+const DATA_EDGE_LABEL_HEIGHT = 18;
 
-export const DATA_EDGE_LABEL_MIN_WIDTH = 32;
+const DATA_EDGE_LABEL_MIN_WIDTH = 32;
 
-export const DATA_EDGE_LABEL_TEXT_WIDTH = 6.5;
+const DATA_EDGE_LABEL_TEXT_WIDTH = 6.5;
 
-export const DATA_EDGE_LABEL_X_PADDING = 14;
+const DATA_EDGE_LABEL_X_PADDING = 14;
 
-export const DATA_EDGE_RECONNECT_RADIUS = 12;
+const DATA_EDGE_RECONNECT_RADIUS = 12;
 
-export const WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT = 20;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT = 20;
 
-export const WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH = 80;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH = 80;
 
-export const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
 
-export const WORKFLOW_SOURCE_ACTIVATION_LABEL_X_PADDING = 12;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_X_PADDING = 12;
 
 export function buildGpuEdgeScene({
   agenticEdges,
@@ -572,7 +569,7 @@ export function hitTestGpuEdgeScene({
   return { ...result, entry };
 }
 
-export function createGpuEdgeSceneEntry({
+function createGpuEdgeSceneEntry({
   active,
   color,
   connectionStatus,
@@ -610,7 +607,7 @@ export function createGpuEdgeSceneEntry({
   };
 }
 
-export function resolveGpuEdgeStyleStrokeColor(
+function resolveGpuEdgeStyleStrokeColor(
   style: unknown,
   subject: string,
 ): GpuRgbaColor | undefined {
@@ -632,7 +629,7 @@ export function resolveGpuEdgeStyleStrokeColor(
   return parseGpuHexColor(stroke, `${subject} style.stroke`);
 }
 
-export function resolveGpuDataEdgeGeometry({
+function resolveGpuDataEdgeGeometry({
   edge,
   handlePositions,
 }: GpuDataEdgeGeometryInput): GpuEdgeGeometry | null {
@@ -654,7 +651,7 @@ export function resolveGpuDataEdgeGeometry({
   });
 }
 
-export function resolveGpuDataEdgeEndpoints({
+function resolveGpuDataEdgeEndpoints({
   edge,
   handlePositions,
 }: GpuDataEdgeGeometryInput): GpuDataEdgeEndpoints | null {
@@ -675,14 +672,14 @@ export function resolveGpuDataEdgeEndpoints({
   return { source, target };
 }
 
-export function getDataEdgeLabelWidth(text: string): number {
+function getDataEdgeLabelWidth(text: string): number {
   return Math.max(
     DATA_EDGE_LABEL_MIN_WIDTH,
     text.length * DATA_EDGE_LABEL_TEXT_WIDTH + DATA_EDGE_LABEL_X_PADDING,
   );
 }
 
-export function createGpuDataEdgeReconnectAnchor({
+function createGpuDataEdgeReconnectAnchor({
   edge,
   endpoint,
   fixedHandle,
@@ -714,7 +711,7 @@ export function createGpuDataEdgeReconnectAnchor({
   };
 }
 
-export function shiftGpuEdgeReconnectAnchorCenter({
+function shiftGpuEdgeReconnectAnchorCenter({
   radius,
   side,
   x,
@@ -739,7 +736,7 @@ export function shiftGpuEdgeReconnectAnchorCenter({
   }
 }
 
-export function buildNodeAnchorEdgeGeometry({
+function buildNodeAnchorEdgeGeometry({
   edgeId,
   nodes,
   sourceSectionId,
@@ -766,7 +763,7 @@ export function buildNodeAnchorEdgeGeometry({
   });
 }
 
-export function buildWorkflowPromptLinkGeometry({
+function buildWorkflowPromptLinkGeometry({
   edge,
   nodes,
 }: {
@@ -797,7 +794,7 @@ export function buildWorkflowPromptLinkGeometry({
   });
 }
 
-export function buildWorkflowMainEdgeGeometry({
+function buildWorkflowMainEdgeGeometry({
   edge,
   nodes,
 }: {
@@ -812,13 +809,13 @@ export function buildWorkflowMainEdgeGeometry({
   });
 }
 
-export function getWorkflowSourceActivationCountLabel(
+function getWorkflowSourceActivationCountLabel(
   edge: GpuWorkflowEdgeSource,
 ): string | null {
   return edge.sourceActivationLabel ?? null;
 }
 
-export function getWorkflowSourceActivationLabelWidth(text: string): number {
+function getWorkflowSourceActivationLabelWidth(text: string): number {
   return Math.max(
     WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH,
     text.length * WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH +
@@ -826,7 +823,7 @@ export function getWorkflowSourceActivationLabelWidth(text: string): number {
   );
 }
 
-export function resolveNodeFrame(
+function resolveNodeFrame(
   sectionId: string,
   nodes: ReadonlyMap<string, GpuEdgeNodeFrame>,
 ): GpuEdgeNodeFrame | null {

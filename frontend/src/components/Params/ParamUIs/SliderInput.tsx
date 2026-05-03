@@ -273,6 +273,7 @@ function SliderOnly({
   return (
     <Slider.Root
       className={joinControlClassNames(sliderRootClassName)}
+      data-gpu-flow-activation="pointer"
       data-gpu-flow-interactive="true"
       value={[valueNum]}
       min={min}

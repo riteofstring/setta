@@ -46,16 +46,8 @@ export type GpuNodeInteractionDirtyControllerOptions = {
   readonly requestAnimationFrame?:
     | ((callback: FrameRequestCallback) => number)
     | undefined;
-  readonly shouldSkipPointerHandoff?:
-    | ((event: PointerEvent) => boolean)
-    | undefined;
-  readonly shouldSkipDirtyEvent?: ((event: Event) => boolean) | undefined;
-  readonly shouldSkipDirtyMark?:
-    | ((input: {
-        readonly nodeId: string;
-        readonly priority: NodeTexturePriority;
-        readonly reason: DirtyNodeReason;
-      }) => boolean)
+  readonly resolveCanvasCursor?:
+    | ((event: PointerEvent) => string | null)
     | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((

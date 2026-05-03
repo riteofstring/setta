@@ -43,7 +43,7 @@ import {
   ProjectChatWindowContent,
 } from "./windowContent";
 
-export type DockedWindowPanelProps = {
+type DockedWindowPanelProps = {
   pill: ResolvedWindowPill;
   projectConfigId: string;
   canEditLayout: boolean;
@@ -74,7 +74,7 @@ export type DockedWindowPanelProps = {
   onSingleDockResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
 };
 
-export type DockedWindowActionDefinition = {
+type DockedWindowActionDefinition = {
   key: string;
   testId: string;
   instanceId: string;
@@ -85,7 +85,7 @@ export type DockedWindowActionDefinition = {
   disabled?: boolean;
 };
 
-export function mapDockedWindowActionToSurfaceAction(
+function mapDockedWindowActionToSurfaceAction(
   action: DockedWindowActionDefinition,
 ) {
   return {
@@ -100,7 +100,7 @@ export function mapDockedWindowActionToSurfaceAction(
   };
 }
 
-export function renderDockedWindowHeaderAction(
+function renderDockedWindowHeaderAction(
   action: DockedWindowActionDefinition,
 ): ReactNode {
   const label = getWindowControlQuickInfoText(action.quickInfo);
@@ -121,7 +121,7 @@ export function renderDockedWindowHeaderAction(
   );
 }
 
-export function buildDockedWindowActions({
+function buildDockedWindowActions({
   instanceId,
   title,
   showDockHeaderCycleControls,
@@ -238,7 +238,7 @@ export function buildDockedWindowActions({
   return actions;
 }
 
-export function DockedWindowPanel({
+function DockedWindowPanel({
   pill,
   projectConfigId,
   canEditLayout,
@@ -358,7 +358,7 @@ export function DockedWindowPanel({
   );
 }
 
-export type DockedChatSurfaceLayerProps = {
+type DockedChatSurfaceLayerProps = {
   visibleDockedPills: ResolvedWindowPill[];
   projectConfigId: string;
   canEditLayout: boolean;

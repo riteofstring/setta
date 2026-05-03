@@ -2,10 +2,15 @@ import type {
   GpuEdgeReconnectAnchor,
   GpuEdgeScene,
 } from "../edges/edgeSources";
-import type { Connection, GpuFlowAutoPanInsetsInput } from "../flowTypes";
+import type {
+  Connection,
+  GpuFlowAutoPanInsetsInput,
+  GpuFlowConnectionContext,
+} from "../flowTypes";
 import { handlePointerDown } from "../Handle/handler";
 import type { ValidConnectionFunc } from "../Handle/utils";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import type { GpuFlowScene } from "../scene";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
   gpuFlowViewportStore,
@@ -20,17 +25,22 @@ export type GpuEdgeReconnectOptions = {
   readonly autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
   readonly disabled?: boolean | (() => boolean) | undefined;
   readonly isValidConnection?: ValidConnectionFunc | undefined;
-  readonly onReconnect: (edgeId: string, connection: Connection) => void;
+  readonly onReconnect: (
+    edgeId: string,
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
-export type GpuEdgeReconnectControllerOptions = GpuEdgeReconnectOptions & {
+type GpuEdgeReconnectControllerOptions = GpuEdgeReconnectOptions & {
   readonly element: HTMLElement;
+  readonly getFlowScene?: (() => GpuFlowScene | null | undefined) | undefined;
   readonly getScene: () => GpuEdgeScene | null | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi;
 };
 
-export type GpuEdgeReconnectAnchorInteractionHit = {
+type GpuEdgeReconnectAnchorInteractionHit = {
   readonly anchor: GpuEdgeReconnectAnchor;
   readonly distance: number;
   readonly flowPoint: GpuPoint;
@@ -73,7 +83,7 @@ export function hitTestGpuEdgeReconnectAnchorInteraction({
   });
 }
 
-export function hitTestGpuEdgeReconnectAnchors({
+function hitTestGpuEdgeReconnectAnchors({
   anchors,
   flowPoint,
   screenPoint,
@@ -101,12 +111,16 @@ class GpuEdgeReconnectController {
   private readonly disabled: boolean | (() => boolean) | undefined;
   private readonly autoPanInsetsPx: GpuFlowAutoPanInsetsInput;
   private readonly element: HTMLElement;
+  private readonly getFlowScene:
+    | (() => GpuFlowScene | null | undefined)
+    | undefined;
   private readonly getScene: () => GpuEdgeScene | null | undefined;
   private readonly isValidConnection: ValidConnectionFunc;
   private readonly layoutStore: GpuFlowLayoutStoreApi;
   private readonly onReconnect: (
     edgeId: string,
     connection: Connection,
+    context?: GpuFlowConnectionContext,
   ) => void;
   private readonly store: GpuFlowViewportStoreApi;
 
@@ -114,6 +128,7 @@ class GpuEdgeReconnectController {
     this.autoPanInsetsPx = options.autoPanInsetsPx;
     this.disabled = options.disabled;
     this.element = options.element;
+    this.getFlowScene = options.getFlowScene;
     this.getScene = options.getScene;
     this.isValidConnection = options.isValidConnection ?? alwaysValidConnection;
     this.layoutStore = options.layoutStore;
@@ -145,13 +160,14 @@ class GpuEdgeReconnectController {
       autoPanInsetsPx: this.autoPanInsetsPx,
       edgeUpdaterType: anchor.fixedHandleType,
       event,
+      getScene: this.getFlowScene,
       handleId: anchor.fixedHandleId,
       isTarget: anchor.fixedIsTarget,
       isValidConnection: this.isValidConnection,
       layoutStore: this.layoutStore,
       nodeId: anchor.fixedSectionId,
-      onConnect: (connection) => {
-        this.onReconnect(anchor.edgeId, connection);
+      onConnect: (connection, context) => {
+        this.onReconnect(anchor.edgeId, connection, context);
       },
       store: this.store,
     });

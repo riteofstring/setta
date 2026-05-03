@@ -1,6 +1,3 @@
-import { NO_DRAG_CLASS_NAME } from "utils/constants";
-
-import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type {
   GpuFlowLayoutChangePhase,
@@ -10,14 +7,18 @@ import type {
   GpuFlowLayoutStoreApi,
 } from "../layoutStore";
 import { panGpuViewport } from "../viewportActions";
-import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
+import {
+  screenToFlowPosition,
+  type GpuPoint,
+  type GpuRect,
+} from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 import { getGpuNodeDragAutoPanDelta } from "./nodeDrag";
 
-export type GpuSelectionDragPhase = "cancel" | "drag" | "start" | "stop";
+type GpuSelectionDragPhase = "cancel" | "drag" | "start" | "stop";
 
 export type GpuSelectionDragItem = {
   readonly height: number | null;
@@ -40,7 +41,7 @@ export type GpuSelectionKeyboardNudgeChange = {
   readonly selectedNodeIds: readonly string[];
 };
 
-export type GpuSelectionDragAutoPanInsets = {
+type GpuSelectionDragAutoPanInsets = {
   readonly bottom?: number | undefined;
   readonly left?: number | undefined;
   readonly right?: number | undefined;
@@ -74,9 +75,6 @@ export type GpuSelectionDragControllerOptions = {
   readonly onSelectionKeyboardNudge?:
     | ((change: GpuSelectionKeyboardNudgeChange) => void)
     | undefined;
-  readonly onSelectionElementChange?:
-    | ((element: HTMLElement | null) => void)
-    | undefined;
   readonly primaryNodeId?: string | null | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly selectedNodeIds?: readonly string[] | undefined;
@@ -90,7 +88,6 @@ type ActiveGpuSelectionDrag = {
   lastFlowPoint: GpuPoint;
   lastScreenPoint: GpuPoint;
   pointerId: number;
-  readonly rectElement: HTMLElement;
   readonly selectedNodeIds: readonly string[];
 };
 
@@ -304,15 +301,14 @@ class GpuSelectionDragController {
   }
 
   private readonly onContextMenu = (event: MouseEvent) => {
-    const rectElement = getEventSelectionRectElement(event);
-    if (!rectElement) {
+    if (!this.isSelectionBoundsPointerTarget(event)) {
       return;
     }
     this.options.onSelectionContextMenu?.(event, this.getExistingSelectedIds());
   };
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
-    if (!getEventSelectionRectElement(event)) {
+    if (!this.shouldHandleSelectionKeyboardEvent(event)) {
       return;
     }
     const direction = SELECTION_ARROW_KEY_DIFFS[event.key];
@@ -342,8 +338,7 @@ class GpuSelectionDragController {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
-    const rectElement = getEventSelectionRectElement(event);
-    if (!rectElement || !this.shouldStartSelectionDrag(event, rectElement)) {
+    if (!this.shouldStartSelectionDrag(event)) {
       return;
     }
     const items = this.getDraggableSelectedItems();
@@ -352,15 +347,14 @@ class GpuSelectionDragController {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    rectElement.focus({ preventScroll: true });
-    rectElement.setPointerCapture?.(event.pointerId);
+    this.element.focus({ preventScroll: true });
+    this.element.setPointerCapture?.(event.pointerId);
     const lastScreenPoint = getEventPointRelativeToElement(event, this.element);
     this.activeDrag = {
       items,
       lastFlowPoint: this.screenPointToFlowPoint(lastScreenPoint),
       lastScreenPoint,
       pointerId: event.pointerId,
-      rectElement,
       selectedNodeIds: items.map((item) => item.nodeId),
     };
     this.applySelectionDragStartState(items);
@@ -394,7 +388,7 @@ class GpuSelectionDragController {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    drag.rectElement.releasePointerCapture?.(event.pointerId);
+    this.element.releasePointerCapture?.(event.pointerId);
     this.stopActiveDrag();
   };
 
@@ -405,22 +399,40 @@ class GpuSelectionDragController {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    drag.rectElement.releasePointerCapture?.(event.pointerId);
+    this.element.releasePointerCapture?.(event.pointerId);
     this.cancelActiveDrag();
   };
 
-  private shouldStartSelectionDrag(
-    event: PointerEvent,
-    rectElement: HTMLElement,
-  ): boolean {
+  private shouldStartSelectionDrag(event: PointerEvent): boolean {
     if (event.button !== 0 || isSelectionDragDisabled(this.options.disabled)) {
       return false;
     }
-    return !isEventTargetWrappedWithClass(
-      event,
-      NO_DRAG_CLASS_NAME,
-      rectElement,
-    );
+    return this.isSelectionBoundsPointerTarget(event);
+  }
+
+  private shouldHandleSelectionKeyboardEvent(event: KeyboardEvent): boolean {
+    return event.target === this.element && this.hasSelectionBounds();
+  }
+
+  private isSelectionBoundsPointerTarget(
+    event: Pick<MouseEvent, "clientX" | "clientY" | "target">,
+  ): boolean {
+    if (!isGpuSelectionDragSurfaceTarget(event.target, this.element)) {
+      return false;
+    }
+    const bounds = this.store.getState().nodesSelectionBounds;
+    if (!bounds) {
+      return false;
+    }
+    return hitTestGpuSelectionBounds({
+      bounds,
+      screenPoint: getEventPointRelativeToElement(event, this.element),
+      viewport: this.store.getState().transform,
+    });
+  }
+
+  private hasSelectionBounds(): boolean {
+    return this.store.getState().nodesSelectionBounds !== null;
   }
 
   private getDraggableSelectedItems(): GpuSelectionDragItem[] {
@@ -730,14 +742,6 @@ function isSelectionDragDisabled(
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
 }
 
-function getEventSelectionRectElement(event: Event): HTMLElement | null {
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return null;
-  }
-  return target.closest<HTMLElement>(GPU_FLOW_SELECTORS.nodesSelectionRect);
-}
-
 function getEventPointRelativeToElement(
   event: Pick<MouseEvent, "clientX" | "clientY">,
   element: HTMLElement,
@@ -749,26 +753,38 @@ function getEventPointRelativeToElement(
   };
 }
 
-function isEventTargetWrappedWithClass(
-  event: Event,
-  className: string,
-  stopElement: Element,
+export function hitTestGpuSelectionBounds({
+  bounds,
+  screenPoint,
+  viewport,
+}: {
+  readonly bounds: GpuRect;
+  readonly screenPoint: GpuPoint;
+  readonly viewport: Parameters<typeof screenToFlowPosition>[1];
+}): boolean {
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return false;
+  }
+  const flowPoint = screenToFlowPosition(screenPoint, viewport);
+  return (
+    flowPoint.x >= bounds.x &&
+    flowPoint.y >= bounds.y &&
+    flowPoint.x <= bounds.x + bounds.width &&
+    flowPoint.y <= bounds.y + bounds.height
+  );
+}
+
+function isGpuSelectionDragSurfaceTarget(
+  target: EventTarget | null,
+  element: HTMLElement,
 ): boolean {
-  const target = event.target;
   if (!(target instanceof Element)) {
     return false;
   }
-  let current: Element | null = target;
-  while (current) {
-    if (current.classList.contains(className)) {
-      return true;
-    }
-    if (current === stopElement) {
-      return false;
-    }
-    current = current.parentElement;
+  if (target === element) {
+    return true;
   }
-  return false;
+  return target.closest("[data-gpu-flow-surface='true']") !== null;
 }
 
 function assertFinitePositive(name: string, value: number) {
