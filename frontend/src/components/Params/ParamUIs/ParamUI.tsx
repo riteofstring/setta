@@ -73,6 +73,7 @@ type ParamUIProps = {
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
+  tooltipParentDivId?: string | null | undefined;
 };
 
 type ParamUIState = {
@@ -260,6 +261,7 @@ function renderTextLikeParam({
   onChange,
   onEscape,
   maybeErrorMessage,
+  tooltipParentDivId,
   isDisabled,
   isSelectingParams,
   paramUiState,
@@ -282,6 +284,7 @@ function renderTextLikeParam({
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
+      tooltipParentDivId={tooltipParentDivId}
     />
   );
 }
@@ -585,6 +588,7 @@ export function ParamUI({
   onRevealPassword,
   isPasswordRevealPending,
   maybeErrorMessage,
+  tooltipParentDivId,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -626,6 +630,7 @@ export function ParamUI({
     onRevealPassword,
     isPasswordRevealPending,
     maybeErrorMessage,
+    tooltipParentDivId,
     isDisabled,
     isSelectingParams,
     onEscape,
@@ -660,6 +665,7 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  tooltipParentDivId,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -672,7 +678,12 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
+  tooltipParentDivId: string | null | undefined;
 }) {
+  const resolvedTooltipParentDivId =
+    tooltipParentDivId === undefined
+      ? CODEMIRROR_TOOLTIP_PARENT_ID
+      : tooltipParentDivId;
   return (
     <>
       <TextInputCodeMirror
@@ -691,7 +702,7 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        tooltipParentDivId={resolvedTooltipParentDivId}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

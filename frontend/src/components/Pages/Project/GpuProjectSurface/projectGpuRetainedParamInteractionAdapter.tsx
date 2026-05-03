@@ -11,6 +11,7 @@ import {
 } from "gpuFlow/retainedContentScroll";
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
+import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { moveParamsWithBackend } from "state/actions/params/moveParams";
@@ -27,6 +28,7 @@ import {
   type ProjectGpuRetainedParamDragPreview,
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
+import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -404,6 +406,8 @@ function ProjectGpuParamDomIsland({
     return () => cancelAnimationFrame(frameId);
   }, [paramInfoId, sectionId]);
 
+  useEffect(() => subscribeToGpuViewportReposition(), []);
+
   return (
     <div
       className="relative h-full min-w-0 bg-white dark:bg-setta-900"
@@ -421,7 +425,11 @@ function ProjectGpuParamDomIsland({
           width: contentRect.width,
         }}
       >
-        <ParamInput sectionId={sectionId} paramInfoId={paramInfoId} />
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          tooltipParentDivId={PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}
+        />
       </div>
     </div>
   );

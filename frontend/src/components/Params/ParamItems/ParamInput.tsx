@@ -34,6 +34,7 @@ type ParamInputProps = {
   sectionId: string;
   paramInfoId: string;
   maybeErrorMessage?: string;
+  tooltipParentDivId?: string | null | undefined;
 };
 
 type PreviewParamState = {
@@ -320,6 +321,7 @@ function _ParamInput({
   sectionId,
   paramInfoId,
   maybeErrorMessage,
+  tooltipParentDivId,
 }: ParamInputProps) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const previewParamState = usePreviewParamState(sectionId, paramInfoId);
@@ -414,6 +416,7 @@ function _ParamInput({
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}
       maybeErrorMessage={maybeErrorMessage}
+      tooltipParentDivId={tooltipParentDivId}
     />
   );
 }

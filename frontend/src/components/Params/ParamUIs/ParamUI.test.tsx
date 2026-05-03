@@ -3,6 +3,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -78,6 +79,7 @@ vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
     defaultVal: string;
     isDisabled: boolean;
     language: string;
+    tooltipParentDivId?: string | null;
   }) => {
     mocks.textInputProps(props);
     return (
@@ -86,6 +88,7 @@ vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
         data-default-val={props.defaultVal}
         data-disabled={String(props.isDisabled)}
         data-language={props.language}
+        data-tooltip-parent={props.tooltipParentDivId ?? ""}
       />
     );
   },
@@ -302,7 +305,32 @@ describe("ParamUI", () => {
         "print('hello')",
       );
       expect(textInput?.getAttribute("data-disabled")).toBe("true");
+      expect(textInput?.getAttribute("data-tooltip-parent")).toBe(
+        CODEMIRROR_TOOLTIP_PARENT_ID,
+      );
       expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("forwards a retained CodeMirror tooltip parent override to text inputs", async () => {
+    const rendered = await renderParamUI({
+      tooltipParentDivId: "retained-codemirror-tooltips",
+    });
+
+    try {
+      const textInput = rendered.host.querySelector(
+        '[data-testid="text-input"]',
+      );
+      expect(textInput?.getAttribute("data-tooltip-parent")).toBe(
+        "retained-codemirror-tooltips",
+      );
+      expect(mocks.textInputProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tooltipParentDivId: "retained-codemirror-tooltips",
+        }),
+      );
     } finally {
       await cleanupRenderedParamUI(rendered);
     }
