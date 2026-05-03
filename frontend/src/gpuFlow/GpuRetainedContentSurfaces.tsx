@@ -45,6 +45,7 @@ import {
   drawGpuRetainedContentStatusBadge,
   drawGpuRetainedContentStatusOverlay,
 } from "./retainedContentStatusCanvas";
+import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
@@ -466,6 +467,14 @@ function drawGpuRetainedContentInputControl({
   readonly state: GpuRetainedContentRowState | undefined;
 }): boolean {
   switch (control.kind) {
+    case "text-like":
+      drawGpuRetainedContentTextLikeControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return true;
     case "button":
       drawGpuRetainedContentButtonControl({
         control,

@@ -17,7 +17,6 @@ import type {
   GpuRetainedContentDateCalendarMonth,
 } from "gpuFlow/retainedContentDateCalendarTypes";
 import type {
-  GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDropdownChoice,
   GpuRetainedContentDropzoneAttachment,
@@ -67,7 +66,9 @@ import {
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
+import { createProjectGpuColorPickerControlDescriptor } from "./projectGpuParamColorPickerRowDescriptor";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
+import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
   validateProjectGpuDateCalendarVisibleMonth,
@@ -232,6 +233,37 @@ function createProjectGpuLeafParamControlDescriptor({
   readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
   readonly isDeploymentMode: boolean;
 }): GpuRetainedContentControlDescriptor | null {
+  return (
+    createProjectGpuTextLikeControlDescriptorIfSupported({
+      codeObjImpl,
+      controlKind,
+    }) ??
+    createProjectGpuSpecializedControlDescriptorIfSupported({
+      codeObjImpl,
+      controlKind,
+      isDeploymentMode,
+    }) ??
+    createProjectGpuDateTimeControlDescriptorIfSupported({
+      codeObjImpl,
+      controlKind,
+      dateCalendarVisibleMonth,
+    })
+  );
+}
+
+function createProjectGpuSpecializedControlDescriptorIfSupported({
+  codeObjImpl,
+  controlKind,
+  isDeploymentMode,
+}: {
+  readonly codeObjImpl: {
+    readonly defaultVal?: unknown;
+    readonly type: string;
+    readonly value?: unknown;
+  };
+  readonly controlKind: string;
+  readonly isDeploymentMode: boolean;
+}): GpuRetainedContentControlDescriptor | null {
   if (codeObjImpl.type === CodeObjTypeEnum.SwitchParam) {
     const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
     return {
@@ -290,11 +322,7 @@ function createProjectGpuLeafParamControlDescriptor({
       controlKind,
     });
   }
-  return createProjectGpuDateTimeControlDescriptorIfSupported({
-    codeObjImpl,
-    controlKind,
-    dateCalendarVisibleMonth,
-  });
+  return null;
 }
 
 function createProjectGpuDateTimeControlDescriptorIfSupported({
@@ -557,53 +585,6 @@ function formatProjectGpuDateCalendarMonthTitle(
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
-}
-
-function createProjectGpuColorPickerControlDescriptor({
-  codeObjImpl,
-  controlKind,
-}: {
-  readonly codeObjImpl: ColorPickerParamCodeObjImpl;
-  readonly controlKind: string;
-}): GpuRetainedContentControlDescriptor | null {
-  const choices = toProjectGpuColorPickerChoices(codeObjImpl);
-  if (choices.length === 0) {
-    return null;
-  }
-  const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  const selectedIndex = choices.findIndex(
-    (choice) => choice.color === displayValue,
-  );
-  return {
-    choices,
-    defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
-    displayValue,
-    kind: "color-picker",
-    rendererFamily: controlKind,
-    commitPolicy: "immediate",
-    selectedIndex: selectedIndex === -1 ? null : selectedIndex,
-  };
-}
-
-function toProjectGpuColorPickerChoices(
-  codeObjImpl: ColorPickerParamCodeObjImpl,
-): readonly GpuRetainedContentColorChoice[] {
-  const colorChoices = codeObjImpl.colorChoices ?? [];
-  return colorChoices.map((choice, index) => {
-    const color = choice.color;
-    const description = choice.description;
-    if (typeof color !== "string" || color.length === 0) {
-      throw new Error(
-        `Invalid GPU retained color choice ${index} for ${codeObjImpl.id}: expected a non-empty color string.`,
-      );
-    }
-    if (typeof description !== "string") {
-      throw new Error(
-        `Invalid GPU retained color choice ${index} for ${codeObjImpl.id}: expected a description string.`,
-      );
-    }
-    return { color, description };
-  });
 }
 
 function createProjectGpuDropdownControlDescriptor({

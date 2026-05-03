@@ -8,6 +8,7 @@ import type {
 import { getGpuRetainedContentRotaryKnobRect } from "gpuFlow/retainedContentControls";
 import {
   createGpuRetainedRowContentScene,
+  type GpuRetainedContentControlDescriptor,
   type GpuRetainedContentHitRecord,
   type GpuRetainedContentScene,
 } from "gpuFlow/retainedContentScene";
@@ -676,6 +677,7 @@ describe("project GPU retained param DOM islands", () => {
       rowHeight: 28,
       rows: [
         {
+          control: textLikeControlDescriptor(""),
           controlKind: "text-like",
           depth: 0,
           id: "param-1",
@@ -737,6 +739,7 @@ describe("project GPU retained param DOM islands", () => {
       rowHeight: 28,
       rows: [
         {
+          control: textLikeControlDescriptor(""),
           controlKind: "text-like",
           depth: 0,
           id: "param-1",
@@ -795,6 +798,7 @@ describe("project GPU retained param DOM islands", () => {
       rowHeight: 28,
       rows: [
         {
+          control: displayOnlyTimeControlDescriptor(),
           controlKind: "date-time",
           depth: 0,
           id: "param-1",
@@ -2558,6 +2562,7 @@ describe("project GPU retained param DOM islands", () => {
       rowHeight: 28,
       rows: [
         {
+          control: textLikeControlDescriptor(""),
           controlKind: "text-like",
           depth: 0,
           id: "param-1",
@@ -2884,6 +2889,33 @@ function resolveDisabledOption(
   disabled: boolean | (() => boolean) | undefined,
 ): boolean {
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
+}
+
+function textLikeControlDescriptor(
+  displayValue: string,
+): GpuRetainedContentControlDescriptor {
+  return {
+    defaultDisplayValue: "",
+    displayValue,
+    editorKind: "text",
+    kind: "text-like",
+    rendererFamily: "text-like",
+    commitPolicy: "native-island",
+  };
+}
+
+function displayOnlyTimeControlDescriptor(): GpuRetainedContentControlDescriptor {
+  return {
+    calendar: null,
+    defaultDisplayValue: "--:--",
+    displayValue: "12:00",
+    kind: "date-time",
+    label: "Display time",
+    mode: "time-display",
+    rendererFamily: "date-time",
+    summaryText: null,
+    commitPolicy: "native-island",
+  };
 }
 
 function retainedParamIsland(

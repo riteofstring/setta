@@ -76,6 +76,14 @@ export type GpuRetainedContentControlDescriptor =
   | {
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
+      readonly editorKind: "code" | "text" | "textarea";
+      readonly kind: "text-like";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "native-island";
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
       readonly kind: "button";
       readonly label: string;
       readonly rendererFamily: string;
@@ -117,7 +125,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly displayValue: string;
       readonly kind: "color-picker";
       readonly rendererFamily: string;
-      readonly commitPolicy: "immediate";
+      readonly commitPolicy: "immediate" | "native-island";
       readonly selectedIndex: number | null;
     }
   | {
@@ -670,6 +678,13 @@ function createGpuRetainedContentControl(
   }
   if (!input.controlKind) {
     return null;
+  }
+  if (input.controlKind !== "nested") {
+    throw new Error(
+      `Retained content row ${input.id} declared control kind ${JSON.stringify(
+        input.controlKind,
+      )} without a concrete control descriptor.`,
+    );
   }
   return {
     defaultDisplayValue: "",

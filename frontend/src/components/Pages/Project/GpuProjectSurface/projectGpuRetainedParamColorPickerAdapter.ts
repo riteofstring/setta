@@ -20,6 +20,12 @@ export function getProjectGpuRetainedColorPickerPopupTarget(
   if (!row?.control || row.control.kind !== "color-picker") {
     return null;
   }
+  if (
+    row.control.commitPolicy !== "immediate" ||
+    row.control.choices.length === 0
+  ) {
+    return null;
+  }
   return {
     hitRecordId: event.hit.id,
     kind: "color-picker",

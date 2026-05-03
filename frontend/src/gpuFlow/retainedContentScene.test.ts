@@ -935,14 +935,49 @@ describe("retained content scene", () => {
       }),
     ).toThrow("retained row height must be a finite positive number.");
   });
+
+  it("fails loudly when a control kind has no concrete descriptor", () => {
+    expect(() =>
+      createGpuRetainedRowContentScene({
+        id: "surface-a",
+        ownerSectionId: "section-a",
+        rowHeight: 24,
+        rows: [
+          {
+            controlKind: "text-like",
+            depth: 0,
+            id: "param-a",
+            label: "param-a",
+          },
+        ],
+        scrollOffset: { x: 0, y: 0 },
+        viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+      }),
+    ).toThrow(
+      'Retained content row param-a declared control kind "text-like" without a concrete control descriptor.',
+    );
+  });
 });
 
 function row(
   id: string,
   overrides: Partial<GpuRetainedContentRowInput> = {},
 ): GpuRetainedContentRowInput {
+  const controlKind = overrides.controlKind ?? "text-like";
   return {
-    controlKind: "text-like",
+    ...(controlKind === "text-like"
+      ? {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: id,
+            editorKind: "text" as const,
+            kind: "text-like" as const,
+            rendererFamily: "text-like",
+            commitPolicy: "native-island" as const,
+          },
+        }
+      : {}),
+    controlKind,
     depth: 0,
     id,
     label: id,

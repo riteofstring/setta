@@ -354,6 +354,16 @@ describe("project GPU layout adapter", () => {
         },
       },
     ]);
+    expect(
+      paramSurface?.retainedScene?.rows.find((row) => row.id === "child-param")
+        ?.control,
+    ).toMatchObject({
+      displayValue: "",
+      editorKind: "code",
+      kind: "text-like",
+      rendererFamily: "text-like",
+      commitPolicy: "native-island",
+    });
     expect(paramSurface?.retainedScene?.portAnchors).toEqual([
       expect.objectContaining({
         id: "child-param",
@@ -2088,6 +2098,17 @@ describe("project GPU layout adapter", () => {
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
       rect: { height: 28, width: 112 },
+    });
+    expect(
+      nativeScene.contentSurfaces
+        .find((surface) => surface.id === "dict-a:param-content:unpinned")
+        ?.retainedScene?.rows.find((row) => row.id === "native-color-param")
+        ?.control,
+    ).toMatchObject({
+      choices: [],
+      kind: "color-picker",
+      rendererFamily: "color-picker",
+      commitPolicy: "native-island",
     });
 
     const paletteScene = getProjectGpuFlowScene(projectState, {
