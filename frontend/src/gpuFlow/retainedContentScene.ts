@@ -42,6 +42,8 @@ export type GpuRetainedContentVisibleRowRange = {
   readonly startIndex: number;
 };
 
+export type GpuRetainedContentDropMarkerEdge = "after" | "before" | "inside";
+
 export type GpuRetainedContentDrawCommand =
   | {
       readonly kind: "row-background";
@@ -69,7 +71,7 @@ export type GpuRetainedContentDrawCommand =
       readonly rowId: string;
     }
   | {
-      readonly edge: "after" | "before";
+      readonly edge: GpuRetainedContentDropMarkerEdge;
       readonly kind: "row-drop-marker";
       readonly rect: GpuRect;
       readonly rowId: string;
@@ -117,7 +119,7 @@ export type GpuRetainedContentDragPreviewInput = {
   readonly draggingRowIds: readonly string[];
   readonly dropMarker?:
     | {
-        readonly edge: "after" | "before";
+        readonly edge: GpuRetainedContentDropMarkerEdge;
         readonly rowId: string;
       }
     | null
@@ -361,6 +363,7 @@ function createGpuRetainedContentDrawCommands({
   }
   const marker = createGpuRetainedContentDropMarkerCommand({
     dragPreview,
+    indentWidth,
     rows,
     viewportRect,
   });
@@ -381,10 +384,12 @@ function createGpuRetainedContentDrawCommands({
 
 function createGpuRetainedContentDropMarkerCommand({
   dragPreview,
+  indentWidth,
   rows,
   viewportRect,
 }: {
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
+  readonly indentWidth: number;
   readonly rows: readonly GpuRetainedContentRow[];
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentDrawCommand | null {
@@ -396,28 +401,78 @@ function createGpuRetainedContentDropMarkerCommand({
   if (!row) {
     return null;
   }
-  const markerHeight = 2;
-  const y =
-    marker.edge === "before"
-      ? row.projectedRect.y
-      : row.projectedRect.y + row.projectedRect.height;
-  if (
-    y < viewportRect.y - markerHeight ||
-    y > viewportRect.y + viewportRect.height + markerHeight
-  ) {
+  const rect = createGpuRetainedContentDropMarkerRect({
+    edge: marker.edge,
+    indentWidth,
+    row,
+    viewportRect,
+  });
+  if (!rect) {
     return null;
   }
   return {
     edge: marker.edge,
     kind: "row-drop-marker",
-    rect: {
-      height: markerHeight,
-      width: Math.max(0, viewportRect.width - 8),
-      x: viewportRect.x + 4,
-      y: y - markerHeight / 2,
-    },
+    rect,
     rowId: row.id,
   };
+}
+
+function createGpuRetainedContentDropMarkerRect({
+  edge,
+  indentWidth,
+  row,
+  viewportRect,
+}: {
+  readonly edge: GpuRetainedContentDropMarkerEdge;
+  readonly indentWidth: number;
+  readonly row: GpuRetainedContentRow;
+  readonly viewportRect: GpuRect;
+}): GpuRect | null {
+  const markerHeight = edge === "inside" ? 3 : 2;
+  const y = getGpuRetainedContentDropMarkerY(edge, row, markerHeight);
+  if (
+    y + markerHeight < viewportRect.y ||
+    y > viewportRect.y + viewportRect.height
+  ) {
+    return null;
+  }
+  return {
+    height: markerHeight,
+    width: Math.max(
+      0,
+      viewportRect.width -
+        getGpuRetainedContentDropMarkerInsetX(edge, row, indentWidth) -
+        4,
+    ),
+    x:
+      viewportRect.x +
+      getGpuRetainedContentDropMarkerInsetX(edge, row, indentWidth),
+    y,
+  };
+}
+
+function getGpuRetainedContentDropMarkerY(
+  edge: GpuRetainedContentDropMarkerEdge,
+  row: GpuRetainedContentRow,
+  markerHeight: number,
+): number {
+  if (edge === "inside") {
+    return row.projectedRect.y + row.projectedRect.height - markerHeight - 4;
+  }
+  const markerCenterY =
+    edge === "before"
+      ? row.projectedRect.y
+      : row.projectedRect.y + row.projectedRect.height;
+  return markerCenterY - markerHeight / 2;
+}
+
+function getGpuRetainedContentDropMarkerInsetX(
+  edge: GpuRetainedContentDropMarkerEdge,
+  row: GpuRetainedContentRow,
+  indentWidth: number,
+): number {
+  return edge === "inside" ? 4 + (row.depth + 1) * indentWidth : 4;
 }
 
 function createGpuRetainedContentDragPreviewCommand({

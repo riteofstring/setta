@@ -144,11 +144,88 @@ describe("project GPU retained param drag adapter", () => {
       surfaceId: "dict-a:param-content:unpinned",
     });
   });
+
+  it("resolves retained control drops into empty nested parents", () => {
+    const projectState = projectStateWithParams({
+      nestedChildrenByParent: { "empty-parent": [] },
+      rootChildren: ["empty-parent", "other-param"],
+      selectedParams: ["other-param"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "other-param",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      resolveProjectGpuRetainedParamDropMove({
+        event: retainedControlHit("empty-parent", { x: 220, y: 14 }),
+        projectState,
+        session: session!,
+      }),
+    ).toEqual({
+      newIndex: 0,
+      newParentId: "empty-parent",
+      paramIds: ["other-param"],
+      sectionId: "dict-a",
+    });
+    expect(
+      createProjectGpuRetainedParamDragPreview({
+        hit: retainedControlHit("empty-parent", { x: 220, y: 14 }),
+        projectState,
+        session: session!,
+      }),
+    ).toEqual({
+      draggingParamIds: ["other-param"],
+      dropMarker: { edge: "inside", rowId: "empty-parent" },
+      pointerLocal: { x: 220, y: 14 },
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+  });
+
+  it("rejects retained empty-parent drops onto the dragged parent", () => {
+    const projectState = projectStateWithParams({
+      nestedChildrenByParent: { "empty-parent": [] },
+      rootChildren: ["empty-parent", "other-param"],
+      selectedParams: ["empty-parent"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "empty-parent",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      resolveProjectGpuRetainedParamDropMove({
+        event: retainedControlHit("empty-parent", { x: 220, y: 14 }),
+        projectState,
+        session: session!,
+      }),
+    ).toBeNull();
+  });
 });
 
 function retainedRowHit(
   paramId: string,
-  localPoint: { readonly y: number },
+  localPoint: { readonly x?: number; readonly y: number },
+): GpuRetainedContentInteractionHit {
+  return retainedHit("row", paramId, localPoint);
+}
+
+function retainedControlHit(
+  paramId: string,
+  localPoint: { readonly x?: number; readonly y: number },
+): GpuRetainedContentInteractionHit {
+  return retainedHit("control", paramId, localPoint);
+}
+
+function retainedHit(
+  kind: "control" | "row",
+  paramId: string,
+  localPoint: { readonly x?: number; readonly y: number },
 ): GpuRetainedContentInteractionHit {
   const rows = [
     "param-a",
@@ -158,13 +235,15 @@ function retainedRowHit(
     "child-a",
     "child-b",
     "other-param",
+    "empty-parent",
   ];
   const retainedScene = createGpuRetainedRowContentScene({
     id: "dict-a:param-content:unpinned",
     ownerSectionId: "dict-a",
     rowHeight: 28,
     rows: rows.map((id) => ({
-      controlKind: "text-like",
+      controlKind:
+        id === "parent-param" || id === "empty-parent" ? "nested" : "text-like",
       depth: id.startsWith("child") ? 1 : 0,
       id,
       label: id,
@@ -173,18 +252,19 @@ function retainedRowHit(
     viewportRect: { height: 240, width: 260, x: 0, y: 0 },
   });
   const hit = retainedScene.hitRecords.find(
-    (record) => record.id === `row:${paramId}`,
+    (record) => record.id === `${kind}:${paramId}`,
   );
   if (!hit) {
     throw new Error(`missing retained test hit ${paramId}`);
   }
+  const x = localPoint.x ?? 20;
   return {
-    flowPoint: { x: 20, y: localPoint.y },
+    flowPoint: { x, y: localPoint.y },
     hit,
-    localPoint: { x: 20, y: localPoint.y },
+    localPoint: { x, y: localPoint.y },
     ownerSectionId: "dict-a",
     retainedScene,
-    screenPoint: { x: 20, y: localPoint.y },
+    screenPoint: { x, y: localPoint.y },
     surfaceId: "dict-a:param-content:unpinned",
     zIndex: 1,
   };

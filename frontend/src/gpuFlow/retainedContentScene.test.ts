@@ -195,6 +195,37 @@ describe("retained content scene", () => {
     );
   });
 
+  it("emits inset drop markers for retained inside-row drops", () => {
+    const scene = createGpuRetainedRowContentScene({
+      dragPreview: {
+        draggingRowIds: ["param-a"],
+        dropMarker: { edge: "inside", rowId: "parent" },
+        pointerLocal: { x: 40, y: 16 },
+      },
+      id: "surface-a",
+      indentWidth: 12,
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("parent", { controlKind: "nested", depth: 0 }),
+        row("param-a", { depth: 1 }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 48, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        {
+          edge: "inside",
+          kind: "row-drop-marker",
+          rect: { height: 3, width: 200, x: 16, y: 17 },
+          rowId: "parent",
+        },
+      ]),
+    );
+  });
+
   it("fails loudly for invalid retained row metrics", () => {
     expect(() =>
       resolveGpuRetainedContentVisibleRowRange({

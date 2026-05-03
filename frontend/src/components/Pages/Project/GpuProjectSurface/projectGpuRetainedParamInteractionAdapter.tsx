@@ -78,7 +78,7 @@ export function getProjectRetainedContentInteractionOptions({
         event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
       ),
     shouldHandleDragMoveHit: (event: GpuRetainedContentInteractionHit) =>
-      event.hit.kind === "row",
+      event.hit.kind === "row" || event.hit.kind === "control",
     shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
       shouldHandleProjectRetainedContentHit(event),
     shouldHandlePointerMoveHit: () => true,
