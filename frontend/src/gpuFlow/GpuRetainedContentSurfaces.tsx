@@ -55,6 +55,7 @@ import {
   drawGpuRetainedContentStatusBadge,
   drawGpuRetainedContentStatusOverlay,
 } from "./retainedContentStatusCanvas";
+import { drawGpuRetainedContentSwitchControl } from "./retainedContentSwitchCanvas";
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 import type { GpuContentSurface } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
@@ -471,6 +472,7 @@ function drawGpuRetainedContentInputControl({
       drawGpuRetainedContentSwitchControl({
         control,
         ctx,
+        palette,
         rect,
         state,
       });
@@ -700,94 +702,6 @@ function drawGpuRetainedContentSliderControl({
     valueRect.width,
   );
   ctx.textAlign = "start";
-}
-
-function drawGpuRetainedContentSwitchControl({
-  control,
-  ctx,
-  rect,
-  state,
-}: {
-  readonly control: Extract<
-    GpuRetainedContentControlDescriptor,
-    { kind: "switch" }
-  >;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-}) {
-  const outer = insetRect(rect, 6, 5);
-  const trackRect = getGpuRetainedContentSwitchTrackRect(outer);
-  const disabled = state?.disabled ?? false;
-  ctx.fillStyle = getGpuRetainedContentSwitchTrackColor({
-    checked: control.checked,
-    disabled,
-  });
-  fillRoundRect(ctx, trackRect, trackRect.height / 2);
-
-  const thumbRect = getGpuRetainedContentSwitchThumbRect({
-    checked: control.checked,
-    trackRect,
-  });
-  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
-  fillRoundRect(ctx, thumbRect, thumbRect.height / 2);
-
-  const labelWidth = Math.max(0, trackRect.x - outer.x - 6);
-  if (labelWidth <= 8) {
-    return;
-  }
-  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled ? "#64748b" : "#334155";
-  ctx.fillText(
-    control.checked ? "On" : "Off",
-    trackRect.x - 6,
-    rect.y + rect.height / 2,
-    labelWidth,
-  );
-  ctx.textAlign = "start";
-}
-
-function getGpuRetainedContentSwitchTrackRect(outer: GpuRect): GpuRect {
-  const width = Math.min(34, Math.max(0, outer.width - 8));
-  const height = Math.min(16, Math.max(0, outer.height));
-  return {
-    height,
-    width,
-    x: outer.x + outer.width - width,
-    y: outer.y + (outer.height - height) / 2,
-  };
-}
-
-function getGpuRetainedContentSwitchThumbRect({
-  checked,
-  trackRect,
-}: {
-  readonly checked: boolean;
-  readonly trackRect: GpuRect;
-}): GpuRect {
-  const size = Math.max(0, trackRect.height - 4);
-  const travel = Math.max(0, trackRect.width - size - 4);
-  return {
-    height: size,
-    width: size,
-    x: trackRect.x + 2 + (checked ? travel : 0),
-    y: trackRect.y + 2,
-  };
-}
-
-function getGpuRetainedContentSwitchTrackColor({
-  checked,
-  disabled,
-}: {
-  readonly checked: boolean;
-  readonly disabled: boolean;
-}): string {
-  if (disabled) {
-    return "#cbd5e1";
-  }
-  return checked ? "#2563eb" : "#94a3b8";
 }
 
 function drawGpuRetainedContentPortAnchors(
