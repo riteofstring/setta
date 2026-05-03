@@ -700,10 +700,7 @@ function isProjectRetainedParamControlActivationHit(
   return Boolean(
     row &&
       isProjectGpuRetainedParamControlDomIslandActive({
-        paramInfoId: event.hit.ownerRowId,
-        projectState: useProjectState.getState(),
         row,
-        sectionId: event.ownerSectionId,
       }),
   );
 }

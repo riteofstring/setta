@@ -372,10 +372,7 @@ function isProjectGpuParamDomIslandHitActive({
 }): boolean {
   if (hit.kind === "control") {
     return isProjectGpuRetainedParamControlDomIslandActive({
-      paramInfoId: hit.ownerRowId,
-      projectState,
       row,
-      sectionId: activeParamDomIsland.sectionId,
     });
   }
   return (
