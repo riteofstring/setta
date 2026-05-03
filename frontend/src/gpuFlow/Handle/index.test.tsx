@@ -12,6 +12,8 @@ import {
   makeGpuFlowPortKey,
   useGpuFlowPortRegistry,
 } from "../ports/portGeometry";
+import type { GpuFlowScene, GpuSectionSceneNode } from "../scene";
+import { GpuFlowSceneContext } from "../sceneContext";
 import { Handle } from "./index";
 
 describe("GpuFlow Handle", () => {
@@ -64,6 +66,39 @@ describe("GpuFlow Handle", () => {
     act(() => root.unmount());
   });
 
+  it("does not register DOM geometry for ports already owned by the scene", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <div data-gpu-flow-node="true">
+          <GpuFlowSceneContext.Provider value={{ getScene: sceneWithPort }}>
+            <NodeIdContext.Provider value="section-a">
+              <Handle
+                id="port-a"
+                type="source"
+                position={HandlePosition.Right}
+              />
+            </NodeIdContext.Provider>
+          </GpuFlowSceneContext.Provider>
+        </div>,
+      );
+    });
+
+    expect(
+      useGpuFlowPortRegistry.getState().descriptors[
+        makeGpuFlowPortKey("section-a", "port-a", "source")
+      ],
+    ).toBeUndefined();
+    expect(
+      host.querySelector("[data-id='section-a-port-a-source']"),
+    ).not.toBeNull();
+
+    act(() => root.unmount());
+  });
+
   it("registers DOM geometry by default for standalone surfaces", () => {
     const host = document.createElement("div");
     document.body.append(host);
@@ -92,3 +127,67 @@ describe("GpuFlow Handle", () => {
     act(() => root.unmount());
   });
 });
+
+function sceneWithPort(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      {
+        ...sectionSceneNode("section-a"),
+        portAnchors: [
+          {
+            id: "port-a",
+            kind: "output",
+            localPosition: { x: 120, y: 40 },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
+  const rect = {
+    height: 80,
+    width: 120,
+    x: 0,
+    y: 0,
+  };
+  return {
+    ...rect,
+    bodyRect: rect,
+    childLayout: { gap: { x: 0, y: 0 } },
+    childSectionIds: [],
+    childViewportRect: null,
+    chromeRect: rect,
+    clipRect: rect,
+    contentRenderer: {
+      kind: "dom-section",
+      surfaceId: sectionId,
+    },
+    dirty: [],
+    interactionLayer: "content",
+    layoutMode: "none",
+    localRect: rect,
+    nodeId: sectionId,
+    parentSectionId: null,
+    portAnchors: [],
+    resizePolicy: {
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      directions: [],
+      locked: false,
+      maxHeight: 100_000,
+      maxWidth: 100_000,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset: { x: 0, y: 0 },
+    sectionId,
+    worldRect: rect,
+  };
+}
