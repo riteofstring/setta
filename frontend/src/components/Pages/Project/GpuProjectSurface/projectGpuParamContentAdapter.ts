@@ -50,6 +50,10 @@ import {
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
+const PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_HEIGHT_PX = 260;
+const PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX = 224;
+const PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_HEIGHT_PX = 132;
+const PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX = 240;
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
@@ -216,20 +220,28 @@ export function createProjectGpuParamDomIslands({
   if (!hit) {
     return [];
   }
-  const rect = intersectProjectGpuParamRects(
-    translateProjectGpuParamLocalRect(hit.rect, surface.rect),
-    surface.clipRect,
+  const row = surface.retainedScene.rows.find(
+    (candidate) => candidate.id === hit.ownerRowId,
   );
-  if (rect.width <= 0 || rect.height <= 0) {
+  if (!row) {
+    return [];
+  }
+  const geometry = getProjectGpuParamDomIslandGeometry({
+    clipRect: surface.clipRect,
+    controlKind: row.controlKind,
+    controlRect: translateProjectGpuParamLocalRect(hit.rect, surface.rect),
+  });
+  if (!geometry) {
     return [];
   }
   return [
     {
       clipOwnerId: surface.id,
+      contentRect: geometry.contentRect,
       id: getProjectGpuParamDomIslandId(activeParamDomIsland),
       kind: "retained-content-control",
       ownerSectionId: activeParamDomIsland.sectionId,
-      rect,
+      rect: geometry.rect,
       source: {
         hitRecordId: hit.id,
         kind: "retained-content",
@@ -239,6 +251,106 @@ export function createProjectGpuParamDomIslands({
       zIndex: surface.zIndex + 1,
     },
   ];
+}
+
+function getProjectGpuParamDomIslandGeometry({
+  clipRect,
+  controlKind,
+  controlRect,
+}: {
+  readonly clipRect: GpuRect;
+  readonly controlKind: string | null;
+  readonly controlRect: GpuRect;
+}): { readonly contentRect: GpuRect; readonly rect: GpuRect } | null {
+  const islandRect = intersectProjectGpuParamRects(
+    getProjectGpuParamDomIslandOuterRect({ controlKind, controlRect }),
+    clipRect,
+  );
+  if (islandRect.width <= 0 || islandRect.height <= 0) {
+    return null;
+  }
+  const contentRect = getProjectGpuParamDomIslandContentRect({
+    controlKind,
+    controlRect,
+    islandRect,
+  });
+  if (contentRect.width <= 0 || contentRect.height <= 0) {
+    return null;
+  }
+  return { contentRect, rect: islandRect };
+}
+
+function getProjectGpuParamDomIslandOuterRect({
+  controlKind,
+  controlRect,
+}: {
+  readonly controlKind: string | null;
+  readonly controlRect: GpuRect;
+}): GpuRect {
+  if (controlKind === "dropzone") {
+    return {
+      height: Math.max(
+        controlRect.height,
+        PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_HEIGHT_PX,
+      ),
+      width: Math.max(
+        controlRect.width,
+        PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX,
+      ),
+      x:
+        controlRect.x -
+        Math.max(
+          0,
+          PROJECT_GPU_ACTIVE_PARAM_DROPZONE_ISLAND_WIDTH_PX - controlRect.width,
+        ),
+      y: controlRect.y,
+    };
+  }
+  if (controlKind === "color-picker" || controlKind === "dropdown") {
+    return {
+      height: Math.max(
+        controlRect.height,
+        PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_HEIGHT_PX,
+      ),
+      width: Math.max(
+        controlRect.width,
+        PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX,
+      ),
+      x:
+        controlRect.x -
+        Math.max(
+          0,
+          PROJECT_GPU_ACTIVE_PARAM_POPOVER_ISLAND_WIDTH_PX - controlRect.width,
+        ),
+      y: controlRect.y,
+    };
+  }
+  return controlRect;
+}
+
+function getProjectGpuParamDomIslandContentRect({
+  controlKind,
+  controlRect,
+  islandRect,
+}: {
+  readonly controlKind: string | null;
+  readonly controlRect: GpuRect;
+  readonly islandRect: GpuRect;
+}): GpuRect {
+  if (controlKind === "dropzone") {
+    return {
+      height: islandRect.height,
+      width: islandRect.width,
+      x: 0,
+      y: 0,
+    };
+  }
+  return {
+    height: controlRect.height,
+    width: controlRect.width,
+    x: controlRect.x - islandRect.x,
+    y: controlRect.y - islandRect.y,
+  };
 }
 
 function isProjectGpuRetainedParamSurface(

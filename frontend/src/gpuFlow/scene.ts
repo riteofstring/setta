@@ -101,6 +101,7 @@ export type GpuDomIslandSource =
 
 export type GpuDomIsland = {
   readonly clipOwnerId: string;
+  readonly contentRect: GpuRect;
   readonly id: string;
   readonly kind: "custom" | "retained-content-control";
   readonly ownerSectionId: string;

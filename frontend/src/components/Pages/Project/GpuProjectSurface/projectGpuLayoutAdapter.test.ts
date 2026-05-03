@@ -9,6 +9,8 @@ import {
   createCodeParamCodeObjImpl,
   createCore,
   createDictSectionImpl,
+  createDropdownParamCodeObjImpl,
+  createDropzoneParamCodeObjImpl,
   createGroupSectionImpl,
   createProjectConfig,
   createShownParamIDs,
@@ -436,6 +438,7 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",
+        contentRect: { height: 28, width: 112, x: 0, y: 0 },
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
@@ -449,6 +452,109 @@ describe("project GPU layout adapter", () => {
         zIndex: 4,
       },
     ]);
+  });
+
+  it("expands active retained param DOM islands without stretching popover triggers", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "dropdown-param": "dropdown-param-variant",
+              "dropzone-param": "dropzone-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 320, width: 360 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 320, w: 360, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", [
+        "dropdown-param",
+        "dropzone-param",
+      ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "dropdown-param",
+      "dropdown-param-variant",
+      "dropdown-param-impl",
+      createDropdownParamCodeObjImpl({
+        id: "dropdown-param-impl",
+        name: "dropdown",
+        type: CodeObjTypeEnum.DropdownParam,
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "dropzone-param",
+      "dropzone-param-variant",
+      "dropzone-param-impl",
+      createDropzoneParamCodeObjImpl({
+        id: "dropzone-param-impl",
+        name: "dropzone",
+        type: CodeObjTypeEnum.DropzoneParam,
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "dropdown-param": ["dropdown-param"],
+          "dropzone-param": ["dropzone-param"],
+        },
+        topLevelParamIds: ["dropdown-param", "dropzone-param"],
+      },
+    });
+
+    const dropdownScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:dropdown-param",
+        paramInfoId: "dropdown-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+    const dropdownIsland = dropdownScene.domIslands[0];
+
+    expect(dropdownIsland).toMatchObject({
+      contentRect: { height: 28, width: 112, x: 112, y: 0 },
+      kind: "retained-content-control",
+      ownerSectionId: "dict-a",
+      rect: { height: 260, width: 224 },
+    });
+
+    const dropzoneScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:dropzone-param",
+        paramInfoId: "dropzone-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 5,
+    });
+    const dropzoneIsland = dropzoneScene.domIslands[0];
+
+    expect(dropzoneIsland).toMatchObject({
+      contentRect: { height: 132, width: 240, x: 0, y: 0 },
+      kind: "retained-content-control",
+      ownerSectionId: "dict-a",
+      rect: { height: 132, width: 240 },
+    });
   });
 
   it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {

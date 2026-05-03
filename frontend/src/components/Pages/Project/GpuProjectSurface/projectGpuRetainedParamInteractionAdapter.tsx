@@ -120,6 +120,7 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
   }
   return (
     <ProjectGpuParamDomIsland
+      contentRect={island.contentRect}
       paramInfoId={island.source.ownerRowId}
       sectionId={island.ownerSectionId}
     />
@@ -376,9 +377,11 @@ function isProjectRetainedParamControlActivationHit(
 }
 
 function ProjectGpuParamDomIsland({
+  contentRect,
   paramInfoId,
   sectionId,
 }: {
+  readonly contentRect: GpuDomIsland["contentRect"];
   readonly paramInfoId: string;
   readonly sectionId: string;
 }) {
@@ -403,13 +406,23 @@ function ProjectGpuParamDomIsland({
 
   return (
     <div
-      className="grid h-full min-w-0 bg-white px-1 dark:bg-setta-900 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]"
+      className="relative h-full min-w-0 bg-white dark:bg-setta-900"
       data-gpu-project-param-dom-island="true"
       data-param-id={paramInfoId}
       data-section-id={sectionId}
       ref={rootRef}
     >
-      <ParamInput sectionId={sectionId} paramInfoId={paramInfoId} />
+      <div
+        className="absolute grid min-w-0 px-1 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]"
+        style={{
+          height: contentRect.height,
+          left: contentRect.x,
+          top: contentRect.y,
+          width: contentRect.width,
+        }}
+      >
+        <ParamInput sectionId={sectionId} paramInfoId={paramInfoId} />
+      </div>
     </div>
   );
 }

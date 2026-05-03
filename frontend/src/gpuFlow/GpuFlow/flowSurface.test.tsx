@@ -258,6 +258,7 @@ function sceneWithDomIsland(): GpuFlowScene {
     domIslands: [
       {
         clipOwnerId: "surface-a",
+        contentRect: { height: 20, width: 40, x: 0, y: 0 },
         id: "island-a",
         kind: "retained-content-control",
         ownerSectionId: "section-a",
