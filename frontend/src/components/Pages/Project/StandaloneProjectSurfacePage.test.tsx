@@ -249,10 +249,6 @@ vi.mock("components/Utils/FloatingBox", () => ({
   FloatingBox: () => <div data-testid="mock-floating-box" />,
 }));
 
-vi.mock("forks/dnd-kit/SectionDndContext", () => ({
-  SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
-
 vi.mock("gpuFlow/mouseLocation", () => ({
   useAddMouseLocationListener: () => undefined,
 }));

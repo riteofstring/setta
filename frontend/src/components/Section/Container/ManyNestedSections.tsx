@@ -1,22 +1,24 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplIfPresent,
   getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectState } from "state/definitions";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
 import {
-  ListRootViewMode,
+  isBaseParentSectionImpl,
   ListRootViewModeEnum,
   SectionTypeEnum,
+  type ListRootViewMode,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { SortableSectionContainer } from "./SortableSectionContainer";
+import { SectionContainer } from "./SectionContainer";
 
-function useHasTempNested(sectionId: string) {
-  return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
-}
+type NestedSectionViewState = {
+  readonly childIds: readonly string[];
+  readonly isHorizontalOrientation: boolean;
+  readonly listRootViewMode: ListRootViewMode | null;
+};
 
 export function MaybeManyNestedSections({
   sectionId,
@@ -27,66 +29,18 @@ export function MaybeManyNestedSections({
   isGroup: boolean;
   layoutVariant?: "default" | "tight";
 }) {
-  const hasNested = useHasTempNested(sectionId);
-  return (
-    hasNested && (
-      <div className="flex flex-col">
-        <ManyNestedSections
-          sectionId={sectionId}
-          isGroup={isGroup}
-          layoutVariant={layoutVariant}
-        />
-      </div>
-    )
-  );
-}
-
-function ManyNestedSections({
-  sectionId,
-  isGroup,
-  layoutVariant,
-}: {
-  sectionId: string;
-  isGroup: boolean;
-  layoutVariant: "default" | "tight";
-}) {
-  const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
-  const { isHorizontalOrientation, listRootViewMode } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type === SectionTypeEnum.Group) {
-      return {
-        isHorizontalOrientation: impl.isHorizontalOrientation,
-        listRootViewMode: null,
-      };
-    }
-    if (impl.type === SectionTypeEnum.ListRoot) {
-      return {
-        isHorizontalOrientation: impl.viewMode === ListRootViewModeEnum.kanban,
-        listRootViewMode: impl.viewMode,
-      };
-    }
-    return {
-      isHorizontalOrientation: false,
-      listRootViewMode: null,
-    };
-  }, shallow);
-  const hiddenAttachedTerminalId = useProjectState((x) => {
-    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-      x,
-      sectionId,
-      tempChildIds,
+  const { childIds, isHorizontalOrientation, listRootViewMode } =
+    useProjectState(
+      (state) => getNestedSectionViewState(state, sectionId),
+      shallow,
     );
-    if (!embeddedTerminal || !embeddedTerminal.isTerminalMinimized) {
-      return null;
-    }
-    return embeddedTerminal.attachedTerminalId;
-  });
-  const childIds = hiddenAttachedTerminalId
-    ? tempChildIds.filter((id) => id !== hiddenAttachedTerminalId)
-    : tempChildIds;
+
+  if (childIds.length === 0) {
+    return null;
+  }
 
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <div className="flex flex-col">
       {layoutVariant === "tight" ? (
         <NestedSectionsTight childIds={childIds} />
       ) : (
@@ -98,15 +52,66 @@ function ManyNestedSections({
           listRootViewMode={listRootViewMode}
         />
       )}
-    </DNDSortable>
+    </div>
   );
 }
 
-function NestedSectionsTight({ childIds }: { childIds: string[] }) {
+function getNestedSectionViewState(
+  state: ZustandProjectState,
+  sectionId: string,
+): NestedSectionViewState {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const childIds = getRenderableNestedSectionChildIds(state, sectionId);
+  if (impl.type === SectionTypeEnum.Group) {
+    return {
+      childIds,
+      isHorizontalOrientation: impl.isHorizontalOrientation,
+      listRootViewMode: null,
+    };
+  }
+  if (impl.type === SectionTypeEnum.ListRoot) {
+    return {
+      childIds,
+      isHorizontalOrientation: impl.viewMode === ListRootViewModeEnum.kanban,
+      listRootViewMode: impl.viewMode,
+    };
+  }
+  return {
+    childIds,
+    isHorizontalOrientation: false,
+    listRootViewMode: null,
+  };
+}
+
+function getRenderableNestedSectionChildIds(
+  state: ZustandProjectState,
+  sectionId: string,
+): string[] {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (!isBaseParentSectionImpl(impl)) {
+    return [];
+  }
+  const childIds = impl.children.filter((childId) =>
+    getCurrEffectiveSectionImplIfPresent(state, childId),
+  );
+  const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+    state,
+    sectionId,
+    childIds,
+  );
+  if (!embeddedTerminal?.isTerminalMinimized) {
+    return childIds;
+  }
+  return childIds.filter(
+    (childId) => childId !== embeddedTerminal.attachedTerminalId,
+  );
+}
+
+function NestedSectionsTight({ childIds }: { childIds: readonly string[] }) {
   return (
     <div className="flex w-full flex-col">
       {childIds.map((e) => (
-        <SortableSectionContainer
+        <NestedSectionContainer
           sectionId={e}
           key={`Nested-Sec-${e}`}
           className="w-full"
@@ -123,7 +128,7 @@ function NestedSectionsWithMargin({
   isHorizontalOrientation,
   listRootViewMode,
 }: {
-  childIds: string[];
+  childIds: readonly string[];
   sectionId: string;
   isGroup: boolean;
   isHorizontalOrientation: boolean;
@@ -163,13 +168,31 @@ function NestedSectionsWithMargin({
       )}
       <div className={containerClassName}>
         {childIds.map((e) => (
-          <SortableSectionContainer
+          <NestedSectionContainer
             sectionId={e}
             key={`Nested-Sec-${e}`}
             className={childClassName}
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+function NestedSectionContainer({
+  sectionId,
+  className,
+}: {
+  sectionId: string;
+  className?: string | undefined;
+}) {
+  return (
+    <div
+      className={`relative flex w-full outline-none ${className ?? ""}`}
+      data-nested-section-id={sectionId}
+      tabIndex={-1}
+    >
+      <SectionContainer sectionId={sectionId} isTopLevel={false} />
     </div>
   );
 }

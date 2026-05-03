@@ -14,7 +14,6 @@ import { MaybeManyNestedSections } from "components/Section/Container/ManyNested
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
-import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "gpuFlow/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import {
@@ -262,15 +261,13 @@ function StandaloneSectionBody({
 
 function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
   return (
-    <SectionDndContext>
-      <section
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
-        data-testid="standalone-project-surface-page"
-      >
-        <div className="flex min-h-0 flex-1 overflow-hidden">{children}</div>
-        <FloatingBox />
-      </section>
-    </SectionDndContext>
+    <section
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-testid="standalone-project-surface-page"
+    >
+      <div className="flex min-h-0 flex-1 overflow-hidden">{children}</div>
+      <FloatingBox />
+    </section>
   );
 }
 
