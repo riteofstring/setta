@@ -2,7 +2,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 
 import { HandlePosition, type HandleType } from "../flowTypes";
 import type { GpuFlowLayoutNode } from "../layoutStore";
-import type { GpuFlowScene } from "../scene";
+import { getGpuPortAnchorHandleType, type GpuFlowScene } from "../scene";
 import type { GpuPoint, GpuRect } from "../viewportMath";
 
 export type GpuFlowPortDescriptor = {
@@ -215,8 +215,7 @@ function hasGpuFlowSectionScenePortDescriptor({
       section.sectionId === nodeId &&
       section.portAnchors.some(
         (anchor) =>
-          anchor.id === portId &&
-          getGpuFlowScenePortHandleType(anchor.kind) === type,
+          anchor.id === portId && getGpuPortAnchorHandleType(anchor) === type,
       ),
   );
 }

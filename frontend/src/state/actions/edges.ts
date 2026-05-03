@@ -13,6 +13,7 @@ import {
 } from "openapi/http";
 import { useProjectState, useShareSession } from "state/definitions";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -38,8 +39,13 @@ type CompleteEdgeConnection = Connection & {
 type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
 
 const nonDataHandleIds = new Set<string>([
+  AGENTIC_EDGE_HANDLE_IDS.reverseStart,
   AGENTIC_EDGE_HANDLE_IDS.source,
   AGENTIC_EDGE_HANDLE_IDS.target,
+  SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
+  SHARED_CHAT_EDGE_HANDLE_IDS.source,
+  SHARED_CHAT_EDGE_HANDLE_IDS.target,
+  STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart,
   STATE_MACHINE_EDGE_HANDLE_IDS.source,
   STATE_MACHINE_EDGE_HANDLE_IDS.target,
 ]);

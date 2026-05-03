@@ -168,6 +168,47 @@ describe("GPU scene port connection controller", () => {
     detach();
   });
 
+  it("respects scene anchor start metadata", () => {
+    const { element, surface } = createGpuFlowSurface();
+    const store = createGpuFlowViewportStore({
+      transform: [10, -20, 2],
+    });
+    store.getState().setDomNode(element);
+    const layoutStore = createGpuFlowLayoutStore();
+    const detach = attachGpuScenePortConnectionController({
+      element,
+      getScene: () => createFlowScene(),
+      layoutStore,
+      onConnect: vi.fn(),
+      store,
+    });
+
+    const disabledStartNotPrevented = dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 490,
+      clientY: 220,
+      pointerId: 1,
+    });
+
+    const semanticStartPrevented = !dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 142,
+      clientY: 220,
+      pointerId: 2,
+    });
+
+    expect(disabledStartNotPrevented).toBe(true);
+    expect(semanticStartPrevented).toBe(true);
+    expect(handlePointerDownMock).toHaveBeenCalledTimes(1);
+    expect(handlePointerDownMock.mock.calls[0]?.[0]).toMatchObject({
+      edgeUpdaterType: "source",
+      handleId: "reverse-start",
+      isTarget: true,
+      nodeId: "section-1",
+    });
+    detach();
+  });
+
   it("ignores disabled, non-primary, and non-port pointer starts", () => {
     const { element, surface } = createGpuFlowSurface();
     const store = createGpuFlowViewportStore({
@@ -252,6 +293,19 @@ function createFlowScene(): GpuFlowScene {
             id: "out",
             kind: "output",
             localPosition: { x: 121, y: 55 },
+          },
+          {
+            id: "visual-only",
+            isConnectableStart: false,
+            kind: "output",
+            localPosition: { x: 150, y: 55 },
+          },
+          {
+            connectionStartSemanticType: "target",
+            id: "reverse-start",
+            kind: "output",
+            localPosition: { x: -24, y: 55 },
+            side: "left",
           },
         ],
         resizePolicy: {

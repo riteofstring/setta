@@ -255,6 +255,18 @@ describe("edges actions", () => {
     expect(
       isValidDataEdgeConnection({
         ...createConnection(),
+        sourceHandle: "agentic-edge-reverse-start",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: "chat-shared-edge-target",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
         targetHandle: null,
       }),
     ).toBe(false);

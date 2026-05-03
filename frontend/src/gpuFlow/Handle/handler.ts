@@ -19,7 +19,7 @@ import {
   makeGpuFlowPortKey,
   useGpuFlowPortRegistry,
 } from "../ports/portGeometry";
-import type { GpuFlowScene } from "../scene";
+import { getGpuPortAnchorHandleType, type GpuFlowScene } from "../scene";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -453,12 +453,12 @@ function getSectionSceneConnectionHandlePositions(
   const handles: ConnectionHandle[] = [];
   for (const section of sections) {
     for (const anchor of section.portAnchors) {
-      const type = getScenePortHandleType(anchor.kind);
+      const type = getGpuPortAnchorHandleType(anchor);
       if (!type) {
         continue;
       }
       handles.push({
-        isConnectableEnd: true,
+        isConnectableEnd: anchor.isConnectableEnd ?? true,
         portId: anchor.id,
         sectionId: section.sectionId,
         type,
@@ -491,18 +491,6 @@ function getRetainedContentSceneConnectionHandlePositions(
     }
   }
   return handles;
-}
-
-function getScenePortHandleType(
-  kind: GpuFlowScene["sections"][number]["portAnchors"][number]["kind"],
-): ConnectionHandle["type"] {
-  if (kind === "input") {
-    return "target";
-  }
-  if (kind === "output") {
-    return "source";
-  }
-  return null;
 }
 
 function getConnectionHandleKey(

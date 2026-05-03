@@ -13,6 +13,7 @@ import type {
   GpuPortAnchorDescriptor,
   GpuSectionSceneNode,
 } from "../scene";
+import { getGpuPortAnchorHandleType } from "../scene";
 import {
   normalizeGpuViewport,
   screenToFlowPosition,
@@ -25,6 +26,7 @@ import {
 import { getEventPointRelativeToStoreDomNode } from "./edges";
 
 export type GpuScenePortConnectionStart = {
+  readonly connectionStartSemanticType?: HandleType | undefined;
   readonly handleId: string;
   readonly ownerSectionId: string;
   readonly type: HandleType;
@@ -130,8 +132,8 @@ function getGpuScenePortConnectionAnchorHit({
   readonly screenPoint: GpuPoint;
   readonly section: GpuSectionSceneNode;
 }): GpuScenePortConnectionHit | null {
-  const type = getGpuScenePortConnectionHandleType(anchor);
-  if (!type) {
+  const type = getGpuPortAnchorHandleType(anchor);
+  if (!type || anchor.isConnectableStart === false) {
     return null;
   }
   const anchorPoint = {
@@ -152,6 +154,9 @@ function getGpuScenePortConnectionAnchorHit({
     screenPoint,
     section,
     start: {
+      ...(anchor.connectionStartSemanticType
+        ? { connectionStartSemanticType: anchor.connectionStartSemanticType }
+        : {}),
       handleId: anchor.id,
       ownerSectionId: section.sectionId,
       type,
@@ -227,7 +232,8 @@ class GpuScenePortConnectionController {
       handleId: hit.start.handleId,
       isConnectionCandidateAllowed: (candidate) =>
         this.isConnectionCandidateAllowed?.(candidate, hit.start) ?? true,
-      isTarget: hit.start.type === "target",
+      isTarget:
+        (hit.start.connectionStartSemanticType ?? hit.start.type) === "target",
       isValidConnection: this.isValidConnection,
       layoutStore: this.layoutStore,
       nodeId: hit.start.ownerSectionId,
@@ -236,18 +242,6 @@ class GpuScenePortConnectionController {
       store: this.store,
     });
   };
-}
-
-function getGpuScenePortConnectionHandleType(
-  anchor: Pick<GpuPortAnchorDescriptor, "kind">,
-): HandleType | null {
-  if (anchor.kind === "input") {
-    return "target";
-  }
-  if (anchor.kind === "output") {
-    return "source";
-  }
-  return null;
 }
 
 function isGpuScenePortConnectionHitAbove(

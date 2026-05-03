@@ -9,7 +9,6 @@ import {
   type GpuEdgeScene,
   type GpuWorkflowEdgeSource,
 } from "gpuFlow/edges/edgeSources";
-import { HandlePosition } from "gpuFlow/flowTypes";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
 import {
@@ -19,7 +18,12 @@ import {
   type GpuFlowPortDescriptor,
   type GpuFlowPortEndpoint,
 } from "gpuFlow/ports/portGeometry";
-import type { GpuFlowScene } from "gpuFlow/scene";
+import {
+  getGpuPortAnchorHandleType,
+  getGpuPortAnchorSide,
+  type GpuFlowScene,
+  type GpuPortAnchorDescriptor,
+} from "gpuFlow/scene";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { screenToFlowPosition } from "gpuFlow/viewportMath";
 import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
@@ -246,7 +250,7 @@ function buildProjectGpuSectionSceneHandlePositions(
   const handlePositions: Record<string, GpuEdgeHandlePosition> = {};
   for (const section of scene.sections) {
     for (const anchor of section.portAnchors) {
-      const endpoint = getProjectGpuSectionScenePortEndpoint(anchor.kind);
+      const endpoint = getProjectGpuSectionScenePortEndpoint(anchor);
       if (!endpoint) {
         continue;
       }
@@ -266,15 +270,14 @@ function buildProjectGpuSectionSceneHandlePositions(
 }
 
 function getProjectGpuSectionScenePortEndpoint(
-  kind: GpuFlowScene["sections"][number]["portAnchors"][number]["kind"],
+  anchor: GpuPortAnchorDescriptor,
 ): Pick<GpuEdgeHandlePosition, "side" | "type"> | null {
-  if (kind === "input") {
-    return { side: HandlePosition.Left, type: "target" };
+  const type = getGpuPortAnchorHandleType(anchor);
+  const side = getGpuPortAnchorSide(anchor);
+  if (!type || !side) {
+    return null;
   }
-  if (kind === "output") {
-    return { side: HandlePosition.Right, type: "source" };
-  }
-  return null;
+  return { side, type };
 }
 
 function buildProjectGpuRetainedContentHandlePositions(

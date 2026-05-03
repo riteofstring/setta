@@ -14,7 +14,6 @@ import {
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
-import type { GpuNodeResizeDirection } from "gpuFlow/resizeHandles";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
   createGpuFlowContentSurfacesFromSections,
@@ -78,7 +77,6 @@ import {
   type BaseSectionImplUnion,
   type GroupSectionImpl,
   type ListRootSectionImpl,
-  type SectionSizingPolicy,
 } from "utils/generatedTypes";
 import {
   createProjectGpuParamContentSurfaces,
@@ -87,6 +85,13 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
+import {
+  getProjectSceneMeasuredHeight,
+  getProjectSectionSceneResizeDirections,
+  type ProjectGpuSceneResizePolicyContext,
+} from "./projectGpuSceneResizePolicy";
+import { getProjectGpuSceneRevision } from "./projectGpuSceneRevision";
+import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 
 export type {
   ProjectGpuActiveParamDomIsland,
@@ -114,12 +119,6 @@ export type ProjectGpuLayoutAdapter = {
 export type ProjectGpuSceneRevealSectionOptions = {
   readonly align?: GpuSectionSceneRevealRectAlignment | undefined;
   readonly marginPx?: number | undefined;
-};
-
-type ProjectGpuSceneResizePolicyContext = {
-  readonly measuredHeightsByKey: Readonly<Record<string, unknown>>;
-  readonly resizeEventBySectionId: Readonly<Record<string, string | undefined>>;
-  readonly sizingPolicy: SectionSizingPolicy;
 };
 
 type ProjectSectionSceneAspectRatioFields = {
@@ -592,6 +591,7 @@ function createProjectSectionSceneNode({
     localRect,
     parentSectionId,
     portAnchors: getProjectSectionScenePortAnchors({
+      projectState,
       resizePolicyContext,
       sectionId,
       sectionImpl,
@@ -610,6 +610,36 @@ function createProjectSectionSceneNode({
 }
 
 function getProjectSectionScenePortAnchors({
+  projectState,
+  resizePolicyContext,
+  sectionId,
+  sectionImpl,
+  worldRect,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+  readonly worldRect: GpuRect;
+}): readonly GpuPortAnchorDescriptor[] {
+  return [
+    ...getProjectSectionSceneDataPortAnchors({
+      resizePolicyContext,
+      sectionId,
+      sectionImpl,
+      worldRect,
+    }),
+    ...getProjectSectionSceneLinkPortAnchors({
+      projectState,
+      resizePolicyContext,
+      sectionId,
+      sectionImpl,
+      worldRect,
+    }),
+  ];
+}
+
+function getProjectSectionSceneDataPortAnchors({
   resizePolicyContext,
   sectionId,
   sectionImpl,
@@ -783,30 +813,6 @@ function getProjectGpuSceneResizePolicyContext(): ProjectGpuSceneResizePolicyCon
     resizeEventBySectionId: useResizeEvent.getState().resizeEvent,
     sizingPolicy: useSettings.getState().sectionSizingPolicy,
   };
-}
-
-function getProjectSceneMeasuredHeight(
-  resizePolicyContext: ProjectGpuSceneResizePolicyContext,
-  key: string,
-): number {
-  const height = resizePolicyContext.measuredHeightsByKey[key];
-  return typeof height === "number" ? height : 0;
-}
-
-function getProjectSectionSceneResizeDirections(
-  enable: Exclude<ReturnType<typeof getResizableEnable>, false>,
-): readonly GpuNodeResizeDirection[] {
-  const directions: GpuNodeResizeDirection[] = [];
-  if (enable.right) {
-    directions.push("right");
-  }
-  if (enable.bottom) {
-    directions.push("bottom");
-  }
-  if (enable.bottomRight) {
-    directions.push("bottomRight");
-  }
-  return directions;
 }
 
 function pushProjectSectionSceneNode({
@@ -987,13 +993,4 @@ function resolveProjectSectionSceneDimension(
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : fallback;
-}
-
-function getProjectGpuSceneRevision(projectState: ZustandProjectState): number {
-  return (
-    Object.keys(projectState.sections).length +
-    Object.keys(projectState.sectionImpls).length +
-    Object.keys(projectState.sectionVariants).length +
-    Object.keys(projectState.projectConfig.topLevelSections).length
-  );
 }

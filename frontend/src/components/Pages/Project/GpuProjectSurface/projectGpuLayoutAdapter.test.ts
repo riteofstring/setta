@@ -1,6 +1,9 @@
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
+import { AGENTIC_EDGE_HANDLE_IDS } from "state/actions/agenticEdges";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
+import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
 import {
   CodeObjTypeEnum,
@@ -10,6 +13,7 @@ import {
   DateSelectionModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
+  createChatSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
   createDateParamCodeObjImpl,
@@ -20,6 +24,7 @@ import {
   createProjectConfig,
   createShownParamIDs,
   createSingleConfig,
+  createStateMachineGateSectionImpl,
   createVariant,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
@@ -392,33 +397,202 @@ describe("project GPU layout adapter", () => {
     expect(
       scene.sections.find((section) => section.sectionId === "dict-a")
         ?.portAnchors,
-    ).toEqual([
-      {
-        id: "input-a",
-        kind: "input",
-        localPosition: { x: -1, y: 41 },
-      },
-      {
-        id: "output-a",
-        kind: "output",
-        localPosition: { x: 123, y: 41 },
-      },
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          id: "input-a",
+          kind: "input",
+          localPosition: { x: -1, y: 41 },
+        },
+        {
+          id: "output-a",
+          kind: "output",
+          localPosition: { x: 123, y: 41 },
+        },
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+          isConnectableEnd: false,
+          isConnectableStart: false,
+          kind: "output",
+          localPosition: { x: -19, y: 41 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.target,
+          isConnectableStart: false,
+          kind: "input",
+          localPosition: { x: -19, y: 41 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.source,
+          isConnectableStart: false,
+          kind: "output",
+          localPosition: { x: 141, y: 41 },
+          side: "right",
+        }),
+      ]),
+    );
     expect(
       scene.sections.find((section) => section.sectionId === "dict-b")
         ?.portAnchors,
-    ).toEqual([
-      {
-        id: "input-b",
-        kind: "input",
-        localPosition: { x: -1, y: 60 },
-      },
-      {
-        id: "output-b",
-        kind: "output",
-        localPosition: { x: 123, y: 60 },
-      },
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          id: "input-b",
+          kind: "input",
+          localPosition: { x: -1, y: 60 },
+        },
+        {
+          id: "output-b",
+          kind: "output",
+          localPosition: { x: 123, y: 60 },
+        },
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+          isConnectableEnd: false,
+          isConnectableStart: false,
+          kind: "output",
+          localPosition: { x: -19, y: 41 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.target,
+          isConnectableStart: false,
+          kind: "input",
+          localPosition: { x: -19, y: 41 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.source,
+          isConnectableStart: false,
+          kind: "output",
+          localPosition: { x: 141, y: 41 },
+          side: "right",
+        }),
+      ]),
+    );
+  });
+
+  it("derives section link handles as side-aware section scene anchors", () => {
+    const scene = getProjectGpuFlowScene(
+      projectStateWithSections({
+        sections: [
+          {
+            id: "dict-a",
+            impl: createDictSectionImpl({
+              id: "dict-a-impl",
+              size: sectionSize({ height: 100, width: 200 }),
+            }),
+            parentId: null,
+          },
+          {
+            id: "chat-a",
+            impl: createChatSectionImpl({
+              id: "chat-a-impl",
+              size: sectionSize({ height: 100, width: 200 }),
+            }),
+            parentId: null,
+          },
+          {
+            id: "gate-a",
+            impl: createStateMachineGateSectionImpl({
+              id: "gate-a-impl",
+              label: "Gate",
+              machineGroupId: "machine-a",
+              name: "gate-a",
+              size: sectionSize({ height: 100, width: 200 }),
+            }),
+            parentId: null,
+          },
+        ],
+        topLevelSections: {
+          "chat-a": { h: 100, w: 200, x: 240, y: 20, zIndex: 1 },
+          "dict-a": { h: 100, w: 200, x: 10, y: 20, zIndex: 1 },
+          "gate-a": { h: 100, w: 200, x: 470, y: 20, zIndex: 1 },
+        },
+      }),
+      { darkMode: false },
+    );
+
+    expect(
+      scene.sections.find((section) => section.sectionId === "dict-a")
+        ?.portAnchors,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+          isConnectableEnd: false,
+          kind: "output",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.target,
+          kind: "input",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.source,
+          kind: "output",
+          localPosition: { x: 221, y: 51 },
+          side: "right",
+        }),
+      ]),
+    );
+    expect(
+      scene.sections.find((section) => section.sectionId === "chat-a")
+        ?.portAnchors,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
+          isConnectableEnd: false,
+          kind: "output",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+          kind: "input",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+          kind: "output",
+          localPosition: { x: 221, y: 51 },
+          side: "right",
+        }),
+      ]),
+    );
+    expect(
+      scene.sections.find((section) => section.sectionId === "gate-a")
+        ?.portAnchors,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart,
+          isConnectableEnd: false,
+          kind: "output",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+          kind: "input",
+          localPosition: { x: -19, y: 51 },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+          kind: "output",
+          localPosition: { x: 221, y: 51 },
+          side: "right",
+        }),
+      ]),
+    );
   });
 
   it("derives active retained param controls as explicit DOM islands", () => {

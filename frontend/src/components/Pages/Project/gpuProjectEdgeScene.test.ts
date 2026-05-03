@@ -560,6 +560,61 @@ describe("gpuProjectEdgeScene", () => {
       },
     });
   });
+
+  it("uses side-aware section scene anchors for link connection-line starts", () => {
+    const workflowSourceScene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        connectionState: {
+          connectionPosition: { x: 450, y: 220 },
+          connectionStartHandle: {
+            handleId: "workflow-source",
+            sectionId: "source",
+            type: "source",
+          },
+          connectionStatus: null,
+          transform: [0, 0, 1],
+        },
+        scene: linkHandleAnchorScene(),
+      }),
+    );
+    const workflowReverseScene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        connectionState: {
+          connectionPosition: { x: 450, y: 220 },
+          connectionStartHandle: {
+            handleId: "workflow-reverse-start",
+            sectionId: "source",
+            type: "source",
+          },
+          connectionStatus: null,
+          transform: [0, 0, 1],
+        },
+        portDescriptors: {},
+        scene: linkHandleAnchorScene(),
+      }),
+    );
+
+    expect(
+      workflowSourceScene.entries.find(
+        (entry) => entry.family === "connection",
+      ),
+    ).toMatchObject({
+      geometry: {
+        source: { x: 239, y: 140 },
+        sourceSide: "right",
+      },
+    });
+    expect(
+      workflowReverseScene.entries.find(
+        (entry) => entry.family === "connection",
+      ),
+    ).toMatchObject({
+      geometry: {
+        source: { x: 81, y: 140 },
+        sourceSide: "left",
+      },
+    });
+  });
 });
 
 function createBuildInput(
@@ -812,6 +867,39 @@ function minimizedDataEdgeAnchorScene(): GpuFlowScene {
         ],
         sectionId: "target",
         worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function linkHandleAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "workflow-source",
+            isConnectableStart: false,
+            kind: "output",
+            localPosition: { x: 139, y: 40 },
+            side: "right",
+          },
+          {
+            connectionStartSemanticType: "target",
+            id: "workflow-reverse-start",
+            isConnectableEnd: false,
+            isConnectableStart: false,
+            kind: "output",
+            localPosition: { x: -19, y: 40 },
+            side: "left",
+          },
+        ],
+        sectionId: "source",
+        worldRect: { height: 80, width: 120, x: 100, y: 100 },
       }),
     ],
   };

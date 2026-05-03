@@ -39,10 +39,18 @@ export type GpuSectionSceneChildLayout = {
   readonly gap: GpuPoint;
 };
 
+export type GpuPortAnchorHandleType = "source" | "target";
+export type GpuPortAnchorSide = "left" | "right";
+
 export type GpuPortAnchorDescriptor = {
+  readonly connectionStartSemanticType?: GpuPortAnchorHandleType | undefined;
   readonly id: string;
   readonly kind: "input" | "output" | "section";
+  readonly isConnectableEnd?: boolean | undefined;
+  readonly isConnectableStart?: boolean | undefined;
   readonly localPosition: GpuPoint;
+  readonly side?: GpuPortAnchorSide | undefined;
+  readonly type?: GpuPortAnchorHandleType | undefined;
 };
 
 export type GpuSectionContentRendererDescriptor =
@@ -175,6 +183,37 @@ export function isGpuSectionSceneNodeInsideClip(
     isPositiveGpuRect(section.clipRect) &&
     rectsIntersect(section.worldRect, section.clipRect)
   );
+}
+
+export function getGpuPortAnchorHandleType(
+  anchor: Pick<GpuPortAnchorDescriptor, "kind" | "type">,
+): GpuPortAnchorHandleType | null {
+  if (anchor.type) {
+    return anchor.type;
+  }
+  if (anchor.kind === "input") {
+    return "target";
+  }
+  if (anchor.kind === "output") {
+    return "source";
+  }
+  return null;
+}
+
+export function getGpuPortAnchorSide(
+  anchor: Pick<GpuPortAnchorDescriptor, "kind" | "side" | "type">,
+): GpuPortAnchorSide | null {
+  if (anchor.side) {
+    return anchor.side;
+  }
+  const type = getGpuPortAnchorHandleType(anchor);
+  if (type === "target") {
+    return "left";
+  }
+  if (type === "source") {
+    return "right";
+  }
+  return null;
 }
 
 function isPositiveGpuRect(rect: GpuRect): boolean {
