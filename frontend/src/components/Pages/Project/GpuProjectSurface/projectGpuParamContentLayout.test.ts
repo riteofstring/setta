@@ -1,6 +1,5 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
@@ -18,7 +17,6 @@ describe("project GPU param content layout", () => {
       edgeInputPortCount: 2,
       edgeOutputPortCount: 1,
       measuredHeightsByKey: {
-        [getEdgesStripHeightKey(sectionId)]: 999,
         [getKwargsControlsHeightKey(sectionId)]: 13,
         [getParamsFixedHeightKey(sectionId)]: 19,
         [getPinnedParamsAreaHeightKey(sectionId)]: 17,

@@ -2,13 +2,9 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  useProjectState,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { getEdgesStripHeightKey } from "utils/constants";
 import {
   createCore,
   createDictSectionImpl,
@@ -101,7 +97,7 @@ describe("EdgesStrip", () => {
     vi.unstubAllGlobals();
   });
 
-  it("publishes deterministic scene height without observing DOM layout", async () => {
+  it("renders edge rows without observing DOM layout", async () => {
     class ThrowingResizeObserver {
       constructor() {
         throw new Error("EdgesStrip should not instantiate ResizeObserver.");
@@ -113,15 +109,9 @@ describe("EdgesStrip", () => {
     const rendered = await renderEdgesStrip(sectionId);
 
     expect(rendered.host.textContent).toContain("alpha");
-    expect(
-      useTemporaryMiscState.getState()[getEdgesStripHeightKey(sectionId)],
-    ).toBe(100);
 
     await act(async () => {
       rendered.root.unmount();
     });
-    expect(
-      useTemporaryMiscState.getState()[getEdgesStripHeightKey(sectionId)],
-    ).toBe(0);
   });
 });

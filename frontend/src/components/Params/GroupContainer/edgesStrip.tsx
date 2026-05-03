@@ -12,7 +12,6 @@ import {
   useMisc,
   useProjectState,
   useSettings,
-  useTemporaryMiscState,
 } from "state/definitions";
 
 import { useIsScrollable } from "state/hooks/sectionSizes";
@@ -20,7 +19,6 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 
 import {
-  getEdgesStripHeightKey,
   getPinnedParamsAreaHeightKey,
   getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
@@ -29,8 +27,6 @@ import {
   isBaseSectionWithParamsImpl,
   type SectionType,
 } from "utils/generatedTypes";
-
-import { resolveEdgeStripHeight } from "../edgeStripUtils";
 
 import { ParamDndList } from "../ParamDndList";
 
@@ -61,8 +57,6 @@ export function EdgesStrip({
 }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const lastHeightRef = useRef(0);
-  const heightKey = getEdgesStripHeightKey(sectionId);
   const {
     inputPorts,
     outputPorts,
@@ -86,39 +80,6 @@ export function EdgesStrip({
     shouldRoundBottom,
     positionAndSizeLocked,
   });
-
-  useEffect(() => {
-    if (!hasEdges) {
-      if (lastHeightRef.current !== 0) {
-        lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
-      }
-      return;
-    }
-    const nextHeight = resolveEdgeStripHeight({
-      inputPortCount: inputPorts.length,
-      outputPortCount: outputPorts.length,
-    });
-    if (nextHeight === lastHeightRef.current) {
-      return;
-    }
-    lastHeightRef.current = nextHeight;
-    useTemporaryMiscState.setState({ [heightKey]: nextHeight });
-  }, [
-    hasEdges,
-    heightKey,
-    inputPorts.length,
-    outputPorts.length,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      if (lastHeightRef.current !== 0) {
-        lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
-      }
-    };
-  }, [heightKey]);
 
   if (!hasEdges) {
     return null;
