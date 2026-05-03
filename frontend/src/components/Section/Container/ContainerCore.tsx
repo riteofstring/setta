@@ -27,9 +27,10 @@ function _Container({
   trueDragListeners,
   isEditingViewMode,
   isUserView,
+  sectionRefMode = "withNested",
   children,
 }) {
-  const refForPosition = useSectionRefAndInit(sectionId, "withNested");
+  const refForPosition = useSectionRefAndInit(sectionId, sectionRefMode);
 
   function totalRef(element: HTMLDivElement | null) {
     refForPosition.current = element;

@@ -4,6 +4,7 @@ import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import type { SectionRefRegistrationMode } from "state/hooks/sectionRef";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
@@ -82,11 +83,18 @@ function _GpuSceneSectionContainer({
       isUserView={isUserView}
       className="h-full w-full"
       style={style}
+      sectionRefMode={getGpuSceneSectionRefMode(isGroup)}
       trueDragListeners={{}}
     >
       {children}
     </Container>
   );
+}
+
+function getGpuSceneSectionRefMode(
+  isGroup: boolean,
+): SectionRefRegistrationMode {
+  return isGroup ? "selfOnly" : "none";
 }
 
 export const GpuSceneSectionContainer = React.memo(
