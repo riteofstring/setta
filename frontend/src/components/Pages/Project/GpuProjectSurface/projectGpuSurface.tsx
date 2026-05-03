@@ -100,6 +100,10 @@ import {
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
+import {
+  getProjectSurfaceClientDimensions,
+  type ProjectSurfaceDimensions,
+} from "./projectGpuSurfaceDimensions";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -132,11 +136,6 @@ import {
   handleProjectSelectionKeyboardNudge,
   resolveProjectWireColor,
 } from "./projectGpuSelectionAdapter";
-
-type ProjectSurfaceDimensions = {
-  readonly height: number;
-  readonly width: number;
-};
 
 export type ProjectGpuNodeDragItem = {
   readonly distance: { readonly x: number; readonly y: number };
@@ -972,7 +971,7 @@ function useProjectSurfaceDimensions(
         width: getVisibleProjectSurfaceWidth(nextDimensions.width),
       });
     };
-    updateDimensions(node.getBoundingClientRect());
+    updateDimensions(getProjectSurfaceClientDimensions(node));
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) {
