@@ -11,12 +11,13 @@ import {
 } from "gpuFlow/layoutStore";
 import {
   getGpuFlowSceneDomSectionNodes,
-  type GpuContentSurface,
   type GpuFlowScene,
   type GpuSectionContentRendererDescriptor,
+  type GpuSectionSceneChildLayout,
   type GpuSectionSceneLayoutMode,
   type GpuSectionSceneNode,
 } from "gpuFlow/scene";
+import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
 import type { GpuRect } from "gpuFlow/viewportMath";
 import { useEffect, useMemo } from "react";
 import {
@@ -109,7 +110,6 @@ export function getProjectGpuFlowScene(
   },
 ): GpuFlowScene {
   const sections: GpuSectionSceneNode[] = [];
-  const contentSurfaces: GpuContentSurface[] = [];
   const seenSectionIds = new Set<string>();
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
   const activeViewModeId = projectState.projectConfig.activeViewModeId;
@@ -163,13 +163,11 @@ export function getProjectGpuFlowScene(
       worldRect,
     });
     pushProjectSectionSceneNode({
-      contentSurfaces,
       sceneNode,
       sections,
       seenSectionIds,
     });
     appendProjectChildSectionSceneNodes({
-      contentSurfaces,
       parentNode: sceneNode,
       projectState,
       sections,
@@ -177,13 +175,13 @@ export function getProjectGpuFlowScene(
     });
   }
 
-  return {
-    contentSurfaces,
+  return resolveGpuFlowSceneLayout({
+    contentSurfaces: [],
     domIslands: [],
     edges: [],
     revision: options.revision ?? 0,
     sections,
-  };
+  });
 }
 
 export function getProjectGpuLayoutNodesFromNodeInternals(state: {
@@ -235,19 +233,16 @@ function useProjectGpuLayoutStoreSceneSync(
 }
 
 function appendProjectChildSectionSceneNodes({
-  contentSurfaces,
   parentNode,
   projectState,
   sections,
   seenSectionIds,
 }: {
-  readonly contentSurfaces: GpuContentSurface[];
   readonly parentNode: GpuSectionSceneNode;
   readonly projectState: ZustandProjectState;
   readonly sections: GpuSectionSceneNode[];
   readonly seenSectionIds: Set<string>;
 }) {
-  let previousChildRect: GpuRect | null = null;
   parentNode.childSectionIds.forEach((childSectionId) => {
     if (!shouldRenderProjectSceneSection(projectState, childSectionId)) {
       return;
@@ -259,16 +254,10 @@ function appendProjectChildSectionSceneNodes({
     if (!childImpl) {
       return;
     }
-    const localRect = createProjectNestedSectionLocalRect({
-      layoutMode: parentNode.layoutMode,
-      previousChildRect,
+    const localRect = createProjectNestedSectionInitialLocalRect({
+      parentLayoutMode: parentNode.layoutMode,
       sectionImpl: childImpl,
     });
-    previousChildRect = localRect;
-    const worldRect = translateRect(
-      localRect,
-      parentNode.childViewportRect ?? parentNode.bodyRect,
-    );
     const childNode = createProjectSectionSceneNode({
       childSectionIds: getRenderableProjectChildSectionIds(
         projectState,
@@ -282,23 +271,21 @@ function appendProjectChildSectionSceneNodes({
         nodeId: childSectionId,
         tempZIndex: parentNode.tempZIndex,
         width: localRect.width,
-        x: worldRect.x,
-        y: worldRect.y,
+        x: localRect.x,
+        y: localRect.y,
         zIndex: parentNode.zIndex,
       },
       parentSectionId: parentNode.sectionId,
       sectionImpl: childImpl,
       sectionId: childSectionId,
-      worldRect,
+      worldRect: localRect,
     });
     pushProjectSectionSceneNode({
-      contentSurfaces,
       sceneNode: childNode,
       sections,
       seenSectionIds,
     });
     appendProjectChildSectionSceneNodes({
-      contentSurfaces,
       parentNode: childNode,
       projectState,
       sections,
@@ -328,9 +315,11 @@ function createProjectSectionSceneNode({
 }): GpuSectionSceneNode {
   const bodyRect = worldRect;
   const childViewportRect = childSectionIds.length > 0 ? bodyRect : null;
+  const layoutMode = getProjectSectionSceneLayoutMode(sectionImpl);
   return {
     ...node,
     bodyRect,
+    childLayout: getProjectSectionSceneChildLayout(layoutMode),
     childSectionIds,
     childViewportRect,
     chromeRect: worldRect,
@@ -338,7 +327,7 @@ function createProjectSectionSceneNode({
     contentRenderer,
     dirty: [],
     interactionLayer: "content",
-    layoutMode: getProjectSectionSceneLayoutMode(sectionImpl),
+    layoutMode,
     localRect,
     parentSectionId,
     portAnchors: [],
@@ -356,12 +345,10 @@ function createProjectSectionSceneNode({
 }
 
 function pushProjectSectionSceneNode({
-  contentSurfaces,
   sceneNode,
   sections,
   seenSectionIds,
 }: {
-  readonly contentSurfaces: GpuContentSurface[];
   readonly sceneNode: GpuSectionSceneNode;
   readonly sections: GpuSectionSceneNode[];
   readonly seenSectionIds: Set<string>;
@@ -371,17 +358,6 @@ function pushProjectSectionSceneNode({
   }
   seenSectionIds.add(sceneNode.sectionId);
   sections.push(sceneNode);
-  if (sceneNode.contentRenderer.kind === "scene-only") {
-    return;
-  }
-  contentSurfaces.push({
-    clipRect: sceneNode.clipRect,
-    id: sceneNode.contentRenderer.surfaceId,
-    ownerSectionId: sceneNode.sectionId,
-    rect: sceneNode.worldRect,
-    renderer: sceneNode.contentRenderer,
-    zIndex: sceneNode.zIndex ?? 0,
-  });
 }
 
 function getRenderableProjectChildSectionIds(
@@ -457,36 +433,17 @@ function isProjectListRootSectionImpl(
   return sectionImpl.type === SectionTypeEnum.ListRoot;
 }
 
-function createProjectNestedSectionLocalRect({
-  layoutMode,
-  previousChildRect,
+function createProjectNestedSectionInitialLocalRect({
+  parentLayoutMode,
   sectionImpl,
 }: {
-  readonly layoutMode: GpuSectionSceneLayoutMode;
-  readonly previousChildRect: GpuRect | null;
+  readonly parentLayoutMode: GpuSectionSceneLayoutMode;
   readonly sectionImpl: BaseSectionImplUnion;
 }): GpuRect {
-  const size = getProjectNestedSectionSceneSize(sectionImpl, layoutMode);
-  if (!previousChildRect) {
-    return { ...size, x: 0, y: 0 };
-  }
-  if (layoutMode === "horizontal" || layoutMode === "kanban") {
-    return {
-      ...size,
-      x:
-        previousChildRect.x +
-        previousChildRect.width +
-        getProjectNestedSectionGap(layoutMode),
-      y: 0,
-    };
-  }
   return {
-    ...size,
+    ...getProjectNestedSectionSceneSize(sectionImpl, parentLayoutMode),
     x: 0,
-    y:
-      previousChildRect.y +
-      previousChildRect.height +
-      getProjectNestedSectionGap(layoutMode),
+    y: 0,
   };
 }
 
@@ -518,6 +475,19 @@ function getProjectNestedSectionGap(
     return NESTED_HORIZONTAL_SECTION_GAP_PX;
   }
   return NESTED_VERTICAL_SECTION_GAP_PX;
+}
+
+function getProjectSectionSceneChildLayout(
+  layoutMode: GpuSectionSceneLayoutMode,
+): GpuSectionSceneChildLayout {
+  const gap = getProjectNestedSectionGap(layoutMode);
+  if (layoutMode === "horizontal" || layoutMode === "kanban") {
+    return { gap: { x: gap, y: 0 } };
+  }
+  if (layoutMode === "vertical") {
+    return { gap: { x: 0, y: gap } };
+  }
+  return { gap: { x: 0, y: 0 } };
 }
 
 function createRectFromTopLevelLayoutNode(
@@ -552,15 +522,6 @@ function resolveProjectSectionSceneDimension(
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : fallback;
-}
-
-function translateRect(rect: GpuRect, origin: GpuRect): GpuRect {
-  return {
-    height: rect.height,
-    width: rect.width,
-    x: origin.x + rect.x,
-    y: origin.y + rect.y,
-  };
 }
 
 function getProjectGpuSceneRevision(projectState: ZustandProjectState): number {

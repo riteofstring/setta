@@ -1,5 +1,6 @@
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
+import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import type { ZustandProjectState } from "state/definitions";
 import {
   createCore,
@@ -213,6 +214,71 @@ describe("project GPU layout adapter", () => {
       "texture-size",
       "source-size",
     ]);
+  });
+
+  it("syncs only nested DOM section surfaces inside renderer-owned clips", () => {
+    const scene = getProjectGpuFlowScene(
+      projectStateWithSections({
+        sections: [
+          {
+            id: "group-a",
+            impl: createGroupSectionImpl({
+              children: ["child-a", "child-b", "child-c"],
+              id: "group-a-impl",
+              size: sectionSize({ height: "auto", width: "auto" }),
+            }),
+            parentId: null,
+          },
+          {
+            id: "child-a",
+            impl: createDictSectionImpl({
+              id: "child-a-impl",
+              size: sectionSize({ height: 50, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+          {
+            id: "child-b",
+            impl: createDictSectionImpl({
+              id: "child-b-impl",
+              size: sectionSize({ height: 50, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+          {
+            id: "child-c",
+            impl: createDictSectionImpl({
+              id: "child-c-impl",
+              size: sectionSize({ height: 20, width: 80 }),
+            }),
+            parentId: "group-a",
+          },
+        ],
+        topLevelSections: {
+          "group-a": { h: 100, w: 200, x: 0, y: 0, zIndex: 1 },
+        },
+      }),
+      { darkMode: false },
+    );
+
+    expect(scene.sections.map((section) => section.sectionId)).toEqual([
+      "group-a",
+      "child-a",
+      "child-b",
+      "child-c",
+    ]);
+    expect(
+      getGpuFlowSceneDomSectionNodes(scene).map((section) => section.sectionId),
+    ).toEqual(["group-a", "child-a", "child-b"]);
+
+    const store = createGpuFlowLayoutStore();
+    syncProjectGpuLayoutStoreFromScene(store, scene);
+    expect(
+      store
+        .getState()
+        .getNodes()
+        .map((node) => node.nodeId),
+    ).toEqual(["group-a", "child-a", "child-b"]);
   });
 });
 

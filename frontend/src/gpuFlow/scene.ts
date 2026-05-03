@@ -1,5 +1,5 @@
 import type { GpuNodeLayout } from "./htmlSurfaces/frame";
-import type { GpuPoint, GpuRect } from "./viewportMath";
+import { rectsIntersect, type GpuPoint, type GpuRect } from "./viewportMath";
 
 export const GPU_FLOW_SCENE_DIRTY_FLAGS = [
   "section-geometry",
@@ -29,6 +29,10 @@ export type GpuSectionSceneResizePolicy = {
   readonly minWidth: number;
 };
 
+export type GpuSectionSceneChildLayout = {
+  readonly gap: GpuPoint;
+};
+
 export type GpuPortAnchorDescriptor = {
   readonly id: string;
   readonly kind: "input" | "output" | "section";
@@ -50,6 +54,7 @@ export type GpuSectionContentRendererDescriptor =
 
 export type GpuSectionSceneNode = GpuNodeLayout & {
   readonly bodyRect: GpuRect;
+  readonly childLayout: GpuSectionSceneChildLayout;
   readonly childSectionIds: readonly string[];
   readonly childViewportRect: GpuRect | null;
   readonly chromeRect: GpuRect;
@@ -108,6 +113,42 @@ export function getGpuFlowSceneDomSectionNodes(
   scene: GpuFlowScene,
 ): readonly GpuSectionSceneNode[] {
   return scene.sections.filter(
-    (section) => section.contentRenderer.kind === "dom-section",
+    (section) =>
+      section.contentRenderer.kind === "dom-section" &&
+      isGpuSectionSceneNodeInsideClip(section),
   );
+}
+
+export function createGpuFlowContentSurfacesFromSections(
+  sections: readonly GpuSectionSceneNode[],
+): readonly GpuContentSurface[] {
+  return sections.flatMap((section) => {
+    if (section.contentRenderer.kind === "scene-only") {
+      return [];
+    }
+    return [
+      {
+        clipRect: section.clipRect,
+        id: section.contentRenderer.surfaceId,
+        ownerSectionId: section.sectionId,
+        rect: section.worldRect,
+        renderer: section.contentRenderer,
+        zIndex: section.zIndex ?? 0,
+      },
+    ];
+  });
+}
+
+export function isGpuSectionSceneNodeInsideClip(
+  section: GpuSectionSceneNode,
+): boolean {
+  return (
+    isPositiveGpuRect(section.worldRect) &&
+    isPositiveGpuRect(section.clipRect) &&
+    rectsIntersect(section.worldRect, section.clipRect)
+  );
+}
+
+function isPositiveGpuRect(rect: GpuRect): boolean {
+  return rect.width > 0 && rect.height > 0;
 }
