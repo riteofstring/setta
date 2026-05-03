@@ -12,6 +12,7 @@ import {
 describe("GPU retained content interaction controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
+    vi.useRealTimers();
   });
 
   it("emits retained content clicks from generated hit records", () => {
@@ -147,6 +148,7 @@ describe("GPU retained content interaction controller", () => {
         activeHit: expect.objectContaining({
           hit: expect.objectContaining({ ownerRowId: "param-0" }),
         }),
+        flowPoint: { x: 20, y: 42 },
         hit: expect.objectContaining({
           hit: expect.objectContaining({ ownerRowId: "param-1" }),
         }),
@@ -166,6 +168,52 @@ describe("GPU retained content interaction controller", () => {
     expect(requestFrame).toHaveBeenCalledWith("manual");
 
     cleanup();
+  });
+
+  it("emits retained drag frames from the latest pointer position", () => {
+    vi.useFakeTimers();
+    const element = createHostElement();
+    const onHitDragFrame = vi.fn(() => true);
+    const onHitDragStart = vi.fn();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitDragFrame,
+      onHitDragStart,
+      requestFrame,
+      shouldStartDrag: (hit) => hit.hit.kind === "row",
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 20,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 1,
+        clientX: 20,
+        clientY: 76,
+        pointerId: 1,
+      }),
+    );
+    vi.advanceTimersByTime(16);
+
+    expect(onHitDragStart).toHaveBeenCalled();
+    expect(onHitDragFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowPoint: { x: 20, y: 76 },
+        screenPoint: { x: 20, y: 76 },
+      }),
+    );
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+
+    cleanup();
+    vi.useRealTimers();
   });
 
   it("lets callers gate which retained hits take pointer ownership", () => {

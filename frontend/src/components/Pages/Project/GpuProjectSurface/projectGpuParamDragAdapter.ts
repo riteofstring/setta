@@ -134,10 +134,12 @@ export function resolveProjectGpuRetainedParamDropMove({
 
 export function createProjectGpuRetainedParamDragPreview({
   hit,
+  pointerLocal,
   projectState,
   session,
 }: {
   readonly hit: GpuRetainedContentInteractionHit | null;
+  readonly pointerLocal?: GpuPoint | null | undefined;
   readonly projectState: ZustandProjectState;
   readonly session: ProjectGpuRetainedParamDragSession;
 }): ProjectGpuRetainedParamDragPreview {
@@ -154,7 +156,7 @@ export function createProjectGpuRetainedParamDragPreview({
           rowId: resolvedDrop.target.overParamId,
         }
       : null,
-    pointerLocal: hit?.localPoint ?? null,
+    pointerLocal: pointerLocal ?? hit?.localPoint ?? null,
     sectionId: session.sectionId,
     surfaceId: session.surfaceId,
   };

@@ -5,7 +5,12 @@ import type {
   GpuRetainedContentInteractionEvent,
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
-import type { GpuDomIsland } from "gpuFlow/scene";
+import {
+  resolveGpuRetainedContentDragAutoScroll,
+  type GpuRetainedContentScrollOffsetMap,
+} from "gpuFlow/retainedContentScroll";
+import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
+import type { GpuPoint } from "gpuFlow/viewportMath";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { moveParamsWithBackend } from "state/actions/params/moveParams";
@@ -23,11 +28,20 @@ import {
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
 
+type ProjectGpuRetainedContentScrollApi = {
+  readonly getScene: () => GpuFlowScene;
+  readonly getScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
+  readonly onScrollOffsetsChange: (
+    scrollOffsets: GpuRetainedContentScrollOffsetMap,
+  ) => void;
+};
+
 export function getProjectRetainedContentInteractionOptions({
   canEditStructure,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onRetainedParamDragPreviewChange,
+  retainedContentScroll,
   retainedParamDragSessionRef,
   zoomActivationKeyPressed,
 }: {
@@ -41,6 +55,7 @@ export function getProjectRetainedContentInteractionOptions({
   readonly onRetainedParamDragPreviewChange: (
     preview: ProjectGpuRetainedParamDragPreview | null,
   ) => void;
+  readonly retainedContentScroll: ProjectGpuRetainedContentScrollApi;
   readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   readonly zoomActivationKeyPressed: boolean;
 }) {
@@ -62,6 +77,13 @@ export function getProjectRetainedContentInteractionOptions({
     onHitDragMove: (event: GpuRetainedContentDragEvent) =>
       handleProjectRetainedContentDragMove(event, {
         onRetainedParamDragPreviewChange,
+        retainedContentScroll,
+        retainedParamDragSessionRef,
+      }),
+    onHitDragFrame: (event: GpuRetainedContentDragEvent) =>
+      handleProjectRetainedContentDragFrame(event, {
+        onRetainedParamDragPreviewChange,
+        retainedContentScroll,
         retainedParamDragSessionRef,
       }),
     onHitDragStart: (event: GpuRetainedContentInteractionEvent) =>
@@ -180,25 +202,87 @@ function handleProjectRetainedContentDragMove(
   event: GpuRetainedContentDragEvent,
   {
     onRetainedParamDragPreviewChange,
+    retainedContentScroll,
     retainedParamDragSessionRef,
   }: {
     readonly onRetainedParamDragPreviewChange: (
       preview: ProjectGpuRetainedParamDragPreview | null,
     ) => void;
+    readonly retainedContentScroll: ProjectGpuRetainedContentScrollApi;
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
-) {
+): boolean {
   const session = retainedParamDragSessionRef.current;
   if (!session) {
-    return;
+    return false;
+  }
+  const scene = retainedContentScroll.getScene();
+  const scrollResult = resolveGpuRetainedContentDragAutoScroll({
+    point: event.flowPoint,
+    scene,
+    scrollOffsets: retainedContentScroll.getScrollOffsets(),
+    surfaceId: session.surfaceId,
+  });
+  if (scrollResult.changed) {
+    retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
   }
   onRetainedParamDragPreviewChange(
     createProjectGpuRetainedParamDragPreview({
       hit: event.hit,
+      pointerLocal: getProjectRetainedParamDragPointerLocal({
+        event,
+        scene,
+        session,
+      }),
       projectState: useProjectState.getState(),
       session,
     }),
   );
+  return scrollResult.changed;
+}
+
+function handleProjectRetainedContentDragFrame(
+  event: GpuRetainedContentDragEvent,
+  {
+    onRetainedParamDragPreviewChange,
+    retainedContentScroll,
+    retainedParamDragSessionRef,
+  }: {
+    readonly onRetainedParamDragPreviewChange: (
+      preview: ProjectGpuRetainedParamDragPreview | null,
+    ) => void;
+    readonly retainedContentScroll: ProjectGpuRetainedContentScrollApi;
+    readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
+  },
+): boolean {
+  const session = retainedParamDragSessionRef.current;
+  if (!session) {
+    return false;
+  }
+  const scene = retainedContentScroll.getScene();
+  const scrollResult = resolveGpuRetainedContentDragAutoScroll({
+    point: event.flowPoint,
+    scene,
+    scrollOffsets: retainedContentScroll.getScrollOffsets(),
+    surfaceId: session.surfaceId,
+  });
+  if (!scrollResult.changed) {
+    return false;
+  }
+  retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
+  onRetainedParamDragPreviewChange(
+    createProjectGpuRetainedParamDragPreview({
+      hit: event.hit,
+      pointerLocal: getProjectRetainedParamDragPointerLocal({
+        event,
+        scene,
+        session,
+      }),
+      projectState: useProjectState.getState(),
+      session,
+    }),
+  );
+  return true;
 }
 
 function handleProjectRetainedContentDragEnd(
@@ -233,6 +317,30 @@ function handleProjectRetainedContentDragEnd(
     paramIds: [...move.paramIds],
     sectionId: move.sectionId,
   });
+}
+
+function getProjectRetainedParamDragPointerLocal({
+  event,
+  scene,
+  session,
+}: {
+  readonly event: GpuRetainedContentDragEvent;
+  readonly scene: GpuFlowScene;
+  readonly session: ProjectGpuRetainedParamDragSession;
+}): GpuPoint | null {
+  if (event.hit?.surfaceId === session.surfaceId) {
+    return event.hit.localPoint;
+  }
+  const surface = scene.contentSurfaces.find(
+    (candidate) => candidate.id === session.surfaceId,
+  );
+  if (!surface?.retainedScene) {
+    return null;
+  }
+  return {
+    x: event.flowPoint.x - surface.rect.x,
+    y: event.flowPoint.y - surface.rect.y,
+  };
 }
 
 function handleProjectRetainedContentDragCancel(

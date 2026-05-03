@@ -407,6 +407,11 @@ function ProjectGpuFlowLayer({
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
         onRetainedParamDragPreviewChange,
+        retainedContentScroll: {
+          getScene: () => layoutAdapter.scene,
+          getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
+          onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
+        },
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
       }),
@@ -416,6 +421,7 @@ function ProjectGpuFlowLayer({
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
       onRetainedParamDragPreviewChange,
+      layoutAdapter,
       retainedParamDragSessionRef,
     ],
   );

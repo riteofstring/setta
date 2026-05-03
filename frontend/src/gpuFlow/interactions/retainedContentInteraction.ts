@@ -25,6 +25,7 @@ export type GpuRetainedContentDragEvent<
   NativeEvent extends PointerEvent = PointerEvent,
 > = {
   readonly activeHit: GpuRetainedContentInteractionHit;
+  readonly flowPoint: GpuPoint;
   readonly hit: GpuRetainedContentInteractionHit | null;
   readonly nativeEvent: NativeEvent;
   readonly screenPoint: GpuPoint;
@@ -50,6 +51,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
     | undefined;
   readonly onHitDragEnd?:
     | ((event: GpuRetainedContentDragEvent) => void)
+    | undefined;
+  readonly onHitDragFrame?:
+    | ((event: GpuRetainedContentDragEvent) => boolean | void)
     | undefined;
   readonly onHitDragMove?:
     | ((event: GpuRetainedContentDragEvent) => void)
@@ -91,6 +95,7 @@ type ActiveRetainedContentPointer = {
   readonly startClientY: number;
   readonly startHit: GpuRetainedContentInteractionHit;
   readonly surfaceId: string;
+  readonly lastNativeEvent: PointerEvent;
 };
 
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
@@ -130,6 +135,7 @@ export function hitTestGpuRetainedContentInteraction({
 
 class GpuRetainedContentInteractionController {
   private activePointer: ActiveRetainedContentPointer | null = null;
+  private dragAnimationFrame: number | null = null;
   private hoveredHitKey: string | null = null;
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentInteractionControllerOptions;
@@ -170,6 +176,7 @@ class GpuRetainedContentInteractionController {
     );
     this.element.removeEventListener("pointerleave", this.onPointerLeave, true);
     this.activePointer = null;
+    this.cancelDragFrameLoop();
     this.clearHover();
   }
 
@@ -186,6 +193,7 @@ class GpuRetainedContentInteractionController {
     this.activePointer = {
       dragging: false,
       hitId: hit.hit.id,
+      lastNativeEvent: event,
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
@@ -227,6 +235,7 @@ class GpuRetainedContentInteractionController {
     preventRetainedContentEvent(event);
     this.element.releasePointerCapture?.(event.pointerId);
     this.activePointer = null;
+    this.cancelDragFrameLoop();
     if (activePointer.dragging) {
       this.emitActivePointerDragEnd(event, activePointer);
       return;
@@ -291,20 +300,25 @@ class GpuRetainedContentInteractionController {
       nextActivePointer = {
         ...activePointer,
         dragging: true,
+        lastNativeEvent: event,
       };
       this.activePointer = nextActivePointer;
       this.options.onHitDragStart?.({
         ...activePointer.startHit,
         nativeEvent: event,
       });
+      this.startDragFrameLoop();
+    } else {
+      nextActivePointer = {
+        ...activePointer,
+        lastNativeEvent: event,
+      };
+      this.activePointer = nextActivePointer;
     }
 
-    this.options.onHitDragMove?.({
-      activeHit: nextActivePointer.startHit,
-      hit: this.hitTestEvent(event, this.getDragMoveHitFilter()),
-      nativeEvent: event,
-      screenPoint: getEventPointRelativeToElement(event, this.element),
-    });
+    this.options.onHitDragMove?.(
+      this.createActivePointerDragEvent(event, nextActivePointer),
+    );
     this.options.requestFrame?.("manual");
   }
 
@@ -312,6 +326,7 @@ class GpuRetainedContentInteractionController {
     const activePointer = this.activePointer;
     this.element.releasePointerCapture?.(event.pointerId);
     this.activePointer = null;
+    this.cancelDragFrameLoop();
     if (!activePointer?.dragging) {
       return;
     }
@@ -334,12 +349,9 @@ class GpuRetainedContentInteractionController {
     event: PointerEvent,
     activePointer: ActiveRetainedContentPointer,
   ) {
-    this.options.onHitDragEnd?.({
-      activeHit: activePointer.startHit,
-      hit: this.hitTestEvent(event, this.getDragMoveHitFilter()),
-      nativeEvent: event,
-      screenPoint: getEventPointRelativeToElement(event, this.element),
-    });
+    this.options.onHitDragEnd?.(
+      this.createActivePointerDragEvent(event, activePointer),
+    );
     this.options.requestFrame?.("manual");
   }
 
@@ -362,6 +374,60 @@ class GpuRetainedContentInteractionController {
     }
     this.options.onHitClick?.({ ...hit, nativeEvent: event });
     this.options.requestFrame?.("manual");
+  }
+
+  private createActivePointerDragEvent(
+    event: PointerEvent,
+    activePointer: ActiveRetainedContentPointer,
+  ): GpuRetainedContentDragEvent {
+    const screenPoint = getEventPointRelativeToElement(event, this.element);
+    return {
+      activeHit: activePointer.startHit,
+      flowPoint: screenToFlowPosition(
+        screenPoint,
+        this.store.getState().transform,
+      ),
+      hit: this.hitTestEvent(event, this.getDragMoveHitFilter()),
+      nativeEvent: event,
+      screenPoint,
+    };
+  }
+
+  private startDragFrameLoop() {
+    if (!this.options.onHitDragFrame || this.dragAnimationFrame !== null) {
+      return;
+    }
+    this.dragAnimationFrame = requestAnimationFrame(this.runDragFrame);
+  }
+
+  private readonly runDragFrame = () => {
+    this.dragAnimationFrame = null;
+    const activePointer = this.activePointer;
+    if (!activePointer?.dragging) {
+      return;
+    }
+    if (isRetainedContentInteractionDisabled(this.options.disabled)) {
+      this.cancelActivePointer(activePointer.lastNativeEvent);
+      return;
+    }
+    const changed = this.options.onHitDragFrame?.(
+      this.createActivePointerDragEvent(
+        activePointer.lastNativeEvent,
+        activePointer,
+      ),
+    );
+    if (changed) {
+      this.options.requestFrame?.("manual");
+    }
+    this.startDragFrameLoop();
+  };
+
+  private cancelDragFrameLoop() {
+    if (this.dragAnimationFrame === null) {
+      return;
+    }
+    cancelAnimationFrame(this.dragAnimationFrame);
+    this.dragAnimationFrame = null;
   }
 }
 
@@ -422,6 +488,7 @@ function shouldStartRetainedContentDrag(
 ): boolean {
   if (
     !options.onHitDragStart &&
+    !options.onHitDragFrame &&
     !options.onHitDragMove &&
     !options.onHitDragEnd
   ) {

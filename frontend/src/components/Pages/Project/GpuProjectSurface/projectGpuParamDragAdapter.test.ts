@@ -145,6 +145,34 @@ describe("project GPU retained param drag adapter", () => {
     });
   });
 
+  it("keeps retained drag previews positioned when no row is under the pointer", () => {
+    const projectState = projectStateWithParams({
+      rootChildren: ["param-a", "param-b"],
+      selectedParams: ["param-a"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "param-a",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      createProjectGpuRetainedParamDragPreview({
+        hit: null,
+        pointerLocal: { x: 20, y: 236 },
+        projectState,
+        session: session!,
+      }),
+    ).toEqual({
+      draggingParamIds: ["param-a"],
+      dropMarker: null,
+      pointerLocal: { x: 20, y: 236 },
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+  });
+
   it("resolves retained control drops into empty nested parents", () => {
     const projectState = projectStateWithParams({
       nestedChildrenByParent: { "empty-parent": [] },

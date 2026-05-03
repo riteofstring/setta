@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import {
   clampGpuRetainedContentScrollOffset,
+  resolveGpuRetainedContentDragAutoScroll,
   resolveGpuRetainedContentWheelScroll,
 } from "./retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
@@ -70,6 +71,45 @@ describe("retained content scroll", () => {
         }),
       ]),
       scrollOffsets: offsets,
+    });
+
+    expect(result.changed).toBe(false);
+    expect(result.scrollOffsets).toBe(offsets);
+  });
+
+  it("autoscrolls a retained surface from a drag point near the viewport edge", () => {
+    const offsets = new Map([["params", { x: 0, y: 24 }]]);
+    const result = resolveGpuRetainedContentDragAutoScroll({
+      maxSpeedPx: 20,
+      point: { x: 20, y: 76 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: offsets,
+      surfaceId: "params",
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.surfaceId).toBe("params");
+    expect(result.scrollOffsets.get("params")?.y).toBeGreaterThan(24);
+    expect(result.scrollOffsets.get("params")?.y).toBeLessThanOrEqual(44);
+  });
+
+  it("does not autoscroll retained drags outside the viewport cross axis", () => {
+    const offsets = new Map([["params", { x: 0, y: 24 }]]);
+    const result = resolveGpuRetainedContentDragAutoScroll({
+      point: { x: 220, y: 76 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: offsets,
+      surfaceId: "params",
     });
 
     expect(result.changed).toBe(false);

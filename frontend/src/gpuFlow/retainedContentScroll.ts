@@ -12,9 +12,114 @@ export type GpuRetainedContentScrollResult = {
 export type GpuRetainedContentWheelScrollResult =
   GpuRetainedContentScrollResult;
 
+export type GpuRetainedContentDragAutoScrollResult =
+  GpuRetainedContentScrollResult;
+
+type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+};
+
+const DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MARGIN_PX = 36;
+const DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MAX_SPEED_PX = 18;
 const GPU_RETAINED_CONTENT_WHEEL_DELTA_LINE = 1;
 const GPU_RETAINED_CONTENT_WHEEL_DELTA_PAGE = 2;
 const GPU_RETAINED_CONTENT_WHEEL_LINE_DELTA_PX = 20;
+
+export function resolveGpuRetainedContentDragAutoScroll({
+  marginPx = DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MARGIN_PX,
+  maxSpeedPx = DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MAX_SPEED_PX,
+  point,
+  scene,
+  scrollOffsets,
+  surfaceId,
+}: {
+  readonly marginPx?: number | undefined;
+  readonly maxSpeedPx?: number | undefined;
+  readonly point: GpuPoint;
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+  readonly surfaceId: string;
+}): GpuRetainedContentDragAutoScrollResult {
+  assertFiniteNonNegative("retained content drag auto-scroll margin", marginPx);
+  assertFiniteNonNegative(
+    "retained content drag auto-scroll max speed",
+    maxSpeedPx,
+  );
+  assertFiniteNumber("retained content drag point x", point.x);
+  assertFiniteNumber("retained content drag point y", point.y);
+  const surface = getGpuRetainedContentSurfaceById(scene, surfaceId);
+  if (!surface) {
+    throw new Error(
+      `Missing retained content drag scroll surface ${surfaceId}.`,
+    );
+  }
+  const currentOffset =
+    scrollOffsets.get(surface.id) ?? surface.retainedScene.scrollOffset;
+  const nextOffset = resolveGpuRetainedContentDragAutoScrollOffset({
+    currentOffset,
+    localPoint: {
+      x: point.x - surface.rect.x,
+      y: point.y - surface.rect.y,
+    },
+    marginPx,
+    maxSpeedPx,
+    surface,
+  });
+  if (!nextOffset) {
+    return unchangedGpuRetainedContentScroll(scrollOffsets);
+  }
+  const nextOffsets = new Map(scrollOffsets);
+  nextOffsets.set(surface.id, nextOffset);
+  return {
+    changed: true,
+    scrollOffsets: nextOffsets,
+    surfaceId: surface.id,
+  };
+}
+
+function resolveGpuRetainedContentDragAutoScrollOffset({
+  currentOffset,
+  localPoint,
+  marginPx,
+  maxSpeedPx,
+  surface,
+}: {
+  readonly currentOffset: GpuPoint;
+  readonly localPoint: GpuPoint;
+  readonly marginPx: number;
+  readonly maxSpeedPx: number;
+  readonly surface: GpuRetainedContentSurfaceWithScene;
+}): GpuPoint | null {
+  const maxOffset = getGpuRetainedContentMaxScrollOffset({
+    contentRect: surface.retainedScene.contentRect,
+    viewportRect: surface.retainedScene.viewportRect,
+  });
+  if (maxOffset.x <= 0 && maxOffset.y <= 0) {
+    return null;
+  }
+  const delta = getGpuRetainedContentDragAutoScrollDelta({
+    localPoint,
+    marginPx,
+    maxOffset,
+    maxSpeedPx,
+    viewportRect: surface.retainedScene.viewportRect,
+  });
+  if (delta.x === 0 && delta.y === 0) {
+    return null;
+  }
+  const nextOffset = clampGpuRetainedContentScrollOffset({
+    contentRect: surface.retainedScene.contentRect,
+    scrollOffset: {
+      x: currentOffset.x + delta.x,
+      y: currentOffset.y + delta.y,
+    },
+    viewportRect: surface.retainedScene.viewportRect,
+  });
+  if (nextOffset.x === currentOffset.x && nextOffset.y === currentOffset.y) {
+    return null;
+  }
+  return nextOffset;
+}
 
 export function resolveGpuRetainedContentWheelScroll({
   event,
@@ -125,6 +230,23 @@ function getGpuRetainedContentWheelScrollContext({
   };
 }
 
+function getGpuRetainedContentSurfaceById(
+  scene: GpuFlowScene,
+  surfaceId: string,
+): GpuRetainedContentSurfaceWithScene | null {
+  const surface = scene.contentSurfaces.find(
+    (candidate) => candidate.id === surfaceId,
+  );
+  if (
+    !surface ||
+    surface.renderer.kind !== "canvas-content" ||
+    !surface.retainedScene
+  ) {
+    return null;
+  }
+  return surface as GpuRetainedContentSurfaceWithScene;
+}
+
 function isGpuRetainedContentWheelScrollCandidate({
   point,
   surface,
@@ -145,6 +267,92 @@ function isGpuRetainedContentWheelScrollCandidate({
   return gpuRectContainsPoint(
     intersectGpuRects(surface.rect, surface.clipRect),
     point,
+  );
+}
+
+function getGpuRetainedContentDragAutoScrollDelta({
+  localPoint,
+  marginPx,
+  maxOffset,
+  maxSpeedPx,
+  viewportRect,
+}: {
+  readonly localPoint: GpuPoint;
+  readonly marginPx: number;
+  readonly maxOffset: GpuPoint;
+  readonly maxSpeedPx: number;
+  readonly viewportRect: GpuRect;
+}): GpuPoint {
+  return {
+    x:
+      maxOffset.x > 0 &&
+      isGpuRetainedContentPointInsideAxis(localPoint, "y", viewportRect)
+        ? getGpuRetainedContentDragAutoScrollAxisDelta({
+            axis: "x",
+            marginPx,
+            maxSpeedPx,
+            point: localPoint,
+            viewportRect,
+          })
+        : 0,
+    y:
+      maxOffset.y > 0 &&
+      isGpuRetainedContentPointInsideAxis(localPoint, "x", viewportRect)
+        ? getGpuRetainedContentDragAutoScrollAxisDelta({
+            axis: "y",
+            marginPx,
+            maxSpeedPx,
+            point: localPoint,
+            viewportRect,
+          })
+        : 0,
+  };
+}
+
+function getGpuRetainedContentDragAutoScrollAxisDelta({
+  axis,
+  marginPx,
+  maxSpeedPx,
+  point,
+  viewportRect,
+}: {
+  readonly axis: "x" | "y";
+  readonly marginPx: number;
+  readonly maxSpeedPx: number;
+  readonly point: GpuPoint;
+  readonly viewportRect: GpuRect;
+}): number {
+  const pointValue = getGpuRetainedContentPointValueOnAxis(point, axis);
+  const min = getGpuRetainedContentRectMinOnAxis(viewportRect, axis) + marginPx;
+  const max = getGpuRetainedContentRectMaxOnAxis(viewportRect, axis) - marginPx;
+  if (pointValue < min) {
+    return -getGpuRetainedContentDragAutoScrollVelocity({
+      maxSpeedPx,
+      pointValue,
+      threshold: min,
+    });
+  }
+  if (pointValue > max) {
+    return getGpuRetainedContentDragAutoScrollVelocity({
+      maxSpeedPx,
+      pointValue,
+      threshold: max,
+    });
+  }
+  return 0;
+}
+
+function getGpuRetainedContentDragAutoScrollVelocity({
+  maxSpeedPx,
+  pointValue,
+  threshold,
+}: {
+  readonly maxSpeedPx: number;
+  readonly pointValue: number;
+  readonly threshold: number;
+}): number {
+  return (
+    (clampNumber(Math.abs(pointValue - threshold), 1, 50) / 50) * maxSpeedPx
   );
 }
 
@@ -250,6 +458,42 @@ function intersectGpuRects(left: GpuRect, right: GpuRect): GpuRect {
     x,
     y,
   };
+}
+
+function isGpuRetainedContentPointInsideAxis(
+  point: GpuPoint,
+  axis: "x" | "y",
+  rect: GpuRect,
+): boolean {
+  const pointValue = getGpuRetainedContentPointValueOnAxis(point, axis);
+  return (
+    pointValue >= getGpuRetainedContentRectMinOnAxis(rect, axis) &&
+    pointValue <= getGpuRetainedContentRectMaxOnAxis(rect, axis)
+  );
+}
+
+function getGpuRetainedContentPointValueOnAxis(
+  point: GpuPoint,
+  axis: "x" | "y",
+): number {
+  return axis === "x" ? point.x : point.y;
+}
+
+function getGpuRetainedContentRectMinOnAxis(
+  rect: GpuRect,
+  axis: "x" | "y",
+): number {
+  return axis === "x" ? rect.x : rect.y;
+}
+
+function getGpuRetainedContentRectMaxOnAxis(
+  rect: GpuRect,
+  axis: "x" | "y",
+): number {
+  return (
+    getGpuRetainedContentRectMinOnAxis(rect, axis) +
+    (axis === "x" ? rect.width : rect.height)
+  );
 }
 
 function clampNumber(value: number, min: number, max: number): number {
