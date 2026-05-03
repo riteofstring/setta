@@ -30,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createProjectNodeResizeOptions,
   createProjectNodeResizeSession,
+  getProjectNodeResizePolicy,
 } from "./projectNodeResize";
 
 vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
@@ -250,6 +251,7 @@ function sectionNode({
   layoutMode = "none",
   localRect,
   parentId = null,
+  resizePolicy,
   scrollOffset = { x: 0, y: 0 },
   worldRect = rect(0, 0, 100, 80),
 }: {
@@ -259,6 +261,7 @@ function sectionNode({
   readonly layoutMode?: GpuSectionSceneLayoutMode | undefined;
   readonly localRect?: GpuRect | undefined;
   readonly parentId?: string | null | undefined;
+  readonly resizePolicy?: Partial<GpuSectionSceneNode["resizePolicy"]>;
   readonly scrollOffset?: GpuPoint | undefined;
   readonly worldRect?: GpuRect | undefined;
 }): GpuSectionSceneNode {
@@ -281,11 +284,16 @@ function sectionNode({
     parentSectionId: parentId,
     portAnchors: [],
     resizePolicy: {
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      directions: ["right", "bottom", "bottomRight"],
       locked: false,
-      maxHeight: null,
-      maxWidth: null,
+      maxHeight: 100_000,
+      maxWidth: 100_000,
       minHeight: 0,
       minWidth: 0,
+      ...resizePolicy,
     },
     scrollOffset,
     sectionId: id,
@@ -435,6 +443,59 @@ describe("project GPU node resize adapter", () => {
       phase: "change",
       reason: "resize",
     });
+  });
+
+  it("resolves live resize constraints from section scene metadata", () => {
+    const node = sectionNode({
+      id: sectionId,
+      resizePolicy: {
+        aspectRatio: true,
+        aspectRatioExtraHeight: 12,
+        aspectRatioExtraWidth: 4,
+        directions: ["right"],
+        maxHeight: 90,
+        maxWidth: 320,
+        minHeight: 30,
+        minWidth: 40,
+      },
+    });
+
+    expect(
+      getProjectNodeResizePolicy(
+        { direction: "right", node, nodeId: sectionId },
+        { canEditLayout: true },
+      ),
+    ).toMatchObject({
+      aspectRatio: true,
+      aspectRatioExtraHeight: 12,
+      aspectRatioExtraWidth: 4,
+      directions: ["right"],
+      maxHeight: 90,
+      maxWidth: 320,
+      minHeight: 30,
+      minWidth: 40,
+    });
+    expect(
+      getProjectNodeResizePolicy(
+        { direction: "bottom", node, nodeId: sectionId },
+        { canEditLayout: true },
+      ),
+    ).toBe(false);
+    expect(
+      getProjectNodeResizePolicy(
+        {
+          direction: "right",
+          node: sectionNode({
+            id: sectionId,
+            resizePolicy: {
+              locked: true,
+            },
+          }),
+          nodeId: sectionId,
+        },
+        { canEditLayout: true },
+      ),
+    ).toBe(false);
   });
 
   it("preserves live section width when persisting a later height-only resize", () => {

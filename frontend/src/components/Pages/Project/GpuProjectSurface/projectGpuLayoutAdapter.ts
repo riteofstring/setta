@@ -9,6 +9,7 @@ import {
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
+import type { GpuNodeResizeDirection } from "gpuFlow/resizeHandles";
 import {
   getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
@@ -16,6 +17,7 @@ import {
   type GpuSectionSceneChildLayout,
   type GpuSectionSceneLayoutMode,
   type GpuSectionSceneNode,
+  type GpuSectionSceneResizePolicy,
 } from "gpuFlow/scene";
 import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
 import type { GpuRect } from "gpuFlow/viewportMath";
@@ -33,12 +35,27 @@ import {
 import {
   buildTopLevelSectionNode,
   getPositiveTopLevelLayoutDimension,
+  toTopLevelSectionOuterDimension,
 } from "state/actions/sectionInfos/topLevelSectionNode";
+import {
+  getResizableEnable,
+  getResizeAxisAvailability,
+} from "state/actions/sections/sectionResizePolicy";
 import {
   useLocalStorage,
   useProjectState,
+  useResizeEvent,
+  useSettings,
+  useTemporaryMiscState,
   type ZustandProjectState,
 } from "state/definitions";
+import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
+import {
+  getKwargsControlsHeightKey,
+  getParamsFixedHeightKey,
+  getSectionHeaderHeightKey,
+  getSectionSearchHeightKey,
+} from "utils/constants";
 import {
   isBaseParentSectionImpl,
   ListRootViewModeEnum,
@@ -46,12 +63,25 @@ import {
   type BaseSectionImplUnion,
   type GroupSectionImpl,
   type ListRootSectionImpl,
+  type SectionSizingPolicy,
 } from "utils/generatedTypes";
 
 export type ProjectGpuLayoutAdapter = {
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
   readonly scene: GpuFlowScene;
+};
+
+type ProjectGpuSceneResizePolicyContext = {
+  readonly measuredHeightsByKey: Readonly<Record<string, unknown>>;
+  readonly resizeEventBySectionId: Readonly<Record<string, string | undefined>>;
+  readonly sizingPolicy: SectionSizingPolicy;
+};
+
+type ProjectSectionSceneAspectRatioFields = {
+  readonly aspectRatio?: boolean | null | undefined;
+  readonly aspectRatioExtraHeight?: number | null | undefined;
+  readonly aspectRatioExtraWidth?: number | null | undefined;
 };
 
 let projectGpuLayoutStoreSyncSubscriberCount = 0;
@@ -62,19 +92,32 @@ const NESTED_VERTICAL_SECTION_GAP_PX = 8;
 const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
 const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
-const SECTION_SCENE_MIN_SIZE_PX = 0;
 
 export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
   const layoutStore = useProjectGpuLayoutStore();
   const projectState = useProjectState((state) => state);
   const darkMode = useLocalStorage((state) => state.darkMode);
+  const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
+  const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
+  const measuredHeightsByKey = useTemporaryMiscState((state) => state);
   const scene = useMemo(
     () =>
       getProjectGpuFlowScene(projectState, {
         darkMode,
+        resizePolicyContext: {
+          measuredHeightsByKey,
+          resizeEventBySectionId,
+          sizingPolicy,
+        },
         revision: getProjectGpuSceneRevision(projectState),
       }),
-    [darkMode, projectState],
+    [
+      darkMode,
+      measuredHeightsByKey,
+      projectState,
+      resizeEventBySectionId,
+      sizingPolicy,
+    ],
   );
   useProjectGpuLayoutStoreSceneSync(layoutStore, scene);
   const nodeLayouts =
@@ -106,6 +149,7 @@ export function getProjectGpuFlowScene(
   projectState: ZustandProjectState,
   options: {
     readonly darkMode: boolean;
+    readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
   },
 ): GpuFlowScene {
@@ -113,6 +157,8 @@ export function getProjectGpuFlowScene(
   const seenSectionIds = new Set<string>();
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
   const activeViewModeId = projectState.projectConfig.activeViewModeId;
+  const resizePolicyContext =
+    options.resizePolicyContext ?? getProjectGpuSceneResizePolicyContext();
   const canFilterByView = Boolean(
     activeViewModeId && projectState.projectConfig.viewModes[activeViewModeId],
   );
@@ -158,6 +204,8 @@ export function getProjectGpuFlowScene(
       localRect: worldRect,
       node,
       parentSectionId: null,
+      projectState,
+      resizePolicyContext,
       sectionImpl,
       sectionId,
       worldRect,
@@ -170,6 +218,7 @@ export function getProjectGpuFlowScene(
     appendProjectChildSectionSceneNodes({
       parentNode: sceneNode,
       projectState,
+      resizePolicyContext,
       sections,
       seenSectionIds,
     });
@@ -235,11 +284,13 @@ function useProjectGpuLayoutStoreSceneSync(
 function appendProjectChildSectionSceneNodes({
   parentNode,
   projectState,
+  resizePolicyContext,
   sections,
   seenSectionIds,
 }: {
   readonly parentNode: GpuSectionSceneNode;
   readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sections: GpuSectionSceneNode[];
   readonly seenSectionIds: Set<string>;
 }) {
@@ -276,6 +327,8 @@ function appendProjectChildSectionSceneNodes({
         zIndex: parentNode.zIndex,
       },
       parentSectionId: parentNode.sectionId,
+      projectState,
+      resizePolicyContext,
       sectionImpl: childImpl,
       sectionId: childSectionId,
       worldRect: localRect,
@@ -288,6 +341,7 @@ function appendProjectChildSectionSceneNodes({
     appendProjectChildSectionSceneNodes({
       parentNode: childNode,
       projectState,
+      resizePolicyContext,
       sections,
       seenSectionIds,
     });
@@ -300,6 +354,8 @@ function createProjectSectionSceneNode({
   localRect,
   node,
   parentSectionId,
+  projectState,
+  resizePolicyContext,
   sectionId,
   sectionImpl,
   worldRect,
@@ -309,6 +365,8 @@ function createProjectSectionSceneNode({
   readonly localRect: GpuRect;
   readonly node: GpuFlowLayoutNode;
   readonly parentSectionId: string | null;
+  readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
@@ -331,17 +389,112 @@ function createProjectSectionSceneNode({
     localRect,
     parentSectionId,
     portAnchors: [],
-    resizePolicy: {
-      locked: sectionImpl.positionAndSizeLocked,
-      maxHeight: null,
-      maxWidth: null,
-      minHeight: SECTION_SCENE_MIN_SIZE_PX,
-      minWidth: SECTION_SCENE_MIN_SIZE_PX,
-    },
+    resizePolicy: getProjectSectionSceneResizePolicy({
+      projectState,
+      resizePolicyContext,
+      sectionId,
+      sectionImpl,
+    }),
     scrollOffset: { x: 0, y: 0 },
     sectionId,
     worldRect,
   };
+}
+
+function getProjectSectionSceneResizePolicy({
+  projectState,
+  resizePolicyContext,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+}): GpuSectionSceneResizePolicy {
+  const dimensions = resolveSectionMinMaxDims({
+    sectionId,
+    projectState,
+    sizingPolicy: resizePolicyContext.sizingPolicy,
+    resizeEvent: resizePolicyContext.resizeEventBySectionId[sectionId],
+    measuredHeights: {
+      kwargsControlsHeight: getProjectSceneMeasuredHeight(
+        resizePolicyContext,
+        getKwargsControlsHeightKey(sectionId),
+      ),
+      paramsFixedHeight: getProjectSceneMeasuredHeight(
+        resizePolicyContext,
+        getParamsFixedHeightKey(sectionId),
+      ),
+      sectionHeaderHeight: getProjectSceneMeasuredHeight(
+        resizePolicyContext,
+        getSectionHeaderHeightKey(sectionId),
+      ),
+      sectionSearchHeight: getProjectSceneMeasuredHeight(
+        resizePolicyContext,
+        getSectionSearchHeightKey(sectionId),
+      ),
+    },
+  });
+  const { heightResizable, widthResizable } = getResizeAxisAvailability({
+    maxHeight: dimensions.maxHeight,
+    maxWidth: dimensions.maxWidth,
+    minHeight: dimensions.minHeight,
+    minWidth: dimensions.minWidth,
+    sizeMode: dimensions.sizeMode,
+  });
+  const enable = getResizableEnable({
+    disablePointerEvents: false,
+    positionAndSizeLocked: sectionImpl.positionAndSizeLocked,
+    heightResizable,
+    widthResizable,
+  });
+  const aspectRatioFields = sectionImpl as BaseSectionImplUnion &
+    ProjectSectionSceneAspectRatioFields;
+  return {
+    aspectRatio:
+      !sectionImpl.isMinimized && Boolean(aspectRatioFields.aspectRatio),
+    aspectRatioExtraHeight: aspectRatioFields.aspectRatioExtraHeight ?? 0,
+    aspectRatioExtraWidth: aspectRatioFields.aspectRatioExtraWidth ?? 0,
+    directions: enable ? getProjectSectionSceneResizeDirections(enable) : [],
+    locked: sectionImpl.positionAndSizeLocked,
+    maxHeight: toTopLevelSectionOuterDimension(dimensions.maxHeight),
+    maxWidth: toTopLevelSectionOuterDimension(dimensions.maxWidth),
+    minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
+    minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
+  };
+}
+
+function getProjectGpuSceneResizePolicyContext(): ProjectGpuSceneResizePolicyContext {
+  return {
+    measuredHeightsByKey: useTemporaryMiscState.getState(),
+    resizeEventBySectionId: useResizeEvent.getState().resizeEvent,
+    sizingPolicy: useSettings.getState().sectionSizingPolicy,
+  };
+}
+
+function getProjectSceneMeasuredHeight(
+  resizePolicyContext: ProjectGpuSceneResizePolicyContext,
+  key: string,
+): number {
+  const height = resizePolicyContext.measuredHeightsByKey[key];
+  return typeof height === "number" ? height : 0;
+}
+
+function getProjectSectionSceneResizeDirections(
+  enable: Exclude<ReturnType<typeof getResizableEnable>, false>,
+): readonly GpuNodeResizeDirection[] {
+  const directions: GpuNodeResizeDirection[] = [];
+  if (enable.right) {
+    directions.push("right");
+  }
+  if (enable.bottom) {
+    directions.push("bottom");
+  }
+  if (enable.bottomRight) {
+    directions.push("bottomRight");
+  }
+  return directions;
 }
 
 function pushProjectSectionSceneNode({

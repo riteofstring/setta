@@ -72,6 +72,7 @@ describe("project GPU layout adapter", () => {
           id: "child-b",
           impl: createDictSectionImpl({
             id: "child-b-impl",
+            positionAndSizeLocked: true,
             size: sectionSize({ height: 60, width: 120 }),
           }),
           parentId: "group-a",
@@ -128,6 +129,10 @@ describe("project GPU layout adapter", () => {
       layoutMode: "none",
       localRect: { height: 50, width: 100, x: 0, y: 0 },
       parentSectionId: "group-a",
+      resizePolicy: expect.objectContaining({
+        directions: ["right", "bottom", "bottomRight"],
+        locked: false,
+      }),
       worldRect: { height: 50, width: 100, x: 10, y: 20 },
       zIndex: 4,
     });
@@ -135,6 +140,10 @@ describe("project GPU layout adapter", () => {
       contentRenderer: { kind: "dom-section", surfaceId: "child-b" },
       localRect: { height: 60, width: 120, x: 108, y: 0 },
       parentSectionId: "group-a",
+      resizePolicy: expect.objectContaining({
+        directions: [],
+        locked: true,
+      }),
       worldRect: { height: 60, width: 120, x: 118, y: 20 },
       zIndex: 4,
     });
@@ -342,7 +351,7 @@ function projectStateWithSections({
     parentSectionMap[section.id] = section.parentId;
   }
 
-  return createSingleConfig({
+  const state = createSingleConfig({
     parentSectionMap,
     projectConfig: createProjectConfig({
       id: "project-1",
@@ -353,4 +362,6 @@ function projectStateWithSections({
     sectionVariants,
     sections: sectionCores,
   }) as ZustandProjectState;
+  state.previewSectionVariantMap = {};
+  return state;
 }

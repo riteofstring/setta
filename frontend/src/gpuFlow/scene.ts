@@ -1,4 +1,5 @@
 import type { GpuNodeLayout } from "./htmlSurfaces/frame";
+import type { GpuNodeResizeDirection } from "./resizeHandles";
 import { rectsIntersect, type GpuPoint, type GpuRect } from "./viewportMath";
 
 export const GPU_FLOW_SCENE_DIRTY_FLAGS = [
@@ -22,9 +23,13 @@ export type GpuSectionSceneLayoutMode =
 export type GpuSectionSceneInteractionLayer = "chrome" | "content" | "overlay";
 
 export type GpuSectionSceneResizePolicy = {
+  readonly aspectRatio: boolean;
+  readonly aspectRatioExtraHeight: number;
+  readonly aspectRatioExtraWidth: number;
+  readonly directions: readonly GpuNodeResizeDirection[];
   readonly locked: boolean;
-  readonly maxHeight: number | null;
-  readonly maxWidth: number | null;
+  readonly maxHeight: number;
+  readonly maxWidth: number;
   readonly minHeight: number;
   readonly minWidth: number;
 };

@@ -13,6 +13,7 @@ import {
   getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
   type GpuSectionSceneNode,
+  type GpuSectionSceneResizePolicy,
 } from "gpuFlow/scene";
 import { resolveGpuSectionSceneResizePreviewSections } from "gpuFlow/sceneResize";
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
@@ -21,15 +22,10 @@ import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { updateNodeDimensionsFromGpuResize } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import {
-  toTopLevelSectionInnerDimension,
-  toTopLevelSectionOuterDimension,
-} from "state/actions/sectionInfos/topLevelSectionNode";
+import { toTopLevelSectionInnerDimension } from "state/actions/sectionInfos/topLevelSectionNode";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos/viewportUpdates";
 import {
   clampChangedSize,
-  getResizableEnable,
-  getResizeAxisAvailability,
   getResizeHandleClickState,
   isResizeDoubleClick,
   resolveResizableGrid,
@@ -321,27 +317,8 @@ export function getProjectNodeResizePolicy(
   if (!canEditLayout) {
     return false;
   }
-  const projectState = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(projectState, input.nodeId);
-  const dimensions = getSectionMinMaxDims(input.nodeId);
-  const { heightResizable, widthResizable } = getResizeAxisAvailability({
-    maxHeight: dimensions.maxHeight,
-    maxWidth: dimensions.maxWidth,
-    minHeight: dimensions.minHeight,
-    minWidth: dimensions.minWidth,
-    sizeMode: dimensions.sizeMode,
-  });
-  const enable = getResizableEnable({
-    disablePointerEvents: false,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    heightResizable,
-    widthResizable,
-  });
-  if (!enable) {
-    return false;
-  }
-  const directions = getEnabledResizeDirections(enable);
-  if (!directions.includes(input.direction)) {
+  const scenePolicy = getProjectNodeSceneResizePolicy(input.node, input.nodeId);
+  if (scenePolicy.locked || !scenePolicy.directions.includes(input.direction)) {
     return false;
   }
   const snapGrid = resolveResizableGrid({
@@ -349,33 +326,32 @@ export function getProjectNodeResizePolicy(
     snapToGrid: useLocalStorage.getState().snapToGrid,
   });
   return {
-    aspectRatio: !impl.isMinimized && Boolean(impl.aspectRatio),
-    aspectRatioExtraHeight: impl.aspectRatioExtraHeight ?? 0,
-    aspectRatioExtraWidth: impl.aspectRatioExtraWidth ?? 0,
-    directions,
+    aspectRatio: scenePolicy.aspectRatio,
+    aspectRatioExtraHeight: scenePolicy.aspectRatioExtraHeight,
+    aspectRatioExtraWidth: scenePolicy.aspectRatioExtraWidth,
+    directions: scenePolicy.directions,
     enabled: true,
-    maxHeight: toTopLevelSectionOuterDimension(dimensions.maxHeight),
-    maxWidth: toTopLevelSectionOuterDimension(dimensions.maxWidth),
-    minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
-    minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
+    maxHeight: scenePolicy.maxHeight,
+    maxWidth: scenePolicy.maxWidth,
+    minHeight: scenePolicy.minHeight,
+    minWidth: scenePolicy.minWidth,
     ...(snapGrid ? { snapGrid, snapToGrid: true } : { snapToGrid: false }),
   };
 }
 
-function getEnabledResizeDirections(
-  enable: Exclude<ReturnType<typeof getResizableEnable>, false>,
-) {
-  const directions: Array<"right" | "bottom" | "bottomRight"> = [];
-  if (enable.right) {
-    directions.push("right");
+function getProjectNodeSceneResizePolicy(
+  node: GpuNodeResizePolicyInput["node"],
+  nodeId: string,
+): GpuSectionSceneResizePolicy {
+  const resizePolicy = (
+    node as Partial<Pick<GpuSectionSceneNode, "resizePolicy">>
+  ).resizePolicy;
+  if (!resizePolicy) {
+    throw new Error(
+      `GPU resize for project section ${nodeId} requires scene resize policy.`,
+    );
   }
-  if (enable.bottom) {
-    directions.push("bottom");
-  }
-  if (enable.bottomRight) {
-    directions.push("bottomRight");
-  }
-  return directions;
+  return resizePolicy;
 }
 
 function isProjectGpuNodeResizeDisabled({
