@@ -20,8 +20,6 @@ vi.mock("state/actions/stateMachineEdges", () => {
   };
 });
 
-import { HandlePosition } from "gpuFlow/flowTypes";
-import type { GpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
 import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
 import type { GpuFlowScene } from "gpuFlow/scene";
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
@@ -402,15 +400,6 @@ describe("gpuProjectEdgeScene", () => {
   it("uses retained param anchors for data-edge target positions", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
-        portDescriptors: {
-          "source:out:source": {
-            localRect: { height: 0, width: 0, x: 120, y: 40 },
-            nodeId: "source",
-            portId: "out",
-            side: HandlePosition.Right,
-            type: "source",
-          },
-        },
         projectConfig: createProjectConfig({
           edges: [createDataEdge({ id: "data-edge" })],
           sectionVariantMap: {
@@ -436,15 +425,6 @@ describe("gpuProjectEdgeScene", () => {
   it("uses retained param anchors before edge-strip input fallback anchors", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
-        portDescriptors: {
-          "source:out:source": {
-            localRect: { height: 0, width: 0, x: 120, y: 40 },
-            nodeId: "source",
-            portId: "out",
-            side: HandlePosition.Right,
-            type: "source",
-          },
-        },
         projectConfig: createProjectConfig({
           edges: [createDataEdge({ id: "data-edge" })],
           sectionVariantMap: {
@@ -470,15 +450,6 @@ describe("gpuProjectEdgeScene", () => {
   it("uses section scene anchors for edge-strip output positions", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
-        portDescriptors: {
-          "target:in:target": {
-            localRect: { height: 0, width: 0, x: 0, y: 45 },
-            nodeId: "target",
-            portId: "in",
-            side: HandlePosition.Left,
-            type: "target",
-          },
-        },
         projectConfig: createProjectConfig({
           edges: [createDataEdge({ id: "data-edge" })],
           sectionVariantMap: {
@@ -504,15 +475,6 @@ describe("gpuProjectEdgeScene", () => {
   it("uses section scene anchors for edge-strip input positions", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
-        portDescriptors: {
-          "source:out:source": {
-            localRect: { height: 0, width: 0, x: 120, y: 40 },
-            nodeId: "source",
-            portId: "out",
-            side: HandlePosition.Right,
-            type: "source",
-          },
-        },
         projectConfig: createProjectConfig({
           edges: [createDataEdge({ id: "data-edge" })],
           sectionVariantMap: {
@@ -538,7 +500,6 @@ describe("gpuProjectEdgeScene", () => {
   it("uses section scene anchors for minimized data-edge positions", () => {
     const scene = buildProjectGpuEdgeScene(
       createBuildInput({
-        portDescriptors: {},
         projectConfig: createProjectConfig({
           edges: [createDataEdge({ id: "data-edge" })],
           sectionVariantMap: {
@@ -589,7 +550,6 @@ describe("gpuProjectEdgeScene", () => {
           connectionStatus: null,
           transform: [0, 0, 1],
         },
-        portDescriptors: {},
         scene: linkHandleAnchorScene(),
       }),
     );
@@ -627,29 +587,6 @@ function createBuildInput(
       connectionStatus: null,
       transform: [0, 0, 1],
     },
-    portDescriptors: {
-      "source:out:source": {
-        localRect: { height: 0, width: 0, x: 120, y: 40 },
-        nodeId: "source",
-        portId: "out",
-        side: HandlePosition.Right,
-        type: "source",
-      },
-      "source:workflow-source:source": {
-        localRect: { height: 0, width: 0, x: 120, y: 40 },
-        nodeId: "source",
-        portId: "workflow-source",
-        side: HandlePosition.Right,
-        type: "source",
-      },
-      "target:in:target": {
-        localRect: { height: 0, width: 0, x: 0, y: 45 },
-        nodeId: "target",
-        portId: "in",
-        side: HandlePosition.Left,
-        type: "target",
-      },
-    } satisfies Record<string, GpuFlowPortDescriptor>,
     layoutNodes: [
       {
         height: 80,
@@ -676,6 +613,7 @@ function createBuildInput(
         target: "target-variant",
       },
     }),
+    scene: defaultProjectEdgeScene(),
     scopeViolationEdges: [],
     sectionImpls: {
       "source-impl": createChatSectionImpl({
@@ -738,6 +676,55 @@ function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
   };
 }
 
+function defaultProjectEdgeScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      defaultSourceSectionSceneNode(),
+      defaultTargetSectionSceneNode(),
+    ],
+  };
+}
+
+function defaultSourceSectionSceneNode(): GpuFlowScene["sections"][number] {
+  return sectionSceneNode({
+    portAnchors: [
+      {
+        id: "out",
+        kind: "output",
+        localPosition: { x: 120, y: 40 },
+        side: "right",
+      },
+      {
+        id: "workflow-source",
+        kind: "output",
+        localPosition: { x: 120, y: 40 },
+        side: "right",
+      },
+    ],
+    sectionId: "source",
+    worldRect: { height: 80, width: 120, x: 100, y: 100 },
+  });
+}
+
+function defaultTargetSectionSceneNode(): GpuFlowScene["sections"][number] {
+  return sectionSceneNode({
+    portAnchors: [
+      {
+        id: "in",
+        kind: "input",
+        localPosition: { x: 0, y: 45 },
+        side: "left",
+      },
+    ],
+    sectionId: "target",
+    worldRect: { height: 90, width: 160, x: 420, y: 115 },
+  });
+}
+
 function retainedParamAnchorScene(): GpuFlowScene {
   return {
     contentSurfaces: [
@@ -772,7 +759,7 @@ function retainedParamAnchorScene(): GpuFlowScene {
     domIslands: [],
     edges: [],
     revision: 1,
-    sections: [],
+    sections: [defaultSourceSectionSceneNode()],
   };
 }
 
@@ -794,6 +781,7 @@ function edgeStripOutputAnchorScene(): GpuFlowScene {
         sectionId: "source",
         worldRect: { height: 80, width: 120, x: 100, y: 100 },
       }),
+      defaultTargetSectionSceneNode(),
     ],
   };
 }
@@ -805,6 +793,7 @@ function edgeStripInputAnchorScene(): GpuFlowScene {
     edges: [],
     revision: 1,
     sections: [
+      defaultSourceSectionSceneNode(),
       sectionSceneNode({
         portAnchors: [
           {
@@ -821,9 +810,11 @@ function edgeStripInputAnchorScene(): GpuFlowScene {
 }
 
 function retainedParamAnchorWithEdgeStripFallbackScene(): GpuFlowScene {
+  const retainedScene = retainedParamAnchorScene();
   return {
-    ...retainedParamAnchorScene(),
+    ...retainedScene,
     sections: [
+      ...retainedScene.sections,
       sectionSceneNode({
         portAnchors: [
           {

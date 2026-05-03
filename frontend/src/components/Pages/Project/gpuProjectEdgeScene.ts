@@ -11,13 +11,7 @@ import {
 } from "gpuFlow/edges/edgeSources";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
-import {
-  buildGpuFlowPortEndpoints,
-  makeGpuFlowPortKey,
-  useGpuFlowPortRegistry,
-  type GpuFlowPortDescriptor,
-  type GpuFlowPortEndpoint,
-} from "gpuFlow/ports/portGeometry";
+import { makeGpuFlowPortKey } from "gpuFlow/ports/portGeometry";
 import {
   getGpuPortAnchorHandleType,
   getGpuPortAnchorSide,
@@ -49,7 +43,6 @@ type SectionVariantMap = ProjectConfig["sectionVariantMap"];
 type SectionVariants = ProjectState["sectionVariants"];
 type SectionImpls = ProjectState["sectionImpls"];
 type TopLevelSections = ProjectConfig["topLevelSections"];
-type PortDescriptors = Readonly<Record<string, GpuFlowPortDescriptor>>;
 type ProjectDataEdge = NonNullable<ProjectConfig["edges"]>[number];
 type ProjectAgenticEdge = NonNullable<ProjectConfig["agenticEdges"]>[number];
 type ProjectWorkflowEdge = NonNullable<
@@ -75,9 +68,8 @@ type ProjectGpuEdgeVisibility = {
 export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly connectionState: ProjectGpuConnectionState;
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
-  readonly portDescriptors: PortDescriptors;
   readonly projectConfig: ProjectConfig;
-  readonly scene?: GpuFlowScene | undefined;
+  readonly scene: GpuFlowScene;
   readonly scopeViolationEdges:
     | readonly ProjectAgenticMissingEdgeSource[]
     | undefined;
@@ -87,7 +79,7 @@ export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
 
 type UseProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
-  readonly scene?: GpuFlowScene | undefined;
+  readonly scene: GpuFlowScene;
 };
 
 type SelectProjectGpuEdgeInput = {
@@ -126,7 +118,6 @@ export function useProjectGpuEdgeScene({
     }),
     shallow,
   );
-  const portDescriptors = useGpuFlowPortRegistry((state) => state.descriptors);
   const connectionState = useGpuFlowViewportStore(
     selectProjectGpuConnectionState,
     shallow,
@@ -140,7 +131,6 @@ export function useProjectGpuEdgeScene({
       buildProjectGpuEdgeScene({
         connectionState,
         layoutNodes,
-        portDescriptors,
         projectConfig,
         scene,
         scopeViolationEdges,
@@ -152,7 +142,6 @@ export function useProjectGpuEdgeScene({
     [
       connectionState,
       layoutNodes,
-      portDescriptors,
       projectConfig,
       scene,
       scopeViolationEdges,
@@ -167,7 +156,6 @@ export function useProjectGpuEdgeScene({
 export function buildProjectGpuEdgeScene({
   connectionState,
   layoutNodes,
-  portDescriptors,
   projectConfig,
   scene,
   scopeViolationEdges,
@@ -176,13 +164,7 @@ export function buildProjectGpuEdgeScene({
   showAgenticEdges,
   showDataEdges,
 }: BuildProjectGpuEdgeSceneInput): GpuEdgeScene {
-  const handlePositions = buildProjectGpuEdgeHandlePositions(
-    buildGpuFlowPortEndpoints({
-      layoutNodes,
-      ports: portDescriptors,
-    }),
-    scene,
-  );
+  const handlePositions = buildProjectGpuEdgeHandlePositions(scene);
   return buildGpuEdgeScene({
     agenticEdges: showAgenticEdges
       ? buildProjectGpuAgenticEdgeSources(projectConfig.agenticEdges ?? [])
@@ -218,35 +200,17 @@ export function buildProjectGpuEdgeScene({
 }
 
 function buildProjectGpuEdgeHandlePositions(
-  portEndpoints: Readonly<Record<string, GpuFlowPortEndpoint>>,
-  scene: GpuFlowScene | undefined,
+  scene: GpuFlowScene,
 ): Readonly<Record<string, GpuEdgeHandlePosition>> {
-  const domHandlePositions = Object.fromEntries(
-    Object.entries(portEndpoints).map(([key, endpoint]) => [
-      key,
-      {
-        portId: endpoint.portId,
-        sectionId: endpoint.nodeId,
-        side: endpoint.side,
-        type: endpoint.type,
-        x: endpoint.x,
-        y: endpoint.y,
-      },
-    ]),
-  );
   return {
-    ...domHandlePositions,
     ...buildProjectGpuSectionSceneHandlePositions(scene),
     ...buildProjectGpuRetainedContentHandlePositions(scene),
   };
 }
 
 function buildProjectGpuSectionSceneHandlePositions(
-  scene: GpuFlowScene | undefined,
+  scene: GpuFlowScene,
 ): Readonly<Record<string, GpuEdgeHandlePosition>> {
-  if (!scene) {
-    return {};
-  }
   const handlePositions: Record<string, GpuEdgeHandlePosition> = {};
   for (const section of scene.sections) {
     for (const anchor of section.portAnchors) {
@@ -281,11 +245,8 @@ function getProjectGpuSectionScenePortEndpoint(
 }
 
 function buildProjectGpuRetainedContentHandlePositions(
-  scene: GpuFlowScene | undefined,
+  scene: GpuFlowScene,
 ): Readonly<Record<string, GpuEdgeHandlePosition>> {
-  if (!scene) {
-    return {};
-  }
   const handlePositions: Record<string, GpuEdgeHandlePosition> = {};
   for (const surface of scene.contentSurfaces) {
     const retainedScene = surface.retainedScene;

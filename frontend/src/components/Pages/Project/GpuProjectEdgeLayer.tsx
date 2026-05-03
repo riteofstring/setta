@@ -41,9 +41,10 @@ export function GpuProjectEdgeLayer({
   showDataEdges,
 }: GpuProjectEdgeLayerProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const { nodeLayouts } = useProjectGpuLayoutAdapter();
+  const { nodeLayouts, scene } = useProjectGpuLayoutAdapter();
   const edgeScene = useProjectGpuEdgeScene({
     layoutNodes: nodeLayouts,
+    scene,
     showAgenticEdges,
     showDataEdges,
   });
