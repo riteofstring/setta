@@ -191,6 +191,37 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain("setta-gpu-flow__nodes-selection-rect");
   });
 
+  it("renders resize affordances as retained canvas sources", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [sectionSceneNode("section-a")],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        selectionDrag={{
+          primaryNodeId: "section-a",
+          selectedNodeIds: ["section-a"],
+        }}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const resizeSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-node-resize-handles:section-a"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(resizeSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(resizeSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("section-resize-handle");
+    expect(markup).not.toContain("data-resize-direction");
+  });
+
   it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [

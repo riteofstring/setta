@@ -127,7 +127,7 @@ import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
-import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
+import { useGpuFlowOverlaySources } from "./flowOverlays";
 
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import {
@@ -138,7 +138,6 @@ import {
   type GpuFlowRetainedContentScrollOptions,
   type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
-import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
 
 import {
   clearGpuFlowNodeElement,
@@ -151,14 +150,15 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
-import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
-import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
+import {
+  resolveGpuFlowNodeResizeCursor,
+  resolveGpuFlowNodeResizeTarget,
+} from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import {
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
 } from "./selectionDragLayer";
-import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -357,57 +357,26 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
-  const { edgeLabelSourceElement, edgeLabelSurfaces } =
-    useGpuFlowEdgeLabelSources({
-      edgeScene,
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-    });
-  const { retainedContentSourceElement, retainedContentSurfaces } =
-    useGpuFlowRetainedContentSources({
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      scene,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-    });
-  const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
-    useGpuFlowNodeDragPreviewSources({
-      layoutStore,
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-    });
-  const { selectionOverlaySourceElement, selectionOverlaySurfaces } =
-    useGpuFlowSelectionOverlaySources({
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      primaryNodeId: selectionDrag ? selectionDrag.primaryNodeId : null,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-      viewportStore,
-    });
-  const htmlSurfaceOverlays = useMemo(
-    () => [
-      ...retainedContentSurfaces,
-      ...edgeLabelSurfaces,
-      ...selectionOverlaySurfaces,
-      ...nodeDragPreviewSurfaces,
-    ],
-    [
-      edgeLabelSurfaces,
-      nodeDragPreviewSurfaces,
-      retainedContentSurfaces,
-      selectionOverlaySurfaces,
-    ],
-  );
+  const {
+    edgeLabelSourceElement,
+    htmlSurfaceOverlays,
+    nodeDragPreviewSourceElement,
+    nodeResizeOverlaySourceElement,
+    retainedContentSourceElement,
+    selectionOverlaySourceElement,
+  } = useGpuFlowOverlaySources({
+    edgeScene,
+    layoutStore,
+    nodeDomTransformSyncCacheRef,
+    nodeElementByIdRef,
+    nodes,
+    primaryNodeId: selectionDrag ? selectionDrag.primaryNodeId : null,
+    scene,
+    surfaceRef,
+    textureManagerRef,
+    transformOnlyPaintNodeIdsRef,
+    viewportStore,
+  });
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
     onNodeElementChange,
@@ -811,6 +780,13 @@ export function GpuFlow({
         requestFrame: (reason) => {
           surfaceRef.current?.requestFrame(reason);
         },
+        resolveCanvasCursor: (event) =>
+          resolveGpuFlowNodeResizeCursor({
+            event,
+            nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            surfaceElement: containerRef.current ?? runtime.canvas,
+            viewport: nodeLayerRef.current.viewport,
+          }),
         resolvePointerHandoffTarget: (event, options) => {
           const surfaceElement = containerRef.current ?? runtime.canvas;
           const shouldProjectSource = options?.projectSource ?? true;
@@ -979,6 +955,7 @@ export function GpuFlow({
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
             {selectionOverlaySourceElement}
+            {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer

@@ -10,12 +10,16 @@ import { toElement } from "./pointerHandoff";
 export function updateGpuPointerHoverCursor({
   elementByNodeId,
   event,
+  resolveCanvasCursor,
   resolvePointerHandoffTarget,
   setHoverCursor,
   surfaceElement,
 }: {
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly event: PointerEvent;
+  readonly resolveCanvasCursor?:
+    | ((event: PointerEvent) => string | null)
+    | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((
         event: PointerEvent,
@@ -39,7 +43,11 @@ export function updateGpuPointerHoverCursor({
     event,
     handoffTarget,
   });
-  setHoverCursor(resolvePointerHoverCursorValue(target));
+  setHoverCursor(
+    resolvePointerHoverCursorValue(target) ??
+      resolveCanvasCursor?.(event) ??
+      null,
+  );
   return handoffTarget;
 }
 

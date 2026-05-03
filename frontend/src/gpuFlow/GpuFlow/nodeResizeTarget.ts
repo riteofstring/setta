@@ -7,7 +7,9 @@ import type { HtmlSurfaceEffectHitProjector } from "../htmlSurfaces/hitScene";
 import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
+  getGpuNodeResizeCursor,
   resolveGpuNodeResizeDirection,
+  resolveGpuNodeResizeTargetAtClientPoint,
   resolveGpuNodeResizeTargetFromEventTarget,
   type GpuNodeResizeTarget,
 } from "../resizeHandles";
@@ -35,6 +37,17 @@ export function resolveGpuFlowNodeResizeTarget({
   const directTarget = resolveGpuNodeResizeTargetFromEventTarget(event.target);
   if (directTarget) {
     return directTarget;
+  }
+
+  const sceneTarget = resolveGpuNodeResizeTargetAtClientPoint({
+    clientX: event.clientX,
+    clientY: event.clientY,
+    nodes,
+    surfaceElement,
+    viewport,
+  });
+  if (sceneTarget) {
+    return sceneTarget;
   }
 
   const handoffTarget = resolveGpuNodePointerHandoffTarget({
@@ -72,6 +85,27 @@ export function resolveGpuFlowNodeResizeTarget({
       handoffTarget.descriptor,
     ),
   });
+}
+
+export function resolveGpuFlowNodeResizeCursor({
+  event,
+  nodes,
+  surfaceElement,
+  viewport,
+}: {
+  readonly event: PointerEvent;
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly surfaceElement: HTMLElement;
+  readonly viewport: GpuViewportInput;
+}): string | null {
+  const target = resolveGpuNodeResizeTargetAtClientPoint({
+    clientX: event.clientX,
+    clientY: event.clientY,
+    nodes,
+    surfaceElement,
+    viewport,
+  });
+  return target ? getGpuNodeResizeCursor(target.direction) : null;
 }
 
 function resolveGpuFlowNodeResizeHandoffTarget({
