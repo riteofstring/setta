@@ -965,12 +965,12 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
+            <GpuFlowDomIslandLayer
+              renderDomIsland={renderDomIsland}
+              scene={scene}
+              viewportStore={viewportStore}
+            />
           </GpuSurface>
-          <GpuFlowDomIslandLayer
-            renderDomIsland={renderDomIsland}
-            scene={scene}
-            viewportStore={viewportStore}
-          />
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
         </div>
       </GpuFlowSceneContext.Provider>

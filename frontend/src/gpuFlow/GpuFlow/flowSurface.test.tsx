@@ -250,7 +250,7 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain('data-gpu-flow-source-id="scene-node-a"');
   });
 
-  it("renders scene DOM islands through the supplied renderer", () => {
+  it("renders scene DOM islands inside the canvas source subtree", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         renderDomIsland={(island) => (
@@ -263,6 +263,12 @@ describe("GpuFlow", () => {
       />,
     );
 
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const domIslandIndex = markup.indexOf('data-gpu-flow-dom-island="true"');
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(domIslandIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(domIslandIndex).toBeLessThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-dom-island="true"');
     expect(markup).toContain('data-gpu-flow-dom-island-id="island-a"');
     expect(markup).toContain(
@@ -270,6 +276,7 @@ describe("GpuFlow", () => {
     );
     expect(markup).toContain('class="setta-gpu-flow__dom-island nodrag nopan"');
     expect(markup).toContain('data-rendered-dom-island="island-a"');
+    expect(markup).not.toContain("setta-gpu-flow__dom-island-layer");
     expect(markup).toContain("left:19px");
     expect(markup).toContain("top:38px");
     expect(markup).toContain("transform:scale(1.5)");

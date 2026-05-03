@@ -47,7 +47,7 @@ export function GpuFlowDomIslandLayer({
 
   const normalizedViewport = normalizeGpuViewport(viewport);
   return (
-    <div className="setta-gpu-flow__dom-island-layer">
+    <>
       {domIslands.map((island) => (
         <div
           className={GPU_FLOW_DOM_ISLAND_CLASS_NAME}
@@ -60,7 +60,7 @@ export function GpuFlowDomIslandLayer({
           {renderDomIsland(island)}
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
