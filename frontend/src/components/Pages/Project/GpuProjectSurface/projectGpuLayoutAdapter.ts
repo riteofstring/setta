@@ -15,6 +15,7 @@ import {
   createGpuFlowContentSurfacesFromSections,
   getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
+  type GpuPortAnchorDescriptor,
   type GpuSectionContentRendererDescriptor,
   type GpuSectionSceneChildLayout,
   type GpuSectionSceneLayoutMode,
@@ -66,6 +67,7 @@ import {
 } from "utils/constants";
 import {
   isBaseParentSectionImpl,
+  isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
@@ -129,6 +131,7 @@ const NESTED_VERTICAL_SECTION_GAP_PX = 8;
 const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
 const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
+const MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX = 1;
 
 export function useProjectGpuLayoutAdapter({
   activeParamDomIsland,
@@ -584,7 +587,10 @@ function createProjectSectionSceneNode({
     layoutMode,
     localRect,
     parentSectionId,
-    portAnchors: [],
+    portAnchors: getProjectSectionScenePortAnchors({
+      sectionImpl,
+      worldRect,
+    }),
     resizePolicy: getProjectSectionSceneResizePolicy({
       projectState,
       resizePolicyContext,
@@ -595,6 +601,38 @@ function createProjectSectionSceneNode({
     sectionId,
     worldRect,
   };
+}
+
+function getProjectSectionScenePortAnchors({
+  sectionImpl,
+  worldRect,
+}: {
+  readonly sectionImpl: BaseSectionImplUnion;
+  readonly worldRect: GpuRect;
+}): readonly GpuPortAnchorDescriptor[] {
+  if (!sectionImpl.isMinimized || !isBaseSectionWithParamsImpl(sectionImpl)) {
+    return [];
+  }
+
+  const anchorY = worldRect.height / 2;
+  return [
+    ...(sectionImpl.edgeInputParams ?? []).map((paramId) => ({
+      id: paramId,
+      kind: "input" as const,
+      localPosition: {
+        x: -MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+        y: anchorY,
+      },
+    })),
+    ...(sectionImpl.edgeOutputPorts ?? []).map((port) => ({
+      id: port.id,
+      kind: "output" as const,
+      localPosition: {
+        x: worldRect.width + MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+        y: anchorY,
+      },
+    })),
+  ];
 }
 
 function getProjectSectionSceneResizePolicy({

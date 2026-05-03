@@ -354,6 +354,62 @@ describe("project GPU layout adapter", () => {
     );
   });
 
+  it("derives minimized data edge handles as section scene anchors", () => {
+    const scene = getProjectGpuFlowScene(
+      projectStateWithSections({
+        sections: [
+          {
+            id: "dict-a",
+            impl: createDictSectionImpl({
+              edgeInputParams: ["input-a"],
+              edgeOutputPorts: [{ accessor: "result", id: "output-a" }],
+              id: "dict-a-impl",
+              isMinimized: true,
+              size: sectionSize({ height: 80, width: 120 }),
+            }),
+            parentId: null,
+          },
+          {
+            id: "dict-b",
+            impl: createDictSectionImpl({
+              edgeInputParams: ["input-b"],
+              edgeOutputPorts: [{ accessor: "result", id: "output-b" }],
+              id: "dict-b-impl",
+              isMinimized: false,
+              size: sectionSize({ height: 80, width: 120 }),
+            }),
+            parentId: null,
+          },
+        ],
+        topLevelSections: {
+          "dict-a": { h: 80, w: 120, x: 10, y: 20, zIndex: 1 },
+          "dict-b": { h: 80, w: 120, x: 180, y: 20, zIndex: 1 },
+        },
+      }),
+      { darkMode: false },
+    );
+
+    expect(
+      scene.sections.find((section) => section.sectionId === "dict-a")
+        ?.portAnchors,
+    ).toEqual([
+      {
+        id: "input-a",
+        kind: "input",
+        localPosition: { x: -1, y: 41 },
+      },
+      {
+        id: "output-a",
+        kind: "output",
+        localPosition: { x: 123, y: 41 },
+      },
+    ]);
+    expect(
+      scene.sections.find((section) => section.sectionId === "dict-b")
+        ?.portAnchors,
+    ).toEqual([]);
+  });
+
   it("derives active retained param controls as explicit DOM islands", () => {
     const projectState = projectStateWithSections({
       sections: [

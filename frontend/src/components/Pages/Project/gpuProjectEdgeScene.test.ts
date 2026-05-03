@@ -432,6 +432,32 @@ describe("gpuProjectEdgeScene", () => {
       },
     });
   });
+
+  it("uses section scene anchors for minimized data-edge positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        portDescriptors: {},
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: minimizedDataEdgeAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 221, y: 140 },
+        target: { x: 419, y: 160 },
+      },
+    });
+  });
 });
 
 function createBuildInput(
@@ -590,5 +616,82 @@ function retainedParamAnchorScene(): GpuFlowScene {
     edges: [],
     revision: 1,
     sections: [],
+  };
+}
+
+function minimizedDataEdgeAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "out",
+            kind: "output",
+            localPosition: { x: 121, y: 40 },
+          },
+        ],
+        sectionId: "source",
+        worldRect: { height: 80, width: 120, x: 100, y: 100 },
+      }),
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 45 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function sectionSceneNode({
+  portAnchors,
+  sectionId,
+  worldRect,
+}: Pick<GpuFlowScene["sections"][number], "portAnchors" | "sectionId"> & {
+  readonly worldRect: GpuFlowScene["sections"][number]["worldRect"];
+}): GpuFlowScene["sections"][number] {
+  return {
+    bodyRect: worldRect,
+    childLayout: { gap: { x: 0, y: 0 } },
+    childSectionIds: [],
+    childViewportRect: null,
+    chromeRect: worldRect,
+    clipRect: worldRect,
+    contentRenderer: { kind: "dom-section", surfaceId: sectionId },
+    dirty: [],
+    height: worldRect.height,
+    interactionLayer: "content",
+    layoutMode: "none",
+    localRect: worldRect,
+    nodeId: sectionId,
+    parentSectionId: null,
+    portAnchors,
+    resizePolicy: {
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      directions: [],
+      locked: false,
+      maxHeight: Number.POSITIVE_INFINITY,
+      maxWidth: Number.POSITIVE_INFINITY,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset: { x: 0, y: 0 },
+    sectionId,
+    width: worldRect.width,
+    worldRect,
+    x: worldRect.x,
+    y: worldRect.y,
+    zIndex: 0,
   };
 }

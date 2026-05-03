@@ -9,6 +9,7 @@ import {
   type GpuEdgeScene,
   type GpuWorkflowEdgeSource,
 } from "gpuFlow/edges/edgeSources";
+import { HandlePosition } from "gpuFlow/flowTypes";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
 import {
@@ -232,7 +233,48 @@ function buildProjectGpuEdgeHandlePositions(
   return {
     ...domHandlePositions,
     ...buildProjectGpuRetainedContentHandlePositions(scene),
+    ...buildProjectGpuSectionSceneHandlePositions(scene),
   };
+}
+
+function buildProjectGpuSectionSceneHandlePositions(
+  scene: GpuFlowScene | undefined,
+): Readonly<Record<string, GpuEdgeHandlePosition>> {
+  if (!scene) {
+    return {};
+  }
+  const handlePositions: Record<string, GpuEdgeHandlePosition> = {};
+  for (const section of scene.sections) {
+    for (const anchor of section.portAnchors) {
+      const endpoint = getProjectGpuSectionScenePortEndpoint(anchor.kind);
+      if (!endpoint) {
+        continue;
+      }
+      handlePositions[
+        makeGpuFlowPortKey(section.sectionId, anchor.id, endpoint.type)
+      ] = {
+        portId: anchor.id,
+        sectionId: section.sectionId,
+        side: endpoint.side,
+        type: endpoint.type,
+        x: section.worldRect.x + anchor.localPosition.x,
+        y: section.worldRect.y + anchor.localPosition.y,
+      };
+    }
+  }
+  return handlePositions;
+}
+
+function getProjectGpuSectionScenePortEndpoint(
+  kind: GpuFlowScene["sections"][number]["portAnchors"][number]["kind"],
+): Pick<GpuEdgeHandlePosition, "side" | "type"> | null {
+  if (kind === "input") {
+    return { side: HandlePosition.Left, type: "target" };
+  }
+  if (kind === "output") {
+    return { side: HandlePosition.Right, type: "source" };
+  }
+  return null;
 }
 
 function buildProjectGpuRetainedContentHandlePositions(
