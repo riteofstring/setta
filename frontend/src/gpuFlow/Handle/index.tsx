@@ -18,6 +18,7 @@ import {
   unregisterGpuFlowPortDescriptor,
   updateGpuFlowPortDescriptorLocalRect,
 } from "../ports/portGeometry";
+import { useGpuFlowSceneContext } from "../sceneContext";
 import { gpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -80,6 +81,7 @@ function HandleComponent({
 }: HandleComponentProps) {
   const handleRef = useRef<HTMLDivElement>(null);
   const layoutStore = useGpuFlowLayoutStoreContext();
+  const sceneContext = useGpuFlowSceneContext();
   const nodeId = useNodeId();
   const handleId = id ?? null;
 
@@ -144,6 +146,7 @@ function HandleComponent({
         handleId,
         layoutStore,
         nodeId,
+        ...(sceneContext ? { getScene: sceneContext.getScene } : {}),
         onConnect: onConnectExtended,
         isTarget: (connectionStartSemanticType ?? type) === "target",
         store: gpuFlowViewportStore,

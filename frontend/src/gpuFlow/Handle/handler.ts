@@ -18,6 +18,7 @@ import {
   makeGpuFlowPortKey,
   useGpuFlowPortRegistry,
 } from "../ports/portGeometry";
+import type { GpuFlowScene } from "../scene";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -47,6 +48,7 @@ export type GpuHandlePointerStartEvent =
 
 export function handlePointerDown({
   event,
+  getScene,
   handleId,
   layoutStore,
   nodeId,
@@ -61,18 +63,19 @@ export function handlePointerDown({
   autoPanInsetsPx,
 }: {
   event: GpuHandlePointerStartEvent;
+  getScene?: (() => GpuFlowScene | null | undefined) | undefined;
   handleId: string | null;
   layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
   onConnect: (connection: Connection) => void;
   isTarget: boolean;
   store: GpuFlowViewportStoreApi;
-  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
+  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter | undefined;
   isValidConnection: ValidConnectionFunc;
-  edgeUpdaterType?: HandleType;
-  onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
-  pointerUpSnapRadius?: number;
-  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
+  edgeUpdaterType?: HandleType | undefined;
+  onReconnectEnd?: ((evt: MouseEvent | TouchEvent) => void) | undefined;
+  pointerUpSnapRadius?: number | undefined;
+  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput | undefined;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
   const usePointerEvents = isNativePointerEvent(event);
@@ -102,7 +105,10 @@ export function handlePointerDown({
   let handleDomNode: Element | null = null;
   let connectionGestureCleanedUp = false;
 
-  const handlePositions = getConnectionHandlePositions(layoutStore);
+  const handlePositions = getConnectionHandlePositions({
+    layoutStore,
+    scene: getGpuHandleConnectionScene(getScene),
+  });
 
   const handleLookup = getHandleLookup(
     handlePositions,
@@ -110,7 +116,10 @@ export function handlePointerDown({
   );
   const fromType: HandleType = isTarget ? "target" : "source";
   const validateHandle = (
-    handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
+    handle: Pick<
+      ConnectionHandle,
+      "isConnectableEnd" | "portId" | "sectionId" | "type"
+    >,
   ) =>
     isValidHandle({
       handle,
@@ -385,20 +394,116 @@ export function handlePointerDown({
   doc.addEventListener("keydown", onKeyDown as EventListener, true);
 }
 
-function getConnectionHandlePositions(
-  layoutStore: GpuFlowLayoutStoreApi,
-): ConnectionHandle[] {
+function getGpuHandleConnectionScene(
+  getScene: (() => GpuFlowScene | null | undefined) | undefined,
+): GpuFlowScene | null | undefined {
+  return getScene ? getScene() : undefined;
+}
+
+function getConnectionHandlePositions({
+  layoutStore,
+  scene,
+}: {
+  readonly layoutStore: GpuFlowLayoutStoreApi;
+  readonly scene: GpuFlowScene | null | undefined;
+}): ConnectionHandle[] {
   const endpoints = buildGpuFlowPortEndpoints({
     layoutNodes: layoutStore.getState().getNodes(),
     ports: useGpuFlowPortRegistry.getState().descriptors,
   });
-  return Object.values(endpoints).map((endpoint) => ({
-    sectionId: endpoint.nodeId,
-    portId: endpoint.portId,
-    type: endpoint.type,
-    x: endpoint.x,
-    y: endpoint.y,
-  }));
+  const handlesByKey = new Map<string, ConnectionHandle>();
+  for (const endpoint of Object.values(endpoints)) {
+    const handle = {
+      sectionId: endpoint.nodeId,
+      portId: endpoint.portId,
+      type: endpoint.type,
+      x: endpoint.x,
+      y: endpoint.y,
+    };
+    handlesByKey.set(getConnectionHandleKey(handle), handle);
+  }
+  for (const handle of getSceneConnectionHandlePositions(scene)) {
+    handlesByKey.set(getConnectionHandleKey(handle), handle);
+  }
+  return Array.from(handlesByKey.values());
+}
+
+function getSceneConnectionHandlePositions(
+  scene: GpuFlowScene | null | undefined,
+): ConnectionHandle[] {
+  if (!scene) {
+    return [];
+  }
+  return [
+    ...getSectionSceneConnectionHandlePositions(scene.sections),
+    ...getRetainedContentSceneConnectionHandlePositions(scene.contentSurfaces),
+  ];
+}
+
+function getSectionSceneConnectionHandlePositions(
+  sections: GpuFlowScene["sections"],
+): ConnectionHandle[] {
+  const handles: ConnectionHandle[] = [];
+  for (const section of sections) {
+    for (const anchor of section.portAnchors) {
+      const type = getScenePortHandleType(anchor.kind);
+      if (!type) {
+        continue;
+      }
+      handles.push({
+        isConnectableEnd: true,
+        portId: anchor.id,
+        sectionId: section.sectionId,
+        type,
+        x: section.worldRect.x + anchor.localPosition.x,
+        y: section.worldRect.y + anchor.localPosition.y,
+      });
+    }
+  }
+  return handles;
+}
+
+function getRetainedContentSceneConnectionHandlePositions(
+  contentSurfaces: GpuFlowScene["contentSurfaces"],
+): ConnectionHandle[] {
+  const handles: ConnectionHandle[] = [];
+  for (const surface of contentSurfaces) {
+    const retainedScene = surface.retainedScene;
+    if (surface.renderer.kind !== "canvas-content" || !retainedScene) {
+      continue;
+    }
+    for (const anchor of retainedScene.portAnchors) {
+      handles.push({
+        isConnectableEnd: true,
+        portId: anchor.id,
+        sectionId: surface.ownerSectionId,
+        type: anchor.kind === "input" ? "target" : "source",
+        x: surface.rect.x + anchor.localPosition.x,
+        y: surface.rect.y + anchor.localPosition.y,
+      });
+    }
+  }
+  return handles;
+}
+
+function getScenePortHandleType(
+  kind: GpuFlowScene["sections"][number]["portAnchors"][number]["kind"],
+): ConnectionHandle["type"] {
+  if (kind === "input") {
+    return "target";
+  }
+  if (kind === "output") {
+    return "source";
+  }
+  return null;
+}
+
+function getConnectionHandleKey(
+  handle: Pick<ConnectionHandle, "portId" | "sectionId" | "type">,
+): string {
+  return handle.portId && handle.type
+    ? makeGpuFlowPortKey(handle.sectionId, handle.portId, handle.type)
+    : `${handle.sectionId}:${handle.portId ?? ""}:${handle.type ?? ""}`;
 }
 
 function getEventPosition(

@@ -11,6 +11,7 @@ import {
 } from "../ports/portGeometry";
 
 export type ConnectionHandle = {
+  isConnectableEnd?: boolean | undefined;
   sectionId: string;
   portId: string | null;
   type: HandleType | null;
@@ -45,7 +46,10 @@ type Result = {
   } | null;
 };
 
-type HandleRef = Pick<ConnectionHandle, "sectionId" | "portId" | "type">;
+type HandleRef = Pick<
+  ConnectionHandle,
+  "isConnectableEnd" | "portId" | "sectionId" | "type"
+>;
 
 type ConnectionStart = {
   sectionId: string;
@@ -185,6 +189,15 @@ function resolveHandleTarget({
     !registeredElement ||
     !doc.contains(registeredElement)
   ) {
+    if (handle.isConnectableEnd !== undefined) {
+      return {
+        handleDomNode: null,
+        handleId: handle.portId,
+        handleSectionId: handle.sectionId,
+        handleType: handle.type,
+        isConnectableEnd: handle.isConnectableEnd,
+      };
+    }
     return {
       handleDomNode: null,
       handleId: null,
@@ -265,10 +278,6 @@ export function isValidHandle({
 }: HandleValidationArgs) {
   const resolvedHandle = resolveHandleTarget({ doc, handle });
   const result = getDefaultResult(resolvedHandle.handleDomNode);
-
-  if (!resolvedHandle.handleDomNode) {
-    return result;
-  }
 
   const { handleId, handleSectionId, handleType } = resolvedHandle;
   if (!handleSectionId || !handleType) {

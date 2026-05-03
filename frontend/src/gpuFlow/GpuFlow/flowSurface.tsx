@@ -23,6 +23,8 @@ import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
 
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 
+import { GpuFlowSceneContext } from "../sceneContext";
+
 import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
 
 import {
@@ -402,6 +404,12 @@ export function GpuFlow({
     uploadBudget,
     viewport: viewport ?? viewportStore.getState().transform,
   });
+  const sceneContextValue = useMemo(
+    () => ({
+      getScene: () => nodeLayerRef.current.scene,
+    }),
+    [],
+  );
   const requestSurfaceFrame = useCallback((reason: GpuFrameReason) => {
     surfaceRef.current?.requestFrame(reason);
   }, []);
@@ -933,37 +941,39 @@ export function GpuFlow({
 
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
-      <div
-        className={className}
-        data-tab-scope="canvas"
-        ref={containerRef}
-        style={style}
-      >
-        <GpuSurface
-          className={surfaceClassName}
-          deviceOptions={deviceOptions}
-          onFrame={handleFrame}
-          onPaint={handlePaint}
-          onReady={handleReady}
-          onResize={handleResize}
-          ref={surfaceRef}
+      <GpuFlowSceneContext.Provider value={sceneContextValue}>
+        <div
+          className={className}
+          data-tab-scope="canvas"
+          ref={containerRef}
+          style={style}
         >
-          {nodeLayerElement}
-          {retainedContentSourceElement}
-          {children}
-          <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
-          {edgeLabelSourceElement}
-        </GpuSurface>
-        <GpuFlowDomIslandLayer
-          renderDomIsland={renderDomIsland}
-          scene={scene}
-          viewportStore={viewportStore}
-        />
-        <GpuFlowPortalLayer portals={portalGroups.viewport} />
-        {nodeDragPreviewElement}
-        {userSelectionElement}
-        {nodesSelectionElement}
-      </div>
+          <GpuSurface
+            className={surfaceClassName}
+            deviceOptions={deviceOptions}
+            onFrame={handleFrame}
+            onPaint={handlePaint}
+            onReady={handleReady}
+            onResize={handleResize}
+            ref={surfaceRef}
+          >
+            {nodeLayerElement}
+            {retainedContentSourceElement}
+            {children}
+            <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
+            {edgeLabelSourceElement}
+          </GpuSurface>
+          <GpuFlowDomIslandLayer
+            renderDomIsland={renderDomIsland}
+            scene={scene}
+            viewportStore={viewportStore}
+          />
+          <GpuFlowPortalLayer portals={portalGroups.viewport} />
+          {nodeDragPreviewElement}
+          {userSelectionElement}
+          {nodesSelectionElement}
+        </div>
+      </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
   );
 }

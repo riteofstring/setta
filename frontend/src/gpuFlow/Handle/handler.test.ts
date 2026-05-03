@@ -9,6 +9,8 @@ import {
   registerGpuFlowPortDescriptor,
   useGpuFlowPortRegistry,
 } from "../ports/portGeometry";
+import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import type { GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -300,6 +302,64 @@ describe("GPU edge handle connection lifecycle", () => {
       targetHandle: "in",
     });
   });
+
+  it("connects to scene-owned retained content handles without DOM descriptors", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    targetHandle.remove();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    mockElementFromPoint(sourceHandle);
+    mockElementsFromPoint([]);
+    const onConnect = vi.fn();
+
+    handlePointerDown({
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      getScene: () => sceneWithRetainedTargetHandle(),
+      handleId: "out",
+      isTarget: false,
+      isValidConnection: () => true,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      store,
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 114,
+      }),
+    );
+
+    expect(store.getState().connectionStatus).toBe("valid");
+    expect(store.getState().connectionEndHandle).toEqual({
+      handleId: "in",
+      sectionId: "target",
+      type: "target",
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 114,
+      }),
+    );
+
+    expect(onConnect).toHaveBeenCalledWith({
+      source: "source",
+      sourceHandle: "out",
+      target: "target",
+      targetHandle: "in",
+    });
+  });
 });
 
 function createHandleFixture(): {
@@ -390,6 +450,45 @@ function createHandleLayoutStore() {
       },
     ],
   });
+}
+
+function sceneWithRetainedTargetHandle(): GpuFlowScene {
+  const rect = { height: 84, width: 160, x: 100, y: 50 };
+  return {
+    contentSurfaces: [
+      {
+        clipRect: rect,
+        id: "target:param-content:unpinned",
+        ownerSectionId: "target",
+        rect,
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "target:param-content:unpinned",
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: "target:param-content:unpinned",
+          ownerSectionId: "target",
+          rowHeight: 28,
+          rows: [
+            {
+              controlKind: "text-like",
+              depth: 0,
+              id: "in",
+              label: "Input",
+              ports: [{ id: "in", kind: "input", side: "left" }],
+            },
+          ],
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+        }),
+        zIndex: 2,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
 }
 
 function createReactMouseEvent(
