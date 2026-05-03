@@ -61,7 +61,6 @@ import { useShareCapabilities } from "state/hooks/share";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
-  getSectionHeaderHeightKey,
 } from "utils/constants";
 import {
   isBaseParentSectionImpl,
@@ -106,6 +105,7 @@ import {
   getRenderableProjectChildSectionIds,
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
+import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
@@ -634,7 +634,6 @@ function getProjectSectionScenePortAnchors({
     }),
     ...getProjectSectionSceneLinkPortAnchors({
       projectState,
-      resizePolicyContext,
       sectionId,
       sectionImpl,
       worldRect,
@@ -734,10 +733,7 @@ function getProjectSectionSceneEdgeStripLocalY({
   readonly sectionImpl: BaseSectionImplUnion;
 }): number {
   return (
-    getProjectSceneMeasuredHeight(
-      resizePolicyContext,
-      getSectionHeaderHeightKey(sectionId),
-    ) +
+    getProjectSectionSceneHeaderHeight() +
     getProjectSectionSceneSearchHeight(sectionImpl) +
     getProjectSceneMeasuredHeight(
       resizePolicyContext,
@@ -773,10 +769,7 @@ function getProjectSectionSceneResizePolicy({
         sectionId,
         sectionImpl,
       }),
-      sectionHeaderHeight: getProjectSceneMeasuredHeight(
-        resizePolicyContext,
-        getSectionHeaderHeightKey(sectionId),
-      ),
+      sectionHeaderHeight: getProjectSectionSceneHeaderHeight(),
       sectionSearchHeight: getProjectSectionSceneSearchHeight(sectionImpl),
     },
   });

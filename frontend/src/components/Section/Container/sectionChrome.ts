@@ -1,3 +1,4 @@
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { getOutlineColor } from "./utils";
 
 type SectionContainerShellClassNameOptions = {
@@ -32,12 +33,27 @@ type SectionSurfaceClassNameOptions = {
   hideFrameBorder?: boolean;
 };
 
+export type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
+
 const DEFAULT_SECTION_SURFACE_LAYOUT_CLASS_NAME =
   "section-grid-cols section-grid-rows section-grid-areas";
 const SECTION_CONTAINER_BASE_CLASS_NAME =
   "group/card-section transition-radius relative dndline outline";
 const SECTION_SURFACE_BASE_CLASS_NAME =
   "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0";
+
+export function getSectionChromeMode(
+  sectionTypeName: SectionType,
+  textBlockMetaControlStyle: boolean,
+): SectionChromeMode {
+  if (sectionTypeName === SectionTypeEnum.MetaControl) {
+    return "meta-control";
+  }
+  if (textBlockMetaControlStyle) {
+    return "text-block-meta";
+  }
+  return "header";
+}
 
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");

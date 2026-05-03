@@ -47,6 +47,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { getSectionChromeMode, type SectionChromeMode } from "./sectionChrome";
 import { SectionResizeFrame } from "./SectionResizeFrame";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
@@ -89,8 +90,6 @@ type AreaSwitchProps = {
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 };
 
-type SectionChromeMode = "header" | "meta-control" | "text-block-meta";
-
 type SectionAreaRenderer = (props: AreaSwitchProps) => React.ReactNode;
 
 function getSectionContainerResizableSnapshot(
@@ -110,19 +109,6 @@ function getSectionContainerResizableSnapshot(
     hasEmbeddedTerminal:
       embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
   };
-}
-
-function getSectionChromeMode(
-  sectionTypeName: SectionType,
-  textBlockMetaControlStyle: boolean,
-): SectionChromeMode {
-  if (sectionTypeName === SectionTypeEnum.MetaControl) {
-    return "meta-control";
-  }
-  if (textBlockMetaControlStyle) {
-    return "text-block-meta";
-  }
-  return "header";
 }
 
 function FloatingMenuSlot({ children }: { children: React.ReactNode }) {
@@ -168,6 +154,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme,
   chromeMode,
   hideHeader,
+  trackMeasuredHeight,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -177,6 +164,7 @@ function SectionPrimaryChrome({
   hasSectionStyleTheme: boolean;
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
+  trackMeasuredHeight: boolean;
 }) {
   if (chromeMode === "meta-control" && !isUserView) {
     return (
@@ -221,6 +209,7 @@ function SectionPrimaryChrome({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       }
+      trackMeasuredHeight={trackMeasuredHeight}
     />
   );
 }
@@ -243,6 +232,7 @@ function SectionContainerChrome({
   chromeMode,
   hideHeader,
   positionAndSizeLocked,
+  scenePortGeometry,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -253,6 +243,7 @@ function SectionContainerChrome({
   chromeMode: SectionChromeMode;
   hideHeader: boolean;
   positionAndSizeLocked: boolean;
+  scenePortGeometry: boolean;
 }) {
   const showMetaControlDragHandle = shouldShowMetaControlDragHandle(
     chromeMode,
@@ -276,6 +267,7 @@ function SectionContainerChrome({
         hasSectionStyleTheme={hasSectionStyleTheme}
         chromeMode={chromeMode}
         hideHeader={hideHeader}
+        trackMeasuredHeight={!scenePortGeometry}
       />
       {isRoot ? <Incrementer sectionId={sectionId} isRoot={isRoot} /> : null}
     </>
@@ -449,6 +441,7 @@ function _SectionContainerCoreResizable({
         chromeMode={chromeMode}
         hideHeader={hideHeader}
         positionAndSizeLocked={positionAndSizeLocked}
+        scenePortGeometry={scenePortGeometry}
       />
       <CanvasSectionBody
         sectionId={sectionId}

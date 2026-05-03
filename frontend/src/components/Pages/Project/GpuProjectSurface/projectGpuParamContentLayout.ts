@@ -1,8 +1,5 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
-import {
-  getKwargsControlsHeightKey,
-  getSectionHeaderHeightKey,
-} from "utils/constants";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import { getProjectSceneMeasuredHeightFromRecord } from "./projectGpuSceneResizePolicy";
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
@@ -27,20 +24,18 @@ export function getProjectGpuParamContentControlWidth(width: number): number {
 export function getProjectGpuParamContentMetrics({
   edgeInputPortCount,
   edgeOutputPortCount,
+  headerHeight,
   measuredHeightsByKey,
   pinnedRowCount,
   sectionId,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
+  readonly headerHeight: number;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly pinnedRowCount: number;
   readonly sectionId: string;
 }) {
-  const headerHeight = getProjectSceneMeasuredHeightFromRecord(
-    measuredHeightsByKey,
-    getSectionHeaderHeightKey(sectionId),
-  );
   const kwargsHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getKwargsControlsHeightKey(sectionId),

@@ -1,8 +1,5 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
-import {
-  getKwargsControlsHeightKey,
-  getSectionHeaderHeightKey,
-} from "utils/constants";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
   getProjectGpuParamContentMetrics,
@@ -18,8 +15,8 @@ describe("project GPU param content layout", () => {
       edgeOutputPortCount: 1,
       measuredHeightsByKey: {
         [getKwargsControlsHeightKey(sectionId)]: 13,
-        [getSectionHeaderHeightKey(sectionId)]: 7,
       },
+      headerHeight: 7,
       pinnedRowCount: 3,
       sectionId,
     });

@@ -5,15 +5,11 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionInfos";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
-import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   SectionTypeEnum,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
-import {
-  getProjectSceneMeasuredHeight,
-  type ProjectGpuSceneResizePolicyContext,
-} from "./projectGpuSceneResizePolicy";
+import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
 const PROJECT_SECTION_LINK_HANDLE_OFFSET_X_PX = 19;
@@ -26,13 +22,11 @@ type ProjectSectionSceneLinkHandleMode =
 
 export function getProjectSectionSceneLinkPortAnchors({
   projectState,
-  resizePolicyContext,
   sectionId,
   sectionImpl,
   worldRect,
 }: {
   readonly projectState: ZustandProjectState;
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
@@ -46,8 +40,6 @@ export function getProjectSectionSceneLinkPortAnchors({
     return [];
   }
   const y = getProjectSectionSceneLinkHandleLocalY({
-    resizePolicyContext,
-    sectionId,
     sectionImpl,
     worldRect,
   });
@@ -256,25 +248,15 @@ function isStateMachineLinkSectionType(
 }
 
 function getProjectSectionSceneLinkHandleLocalY({
-  resizePolicyContext,
-  sectionId,
   sectionImpl,
   worldRect,
 }: {
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
-  readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
 }): number {
   const searchHeight = getProjectSectionSceneSearchHeight(sectionImpl);
   if (searchHeight > 0) {
-    return (
-      getProjectSceneMeasuredHeight(
-        resizePolicyContext,
-        getSectionHeaderHeightKey(sectionId),
-      ) +
-      searchHeight / 2
-    );
+    return getProjectSectionSceneHeaderHeight() + searchHeight / 2;
   }
   return worldRect.height / 2;
 }

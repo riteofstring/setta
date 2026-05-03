@@ -10,7 +10,6 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
-  getSectionHeaderHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
 import {
@@ -70,6 +69,7 @@ import {
   getProjectGpuSceneMeasuredHeights,
 } from "./projectGpuSceneMeasuredHeights";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
+import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
 
 describe("project GPU layout adapter", () => {
   it("maps project node internals into renderer layout nodes", () => {
@@ -255,32 +255,29 @@ describe("project GPU layout adapter", () => {
       }),
     };
     const sectionId = "dict-a";
-    const hiddenSectionId = "hidden-dict";
-    const headerKey = getSectionHeaderHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
     const callableParamsFixedKey = getParamsFixedHeightKey("callable-a");
-    const hiddenHeaderKey = getSectionHeaderHeightKey(hiddenSectionId);
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
-      [hiddenHeaderKey]: 64,
-      [getSectionHeaderHeightKey("other-section")]: 42,
+      "section-header-height-hidden-dict": 64,
+      "section-header-height-other-section": 42,
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
-      [headerKey]: 24,
       [kwargsKey]: Number.NaN,
       [callableParamsFixedKey]: 48,
       [paramsFixedKey]: 36,
       unrelated: 99,
     });
 
-    expect(measuredHeights).not.toHaveProperty(hiddenHeaderKey);
+    expect(measuredHeights).not.toHaveProperty("section-header-height-dict-a");
+    expect(measuredHeights).not.toHaveProperty(
+      "section-header-height-hidden-dict",
+    );
     expect(measuredHeights).not.toHaveProperty(paramsFixedKey);
     expect(measuredHeights).toEqual({
       [kwargsKey]: 0,
-      [headerKey]: 24,
       [getKwargsControlsHeightKey("callable-a")]: 0,
       [callableParamsFixedKey]: 48,
-      [getSectionHeaderHeightKey("callable-a")]: 0,
     });
     expect(
       areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
@@ -290,7 +287,7 @@ describe("project GPU layout adapter", () => {
     expect(
       areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
         ...measuredHeights,
-        [headerKey]: 25,
+        [kwargsKey]: 25,
       }),
     ).toBe(false);
   });
@@ -395,9 +392,9 @@ describe("project GPU layout adapter", () => {
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
     expect(paramSurface).toMatchObject({
-      clipRect: { height: 45, width: 262, x: 10, y: 97 },
+      clipRect: { height: 23, width: 262, x: 10, y: 119 },
       ownerSectionId: "dict-a",
-      rect: { height: 45, width: 262, x: 10, y: 97 },
+      rect: { height: 23, width: 262, x: 10, y: 119 },
       renderer: {
         kind: "canvas-content",
         surfaceId: "dict-a:param-content:unpinned",
@@ -408,7 +405,7 @@ describe("project GPU layout adapter", () => {
       contentRect: { height: 48, width: 262, x: 0, y: 0 },
       ownerSectionId: "dict-a",
       rowHeight: 24,
-      viewportRect: { height: 45, width: 262, x: 0, y: 0 },
+      viewportRect: { height: 23, width: 262, x: 0, y: 0 },
       visibleRange: { endIndex: 2, rowCount: 2, startIndex: 0 },
     });
     expect(
@@ -717,12 +714,18 @@ describe("project GPU layout adapter", () => {
         {
           id: "input-b",
           kind: "input",
-          localPosition: { x: -1, y: 60 },
+          localPosition: {
+            x: -1,
+            y: 60 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+          },
         },
         {
           id: "output-b",
           kind: "output",
-          localPosition: { x: 123, y: 60 },
+          localPosition: {
+            x: 123,
+            y: 60 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+          },
         },
         expect.objectContaining({
           id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
@@ -836,7 +839,9 @@ describe("project GPU layout adapter", () => {
           kind: "input",
           localPosition: {
             x: -19,
-            y: PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
+            y:
+              PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+              PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
           },
           side: "left",
         }),
@@ -845,7 +850,9 @@ describe("project GPU layout adapter", () => {
           kind: "output",
           localPosition: {
             x: 221,
-            y: PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
+            y:
+              PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+              PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
           },
           side: "right",
         }),
@@ -1006,7 +1013,7 @@ describe("project GPU layout adapter", () => {
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
-        rect: { height: 24, width: 176, x: 87, y: 49 },
+        rect: { height: 24, width: 176, x: 87, y: 71 },
         source: {
           hitRecordId: "control:child-param",
           kind: "retained-content",
@@ -2062,7 +2069,7 @@ describe("project GPU layout adapter", () => {
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
-        rect: { height: 24, width: 51, x: 24, y: 49 },
+        rect: { height: 24, width: 51, x: 24, y: 71 },
         source: {
           hitRecordId: "label:child-param",
           kind: "retained-content",
@@ -2523,7 +2530,7 @@ describe("project GPU layout adapter", () => {
 
     expect(paramSurface?.retainedScene).toMatchObject({
       scrollOffset: { x: 0, y: 56 },
-      visibleRange: { endIndex: 7, rowCount: 8, startIndex: 0 },
+      visibleRange: { endIndex: 6, rowCount: 8, startIndex: 0 },
     });
     expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
       id: "param-0",
