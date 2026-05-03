@@ -128,6 +128,14 @@ function retainedSurface({
       ownerSectionId: "section-a",
       rowHeight: 28,
       rows: Array.from({ length: 4 }, (_, index) => ({
+        control: {
+          commitPolicy: "native-island",
+          defaultDisplayValue: "",
+          displayValue: "",
+          editorKind: "text",
+          kind: "text-like",
+          rendererFamily: "text-like",
+        },
         controlKind: "text-like",
         depth: 0,
         id: `param-${index}`,

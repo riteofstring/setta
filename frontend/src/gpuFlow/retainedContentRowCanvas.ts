@@ -7,11 +7,13 @@ const RETAINED_CONTENT_ROW_FONT =
 
 export function drawGpuRetainedContentRowBackground({
   ctx,
+  dividerRects,
   palette,
   rect,
   state,
 }: {
   readonly ctx: CanvasRenderingContext2D;
+  readonly dividerRects: readonly GpuRect[];
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState;
@@ -21,8 +23,11 @@ export function drawGpuRetainedContentRowBackground({
   ctx.strokeStyle = palette.rowDivider;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(rect.x, rect.y + rect.height - 0.5);
-  ctx.lineTo(rect.x + rect.width, rect.y + rect.height - 0.5);
+  for (const dividerRect of dividerRects) {
+    const y = dividerRect.y + dividerRect.height - 0.5;
+    ctx.moveTo(dividerRect.x, y);
+    ctx.lineTo(dividerRect.x + dividerRect.width, y);
+  }
   ctx.stroke();
   if (state.focused) {
     ctx.strokeStyle = palette.focusRing;

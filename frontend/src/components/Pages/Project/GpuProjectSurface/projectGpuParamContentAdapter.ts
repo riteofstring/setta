@@ -30,20 +30,23 @@ import {
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState, ZustandTypeErrors } from "state/definitions";
 import {
-  getEdgesStripHeightKey,
-  getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
-  getPinnedParamsAreaHeightKey,
-  getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
-} from "utils/constants";
-import {
   CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
   type DictSectionImpl,
 } from "utils/generatedTypes";
+import {
+  getProjectGpuParamContentControlWidth,
+  getProjectGpuParamContentMetrics,
+  getProjectGpuParamListLocalY,
+  getProjectGpuParamListSurfaceHeight,
+  getProjectGpuParamNextLocalY,
+  PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
+  PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
+  PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+  type ProjectGpuParamListKey,
+} from "./projectGpuParamContentLayout";
 import {
   getProjectGpuParamDomIslandGeometry,
   intersectProjectGpuParamRects,
@@ -57,9 +60,7 @@ import {
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import type { ProjectGpuRetainedPasswordRevealStateMap as PasswordRevealStates } from "./projectGpuRetainedParamPasswordRevealState";
 
-const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
-
-export type ProjectGpuParamListKey = "pinned" | "unpinned";
+export type { ProjectGpuParamListKey } from "./projectGpuParamContentLayout";
 
 export type ProjectGpuRetainedParamTarget = {
   readonly hitRecordId: string;
@@ -792,11 +793,14 @@ function createProjectGpuParamListContentSurfaces({
           activeParamCanvasPopup,
           surfaceId,
         }),
+        controlRightInset: PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
+        controlWidth: getProjectGpuParamContentControlWidth(localRect.width),
         dragPreview: getProjectGpuParamRetainedContentDragPreviewInput({
           retainedParamDragPreview,
           surfaceId,
         }),
         id: surfaceId,
+        labelControlGap: PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
         rows: list.rows,
@@ -874,109 +878,6 @@ function getProjectGpuParamRetainedContentDragPreviewInput({
     dropMarker: retainedParamDragPreview.dropMarker,
     pointerLocal: retainedParamDragPreview.pointerLocal,
   };
-}
-
-function getProjectGpuParamContentMetrics({
-  measuredHeightsByKey,
-  sectionId,
-}: {
-  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
-  readonly sectionId: string;
-}) {
-  const headerHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getSectionHeaderHeightKey(sectionId),
-  );
-  const searchHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getSectionSearchHeightKey(sectionId),
-  );
-  const kwargsHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getKwargsControlsHeightKey(sectionId),
-  );
-  const edgesHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getEdgesStripHeightKey(sectionId),
-  );
-  const pinnedHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getPinnedParamsAreaHeightKey(sectionId),
-  );
-  const paramsFixedHeight = getMeasuredHeight(
-    measuredHeightsByKey,
-    getParamsFixedHeightKey(sectionId),
-  );
-  return {
-    contentTop: headerHeight + searchHeight + kwargsHeight,
-    edgesHeight,
-    paramsFixedHeight,
-    pinnedHeight,
-  };
-}
-
-function getProjectGpuParamListLocalY({
-  listKey,
-  metrics,
-  nextLocalY,
-}: {
-  readonly listKey: ProjectGpuParamListKey;
-  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
-  readonly nextLocalY: number;
-}): number {
-  if (listKey === "pinned") {
-    return metrics.contentTop + metrics.edgesHeight;
-  }
-  return Math.max(nextLocalY, metrics.contentTop + metrics.paramsFixedHeight);
-}
-
-function getProjectGpuParamListSurfaceHeight({
-  contentHeight,
-  listKey,
-  metrics,
-  remainingHeight,
-}: {
-  readonly contentHeight: number;
-  readonly listKey: ProjectGpuParamListKey;
-  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
-  readonly remainingHeight: number;
-}): number {
-  if (listKey === "pinned") {
-    const pinnedHeight =
-      metrics.pinnedHeight > 0 ? metrics.pinnedHeight : contentHeight;
-    return Math.min(remainingHeight, pinnedHeight);
-  }
-  return remainingHeight;
-}
-
-function getProjectGpuParamNextLocalY({
-  height,
-  listKey,
-  listLocalY,
-  metrics,
-}: {
-  readonly height: number;
-  readonly listKey: ProjectGpuParamListKey;
-  readonly listLocalY: number;
-  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
-}): number {
-  if (listKey === "pinned" && metrics.paramsFixedHeight > 0) {
-    return Math.max(
-      listLocalY + height,
-      metrics.contentTop + metrics.paramsFixedHeight,
-    );
-  }
-  return listLocalY + height;
-}
-
-function getMeasuredHeight(
-  measuredHeightsByKey: Readonly<Record<string, unknown>> | undefined,
-  key: string,
-): number {
-  const value = measuredHeightsByKey?.[key];
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? value
-    : 0;
 }
 
 function getProjectGpuParamContentSurfaceId(

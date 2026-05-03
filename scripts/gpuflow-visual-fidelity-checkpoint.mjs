@@ -7,7 +7,9 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const require = createRequire(new URL("../frontend/package.json", import.meta.url));
+const require = createRequire(
+  new URL("../frontend/package.json", import.meta.url),
+);
 const { chromium } = require("@playwright/test");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +22,7 @@ const artifactRoot = path.join(
   "visual-fidelity",
   "2026-05-05-gpuflow-full-scene",
 );
+const fixtureProjectName = "vf_checkpoint";
 const worktreeRoot = process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT
   ? path.resolve(process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT)
   : path.resolve(primaryRepoRoot, "..", "setta-visual-fidelity-worktrees");
@@ -628,7 +631,10 @@ async function captureRun(run) {
   let browser;
   try {
     await waitForHttp(`http://127.0.0.1:${env.SETTA_PORT}`, 120000);
-    await waitForHttp(`http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}`, 120000);
+    await waitForHttp(
+      `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}`,
+      120000,
+    );
     const bootstrapUrl = await resolveBootstrapUrl(run.worktree, env);
 
     browser = await launchCheckpointBrowser();
@@ -703,14 +709,17 @@ function runEnvironment(run, runtimeDir) {
 
 async function createFixtureProject(page, env) {
   await postBackend(env, "/loadAllProjectMetadata", {});
-  const projectName = await postBackend(env, "/createProjectConfig", {
+  const createdProjectName = await postBackend(env, "/createProjectConfig", {
     previewImgColor: "bg-blue-500/60",
   });
-  if (typeof projectName !== "string" || projectName.length === 0) {
+  if (
+    typeof createdProjectName !== "string" ||
+    createdProjectName.length === 0
+  ) {
     throw new Error("Failed to create visual fidelity project.");
   }
   const projectUrl = new URL(
-    projectName,
+    createdProjectName,
     `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}/`,
   );
   projectUrl.searchParams.set(
@@ -725,6 +734,22 @@ async function createFixtureProject(page, env) {
     );
     return getCurrProjectConfigId();
   });
+  await postBackend(env, "/setProjectConfigName", {
+    newName: fixtureProjectName,
+    projectConfigId,
+  });
+  const renamedProjectUrl = new URL(
+    fixtureProjectName,
+    `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}/`,
+  );
+  renamedProjectUrl.searchParams.set(
+    "__setta_backend_origin",
+    `http://127.0.0.1:${env.SETTA_PORT}`,
+  );
+  await page.goto(renamedProjectUrl.toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await waitForReadySurface(page);
 
   const ids = await createFixtureSections(page, projectConfigId);
   await waitForReadySurface(page);
@@ -733,7 +758,7 @@ async function createFixtureProject(page, env) {
     ids,
     positions: resolveFixtureSectionPositions(ids),
     projectConfigId,
-    projectName,
+    projectName: fixtureProjectName,
   };
 }
 
@@ -778,7 +803,11 @@ async function createFixtureSections(page, projectConfigId) {
     operationName: "createTopLevelSection",
   });
 
-  const created = await applyProjectMutations(page, projectConfigId, createOperations);
+  const created = await applyProjectMutations(
+    page,
+    projectConfigId,
+    createOperations,
+  );
   const ids = {};
   controlSections.forEach((control, index) => {
     ids[control.id] = created[index]?.sectionId;
@@ -842,7 +871,11 @@ function resolveFixtureSectionPositions(ids) {
 }
 
 async function configureControlParams(page, projectConfigId, ids) {
-  const paramInfo = await resolveMetaControlParamInfo(page, projectConfigId, ids);
+  const paramInfo = await resolveMetaControlParamInfo(
+    page,
+    projectConfigId,
+    ids,
+  );
   const configOperations = [];
   const valueOperations = [];
   for (const control of controlSections) {
@@ -908,10 +941,8 @@ async function applyProjectMutations(page, projectConfigId, operations) {
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
       const openAPI = await import("/src/openapi/http");
-      const {
-        getCurrProjectConfigId,
-        processProjectStateUpdateFromBackend,
-      } = await import("/src/state/actions/sectionInfos");
+      const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
+        await import("/src/state/actions/sectionInfos");
 
       if (getCurrProjectConfigId() !== projectConfigId) {
         throw new Error(
@@ -922,7 +953,9 @@ async function applyProjectMutations(page, projectConfigId, operations) {
       for (const operation of operations) {
         const routeFactory = openAPI[operation.operationName];
         if (typeof routeFactory !== "function") {
-          throw new Error(`Missing OpenAPI operation ${operation.operationName}.`);
+          throw new Error(
+            `Missing OpenAPI operation ${operation.operationName}.`,
+          );
         }
         const response = await callOpenAPI(
           routeFactory({ body: { ...operation.body, projectConfigId } }),
@@ -957,7 +990,14 @@ async function captureViewportFixtures({
   runRecord,
   viewport,
 }) {
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "project-surface");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "project-surface",
+  );
   await capturePane(
     page,
     run,
@@ -993,7 +1033,14 @@ async function captureViewportFixtures({
     project.positions[project.ids.slider],
     "hover",
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "selection-resize");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "selection-resize",
+  );
 
   await openSectionVisualState(
     page,
@@ -1001,7 +1048,14 @@ async function captureViewportFixtures({
     project.positions[project.ids.dropdown],
     "click",
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "dropdown-open");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "dropdown-open",
+  );
   await page.keyboard.press("Escape").catch(() => null);
   await page.waitForTimeout(150);
 
@@ -1011,7 +1065,14 @@ async function captureViewportFixtures({
     project.positions[project.ids.color],
     "click",
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "color-picker-open");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "color-picker-open",
+  );
   await page.keyboard.press("Escape").catch(() => null);
   await page.waitForTimeout(150);
 
@@ -1021,7 +1082,14 @@ async function captureViewportFixtures({
     project.positions[project.ids.calendar],
     "click",
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "date-calendar-open");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "date-calendar-open",
+  );
   await page.keyboard.press("Escape").catch(() => null);
   await page.waitForTimeout(150);
 
@@ -1031,7 +1099,14 @@ async function captureViewportFixtures({
     project.positions[project.ids.text],
     "click",
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "native-text-island");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "native-text-island",
+  );
   await page.keyboard.press("Escape").catch(() => null);
   await page.waitForTimeout(150);
 
@@ -1040,12 +1115,26 @@ async function captureViewportFixtures({
     project.ids.rotary,
     project.positions[project.ids.rotary],
   );
-  await capturePane(page, run, runArtifactDir, runRecord, viewport, "drag-preview");
+  await capturePane(
+    page,
+    run,
+    runArtifactDir,
+    runRecord,
+    viewport,
+    "drag-preview",
+  );
   await page.mouse.up().catch(() => null);
   await page.waitForTimeout(150);
 }
 
-async function capturePane(page, run, runArtifactDir, runRecord, viewport, fixtureId) {
+async function capturePane(
+  page,
+  run,
+  runArtifactDir,
+  runRecord,
+  viewport,
+  fixtureId,
+) {
   const fileName = `${fixtureId}__${viewport.id}__${run.label}.png`;
   const capturePath = path.join(runArtifactDir, fileName);
   const record = {
@@ -1055,7 +1144,9 @@ async function capturePane(page, run, runArtifactDir, runRecord, viewport, fixtu
     viewport: viewport.id,
   };
   try {
-    const pane = page.locator(".setta-gpu-flow__pane, .setta-gpu-flow-root").first();
+    const pane = page
+      .locator(".setta-gpu-flow__pane, .setta-gpu-flow-root")
+      .first();
     await pane.waitFor({ state: "visible", timeout: 30000 });
     await pane.screenshot({ path: capturePath, timeout: 30000 });
     record.status = "captured";
@@ -1086,24 +1177,20 @@ async function captureSectionClip({
     viewport: viewport.id,
   };
   try {
-    if (position) {
-      await setViewportForFlowPosition(page, position);
-    }
-    const locator = sectionLocator(page, sectionId).first();
-    await locator.waitFor({ state: "visible", timeout: 30000 });
-    const box = await locator.boundingBox();
-    if (!box || box.width <= 0 || box.height <= 0) {
-      throw new Error(`Missing visible box for section ${sectionId}.`);
-    }
-    await page.screenshot({
-      clip: {
-        height: Math.min(box.height, 520),
-        width: Math.min(box.width, 720),
-        x: Math.max(0, box.x),
-        y: Math.max(0, box.y),
-      },
-      path: capturePath,
-      timeout: 30000,
+    await withOverviewHidden(page, async () => {
+      if (position) {
+        await setViewportForFlowPosition(page, position);
+      }
+      const clip = await resolveSectionScreenshotClip({
+        page,
+        position,
+        sectionId,
+      });
+      await page.screenshot({
+        clip,
+        path: capturePath,
+        timeout: 30000,
+      });
     });
     record.status = "captured";
   } catch (err) {
@@ -1121,6 +1208,99 @@ function sectionLocator(page, sectionId) {
       `[data-gpu-flow-node="true"][data-id="${sectionId}"]`,
     ].join(", "),
   );
+}
+
+async function withOverviewHidden(page, callback) {
+  const previous = await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions");
+    const state = useLocalStorage.getState();
+    const snapshot = {
+      overviewTrueWidth: state.overviewTrueWidth,
+      overviewVis: state.overviewVis,
+      overviewWidth: state.overviewWidth,
+    };
+    useLocalStorage.setState({
+      overviewTrueWidth: 0,
+      overviewVis: false,
+      overviewWidth: 0,
+    });
+    return snapshot;
+  });
+  await page.waitForTimeout(150);
+  try {
+    return await callback();
+  } finally {
+    await page.evaluate(async (snapshot) => {
+      const { useLocalStorage } = await import("/src/state/definitions");
+      useLocalStorage.setState(snapshot);
+    }, previous);
+    await page.waitForTimeout(150);
+  }
+}
+
+async function resolveSectionScreenshotClip({ page, position, sectionId }) {
+  const locator = sectionLocator(page, sectionId).first();
+  await locator.waitFor({ state: "visible", timeout: 30000 });
+  const clip = await page.evaluate(
+    async ({ position, sectionId }) => {
+      const { getViewport } = await import("/src/gpuFlow/viewportActions");
+      const root = document.querySelector(
+        ".setta-gpu-flow__pane, .setta-gpu-flow-root",
+      );
+      const source = Array.from(
+        document.querySelectorAll('[data-gpu-flow-node="true"]'),
+      ).find((element) => element.getAttribute("data-id") === sectionId);
+      if (!(root instanceof HTMLElement)) {
+        throw new Error("Missing GpuFlow root for section clip.");
+      }
+      if (!(source instanceof HTMLElement)) {
+        throw new Error(`Missing GpuFlow section source for ${sectionId}.`);
+      }
+      const rootBox = root.getBoundingClientRect();
+      const sourceBox = source.getBoundingClientRect();
+      if (sourceBox.width <= 0 || sourceBox.height <= 0) {
+        throw new Error(`Missing visible dimensions for section ${sectionId}.`);
+      }
+      if (!position) {
+        return intersectScreenshotClip({
+          height: Math.min(sourceBox.height, 520),
+          width: Math.min(sourceBox.width, 720),
+          x: Math.max(0, sourceBox.x),
+          y: Math.max(0, sourceBox.y),
+        });
+      }
+      const viewport = getViewport();
+      return intersectScreenshotClip({
+        height: Math.min(sourceBox.height * viewport.zoom, 520),
+        width: Math.min(sourceBox.width * viewport.zoom, 720),
+        x: rootBox.x + viewport.x + position.x * viewport.zoom,
+        y: rootBox.y + viewport.y + position.y * viewport.zoom,
+      });
+
+      function intersectScreenshotClip(rect) {
+        const left = Math.max(0, Math.floor(rect.x));
+        const top = Math.max(0, Math.floor(rect.y));
+        const right = Math.min(
+          window.innerWidth,
+          Math.ceil(rect.x + rect.width),
+        );
+        const bottom = Math.min(
+          window.innerHeight,
+          Math.ceil(rect.y + rect.height),
+        );
+        const width = right - left;
+        const height = bottom - top;
+        if (width <= 0 || height <= 0) {
+          throw new Error(
+            `Section ${sectionId} is outside the screenshot viewport.`,
+          );
+        }
+        return { height, width, x: left, y: top };
+      }
+    },
+    { position: position ?? null, sectionId },
+  );
+  return clip;
 }
 
 async function openSectionVisualState(page, sectionId, position, action) {
@@ -1183,17 +1363,22 @@ async function waitForReadySurface(page) {
 }
 
 async function postBackend(env, route, data) {
-  const response = await fetch(`http://127.0.0.1:${env.SETTA_PORT}/api${route}`, {
-    body: JSON.stringify(data),
-    headers: {
-      "Content-Type": "application/json",
-      Origin: `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT ?? "3077"}`,
-      Referer: `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT ?? "3077"}/`,
+  const response = await fetch(
+    `http://127.0.0.1:${env.SETTA_PORT}/api${route}`,
+    {
+      body: JSON.stringify(data),
+      headers: {
+        "Content-Type": "application/json",
+        Origin: `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT ?? "3077"}`,
+        Referer: `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT ?? "3077"}/`,
+      },
+      method: "POST",
     },
-    method: "POST",
-  });
+  );
   if (!response.ok) {
-    throw new Error(`${route} failed with ${response.status}: ${await response.text()}`);
+    throw new Error(
+      `${route} failed with ${response.status}: ${await response.text()}`,
+    );
   }
   const text = await response.text();
   return text.length ? JSON.parse(text) : null;
@@ -1222,7 +1407,9 @@ async function resolveBootstrapUrl(worktree, env) {
 }
 
 async function comparePrimaryAndCandidate() {
-  const baseline = manifest.runs.find((run) => run.label === "baseline-primary");
+  const baseline = manifest.runs.find(
+    (run) => run.label === "baseline-primary",
+  );
   const candidate = manifest.runs.find((run) => run.label === "candidate");
   if (!baseline || !candidate) {
     return;
@@ -1260,7 +1447,11 @@ async function comparePrimaryAndCandidate() {
         "diffs",
         `${referenceCapture.fixtureId}__${referenceCapture.viewport}__candidate-vs-baseline-primary.png`,
       );
-      const diff = await compareImages(page, referenceCapture.path, candidateCapture.path);
+      const diff = await compareImages(
+        page,
+        referenceCapture.path,
+        candidateCapture.path,
+      );
       review.diff = diff.summary;
       if (diff.diffPngBase64) {
         await writeFile(diffFile, Buffer.from(diff.diffPngBase64, "base64"));
@@ -1318,7 +1509,10 @@ async function compareImages(page, referencePath, candidatePath) {
       const candidateCanvas = document.createElement("canvas");
       const diffCanvas = document.createElement("canvas");
       referenceCanvas.width = candidateCanvas.width = diffCanvas.width = width;
-      referenceCanvas.height = candidateCanvas.height = diffCanvas.height = height;
+      referenceCanvas.height =
+        candidateCanvas.height =
+        diffCanvas.height =
+          height;
       const referenceContext = referenceCanvas.getContext("2d", {
         willReadFrequently: true,
       });
@@ -1328,8 +1522,18 @@ async function compareImages(page, referencePath, candidatePath) {
       const diffContext = diffCanvas.getContext("2d");
       referenceContext.drawImage(referenceImage, 0, 0);
       candidateContext.drawImage(candidateImage, 0, 0);
-      const referencePixels = referenceContext.getImageData(0, 0, width, height);
-      const candidatePixels = candidateContext.getImageData(0, 0, width, height);
+      const referencePixels = referenceContext.getImageData(
+        0,
+        0,
+        width,
+        height,
+      );
+      const candidatePixels = candidateContext.getImageData(
+        0,
+        0,
+        width,
+        height,
+      );
       const diffPixels = diffContext.createImageData(width, height);
       let changedPixelCount = 0;
       let maxChannelDelta = 0;
@@ -1381,7 +1585,8 @@ async function compareImages(page, referencePath, candidatePath) {
         summary: {
           ...summary,
           changedPixelCount,
-          changedPixelRatio: pixelCount === 0 ? 0 : changedPixelCount / pixelCount,
+          changedPixelRatio:
+            pixelCount === 0 ? 0 : changedPixelCount / pixelCount,
           maxChannelDelta,
           meanAbsoluteChannelDelta:
             pixelCount === 0 ? 0 : totalChannelDelta / (pixelCount * 4),
@@ -1393,7 +1598,8 @@ async function compareImages(page, referencePath, candidatePath) {
         return new Promise((resolve, reject) => {
           const image = new Image();
           image.onload = () => resolve(image);
-          image.onerror = () => reject(new Error(`Failed to load image ${src}`));
+          image.onerror = () =>
+            reject(new Error(`Failed to load image ${src}`));
           image.src = src;
         });
       }
@@ -1406,8 +1612,12 @@ async function compareImages(page, referencePath, candidatePath) {
 }
 
 async function writeReview() {
-  const blocking = reviewRows.filter((row) => row.status === "blocking-regression");
-  const captureBlocked = reviewRows.filter((row) => row.status === "capture-blocked");
+  const blocking = reviewRows.filter(
+    (row) => row.status === "blocking-regression",
+  );
+  const captureBlocked = reviewRows.filter(
+    (row) => row.status === "capture-blocked",
+  );
   const runtimeBlockers = manifest.runs.flatMap((run) =>
     summarizeMessages(run.pageErrors ?? []).unique.map((entry) => ({
       ...entry,
@@ -1425,12 +1635,12 @@ async function writeReview() {
   lines.push(`- Browser executable: ${manifest.browserExecutablePath}`);
   lines.push(`- Compared: baseline-primary vs candidate`);
   lines.push(`- Fixtures compared: ${reviewRows.length}`);
-  lines.push(`- Pass: ${reviewRows.filter((row) => row.status === "pass").length}`);
+  lines.push(
+    `- Pass: ${reviewRows.filter((row) => row.status === "pass").length}`,
+  );
   lines.push(`- Blocking regression: ${blocking.length}`);
   lines.push(`- Capture blocked: ${captureBlocked.length}`);
-  lines.push(
-    `- Runtime page error groups: ${runtimeBlockers.length}`,
-  );
+  lines.push(`- Runtime page error groups: ${runtimeBlockers.length}`);
   lines.push("");
   lines.push("## Runtime Signals");
   lines.push("");
@@ -1443,7 +1653,9 @@ async function writeReview() {
       `- ${run.label}: ${run.captures.length} captures, ${pageErrorSummary.total} page errors, ${consoleSummary.total} console warnings/errors.`,
     );
     for (const entry of pageErrorSummary.unique.slice(0, 3)) {
-      lines.push(`  - page error x${entry.count}: ${escapeListItem(entry.text)}`);
+      lines.push(
+        `  - page error x${entry.count}: ${escapeListItem(entry.text)}`,
+      );
     }
     for (const entry of consoleSummary.unique.slice(0, 3)) {
       lines.push(`  - console x${entry.count}: ${escapeListItem(entry.text)}`);
@@ -1452,7 +1664,9 @@ async function writeReview() {
   lines.push("");
   lines.push("## Fixture Results");
   lines.push("");
-  lines.push("| Fixture | Viewport | Status | Reason | Changed Pixels | Mean Delta |");
+  lines.push(
+    "| Fixture | Viewport | Status | Reason | Changed Pixels | Mean Delta |",
+  );
   lines.push("| --- | --- | --- | --- | ---: | ---: |");
   for (const row of reviewRows) {
     lines.push(
@@ -1500,7 +1714,10 @@ async function writeReview() {
   lines.push(
     "- `capture-blocked` means the screenshot path failed and must be fixed or replaced with another reliable capture method.",
   );
-  await writeFile(path.join(artifactRoot, "review.md"), `${lines.join("\n")}\n`);
+  await writeFile(
+    path.join(artifactRoot, "review.md"),
+    `${lines.join("\n")}\n`,
+  );
 }
 
 function scrubBootstrapUrl(url) {

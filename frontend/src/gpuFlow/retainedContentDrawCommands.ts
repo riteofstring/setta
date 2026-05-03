@@ -21,6 +21,7 @@ import type { GpuRect } from "./viewportMath";
 
 export function createGpuRetainedContentDrawCommands({
   activePopup,
+  controlRightInset,
   controlWidth,
   dragPreview,
   indentWidth,
@@ -31,6 +32,7 @@ export function createGpuRetainedContentDrawCommands({
   viewportRect,
 }: {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly controlRightInset: number;
   readonly controlWidth: number;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly indentWidth: number;
@@ -45,6 +47,7 @@ export function createGpuRetainedContentDrawCommands({
   for (const row of rows) {
     const rowCommands = createGpuRetainedContentRowDrawCommands({
       controlWidth,
+      controlRightInset,
       indentWidth,
       labelControlGap,
       row,
@@ -75,6 +78,7 @@ export function createGpuRetainedContentDrawCommands({
     activePopup,
     commands,
     controlWidth,
+    controlRightInset,
     rows,
     viewportRect,
   });
@@ -84,12 +88,14 @@ export function createGpuRetainedContentDrawCommands({
 
 function createGpuRetainedContentRowDrawCommands({
   controlWidth,
+  controlRightInset,
   indentWidth,
   labelControlGap,
   row,
   viewportRect,
 }: {
   readonly controlWidth: number;
+  readonly controlRightInset: number;
   readonly indentWidth: number;
   readonly labelControlGap: number;
   readonly row: GpuRetainedContentRow;
@@ -98,8 +104,32 @@ function createGpuRetainedContentRowDrawCommands({
   readonly commands: readonly GpuRetainedContentDrawCommand[];
   readonly statusOverlays: readonly GpuRetainedContentDrawCommand[];
 } {
+  const labelX = row.projectedRect.x + row.depth * indentWidth;
+  const controlRect = createGpuRetainedContentControlRect({
+    controlWidth,
+    rightInset: controlRightInset,
+    rowRect: row.projectedRect,
+  });
+  const statusCommands = createGpuRetainedContentRowStatusCommands({
+    controlRect,
+    labelControlGap,
+    row,
+    viewportRect,
+  });
+  const labelRect = createGpuRetainedContentLabelRect({
+    controlRect,
+    labelControlGap,
+    labelX,
+    rowRect: row.projectedRect,
+    statusBadgeRect: statusCommands.badgeRect,
+  });
   const commands: GpuRetainedContentDrawCommand[] = [
     {
+      dividerRects: createGpuRetainedContentRowDividerRects({
+        controlRect,
+        labelRect,
+        row,
+      }),
       kind: "row-background",
       rect: row.projectedRect,
       rowId: row.id,
@@ -119,27 +149,10 @@ function createGpuRetainedContentRowDrawCommands({
       rowId: row.id,
     });
   }
-  const labelX = row.projectedRect.x + row.depth * indentWidth;
-  const controlRect = createGpuRetainedContentControlRect({
-    controlWidth,
-    rowRect: row.projectedRect,
-  });
-  const statusCommands = createGpuRetainedContentRowStatusCommands({
-    controlRect,
-    labelControlGap,
-    row,
-    viewportRect,
-  });
   commands.push({
     depth: row.depth,
     kind: "row-label",
-    rect: createGpuRetainedContentLabelRect({
-      controlRect,
-      labelControlGap,
-      labelX,
-      rowRect: row.projectedRect,
-      statusBadgeRect: statusCommands.badgeRect,
-    }),
+    rect: labelRect,
     rowId: row.id,
     text: row.label,
   });
@@ -157,6 +170,20 @@ function createGpuRetainedContentRowDrawCommands({
     commands,
     statusOverlays: statusCommands.overlays,
   };
+}
+
+function createGpuRetainedContentRowDividerRects({
+  controlRect,
+  labelRect,
+  row,
+}: {
+  readonly controlRect: GpuRect;
+  readonly labelRect: GpuRect;
+  readonly row: GpuRetainedContentRow;
+}): readonly GpuRect[] {
+  return [labelRect, ...(row.control ? [controlRect] : [])].filter(
+    (rect) => rect.width > 0 && rect.height > 0,
+  );
 }
 
 function createGpuRetainedContentRowStatusCommands({
@@ -215,12 +242,14 @@ function createGpuRetainedContentRowStatusCommands({
 function appendGpuRetainedContentPopupCommands({
   activePopup,
   commands,
+  controlRightInset,
   controlWidth,
   rows,
   viewportRect,
 }: {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly commands: GpuRetainedContentDrawCommand[];
+  readonly controlRightInset: number;
   readonly controlWidth: number;
   readonly rows: readonly GpuRetainedContentRow[];
   readonly viewportRect: GpuRect;
@@ -230,6 +259,7 @@ function appendGpuRetainedContentPopupCommands({
     controlRect: (row) =>
       createGpuRetainedContentControlRect({
         controlWidth,
+        rightInset: controlRightInset,
         rowRect: row.projectedRect,
       }),
     rows,
@@ -259,6 +289,7 @@ function appendGpuRetainedContentPopupCommands({
       controlRect: (row) =>
         createGpuRetainedContentControlRect({
           controlWidth,
+          rightInset: controlRightInset,
           rowRect: row.projectedRect,
         }),
       rows,

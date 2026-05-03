@@ -268,6 +268,7 @@ function drawGpuRetainedContentRowCommand({
   if (command.kind === "row-background") {
     drawGpuRetainedContentRowBackground({
       ctx,
+      dividerRects: command.dividerRects,
       palette,
       rect: command.rect,
       state: command.state,

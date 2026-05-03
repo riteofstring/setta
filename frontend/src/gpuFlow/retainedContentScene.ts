@@ -217,6 +217,7 @@ export type GpuRetainedContentDropMarkerEdge = "after" | "before" | "inside";
 
 export type GpuRetainedContentDrawCommand =
   | {
+      readonly dividerRects: readonly GpuRect[];
       readonly kind: "row-background";
       readonly rect: GpuRect;
       readonly rowId: string;
@@ -321,6 +322,7 @@ export type GpuRetainedContentDragPreviewInput = {
 
 type CreateGpuRetainedRowContentSceneInput = {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly controlRightInset?: number | undefined;
   readonly controlWidth?: number | undefined;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly id: string;
@@ -336,6 +338,7 @@ type CreateGpuRetainedRowContentSceneInput = {
 };
 
 const DEFAULT_CONTROL_WIDTH = 112;
+const DEFAULT_CONTROL_RIGHT_INSET = 0;
 const DEFAULT_INDENT_WIDTH = 14;
 const DEFAULT_LABEL_CONTROL_GAP = 8;
 const DEFAULT_OVERSCAN_ROWS = 2;
@@ -345,6 +348,8 @@ export function createGpuRetainedRowContentScene(
   input: CreateGpuRetainedRowContentSceneInput,
 ): GpuRetainedContentScene {
   validateGpuRetainedRowContentSceneInput(input);
+  const controlRightInset =
+    input.controlRightInset ?? DEFAULT_CONTROL_RIGHT_INSET;
   const controlWidth = input.controlWidth ?? DEFAULT_CONTROL_WIDTH;
   const indentWidth = input.indentWidth ?? DEFAULT_INDENT_WIDTH;
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
@@ -380,6 +385,7 @@ export function createGpuRetainedRowContentScene(
     contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
       activePopup: input.activePopup,
+      controlRightInset,
       controlWidth,
       dragPreview: input.dragPreview,
       indentWidth,
@@ -391,6 +397,7 @@ export function createGpuRetainedRowContentScene(
     }),
     hitRecords: createGpuRetainedContentHitRecords({
       activePopup: input.activePopup,
+      controlRightInset,
       controlWidth,
       indentWidth,
       labelControlGap,
@@ -522,6 +529,7 @@ function getGpuRetainedContentRowStateFlag(
 
 function createGpuRetainedContentHitRecords({
   activePopup,
+  controlRightInset,
   controlWidth,
   indentWidth,
   labelControlGap,
@@ -530,6 +538,7 @@ function createGpuRetainedContentHitRecords({
   viewportRect,
 }: {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly controlRightInset: number;
   readonly controlWidth: number;
   readonly indentWidth: number;
   readonly labelControlGap: number;
@@ -540,6 +549,7 @@ function createGpuRetainedContentHitRecords({
   const hitRecords: GpuRetainedContentHitRecord[] = [];
   for (const row of rows) {
     const controlRect = createGpuRetainedContentControlRect({
+      rightInset: controlRightInset,
       controlWidth,
       rowRect: row.projectedRect,
     });
@@ -599,6 +609,7 @@ function createGpuRetainedContentHitRecords({
     activePopup,
     controlRect: (row) =>
       createGpuRetainedContentControlRect({
+        rightInset: controlRightInset,
         controlWidth,
         rowRect: row.projectedRect,
       }),
@@ -628,6 +639,7 @@ function createGpuRetainedContentHitRecords({
       activePopup,
       controlRect: (row) =>
         createGpuRetainedContentControlRect({
+          rightInset: controlRightInset,
           controlWidth,
           rowRect: row.projectedRect,
         }),
@@ -708,6 +720,12 @@ function validateGpuRetainedRowContentSceneInput(
   input: CreateGpuRetainedRowContentSceneInput,
 ) {
   assertFinitePositive("retained content row height", input.rowHeight);
+  if (input.controlRightInset !== undefined) {
+    assertFiniteNonNegative(
+      "retained content control right inset",
+      input.controlRightInset,
+    );
+  }
   assertFiniteNonNegative(
     "retained content viewport width",
     input.viewportRect.width,

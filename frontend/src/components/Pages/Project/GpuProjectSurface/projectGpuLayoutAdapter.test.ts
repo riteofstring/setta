@@ -295,9 +295,9 @@ describe("project GPU layout adapter", () => {
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
     expect(paramSurface).toMatchObject({
-      clipRect: { height: 122, width: 262, x: 10, y: 20 },
+      clipRect: { height: 117, width: 262, x: 10, y: 25 },
       ownerSectionId: "dict-a",
-      rect: { height: 122, width: 262, x: 10, y: 20 },
+      rect: { height: 117, width: 262, x: 10, y: 25 },
       renderer: {
         kind: "canvas-content",
         surfaceId: "dict-a:param-content:unpinned",
@@ -305,10 +305,10 @@ describe("project GPU layout adapter", () => {
       zIndex: 3,
     });
     expect(paramSurface?.retainedScene).toMatchObject({
-      contentRect: { height: 56, width: 262, x: 0, y: 0 },
+      contentRect: { height: 48, width: 262, x: 0, y: 0 },
       ownerSectionId: "dict-a",
-      rowHeight: 28,
-      viewportRect: { height: 122, width: 262, x: 0, y: 0 },
+      rowHeight: 24,
+      viewportRect: { height: 117, width: 262, x: 0, y: 0 },
       visibleRange: { endIndex: 2, rowCount: 2, startIndex: 0 },
     });
     expect(
@@ -368,7 +368,7 @@ describe("project GPU layout adapter", () => {
       expect.objectContaining({
         id: "child-param",
         kind: "input",
-        localPosition: { x: 0, y: 42 },
+        localPosition: { x: 0, y: 36 },
         ownerRowId: "child-param",
       }),
     ]);
@@ -868,11 +868,11 @@ describe("project GPU layout adapter", () => {
           kind: "pointer",
         },
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 28, width: 112, x: 0, y: 0 },
+        contentRect: { height: 24, width: 176, x: 0, y: 0 },
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
-        rect: { height: 28, width: 112, x: 160, y: 48 },
+        rect: { height: 24, width: 176, x: 87, y: 49 },
         source: {
           hitRecordId: "control:child-param",
           kind: "retained-content",
@@ -1927,11 +1927,11 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 28, width: 128, x: 0, y: 0 },
+        contentRect: { height: 24, width: 51, x: 0, y: 0 },
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
-        rect: { height: 28, width: 128, x: 24, y: 48 },
+        rect: { height: 24, width: 51, x: 24, y: 49 },
         source: {
           hitRecordId: "label:child-param",
           kind: "retained-content",
@@ -2144,10 +2144,10 @@ describe("project GPU layout adapter", () => {
     );
 
     expect(dropzoneIsland).toMatchObject({
-      contentRect: { height: 132, width: 240, x: 0, y: 0 },
+      contentRect: { height: 132, width: 276, x: 0, y: 0 },
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
-      rect: { height: 132, width: 240 },
+      rect: { height: 132, width: 276 },
     });
     expect(
       dropzoneSurface?.retainedScene?.rows.find(
@@ -2261,10 +2261,10 @@ describe("project GPU layout adapter", () => {
     });
 
     expect(nativeScene.domIslands[0]).toMatchObject({
-      contentRect: { height: 28, width: 112, x: 0, y: 0 },
+      contentRect: { height: 24, width: 176, x: 0, y: 0 },
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
-      rect: { height: 28, width: 112 },
+      rect: { height: 24, width: 176 },
     });
     expect(
       nativeScene.contentSurfaces
