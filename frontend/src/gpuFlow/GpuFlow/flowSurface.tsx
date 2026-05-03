@@ -501,6 +501,9 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       const nodeInteraction = createGpuNodeInteractionDirtyController({
+        clearProjectedInteraction: (nodeId) => {
+          sourceInteractionProjector.clearSource(nodeId);
+        },
         deferPassiveDirty: () =>
           viewportStore.getState().viewportInteractionActive,
         elementByNodeId: () => nodeElementByIdRef.current,

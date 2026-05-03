@@ -18,6 +18,7 @@ import {
   type GpuNodeLayout,
 } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
+import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 import type {
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
@@ -214,7 +215,7 @@ describe("HTML surface frame helpers", () => {
     expect(visible.style.height).toBe("50px");
     expect(visible.style.transformOrigin).toBe("0 0");
     expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
-    expect(visible.style.pointerEvents).toBe("auto");
+    expect(visible.style.pointerEvents).toBe("none");
     expect(visible.style.width).toBe("100px");
     expect(visible.style.zIndex).toBe("5");
     expect(visible.dataset.gpuFlowInteractive).toBe("true");
@@ -227,6 +228,49 @@ describe("HTML surface frame helpers", () => {
     expect(culled.style.width).toBe("");
     expect(culled.style.zIndex).toBe("");
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
+  });
+
+  it("keeps active source hosts passive unless they are projected", () => {
+    const visible = document.createElement("div");
+    const elements = new Map([["visible", visible]]);
+    const nodes = [node("visible", 10, 20, 100, 50, 5)];
+
+    syncGpuNodeDomTransforms({
+      activeNodeIds: ["visible"],
+      elementByNodeId: elements,
+      nodes,
+      visibleNodeIds: new Set(["visible"]),
+      viewport: [0, 0, 1],
+    });
+
+    expect(visible.dataset.gpuFlowInteractive).toBe("true");
+    expect(visible.style.pointerEvents).toBe("none");
+    expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
+
+    visible.setAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE, "true");
+    visible.style.transform = "translate(40px, 50px)";
+    syncGpuNodeDomTransforms({
+      activeNodeIds: ["visible"],
+      elementByNodeId: elements,
+      nodes,
+      visibleNodeIds: new Set(["visible"]),
+      viewport: [0, 0, 1],
+    });
+
+    expect(visible.style.pointerEvents).toBe("auto");
+    expect(visible.style.transform).toBe("translate(40px, 50px)");
+
+    visible.removeAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE);
+    syncGpuNodeDomTransforms({
+      activeNodeIds: ["visible"],
+      elementByNodeId: elements,
+      nodes,
+      visibleNodeIds: new Set(["visible"]),
+      viewport: [0, 0, 1],
+    });
+
+    expect(visible.style.pointerEvents).toBe("none");
+    expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
   });
 
   it("syncs stable source geometry from visible and previous-visible diffs", () => {

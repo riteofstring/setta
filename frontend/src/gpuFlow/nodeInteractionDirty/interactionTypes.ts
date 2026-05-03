@@ -31,6 +31,7 @@ export type GpuNodePointerHandoffResolveOptions = {
 
 export type GpuNodeInteractionDirtyControllerOptions = {
   readonly cancelAnimationFrame?: ((frameId: number) => void) | undefined;
+  readonly clearProjectedInteraction?: ((nodeId: string) => void) | undefined;
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;

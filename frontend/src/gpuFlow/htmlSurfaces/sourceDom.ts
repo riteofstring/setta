@@ -16,9 +16,8 @@ export function isPassiveHtmlSurfaceSourceEventTarget(
     return false;
   }
   return (
-    sourceElement.dataset.gpuFlowInteractive !== "true" &&
     sourceElement.getAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE) !==
-      "true"
+    "true"
   );
 }
 

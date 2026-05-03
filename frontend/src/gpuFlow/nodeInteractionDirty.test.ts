@@ -307,6 +307,7 @@ describe("gpu node interaction dirty tracking", () => {
       throw new Error("Expected a resize handoff target descriptor");
     }
     const textureManager = createInteractionTextureManager();
+    const clearProjectedInteraction = vi.fn();
     const requestFrame = vi.fn();
     const resolvePointerHandoffTarget = vi.fn(() => ({
       descriptor,
@@ -314,6 +315,7 @@ describe("gpu node interaction dirty tracking", () => {
     }));
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
+      clearProjectedInteraction,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -374,6 +376,7 @@ describe("gpu node interaction dirty tracking", () => {
     );
 
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
+    expect(clearProjectedInteraction).toHaveBeenCalledWith("node-a");
     expect(
       resolvePointerHandoffTarget.mock.calls.map(([, options]) => options),
     ).toEqual([
@@ -477,6 +480,47 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.classList.add("setta-gpu-flow__html-source");
     nodeElement.dataset.gpuFlowHtmlSource = "true";
     nodeElement.dataset.gpuFlowInteractive = "false";
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className =
+      "section-resize-handle section-resize-handle-bottom-right";
+    nodeElement.append(resizeHandle);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const resolvePointerHandoffTarget = vi.fn(() => null);
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame,
+      resolvePointerHandoffTarget,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    resizeHandle.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 17,
+      }),
+    );
+
+    expect(resolvePointerHandoffTarget).toHaveBeenCalledTimes(1);
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    detach();
+    canvas.remove();
+  });
+
+  it("ignores native resize handles from active unprojected capture sources", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    nodeElement.classList.add("setta-gpu-flow__html-source");
+    nodeElement.dataset.gpuFlowHtmlSource = "true";
+    nodeElement.dataset.gpuFlowInteractive = "true";
     const resizeHandle = document.createElement("div");
     resizeHandle.className =
       "section-resize-handle section-resize-handle-bottom-right";
@@ -637,9 +681,11 @@ describe("gpu node interaction dirty tracking", () => {
       throw new Error("Expected a wheel handoff target descriptor");
     }
     const textureManager = createInteractionTextureManager();
+    const clearProjectedInteraction = vi.fn();
     const requestFrame = vi.fn();
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
+      clearProjectedInteraction,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -665,6 +711,7 @@ describe("gpu node interaction dirty tracking", () => {
 
     expect(wheel.defaultPrevented).toBe(true);
     expect(scroller.scrollTop).toBe(80);
+    expect(clearProjectedInteraction).toHaveBeenCalledWith("node-a");
     expect(controller.getActiveNodeId()).toBe("node-a");
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
@@ -802,7 +849,9 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.append(nodeElement);
     document.body.append(canvas);
     const textureManager = createInteractionTextureManager();
+    const clearProjectedInteraction = vi.fn();
     const controller = createGpuNodeInteractionDirtyController({
+      clearProjectedInteraction,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       requestFrame: vi.fn(),
@@ -816,6 +865,7 @@ describe("gpu node interaction dirty tracking", () => {
 
     expect(document.activeElement).toBe(input);
     expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(clearProjectedInteraction).toHaveBeenCalledWith("node-a");
 
     expect(controller.getActiveNodeId()).toBe("node-a");
 
