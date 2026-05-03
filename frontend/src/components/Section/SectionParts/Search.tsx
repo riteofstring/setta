@@ -130,7 +130,9 @@ function useSectionSearchMeasurements(
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
-    const handleScope = node.closest(".agentic-handle-scope");
+    const handleScope = syncDomPortGeometry
+      ? node.closest(".agentic-handle-scope")
+      : null;
     let lastMeasuredHeight: number | null = null;
     let pendingAgenticHandleFrame: number | null = null;
     const updateAgenticHandleTop = () => {
@@ -186,13 +188,17 @@ function useSectionSearchMeasurements(
     };
     const updateMeasurements = () => {
       updateHeight();
-      updateAgenticHandleTop();
+      if (syncDomPortGeometry) {
+        updateAgenticHandleTop();
+      }
     };
     updateMeasurements();
-    pendingAgenticHandleFrame = requestAnimationFrame(() => {
-      pendingAgenticHandleFrame = null;
-      updateAgenticHandleTop();
-    });
+    if (syncDomPortGeometry) {
+      pendingAgenticHandleFrame = requestAnimationFrame(() => {
+        pendingAgenticHandleFrame = null;
+        updateAgenticHandleTop();
+      });
+    }
     const observer = new ResizeObserver(updateMeasurements);
     observer.observe(node);
     return () => {

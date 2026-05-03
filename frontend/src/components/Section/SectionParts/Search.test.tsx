@@ -309,7 +309,7 @@ describe("SectionSearch", () => {
     }
   });
 
-  it("does not refresh legacy DOM port geometry for scene-owned search", async () => {
+  it("does not read or refresh legacy DOM handle geometry for scene-owned search", async () => {
     const rectSpy = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue(mockDomRect({ height: 20, top: 0, width: 80 }));
@@ -323,13 +323,15 @@ describe("SectionSearch", () => {
     );
 
     try {
-      expect(host.style.getPropertyValue("--agentic-handle-top")).toBe("10px");
+      expect(host.style.getPropertyValue("--agentic-handle-top")).toBe("");
+      expect(rectSpy).not.toHaveBeenCalled();
       expect(scheduleGpuFlowPortLocalRectUpdateMock).not.toHaveBeenCalled();
     } finally {
       await act(async () => {
         root.unmount();
       });
       expect(scheduleGpuFlowPortLocalRectUpdateMock).not.toHaveBeenCalled();
+      expect(rectSpy).not.toHaveBeenCalled();
       rectSpy.mockRestore();
     }
   });
