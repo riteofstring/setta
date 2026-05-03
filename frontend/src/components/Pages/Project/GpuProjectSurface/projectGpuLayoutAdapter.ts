@@ -58,17 +58,13 @@ import {
 } from "state/definitions";
 import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
-} from "utils/constants";
+import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
-  type DictSectionImpl,
   type GroupSectionImpl,
   type ListRootSectionImpl,
 } from "utils/generatedTypes";
@@ -765,7 +761,6 @@ function getProjectSectionSceneResizePolicy({
       ),
       paramsFixedHeight: getProjectSectionSceneParamsFixedHeight({
         projectState,
-        resizePolicyContext,
         sectionId,
         sectionImpl,
       }),
@@ -804,26 +799,18 @@ function getProjectSectionSceneResizePolicy({
 
 function getProjectSectionSceneParamsFixedHeight({
   projectState,
-  resizePolicyContext,
   sectionId,
   sectionImpl,
 }: {
   readonly projectState: ZustandProjectState;
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
 }): number {
-  if (sectionImpl.type === SectionTypeEnum.Dict) {
-    return getProjectGpuParamFixedContentHeightForSection({
-      projectState,
-      sectionId,
-      sectionImpl: sectionImpl as DictSectionImpl,
-    });
-  }
-  return getProjectSceneMeasuredHeight(
-    resizePolicyContext,
-    getParamsFixedHeightKey(sectionId),
-  );
+  return getProjectGpuParamFixedContentHeightForSection({
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
 }
 
 function pushProjectSectionSceneNode({

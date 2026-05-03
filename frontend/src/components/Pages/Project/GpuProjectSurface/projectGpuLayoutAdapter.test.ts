@@ -9,7 +9,6 @@ import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
 import {
@@ -256,16 +255,14 @@ describe("project GPU layout adapter", () => {
     };
     const sectionId = "dict-a";
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
-    const paramsFixedKey = getParamsFixedHeightKey(sectionId);
-    const callableParamsFixedKey = getParamsFixedHeightKey("callable-a");
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
       "section-header-height-hidden-dict": 64,
       "section-header-height-other-section": 42,
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
       [kwargsKey]: Number.NaN,
-      [callableParamsFixedKey]: 48,
-      [paramsFixedKey]: 36,
+      "params-fixed-height-callable-a": 48,
+      "params-fixed-height-dict-a": 36,
       unrelated: 99,
     });
 
@@ -273,11 +270,13 @@ describe("project GPU layout adapter", () => {
     expect(measuredHeights).not.toHaveProperty(
       "section-header-height-hidden-dict",
     );
-    expect(measuredHeights).not.toHaveProperty(paramsFixedKey);
+    expect(measuredHeights).not.toHaveProperty("params-fixed-height-dict-a");
+    expect(measuredHeights).not.toHaveProperty(
+      "params-fixed-height-callable-a",
+    );
     expect(measuredHeights).toEqual({
       [kwargsKey]: 0,
       [getKwargsControlsHeightKey("callable-a")]: 0,
-      [callableParamsFixedKey]: 48,
     });
     expect(
       areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
@@ -515,6 +514,104 @@ describe("project GPU layout adapter", () => {
           rowId: "child-param",
         }),
       ]),
+    );
+  });
+
+  it("derives retained callable param content surfaces from shown param metadata", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "callable-a",
+          impl: createCallableSectionImpl({
+            callable: "callable-root",
+            codeObjVariantMap: {
+              "body-param": "body-param-variant",
+              "callable-root": "callable-root-variant",
+              "pinned-param": "pinned-param-variant",
+            },
+            id: "callable-a-impl",
+            pinnedParams: ["pinned-param"],
+            size: sectionSize({ height: 160, width: 260 }),
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "callable-a": { h: 160, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "callable-root",
+      "callable-root-variant",
+      "callable-root-impl",
+      createNestedParamImpl("callable-root-impl", [
+        "pinned-param",
+        "body-param",
+      ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "pinned-param",
+      "pinned-param-variant",
+      "pinned-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "pinned-param-impl",
+        name: "pinned",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "body-param",
+      "body-param-variant",
+      "body-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "body-param-impl",
+        name: "body",
+      }),
+    );
+    projectState.shownParamIds["callable-a-variant"] = createShownParamIDs({
+      pinned: {
+        requiredParamIdsToPaths: {
+          "pinned-param": ["pinned-param"],
+        },
+        topLevelParamIds: ["pinned-param"],
+      },
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "body-param": ["body-param"],
+        },
+        topLevelParamIds: ["body-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 3,
+    });
+
+    const pinnedSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "callable-a:param-content:pinned",
+    );
+    const unpinnedSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "callable-a:param-content:unpinned",
+    );
+
+    expect(pinnedSurface?.retainedScene?.rows.map((row) => row.id)).toEqual([
+      "pinned-param",
+    ]);
+    expect(unpinnedSurface?.retainedScene?.rows.map((row) => row.id)).toEqual([
+      "body-param",
+    ]);
+    expect(pinnedSurface?.rect.y).toBe(
+      20 +
+        PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        PROJECT_SECTION_SEARCH_HEIGHT_PX +
+        5,
+    );
+    expect(unpinnedSurface?.rect.y).toBe(
+      (pinnedSurface?.rect.y ?? 0) +
+        (pinnedSurface?.retainedScene?.rowHeight ?? 0),
     );
   });
 

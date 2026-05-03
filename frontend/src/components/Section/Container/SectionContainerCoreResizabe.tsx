@@ -279,12 +279,14 @@ export const SECTION_AREA_RENDERERS = {
     sectionId,
     bgColor,
     isMinimized,
+    renderParamRows = true,
     syncDomPortGeometry,
   }) => (
     <CallableArea
       sectionId={sectionId}
       bgColor={bgColor}
       isMinimized={isMinimized}
+      renderParamRows={renderParamRows}
       syncDomPortGeometry={syncDomPortGeometry}
     />
   ),
@@ -314,8 +316,16 @@ export const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.MetaControl]: ({ sectionId }) => (
     <MetaControlArea sectionId={sectionId} />
   ),
-  [SectionTypeEnum.GlobalVariables]: ({ sectionId, bgColor }) => (
-    <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />
+  [SectionTypeEnum.GlobalVariables]: ({
+    sectionId,
+    bgColor,
+    renderParamRows = true,
+  }) => (
+    <GlobalVariablesArea
+      sectionId={sectionId}
+      bgColor={bgColor}
+      renderParamRows={renderParamRows}
+    />
   ),
   [SectionTypeEnum.Code]: ({ sectionId }) => <CodeArea sectionId={sectionId} />,
   [SectionTypeEnum.GenPythonCode]: ({ sectionId }) => (

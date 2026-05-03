@@ -33,8 +33,7 @@ import {
   CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
-  type DictSectionImpl,
+  type BaseSectionImplUnion,
 } from "utils/generatedTypes";
 import {
   getProjectGpuParamContentControlWidth,
@@ -49,6 +48,11 @@ import {
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
 import {
+  getProjectGpuParamContentEdgeStripPortCounts,
+  isProjectGpuParamContentSectionImpl,
+  type ProjectGpuParamContentSectionImpl,
+} from "./projectGpuParamContentSection";
+import {
   getProjectGpuParamDomIslandGeometry,
   intersectProjectGpuParamRects,
   translateProjectGpuParamLocalRect,
@@ -61,6 +65,7 @@ import {
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import type { ProjectGpuRetainedPasswordRevealStateMap as PasswordRevealStates } from "./projectGpuRetainedParamPasswordRevealState";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
+import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
 export type { ProjectGpuParamListKey } from "./projectGpuParamContentLayout";
 
@@ -241,8 +246,11 @@ export function getProjectGpuParamFixedContentHeightForSection({
 }: {
   readonly projectState: ZustandProjectState;
   readonly sectionId: string;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: BaseSectionImplUnion;
 }): number {
+  if (!isProjectGpuParamContentSectionImpl(sectionImpl)) {
+    return 0;
+  }
   const edgeStripPortCounts =
     getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
   return resolveProjectGpuParamFixedContentHeight({
@@ -481,16 +489,15 @@ function createProjectGpuParamContentSurfacesForSection({
     section.sectionId,
     isBaseSectionWithParamsImpl,
   );
-  if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Dict) {
+  if (!sectionImpl || !isProjectGpuParamContentSectionImpl(sectionImpl)) {
     return [];
   }
-  const dictSectionImpl = sectionImpl as DictSectionImpl;
 
   const listRows = createProjectGpuParamListRows({
     projectState,
     projectSearch,
     sectionId: section.sectionId,
-    sectionImpl: dictSectionImpl,
+    sectionImpl,
     editPolicy,
     typeErrors,
     retainedInteractionState: {
@@ -509,7 +516,7 @@ function createProjectGpuParamContentSurfacesForSection({
     measuredHeightsByKey,
     retainedParamDragPreview,
     section,
-    sectionImpl: dictSectionImpl,
+    sectionImpl,
   });
 }
 
@@ -527,7 +534,7 @@ function createProjectGpuParamListRows({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
   readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly ProjectGpuParamListRows[] {
   return (["pinned", "unpinned"] as const).flatMap((key) => {
@@ -586,7 +593,7 @@ function getProjectGpuShownParamRowsIfPresent({
   readonly key: ProjectGpuParamListKey;
   readonly projectState: ZustandProjectState;
   readonly sectionId: string;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
 }) {
   const sectionVariantId = getCurrSectionVariantId(
     projectState,
@@ -655,7 +662,7 @@ function createProjectGpuParamRows({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
   readonly surfaceId: string;
   readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
 }): readonly GpuRetainedContentRowInput[] {
@@ -727,7 +734,7 @@ function resolveProjectGpuRetainedParamRowDisabled({
 }: {
   readonly codeObjType: string;
   readonly editPolicy: ProjectGpuParamEditPolicy;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
 }): boolean {
   return resolveParamUIDisabled({
     canEditParams: editPolicy.canEditParams,
@@ -759,14 +766,16 @@ function createProjectGpuParamListContentSurfaces({
     | null
     | undefined;
   readonly section: GpuSectionSceneNode;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
 }): readonly GpuContentSurface[] {
   const surfaces: GpuContentSurface[] = [];
   const edgeStripPortCounts =
     getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
   const metrics = getProjectGpuParamContentMetrics({
     ...edgeStripPortCounts,
-    headerHeight: getProjectSectionSceneHeaderHeight(),
+    headerHeight:
+      getProjectSectionSceneHeaderHeight() +
+      getProjectSectionSceneSearchHeight(sectionImpl),
     measuredHeightsByKey,
     pinnedRowCount: getProjectGpuParamListRowCount(listRows, "pinned"),
     sectionId: section.sectionId,
@@ -858,18 +867,6 @@ function getProjectGpuParamListRowCount(
   return listRows.find((list) => list.key === key)?.rows.length ?? 0;
 }
 
-function getProjectGpuParamContentEdgeStripPortCounts(
-  sectionImpl: DictSectionImpl,
-): {
-  readonly edgeInputPortCount: number;
-  readonly edgeOutputPortCount: number;
-} {
-  return {
-    edgeInputPortCount: sectionImpl.edgeInputParams?.length ?? 0,
-    edgeOutputPortCount: sectionImpl.edgeOutputPorts?.length ?? 0,
-  };
-}
-
 function countProjectGpuParamRetainedListRows({
   key,
   projectState,
@@ -879,7 +876,7 @@ function countProjectGpuParamRetainedListRows({
   readonly key: ProjectGpuParamListKey;
   readonly projectState: ZustandProjectState;
   readonly sectionId: string;
-  readonly sectionImpl: DictSectionImpl;
+  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
 }): number {
   const shown = getProjectGpuShownParamRowsIfPresent({
     key,

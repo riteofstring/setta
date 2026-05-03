@@ -11,11 +11,13 @@ function _CallableArea({
   sectionId,
   bgColor,
   isMinimized,
+  renderParamRows = true,
   syncDomPortGeometry = true,
 }: {
   sectionId: string;
   bgColor: string;
   isMinimized: boolean;
+  renderParamRows?: boolean;
   syncDomPortGeometry?: boolean;
 }) {
   const { callable, hideParams } = useProjectState((x) => {
@@ -45,6 +47,7 @@ function _CallableArea({
           <ParamGroupContainer
             sectionId={sectionId}
             bgColor={bgColor}
+            renderParamRows={renderParamRows}
             sectionTypeName={SectionTypeEnum.Callable}
           />
         </>
