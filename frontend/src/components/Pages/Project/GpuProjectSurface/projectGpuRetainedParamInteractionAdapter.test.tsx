@@ -236,14 +236,20 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
     }
     if (mocks.paramInputRenderMode.current === "explicit-activation-target") {
       return (
-        <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
-          <button
-            type="button"
-            data-gpu-flow-activation-target="true"
-            data-testid="param-input"
-            onClick={mocks.paramInputActivationClick}
-          />
-        </div>
+        <>
+          <span data-testid="param-input-pointer-miss" />
+          <div
+            data-gpu-flow-interactive="true"
+            data-testid="param-input-wrapper"
+          >
+            <button
+              type="button"
+              data-gpu-flow-activation-target="true"
+              data-testid="param-input"
+              onClick={mocks.paramInputActivationClick}
+            />
+          </div>
+        </>
       );
     }
     if (mocks.paramInputRenderMode.current === "explicit-button-role-target") {
@@ -760,6 +766,58 @@ describe("project GPU retained param DOM islands", () => {
         configurable: true,
         value: originalElementFromPoint,
       });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("does not replay pointer activation into an unrelated explicit target", async () => {
+    mocks.paramInputRenderMode.current = "explicit-activation-target";
+    const activationPoint = { x: 47, y: 15 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input-pointer-miss"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("can focus an explicit activation target without pointer replay", async () => {
+    mocks.paramInputRenderMode.current = "explicit-activation-target";
+    const rendered = await renderIsland(retainedParamIsland());
+
+    try {
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
       await cleanupRenderedIsland(rendered);
     }
   });

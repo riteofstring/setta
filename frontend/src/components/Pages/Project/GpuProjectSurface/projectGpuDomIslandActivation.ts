@@ -140,12 +140,15 @@ function getProjectGpuDomIslandActivationTarget(
   if (descendantExplicitTarget) {
     return descendantExplicitTarget;
   }
-  const fallbackExplicitTarget =
-    getProjectGpuDomIslandExplicitActivationTarget(root);
-  if (fallbackExplicitTarget) {
-    return fallbackExplicitTarget;
+  if (!activation) {
+    const fallbackExplicitTarget =
+      getProjectGpuDomIslandExplicitActivationTarget(root);
+    if (fallbackExplicitTarget) {
+      return fallbackExplicitTarget;
+    }
+    return getProjectGpuDomIslandFallbackActivationTarget(root);
   }
-  return getProjectGpuDomIslandFallbackActivationTarget(root);
+  return null;
 }
 
 function getProjectGpuDomIslandPointedElement(
