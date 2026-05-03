@@ -54,6 +54,7 @@ import {
   createProjectGpuParamRowInput,
   type ProjectGpuRetainedParamSearchState,
 } from "./projectGpuParamRowAdapter";
+import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 
 const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
@@ -413,7 +414,12 @@ function isProjectGpuParamDomIslandHitActive({
   readonly row: Pick<GpuRetainedContentRow, "controlKind" | "state">;
 }): boolean {
   if (hit.kind === "control") {
-    return isProjectGpuRetainedParamControlDomIslandActive(row);
+    return isProjectGpuRetainedParamControlDomIslandActive({
+      paramInfoId: hit.ownerRowId,
+      projectState,
+      row,
+      sectionId: activeParamDomIsland.sectionId,
+    });
   }
   return (
     editPolicy.canEditStructure &&
@@ -423,14 +429,6 @@ function isProjectGpuParamDomIslandHitActive({
       projectState,
       sectionId: activeParamDomIsland.sectionId,
     })
-  );
-}
-
-function isProjectGpuRetainedParamControlDomIslandActive(
-  row: Pick<GpuRetainedContentRow, "controlKind" | "state">,
-): boolean {
-  return Boolean(
-    !row.state.disabled && row.controlKind && row.controlKind !== "nested",
   );
 }
 

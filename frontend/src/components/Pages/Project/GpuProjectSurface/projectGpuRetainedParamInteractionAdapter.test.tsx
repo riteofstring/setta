@@ -38,6 +38,9 @@ import {
   CodeObjTypeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
   createCodeParamCodeObjImpl,
   createCore,
   createDictSectionImpl,
@@ -45,6 +48,7 @@ import {
   createProjectConfig,
   createSingleConfig,
   createVariant,
+  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -429,6 +433,63 @@ describe("project GPU retained param DOM islands", () => {
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
   });
 
+  it("does not activate retained DOM islands for display-only time controls", () => {
+    seedTimeParamProjectState(TimeControlModeEnum.display);
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          controlKind: "date-time",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: controlHit,
+      localPoint: { x: 120, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 120, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(false);
+    options.onHitClick(event);
+
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -740,6 +801,134 @@ function retainedParamNameIsland(): GpuDomIsland {
       surfaceId: "section-1:param-content:unpinned",
     },
     zIndex: 3,
+  };
+}
+
+function seedTimeParamProjectState(
+  timeControlMode: TimeParamCodeObjImpl["timeControlMode"],
+) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: createTimeParamImpl({
+          id: paramImplId,
+          name: "param-1",
+          timeControlMode,
+        }),
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function createTimeParamImpl({
+  id,
+  name,
+  timeControlMode,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly timeControlMode: TimeParamCodeObjImpl["timeControlMode"];
+}): TimeParamCodeObjImpl {
+  return {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "",
+    description: "",
+    id,
+    isPreset: false,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    timeControlMode,
+    timeDisplayFont: TimeDisplayFontEnum.monospace,
+    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+    timeDisplayScale: 1,
+    timeDisplayTransparent: false,
+    type: CodeObjTypeEnum.TimeParam,
+    typeAnnotation: "",
+    value: "12:30",
   };
 }
 

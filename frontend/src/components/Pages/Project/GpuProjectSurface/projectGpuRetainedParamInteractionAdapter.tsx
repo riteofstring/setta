@@ -90,6 +90,7 @@ import {
   PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
+import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -579,9 +580,12 @@ function isProjectRetainedParamControlActivationHit(
   );
   return Boolean(
     row &&
-      !row.state.disabled &&
-      row.controlKind &&
-      row.controlKind !== "nested",
+      isProjectGpuRetainedParamControlDomIslandActive({
+        paramInfoId: event.hit.ownerRowId,
+        projectState: useProjectState.getState(),
+        row,
+        sectionId: event.ownerSectionId,
+      }),
   );
 }
 

@@ -14,6 +14,9 @@ import {
   DateSelectionModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
   createButtonParamCodeObjImpl,
   createChatSectionImpl,
   createCodeParamCodeObjImpl,
@@ -31,6 +34,7 @@ import {
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type SingleConfig,
+  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -943,6 +947,116 @@ describe("project GPU layout adapter", () => {
     expect(dropdownLabelScene.domIslands).toEqual([]);
   });
 
+  it("keeps display-only time retained controls canvas-owned", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "root-param": "root-param-variant",
+              "time-display-param": "time-display-param-variant",
+              "time-input-param": "time-input-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 160, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 160, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", [
+        "time-display-param",
+        "time-input-param",
+      ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "time-display-param",
+      "time-display-param-variant",
+      "time-display-param-impl",
+      createTimeParamImpl({
+        id: "time-display-param-impl",
+        name: "time-display",
+        timeControlMode: TimeControlModeEnum.display,
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "time-input-param",
+      "time-input-param-variant",
+      "time-input-param-impl",
+      createTimeParamImpl({
+        id: "time-input-param-impl",
+        name: "time-input",
+        timeControlMode: TimeControlModeEnum.input,
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "time-display-param": ["time-display-param"],
+          "time-input-param": ["time-input-param"],
+        },
+        topLevelParamIds: ["time-display-param", "time-input-param"],
+      },
+    });
+
+    const displayScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:time-display-param",
+        paramInfoId: "time-display-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 8,
+    });
+    const displaySurface = displayScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(
+      displaySurface?.retainedScene?.rows.map((row) => ({
+        controlKind: row.controlKind,
+        id: row.id,
+      })),
+    ).toEqual([
+      { controlKind: "date-time", id: "time-display-param" },
+      { controlKind: "date-time", id: "time-input-param" },
+    ]);
+    expect(displayScene.domIslands).toEqual([]);
+
+    const inputScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:time-input-param",
+        paramInfoId: "time-input-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 9,
+    });
+
+    expect(inputScene.domIslands).toEqual([
+      expect.objectContaining({
+        kind: "retained-content-control",
+        source: expect.objectContaining({
+          ownerRowId: "time-input-param",
+        }),
+      }),
+    ]);
+  });
+
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -1747,6 +1861,36 @@ function createNestedParamImpl(
     type: CodeObjTypeEnum.NestedParam,
     typeAnnotation: "",
   };
+}
+
+function createTimeParamImpl({
+  id,
+  name,
+  timeControlMode,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly timeControlMode: TimeParamCodeObjImpl["timeControlMode"];
+}): BaseCodeObjImplUnion {
+  const impl = {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "",
+    description: "",
+    id,
+    isPreset: false,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    timeControlMode,
+    timeDisplayFont: TimeDisplayFontEnum.monospace,
+    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+    timeDisplayScale: 1,
+    timeDisplayTransparent: false,
+    type: CodeObjTypeEnum.TimeParam,
+    typeAnnotation: "",
+    value: "12:30",
+  } satisfies TimeParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
 }
 
 function addParamToProjectState(
