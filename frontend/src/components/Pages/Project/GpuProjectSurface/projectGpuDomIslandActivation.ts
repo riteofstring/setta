@@ -291,35 +291,21 @@ function shouldClickProjectGpuDomIslandActivationTarget(
   ) {
     return true;
   }
-  if (isCanvasOwnedProjectGpuDomIslandRole(target.getAttribute("role"))) {
-    return false;
-  }
-  if (target instanceof HTMLButtonElement) {
-    return true;
-  }
-  if (target instanceof HTMLSelectElement) {
-    return true;
-  }
   if (target instanceof HTMLInputElement) {
-    return isClickActivatedProjectGpuDomIslandInputType(target.type);
+    return isNativePickerProjectGpuDomIslandInputType(target.type);
   }
   return false;
 }
 
-function isCanvasOwnedProjectGpuDomIslandRole(role: string | null): boolean {
-  return role === "combobox" || role === "switch";
-}
-
-function isClickActivatedProjectGpuDomIslandInputType(type: string): boolean {
-  return ![
-    "email",
-    "number",
-    "password",
-    "search",
-    "tel",
-    "text",
+function isNativePickerProjectGpuDomIslandInputType(type: string): boolean {
+  return [
+    "color",
+    "date",
+    "datetime-local",
+    "file",
+    "month",
     "time",
-    "url",
+    "week",
   ].includes(type);
 }
 
