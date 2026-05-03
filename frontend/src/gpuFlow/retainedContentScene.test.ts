@@ -4,8 +4,10 @@ import {
   createGpuRetainedRowContentScene,
   createGpuRetainedRowContentSceneWithScrollOffset,
   resolveGpuRetainedContentVisibleRowRange,
+  type GpuRetainedContentDrawCommand,
   type GpuRetainedContentRowInput,
 } from "./retainedContentScene";
+import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
 
 describe("retained content scene", () => {
   it("virtualizes retained rows from scroll offset and viewport height", () => {
@@ -99,6 +101,32 @@ describe("retained content scene", () => {
       x: 0,
       y: 0,
     });
+  });
+
+  it("reuses retained row source metrics during renderer-owned scroll", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      overscanRows: 1,
+      rowHeight: 20,
+      rows: Array.from({ length: 1_000 }, (_, index) => row(`param-${index}`)),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 60, width: 240, x: 0, y: 0 },
+    });
+    const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
+
+    const scrolled = createGpuRetainedRowContentSceneWithScrollOffset({
+      scene,
+      scrollOffset: { x: 0, y: 400 },
+    });
+
+    expect(getGpuRetainedContentSceneSourceInput(scrolled)).toBe(sourceInput);
+    expect(scrolled.visibleRange).toEqual({
+      endIndex: 24,
+      rowCount: 1_000,
+      startIndex: 19,
+    });
+    expect(scrolled.rowOrder).toBe(sourceInput?.layout.rowOrder);
   });
 
   it("emits row draw commands, hit records, and local port anchors from one layout", () => {
@@ -249,7 +277,12 @@ describe("retained content scene", () => {
     });
 
     const scrollbarCommand = scene.drawCommands.find(
-      (command) => command.kind === "scrollbar" && command.axis === "y",
+      (
+        command,
+      ): command is Extract<
+        GpuRetainedContentDrawCommand,
+        { readonly kind: "scrollbar" }
+      > => command.kind === "scrollbar" && command.axis === "y",
     );
     expect(scrollbarCommand).toMatchObject({
       kind: "scrollbar",

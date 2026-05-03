@@ -24,6 +24,7 @@ import {
 import {
   getGpuRetainedContentSceneSourceInput,
   setGpuRetainedContentSceneSourceInput,
+  type GpuRetainedContentSceneSourceInput,
 } from "./retainedContentSceneSourceMetadata";
 import {
   createGpuRetainedContentScrollbarHitRecords,
@@ -223,7 +224,7 @@ type GpuRetainedContentVisibleRowRange = {
   readonly startIndex: number;
 };
 
-type GpuRetainedContentRowMetric = {
+export type GpuRetainedContentRowMetric = {
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly y: number;
@@ -378,6 +379,16 @@ export function createGpuRetainedRowContentScene(
   input: CreateGpuRetainedRowContentSceneInput,
 ): GpuRetainedContentScene {
   validateGpuRetainedRowContentSceneInput(input);
+  const sourceInput = createGpuRetainedContentSceneSourceInput(input);
+  return createGpuRetainedRowContentSceneFromSourceInput({
+    scrollOffset: input.scrollOffset,
+    sourceInput,
+  });
+}
+
+function createGpuRetainedContentSceneSourceInput(
+  input: CreateGpuRetainedRowContentSceneInput,
+): GpuRetainedContentSceneSourceInput {
   const controlRightInset =
     input.controlRightInset ?? DEFAULT_CONTROL_RIGHT_INSET;
   const controlWidth = input.controlWidth ?? DEFAULT_CONTROL_WIDTH;
@@ -385,86 +396,11 @@ export function createGpuRetainedRowContentScene(
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
   const portHitSize = input.portHitSize ?? DEFAULT_PORT_HIT_SIZE;
   const overscanRows = input.overscanRows ?? DEFAULT_OVERSCAN_ROWS;
-  const draggingRowIds = new Set(input.dragPreview?.draggingRowIds ?? []);
   const rowMetrics = createGpuRetainedContentRowMetrics({
     rowHeight: input.rowHeight,
     rows: input.rows,
   });
-  const contentRect = {
-    height: getGpuRetainedRowContentHeight({
-      rowHeight: input.rowHeight,
-      rows: input.rows,
-    }),
-    width: input.viewportRect.width,
-    x: 0,
-    y: 0,
-  };
-  const visibleRange = resolveGpuRetainedContentVisibleRowRangeFromMetrics({
-    rowMetrics,
-    rowHeight: input.rowHeight,
-    overscanRows,
-    scrollOffsetY: input.scrollOffset.y,
-    viewportHeight: input.viewportRect.height,
-  });
-  const visibleRows = rowMetrics
-    .slice(visibleRange.startIndex, visibleRange.endIndex)
-    .map((rowMetric) =>
-      createGpuRetainedContentRow({
-        dragging: draggingRowIds.has(rowMetric.input.id),
-        index: rowMetric.index,
-        input: rowMetric.input,
-        rowHeight: input.rowHeight,
-        rowY: rowMetric.y,
-        scrollOffset: input.scrollOffset,
-        viewportRect: input.viewportRect,
-      }),
-    );
-
-  const scene = {
-    contentRect,
-    drawCommands: createGpuRetainedContentDrawCommands({
-      activePopup: input.activePopup,
-      contentRect,
-      controlRightInset,
-      controlWidth,
-      dragPreview: input.dragPreview,
-      indentWidth,
-      labelControlGap,
-      rowHeight: input.rowHeight,
-      rowInputs: input.rows,
-      rows: visibleRows,
-      scrollOffset: input.scrollOffset,
-      sceneId: input.id,
-      viewportRect: input.viewportRect,
-    }),
-    hitRecords: createGpuRetainedContentHitRecords({
-      activePopup: input.activePopup,
-      contentRect,
-      controlRightInset,
-      controlWidth,
-      indentWidth,
-      labelControlGap,
-      portHitSize,
-      rows: visibleRows,
-      sceneId: input.id,
-      scrollOffset: input.scrollOffset,
-      viewportRect: input.viewportRect,
-    }),
-    id: input.id,
-    ownerSectionId: input.ownerSectionId,
-    portAnchors: createGpuRetainedContentPortAnchors({
-      portHitSize,
-      rows: visibleRows,
-      viewportRect: input.viewportRect,
-    }),
-    rowHeight: input.rowHeight,
-    rowOrder: input.rows.map((row) => row.id),
-    rows: visibleRows,
-    scrollOffset: input.scrollOffset,
-    visibleRange,
-    viewportRect: input.viewportRect,
-  };
-  setGpuRetainedContentSceneSourceInput(scene, {
+  return {
     activePopup: input.activePopup,
     controlRightInset,
     controlWidth,
@@ -472,13 +408,107 @@ export function createGpuRetainedRowContentScene(
     id: input.id,
     indentWidth,
     labelControlGap,
+    layout: {
+      contentRect: {
+        height: getGpuRetainedRowContentHeightFromMetrics({
+          rowHeight: input.rowHeight,
+          rowMetrics,
+        }),
+        width: input.viewportRect.width,
+        x: 0,
+        y: 0,
+      },
+      hasVerticalGaps: input.rows.some((row) => Boolean(row.verticalGapBefore)),
+      rowMetrics,
+      rowOrder: input.rows.map((row) => row.id),
+    },
     overscanRows,
     ownerSectionId: input.ownerSectionId,
     portHitSize,
     rowHeight: input.rowHeight,
     rows: input.rows,
     viewportRect: input.viewportRect,
+  };
+}
+
+function createGpuRetainedRowContentSceneFromSourceInput({
+  scrollOffset,
+  sourceInput,
+}: {
+  readonly scrollOffset: GpuPoint;
+  readonly sourceInput: GpuRetainedContentSceneSourceInput;
+}): GpuRetainedContentScene {
+  validateGpuRetainedRowContentSceneInput({
+    ...sourceInput,
+    scrollOffset,
   });
+  const draggingRowIds = new Set(sourceInput.dragPreview?.draggingRowIds ?? []);
+  const visibleRange = resolveGpuRetainedContentVisibleRowRangeFromMetrics({
+    hasVerticalGaps: sourceInput.layout.hasVerticalGaps,
+    overscanRows: sourceInput.overscanRows,
+    rowHeight: sourceInput.rowHeight,
+    rowMetrics: sourceInput.layout.rowMetrics,
+    scrollOffsetY: scrollOffset.y,
+    viewportHeight: sourceInput.viewportRect.height,
+  });
+  const visibleRows = sourceInput.layout.rowMetrics
+    .slice(visibleRange.startIndex, visibleRange.endIndex)
+    .map((rowMetric) =>
+      createGpuRetainedContentRow({
+        dragging: draggingRowIds.has(rowMetric.input.id),
+        index: rowMetric.index,
+        input: rowMetric.input,
+        rowHeight: sourceInput.rowHeight,
+        rowY: rowMetric.y,
+        scrollOffset,
+        viewportRect: sourceInput.viewportRect,
+      }),
+    );
+  const scene = {
+    contentRect: sourceInput.layout.contentRect,
+    drawCommands: createGpuRetainedContentDrawCommands({
+      activePopup: sourceInput.activePopup,
+      contentRect: sourceInput.layout.contentRect,
+      controlRightInset: sourceInput.controlRightInset,
+      controlWidth: sourceInput.controlWidth,
+      dragPreview: sourceInput.dragPreview,
+      indentWidth: sourceInput.indentWidth,
+      labelControlGap: sourceInput.labelControlGap,
+      rowHeight: sourceInput.rowHeight,
+      rowInputs: sourceInput.rows,
+      rows: visibleRows,
+      scrollOffset,
+      sceneId: sourceInput.id,
+      viewportRect: sourceInput.viewportRect,
+    }),
+    hitRecords: createGpuRetainedContentHitRecords({
+      activePopup: sourceInput.activePopup,
+      contentRect: sourceInput.layout.contentRect,
+      controlRightInset: sourceInput.controlRightInset,
+      controlWidth: sourceInput.controlWidth,
+      indentWidth: sourceInput.indentWidth,
+      labelControlGap: sourceInput.labelControlGap,
+      portHitSize: sourceInput.portHitSize,
+      rows: visibleRows,
+      sceneId: sourceInput.id,
+      scrollOffset,
+      viewportRect: sourceInput.viewportRect,
+    }),
+    id: sourceInput.id,
+    ownerSectionId: sourceInput.ownerSectionId,
+    portAnchors: createGpuRetainedContentPortAnchors({
+      portHitSize: sourceInput.portHitSize,
+      rows: visibleRows,
+      viewportRect: sourceInput.viewportRect,
+    }),
+    rowHeight: sourceInput.rowHeight,
+    rowOrder: sourceInput.layout.rowOrder,
+    rows: visibleRows,
+    scrollOffset,
+    visibleRange,
+    viewportRect: sourceInput.viewportRect,
+  };
+  setGpuRetainedContentSceneSourceInput(scene, sourceInput);
   return scene;
 }
 
@@ -495,10 +525,24 @@ export function createGpuRetainedRowContentSceneWithScrollOffset({
       "Cannot scroll retained content scene without retained row source metadata.",
     );
   }
-  return createGpuRetainedRowContentScene({
-    ...sourceInput,
+  return createGpuRetainedRowContentSceneFromSourceInput({
     scrollOffset,
+    sourceInput,
   });
+}
+
+function getGpuRetainedRowContentHeightFromMetrics({
+  rowHeight,
+  rowMetrics,
+}: {
+  readonly rowHeight: number;
+  readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
+}): number {
+  const lastMetric = rowMetrics.at(-1);
+  if (!lastMetric) {
+    return 0;
+  }
+  return lastMetric.y + rowHeight;
 }
 
 export function getGpuRetainedRowContentHeight({
@@ -550,19 +594,23 @@ export function resolveGpuRetainedContentVisibleRowRange({
 }
 
 function resolveGpuRetainedContentVisibleRowRangeFromMetrics({
+  hasVerticalGaps,
   overscanRows,
   rowHeight,
   rowMetrics,
   scrollOffsetY,
   viewportHeight,
 }: {
+  readonly hasVerticalGaps?: boolean | undefined;
   readonly overscanRows: number;
   readonly rowHeight: number;
   readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
   readonly scrollOffsetY: number;
   readonly viewportHeight: number;
 }): GpuRetainedContentVisibleRowRange {
-  if (!rowMetrics.some((row) => row.input.verticalGapBefore)) {
+  if (
+    !(hasVerticalGaps ?? rowMetrics.some((row) => row.input.verticalGapBefore))
+  ) {
     return resolveGpuRetainedContentVisibleRowRange({
       overscanRows,
       rowCount: rowMetrics.length,

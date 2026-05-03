@@ -557,18 +557,22 @@ function createGpuRetainedContentScrollbarCommandState({
 }): GpuRetainedContentScrollbarCommandState | undefined {
   const hoveredTarget = visualState.hoveredTarget;
   const activeTarget = visualState.activeTarget;
-  const hoveredPart = isGpuRetainedContentScrollbarVisualTargetForCommand({
-    axis,
-    surfaceId,
-    target: hoveredTarget,
-  })
+  const hoveredPart = isGpuRetainedContentScrollbarVisualTargetForCommand(
+    hoveredTarget,
+    {
+      axis,
+      surfaceId,
+    },
+  )
     ? hoveredTarget.part
     : null;
-  const activePart = isGpuRetainedContentScrollbarVisualTargetForCommand({
-    axis,
-    surfaceId,
-    target: activeTarget,
-  })
+  const activePart = isGpuRetainedContentScrollbarVisualTargetForCommand(
+    activeTarget,
+    {
+      axis,
+      surfaceId,
+    },
+  )
     ? activeTarget.part
     : null;
   if (!hoveredPart && !activePart) {
@@ -580,15 +584,16 @@ function createGpuRetainedContentScrollbarCommandState({
   };
 }
 
-function isGpuRetainedContentScrollbarVisualTargetForCommand({
-  axis,
-  surfaceId,
-  target,
-}: {
-  readonly axis: GpuRetainedContentScrollbarAxis;
-  readonly surfaceId: string;
-  readonly target: GpuRetainedContentScrollbarVisualTarget | null;
-}): target is GpuRetainedContentScrollbarVisualTarget {
+function isGpuRetainedContentScrollbarVisualTargetForCommand(
+  target: GpuRetainedContentScrollbarVisualTarget | null,
+  {
+    axis,
+    surfaceId,
+  }: {
+    readonly axis: GpuRetainedContentScrollbarAxis;
+    readonly surfaceId: string;
+  },
+): target is GpuRetainedContentScrollbarVisualTarget {
   return Boolean(
     target && target.axis === axis && target.surfaceId === surfaceId,
   );

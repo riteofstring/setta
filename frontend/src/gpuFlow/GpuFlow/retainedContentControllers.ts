@@ -613,7 +613,10 @@ function shouldHandleGpuFlowRetainedContentDragMoveHit(
   options: GpuFlowRetainedContentInteractionOptions | null,
   hit: GpuRetainedContentInteractionHit,
 ): boolean {
-  const handled = options?.shouldHandleDragMoveHit?.(hit);
+  if (!options) {
+    return shouldHandleGpuFlowRetainedContentPointerMoveHit(options, hit);
+  }
+  const handled = options.shouldHandleDragMoveHit?.(hit);
   return (
     handled ?? shouldHandleGpuFlowRetainedContentPointerMoveHit(options, hit)
   );
@@ -623,7 +626,10 @@ function shouldHandleGpuFlowRetainedContentPointerMoveHit(
   options: GpuFlowRetainedContentInteractionOptions | null,
   hit: GpuRetainedContentInteractionHit,
 ): boolean {
-  const handled = options?.shouldHandlePointerMoveHit?.(hit);
+  if (!options) {
+    return shouldHandleGpuFlowRetainedContentHit(options, hit);
+  }
+  const handled = options.shouldHandlePointerMoveHit?.(hit);
   return handled ?? shouldHandleGpuFlowRetainedContentHit(options, hit);
 }
 
@@ -631,7 +637,10 @@ function shouldHandleGpuFlowRetainedContentHit(
   options: GpuFlowRetainedContentInteractionOptions | null,
   hit: GpuRetainedContentInteractionHit,
 ): boolean {
-  return options?.shouldHandleHit?.(hit) ?? true;
+  if (!options) {
+    return true;
+  }
+  return options.shouldHandleHit?.(hit) ?? true;
 }
 
 function applyGpuFlowRetainedContentScrollbarVisualState({

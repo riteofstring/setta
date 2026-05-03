@@ -1,33 +1,43 @@
 import type {
-  CreateGpuRetainedRowContentSceneInput,
+  GpuRetainedContentActivePopupInput,
+  GpuRetainedContentDragPreviewInput,
+  GpuRetainedContentRowInput,
+  GpuRetainedContentRowMetric,
   GpuRetainedContentScene,
 } from "./retainedContentScene";
+import type { GpuRect } from "./viewportMath";
 
 const retainedContentSceneSourceInputKey: unique symbol = Symbol(
   "gpu-retained-content-scene-source-input",
 );
 
-export type GpuRetainedContentSceneSourceInput = Required<
-  Pick<
-    CreateGpuRetainedRowContentSceneInput,
-    | "controlRightInset"
-    | "controlWidth"
-    | "indentWidth"
-    | "labelControlGap"
-    | "overscanRows"
-    | "portHitSize"
-  >
-> &
-  Pick<
-    CreateGpuRetainedRowContentSceneInput,
-    | "activePopup"
-    | "dragPreview"
-    | "id"
-    | "ownerSectionId"
-    | "rowHeight"
-    | "rows"
-    | "viewportRect"
-  >;
+export type GpuRetainedContentSceneSourceBaseInput = {
+  readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly controlRightInset: number;
+  readonly controlWidth: number;
+  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
+  readonly id: string;
+  readonly indentWidth: number;
+  readonly labelControlGap: number;
+  readonly overscanRows: number;
+  readonly ownerSectionId: string;
+  readonly portHitSize: number;
+  readonly rowHeight: number;
+  readonly rows: readonly GpuRetainedContentRowInput[];
+  readonly viewportRect: GpuRect;
+};
+
+export type GpuRetainedContentSceneSourceLayout = {
+  readonly contentRect: GpuRect;
+  readonly hasVerticalGaps: boolean;
+  readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
+  readonly rowOrder: readonly string[];
+};
+
+export type GpuRetainedContentSceneSourceInput =
+  GpuRetainedContentSceneSourceBaseInput & {
+    readonly layout: GpuRetainedContentSceneSourceLayout;
+  };
 
 type GpuRetainedContentSceneWithSourceInput = GpuRetainedContentScene & {
   readonly [retainedContentSceneSourceInputKey]?:

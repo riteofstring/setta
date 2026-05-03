@@ -1,12 +1,12 @@
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
-  resolveGpuRetainedContentWheelScroll,
+  resolveGpuRetainedContentWheelScrollOffset,
   type GpuRetainedContentScrollOffsetMap,
   type GpuRetainedContentScrollResult,
 } from "../retainedContentScroll";
 import type { GpuFlowScene } from "../scene";
-import { screenToFlowPosition } from "../viewportMath";
+import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -42,7 +42,7 @@ class GpuRetainedContentScrollController {
   private readonly options: GpuRetainedContentScrollControllerOptions;
   private pendingAnimationFrame: GpuRetainedContentScrollAnimationFrame | null =
     null;
-  private pendingScrollOffsets: GpuRetainedContentScrollOffsetMap | null = null;
+  private pendingScrollOffsets: Map<string, GpuPoint> | null = null;
   private readonly pendingSurfaceIds = new Set<string>();
   private readonly store: GpuFlowViewportStoreApi;
 
@@ -76,7 +76,7 @@ class GpuRetainedContentScrollController {
     if (!scene) {
       return;
     }
-    const result = resolveGpuRetainedContentWheelScroll({
+    const result = resolveGpuRetainedContentWheelScrollOffset({
       event,
       point: getWheelFlowPoint(event, this.element, this.store),
       scene,
@@ -88,10 +88,16 @@ class GpuRetainedContentScrollController {
     }
     event.preventDefault();
     event.stopImmediatePropagation();
-    this.pendingScrollOffsets = result.scrollOffsets;
-    if (result.surfaceId) {
-      this.pendingSurfaceIds.add(result.surfaceId);
+    const surfaceId = result.surfaceId;
+    const scrollOffset = result.scrollOffset;
+    if (!surfaceId || !scrollOffset) {
+      return;
     }
+    if (!this.pendingScrollOffsets) {
+      this.pendingScrollOffsets = new Map(this.options.getScrollOffsets());
+    }
+    this.pendingScrollOffsets.set(surfaceId, scrollOffset);
+    this.pendingSurfaceIds.add(surfaceId);
     this.schedulePendingScrollFlush();
   };
 
@@ -129,7 +135,7 @@ class GpuRetainedContentScrollController {
         surfaceId,
       });
     }
-    this.options.requestFrame?.("viewport");
+    this.options.requestFrame?.("texture-upload");
   }
 
   private cancelPendingScrollFlush() {
@@ -141,10 +147,15 @@ class GpuRetainedContentScrollController {
   }
 }
 
-type GpuRetainedContentScrollAnimationFrame = {
-  readonly id: number;
-  readonly kind: "animation-frame" | "timeout";
-};
+type GpuRetainedContentScrollAnimationFrame =
+  | {
+      readonly id: number;
+      readonly kind: "animation-frame";
+    }
+  | {
+      readonly id: ReturnType<typeof globalThis.setTimeout>;
+      readonly kind: "timeout";
+    };
 
 function requestGpuRetainedContentScrollFrame(
   callback: FrameRequestCallback,
