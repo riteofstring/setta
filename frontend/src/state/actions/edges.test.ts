@@ -127,38 +127,92 @@ function createConnection(): Connection {
     targetHandle: targetPortId,
   };
 }
-function createSceneWithRetainedTargetPort(): GpuFlowScene {
-  const rect = { height: 40, width: 200, x: 100, y: 120 };
+function createSceneWithRetainedEdgePorts(): GpuFlowScene {
+  const sourceRect = { height: 40, width: 200, x: 20, y: 60 };
+  const targetRect = { height: 40, width: 200, x: 100, y: 120 };
   return {
     contentSurfaces: [
-      {
-        clipRect: rect,
-        id: "target-section:param-content:unpinned",
+      createRetainedPortSurface({
+        ownerSectionId: sourceSectionId,
+        portId: sourcePortId,
+        portKind: "output",
+        rect: sourceRect,
+      }),
+      createRetainedPortSurface({
         ownerSectionId: targetSectionId,
-        rect,
-        renderer: {
-          kind: "canvas-content",
-          surfaceId: "target-section:param-content:unpinned",
-        },
-        retainedScene: createGpuRetainedRowContentScene({
-          id: "target-section:param-content:unpinned",
-          ownerSectionId: targetSectionId,
-          rowHeight: 28,
-          rows: [
+        portId: targetPortId,
+        portKind: "input",
+        rect: targetRect,
+      }),
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+function createRetainedPortSurface({
+  ownerSectionId,
+  portId,
+  portKind,
+  rect,
+}: {
+  readonly ownerSectionId: string;
+  readonly portId: string;
+  readonly portKind: "input" | "output";
+  readonly rect: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  };
+}): GpuFlowScene["contentSurfaces"][number] {
+  const surfaceId = `${ownerSectionId}:param-content:unpinned`;
+  return {
+    clipRect: rect,
+    id: surfaceId,
+    ownerSectionId,
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId,
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: surfaceId,
+      ownerSectionId,
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "",
+            editorKind: "text",
+            kind: "text-like",
+            rendererFamily: "text",
+            commitPolicy: "native-island",
+          },
+          controlKind: "text-like",
+          depth: 0,
+          id: portId,
+          label: portKind === "input" ? "Input" : "Output",
+          ports: [
             {
-              controlKind: "text-like",
-              depth: 0,
-              id: targetPortId,
-              label: "Input",
-              ports: [{ id: targetPortId, kind: "input", side: "left" }],
+              id: portId,
+              kind: portKind,
+              side: portKind === "input" ? "left" : "right",
             },
           ],
-          scrollOffset: { x: 0, y: 0 },
-          viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
-        }),
-        zIndex: 1,
-      },
-    ],
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
+    zIndex: 1,
+  };
+}
+function createEmptyScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
     domIslands: [],
     edges: [],
     revision: 1,
@@ -214,10 +268,11 @@ describe("edges actions", () => {
       },
     });
   });
-  it("persists data-edge mutations when the target port is scene-owned", () => {
+  it("persists data-edge mutations when both ports are scene-owned", () => {
     seedEdgeState([]);
+    unregisterGpuFlowPortDescriptor(sourceSectionId, sourcePortId, "source");
     unregisterGpuFlowPortDescriptor(targetSectionId, targetPortId, "target");
-    const context = { scene: createSceneWithRetainedTargetPort() };
+    const context = { scene: createSceneWithRetainedEdgePorts() };
 
     createEdgeFromConnection(createConnection(), context);
     reconnectEdgeFromConnection("edge-1", createConnection(), context);
@@ -237,6 +292,16 @@ describe("edges actions", () => {
         targetPortId,
       }),
     });
+  });
+  it("ignores registered DOM ports when scene context omits them", () => {
+    seedEdgeState([]);
+    const context = { scene: createEmptyScene() };
+
+    createEdgeFromConnection(createConnection(), context);
+    reconnectEdgeFromConnection("edge-1", createConnection(), context);
+
+    expect(mockedRouteCreateEdge).not.toHaveBeenCalled();
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
   });
   it("validates reconnect candidates as data-edge handle pairs", () => {
     expect(isValidDataEdgeConnection(createConnection())).toBe(true);

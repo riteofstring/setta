@@ -219,19 +219,19 @@ function hasRegisteredOrSceneEdgeConnectionPort({
   readonly portId: string;
   readonly type: "source" | "target";
 }): boolean {
-  return (
-    hasGpuFlowPortDescriptor({
+  if (context?.scene) {
+    return hasGpuFlowScenePortDescriptor({
       nodeId,
       portId,
+      scene: context.scene,
       type,
-    }) ||
-    hasGpuFlowScenePortDescriptor({
-      nodeId,
-      portId,
-      scene: context?.scene,
-      type,
-    })
-  );
+    });
+  }
+  return hasGpuFlowPortDescriptor({
+    nodeId,
+    portId,
+    type,
+  });
 }
 
 export function createEdgeFromConnection(

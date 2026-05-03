@@ -371,6 +371,52 @@ describe("GPU edge handle connection lifecycle", () => {
       },
     );
   });
+
+  it("ignores registered DOM handles when a scene snapshot is supplied", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    registerTargetHandle(targetHandle);
+    mockElementFromPoint(sourceHandle);
+    mockElementsFromPoint([targetHandle]);
+    const onConnect = vi.fn();
+
+    handlePointerDown({
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      getScene: () => createEmptyScene(),
+      handleId: "out",
+      isTarget: false,
+      isValidConnection: () => true,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      store,
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 100,
+      }),
+    );
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 100,
+      }),
+    );
+
+    expect(store.getState().connectionStatus).toBeNull();
+    expect(onConnect).not.toHaveBeenCalled();
+  });
 });
 
 function createHandleFixture(): {
@@ -482,6 +528,14 @@ function sceneWithRetainedTargetHandle(): GpuFlowScene {
           rowHeight: 28,
           rows: [
             {
+              control: {
+                defaultDisplayValue: "",
+                displayValue: "",
+                editorKind: "text",
+                kind: "text-like",
+                rendererFamily: "text",
+                commitPolicy: "native-island",
+              },
               controlKind: "text-like",
               depth: 0,
               id: "in",
@@ -495,6 +549,16 @@ function sceneWithRetainedTargetHandle(): GpuFlowScene {
         zIndex: 2,
       },
     ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function createEmptyScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
     domIslands: [],
     edges: [],
     revision: 1,

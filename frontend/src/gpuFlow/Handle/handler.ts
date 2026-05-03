@@ -412,25 +412,20 @@ function getConnectionHandlePositions({
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly scene: GpuFlowScene | null | undefined;
 }): ConnectionHandle[] {
+  if (scene) {
+    return getSceneConnectionHandlePositions(scene);
+  }
   const endpoints = buildGpuFlowPortEndpoints({
     layoutNodes: layoutStore.getState().getNodes(),
     ports: useGpuFlowPortRegistry.getState().descriptors,
   });
-  const handlesByKey = new Map<string, ConnectionHandle>();
-  for (const endpoint of Object.values(endpoints)) {
-    const handle = {
-      sectionId: endpoint.nodeId,
-      portId: endpoint.portId,
-      type: endpoint.type,
-      x: endpoint.x,
-      y: endpoint.y,
-    };
-    handlesByKey.set(getConnectionHandleKey(handle), handle);
-  }
-  for (const handle of getSceneConnectionHandlePositions(scene)) {
-    handlesByKey.set(getConnectionHandleKey(handle), handle);
-  }
-  return Array.from(handlesByKey.values());
+  return Object.values(endpoints).map((endpoint) => ({
+    sectionId: endpoint.nodeId,
+    portId: endpoint.portId,
+    type: endpoint.type,
+    x: endpoint.x,
+    y: endpoint.y,
+  }));
 }
 
 function getSceneConnectionHandlePositions(
@@ -489,14 +484,6 @@ function getRetainedContentSceneConnectionHandlePositions(
     }
   }
   return handles;
-}
-
-function getConnectionHandleKey(
-  handle: Pick<ConnectionHandle, "portId" | "sectionId" | "type">,
-): string {
-  return handle.portId && handle.type
-    ? makeGpuFlowPortKey(handle.sectionId, handle.portId, handle.type)
-    : `${handle.sectionId}:${handle.portId ?? ""}:${handle.type ?? ""}`;
 }
 
 function getEventPosition(
