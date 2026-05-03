@@ -73,10 +73,12 @@ export function drawGpuRetainedContentDateCalendarWeekday({
 export function drawGpuRetainedContentDateCalendarCell({
   cell,
   ctx,
+  highlighted,
   rect,
 }: {
   readonly cell: GpuRetainedContentDateCalendarCell;
   readonly ctx: CanvasRenderingContext2D;
+  readonly highlighted?: boolean | undefined;
   readonly rect: GpuRect;
 }) {
   const cellRect = insetRect(rect, 2, 2);
@@ -86,6 +88,11 @@ export function drawGpuRetainedContentDateCalendarCell({
   } else if (cell.today) {
     ctx.strokeStyle = "#60a5fa";
     ctx.lineWidth = 1;
+    strokeRoundRect(ctx, cellRect, 4);
+  }
+  if (highlighted) {
+    ctx.strokeStyle = cell.selected ? "#bfdbfe" : "#2563eb";
+    ctx.lineWidth = 1.5;
     strokeRoundRect(ctx, cellRect, 4);
   }
   ctx.font = DATE_CALENDAR_CELL_FONT;

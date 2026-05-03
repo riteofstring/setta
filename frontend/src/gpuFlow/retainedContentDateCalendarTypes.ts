@@ -38,6 +38,7 @@ export type GpuRetainedContentDateCalendarDrawCommand =
   | {
       readonly cell: GpuRetainedContentDateCalendarCell;
       readonly cellIndex: number;
+      readonly highlighted: boolean;
       readonly kind: "control-popup-date-calendar-cell";
       readonly rect: GpuRect;
       readonly rowId: string;

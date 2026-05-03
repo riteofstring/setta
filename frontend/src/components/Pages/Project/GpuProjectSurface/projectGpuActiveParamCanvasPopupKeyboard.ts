@@ -4,6 +4,10 @@ import {
   type GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
 import {
+  getGpuRetainedContentDateCalendarKeyboardCommand,
+  resolveGpuRetainedContentDateCalendarKeyboard,
+} from "gpuFlow/retainedContentDateCalendarKeyboard";
+import {
   getGpuRetainedContentChoicePopupKeyboardCommand,
   getGpuRetainedContentChoicePopupWheelCommand,
   resolveGpuRetainedContentChoicePopupKeyboard,
@@ -13,6 +17,7 @@ import { useEffect, useRef, type RefObject } from "react";
 
 import type { ProjectGpuActiveParamCanvasPopup } from "./projectGpuLayoutAdapter";
 import { commitProjectGpuRetainedColorChoiceValue } from "./projectGpuRetainedParamColorPickerAdapter";
+import { commitProjectGpuRetainedDateCalendarDate } from "./projectGpuRetainedParamDateCalendarAdapter";
 import { commitProjectGpuRetainedDropdownChoiceValue } from "./projectGpuRetainedParamDropdownAdapter";
 
 type ProjectGpuActiveParamCanvasPopupKeyboardResult =
@@ -23,10 +28,22 @@ type ProjectGpuActiveParamCanvasPopupKeyboardResult =
       readonly popup: ProjectGpuActiveParamCanvasPopup;
     }
   | {
-      readonly action: "commit";
+      readonly action: "commit-choice";
       readonly handled: true;
       readonly optionValue: string;
-      readonly popup: ProjectGpuActiveParamCanvasPopup;
+      readonly popup: Extract<
+        ProjectGpuActiveParamCanvasPopup,
+        { kind: "color-picker" | "dropdown" }
+      >;
+    }
+  | {
+      readonly action: "commit-date";
+      readonly dateIso: string;
+      readonly handled: true;
+      readonly popup: Extract<
+        ProjectGpuActiveParamCanvasPopup,
+        { kind: "date-calendar" }
+      >;
     };
 
 type ProjectGpuActiveParamCanvasPopupTypeaheadState = {
@@ -58,9 +75,12 @@ export function useProjectGpuActiveParamCanvasPopupKeyboard<
     });
 
   useEffect(() => {
-    if (!isProjectGpuChoiceCanvasPopup(activeParamCanvasPopup)) {
+    if (!activeParamCanvasPopup) {
       typeaheadStateRef.current = { query: "", updatedAtMs: 0 };
       return;
+    }
+    if (!isProjectGpuChoiceCanvasPopup(activeParamCanvasPopup)) {
+      typeaheadStateRef.current = { query: "", updatedAtMs: 0 };
     }
     const ownerDocument = rootRef.current?.ownerDocument ?? document;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -82,8 +102,14 @@ export function useProjectGpuActiveParamCanvasPopupKeyboard<
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (result.action === "commit") {
-        commitProjectGpuActiveParamCanvasPopupKeyboardResult(result);
+      if (
+        result.action === "commit-choice" ||
+        result.action === "commit-date"
+      ) {
+        commitProjectGpuActiveParamCanvasPopupKeyboardResult({
+          result,
+          scene,
+        });
         onActiveParamCanvasPopupChange(null);
         typeaheadStateRef.current = { query: "", updatedAtMs: 0 };
         return;
@@ -167,7 +193,11 @@ export function resolveProjectGpuActiveParamCanvasPopupKeyboard({
   readonly typeaheadQuery?: string | undefined;
 }): ProjectGpuActiveParamCanvasPopupKeyboardResult {
   if (!isProjectGpuChoiceCanvasPopup(activeParamCanvasPopup)) {
-    return { handled: false };
+    return resolveProjectGpuActiveDateCalendarPopupKeyboard({
+      activeParamCanvasPopup,
+      event,
+      scene,
+    });
   }
   const command = getGpuRetainedContentChoicePopupKeyboardCommand(
     event,
@@ -195,9 +225,58 @@ export function resolveProjectGpuActiveParamCanvasPopupKeyboard({
   };
   if (result.action === "commit") {
     return {
-      action: "commit",
+      action: "commit-choice",
       handled: true,
       optionValue: result.optionValue,
+      popup,
+    };
+  }
+  return {
+    action: "highlight",
+    handled: true,
+    popup,
+  };
+}
+
+function resolveProjectGpuActiveDateCalendarPopupKeyboard({
+  activeParamCanvasPopup,
+  event,
+  scene,
+}: {
+  readonly activeParamCanvasPopup: ProjectGpuActiveParamCanvasPopup | null;
+  readonly event: Pick<KeyboardEvent, "key">;
+  readonly scene: GpuFlowScene;
+}): ProjectGpuActiveParamCanvasPopupKeyboardResult {
+  if (!isProjectGpuDateCalendarCanvasPopup(activeParamCanvasPopup)) {
+    return { handled: false };
+  }
+  const command = getGpuRetainedContentDateCalendarKeyboardCommand(event);
+  if (!command) {
+    return { handled: false };
+  }
+  const result = resolveGpuRetainedContentDateCalendarKeyboard({
+    command,
+    scene,
+    target: {
+      highlightedDateIso: activeParamCanvasPopup.highlightedDateIso,
+      kind: activeParamCanvasPopup.kind,
+      ownerRowId: activeParamCanvasPopup.paramInfoId,
+      surfaceId: activeParamCanvasPopup.surfaceId,
+    },
+  });
+  if (!result.handled) {
+    return { handled: false };
+  }
+  const popup = {
+    ...activeParamCanvasPopup,
+    highlightedDateIso: result.target.highlightedDateIso,
+    visibleMonth: result.target.visibleMonth,
+  };
+  if (result.action === "commit") {
+    return {
+      action: "commit-date",
+      dateIso: result.dateIso,
+      handled: true,
       popup,
     };
   }
@@ -247,12 +326,23 @@ export function resolveProjectGpuActiveParamCanvasPopupWheel({
   };
 }
 
-function commitProjectGpuActiveParamCanvasPopupKeyboardResult(
-  result: Extract<
+function commitProjectGpuActiveParamCanvasPopupKeyboardResult({
+  result,
+  scene,
+}: {
+  readonly result: Extract<
     ProjectGpuActiveParamCanvasPopupKeyboardResult,
-    { action: "commit" }
-  >,
-) {
+    { action: "commit-choice" | "commit-date" }
+  >;
+  readonly scene: GpuFlowScene;
+}) {
+  if (result.action === "commit-date") {
+    commitProjectGpuActiveParamDateCalendarKeyboardResult({
+      result,
+      scene,
+    });
+    return;
+  }
   if (result.popup.kind === "color-picker") {
     commitProjectGpuRetainedColorChoiceValue({
       nextColor: result.optionValue,
@@ -272,6 +362,47 @@ function commitProjectGpuActiveParamCanvasPopupKeyboardResult(
   throw new Error(
     `Unsupported GPU retained canvas popup keyboard commit kind ${result.popup.kind}.`,
   );
+}
+
+function commitProjectGpuActiveParamDateCalendarKeyboardResult({
+  result,
+  scene,
+}: {
+  readonly result: Extract<
+    ProjectGpuActiveParamCanvasPopupKeyboardResult,
+    { action: "commit-date" }
+  >;
+  readonly scene: GpuFlowScene;
+}) {
+  const surface = scene.contentSurfaces.find(
+    (candidate) =>
+      candidate.id === result.popup.surfaceId &&
+      candidate.ownerSectionId === result.popup.sectionId,
+  );
+  const row = surface?.retainedScene?.rows.find(
+    (candidate) => candidate.id === result.popup.paramInfoId,
+  );
+  if (
+    !row?.control ||
+    row.control.kind !== "date-time" ||
+    row.control.mode !== "date-calendar" ||
+    !row.control.calendar
+  ) {
+    throw new Error(
+      `Missing GPU retained date-calendar row ${result.popup.paramInfoId} in ${result.popup.surfaceId}.`,
+    );
+  }
+  const calendar = row.control.calendar;
+  commitProjectGpuRetainedDateCalendarDate({
+    includeTime: calendar.includeTime,
+    isSelected: calendar.selectedDates.includes(result.dateIso),
+    nextIsoDate: result.dateIso,
+    paramInfoId: result.popup.paramInfoId,
+    sectionId: result.popup.sectionId,
+    selectedDates: calendar.selectedDates,
+    selectedTimeValue: calendar.selectedTimeValue,
+    selectionMode: calendar.selectionMode,
+  });
 }
 
 function getProjectGpuCanvasPopupTypeaheadQuery(
@@ -351,4 +482,13 @@ function isProjectGpuChoiceCanvasPopup(
   { kind: "color-picker" | "dropdown" }
 > {
   return popup?.kind === "color-picker" || popup?.kind === "dropdown";
+}
+
+function isProjectGpuDateCalendarCanvasPopup(
+  popup: ProjectGpuActiveParamCanvasPopup | null,
+): popup is Extract<
+  ProjectGpuActiveParamCanvasPopup,
+  { kind: "date-calendar" }
+> {
+  return popup?.kind === "date-calendar";
 }

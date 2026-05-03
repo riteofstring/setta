@@ -340,6 +340,7 @@ function drawGpuRetainedContentPopupCommand({
     drawGpuRetainedContentDateCalendarCell({
       cell: command.cell,
       ctx,
+      highlighted: command.highlighted,
       rect: command.rect,
     });
     return true;

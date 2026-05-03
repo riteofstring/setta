@@ -59,6 +59,7 @@ export function createGpuRetainedContentDateCalendarDrawCommands({
       (cell): GpuRetainedContentDrawCommand => ({
         cell: cell.cell,
         cellIndex: cell.cellIndex,
+        highlighted: cell.highlighted,
         kind: "control-popup-date-calendar-cell",
         rect: cell.rect,
         rowId: popup.row.id,

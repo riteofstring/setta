@@ -51,7 +51,7 @@ describe("project GPU active param canvas popup keyboard", () => {
     });
 
     expect(result).toEqual({
-      action: "commit",
+      action: "commit-choice",
       handled: true,
       optionValue: "#22c55e",
       popup: {
@@ -61,6 +61,66 @@ describe("project GPU active param canvas popup keyboard", () => {
         paramInfoId: "color-param",
         sectionId: "section-a",
         surfaceId: "surface-a",
+      },
+    });
+  });
+
+  it("updates active date calendar popup highlight without mounting a DOM island", () => {
+    const result = resolveProjectGpuActiveParamCanvasPopupKeyboard({
+      activeParamCanvasPopup: {
+        hitRecordId: "control:date-param",
+        kind: "date-calendar",
+        paramInfoId: "date-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+        visibleMonth: { monthIndex: 4, year: 2026 },
+      },
+      event: { key: "ArrowRight" },
+      scene: retainedContentScene(),
+    });
+
+    expect(result).toEqual({
+      action: "highlight",
+      handled: true,
+      popup: {
+        highlightedDateIso: "2026-05-05",
+        hitRecordId: "control:date-param",
+        kind: "date-calendar",
+        paramInfoId: "date-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+        visibleMonth: { monthIndex: 4, year: 2026 },
+      },
+    });
+  });
+
+  it("resolves Enter to the highlighted date calendar value", () => {
+    const result = resolveProjectGpuActiveParamCanvasPopupKeyboard({
+      activeParamCanvasPopup: {
+        highlightedDateIso: "2026-05-06",
+        hitRecordId: "control:date-param",
+        kind: "date-calendar",
+        paramInfoId: "date-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+        visibleMonth: { monthIndex: 4, year: 2026 },
+      },
+      event: { key: "Enter" },
+      scene: retainedContentScene(),
+    });
+
+    expect(result).toEqual({
+      action: "commit-date",
+      dateIso: "2026-05-06",
+      handled: true,
+      popup: {
+        highlightedDateIso: "2026-05-06",
+        hitRecordId: "control:date-param",
+        kind: "date-calendar",
+        paramInfoId: "date-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+        visibleMonth: { monthIndex: 4, year: 2026 },
       },
     });
   });
@@ -157,10 +217,51 @@ function retainedSurface(): GpuContentSurface {
           id: "color-param",
           label: "Color",
         },
+        {
+          control: {
+            calendar: {
+              cells: calendarCells(),
+              includeTime: false,
+              month: { monthIndex: 4, year: 2026 },
+              monthTitle: "May 2026",
+              selectedDates: ["2026-05-04"],
+              selectedTimeValue: "00:00",
+              selectionMode: "multiple",
+              summaryText: "1 selected",
+              weekdayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            },
+            defaultDisplayValue: "",
+            displayValue: '["2026-05-04"]',
+            kind: "date-time",
+            label: "Calendar",
+            mode: "date-calendar",
+            rendererFamily: "date-time",
+            summaryText: "1 selected",
+            commitPolicy: "immediate",
+          },
+          controlKind: "date-time",
+          depth: 0,
+          id: "date-param",
+          label: "Date",
+        },
       ],
       scrollOffset: { x: 0, y: 0 },
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 1,
   };
+}
+
+function calendarCells() {
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 3, 26 + index));
+    const isoDate = date.toISOString().slice(0, 10);
+    return {
+      dayOfMonth: date.getUTCDate(),
+      inCurrentMonth: date.getUTCMonth() === 4,
+      isoDate,
+      selected: isoDate === "2026-05-04",
+      today: false,
+    };
+  });
 }

@@ -27,6 +27,7 @@ type GpuRetainedContentActiveDateCalendarLayout = {
   readonly cells: readonly {
     readonly cell: GpuRetainedContentDateCalendarCell;
     readonly cellIndex: number;
+    readonly highlighted: boolean;
     readonly rect: GpuRect;
   }[];
   readonly headerRect: GpuRect;
@@ -80,6 +81,7 @@ export function createGpuRetainedContentActiveDateCalendarLayout({
     0,
     backgroundRect.width - DATE_CALENDAR_PADDING * 2,
   );
+  const highlightedDateIso = activePopup?.highlightedDateIso;
   const headerRect = {
     height: DATE_CALENDAR_HEADER_HEIGHT,
     width: innerWidth,
@@ -106,6 +108,7 @@ export function createGpuRetainedContentActiveDateCalendarLayout({
       .map((cell, cellIndex) => ({
         cell,
         cellIndex,
+        highlighted: cell.isoDate === highlightedDateIso,
         rect: {
           height: DATE_CALENDAR_CELL_HEIGHT,
           width: cellWidth,

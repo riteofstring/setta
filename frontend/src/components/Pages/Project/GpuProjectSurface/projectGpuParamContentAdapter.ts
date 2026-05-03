@@ -83,6 +83,7 @@ export type ProjectGpuActiveParamCanvasPopup =
       readonly kind: "color-picker" | "dropdown";
     })
   | (ProjectGpuRetainedParamTarget & {
+      readonly highlightedDateIso?: string | null | undefined;
       readonly kind: "date-calendar";
       readonly visibleMonth: ProjectGpuDateCalendarVisibleMonth;
     });
@@ -836,7 +837,14 @@ function getProjectGpuParamRetainedContentActivePopupInput({
     activeParamCanvasPopup.kind === "dropdown"
       ? activeParamCanvasPopup.highlightedOptionIndex
       : undefined;
+  const datePopupHighlightedDateIso =
+    activeParamCanvasPopup.kind === "date-calendar"
+      ? activeParamCanvasPopup.highlightedDateIso
+      : undefined;
   return {
+    ...(datePopupHighlightedDateIso === undefined
+      ? {}
+      : { highlightedDateIso: datePopupHighlightedDateIso }),
     ...(choicePopupHighlightedOptionIndex === undefined
       ? {}
       : { highlightedOptionIndex: choicePopupHighlightedOptionIndex }),

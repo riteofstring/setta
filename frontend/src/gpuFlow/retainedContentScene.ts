@@ -207,6 +207,7 @@ type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentActivePopupInput = {
+  readonly highlightedDateIso?: string | null | undefined;
   readonly highlightedOptionIndex?: number | null | undefined;
   readonly kind: "color-picker" | "date-calendar" | "dropdown";
   readonly ownerRowId: string;

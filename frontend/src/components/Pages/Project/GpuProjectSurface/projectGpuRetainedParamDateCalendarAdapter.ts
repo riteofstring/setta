@@ -82,7 +82,7 @@ export function commitProjectGpuRetainedDateCalendarPopupCell(
   }
   const cell = getProjectGpuRetainedDateCalendarCell(event, row);
   const calendar = row.control.calendar;
-  commitProjectGpuRetainedDateCalendarCellClick({
+  commitProjectGpuRetainedDateCalendarDate({
     isSelected: cell.selected,
     nextIsoDate: cell.isoDate,
     paramInfoId: event.hit.ownerRowId,
@@ -93,6 +93,52 @@ export function commitProjectGpuRetainedDateCalendarPopupCell(
     includeTime: calendar.includeTime,
   });
   return true;
+}
+
+export function commitProjectGpuRetainedDateCalendarDate({
+  isSelected,
+  nextIsoDate,
+  paramInfoId,
+  sectionId,
+  selectedDates,
+  selectedTimeValue,
+  selectionMode,
+  includeTime,
+}: {
+  readonly includeTime: boolean;
+  readonly isSelected: boolean;
+  readonly nextIsoDate: string;
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+  readonly selectedDates: readonly string[];
+  readonly selectedTimeValue: string;
+  readonly selectionMode: "multiple" | "single";
+}) {
+  const projectState = useProjectState.getState();
+  const previewState = getParamInputPreviewState(
+    projectState,
+    sectionId,
+    paramInfoId,
+  );
+  if (!previewState) {
+    throw new Error(
+      `Missing GPU retained date-calendar param ${paramInfoId} in section ${sectionId}.`,
+    );
+  }
+  commitParamInputValueChange({
+    nextValue: resolveCalendarDateSelectionValue({
+      cellIsoDate: nextIsoDate,
+      isSelected,
+      selectedDates: [...selectedDates],
+      selectionMode,
+      includeTime,
+      selectedTimeValue,
+    }),
+    paramInfoId,
+    previousValue: previewState.baseValue,
+    previewState,
+    sectionId,
+  });
 }
 
 export function isProjectGpuRetainedDateCalendarPopupCellHit(
@@ -151,52 +197,6 @@ function getProjectGpuRetainedDateCalendarCell(
     );
   }
   return cell;
-}
-
-function commitProjectGpuRetainedDateCalendarCellClick({
-  includeTime,
-  isSelected,
-  nextIsoDate,
-  paramInfoId,
-  sectionId,
-  selectedDates,
-  selectedTimeValue,
-  selectionMode,
-}: {
-  readonly includeTime: boolean;
-  readonly isSelected: boolean;
-  readonly nextIsoDate: string;
-  readonly paramInfoId: string;
-  readonly sectionId: string;
-  readonly selectedDates: readonly string[];
-  readonly selectedTimeValue: string;
-  readonly selectionMode: "multiple" | "single";
-}) {
-  const projectState = useProjectState.getState();
-  const previewState = getParamInputPreviewState(
-    projectState,
-    sectionId,
-    paramInfoId,
-  );
-  if (!previewState) {
-    throw new Error(
-      `Missing GPU retained date-calendar param ${paramInfoId} in section ${sectionId}.`,
-    );
-  }
-  commitParamInputValueChange({
-    nextValue: resolveCalendarDateSelectionValue({
-      cellIsoDate: nextIsoDate,
-      isSelected,
-      selectedDates: [...selectedDates],
-      selectionMode,
-      includeTime,
-      selectedTimeValue,
-    }),
-    paramInfoId,
-    previousValue: previewState.baseValue,
-    previewState,
-    sectionId,
-  });
 }
 
 function getProjectGpuRetainedDateCalendarHitRow(
