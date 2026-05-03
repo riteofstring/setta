@@ -420,15 +420,22 @@ function drawGpuRetainedContentNativeColorGlyph({
   const centerY = outer.y + outer.height / 2 + 0.5;
   ctx.save();
   ctx.translate(centerX, centerY);
-  ctx.rotate(-Math.PI / 4);
+  ctx.rotate(Math.PI / 4);
   ctx.strokeStyle = strokeStyle;
-  ctx.lineWidth = 1.35;
+  ctx.fillStyle = strokeStyle;
+  ctx.lineWidth = 1.1;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(0, -5);
-  ctx.lineTo(0, 5);
+  ctx.moveTo(-1.4, -2.8);
+  ctx.lineTo(-1.4, 3.1);
+  ctx.lineTo(0, 4.8);
+  ctx.lineTo(1.4, 3.1);
+  ctx.lineTo(1.4, -2.8);
   ctx.stroke();
+  ctx.fillRect(-2, -5, 4, 2.6);
   ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
   ctx.restore();
 }
 

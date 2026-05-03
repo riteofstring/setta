@@ -29,11 +29,12 @@ describe("retained content color picker canvas", () => {
     });
     expect(ctx.fillStylesAtFill[0]).toBe("#ff0000");
     expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.rotate).toHaveBeenCalledWith(-Math.PI / 4);
+    expect(ctx.rotate).toHaveBeenCalledWith(Math.PI / 4);
     expect(ctx.translate).toHaveBeenCalledWith(412, 14.5);
-    expect(ctx.moveTo).toHaveBeenCalledWith(0, -5);
-    expect(ctx.lineTo).toHaveBeenCalledWith(0, 5);
-    expect(ctx.lineWidth).toBe(1.35);
+    expect(ctx.moveTo).toHaveBeenCalledWith(-1.4, -2.8);
+    expect(ctx.lineTo).toHaveBeenCalledWith(0, 4.8);
+    expect(ctx.fillRect).toHaveBeenCalledWith(-2, -5, 4, 2.6);
+    expect(ctx.lineWidth).toBe(1.1);
     expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });
 
