@@ -709,6 +709,79 @@ append-only artifacts.
 Do not add generator drift tests that only rerun generators and compare
 checked-in output.
 
+## Visual Fidelity Checkpoint Gate
+
+Before resuming
+`./scripts/run-codex-gpuflow-full-scene-canvas-content-clean-break-loop.sh`,
+run the temporary baseline-vs-candidate checkpoint:
+
+```bash
+node scripts/gpuflow-visual-fidelity-checkpoint.mjs
+```
+
+The current checkpoint artifact path is:
+
+`perf/visual-fidelity/2026-05-05-gpuflow-full-scene/`
+
+The checkpoint compares:
+
+- `baseline-primary`: `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d`
+  from `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`.
+- `candidate`: `7909db3928a9d2bdd42f2371a1f98acb17b8902f`
+  from the full-scene canvas branch.
+- optional `baseline-secondary`: `6b6036f456ad8a093cd3a364870d6ee1632b376b`
+  from `go-rewrite-canvas-replace-xyflow-2`, enabled with
+  `node scripts/gpuflow-visual-fidelity-checkpoint.mjs --include-secondary`.
+
+The script expects isolated worktrees under
+`../setta-visual-fidelity-worktrees/`:
+
+- `gpuflow-baseline-primary`
+- `gpuflow-candidate`
+- `gpuflow-baseline-secondary`
+
+Current required fixtures:
+
+- project surface overview
+- closed retained param controls
+- dense param dict rows
+- callable edge/handle layout
+- selection/resize affordances
+- dropdown open popup
+- configured color picker open popup
+- date calendar open popup
+- active native text island
+- drag preview
+
+Each fixture must be captured at `1440x900`, `1024x768`, and `390x844`.
+
+Loop-resume requirements:
+
+- Visible canvas-owned replacements require baseline-vs-candidate screenshots;
+  CDP smoke checks or "canvas exists" assertions are not enough.
+- Screenshot timeout, missing fixture capture, or mismatched screenshot
+  dimensions is a blocker for visible renderer/control changes unless a
+  documented equivalent capture method succeeds.
+- Page errors from `GpuFlow`, html-in-canvas, WebGPU texture upload, or retained
+  control interaction are blockers for visible renderer/control changes until
+  fixed or explicitly accepted in `review.md`.
+- Logic-only cleanup can proceed with focused unit/integration tests when it
+  does not change rendered output or interaction visuals.
+- Any visible renderer/control change must update this checkpoint artifact set
+  or create a newer timestamped artifact directory with the same fixture
+  coverage.
+
+Current checkpoint result:
+
+- `review.md` reports 30 primary comparisons: 28 pass, 2 blocking visual
+  regressions.
+- Blocking visual regressions are `dense-param-dict` and
+  `callable-edge-handles` at the `390x844` viewport.
+- Both baseline and candidate currently emit repeated
+  `GPUQueue.copyElementImageToTexture` html-in-canvas page errors from
+  `frontend/src/gpuFlow/htmlSurfaces/textureTiles.ts`; treat this as a runtime
+  blocker for more visible html-in-canvas work.
+
 ## Final Target
 
 The final architecture should have these properties:
