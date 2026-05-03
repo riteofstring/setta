@@ -138,7 +138,7 @@ function createResizeChange({
   startWidth = toTopLevelSectionOuterDimension(200),
   startHeight = toTopLevelSectionOuterDimension(120),
 }: {
-  phase: "start" | "resize" | "stop";
+  phase: "start" | "resize" | "stop" | "cancel";
   width: number;
   height: number;
   direction?: "right" | "bottom" | "bottomRight";
@@ -146,7 +146,7 @@ function createResizeChange({
   startHeight?: number;
 }) {
   return {
-    active: phase !== "stop",
+    active: phase === "start" || phase === "resize",
     direction,
     layout: {
       height,
@@ -299,6 +299,62 @@ describe("project GPU node resize adapter", () => {
         },
       },
     });
+  });
+
+  it("restores live graph size on cancel and does not persist section size", () => {
+    const sessionRef = { current: createProjectNodeResizeSession() };
+    const options = createProjectNodeResizeOptions({
+      canEditLayout: true,
+      flowInteractionKeys: {
+        panActivationKeyPressed: false,
+        selectionKeyPressed: false,
+        zoomActivationKeyPressed: false,
+      },
+      isFollowTransitioning: false,
+      sessionRef,
+    });
+    const startWidth = toTopLevelSectionOuterDimension(200);
+    const startHeight = toTopLevelSectionOuterDimension(120);
+
+    options.onNodeResizeStart(
+      createResizeChange({
+        phase: "start",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: startHeight,
+      }),
+    );
+    options.onNodeResize(
+      createResizeChange({
+        phase: "resize",
+        startHeight,
+        startWidth,
+        width: 502,
+        height: 262,
+      }),
+    );
+
+    expect(useNodeInternals.getState().x.get(sectionId)).toMatchObject({
+      width: 502,
+      height: 262,
+    });
+
+    options.onNodeResizeCancel(
+      createResizeChange({
+        phase: "cancel",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: startHeight,
+      }),
+    );
+
+    expect(useNodeInternals.getState().x.get(sectionId)).toMatchObject({
+      width: startWidth,
+      height: startHeight,
+    });
+    expect(setSectionSizes).not.toHaveBeenCalled();
   });
 
   it("restores auto-size promotion after a no-op handle press", () => {

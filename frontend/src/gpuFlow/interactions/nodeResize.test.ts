@@ -123,6 +123,7 @@ describe("GPU node resize controller", () => {
     const store = createGpuFlowViewportStore();
     const onNodeResize = vi.fn();
     const onNodeResizeStop = vi.fn();
+    const requestFrame = vi.fn();
     const detach = attachGpuNodeResizeController({
       cancelAnimationFrame: animationFrames.cancelAnimationFrame,
       element,
@@ -130,6 +131,7 @@ describe("GPU node resize controller", () => {
       onNodeResize,
       onNodeResizeStop,
       requestAnimationFrame: animationFrames.requestAnimationFrame,
+      requestFrame,
       store,
     });
 
@@ -171,6 +173,11 @@ describe("GPU node resize controller", () => {
     expect(pointerCapture.releasePointerCapture).toHaveBeenCalledWith(1);
     expect(store.getState().nodeResizing).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(requestFrame.mock.calls).toEqual([
+      ["resize"],
+      ["resize"],
+      ["texture-upload"],
+    ]);
     detach();
   });
 
