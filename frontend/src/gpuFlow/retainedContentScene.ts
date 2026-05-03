@@ -81,6 +81,7 @@ export type GpuRetainedContentPortAnchor = {
   readonly kind: "input" | "output";
   readonly localPosition: GpuPoint;
   readonly ownerRowId: string;
+  readonly side: "left" | "right";
 };
 
 export type GpuRetainedContentScene = {
@@ -390,6 +391,7 @@ function createGpuRetainedContentPortAnchors({
         kind: port.kind,
         localPosition,
         ownerRowId: row.id,
+        side: port.side,
       };
     }),
   );

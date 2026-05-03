@@ -177,6 +177,7 @@ export function GpuProjectSurface() {
   );
   const edgeScene = useProjectGpuEdgeScene({
     layoutNodes: layoutAdapter.nodeLayouts,
+    scene: layoutAdapter.scene,
     showAgenticEdges,
     showDataEdges,
   });

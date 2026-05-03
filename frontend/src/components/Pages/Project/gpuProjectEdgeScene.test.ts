@@ -22,6 +22,8 @@ vi.mock("state/actions/stateMachineEdges", () => {
 
 import { HandlePosition } from "gpuFlow/flowTypes";
 import type { GpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
+import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import type { GpuFlowScene } from "gpuFlow/scene";
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
@@ -396,6 +398,40 @@ describe("gpuProjectEdgeScene", () => {
       },
     });
   });
+
+  it("uses retained param anchors for data-edge target positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        portDescriptors: {
+          "source:out:source": {
+            localRect: { height: 0, width: 0, x: 120, y: 40 },
+            nodeId: "source",
+            portId: "out",
+            side: HandlePosition.Right,
+            type: "source",
+          },
+        },
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: retainedParamAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 420, y: 129 },
+      },
+    });
+  });
 });
 
 function createBuildInput(
@@ -516,5 +552,43 @@ function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
     targetSectionId: "target",
     zIndex: 0,
     ...options,
+  };
+}
+
+function retainedParamAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [
+      {
+        clipRect: { height: 80, width: 160, x: 420, y: 115 },
+        id: "target:param-content:unpinned",
+        ownerSectionId: "target",
+        rect: { height: 80, width: 160, x: 420, y: 115 },
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "target:param-content:unpinned",
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: "target:param-content:unpinned",
+          ownerSectionId: "target",
+          rowHeight: 28,
+          rows: [
+            {
+              controlKind: "text-like",
+              depth: 0,
+              id: "in",
+              label: "Input",
+              ports: [{ id: "in", kind: "input", side: "left" }],
+            },
+          ],
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+        zIndex: 1,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }

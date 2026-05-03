@@ -137,6 +137,7 @@ describe("retained content scene", () => {
         kind: "input",
         localPosition: { x: 4, y: 42 },
         ownerRowId: "child",
+        side: "left",
       },
     ]);
   });

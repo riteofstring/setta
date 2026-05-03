@@ -13,10 +13,12 @@ import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
 import {
   buildGpuFlowPortEndpoints,
+  makeGpuFlowPortKey,
   useGpuFlowPortRegistry,
   type GpuFlowPortDescriptor,
   type GpuFlowPortEndpoint,
 } from "gpuFlow/ports/portGeometry";
+import type { GpuFlowScene } from "gpuFlow/scene";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { screenToFlowPosition } from "gpuFlow/viewportMath";
 import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
@@ -70,6 +72,7 @@ export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
   readonly portDescriptors: PortDescriptors;
   readonly projectConfig: ProjectConfig;
+  readonly scene?: GpuFlowScene | undefined;
   readonly scopeViolationEdges:
     | readonly ProjectAgenticMissingEdgeSource[]
     | undefined;
@@ -79,6 +82,7 @@ export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
 
 type UseProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
+  readonly scene?: GpuFlowScene | undefined;
 };
 
 type SelectProjectGpuEdgeInput = {
@@ -105,6 +109,7 @@ const workflowSourceActivationCountOperatorLabelByValue = new Map(
 
 export function useProjectGpuEdgeScene({
   layoutNodes,
+  scene,
   showAgenticEdges,
   showDataEdges,
 }: UseProjectGpuEdgeSceneInput): GpuEdgeScene {
@@ -132,6 +137,7 @@ export function useProjectGpuEdgeScene({
         layoutNodes,
         portDescriptors,
         projectConfig,
+        scene,
         scopeViolationEdges,
         sectionImpls,
         sectionVariants,
@@ -143,6 +149,7 @@ export function useProjectGpuEdgeScene({
       layoutNodes,
       portDescriptors,
       projectConfig,
+      scene,
       scopeViolationEdges,
       sectionImpls,
       sectionVariants,
@@ -157,6 +164,7 @@ export function buildProjectGpuEdgeScene({
   layoutNodes,
   portDescriptors,
   projectConfig,
+  scene,
   scopeViolationEdges,
   sectionImpls,
   sectionVariants,
@@ -168,6 +176,7 @@ export function buildProjectGpuEdgeScene({
       layoutNodes,
       ports: portDescriptors,
     }),
+    scene,
   );
   return buildGpuEdgeScene({
     agenticEdges: showAgenticEdges
@@ -205,8 +214,9 @@ export function buildProjectGpuEdgeScene({
 
 function buildProjectGpuEdgeHandlePositions(
   portEndpoints: Readonly<Record<string, GpuFlowPortEndpoint>>,
+  scene: GpuFlowScene | undefined,
 ): Readonly<Record<string, GpuEdgeHandlePosition>> {
-  return Object.fromEntries(
+  const domHandlePositions = Object.fromEntries(
     Object.entries(portEndpoints).map(([key, endpoint]) => [
       key,
       {
@@ -219,6 +229,39 @@ function buildProjectGpuEdgeHandlePositions(
       },
     ]),
   );
+  return {
+    ...domHandlePositions,
+    ...buildProjectGpuRetainedContentHandlePositions(scene),
+  };
+}
+
+function buildProjectGpuRetainedContentHandlePositions(
+  scene: GpuFlowScene | undefined,
+): Readonly<Record<string, GpuEdgeHandlePosition>> {
+  if (!scene) {
+    return {};
+  }
+  const handlePositions: Record<string, GpuEdgeHandlePosition> = {};
+  for (const surface of scene.contentSurfaces) {
+    const retainedScene = surface.retainedScene;
+    if (surface.renderer.kind !== "canvas-content" || !retainedScene) {
+      continue;
+    }
+    for (const anchor of retainedScene.portAnchors) {
+      const type = anchor.kind === "input" ? "target" : "source";
+      handlePositions[
+        makeGpuFlowPortKey(surface.ownerSectionId, anchor.id, type)
+      ] = {
+        portId: anchor.id,
+        sectionId: surface.ownerSectionId,
+        side: anchor.side,
+        type,
+        x: surface.rect.x + anchor.localPosition.x,
+        y: surface.rect.y + anchor.localPosition.y,
+      };
+    }
+  }
+  return handlePositions;
 }
 
 function buildProjectGpuDataEdgeSources({
