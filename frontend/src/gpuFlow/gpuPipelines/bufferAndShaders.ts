@@ -1,5 +1,3 @@
-import { BackgroundVariantEnum } from "utils/generatedTypes";
-
 import { parseGpuHexColor } from "../gpuColors";
 
 import type {
@@ -332,11 +330,11 @@ export function requirePositiveFiniteGpuGridValue(
 
 export function encodeGpuGridVariant(variant: GpuGridVariant): number {
   switch (variant) {
-    case BackgroundVariantEnum.lines:
+    case "lines":
       return 0;
-    case BackgroundVariantEnum.dots:
+    case "dots":
       return 1;
-    case BackgroundVariantEnum.cross:
+    case "cross":
       return 2;
     default:
       throw new Error(

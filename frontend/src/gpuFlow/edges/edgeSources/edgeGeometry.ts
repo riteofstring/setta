@@ -1,15 +1,8 @@
-import { AgenticEdgeKindEnum, type AgenticEdge } from "utils/generatedTypes";
-
 import type { GpuPoint } from "../../viewportMath";
 
 import { type GpuEdgeSide } from "../edgeGeometry";
 
-import {
-  GpuEdgeFamily,
-  GpuEdgeNodeFrame,
-  NodeAnchorSide,
-  WorkflowEdge,
-} from "./edgeScene";
+import { GpuEdgeFamily, GpuEdgeNodeFrame, NodeAnchorSide } from "./edgeScene";
 
 export function resolveNodeAnchor(
   frame: GpuEdgeNodeFrame | null,
@@ -47,26 +40,6 @@ export function getNodeCenterX(frame: GpuEdgeNodeFrame | null): number | null {
     return null;
   }
   return frame.x + frame.width / 2;
-}
-
-export function getWorkflowPromptSectionId(edge: WorkflowEdge): string | null {
-  if (edge.targetAction?.type !== "send_prompt") {
-    return null;
-  }
-  return edge.targetAction.promptSectionId ?? null;
-}
-
-export function getAgenticEdgeKey(
-  edge: Pick<AgenticEdge, "kind" | "sourceSectionId" | "targetSectionId">,
-): string {
-  if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
-    const [first, second] =
-      edge.sourceSectionId < edge.targetSectionId
-        ? [edge.sourceSectionId, edge.targetSectionId]
-        : [edge.targetSectionId, edge.sourceSectionId];
-    return `${edge.kind}:${first}:${second}`;
-  }
-  return `${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
 }
 
 export function getGpuSceneEdgeId(

@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
@@ -79,13 +78,13 @@ describe("html surface renderer", () => {
     ]);
   });
 
-  it("encodes procedural grid settings from generated background variants", () => {
+  it("encodes procedural grid settings from generic background variants", () => {
     const encoded = Array.from(
       encodeGpuGridUniform({
         color: "#afbacf80",
         patternSize: 2,
         snapGrid: [25, 50],
-        variant: BackgroundVariantEnum.dots,
+        variant: "dots",
       }),
     );
 
@@ -100,7 +99,7 @@ describe("html surface renderer", () => {
           color: "#afbacf",
           patternSize: 3,
           snapGrid: [16, 32],
-          variant: BackgroundVariantEnum.lines,
+          variant: "lines",
         }),
       ).slice(4),
     ).toEqual([16, 32, 3, 0]);
@@ -121,7 +120,7 @@ describe("html surface renderer", () => {
         color: "slate",
         patternSize: 2,
         snapGrid: [25, 25],
-        variant: BackgroundVariantEnum.lines,
+        variant: "lines",
       }),
     ).toThrow("Setta GPU grid requires a hex color");
   });
@@ -132,7 +131,7 @@ describe("html surface renderer", () => {
         color: "#afbacf",
         patternSize: 2,
         snapGrid: [0, 25],
-        variant: BackgroundVariantEnum.dots,
+        variant: "dots",
       }),
     ).toThrow("Setta GPU grid requires a positive finite snapGrid[0]");
     expect(() =>
@@ -140,7 +139,7 @@ describe("html surface renderer", () => {
         color: "#afbacf",
         patternSize: Number.NaN,
         snapGrid: [25, 25],
-        variant: BackgroundVariantEnum.lines,
+        variant: "lines",
       }),
     ).toThrow("Setta GPU grid requires a positive finite patternSize");
   });
@@ -341,7 +340,7 @@ describe("html surface renderer", () => {
         color: "#afbacf",
         patternSize: 2,
         snapGrid: [25, 25],
-        variant: BackgroundVariantEnum.lines,
+        variant: "lines",
       },
       scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50)]),
       viewport: [10, 20, 1.25],
@@ -393,7 +392,7 @@ describe("html surface renderer", () => {
       color: "#afbacf",
       patternSize: 2,
       snapGrid: [25, 25],
-      variant: BackgroundVariantEnum.dots,
+      variant: "dots",
     } as const;
 
     renderer.render({

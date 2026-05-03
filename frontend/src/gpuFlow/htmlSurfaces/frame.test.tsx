@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "../edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
@@ -932,7 +931,7 @@ describe("HTML surface frame helpers", () => {
       color: "#afbacf",
       patternSize: 2,
       snapGrid: [25, 25],
-      variant: BackgroundVariantEnum.dots,
+      variant: "dots",
     } as const;
 
     renderHtmlSurfaceFrame({

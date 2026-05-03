@@ -1,9 +1,13 @@
 import type { CSSProperties } from "react";
-import type { Position } from "utils/generatedTypes";
 
 export interface Dimensions {
   width: number;
   height: number;
+}
+
+export interface Position {
+  x: number;
+  y: number;
 }
 
 export interface Rect extends Dimensions, Position {}

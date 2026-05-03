@@ -1,10 +1,13 @@
 import {
   buildGpuEdgeScene,
+  type GpuAgenticEdgeSource,
   type GpuAgenticMissingEdgeSource,
   type GpuConnectionLineSource,
+  type GpuDataEdgeSource,
   type GpuEdgeHandlePosition,
   type GpuEdgeNodeFrame,
   type GpuEdgeScene,
+  type GpuWorkflowEdgeSource,
 } from "gpuFlow/edges/edgeSources";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
@@ -26,7 +29,11 @@ import {
   toggleStateMachineEdgeSelection,
 } from "state/actions/stateMachineEdges";
 import { useAIFollow, useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  AgenticEdgeKindEnum,
+  SectionTypeEnum,
+  StateMachineUIConfig,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
 type ProjectState = ReturnType<typeof useProjectState.getState>;
@@ -36,6 +43,15 @@ type SectionVariants = ProjectState["sectionVariants"];
 type SectionImpls = ProjectState["sectionImpls"];
 type TopLevelSections = ProjectConfig["topLevelSections"];
 type PortDescriptors = Readonly<Record<string, GpuFlowPortDescriptor>>;
+type ProjectDataEdge = NonNullable<ProjectConfig["edges"]>[number];
+type ProjectAgenticEdge = NonNullable<ProjectConfig["agenticEdges"]>[number];
+type ProjectWorkflowEdge = NonNullable<
+  ProjectConfig["stateMachineEdges"]
+>[number];
+type ProjectAgenticMissingEdgeSource = Pick<
+  ProjectAgenticEdge,
+  "kind" | "sourceSectionId" | "targetSectionId"
+>;
 type ProjectGpuConnectionState = Pick<
   GpuFlowViewportStore,
   | "connectionPosition"
@@ -55,7 +71,7 @@ export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly portDescriptors: PortDescriptors;
   readonly projectConfig: ProjectConfig;
   readonly scopeViolationEdges:
-    | readonly GpuAgenticMissingEdgeSource[]
+    | readonly ProjectAgenticMissingEdgeSource[]
     | undefined;
   readonly sectionImpls: SectionImpls;
   readonly sectionVariants: SectionVariants;
@@ -80,6 +96,12 @@ const INACTIVE_PROJECT_GPU_CONNECTION_STATE: ProjectGpuConnectionState = {
   connectionStatus: null,
   transform: [0, 0, 1],
 };
+const workflowSourceActivationCountOperatorLabelByValue = new Map(
+  StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
+    option.value,
+    option.label,
+  ]),
+);
 
 export function useProjectGpuEdgeScene({
   layoutNodes,
@@ -148,13 +170,20 @@ export function buildProjectGpuEdgeScene({
     }),
   );
   return buildGpuEdgeScene({
-    agenticEdges: showAgenticEdges ? projectConfig.agenticEdges ?? [] : [],
+    agenticEdges: showAgenticEdges
+      ? buildProjectGpuAgenticEdgeSources(projectConfig.agenticEdges ?? [])
+      : [],
     connectionLine: resolveProjectGpuConnectionLine({
       connectionState,
       showAgenticEdges,
       showDataEdges,
     }),
-    dataEdges: showDataEdges ? projectConfig.edges ?? [] : [],
+    dataEdges: showDataEdges
+      ? buildProjectGpuDataEdgeSources({
+          edges: projectConfig.edges ?? [],
+          sectionVariantMap: projectConfig.sectionVariantMap,
+        })
+      : [],
     handlePositions,
     nodes: buildGpuEdgeNodeFrames(layoutNodes),
     runningSourceSectionIds: showAgenticEdges
@@ -165,9 +194,12 @@ export function buildProjectGpuEdgeScene({
           topLevelSections: projectConfig.topLevelSections,
         })
       : undefined,
-    scopeViolationEdges: showAgenticEdges ? scopeViolationEdges : [],
-    sectionVariantMap: projectConfig.sectionVariantMap,
-    workflowEdges: projectConfig.stateMachineEdges ?? [],
+    scopeViolationEdges: showAgenticEdges
+      ? buildProjectGpuAgenticMissingEdgeSources(scopeViolationEdges ?? [])
+      : [],
+    workflowEdges: buildProjectGpuWorkflowEdgeSources(
+      projectConfig.stateMachineEdges ?? [],
+    ),
   });
 }
 
@@ -187,6 +219,115 @@ function buildProjectGpuEdgeHandlePositions(
       },
     ]),
   );
+}
+
+function buildProjectGpuDataEdgeSources({
+  edges,
+  sectionVariantMap,
+}: {
+  readonly edges: readonly ProjectDataEdge[];
+  readonly sectionVariantMap: SectionVariantMap;
+}): GpuDataEdgeSource[] {
+  const activeEdges: GpuDataEdgeSource[] = [];
+  for (const edge of edges) {
+    if (
+      sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
+      sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
+    ) {
+      continue;
+    }
+    activeEdges.push({
+      hidden: edge.hidden,
+      id: edge.id,
+      label: edge.label,
+      selected: edge.selected,
+      sourcePortId: edge.sourcePortId,
+      sourceSectionId: edge.sourceSectionId,
+      style: edge.style,
+      targetPortId: edge.targetPortId,
+      targetSectionId: edge.targetSectionId,
+      type: edge.type,
+      zIndex: edge.zIndex,
+    });
+  }
+  return activeEdges;
+}
+
+function buildProjectGpuAgenticEdgeSources(
+  edges: readonly ProjectAgenticEdge[],
+): GpuAgenticEdgeSource[] {
+  return edges.map((edge) => ({
+    dedupeKey: getProjectGpuAgenticEdgeKey(edge),
+    hidden: edge.hidden,
+    id: edge.id,
+    selected: edge.selected,
+    sourceSectionId: edge.sourceSectionId,
+    style: edge.style,
+    targetSectionId: edge.targetSectionId,
+    zIndex: edge.zIndex,
+  }));
+}
+
+function buildProjectGpuAgenticMissingEdgeSources(
+  edges: readonly ProjectAgenticMissingEdgeSource[],
+): GpuAgenticMissingEdgeSource[] {
+  return edges.map((edge) => ({
+    dedupeKey: getProjectGpuAgenticEdgeKey(edge),
+    sourceSectionId: edge.sourceSectionId,
+    targetSectionId: edge.targetSectionId,
+  }));
+}
+
+function buildProjectGpuWorkflowEdgeSources(
+  edges: readonly ProjectWorkflowEdge[],
+): GpuWorkflowEdgeSource[] {
+  return edges.map((edge) => ({
+    hidden: edge.hidden,
+    id: edge.id,
+    promptSectionId: getProjectGpuWorkflowPromptSectionId(edge),
+    selected: edge.selected,
+    sourceActivationLabel:
+      getProjectGpuWorkflowSourceActivationCountLabel(edge),
+    sourceSectionId: edge.sourceSectionId,
+    style: edge.style,
+    targetSectionId: edge.targetSectionId,
+    zIndex: edge.zIndex,
+  }));
+}
+
+function getProjectGpuAgenticEdgeKey(
+  edge: ProjectAgenticMissingEdgeSource,
+): string {
+  if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
+    const [first, second] =
+      edge.sourceSectionId < edge.targetSectionId
+        ? [edge.sourceSectionId, edge.targetSectionId]
+        : [edge.targetSectionId, edge.sourceSectionId];
+    return `${edge.kind}:${first}:${second}`;
+  }
+  return `${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
+}
+
+function getProjectGpuWorkflowPromptSectionId(
+  edge: ProjectWorkflowEdge,
+): string | null {
+  if (edge.targetAction?.type !== "send_prompt") {
+    return null;
+  }
+  return edge.targetAction.promptSectionId ?? null;
+}
+
+function getProjectGpuWorkflowSourceActivationCountLabel(
+  edge: ProjectWorkflowEdge,
+): string | null {
+  const condition = edge.sourceActivationCountCondition;
+  if (!condition) {
+    return null;
+  }
+  const operatorLabel =
+    workflowSourceActivationCountOperatorLabelByValue.get(condition.operator) ??
+    condition.operator;
+  return `src count ${operatorLabel} ${condition.value}`;
 }
 
 export function selectProjectGpuEdge({

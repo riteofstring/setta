@@ -1,10 +1,3 @@
-import {
-  StateMachineUIConfig,
-  type AgenticEdge,
-  type Edge,
-  type SingleConfig,
-} from "utils/generatedTypes";
-
 import type { ConnectionStatus } from "../../flowTypes";
 import { makeGpuFlowPortKey } from "../../ports/portGeometry";
 
@@ -26,10 +19,8 @@ import type {
 } from "../edgeGpuBuffers";
 
 import {
-  getAgenticEdgeKey,
   getGpuSceneEdgeId,
   getOppositeGpuEdgeSide,
-  getWorkflowPromptSectionId,
   resolveNodeAnchor,
   resolveRelativeAnchorSides,
 } from "./edgeGeometry";
@@ -58,10 +49,48 @@ export type GpuEdgeNodeFrame = {
   readonly y: number;
 };
 
-export type GpuAgenticMissingEdgeSource = Pick<
-  AgenticEdge,
-  "kind" | "sourceSectionId" | "targetSectionId"
->;
+export type GpuDataEdgeSource = {
+  readonly hidden?: boolean | undefined;
+  readonly id: string;
+  readonly label?: string | null | undefined;
+  readonly selected?: boolean | undefined;
+  readonly sourcePortId: string;
+  readonly sourceSectionId: string;
+  readonly style?: unknown;
+  readonly targetPortId: string;
+  readonly targetSectionId: string;
+  readonly type?: string | null | undefined;
+  readonly zIndex?: number | undefined;
+};
+
+export type GpuAgenticEdgeSource = {
+  readonly dedupeKey: string;
+  readonly hidden?: boolean | undefined;
+  readonly id: string;
+  readonly selected?: boolean | undefined;
+  readonly sourceSectionId: string;
+  readonly style?: unknown;
+  readonly targetSectionId: string;
+  readonly zIndex?: number | undefined;
+};
+
+export type GpuAgenticMissingEdgeSource = {
+  readonly dedupeKey: string;
+  readonly sourceSectionId: string;
+  readonly targetSectionId: string;
+};
+
+export type GpuWorkflowEdgeSource = {
+  readonly hidden?: boolean | undefined;
+  readonly id: string;
+  readonly promptSectionId?: string | null | undefined;
+  readonly selected?: boolean | undefined;
+  readonly sourceActivationLabel?: string | null | undefined;
+  readonly sourceSectionId: string;
+  readonly style?: unknown;
+  readonly targetSectionId: string;
+  readonly zIndex?: number | undefined;
+};
 
 export type GpuConnectionLineSource = {
   readonly pointerFlowPosition: GpuPoint;
@@ -123,21 +152,16 @@ export type GpuEdgeSceneHitTestResult = GpuEdgeHitTestResult & {
   readonly entry: GpuEdgeSceneEntry;
 };
 
-export type WorkflowEdge = NonNullable<
-  SingleConfig["projectConfig"]["stateMachineEdges"]
->[number];
-
 export type GpuDataEdgeEntriesInput = {
-  readonly edges: readonly Edge[];
+  readonly edges: readonly GpuDataEdgeSource[];
   readonly handlePositions: Readonly<Record<string, GpuEdgeHandlePosition>>;
-  readonly sectionVariantMap: Readonly<Record<string, string>>;
 };
 
 export type GpuDataEdgeGeometryInput = Omit<
   GpuDataEdgeEntriesInput,
   "edges"
 > & {
-  readonly edge: Edge;
+  readonly edge: GpuDataEdgeSource;
 };
 
 export type GpuDataEdgeEndpoints = {
@@ -146,7 +170,7 @@ export type GpuDataEdgeEndpoints = {
 };
 
 export type GpuAgenticEdgeEntriesInput = {
-  readonly edges: readonly AgenticEdge[];
+  readonly edges: readonly GpuAgenticEdgeSource[];
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
   readonly runningSourceSectionIds?: ReadonlySet<string> | undefined;
   readonly scopeViolationEdges?:
@@ -155,14 +179,14 @@ export type GpuAgenticEdgeEntriesInput = {
 };
 
 export type GpuWorkflowEdgeEntriesInput = {
-  readonly edges: readonly WorkflowEdge[];
+  readonly edges: readonly GpuWorkflowEdgeSource[];
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
 };
 
 export type BuildGpuEdgeSceneInput = {
-  readonly agenticEdges?: readonly AgenticEdge[] | undefined;
+  readonly agenticEdges?: readonly GpuAgenticEdgeSource[] | undefined;
   readonly connectionLine?: GpuConnectionLineSource | null | undefined;
-  readonly dataEdges?: readonly Edge[] | undefined;
+  readonly dataEdges?: readonly GpuDataEdgeSource[] | undefined;
   readonly handlePositions?:
     | Readonly<Record<string, GpuEdgeHandlePosition>>
     | undefined;
@@ -171,8 +195,7 @@ export type BuildGpuEdgeSceneInput = {
   readonly scopeViolationEdges?:
     | readonly GpuAgenticMissingEdgeSource[]
     | undefined;
-  readonly sectionVariantMap?: Readonly<Record<string, string>> | undefined;
-  readonly workflowEdges?: readonly WorkflowEdge[] | undefined;
+  readonly workflowEdges?: readonly GpuWorkflowEdgeSource[] | undefined;
 };
 
 export type NodeAnchorSide = "left" | "right";
@@ -197,13 +220,6 @@ export const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
 
 export const WORKFLOW_SOURCE_ACTIVATION_LABEL_X_PADDING = 12;
 
-export const sourceActivationCountOperatorLabelByValue = new Map(
-  StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
-    option.value,
-    option.label,
-  ]),
-);
-
 export function buildGpuEdgeScene({
   agenticEdges,
   connectionLine,
@@ -212,13 +228,11 @@ export function buildGpuEdgeScene({
   nodes = new Map(),
   runningSourceSectionIds,
   scopeViolationEdges,
-  sectionVariantMap = {},
   workflowEdges,
 }: BuildGpuEdgeSceneInput): GpuEdgeScene {
   const dataEdgeInput = {
     edges: dataEdges ?? [],
     handlePositions,
-    sectionVariantMap,
   };
   const workflowEdgeInput = {
     edges: workflowEdges ?? [],
@@ -253,14 +267,12 @@ export function buildGpuEdgeScene({
 export function buildGpuDataEdgeEntries({
   edges,
   handlePositions,
-  sectionVariantMap,
 }: GpuDataEdgeEntriesInput): GpuEdgeSceneEntry[] {
   const entries: GpuEdgeSceneEntry[] = [];
   for (const edge of edges) {
     const geometry = resolveGpuDataEdgeGeometry({
       edge,
       handlePositions,
-      sectionVariantMap,
     });
     if (!geometry) {
       continue;
@@ -283,7 +295,6 @@ export function buildGpuDataEdgeEntries({
 export function buildGpuDataEdgeLabels({
   edges,
   handlePositions,
-  sectionVariantMap,
 }: GpuDataEdgeEntriesInput): GpuEdgeSceneLabel[] {
   const labels: GpuEdgeSceneLabel[] = [];
   for (const edge of edges) {
@@ -293,7 +304,6 @@ export function buildGpuDataEdgeLabels({
     const geometry = resolveGpuDataEdgeGeometry({
       edge,
       handlePositions,
-      sectionVariantMap,
     });
     if (!geometry) {
       continue;
@@ -316,14 +326,12 @@ export function buildGpuDataEdgeLabels({
 export function buildGpuDataEdgeReconnectAnchors({
   edges,
   handlePositions,
-  sectionVariantMap,
 }: GpuDataEdgeEntriesInput): GpuEdgeReconnectAnchor[] {
   const anchors: GpuEdgeReconnectAnchor[] = [];
   for (const edge of edges) {
     const endpoints = resolveGpuDataEdgeEndpoints({
       edge,
       handlePositions,
-      sectionVariantMap,
     });
     if (!endpoints) {
       continue;
@@ -355,7 +363,7 @@ export function buildGpuAgenticEdgeEntries({
   const entries: GpuEdgeSceneEntry[] = [];
   const existingKeys = new Set<string>();
   for (const edge of edges) {
-    existingKeys.add(getAgenticEdgeKey(edge));
+    existingKeys.add(edge.dedupeKey);
     if (edge.hidden) {
       continue;
     }
@@ -384,7 +392,7 @@ export function buildGpuAgenticEdgeEntries({
   }
 
   for (const missingEdge of scopeViolationEdges ?? []) {
-    const key = getAgenticEdgeKey(missingEdge);
+    const key = missingEdge.dedupeKey;
     if (existingKeys.has(key)) {
       continue;
     }
@@ -627,12 +635,10 @@ export function resolveGpuEdgeStyleStrokeColor(
 export function resolveGpuDataEdgeGeometry({
   edge,
   handlePositions,
-  sectionVariantMap,
 }: GpuDataEdgeGeometryInput): GpuEdgeGeometry | null {
   const endpoints = resolveGpuDataEdgeEndpoints({
     edge,
     handlePositions,
-    sectionVariantMap,
   });
   if (!endpoints) {
     return null;
@@ -651,13 +657,8 @@ export function resolveGpuDataEdgeGeometry({
 export function resolveGpuDataEdgeEndpoints({
   edge,
   handlePositions,
-  sectionVariantMap,
 }: GpuDataEdgeGeometryInput): GpuDataEdgeEndpoints | null {
-  if (
-    edge.hidden ||
-    sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
-    sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
-  ) {
+  if (edge.hidden) {
     return null;
   }
   const source =
@@ -687,7 +688,7 @@ export function createGpuDataEdgeReconnectAnchor({
   fixedHandle,
   position,
 }: {
-  readonly edge: Edge;
+  readonly edge: GpuDataEdgeSource;
   readonly endpoint: GpuEdgeReconnectEndpoint;
   readonly fixedHandle: GpuEdgeHandlePosition;
   readonly position: GpuEdgeHandlePosition;
@@ -769,10 +770,10 @@ export function buildWorkflowPromptLinkGeometry({
   edge,
   nodes,
 }: {
-  readonly edge: WorkflowEdge;
+  readonly edge: GpuWorkflowEdgeSource;
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
 }): GpuEdgeGeometry | null {
-  const promptSectionId = getWorkflowPromptSectionId(edge);
+  const promptSectionId = edge.promptSectionId;
   if (!promptSectionId) {
     return null;
   }
@@ -800,7 +801,7 @@ export function buildWorkflowMainEdgeGeometry({
   edge,
   nodes,
 }: {
-  readonly edge: WorkflowEdge;
+  readonly edge: GpuWorkflowEdgeSource;
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
 }): GpuEdgeGeometry | null {
   return buildNodeAnchorEdgeGeometry({
@@ -812,16 +813,9 @@ export function buildWorkflowMainEdgeGeometry({
 }
 
 export function getWorkflowSourceActivationCountLabel(
-  edge: WorkflowEdge,
+  edge: GpuWorkflowEdgeSource,
 ): string | null {
-  const condition = edge.sourceActivationCountCondition;
-  if (!condition) {
-    return null;
-  }
-  const operatorLabel =
-    sourceActivationCountOperatorLabelByValue.get(condition.operator) ??
-    condition.operator;
-  return `src count ${operatorLabel} ${condition.value}`;
+  return edge.sourceActivationLabel ?? null;
 }
 
 export function getWorkflowSourceActivationLabelWidth(text: string): number {

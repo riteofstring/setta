@@ -1,5 +1,3 @@
-import { BackgroundVariantEnum, type ObjectValues } from "utils/generatedTypes";
-
 import {
   GPU_EDGE_VERTEX_FLOATS,
   type GpuEdgeBufferInput,
@@ -16,7 +14,7 @@ export type HtmlSurfaceRenderRuntime = Pick<
   "context" | "device" | "format"
 >;
 
-export type GpuGridVariant = ObjectValues<typeof BackgroundVariantEnum>;
+export type GpuGridVariant = "cross" | "dots" | "lines";
 
 export type GpuGridInput = {
   readonly color: string;
