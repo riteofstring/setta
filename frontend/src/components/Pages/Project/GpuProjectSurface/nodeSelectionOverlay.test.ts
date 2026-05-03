@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { setActiveSectionUIIds } from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -19,9 +21,12 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import "testUtils/reactRefreshPreamble";
 
 import {
+  GpuProjectNodesSelectionOverlay,
   handleProjectNodeDrag,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
@@ -51,19 +56,29 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
     resetProjectStores();
     useLocalStorage.setState({ snapToGrid: false });
     resetGpuViewportState();
+    resetQueuedAnimationFrames();
     vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation(
       (callback) => {
-        callback(0);
-        return 1;
+        const id = nextAnimationFrameId++;
+        queuedAnimationFrames.push({ callback, canceled: false, id });
+        return id;
       },
     );
-    vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation(() => {});
+    vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation((id) => {
+      const frame = queuedAnimationFrames.find((item) => item.id === id);
+      if (frame) {
+        frame.canceled = true;
+      }
+    });
   });
 
   afterEach(() => {
+    flushQueuedAnimationFrames();
     vi.restoreAllMocks();
     resetProjectStores();
     resetGpuViewportState();
+    resetQueuedAnimationFrames();
+    document.body.innerHTML = "";
   });
 
   it("keeps direct node drag live updates in node internals and commits z-order on stop", () => {
@@ -170,6 +185,237 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
     });
   });
 
+  it("moves selected nodes through the selection rect and commits z-order on pointer up", async () => {
+    loadProjectStateForSections([
+      { id: "section-a" },
+      { id: "section-b" },
+      { id: "section-c" },
+    ]);
+    loadNodeInternals([
+      node("section-a", 10, 20, 80, 40, 0),
+      node("section-b", 100, 120, 60, 30, 1),
+      node("section-c", 300, 320, 90, 70, 2),
+    ]);
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    gpuFlowViewportStore.setState({
+      height: 400,
+      nodesSelectionBounds: { height: 130, width: 150, x: 10, y: 20 },
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const overlay = await renderSelectionOverlay();
+
+    try {
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointerdown", {
+          button: 0,
+          clientX: 15,
+          clientY: 25,
+          pointerId: 7,
+        });
+      });
+
+      expect(overlay.setPointerCapture).toHaveBeenCalledWith(7);
+      expect(useMisc.getState().mouseDownDraggingSection).toBe(true);
+      expect(gpuFlowViewportStore.getState().nodeDragging).toBe(true);
+      expect(gpuFlowViewportStore.getState().viewportInteractionActive).toBe(
+        true,
+      );
+      expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
+        tempZIndex: 1000,
+        zIndex: 0,
+      });
+      expect(useNodeInternals.getState().x.get("section-b")).toMatchObject({
+        tempZIndex: 1001,
+        zIndex: 1,
+      });
+
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointermove", {
+          button: 0,
+          clientX: 35,
+          clientY: 45,
+          pointerId: 7,
+        });
+      });
+
+      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual(
+        { x: 30, y: 40 },
+      );
+      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual(
+        { x: 120, y: 140 },
+      );
+      expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
+        height: 130,
+        width: 150,
+        x: 30,
+        y: 40,
+      });
+
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointerup", {
+          button: 0,
+          clientX: 35,
+          clientY: 45,
+          pointerId: 7,
+        });
+      });
+
+      expect(overlay.releasePointerCapture).toHaveBeenCalledWith(7);
+      expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
+      expect(gpuFlowViewportStore.getState().nodeDragging).toBe(false);
+      expect(gpuFlowViewportStore.getState().viewportInteractionActive).toBe(
+        false,
+      );
+      expect(useNodeInternals.getState().x.get("section-c")).toMatchObject({
+        tempZIndex: 0,
+        zIndex: 0,
+      });
+      expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
+        position: { x: 30, y: 40 },
+        tempZIndex: 1,
+        zIndex: 1,
+      });
+      expect(useNodeInternals.getState().x.get("section-b")).toMatchObject({
+        position: { x: 120, y: 140 },
+        tempZIndex: 2,
+        zIndex: 2,
+      });
+    } finally {
+      await overlay.unmount();
+    }
+  });
+
+  it("uses selection drag auto-pan frames to pan the viewport and keep selected nodes under the pointer", async () => {
+    loadProjectStateForSections([{ id: "section-a" }, { id: "section-b" }]);
+    loadNodeInternals([
+      node("section-a", 10, 20, 80, 40, 0),
+      node("section-b", 100, 120, 60, 30, 1),
+    ]);
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    gpuFlowViewportStore.setState({
+      height: 400,
+      nodesSelectionBounds: { height: 130, width: 150, x: 10, y: 20 },
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const overlay = await renderSelectionOverlay();
+
+    try {
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointerdown", {
+          button: 0,
+          clientX: 590,
+          clientY: 390,
+          pointerId: 11,
+        });
+      });
+
+      expect(gpuFlowViewportStore.getState().transform).toEqual([0, 0, 1]);
+
+      await act(async () => {
+        runNextAnimationFrame();
+      });
+
+      expect(gpuFlowViewportStore.getState().transform).toEqual([
+        -10,
+        -10,
+        1,
+      ]);
+      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual(
+        { x: 20, y: 30 },
+      );
+      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual(
+        { x: 110, y: 130 },
+      );
+      expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
+        height: 130,
+        width: 150,
+        x: 20,
+        y: 30,
+      });
+
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointerup", {
+          button: 0,
+          clientX: 590,
+          clientY: 390,
+          pointerId: 11,
+        });
+      });
+    } finally {
+      await overlay.unmount();
+    }
+  });
+
+  it("keeps live selection-drag positions and clears interaction state on pointer cancel", async () => {
+    loadProjectStateForSections([{ id: "section-a" }, { id: "section-b" }]);
+    loadNodeInternals([
+      node("section-a", 10, 20, 80, 40, 0),
+      node("section-b", 100, 120, 60, 30, 1),
+    ]);
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    gpuFlowViewportStore.setState({
+      height: 400,
+      nodesSelectionBounds: { height: 130, width: 150, x: 10, y: 20 },
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const overlay = await renderSelectionOverlay();
+
+    try {
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointerdown", {
+          button: 0,
+          clientX: 20,
+          clientY: 30,
+          pointerId: 13,
+        });
+      });
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointermove", {
+          button: 0,
+          clientX: 45,
+          clientY: 65,
+          pointerId: 13,
+        });
+      });
+      await act(async () => {
+        dispatchPointerEvent(overlay.rect, "pointercancel", {
+          button: 0,
+          clientX: 45,
+          clientY: 65,
+          pointerId: 13,
+        });
+      });
+
+      expect(overlay.releasePointerCapture).toHaveBeenCalledWith(13);
+      expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
+      expect(gpuFlowViewportStore.getState().nodeDragging).toBe(false);
+      expect(gpuFlowViewportStore.getState().viewportInteractionActive).toBe(
+        false,
+      );
+      expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
+        position: { x: 35, y: 55 },
+        tempZIndex: 0,
+        zIndex: 0,
+      });
+      expect(useNodeInternals.getState().x.get("section-b")).toMatchObject({
+        position: { x: 125, y: 155 },
+        tempZIndex: 1,
+        zIndex: 1,
+      });
+      expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
+        height: 130,
+        width: 150,
+        x: 35,
+        y: 55,
+      });
+    } finally {
+      await overlay.unmount();
+    }
+  });
+
   it("refreshes selection bounds when keyboard nudge skips a locked selected node", () => {
     loadProjectStateForSections([
       { id: "section-a" },
@@ -232,10 +478,57 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
   });
 });
 
+type QueuedAnimationFrame = {
+  readonly callback: FrameRequestCallback;
+  canceled: boolean;
+  readonly id: number;
+};
+
+let nextAnimationFrameId = 1;
+let queuedAnimationFrames: QueuedAnimationFrame[] = [];
+
 type MovementSectionInput = {
   readonly id: string;
   readonly positionAndSizeLocked?: boolean | undefined;
 };
+
+type MovementNodeInput = {
+  readonly height: number;
+  readonly id: string;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex: number;
+};
+
+function node(
+  id: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  zIndex: number,
+): MovementNodeInput {
+  return { height, id, width, x, y, zIndex };
+}
+
+function loadNodeInternals(nodes: readonly MovementNodeInput[]) {
+  useNodeInternals.setState({
+    x: new Map(
+      nodes.map((item) => [
+        item.id,
+        {
+          height: item.height,
+          id: item.id,
+          position: { x: item.x, y: item.y },
+          tempZIndex: item.zIndex,
+          width: item.width,
+          zIndex: item.zIndex,
+        },
+      ]),
+    ),
+  });
+}
 
 function loadProjectStateForSections(
   sections: readonly MovementSectionInput[],
@@ -286,6 +579,98 @@ function loadProjectStateForSections(
       sectionVariants,
     }),
   );
+}
+
+async function renderSelectionOverlay(snapToGrid = false) {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => {
+    root.render(
+      createElement(GpuProjectNodesSelectionOverlay, {
+        snapToGrid,
+      }),
+    );
+  });
+  const rect = host.querySelector<HTMLDivElement>(
+    `.${GPU_FLOW_CLASS_NAMES.nodesSelectionRect}`,
+  );
+  if (!rect) {
+    throw new Error("Expected rendered GPU selection bounds rect.");
+  }
+  const setPointerCapture = vi.fn();
+  const releasePointerCapture = vi.fn();
+  rect.setPointerCapture = setPointerCapture;
+  rect.releasePointerCapture = releasePointerCapture;
+  return {
+    host,
+    rect,
+    releasePointerCapture,
+    root,
+    setPointerCapture,
+    unmount: async () => {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    },
+  };
+}
+
+function dispatchPointerEvent(
+  target: Element,
+  type: string,
+  init: PointerEventInit,
+) {
+  target.dispatchEvent(createPointerEvent(type, init));
+}
+
+function createPointerEvent(
+  type: string,
+  init: PointerEventInit,
+): PointerEvent {
+  if (typeof PointerEvent === "function") {
+    return new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+  }
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    button: init.button,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  }) as PointerEvent;
+  Object.defineProperties(event, {
+    pointerId: { value: init.pointerId ?? 1 },
+    pointerType: { value: init.pointerType ?? "mouse" },
+  });
+  return event;
+}
+
+function runNextAnimationFrame(): boolean {
+  while (queuedAnimationFrames.length > 0) {
+    const frame = queuedAnimationFrames.shift();
+    if (!frame || frame.canceled) {
+      continue;
+    }
+    frame.callback(0);
+    return true;
+  }
+  return false;
+}
+
+function flushQueuedAnimationFrames() {
+  for (let index = 0; index < 50 && runNextAnimationFrame(); index += 1) {
+    // Continue until queued callbacks, including coalesced handle updates, run.
+  }
+}
+
+function resetQueuedAnimationFrames() {
+  nextAnimationFrameId = 1;
+  queuedAnimationFrames = [];
 }
 
 function resetGpuViewportState() {
