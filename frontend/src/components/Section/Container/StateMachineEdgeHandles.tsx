@@ -1,3 +1,7 @@
+import {
+  getProjectGpuHandleConnectionProps,
+  getProjectGpuReverseStartHandleConnectionProps,
+} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "gpuFlow/Handle";
 import { useNodeId } from "gpuFlow/NodeIdContext";
@@ -298,30 +302,6 @@ function StateMachineHandleGroup({
     <>
       <div aria-hidden="true" className={group.safeZoneClassName} />
       {group.handles.map((handle) => {
-        const floatingBoxHandlers = handle.floatingBoxContent
-          ? getFloatingBoxHandlers({
-              content: handle.floatingBoxContent,
-            })
-          : {};
-        const optionalHandleProps = {
-          ...(handle.dataReverseStart === undefined
-            ? {}
-            : { "data-reverse-start": handle.dataReverseStart }),
-          ...(handle.ariaHidden === undefined
-            ? {}
-            : { "aria-hidden": handle.ariaHidden }),
-          ...(handle.tabIndex === undefined
-            ? {}
-            : { tabIndex: handle.tabIndex }),
-          ...(handle.connectionStartSemanticType === undefined
-            ? {}
-            : {
-                connectionStartSemanticType: handle.connectionStartSemanticType,
-              }),
-          ...(handle.ariaLabel === undefined
-            ? {}
-            : { "aria-label": handle.ariaLabel }),
-        };
         return (
           <Handle
             key={`${group.side}-${handle.id}`}
@@ -333,15 +313,50 @@ function StateMachineHandleGroup({
             isConnectable={canEditStructure}
             isConnectableStart={canEditStructure && handle.isConnectableStart}
             isConnectableEnd={canEditStructure && handle.isConnectableEnd}
+            {...getStateMachineHandleConnectionProps(handle)}
             isValidConnection={isValidStateMachineEdgeConnection}
             onConnect={createStateMachineEdgeFromConnection}
-            {...optionalHandleProps}
-            {...floatingBoxHandlers}
+            {...getStateMachineHandleOptionalProps(handle)}
+            {...getStateMachineHandleFloatingBoxHandlers(handle)}
           />
         );
       })}
     </>
   );
+}
+
+function getStateMachineHandleConnectionProps(handle: HandleRenderConfig) {
+  return handle.dataReverseStart === "true"
+    ? getProjectGpuReverseStartHandleConnectionProps(handle.id)
+    : getProjectGpuHandleConnectionProps(handle.id);
+}
+
+function getStateMachineHandleFloatingBoxHandlers(handle: HandleRenderConfig) {
+  return handle.floatingBoxContent
+    ? getFloatingBoxHandlers({
+        content: handle.floatingBoxContent,
+      })
+    : {};
+}
+
+function getStateMachineHandleOptionalProps(handle: HandleRenderConfig) {
+  return {
+    ...(handle.dataReverseStart === undefined
+      ? {}
+      : { "data-reverse-start": handle.dataReverseStart }),
+    ...(handle.ariaHidden === undefined
+      ? {}
+      : { "aria-hidden": handle.ariaHidden }),
+    ...(handle.tabIndex === undefined ? {} : { tabIndex: handle.tabIndex }),
+    ...(handle.connectionStartSemanticType === undefined
+      ? {}
+      : {
+          connectionStartSemanticType: handle.connectionStartSemanticType,
+        }),
+    ...(handle.ariaLabel === undefined
+      ? {}
+      : { "aria-label": handle.ariaLabel }),
+  };
 }
 
 export function StateMachineEdgeHandles({

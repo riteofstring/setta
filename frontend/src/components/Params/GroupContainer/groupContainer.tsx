@@ -4,6 +4,8 @@ import { HandlePosition } from "gpuFlow/flowTypes";
 
 import { Handle } from "gpuFlow/Handle";
 
+import { getProjectGpuHandleConnectionProps } from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
+
 import _ from "lodash";
 
 import React, {
@@ -416,6 +418,7 @@ export function EdgeInputPortRow({
       : appearance.edgeRowTextColorClassName
   } ${isSelectingParams ? "cursor-pointer" : ""} ${appearance.rowPreventSectionClassName}`;
   const handleClassName = `arg-edge-handle arg-edge-handle--target ${appearance.handlePreventSectionClassName} ${appearance.handleSelectableClassName}`;
+  const connectionProps = getProjectGpuHandleConnectionProps(port.id);
 
   return (
     <div
@@ -435,6 +438,7 @@ export function EdgeInputPortRow({
         position={HandlePosition.Left}
         onConnect={createEdgeFromConnection}
         isValidConnection={isValidDataEdgeConnection}
+        {...connectionProps}
         isConnectable={canConnect}
         isConnectableStart={canConnect}
         isConnectableEnd={canConnect}
@@ -457,6 +461,8 @@ export function EdgeOutputPortRow({
   canConnect: boolean;
   appearance: EdgeStripAppearance;
 }) {
+  const connectionProps = getProjectGpuHandleConnectionProps(port.id);
+
   return (
     <div
       className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowTextColorClassName} ${appearance.edgeRowHoverClassName}`}
@@ -468,6 +474,7 @@ export function EdgeOutputPortRow({
         position={HandlePosition.Right}
         onConnect={createEdgeFromConnection}
         isValidConnection={isValidDataEdgeConnection}
+        {...connectionProps}
         isConnectable={canConnect}
         isConnectableStart={canConnect}
         isConnectableEnd={canConnect}

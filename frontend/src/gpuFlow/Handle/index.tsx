@@ -68,8 +68,10 @@ function HandleComponent({
   isConnectableEnd = true,
   connectionStartSemanticType,
   id,
+  isConnectionCandidateAllowed,
   isValidConnection,
   onConnect,
+  pointerUpSnapRadius,
   className,
   onMouseDown,
   onTouchStart,
@@ -144,7 +146,9 @@ function HandleComponent({
         onConnect: onConnectExtended,
         isTarget: (connectionStartSemanticType ?? type) === "target",
         store: gpuFlowViewportStore,
+        isConnectionCandidateAllowed,
         isValidConnection: isValidConnection ?? alwaysValid,
+        pointerUpSnapRadius,
       });
     }
 

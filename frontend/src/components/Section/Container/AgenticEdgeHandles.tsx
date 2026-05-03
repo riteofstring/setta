@@ -1,3 +1,7 @@
+import {
+  getProjectGpuHandleConnectionProps,
+  getProjectGpuReverseStartHandleConnectionProps,
+} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "gpuFlow/Handle";
 import { useNodeId } from "gpuFlow/NodeIdContext";
@@ -73,6 +77,9 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
+        {...getProjectGpuReverseStartHandleConnectionProps(
+          AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+        )}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
       />
@@ -84,6 +91,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
+        {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.target)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
         aria-label="Agentic link target"
@@ -103,6 +111,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
+        {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.source)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
         aria-label="Agentic link source"

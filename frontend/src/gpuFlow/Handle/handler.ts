@@ -3,9 +3,12 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
 import { useLocalStorage } from "state/definitions";
-import type { Connection, HandleType } from "../flowTypes";
+import type {
+  Connection,
+  HandleConnectionCandidateFilter,
+  HandleType,
+} from "../flowTypes";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
@@ -49,9 +52,11 @@ export function handlePointerDown({
   onConnect,
   isTarget,
   store,
+  isConnectionCandidateAllowed,
   isValidConnection,
   edgeUpdaterType,
   onReconnectEnd,
+  pointerUpSnapRadius,
 }: {
   event: GpuHandlePointerStartEvent;
   handleId: string | null;
@@ -60,9 +65,11 @@ export function handlePointerDown({
   onConnect: (connection: Connection) => void;
   isTarget: boolean;
   store: GpuFlowViewportStoreApi;
+  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection: ValidConnectionFunc;
   edgeUpdaterType?: HandleType;
   onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
+  pointerUpSnapRadius?: number;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
   const usePointerEvents = isNativePointerEvent(event);
@@ -113,12 +120,7 @@ export function handlePointerDown({
       isValidConnection,
       doc,
     });
-  const shouldFilterByAgentic = handleId !== null;
-  const allowHandle = shouldFilterByAgentic
-    ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
-        return canConnectHandleFamilies(handleId, handle.portId);
-      }
-    : null;
+  const allowHandle = isConnectionCandidateAllowed ?? null;
 
   const getClosestHandleForEvent = ({
     event,
@@ -230,7 +232,11 @@ export function handlePointerDown({
     connection: Connection | null;
     isValid: boolean;
   } => {
-    if (closestHandle || !handleId?.includes("reverse")) {
+    const snapRadius = getPointerUpSnapRadius(
+      pointerUpSnapRadius,
+      connectionRadius,
+    );
+    if (closestHandle || snapRadius === null) {
       return {
         closestHandle,
         connection,
@@ -238,16 +244,16 @@ export function handlePointerDown({
       };
     }
 
-    const fallback = getClosestHandleForEvent({
+    const snapped = getClosestHandleForEvent({
       event,
       position: getEventPosition(event, containerBounds),
-      radius: Math.max(connectionRadius, 80),
+      radius: snapRadius,
     });
 
     return {
-      closestHandle: fallback.handle,
-      connection: fallback.validHandleResult.connection,
-      isValid: fallback.validHandleResult.isValid,
+      closestHandle: snapped.handle,
+      connection: snapped.validHandleResult.connection,
+      isValid: snapped.validHandleResult.isValid,
     };
   };
 
@@ -433,4 +439,19 @@ function isNativePointerEvent(
     event instanceof PointerEvent &&
     event.type.startsWith("pointer")
   );
+}
+
+function getPointerUpSnapRadius(
+  pointerUpSnapRadius: number | null | undefined,
+  connectionRadius: number,
+): number | null {
+  if (
+    pointerUpSnapRadius === null ||
+    pointerUpSnapRadius === undefined ||
+    !Number.isFinite(pointerUpSnapRadius) ||
+    pointerUpSnapRadius <= 0
+  ) {
+    return null;
+  }
+  return Math.max(connectionRadius, pointerUpSnapRadius);
 }

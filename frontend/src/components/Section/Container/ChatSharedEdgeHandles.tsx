@@ -1,3 +1,7 @@
+import {
+  getProjectGpuHandleConnectionProps,
+  getProjectGpuReverseStartHandleConnectionProps,
+} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "gpuFlow/Handle";
 import { useNodeId } from "gpuFlow/NodeIdContext";
@@ -111,6 +115,9 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
+        {...getProjectGpuReverseStartHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
       />
@@ -123,6 +130,9 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
+        {...getProjectGpuHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.target,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat input"
@@ -143,6 +153,9 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
+        {...getProjectGpuHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.source,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat output"

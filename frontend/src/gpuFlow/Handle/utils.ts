@@ -1,4 +1,9 @@
-import type { Connection, ConnectionMode, HandleType } from "../flowTypes";
+import type {
+  Connection,
+  ConnectionMode,
+  HandleConnectionCandidate,
+  HandleType,
+} from "../flowTypes";
 import { GPU_FLOW_CLASS_NAMES, GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import {
   getGpuFlowPortDescriptor,
@@ -64,9 +69,7 @@ type ResolvedHandleTarget = {
   isConnectableEnd: boolean;
 };
 
-type AllowHandleFunc =
-  | ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean)
-  | null;
+type AllowHandleFunc = ((handle: HandleConnectionCandidate) => boolean) | null;
 
 type ClosestHandleResult = {
   handle: ConnectionHandle | null;
@@ -300,9 +303,15 @@ export function isValidHandle({
 
 function isHandleAllowed(
   allowHandle: AllowHandleFunc,
-  handle: Pick<ConnectionHandle, "portId" | "type">,
+  handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
 ): boolean {
-  return allowHandle?.(handle) ?? true;
+  return (
+    allowHandle?.({
+      handleId: handle.portId,
+      sectionId: handle.sectionId,
+      type: handle.type,
+    }) ?? true
+  );
 }
 
 function getMatchingConnectionHandle(

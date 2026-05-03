@@ -51,6 +51,16 @@ export type Connection = {
   targetHandle: string | null;
 };
 
+export type HandleConnectionCandidate = {
+  sectionId: string;
+  handleId: string | null;
+  type: HandleType | null;
+};
+
+export type HandleConnectionCandidateFilter = (
+  candidate: HandleConnectionCandidate,
+) => boolean;
+
 export type ConnectingHandle = {
   sectionId: string;
   type: HandleType;
@@ -72,6 +82,8 @@ export type HandleProps = {
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
   connectionStartSemanticType?: HandleType;
+  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
   onConnect?: (connection: Connection) => void;
+  pointerUpSnapRadius?: number;
 };

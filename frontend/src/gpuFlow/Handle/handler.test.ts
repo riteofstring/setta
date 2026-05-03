@@ -169,6 +169,137 @@ describe("GPU edge handle connection lifecycle", () => {
     expect(store.getState().connectionStartHandle).toBeNull();
     expect(onConnect).not.toHaveBeenCalled();
   });
+
+  it("applies caller-owned candidate filtering before validating nearby handles", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    registerTargetHandle(targetHandle);
+    mockElementFromPoint(sourceHandle);
+    mockElementsFromPoint([targetHandle]);
+    const onConnect = vi.fn();
+    const isConnectionCandidateAllowed = vi.fn(() => false);
+    const isValidConnection = vi.fn(() => true);
+
+    handlePointerDown({
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      handleId: "out",
+      isConnectionCandidateAllowed,
+      isTarget: false,
+      isValidConnection,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      store,
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 100,
+      }),
+    );
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 100,
+      }),
+    );
+
+    expect(isConnectionCandidateAllowed).toHaveBeenCalledWith({
+      handleId: "in",
+      sectionId: "target",
+      type: "target",
+    });
+    expect(isValidConnection).not.toHaveBeenCalled();
+    expect(onConnect).not.toHaveBeenCalled();
+  });
+
+  it("does not infer pointer-up snap radius from reverse handle ids", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    registerTargetHandle(targetHandle);
+    mockElementFromPoint(sourceHandle);
+    mockElementsFromPoint([]);
+    const onConnect = vi.fn();
+
+    handlePointerDown({
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      handleId: "reverse-start",
+      isTarget: false,
+      isValidConnection: () => true,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      store,
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 250,
+        clientY: 100,
+      }),
+    );
+
+    expect(onConnect).not.toHaveBeenCalled();
+  });
+
+  it("uses caller-owned pointer-up snap radius when no active handle was tracked", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    registerTargetHandle(targetHandle);
+    mockElementFromPoint(sourceHandle);
+    mockElementsFromPoint([]);
+    const onConnect = vi.fn();
+
+    handlePointerDown({
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      handleId: "reverse-start",
+      isTarget: false,
+      isValidConnection: () => true,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      pointerUpSnapRadius: 80,
+      store,
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 250,
+        clientY: 100,
+      }),
+    );
+
+    expect(onConnect).toHaveBeenCalledWith({
+      source: "source",
+      sourceHandle: "reverse-start",
+      target: "target",
+      targetHandle: "in",
+    });
+  });
 });
 
 function createHandleFixture(): {
