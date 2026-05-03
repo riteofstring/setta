@@ -98,7 +98,10 @@ Loop-specific guardrails:
   visual blockers. The full Settings pane and every `settings-all-settings-*`
   section fixture must match the primary baseline, including typography, row
   spacing, label/control geometry, dropdowns, color pickers, switches, sliders,
-  text inputs, and section chrome.
+  text-input bounds/shells, and section chrome. Inactive CodeMirror-like text
+  previews are renderer-aware canvas previews: do not attempt to pixel-match
+  CodeMirror token spans or syntax colors until the control is activated and
+  the real DOM editor is mounted.
 - Synthetic param-control fixtures are still required, but they are not enough
   to declare parity. When a visible renderer/control change needs broader
   coverage, expand `scripts/gpuflow-visual-fidelity-checkpoint.mjs` instead of
@@ -109,9 +112,12 @@ Loop-specific guardrails:
   whether it is fixture instability or real rendering drift, fix the fixture or
   product code accordingly, rerun the checkpoint, and update
   `perf/visual-fidelity/2026-05-05-gpuflow-full-scene/review.md`.
-- Do not loosen checkpoint thresholds, delete fixtures, or mark a blocker as
-  `accepted-difference` unless the diff has been inspected and the reason is
-  documented in `review.md`.
+- Do not loosen checkpoint thresholds, delete fixtures, add broad screenshot
+  masks, or mark a blocker as `accepted-difference` unless the diff has been
+  inspected and the reason is documented in `review.md`. The only default
+  renderer-aware mask is inactive CodeMirror preview glyph/token pixels; active
+  CodeMirror DOM and surrounding text-field layout remain strict visual
+  targets.
 - Do not emit `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE`
   while required checkpoint fixtures have unexplained `blocking-regression`,
   `capture-blocked`, or runtime page-error groups.

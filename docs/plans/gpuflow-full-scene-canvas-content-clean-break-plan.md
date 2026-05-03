@@ -442,7 +442,12 @@ Each DOM island should have:
 - dirtying behavior tied to the island, not the whole section
 
 Inactive CodeMirror-like controls should render as canvas text/control
-primitives. Mount the real DOM editor only on focus/activation.
+primitives. Mount the real DOM editor only on focus/activation. The inactive
+canvas preview must preserve the control's bounds, shell, readable typography,
+text content, whitespace/line breaks where relevant, clipping, and activation
+affordance, but it is not required to pixel-match CodeMirror token spans,
+syntax colors, or other CodeMirror CSS internals. Syntax-highlight fidelity is
+required only after activation, when the real DOM editor is mounted.
 
 ### Port And Edge Geometry
 
@@ -732,6 +737,14 @@ The current checkpoint artifact path is:
 
 `perf/visual-fidelity/2026-05-05-gpuflow-full-scene/`
 
+The checkpoint uses renderer-aware comparison for inactive CodeMirror-like
+text previews. It masks only inactive preview glyph/token pixels collected from
+`TextInputCodeMirror` dummy surfaces and still compares the surrounding field
+geometry, row spacing, label/control placement, section chrome, and active
+CodeMirror DOM. Do not try to satisfy this checkpoint by reimplementing
+CodeMirror syntax highlighting in canvas or by adding hardcoded token-color
+rules.
+
 The checkpoint compares:
 
 - `baseline-primary`: `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d`
@@ -810,6 +823,12 @@ Expanding checkpoint coverage:
   attachment display states. Do not try to create an exhaustive Cartesian
   product; add focused coverage when a control family or state moves ownership
   to canvas.
+- For inactive CodeMirror-like text fields, visual coverage should verify the
+  preview contract: correct bounds, shell, placement, readable text, clipping,
+  and activation affordance. Token-level syntax styling is intentionally outside
+  the inactive canvas-preview target. Add focused scene/model tests when text
+  content or whitespace preservation needs stronger evidence than screenshots
+  can provide.
 - Rerun the checkpoint with Chrome for Testing 149 after adding coverage, commit
   the updated artifact set or a newer timestamped artifact directory, and update
   `review.md` with any accepted differences or remaining blockers.
@@ -829,9 +848,12 @@ Loop visual-fidelity requirements:
 - Any visible renderer/control change must update this checkpoint artifact set
   or create a newer timestamped artifact directory with the same fixture
   coverage.
-- Do not loosen pixel thresholds, delete fixtures, or mark a blocker as
-  `accepted-difference` unless the diff has been inspected and the reason is
-  documented in `review.md`.
+- Do not loosen pixel thresholds, delete fixtures, add broad screenshot masks,
+  or mark a blocker as `accepted-difference` unless the diff has been inspected
+  and the reason is documented in `review.md`. The default renderer-aware mask
+  is limited to inactive CodeMirror preview glyph/token pixels; active
+  CodeMirror DOM and surrounding text-field layout remain strict visual
+  targets.
 - If a blocker is caused by nondeterministic capture, framing, waiting, or
   fixture setup rather than product rendering, fix the checkpoint script or
   fixture first and rerun it.

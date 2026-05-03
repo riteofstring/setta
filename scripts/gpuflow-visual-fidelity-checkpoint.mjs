@@ -40,6 +40,24 @@ if (process.platform === "darwin") {
 }
 const chromeExecutablePath = resolveChromeExecutablePath();
 const chromeVersion = resolveChromeVersion(chromeExecutablePath);
+const pixelDiffTolerance = {
+  changedPixelRatio: 0.02,
+  meanAbsoluteChannelDelta: 8,
+};
+const rendererAwareVisualComparisonPolicy = {
+  inactiveCodeMirrorPreviewText: {
+    description:
+      [
+        "Inactive TextInputCodeMirror dummy previews are canvas/text-control",
+        "previews in the clean-break renderer. Compare surrounding layout and",
+        "active CodeMirror DOM, but ignore inactive preview glyph/token pixels",
+        "because CodeMirror CSS syntax highlighting is not a required canvas",
+        "parity target.",
+      ].join(" "),
+    maskPaddingPx: 2,
+    selectors: ['[data-gpu-flow-control^="codemirror:"]'],
+  },
+};
 
 const runs = [
   {
@@ -267,6 +285,7 @@ const manifest = {
   fixtureDefinitions,
   primaryRepoRoot,
   repoRoot,
+  rendererAwareVisualComparisonPolicy,
   runs: [],
   viewports,
   worktreeRoot,
@@ -1454,6 +1473,11 @@ async function capturePane(
       .locator(".setta-gpu-flow__pane, .setta-gpu-flow-root")
       .first();
     await pane.waitFor({ state: "visible", timeout: 30000 });
+    const captureArea = await resolveLocatorScreenshotArea(pane);
+    record.rendererAwareMasks = await collectRendererAwareMasks(
+      page,
+      captureArea,
+    );
     await pane.screenshot({ path: capturePath, timeout: 30000 });
     record.status = "captured";
   } catch (err) {
@@ -1492,6 +1516,7 @@ async function captureSectionClip({
         position,
         sectionId,
       });
+      record.rendererAwareMasks = await collectRendererAwareMasks(page, clip);
       await page.screenshot({
         clip,
         path: capturePath,
@@ -1504,6 +1529,178 @@ async function captureSectionClip({
     record.error = String(err);
   }
   runRecord.captures.push(record);
+}
+
+async function resolveLocatorScreenshotArea(locator) {
+  const box = await locator.boundingBox({ timeout: 30000 });
+  if (!box || box.width <= 0 || box.height <= 0) {
+    throw new Error("Cannot resolve visible screenshot area.");
+  }
+  return {
+    height: Math.ceil(box.height),
+    width: Math.ceil(box.width),
+    x: Math.floor(box.x),
+    y: Math.floor(box.y),
+  };
+}
+
+async function collectRendererAwareMasks(page, captureArea) {
+  return await page.evaluate(
+    ({ captureArea, policy }) => {
+      const masks = [];
+      const codeMirrorPreviewSelector =
+        policy.inactiveCodeMirrorPreviewText.selectors.join(", ");
+      const padding = policy.inactiveCodeMirrorPreviewText.maskPaddingPx;
+      for (const element of document.querySelectorAll(
+        codeMirrorPreviewSelector,
+      )) {
+        if (!(element instanceof HTMLElement)) {
+          continue;
+        }
+        if (!isInactiveCodeMirrorPreview(element)) {
+          continue;
+        }
+        const elementId = element.id || null;
+        const control = element.getAttribute("data-gpu-flow-control");
+        for (const rect of collectTextClientRects(element)) {
+          const mask = clampMaskRect(rect, captureArea, padding);
+          if (mask) {
+            masks.push({
+              ...mask,
+              control,
+              elementId,
+              kind: "inactive-codemirror-preview-text",
+              reason:
+                "Inactive canvas preview text is not required to match CodeMirror token styling.",
+            });
+          }
+        }
+      }
+      return mergeMaskRects(masks);
+
+      function isInactiveCodeMirrorPreview(element) {
+        if (
+          element.matches(".cm-editor") ||
+          element.querySelector(".cm-editor")
+        ) {
+          return false;
+        }
+        if (
+          element === document.activeElement ||
+          element.contains(document.activeElement)
+        ) {
+          return false;
+        }
+        const style = window.getComputedStyle(element);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          Number(style.opacity) === 0
+        ) {
+          return false;
+        }
+        const box = element.getBoundingClientRect();
+        if (box.width <= 0 || box.height <= 0) {
+          return false;
+        }
+        return rectsIntersect(box, captureArea);
+      }
+
+      function collectTextClientRects(root) {
+        const rects = [];
+        const walker = document.createTreeWalker(
+          root,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode(node) {
+              return /\S/.test(node.textContent || "")
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT;
+            },
+          },
+        );
+        const range = document.createRange();
+        try {
+          for (
+            let node = walker.nextNode();
+            node;
+            node = walker.nextNode()
+          ) {
+            range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              if (rect.width > 0 && rect.height > 0) {
+                rects.push(rect);
+              }
+            }
+          }
+        } finally {
+          range.detach();
+        }
+        return rects;
+      }
+
+      function clampMaskRect(rect, area, extraPadding) {
+        const left = Math.max(
+          0,
+          Math.floor(rect.left - area.x - extraPadding),
+        );
+        const top = Math.max(0, Math.floor(rect.top - area.y - extraPadding));
+        const right = Math.min(
+          Math.ceil(area.width),
+          Math.ceil(rect.right - area.x + extraPadding),
+        );
+        const bottom = Math.min(
+          Math.ceil(area.height),
+          Math.ceil(rect.bottom - area.y + extraPadding),
+        );
+        const width = right - left;
+        const height = bottom - top;
+        if (width <= 0 || height <= 0) {
+          return null;
+        }
+        return { height, width, x: left, y: top };
+      }
+
+      function mergeMaskRects(rects) {
+        const merged = [];
+        for (const rect of rects.sort(
+          (left, right) => left.y - right.y || left.x - right.x,
+        )) {
+          const previous = merged[merged.length - 1];
+          if (
+            previous &&
+            previous.kind === rect.kind &&
+            previous.elementId === rect.elementId &&
+            previous.control === rect.control &&
+            Math.abs(previous.y - rect.y) <= 1 &&
+            Math.abs(previous.height - rect.height) <= 2 &&
+            rect.x <= previous.x + previous.width + 4
+          ) {
+            const nextRight = Math.max(
+              previous.x + previous.width,
+              rect.x + rect.width,
+            );
+            previous.x = Math.min(previous.x, rect.x);
+            previous.width = nextRight - previous.x;
+            previous.height = Math.max(previous.height, rect.height);
+            continue;
+          }
+          merged.push({ ...rect });
+        }
+        return merged;
+      }
+
+      function rectsIntersect(left, right) {
+        return !(
+          left.right <= right.x ||
+          left.left >= right.x + right.width ||
+          left.bottom <= right.y ||
+          left.top >= right.y + right.height
+        );
+      }
+    },
+    { captureArea, policy: rendererAwareVisualComparisonPolicy },
+  );
 }
 
 function sectionLocator(page, sectionId) {
@@ -1802,6 +1999,7 @@ async function comparePrimaryAndCandidate() {
         page,
         referenceCapture.path,
         candidateCapture.path,
+        mergeComparisonMasks(referenceCapture, candidateCapture),
       );
       review.diff = diff.summary;
       if (diff.diffPngBase64) {
@@ -1812,14 +2010,21 @@ async function comparePrimaryAndCandidate() {
         review.status = "blocking-regression";
         review.reason = "Screenshot dimensions do not match.";
       } else if (
-        diff.summary.changedPixelRatio <= 0.02 &&
-        diff.summary.meanAbsoluteChannelDelta <= 8
+        diff.summary.changedPixelRatio <= pixelDiffTolerance.changedPixelRatio &&
+        diff.summary.meanAbsoluteChannelDelta <=
+          pixelDiffTolerance.meanAbsoluteChannelDelta
       ) {
         review.status = "pass";
-        review.reason = "Automated pixel diff is within checkpoint tolerance.";
+        review.reason =
+          diff.summary.maskedPixelCount > 0
+            ? "Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks."
+            : "Automated pixel diff is within checkpoint tolerance.";
       } else {
         review.status = "blocking-regression";
-        review.reason = "Automated pixel diff exceeds checkpoint tolerance.";
+        review.reason =
+          diff.summary.maskedPixelCount > 0
+            ? "Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks."
+            : "Automated pixel diff exceeds checkpoint tolerance.";
       }
       reviewRows.push(review);
     }
@@ -1828,13 +2033,26 @@ async function comparePrimaryAndCandidate() {
   }
 }
 
-async function compareImages(page, referencePath, candidatePath) {
+function mergeComparisonMasks(referenceCapture, candidateCapture) {
+  const masks = [];
+  for (const [source, capture] of [
+    ["reference", referenceCapture],
+    ["candidate", candidateCapture],
+  ]) {
+    for (const mask of capture?.rendererAwareMasks ?? []) {
+      masks.push({ ...mask, source });
+    }
+  }
+  return masks;
+}
+
+async function compareImages(page, referencePath, candidatePath, masks) {
   const [referenceData, candidateData] = await Promise.all([
     readFile(referencePath),
     readFile(candidatePath),
   ]);
   return await page.evaluate(
-    async ({ candidateDataUrl, referenceDataUrl }) => {
+    async ({ candidateDataUrl, masks, referenceDataUrl }) => {
       const referenceImage = await loadImage(referenceDataUrl);
       const candidateImage = await loadImage(candidateDataUrl);
       const summary = {
@@ -1842,8 +2060,12 @@ async function compareImages(page, referencePath, candidatePath) {
         candidateWidth: candidateImage.width,
         changedPixelCount: 0,
         changedPixelRatio: 1,
+        comparedPixelCount: 0,
         maxChannelDelta: null,
         meanAbsoluteChannelDelta: null,
+        maskedPixelCount: 0,
+        maskedPixelRatio: 0,
+        maskCount: 0,
         pixelCount: 0,
         referenceHeight: referenceImage.height,
         referenceWidth: referenceImage.width,
@@ -1886,11 +2108,37 @@ async function compareImages(page, referencePath, candidatePath) {
         height,
       );
       const diffPixels = diffContext.createImageData(width, height);
+      const ignoredPixels = buildIgnoredPixels({
+        height,
+        masks,
+        width,
+      });
       let changedPixelCount = 0;
       let maxChannelDelta = 0;
       let totalChannelDelta = 0;
       const pixelCount = width * height;
+      const maskedPixelCount = ignoredPixels.maskedPixelCount;
+      const comparedPixelCount = Math.max(0, pixelCount - maskedPixelCount);
       for (let offset = 0; offset < referencePixels.data.length; offset += 4) {
+        const pixelIndex = offset / 4;
+        if (ignoredPixels.data[pixelIndex]) {
+          const referenceGray =
+            (referencePixels.data[offset] +
+              referencePixels.data[offset + 1] +
+              referencePixels.data[offset + 2]) /
+            3;
+          const candidateGray =
+            (candidatePixels.data[offset] +
+              candidatePixels.data[offset + 1] +
+              candidatePixels.data[offset + 2]) /
+            3;
+          const gray = Math.round((referenceGray + candidateGray) / 2);
+          diffPixels.data[offset] = Math.round(gray * 0.55 + 96 * 0.45);
+          diffPixels.data[offset + 1] = Math.round(gray * 0.55 + 165 * 0.45);
+          diffPixels.data[offset + 2] = Math.round(gray * 0.55 + 250 * 0.45);
+          diffPixels.data[offset + 3] = 135;
+          continue;
+        }
         let pixelMaxDelta = 0;
         let pixelTotalDelta = 0;
         for (let channel = 0; channel < 4; channel += 1) {
@@ -1937,13 +2185,53 @@ async function compareImages(page, referencePath, candidatePath) {
           ...summary,
           changedPixelCount,
           changedPixelRatio:
-            pixelCount === 0 ? 0 : changedPixelCount / pixelCount,
+            comparedPixelCount === 0
+              ? 0
+              : changedPixelCount / comparedPixelCount,
+          comparedPixelCount,
           maxChannelDelta,
           meanAbsoluteChannelDelta:
-            pixelCount === 0 ? 0 : totalChannelDelta / (pixelCount * 4),
+            comparedPixelCount === 0
+              ? 0
+              : totalChannelDelta / (comparedPixelCount * 4),
+          maskedPixelCount,
+          maskedPixelRatio:
+            pixelCount === 0 ? 0 : maskedPixelCount / pixelCount,
+          maskCount: ignoredPixels.maskCount,
           pixelCount,
         },
       };
+
+      function buildIgnoredPixels({ height, masks, width }) {
+        const data = new Uint8Array(width * height);
+        let maskedPixelCount = 0;
+        let maskCount = 0;
+        for (const mask of masks || []) {
+          const rawLeft = Number(mask.x) || 0;
+          const rawTop = Number(mask.y) || 0;
+          const rawWidth = Math.max(0, Number(mask.width) || 0);
+          const rawHeight = Math.max(0, Number(mask.height) || 0);
+          const left = Math.max(0, Math.floor(rawLeft));
+          const top = Math.max(0, Math.floor(rawTop));
+          const right = Math.min(width, Math.ceil(rawLeft + rawWidth));
+          const bottom = Math.min(height, Math.ceil(rawTop + rawHeight));
+          if (right <= left || bottom <= top) {
+            continue;
+          }
+          maskCount += 1;
+          for (let y = top; y < bottom; y += 1) {
+            const rowOffset = y * width;
+            for (let x = left; x < right; x += 1) {
+              const index = rowOffset + x;
+              if (!data[index]) {
+                data[index] = 1;
+                maskedPixelCount += 1;
+              }
+            }
+          }
+        }
+        return { data, maskCount, maskedPixelCount };
+      }
 
       function loadImage(src) {
         return new Promise((resolve, reject) => {
@@ -1957,6 +2245,7 @@ async function compareImages(page, referencePath, candidatePath) {
     },
     {
       candidateDataUrl: `data:image/png;base64,${candidateData.toString("base64")}`,
+      masks,
       referenceDataUrl: `data:image/png;base64,${referenceData.toString("base64")}`,
     },
   );
@@ -1992,6 +2281,11 @@ async function writeReview() {
   lines.push(`- Blocking regression: ${blocking.length}`);
   lines.push(`- Capture blocked: ${captureBlocked.length}`);
   lines.push(`- Runtime page error groups: ${runtimeBlockers.length}`);
+  lines.push(
+    `- Renderer-aware masked comparisons: ${
+      reviewRows.filter((row) => (row.diff?.maskedPixelCount ?? 0) > 0).length
+    }`,
+  );
   lines.push("");
   lines.push("## Runtime Signals");
   lines.push("");
@@ -2016,14 +2310,16 @@ async function writeReview() {
   lines.push("## Fixture Results");
   lines.push("");
   lines.push(
-    "| Fixture | Viewport | Status | Reason | Changed Pixels | Mean Delta |",
+    "| Fixture | Viewport | Status | Reason | Masked Pixels | Changed Pixels | Mean Delta |",
   );
-  lines.push("| --- | --- | --- | --- | ---: | ---: |");
+  lines.push("| --- | --- | --- | --- | ---: | ---: | ---: |");
   for (const row of reviewRows) {
     lines.push(
       `| ${row.fixtureId} | ${row.viewport} | ${row.status} | ${escapeTable(
         row.reason ?? "",
-      )} | ${formatRatio(row.diff?.changedPixelRatio)} | ${formatNumber(
+      )} | ${formatRatio(row.diff?.maskedPixelRatio)} | ${formatRatio(
+        row.diff?.changedPixelRatio,
+      )} | ${formatNumber(
         row.diff?.meanAbsoluteChannelDelta,
       )} |`,
     );
@@ -2058,6 +2354,12 @@ async function writeReview() {
   lines.push("");
   lines.push(
     "- `pass` means the automated pixel diff is within the temporary tolerance.",
+  );
+  lines.push(
+    "- Renderer-aware masks only cover inactive CodeMirror preview glyph/token pixels; active CodeMirror DOM and surrounding layout remain compared.",
+  );
+  lines.push(
+    "- Changed-pixel and mean-delta ratios are computed over unmasked comparable pixels.",
   );
   lines.push(
     "- `blocking-regression` means the candidate needs human review or a visual fix before the refactor loop resumes.",
