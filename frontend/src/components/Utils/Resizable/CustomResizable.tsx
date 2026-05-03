@@ -38,6 +38,12 @@ import {
 } from "utils/constants";
 import { SectionSize } from "utils/generatedTypes";
 import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
+import {
+  cancelGpuNodeDimensionSync,
+  flushGpuNodeDimensionSync,
+  scheduleGpuNodeDimensionSync,
+  type GpuNodeDimensionSyncState,
+} from "./gpuNodeDimensionSync";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -194,6 +200,10 @@ function CustomResizableCore({
   const autoSizePromotedRef = useRef(false);
   const resizeAttemptedRef = useRef(false);
   const gpuNodeResizeActiveRef = useRef(false);
+  const gpuNodeDimensionSyncRef = useRef<GpuNodeDimensionSyncState>({
+    element: null,
+    frameId: null,
+  });
   const resizeClickRef = useRef<{
     lastTimestampMs: number | null;
     lastDirection: ResizeHandleDirection | null;
@@ -207,11 +217,28 @@ function CustomResizableCore({
   };
   useEffect(() => {
     return () => {
+      cancelGpuNodeDimensionSync({
+        syncState: gpuNodeDimensionSyncRef.current,
+      });
       setGpuNodeResizeInteractionActive(false, gpuNodeResizeActiveRef);
     };
   }, []);
   function setResizeInteractionActive(active: boolean) {
     setGpuNodeResizeInteractionActive(active, gpuNodeResizeActiveRef);
+  }
+  function scheduleLiveNodeDimensionSync(ref: HTMLElement | null | undefined) {
+    scheduleGpuNodeDimensionSync({
+      element: ref,
+      sectionId,
+      syncState: gpuNodeDimensionSyncRef.current,
+    });
+  }
+  function flushLiveNodeDimensionSync(ref: HTMLElement | null | undefined) {
+    flushGpuNodeDimensionSync({
+      element: ref,
+      sectionId,
+      syncState: gpuNodeDimensionSyncRef.current,
+    });
   }
   function maybePromoteAutoSize(direction, ref) {
     if (
@@ -256,6 +283,7 @@ function CustomResizableCore({
     resizeAttemptedRef.current = true;
     doubleClickPendingRef.current = false;
     beginResize(direction, ref);
+    scheduleLiveNodeDimensionSync(ref);
   }
   function onResizePointerDown(direction: ResizeHandleDirection) {
     const { nextState, isDoubleClick } = getResizeHandleClickState({
@@ -308,6 +336,7 @@ function CustomResizableCore({
       aspectRatio,
     });
     persistSectionSizeChange(sectionId, clampedSize);
+    flushLiveNodeDimensionSync(ref);
     finishResizeStopForSection({ shouldEmitResizeEnd });
   }
   function finishResizeStopForSection({

@@ -1,6 +1,6 @@
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   clampChangedSize,
   getResizableEnable,
@@ -10,6 +10,12 @@ import {
   setGpuNodeResizeInteractionActive,
   shouldEmitResizeEndEvent,
 } from "./CustomResizable";
+import {
+  cancelGpuNodeDimensionSync,
+  flushGpuNodeDimensionSync,
+  type GpuNodeDimensionSyncState,
+  scheduleGpuNodeDimensionSync,
+} from "./gpuNodeDimensionSync";
 import { SIZE_MODE } from "./utils";
 
 describe("clampChangedSize", () => {
@@ -123,6 +129,105 @@ describe("resize GPU interaction ownership", () => {
         expect(className).toContain(NO_PAN_CLASS_NAME);
       }
     }
+  });
+});
+
+describe("resize GPU node dimension sync", () => {
+  function createSyncState(): GpuNodeDimensionSyncState {
+    return { element: null, frameId: null };
+  }
+
+  it("batches resize measurements onto one animation frame and keeps the latest element", () => {
+    const callbacks: FrameRequestCallback[] = [];
+    const requestFrame = vi.fn((callback: FrameRequestCallback) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    });
+    const updateDimensions = vi.fn();
+    const syncState = createSyncState();
+    const firstElement = { marker: "first" } as unknown as HTMLElement;
+    const secondElement = { marker: "second" } as unknown as HTMLElement;
+
+    scheduleGpuNodeDimensionSync({
+      element: firstElement,
+      sectionId: "section-1",
+      syncState,
+      options: { requestFrame, updateDimensions },
+    });
+    scheduleGpuNodeDimensionSync({
+      element: secondElement,
+      sectionId: "section-1",
+      syncState,
+      options: { requestFrame, updateDimensions },
+    });
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(updateDimensions).not.toHaveBeenCalled();
+
+    callbacks[0]?.(100);
+
+    expect(updateDimensions).toHaveBeenCalledWith([
+      {
+        id: "section-1",
+        nodeElement: secondElement,
+        forceUpdate: true,
+      },
+    ]);
+    expect(syncState).toEqual({ element: null, frameId: null });
+  });
+
+  it("flushes the final resize measurement synchronously and cancels pending work", () => {
+    const requestFrame = vi.fn(() => 42);
+    const cancelFrame = vi.fn();
+    const updateDimensions = vi.fn();
+    const syncState = createSyncState();
+    const pendingElement = { marker: "pending" } as unknown as HTMLElement;
+    const finalElement = { marker: "final" } as unknown as HTMLElement;
+
+    scheduleGpuNodeDimensionSync({
+      element: pendingElement,
+      sectionId: "section-1",
+      syncState,
+      options: { requestFrame, updateDimensions },
+    });
+    flushGpuNodeDimensionSync({
+      element: finalElement,
+      sectionId: "section-1",
+      syncState,
+      options: { cancelFrame, updateDimensions },
+    });
+
+    expect(cancelFrame).toHaveBeenCalledWith(42);
+    expect(updateDimensions).toHaveBeenCalledWith([
+      {
+        id: "section-1",
+        nodeElement: finalElement,
+        forceUpdate: true,
+      },
+    ]);
+    expect(syncState).toEqual({ element: null, frameId: null });
+  });
+
+  it("cancels queued resize measurement work without publishing dimensions", () => {
+    const requestFrame = vi.fn(() => 13);
+    const cancelFrame = vi.fn();
+    const updateDimensions = vi.fn();
+    const syncState = createSyncState();
+
+    scheduleGpuNodeDimensionSync({
+      element: { marker: "pending" } as unknown as HTMLElement,
+      sectionId: "section-1",
+      syncState,
+      options: { requestFrame, updateDimensions },
+    });
+    cancelGpuNodeDimensionSync({
+      syncState,
+      options: { cancelFrame },
+    });
+
+    expect(cancelFrame).toHaveBeenCalledWith(13);
+    expect(updateDimensions).not.toHaveBeenCalled();
+    expect(syncState).toEqual({ element: null, frameId: null });
   });
 });
 
