@@ -31,7 +31,6 @@ import {
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 
 import {
-  useLocalStorage,
   useProjectState,
   useResizeEvent,
   useTemporaryMiscState,
@@ -45,7 +44,6 @@ import { C } from "utils/c";
 
 import {
   getParamsFixedHeightKey,
-  getSectionStylePreviewColorKey,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -58,8 +56,6 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
@@ -67,6 +63,7 @@ import {
 
 import { attachParamAreaObservers } from "../paramAreaObservers";
 
+import { resolveThemeClassName } from "../sectionStyleTheme";
 import {
   EdgesStrip,
   filterEdgeInputs,
@@ -237,30 +234,6 @@ function normalizeRequiredParamIdsToPaths(
     normalized[paramId] = path;
   }
   return normalized;
-}
-
-export function useHasSectionStyleTheme(
-  sectionId: string,
-  styleColor: string | null,
-) {
-  const darkMode = useLocalStorage((x) => x.darkMode);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (x) => x[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  return Boolean(
-    resolvedStyleColor && deriveSectionStyleTheme(resolvedStyleColor, darkMode),
-  );
-}
-
-export function resolveThemeClassName(
-  hasSectionStyleTheme: boolean,
-  themedClassName: string,
-  fallbackClassName: string,
-) {
-  return hasSectionStyleTheme ? themedClassName : fallbackClassName;
 }
 
 export function getRoundedBottomClassName(

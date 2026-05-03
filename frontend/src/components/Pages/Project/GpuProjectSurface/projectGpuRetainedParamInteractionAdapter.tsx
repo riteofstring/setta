@@ -1,6 +1,11 @@
 import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateIndexContext";
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
+import {
+  resolveParamBackgroundClass,
+  resolveParamBorderClass,
+} from "components/Params/paramRowAppearance";
+import { useHasSectionStyleTheme } from "components/Params/sectionStyleTheme";
 import type { Connection, GpuFlowConnectionContext } from "gpuFlow/flowTypes";
 import type { GpuRetainedContentConnectionOptions } from "gpuFlow/interactions/retainedContentConnection";
 import type {
@@ -40,6 +45,7 @@ import { moveParamsWithBackend } from "state/actions/params/moveParams";
 import { buildParamDuplicateIndexIfPresent } from "state/actions/params/paramDuplicateIndex";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
@@ -47,8 +53,18 @@ import {
   isValidStateMachineEdgeConnection,
   isWorkflowHandleId,
 } from "state/actions/stateMachineEdges";
-import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
-import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
+import {
+  useMisc,
+  useProjectSearch,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
+import {
+  isBaseParamCodeObjImpl,
+  isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import {
   getProjectGpuAutoPanInsetsPx,
   getProjectGpuHandleConnectionProps,
@@ -637,6 +653,41 @@ function ProjectGpuParamNameDomIsland({
   const duplicateIndex = useProjectState((state) =>
     buildParamDuplicateIndexIfPresent(state, sectionId),
   );
+  const maybeErrorMessage = useTypeErrors(
+    (state) => state.errors[sectionId]?.params?.[paramInfoId]?.join("\n") ?? "",
+  );
+  const hasChildren = useProjectState((state) =>
+    hasProjectGpuParamNameDomIslandChildren(state, sectionId, paramInfoId),
+  );
+  const paramIsSelected = useProjectState((state) =>
+    isProjectGpuParamNameDomIslandSelected(state, sectionId, paramInfoId),
+  );
+  const styleColor = useProjectState(
+    (state) =>
+      getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+        state,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      )?.styleColor ?? null,
+  );
+  const isFocusedSearchResult = useProjectSearch(
+    (state) =>
+      state.focused?.sectionId === sectionId &&
+      state.focused?.paramInfoId === paramInfoId,
+  );
+  const isSearchResult = useProjectSearch((state) =>
+    state.lookup.has(createProjectSearchLookupKey(sectionId, paramInfoId)),
+  );
+  const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
+  const bg = resolveParamBackgroundClass({
+    hasSectionStyleTheme,
+    paramIsSelected,
+  });
+  const border = resolveParamBorderClass({
+    hasError: maybeErrorMessage.length > 0,
+    isFocusedSearchResult,
+    isSearchResult,
+  });
 
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
@@ -677,9 +728,9 @@ function ProjectGpuParamNameDomIsland({
       >
         <ParamDuplicateIndexProvider value={duplicateIndex}>
           <ParamNameInput
-            bg=""
-            border=""
-            hasChildren={false}
+            bg={hasChildren ? bg : ""}
+            border={hasChildren ? border : ""}
+            hasChildren={hasChildren}
             paramInfoId={paramInfoId}
             sectionId={sectionId}
             tooltipParentDivId={
@@ -694,4 +745,35 @@ function ProjectGpuParamNameDomIsland({
       </div>
     </div>
   );
+}
+
+function hasProjectGpuParamNameDomIslandChildren(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+  paramInfoId: string,
+): boolean {
+  const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    state,
+    sectionId,
+    paramInfoId,
+    isBaseParamCodeObjImpl,
+  );
+  return Boolean(
+    codeObjImpl &&
+      isBaseParentCodeObjImpl(codeObjImpl) &&
+      codeObjImpl.children.length > 0,
+  );
+}
+
+function isProjectGpuParamNameDomIslandSelected(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+  paramInfoId: string,
+): boolean {
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+    state,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
+  return sectionImpl?.selectedParams.includes(paramInfoId) ?? false;
 }

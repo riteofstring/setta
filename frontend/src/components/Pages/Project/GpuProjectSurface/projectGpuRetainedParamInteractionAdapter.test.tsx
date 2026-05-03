@@ -18,12 +18,32 @@ import {
   isValidDataEdgeConnection,
 } from "state/actions/edges";
 import {
+  STATE_MACHINE_EDGE_HANDLE_IDS,
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
-  STATE_MACHINE_EDGE_HANDLE_IDS,
 } from "state/actions/stateMachineEdges";
-import { useMisc, useTypeErrors } from "state/definitions";
+import {
+  useMisc,
+  useProjectSearch,
+  useProjectState,
+  useTypeErrors,
+  type ZustandProjectState,
+} from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
+import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import {
+  CodeObjTypeEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
+  createCodeParamCodeObjImpl,
+  createCore,
+  createDictSectionImpl,
+  createNestedParamCodeObjImpl,
+  createProjectConfig,
+  createSingleConfig,
+  createVariant,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -115,6 +135,7 @@ async function cleanupRenderedIsland(rendered: RenderedIsland) {
 
 describe("project GPU retained param DOM islands", () => {
   beforeEach(() => {
+    resetProjectStores();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       callback(0);
       return 1;
@@ -129,7 +150,7 @@ describe("project GPU retained param DOM islands", () => {
   });
 
   afterEach(() => {
-    useTypeErrors.setState({ errors: {}, userRequested: false });
+    resetProjectStores();
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
   });
@@ -223,6 +244,45 @@ describe("project GPU retained param DOM islands", () => {
     }
 
     expect(mocks.unsubscribeViewportRepositionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes nested row presentation state into retained param name inputs", async () => {
+    seedNestedParamNameProjectState();
+    useTypeErrors.setState({
+      errors: {
+        "section-1": {
+          callable: [],
+          params: {
+            "param-1": ["Expected int."],
+          },
+        },
+      },
+      userRequested: false,
+    });
+    useProjectSearch.setState({
+      focused: {
+        name: "Param",
+        paramInfoId: "param-1",
+        sectionId: "section-1",
+      },
+      lookup: new Set([createProjectSearchLookupKey("section-1", "param-1")]),
+    });
+
+    const rendered = await renderIsland(retainedParamNameIsland());
+
+    try {
+      expect(mocks.paramNameInputProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bg: expect.stringContaining("!bg-blue-700"),
+          border: "bg-red-200 dark:bg-red-800/30",
+          hasChildren: true,
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+        }),
+      );
+    } finally {
+      await cleanupRenderedIsland(rendered);
+    }
   });
 });
 
@@ -393,4 +453,129 @@ function retainedParamNameIsland(): GpuDomIsland {
     },
     zIndex: 3,
   };
+}
+
+function seedNestedParamNameProjectState() {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const childParamId = "param-child";
+  const childVariantId = "param-child-variant";
+  const childImplId = "param-child-impl";
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [childImplId]: createCodeParamCodeObjImpl({
+          id: childImplId,
+          name: childParamId,
+        }),
+        [paramImplId]: createNestedParamCodeObjImpl({
+          children: [childParamId],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: paramImplId,
+          isPreset: false,
+          name: "param-1",
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [childVariantId]: createVariant({
+          id: childVariantId,
+          impl: childImplId,
+          name: childVariantId,
+          nonPresetImpls: [childImplId],
+        }),
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        [childParamId]: createCore({
+          defaultVariant: childVariantId,
+          displayName: "",
+          id: childParamId,
+          name: childParamId,
+          variants: [childVariantId],
+        }),
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            [childParamId]: childVariantId,
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: ["param-1"],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
 }

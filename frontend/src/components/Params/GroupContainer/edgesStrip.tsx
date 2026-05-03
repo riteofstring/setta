@@ -36,6 +36,7 @@ import { resolveEdgeStripHeight } from "../edgeStripUtils";
 
 import { ParamDndList } from "../ParamDndList";
 
+import { useHasSectionStyleTheme } from "../sectionStyleTheme";
 import {
   EdgeInputPortRow,
   EdgeOutputPortRow,
@@ -46,7 +47,6 @@ import {
   selectEdgeStripState,
   selectUnpinnedParamsState,
   shouldApplyUnpinnedAreaMinHeight,
-  useHasSectionStyleTheme,
   useMeasuredParamAreaMinHeight,
 } from "./groupContainer";
 
