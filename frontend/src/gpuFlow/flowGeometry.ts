@@ -15,7 +15,7 @@ import {
 
 type PaneRectViewportState = Pick<
   GpuFlowViewportStore,
-  "domNode" | "height" | "transform" | "width"
+  "height" | "transform" | "width"
 >;
 
 type LayoutQueryOptions = {
@@ -24,7 +24,6 @@ type LayoutQueryOptions = {
 
 type MovePaneToIncludeSectionOptions = LayoutQueryOptions & {
   readonly overviewWidth?: number | undefined;
-  readonly uiEditorWidth?: number | undefined;
   readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
 
@@ -49,24 +48,9 @@ export function getSectionBounds(
 export function getPaneRect(
   state: PaneRectViewportState,
   overviewWidth: number,
-  uiEditorWidth: number,
 ): Rect {
-  if (!state.domNode) {
-    const viewport = normalizeGpuViewport(state.transform);
-    return {
-      height: state.height / viewport.zoom,
-      width: state.width / viewport.zoom,
-      x: (-viewport.x + overviewWidth) / viewport.zoom,
-      y: -viewport.y / viewport.zoom,
-    };
-  }
-
-  const bounds = state.domNode.getBoundingClientRect();
-  const visibleWidth = Math.max(
-    bounds.width - overviewWidth - uiEditorWidth,
-    0,
-  );
-  const visibleHeight = Math.max(bounds.height, 0);
+  const visibleWidth = Math.max(state.width, 0);
+  const visibleHeight = Math.max(state.height, 0);
   const topLeft = screenToFlowPoint(
     { x: overviewWidth, y: 0 },
     state.transform,
@@ -106,7 +90,6 @@ function movePaneToIncludePoint(
   const paneRect = getPaneRect(
     viewportStore.getState(),
     options.overviewWidth ?? 0,
-    options.uiEditorWidth ?? 0,
   );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (isInside) {
