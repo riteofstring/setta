@@ -282,13 +282,7 @@ function shouldFocusProjectGpuDomIslandActivationTarget(
   if (target instanceof HTMLInputElement) {
     return isNativeEditorProjectGpuDomIslandInputType(target.type);
   }
-  return (
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target instanceof HTMLButtonElement ||
-    target.isContentEditable ||
-    target.getAttribute("role") === "button"
-  );
+  return target instanceof HTMLTextAreaElement || target.isContentEditable;
 }
 
 function hasProjectGpuDomIslandCanvasOwnedRole(target: HTMLElement): boolean {

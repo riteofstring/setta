@@ -766,6 +766,7 @@ function DropzoneInputView({
           <button
             type="button"
             className={classNames.controlButton}
+            data-gpu-flow-activation-target="true"
             onClick={uiHandlers.openServerFilePicker}
             disabled={isDisabled || isUploading || !canAttachMore}
           >

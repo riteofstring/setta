@@ -102,6 +102,7 @@ const mocks = vi.hoisted(() => ({
       | "plain-button"
       | "pointer-activation"
       | "switch-role-button"
+      | "text-input"
       | "time-input",
   },
   paramInputProps: vi.fn(),
@@ -189,6 +190,17 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
       return (
         <input
           type="time"
+          data-gpu-flow-interactive="true"
+          data-testid="param-input"
+          data-tooltip-parent={props.tooltipParentDivId ?? ""}
+          onClick={mocks.paramInputActivationClick}
+        />
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "text-input") {
+      return (
+        <input
+          type="text"
           data-gpu-flow-interactive="true"
           data-testid="param-input"
           data-tooltip-parent={props.tooltipParentDivId ?? ""}
@@ -499,6 +511,44 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("focuses mounted native text inputs without replaying a click", async () => {
+    mocks.paramInputRenderMode.current = "text-input";
+    const activationPoint = { x: 44, y: 11 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
   it("does not activate mounted combobox role inputs as retained native targets", async () => {
     mocks.paramInputRenderMode.current = "combobox-input";
     const activationPoint = { x: 44, y: 12 };
@@ -575,7 +625,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("focuses mounted button-role elements without replaying a click", async () => {
+  it("does not activate mounted button-role elements as retained native targets", async () => {
     mocks.paramInputRenderMode.current = "button-role-div";
     const activationPoint = { x: 45, y: 13 };
     const originalElementFromPoint = document.elementFromPoint;
@@ -601,7 +651,7 @@ describe("project GPU retained param DOM islands", () => {
         activationPoint.y,
       );
       expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
-      expect(document.activeElement).toBe(
+      expect(document.activeElement).not.toBe(
         rendered.host.querySelector('[data-testid="param-input"]'),
       );
     } finally {
@@ -613,7 +663,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("focuses mounted native island buttons without replaying generic button clicks", async () => {
+  it("does not activate generic native island buttons without an explicit target", async () => {
     mocks.paramInputRenderMode.current = "plain-button";
     const activationPoint = { x: 46, y: 14 };
     const originalElementFromPoint = document.elementFromPoint;
@@ -639,7 +689,7 @@ describe("project GPU retained param DOM islands", () => {
         activationPoint.y,
       );
       expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
-      expect(document.activeElement).toBe(
+      expect(document.activeElement).not.toBe(
         rendered.host.querySelector('[data-testid="param-input"]'),
       );
     } finally {
@@ -728,7 +778,7 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("focuses pointer-marked controls without replaying old DOM control pointer sequences", async () => {
+  it("does not activate pointer-marked legacy DOM controls", async () => {
     mocks.paramInputRenderMode.current = "pointer-activation";
     const activationPoint = { x: 58, y: 22 };
     const originalElementFromPoint = document.elementFromPoint;
@@ -756,7 +806,7 @@ describe("project GPU retained param DOM islands", () => {
       expect(mocks.paramInputActivationPointerDown).not.toHaveBeenCalled();
       expect(mocks.paramInputActivationPointerUp).not.toHaveBeenCalled();
       expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
-      expect(document.activeElement).toBe(
+      expect(document.activeElement).not.toBe(
         rendered.host.querySelector('[data-testid="param-input"]'),
       );
     } finally {
