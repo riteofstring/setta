@@ -4,6 +4,7 @@ import { resolveParamColumnWidth } from "state/hooks/paramColumnWidthUtils";
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 24;
+export const PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX = 12;
 export const PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX = 12;
 export const PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX = 9;
 

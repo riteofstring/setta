@@ -60,7 +60,10 @@ import {
   getProjectGpuLayoutNode,
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
-import { PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX } from "./projectGpuParamContentLayout";
+import {
+  PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX,
+  PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+} from "./projectGpuParamContentLayout";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
@@ -726,6 +729,34 @@ describe("project GPU layout adapter", () => {
       ["child-param", 1],
       ["sibling-param", 0],
     ]);
+    const retainedScene = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    )?.retainedScene;
+    const childControl = retainedScene?.drawCommands.find(
+      (command) =>
+        command.kind === "row-control" && command.rowId === "child-param",
+    );
+    const siblingControl = retainedScene?.drawCommands.find(
+      (command) =>
+        command.kind === "row-control" && command.rowId === "sibling-param",
+    );
+    expect(childControl?.rect.x).toBe(
+      (siblingControl?.rect.x ?? 0) +
+        PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+    );
+    expect(childControl?.rect.width).toBe(
+      (siblingControl?.rect.width ?? 0) -
+        PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+    );
+    expect(
+      retainedScene?.drawCommands.find(
+        (command) =>
+          command.kind === "nest-guide" && command.rowId === "child-param",
+      )?.rect,
+    ).toMatchObject({
+      width: 6,
+      x: PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX + 1,
+    });
   });
 
   it("reserves blank retained content height for empty auto-height param sections", () => {
@@ -1465,14 +1496,14 @@ describe("project GPU layout adapter", () => {
           kind: "pointer",
         },
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 24, width: 128, x: 0, y: 0 },
+        contentRect: { height: 24, width: 116, x: 0, y: 0 },
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
         rect: {
           height: 24,
-          width: 128,
-          x: 135,
+          width: 116,
+          x: 147,
           y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
         },
         source: {
@@ -2526,14 +2557,14 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 24, width: 99, x: 0, y: 0 },
+        contentRect: { height: 24, width: 113, x: 0, y: 0 },
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
         rect: {
           height: 24,
-          width: 99,
-          x: 24,
+          width: 113,
+          x: 22,
           y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
         },
         source: {

@@ -3,8 +3,9 @@ import { clampNumber } from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import {
   GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
-  createGpuRetainedContentControlRect,
   createGpuRetainedContentLabelRect,
+  createGpuRetainedContentNestGuideRect,
+  createGpuRetainedContentRowControlRect,
 } from "./retainedContentRowLayout";
 import {
   createGpuRetainedContentStatusBadgeRect,
@@ -81,6 +82,7 @@ export function createGpuRetainedContentDrawCommands({
     commands,
     controlWidth,
     controlRightInset,
+    indentWidth,
     rows,
     viewportRect,
   });
@@ -108,9 +110,11 @@ function createGpuRetainedContentRowDrawCommands({
 } {
   const labelX = row.projectedRect.x + row.depth * indentWidth;
   const controlRect = row.control
-    ? createGpuRetainedContentControlRect({
+    ? createGpuRetainedContentRowControlRect({
         controlWidth,
+        indentWidth,
         rightInset: controlRightInset,
+        rowDepth: row.depth,
         rowRect: row.projectedRect,
       })
     : null;
@@ -145,12 +149,11 @@ function createGpuRetainedContentRowDrawCommands({
     commands.push({
       depth: row.depth,
       kind: "nest-guide",
-      rect: {
-        height: row.projectedRect.height,
-        width: Math.max(1, Math.min(2, indentWidth / 4)),
-        x: row.projectedRect.x + (row.depth - 0.5) * indentWidth,
-        y: row.projectedRect.y,
-      },
+      rect: createGpuRetainedContentNestGuideRect({
+        indentWidth,
+        rowDepth: row.depth,
+        rowRect: row.projectedRect,
+      }),
       rowId: row.id,
     });
   }
@@ -285,6 +288,7 @@ function appendGpuRetainedContentPopupCommands({
   commands,
   controlRightInset,
   controlWidth,
+  indentWidth,
   rows,
   viewportRect,
 }: {
@@ -292,15 +296,18 @@ function appendGpuRetainedContentPopupCommands({
   readonly commands: GpuRetainedContentDrawCommand[];
   readonly controlRightInset: number;
   readonly controlWidth: number;
+  readonly indentWidth: number;
   readonly rows: readonly GpuRetainedContentRow[];
   readonly viewportRect: GpuRect;
 }) {
   const popup = createGpuRetainedContentActivePopupLayout({
     activePopup,
     controlRect: (row) =>
-      createGpuRetainedContentControlRect({
+      createGpuRetainedContentRowControlRect({
         controlWidth,
+        indentWidth,
         rightInset: controlRightInset,
+        rowDepth: row.depth,
         rowRect: row.projectedRect,
       }),
     rows,
@@ -328,9 +335,11 @@ function appendGpuRetainedContentPopupCommands({
     ...createGpuRetainedContentDateCalendarDrawCommands({
       activePopup,
       controlRect: (row) =>
-        createGpuRetainedContentControlRect({
+        createGpuRetainedContentRowControlRect({
           controlWidth,
+          indentWidth,
           rightInset: controlRightInset,
+          rowDepth: row.depth,
           rowRect: row.projectedRect,
         }),
       rows,

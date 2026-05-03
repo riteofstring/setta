@@ -110,7 +110,7 @@ describe("retained content scene", () => {
         text: "parent",
       }),
       expect.objectContaining({
-        dividerRects: [{ height: 24, width: 66, x: 158, y: 30 }],
+        dividerRects: [{ height: 24, width: 56, x: 168, y: 30 }],
         kind: "row-background",
         rowId: "child",
         state: expect.objectContaining({ selected: true }),
@@ -118,11 +118,12 @@ describe("retained content scene", () => {
       expect.objectContaining({
         depth: 1,
         kind: "nest-guide",
+        rect: { height: 24, width: 6, x: 15, y: 30 },
         rowId: "child",
       }),
       expect.objectContaining({
         kind: "row-label",
-        rect: { height: 24, width: 122, x: 14, y: 30 },
+        rect: { height: 24, width: 132, x: 14, y: 30 },
         rowId: "child",
         text: "child",
       }),
@@ -142,12 +143,12 @@ describe("retained content scene", () => {
         expect.objectContaining({
           id: "label:child",
           kind: "label",
-          rect: { height: 24, width: 122, x: 14, y: 30 },
+          rect: { height: 24, width: 132, x: 14, y: 30 },
         }),
         expect.objectContaining({
           id: "control:child",
           kind: "control",
-          rect: { height: 24, width: 80, x: 144, y: 30 },
+          rect: { height: 24, width: 70, x: 154, y: 30 },
         }),
         expect.objectContaining({
           id: "port:child-input",

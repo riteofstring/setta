@@ -10,8 +10,8 @@ import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 import { clampInteger } from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import {
-  createGpuRetainedContentControlRect,
   createGpuRetainedContentLabelRect,
+  createGpuRetainedContentRowControlRect,
 } from "./retainedContentRowLayout";
 import {
   createGpuRetainedContentStatusBadgeRect,
@@ -560,9 +560,11 @@ function createGpuRetainedContentHitRecords({
   const hitRecords: GpuRetainedContentHitRecord[] = [];
   for (const row of rows) {
     const controlRect = row.control
-      ? createGpuRetainedContentControlRect({
+      ? createGpuRetainedContentRowControlRect({
           rightInset: controlRightInset,
           controlWidth,
+          indentWidth,
+          rowDepth: row.depth,
           rowRect: row.projectedRect,
         })
       : null;
@@ -621,9 +623,11 @@ function createGpuRetainedContentHitRecords({
   const popup = createGpuRetainedContentActivePopupLayout({
     activePopup,
     controlRect: (row) =>
-      createGpuRetainedContentControlRect({
+      createGpuRetainedContentRowControlRect({
         rightInset: controlRightInset,
         controlWidth,
+        indentWidth,
+        rowDepth: row.depth,
         rowRect: row.projectedRect,
       }),
     rows,
@@ -651,9 +655,11 @@ function createGpuRetainedContentHitRecords({
     ...createGpuRetainedContentDateCalendarHitRecords({
       activePopup,
       controlRect: (row) =>
-        createGpuRetainedContentControlRect({
+        createGpuRetainedContentRowControlRect({
           rightInset: controlRightInset,
           controlWidth,
+          indentWidth,
+          rowDepth: row.depth,
           rowRect: row.projectedRect,
         }),
       rows,

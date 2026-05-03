@@ -41,6 +41,7 @@ import {
   getProjectGpuParamNextLocalY,
   PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
   PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
+  PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
   PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
@@ -759,6 +760,7 @@ function createProjectGpuParamListContentSurfaces({
           surfaceId,
         }),
         id: surfaceId,
+        indentWidth: PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
         labelControlGap: PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,

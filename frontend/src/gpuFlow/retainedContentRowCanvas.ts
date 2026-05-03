@@ -67,7 +67,7 @@ export function drawGpuRetainedContentNestGuide(
   palette: GpuRetainedContentCanvasPalette,
 ) {
   ctx.fillStyle = palette.nestGuide;
-  ctx.fillRect(rect.x, rect.y + 4, rect.width, Math.max(0, rect.height - 8));
+  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 }
 
 export function drawGpuRetainedContentLabel({

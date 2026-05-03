@@ -2,6 +2,9 @@ import type { GpuRect } from "./viewportMath";
 
 export const GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT = 14;
 
+const GPU_RETAINED_CONTENT_NESTED_GUIDE_WIDTH_PX = 6;
+const GPU_RETAINED_CONTENT_NESTED_GUIDE_OFFSET_X_PX = 1;
+
 export function createGpuRetainedContentLabelRect({
   controlRect,
   labelControlGap,
@@ -28,7 +31,7 @@ export function createGpuRetainedContentLabelRect({
   };
 }
 
-export function createGpuRetainedContentControlRect({
+function createGpuRetainedContentControlRect({
   controlWidth,
   rightInset = 0,
   rowRect,
@@ -44,6 +47,55 @@ export function createGpuRetainedContentControlRect({
     height: rowRect.height,
     width,
     x: rowRect.x + rowRect.width - safeRightInset - width,
+    y: rowRect.y,
+  };
+}
+
+export function createGpuRetainedContentRowControlRect({
+  controlWidth,
+  indentWidth,
+  rightInset = 0,
+  rowDepth,
+  rowRect,
+}: {
+  readonly controlWidth: number;
+  readonly indentWidth: number;
+  readonly rightInset?: number | undefined;
+  readonly rowDepth: number;
+  readonly rowRect: GpuRect;
+}): GpuRect {
+  const controlRect = createGpuRetainedContentControlRect({
+    controlWidth,
+    rightInset,
+    rowRect,
+  });
+  const depthInset = Math.min(
+    controlRect.width,
+    Math.max(0, rowDepth) * Math.max(0, indentWidth),
+  );
+  return {
+    ...controlRect,
+    width: Math.max(0, controlRect.width - depthInset),
+    x: controlRect.x + depthInset,
+  };
+}
+
+export function createGpuRetainedContentNestGuideRect({
+  indentWidth,
+  rowDepth,
+  rowRect,
+}: {
+  readonly indentWidth: number;
+  readonly rowDepth: number;
+  readonly rowRect: GpuRect;
+}): GpuRect {
+  return {
+    height: rowRect.height,
+    width: GPU_RETAINED_CONTENT_NESTED_GUIDE_WIDTH_PX,
+    x:
+      rowRect.x +
+      Math.max(0, rowDepth) * Math.max(0, indentWidth) +
+      GPU_RETAINED_CONTENT_NESTED_GUIDE_OFFSET_X_PX,
     y: rowRect.y,
   };
 }
