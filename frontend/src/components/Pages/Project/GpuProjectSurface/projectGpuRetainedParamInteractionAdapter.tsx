@@ -25,12 +25,7 @@ import {
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
 import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  type MutableRefObject,
-} from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import { flushSync } from "react-dom";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
@@ -71,6 +66,7 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { useProjectGpuDomIslandActivation } from "./projectGpuDomIslandActivation";
 import {
   getProjectGpuAutoPanInsetsPx,
   getProjectGpuHandleConnectionProps,
@@ -774,159 +770,6 @@ function ProjectGpuParamNameDomIsland({
       </div>
     </div>
   );
-}
-
-const PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR = [
-  "[data-gpu-flow-interactive='true']",
-  "button",
-  "input",
-  "select",
-  "textarea",
-  "[tabindex]:not([tabindex='-1'])",
-].join(",");
-
-function useProjectGpuDomIslandActivation<RootElement extends HTMLElement>({
-  activation,
-  clickActivationTarget,
-  paramInfoId,
-  rootRef,
-  sectionId,
-}: {
-  readonly activation?: GpuDomIsland["activation"] | undefined;
-  readonly clickActivationTarget: boolean;
-  readonly paramInfoId: string;
-  readonly rootRef: MutableRefObject<RootElement | null>;
-  readonly sectionId: string;
-}) {
-  const consumedActivationKeyRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (!root) {
-      return;
-    }
-    const target = getProjectGpuDomIslandActivationTarget(root, activation);
-    target?.focus({ preventScroll: true });
-
-    const activationKey = getProjectGpuDomIslandActivationKey(activation);
-    if (!activationKey) {
-      return;
-    }
-    if (consumedActivationKeyRef.current === activationKey) {
-      return;
-    }
-    consumedActivationKeyRef.current = activationKey;
-    if (
-      clickActivationTarget &&
-      target &&
-      shouldClickProjectGpuDomIslandActivationTarget(target)
-    ) {
-      target.click();
-    }
-  }, [
-    activation?.kind,
-    activation?.clientPoint.x,
-    activation?.clientPoint.y,
-    clickActivationTarget,
-    paramInfoId,
-    rootRef,
-    sectionId,
-  ]);
-}
-
-function getProjectGpuDomIslandActivationTarget(
-  root: HTMLElement,
-  activation: GpuDomIsland["activation"] | undefined,
-): HTMLElement | null {
-  const pointedElement = getProjectGpuDomIslandPointedElement(root, activation);
-  const pointedTarget = getProjectGpuDomIslandClosestInteractiveTarget(
-    root,
-    pointedElement,
-  );
-  if (pointedTarget) {
-    return pointedTarget;
-  }
-  return root.querySelector<HTMLElement>(
-    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
-  );
-}
-
-function getProjectGpuDomIslandPointedElement(
-  root: HTMLElement,
-  activation: GpuDomIsland["activation"] | undefined,
-): Element | null {
-  if (!activation) {
-    return null;
-  }
-  const elementFromPoint = root.ownerDocument.elementFromPoint;
-  if (!elementFromPoint) {
-    return null;
-  }
-  const element = elementFromPoint.call(
-    root.ownerDocument,
-    activation.clientPoint.x,
-    activation.clientPoint.y,
-  );
-  return element && root.contains(element) ? element : null;
-}
-
-function getProjectGpuDomIslandClosestInteractiveTarget(
-  root: HTMLElement,
-  element: Element | null,
-): HTMLElement | null {
-  const target = element?.closest(PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR);
-  if (
-    target instanceof HTMLElement &&
-    root.contains(target) &&
-    target !== root
-  ) {
-    return target;
-  }
-  return null;
-}
-
-function getProjectGpuDomIslandActivationKey(
-  activation: GpuDomIsland["activation"] | undefined,
-): string | null {
-  if (!activation) {
-    return null;
-  }
-  return `${activation.kind}:${activation.clientPoint.x}:${activation.clientPoint.y}`;
-}
-
-function shouldClickProjectGpuDomIslandActivationTarget(
-  target: HTMLElement,
-): boolean {
-  if (isClickActivatedProjectGpuDomIslandRole(target.getAttribute("role"))) {
-    return true;
-  }
-  if (target instanceof HTMLButtonElement) {
-    return true;
-  }
-  if (target instanceof HTMLSelectElement) {
-    return true;
-  }
-  if (target instanceof HTMLInputElement) {
-    return isClickActivatedProjectGpuDomIslandInputType(target.type);
-  }
-  return false;
-}
-
-function isClickActivatedProjectGpuDomIslandRole(role: string | null): boolean {
-  return role === "button" || role === "combobox" || role === "switch";
-}
-
-function isClickActivatedProjectGpuDomIslandInputType(type: string): boolean {
-  return ![
-    "email",
-    "number",
-    "password",
-    "search",
-    "tel",
-    "text",
-    "time",
-    "url",
-  ].includes(type);
 }
 
 function hasProjectGpuParamNameDomIslandChildren(
