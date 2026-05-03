@@ -709,11 +709,15 @@ append-only artifacts.
 Do not add generator drift tests that only rerun generators and compare
 checked-in output.
 
-## Visual Fidelity Checkpoint Gate
+## Visual Fidelity Checkpoint Work
 
-Before resuming
-`./scripts/run-codex-gpuflow-full-scene-canvas-content-clean-break-loop.sh`,
-run the temporary baseline-vs-candidate checkpoint:
+Visual fidelity is part of this loop's implementation scope. The loop should
+not pause waiting for manual review of every screenshot blocker; it should use
+the checkpoint output as its work queue, fix real rendering/layout regressions,
+fix capture instability when the fixture is wrong, and rerun the checkpoint
+after each visible fix.
+
+Run the temporary baseline-vs-candidate checkpoint with:
 
 ```bash
 node scripts/gpuflow-visual-fidelity-checkpoint.mjs
@@ -760,7 +764,7 @@ Current required fixtures:
 
 Each fixture must be captured at `1440x900`, `1024x768`, and `390x844`.
 
-Loop-resume requirements:
+Loop visual-fidelity requirements:
 
 - Visible canvas-owned replacements require baseline-vs-candidate screenshots;
   CDP smoke checks or "canvas exists" assertions are not enough.
@@ -775,6 +779,18 @@ Loop-resume requirements:
 - Any visible renderer/control change must update this checkpoint artifact set
   or create a newer timestamped artifact directory with the same fixture
   coverage.
+- Do not loosen pixel thresholds, delete fixtures, or mark a blocker as
+  `accepted-difference` unless the diff has been inspected and the reason is
+  documented in `review.md`.
+- If a blocker is caused by nondeterministic capture, framing, waiting, or
+  fixture setup rather than product rendering, fix the checkpoint script or
+  fixture first and rerun it.
+- If a blocker is real visual drift, fix the renderer/layout/control behavior
+  before taking unrelated visual expansion work.
+- Do not emit
+  `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE` while required
+  checkpoint fixtures have unexplained `blocking-regression`,
+  `capture-blocked`, or runtime page-error groups.
 
 Current checkpoint result:
 
@@ -784,6 +800,22 @@ Current checkpoint result:
 - Blocking visual regressions are `project-surface`, `param-controls-closed`,
   `dense-param-dict`, `selection-resize`, and `callable-edge-handles` across
   one or more desktop, compact-desktop, and narrow viewports.
+
+Current visual-fidelity work queue:
+
+1. Inspect and fix or classify `dense-param-dict` at desktop and
+   compact-desktop; these are the largest diffs (`0.2782` changed pixels,
+   `46.18` mean delta).
+2. Inspect and fix or classify `selection-resize` at desktop and
+   compact-desktop; verify selected-section frame, resize handles, and canvas
+   framing against baseline.
+3. Inspect and fix or classify `project-surface` and
+   `param-controls-closed` at desktop; these may share the same root framing or
+   layout drift.
+4. Inspect and fix or classify narrow viewport blockers for
+   `dense-param-dict`, `callable-edge-handles`, and `selection-resize`.
+5. Rerun `node scripts/gpuflow-visual-fidelity-checkpoint.mjs` after each
+   meaningful visible fix and update `review.md`.
 
 ## Final Target
 

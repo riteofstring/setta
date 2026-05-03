@@ -79,6 +79,24 @@ Loop-specific guardrails:
   bubbles, or simple command controls. Move those to retained canvas descriptors
   and interaction handlers, and narrow DOM islands to true native
   editor/picker/file/accessibility cases.
+- Treat the plan's visual-fidelity checkpoint as active implementation work,
+  not as a manual pre-loop gate. The current Chrome 149 checkpoint has 9
+  blocking visual regressions and 0 runtime page-error groups. Work through the
+  blockers as loop tasks: inspect the baseline/candidate/diff images, decide
+  whether each blocker is fixture instability or real rendering drift, fix the
+  fixture or product code accordingly, rerun the checkpoint, and update
+  `perf/visual-fidelity/2026-05-05-gpuflow-full-scene/review.md`.
+- Prioritize visual-fidelity blockers in this order unless a shared root cause
+  is obvious: `dense-param-dict` desktop/compact, `selection-resize`
+  desktop/compact, `project-surface` desktop, `param-controls-closed` desktop,
+  then narrow `dense-param-dict`, `callable-edge-handles`, and
+  `selection-resize`.
+- Do not loosen checkpoint thresholds, delete fixtures, or mark a blocker as
+  `accepted-difference` unless the diff has been inspected and the reason is
+  documented in `review.md`.
+- Do not emit `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE`
+  while required checkpoint fixtures have unexplained `blocking-regression`,
+  `capture-blocked`, or runtime page-error groups.
 - Use `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` only
   as read-only reference material.
 - For performance-relevant slices, baseline first and record before/after
@@ -90,6 +108,11 @@ Browser checks:
   response.
 - For html-in-canvas/WebGPU checks, prefer:
   `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./ai.sh`
+- For the visual-fidelity checkpoint, use:
+  `node scripts/gpuflow-visual-fidelity-checkpoint.mjs`
+  The script must resolve and use Chrome for Testing 149 for both `ai.sh` and
+  Playwright capture. Do not use Playwright's bundled Chromium for checkpoint
+  decisions.
 - Use Chrome DevTools MCP for visible or performance-sensitive work. If CDP
   cannot run, record the blocker.
 EOF
