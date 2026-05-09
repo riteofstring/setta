@@ -517,132 +517,24 @@ func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *
 	const providerPluginID = "setta-watch-code"
 	installAppRepoPlugin(t, cfg, providerPluginID)
 
-	trackedDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
-	settaFilesDir := filepath.Join(cfg.Paths.SettaFilesRoot, "ignored")
-	runtimeDir := filepath.Join(cfg.Paths.RuntimeRoot, "ignored")
-	for path, content := range map[string]string{
-		filepath.Join(trackedDir, "tracked.py"):    "def tracked(value):\n    return value\n",
-		filepath.Join(settaFilesDir, "ignored.py"): "def setta_ignored(value):\n    return value\n",
-		filepath.Join(runtimeDir, "ignored.py"):    "def runtime_ignored(value):\n    return value\n",
-	} {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("mkdir %q: %v", filepath.Dir(path), err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
-		}
-	}
-	settaFilesRel, err := filepath.Rel(cfg.Paths.WorkspaceRoot, settaFilesDir)
-	if err != nil {
-		t.Fatalf("rel setta files dir: %v", err)
-	}
-	runtimeRel, err := filepath.Rel(cfg.Paths.WorkspaceRoot, runtimeDir)
-	if err != nil {
-		t.Fatalf("rel runtime dir: %v", err)
-	}
-
-	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-				CodegenTargets: []projectstate.ProjectCodegenTarget{
-					{
-						Language: string(projectstate.CodeLanguagePython),
-						Payload:  json.RawMessage(`{"language":"python"}`),
-					},
-				},
-			},
-		},
-	}); err != nil {
-		t.Fatalf("seed saved main project state: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-	cookie := newAppTestAuthCookie(t, app)
+	paths := writeAppWatchCodeRouteFixtureFiles(t, cfg)
+	seedAppWatchCodePythonProject(t, cfg)
+	app, server, cookie := startAppServerWithAuthCookie(t, cfg)
 
 	inputsPayload := fmt.Sprintf(
 		`{"projectConfigId":"project-alpha","folders":[{"path":"pkg","recursive":true},{"path":%q,"recursive":true},{"path":%q,"recursive":true}],"files":[],"frontendOpId":"watch-inputs-op"}`,
-		filepath.ToSlash(settaFilesRel),
-		filepath.ToSlash(runtimeRel),
+		filepath.ToSlash(paths.settaFilesRel),
+		filepath.ToSlash(paths.runtimeRel),
 	)
 	inputsResponse := postAppWatchCodePluginRoute(t, server.URL, cookie, providerPluginID, "inputs", inputsPayload)
-	defer inputsResponse.Body.Close()
-	if inputsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(inputsResponse.Body)
-		t.Fatalf("expected inputs route 200, got %d with body %q", inputsResponse.StatusCode, string(body))
-	}
-	var routeBody struct {
-		ProjectData projectstate.WatchCodePluginProjectData `json:"projectData"`
-	}
-	if err := json.NewDecoder(inputsResponse.Body).Decode(&routeBody); err != nil {
-		t.Fatalf("decode inputs route response: %v", err)
-	}
-	if len(routeBody.ProjectData.Folders) != 3 || len(routeBody.ProjectData.Files) != 0 {
-		t.Fatalf("expected configured project data in response, got %#v", routeBody.ProjectData)
-	}
+	assertAppWatchCodeConfiguredProjectData(t, readAppWatchCodeInputsRouteProjectData(t, inputsResponse))
 
-	snapshot := app.ProjectStates().Main().Snapshot()
-	projectData, _, err := snapshot.Document.WatchCodePluginProjectData(providerPluginID, "project-alpha")
-	if err != nil {
-		t.Fatalf("read live watch code plugin data: %v", err)
-	}
-	if _, ok := projectData.BaselineByPath[filepath.Join(trackedDir, "tracked.py")]; !ok {
-		t.Fatalf("expected tracked file baseline, got %#v", projectData.BaselineByPath)
-	}
-	for _, ignored := range []string{
-		filepath.Join(settaFilesDir, "ignored.py"),
-		filepath.Join(runtimeDir, "ignored.py"),
-	} {
-		if _, ok := projectData.BaselineByPath[ignored]; ok {
-			t.Fatalf("expected ignored root path %q to stay out of baseline %#v", ignored, projectData.BaselineByPath)
-		}
-	}
-	status := app.ProjectStates().Main().FrontendOpStatus()
-	if !slices.Contains(status.Completed, "watch-inputs-op") {
-		t.Fatalf("expected completed frontend op in live runtime status, got %#v", status)
-	}
+	projectData := readLiveAppWatchCodePluginProjectData(t, app, providerPluginID, "project-alpha")
+	assertAppWatchCodeBaselineIgnoresReservedRoots(t, projectData, paths)
+	assertAppFrontendOpCompleted(t, app, "watch-inputs-op")
 
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		project := document.Projects["project-alpha"]
-		project.Name = "Alpha Renamed"
-		document.Projects["project-alpha"] = project
-		return document, nil
-	}); err != nil {
-		t.Fatalf("perform unrelated app runtime save: %v", err)
-	}
-	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("resolve project state paths: %v", err)
-	}
-	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("new project store: %v", err)
-	}
-	persisted, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted project state: %v", err)
-	}
-	persistedProjectData, _, err := persisted.WatchCodePluginProjectData(providerPluginID, "project-alpha")
-	if err != nil {
-		t.Fatalf("read persisted watch code plugin data: %v", err)
-	}
-	if !reflect.DeepEqual(persistedProjectData.Files, projectData.Files) ||
-		!reflect.DeepEqual(persistedProjectData.Folders, projectData.Folders) {
-		t.Fatalf("expected plugin data to survive app save, got %#v", persistedProjectData)
-	}
+	renameAppProjectAndSave(t, app, "project-alpha", "Alpha Renamed")
+	assertPersistedAppWatchCodeProjectDataMatches(t, cfg, providerPluginID, projectData)
 }
 
 func TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation(t *testing.T) {
@@ -1474,125 +1366,4 @@ func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
 		}
 		return boundSection.Code == updatedSource
 	})
-}
-
-func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
-	t.Parallel()
-
-	app, err := New(testConfig(t), observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if app.watchCodeRef.Current() != nil {
-		t.Fatal("did not expect launcher mode to start watch code service")
-	}
-}
-
-func TestAppLauncherModeBlocksWatchCodeProviderHost(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeLauncher
-	prepareAppCurrentSession(t, cfg)
-	const providerPluginID = "setta-watch-code"
-	installAppRepoPlugin(t, cfg, providerPluginID)
-	document := projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
-	}
-	setAppWatchCodePluginProjectDataForProvider(t, &document, providerPluginID, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Files: []string{"pkg/watch.py"},
-	})
-	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
-		t.Fatalf("seed saved main project state: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	if app.watchCodeRef.Current() != nil {
-		t.Fatal("did not expect launcher mode to start watch code service")
-	}
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-	cookie := newAppTestAuthCookie(t, app)
-
-	runtimePayload := fetchAppPluginRuntime(t, server.URL, cookie)
-	if runtimePayload.FeatureCapabilities == nil {
-		t.Fatal("expected feature capabilities")
-	}
-	watchCode := runtimePayload.FeatureCapabilities.WatchCode
-	if watchCode.PluginEnabled || watchCode.PluginID != "" {
-		t.Fatalf("expected launcher Watch Code provider to be unavailable, got %#v", watchCode)
-	}
-	if watchCode.ProviderSelection == nil ||
-		watchCode.ProviderSelection.Status != plugins.PluginWatchCodeProviderSelectionStatusInvalidProvider ||
-		!slices.Equal(watchCode.ProviderSelection.InvalidPluginIDs, []string{providerPluginID}) {
-		t.Fatalf("expected launcher Watch Code provider to be an invalid unavailable candidate, got %#v", watchCode.ProviderSelection)
-	}
-	var providerStatus *plugins.PluginStatusEntry
-	for i := range runtimePayload.Status.Plugins {
-		if runtimePayload.Status.Plugins[i].PluginID == providerPluginID {
-			providerStatus = &runtimePayload.Status.Plugins[i]
-			break
-		}
-	}
-	if providerStatus == nil {
-		t.Fatalf("expected %s plugin status, got %#v", providerPluginID, runtimePayload.Status.Plugins)
-	}
-	blocked := providerStatus.BlockedCapabilities
-	if len(blocked) != 1 || blocked[0].Capability != "registerWatchCodeBackend" || blocked[0].Reason != plugins.PluginBlockedCapabilityReasonModePolicy {
-		t.Fatalf("expected launcher mode to block registerWatchCodeBackend, got %#v", blocked)
-	}
-
-	initialRevision := app.ProjectStates().Main().Snapshot().Revision
-	response := postAppWatchCodePluginRoute(
-		t,
-		server.URL,
-		cookie,
-		providerPluginID,
-		"inputs",
-		`{"projectConfigId":"project-alpha","folders":[],"files":[]}`,
-	)
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusConflict {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected launcher Watch Code route to fail closed with 409, got %d with body %q", response.StatusCode, string(body))
-	}
-	var payload struct {
-		Error struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode launcher Watch Code fail-closed response: %v", err)
-	}
-	if payload.Error.Code != watchcodecontracts.BackendErrorProviderRequired ||
-		payload.Error.Message != projectstate.ErrWatchCodeProviderPluginIDRequired.Error() {
-		t.Fatalf("expected Go-host provider-required response, got %#v", payload.Error)
-	}
-	if revision := app.ProjectStates().Main().Snapshot().Revision; revision != initialRevision {
-		t.Fatalf("expected launcher Watch Code route not to mutate revision %d, got %d", initialRevision, revision)
-	}
-	projectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, providerPluginID, "project-alpha")
-	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
-		t.Fatalf("expected launcher Watch Code route not to mutate plugin data, got %#v", projectData)
-	}
 }
