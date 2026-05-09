@@ -123,52 +123,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 	sourceIdentity := "source.moved.moved:function"
 	destIdentity := "dest.moved.moved:function"
 
-	document := Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-				CodegenTargets: []ProjectCodegenTarget{
-					{
-						Language: string(CodeLanguagePython),
-						Payload:  json.RawMessage(`{"language":"python"}`),
-					},
-				},
-			},
-			"project-beta": {
-				ID:   "project-beta",
-				Name: "Beta",
-				CodegenTargets: []ProjectCodegenTarget{
-					{
-						Language: string(CodeLanguagePython),
-						Payload:  json.RawMessage(`{"language":"python"}`),
-					},
-				},
-			},
-		},
-	}
-	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Folders: []WatchCodeFolder{{Path: "source", Recursive: false}},
-		Registry: map[string]WatchCodeRegistryEntry{
-			sourceIdentity: {
-				CallableName:  "source.moved.moved",
-				Kind:          WatchCodeCallableKindFunction,
-				SignatureHash: "source-signature",
-				BodyHash:      "source-body",
-				SourcePath:    sourcePath,
-				SectionIDs:    []string{"section-a"},
-				SectionsCount: 1,
-			},
-		},
-		BaselineByPath: map[string][]string{
-			sourcePath: {sourceIdentity},
-		},
-	})
-	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", WatchCodePluginProjectData{
-		Folders: []WatchCodeFolder{{Path: "dest", Recursive: false}},
-	})
+	document := newWatchCodeMoveAcrossConfigsDocument(t, sourceIdentity, sourcePath)
 	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
 		WatchCodeProviderPluginID: func() (string, bool) {
 			return testWatchCodeProviderPluginID, true
@@ -213,13 +168,71 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 		t.Fatal("expected destination update to backfill a callable section")
 	}
 
-	sourceProjectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	assertWatchCodeMoveSourceCleared(t, snapshot.Document)
+	assertWatchCodeMoveDestinationBackfilled(t, snapshot, destIdentity, destPath)
+}
+
+func newWatchCodeMoveAcrossConfigsDocument(t *testing.T, sourceIdentity string, sourcePath string) Document {
+	t.Helper()
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": newWatchCodeMoveConfigProject("project-alpha", "Alpha"),
+			"project-beta":  newWatchCodeMoveConfigProject("project-beta", "Beta"),
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Folders: []WatchCodeFolder{{Path: "source", Recursive: false}},
+		Registry: map[string]WatchCodeRegistryEntry{
+			sourceIdentity: {
+				CallableName:  "source.moved.moved",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "source-signature",
+				BodyHash:      "source-body",
+				SourcePath:    sourcePath,
+				SectionIDs:    []string{"section-a"},
+				SectionsCount: 1,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			sourcePath: {sourceIdentity},
+		},
+	})
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", WatchCodePluginProjectData{
+		Folders: []WatchCodeFolder{{Path: "dest", Recursive: false}},
+	})
+	return document
+}
+
+func newWatchCodeMoveConfigProject(id string, name string) Project {
+	return Project{
+		ID:   id,
+		Name: name,
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+				Payload:  json.RawMessage(`{"language":"python"}`),
+			},
+		},
+	}
+}
+
+func assertWatchCodeMoveSourceCleared(t *testing.T, document Document) {
+	t.Helper()
+
+	sourceProjectData := mustReadTestWatchCodePluginProjectData(t, document, "project-alpha")
 	if len(sourceProjectData.Registry) != 0 {
 		t.Fatalf("expected source registry to be cleared, got %#v", sourceProjectData.Registry)
 	}
 	if len(sourceProjectData.BaselineByPath) != 0 {
 		t.Fatalf("expected source baseline to be cleared, got %#v", sourceProjectData.BaselineByPath)
 	}
+}
+
+func assertWatchCodeMoveDestinationBackfilled(t *testing.T, snapshot Snapshot, destIdentity string, destPath string) {
+	t.Helper()
 
 	destProject := snapshot.Document.Projects["project-beta"]
 	destProjectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-beta")
@@ -369,7 +382,33 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 	sourceRelativePath := "watch_code_test.py"
 	sourcePath := filepath.Join(workspaceRoot, sourceRelativePath)
 
-	project := Project{
+	project := watchCodeCallableLayoutProject()
+	projectData := WatchCodePluginProjectData{
+		Files:    []string{sourceRelativePath},
+		Registry: map[string]WatchCodeRegistryEntry{},
+	}
+
+	didUpdate, err := project.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		&projectData,
+		sourcePath,
+		"def watched(value):\n    return value\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code file update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected watch code update to create a callable section")
+	}
+	assertCreatedWatchCodeCallableSectionWithoutOverlap(t, project, projectData)
+}
+
+func watchCodeCallableLayoutProject() Project {
+	return Project{
 		ID:               "project-alpha",
 		Name:             "Alpha",
 		ActiveViewModeID: "focus",
@@ -430,27 +469,10 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 			},
 		},
 	}
-	projectData := WatchCodePluginProjectData{
-		Files:    []string{sourceRelativePath},
-		Registry: map[string]WatchCodeRegistryEntry{},
-	}
+}
 
-	didUpdate, err := project.ApplyWatchCodeFileUpdate(
-		context.Background(),
-		&projectData,
-		sourcePath,
-		"def watched(value):\n    return value\n",
-		false,
-		"",
-		workspaceRoot,
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("apply watch code file update: %v", err)
-	}
-	if !didUpdate {
-		t.Fatal("expected watch code update to create a callable section")
-	}
+func assertCreatedWatchCodeCallableSectionWithoutOverlap(t *testing.T, project Project, projectData WatchCodePluginProjectData) {
+	t.Helper()
 
 	entry, ok := projectData.Registry["watch_code_test.watched:function"]
 	if !ok {
@@ -460,6 +482,14 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 		t.Fatalf("expected one created callable section, got %#v", entry)
 	}
 	sectionID := entry.SectionIDs[0]
+	assertCreatedWatchCodeCallableSection(t, project, sectionID)
+	layout := assertCreatedWatchCodeCallableLayout(t, project, sectionID)
+	assertCreatedWatchCodeCallableDoesNotOverlap(t, project, sectionID, layout)
+}
+
+func assertCreatedWatchCodeCallableSection(t *testing.T, project Project, sectionID string) Section {
+	t.Helper()
+
 	section, ok := project.Sections[sectionID]
 	if !ok {
 		t.Fatalf("expected created section, got %#v", project.Sections)
@@ -473,6 +503,11 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 	if formatError := sectionNameFormatError(section.Name); formatError != "" {
 		t.Fatalf("expected created callable section name to remain valid, got %q with error %q", section.Name, formatError)
 	}
+	return section
+}
+
+func assertCreatedWatchCodeCallableLayout(t *testing.T, project Project, sectionID string) TopLevelSectionLayout {
+	t.Helper()
 
 	layout, ok := project.TopLevelSections[sectionID]
 	if !ok {
@@ -493,6 +528,11 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 	if viewModeLayout.X != layout.X || viewModeLayout.Y != layout.Y {
 		t.Fatalf("expected project and view-mode layouts to match, got %#v vs %#v", layout, viewModeLayout)
 	}
+	return layout
+}
+
+func assertCreatedWatchCodeCallableDoesNotOverlap(t *testing.T, project Project, sectionID string, layout TopLevelSectionLayout) {
+	t.Helper()
 
 	payload, err := currentCallablePayloadForWatchCodeTest(project, sectionID)
 	if err != nil {

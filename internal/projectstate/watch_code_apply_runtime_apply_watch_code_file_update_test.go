@@ -777,7 +777,6 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 		t.Fatal("expected destination watch code seed update")
 	}
 
-	project := snapshot.Document.Projects["project-alpha"]
 	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
 	sourceEntry := projectData.Registry["pkg.source.moved:function"]
 	destinationEntry := projectData.Registry["pkg.dest.stale:function"]
@@ -814,8 +813,21 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 		t.Fatal("expected overwrite move update to change project state")
 	}
 
-	project = snapshot.Document.Projects["project-alpha"]
-	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	assertWatchCodeOverwriteMoveState(t, snapshot, sourcePath, destinationPath, sourceSectionID, destinationSectionID)
+}
+
+func assertWatchCodeOverwriteMoveState(
+	t *testing.T,
+	snapshot Snapshot,
+	sourcePath string,
+	destinationPath string,
+	sourceSectionID string,
+	destinationSectionID string,
+) {
+	t.Helper()
+
+	project := snapshot.Document.Projects["project-alpha"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
 	if _, ok := projectData.Registry["pkg.source.moved:function"]; ok {
 		t.Fatalf("did not expect source identity to remain after overwrite move, got %#v", projectData.Registry)
 	}
