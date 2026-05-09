@@ -26,68 +26,46 @@ import (
 )
 
 func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
+	app, server, authCookie := newProjectShellLifecycleAppServer(t)
+	notificationStore := seedProjectShellLifecycleNotification(t, app)
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	renameResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteSetProjectConfigName, `{"projectConfigId":"project-alpha","newName":"Renamed Alpha"}`, "rename")
+	defer renameResponse.Body.Close()
+	assertProjectShellLifecyclePersistedProjectName(t, app, "Renamed Alpha")
 
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
+	notificationsPayload := getProjectShellLifecycleNotifications(t, server.URL, authCookie)
+	if len(notificationsPayload) != 1 || notificationsPayload[0].ID != "notification-1" {
+		t.Fatalf("unexpected notifications payload %#v", notificationsPayload)
 	}
 
-	notificationStore, err := notifications.NewStore(cfg.Paths.SettaFilesRoot)
+	deletePayload := deleteProjectShellLifecycleNotification(t, server.URL, authCookie, "notification-1")
+	if !deletePayload.Success {
+		t.Fatalf("expected delete notification success true, got %#v", deletePayload)
+	}
+	assertProjectShellLifecycleNotificationsDeleted(t, notificationStore)
+}
+
+func seedProjectShellLifecycleNotification(t *testing.T, app *App) *notifications.Store {
+	t.Helper()
+
+	notificationStore, err := notifications.NewStore(app.Config().Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("new notification store: %v", err)
 	}
-	if err := notificationStore.Write([]notifications.Notification{
-		{
-			ID:              "notification-1",
-			ProjectConfigID: "project-alpha",
-			Type:            realtime.NotificationTypeInfo,
-			Message:         "Alpha note",
-			Timestamp:       "2026-03-10T10:00:00Z",
-		},
-	}); err != nil {
+	if err := notificationStore.Write([]notifications.Notification{{
+		ID:              "notification-1",
+		ProjectConfigID: "project-alpha",
+		Type:            realtime.NotificationTypeInfo,
+		Message:         "Alpha note",
+		Timestamp:       "2026-03-10T10:00:00Z",
+	}}); err != nil {
 		t.Fatalf("seed notifications: %v", err)
 	}
+	return notificationStore
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-
-	renameRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigName, strings.NewReader(`{"projectConfigId":"project-alpha","newName":"Renamed Alpha"}`))
-	if err != nil {
-		t.Fatalf("new rename request: %v", err)
-	}
-	renameRequest.Header.Set("Content-Type", "application/json")
-	renameRequest.AddCookie(authCookie)
-
-	renameResponse, err := http.DefaultClient.Do(renameRequest)
-	if err != nil {
-		t.Fatalf("rename project config: %v", err)
-	}
-	defer renameResponse.Body.Close()
-	if renameResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(renameResponse.Body)
-		t.Fatalf("expected rename 200, got %d with body %q", renameResponse.StatusCode, string(body))
-	}
+func assertProjectShellLifecyclePersistedProjectName(t *testing.T, app *App, expected string) {
+	t.Helper()
 
 	persistedDocumentStore, err := projectstate.NewStore(app.ProjectStates().Paths().Main, projectstate.StoreOptions{})
 	if err != nil {
@@ -97,59 +75,37 @@ func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load persisted document: %v", err)
 	}
-	if got := persistedDocument.Projects["project-alpha"].Name; got != "Renamed Alpha" {
-		t.Fatalf("expected persisted renamed project, got %q", got)
+	if got := persistedDocument.Projects["project-alpha"].Name; got != expected {
+		t.Fatalf("expected persisted renamed project %q, got %q", expected, got)
 	}
+}
 
-	getNotificationsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetNotifications, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
-	if err != nil {
-		t.Fatalf("new get notifications request: %v", err)
-	}
-	getNotificationsRequest.Header.Set("Content-Type", "application/json")
-	getNotificationsRequest.AddCookie(authCookie)
+func getProjectShellLifecycleNotifications(t *testing.T, serverURL string, authCookie *http.Cookie) []notifications.Notification {
+	t.Helper()
 
-	getNotificationsResponse, err := http.DefaultClient.Do(getNotificationsRequest)
-	if err != nil {
-		t.Fatalf("get notifications: %v", err)
-	}
+	getNotificationsResponse := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteGetNotifications, `{"projectConfigId":"project-alpha"}`, "get notifications")
 	defer getNotificationsResponse.Body.Close()
-	if getNotificationsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(getNotificationsResponse.Body)
-		t.Fatalf("expected notifications 200, got %d with body %q", getNotificationsResponse.StatusCode, string(body))
-	}
-
 	var notificationsPayload []notifications.Notification
 	if err := json.NewDecoder(getNotificationsResponse.Body).Decode(&notificationsPayload); err != nil {
 		t.Fatalf("decode notifications payload: %v", err)
 	}
-	if len(notificationsPayload) != 1 || notificationsPayload[0].ID != "notification-1" {
-		t.Fatalf("unexpected notifications payload %#v", notificationsPayload)
-	}
+	return notificationsPayload
+}
 
-	deleteNotificationRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteNotification, strings.NewReader(`{"notificationId":"notification-1"}`))
-	if err != nil {
-		t.Fatalf("new delete notification request: %v", err)
-	}
-	deleteNotificationRequest.Header.Set("Content-Type", "application/json")
-	deleteNotificationRequest.AddCookie(authCookie)
+func deleteProjectShellLifecycleNotification(t *testing.T, serverURL string, authCookie *http.Cookie, notificationID string) httpapi.DeleteNotificationResponse {
+	t.Helper()
 
-	deleteNotificationResponse, err := http.DefaultClient.Do(deleteNotificationRequest)
-	if err != nil {
-		t.Fatalf("delete notification: %v", err)
-	}
+	deleteNotificationResponse := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteDeleteNotification, `{"notificationId":"`+notificationID+`"}`, "delete notification")
 	defer deleteNotificationResponse.Body.Close()
-	if deleteNotificationResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(deleteNotificationResponse.Body)
-		t.Fatalf("expected delete notification 200, got %d with body %q", deleteNotificationResponse.StatusCode, string(body))
-	}
-
 	var deleteNotificationPayload httpapi.DeleteNotificationResponse
 	if err := json.NewDecoder(deleteNotificationResponse.Body).Decode(&deleteNotificationPayload); err != nil {
 		t.Fatalf("decode delete notification payload: %v", err)
 	}
-	if !deleteNotificationPayload.Success {
-		t.Fatalf("expected delete notification success true, got %#v", deleteNotificationPayload)
-	}
+	return deleteNotificationPayload
+}
+
+func assertProjectShellLifecycleNotificationsDeleted(t *testing.T, notificationStore *notifications.Store) {
+	t.Helper()
 
 	remainingNotifications, err := notificationStore.List()
 	if err != nil {
@@ -161,63 +117,20 @@ func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 }
 
 func TestAppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
+	_, server, authCookie := newProjectShellLifecycleAppServer(t)
+	conn := dialProjectShellLifecycleFrontend(t, server.URL, authCookie)
 	defer conn.CloseNow()
 
 	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
-	renameRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigName, strings.NewReader(`{"projectConfigId":"project-alpha","newName":"Renamed Alpha"}`))
-	if err != nil {
-		t.Fatalf("new rename request: %v", err)
-	}
-	renameRequest.Header.Set("Content-Type", "application/json")
-	renameRequest.AddCookie(authCookie)
-
-	renameResponse, err := http.DefaultClient.Do(renameRequest)
-	if err != nil {
-		t.Fatalf("rename project config: %v", err)
-	}
+	renameResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteSetProjectConfigName, `{"projectConfigId":"project-alpha","newName":"Renamed Alpha"}`, "rename")
 	defer renameResponse.Body.Close()
-	if renameResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(renameResponse.Body)
-		t.Fatalf("expected rename 200, got %d with body %q", renameResponse.StatusCode, string(body))
-	}
+	assertProjectConfigRenameBroadcasts(t, conn)
+	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeAllProjectMetadata, 250*time.Millisecond)
+}
+
+func assertProjectConfigRenameBroadcasts(t *testing.T, conn *websocket.Conn) {
+	t.Helper()
 
 	var (
 		foundProjectUpdate  bool
@@ -259,8 +172,6 @@ func TestAppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates(t *test
 	if !foundMetadataUpdate {
 		t.Fatal("expected all-project-metadata websocket update after rename")
 	}
-
-	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeAllProjectMetadata, 250*time.Millisecond)
 }
 
 func TestAppSetDefaultProjectRouteBroadcastsMetadataUpdate(t *testing.T) {
@@ -784,37 +695,33 @@ func assertAppDefaultGeneratedPythonProjectScaffold(t *testing.T, project projec
 }
 
 func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	prepareAppLSPFixture(t)
+	_, server, authCookie := newProjectShellLifecycleAppServer(t)
+	conn := dialProjectShellLifecycleFrontend(t, server.URL, authCookie)
+	defer conn.CloseNow()
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
+	createResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteCreateProjectConfig, `{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`, "create")
+	defer createResponse.Body.Close()
+	assertProjectShellBroadcastMetadataCount(t, readProjectShellLifecycleMetadata(t, conn, "create"), 2)
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	saveAsResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteSaveAsNewProjectConfig, `{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true}`, "save-as")
+	defer saveAsResponse.Body.Close()
+	clonedProjectID := assertProjectShellBroadcastMetadataProject(t, readProjectShellLifecycleMetadata(t, conn, "save-as"), "Cloned Alpha")
 
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+	deleteResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteDeleteProjectConfigs, `{"ids":["`+clonedProjectID+`"]}`, "delete")
+	defer deleteResponse.Body.Close()
+	assertProjectShellBroadcastMetadataAbsent(t, readProjectShellLifecycleMetadata(t, conn, "delete"), "Cloned Alpha")
+
+	saveResponse := postProjectShellLifecycleRoute(t, server.URL, authCookie, httpapi.RouteSaveProject, `{"projectConfigId":"project-alpha"}`, "save")
+	defer saveResponse.Body.Close()
+	assertProjectShellBroadcastSaveNotification(t, conn)
+}
+
+func dialProjectShellLifecycleFrontend(t *testing.T, serverURL string, authCookie *http.Cookie) *websocket.Conn {
+	t.Helper()
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
 		},
@@ -822,112 +729,52 @@ func TestAppProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification(t *t
 	if err != nil {
 		t.Fatalf("dial frontend websocket route: %v", err)
 	}
-	defer conn.CloseNow()
+	return conn
+}
 
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteCreateProjectConfig, strings.NewReader(`{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`))
-	if err != nil {
-		t.Fatalf("new create request: %v", err)
-	}
-	createRequest.Header.Set("Content-Type", "application/json")
-	createRequest.AddCookie(authCookie)
-
-	createResponse, err := http.DefaultClient.Do(createRequest)
-	if err != nil {
-		t.Fatalf("create project config: %v", err)
-	}
-	defer createResponse.Body.Close()
-	if createResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(createResponse.Body)
-		t.Fatalf("expected create 200, got %d with body %q", createResponse.StatusCode, string(body))
-	}
+func readProjectShellLifecycleMetadata(t *testing.T, conn *websocket.Conn, label string) projectshell.AllProjectMetadata {
+	t.Helper()
 
 	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
-	var metadataPayload projectshell.AllProjectMetadata
-	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
-		t.Fatalf("decode create metadata payload: %v", err)
+	var payload projectshell.AllProjectMetadata
+	if err := json.Unmarshal(metadataEnvelope.Content, &payload); err != nil {
+		t.Fatalf("decode %s metadata payload: %v", label, err)
 	}
-	if len(metadataPayload.ProjectMetadata) != 2 {
-		t.Fatalf("expected two projects after create, got %#v", metadataPayload.ProjectMetadata)
-	}
+	return payload
+}
 
-	saveAsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true}`))
-	if err != nil {
-		t.Fatalf("new save-as request: %v", err)
-	}
-	saveAsRequest.Header.Set("Content-Type", "application/json")
-	saveAsRequest.AddCookie(authCookie)
+func assertProjectShellBroadcastMetadataCount(t *testing.T, payload projectshell.AllProjectMetadata, expected int) {
+	t.Helper()
 
-	saveAsResponse, err := http.DefaultClient.Do(saveAsRequest)
-	if err != nil {
-		t.Fatalf("save as new project config: %v", err)
+	if len(payload.ProjectMetadata) != expected {
+		t.Fatalf("expected %d projects in metadata, got %#v", expected, payload.ProjectMetadata)
 	}
-	defer saveAsResponse.Body.Close()
-	if saveAsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(saveAsResponse.Body)
-		t.Fatalf("expected save-as 200, got %d with body %q", saveAsResponse.StatusCode, string(body))
-	}
+}
 
-	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
-	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
-		t.Fatalf("decode save-as metadata payload: %v", err)
-	}
-	clonedProjectID := ""
-	foundClonedProject := false
-	for _, metadata := range metadataPayload.ProjectMetadata {
-		if metadata.Name == "Cloned Alpha" {
-			foundClonedProject = true
-			clonedProjectID = metadata.ID
+func assertProjectShellBroadcastMetadataProject(t *testing.T, payload projectshell.AllProjectMetadata, name string) string {
+	t.Helper()
+
+	for _, metadata := range payload.ProjectMetadata {
+		if metadata.Name == name {
+			return metadata.ID
 		}
 	}
-	if !foundClonedProject {
-		t.Fatalf("expected Cloned Alpha in metadata %#v", metadataPayload.ProjectMetadata)
-	}
+	t.Fatalf("expected %s in metadata %#v", name, payload.ProjectMetadata)
+	return ""
+}
 
-	deleteRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteProjectConfigs, strings.NewReader(`{"ids":["`+clonedProjectID+`"]}`))
-	if err != nil {
-		t.Fatalf("new delete request: %v", err)
-	}
-	deleteRequest.Header.Set("Content-Type", "application/json")
-	deleteRequest.AddCookie(authCookie)
+func assertProjectShellBroadcastMetadataAbsent(t *testing.T, payload projectshell.AllProjectMetadata, name string) {
+	t.Helper()
 
-	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
-	if err != nil {
-		t.Fatalf("delete project configs: %v", err)
-	}
-	defer deleteResponse.Body.Close()
-	if deleteResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(deleteResponse.Body)
-		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
-	}
-
-	metadataEnvelope = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 8)
-	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
-		t.Fatalf("decode delete metadata payload: %v", err)
-	}
-	for _, metadata := range metadataPayload.ProjectMetadata {
-		if metadata.Name == "Cloned Alpha" {
-			t.Fatalf("did not expect deleted project in metadata %#v", metadataPayload.ProjectMetadata)
+	for _, metadata := range payload.ProjectMetadata {
+		if metadata.Name == name {
+			t.Fatalf("did not expect deleted project in metadata %#v", payload.ProjectMetadata)
 		}
 	}
+}
 
-	saveRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
-	if err != nil {
-		t.Fatalf("new save request: %v", err)
-	}
-	saveRequest.Header.Set("Content-Type", "application/json")
-	saveRequest.AddCookie(authCookie)
-
-	saveResponse, err := http.DefaultClient.Do(saveRequest)
-	if err != nil {
-		t.Fatalf("save project: %v", err)
-	}
-	defer saveResponse.Body.Close()
-	if saveResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(saveResponse.Body)
-		t.Fatalf("expected save 200, got %d with body %q", saveResponse.StatusCode, string(body))
-	}
+func assertProjectShellBroadcastSaveNotification(t *testing.T, conn *websocket.Conn) {
+	t.Helper()
 
 	notificationEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNotification, 4)
 	var notificationPayload realtime.NotificationContent
