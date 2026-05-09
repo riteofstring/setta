@@ -101,6 +101,30 @@ func executeOpenAIResponsesRequest(
 	})
 }
 
+func executeOpenAIResponsesLiveEvents(
+	t *testing.T,
+	events []string,
+) (agentruns.ExecutionResult, openAIResponsesLiveFixture) {
+	t.Helper()
+
+	requestBodies := make([]map[string]any, 0, 1)
+	server := newManagedLLMProviderEventServer(t, &requestBodies, events)
+	defer server.Close()
+
+	fixture := newOpenAIResponsesLiveFixture(t)
+	executor := newOpenAIResponsesExecutor(fixture.live, nil, server.Client())
+	result, err := executeOpenAIResponsesRequest(t, executor, openAIResponsesExecutionOptions{
+		Run:       fixture.run,
+		BaseURL:   server.URL + "/v1",
+		SectionID: testStringPtr("section-chat"),
+		UserText:  "Think this through",
+	})
+	if err != nil {
+		t.Fatalf("execute managed OpenAI Responses event stream: %v", err)
+	}
+	return result, fixture
+}
+
 func executeOpenAIResponsesRecoveryEvents(
 	t *testing.T,
 	events []string,
@@ -120,6 +144,69 @@ func executeOpenAIResponsesRecoveryEvents(
 		UserText:  "Keep going",
 	})
 	return result, fixture, err
+}
+
+func assertOpenAIResponsesInputPreservesProviderMetadata(t *testing.T, input []any) {
+	t.Helper()
+
+	if !openAIResponsesInputHasProviderReasoning(input, "reasoning-provider-1", "enc-prior") ||
+		!openAIResponsesInputHasOutputMessage(input, "provider-message-1", "commentary", "Earlier answer") {
+		t.Fatalf("expected follow-up Responses input to preserve provider reasoning/message metadata, got %#v", input)
+	}
+}
+
+func openAIResponsesInputHasProviderReasoning(input []any, itemID string, encryptedContent string) bool {
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if ok && item["type"] == "reasoning" && item["id"] == itemID && item["encrypted_content"] == encryptedContent {
+			return true
+		}
+	}
+	return false
+}
+
+func openAIResponsesInputHasOutputMessage(input []any, messageID string, phase string, text string) bool {
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if !ok || item["type"] != "message" || item["id"] != messageID || item["phase"] != phase {
+			continue
+		}
+		content, ok := item["content"].([]any)
+		if !ok || len(content) != 1 {
+			continue
+		}
+		contentItem, ok := content[0].(map[string]any)
+		if ok && contentItem["type"] == "output_text" && contentItem["text"] == text {
+			return true
+		}
+	}
+	return false
+}
+
+func assertOpenAIResponsesInputPreservesRefusalContent(t *testing.T, input []any) {
+	t.Helper()
+
+	if !openAIResponsesInputHasRefusalMessage(input, "provider-message-1", "Cannot comply") {
+		t.Fatalf("expected follow-up Responses input to preserve refusal content type, got %#v", input)
+	}
+}
+
+func openAIResponsesInputHasRefusalMessage(input []any, messageID string, text string) bool {
+	for _, rawItem := range input {
+		item, ok := rawItem.(map[string]any)
+		if !ok || item["type"] != "message" || item["id"] != messageID {
+			continue
+		}
+		content, ok := item["content"].([]any)
+		if !ok || len(content) != 1 {
+			continue
+		}
+		contentItem, ok := content[0].(map[string]any)
+		if ok && contentItem["type"] == "refusal" && contentItem["refusal"] == text {
+			return true
+		}
+	}
+	return false
 }
 
 func assertOpenAIResponsesProviderError(t *testing.T, err error, want string) {
@@ -242,6 +329,231 @@ func assertOpenAIResponsesPayloadContentRecovery(
 		t.Fatalf("expected recovered text delta in %#v", fixture.broadcaster.Messages())
 	}
 	assertOpenAIResponsesBroadcastCount(t, fixture.broadcaster, wantBroadcasts)
+}
+
+func assertOpenAIResponsesThinkingTextFinalState(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	fixture openAIResponsesLiveFixture,
+	summary string,
+	thinking string,
+	text string,
+	wantBroadcasts int,
+) {
+	t.Helper()
+
+	assertOpenAIResponsesThinkingTextResult(t, result, summary, thinking, text)
+	assertOpenAIResponsesThinkingTextLiveState(t, fixture, summary, thinking, text)
+	assertOpenAIResponsesBroadcastCount(t, fixture.broadcaster, wantBroadcasts)
+}
+
+func assertOpenAIResponsesThinkingTextResult(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	summary string,
+	thinking string,
+	text string,
+) {
+	t.Helper()
+
+	assistant := requireOpenAIResponsesAssistantMessage(t, result, 2)
+	content := requireOpenAIResponsesAssistantContent(t, assistant, 2)
+	assertOpenAIResponsesThinkingTextContent(t, content, summary, thinking, text)
+}
+
+func assertOpenAIResponsesThinkingTextLiveState(
+	t *testing.T,
+	fixture openAIResponsesLiveFixture,
+	summary string,
+	thinking string,
+	text string,
+) {
+	t.Helper()
+
+	state := requireOpenAIResponsesLiveState(t, fixture.live, fixture.run.ID, 2)
+	content := requireOpenAIResponsesLiveContent(t, state, 2)
+	assertOpenAIResponsesThinkingTextContent(t, content, summary, thinking, text)
+}
+
+func assertOpenAIResponsesThinkingTextContent(
+	t *testing.T,
+	content []any,
+	summary string,
+	thinking string,
+	text string,
+) {
+	t.Helper()
+
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != summary || thinkingBlock["thinking"] != thinking {
+		t.Fatalf("unexpected thinking block %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != text {
+		t.Fatalf("unexpected text block %#v", content[1])
+	}
+}
+
+func assertOpenAIResponsesSummaryTextFinalState(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	fixture openAIResponsesLiveFixture,
+	summary string,
+	text string,
+	wantBroadcasts int,
+) {
+	t.Helper()
+
+	assertOpenAIResponsesSummaryTextResult(t, result, summary, text)
+	assertOpenAIResponsesSummaryTextLiveState(t, fixture, summary, text)
+	assertOpenAIResponsesBroadcastCount(t, fixture.broadcaster, wantBroadcasts)
+}
+
+func assertOpenAIResponsesSummaryTextResult(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	summary string,
+	text string,
+) {
+	t.Helper()
+
+	assistant := requireOpenAIResponsesAssistantMessage(t, result, 2)
+	content := requireOpenAIResponsesAssistantContent(t, assistant, 2)
+	assertOpenAIResponsesSummaryTextContent(t, content, summary, text)
+}
+
+func assertOpenAIResponsesSummaryTextLiveState(
+	t *testing.T,
+	fixture openAIResponsesLiveFixture,
+	summary string,
+	text string,
+) {
+	t.Helper()
+
+	state := requireOpenAIResponsesLiveState(t, fixture.live, fixture.run.ID, 2)
+	content := requireOpenAIResponsesLiveContent(t, state, 2)
+	assertOpenAIResponsesSummaryTextContent(t, content, summary, text)
+}
+
+func assertOpenAIResponsesSummaryTextContent(t *testing.T, content []any, summary string, text string) {
+	t.Helper()
+
+	thinkingBlock, ok := content[0].(map[string]any)
+	if !ok || thinkingBlock["summary"] != summary {
+		t.Fatalf("expected preserved reasoning summary block, got %#v", content[0])
+	}
+	textBlock, ok := content[1].(map[string]any)
+	if !ok || textBlock["text"] != text {
+		t.Fatalf("expected preserved text block, got %#v", content[1])
+	}
+}
+
+func assertOpenAIResponsesPlainTextFinalState(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	fixture openAIResponsesLiveFixture,
+	text string,
+	wantBroadcasts int,
+) {
+	t.Helper()
+
+	assistant := assertOpenAIResponsesPlainTextResult(t, result, text)
+	assertOpenAIResponsesNoThinking(t, assistant)
+	liveAssistant := assertOpenAIResponsesPlainTextLiveState(t, fixture, text)
+	assertOpenAIResponsesNoThinking(t, liveAssistant)
+	assertOpenAIResponsesBroadcastCount(t, fixture.broadcaster, wantBroadcasts)
+}
+
+func assertOpenAIResponsesPlainTextResult(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	text string,
+) map[string]any {
+	t.Helper()
+
+	assistant := requireOpenAIResponsesAssistantMessage(t, result, 2)
+	if assistantText(assistant) != text {
+		t.Fatalf("expected assistant text %q, got %#v", text, assistant)
+	}
+	return assistant
+}
+
+func assertOpenAIResponsesPlainTextLiveState(
+	t *testing.T,
+	fixture openAIResponsesLiveFixture,
+	text string,
+) map[string]any {
+	t.Helper()
+
+	state := requireOpenAIResponsesLiveState(t, fixture.live, fixture.run.ID, 2)
+	if assistantText(state.Messages[1]) != text {
+		t.Fatalf("expected finalized live text %q, got %#v", text, state)
+	}
+	return state.Messages[1]
+}
+
+func assertOpenAIResponsesNoThinking(t *testing.T, assistant map[string]any) {
+	t.Helper()
+
+	if hasMessageThinking(assistant) {
+		t.Fatalf("expected assistant message without thinking content, got %#v", assistant)
+	}
+}
+
+func assertOpenAIResponsesRefusalFinalState(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	fixture openAIResponsesLiveFixture,
+	text string,
+	providerMessageID string,
+	wantBroadcasts int,
+) {
+	t.Helper()
+
+	assertOpenAIResponsesRefusalResult(t, result, text, providerMessageID)
+	assertOpenAIResponsesRefusalLiveState(t, fixture, text, providerMessageID)
+	assertOpenAIResponsesBroadcastCount(t, fixture.broadcaster, wantBroadcasts)
+}
+
+func assertOpenAIResponsesRefusalResult(
+	t *testing.T,
+	result agentruns.ExecutionResult,
+	text string,
+	providerMessageID string,
+) {
+	t.Helper()
+
+	assistant := requireOpenAIResponsesAssistantMessage(t, result, 2)
+	if assistantText(assistant) != text {
+		t.Fatalf("unexpected refusal assistant message %#v", assistant)
+	}
+	assertOpenAIResponsesRefusalMetadata(t, assistant, providerMessageID)
+}
+
+func assertOpenAIResponsesRefusalLiveState(
+	t *testing.T,
+	fixture openAIResponsesLiveFixture,
+	text string,
+	providerMessageID string,
+) {
+	t.Helper()
+
+	state := requireOpenAIResponsesLiveState(t, fixture.live, fixture.run.ID, 2)
+	if assistantText(state.Messages[1]) != text {
+		t.Fatalf("expected finalized live refusal text, got %#v", state)
+	}
+	assertOpenAIResponsesRefusalMetadata(t, state.Messages[1], providerMessageID)
+}
+
+func assertOpenAIResponsesRefusalMetadata(t *testing.T, assistant map[string]any, providerMessageID string) {
+	t.Helper()
+
+	if assistant["provider_message_id"] != providerMessageID {
+		t.Fatalf("expected refusal provider message id %q, got %#v", providerMessageID, assistant)
+	}
+	if assistant["provider_message_content_type"] != "refusal" {
+		t.Fatalf("expected refusal provider content type, got %#v", assistant)
+	}
 }
 
 func requireOpenAIResponsesAssistantMessage(
