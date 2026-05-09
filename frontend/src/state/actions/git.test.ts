@@ -93,20 +93,25 @@ function createCommitDetailsResponse(
   overrides: Partial<CommitDetailsResponse> &
     Pick<CommitDetailsResponse, "commitHash">,
 ): CommitDetailsResponse {
-  return {
-    repoRoot: overrides.repoRoot ?? "/repo",
+  const defaults: CommitDetailsResponse = {
+    repoRoot: "/repo",
     commitHash: overrides.commitHash,
-    parents: overrides.parents ?? [],
-    authorName: overrides.authorName ?? "A",
-    authorEmail: overrides.authorEmail ?? "a@example.com",
-    authorTimeMs: overrides.authorTimeMs ?? 1,
-    committerName: overrides.committerName ?? "A",
-    committerEmail: overrides.committerEmail ?? "a@example.com",
-    committerTimeMs: overrides.committerTimeMs ?? 1,
-    subject: overrides.subject ?? overrides.commitHash,
-    body: overrides.body ?? "",
-    files: overrides.files ?? [],
-    isTruncated: overrides.isTruncated ?? false,
+    parents: [],
+    authorName: "A",
+    authorEmail: "a@example.com",
+    authorTimeMs: 1,
+    committerName: "A",
+    committerEmail: "a@example.com",
+    committerTimeMs: 1,
+    subject: overrides.commitHash,
+    body: "",
+    files: [],
+    isTruncated: false,
+  };
+  return {
+    ...defaults,
+    ...overrides,
+    commitHash: overrides.commitHash,
   };
 }
 

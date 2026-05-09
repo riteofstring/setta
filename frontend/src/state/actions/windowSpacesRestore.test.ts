@@ -28,6 +28,10 @@ import {
   restoreWindowSpaceInWorkspace,
   sortWindowSpaces,
 } from "./windowSpaces";
+import {
+  installFocusedWindowRestoreState,
+  projectChatWindow,
+} from "./windowSpacesRestore.test.support";
 const routeCreateWindowSpaceMock = vi.fn();
 const routeDeleteWindowSpaceMock = vi.fn();
 const routeSetWindowSpaceNameMock = vi.fn();
@@ -227,6 +231,38 @@ async function flushOptimisticMutation(): Promise<void> {
     setTimeout(resolve, 0);
   });
 }
+
+function deferNextProjectChatWindowingStateWrite() {
+  let resolveWrite:
+    | ((value: ProjectChatWindowingOpenAPISuccess) => void)
+    | null = null;
+  routeSetProjectChatWindowingStateMock.mockReturnValueOnce(
+    new Promise((resolve) => {
+      resolveWrite = resolve;
+    }),
+  );
+  return (value: ProjectChatWindowingOpenAPISuccess) => {
+    if (!resolveWrite) {
+      throw new Error("Expected deferred project chat layout write.");
+    }
+    resolveWrite(value);
+  };
+}
+
+function firstProjectChatWindowingStateRequest() {
+  const request = routeSetProjectChatWindowingStateMock.mock.calls[0]?.[0];
+  if (!request) {
+    throw new Error("Expected the restore layout write to be queued.");
+  }
+  return request;
+}
+
+function expectProjectChatWindowAbove(instanceId: string, peerId: string) {
+  expect(projectChatWindow(instanceId).zIndex).toBeGreaterThan(
+    projectChatWindow(peerId).zIndex,
+  );
+}
+
 function buildChatSectionState(
   sectionId: string,
   chatId: string | null = null,
@@ -882,99 +918,18 @@ describe("restoreWindowSpaceInWorkspace", () => {
     );
   });
   it("restores saved project-chat threads even if the user focuses the restored window before layout sync settles", async () => {
-    let resolveLayoutWrite:
-      | ((value: ProjectChatWindowingOpenAPISuccess) => void)
-      | null = null;
-    routeSetProjectChatWindowingStateMock.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveLayoutWrite = resolve;
-      }),
-    );
-    useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-        windowSpaces: {
-          "space-1": {
-            id: "space-1",
-            name: "Focused Layout",
-            sortIndex: 0,
-            windowsById: {
-              "project-chat-window-3": {
-                surfaceKind: "project_chat",
-                mode: ChatWindowModeEnum.project_ai_mode,
-                title: "Saved Chat",
-                chatId: "chat-restored",
-                zIndex: 4,
-                normalizedBounds: {
-                  x: 0.1,
-                  y: 0.15,
-                  width: 0.45,
-                  height: 0.5,
-                },
-              },
-            },
-            order: ["project-chat-window-3"],
-          },
-        },
-      }),
-      sections: {},
-      projectChatWindowing: createProjectChatWindowingState({
-        order: ["project-chat-window-1", "project-chat-window-2"],
-        instancesById: {
-          "project-chat-window-1": {
-            instanceId: "project-chat-window-1",
-            placement: ChatWindowPlacementEnum.floating,
-            mode: ChatWindowModeEnum.project_ai_mode,
-            title: "Live Chat",
-            chatId: "chat-live",
-            zIndex: 1,
-            lastFocusedAt: 10,
-            bounds: {
-              x: 520,
-              y: 160,
-              width: 280,
-              height: 220,
-            },
-          },
-          "project-chat-window-2": {
-            instanceId: "project-chat-window-2",
-            placement: ChatWindowPlacementEnum.floating,
-            mode: ChatWindowModeEnum.project_ai_mode,
-            title: "Peer Chat",
-            chatId: "chat-peer",
-            zIndex: 2,
-            lastFocusedAt: 20,
-            bounds: {
-              x: 120,
-              y: 120,
-              width: 280,
-              height: 220,
-            },
-          },
-        },
-        nextInstanceNumber: 3,
-      }),
-    });
+    const resolveLayoutWrite = deferNextProjectChatWindowingStateWrite();
+    installFocusedWindowRestoreState();
     const restorePromise = restoreWindowSpaceInWorkspace("space-1");
     focusProjectChatWindow("project-chat-window-3", 1234);
     await flushOptimisticMutation();
-    expect(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-3"
-      ]?.zIndex,
-    ).toBeGreaterThan(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-2"
-      ]?.zIndex ?? 0,
+    expectProjectChatWindowAbove(
+      "project-chat-window-3",
+      "project-chat-window-2",
     );
     expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
-    const firstLayoutRequest =
-      routeSetProjectChatWindowingStateMock.mock.calls[0]?.[0];
-    if (!firstLayoutRequest) {
-      throw new Error("Expected the restore layout write to be queued.");
-    }
-    resolveLayoutWrite?.(openAPISuccess(firstLayoutRequest.body.state));
+    const firstLayoutRequest = firstProjectChatWindowingStateRequest();
+    resolveLayoutWrite(openAPISuccess(firstLayoutRequest.body.state));
     await restorePromise;
     await flushOptimisticMutation();
     expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
@@ -985,22 +940,13 @@ describe("restoreWindowSpaceInWorkspace", () => {
         }),
       }),
     );
-    expect(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-3"
-      ],
-    ).toMatchObject({
+    expect(projectChatWindow("project-chat-window-3")).toMatchObject({
       chatId: "chat-restored",
       lastFocusedAt: 1234,
     });
-    expect(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-3"
-      ]?.zIndex,
-    ).toBeGreaterThan(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-2"
-      ]?.zIndex ?? 0,
+    expectProjectChatWindowAbove(
+      "project-chat-window-3",
+      "project-chat-window-2",
     );
   });
   it("keeps newer bounds and focus when the saved thread binding resolves after more user interaction", async () => {
