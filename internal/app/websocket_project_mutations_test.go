@@ -392,39 +392,9 @@ func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = appCallableAutoRefetchProject(t)
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed callable auto-refetch project state: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
+	seedAppCallableAutoRefetchProject(t, app)
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
 
 	resolver := &appTestCallableSignatureResolver{
 		ok: true,
@@ -439,6 +409,31 @@ func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
 			},
 		},
 	}
+	refetchAppCallableParamsAndAssertResolverCall(t, app, resolver)
+
+	content := readAppProjectStateUpdate(t, harness, "project-alpha", "", "auto-refetch", 4)
+	assertAppCallableAutoRefetchBroadcast(t, content)
+}
+
+func seedAppCallableAutoRefetchProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = appCallableAutoRefetchProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed callable auto-refetch project state: %v", err)
+	}
+}
+
+func refetchAppCallableParamsAndAssertResolverCall(
+	t *testing.T,
+	app *App,
+	resolver *appTestCallableSignatureResolver,
+) {
+	t.Helper()
+
 	if err := refetchCallableParamsAndBroadcast(
 		context.Background(),
 		app.ProjectStates().Main(),
@@ -452,28 +447,32 @@ func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
 	if resolver.callCount != 1 {
 		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
 	}
+}
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
-	var content realtime.ProjectStateUpdateContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode project state update content: %v", err)
-	}
-	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
-	}
+func assertAppCallableAutoRefetchBroadcast(t *testing.T, content realtime.ProjectStateUpdateContent) {
+	t.Helper()
+
 	if len(content.CompletedOpIDs) != 0 {
 		t.Fatalf("expected no completed op ids for auto-refetch broadcast, got %#v", content.CompletedOpIDs)
 	}
 	if len(content.PendingOpIDs) != 0 {
 		t.Fatalf("expected no pending op ids for auto-refetch broadcast, got %#v", content.PendingOpIDs)
 	}
+	callableVariantID := assertAppCallableAutoRefetchedSection(t, content)
+	assertAppCallableAutoRefetchedParam(t, content, callableVariantID)
+}
+
+type appCallableAutoRefetchSectionPayload struct {
+	Callable          string            `json:"callable"`
+	CodeObjVariantMap map[string]string `json:"codeObjVariantMap"`
+}
+
+func assertAppCallableAutoRefetchedSection(t *testing.T, content realtime.ProjectStateUpdateContent) string {
+	t.Helper()
 
 	callableVariantID := content.ProjectState.ProjectConfig.SectionVariantMap["callable-section"]
 	callableSectionImplID := content.ProjectState.SectionVariants[callableVariantID].Impl
-	var sectionPayload struct {
-		Callable          string            `json:"callable"`
-		CodeObjVariantMap map[string]string `json:"codeObjVariantMap"`
-	}
+	var sectionPayload appCallableAutoRefetchSectionPayload
 	if err := json.Unmarshal(content.ProjectState.SectionImpls[callableSectionImplID], &sectionPayload); err != nil {
 		t.Fatalf("decode callable section impl payload: %v", err)
 	}
@@ -486,6 +485,15 @@ func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
 	if _, ok := sectionPayload.CodeObjVariantMap[sectionPayload.Callable]; !ok {
 		t.Fatalf("expected callable variant mapping for %q, got %#v", sectionPayload.Callable, sectionPayload.CodeObjVariantMap)
 	}
+	return callableVariantID
+}
+
+func assertAppCallableAutoRefetchedParam(
+	t *testing.T,
+	content realtime.ProjectStateUpdateContent,
+	callableVariantID string,
+) {
+	t.Helper()
 
 	shownParams, ok := content.ProjectState.ShownParamIDs[callableVariantID]
 	if !ok {
