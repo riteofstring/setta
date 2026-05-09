@@ -1,7 +1,6 @@
 export type NodeTexturePriority = "interactive" | "visible" | "prefetch";
 
 export type DirtyNodeReason =
-  | "animation"
   | "content"
   | "dimension"
   | "first-visible"
@@ -14,13 +13,6 @@ export type DirtyNodeReason =
   | "selection"
   | "theme";
 
-export type DirtyNodeSourceRect = {
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-};
-
 export type DirtyNodeMark = {
   readonly content?: boolean | undefined;
   readonly frame?: number | undefined;
@@ -28,7 +20,6 @@ export type DirtyNodeMark = {
   readonly priority?: NodeTexturePriority | undefined;
   readonly reason?: DirtyNodeReason | undefined;
   readonly resolution?: boolean | undefined;
-  readonly sourceRect?: DirtyNodeSourceRect | undefined;
 };
 
 export type DirtyNodeState = {
@@ -39,7 +30,6 @@ export type DirtyNodeState = {
   readonly priority: NodeTexturePriority;
   readonly reasons: readonly DirtyNodeReason[];
   readonly sequence: number;
-  readonly sourceRect?: DirtyNodeSourceRect | undefined;
 };
 
 type MutableDirtyNodeState = Omit<DirtyNodeState, "reasons"> & {
@@ -154,7 +144,6 @@ function createDirtyNodeState(
     priority: mark.priority ?? "visible",
     reasons: new Set(mark.reason ? [mark.reason] : []),
     sequence,
-    ...(mark.sourceRect ? { sourceRect: mark.sourceRect } : {}),
   };
 }
 
@@ -164,10 +153,6 @@ function mergeDirtyNodeState(
   dirtyFlags: DirtyMarkFlags,
 ): MutableDirtyNodeState {
   const reasons = existing.reasons;
-  const sourceRect = resolveDirtyNodeSourceRect(
-    existing.sourceRect,
-    mark.sourceRect,
-  );
   if (mark.reason) {
     reasons.add(mark.reason);
   }
@@ -182,22 +167,7 @@ function mergeDirtyNodeState(
     ),
     reasons,
     sequence: existing.sequence,
-    ...(sourceRect ? { sourceRect } : {}),
   };
-}
-
-function resolveDirtyNodeSourceRect(
-  current: DirtyNodeSourceRect | undefined,
-  next: DirtyNodeSourceRect | undefined,
-): DirtyNodeSourceRect | undefined {
-  if (!current || !next) {
-    return next;
-  }
-  const left = Math.min(current.x, next.x);
-  const top = Math.min(current.y, next.y);
-  const right = Math.max(current.x + current.width, next.x + next.width);
-  const bottom = Math.max(current.y + current.height, next.y + next.height);
-  return { height: bottom - top, width: right - left, x: left, y: top };
 }
 
 type DirtyMarkFlags = {
@@ -227,6 +197,5 @@ function toPublicDirtyNodeState(state: MutableDirtyNodeState): DirtyNodeState {
     priority: state.priority,
     reasons: [...state.reasons],
     sequence: state.sequence,
-    ...(state.sourceRect ? { sourceRect: state.sourceRect } : {}),
   };
 }

@@ -15,7 +15,7 @@ import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
@@ -56,7 +56,6 @@ function _SectionContainer({
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const pythonTarget = getPythonCodegenTarget(x.projectConfig);
-    const sectionType = impl.type as SectionType;
     let isJoinedAttachedTerminalGroup = false;
     let attachedTerminalId: string | null = null;
 
@@ -71,11 +70,11 @@ function _SectionContainer({
     return {
       visibility,
       isEditingViewMode,
-      isUserView: Boolean(viewMode.isUserFacing) && !isEditingViewMode,
-      isGroup: sectionType === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(sectionType),
-      isGenPython: sectionType === SectionTypeEnum.GenPythonCode,
-      isGenPythonMetadata: sectionType === SectionTypeEnum.GenPythonMetadata,
+      isUserView: viewMode.isUserFacing && !isEditingViewMode,
+      isGroup: impl.type === SectionTypeEnum.Group,
+      isCode: isBaseCodeSectionType(impl.type),
+      isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
+      isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
       positionAndSizeLocked: impl.positionAndSizeLocked,
@@ -107,15 +106,14 @@ function _SectionContainer({
       <ContainerSwitch
         isGroup={isGroup}
         sectionId={sectionId}
+        dragListeners={dragListeners}
         isTopLevel={isTopLevel}
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        {...(dragListeners !== undefined ? { dragListeners } : {})}
       >
         <SectionContainerContent
           sectionId={sectionId}
-          isTopLevel={isTopLevel}
           isGroup={isGroup}
           isCode={isCode}
           isUserView={isUserView}
@@ -150,7 +148,6 @@ function shouldHideSection({
 
 function SectionContainerContent({
   sectionId,
-  isTopLevel,
   isGroup,
   isCode,
   isUserView,
@@ -160,7 +157,6 @@ function SectionContainerContent({
   isInOtherProjectConfigs,
 }: {
   sectionId: string;
-  isTopLevel: boolean;
   isGroup: boolean;
   isCode: boolean;
   isUserView: boolean;
@@ -173,7 +169,6 @@ function SectionContainerContent({
     return (
       <JoinedCodeTerminalGroup
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         isJoinedGroupActive={isJoinedGroupActive}
@@ -186,7 +181,6 @@ function SectionContainerContent({
     <>
       <StandardSectionSurface
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         isGroup={isGroup}
         isUserView={isUserView}
       />
@@ -201,14 +195,12 @@ function SectionContainerContent({
 
 function JoinedCodeTerminalGroup({
   sectionId,
-  isTopLevel,
   isUserView,
   positionAndSizeLocked,
   isJoinedGroupActive,
   isInOtherProjectConfigs,
 }: {
   sectionId: string;
-  isTopLevel: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
   isJoinedGroupActive: boolean;
@@ -226,7 +218,6 @@ function JoinedCodeTerminalGroup({
       <AgenticEdgeHandles isUserView={isUserView} />
       <SectionContainerCore
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         isUserView={isUserView}
         forceHideOutline={true}
         hideAgenticEdgeHandles={true}
@@ -246,25 +237,17 @@ function JoinedCodeTerminalGroup({
 
 function StandardSectionSurface({
   sectionId,
-  isTopLevel,
   isGroup,
   isUserView,
 }: {
   sectionId: string;
-  isTopLevel: boolean;
   isGroup: boolean;
   isUserView: boolean;
 }) {
   if (isGroup) {
     return null;
   }
-  return (
-    <SectionContainerCore
-      sectionId={sectionId}
-      isTopLevel={isTopLevel}
-      isUserView={isUserView}
-    />
-  );
+  return <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />;
 }
 
 function SectionNestedContent({
@@ -300,6 +283,5 @@ function getJoinedCodeTerminalGroupClassName({
     isActiveSection: isJoinedGroupActive,
     isGlobalVariables: false,
     isInOtherProjectConfigs,
-    jsonSourceMissing: false,
   })}`;
 }

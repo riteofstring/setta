@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
+import type { GpuNodeLayout } from "./GpuNodeLayer";
 import {
   createGpuNodeTargetDescriptor,
   isGpuNodeInteractiveEventTarget,
@@ -8,9 +9,6 @@ import {
   resolveGpuNodeTargetDescriptor,
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
-import type { GpuNodeLayout } from "./htmlSurfaces/frame";
-import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
-import { createHtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
 
 describe("gpu active node pointer targeting", () => {
   it("resolves the topmost node control at a canvas client point", () => {
@@ -26,8 +24,8 @@ describe("gpu active node pointer targeting", () => {
     lowerNode.append(lowerButton);
     upperNode.append(upperButton);
     setRect(surface, 100, 50, 500, 400);
-    setRect(lowerButton, 20, 20, 40, 20);
-    setRect(upperButton, 20, 20, 40, 20);
+    setRect(lowerButton, 130, 90, 40, 20);
+    setRect(upperButton, 130, 90, 40, 20);
 
     const target = resolveGpuNodePointerHandoffTarget({
       clientX: 135,
@@ -53,137 +51,6 @@ describe("gpu active node pointer targeting", () => {
       },
       nodeId: "upper",
     });
-  });
-
-  it("projects a stable source under the pointer before resolving a flat target", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const button = document.createElement("button");
-    button.dataset.gpuFlowControl = "node-action";
-    nodeElement.append(button);
-    setRect(surface, 100, 50, 500, 400);
-    setRect(button, 12, 0, 20, 12);
-    const projections: unknown[] = [];
-
-    const target = resolveGpuNodePointerHandoffTarget({
-      clientX: 170,
-      clientY: 110,
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      nodes: [node("node-a", 10, 20, 100, 60, 1)],
-      projectSourceForHitTesting: (projection) => {
-        projections.push(projection);
-        expect(projection).toMatchObject({
-          localX: 15,
-          localY: 5,
-          nodeId: "node-a",
-          sourceElement: nodeElement,
-          surfaceX: 70,
-          surfaceY: 60,
-        });
-      },
-      surfaceElement: surface,
-      viewport: [20, 10, 2],
-    });
-
-    expect(target).toEqual({
-      descriptor: {
-        attribute: "data-gpu-flow-control",
-        kind: "stable-attribute",
-        tagName: "button",
-        value: "node-action",
-      },
-      nodeId: "node-a",
-    });
-    expect(projections).toHaveLength(1);
-  });
-
-  it("uses the rendered visual scene to project mesh-backed node controls", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const button = document.createElement("button");
-    button.dataset.gpuFlowControl = "mesh-action";
-    nodeElement.append(button);
-    setRect(surface, 0, 0, 600, 400);
-    setRect(button, 45, 15, 20, 20);
-    const projections: unknown[] = [];
-
-    const target = resolveGpuNodePointerHandoffTarget({
-      clientX: 250,
-      clientY: 20,
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      nodes: [node("node-a", 0, 0, 100, 100, 1)],
-      projectSourceForHitTesting: (projection) => {
-        projections.push(projection);
-      },
-      surfaceElement: surface,
-      viewport: [0, 0, 1],
-      visualScene: createHtmlSurfaceVisualScene({
-        meshSurfaces: [
-          {
-            bounds: { height: 100, width: 100, x: 200, y: 0 },
-            indices: new Uint32Array([0, 1, 2, 1, 3, 2]),
-            kind: "mesh",
-            surfaceId: "node-a",
-            texture: textureRecord("node-a", 100, 100),
-            vertices: [
-              { u: 0, v: 0, x: 200, y: 0 },
-              { u: 1, v: 0, x: 300, y: 0 },
-              { u: 0, v: 1, x: 200, y: 100 },
-              { u: 1, v: 1, x: 300, y: 100 },
-            ],
-            zIndex: 1,
-          },
-        ],
-      }),
-    });
-
-    expect(target).toEqual({
-      descriptor: {
-        attribute: "data-gpu-flow-control",
-        kind: "stable-attribute",
-        tagName: "button",
-        value: "mesh-action",
-      },
-      nodeId: "node-a",
-    });
-    expect(projections).toHaveLength(1);
-    expect(projections[0]).toMatchObject({
-      nodeId: "node-a",
-      sourceElement: nodeElement,
-      surfaceX: 250,
-      surfaceY: 20,
-    });
-    expect((projections[0] as { readonly localX: number }).localX).toBeCloseTo(
-      50,
-    );
-    expect((projections[0] as { readonly localY: number }).localY).toBeCloseTo(
-      20,
-    );
-  });
-
-  it("does not project source DOM when a pointer hit has no interactive target", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const label = document.createElement("div");
-    nodeElement.append(label);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(label, 20, 20, 80, 32);
-    const projections: unknown[] = [];
-
-    expect(
-      resolveGpuNodePointerHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        projectSourceForHitTesting: (projection) => {
-          projections.push(projection);
-        },
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-      }),
-    ).toBeNull();
-    expect(projections).toEqual([]);
   });
 
   it("describes controls by stable attributes or DOM path without visible text", () => {
@@ -614,31 +481,6 @@ describe("gpu active node pointer targeting", () => {
       }),
     ).toBeNull();
   });
-
-  it("does not project source DOM when a wheel hit has no wheel target", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const label = document.createElement("div");
-    nodeElement.append(label);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(label, 20, 20, 80, 32);
-    const projections: unknown[] = [];
-
-    expect(
-      resolveGpuNodeWheelHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        projectSourceForHitTesting: (projection) => {
-          projections.push(projection);
-        },
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-      }),
-    ).toBeNull();
-    expect(projections).toEqual([]);
-  });
 });
 
 function createNodeElement(nodeId: string): HTMLElement {
@@ -702,36 +544,6 @@ function setScrollMetrics(
     scrollHeight: { configurable: true, value: metrics.scrollHeight },
     scrollWidth: { configurable: true, value: metrics.scrollWidth },
   });
-}
-
-function textureRecord(
-  surfaceId: string,
-  cssWidth: number,
-  cssHeight: number,
-): HtmlSurfaceTextureRecord {
-  return {
-    clampedByMaxTexture: false,
-    cssHeight,
-    cssWidth,
-    dirtyContent: false,
-    dirtyResolution: false,
-    lastUploadFrame: 1,
-    lastVisibleFrame: 1,
-    maxTextureDimension2D: 4096,
-    pixelHeight: cssHeight,
-    pixelWidth: cssWidth,
-    priority: "visible",
-    requestedScale: 1,
-    resolutionScale: 1,
-    sampler: {} as GPUSampler,
-    surfaceId,
-    texture: {} as GPUTexture,
-    textureBytes: cssWidth * cssHeight * 4,
-    textureLayout: { kind: "single", tileCount: 1 },
-    textureView: {} as GPUTextureView,
-    tiles: [],
-    zoomBucket: 1,
-  };
 }
 
 function resolveTargetValue({

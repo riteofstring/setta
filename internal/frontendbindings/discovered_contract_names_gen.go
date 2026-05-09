@@ -447,8 +447,6 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectview.ProjectConfig{}): "ProjectConfig",
 	reflect.TypeOf(projectstate.ProjectConfigDiagnostics{}): "ProjectConfigDiagnostics",
 	reflect.TypeOf(projectstate.ProjectConfigMetadata{}): "ProjectConfigMetadata",
-	reflect.TypeOf(realtime.ProjectParamUpdateContent{}): "ProjectParamUpdateContent",
-	reflect.TypeOf(realtime.ProjectParamUpdateMessage{}): "ProjectParamUpdateMessage",
 	reflect.TypeOf(projectview.ProjectPluginData(nil)): "ProjectPluginData",
 	reflect.TypeOf(projectview.ProjectRunCapabilities{}): "ProjectRunCapabilities",
 	reflect.TypeOf(projectview.ProjectStateItem{}): "ProjectStateItem",

@@ -1,37 +1,10 @@
 const PAGE_RUNTIME_SOURCE = "setta.chrome-repro-recorder/page-runtime";
 const APP_STATE_SOURCE = "setta.chrome-repro-recorder/app-state";
 const SCROLL_EVENT_THROTTLE_MS = 50;
-const FRAME_GAP_THRESHOLD_MS = 34;
-const FRAME_GAP_INTERACTION_WINDOW_MS = 1500;
-const FRAME_GAP_EVENT_THROTTLE_MS = 100;
-const EVENT_TIMING_DURATION_THRESHOLD_MS = 16;
-const PERFORMANCE_ATTRIBUTION_LIMIT = 5;
 const lastScrollEventByTarget = new WeakMap();
-let frameGapMonitorStarted = false;
-let frameGapInteractionUntilMs = 0;
-let lastAnimationFrameTimestampMs = null;
-let lastFrameGapSentAtMs = 0;
-let lastInteractionSummary = null;
 
 function nowTimestampMs() {
   return Date.now();
-}
-
-function nowPerformanceMs() {
-  if (typeof performance === "undefined") {
-    return Date.now();
-  }
-  if (typeof performance.now !== "function") {
-    return Date.now();
-  }
-  return performance.now();
-}
-
-function roundMs(value) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  return Math.round(value * 10) / 10;
 }
 
 function normalizeText(value) {
@@ -176,8 +149,7 @@ function isScrollableMetrics(metrics) {
 
 function getScrollableAncestors(element) {
   const ancestors = [];
-  let current =
-    element instanceof HTMLElement ? element : element.parentElement;
+  let current = element instanceof HTMLElement ? element : element.parentElement;
   while (current instanceof HTMLElement && ancestors.length < 8) {
     const scrollMetrics = getScrollMetrics(current);
     if (isScrollableMetrics(scrollMetrics)) {
@@ -233,144 +205,6 @@ function sendEventAfterCurrentEvent(getPayload) {
   schedule(() => {
     sendEvent(getPayload());
   });
-}
-
-function markPerformanceInteraction(kind, target) {
-  const now = nowPerformanceMs();
-  frameGapInteractionUntilMs = Math.max(
-    frameGapInteractionUntilMs,
-    now + FRAME_GAP_INTERACTION_WINDOW_MS,
-  );
-  lastInteractionSummary = {
-    kind,
-    timestampMs: nowTimestampMs(),
-    target,
-  };
-}
-
-function serializePerformanceAttribution(attribution) {
-  if (!attribution || typeof attribution[Symbol.iterator] !== "function") {
-    return [];
-  }
-  return Array.from(attribution)
-    .slice(0, PERFORMANCE_ATTRIBUTION_LIMIT)
-    .map((item) => ({
-      name: typeof item.name === "string" ? item.name : null,
-      entryType: typeof item.entryType === "string" ? item.entryType : null,
-      startTimeMs: roundMs(item.startTime),
-      durationMs: roundMs(item.duration),
-      containerType:
-        typeof item.containerType === "string" ? item.containerType : null,
-      containerName:
-        typeof item.containerName === "string" ? item.containerName : null,
-      containerId:
-        typeof item.containerId === "string" ? item.containerId : null,
-      containerSrc:
-        typeof item.containerSrc === "string" ? item.containerSrc : null,
-    }));
-}
-
-function recordPerformanceLongTask(entry) {
-  sendEvent({
-    type: "performance-longtask",
-    timestampMs: nowTimestampMs(),
-    name: typeof entry.name === "string" ? entry.name : null,
-    entryType: entry.entryType,
-    startTimeMs: roundMs(entry.startTime),
-    durationMs: roundMs(entry.duration),
-    attribution: serializePerformanceAttribution(entry.attribution),
-    url: window.location.href,
-    title: document.title,
-  });
-}
-
-function recordPerformanceEvent(entry) {
-  const target =
-    entry.target instanceof Element ? getTargetDescriptor(entry.target) : null;
-  sendEvent({
-    type: "performance-event",
-    timestampMs: nowTimestampMs(),
-    name: typeof entry.name === "string" ? entry.name : null,
-    entryType: entry.entryType,
-    startTimeMs: roundMs(entry.startTime),
-    durationMs: roundMs(entry.duration),
-    processingStartMs: roundMs(entry.processingStart),
-    processingEndMs: roundMs(entry.processingEnd),
-    interactionId:
-      typeof entry.interactionId === "number" ? entry.interactionId : null,
-    cancelable: typeof entry.cancelable === "boolean" ? entry.cancelable : null,
-    target,
-    activeInteraction: lastInteractionSummary,
-    url: window.location.href,
-    title: document.title,
-  });
-}
-
-function observePerformanceEntries(type, callback, options = {}) {
-  if (typeof PerformanceObserver !== "function") {
-    return;
-  }
-  const supported = PerformanceObserver.supportedEntryTypes;
-  if (Array.isArray(supported) && !supported.includes(type)) {
-    return;
-  }
-  try {
-    const observer = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        callback(entry);
-      }
-    });
-    observer.observe({ type, buffered: true, ...options });
-  } catch {
-    // Older Chrome builds may expose PerformanceObserver without this entry type.
-  }
-}
-
-function installPerformanceObservers() {
-  observePerformanceEntries("longtask", recordPerformanceLongTask);
-  observePerformanceEntries("event", recordPerformanceEvent, {
-    durationThreshold: EVENT_TIMING_DURATION_THRESHOLD_MS,
-  });
-}
-
-function recordAnimationFrameGap(timestamp) {
-  if (lastAnimationFrameTimestampMs !== null) {
-    const gap = timestamp - lastAnimationFrameTimestampMs;
-    const now = nowPerformanceMs();
-    const activeInteraction = now <= frameGapInteractionUntilMs;
-    if (
-      document.visibilityState === "visible" &&
-      activeInteraction &&
-      gap >= FRAME_GAP_THRESHOLD_MS &&
-      now - lastFrameGapSentAtMs >= FRAME_GAP_EVENT_THROTTLE_MS
-    ) {
-      lastFrameGapSentAtMs = now;
-      sendEvent({
-        type: "performance-frame-gap",
-        timestampMs: nowTimestampMs(),
-        frameTimestampMs: roundMs(timestamp),
-        gapMs: roundMs(gap),
-        thresholdMs: FRAME_GAP_THRESHOLD_MS,
-        activeInteraction: lastInteractionSummary,
-        visibilityState: document.visibilityState,
-        url: window.location.href,
-        title: document.title,
-      });
-    }
-  }
-  lastAnimationFrameTimestampMs = timestamp;
-  window.requestAnimationFrame(recordAnimationFrameGap);
-}
-
-function startFrameGapMonitor() {
-  if (
-    frameGapMonitorStarted ||
-    typeof window.requestAnimationFrame !== "function"
-  ) {
-    return;
-  }
-  frameGapMonitorStarted = true;
-  window.requestAnimationFrame(recordAnimationFrameGap);
 }
 
 function injectPageRuntime() {
@@ -463,8 +297,6 @@ function recordPointerLikeEvent(type, event) {
   if (!element) {
     return;
   }
-  const target = getTargetDescriptor(element);
-  markPerformanceInteraction(type, target);
   sendEvent({
     type,
     timestampMs: nowTimestampMs(),
@@ -474,7 +306,7 @@ function recordPointerLikeEvent(type, event) {
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
     shiftKey: event.shiftKey,
-    target,
+    target: getTargetDescriptor(element),
   });
 }
 
@@ -505,16 +337,10 @@ document.addEventListener(
       return;
     }
     const target = getTargetDescriptor(element);
-    markPerformanceInteraction("pointermove", target);
     const pointerPoint = getPointerPoint(event);
-    const pointElement = document.elementFromPoint(
-      event.clientX,
-      event.clientY,
-    );
+    const pointElement = document.elementFromPoint(event.clientX, event.clientY);
     const pointTarget =
-      pointElement instanceof Element
-        ? getTargetDescriptor(pointElement)
-        : null;
+      pointElement instanceof Element ? getTargetDescriptor(pointElement) : null;
     sendEventAfterCurrentEvent(() => ({
       type: "pointermove",
       timestampMs: nowTimestampMs(),
@@ -554,16 +380,10 @@ document.addEventListener(
       return;
     }
     const target = getTargetDescriptor(element);
-    markPerformanceInteraction("wheel", target);
     const wheelPoint = getWheelPoint(event);
-    const pointElement = document.elementFromPoint(
-      event.clientX,
-      event.clientY,
-    );
+    const pointElement = document.elementFromPoint(event.clientX, event.clientY);
     const pointTarget =
-      pointElement instanceof Element
-        ? getTargetDescriptor(pointElement)
-        : null;
+      pointElement instanceof Element ? getTargetDescriptor(pointElement) : null;
     sendEventAfterCurrentEvent(() => ({
       type: "wheel",
       timestampMs: nowTimestampMs(),
@@ -619,14 +439,12 @@ document.addEventListener(
     if (!element) {
       return;
     }
-    const target = getTargetDescriptor(element);
-    markPerformanceInteraction("input", target);
     sendEvent({
       type: "input",
       timestampMs: nowTimestampMs(),
       inputType: "inputType" in event ? event.inputType ?? null : null,
       value: getElementValue(element),
-      target,
+      target: getTargetDescriptor(element),
     });
   },
   true,
@@ -642,13 +460,11 @@ document.addEventListener(
     if (!element) {
       return;
     }
-    const target = getTargetDescriptor(element);
-    markPerformanceInteraction("change", target);
     sendEvent({
       type: "change",
       timestampMs: nowTimestampMs(),
       value: getElementValue(element),
-      target,
+      target: getTargetDescriptor(element),
     });
   },
   true,
@@ -661,8 +477,6 @@ document.addEventListener(
       return;
     }
     const element = getElementTarget(event.target);
-    const target = element ? getTargetDescriptor(element) : null;
-    markPerformanceInteraction("keydown", target);
     sendEvent({
       type: "keydown",
       timestampMs: nowTimestampMs(),
@@ -672,7 +486,7 @@ document.addEventListener(
       ctrlKey: event.ctrlKey,
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
-      target,
+      target: element ? getTargetDescriptor(element) : null,
     });
   },
   true,
@@ -688,19 +502,14 @@ document.addEventListener(
     if (!element) {
       return;
     }
-    const target = getTargetDescriptor(element);
-    markPerformanceInteraction("submit", target);
     sendEvent({
       type: "submit",
       timestampMs: nowTimestampMs(),
-      target,
+      target: getTargetDescriptor(element),
     });
   },
   true,
 );
-
-startFrameGapMonitor();
-installPerformanceObservers();
 
 window.addEventListener("hashchange", () => {
   recordNavigation("hashchange");

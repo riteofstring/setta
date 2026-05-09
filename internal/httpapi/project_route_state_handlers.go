@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
@@ -91,6 +92,10 @@ func broadcastProjectRouteStateUpdate(
 		return err
 	}
 
+	selection := realtime.Selection{Type: realtime.ConnectionTypeFrontend}
+	if requestInfo, ok := modes.RequestInfoFromRequest(r); ok {
+		selection.ShareSessionID = strings.TrimSpace(requestInfo.ShareSessionID)
+	}
 	status := runtime.FrontendOpStatus()
 	_, err = deps.WebsocketHub.BroadcastJSON(
 		r.Context(),
@@ -99,7 +104,7 @@ func broadcastProjectRouteStateUpdate(
 			CompletedOpIDs: status.Completed,
 			PendingOpIDs:   status.Pending,
 		}),
-		frontendRouteBroadcastSelection(r),
+		selection,
 	)
 	return err
 }
@@ -304,7 +309,6 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		beforeSnapshot := runtime.Snapshot()
 		var snapshot projectstate.Snapshot
 		if sectionVariantID != "" {
 			snapshot, err = runtime.SetSectionCodeObjectValueForVariant(
@@ -328,17 +332,7 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeParamValueMutationError(w, r, err)
 			return
 		}
-		if err := broadcastSetParamEnteredValueUpdate(
-			r,
-			deps,
-			runtime,
-			beforeSnapshot,
-			snapshot,
-			projectID,
-			sectionID,
-			sectionVariantID,
-			paramInfoID,
-		); err != nil {
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}

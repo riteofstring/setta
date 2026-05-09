@@ -1,13 +1,19 @@
 /* @vitest-environment jsdom */
 
+import { setActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useSectionRefs,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  getActiveSectionsBounds,
   getPaneRect,
-  getSectionBounds,
   getSectionRect,
-  movePaneToIncludeSection,
+  movePaneToIncludeElement,
 } from "./flowGeometry";
-import { gpuFlowLayoutStore } from "./layoutStore";
 import { gpuFlowViewportStore } from "./viewportStore";
 
 function createElementWithRect(rect: {
@@ -50,8 +56,12 @@ function resetGpuViewport() {
 
 describe("flowGeometry", () => {
   beforeEach(() => {
-    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
+    resetProjectStores();
     resetGpuViewport();
+    useLocalStorage.setState({
+      overviewTrueWidth: 0,
+      uiEditorTrueWidth: 0,
+    });
   });
 
   it("uses transform math when deriving pane bounds without a DOM node", () => {
@@ -91,18 +101,23 @@ describe("flowGeometry", () => {
     expect(result).toEqual({ height: 200, width: 175, x: 20, y: -10 });
   });
 
-  it("reads section bounds from the renderer layout store", () => {
-    gpuFlowLayoutStore.getState().replaceNodes([
-      {
+  it("converts section DOM bounds through the GPU viewport store", () => {
+    const pane = createElementWithRect({
+      height: 400,
+      width: 500,
+      x: 100,
+      y: 200,
+    });
+    gpuFlowViewportStore.getState().setDomNode(pane);
+    gpuFlowViewportStore.getState().setTransform([10, 20, 2]);
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createElementWithRect({
         height: 80,
-        nodeId: "section-a",
-        tempZIndex: 0,
         width: 120,
-        x: 15,
-        y: 20,
-        zIndex: 0,
-      },
-    ]);
+        x: 140,
+        y: 260,
+      });
+    });
 
     expect(getSectionRect("section-a")).toEqual({
       height: 80,
@@ -112,29 +127,36 @@ describe("flowGeometry", () => {
     });
   });
 
-  it("uses renderer layout nodes for requested section bounds", () => {
-    gpuFlowLayoutStore.getState().replaceNodes([
-      {
-        height: 80,
-        nodeId: "section-a",
-        tempZIndex: 0,
-        width: 100,
-        x: 10,
-        y: 20,
-        zIndex: 0,
-      },
-      {
-        height: 90,
-        nodeId: "section-b",
-        tempZIndex: 0,
-        width: 120,
-        x: 180,
-        y: 40,
-        zIndex: 0,
-      },
-    ]);
+  it("uses measured node internals for active section bounds", () => {
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            height: 80,
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            tempZIndex: 0,
+            width: 100,
+            zIndex: 0,
+          },
+        ],
+        [
+          "section-b",
+          {
+            height: 90,
+            id: "section-b",
+            position: { x: 180, y: 40 },
+            tempZIndex: 0,
+            width: 120,
+            zIndex: 0,
+          },
+        ],
+      ]),
+    });
 
-    expect(getSectionBounds(["section-a", "section-b"])).toEqual({
+    expect(getActiveSectionsBounds()).toEqual({
       height: 110,
       width: 290,
       x: 10,
@@ -142,30 +164,25 @@ describe("flowGeometry", () => {
     });
   });
 
-  it("pans the GPU viewport to include a renderer layout section", () => {
+  it("pans the GPU viewport to include focused canvas content", () => {
     const pane = createElementWithRect({
       height: 400,
       width: 500,
       x: 0,
       y: 0,
     });
+    const target = createElementWithRect({
+      height: 40,
+      width: 80,
+      x: 550,
+      y: 200,
+    });
     const state = gpuFlowViewportStore.getState();
     state.setDomNode(pane);
     state.setTransform([0, 0, 2]);
     state.setViewportSize({ height: 400, width: 500 });
-    gpuFlowLayoutStore.getState().replaceNodes([
-      {
-        height: 40,
-        nodeId: "section-a",
-        tempZIndex: 0,
-        width: 80,
-        x: 275,
-        y: 100,
-        zIndex: 0,
-      },
-    ]);
 
-    movePaneToIncludeSection("section-a");
+    movePaneToIncludeElement(target);
 
     expect(gpuFlowViewportStore.getState().transform).toEqual([-250, 0, 2]);
   });

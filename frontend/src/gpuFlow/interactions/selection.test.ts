@@ -1,14 +1,13 @@
 /* @vitest-environment jsdom */
 
+import { SelectionModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { GpuNodeLayout } from "../htmlSurfaces/frame";
+import type { GpuNodeLayout } from "../GpuNodeLayer";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuSelectionController,
   getGpuNodeSelectionBounds,
   getGpuNodesInsideSelectionRect,
-  GPU_SELECTION_MODE_FULL,
-  GPU_SELECTION_MODE_PARTIAL,
 } from "./selection";
 
 describe("GPU selection controller", () => {
@@ -34,7 +33,7 @@ describe("GPU selection controller", () => {
 
     expect(
       getGpuNodesInsideSelectionRect({
-        mode: GPU_SELECTION_MODE_FULL,
+        mode: SelectionModeEnum.full,
         nodes,
         rect,
         viewport: [0, 0, 1],
@@ -42,7 +41,7 @@ describe("GPU selection controller", () => {
     ).toEqual(["inside"]);
     expect(
       getGpuNodesInsideSelectionRect({
-        mode: GPU_SELECTION_MODE_PARTIAL,
+        mode: SelectionModeEnum.partial,
         nodes,
         rect,
         viewport: [0, 0, 1],

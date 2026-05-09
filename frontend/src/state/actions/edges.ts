@@ -1,6 +1,5 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import type { Connection } from "gpuFlow/flowTypes";
-import { hasGpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
 import {
   createEdge,
   deleteEdges,
@@ -8,7 +7,12 @@ import {
   setEdges,
   updateEdge,
 } from "openapi/http";
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useEdgeHandleRegistry,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -180,18 +184,18 @@ function resolveEdgeConnectionVariantIds(
 function hasRegisteredEdgeConnection(
   connection: CompleteEdgeConnection,
 ): boolean {
-  return (
-    hasGpuFlowPortDescriptor({
-      nodeId: connection.source,
-      portId: connection.sourceHandle,
-      type: "source",
-    }) &&
-    hasGpuFlowPortDescriptor({
-      nodeId: connection.target,
-      portId: connection.targetHandle,
-      type: "target",
-    })
+  const registryPositions = useEdgeHandleRegistry.getState().positions;
+  const sourceKey = makeEdgeHandleKey(
+    connection.source,
+    connection.sourceHandle,
+    "source",
   );
+  const targetKey = makeEdgeHandleKey(
+    connection.target,
+    connection.targetHandle,
+    "target",
+  );
+  return Boolean(registryPositions[sourceKey] && registryPositions[targetKey]);
 }
 
 export function createEdgeFromConnection(connection: Connection) {

@@ -303,7 +303,7 @@ function toGpuEdgeInteractionHit(
   };
 }
 
-export function isGpuFlowEdgeInteractionTarget(
+function isGpuFlowEdgeInteractionTarget(
   event: Event,
   element: HTMLElement,
 ): boolean {
@@ -335,7 +335,7 @@ function isEdgeInteractionDisabled(
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
 }
 
-export function getEventPointRelativeToStoreDomNode(
+function getEventPointRelativeToStoreDomNode(
   event: Pick<MouseEvent, "clientX" | "clientY">,
   store: GpuFlowViewportStoreApi,
 ): GpuPoint {

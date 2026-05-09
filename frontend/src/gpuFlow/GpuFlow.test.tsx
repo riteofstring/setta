@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeScene, GpuEdgeSceneEntry } from "./edges/edgeSources";
-import { resolveGpuFlowEdgeDrawInputs } from "./GpuFlow";
+import {
+  resolveGpuActiveNodeFrameSync,
+  resolveGpuFlowEdgeDrawInputs,
+} from "./GpuFlow";
 
 describe("GpuFlow edge input helpers", () => {
   it("uses scene draw inputs when a GPU edge scene is provided", () => {
@@ -21,6 +24,56 @@ describe("GpuFlow edge input helpers", () => {
         edges: scene.edges,
       }),
     ).toThrow("Setta GPU flow accepts either edgeScene or edges, not both.");
+  });
+});
+
+describe("GpuFlow active node final settle helpers", () => {
+  it("defers and suppresses a teleported active node", () => {
+    expect(
+      resolveGpuActiveNodeFrameSync({
+        pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(),
+        teleportedNodeId: "node-a",
+      }),
+    ).toEqual({
+      deferUploadNodeIds: ["node-a"],
+      suppressNodeIds: ["node-a"],
+    });
+  });
+
+  it("keeps a restored active node hidden behind its settling clone", () => {
+    expect(
+      resolveGpuActiveNodeFrameSync({
+        pendingPaintNodeIds: new Set(["node-a"]),
+        settlingNodeIds: new Set(["node-a"]),
+        teleportedNodeId: null,
+      }),
+    ).toEqual({
+      deferUploadNodeIds: ["node-a"],
+      suppressNodeIds: ["node-a"],
+    });
+
+    expect(
+      resolveGpuActiveNodeFrameSync({
+        pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(["node-a"]),
+        teleportedNodeId: null,
+      }),
+    ).toEqual({
+      deferUploadNodeIds: undefined,
+      suppressNodeIds: ["node-a"],
+    });
+
+    expect(
+      resolveGpuActiveNodeFrameSync({
+        pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(),
+        teleportedNodeId: null,
+      }),
+    ).toEqual({
+      deferUploadNodeIds: undefined,
+      suppressNodeIds: undefined,
+    });
   });
 });
 

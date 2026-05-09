@@ -166,12 +166,28 @@ Environment:
   SETTA_CHROME_REPRO_BOOTSTRAP_URL    Use this bootstrap URL directly.
   SETTA_CHROME_REPRO_DEV_MODE         Dev runner mode: start | startr (default: start)
   SETTA_CHROME_REPRO_LOG_LEVEL        Backend log level for repro runs (default: debug)
-  CHROME_BIN                          Explicit browser binary override.
+  CHROME_BIN                          Path to Chrome/Chromium binary.
   CHROME_EXTRA_ARGS                   Extra Chrome flags (space-separated).
 
-By default, the recorder resolves the same Chrome for Testing 149+ binary used
-by the devtools and Playwright helpers.
+The recorder prefers Playwright's bundled Chrome for Testing when available,
+because recent branded Google Chrome builds can reject unpacked extensions.
 EOF
+}
+
+resolve_playwright_chrome_bin() {
+  if ! command -v pnpm >/dev/null 2>&1; then
+    return 1
+  fi
+  if [[ ! -f "${ROOT_DIR}/frontend/package.json" ]]; then
+    return 1
+  fi
+
+  local candidate=""
+  candidate="$(pnpm -C "${ROOT_DIR}/frontend" exec node -p "require('@playwright/test').chromium.executablePath()" 2>/dev/null || true)"
+  if [[ -z "${candidate}" ]] || [[ ! -x "${candidate}" ]]; then
+    return 1
+  fi
+  printf '%s\n' "${candidate}"
 }
 
 resolve_chrome_bin() {
@@ -180,7 +196,41 @@ resolve_chrome_bin() {
     return 0
   fi
 
-  "${ROOT_DIR}/scripts/resolve-chrome-for-testing-149.sh"
+  local playwright_chrome_bin=""
+  playwright_chrome_bin="$(resolve_playwright_chrome_bin || true)"
+  if [[ -n "${playwright_chrome_bin}" ]]; then
+    printf '%s\n' "${playwright_chrome_bin}"
+    return 0
+  fi
+
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    if [[ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]]; then
+      printf '%s\n' "/Applications/Chromium.app/Contents/MacOS/Chromium"
+      return 0
+    fi
+    if [[ -x "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" ]]; then
+      printf '%s\n' "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+      return 0
+    fi
+  fi
+
+  if command -v chromium >/dev/null 2>&1; then
+    command -v chromium
+    return 0
+  fi
+  if command -v chromium-browser >/dev/null 2>&1; then
+    command -v chromium-browser
+    return 0
+  fi
+  if command -v google-chrome >/dev/null 2>&1; then
+    command -v google-chrome
+    return 0
+  fi
+  if [[ "${OSTYPE:-}" == "darwin"* ]] && [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+    printf '%s\n' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    return 0
+  fi
+  return 1
 }
 
 chrome_binary_may_reject_unpacked_extensions() {
@@ -573,7 +623,6 @@ fi
 chrome_log="${log_dir}/chrome.log"
 chrome_command=("${chrome_bin}")
 if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-  # Dedicated recording profiles should not request access to the user's real keychain.
   chrome_command+=("--use-mock-keychain")
 fi
 if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then

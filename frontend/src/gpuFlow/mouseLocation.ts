@@ -1,15 +1,11 @@
 import { useEffect } from "react";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { screenToFlowPosition, setCenter } from "./viewportActions";
 import type { GpuPoint } from "./viewportMath";
-import {
-  gpuFlowViewportStore,
-  type GpuFlowViewportStoreApi,
-} from "./viewportStore";
+import type { GpuFlowViewportStoreApi } from "./viewportStore";
 
 type ZoomToMouseLocationOptions = {
-  readonly overviewWidth?: number | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
-  readonly zoom?: number | undefined;
 };
 
 export let mouseLocation: GpuPoint = { x: 0, y: 0 };
@@ -35,13 +31,13 @@ export function useAddMouseLocationListener() {
 export function zoomToMouseLocation(
   options: ZoomToMouseLocationOptions = {},
 ): boolean {
-  const store = options.store ?? gpuFlowViewportStore;
   const { x, y } = screenToFlowPosition(mouseLocation, {
-    store,
+    store: options.store,
   });
+  const zoom = useSettings.getState().gui.defaultZoomLevel;
   return setCenter(x, y, {
-    overviewWidth: options.overviewWidth,
-    store,
-    zoom: options.zoom ?? store.getState().defaultZoom,
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    store: options.store,
+    zoom,
   });
 }

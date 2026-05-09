@@ -1,4 +1,3 @@
-import { gpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { pasteSections, prepareSectionsForCopy } from "openapi/http";
 import {
   useActiveSectionUI,
@@ -59,7 +58,6 @@ function createOpenAPISuccess<T>(data: T) {
 describe("copyPaste actions", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     mockedRoutePrepareSectionsForCopy.mockReset();
     mockedRoutePasteSections.mockReset();
     mockedAddTemporaryNotification.mockReset();
@@ -105,7 +103,6 @@ describe("copyPaste actions", () => {
   });
   afterEach(() => {
     resetProjectStores();
-    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     if (originalNavigatorDescriptor) {
       Object.defineProperty(
         globalThis,
@@ -170,43 +167,6 @@ describe("copyPaste actions", () => {
         data: sectionsClipboardPayload.data,
         position: { x: 240, y: 180 },
         asRef: true,
-      },
-    });
-  });
-  it("pastes active sections beside renderer-owned active bounds", async () => {
-    useActiveSectionUI.setState({ activeIds: ["section-a", "section-b"] });
-    gpuFlowLayoutStore.getState().replaceNodes([
-      {
-        height: 80,
-        nodeId: "section-a",
-        tempZIndex: 0,
-        width: 100,
-        x: 10,
-        y: 20,
-        zIndex: 0,
-      },
-      {
-        height: 90,
-        nodeId: "section-b",
-        tempZIndex: 0,
-        width: 120,
-        x: 180,
-        y: 40,
-        zIndex: 0,
-      },
-    ]);
-    mockedRoutePasteSections.mockResolvedValue(
-      createOpenAPISuccess(null) as Awaited<ReturnType<typeof pasteSections>>,
-    );
-
-    await paste({ asRef: false });
-
-    expect(mockedRoutePasteSections).toHaveBeenCalledWith({
-      body: {
-        projectConfigId: "project-alpha",
-        data: sectionsClipboardPayload.data,
-        position: { x: 300, y: 20 },
-        asRef: false,
       },
     });
   });

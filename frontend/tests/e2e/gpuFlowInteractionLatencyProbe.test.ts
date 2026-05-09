@@ -166,8 +166,6 @@ describe("GPU flow interaction latency probe helpers", () => {
         },
       ],
       queueWrappersInstalled: true,
-      requestPaintCalls: [],
-      sourceMutations: [],
       timestampMs: 180,
     };
 

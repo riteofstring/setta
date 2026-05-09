@@ -3,21 +3,12 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import type {
-  Connection,
-  GpuFlowAutoPanInsetsInput,
-  GpuFlowAutoPanInsetsPx,
-  HandleConnectionCandidateFilter,
-  HandleType,
-} from "../flowTypes";
+import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
+import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
+import { useEdgeHandleRegistry, useLocalStorage } from "state/definitions";
+import type { Connection, HandleType } from "../flowTypes";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
-import type { GpuFlowLayoutStoreApi } from "../layoutStore";
-import {
-  buildGpuFlowPortEndpoints,
-  makeGpuFlowPortKey,
-  useGpuFlowPortRegistry,
-} from "../ports/portGeometry";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -40,42 +31,30 @@ import {
 } from "./utils";
 
 type HandlePointerEvent = ReactMouseEvent | ReactTouchEvent;
-type NativeHandlePointerEvent = MouseEvent | PointerEvent | TouchEvent;
-export type GpuHandlePointerStartEvent =
-  | HandlePointerEvent
-  | NativeHandlePointerEvent;
+type NativeHandlePointerEvent = MouseEvent | TouchEvent;
 
 export function handlePointerDown({
   event,
   handleId,
-  layoutStore,
   nodeId,
   onConnect,
   isTarget,
   store,
-  isConnectionCandidateAllowed,
   isValidConnection,
   edgeUpdaterType,
   onReconnectEnd,
-  pointerUpSnapRadius,
-  autoPanInsetsPx,
 }: {
-  event: GpuHandlePointerStartEvent;
+  event: HandlePointerEvent;
   handleId: string | null;
-  layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
   onConnect: (connection: Connection) => void;
   isTarget: boolean;
   store: GpuFlowViewportStoreApi;
-  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection: ValidConnectionFunc;
   edgeUpdaterType?: HandleType;
   onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
-  pointerUpSnapRadius?: number;
-  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
-  const usePointerEvents = isNativePointerEvent(event);
   const { connectionMode, domNode, autoPanOnConnect, connectionRadius } =
     store.getState();
   let autoPanId = 0;
@@ -86,13 +65,11 @@ export function handlePointerDown({
   const handleType = getHandleType(edgeUpdaterType, clickedHandle);
   const containerBounds = domNode?.getBoundingClientRect();
 
-  if (!layoutStore) {
-    throw new Error("GpuFlow handle connections require a layout store.");
-  }
-
   if (!containerBounds || !handleType) {
     return;
   }
+
+  recomputeEdgeHandlePositions();
 
   let prevActiveHandle: Element | null = null;
   let connectionPosition = getEventPosition(event, containerBounds);
@@ -102,11 +79,19 @@ export function handlePointerDown({
   let handleDomNode: Element | null = null;
   let connectionGestureCleanedUp = false;
 
-  const handlePositions = getConnectionHandlePositions(layoutStore);
+  const handlePositions = Object.values(
+    useEdgeHandleRegistry.getState().positions,
+  ).map((handle) => ({
+    sectionId: handle.sectionId,
+    portId: handle.portId,
+    type: handle.type,
+    x: handle.x,
+    y: handle.y,
+  }));
 
   const handleLookup = getHandleLookup(
     handlePositions,
-    handleId ? makeGpuFlowPortKey(nodeId, handleId, handleType) : null,
+    `${nodeId}-${handleId}-${handleType}`,
   );
   const fromType: HandleType = isTarget ? "target" : "source";
   const validateHandle = (
@@ -123,7 +108,12 @@ export function handlePointerDown({
       isValidConnection,
       doc,
     });
-  const allowHandle = isConnectionCandidateAllowed ?? null;
+  const shouldFilterByAgentic = handleId !== null;
+  const allowHandle = shouldFilterByAgentic
+    ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
+        return canConnectHandleFamilies(handleId, handle.portId);
+      }
+    : null;
 
   const getClosestHandleForEvent = ({
     event,
@@ -148,8 +138,12 @@ export function handlePointerDown({
     if (!autoPanOnConnect) {
       return;
     }
+    const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
     const delta = getGpuNodeDragAutoPanDelta({
-      insetsPx: resolveGpuHandleAutoPanInsetsPx(autoPanInsetsPx),
+      insetsPx: {
+        left: overviewTrueWidth,
+        right: uiEditorTrueWidth,
+      },
       point: connectionPosition,
       viewportSize: {
         height: containerBounds.height,
@@ -231,11 +225,7 @@ export function handlePointerDown({
     connection: Connection | null;
     isValid: boolean;
   } => {
-    const snapRadius = getPointerUpSnapRadius(
-      pointerUpSnapRadius,
-      connectionRadius,
-    );
-    if (closestHandle || snapRadius === null) {
+    if (closestHandle || !handleId?.includes("reverse")) {
       return {
         closestHandle,
         connection,
@@ -243,16 +233,16 @@ export function handlePointerDown({
       };
     }
 
-    const snapped = getClosestHandleForEvent({
+    const fallback = getClosestHandleForEvent({
       event,
       position: getEventPosition(event, containerBounds),
-      radius: snapRadius,
+      radius: Math.max(connectionRadius, 80),
     });
 
     return {
-      closestHandle: snapped.handle,
-      connection: snapped.validHandleResult.connection,
-      isValid: snapped.validHandleResult.isValid,
+      closestHandle: fallback.handle,
+      connection: fallback.validHandleResult.connection,
+      isValid: fallback.validHandleResult.isValid,
     };
   };
 
@@ -327,10 +317,6 @@ export function handlePointerDown({
     doc.removeEventListener("touchend", onPointerUp as EventListener);
     doc.removeEventListener("touchcancel", onConnectionCancel as EventListener);
 
-    if (usePointerEvents) {
-      doc.removeEventListener("pointermove", onPointerMove as EventListener);
-      doc.removeEventListener("pointerup", onPointerUp as EventListener);
-    }
     doc.removeEventListener("pointercancel", onConnectionCancel, true);
     doc.removeEventListener("keydown", onKeyDown as EventListener, true);
   }
@@ -377,32 +363,12 @@ export function handlePointerDown({
   doc.addEventListener("touchend", onPointerUp as EventListener);
   doc.addEventListener("touchcancel", onConnectionCancel as EventListener);
 
-  if (usePointerEvents) {
-    doc.addEventListener("pointermove", onPointerMove as EventListener);
-    doc.addEventListener("pointerup", onPointerUp as EventListener);
-  }
   doc.addEventListener("pointercancel", onConnectionCancel, true);
   doc.addEventListener("keydown", onKeyDown as EventListener, true);
 }
 
-function getConnectionHandlePositions(
-  layoutStore: GpuFlowLayoutStoreApi,
-): ConnectionHandle[] {
-  const endpoints = buildGpuFlowPortEndpoints({
-    layoutNodes: layoutStore.getState().getNodes(),
-    ports: useGpuFlowPortRegistry.getState().descriptors,
-  });
-  return Object.values(endpoints).map((endpoint) => ({
-    sectionId: endpoint.nodeId,
-    portId: endpoint.portId,
-    type: endpoint.type,
-    x: endpoint.x,
-    y: endpoint.y,
-  }));
-}
-
 function getEventPosition(
-  event: GpuHandlePointerStartEvent,
+  event: HandlePointerEvent | NativeHandlePointerEvent,
   bounds?: DOMRect,
 ): GpuPoint {
   const point = getClientPoint(event);
@@ -412,7 +378,9 @@ function getEventPosition(
   };
 }
 
-function getClientPoint(event: GpuHandlePointerStartEvent): GpuPoint {
+function getClientPoint(
+  event: HandlePointerEvent | NativeHandlePointerEvent,
+): GpuPoint {
   if ("clientX" in event) {
     return {
       x: event.clientX,
@@ -428,36 +396,4 @@ function getClientPoint(event: GpuHandlePointerStartEvent): GpuPoint {
 
 function getHostForElement(element: HTMLElement): Document | ShadowRoot {
   return (element.getRootNode?.() as Document | ShadowRoot) || window.document;
-}
-
-function isNativePointerEvent(
-  event: GpuHandlePointerStartEvent,
-): event is PointerEvent {
-  return (
-    typeof PointerEvent !== "undefined" &&
-    event instanceof PointerEvent &&
-    event.type.startsWith("pointer")
-  );
-}
-
-function getPointerUpSnapRadius(
-  pointerUpSnapRadius: number | null | undefined,
-  connectionRadius: number,
-): number | null {
-  if (
-    pointerUpSnapRadius === null ||
-    pointerUpSnapRadius === undefined ||
-    !Number.isFinite(pointerUpSnapRadius) ||
-    pointerUpSnapRadius <= 0
-  ) {
-    return null;
-  }
-  return Math.max(connectionRadius, pointerUpSnapRadius);
-}
-
-function resolveGpuHandleAutoPanInsetsPx(
-  input: GpuFlowAutoPanInsetsInput,
-): GpuFlowAutoPanInsetsPx | undefined {
-  const resolved = typeof input === "function" ? input() : input;
-  return resolved ?? undefined;
 }

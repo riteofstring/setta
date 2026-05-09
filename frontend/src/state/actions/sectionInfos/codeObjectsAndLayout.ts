@@ -56,6 +56,8 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+
 import { recordAuthoritativeProjectChatWindowingState } from "../projectChatWindowingAuthoritative";
 
 import { reconcileProjectChatWindowingEphemeralState } from "../projectChatWindowingEphemeral";
@@ -73,17 +75,11 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "./projectStateCore";
 
-import { createProjectStateUpdateChromeReproTimer } from "./projectStateChromeReproPerf";
-
 import {
   getCurrProjectConfigId,
   reconcilePendingTopLevelLayout,
   reconcilePendingViewport,
 } from "./viewportUpdates";
-import {
-  buildTopLevelSectionNode,
-  getPositiveTopLevelLayoutDimension,
-} from "./topLevelSectionNode";
 
 export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.codeObjVariants[variantId];
@@ -342,9 +338,7 @@ export function processProjectStateUpdateFromBackend(
   x: GetLatestProjectStateResponse,
 ) {
   const projectConfigId = getCurrProjectConfigId();
-  const timer = createProjectStateUpdateChromeReproTimer(x);
   if (x.projectState.projectConfig.id !== projectConfigId) {
-    timer.finish({ ignored: true, reason: "project-config-mismatch" });
     return;
   }
   const currentState = useProjectState.getState();
@@ -377,7 +371,6 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  timer.mark("reconcile-pending-ops");
   const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
@@ -385,13 +378,10 @@ export function processProjectStateUpdateFromBackend(
     Object.keys(x.projectState.sections),
   );
   const sanitizedProjectState = getComparableProjectState(x.projectState);
-  const comparableCurrentState = getComparableProjectState(currentState);
-  timer.mark("build-comparable-project-state");
   const projectStateChanged = !_.isEqual(
-    comparableCurrentState,
+    getComparableProjectState(currentState),
     sanitizedProjectState,
   );
-  timer.mark("compare-project-state");
   if (!projectStateChanged) {
     unstable_batchedUpdates(() => {
       usePendingOperations.setState({ pending: nextPending });
@@ -402,7 +392,6 @@ export function processProjectStateUpdateFromBackend(
     markRenameBroadcastsReady(completedIds);
     maybeOpenNextRenamePrompt();
     clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
-    timer.finish({ changed: false });
     return;
   }
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
@@ -431,7 +420,6 @@ export function processProjectStateUpdateFromBackend(
       });
     },
   );
-  timer.mark("publish-project-stores");
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
@@ -441,11 +429,6 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
-  timer.finish({
-    changed: true,
-    nextNodeCount: nextNodesMap.size,
-    shouldRequestFitView,
-  });
 }
 
 export function applyViewportFromProjectState(
@@ -666,11 +649,44 @@ export function shouldRenderTopLevelSectionNode(
     : false;
 }
 
+export function getSectionNodeStyle(
+  sectionImpl: BaseSectionImplUnion | null,
+  darkMode: boolean,
+) {
+  const styleColor = sectionImpl?.styleColor;
+  if (
+    styleColor === null ||
+    styleColor === undefined ||
+    styleColor.trim() === ""
+  ) {
+    return undefined;
+  }
+  return { background: deriveSectionStyleTheme(styleColor, darkMode).bg };
+}
+
+export function buildTopLevelSectionNode(
+  sectionId: string,
+  layout: TopLevelSectionLayout,
+  existingNode: Node | undefined,
+  sectionImpl: BaseSectionImplUnion | null,
+  darkMode: boolean,
+): Node {
+  return {
+    id: sectionId,
+    position: { x: layout.x, y: layout.y },
+    width: existingNode?.width ?? layout.w,
+    height: existingNode?.height ?? layout.h,
+    zIndex: layout.zIndex,
+    tempZIndex: layout.zIndex,
+    type: sectionImpl?.type,
+    style: getSectionNodeStyle(sectionImpl, darkMode),
+  };
+}
+
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
   nodes: ZustandNodeInternalsState["x"],
 ) {
-  void nodes;
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = useLocalStorage.getState().darkMode;
   const { activeViewModeId, viewModes } = p.projectConfig;
@@ -690,12 +706,13 @@ export function createNodesMapFromProjectConfigChildren(
     const sectionImpl = getEffectiveSectionImplIfPresent(p, sectionId);
     nodesMap.set(
       sectionId,
-      buildTopLevelSectionNode({
-        darkMode,
-        layout,
+      buildTopLevelSectionNode(
         sectionId,
+        layout,
+        nodes.get(sectionId),
         sectionImpl,
-      }),
+        darkMode,
+      ),
     );
   }
   return nodesMap;
@@ -958,10 +975,10 @@ export function buildTopLevelSectionLayout(
   if (node.zIndex !== undefined) {
     nextLayout.zIndex = node.zIndex;
   }
-  if (getPositiveTopLevelLayoutDimension(node.width) !== null) {
+  if (node.width !== undefined) {
     nextLayout.w = node.width;
   }
-  if (getPositiveTopLevelLayoutDimension(node.height) !== null) {
+  if (node.height !== undefined) {
     nextLayout.h = node.height;
   }
   return nextLayout;

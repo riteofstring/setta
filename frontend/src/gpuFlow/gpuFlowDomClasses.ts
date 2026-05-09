@@ -6,6 +6,7 @@ export const GPU_FLOW_CLASS_NAMES = {
   controlsZoomIn: "setta-gpu-flow__controls-zoom-in",
   controlsZoomOut: "setta-gpu-flow__controls-zoom-out",
   edge: "setta-gpu-flow__edge",
+  edgeUpdater: "setta-gpu-flow__edge-updater",
   edges: "setta-gpu-flow__edges",
   handle: "setta-gpu-flow__handle",
   handleConnecting: "setta-gpu-flow__handle-connecting",
@@ -19,7 +20,6 @@ export const GPU_FLOW_CLASS_NAMES = {
   nodesSelectionRect: "setta-gpu-flow__nodes-selection-rect",
   pane: "setta-gpu-flow__pane",
   panel: "setta-gpu-flow__panel",
-  portalRoot: "setta-gpu-flow__portal-root",
   root: "setta-gpu-flow-root",
   selection: "setta-gpu-flow__selection",
   viewport: "setta-gpu-flow__canvas",
@@ -27,14 +27,18 @@ export const GPU_FLOW_CLASS_NAMES = {
 
 export const GPU_FLOW_SELECTORS = {
   canvas: `.${GPU_FLOW_CLASS_NAMES.canvas}`,
+  edgeUpdater: `.${GPU_FLOW_CLASS_NAMES.edgeUpdater}`,
   handle: `.${GPU_FLOW_CLASS_NAMES.handle}`,
   node: `.${GPU_FLOW_CLASS_NAMES.node}`,
   nodesSelectionRect: `.${GPU_FLOW_CLASS_NAMES.nodesSelectionRect}`,
   pane: `.${GPU_FLOW_CLASS_NAMES.pane}`,
-  portalRoot: "[data-gpu-flow-portal-root='true']",
   root: `.${GPU_FLOW_CLASS_NAMES.root}`,
   selection: `.${GPU_FLOW_CLASS_NAMES.selection}`,
 } as const;
+
+export function getGpuFlowEdgeUpdaterEndpointClass(endpoint: string): string {
+  return `${GPU_FLOW_CLASS_NAMES.edgeUpdater}-${endpoint}`;
+}
 
 export function getGpuFlowHandlePositionClass(position: string): string {
   return `${GPU_FLOW_CLASS_NAMES.handle}-${position}`;

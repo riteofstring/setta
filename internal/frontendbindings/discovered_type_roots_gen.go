@@ -555,8 +555,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(realtime.UpdateArtifactsMessage{}),
 		reflect.TypeOf(realtime.ProjectStateUpdateContent{}),
 		reflect.TypeOf(realtime.ProjectStateUpdateMessage{}),
-		reflect.TypeOf(realtime.ProjectParamUpdateContent{}),
-		reflect.TypeOf(realtime.ProjectParamUpdateMessage{}),
 		reflect.TypeOf(realtime.SettingsUpdateMessage{}),
 		reflect.TypeOf(realtime.PluginRuntimeUpdateMessage{}),
 		reflect.TypeOf(realtime.RenameReferenceDependencyKey{}),

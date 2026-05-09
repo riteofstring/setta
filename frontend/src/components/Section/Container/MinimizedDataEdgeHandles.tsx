@@ -1,10 +1,10 @@
 import { HandlePosition, type HandleType } from "gpuFlow/flowTypes";
-import {
-  registerGpuFlowPortsWithSharedElement,
-  unregisterGpuFlowPortDescriptor,
-} from "gpuFlow/ports/portGeometry";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
+import {
+  registerEdgeHandlesWithSharedElement,
+  unregisterEdgeHandle,
+} from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -23,11 +23,7 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
   const { isMinimized, inputPortIds, outputPortIds } = useProjectState(
     (state) => {
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
-      if (
-        !isBaseSectionWithParamsImpl(
-          impl as unknown as Parameters<typeof isBaseSectionWithParamsImpl>[0],
-        )
-      ) {
+      if (!isBaseSectionWithParamsImpl(impl)) {
         return {
           isMinimized: impl.isMinimized,
           inputPortIds: [],
@@ -36,8 +32,8 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       }
       return {
         isMinimized: impl.isMinimized,
-        inputPortIds: impl.edgeInputParams ?? [],
-        outputPortIds: (impl.edgeOutputPorts ?? []).map((port) => port.id),
+        inputPortIds: impl.edgeInputParams,
+        outputPortIds: impl.edgeOutputPorts.map((port) => port.id),
       };
     },
     _.isEqual,
@@ -59,8 +55,8 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
     const registered: Array<{ portId: string; type: HandleType }> = [];
 
     if (leftEl) {
-      registerGpuFlowPortsWithSharedElement({
-        nodeId: sectionId,
+      registerEdgeHandlesWithSharedElement({
+        sectionId,
         portIds: inputPortIds,
         type: "target",
         side: HandlePosition.Left,
@@ -73,8 +69,8 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
     }
 
     if (rightEl) {
-      registerGpuFlowPortsWithSharedElement({
-        nodeId: sectionId,
+      registerEdgeHandlesWithSharedElement({
+        sectionId,
         portIds: outputPortIds,
         type: "source",
         side: HandlePosition.Right,
@@ -88,7 +84,7 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
 
     return () => {
       for (const entry of registered) {
-        unregisterGpuFlowPortDescriptor(sectionId, entry.portId, entry.type);
+        unregisterEdgeHandle(sectionId, entry.portId, entry.type);
       }
     };
   }, [canEditStructure, inputPortIds, isMinimized, outputPortIds, sectionId]);

@@ -1,16 +1,21 @@
-import type { Rect } from "./flowTypes";
-import { gpuFlowLayoutStore, type GpuFlowLayoutStoreApi } from "./layoutStore";
-import { panBy } from "./viewportActions";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useSectionRefs,
+} from "state/definitions";
+import type { Position } from "utils/generatedTypes";
+import type { Node, Rect } from "./flowTypes";
+import { getGpuNodesBounds } from "./nodeBounds";
+import { panBy, screenToFlowPosition } from "./viewportActions";
 import {
   normalizeGpuViewport,
   screenToFlowPosition as screenToFlowPoint,
-  type GpuPoint,
   type GpuRect,
 } from "./viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStore,
-  type GpuFlowViewportStoreApi,
 } from "./viewportStore";
 
 type PaneRectViewportState = Pick<
@@ -18,32 +23,76 @@ type PaneRectViewportState = Pick<
   "domNode" | "height" | "transform" | "width"
 >;
 
-type LayoutQueryOptions = {
-  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
-};
+type NodeBoundsInput = Pick<Node, "height" | "position" | "width">;
 
-type MovePaneToIncludeSectionOptions = LayoutQueryOptions & {
-  readonly overviewWidth?: number | undefined;
-  readonly uiEditorWidth?: number | undefined;
-  readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
-};
-
-export function getSectionRect(
-  sectionId: string,
-  options: LayoutQueryOptions = {},
-): Rect | null {
-  const rect = resolveLayoutStore(options).getState().getNodeRect(sectionId);
-  return rect ? toRect(rect) : null;
+function getNodesBounds(nodes: readonly NodeBoundsInput[]): Rect {
+  return toRect(getGpuNodesBounds(nodes));
 }
 
-export function getSectionBounds(
-  sectionIds: readonly string[],
-  options: LayoutQueryOptions = {},
-): Rect | null {
-  const bounds = resolveLayoutStore(options)
-    .getState()
-    .getNodesBounds(sectionIds);
-  return bounds ? toRect(bounds) : null;
+export function getActiveSectionsBounds(): Rect {
+  const activeSectionIds = getActiveSectionUIIds();
+  return (
+    getSectionBounds(activeSectionIds) ?? {
+      height: 0,
+      width: 0,
+      x: 0,
+      y: 0,
+    }
+  );
+}
+
+export function getSectionRect(sectionId: string) {
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
+  if (!ref) {
+    return null;
+  }
+
+  const bounds = ref.getBoundingClientRect();
+  const { x, y } = screenToFlowPosition({
+    x: bounds.left,
+    y: bounds.top,
+  });
+  return {
+    height: ref.clientHeight,
+    width: ref.clientWidth,
+    x,
+    y,
+  };
+}
+
+export function getSectionBounds(sectionIds: readonly string[]): Rect | null {
+  const nodeInternals = useNodeInternals.getState().x;
+  const sections: NodeBoundsInput[] = [];
+
+  for (const sectionId of sectionIds) {
+    const node = nodeInternals.get(sectionId);
+    if (node && hasPositiveRectBounds(node.width, node.height)) {
+      sections.push({
+        height: node.height,
+        position: { x: node.position.x, y: node.position.y },
+        width: node.width,
+      });
+      continue;
+    }
+
+    const rect = getSectionRect(sectionId);
+    if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
+      continue;
+    }
+    sections.push({
+      height: rect.height,
+      position: { x: rect.x, y: rect.y },
+      width: rect.width,
+    });
+  }
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return getNodesBounds(sections);
 }
 
 export function getPaneRect(
@@ -87,49 +136,42 @@ export function getPaneRect(
   };
 }
 
-export function movePaneToIncludeSection(
-  sectionId: string,
-  options: MovePaneToIncludeSectionOptions = {},
-) {
-  const rect = getSectionRect(sectionId, options);
-  if (!rect) {
-    return;
-  }
-  movePaneToIncludePoint({ x: rect.x, y: rect.y }, options);
+function getCurrentPaneRect(): Rect {
+  return getPaneRect(
+    gpuFlowViewportStore.getState(),
+    useLocalStorage.getState().overviewTrueWidth,
+    useLocalStorage.getState().uiEditorTrueWidth,
+  );
 }
 
-function movePaneToIncludePoint(
-  point: GpuPoint,
-  options: MovePaneToIncludeSectionOptions,
-) {
-  const viewportStore = resolveViewportStore(options.viewportStore);
-  const paneRect = getPaneRect(
-    viewportStore.getState(),
-    options.overviewWidth ?? 0,
-    options.uiEditorWidth ?? 0,
-  );
+export function movePaneToIncludeElement(element: HTMLElement) {
+  const bounds = element.getBoundingClientRect();
+  const point = screenToFlowPosition({ x: bounds.left, y: bounds.top });
+  const paneRect = getCurrentPaneRect();
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (isInside) {
     return;
   }
 
-  const zoom = normalizeGpuViewport(viewportStore.getState().transform).zoom;
-  panBy({ x: -x * zoom, y: -y * zoom }, { store: viewportStore });
+  const zoom = normalizeGpuViewport(
+    gpuFlowViewportStore.getState().transform,
+  ).zoom;
+  panBy({ x: -x * zoom, y: -y * zoom });
 }
 
-function resolveLayoutStore(
-  options: LayoutQueryOptions,
-): GpuFlowLayoutStoreApi {
-  return options.layoutStore ?? gpuFlowLayoutStore;
+function hasPositiveRectBounds(
+  width: number | null | undefined,
+  height: number | null | undefined,
+) {
+  return (
+    typeof width === "number" &&
+    typeof height === "number" &&
+    width > 0 &&
+    height > 0
+  );
 }
 
-function resolveViewportStore(
-  store: GpuFlowViewportStoreApi | undefined,
-): GpuFlowViewportStoreApi {
-  return store ?? gpuFlowViewportStore;
-}
-
-function getRectTranslation(point: GpuPoint, rect: Rect, padding = 0) {
+function getRectTranslation(point: Position, rect: Rect, padding = 0) {
   const minX = rect.x + padding;
   const maxX = rect.x + rect.width - padding;
   const minY = rect.y + padding;

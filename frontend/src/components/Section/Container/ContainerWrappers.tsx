@@ -103,12 +103,7 @@ function _DndWatcherAndContainer({
 
   // Don't want the GPU flow node (which contains this child)
   // to move when sorting
-  const className = [
-    isTopLevel ? "h-full w-full" : "",
-    isSorting || isMovingFree ? "nodrag" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,
     ...maybeGetOpacityStyle(

@@ -19,7 +19,6 @@ import {
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
 import { isProjectGpuEdgeInteractionDisabled } from "./gpuProjectInteractionGuards";
-import { useProjectGpuLayoutAdapter } from "./GpuProjectSurface/projectGpuLayoutAdapter";
 
 type GpuProjectEdgeLayerProps = {
   readonly showAgenticEdges: boolean;
@@ -42,9 +41,7 @@ export function GpuProjectEdgeLayer({
   showDataEdges,
 }: GpuProjectEdgeLayerProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const { nodeLayouts } = useProjectGpuLayoutAdapter();
   const edgeScene = useProjectGpuEdgeScene({
-    layoutNodes: nodeLayouts,
     showAgenticEdges,
     showDataEdges,
   });

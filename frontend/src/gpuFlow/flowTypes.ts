@@ -1,13 +1,9 @@
 import type { CSSProperties } from "react";
+import type { Position } from "utils/generatedTypes";
 
 export interface Dimensions {
   width: number;
   height: number;
-}
-
-export interface Position {
-  x: number;
-  y: number;
 }
 
 export interface Rect extends Dimensions, Position {}
@@ -55,29 +51,6 @@ export type Connection = {
   targetHandle: string | null;
 };
 
-export type HandleConnectionCandidate = {
-  sectionId: string;
-  handleId: string | null;
-  type: HandleType | null;
-};
-
-export type HandleConnectionCandidateFilter = (
-  candidate: HandleConnectionCandidate,
-) => boolean;
-
-export type GpuFlowAutoPanInsetsPx = {
-  readonly bottom?: number | undefined;
-  readonly left?: number | undefined;
-  readonly right?: number | undefined;
-  readonly top?: number | undefined;
-};
-
-export type GpuFlowAutoPanInsetsInput =
-  | GpuFlowAutoPanInsetsPx
-  | (() => GpuFlowAutoPanInsetsPx | null | undefined)
-  | null
-  | undefined;
-
 export type ConnectingHandle = {
   sectionId: string;
   type: HandleType;
@@ -99,9 +72,6 @@ export type HandleProps = {
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
   connectionStartSemanticType?: HandleType;
-  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
   onConnect?: (connection: Connection) => void;
-  pointerUpSnapRadius?: number;
-  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 };

@@ -1,6 +1,6 @@
-import { buildGpuEdgeGeometry } from "../../src/gpuFlow/edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "../../src/gpuFlow/edges/edgeGpuBuffers";
-import type { GpuNodeLayout } from "../../src/gpuFlow/htmlSurfaces/frame";
+import { buildGpuEdgeGeometry } from "../../src/gpuFlow/edges/edgeGeometry";
+import type { GpuNodeLayout } from "../../src/gpuFlow/GpuNodeLayer";
 import type { GpuViewportInput } from "../../src/gpuFlow/viewportMath";
 
 export type GpuFlowStressScale = "medium" | "smoke" | "stress" | "stretch";
@@ -64,7 +64,8 @@ export function createGpuFlowLargeGraphStressFixture(
   const scale = options.scale ?? "smoke";
   const nodeCount =
     options.nodeCount ?? GPU_FLOW_STRESS_SCALE_NODE_COUNTS[scale];
-  const columns = options.columns ?? Math.ceil(Math.sqrt(nodeCount) * 1.15);
+  const columns =
+    options.columns ?? Math.ceil(Math.sqrt(nodeCount) * 1.15);
   const canvas = {
     height: options.canvas?.height ?? DEFAULT_STRESS_CANVAS.height,
     width: options.canvas?.width ?? DEFAULT_STRESS_CANVAS.width,

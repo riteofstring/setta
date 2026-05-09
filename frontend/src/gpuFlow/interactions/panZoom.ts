@@ -1,4 +1,6 @@
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
@@ -13,19 +15,12 @@ import {
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 
-export const GPU_PAN_ON_SCROLL_MODE = {
-  free: "free",
-  horizontal: "horizontal",
-  vertical: "vertical",
-} as const;
-
-export type GpuPanOnScrollMode =
-  (typeof GPU_PAN_ON_SCROLL_MODE)[keyof typeof GPU_PAN_ON_SCROLL_MODE];
+type GpuPanOnScrollMode =
+  (typeof PanOnScrollModeEnum)[keyof typeof PanOnScrollModeEnum];
 
 export type GpuPanZoomControllerOptions = {
   readonly element: HTMLElement;
   readonly isMacOS?: boolean | undefined;
-  readonly onPointerPanStart?: (() => void) | undefined;
   readonly panActivationKeyPressed?: boolean | undefined;
   readonly panOnDrag?: boolean | readonly number[] | undefined;
   readonly panOnScroll?: boolean | undefined;
@@ -53,7 +48,6 @@ type ActivePointerPan = {
 
 type ResolvedGpuPanZoomControllerOptions = {
   readonly panActivationKeyPressed: boolean | undefined;
-  readonly onPointerPanStart: (() => void) | undefined;
   readonly panOnDrag: boolean | readonly number[];
   readonly panOnScroll: boolean;
   readonly panOnScrollMode: GpuPanOnScrollMode;
@@ -69,7 +63,7 @@ type ResolvedGpuPanZoomControllerOptions = {
 const DEFAULT_PAN_ZOOM_OPTIONS = {
   panOnDrag: true,
   panOnScroll: false,
-  panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.free,
+  panOnScrollMode: PanOnScrollModeEnum.free,
   panOnScrollSpeed: 0.5,
   preventScrolling: true,
   zoomOnDoubleClick: true,
@@ -109,18 +103,18 @@ export function resolveGpuPanOnScrollDelta({
 }): GpuPanZoomWheelDelta {
   const deltaNormalize = event.deltaMode === 1 ? 20 : 1;
   let deltaX =
-    panOnScrollMode === GPU_PAN_ON_SCROLL_MODE.vertical
+    panOnScrollMode === PanOnScrollModeEnum.vertical
       ? 0
       : event.deltaX * deltaNormalize;
   let deltaY =
-    panOnScrollMode === GPU_PAN_ON_SCROLL_MODE.horizontal
+    panOnScrollMode === PanOnScrollModeEnum.horizontal
       ? 0
       : event.deltaY * deltaNormalize;
 
   if (
     !isMacOS &&
     event.shiftKey &&
-    panOnScrollMode !== GPU_PAN_ON_SCROLL_MODE.vertical
+    panOnScrollMode !== PanOnScrollModeEnum.vertical
   ) {
     deltaX = event.deltaY * deltaNormalize;
     deltaY = 0;
@@ -213,7 +207,6 @@ function resolveGpuPanZoomControllerOptions(
   options: GpuPanZoomControllerOptions,
 ): ResolvedGpuPanZoomControllerOptions {
   return {
-    onPointerPanStart: options.onPointerPanStart,
     panActivationKeyPressed: options.panActivationKeyPressed,
     panOnDrag: options.panOnDrag ?? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag,
     panOnScroll: options.panOnScroll ?? DEFAULT_PAN_ZOOM_OPTIONS.panOnScroll,
@@ -312,7 +305,7 @@ class GpuPanZoomController {
       return;
     }
     event.preventDefault();
-    this.options.onPointerPanStart?.();
+    closeContextMenusForViewportGesture();
     this.activePan = {
       lastClientX: event.clientX,
       lastClientY: event.clientY,
@@ -575,4 +568,8 @@ function isEventTargetWrappedWithClass(
     return false;
   }
   return target.closest(`.${className}`) !== null;
+}
+
+function closeContextMenusForViewportGesture() {
+  closeAllContextMenus();
 }

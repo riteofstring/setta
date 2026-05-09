@@ -1,6 +1,7 @@
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { SelectionModeEnum } from "utils/generatedTypes";
+import type { GpuNodeLayout } from "../GpuNodeLayer";
 import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
-import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import {
   rectsIntersect,
   screenToFlowPosition,
@@ -13,12 +14,8 @@ import {
   type GpuUserSelectionRect,
 } from "../viewportStore";
 
-export const GPU_SELECTION_MODE_FULL = "full";
-export const GPU_SELECTION_MODE_PARTIAL = "partial";
-
-export type GpuSelectionMode =
-  | typeof GPU_SELECTION_MODE_FULL
-  | typeof GPU_SELECTION_MODE_PARTIAL;
+type GpuSelectionMode =
+  (typeof SelectionModeEnum)[keyof typeof SelectionModeEnum];
 
 type GpuSelectionPhase = "start" | "change" | "end" | "cancel";
 
@@ -62,7 +59,7 @@ export function attachGpuSelectionController(
 }
 
 export function getGpuNodesInsideSelectionRect({
-  mode = GPU_SELECTION_MODE_FULL,
+  mode = SelectionModeEnum.full,
   nodes,
   rect,
   viewport,
@@ -80,7 +77,7 @@ export function getGpuNodesInsideSelectionRect({
       continue;
     }
     const selected =
-      mode === GPU_SELECTION_MODE_PARTIAL
+      mode === SelectionModeEnum.partial
         ? rectsIntersect(flowRect, nodeRect)
         : rectContainsRect(flowRect, nodeRect);
     if (selected) {
@@ -134,7 +131,7 @@ class GpuSelectionController {
     this.isSelecting = options.isSelecting;
     this.minDragDistancePx =
       options.minDragDistancePx ?? DEFAULT_MIN_DRAG_DISTANCE_PX;
-    this.mode = options.mode ?? GPU_SELECTION_MODE_FULL;
+    this.mode = options.mode ?? SelectionModeEnum.full;
     this.onSelectionChange = options.onSelectionChange;
     this.store = options.store ?? gpuFlowViewportStore;
   }

@@ -1,14 +1,7 @@
-import type {
-  Connection,
-  ConnectionMode,
-  HandleConnectionCandidate,
-  HandleType,
-} from "../flowTypes";
+import { useEdgeHandleRegistry } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
+import type { Connection, ConnectionMode, HandleType } from "../flowTypes";
 import { GPU_FLOW_CLASS_NAMES, GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
-import {
-  getGpuFlowPortDescriptor,
-  makeGpuFlowPortKey,
-} from "../ports/portGeometry";
 
 export type ConnectionHandle = {
   sectionId: string;
@@ -69,7 +62,9 @@ type ResolvedHandleTarget = {
   isConnectableEnd: boolean;
 };
 
-type AllowHandleFunc = ((handle: HandleConnectionCandidate) => boolean) | null;
+type AllowHandleFunc =
+  | ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean)
+  | null;
 
 type ClosestHandleResult = {
   handle: ConnectionHandle | null;
@@ -93,17 +88,12 @@ type ClosestHandleArgs = {
 
 export function getHandleLookup(
   handles: ConnectionHandle[],
-  currentHandleKey: string | null,
+  currentHandleKey: string,
 ) {
-  if (!currentHandleKey) {
-    return handles;
-  }
   return handles.filter(
     (handle) =>
-      handle.portId === null ||
-      handle.type === null ||
-      makeGpuFlowPortKey(handle.sectionId, handle.portId, handle.type) !==
-        currentHandleKey,
+      `${handle.sectionId}-${handle.portId}-${handle.type}` !==
+      currentHandleKey,
   );
 }
 
@@ -197,7 +187,7 @@ function resolveHandleTarget({
   return {
     handleDomNode: registeredElement,
     handleId: registeredHandle.portId,
-    handleSectionId: registeredHandle.nodeId,
+    handleSectionId: registeredHandle.sectionId,
     handleType: registeredHandle.type,
     isConnectableEnd: registeredHandle.isConnectableEnd ?? true,
   };
@@ -207,11 +197,8 @@ function getRegisteredHandle(handle: HandleRef) {
   if (!handle.portId || !handle.type) {
     return null;
   }
-  return getGpuFlowPortDescriptor({
-    nodeId: handle.sectionId,
-    portId: handle.portId,
-    type: handle.type,
-  });
+  const key = makeEdgeHandleKey(handle.sectionId, handle.portId, handle.type);
+  return useEdgeHandleRegistry.getState().handles[key] ?? null;
 }
 
 function buildConnection(
@@ -303,29 +290,30 @@ export function isValidHandle({
 
 function isHandleAllowed(
   allowHandle: AllowHandleFunc,
-  handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
+  handle: Pick<ConnectionHandle, "portId" | "type">,
 ): boolean {
-  return (
-    allowHandle?.({
-      handleId: handle.portId,
-      sectionId: handle.sectionId,
-      type: handle.type,
-    }) ?? true
-  );
+  return allowHandle?.(handle) ?? true;
 }
 
-function getMatchingConnectionHandle(
+function buildHandleWithPositionFallback(
   handle: HandleRef,
   handles: ConnectionHandle[],
-): ConnectionHandle | null {
-  return (
-    handles.find(
-      (entry) =>
-        entry.sectionId === handle.sectionId &&
-        entry.type === handle.type &&
-        entry.portId === handle.portId,
-    ) ?? null
+  pos: { x: number; y: number },
+): ConnectionHandle {
+  const matchedHandle = handles.find(
+    (entry) =>
+      entry.sectionId === handle.sectionId &&
+      entry.type === handle.type &&
+      entry.portId === handle.portId,
   );
+
+  return {
+    sectionId: handle.sectionId,
+    portId: handle.portId,
+    type: handle.type,
+    x: matchedHandle?.x ?? pos.x,
+    y: matchedHandle?.y ?? pos.y,
+  };
 }
 
 function getHandleBelowPointer({
@@ -360,13 +348,8 @@ function resolveHandleBelowPointer(
     return null;
   }
 
-  const connectionHandle = getMatchingConnectionHandle(handle, args.handles);
-  if (!connectionHandle) {
-    return null;
-  }
-
   return {
-    handle: connectionHandle,
+    handle: buildHandleWithPositionFallback(handle, args.handles, args.pos),
     validHandleResult: args.validator(handle),
   };
 }

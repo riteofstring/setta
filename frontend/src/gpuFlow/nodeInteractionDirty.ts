@@ -5,6 +5,7 @@ export type {
   GpuNodeInteractionState,
 } from "./nodeInteractionDirty/interactionTypes";
 
-export { createGpuNodeInteractionDirtyController } from "./nodeInteractionDirty/interactionController";
-
-export { findGpuNodeIdForEventTarget } from "./nodeInteractionDirty/nodeTargetLookup";
+export {
+  createGpuNodeInteractionDirtyController,
+  findGpuNodeIdForEventTarget,
+} from "./nodeInteractionDirty/interactionController";

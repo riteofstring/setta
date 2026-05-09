@@ -60,7 +60,7 @@ export function useProjectChatBottomDockSetup() {
   });
   const canCreateManagedChatWindow = canEditLayout && canUseManagedChat;
   const autoCreateInitialChat = useSettings(
-    (state) => state.chatWindowing?.autoCreateInitialChat ?? false,
+    (state) => state.chatWindowing?.autoCreateInitialChat ?? true,
   );
   const chatWindowingShortcuts = useSettings(
     (state) => resolveChatWindowingShortcuts(state.chatWindowing?.shortcuts),

@@ -3953,22 +3953,6 @@ export function createProjectConfigMetadata(
   return options as ProjectConfigMetadata;
 }
 
-export type ProjectParamUpdateContent = gt.ProjectParamUpdateContent;
-
-export function createProjectParamUpdateContent(
-  options: CreateOptions<ProjectParamUpdateContent> = {} as CreateOptions<ProjectParamUpdateContent>,
-): ProjectParamUpdateContent {
-  return options as ProjectParamUpdateContent;
-}
-
-export type ProjectParamUpdateMessage = gt.ProjectParamUpdateMessage;
-
-export function createProjectParamUpdateMessage(
-  options: CreateOptions<ProjectParamUpdateMessage> = {} as CreateOptions<ProjectParamUpdateMessage>,
-): ProjectParamUpdateMessage {
-  return options as ProjectParamUpdateMessage;
-}
-
 export type ProjectPluginData = gt.ProjectPluginData;
 
 export type ProjectRunCapabilities = gt.ProjectRunCapabilities;
@@ -5360,7 +5344,7 @@ export function createSettingsChatWindowing(
   options: Partial<SettingsChatWindowing> = {},
 ): SettingsChatWindowing {
   const defaults = {
-    autoCreateInitialChat: false,
+    autoCreateInitialChat: true,
     restorePriorStateOnUnmaximize: true,
     shortcuts: {
       canvasToggle: "Shift + Esc",
@@ -5585,7 +5569,7 @@ export function createSettingsState(
       showDefaultConfigOnLoad: true,
     },
     chatWindowing: {
-      autoCreateInitialChat: false,
+      autoCreateInitialChat: true,
       restorePriorStateOnUnmaximize: true,
       shortcuts: {
         canvasToggle: "Shift + Esc",
@@ -8703,7 +8687,6 @@ export const WebsocketMessageTypeEnum = {
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  UpdateFrontendProjectParam: "UpdateFrontendProjectParam",
   UpdateSettings: "UpdateSettings",
   UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",

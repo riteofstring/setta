@@ -20,6 +20,11 @@
   }
 }
 
+.setta-gpu-flow__nodes-selection-rect:focus,
+.setta-gpu-flow__nodes-selection-rect:focus-visible {
+  outline: none;
+}
+
 .setta-gpu-flow__node {
   position: absolute;
   user-select: none;
@@ -31,6 +36,18 @@
   &.dragging {
     cursor: grabbing;
   }
+}
+
+.setta-gpu-flow__nodes-selection {
+  z-index: 3;
+  transform-origin: left top;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__nodes-selection-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
 }
 
 .setta-gpu-flow__handle {

@@ -3,7 +3,6 @@ import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
 export const GPU_FLOW_NODE_DIRTY_EVENT = "setta-gpu-flow-node-dirty";
 
 type GpuFlowNodeDirtyEventDetail = {
-  readonly animated?: boolean | undefined;
   readonly priority?: NodeTexturePriority | undefined;
   readonly reason?: DirtyNodeReason | undefined;
 };

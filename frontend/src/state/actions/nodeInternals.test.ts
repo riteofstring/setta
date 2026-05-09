@@ -13,34 +13,36 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
-  updateNodeDimensionsFromGpuIntrinsicSize,
-  updateNodeDimensionsFromGpuResize,
 } from "./nodeInternals";
-import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
+import {
+  debounced_route_set_top_level_section_layout,
+  getSectionDescendants,
+} from "./sectionInfos";
+
+vi.mock("./edgeHandles", () => ({
+  scheduleEdgeHandlePositionUpdate: vi.fn(),
+}));
 
 vi.mock("./sectionInfos", () => ({
   debounced_route_set_top_level_section_layout: vi.fn(),
+  getSectionDescendants: vi.fn(() => []),
 }));
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
-  const node: Node = {
+  return {
     id: overrides.id,
     position: overrides.position ?? { x: 0, y: 0 },
     width: overrides.width ?? null,
     height: overrides.height ?? null,
     zIndex: overrides.zIndex ?? 0,
     tempZIndex: overrides.tempZIndex ?? 0,
+    type: overrides.type,
+    style: overrides.style,
   };
-  if (overrides.type !== undefined) {
-    node.type = overrides.type;
-  }
-  if (overrides.style !== undefined) {
-    node.style = overrides.style;
-  }
-  return node;
 }
 
 function createViewportDomNode() {
@@ -95,6 +97,9 @@ function createMeasuredElement({
 describe("nodeInternals", () => {
   beforeEach(() => {
     resetProjectStores();
+    vi.mocked(getSectionDescendants).mockImplementation((sectionId) => [
+      sectionId,
+    ]);
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
     setupGpuViewportStore();
@@ -109,10 +114,13 @@ describe("nodeInternals", () => {
     }
   });
 
-  it("ignores DOM measurements and defers fitView until code areas finish rendering", () => {
+  it("updates measured dimensions and defers fitView until code areas finish rendering", () => {
     useNodeInternals.setState({
       x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 100, height: 80 })],
+        [
+          "section-1",
+          createNode({ id: "section-1", width: null, height: null }),
+        ],
       ]),
     });
     useMisc.setState({
@@ -133,87 +141,43 @@ describe("nodeInternals", () => {
     ]);
 
     const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(100);
-    expect(node?.height).toBe(80);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
+    expect(node?.width).toBe(240);
+    expect(node?.height).toBe(120);
+    expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
+      1,
+    );
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
   });
 
-  it("updates GPU resize dimensions without scheduling top-level layout persistence", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            width: 100,
-            height: 50,
-          }),
-        ],
-      ]),
-    });
-
-    expect(
-      updateNodeDimensionsFromGpuResize({
-        id: "section-1",
-        width: 140,
-        height: 80,
-      }),
-    ).toBe(true);
-
-    const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(140);
-    expect(node?.height).toBe(80);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
-  });
-
-  it("updates intrinsic GPU auto-size dimensions without scheduling top-level layout persistence", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            width: 550,
-            height: null,
-          }),
-        ],
-      ]),
-    });
-
-    expect(
-      updateNodeDimensionsFromGpuIntrinsicSize({
-        id: "section-1",
-        height: 352,
-      }),
-    ).toBe(true);
-
-    const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(550);
-    expect(node?.height).toBe(352);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
-  });
-
-  it("keeps GPU-resized section dimensions in project state", () => {
+  it("schedules edge handle refreshes for resized section descendants", () => {
+    vi.mocked(getSectionDescendants).mockImplementation((sectionId) =>
+      sectionId === "section-1" ? ["section-1", "child-1"] : [sectionId],
+    );
     useNodeInternals.setState({
       x: new Map([
         ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
       ]),
     });
 
-    updateNodeDimensionsFromGpuResize({
-      id: "section-1",
-      width: 240,
-      height: 120,
-    });
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 240,
+          height: 120,
+        }),
+        forceUpdate: false,
+      },
+    ]);
 
-    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
-      width: 240,
-      height: 120,
-    });
+    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
+      "section-1",
+      "child-1",
+    ]);
   });
 
-  it("refreshes existing selected-node bounds when a selected node GPU-resizes", () => {
+  it("refreshes existing selected-node bounds when a selected node resizes", () => {
     useNodeInternals.setState({
       x: new Map([
         [
@@ -244,11 +208,17 @@ describe("nodeInternals", () => {
       y: 20,
     });
 
-    updateNodeDimensionsFromGpuResize({
-      id: "section-1",
-      width: 160,
-      height: 80,
-    });
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 160,
+          height: 80,
+        }),
+        forceUpdate: false,
+      },
+    ]);
 
     expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
       height: 80,
@@ -287,7 +257,7 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([470, 260, 1]);
+    expect(gpuFlowViewportStore.getState().transform).toEqual([430, 240, 1]);
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
   });
 
@@ -313,39 +283,5 @@ describe("nodeInternals", () => {
         forceUpdate: true,
       },
     ]);
-  });
-
-  it("ignores ResizeObserver entries as graph dimension updates", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
-      ]),
-    });
-    const observedSourceHost = createMeasuredElement({
-      id: "section-1",
-      width: 260,
-      height: 140,
-    });
-
-    const updates = getNodeUpdateInformation(
-      [{ target: observedSourceHost } as unknown as ResizeObserverEntry],
-      true,
-    );
-
-    expect(updates).toEqual([
-      {
-        id: "section-1",
-        nodeElement: observedSourceHost,
-        forceUpdate: true,
-      },
-    ]);
-
-    updateNodeDimensions(updates);
-
-    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
-      width: 200,
-      height: 100,
-    });
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
   });
 });

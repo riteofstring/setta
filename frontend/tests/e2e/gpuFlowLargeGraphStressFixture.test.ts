@@ -4,12 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectVisibleGpuNodeQuads,
   createGpuNodeDomTransformSyncCache,
-  renderHtmlSurfaceFrame,
+  renderGpuNodeLayerFrame,
   syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
-} from "../../src/gpuFlow/htmlSurfaces/frame";
-import type { RenderHtmlSurfacesInput } from "../../src/gpuFlow/htmlSurfaces/renderer";
-import { HtmlSurfaceTextureManager } from "../../src/gpuFlow/htmlSurfaces/textures";
+  type GpuTexturedNodeQuad,
+} from "../../src/gpuFlow/GpuNodeLayer";
+import type { RenderNodeTextureQuadsInput } from "../../src/gpuFlow/gpuPipelines";
+import { NodeTextureManager } from "../../src/gpuFlow/nodeTextures";
 import {
   createGpuFlowLargeGraphStressFixture,
   moveGpuFlowStressFixtureNodes,
@@ -52,7 +53,7 @@ describe("GPU flow large graph stress fixture", () => {
       canvas: { height: 500, width: 800 },
       scale: "smoke",
     });
-    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const manager = new NodeTextureManager(gpu.device);
     const renderer = createFrameRenderer();
     const elements = createNodeElements(fixture.nodes);
     const viewport = fixture.zoomViewports[1]?.viewport;
@@ -60,7 +61,7 @@ describe("GPU flow large graph stress fixture", () => {
       throw new Error("Expected a zoom 1 stress viewport.");
     }
 
-    const warmup = renderHtmlSurfaceFrame({
+    const warmup = renderGpuNodeLayerFrame({
       canvasSize: canvasSize(fixture.canvas),
       edges: fixture.edges,
       elementByNodeId: elements,
@@ -73,7 +74,7 @@ describe("GPU flow large graph stress fixture", () => {
     });
     gpu.copyElementImageToTexture.mockClear();
 
-    const viewportOnly = renderHtmlSurfaceFrame({
+    const viewportOnly = renderGpuNodeLayerFrame({
       canvasSize: canvasSize(fixture.canvas),
       deferResolutionUpdates: true,
       edges: fixture.edges,
@@ -92,7 +93,7 @@ describe("GPU flow large graph stress fixture", () => {
     expect(viewportOnly.drawnNodeIds.length).toBeGreaterThan(0);
   });
 
-  it("bounds DOM transform work to visible nodes without per-node parking rewrites in a medium graph", () => {
+  it("bounds DOM transform work to visible and previous-visible nodes in a medium graph", () => {
     const fixture = createGpuFlowLargeGraphStressFixture({
       canvas: { height: 500, width: 800 },
       scale: "medium",
@@ -100,7 +101,7 @@ describe("GPU flow large graph stress fixture", () => {
     const cache = createGpuNodeDomTransformSyncCache();
     const elements = createNodeElements(fixture.nodes);
     const firstViewport = fixture.panViewports[0]?.viewport;
-    const secondViewport = fixture.panViewports[4]?.viewport;
+    const secondViewport = fixture.panViewports[2]?.viewport;
     if (!firstViewport || !secondViewport) {
       throw new Error("Expected stress pan viewport samples.");
     }
@@ -142,19 +143,14 @@ describe("GPU flow large graph stress fixture", () => {
       ...firstQuads.map((quad) => quad.nodeId),
       ...secondQuads.map((quad) => quad.nodeId),
     ]);
-    const untouchedNodeId = fixture.nodes.find(
-      (node) => !allowedNodeIds.has(node.nodeId),
-    )?.nodeId;
     expect(fixture.nodes).toHaveLength(1_000);
     expect(firstQuads.length).toBeLessThan(fixture.nodes.length / 10);
     expect(secondQuads.length).toBeLessThan(fixture.nodes.length / 10);
     expect(resolvedNodeIds.every((nodeId) => allowedNodeIds.has(nodeId))).toBe(
       true,
     );
-    expect(result.parkedNodeIds).toEqual([]);
-    expect(result.updatedNodeIds.length).toBeGreaterThan(0);
-    expect(untouchedNodeId).toBeDefined();
-    expect(elements.get(untouchedNodeId ?? "")?.style.transform).toBe("");
+    expect(result.parkedNodeIds.length).toBeGreaterThan(0);
+    expect(elements.get("stress-node-999")?.style.transform).toBe("");
   });
 
   it("covers node movement plus texture eviction and recapture on the production node-layer path", () => {
@@ -164,7 +160,7 @@ describe("GPU flow large graph stress fixture", () => {
       canvas: { height: 420, width: 720 },
       scale: "smoke",
     });
-    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const manager = new NodeTextureManager(gpu.device);
     const renderer = createFrameRenderer();
     const elements = createNodeElements(fixture.nodes);
     const firstViewport = fixture.panViewports[0]?.viewport;
@@ -231,8 +227,8 @@ describe("GPU flow large graph stress fixture", () => {
     });
     const movedRenderInput =
       renderer.render.mock.calls[renderer.render.mock.calls.length - 1]?.[0];
-    const movedQuad = movedRenderInput?.scene.flatSurfaces.find(
-      (surface) => surface.surfaceId === movedNodeId,
+    const movedQuad = movedRenderInput?.quads.find(
+      (quad) => quad.nodeId === movedNodeId,
     );
     gpu.copyElementImageToTexture.mockClear();
     const returned = renderStressFrame({
@@ -247,15 +243,14 @@ describe("GPU flow large graph stress fixture", () => {
     });
 
     expect(evictedNodeIds.size).toBeGreaterThan(0);
-    expect(
-      [...evictedNodeIds].some((nodeId) => firstVisibleIds.has(nodeId)),
-    ).toBe(true);
-    expect(
-      returned.uploadedNodeIds.some((nodeId) => firstVisibleIds.has(nodeId)),
-    ).toBe(true);
+    expect([...evictedNodeIds].some((nodeId) => firstVisibleIds.has(nodeId))).toBe(
+      true,
+    );
+    expect(returned.uploadedNodeIds.some((nodeId) => firstVisibleIds.has(nodeId)))
+      .toBe(true);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalled();
     expect(movedQuad).toMatchObject({
-      surfaceId: movedNodeId,
+      nodeId: movedNodeId,
       x: beforeMove.x + fixture.movement.dx,
       y: beforeMove.y + fixture.movement.dy,
     });
@@ -276,16 +271,14 @@ function renderStressFrame({
   readonly elements: ReadonlyMap<string, HTMLElement>;
   readonly fixture: ReturnType<typeof createGpuFlowLargeGraphStressFixture>;
   readonly frame: number;
-  readonly manager: HtmlSurfaceTextureManager;
+  readonly manager: NodeTextureManager;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: ReturnType<typeof createFrameRenderer>;
   readonly viewport: NonNullable<
-    ReturnType<
-      typeof createGpuFlowLargeGraphStressFixture
-    >["panViewports"][number]
+    ReturnType<typeof createGpuFlowLargeGraphStressFixture>["panViewports"][number]
   >["viewport"];
 }) {
-  return renderHtmlSurfaceFrame({
+  return renderGpuNodeLayerFrame({
     canvasSize: canvasSize(fixture.canvas),
     edges: fixture.edges,
     elementByNodeId: elements,
@@ -323,10 +316,7 @@ function requireNode(
   return node;
 }
 
-function canvasSize(canvas: {
-  readonly height: number;
-  readonly width: number;
-}) {
+function canvasSize(canvas: { readonly height: number; readonly width: number }) {
   return {
     cssHeight: canvas.height,
     cssWidth: canvas.width,
@@ -338,11 +328,13 @@ function canvasSize(canvas: {
 
 function createFrameRenderer() {
   return {
-    render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
+    render: vi.fn(({ edges, quads }: RenderNodeTextureQuadsInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
-      drawnSurfaceIds: scene.flatSurfaces.map((surface) => surface.surfaceId),
+      drawnNodeIds: (quads as readonly GpuTexturedNodeQuad[]).map(
+        (quad) => quad.nodeId,
+      ),
       edgeVertexCount: (edges?.length ?? 0) * 2,
-      vertexCount: scene.flatSurfaces.length * 6,
+      vertexCount: quads.length * 6,
     })),
   };
 }

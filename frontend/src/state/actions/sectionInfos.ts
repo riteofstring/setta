@@ -34,7 +34,6 @@ export {
 export type { ManagedChatSectionAuthorityState } from "./sectionInfos/projectStateCore";
 
 export {
-  copyExistingTopLevelSectionLayouts,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   deleteAllActiveSections,
@@ -59,14 +58,8 @@ export {
 } from "./sectionInfos/codeObjectsAndLayout";
 
 export {
-  applyProjectParamUpdate,
-  getNextPendingOperations,
-  receiveProjectParamUpdate,
-} from "./sectionInfos/projectParamUpdates";
-
-export {
-  debouncedDispatchViewportUpdate,
   debounced_route_set_top_level_section_layout,
+  debouncedDispatchViewportUpdate,
   dispatchOptimisticProjectStateUpdate,
   dispatchOptimisticProjectStateUpdateWithResult,
   dispatchViewportUpdateImmediately,

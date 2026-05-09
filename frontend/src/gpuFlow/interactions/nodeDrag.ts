@@ -1,13 +1,7 @@
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
+import type { GpuNodeLayout } from "../GpuNodeLayer";
 import type { GpuFrameReason } from "../gpuRenderer";
-import type { GpuNodeLayout } from "../htmlSurfaces/frame";
-import type {
-  GpuFlowLayoutChangePhase,
-  GpuFlowLayoutInteractionFlags,
-  GpuFlowLayoutNodePatch,
-  GpuFlowLayoutStoreApi,
-} from "../layoutStore";
 import { panGpuViewport } from "../viewportActions";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
@@ -48,8 +42,8 @@ export type GpuNodeDragControllerOptions = {
   readonly canDragNode?: ((nodeId: string) => boolean) | undefined;
   readonly disabled?: boolean | (() => boolean) | undefined;
   readonly element: HTMLElement;
+  readonly getNodes: () => readonly GpuNodeLayout[];
   readonly getSelectedNodeIds?: (() => readonly string[]) | undefined;
-  readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeDragThresholdPx?: number | undefined;
   readonly onNodeDrag?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly onNodeDragCancel?: ((change: GpuNodeDragChange) => void) | undefined;
@@ -226,17 +220,15 @@ class GpuNodeDragController {
   private activeDrag: ActiveGpuNodeDrag | null = null;
   private autoPanAnimationFrame: number | null = null;
   private readonly element: HTMLElement;
-  private readonly layoutStore: GpuFlowLayoutStoreApi;
   private readonly options: Omit<
     GpuNodeDragControllerOptions,
-    "element" | "layoutStore" | "store"
+    "element" | "store"
   >;
   private pendingDrag: PendingGpuNodeDrag | null = null;
   private readonly store: GpuFlowViewportStoreApi;
 
   constructor(options: GpuNodeDragControllerOptions) {
     this.element = options.element;
-    this.layoutStore = options.layoutStore;
     this.options = options;
     this.store = options.store ?? gpuFlowViewportStore;
   }
@@ -336,7 +328,6 @@ class GpuNodeDragController {
       return;
     }
 
-    this.applyActiveDragLayoutChange(this.activeDrag.items, "cancel");
     this.options.onNodeDragCancel?.({
       active: false,
       delta: { x: 0, y: 0 },
@@ -391,7 +382,7 @@ class GpuNodeDragController {
     const items = getGpuNodeDragItems({
       canDragNode: this.options.canDragNode,
       nodeId: pendingDrag.nodeId,
-      nodes: this.layoutStore.getState().getNodes(),
+      nodes: this.options.getNodes(),
       pointerPosition: pendingDrag.startFlowPoint,
       selectedNodeIds: this.options.getSelectedNodeIds?.() ?? [],
     });
@@ -414,7 +405,6 @@ class GpuNodeDragController {
       nodeId: pendingDrag.nodeId,
       phase: "start" as const,
     };
-    this.applyActiveDragLayoutChange(items, "start");
     this.options.onNodeDragStart?.(change);
     this.options.requestFrame?.("viewport");
     this.startAutoPanLoop();
@@ -443,10 +433,11 @@ class GpuNodeDragController {
       items: activeDrag.items,
       pointerPosition: pointerFlow,
       snapGrid: this.options.snapGrid,
-      snapToGrid: shouldSnapGpuNodeDragItems(phase, this.options.snapToGrid),
+      snapToGrid:
+        phase === "stop" && isSnapToGridEnabled(this.options.snapToGrid),
     });
     activeDrag.lastPointerFlow = pointerFlow;
-    if (shouldSkipUnchangedGpuNodeDragResult(phase, result.changed)) {
+    if (!result.changed && phase === "drag") {
       return false;
     }
     activeDrag.items = result.items;
@@ -457,24 +448,13 @@ class GpuNodeDragController {
       nodeId: activeDrag.nodeId,
       phase,
     };
-    this.applyActiveDragLayoutChange(
-      activeDrag.items,
-      getGpuNodeDragLayoutChangePhase(phase),
-    );
-    this.emitActiveDragChange(change, phase);
-    this.options.requestFrame?.("viewport");
-    return result.changed;
-  }
-
-  private emitActiveDragChange(
-    change: GpuNodeDragChange,
-    phase: "drag" | "stop",
-  ) {
     if (phase === "drag") {
       this.options.onNodeDrag?.(change);
-      return;
+    } else {
+      this.options.onNodeDragStop?.(change);
     }
-    this.options.onNodeDragStop?.(change);
+    this.options.requestFrame?.("viewport");
+    return result.changed;
   }
 
   private stopActiveDrag() {
@@ -492,7 +472,6 @@ class GpuNodeDragController {
       this.clearPendingDrag();
       return;
     }
-    this.applyActiveDragLayoutChange(activeDrag.items, "cancel");
     this.options.onNodeDragCancel?.({
       active: false,
       delta: { x: 0, y: 0 },
@@ -519,31 +498,6 @@ class GpuNodeDragController {
   private abortPendingDrag(drag: PendingGpuNodeDrag) {
     drag.nodeElement.releasePointerCapture?.(drag.pointerId);
     this.clearPendingDrag();
-  }
-
-  private applyActiveDragLayoutChange(
-    items: readonly GpuNodeDragItem[],
-    phase: GpuFlowLayoutChangePhase,
-  ) {
-    const dragging = phase === "start" || phase === "change";
-    const patches: GpuFlowLayoutNodePatch[] = items.map((item) => {
-      const node = this.layoutStore.getState().getNode(item.nodeId);
-      return {
-        height: item.height,
-        interactionFlags: getNextGpuNodeDragInteractionFlags(
-          node?.interactionFlags,
-          dragging,
-        ),
-        nodeId: item.nodeId,
-        width: item.width,
-        x: item.position.x,
-        y: item.position.y,
-      };
-    });
-    this.layoutStore.getState().patchNodes(patches, {
-      phase,
-      reason: "drag",
-    });
   }
 
   private addDocumentListeners() {
@@ -604,37 +558,6 @@ class GpuNodeDragController {
       this.autoPanAnimationFrame = null;
     }
   }
-}
-
-function getNextGpuNodeDragInteractionFlags(
-  currentFlags: GpuFlowLayoutInteractionFlags | undefined,
-  dragging: boolean,
-): GpuFlowLayoutInteractionFlags | undefined {
-  const nextFlags = { ...currentFlags, dragging };
-  if (nextFlags.dragging || nextFlags.resizing || nextFlags.selected) {
-    return nextFlags;
-  }
-  return undefined;
-}
-
-function getGpuNodeDragLayoutChangePhase(
-  dragPhase: "drag" | "stop",
-): GpuFlowLayoutChangePhase {
-  return dragPhase === "drag" ? "change" : "commit";
-}
-
-function shouldSkipUnchangedGpuNodeDragResult(
-  phase: "drag" | "stop",
-  changed: boolean,
-): boolean {
-  return phase === "drag" && !changed;
-}
-
-function shouldSnapGpuNodeDragItems(
-  phase: "drag" | "stop",
-  snapToGrid: boolean | (() => boolean) | undefined,
-): boolean {
-  return phase === "stop" && isSnapToGridEnabled(snapToGrid);
 }
 
 function getDraggedNodeIds(

@@ -63,12 +63,6 @@ vi.mock("components/Utils/Resizable/CustomResizable", () => ({
   ),
 }));
 
-vi.mock("./SectionResizeFrame", () => ({
-  SectionResizeFrame: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-section-resize-frame">{children}</section>
-  ),
-}));
-
 vi.mock("state/actions/sectionInfos", () => ({
   getCurrEffectiveSectionImpl: () => ({
     type: SectionTypeEnum.Code,
@@ -227,7 +221,6 @@ describe("SectionContainerCoreResizable", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
-        isTopLevel={false}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
         isUserView={false}
@@ -239,23 +232,6 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
     expect(markup).toContain('data-instance-id="project-chat-window-1"');
     expect(markup).not.toContain('data-testid="mock-code-area"');
-  });
-
-  it("uses passive resize handles for top-level GPU sections", () => {
-    const markup = renderToStaticMarkup(
-      <SectionContainerCoreResizable
-        sectionId="section-123"
-        isTopLevel={true}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        positionAndSizeLocked={false}
-        hasSectionStyleTheme={false}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="mock-section-resize-frame"');
-    expect(markup).not.toContain('data-testid="mock-custom-resizable"');
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {

@@ -653,6 +653,14 @@ export function isAppDeploymentWebsocketContext(): boolean {
   return useServerMode.getState().mode === "app";
 }
 
+export function createWebsocketMessageHandler<T>(
+  handler: (content: T, socketGeneration: number) => void,
+): WebsocketMessageHandler {
+  return (content, socketGeneration) => {
+    handler(content as T, socketGeneration);
+  };
+}
+
 export function receiveFrontendProjectState(content: unknown): void {
   if (isAppDeploymentWebsocketContext()) {
     processAppProjectStateUpdateFromBackend(

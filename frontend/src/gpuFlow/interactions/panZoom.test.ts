@@ -1,11 +1,11 @@
 /* @vitest-environment jsdom */
 
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuPanZoomController,
-  GPU_PAN_ON_SCROLL_MODE,
   resolveGpuPanOnScrollDelta,
   shouldHandleGpuWheelEvent,
 } from "./panZoom";
@@ -16,33 +16,33 @@ describe("GPU pan/zoom controller", () => {
     document.body.innerHTML = "";
   });
 
-  it("resolves pan-on-scroll deltas using generic pan mode values", () => {
+  it("resolves pan-on-scroll deltas using generated pan mode values", () => {
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaMode: 1, deltaX: 2, deltaY: 3 }),
         isMacOS: true,
-        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.free,
+        panOnScrollMode: PanOnScrollModeEnum.free,
       }),
     ).toEqual({ deltaX: 40, deltaY: 60 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3 }),
         isMacOS: false,
-        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.horizontal,
+        panOnScrollMode: PanOnScrollModeEnum.horizontal,
       }),
     ).toEqual({ deltaX: 2, deltaY: 0 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3 }),
         isMacOS: false,
-        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.vertical,
+        panOnScrollMode: PanOnScrollModeEnum.vertical,
       }),
     ).toEqual({ deltaX: 0, deltaY: 3 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3, shiftKey: true }),
         isMacOS: false,
-        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.free,
+        panOnScrollMode: PanOnScrollModeEnum.free,
       }),
     ).toEqual({ deltaX: 3, deltaY: 0 });
   });
@@ -306,99 +306,6 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
-    detach();
-  });
-
-  it("notifies the project adapter when pointer panning starts", () => {
-    const element = createSurfaceElement();
-    const store = createGpuFlowViewportStore({
-      transform: [0, 0, 1],
-    });
-    const onPointerPanStart = vi.fn();
-    const detach = attachGpuPanZoomController({
-      element,
-      isMacOS: false,
-      onPointerPanStart,
-      requestFrame: vi.fn(),
-      store,
-    });
-
-    dispatchPointer(element, "pointerdown", {
-      button: 0,
-      clientX: 10,
-      clientY: 10,
-      pointerId: 1,
-    });
-    expect(onPointerPanStart).toHaveBeenCalledTimes(1);
-
-    dispatchPointer(element, "pointermove", {
-      button: 0,
-      clientX: 12,
-      clientY: 14,
-      pointerId: 1,
-    });
-    expect(onPointerPanStart).toHaveBeenCalledTimes(1);
-
-    dispatchPointer(element, "pointerup", {
-      button: 0,
-      clientX: 12,
-      clientY: 14,
-      pointerId: 1,
-    });
-    detach();
-  });
-
-  it("requests viewport frames during pointer pan and defers texture upload until pan end", () => {
-    const element = createSurfaceElement();
-    const store = createGpuFlowViewportStore({
-      transform: [0, 0, 2],
-    });
-    const requestFrame = vi.fn();
-    const detach = attachGpuPanZoomController({
-      element,
-      isMacOS: false,
-      requestFrame,
-      store,
-    });
-
-    dispatchPointer(element, "pointerdown", {
-      button: 0,
-      clientX: 20,
-      clientY: 30,
-      pointerId: 1,
-    });
-    expect(store.getState().paneDragging).toBe(true);
-    expect(store.getState().pointerPanning).toBe(true);
-    expect(requestFrame).not.toHaveBeenCalled();
-
-    dispatchPointer(element, "pointermove", {
-      button: 0,
-      clientX: 25,
-      clientY: 28,
-      pointerId: 1,
-    });
-    expect(store.getState().transform).toEqual([5, -2, 2]);
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-    expect(requestFrame).toHaveBeenLastCalledWith("viewport");
-
-    dispatchPointer(element, "pointermove", {
-      button: 0,
-      clientX: 25,
-      clientY: 28,
-      pointerId: 1,
-    });
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-
-    dispatchPointer(element, "pointerup", {
-      button: 0,
-      clientX: 25,
-      clientY: 28,
-      pointerId: 1,
-    });
-    expect(store.getState().paneDragging).toBe(false);
-    expect(store.getState().pointerPanning).toBe(false);
-    expect(requestFrame).toHaveBeenCalledTimes(2);
-    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
   });
 
