@@ -41,7 +41,7 @@ export function applyVisibleNodeDomTransform(
   );
 }
 
-function createVisibleNodeDomTransformState({
+export function createVisibleNodeDomTransformState({
   element,
   height,
   interactive,
@@ -113,7 +113,7 @@ export function applyCulledNodeDomTransform(element: HTMLElement) {
   );
 }
 
-function createCulledNodeDomTransformState({
+export function createCulledNodeDomTransformState({
   element,
 }: {
   readonly element: HTMLElement;
@@ -149,7 +149,7 @@ export function isCachedNodeDomTransformState(
   );
 }
 
-type GpuNodeStyleKey =
+export type GpuNodeStyleKey =
   | "height"
   | "left"
   | "pointerEvents"
@@ -160,7 +160,7 @@ type GpuNodeStyleKey =
   | "width"
   | "zIndex";
 
-const STABLE_GPU_NODE_SOURCE_TRANSFORM = HTML_SURFACE_PASSIVE_TRANSFORM;
+export const STABLE_GPU_NODE_SOURCE_TRANSFORM = HTML_SURFACE_PASSIVE_TRANSFORM;
 
 export function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");
@@ -169,7 +169,7 @@ export function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "transformOrigin", "0 0");
 }
 
-function resolveStableGpuNodeSourceTransform(
+export function resolveStableGpuNodeSourceTransform(
   element: HTMLElement,
   projected: boolean | undefined,
 ): string {
@@ -178,7 +178,9 @@ function resolveStableGpuNodeSourceTransform(
     : STABLE_GPU_NODE_SOURCE_TRANSFORM;
 }
 
-function isProjectedGpuNodeSourceInteraction(element: HTMLElement): boolean {
+export function isProjectedGpuNodeSourceInteraction(
+  element: HTMLElement,
+): boolean {
   return (
     element.getAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE) ===
     "true"
@@ -195,7 +197,7 @@ export function setStyleValue(
   }
 }
 
-function setDatasetValue(
+export function setDatasetValue(
   element: HTMLElement,
   property: string,
   value: string,
@@ -205,7 +207,7 @@ function setDatasetValue(
   }
 }
 
-function setClassPresence(
+export function setClassPresence(
   element: HTMLElement,
   className: string,
   enabled: boolean,

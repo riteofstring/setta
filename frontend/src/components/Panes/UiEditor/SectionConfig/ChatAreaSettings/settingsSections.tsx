@@ -43,7 +43,7 @@ export type ChatSectionSettingsPayload = Pick<
 export type AgenticSummaryCacheStatusRouteResponse =
   ResponseDataAndStatus<AgenticSummaryCacheStatus>;
 
-type ContextModeOption = {
+export type ContextModeOption = {
   id: AgenticEdgeContextModeEnum;
   label: string;
 };
@@ -59,7 +59,7 @@ export type SimpleLinkRow = {
   label: string;
 };
 
-type AgenticScopeEntry = {
+export type AgenticScopeEntry = {
   id: string;
   label: string;
 };
@@ -87,20 +87,20 @@ export const CONTEXT_MODE_OPTIONS: ContextModeOption[] =
     label: option.label,
   }));
 
-type ChatModeFieldProps = {
+export type ChatModeFieldProps = {
   modeItems: AllItemsType<string>;
   value: string | null | undefined;
   isDisabled: boolean;
   onChange: (value: string | null) => void;
 };
 
-type ManagedModeToggleProps = {
+export type ManagedModeToggleProps = {
   isDisabled: boolean;
   managed: boolean;
   onChange: (value: boolean) => void;
 };
 
-type ManagedChatSettingsProps = {
+export type ManagedChatSettingsProps = {
   managed: boolean;
   isDisabled: boolean;
   canManageManagedChatThreads: boolean;
@@ -127,14 +127,14 @@ type ManagedChatSettingsProps = {
   onNewChat: () => void;
 };
 
-type SummaryCacheStatusPanelProps = {
+export type SummaryCacheStatusPanelProps = {
   loading: boolean;
   error: string | null;
   status: AgenticSummaryCacheStatus | null;
   onRefresh: () => void;
 };
 
-type ManagedChatLLMSettingsProps = {
+export type ManagedChatLLMSettingsProps = {
   engineType: EngineTypeEnum | null;
   isDisabled: boolean;
   thinking: boolean | undefined;
@@ -145,7 +145,7 @@ type ManagedChatLLMSettingsProps = {
   noConfigsAvailable: boolean;
 };
 
-type ContextLinksSectionProps = {
+export type ContextLinksSectionProps = {
   items: AllItemsType<string>;
   canEditLinks: boolean;
   rows: ContextLinkRow[];
@@ -163,7 +163,7 @@ type ContextLinksSectionProps = {
   onRefreshSummaryCacheStatus: () => void;
 };
 
-type SimpleLinkSectionProps = {
+export type SimpleLinkSectionProps = {
   title: string;
   items: AllItemsType<string>;
   canEditLinks: boolean;
@@ -175,7 +175,7 @@ type SimpleLinkSectionProps = {
   emptyText: string;
 };
 
-type ContextAndLinksCardProps = {
+export type ContextAndLinksCardProps = {
   contextItems: AllItemsType<string>;
   scopeItems: AllItemsType<string>;
   agentItems: AllItemsType<string>;
@@ -199,24 +199,24 @@ type ContextAndLinksCardProps = {
   onRefreshSummaryCacheStatus: () => void;
 };
 
-type AgenticScopeCardProps = {
+export type AgenticScopeCardProps = {
   blocks: AgenticScopeBlock[];
 };
 
-type SectionCoreSummary = {
+export type SectionCoreSummary = {
   displayName?: string | null;
   name?: string | null;
 };
 
-type SectionVariantSummary = {
+export type SectionVariantSummary = {
   impl: string;
 };
 
-type SectionImplSummary = {
+export type SectionImplSummary = {
   type: SectionTypeEnum;
 };
 
-type SectionOptionsLookup = {
+export type SectionOptionsLookup = {
   sectionId: string;
   sections: Record<string, SectionCoreSummary>;
   sectionVariants: Record<string, SectionVariantSummary>;
@@ -231,7 +231,7 @@ export function resolveSectionLabel(
   return labelsById[sectionId] ?? sectionId;
 }
 
-function resolveSectionDisplayName(
+export function resolveSectionDisplayName(
   core: SectionCoreSummary,
   sectionId: string,
 ): string {
@@ -449,7 +449,7 @@ export function ManagedChatSettings({
   );
 }
 
-function ManagedChatLLMSettings({
+export function ManagedChatLLMSettings({
   engineType,
   isDisabled,
   thinking,
@@ -503,7 +503,7 @@ function ManagedChatLLMSettings({
   );
 }
 
-function SummaryCacheStatusPanel({
+export function SummaryCacheStatusPanel({
   loading,
   error,
   status,
@@ -573,7 +573,7 @@ function SummaryCacheStatusPanel({
   );
 }
 
-function ContextLinksSection({
+export function ContextLinksSection({
   items,
   canEditLinks,
   rows,
@@ -660,7 +660,7 @@ function ContextLinksSection({
   );
 }
 
-function SimpleLinkSection({
+export function SimpleLinkSection({
   title,
   items,
   canEditLinks,

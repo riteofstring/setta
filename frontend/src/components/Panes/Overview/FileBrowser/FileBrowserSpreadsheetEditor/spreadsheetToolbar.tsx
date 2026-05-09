@@ -60,18 +60,18 @@ import {
 
 export const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
+export const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
-type FileBrowserFileContentRouteResponse =
+export type FileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserFileContentResponse>;
 
 export type FileBrowserFileStatRouteResponse =
   ResponseDataAndStatus<FilebrowserFileStatResponse>;
 
-type WriteFileBrowserFileContentRouteResponse =
+export type WriteFileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserWriteFileContentResponse>;
 
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+export type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
 
 export type SpreadsheetDraft = {
   path: string;
@@ -83,7 +83,7 @@ export type SpreadsheetDraft = {
   sourceWorkbookBytes: Uint8Array | null;
 };
 
-type SpreadsheetLoadOutcome =
+export type SpreadsheetLoadOutcome =
   | {
       status: "error";
       message: string;
@@ -93,7 +93,7 @@ type SpreadsheetLoadOutcome =
       draft: SpreadsheetDraft;
     };
 
-type SpreadsheetSaveOutcome =
+export type SpreadsheetSaveOutcome =
   | {
       status: "error";
       message: string;
@@ -246,7 +246,7 @@ export function applyLoadedSpreadsheetDraft(args: {
   listRef.current?.scrollToRow({ index: 0, align: "start" });
 }
 
-function resolveSpreadsheetSaveFileName(path: string): string {
+export function resolveSpreadsheetSaveFileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? "spreadsheet.bin";
 }
 
@@ -342,14 +342,14 @@ export function applySuccessfulSpreadsheetSave(args: {
   setHasExternalDiskChange(false);
 }
 
-function getSpreadsheetCellAddress(
+export function getSpreadsheetCellAddress(
   columnIndex: number,
   rowIndex: number,
 ): string {
   return `${getSpreadsheetColumnLabel(Math.max(0, columnIndex))}${Math.max(1, rowIndex + 1)}`;
 }
 
-type SpreadsheetSelectionBounds = {
+export type SpreadsheetSelectionBounds = {
   endColumn: number;
   endRow: number;
   extraRanges: number;
@@ -357,7 +357,7 @@ type SpreadsheetSelectionBounds = {
   startRow: number;
 };
 
-function resolveSpreadsheetSelectionBounds(
+export function resolveSpreadsheetSelectionBounds(
   selection: GridSelection | undefined,
 ): SpreadsheetSelectionBounds | null {
   const currentRange = selection?.current?.range;
@@ -381,7 +381,7 @@ function resolveSpreadsheetSelectionBounds(
   };
 }
 
-function formatSpreadsheetSelectionBaseSummary(
+export function formatSpreadsheetSelectionBaseSummary(
   bounds: SpreadsheetSelectionBounds,
 ): string {
   const startAddress = getSpreadsheetCellAddress(
@@ -418,7 +418,7 @@ export function resolveSpreadsheetHeaderSortSuffix(
   return sortState.direction === "asc" ? " ↑" : " ↓";
 }
 
-function resolveSpreadsheetSortDirectionLabel(
+export function resolveSpreadsheetSortDirectionLabel(
   sortState: SpreadsheetSortState | null,
 ): string {
   return sortState?.direction === "desc" ? "Desc" : "Asc";
@@ -464,12 +464,12 @@ export function canSaveSpreadsheet(args: {
   return !!sheet && !isLoading && !isSaving && !readOnly && isDirty;
 }
 
-type SpreadsheetStatusMessage = {
+export type SpreadsheetStatusMessage = {
   className: string;
   text: string;
 };
 
-function resolveSpreadsheetStatusMessages(
+export function resolveSpreadsheetStatusMessages(
   args: SpreadsheetStatusBannerProps,
 ): SpreadsheetStatusMessage[] {
   const { errorText, hasExternalDiskChange, isDirty, readOnly, statusText } =
@@ -508,7 +508,7 @@ function resolveSpreadsheetStatusMessages(
   return messages;
 }
 
-type SpreadsheetEmptyStateProps = {
+export type SpreadsheetEmptyStateProps = {
   message: string;
 };
 
@@ -520,7 +520,7 @@ export function SpreadsheetEmptyState({ message }: SpreadsheetEmptyStateProps) {
   );
 }
 
-type SpreadsheetDesktopToolbarProps = {
+export type SpreadsheetDesktopToolbarProps = {
   canMutate: boolean;
   canReload: boolean;
   canSave: boolean;
@@ -687,12 +687,12 @@ export function SpreadsheetDesktopToolbar({
   );
 }
 
-type SpreadsheetMobileToolbarMenuProps = Omit<
+export type SpreadsheetMobileToolbarMenuProps = Omit<
   SpreadsheetDesktopToolbarProps,
   "selectedName"
 >;
 
-function SpreadsheetMobileToolbarMenu({
+export function SpreadsheetMobileToolbarMenu({
   canMutate,
   canReload,
   canSave,
@@ -822,7 +822,7 @@ function SpreadsheetMobileToolbarMenu({
   );
 }
 
-type SpreadsheetStatusBannerProps = {
+export type SpreadsheetStatusBannerProps = {
   errorText: string | null;
   hasExternalDiskChange: boolean;
   isDirty: boolean;

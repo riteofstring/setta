@@ -46,7 +46,7 @@ import {
 
 import { isProjectChatGitGraphEmbeddedPaneVisible } from "../projectChatWindowingEphemeral";
 
-type AuthoringFloatingViewport = {
+export type AuthoringFloatingViewport = {
   viewportWidthPx: number;
   viewportHeightPx: number;
   insets: {
@@ -66,21 +66,21 @@ export type WindowSpaceSnapshotState = Pick<
   | "sectionVariants"
 >;
 
-type ProjectConfigMutationPayload = {
+export type ProjectConfigMutationPayload = {
   projectConfig: ZustandProjectState["projectConfig"];
 };
 
-type WindowSpaceMutationPayload = ProjectConfigMutationPayload & {
+export type WindowSpaceMutationPayload = ProjectConfigMutationPayload & {
   windowSpaceId?: string | null;
 };
 
 export type CreateWindowSpaceRouteResponse =
   ResponseDataAndStatus<WindowSpaceMutationPayload>;
 
-type ProjectConfigMutationRouteResponse =
+export type ProjectConfigMutationRouteResponse =
   ResponseDataAndStatus<ProjectConfigMutationPayload>;
 
-function applyAcknowledgedWindowSpaceProjectConfig(
+export function applyAcknowledgedWindowSpaceProjectConfig(
   state: ZustandProjectState,
   acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
 ): void {
@@ -90,7 +90,7 @@ function applyAcknowledgedWindowSpaceProjectConfig(
   state.projectConfig.windowSpaceIdsBySlug = snapshot.windowSpaceIdsBySlug;
 }
 
-function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
+export function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
 }
 
@@ -117,7 +117,7 @@ export function getProjectWindowSpaces(
   return projectConfig.windowSpaces;
 }
 
-function cloneWindowSpaces(
+export function cloneWindowSpaces(
   windowSpaces: Record<string, WindowSpaceConfig>,
 ): Record<string, WindowSpaceConfig> {
   return Object.fromEntries(
@@ -144,7 +144,7 @@ export function canMutateWindowSpaceLayout(): boolean {
   );
 }
 
-function dispatchOptimisticWindowSpaceMutation({
+export function dispatchOptimisticWindowSpaceMutation({
   apply,
   projectConfigId,
   send,
@@ -314,13 +314,13 @@ export function normalizeWindowSpaceForPersistence(
   return snapshotFloatingWindowsForWindowSpace(state, viewport);
 }
 
-function normalizeNullableString(
+export function normalizeNullableString(
   value: string | null | undefined,
 ): string | null {
   return value ?? null;
 }
 
-function resolveProjectChatWindowSectionId(
+export function resolveProjectChatWindowSectionId(
   instance: Pick<ProjectChatWindowInstance, "sectionIdOrNull">,
 ): string | null {
   return normalizeNullableString(instance.sectionIdOrNull);
@@ -338,13 +338,13 @@ export function resolveProjectChatWindowMode(
   return instance.mode ?? ChatWindowModeEnum.project_ai_mode;
 }
 
-function resolveWindowSpaceWindowMode(
+export function resolveWindowSpaceWindowMode(
   window: Pick<NonNullable<WindowSpaceState["windowsById"][string]>, "mode">,
 ): NonNullable<NonNullable<WindowSpaceState["windowsById"][string]>["mode"]> {
   return window.mode ?? ChatWindowModeEnum.project_ai_mode;
 }
 
-function resolveWindowSpaceSnapshotChatId(
+export function resolveWindowSpaceSnapshotChatId(
   instance: ProjectChatWindowInstance,
 ): string | null {
   if (
@@ -356,7 +356,7 @@ function resolveWindowSpaceSnapshotChatId(
   return resolveProjectChatWindowChatId(instance);
 }
 
-function resolveRestoredWorkspaceWindowChatId(
+export function resolveRestoredWorkspaceWindowChatId(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
 ): string | null | undefined {
   return resolveWindowSpaceWindowMode(window) ===
@@ -365,7 +365,7 @@ function resolveRestoredWorkspaceWindowChatId(
     : null;
 }
 
-function resolveNextProjectChatWindowInstanceNumber(
+export function resolveNextProjectChatWindowInstanceNumber(
   instanceIds: Array<string>,
 ): number {
   let nextInstanceNumber = 1;
@@ -383,7 +383,7 @@ function resolveNextProjectChatWindowInstanceNumber(
   return nextInstanceNumber;
 }
 
-function allocateFreshProjectChatWindowInstanceId(
+export function allocateFreshProjectChatWindowInstanceId(
   usedInstanceIds: Set<string>,
   nextInstanceNumber: number,
 ): {
@@ -429,7 +429,7 @@ export function mergeProjectChatWindowSpaceOrder(
   return nextOrder;
 }
 
-function buildOrderedProjectChatWindowInstanceIds(
+export function buildOrderedProjectChatWindowInstanceIds(
   state: ProjectChatWindowingState,
 ): Array<string> {
   const seen = new Set<string>();
@@ -451,7 +451,7 @@ function buildOrderedProjectChatWindowInstanceIds(
   return orderedInstanceIds;
 }
 
-function buildOrderedWindowSpaceWindowIds(
+export function buildOrderedWindowSpaceWindowIds(
   windowSpace: Pick<WindowSpaceConfig, "order" | "windowsById">,
 ): Array<string> {
   const seen = new Set<string>();
@@ -473,7 +473,7 @@ function buildOrderedWindowSpaceWindowIds(
   return orderedInstanceIds;
 }
 
-function isSnapshotEligibleFloatingWindow(
+export function isSnapshotEligibleFloatingWindow(
   instance: ProjectChatWindowInstance,
   sections: ZustandProjectState["sections"],
 ): boolean {
@@ -487,7 +487,7 @@ function isSnapshotEligibleFloatingWindow(
   return sectionId === null || Object.hasOwn(sections, sectionId);
 }
 
-function buildWindowSpaceSnapshotWindow(
+export function buildWindowSpaceSnapshotWindow(
   instanceId: string,
   instance: ProjectChatWindowInstance,
   projectConfigId: string,
@@ -518,7 +518,7 @@ function buildWindowSpaceSnapshotWindow(
   });
 }
 
-function shouldRestoreWindowSpaceWindow(
+export function shouldRestoreWindowSpaceWindow(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
   sections: ZustandProjectState["sections"],
 ): boolean {
@@ -529,7 +529,7 @@ function shouldRestoreWindowSpaceWindow(
   );
 }
 
-function buildProjectChatWindowInstanceFromWindowSpaceWindow(
+export function buildProjectChatWindowInstanceFromWindowSpaceWindow(
   instanceId: string,
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
   viewport: AuthoringFloatingViewport,
@@ -713,7 +713,7 @@ export function collectProjectChatWindowInstances(
   };
 }
 
-function createCollectedProjectChatWindowingState(
+export function createCollectedProjectChatWindowingState(
   windowing: ProjectChatWindowingState,
   shouldKeep: (
     instanceId: string,
@@ -733,7 +733,7 @@ function createCollectedProjectChatWindowingState(
   );
 }
 
-function buildNonFloatingWorkspaceHostSectionIds(
+export function buildNonFloatingWorkspaceHostSectionIds(
   currentWindowing: ProjectChatWindowingState,
 ): Set<string> {
   const authoritativeSectionIds = new Set<string>();
@@ -750,7 +750,7 @@ function buildNonFloatingWorkspaceHostSectionIds(
   return authoritativeSectionIds;
 }
 
-function isRestoredSectionWindowOwnedByNonFloatingWorkspaceHost(
+export function isRestoredSectionWindowOwnedByNonFloatingWorkspaceHost(
   instance: ProjectChatWindowInstance,
   authoritativeSectionIds: Set<string>,
 ): boolean {
@@ -777,7 +777,7 @@ export function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   );
 }
 
-function resolveFloatingWindowRestoreOwnerKey(
+export function resolveFloatingWindowRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
   const sectionId = resolveProjectChatWindowSectionId(instance);
@@ -800,7 +800,7 @@ function resolveFloatingWindowRestoreOwnerKey(
   return null;
 }
 
-function resolveBoundWorkspaceRestoreOwnerKey(
+export function resolveBoundWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
   if (
@@ -820,7 +820,7 @@ function resolveBoundWorkspaceRestoreOwnerKey(
   return null;
 }
 
-function resolveReusableWorkspaceRestoreOwnerKey(
+export function resolveReusableWorkspaceRestoreOwnerKey(
   instance: ProjectChatWindowInstance,
 ): string | null {
   if (instance.placement !== ChatWindowPlacementEnum.floating) {
@@ -829,7 +829,7 @@ function resolveReusableWorkspaceRestoreOwnerKey(
   return resolveBoundWorkspaceRestoreOwnerKey(instance);
 }
 
-function buildOrderedRestoreOwnerKeyMap(
+export function buildOrderedRestoreOwnerKeyMap(
   windowing: ProjectChatWindowingState,
   resolveOwnerKey: (instance: ProjectChatWindowInstance) => string | null,
 ): Map<string, string> {
@@ -850,7 +850,7 @@ function buildOrderedRestoreOwnerKeyMap(
   return instanceIdByOwnerKey;
 }
 
-function claimPreferredRestoredInstanceIds(
+export function claimPreferredRestoredInstanceIds(
   restoredFloatingWindowing: ProjectChatWindowingState,
   reusableInstanceIdByOwnerKey: Map<string, string>,
 ): Record<string, string> {

@@ -6,17 +6,47 @@ import {
 import { useMemo } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-
-type DndSource = {
-  readonly data?: {
-    readonly current?: {
-      readonly type?: string;
-    };
-  };
-};
+import {
+  type DndSource,
+  getSectionDndActivatorElements,
+  shouldPreventSectionDndActivation,
+} from "./dndSensorActivation";
+import { useDndState } from "./dndState";
 
 function getDragType(source: DndSource): string | null {
   return source.data?.current?.type ?? null;
+}
+
+export function useSectionDndSensors() {
+  const { canEditLayout } = useShareCapabilities();
+  return useMemo(() => {
+    if (!canEditLayout) {
+      return [];
+    }
+
+    const pointerSensor = PointerSensor.configure({
+      activatorElements: getSectionDndActivatorElements,
+      preventActivation: (event, source: DndSource) => {
+        return shouldPreventSectionDndActivation(
+          event,
+          source,
+          useDndState.getState(),
+        );
+      },
+    });
+
+    const keyboardSensor = KeyboardSensor.configure({
+      preventActivation: (event, source: DndSource) => {
+        return shouldPreventSectionDndActivation(
+          event,
+          source,
+          useDndState.getState(),
+        );
+      },
+    });
+
+    return [pointerSensor, keyboardSensor];
+  }, [canEditLayout]);
 }
 
 export function useParamDndSensors() {

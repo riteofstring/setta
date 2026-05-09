@@ -71,7 +71,7 @@ import {
   stopEditingMessage,
 } from "./assistantRenderingAndEditing";
 
-const GroupedAssistantActivityMessage = memo(
+export const GroupedAssistantActivityMessage = memo(
   function GroupedAssistantActivityMessage({
     groupData,
     toolResultsById,
@@ -209,7 +209,7 @@ const GroupedAssistantActivityMessage = memo(
   },
 );
 
-function RenderableChatMessage({
+export function RenderableChatMessage({
   message,
   toolResultsById,
   toolCallArguments,
@@ -294,7 +294,7 @@ function RenderableChatMessage({
   );
 }
 
-function ChatMessages({
+export function ChatMessages({
   messages,
   waitingForResponse,
   toolCallArguments,
@@ -569,7 +569,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   );
 });
 
-function buildToolResultMap(
+export function buildToolResultMap(
   messages: Array<BaseChatMessageUnion>,
 ): Record<string, ToolChatMessage> {
   const map: Record<string, ToolChatMessage> = {};
@@ -598,7 +598,7 @@ export function formatToolResult(
   return toolResult.result;
 }
 
-function formatResourceToolResultContentEntry(
+export function formatResourceToolResultContentEntry(
   entry: Extract<ToolResultContentEntry, { type: "resource" }>,
 ): string {
   const uri = entry.resource?.uri;
@@ -609,13 +609,15 @@ function formatResourceToolResultContentEntry(
   return mimeType ? `Resource: ${uri} (${mimeType})` : `Resource: ${uri}`;
 }
 
-function formatImageToolResultContentEntry(
+export function formatImageToolResultContentEntry(
   entry: Extract<ToolResultContentEntry, { type: "image" }>,
 ): string {
   return entry.mimeType ? `Image (${entry.mimeType})` : "Image";
 }
 
-function formatToolResultContentEntry(entry: ToolResultContentEntry): string {
+export function formatToolResultContentEntry(
+  entry: ToolResultContentEntry,
+): string {
   switch (entry.type) {
     case "text":
       return entry.text;

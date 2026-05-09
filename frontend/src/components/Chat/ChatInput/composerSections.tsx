@@ -27,7 +27,7 @@ import {
   type FloatingBoxHandlers,
 } from "./shared";
 
-function ChatThinkingControlButton(props: {
+export function ChatThinkingControlButton(props: {
   executionControls: ChatExecutionControls;
   isDisabled: boolean;
   thinkingIconClassName: string;
@@ -58,7 +58,7 @@ function ChatThinkingControlButton(props: {
   );
 }
 
-function ChatPermissionModeControl(props: {
+export function ChatPermissionModeControl(props: {
   executionControls: ChatExecutionControls;
   isDisabled: boolean;
   permissionModeIconClassName: string;
@@ -115,7 +115,7 @@ function ChatPermissionModeControl(props: {
   );
 }
 
-function ChatBackgroundTerminalActivityControl(props: {
+export function ChatBackgroundTerminalActivityControl(props: {
   activeBackgroundTerminalEntries: ChatRuntimeActivityEntry[];
   activeBackgroundTerminals: number;
   backgroundTerminalTooltipHandlers: FloatingBoxHandlers | null;
@@ -198,7 +198,7 @@ function ChatBackgroundTerminalActivityControl(props: {
   );
 }
 
-function ChatSubagentActivityControl(props: {
+export function ChatSubagentActivityControl(props: {
   activeSubagentEntries: ChatRuntimeActivityEntry[];
   activeSubagents: number;
   showSubagentDropdown: boolean;
@@ -277,7 +277,7 @@ function ChatSubagentActivityControl(props: {
   );
 }
 
-function ChatSearchControl(props: {
+export function ChatSearchControl(props: {
   executionControls: ChatExecutionControls;
   isDisabled: boolean;
   searchTooltipHandlers: FloatingBoxHandlers | null;
@@ -305,7 +305,7 @@ function ChatSearchControl(props: {
   );
 }
 
-function ChatContextBadge(props: {
+export function ChatContextBadge(props: {
   contextLabelPrefixCompact: string;
   contextLabelPrefixFull: string;
   contextRemainingValue: string | null;
@@ -456,7 +456,7 @@ export function ChatComposerMetaSection(props: {
   );
 }
 
-function ChatAttachmentMenuControl(props: {
+export function ChatAttachmentMenuControl(props: {
   attachmentCountLabel: string;
   attachmentInputDisabled: boolean;
   attachmentTooltipHandlers: FloatingBoxHandlers;
@@ -523,7 +523,7 @@ function ChatAttachmentMenuControl(props: {
   );
 }
 
-function ChatDictationControl(props: {
+export function ChatDictationControl(props: {
   canDictate: boolean;
   dictationAriaLabel: string;
   dictationState: DictationState;

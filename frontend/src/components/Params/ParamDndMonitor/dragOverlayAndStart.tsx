@@ -110,7 +110,7 @@ export type ParamListView = {
   topLevelParamIds: Array<string>;
 };
 
-type CollisionSortableData = {
+export type CollisionSortableData = {
   containerId?: string | number;
   index?: number;
 };
@@ -127,27 +127,29 @@ export type CollisionDroppableData = {
   };
 };
 
-type ParamDndStoreState = ReturnType<typeof useParamDndState.getState>;
+export type ParamDndStoreState = ReturnType<typeof useParamDndState.getState>;
 
-type ParamStartDragData = NonNullable<ReturnType<typeof getParamDragData>>;
+export type ParamStartDragData = NonNullable<
+  ReturnType<typeof getParamDragData>
+>;
 
-type ParamDragAbort = {
+export type ParamDragAbort = {
   reason: string;
   details?: Record<string, unknown>;
 };
 
-type ParamDragDropTarget = {
+export type ParamDragDropTarget = {
   tempId: string;
   newParentId: string;
   tempIndex: number;
 };
 
-type ParamDragOrdering = {
+export type ParamDragOrdering = {
   oldParentId: string;
   orderedDraggingIds: string[];
 };
 
-type ParamDragInsertion = {
+export type ParamDragInsertion = {
   newIndex: number;
   newParentImpl: ReturnType<typeof getCurrEffectiveCodeObjImpl>;
 };
@@ -237,7 +239,7 @@ export function ParamDragOverlay() {
   );
 }
 
-function useParamDragOverlayMonitor(
+export function useParamDragOverlayMonitor(
   setSuppressOverlay: (nextValue: boolean) => void,
 ) {
   useDndMonitor({
@@ -268,7 +270,7 @@ function useParamDragOverlayMonitor(
   });
 }
 
-function useParamDragOverlayState(
+export function useParamDragOverlayState(
   manager: DragDropManager | null,
   suppressOverlay: boolean,
 ) {
@@ -370,7 +372,7 @@ function useParamDragOverlayState(
   };
 }
 
-function updateParamOverlaySuppression({
+export function updateParamOverlaySuppression({
   event,
   nextValue,
   phase,
@@ -390,7 +392,7 @@ function updateParamOverlaySuppression({
   });
 }
 
-function handleParamDragStart(
+export function handleParamDragStart(
   event: DragStartEvent,
   manager: DragDropManager | null,
 ) {
@@ -477,15 +479,15 @@ function handleParamDragStart(
   resetParamDragOverState();
 }
 
-function handleParamDragMove(event: DragMoveEvent) {
+export function handleParamDragMove(event: DragMoveEvent) {
   scheduleParamDragOver(event);
 }
 
-function handleParamDragOver(event: DragOverEvent) {
+export function handleParamDragOver(event: DragOverEvent) {
   scheduleParamDragOver(event);
 }
 
-function handleParamDragEnd() {
+export function handleParamDragEnd() {
   const paramState = useParamDndState.getState();
   if (!hasActiveParamDragState(paramState)) {
     abortParamDragEnd({ reason: "missing-state" });
@@ -570,7 +572,7 @@ function handleParamDragEnd() {
   deferParamDragReset("move");
 }
 
-function handleParamDragCancel() {
+export function handleParamDragCancel() {
   deferParamDragReset("cancel");
 }
 
@@ -629,7 +631,7 @@ export function updateParamDragOver({
   maybeMovePlaceholder(placeholderMove);
 }
 
-function hasActiveParamDragState(
+export function hasActiveParamDragState(
   paramState: ParamDndStoreState,
 ): paramState is ParamDndStoreState & {
   activeId: string;
@@ -641,14 +643,14 @@ function hasActiveParamDragState(
   );
 }
 
-function resolveParamActiveId(
+export function resolveParamActiveId(
   dragData: ParamStartDragData,
   event: DragStartEvent,
 ) {
   return dragData.paramId ?? getParamIdFromDndItemId(String(event.active.id));
 }
 
-function resolveDraggingParamIds({
+export function resolveDraggingParamIds({
   sectionId,
   activeId,
   parentById,
@@ -678,18 +680,18 @@ function resolveDraggingParamIds({
   return [activeId];
 }
 
-function abortParamDragEnd({ reason, details }: ParamDragAbort) {
+export function abortParamDragEnd({ reason, details }: ParamDragAbort) {
   debugParamDnd(`end:${reason}`, details);
   deferParamDragReset(reason);
 }
 
-function isParamDragAbort<T>(
+export function isParamDragAbort<T>(
   result: T | ParamDragAbort,
 ): result is ParamDragAbort {
   return typeof result === "object" && result !== null && "reason" in result;
 }
 
-function resolveParamDragDropTarget(
+export function resolveParamDragDropTarget(
   paramState: ParamDndStoreState & {
     activeId: string;
     sectionId: string;
@@ -719,7 +721,7 @@ function resolveParamDragDropTarget(
   };
 }
 
-function resolveParamDragOrdering(
+export function resolveParamDragOrdering(
   state: ZustandProjectState,
   paramState: ParamDndStoreState & {
     activeId: string;
@@ -753,7 +755,7 @@ function resolveParamDragOrdering(
   };
 }
 
-function resolveParamDragInsertion({
+export function resolveParamDragInsertion({
   state,
   paramState,
   newParentId,

@@ -4,7 +4,7 @@ export type DraftProjectThreadState =
   | { phase: "pending_chat_id" }
   | { phase: "awaiting_title"; chatId: string };
 
-type DraftThreadHistoryEntry = {
+export type DraftThreadHistoryEntry = {
   nameSource: string | null;
 };
 

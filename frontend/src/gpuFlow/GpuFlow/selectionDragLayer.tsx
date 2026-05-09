@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
@@ -8,7 +8,11 @@ import {
 } from "../interactions/selectionDrag";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
-import { getVisibleGpuNodesSelectionOverlaySnapshot } from "./selectionOverlay";
+import {
+  getVisibleGpuNodesSelectionOverlaySnapshot,
+  GpuNodesSelectionOverlay,
+  type GpuNodesSelectionOverlaySnapshot,
+} from "./selectionOverlay";
 
 export type GpuFlowSelectionDragOptions =
   | false
@@ -30,26 +34,25 @@ export function useGpuFlowSelectionDragLayer({
   readonly requestFrame: (reason: GpuFrameReason) => void;
   readonly selectionDrag: GpuFlowSelectionDragOptions;
   readonly viewportStore: GpuFlowViewportStoreApi;
-}): void {
-  const [nodesSelectionVisible, setNodesSelectionVisible] = useState(() =>
-    Boolean(
+}): ReactNode {
+  const [nodesSelectionOverlay, setNodesSelectionOverlay] =
+    useState<GpuNodesSelectionOverlaySnapshot | null>(() =>
       getVisibleGpuNodesSelectionOverlaySnapshot(viewportStore.getState()),
-    ),
-  );
+    );
+  const [nodesSelectionRectElement, setNodesSelectionRectElement] =
+    useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setNodesSelectionVisible(
-      Boolean(
-        getVisibleGpuNodesSelectionOverlaySnapshot(viewportStore.getState()),
-      ),
+    setNodesSelectionOverlay(
+      getVisibleGpuNodesSelectionOverlaySnapshot(viewportStore.getState()),
     );
     return viewportStore.subscribe((state, previousState) => {
       if (
         state.nodesSelectionBounds !== previousState.nodesSelectionBounds ||
         state.transform !== previousState.transform
       ) {
-        setNodesSelectionVisible(
-          Boolean(getVisibleGpuNodesSelectionOverlaySnapshot(state)),
+        setNodesSelectionOverlay(
+          getVisibleGpuNodesSelectionOverlaySnapshot(state),
         );
       }
     });
@@ -84,15 +87,25 @@ export function useGpuFlowSelectionDragLayer({
   }, [layoutStore, selectionDrag, viewportStore]);
 
   useEffect(() => {
+    if (!selectionDrag) {
+      return;
+    }
+    selectionDrag.onSelectionElementChange?.(nodesSelectionRectElement);
+    return () => {
+      selectionDrag.onSelectionElementChange?.(null);
+    };
+  }, [nodesSelectionRectElement, selectionDrag]);
+
+  useEffect(() => {
     if (
       !selectionDrag ||
       !selectionDrag.primaryNodeId ||
-      !nodesSelectionVisible
+      !nodesSelectionOverlay
     ) {
       return;
     }
-    containerRef.current?.focus({ preventScroll: true });
-  }, [containerRef, nodesSelectionVisible, selectionDrag]);
+    nodesSelectionRectElement?.focus({ preventScroll: true });
+  }, [nodesSelectionRectElement, nodesSelectionOverlay, selectionDrag]);
 
   useEffect(() => {
     if (!selectionDrag) {
@@ -113,4 +126,12 @@ export function useGpuFlowSelectionDragLayer({
       store: viewportStore,
     });
   }, [containerRef, layoutStore, requestFrame, selectionDrag, viewportStore]);
+
+  return (
+    <GpuNodesSelectionOverlay
+      onRectElementChange={setNodesSelectionRectElement}
+      primaryNodeId={selectionDrag ? selectionDrag.primaryNodeId : null}
+      snapshot={nodesSelectionOverlay}
+    />
+  );
 }

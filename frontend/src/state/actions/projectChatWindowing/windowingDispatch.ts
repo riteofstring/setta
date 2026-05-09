@@ -155,7 +155,7 @@ export function dispatchProjectChatWindowingMutation(
   });
 }
 
-function applyProjectChatWindowingMutationLocally(
+export function applyProjectChatWindowingMutationLocally(
   nextProjectChatWindowing: ProjectChatWindowingState,
   options: ProjectChatWindowingStoreOptions = {},
 ): void {
@@ -487,11 +487,11 @@ export function setProjectChatWindowChatId(
   });
 }
 
-type ProjectChatWindowCanvasBootTarget = {
+export type ProjectChatWindowCanvasBootTarget = {
   currentInstance: ProjectChatWindowInstance;
 };
 
-function resolveProjectChatWindowCanvasBootTarget(
+export function resolveProjectChatWindowCanvasBootTarget(
   instanceId: string,
 ): ProjectChatWindowCanvasBootTarget | null {
   const currentWindowing = getProjectChatWindowingStateFromStore(
@@ -509,7 +509,7 @@ function resolveProjectChatWindowCanvasBootTarget(
   };
 }
 
-function restoreProjectChatCanvasViewport(
+export function restoreProjectChatCanvasViewport(
   viewportX: number,
   viewportY: number,
   viewportZoom: number,
@@ -517,7 +517,7 @@ function restoreProjectChatCanvasViewport(
   setViewport({ x: viewportX, y: viewportY, zoom: viewportZoom });
 }
 
-async function resolveProjectChatWindowCanvasBootSectionId(
+export async function resolveProjectChatWindowCanvasBootSectionId(
   instanceId: string,
   currentInstance: ProjectChatWindowInstance,
 ): Promise<string | null> {
@@ -542,7 +542,7 @@ async function resolveProjectChatWindowCanvasBootSectionId(
   return created.sectionId;
 }
 
-function dispatchProjectChatWindowCanvasSectionMove(
+export function dispatchProjectChatWindowCanvasSectionMove(
   latestWindowing: ProjectChatWindowingState,
   instanceId: string,
   sectionId: string,

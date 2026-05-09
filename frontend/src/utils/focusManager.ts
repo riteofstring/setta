@@ -356,9 +356,10 @@ function movePaneToIncludeCanvasElement(element: HTMLElement) {
 }
 
 function movePaneToIncludeProjectSection(sectionId: string): void {
-  const { overviewTrueWidth } = useLocalStorage.getState();
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
   movePaneToIncludeSection(sectionId, {
     overviewWidth: overviewTrueWidth,
+    uiEditorWidth: uiEditorTrueWidth,
   });
 }
 

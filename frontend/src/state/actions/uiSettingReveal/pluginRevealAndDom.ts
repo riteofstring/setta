@@ -101,7 +101,7 @@ export function applyRevealActivationSteps({
   });
 }
 
-function createRevealActivationDraft(
+export function createRevealActivationDraft(
   state: LocalStorageState,
   projectConfigId: string,
 ): RevealActivationDraft {
@@ -122,7 +122,7 @@ function createRevealActivationDraft(
   };
 }
 
-function applyRevealActivationStepToDraft(
+export function applyRevealActivationStepToDraft(
   activationDraft: RevealActivationDraft,
   step: UISettingRevealActivationStep,
 ): void {
@@ -164,7 +164,7 @@ function applyRevealActivationStepToDraft(
   }
 }
 
-function buildRevealActivationLocalStorageState({
+export function buildRevealActivationLocalStorageState({
   state,
   projectConfigId,
   activationDraft,
@@ -208,7 +208,7 @@ function buildRevealActivationLocalStorageState({
   return nextState;
 }
 
-function hasRevealActivationLocalStorageChanges(
+export function hasRevealActivationLocalStorageChanges(
   activationDraft: RevealActivationDraft,
 ): boolean {
   return (
@@ -218,7 +218,7 @@ function hasRevealActivationLocalStorageChanges(
   );
 }
 
-function buildProjectChatAuxViewRevealState({
+export function buildProjectChatAuxViewRevealState({
   currentProjectChatAuxViewByProjectConfigId,
   projectConfigId,
   nextProjectChatAuxView,
@@ -404,7 +404,7 @@ export function buildRevealDeadlineExceededStatus(
   };
 }
 
-async function invokePluginRevealHandlerWithinDeadline({
+export async function invokePluginRevealHandlerWithinDeadline({
   target,
   durationMs,
 }: {
@@ -453,7 +453,11 @@ async function invokePluginRevealHandlerWithinDeadline({
   return result;
 }
 
-function getPaneRoot({ side }: { side: "left" | "right" }): HTMLElement | null {
+export function getPaneRoot({
+  side,
+}: {
+  side: "left" | "right";
+}): HTMLElement | null {
   if (side === "left") {
     return document.querySelector<HTMLElement>(
       '[data-testid="overview-tab-content-shell"]',
@@ -464,7 +468,7 @@ function getPaneRoot({ side }: { side: "left" | "right" }): HTMLElement | null {
   );
 }
 
-function findSettingAnchor(
+export function findSettingAnchor(
   root: ParentNode,
   anchorId: string,
 ): HTMLElement | null {
@@ -478,7 +482,7 @@ function findSettingAnchor(
   return null;
 }
 
-function escapeForAttributeSelector(value: string): string {
+export function escapeForAttributeSelector(value: string): string {
   if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
     return CSS.escape(value);
   }
@@ -514,7 +518,7 @@ export function normalizeDurationMs(durationMs: number): number {
   return Math.min(durationMs, MAX_DURATION_MS);
 }
 
-function prefersReducedMotion(): boolean {
+export function prefersReducedMotion(): boolean {
   if (typeof window.matchMedia !== "function") {
     return false;
   }

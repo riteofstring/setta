@@ -1,5 +1,7 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 
+import { updateDndChildren } from "forks/dnd-kit/dndChildren";
+
 import type { Node } from "gpuFlow/flowTypes";
 
 import {
@@ -74,14 +76,14 @@ import {
 import { createProjectStateUpdateChromeReproTimer } from "./projectStateChromeReproPerf";
 
 import {
-  buildTopLevelSectionNode,
-  getPositiveTopLevelLayoutDimension,
-} from "./topLevelSectionNode";
-import {
   getCurrProjectConfigId,
   reconcilePendingTopLevelLayout,
   reconcilePendingViewport,
 } from "./viewportUpdates";
+import {
+  buildTopLevelSectionNode,
+  getPositiveTopLevelLayoutDimension,
+} from "./topLevelSectionNode";
 
 export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.codeObjVariants[variantId];
@@ -159,7 +161,7 @@ export function updateShownParamIdsForPinnedParams(
   };
 }
 
-function partitionParamIdsByPinnedState(
+export function partitionParamIdsByPinnedState(
   paramIds: string[],
   nextPinnedSet: Set<string>,
 ): {
@@ -177,7 +179,7 @@ function partitionParamIdsByPinnedState(
   return partitioned;
 }
 
-function partitionParamPathsByPinnedState(
+export function partitionParamPathsByPinnedState(
   requiredParamIdsToPaths: Record<string, Array<string>>,
   nextPinnedSet: Set<string>,
 ): {
@@ -275,7 +277,13 @@ export function getSectionImplChildren(
   return [...sectionImpl.children];
 }
 
-function getComparableProjectState(
+export function manualDndChildrenReset() {
+  updateDndChildren(
+    getDisplayedSectionIdToChildren(useProjectState.getState()),
+  );
+}
+
+export function getComparableProjectState(
   state: SingleConfig | ZustandProjectState,
 ): SingleConfig {
   return sanitizeProjectStateActiveIds({
@@ -297,7 +305,7 @@ function getComparableProjectState(
   });
 }
 
-function pruneProjectChatWindowingForExistingSections(
+export function pruneProjectChatWindowingForExistingSections(
   projectState: SingleConfig,
 ): SingleConfig {
   const existingSectionIds = new Set(Object.keys(projectState.sections));
@@ -440,7 +448,9 @@ export function processProjectStateUpdateFromBackend(
   });
 }
 
-function applyViewportFromProjectState(projectState: SingleConfig): boolean {
+export function applyViewportFromProjectState(
+  projectState: SingleConfig,
+): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
   const currentState = useProjectState.getState();
   const currentConfig = currentState.projectConfig;
@@ -470,7 +480,7 @@ function applyViewportFromProjectState(projectState: SingleConfig): boolean {
   return false;
 }
 
-function getVisibleTopLevelSectionIdsForAutoFit(
+export function getVisibleTopLevelSectionIdsForAutoFit(
   projectState: SingleConfig,
 ): string[] {
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
@@ -489,7 +499,9 @@ function getVisibleTopLevelSectionIdsForAutoFit(
   );
 }
 
-function getFitViewOptionsForVisibleSections(projectState: SingleConfig) {
+export function getFitViewOptionsForVisibleSections(
+  projectState: SingleConfig,
+) {
   const { activeViewModeId, isEditingViewMode, viewModes } =
     projectState.projectConfig;
   if (isEditingViewMode) {
@@ -514,7 +526,7 @@ function getFitViewOptionsForVisibleSections(projectState: SingleConfig) {
   };
 }
 
-function prunePreviewCodeEntries(
+export function prunePreviewCodeEntries(
   previewState: ToolArgumentPreviewProjectState,
   projectState: ZustandProjectState,
 ) {
@@ -535,7 +547,7 @@ function prunePreviewCodeEntries(
   }
 }
 
-function getCanonicalCallableName(
+export function getCanonicalCallableName(
   projectState: ZustandProjectState,
   sectionImpl: Extract<BaseSectionImplUnion, { callable?: string | null }>,
 ): string | null {
@@ -546,7 +558,7 @@ function getCanonicalCallableName(
   return codeObj ? codeObj.name : null;
 }
 
-function prunePreviewCallableNameEntries(
+export function prunePreviewCallableNameEntries(
   previewState: ToolArgumentPreviewProjectState,
   projectState: ZustandProjectState,
 ) {
@@ -568,7 +580,7 @@ function prunePreviewCallableNameEntries(
   }
 }
 
-function prunePreviewParamValueEntries(
+export function prunePreviewParamValueEntries(
   previewState: ToolArgumentPreviewProjectState,
   projectState: ZustandProjectState,
 ) {
@@ -603,7 +615,7 @@ function prunePreviewParamValueEntries(
   }
 }
 
-function isToolArgumentPreviewEmpty(
+export function isToolArgumentPreviewEmpty(
   previewState: ToolArgumentPreviewProjectState,
 ): boolean {
   return (
@@ -631,7 +643,7 @@ export function clearToolArgumentPreviewForProjectState(
   });
 }
 
-type TopLevelSectionLayout =
+export type TopLevelSectionLayout =
   SingleConfig["projectConfig"]["topLevelSections"][string];
 
 export function shouldRenderTopLevelSectionNode(
@@ -699,7 +711,7 @@ export function setSectionChildren(
   });
 }
 
-function getDisplayedSectionIdToChildrenHelper(
+export function getDisplayedSectionIdToChildrenHelper(
   sectionId: string,
   sectionImpl: BaseSectionImplUnion | null,
   state: ZustandProjectState,
@@ -785,7 +797,7 @@ export function getActiveViewModeTopLevelSections(projectState: SingleConfig) {
   return { ...topLevelSections, ...viewModeLayout };
 }
 
-function getSectionVisibilityForActiveViewMode(
+export function getSectionVisibilityForActiveViewMode(
   sectionId: string,
   state: ZustandProjectState,
 ) {
@@ -802,7 +814,7 @@ function getSectionVisibilityForActiveViewMode(
   };
 }
 
-function getSectionViewModeVisibilityIfPresent(
+export function getSectionViewModeVisibilityIfPresent(
   sectionId: string,
   state: ZustandProjectState,
 ): {
@@ -922,7 +934,9 @@ export function copyExistingTopLevelSectionLayouts(
   return nextLayouts;
 }
 
-function createDefaultTopLevelSectionLayout(node: Node): TopLevelSectionLayout {
+export function createDefaultTopLevelSectionLayout(
+  node: Node,
+): TopLevelSectionLayout {
   return {
     x: node.position.x,
     y: node.position.y,
@@ -932,7 +946,7 @@ function createDefaultTopLevelSectionLayout(node: Node): TopLevelSectionLayout {
   };
 }
 
-function buildTopLevelSectionLayout(
+export function buildTopLevelSectionLayout(
   node: Node,
   existingLayout?: TopLevelSectionLayout,
 ): TopLevelSectionLayout {

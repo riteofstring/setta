@@ -56,13 +56,13 @@ export const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
 });
 
-const COMMIT_GRID_HORIZONTAL_PADDING_PX = 24;
+export const COMMIT_GRID_HORIZONTAL_PADDING_PX = 24;
 
 // px-3 on both sides
-const COMMIT_GRID_GAP_PX = 8;
+export const COMMIT_GRID_GAP_PX = 8;
 
 // gap-2
-const COMMIT_GRID_GAP_COUNT = 4;
+export const COMMIT_GRID_GAP_COUNT = 4;
 
 export const GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX =
   GRAPH_COL_MIN_WIDTH_PX +
@@ -77,13 +77,13 @@ export const GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX = 360;
 
 export const CSS_VAR_GIT_GRAPH_SPLIT_PCT = "--git-graph-split-pct";
 
-const CSS_VAR_GIT_GRAPH_COL_GRAPH = "--git-graph-col-graph";
+export const CSS_VAR_GIT_GRAPH_COL_GRAPH = "--git-graph-col-graph";
 
-const CSS_VAR_GIT_GRAPH_COL_AUTHOR = "--git-graph-col-author";
+export const CSS_VAR_GIT_GRAPH_COL_AUTHOR = "--git-graph-col-author";
 
-const CSS_VAR_GIT_GRAPH_COL_DATE = "--git-graph-col-date";
+export const CSS_VAR_GIT_GRAPH_COL_DATE = "--git-graph-col-date";
 
-const CSS_VAR_GIT_GRAPH_COL_HASH = "--git-graph-col-hash";
+export const CSS_VAR_GIT_GRAPH_COL_HASH = "--git-graph-col-hash";
 
 export const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, ${DEFAULT_GIT_GRAPH_COL_WIDTH_PX}px) minmax(${MESSAGE_COL_MIN_WIDTH_PX}px, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, ${DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX}px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, ${DEFAULT_GIT_GRAPH_DATE_WIDTH_PX}px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, ${DEFAULT_GIT_GRAPH_HASH_WIDTH_PX}px)`;
 
@@ -109,30 +109,30 @@ export const LANE_COLORS_DARK = [
   "#22d3ee",
 ];
 
-const GOLDEN_ANGLE_DEG = 137.508;
+export const GOLDEN_ANGLE_DEG = 137.508;
 
-const GENERATED_LANE_COLORS_LIGHT = new Map<number, string>();
+export const GENERATED_LANE_COLORS_LIGHT = new Map<number, string>();
 
-const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
+export const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
 
 export function clampNonNegative(value: number): number {
   return value < 0 ? 0 : value;
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function hexByte(value: number): string {
+export function hexByte(value: number): string {
   const clamped = Math.max(0, Math.min(255, Math.round(value)));
   return clamped.toString(16).padStart(2, "0");
 }
 
-function hexFromRgb(r: number, g: number, b: number): string {
+export function hexFromRgb(r: number, g: number, b: number): string {
   return `#${hexByte(r)}${hexByte(g)}${hexByte(b)}`;
 }
 
-function hslToRgb(
+export function hslToRgb(
   hueDeg: number,
   s: number,
   l: number,
@@ -172,7 +172,7 @@ function hslToRgb(
   ];
 }
 
-function generatedLaneColor(colorId: number, darkMode: boolean): string {
+export function generatedLaneColor(colorId: number, darkMode: boolean): string {
   const cache = darkMode
     ? GENERATED_LANE_COLORS_DARK
     : GENERATED_LANE_COLORS_LIGHT;
@@ -247,18 +247,21 @@ export type GitGraphOverlayListSize = {
   width: number;
 };
 
-type GitGraphColumnKey = keyof GitGraphColumnWidths;
+export type GitGraphColumnKey = keyof GitGraphColumnWidths;
 
-const GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY: Record<GitGraphColumnKey, string> = {
+export const GIT_GRAPH_COLUMN_CSS_VAR_BY_KEY: Record<
+  GitGraphColumnKey,
+  string
+> = {
   graph: CSS_VAR_GIT_GRAPH_COL_GRAPH,
   author: CSS_VAR_GIT_GRAPH_COL_AUTHOR,
   date: CSS_VAR_GIT_GRAPH_COL_DATE,
   hash: CSS_VAR_GIT_GRAPH_COL_HASH,
 };
 
-type GitGraphDragRegistration = (cleanup: () => void) => () => void;
+export type GitGraphDragRegistration = (cleanup: () => void) => () => void;
 
-type GitGraphPersistRequest = (persist: () => void) => void;
+export type GitGraphPersistRequest = (persist: () => void) => void;
 
 export type GitGraphPaneSplitDragArgs = {
   overlayRef: RefObject<HTMLElement | null>;
@@ -268,7 +271,7 @@ export type GitGraphPaneSplitDragArgs = {
   requestPersistIfConnected: GitGraphPersistRequest;
 };
 
-type GitGraphPaneSplitDragSession = {
+export type GitGraphPaneSplitDragSession = {
   root: HTMLElement;
   wrapperWidth: number;
   minLeft: number;
@@ -288,7 +291,7 @@ export type GitGraphColumnResizeDragArgs = {
   setLiveGraphColWidthPx: (value: number | null) => void;
 };
 
-type GitGraphColumnResizeDragSession = {
+export type GitGraphColumnResizeDragSession = {
   boundary: GitGraphColumnBoundary;
   root: HTMLElement;
   contentWidth: number;
@@ -297,7 +300,7 @@ type GitGraphColumnResizeDragSession = {
   startX: number;
 };
 
-function readGitGraphHeaderContentWidth(header: HTMLDivElement): number {
+export function readGitGraphHeaderContentWidth(header: HTMLDivElement): number {
   const headerStyle = window.getComputedStyle(header);
   const paddingLeft = Number.parseFloat(headerStyle.paddingLeft) || 0;
   const paddingRight = Number.parseFloat(headerStyle.paddingRight) || 0;
@@ -309,7 +312,7 @@ function readGitGraphHeaderContentWidth(header: HTMLDivElement): number {
   );
 }
 
-function readGitGraphColumnWidth(
+export function readGitGraphColumnWidth(
   root: HTMLElement,
   key: GitGraphColumnKey,
   fallbackWidth: number,
@@ -325,7 +328,7 @@ function readGitGraphColumnWidth(
   return fallbackWidth;
 }
 
-function readGitGraphColumnWidths(
+export function readGitGraphColumnWidths(
   root: HTMLElement,
   fallbackWidths: GitGraphColumnWidths,
 ): GitGraphColumnWidths {
@@ -337,7 +340,7 @@ function readGitGraphColumnWidths(
   };
 }
 
-function applyGitGraphColumnWidths(
+export function applyGitGraphColumnWidths(
   root: HTMLElement,
   next: GitGraphColumnWidthPatch,
 ): void {
@@ -367,7 +370,9 @@ function applyGitGraphColumnWidths(
   }
 }
 
-function persistGitGraphColumnWidths(next: GitGraphColumnWidthPatch): void {
+export function persistGitGraphColumnWidths(
+  next: GitGraphColumnWidthPatch,
+): void {
   const patch: Partial<{
     gitGraphColWidthPx: number;
     gitGraphAuthorWidthPx: number;
@@ -391,7 +396,7 @@ function persistGitGraphColumnWidths(next: GitGraphColumnWidthPatch): void {
   }
 }
 
-function createGitGraphPaneSplitDragSession(
+export function createGitGraphPaneSplitDragSession(
   event: React.PointerEvent<HTMLDivElement>,
   {
     overlayRef,
@@ -431,7 +436,7 @@ function createGitGraphPaneSplitDragSession(
   };
 }
 
-function startGitGraphPaneSplitDrag(
+export function startGitGraphPaneSplitDrag(
   session: GitGraphPaneSplitDragSession,
   {
     registerDragCleanup,
@@ -523,7 +528,7 @@ export function beginGitGraphPaneSplitDrag(
   startGitGraphPaneSplitDrag(session, args);
 }
 
-function createGitGraphColumnResizeDragSession(
+export function createGitGraphColumnResizeDragSession(
   boundary: GitGraphColumnBoundary,
   event: React.PointerEvent<HTMLDivElement>,
   {
@@ -551,7 +556,7 @@ function createGitGraphColumnResizeDragSession(
   };
 }
 
-function handleGitGraphColumnResizeDoubleClick(
+export function handleGitGraphColumnResizeDoubleClick(
   session: GitGraphColumnResizeDragSession,
   setLiveGraphColWidthPx: (value: number | null) => void,
 ): void {
@@ -567,7 +572,7 @@ function handleGitGraphColumnResizeDoubleClick(
   persistGitGraphColumnWidths(next);
 }
 
-function startGitGraphColumnResizeDrag(
+export function startGitGraphColumnResizeDrag(
   session: GitGraphColumnResizeDragSession,
   {
     registerDragCleanup,

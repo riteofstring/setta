@@ -34,7 +34,6 @@ describe("framePerformance", () => {
       evictedTextureNodeCount: 1,
       frame: 7,
       frameReasons: ["paint", "texture-upload"],
-      interactionDiagnostics: null,
       remainingDirtyNodeCount: 2,
       textureMemoryAllocatedBytes: 4096,
       textureMemoryBeforeEvictionAllocatedBytes: 8192,
@@ -78,47 +77,6 @@ describe("framePerformance", () => {
       deferResolutionUpdates: false,
       frame: 2,
       frameReasons: ["paint"],
-      interactionDiagnostics: {
-        activeDomIsland: null,
-        activeMode: "retained-content",
-        activeResizeNodeId: null,
-        activeRetainedHit: {
-          flowPoint: { x: 10, y: 20 },
-          hitId: "control:param-0",
-          hitKind: "control",
-          localPoint: { x: 1, y: 2 },
-          ownerSectionId: "section-a",
-          rowControlKind: "switch",
-          rowId: "param-0",
-          rowLabel: "Enabled",
-          rowState: null,
-          screenPoint: { x: 100, y: 120 },
-          subpartKind: null,
-          surfaceId: "section-a:param-content:unpinned",
-          zIndex: 1,
-        },
-        hoveredRetainedHit: null,
-        lastPointer: null,
-        nodeInteractionActiveNodeId: null,
-        pointerCapture: { active: true, pointerId: 2 },
-        viewport: {
-          connectionStartHandlePresent: false,
-          multiSelectionActive: false,
-          nodeDragging: false,
-          nodeResizing: false,
-          nodesSelectionBounds: null,
-          panScrolling: false,
-          paneDragging: false,
-          pointerPanning: false,
-          selectionKeyPressed: false,
-          transform: { x: 0, y: 0, zoom: 1 },
-          userSelectionActive: false,
-          userSelectionRect: null,
-          viewportAnimating: false,
-          viewportInteractionActive: true,
-          wheelZooming: false,
-        },
-      },
       layerResult,
       renderDurationMs: 1,
       viewport: [0, 0, 1],
@@ -127,9 +85,6 @@ describe("framePerformance", () => {
 
     expect(event.uploadDiagnosticCount).toBe(14);
     expect(event.uploadDiagnostics).toHaveLength(12);
-    expect(event.interactionDiagnostics?.activeRetainedHit?.rowLabel).toBe(
-      "Enabled",
-    );
     expect(event.uploadDiagnostics.at(-1)?.surfaceId).toBe("node-11");
   });
 });

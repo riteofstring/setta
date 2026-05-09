@@ -38,14 +38,12 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import { getKwargsControlsContainerHeightPx } from "./kwargsControlsLayout";
 import {
   getKwargsControlsActionState,
   getKwargsControlsThemeState,
 } from "./kwargsControlsState";
 type KwargsControlsProps = {
   sectionId: string;
-  trackMeasuredHeight?: boolean;
 };
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
@@ -64,17 +62,10 @@ function getDeletableSelectedParamIds(
     return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
   });
 }
-export function KwargsControls({
-  sectionId,
-  trackMeasuredHeight = true,
-}: KwargsControlsProps) {
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
-  useKwargsControlsHeightMeasurement(
-    controlsRef,
-    heightKey,
-    trackMeasuredHeight,
-  );
+  useKwargsControlsHeightMeasurement(controlsRef, heightKey);
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -361,17 +352,11 @@ export function KwargsControls({
   }
   return (
     <>
-      <section
-        className={controlsContainerClassName}
-        ref={controlsRef}
-        style={{
-          height: getKwargsControlsContainerHeightPx(isCallableSection),
-        }}
-      >
+      <section className={controlsContainerClassName} ref={controlsRef}>
         <article
-          className={`flex flex-nowrap items-center ${isCallableSection ? "py-1" : ""}`}
+          className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
-          <section className="ml-1 flex shrink-0 items-center gap-1">
+          <section className="ml-1 flex items-center gap-1">
             <h3
               className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
             >
@@ -535,15 +520,10 @@ function ParamFilter({
 function useKwargsControlsHeightMeasurement(
   controlsRef: React.RefObject<HTMLElement | null>,
   heightKey: string,
-  trackMeasuredHeight: boolean,
 ) {
   const lastMeasuredHeightRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
-    if (!trackMeasuredHeight) {
-      lastMeasuredHeightRef.current = null;
-      return;
-    }
     const node = controlsRef.current;
     if (!node) {
       lastMeasuredHeightRef.current = null;
@@ -575,7 +555,7 @@ function useKwargsControlsHeightMeasurement(
       lastMeasuredHeightRef.current = null;
       useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
-  }, [controlsRef, heightKey, trackMeasuredHeight]);
+  }, [controlsRef, heightKey]);
 }
 
 const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {

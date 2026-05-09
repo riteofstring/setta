@@ -84,7 +84,7 @@ import { resolveQuestionAnswers } from "./assistantRenderingAndEditing";
 
 import { formatToolResult } from "./messageListAndFormatting";
 
-const SubagentItem = memo(function SubagentItem({
+export const SubagentItem = memo(function SubagentItem({
   name,
   toolCallId,
   args,
@@ -157,7 +157,7 @@ const SubagentItem = memo(function SubagentItem({
   );
 });
 
-type AssistantActionSectionProps = {
+export type AssistantActionSectionProps = {
   timelineEntries: ActivityTimelineEntry[];
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
@@ -172,7 +172,7 @@ type AssistantActionSectionProps = {
   ) => void;
 };
 
-type AssistantActionRowProps = {
+export type AssistantActionRowProps = {
   entry: ActivityTimelineEntry;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
@@ -187,7 +187,7 @@ type AssistantActionRowProps = {
   ) => void;
 };
 
-type AssistantToolActivityContext = {
+export type AssistantToolActivityContext = {
   entry: Exclude<ActivityTimelineEntry, { kind: "thinking" }>;
   toolCall: ToolCall;
   toolEntry: ToolCallRenderEntry;
@@ -201,7 +201,7 @@ type AssistantToolActivityContext = {
   normalizedToolName: string | null;
 };
 
-function createActivityRowCopyHandler(text: string): () => void {
+export function createActivityRowCopyHandler(text: string): () => void {
   return () => {
     copyTextWithNotifications({
       text,
@@ -212,7 +212,7 @@ function createActivityRowCopyHandler(text: string): () => void {
   };
 }
 
-function resolveAssistantToolActivityContext({
+export function resolveAssistantToolActivityContext({
   entry,
   toolResultsById,
   toolCallArguments,
@@ -247,7 +247,10 @@ function resolveAssistantToolActivityContext({
   };
 }
 
-function wrapAssistantActivityCard(key: string, child: ReactNode): ReactNode {
+export function wrapAssistantActivityCard(
+  key: string,
+  child: ReactNode,
+): ReactNode {
   return (
     <div
       key={key}
@@ -258,7 +261,7 @@ function wrapAssistantActivityCard(key: string, child: ReactNode): ReactNode {
   );
 }
 
-function resolveAssistantInteractiveActivityCard(
+export function resolveAssistantInteractiveActivityCard(
   context: AssistantToolActivityContext,
 ): ReactNode | null {
   if (
@@ -324,7 +327,7 @@ function resolveAssistantInteractiveActivityCard(
   );
 }
 
-function renderAssistantToolActivityRow({
+export function renderAssistantToolActivityRow({
   context,
   toolResultsById,
   toolCallArguments,
@@ -416,7 +419,7 @@ function renderAssistantToolActivityRow({
   );
 }
 
-const AssistantActionRow = memo(function AssistantActionRow({
+export const AssistantActionRow = memo(function AssistantActionRow({
   entry,
   toolResultsById,
   toolCallArguments,
@@ -515,7 +518,7 @@ export type ToolCallRunState = "running" | "success" | "failed" | "stopped";
 
 export type ToolCallSectionState = "running" | "complete" | "stopped";
 
-function resolveToolCallRunState(
+export function resolveToolCallRunState(
   success: boolean | undefined,
   isStreaming: boolean,
 ): ToolCallRunState {
@@ -531,7 +534,7 @@ function resolveToolCallRunState(
   return "stopped";
 }
 
-function resolveToolCallSectionState(
+export function resolveToolCallSectionState(
   states: ToolCallRunState[],
 ): ToolCallSectionState {
   if (states.some((state) => state === "failed" || state === "stopped")) {
@@ -571,16 +574,16 @@ export function hasPendingInteractiveToolCallsInMessages(
   );
 }
 
-type ToolSectionTimingAnchors = {
+export type ToolSectionTimingAnchors = {
   startedAtMs: number | null;
   completedAtMs: number | null;
 };
 
-type ResolvedActivityEntryTiming = ToolSectionTimingAnchors & {
+export type ResolvedActivityEntryTiming = ToolSectionTimingAnchors & {
   runState: ToolCallRunState;
 };
 
-function resolveToolResultTimingAnchors(
+export function resolveToolResultTimingAnchors(
   toolResult: ToolChatMessage | undefined,
 ): ToolSectionTimingAnchors {
   return {
@@ -589,7 +592,7 @@ function resolveToolResultTimingAnchors(
   };
 }
 
-function mergeToolSectionTimingAnchor(
+export function mergeToolSectionTimingAnchor(
   currentValue: number | null,
   nextValue: number | null,
   merge: (left: number, right: number) => number,
@@ -600,7 +603,7 @@ function mergeToolSectionTimingAnchor(
   return currentValue === null ? nextValue : merge(currentValue, nextValue);
 }
 
-function resolveActivityTimelineEntryTiming(
+export function resolveActivityTimelineEntryTiming(
   entry: ActivityTimelineEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): ResolvedActivityEntryTiming {
@@ -666,7 +669,7 @@ export function resolveActivitySectionTiming({
   };
 }
 
-function AssistantErrorCallout({
+export function AssistantErrorCallout({
   content,
   conversationSearchTerms = [],
 }: {

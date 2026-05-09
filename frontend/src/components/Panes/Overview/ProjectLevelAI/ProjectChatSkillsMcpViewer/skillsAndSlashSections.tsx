@@ -30,7 +30,7 @@ import {
   SkillMarkdownViewerPanel,
 } from "./skillMarkdownAndMcpPanels";
 
-type SkillsSectionProps = {
+export type SkillsSectionProps = {
   beginSkillsListResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
   canCreateCustomSkillButton: boolean;
   canSaveSelectedSkill: boolean;
@@ -243,7 +243,7 @@ export function SkillsSection({
   );
 }
 
-type CustomSlashCommandsPanelProps = {
+export type CustomSlashCommandsPanelProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
   conflictingCustomSlashCommandTokens: Set<string>;
@@ -262,7 +262,7 @@ type CustomSlashCommandsPanelProps = {
   onSetNewCustomSlashPrompt: (value: string) => void;
 };
 
-function CustomSlashCommandsPanel({
+export function CustomSlashCommandsPanel({
   addCustomProjectChatSlashCommand,
   canAddCustomSlashCommand,
   conflictingCustomSlashCommandTokens,
@@ -396,7 +396,7 @@ function CustomSlashCommandsPanel({
   );
 }
 
-type SlashEngineCommandsPanelProps = {
+export type SlashEngineCommandsPanelProps = {
   engineConfigsInitialLoadComplete: boolean;
   onSelectSlashEngine: (engineId: string) => void;
   selectedAgentNativeSlashCommands: string[];
@@ -405,7 +405,7 @@ type SlashEngineCommandsPanelProps = {
   slashCommandsByEngine: SlashCommandsByEngineEntry[];
 };
 
-function SlashEngineCommandsPanel({
+export function SlashEngineCommandsPanel({
   engineConfigsInitialLoadComplete,
   onSelectSlashEngine,
   selectedAgentNativeSlashCommands,
@@ -526,7 +526,7 @@ function SlashEngineCommandsPanel({
   );
 }
 
-type SlashCommandsSectionProps = {
+export type SlashCommandsSectionProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
   conflictingCustomSlashCommandTokens: Set<string>;

@@ -66,7 +66,7 @@ import {
   resolveToolEntryLabel,
 } from "./streamingMarkdownAndToolLabels";
 
-function resolveThinkingActivityPreview({
+export function resolveThinkingActivityPreview({
   latestEntry,
   previewBase,
   timelineEntries,
@@ -112,7 +112,7 @@ function resolveThinkingActivityPreview({
   );
 }
 
-function resolveToolActivityPreview({
+export function resolveToolActivityPreview({
   latestEntry,
   previewBase,
   toolResultsById,
@@ -199,12 +199,12 @@ export function resolveLatestActivityPreview({
   });
 }
 
-type StreamActivitySummary = {
+export type StreamActivitySummary = {
   activityKey: string;
   lastTextIndex: number;
 };
 
-const ASSISTANT_ERROR_PREFIX = "[Error]";
+export const ASSISTANT_ERROR_PREFIX = "[Error]";
 
 export function isAssistantErrorText(text: string): boolean {
   return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
@@ -237,7 +237,9 @@ export function partitionAssistantContent(
   return { thinkingItems, displayItems };
 }
 
-function isMeaningfulAssistantDisplayItem(item: ChatContentItem): boolean {
+export function isMeaningfulAssistantDisplayItem(
+  item: ChatContentItem,
+): boolean {
   if (item.type === C.LLM_TEXT) {
     return item.text.trim().length > 0;
   }
@@ -339,14 +341,14 @@ export function useIdleStreamSpinner(
   return showSpinner;
 }
 
-function normalizeCountBadgeValue(value: number): number {
+export function normalizeCountBadgeValue(value: number): number {
   if (!Number.isFinite(value)) {
     return 0;
   }
   return Math.max(0, Math.round(value));
 }
 
-type CountBadgeTransition = {
+export type CountBadgeTransition = {
   from: number;
   to: number;
   direction: 1 | -1;

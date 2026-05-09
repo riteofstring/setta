@@ -47,7 +47,7 @@ import {
   sanitizeWorkflowEdge,
 } from "./promptFields";
 
-function WorkflowSendPromptFields({
+export function WorkflowSendPromptFields({
   draftEdge,
   isDisabled,
   updateDraft,
@@ -179,7 +179,7 @@ function WorkflowSendPromptFields({
   );
 }
 
-function WorkflowResetThreadFields({
+export function WorkflowResetThreadFields({
   draftEdge,
   isDisabled,
   updateDraft,
@@ -206,7 +206,7 @@ function WorkflowResetThreadFields({
   );
 }
 
-function WorkflowActionSection({
+export function WorkflowActionSection({
   draftEdge,
   isDisabled,
   updateDraft,
@@ -281,7 +281,7 @@ function WorkflowActionSection({
   );
 }
 
-function WorkflowEdgeFooter({
+export function WorkflowEdgeFooter({
   isDisabled,
   isDirty,
   promptInputsError,

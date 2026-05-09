@@ -60,29 +60,29 @@ import {
   getPastHalfwayFromCollisions,
 } from "./dragGeometry";
 
-type ParamDragOverResolution = {
+export type ParamDragOverResolution = {
   overParamId: string;
   pastHalfway: boolean;
   triggerDistCondition: boolean;
   filteredCollisions: NonNullable<DragOverEvent["collisions"]>;
 };
 
-let lastResolvedOverId: string | null = null;
+export let lastResolvedOverId: string | null = null;
 
-let lastResolvedPastHalfway: boolean | null = null;
+export let lastResolvedPastHalfway: boolean | null = null;
 
-let lastResolvedTriggerDistCondition: boolean | null = null;
+export let lastResolvedTriggerDistCondition: boolean | null = null;
 
-let lastFilteredCollisionEmpty: boolean | null = null;
+export let lastFilteredCollisionEmpty: boolean | null = null;
 
 export type ParamDragOverInput = Pick<
   DragMoveEvent,
   "active" | "collisions" | "over"
 >;
 
-let pendingParamDragOver: ParamDragOverInput | null = null;
+export let pendingParamDragOver: ParamDragOverInput | null = null;
 
-let paramDragOverRaf: number | null = null;
+export let paramDragOverRaf: number | null = null;
 
 export function isNoopParamDragMove({
   newParentId,
@@ -117,7 +117,7 @@ export function getLoggedFilteredParamCollisions(
   return filteredCollisions;
 }
 
-function noteFilteredCollisionEmpty(
+export function noteFilteredCollisionEmpty(
   collisions: NonNullable<DragOverEvent["collisions"]>,
   listKey: ParamListKey,
 ) {
@@ -131,7 +131,7 @@ function noteFilteredCollisionEmpty(
   });
 }
 
-function noteFilteredCollisionResume(
+export function noteFilteredCollisionResume(
   filteredCollisions: NonNullable<DragOverEvent["collisions"]>,
   listKey: ParamListKey,
 ) {
@@ -182,7 +182,7 @@ export function resolveParamDragOverResolution({
   };
 }
 
-function normalizeParamOverId(
+export function normalizeParamOverId(
   overId: string | null,
   sectionId: string,
   rootId: string | null,
@@ -248,7 +248,7 @@ export function resolveParamDragPlaceholderMove({
   };
 }
 
-function resolveParamDragParent({
+export function resolveParamDragParent({
   overId,
   parentById,
   draggingIds,
@@ -343,7 +343,7 @@ export function isParamDrag(active: DragStartEvent["active"]) {
   return (active.data?.current as ParamDragData | undefined)?.type === "param";
 }
 
-function filterCollisionsForListKey(
+export function filterCollisionsForListKey(
   collisions: DragOverEvent["collisions"] | null,
   listKey: ParamListKey | null,
 ) {
@@ -358,7 +358,7 @@ function filterCollisionsForListKey(
   });
 }
 
-function getOverIdForListKey(
+export function getOverIdForListKey(
   over: DragOverEvent["over"] | null,
   listKey: ParamListKey | null,
 ) {
@@ -437,7 +437,7 @@ export function resolveParamListView(
   return null;
 }
 
-function getParamListView(
+export function getParamListView(
   state: ZustandProjectState,
   sectionId: string,
   listKey: ParamListKey,
@@ -465,7 +465,7 @@ function getParamListView(
   };
 }
 
-function filterEdgeInputs(
+export function filterEdgeInputs(
   requiredParamIdsToPaths: Record<string, Array<string>>,
   topLevelParamIds: Array<string>,
   edgeInputParams: Array<string>,
@@ -529,7 +529,7 @@ export function scheduleParamDragOver(event: ParamDragOverInput) {
   });
 }
 
-function resetScheduledParamDragOver() {
+export function resetScheduledParamDragOver() {
   if (paramDragOverRaf !== null) {
     cancelAnimationFrame(paramDragOverRaf);
     paramDragOverRaf = null;

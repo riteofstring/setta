@@ -375,8 +375,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}),
 		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}),
 		reflect.TypeOf(projectview.ProjectCodegenTarget(nil)),
-		reflect.TypeOf(projectview.ParamUIRendererFamily("")),
-		reflect.TypeOf(projectview.ParamUIRendererConfigValue{}),
 		reflect.TypeOf(projectview.ProjectChatWindowModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),

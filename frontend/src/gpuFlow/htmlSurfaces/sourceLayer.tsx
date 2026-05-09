@@ -20,7 +20,7 @@ export type HtmlSurfaceSourceElementConfig<TSource> = {
   readonly sourceId: string;
 };
 
-type HtmlSurfaceSourceLayerProps<TSource> = {
+export type HtmlSurfaceSourceLayerProps<TSource> = {
   readonly configureSourceElement?:
     | ((config: HtmlSurfaceSourceElementConfig<TSource>) => void)
     | undefined;
@@ -144,13 +144,13 @@ function HtmlSurfaceSourceChild<TSource>({
   );
 }
 
-function createHtmlSurfaceSourceElement(
+export function createHtmlSurfaceSourceElement(
   ownerDocument: Document,
 ): HTMLDivElement {
   return ownerDocument.createElement("div");
 }
 
-function insertHtmlSurfaceSourceAfterAnchor(
+export function insertHtmlSurfaceSourceAfterAnchor(
   anchor: HTMLElement,
   host: HTMLElement,
 ) {
@@ -161,7 +161,7 @@ function insertHtmlSurfaceSourceAfterAnchor(
   parent.insertBefore(host, anchor.nextSibling);
 }
 
-function configureHtmlSurfaceSourceElement({
+export function configureHtmlSurfaceSourceElement({
   className = HTML_SURFACE_SOURCE_CLASS_NAME,
   host,
   preservedClassNames,
@@ -183,7 +183,7 @@ function configureHtmlSurfaceSourceElement({
   clearHtmlSurfaceSourceVisibility(host);
 }
 
-function mergeHtmlSurfaceSourceClassName(
+export function mergeHtmlSurfaceSourceClassName(
   baseClassName: string,
   currentClassList: DOMTokenList,
   preservedClassNames: readonly string[] | undefined = undefined,
@@ -200,7 +200,7 @@ function mergeHtmlSurfaceSourceClassName(
   return [...classes].join(" ");
 }
 
-function setHtmlSurfaceSourceBaseStyle(element: HTMLElement) {
+export function setHtmlSurfaceSourceBaseStyle(element: HTMLElement) {
   setStyleValue(element, "contain", "layout paint style");
   setStyleValue(element, "left", "0px");
   setStyleValue(element, "pointerEvents", "none");

@@ -29,11 +29,6 @@ import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
 } from "../htmlSurfaces/textures";
-import {
-  createGpuFlowInteractionDiagnosticsSnapshot,
-  type MutableGpuFlowInteractionDiagnostics,
-} from "../interactionDiagnostics";
-import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -41,7 +36,7 @@ import {
   type GpuFlowNodeLayerState,
 } from "./flowSurface";
 
-function resolveRenderableGpuFlowLayerFrameInput({
+export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
@@ -83,7 +78,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   };
 }
 
-function ensureNodeLayerResources({
+export function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
   runtime,
   textureManagerRef,
@@ -168,14 +163,14 @@ function setGpuFlowNodeInteractionElementState(
   element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
 }
 
-function completeGpuNodeInteractionFrame(
+export function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
-function requestRemainingTextureUploadFrame(
+export function requestRemainingTextureUploadFrame(
   surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {
@@ -196,7 +191,6 @@ export function renderGpuFlowNodeLayerFrame({
   deferResolutionUpdates,
   frameReasons,
   frameRef,
-  interactionDiagnosticsRef,
   nodeElementByIdRef,
   nodeDomTransformSyncCacheRef,
   nodeInteractionRef,
@@ -207,7 +201,6 @@ export function renderGpuFlowNodeLayerFrame({
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
   visibleNodeIdsRef,
-  viewportStore,
   viewportFrame,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
@@ -216,7 +209,6 @@ export function renderGpuFlowNodeLayerFrame({
   readonly deferResolutionUpdates: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly frameRef: MutableRefObject<number>;
-  readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -227,7 +219,6 @@ export function renderGpuFlowNodeLayerFrame({
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
-  readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportFrame: boolean;
 }) {
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
@@ -271,14 +262,6 @@ export function renderGpuFlowNodeLayerFrame({
     deferResolutionUpdates,
     frame,
     frameReasons,
-    interactionDiagnostics: createGpuFlowInteractionDiagnosticsSnapshot({
-      activeResizeNodeId: activeResizeNodeIdRef.current,
-      diagnostics: interactionDiagnosticsRef.current,
-      nodeInteractionActiveNodeId:
-        nodeInteractionRef.current?.getActiveNodeId() ?? null,
-      ownerDocument: runtime.canvas.ownerDocument,
-      viewportState: viewportStore.getState(),
-    }),
     layerResult,
     renderDurationMs: performance.now() - renderStartedAt,
     viewport: layer.viewport,
@@ -314,7 +297,6 @@ function reportGpuFlowNodeLayerFramePerformance({
   deferResolutionUpdates,
   frame,
   frameReasons,
-  interactionDiagnostics,
   layerResult,
   renderDurationMs,
   viewport,
@@ -324,9 +306,6 @@ function reportGpuFlowNodeLayerFramePerformance({
   readonly deferResolutionUpdates: boolean;
   readonly frame: number;
   readonly frameReasons: readonly GpuFrameReason[];
-  readonly interactionDiagnostics: ReturnType<
-    typeof createGpuFlowInteractionDiagnosticsSnapshot
-  >;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly renderDurationMs: number;
   readonly viewport: GpuFlowNodeLayerState["viewport"];
@@ -345,7 +324,6 @@ function reportGpuFlowNodeLayerFramePerformance({
       deferResolutionUpdates,
       frame,
       frameReasons,
-      interactionDiagnostics,
       layerResult,
       renderDurationMs,
       viewport,

@@ -7,13 +7,12 @@ import type {
   GpuFlowLayoutNode,
   GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { updateNodeDimensionsFromGpuIntrinsicSizes } from "state/actions/nodeInternals";
 import { getEffectiveSectionImplIfPresent } from "state/actions/sectionInfos/projectStateCore";
 import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topLevelSectionNode";
-import { useProjectState, type ZustandProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getSectionMinMaxDims } from "state/hooks/sectionSizes";
-import { resolveProjectGpuSectionAutoHeight } from "./projectGpuSectionAutoSize";
 
 type ProjectNodeIntrinsicSize = {
   height?: number | undefined;
@@ -35,16 +34,6 @@ export function useProjectNodeIntrinsicSizeObserver(
   nodeLayouts: readonly GpuFlowLayoutNode[],
 ) {
   const controllerRef = useRef<ProjectNodeIntrinsicSizeController | null>(null);
-  const nodeElementsRef = useRef(new Map<string, HTMLElement>());
-  const autoSizeNodeIdsKey = useProjectState((state) =>
-    buildProjectNodeIntrinsicSizeObserverKey(state, nodeLayouts),
-  );
-  const autoSizeNodeIds = useMemo(
-    () => parseProjectNodeIntrinsicSizeObserverKey(autoSizeNodeIdsKey),
-    [autoSizeNodeIdsKey],
-  );
-  const autoSizeNodeIdsRef = useRef(autoSizeNodeIds);
-  autoSizeNodeIdsRef.current = autoSizeNodeIds;
   const getController = useCallback(() => {
     controllerRef.current ??= createProjectNodeIntrinsicSizeController({
       layoutStore,
@@ -53,25 +42,10 @@ export function useProjectNodeIntrinsicSizeObserver(
   }, [layoutStore]);
 
   useEffect(() => {
-    const existingController = controllerRef.current;
-    if (
-      !existingController &&
-      !hasProjectNodeIntrinsicSizeObserverElement(
-        nodeElementsRef.current,
-        autoSizeNodeIds,
-      )
-    ) {
-      return;
-    }
-    const controller = existingController ?? getController();
-    for (const [nodeId, element] of nodeElementsRef.current) {
-      controller.setNodeElement(
-        nodeId,
-        autoSizeNodeIds.has(nodeId) ? element : null,
-      );
-    }
-    controller.markNodesDirty(autoSizeNodeIds);
-  }, [autoSizeNodeIds, getController]);
+    controllerRef.current?.markNodesDirty(
+      nodeLayouts.map((layout) => layout.nodeId),
+    );
+  }, [nodeLayouts]);
 
   useEffect(
     () => () => {
@@ -83,65 +57,13 @@ export function useProjectNodeIntrinsicSizeObserver(
 
   return useCallback(
     (nodeId: string, element: HTMLElement | null) => {
-      if (element) {
-        nodeElementsRef.current.set(nodeId, element);
-      } else {
-        nodeElementsRef.current.delete(nodeId);
-      }
-      if (!element || !autoSizeNodeIdsRef.current.has(nodeId)) {
-        controllerRef.current?.setNodeElement(nodeId, null);
-        return;
-      }
       getController().setNodeElement(nodeId, element);
     },
     [getController],
   );
 }
 
-export function getProjectNodeIntrinsicSizeObserverNodeIds(
-  projectState: ZustandProjectState,
-  nodeIds: readonly string[],
-): readonly string[] {
-  return nodeIds.filter((nodeId) =>
-    shouldObserveProjectNodeIntrinsicSize(projectState, nodeId),
-  );
-}
-
-export function shouldObserveProjectNodeIntrinsicSize(
-  projectState: ZustandProjectState,
-  nodeId: string,
-): boolean {
-  const impl = getEffectiveSectionImplIfPresent(projectState, nodeId);
-  return impl?.size.height === "auto" || impl?.size.width === "auto";
-}
-
-function buildProjectNodeIntrinsicSizeObserverKey(
-  projectState: ZustandProjectState,
-  nodeLayouts: readonly GpuFlowLayoutNode[],
-): string {
-  return getProjectNodeIntrinsicSizeObserverNodeIds(
-    projectState,
-    nodeLayouts.map((layout) => layout.nodeId),
-  ).join("\0");
-}
-
-function parseProjectNodeIntrinsicSizeObserverKey(key: string): Set<string> {
-  return new Set(key.length > 0 ? key.split("\0") : []);
-}
-
-function hasProjectNodeIntrinsicSizeObserverElement(
-  elements: ReadonlyMap<string, HTMLElement>,
-  autoSizeNodeIds: ReadonlySet<string>,
-): boolean {
-  for (const nodeId of autoSizeNodeIds) {
-    if (elements.has(nodeId)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function createProjectNodeIntrinsicSizeController(
+export function createProjectNodeIntrinsicSizeController(
   options: ProjectNodeIntrinsicSizeControllerOptions,
 ): ProjectNodeIntrinsicSizeController {
   return createGpuFlowIntrinsicSizeController({
@@ -179,85 +101,36 @@ export function resolveProjectNodeIntrinsicSize(
     getSectionMinMaxDims(nodeId);
   const nextSize: ProjectNodeIntrinsicSize = {};
   if (autoHeight) {
-    const height = resolveProjectNodeAutoHeight({
-      element,
-      maxHeight,
-      minHeight,
-      projectState,
-      sectionId: nodeId,
-      sectionImpl: impl,
-    });
+    const outerMaxHeight = toTopLevelSectionOuterDimension(maxHeight);
+    const outerMinHeight = toTopLevelSectionOuterDimension(minHeight);
+    const height = clampMeasuredDimension(
+      measureIntrinsicElementHeight(element, {
+        maxHeight: outerMaxHeight,
+        minHeight: outerMinHeight,
+      }),
+      outerMinHeight,
+      outerMaxHeight,
+    );
     if (height !== null) {
       nextSize.height = height;
     }
   }
   if (autoWidth) {
-    const width = resolveProjectNodeAutoWidth({
-      element,
-      maxWidth,
-      minWidth,
-    });
+    const outerMaxWidth = toTopLevelSectionOuterDimension(maxWidth);
+    const outerMinWidth = toTopLevelSectionOuterDimension(minWidth);
+    const width = clampMeasuredDimension(
+      measureIntrinsicElementWidth(element, {
+        maxWidth: outerMaxWidth,
+        minWidth: outerMinWidth,
+      }),
+      outerMinWidth,
+      outerMaxWidth,
+    );
     if (width !== null) {
       nextSize.width = width;
     }
   }
   return Object.keys(nextSize).length > 0 ? nextSize : null;
-}
-
-function resolveProjectNodeAutoHeight({
-  element,
-  maxHeight,
-  minHeight,
-  projectState,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly element: HTMLElement;
-  readonly maxHeight: number;
-  readonly minHeight: number;
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionImpl: NonNullable<
-    ReturnType<typeof getEffectiveSectionImplIfPresent>
-  >;
-}): number | null {
-  const outerMaxHeight = toTopLevelSectionOuterDimension(maxHeight);
-  const outerMinHeight = toTopLevelSectionOuterDimension(minHeight);
-  const retainedContentHeight = resolveProjectGpuSectionAutoHeight({
-    projectState,
-    sectionId,
-    sectionImpl,
-  });
-  return clampMeasuredDimension(
-    retainedContentHeight ??
-      measureIntrinsicElementHeight(element, {
-        maxHeight: outerMaxHeight,
-        minHeight: outerMinHeight,
-      }),
-    outerMinHeight,
-    outerMaxHeight,
-  );
-}
-
-function resolveProjectNodeAutoWidth({
-  element,
-  maxWidth,
-  minWidth,
-}: {
-  readonly element: HTMLElement;
-  readonly maxWidth: number;
-  readonly minWidth: number;
-}): number | null {
-  const outerMaxWidth = toTopLevelSectionOuterDimension(maxWidth);
-  const outerMinWidth = toTopLevelSectionOuterDimension(minWidth);
-  return clampMeasuredDimension(
-    measureIntrinsicElementWidth(element, {
-      maxWidth: outerMaxWidth,
-      minWidth: outerMinWidth,
-    }),
-    outerMinWidth,
-    outerMaxWidth,
-  );
 }
 
 export function measureIntrinsicElementHeight(

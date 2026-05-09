@@ -962,7 +962,7 @@ export class HtmlSurfaceRenderer {
   }
 }
 
-function destroyGpuBuffers(buffers: readonly (GPUBuffer | null)[]) {
+export function destroyGpuBuffers(buffers: readonly (GPUBuffer | null)[]) {
   for (const buffer of buffers) {
     buffer?.destroy?.();
   }

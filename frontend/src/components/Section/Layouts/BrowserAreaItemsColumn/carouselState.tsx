@@ -62,7 +62,7 @@ export type RootInfo = {
   pathSeparator: string;
 };
 
-type FolderCompletionOptions = {
+export type FolderCompletionOptions = {
   rootPath: string | null;
   pathSeparator?: string;
   ignorePatterns?: string[] | null;
@@ -74,7 +74,7 @@ export type HistoryState = {
   index: number;
 };
 
-type RecursiveFolderSearchArgs = {
+export type RecursiveFolderSearchArgs = {
   queue: string[];
   visited: Set<string>;
   results: Array<FolderContentItem>;
@@ -172,7 +172,7 @@ export function getNextHistoryState(
   return { entries: nextEntries, index: nextEntries.length - 1 };
 }
 
-function clearPendingFileUrlPaths(
+export function clearPendingFileUrlPaths(
   paths: string[],
   pendingRequests: Set<string>,
 ) {
@@ -214,7 +214,7 @@ export async function loadFileUrlChunk(
   return nextEntries;
 }
 
-async function loadRecursiveFolderListing(
+export async function loadRecursiveFolderListing(
   folder: string,
   ignorePatterns: string[] | null,
   cache: Map<string, Array<FolderContentItem>>,
@@ -242,7 +242,9 @@ async function loadRecursiveFolderListing(
   return res.data.items;
 }
 
-function shouldContinueRecursiveFolderSearch(args: RecursiveFolderSearchArgs) {
+export function shouldContinueRecursiveFolderSearch(
+  args: RecursiveFolderSearchArgs,
+) {
   return (
     args.queue.length > 0 &&
     args.visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
@@ -251,7 +253,7 @@ function shouldContinueRecursiveFolderSearch(args: RecursiveFolderSearchArgs) {
   );
 }
 
-function takeNextRecursiveFolder(
+export function takeNextRecursiveFolder(
   queue: string[],
   visited: Set<string>,
 ): string | null {
@@ -266,7 +268,7 @@ function takeNextRecursiveFolder(
   return null;
 }
 
-async function stepRecursiveFolderSearch(
+export async function stepRecursiveFolderSearch(
   args: RecursiveFolderSearchArgs,
 ): Promise<"matched" | "continue" | "stale"> {
   const nextFolder = takeNextRecursiveFolder(args.queue, args.visited);
@@ -296,7 +298,7 @@ async function stepRecursiveFolderSearch(
     : "continue";
 }
 
-function enqueueChildFolders(
+export function enqueueChildFolders(
   listing: Array<FolderContentItem>,
   queue: string[],
 ) {
@@ -307,7 +309,7 @@ function enqueueChildFolders(
   }
 }
 
-function appendRecursiveMatches(
+export function appendRecursiveMatches(
   listing: Array<FolderContentItem>,
   filterText: string,
   seen: Set<string>,
@@ -329,7 +331,7 @@ function appendRecursiveMatches(
   return didAdd;
 }
 
-function resolveItemSubLabel(args: {
+export function resolveItemSubLabel(args: {
   item: FolderContentItem;
   shouldShowFolderPaths: boolean;
   normalizedEffectiveFolder: string | null;
@@ -364,7 +366,7 @@ function resolveItemSubLabel(args: {
   return normalizedFolder;
 }
 
-function resolveItemTooltip(args: {
+export function resolveItemTooltip(args: {
   item: FolderContentItem;
   showSearchPathTooltips: boolean;
   normalizedEffectiveFolder: string | null;
@@ -585,7 +587,7 @@ export function useBrowserAreaPathState({
   return { folderCompletionSource, getItemSubLabel, getItemTooltip };
 }
 
-function useTooltipKeyHeld(isListView: boolean) {
+export function useTooltipKeyHeld(isListView: boolean) {
   const [isTooltipKeyHeld, setIsTooltipKeyHeld] = useState(false);
   useEffect(() => {
     if (isListView) {
@@ -617,7 +619,7 @@ function useTooltipKeyHeld(isListView: boolean) {
   return isTooltipKeyHeld;
 }
 
-function useFolderCompletionSource(args: {
+export function useFolderCompletionSource(args: {
   effectiveFolder: string;
   rootInfo: RootInfo | null;
   browserStatePathSeparator: string;
@@ -636,7 +638,7 @@ function useFolderCompletionSource(args: {
   );
 }
 
-function resolveFolderCompletionOptions(args: {
+export function resolveFolderCompletionOptions(args: {
   effectiveFolder: string;
   rootInfo: RootInfo | null;
   browserStatePathSeparator: string;
@@ -658,7 +660,7 @@ function resolveFolderCompletionOptions(args: {
   };
 }
 
-function resolveFolderCompletionRootPath(
+export function resolveFolderCompletionRootPath(
   rootInfo: RootInfo | null,
   effectiveFolder: string,
 ) {
@@ -669,21 +671,21 @@ function resolveFolderCompletionRootPath(
   return fallbackRootPath || null;
 }
 
-function resolveFolderCompletionPathSeparator(
+export function resolveFolderCompletionPathSeparator(
   rootInfo: RootInfo | null,
   browserStatePathSeparator: string,
 ) {
   return rootInfo?.pathSeparator ?? browserStatePathSeparator ?? undefined;
 }
 
-function resolveFolderCompletionIgnorePatterns(
+export function resolveFolderCompletionIgnorePatterns(
   rootInfo: RootInfo | null,
   browserStateIgnorePatterns: string[],
 ) {
   return rootInfo?.ignorePatterns ?? browserStateIgnorePatterns ?? undefined;
 }
 
-function resolveNextSelectedCarouselId(args: {
+export function resolveNextSelectedCarouselId(args: {
   value: BrowserAreaViewMode;
   filteredVisibleItems: Array<FolderContentItem>;
   selectedCarouselId: string | null;
@@ -705,7 +707,7 @@ function resolveNextSelectedCarouselId(args: {
   return args.filteredVisibleItems[0]?.fullPath ?? null;
 }
 
-function collectImagePreviewPaths(items: Array<FolderContentItem>) {
+export function collectImagePreviewPaths(items: Array<FolderContentItem>) {
   return items
     .filter((item) => item.type.toLowerCase() === "file")
     .filter((item) => getBrowserPreviewKind(item) === "image")

@@ -1,9 +1,11 @@
 import _ from "lodash";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { withProjectState, withResetFn } from "state/utils";
 import { getNowDate } from "utils/timestamps";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import type { Disabled } from "./adapter";
+import { BehaviorDropType } from "./dropTypes";
 
 type ZustandDndState = {
   activeId: string | null;
@@ -36,6 +38,7 @@ type ZustandDndState = {
   } | null;
   width: number | null;
   height: number | null;
+  behaviorDropType: BehaviorDropType | null;
   times: Record<string, number>;
 };
 
@@ -56,6 +59,7 @@ export const useDndState = withProjectState(
         activeRect: null,
         width: null,
         height: null,
+        behaviorDropType: null,
         times: {},
       })),
     ),
@@ -100,6 +104,7 @@ function resetDndState() {
     ...initialState,
     disabled: state.disabled,
   }));
+  manualDndChildrenReset();
 }
 
 export function deactivateDnd() {
