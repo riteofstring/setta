@@ -224,6 +224,13 @@ func TestEnsureClaudeMCPConfigIncludesAuthAndAgenticHeaders(t *testing.T) {
 	if filepath.Base(configPath) != claudeMCPConfigName {
 		t.Fatalf("expected generated mcp config path %q, got %q", claudeMCPConfigName, configPath)
 	}
+	headers := readClaudeMCPConfigHeaders(t, configPath)
+	assertClaudeMCPConfigHeaders(t, headers)
+}
+
+func readClaudeMCPConfigHeaders(t *testing.T, configPath string) map[string]any {
+	t.Helper()
+
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read generated claude mcp config: %v", err)
@@ -244,6 +251,12 @@ func TestEnsureClaudeMCPConfigIncludesAuthAndAgenticHeaders(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected generated setta headers, got %#v", settaServer["headers"])
 	}
+	return headers
+}
+
+func assertClaudeMCPConfigHeaders(t *testing.T, headers map[string]any) {
+	t.Helper()
+
 	cookieName, err := auth.CookieName(auth.DefaultAuthCookieName, "session-1")
 	if err != nil {
 		t.Fatalf("resolve auth cookie name: %v", err)
@@ -463,17 +476,7 @@ func TestPrepareClaudeSettingsPreservesUserKeysForManagedProject(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
 		t.Fatalf("mkdir claude settings dir: %v", err)
 	}
-	existingPayload, err := json.MarshalIndent(map[string]any{
-		"userSetting": map[string]any{"foo": "bar"},
-		"permissions": map[string]any{"allow": []string{"Old"}},
-	}, "", "  ")
-	if err != nil {
-		t.Fatalf("encode existing claude settings: %v", err)
-	}
-	existingPayload = append(existingPayload, '\n')
-	if err := os.WriteFile(settingsPath, existingPayload, 0o644); err != nil {
-		t.Fatalf("write existing claude settings: %v", err)
-	}
+	writeExistingManagedProjectClaudeSettings(t, settingsPath)
 
 	executor := &ClaudeExecutor{workspaceRoot: root}
 	if err := executor.prepareClaudeSettings(externalagentconfigs.Config{
@@ -497,6 +500,28 @@ func TestPrepareClaudeSettingsPreservesUserKeysForManagedProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read claude settings: %v", err)
 	}
+	assertManagedProjectClaudeSettings(t, content)
+}
+
+func writeExistingManagedProjectClaudeSettings(t *testing.T, settingsPath string) {
+	t.Helper()
+
+	existingPayload, err := json.MarshalIndent(map[string]any{
+		"userSetting": map[string]any{"foo": "bar"},
+		"permissions": map[string]any{"allow": []string{"Old"}},
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("encode existing claude settings: %v", err)
+	}
+	existingPayload = append(existingPayload, '\n')
+	if err := os.WriteFile(settingsPath, existingPayload, 0o644); err != nil {
+		t.Fatalf("write existing claude settings: %v", err)
+	}
+}
+
+func assertManagedProjectClaudeSettings(t *testing.T, content []byte) {
+	t.Helper()
+
 	payload := map[string]any{}
 	if err := json.Unmarshal(content, &payload); err != nil {
 		t.Fatalf("decode claude settings: %v", err)
@@ -629,6 +654,13 @@ type claudeExecutorFixture struct {
 	engineID string
 }
 
+type claudeExecutorFixtureStores struct {
+	engines  *agentruns.EngineStore
+	configs  *externalagentconfigs.Store
+	runs     *agentruns.RunStore
+	profiles *agentprofiles.Store
+}
+
 func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixture {
 	t.Helper()
 
@@ -639,33 +671,8 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 		t.Fatalf("write claude sidecar placeholder: %v", err)
 	}
 
-	engines, err := agentruns.NewEngineStore(root)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	configs, err := externalagentconfigs.NewStore(root)
-	if err != nil {
-		t.Fatalf("new external config store: %v", err)
-	}
-	runs, err := agentruns.NewRunStore(root)
-	if err != nil {
-		t.Fatalf("new run store: %v", err)
-	}
-	profiles, err := agentprofiles.NewStore(root)
-	if err != nil {
-		t.Fatalf("new agent profile store: %v", err)
-	}
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open project runtime: %v", err)
-	}
-
+	stores := newClaudeExecutorFixtureStores(t, root)
+	projectRuntime := openClaudeExecutorFixtureProjectRuntime(t)
 	configID := "external-config"
 	approvalPolicy := "default"
 	config := externalagentconfigs.Config{
@@ -687,11 +694,11 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 			},
 		},
 	}
-	if err := configs.Write([]externalagentconfigs.Config{config}); err != nil {
+	if err := stores.configs.Write([]externalagentconfigs.Config{config}); err != nil {
 		t.Fatalf("write external configs: %v", err)
 	}
 	engineID := "engine-external"
-	if err := engines.Write([]agentruns.EngineConfig{
+	if err := stores.engines.Write([]agentruns.EngineConfig{
 		{
 			ID:                    engineID,
 			Name:                  "External Engine",
@@ -703,6 +710,67 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 	}
 
 	now := time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC)
+	runtime := newClaudeExecutorFixtureRuntime(t, stores.runs, now)
+	claudeExecutor := newClaudeExecutorFixtureExecutor(t, stores.runs, runtime, root, pythonCommand, sidecarPath, now)
+	send := newClaudeExecutorFixtureSendService(t, projectRuntime, stores, runtime, claudeExecutor, now)
+
+	return claudeExecutorFixture{
+		root:     root,
+		config:   config,
+		executor: claudeExecutor,
+		send:     send,
+		runtime:  runtime,
+		runs:     stores.runs,
+		engineID: engineID,
+	}
+}
+
+func newClaudeExecutorFixtureStores(t *testing.T, root string) claudeExecutorFixtureStores {
+	t.Helper()
+
+	engines, err := agentruns.NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	configs, err := externalagentconfigs.NewStore(root)
+	if err != nil {
+		t.Fatalf("new external config store: %v", err)
+	}
+	runs, err := agentruns.NewRunStore(root)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	profiles, err := agentprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	return claudeExecutorFixtureStores{
+		engines:  engines,
+		configs:  configs,
+		runs:     runs,
+		profiles: profiles,
+	}
+}
+
+func openClaudeExecutorFixtureProjectRuntime(t *testing.T) *projectstate.Runtime {
+	t.Helper()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	return projectRuntime
+}
+
+func newClaudeExecutorFixtureRuntime(t *testing.T, runs *agentruns.RunStore, now time.Time) *Runtime {
+	t.Helper()
+
 	runtime, err := NewRuntime(RuntimeOptions{
 		Runs: runs,
 		TimeNow: func() time.Time {
@@ -712,6 +780,20 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 	if err != nil {
 		t.Fatalf("new runtime: %v", err)
 	}
+	return runtime
+}
+
+func newClaudeExecutorFixtureExecutor(
+	t *testing.T,
+	runs *agentruns.RunStore,
+	runtime *Runtime,
+	root string,
+	pythonCommand string,
+	sidecarPath string,
+	now time.Time,
+) *ClaudeExecutor {
+	t.Helper()
+
 	claudeExecutor, err := NewClaudeExecutor(ClaudeExecutorOptions{
 		Runs:               runs,
 		Runtime:            runtime,
@@ -729,16 +811,29 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 	if err != nil {
 		t.Fatalf("new claude executor: %v", err)
 	}
+	return claudeExecutor
+}
+
+func newClaudeExecutorFixtureSendService(
+	t *testing.T,
+	projectRuntime *projectstate.Runtime,
+	stores claudeExecutorFixtureStores,
+	runtime *Runtime,
+	claudeExecutor *ClaudeExecutor,
+	now time.Time,
+) *SendService {
+	t.Helper()
+
 	send, err := NewSendService(SendServiceOptions{
 		ProjectState: projectRuntime,
-		Engines:      engines,
-		Runs:         runs,
-		Profiles:     profiles,
-		Configs:      configs,
+		Engines:      stores.engines,
+		Runs:         stores.runs,
+		Profiles:     stores.profiles,
+		Configs:      stores.configs,
 		Runtime:      runtime,
 		Preflight: stubPreflightChecker{
 			status: externalagentconfigs.Status{
-				ConfigID:  configID,
+				ConfigID:  "external-config",
 				Name:      "Claude fixture",
 				ToolType:  externalagentconfigs.ToolTypeClaudeCode,
 				RunMode:   externalagentconfigs.RunModeSDK,
@@ -757,16 +852,7 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 	if err != nil {
 		t.Fatalf("new send service: %v", err)
 	}
-
-	return claudeExecutorFixture{
-		root:     root,
-		config:   config,
-		executor: claudeExecutor,
-		send:     send,
-		runtime:  runtime,
-		runs:     runs,
-		engineID: engineID,
-	}
+	return send
 }
 
 func (f claudeExecutorFixture) waitForTerminalRun(t *testing.T, runID string) agentruns.Run {
@@ -892,37 +978,9 @@ func runClaudeFixtureProcess(scenario string) error {
 	reader.Buffer(make([]byte, 0, 16*1024), claudeStdoutBufferSize)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
+	fixture := &claudeFixtureProcess{scenario: scenario, reader: reader, writer: writer}
 
-	readPayload := func() (map[string]any, error) {
-		for reader.Scan() {
-			line := strings.TrimSpace(reader.Text())
-			if line == "" {
-				continue
-			}
-			payload := map[string]any{}
-			if err := json.Unmarshal([]byte(line), &payload); err != nil {
-				return nil, fmt.Errorf("decode fixture payload: %w", err)
-			}
-			return payload, nil
-		}
-		if err := reader.Err(); err != nil {
-			return nil, err
-		}
-		return nil, io.EOF
-	}
-
-	emit := func(payload map[string]any) error {
-		content, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		if _, err := writer.Write(append(content, '\n')); err != nil {
-			return err
-		}
-		return writer.Flush()
-	}
-
-	startPayload, err := readPayload()
+	startPayload, err := fixture.readPayload()
 	if err != nil {
 		return err
 	}
@@ -930,402 +988,424 @@ func runClaudeFixtureProcess(scenario string) error {
 		return fmt.Errorf("expected start payload, got %#v", startPayload)
 	}
 
-	switch scenario {
-	case "delayed_complete":
-		time.Sleep(150 * time.Millisecond)
-		if err := emitClaudeAssistantTurn(emit, "session-delayed", "assistant-delayed", "Hello from Claude after delay"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-delayed",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 12, "output_tokens": 8},
-		})
-	case "generated_mcp_config":
-		configPath := strings.TrimSpace(stringValue(startPayload["mcpConfigPath"]))
-		if configPath == "" {
-			return fmt.Errorf("expected generated mcpConfigPath, got %#v", startPayload)
-		}
-		if filepath.Base(configPath) != claudeMCPConfigName {
-			return fmt.Errorf("expected generated mcpConfigPath basename %q, got %q", claudeMCPConfigName, filepath.Base(configPath))
-		}
-		content, err := os.ReadFile(configPath)
-		if err != nil {
-			return fmt.Errorf("read generated claude mcp config: %w", err)
+	handler, ok := claudeFixtureScenarioHandlers[scenario]
+	if !ok {
+		handler = handleClaudeFixtureDefault
+	}
+	return handler(fixture, startPayload)
+}
+
+type claudeFixtureProcess struct {
+	scenario string
+	reader   *bufio.Scanner
+	writer   *bufio.Writer
+}
+
+func (f *claudeFixtureProcess) readPayload() (map[string]any, error) {
+	for f.reader.Scan() {
+		line := strings.TrimSpace(f.reader.Text())
+		if line == "" {
+			continue
 		}
 		payload := map[string]any{}
-		if err := json.Unmarshal(content, &payload); err != nil {
-			return fmt.Errorf("decode generated claude mcp config: %w", err)
+		if err := json.Unmarshal([]byte(line), &payload); err != nil {
+			return nil, fmt.Errorf("decode fixture payload: %w", err)
 		}
-		rawServers, ok := payload["mcpServers"].(map[string]any)
-		if !ok {
-			return fmt.Errorf("expected generated mcpServers map, got %#v", payload["mcpServers"])
-		}
-		settaServer, ok := rawServers[mcpx.DefaultServerID].(map[string]any)
-		if !ok {
-			return fmt.Errorf("expected generated setta mcp server entry, got %#v", rawServers)
-		}
-		if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "streamable_http" {
-			return fmt.Errorf("expected generated setta transport streamable_http, got %#v", settaServer)
-		}
-		if got := strings.TrimSpace(stringValue(settaServer["url"])); got != "http://127.0.0.1:8000/mcp" {
-			return fmt.Errorf("expected generated setta url, got %#v", settaServer)
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-generated-mcp", "assistant-generated-mcp", configPath); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-generated-mcp",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 5, "output_tokens": 3},
-		})
-	case "env_echo":
-		rawEnv, ok := startPayload["env"].(map[string]any)
-		if !ok {
-			return fmt.Errorf("expected env payload, got %#v", startPayload["env"])
-		}
-		if got := strings.TrimSpace(stringValue(rawEnv["PROCESS_KEY"])); got != "process-secret" {
-			return fmt.Errorf("expected process key passthrough, got %#v", rawEnv["PROCESS_KEY"])
-		}
-		if got := strings.TrimSpace(stringValue(rawEnv["WHITESPACE_KEY"])); got != "managed-fallback" {
-			return fmt.Errorf("expected managed fallback for whitespace key, got %#v", rawEnv["WHITESPACE_KEY"])
-		}
-		if got := strings.TrimSpace(stringValue(rawEnv["PLAIN_KEY"])); got != "plain-dot-env-value" {
-			return fmt.Errorf("expected plain dotenv fallback, got %#v", rawEnv["PLAIN_KEY"])
-		}
-		if _, ok := rawEnv["MISSING_KEY"]; ok {
-			return fmt.Errorf("expected missing key to stay excluded, got %#v", rawEnv["MISSING_KEY"])
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-env", "assistant-env", "Env handoff ok"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-env",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 4, "output_tokens": 3},
-		})
-	case "approval":
-		if err := emit(map[string]any{
-			"type":       "approval_request",
-			"approvalId": "approval-1",
-			"toolName":   "Bash",
-			"toolType":   "command",
-			"input":      map[string]any{"command": "echo approval"},
-		}); err != nil {
-			return err
-		}
-		payload, err := readPayload()
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(stringValue(payload["type"])) != "approval_response" {
-			return fmt.Errorf("expected approval_response, got %#v", payload)
-		}
-		if strings.TrimSpace(stringValue(payload["approvalId"])) != "approval-1" || payload["approved"] != true {
-			return fmt.Errorf("unexpected approval response %#v", payload)
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-approval", "assistant-approval", "Approval granted"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-approval",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 6, "output_tokens": 4},
-		})
-	case "question":
-		if err := emit(map[string]any{
-			"type":       "approval_request",
-			"approvalId": "approval-1",
-			"toolName":   askUserQuestionToolName,
-			"toolType":   "question",
-			"input": map[string]any{
-				"questions": []any{map[string]any{"question": "Language", "type": "text"}},
-			},
-		}); err != nil {
-			return err
-		}
-		if err := emit(map[string]any{
-			"type":      "stream_event",
-			"sessionId": "session-question",
-			"event": map[string]any{
-				"type":    "message_start",
-				"message": map[string]any{"id": "assistant-question", "content": []any{}},
-			},
-		}); err != nil {
-			return err
-		}
-		if err := emit(map[string]any{
-			"type":      "stream_event",
-			"sessionId": "session-question",
-			"event": map[string]any{
-				"type":  "content_block_start",
-				"index": 0,
-				"content_block": map[string]any{
-					"type": "tool_use",
-					"id":   "question-1",
-					"name": askUserQuestionToolName,
-					"input": map[string]any{
-						"questions": []any{map[string]any{"question": "Language", "type": "text"}},
-					},
-				},
-			},
-		}); err != nil {
-			return err
-		}
-		payload, err := readPayload()
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(stringValue(payload["type"])) != "tool_response" {
-			return fmt.Errorf("expected tool_response, got %#v", payload)
-		}
-		if strings.TrimSpace(stringValue(payload["toolCallId"])) != "approval-1" {
-			return fmt.Errorf("expected question response to use approval id, got %#v", payload)
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-question", "assistant-follow-up", "Chosen: Go"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-question",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 7, "output_tokens": 5},
-		})
-	case "question_multiple":
-		if err := emit(map[string]any{
-			"type":       "approval_request",
-			"approvalId": "approval-1",
-			"toolName":   askUserQuestionToolName,
-			"toolType":   "question",
-			"input": map[string]any{
-				"questions": []any{
-					map[string]any{"question": "Choose a language", "type": "text"},
-					map[string]any{"question": "Choose a target", "type": "text"},
-				},
-			},
-		}); err != nil {
-			return err
-		}
-		if err := emit(map[string]any{
-			"type":      "stream_event",
-			"sessionId": "session-question-multi",
-			"event": map[string]any{
-				"type":    "message_start",
-				"message": map[string]any{"id": "assistant-question-multi", "content": []any{}},
-			},
-		}); err != nil {
-			return err
-		}
-		if err := emit(map[string]any{
-			"type":      "stream_event",
-			"sessionId": "session-question-multi",
-			"event": map[string]any{
-				"type":  "content_block_start",
-				"index": 0,
-				"content_block": map[string]any{
-					"type": "tool_use",
-					"id":   "question-1",
-					"name": askUserQuestionToolName,
-					"input": map[string]any{
-						"questions": []any{
-							map[string]any{"question": "Choose a language", "type": "text"},
-							map[string]any{"question": "Choose a target", "type": "text"},
-						},
-					},
-				},
-			},
-		}); err != nil {
-			return err
-		}
-		payload, err := readPayload()
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(stringValue(payload["type"])) != "tool_response" {
-			return fmt.Errorf("expected tool_response, got %#v", payload)
-		}
-		if strings.TrimSpace(stringValue(payload["toolCallId"])) != "approval-1" {
-			return fmt.Errorf("expected multi-question response to use approval id, got %#v", payload)
-		}
-		answers, ok := mapValue(payload["answers"])
-		if !ok || stringValue(answers["Choose a language"]) != "Python" || stringValue(answers["Choose a target"]) != "CLI" {
-			return fmt.Errorf("unexpected multi-question answers %#v", payload)
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-question-multi", "assistant-follow-up-multi", "Chosen: Python CLI"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-question-multi",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 8, "output_tokens": 6},
-		})
-	case "tool_result_and_mcp_status":
-		for _, payload := range []map[string]any{
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type":    "message_start",
-					"message": map[string]any{"id": "assistant-tool-1", "content": []any{}},
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type":  "content_block_start",
-					"index": 0,
-					"content_block": map[string]any{
-						"type": "tool_use",
-						"id":   "toolu-1",
-						"name": "Bash",
-						"input": map[string]any{
-							"command": "ls",
-						},
-					},
-				},
-			},
-			{
-				"type":      "system_message",
-				"sessionId": "session-tool-result",
-				"message": map[string]any{
-					"subtype": "mcp_status",
-					"mcp_servers": []any{
-						map[string]any{
-							"serverId":  "filesystem",
-							"status":    "failed",
-							"transport": "stdio",
-							"command":   "npx @modelcontextprotocol/server-filesystem .",
-							"error":     "spawn failed",
-						},
-					},
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type":  "content_block_stop",
-					"index": 0,
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type":  "content_block_start",
-					"index": 1,
-					"content_block": map[string]any{
-						"type":        "tool_result",
-						"tool_use_id": "toolu-1",
-						"content":     []any{map[string]any{"type": "text", "text": "ok"}},
-					},
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type":  "content_block_stop",
-					"index": 1,
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-tool-result",
-				"event": map[string]any{
-					"type": "message_stop",
-				},
-			},
-		} {
-			if err := emit(payload); err != nil {
-				return err
-			}
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-tool-result", "assistant-tool-summary", "Tool completed."); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-tool-result",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 9, "output_tokens": 6},
-		})
-	case "thinking_usage":
-		for _, payload := range []map[string]any{
-			{
-				"type":      "stream_event",
-				"sessionId": "session-thinking",
-				"event": map[string]any{
-					"type":    "message_start",
-					"message": map[string]any{"id": "assistant-thinking", "content": []any{}},
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-thinking",
-				"event": map[string]any{
-					"type":  "content_block_start",
-					"index": 0,
-					"content_block": map[string]any{
-						"type":      "thinking",
-						"thinking":  "Plan carefully.",
-						"summary":   "Plan summary",
-						"signature": "sig-think",
-					},
-				},
-			},
-			{
-				"type":      "stream_event",
-				"sessionId": "session-thinking",
-				"event": map[string]any{
-					"type": "message_stop",
-				},
-			},
-		} {
-			if err := emit(payload); err != nil {
-				return err
-			}
-		}
-		if err := emitClaudeAssistantTurn(emit, "session-thinking", "assistant-thinking-answer", "42"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-thinking",
-			"isError":   false,
-			"result":    "ok",
-			"usage": map[string]any{
-				"promptTokens":        11,
-				"completionTokens":    2,
-				"totalTokens":         13,
-				"contextWindowTokens": 4096,
-			},
-		})
-	default:
-		if err := emitClaudeAssistantTurn(emit, "session-complete", "assistant-1", "Hello from Claude"); err != nil {
-			return err
-		}
-		return emit(map[string]any{
-			"type":      "result",
-			"sessionId": "session-complete",
-			"isError":   false,
-			"result":    "ok",
-			"usage":     map[string]any{"input_tokens": 12, "output_tokens": 8},
-		})
+		return payload, nil
 	}
+	if err := f.reader.Err(); err != nil {
+		return nil, err
+	}
+	return nil, io.EOF
+}
+
+func (f *claudeFixtureProcess) emit(payload map[string]any) error {
+	content, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := f.writer.Write(append(content, '\n')); err != nil {
+		return err
+	}
+	return f.writer.Flush()
+}
+
+func (f *claudeFixtureProcess) emitResult(sessionID string, usage map[string]any) error {
+	return f.emit(map[string]any{
+		"type":      "result",
+		"sessionId": sessionID,
+		"isError":   false,
+		"result":    "ok",
+		"usage":     usage,
+	})
+}
+
+var claudeFixtureScenarioHandlers = map[string]func(*claudeFixtureProcess, map[string]any) error{
+	"delayed_complete":           handleClaudeFixtureDelayedComplete,
+	"generated_mcp_config":       handleClaudeFixtureGeneratedMCPConfig,
+	"env_echo":                   handleClaudeFixtureEnvEcho,
+	"approval":                   handleClaudeFixtureApproval,
+	"question":                   handleClaudeFixtureQuestion,
+	"question_multiple":          handleClaudeFixtureMultipleQuestions,
+	"tool_result_and_mcp_status": handleClaudeFixtureToolResultAndMCPStatus,
+	"thinking_usage":             handleClaudeFixtureThinkingUsage,
+}
+
+func handleClaudeFixtureDelayedComplete(f *claudeFixtureProcess, _ map[string]any) error {
+	time.Sleep(150 * time.Millisecond)
+	if err := emitClaudeAssistantTurn(f.emit, "session-delayed", "assistant-delayed", "Hello from Claude after delay"); err != nil {
+		return err
+	}
+	return f.emitResult("session-delayed", map[string]any{"input_tokens": 12, "output_tokens": 8})
+}
+
+func handleClaudeFixtureGeneratedMCPConfig(f *claudeFixtureProcess, startPayload map[string]any) error {
+	configPath := strings.TrimSpace(stringValue(startPayload["mcpConfigPath"]))
+	if err := validateClaudeGeneratedMCPConfig(configPath, startPayload); err != nil {
+		return err
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-generated-mcp", "assistant-generated-mcp", configPath); err != nil {
+		return err
+	}
+	return f.emitResult("session-generated-mcp", map[string]any{"input_tokens": 5, "output_tokens": 3})
+}
+
+func validateClaudeGeneratedMCPConfig(configPath string, startPayload map[string]any) error {
+	if configPath == "" {
+		return fmt.Errorf("expected generated mcpConfigPath, got %#v", startPayload)
+	}
+	if filepath.Base(configPath) != claudeMCPConfigName {
+		return fmt.Errorf("expected generated mcpConfigPath basename %q, got %q", claudeMCPConfigName, filepath.Base(configPath))
+	}
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("read generated claude mcp config: %w", err)
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return fmt.Errorf("decode generated claude mcp config: %w", err)
+	}
+	return validateClaudeGeneratedMCPConfigPayload(payload)
+}
+
+func validateClaudeGeneratedMCPConfigPayload(payload map[string]any) error {
+	rawServers, ok := payload["mcpServers"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected generated mcpServers map, got %#v", payload["mcpServers"])
+	}
+	settaServer, ok := rawServers[mcpx.DefaultServerID].(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected generated setta mcp server entry, got %#v", rawServers)
+	}
+	if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "streamable_http" {
+		return fmt.Errorf("expected generated setta transport streamable_http, got %#v", settaServer)
+	}
+	if got := strings.TrimSpace(stringValue(settaServer["url"])); got != "http://127.0.0.1:8000/mcp" {
+		return fmt.Errorf("expected generated setta url, got %#v", settaServer)
+	}
+	return nil
+}
+
+func handleClaudeFixtureEnvEcho(f *claudeFixtureProcess, startPayload map[string]any) error {
+	rawEnv, ok := startPayload["env"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected env payload, got %#v", startPayload["env"])
+	}
+	if err := validateClaudeFixtureEnv(rawEnv); err != nil {
+		return err
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-env", "assistant-env", "Env handoff ok"); err != nil {
+		return err
+	}
+	return f.emitResult("session-env", map[string]any{"input_tokens": 4, "output_tokens": 3})
+}
+
+func validateClaudeFixtureEnv(rawEnv map[string]any) error {
+	expected := map[string]string{
+		"PROCESS_KEY":    "process-secret",
+		"WHITESPACE_KEY": "managed-fallback",
+		"PLAIN_KEY":      "plain-dot-env-value",
+	}
+	for key, value := range expected {
+		if got := strings.TrimSpace(stringValue(rawEnv[key])); got != value {
+			return fmt.Errorf("expected %s=%q, got %#v", key, value, rawEnv[key])
+		}
+	}
+	if _, ok := rawEnv["MISSING_KEY"]; ok {
+		return fmt.Errorf("expected missing key to stay excluded, got %#v", rawEnv["MISSING_KEY"])
+	}
+	return nil
+}
+
+func handleClaudeFixtureApproval(f *claudeFixtureProcess, _ map[string]any) error {
+	if err := f.emit(map[string]any{
+		"type":       "approval_request",
+		"approvalId": "approval-1",
+		"toolName":   "Bash",
+		"toolType":   "command",
+		"input":      map[string]any{"command": "echo approval"},
+	}); err != nil {
+		return err
+	}
+	payload, err := f.readPayload()
+	if err != nil {
+		return err
+	}
+	if err := validateClaudeApprovalResponse(payload); err != nil {
+		return err
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-approval", "assistant-approval", "Approval granted"); err != nil {
+		return err
+	}
+	return f.emitResult("session-approval", map[string]any{"input_tokens": 6, "output_tokens": 4})
+}
+
+func validateClaudeApprovalResponse(payload map[string]any) error {
+	if strings.TrimSpace(stringValue(payload["type"])) != "approval_response" {
+		return fmt.Errorf("expected approval_response, got %#v", payload)
+	}
+	if strings.TrimSpace(stringValue(payload["approvalId"])) != "approval-1" || payload["approved"] != true {
+		return fmt.Errorf("unexpected approval response %#v", payload)
+	}
+	return nil
+}
+
+func handleClaudeFixtureQuestion(f *claudeFixtureProcess, _ map[string]any) error {
+	questions := []any{map[string]any{"question": "Language", "type": "text"}}
+	if err := emitClaudeQuestionPrompt(f, "session-question", "assistant-question", questions); err != nil {
+		return err
+	}
+	payload, err := f.readPayload()
+	if err != nil {
+		return err
+	}
+	if err := validateClaudeQuestionResponse(payload, false); err != nil {
+		return err
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-question", "assistant-follow-up", "Chosen: Go"); err != nil {
+		return err
+	}
+	return f.emitResult("session-question", map[string]any{"input_tokens": 7, "output_tokens": 5})
+}
+
+func handleClaudeFixtureMultipleQuestions(f *claudeFixtureProcess, _ map[string]any) error {
+	questions := []any{
+		map[string]any{"question": "Choose a language", "type": "text"},
+		map[string]any{"question": "Choose a target", "type": "text"},
+	}
+	if err := emitClaudeQuestionPrompt(f, "session-question-multi", "assistant-question-multi", questions); err != nil {
+		return err
+	}
+	payload, err := f.readPayload()
+	if err != nil {
+		return err
+	}
+	if err := validateClaudeQuestionResponse(payload, true); err != nil {
+		return err
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-question-multi", "assistant-follow-up-multi", "Chosen: Python CLI"); err != nil {
+		return err
+	}
+	return f.emitResult("session-question-multi", map[string]any{"input_tokens": 8, "output_tokens": 6})
+}
+
+func emitClaudeQuestionPrompt(f *claudeFixtureProcess, sessionID string, messageID string, questions []any) error {
+	for _, payload := range []map[string]any{
+		{
+			"type":       "approval_request",
+			"approvalId": "approval-1",
+			"toolName":   askUserQuestionToolName,
+			"toolType":   "question",
+			"input":      map[string]any{"questions": questions},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": sessionID,
+			"event": map[string]any{
+				"type":    "message_start",
+				"message": map[string]any{"id": messageID, "content": []any{}},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": sessionID,
+			"event": map[string]any{
+				"type":  "content_block_start",
+				"index": 0,
+				"content_block": map[string]any{
+					"type":  "tool_use",
+					"id":    "question-1",
+					"name":  askUserQuestionToolName,
+					"input": map[string]any{"questions": questions},
+				},
+			},
+		},
+	} {
+		if err := f.emit(payload); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateClaudeQuestionResponse(payload map[string]any, expectAnswers bool) error {
+	if strings.TrimSpace(stringValue(payload["type"])) != "tool_response" {
+		return fmt.Errorf("expected tool_response, got %#v", payload)
+	}
+	if strings.TrimSpace(stringValue(payload["toolCallId"])) != "approval-1" {
+		return fmt.Errorf("expected question response to use approval id, got %#v", payload)
+	}
+	if !expectAnswers {
+		return nil
+	}
+	answers, ok := mapValue(payload["answers"])
+	if !ok || stringValue(answers["Choose a language"]) != "Python" || stringValue(answers["Choose a target"]) != "CLI" {
+		return fmt.Errorf("unexpected multi-question answers %#v", payload)
+	}
+	return nil
+}
+
+func handleClaudeFixtureToolResultAndMCPStatus(f *claudeFixtureProcess, _ map[string]any) error {
+	for _, payload := range []map[string]any{
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type":    "message_start",
+				"message": map[string]any{"id": "assistant-tool-1", "content": []any{}},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type":  "content_block_start",
+				"index": 0,
+				"content_block": map[string]any{
+					"type": "tool_use",
+					"id":   "toolu-1",
+					"name": "Bash",
+					"input": map[string]any{
+						"command": "ls",
+					},
+				},
+			},
+		},
+		{
+			"type":      "system_message",
+			"sessionId": "session-tool-result",
+			"message": map[string]any{
+				"subtype": "mcp_status",
+				"mcp_servers": []any{
+					map[string]any{
+						"serverId":  "filesystem",
+						"status":    "failed",
+						"transport": "stdio",
+						"command":   "npx @modelcontextprotocol/server-filesystem .",
+						"error":     "spawn failed",
+					},
+				},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type":  "content_block_stop",
+				"index": 0,
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type":  "content_block_start",
+				"index": 1,
+				"content_block": map[string]any{
+					"type":        "tool_result",
+					"tool_use_id": "toolu-1",
+					"content":     []any{map[string]any{"type": "text", "text": "ok"}},
+				},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type":  "content_block_stop",
+				"index": 1,
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-tool-result",
+			"event": map[string]any{
+				"type": "message_stop",
+			},
+		},
+	} {
+		if err := f.emit(payload); err != nil {
+			return err
+		}
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-tool-result", "assistant-tool-summary", "Tool completed."); err != nil {
+		return err
+	}
+	return f.emitResult("session-tool-result", map[string]any{"input_tokens": 9, "output_tokens": 6})
+}
+
+func handleClaudeFixtureThinkingUsage(f *claudeFixtureProcess, _ map[string]any) error {
+	for _, payload := range []map[string]any{
+		{
+			"type":      "stream_event",
+			"sessionId": "session-thinking",
+			"event": map[string]any{
+				"type":    "message_start",
+				"message": map[string]any{"id": "assistant-thinking", "content": []any{}},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-thinking",
+			"event": map[string]any{
+				"type":  "content_block_start",
+				"index": 0,
+				"content_block": map[string]any{
+					"type":      "thinking",
+					"thinking":  "Plan carefully.",
+					"summary":   "Plan summary",
+					"signature": "sig-think",
+				},
+			},
+		},
+		{
+			"type":      "stream_event",
+			"sessionId": "session-thinking",
+			"event": map[string]any{
+				"type": "message_stop",
+			},
+		},
+	} {
+		if err := f.emit(payload); err != nil {
+			return err
+		}
+	}
+	if err := emitClaudeAssistantTurn(f.emit, "session-thinking", "assistant-thinking-answer", "42"); err != nil {
+		return err
+	}
+	return f.emitResult("session-thinking", map[string]any{
+		"promptTokens":        11,
+		"completionTokens":    2,
+		"totalTokens":         13,
+		"contextWindowTokens": 4096,
+	})
+}
+
+func handleClaudeFixtureDefault(f *claudeFixtureProcess, _ map[string]any) error {
+	if err := emitClaudeAssistantTurn(f.emit, "session-complete", "assistant-1", "Hello from Claude"); err != nil {
+		return err
+	}
+	return f.emitResult("session-complete", map[string]any{"input_tokens": 12, "output_tokens": 8})
 }
 
 func emitClaudeAssistantTurn(
