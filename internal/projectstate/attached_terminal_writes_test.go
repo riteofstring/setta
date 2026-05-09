@@ -52,76 +52,69 @@ func assertAttachedTerminalProjectState(t *testing.T, project Project) {
 	if err != nil {
 		t.Fatalf("resolve code section: %v", err)
 	}
-	if codeImpl.Code.AttachedTerminalSectionID != "terminal-section" {
-		t.Fatalf("expected attached terminal id terminal-section, got %q", codeImpl.Code.AttachedTerminalSectionID)
-	}
-	if !reflect.DeepEqual(codeImpl.Code.Children, []string{"terminal-section"}) {
-		t.Fatalf("expected attached terminal child, got %#v", codeImpl.Code.Children)
-	}
-
-	codePayload, err := effectiveSectionPayload(project, "code-section", codeVariant.ID)
-	if err != nil {
-		t.Fatalf("code payload: %v", err)
-	}
-	codeSize, ok := payloadObjectField(codePayload, "size")
-	if !ok {
-		t.Fatalf("expected code size payload, got %#v", codePayload)
-	}
-	codeHeight, isAuto, present, err := payloadAutoLayoutSizeValue(codeSize, "height")
-	if err != nil {
-		t.Fatalf("parse code height: %v", err)
-	}
-	if !present || isAuto {
-		t.Fatalf("expected concrete code height, got %#v", codeSize)
-	}
-	if codeHeight < 238.2 {
-		t.Fatalf("expected attached terminal minimum height, got %v", codeHeight)
-	}
+	assertCodeImplAttachedTerminal(t, codeImpl, "terminal-section")
+	assertSectionHeightAtLeast(t, project, "code-section", codeVariant.ID, 238.2, "attached code")
 
 	terminalSection, terminalVariant, _, err := project.ResolveSection("terminal-section")
 	if err != nil {
 		t.Fatalf("resolve terminal section: %v", err)
 	}
-	if terminalSection.ParentSectionID != "code-section" {
-		t.Fatalf("expected terminal parent code-section, got %q", terminalSection.ParentSectionID)
-	}
-	if project.HasTopLevelSection("terminal-section") {
-		t.Fatal("did not expect attached terminal to remain top-level")
-	}
-	if _, ok := project.TopLevelSections["terminal-section"]; ok {
-		t.Fatalf("did not expect attached terminal layout to remain active, got %#v", project.TopLevelSections["terminal-section"])
-	}
-	if _, ok := project.ViewModes["focus"].TopLevelSections["terminal-section"]; ok {
-		t.Fatalf("did not expect focus view mode layout for attached terminal, got %#v", project.ViewModes["focus"].TopLevelSections)
-	}
-	if _, ok := project.ViewModes["secondary"].TopLevelSections["terminal-section"]; ok {
-		t.Fatalf("did not expect secondary view mode layout for attached terminal, got %#v", project.ViewModes["secondary"].TopLevelSections)
-	}
+	assertTerminalAttachedToParent(t, project, terminalSection, "code-section")
+	assertSectionFixedSizeValue(t, project, "terminal-section", terminalVariant.ID, "width", 640.0, "attached terminal")
+	assertSectionFixedSizeValue(t, project, "terminal-section", terminalVariant.ID, "height", 222.0, "attached terminal")
+}
 
-	terminalPayload, err := effectiveSectionPayload(project, "terminal-section", terminalVariant.ID)
-	if err != nil {
-		t.Fatalf("terminal payload: %v", err)
+func assertCodeImplAttachedTerminal(t *testing.T, codeImpl SectionImpl, terminalID string) {
+	t.Helper()
+
+	if codeImpl.Code.AttachedTerminalSectionID != terminalID {
+		t.Fatalf("expected attached terminal id %s, got %q", terminalID, codeImpl.Code.AttachedTerminalSectionID)
 	}
-	terminalSize, ok := payloadObjectField(terminalPayload, "size")
+	if !reflect.DeepEqual(codeImpl.Code.Children, []string{terminalID}) {
+		t.Fatalf("expected attached terminal child, got %#v", codeImpl.Code.Children)
+	}
+}
+
+func assertSectionHeightAtLeast(t *testing.T, project Project, sectionID string, variantID string, minHeight float64, contextLabel string) {
+	t.Helper()
+
+	payload, err := effectiveSectionPayload(project, sectionID, variantID)
+	if err != nil {
+		t.Fatalf("%s payload: %v", contextLabel, err)
+	}
+	size, ok := payloadObjectField(payload, "size")
 	if !ok {
-		t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+		t.Fatalf("expected %s size payload, got %#v", contextLabel, payload)
 	}
-	width, _, _, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+	height, isAuto, present, err := payloadAutoLayoutSizeValue(size, "height")
 	if err != nil {
-		t.Fatalf("parse terminal width: %v", err)
-	}
-	if width != 640.0 {
-		t.Fatalf("expected terminal width 640, got %v", width)
-	}
-	terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
-	if err != nil {
-		t.Fatalf("parse terminal height: %v", err)
+		t.Fatalf("parse %s height: %v", contextLabel, err)
 	}
 	if !present || isAuto {
-		t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+		t.Fatalf("expected concrete %s height, got %#v", contextLabel, size)
 	}
-	if terminalHeight != 222.0 {
-		t.Fatalf("expected terminal height 222, got %v", terminalHeight)
+	if height < minHeight {
+		t.Fatalf("expected %s height at least %v, got %v", contextLabel, minHeight, height)
+	}
+}
+
+func assertTerminalAttachedToParent(t *testing.T, project Project, terminalSection Section, parentID string) {
+	t.Helper()
+
+	if terminalSection.ParentSectionID != parentID {
+		t.Fatalf("expected terminal parent %s, got %q", parentID, terminalSection.ParentSectionID)
+	}
+	if project.HasTopLevelSection(terminalSection.ID) {
+		t.Fatal("did not expect attached terminal to remain top-level")
+	}
+	if _, ok := project.TopLevelSections[terminalSection.ID]; ok {
+		t.Fatalf("did not expect attached terminal layout to remain active, got %#v", project.TopLevelSections[terminalSection.ID])
+	}
+	if _, ok := project.ViewModes["focus"].TopLevelSections[terminalSection.ID]; ok {
+		t.Fatalf("did not expect focus view mode layout for attached terminal, got %#v", project.ViewModes["focus"].TopLevelSections)
+	}
+	if _, ok := project.ViewModes["secondary"].TopLevelSections[terminalSection.ID]; ok {
+		t.Fatalf("did not expect secondary view mode layout for attached terminal, got %#v", project.ViewModes["secondary"].TopLevelSections)
 	}
 }
 
