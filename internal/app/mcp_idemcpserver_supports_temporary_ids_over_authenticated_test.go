@@ -76,6 +76,16 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	}
 	defer session.Close()
 
+	assertTemporaryIDProjectSummaryAndDiagnostics(t, session)
+	assertTemporaryIDBasicMutations(t, app, session)
+	assertTemporaryIDCallableMutations(t, cfg, app, session)
+	assertTemporaryIDSectionAndParamMutations(t, app, session)
+	assertTemporaryIDBlockedScopedWrite(t, session)
+}
+
+func assertTemporaryIDProjectSummaryAndDiagnostics(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
 	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Meta: sdkmcp.Meta{
 			"projectConfigId": "11",
@@ -130,26 +140,16 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"]); len(codeSections) != 0 {
 		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
 	}
+}
 
-	writeResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_code_section_diagnostics_mute",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "14",
-			"mute":            true,
-		},
+func assertTemporaryIDBasicMutations(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_code_section_diagnostics_mute", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "14",
+		"mute":            true,
 	})
-	if err != nil {
-		t.Fatalf("call temp-id scoped write: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id scoped write success, got %#v", writeResult.StructuredContent)
-	}
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
@@ -163,25 +163,11 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_code_obj_name",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"codeObjId":       "22",
-			"name":            "translated_name",
-		},
+	callTemporaryIDTool(t, session, "set_code_obj_name", map[string]any{
+		"projectConfigId": "11",
+		"codeObjId":       "22",
+		"name":            "translated_name",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_code_obj_name: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_code_obj_name success, got %#v", writeResult.StructuredContent)
-	}
 
 	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
@@ -191,27 +177,13 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 		t.Fatalf("expected translated code object name, got %q", got)
 	}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_param_name_and_value",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "20",
-			"codeObjId":       "22",
-			"name":            "combined_name",
-			"value":           "combined",
-		},
+	callTemporaryIDTool(t, session, "set_param_name_and_value", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "20",
+		"codeObjId":       "22",
+		"name":            "combined_name",
+		"value":           "combined",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_param_name_and_value: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_param_name_and_value success, got %#v", writeResult.StructuredContent)
-	}
 
 	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
@@ -227,27 +199,32 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if got := paramPayload["value"]; got != "combined" {
 		t.Fatalf("expected combined param value, got %#v", got)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_callable",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-			"callableName":    "sorted",
-			"refetchParams":   false,
-		},
+func assertTemporaryIDCallableMutations(t *testing.T, cfg config.Config, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	assertTemporaryIDCallableSelection(t, session)
+
+	addedTempCodeObjID := addTemporaryIDKwarg(t, session, "temp-id")
+	setTemporaryIDParamNameAndValue(t, session, addedTempCodeObjID)
+	canonicalAddedCodeObjID := assertTemporaryIDAddedKwarg(t, cfg, app, addedTempCodeObjID)
+	assertTemporaryIDDeletedKwarg(t, app, session, addedTempCodeObjID, canonicalAddedCodeObjID)
+
+	secondAddedTempCodeObjID := addTemporaryIDKwarg(t, session, "second temp-id")
+	secondCanonicalAddedCodeObjID := assertTemporaryIDSecondKwarg(t, cfg, app, secondAddedTempCodeObjID)
+	assertTemporaryIDDeleteSelectedParams(t, app, session, secondAddedTempCodeObjID, secondCanonicalAddedCodeObjID)
+}
+
+func assertTemporaryIDCallableSelection(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	writeResult := callTemporaryIDTool(t, session, "set_callable", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "25",
+		"callableName":    "sorted",
+		"refetchParams":   false,
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_callable: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_callable success, got %#v", writeResult.StructuredContent)
-	}
 	callablePayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	if callablePayload["callableId"] != "27" {
 		t.Fatalf("expected translated callable id 27, got %#v", callablePayload["callableId"])
@@ -260,70 +237,61 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if firstChild["codeObjId"] != "28" {
 		t.Fatalf("expected translated child code-object id 28, got %#v", firstChild["codeObjId"])
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "add_kwarg",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-		},
+func addTemporaryIDKwarg(t *testing.T, session *sdkmcp.ClientSession, label string) string {
+	t.Helper()
+
+	writeResult := callTemporaryIDTool(t, session, "add_kwarg", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "25",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id add_kwarg: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id add_kwarg success, got %#v", writeResult.StructuredContent)
-	}
 	addKwargPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	addedTempCodeObjID, ok := addKwargPayload["codeObjId"].(string)
 	if !ok || addedTempCodeObjID == "" {
-		t.Fatalf("expected temp-id add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+		t.Fatalf("expected %s add_kwarg codeObjId string, got %#v", label, addKwargPayload["codeObjId"])
 	}
+	return addedTempCodeObjID
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_param_name_and_value",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-			"codeObjId":       addedTempCodeObjID,
-			"name":            "temp_key",
-			"value":           "None",
-		},
+func setTemporaryIDParamNameAndValue(t *testing.T, session *sdkmcp.ClientSession, addedTempCodeObjID string) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_param_name_and_value", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "25",
+		"codeObjId":       addedTempCodeObjID,
+		"name":            "temp_key",
+		"value":           "None",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id callable set_param_name_and_value: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id callable set_param_name_and_value success, got %#v", writeResult.StructuredContent)
-	}
+}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id add_kwarg rename/value: %v", err)
-	}
-	callableRootPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after temp-id add_kwarg: %v", err)
-	}
-	callableChildren := mustStringSliceValue(t, callableRootPayload["children"])
+func assertTemporaryIDAddedKwarg(t *testing.T, cfg config.Config, app *App, addedTempCodeObjID string) string {
+	t.Helper()
+
+	project := loadTemporaryIDProject(t, app, "after temp-id add_kwarg rename/value")
+	callableChildren := callableChildrenForTemporaryIDTest(t, project, "after temp-id add_kwarg")
 	if len(callableChildren) != 2 {
 		t.Fatalf("expected two callable children after temp-id add_kwarg, got %#v", callableChildren)
 	}
 	canonicalAddedCodeObjID := callableChildren[1]
+	assertTemporaryIDMapEntry(t, cfg, canonicalAddedCodeObjID, addedTempCodeObjID, "after temp-id add_kwarg")
+	assertTemporaryIDCallableParam(t, project, canonicalAddedCodeObjID)
+	return canonicalAddedCodeObjID
+}
+
+func assertTemporaryIDMapEntry(t *testing.T, cfg config.Config, canonicalID string, tempID string, contextLabel string) {
+	t.Helper()
+
 	temporaryMap := readAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"))
-	if got := temporaryMap[canonicalAddedCodeObjID]; got != addedTempCodeObjID {
-		t.Fatalf("expected temporary map %q -> %q, got %q", canonicalAddedCodeObjID, addedTempCodeObjID, got)
+	if got := temporaryMap[canonicalID]; got != tempID {
+		t.Fatalf("expected temporary map %q -> %q %s, got %q", canonicalID, tempID, contextLabel, got)
 	}
+}
+
+func assertTemporaryIDCallableParam(t *testing.T, project projectstate.Project, canonicalAddedCodeObjID string) {
+	t.Helper()
+
 	callableParamPayload, addedCallableParam, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", canonicalAddedCodeObjID)
 	if err != nil {
 		t.Fatalf("resolve added callable param after temp-id rename/value: %v", err)
@@ -334,248 +302,164 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if got := callableParamPayload["value"]; got != "None" {
 		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "delete_kwarg",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-		},
+func assertTemporaryIDDeletedKwarg(
+	t *testing.T,
+	app *App,
+	session *sdkmcp.ClientSession,
+	addedTempCodeObjID string,
+	canonicalAddedCodeObjID string,
+) {
+	t.Helper()
+
+	writeResult := callTemporaryIDTool(t, session, "delete_kwarg", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "25",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id delete_kwarg: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id delete_kwarg success, got %#v", writeResult.StructuredContent)
-	}
 	deleteKwargPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	if got := deleteKwargPayload["codeObjId"]; got != addedTempCodeObjID {
 		t.Fatalf("expected translated deleted codeObjId %q, got %#v", addedTempCodeObjID, got)
 	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id delete_kwarg: %v", err)
-	}
-	callableRootPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after temp-id delete_kwarg: %v", err)
-	}
-	callableChildren = mustStringSliceValue(t, callableRootPayload["children"])
-	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
-		t.Fatalf("expected callable children [allowed-param-existing] after temp-id delete_kwarg, got %#v", callableChildren)
-	}
-	if _, ok := project.CodeObjs[canonicalAddedCodeObjID]; ok {
-		t.Fatalf("expected canonical deleted callable param %q to be pruned after temp-id delete_kwarg", canonicalAddedCodeObjID)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id delete_kwarg")
+	assertTemporaryIDCallableChildrenPruned(t, project, canonicalAddedCodeObjID, "after temp-id delete_kwarg")
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "add_kwarg",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call second temp-id add_kwarg: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected second temp-id add_kwarg success, got %#v", writeResult.StructuredContent)
-	}
-	addKwargPayload = mustStructuredMapValue(t, writeResult.StructuredContent)
-	secondAddedTempCodeObjID, ok := addKwargPayload["codeObjId"].(string)
-	if !ok || secondAddedTempCodeObjID == "" {
-		t.Fatalf("expected second temp-id add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
-	}
+func assertTemporaryIDSecondKwarg(t *testing.T, cfg config.Config, app *App, secondAddedTempCodeObjID string) string {
+	t.Helper()
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after second temp-id add_kwarg: %v", err)
-	}
-	callableRootPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after second temp-id add_kwarg: %v", err)
-	}
-	callableChildren = mustStringSliceValue(t, callableRootPayload["children"])
+	project := loadTemporaryIDProject(t, app, "after second temp-id add_kwarg")
+	callableChildren := callableChildrenForTemporaryIDTest(t, project, "after second temp-id add_kwarg")
 	if len(callableChildren) != 2 {
 		t.Fatalf("expected two callable children after second temp-id add_kwarg, got %#v", callableChildren)
 	}
 	secondCanonicalAddedCodeObjID := callableChildren[1]
-	temporaryMap = readAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"))
-	if got := temporaryMap[secondCanonicalAddedCodeObjID]; got != secondAddedTempCodeObjID {
-		t.Fatalf("expected temporary map %q -> %q after second temp-id add, got %q", secondCanonicalAddedCodeObjID, secondAddedTempCodeObjID, got)
-	}
+	assertTemporaryIDMapEntry(t, cfg, secondCanonicalAddedCodeObjID, secondAddedTempCodeObjID, "after second temp-id add")
+	return secondCanonicalAddedCodeObjID
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "delete_selected_params",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "25",
-			"paramInfoIds":    []any{secondAddedTempCodeObjID},
-		},
+func assertTemporaryIDDeleteSelectedParams(
+	t *testing.T,
+	app *App,
+	session *sdkmcp.ClientSession,
+	secondAddedTempCodeObjID string,
+	secondCanonicalAddedCodeObjID string,
+) {
+	t.Helper()
+
+	writeResult := callTemporaryIDTool(t, session, "delete_selected_params", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "25",
+		"paramInfoIds":    []any{secondAddedTempCodeObjID},
 	})
-	if err != nil {
-		t.Fatalf("call temp-id delete_selected_params: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id delete_selected_params success, got %#v", writeResult.StructuredContent)
-	}
 	deleteSelectedParamsPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	deletedParamIDs := mustStringSliceValue(t, deleteSelectedParamsPayload["paramInfoIds"])
 	if len(deletedParamIDs) != 1 || deletedParamIDs[0] != secondAddedTempCodeObjID {
 		t.Fatalf("expected translated deleted paramInfoIds [%s], got %#v", secondAddedTempCodeObjID, deletedParamIDs)
 	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id delete_selected_params: %v", err)
-	}
-	callableRootPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after temp-id delete_selected_params: %v", err)
-	}
-	callableChildren = mustStringSliceValue(t, callableRootPayload["children"])
+	project := loadTemporaryIDProject(t, app, "after temp-id delete_selected_params")
+	assertTemporaryIDCallableChildrenPruned(t, project, secondCanonicalAddedCodeObjID, "after temp-id delete_selected_params")
+}
+
+func assertTemporaryIDCallableChildrenPruned(t *testing.T, project projectstate.Project, deletedCanonicalCodeObjID string, contextLabel string) {
+	t.Helper()
+
+	callableChildren := callableChildrenForTemporaryIDTest(t, project, contextLabel)
 	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
-		t.Fatalf("expected callable children [allowed-param-existing] after temp-id delete_selected_params, got %#v", callableChildren)
+		t.Fatalf("expected callable children [allowed-param-existing] %s, got %#v", contextLabel, callableChildren)
 	}
-	if _, ok := project.CodeObjs[secondCanonicalAddedCodeObjID]; ok {
-		t.Fatalf("expected canonical deleted callable param %q to be pruned", secondCanonicalAddedCodeObjID)
+	if _, ok := project.CodeObjs[deletedCanonicalCodeObjID]; ok {
+		t.Fatalf("expected canonical deleted callable param %q to be pruned %s", deletedCanonicalCodeObjID, contextLabel)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_code_section_diagnostic_code_suppression",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "14",
-			"code":            "reportFoo",
-			"suppress":        true,
-		},
+func callableChildrenForTemporaryIDTest(t *testing.T, project projectstate.Project, contextLabel string) []string {
+	t.Helper()
+
+	callableRootPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 %s: %v", contextLabel, err)
+	}
+	return mustStringSliceValue(t, callableRootPayload["children"])
+}
+
+func assertTemporaryIDSectionAndParamMutations(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	assertTemporaryIDDiagnosticSuppression(t, app, session)
+	assertTemporaryIDSectionName(t, app, session)
+	assertTemporaryIDParamEnteredValue(t, app, session)
+	assertTemporaryIDTypeErrorIgnore(t, app, session)
+	assertTemporaryIDDisplayName(t, app, session)
+	assertTemporaryIDParamImplConfig(t, app, session)
+	assertTemporaryIDChangedParamImpl(t, app, session)
+}
+
+func assertTemporaryIDDiagnosticSuppression(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_code_section_diagnostic_code_suppression", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "14",
+		"code":            "reportFoo",
+		"suppress":        true,
 	})
-	if err != nil {
-		t.Fatalf("call temp-id scoped suppression: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id scoped suppression success, got %#v", writeResult.StructuredContent)
-	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id scoped suppression: %v", err)
-	}
-	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	project := loadTemporaryIDProject(t, app, "after temp-id scoped suppression")
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
 	if err != nil {
 		t.Fatalf("ignore state after temp-id scoped suppression: %v", err)
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_section_name",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "14",
-			"name":            "Translated Section",
-		},
+func assertTemporaryIDSectionName(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_section_name", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "14",
+		"name":            "Translated Section",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_section_name: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_section_name success, got %#v", writeResult.StructuredContent)
-	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id set_section_name: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id set_section_name")
 	if got := project.Sections["allowed-section"].Name; got != "Translated Section" {
 		t.Fatalf("expected translated section name, got %q", got)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_param_entered_value",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "20",
-			"paramInfoId":     "22",
-			"value":           "translated",
-		},
+func assertTemporaryIDParamEnteredValue(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_param_entered_value", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "20",
+		"paramInfoId":     "22",
+		"value":           "translated",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_param_entered_value: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_param_entered_value success, got %#v", writeResult.StructuredContent)
-	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id set_param_entered_value: %v", err)
-	}
-	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after temp-id set_param_entered_value: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id set_param_entered_value")
+	paramPayload := resolveAllowedParamPayload(t, project, "after temp-id set_param_entered_value")
 	if got := paramPayload["value"]; got != "translated" {
 		t.Fatalf("expected translated param value, got %#v", got)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_type_error_ignore",
-		Arguments: map[string]any{
-			"projectConfigId":  "11",
-			"sectionId":        "20",
-			"paramInfoId":      "22",
-			"ignoreTypeErrors": true,
-		},
+func assertTemporaryIDTypeErrorIgnore(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_type_error_ignore", map[string]any{
+		"projectConfigId":  "11",
+		"sectionId":        "20",
+		"paramInfoId":      "22",
+		"ignoreTypeErrors": true,
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_type_error_ignore: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_type_error_ignore success, got %#v", writeResult.StructuredContent)
-	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id set_type_error_ignore: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id set_type_error_ignore")
 	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
 	if err != nil {
 		t.Fatalf("type error ignore state after temp-id set_type_error_ignore: %v", err)
@@ -583,34 +467,25 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if !typeErrorIgnoreState.Params["allowed-param"] {
 		t.Fatalf("expected translated allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_code_obj_display_name",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"codeObjId":       "22",
-			"displayName":     "Translated",
-		},
+func assertTemporaryIDDisplayName(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callTemporaryIDTool(t, session, "set_code_obj_display_name", map[string]any{
+		"projectConfigId": "11",
+		"codeObjId":       "22",
+		"displayName":     "Translated",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id set_code_obj_display_name: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id set_code_obj_display_name success, got %#v", writeResult.StructuredContent)
-	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id set_code_obj_display_name: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id set_code_obj_display_name")
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Translated" {
 		t.Fatalf("expected translated display name, got %q", got)
 	}
+}
+
+func assertTemporaryIDParamImplConfig(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
 
 	if _, err := app.ProjectStates().Main().ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
 		t.Fatalf("prepare slider impl before temp-id update_param_impl_config: %v", err)
@@ -619,74 +494,41 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 		t.Fatalf("prepare slider value before temp-id update_param_impl_config: %v", err)
 	}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "update_param_impl_config",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "20",
-			"paramInfoId":     "22",
-			"newConfig": map[string]any{
-				"max": 10,
-			},
+	writeResult := callTemporaryIDTool(t, session, "update_param_impl_config", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "20",
+		"paramInfoId":     "22",
+		"newConfig": map[string]any{
+			"max": 10,
 		},
 	})
-	if err != nil {
-		t.Fatalf("call temp-id update_param_impl_config: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id update_param_impl_config success, got %#v", writeResult.StructuredContent)
-	}
 	updateParamImplConfigPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	if updateParamImplConfigPayload["status"] != "ok" {
 		t.Fatalf("expected temp-id update_param_impl_config status ok, got %#v", updateParamImplConfigPayload["status"])
 	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id update_param_impl_config: %v", err)
-	}
-	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after temp-id update_param_impl_config: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id update_param_impl_config")
+	paramPayload := resolveAllowedParamPayload(t, project, "after temp-id update_param_impl_config")
 	if got := paramPayload["value"]; got != "10" {
 		t.Fatalf("expected slider value to clamp to 10 after temp-id update, got %#v", got)
 	}
+}
 
-	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "change_param_impl",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "20",
-			"paramInfoId":     "22",
-			"selectedId":      "PasswordParam",
-		},
+func assertTemporaryIDChangedParamImpl(t *testing.T, app *App, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	writeResult := callTemporaryIDTool(t, session, "change_param_impl", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "20",
+		"paramInfoId":     "22",
+		"selectedId":      "PasswordParam",
 	})
-	if err != nil {
-		t.Fatalf("call temp-id change_param_impl: %v", err)
-	}
-	if writeResult.IsError {
-		t.Fatalf("expected temp-id change_param_impl success, got %#v", writeResult.StructuredContent)
-	}
 	changeParamImplPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
 	if changeParamImplPayload["status"] != "ok" {
 		t.Fatalf("expected temp-id change_param_impl status ok, got %#v", changeParamImplPayload["status"])
 	}
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id change_param_impl: %v", err)
-	}
+	project := loadTemporaryIDProject(t, app, "after temp-id change_param_impl")
 	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
 	if err != nil {
 		t.Fatalf("resolve allowed-param after temp-id change_param_impl: %v", err)
@@ -697,23 +539,16 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	if got := paramPayload["hasSecret"]; got != true {
 		t.Fatalf("expected hasSecret true after temp-id change_param_impl, got %#v", got)
 	}
+}
 
-	blockedWriteResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Meta: sdkmcp.Meta{
-			"projectConfigId": "11",
-			"chatId":          "12",
-			"sectionId":       "13",
-		},
-		Name: "set_code_section_diagnostics_mute",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"sectionId":       "18",
-			"mute":            true,
-		},
+func assertTemporaryIDBlockedScopedWrite(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	blockedWriteResult := callTemporaryIDToolAllowError(t, session, "set_code_section_diagnostics_mute", map[string]any{
+		"projectConfigId": "11",
+		"sectionId":       "18",
+		"mute":            true,
 	})
-	if err != nil {
-		t.Fatalf("call temp-id blocked scoped write: %v", err)
-	}
 	if !blockedWriteResult.IsError {
 		t.Fatal("expected blocked temp-id scoped write to fail")
 	}
@@ -726,11 +561,83 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedStreamableHTTP(t *t
 	}
 }
 
+func loadTemporaryIDProject(t *testing.T, app *App, contextLabel string) projectstate.Project {
+	t.Helper()
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id %s: %v", contextLabel, err)
+	}
+	return project
+}
+
+func resolveAllowedParamPayload(t *testing.T, project projectstate.Project, contextLabel string) map[string]any {
+	t.Helper()
+
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param %s: %v", contextLabel, err)
+	}
+	return paramPayload
+}
+
+func callTemporaryIDTool(
+	t *testing.T,
+	session *sdkmcp.ClientSession,
+	name string,
+	arguments map[string]any,
+) *sdkmcp.CallToolResult {
+	t.Helper()
+
+	result := callTemporaryIDToolAllowError(t, session, name, arguments)
+	if result.IsError {
+		t.Fatalf("expected temp-id %s success, got %#v", name, result.StructuredContent)
+	}
+	return result
+}
+
+func callTemporaryIDToolAllowError(
+	t *testing.T,
+	session *sdkmcp.ClientSession,
+	name string,
+	arguments map[string]any,
+) *sdkmcp.CallToolResult {
+	t.Helper()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name:      name,
+		Arguments: arguments,
+	})
+	if err != nil {
+		t.Fatalf("call temp-id %s: %v", name, err)
+	}
+	return result
+}
+
 func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
+
+	app, serverURL := startMCPRuntimeStatusTestServer(t, cfg)
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	mcpSession := connectMCPRuntimeStatusClient(t, app, serverURL)
+	defer mcpSession.Close()
+
+	toolCount := listMCPRuntimeStatusToolCount(t, mcpSession)
+	payload := readMCPRuntimeStatus(t, app, serverURL)
+	assertMCPRuntimeStatusConnectedSelfClient(t, payload, cfg, toolCount)
+}
+
+func startMCPRuntimeStatusTestServer(t *testing.T, cfg config.Config) (*App, string) {
+	t.Helper()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -751,21 +658,30 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 
 	serverURL := "http://" + listener.Addr().String()
 	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("shutdown http server: %v", err)
-		}
-		err := <-serverErrors
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("serve app: %v", err)
-		}
+		stopMCPRuntimeStatusTestServer(t, app, server, serverErrors)
 	})
+	return app, serverURL
+}
 
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+func stopMCPRuntimeStatusTestServer(t *testing.T, app *App, server *http.Server, serverErrors <-chan error) {
+	t.Helper()
+
+	if err := app.Shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown app: %v", err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		t.Fatalf("shutdown http server: %v", err)
+	}
+	err := <-serverErrors
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		t.Fatalf("serve app: %v", err)
+	}
+}
+
+func connectMCPRuntimeStatusClient(t *testing.T, app *App, serverURL string) *sdkmcp.ClientSession {
+	t.Helper()
 
 	mcpClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
 	mcpSession, err := mcpClient.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
@@ -775,12 +691,21 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect authenticated mcp client: %v", err)
 	}
-	defer mcpSession.Close()
+	return mcpSession
+}
+
+func listMCPRuntimeStatusToolCount(t *testing.T, mcpSession *sdkmcp.ClientSession) int {
+	t.Helper()
 
 	toolsResult, err := mcpSession.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
+	return len(toolsResult.Tools)
+}
+
+func readMCPRuntimeStatus(t *testing.T, app *App, serverURL string) httpapi.MCPRuntimeStatusResponse {
+	t.Helper()
 
 	client := mustAuthenticatedMCPHTTPClient(t, app, serverURL)
 	response, err := client.Post(
@@ -802,6 +727,17 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode runtime status: %v", err)
 	}
+	return payload
+}
+
+func assertMCPRuntimeStatusConnectedSelfClient(
+	t *testing.T,
+	payload httpapi.MCPRuntimeStatusResponse,
+	cfg config.Config,
+	toolCount int,
+) {
+	t.Helper()
+
 	if payload.LLMConfigPath != mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot) {
 		t.Fatalf("unexpected llm config path %q", payload.LLMConfigPath)
 	}
@@ -817,8 +753,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != len(toolsResult.Tools) {
-		t.Fatalf("expected tool count %d, got %d", len(toolsResult.Tools), payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != toolCount {
+		t.Fatalf("expected tool count %d, got %d", toolCount, payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
