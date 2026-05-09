@@ -122,4 +122,4 @@ go_tests:
   generated_globs:
     - "**/*_gen.go"
   file_length:
-    max_lines: 6000
+    max_lines: 3500
