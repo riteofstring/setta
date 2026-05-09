@@ -53,6 +53,52 @@ describe("GPU flow scene scroll", () => {
     });
   });
 
+  it("re-resolves scrolled scenes without duplicating generated content surfaces", () => {
+    const scene = resolveGpuFlowSceneLayout({
+      ...sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 100, 80),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 80, 60),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 80, 60),
+          parentId: "parent",
+        }),
+      ]),
+      contentSurfaces: [
+        {
+          clipRect: rect(0, 0, 20, 20),
+          id: "external-surface",
+          ownerSectionId: "parent",
+          rect: rect(4, 4, 20, 20),
+          renderer: { kind: "canvas-content", surfaceId: "external-surface" },
+          zIndex: 3,
+        },
+      ],
+    });
+
+    const scrolled = applyGpuSectionSceneScrollOffsets(
+      scene,
+      new Map([["parent", { x: 0, y: 20 }]]),
+    );
+
+    expect(scrolled.contentSurfaces.map((surface) => surface.id)).toEqual([
+      "parent",
+      "child-a",
+      "child-b",
+      "external-surface",
+    ]);
+  });
+
   it("resolves child-viewport drag autoscroll and clamps to content bounds", () => {
     const scene = resolveGpuFlowSceneLayout(
       sceneWithSections([

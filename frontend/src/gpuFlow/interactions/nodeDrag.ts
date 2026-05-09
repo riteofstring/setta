@@ -84,6 +84,12 @@ type PendingGpuNodeDrag = {
   lastScreenPoint: GpuPoint;
 };
 
+type GpuNodeDragPointerTarget = {
+  readonly nodeElement: HTMLElement;
+  readonly nodeId: string;
+  readonly preventBackgroundInteraction: boolean;
+};
+
 type ActiveGpuNodeDrag = PendingGpuNodeDrag & {
   items: readonly GpuNodeDragItem[];
   lastPointerFlow: GpuPoint;
@@ -245,11 +251,11 @@ class GpuNodeDragController {
   }
 
   attach() {
-    this.element.addEventListener("pointerdown", this.onPointerDown);
+    this.element.addEventListener("pointerdown", this.onPointerDown, true);
   }
 
   destroy() {
-    this.element.removeEventListener("pointerdown", this.onPointerDown);
+    this.element.removeEventListener("pointerdown", this.onPointerDown, true);
     this.removeDocumentListeners();
     this.cancelDragFrameLoop();
     this.cancelActiveDrag();
@@ -259,25 +265,29 @@ class GpuNodeDragController {
     if (!this.shouldStartPointerDrag(event)) {
       return;
     }
-    const nodeElement = getEventNodeElement(event);
-    const nodeId = nodeElement?.dataset.id ?? null;
-    if (!nodeElement || !nodeId) {
-      return;
-    }
-
     const startScreenPoint = getEventPointRelativeToElement(
       event,
       this.element,
     );
+    const startFlowPoint = this.screenPointToFlowPoint(startScreenPoint);
+    const target = this.resolvePointerDragTarget(event, startFlowPoint);
+    if (!target) {
+      return;
+    }
+    if (target.preventBackgroundInteraction) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
     this.pendingDrag = {
       lastScreenPoint: startScreenPoint,
-      nodeElement,
-      nodeId,
+      nodeElement: target.nodeElement,
+      nodeId: target.nodeId,
       pointerId: event.pointerId,
-      startFlowPoint: this.screenPointToFlowPoint(startScreenPoint),
+      startFlowPoint,
       startScreenPoint,
     };
-    nodeElement.setPointerCapture?.(event.pointerId);
+    target.nodeElement.setPointerCapture?.(event.pointerId);
     this.addDocumentListeners();
     if (
       (this.options.nodeDragThresholdPx ?? DEFAULT_NODE_DRAG_THRESHOLD_PX) <= 0
@@ -357,19 +367,64 @@ class GpuNodeDragController {
     if (event.button !== 0) {
       return false;
     }
-    const nodeElement = getEventNodeElement(event);
-    if (!nodeElement) {
-      return false;
+    return true;
+  }
+
+  private resolvePointerDragTarget(
+    event: PointerEvent,
+    flowPoint: GpuPoint,
+  ): GpuNodeDragPointerTarget | null {
+    const domTarget = this.resolveDomPointerDragTarget(event);
+    if (domTarget !== undefined) {
+      return domTarget;
     }
-    const nodeId = nodeElement.dataset.id;
-    if (nodeId && this.options.canDragNode?.(nodeId) === false) {
-      return false;
+    return this.resolveLayoutPointerDragTarget(event, flowPoint);
+  }
+
+  private resolveDomPointerDragTarget(
+    event: PointerEvent,
+  ): GpuNodeDragPointerTarget | null | undefined {
+    const domNodeElement = getEventNodeElement(event);
+    if (!domNodeElement) {
+      return undefined;
     }
-    return !isEventTargetWrappedWithClass(
-      event,
-      NO_DRAG_CLASS_NAME,
-      nodeElement,
+    const nodeId = domNodeElement.dataset.id;
+    if (!nodeId || this.options.canDragNode?.(nodeId) === false) {
+      return null;
+    }
+    if (
+      isEventTargetWrappedWithClass(event, NO_DRAG_CLASS_NAME, domNodeElement)
+    ) {
+      return null;
+    }
+    return {
+      nodeElement: domNodeElement,
+      nodeId,
+      preventBackgroundInteraction: false,
+    };
+  }
+
+  private resolveLayoutPointerDragTarget(
+    event: PointerEvent,
+    flowPoint: GpuPoint,
+  ): GpuNodeDragPointerTarget | null {
+    if (
+      isEventTargetWrappedWithClass(event, NO_DRAG_CLASS_NAME, this.element)
+    ) {
+      return null;
+    }
+    const hitNode = getGpuNodeLayoutAtFlowPoint(
+      this.layoutStore.getState().getNodes(),
+      flowPoint,
     );
+    if (!hitNode || this.options.canDragNode?.(hitNode.nodeId) === false) {
+      return null;
+    }
+    return {
+      nodeElement: this.element,
+      nodeId: hitNode.nodeId,
+      preventBackgroundInteraction: true,
+    };
   }
 
   private isDragThresholdMet(drag: PendingGpuNodeDrag): boolean {
@@ -670,6 +725,27 @@ function getDraggedNodeIds(
     return selectedIds;
   }
   return new Set([nodeId]);
+}
+
+function getGpuNodeLayoutAtFlowPoint(
+  nodes: readonly GpuNodeLayout[],
+  point: GpuPoint,
+): GpuNodeLayout | null {
+  for (let index = nodes.length - 1; index >= 0; index -= 1) {
+    const node = nodes[index];
+    if (!node || node.width === null || node.height === null) {
+      continue;
+    }
+    if (
+      point.x >= node.x &&
+      point.x <= node.x + node.width &&
+      point.y >= node.y &&
+      point.y <= node.y + node.height
+    ) {
+      return node;
+    }
+  }
+  return null;
 }
 
 function snapGpuNodePosition(

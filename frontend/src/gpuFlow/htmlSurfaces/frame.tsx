@@ -84,6 +84,7 @@ export type GpuVisibleNodeQuad = {
 
 export type GpuHtmlSurfaceOverlayLayout = {
   readonly height: number;
+  readonly ownerNodeId?: string | undefined;
   readonly surfaceId: string;
   readonly width: number;
   readonly x: number;
@@ -358,6 +359,10 @@ export function renderHtmlSurfaceFrame({
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
   );
+  const activeSurfaceIds = getActiveHtmlSurfaceIds(
+    activeNodeIds,
+    htmlSurfaceOverlays,
+  );
   const retainedNodeIds = mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds);
   const nodeSurfaceIds = new Set(nodes.map((node) => node.nodeId));
   const visibleQuads = collectVisibleGpuNodeQuads({
@@ -402,7 +407,7 @@ export function renderHtmlSurfaceFrame({
       });
 
   const missingElementNodeIds = registerVisibleGpuNodeTextures({
-    activeNodeIds,
+    activeSurfaceIds,
     deferResolutionUpdates,
     devicePixelRatio: canvasSize.devicePixelRatio,
     elementByNodeId,
@@ -487,7 +492,7 @@ export function renderHtmlSurfaceFrame({
 }
 
 function registerVisibleGpuNodeTextures({
-  activeNodeIds,
+  activeSurfaceIds,
   deferResolutionUpdates,
   devicePixelRatio,
   elementByNodeId,
@@ -496,7 +501,7 @@ function registerVisibleGpuNodeTextures({
   textureManager,
   viewport,
 }: {
-  readonly activeNodeIds: ReadonlySet<string>;
+  readonly activeSurfaceIds: ReadonlySet<string>;
   readonly deferResolutionUpdates: boolean | undefined;
   readonly devicePixelRatio: number;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -516,18 +521,37 @@ function registerVisibleGpuNodeTextures({
     textureManager.registerSurfaceTexture({
       cssHeight: quad.height,
       cssWidth: quad.width,
-      ...(deferResolutionUpdates && !activeNodeIds.has(quad.nodeId)
+      ...(deferResolutionUpdates && !activeSurfaceIds.has(quad.nodeId)
         ? { deferResolution: true }
         : {}),
       devicePixelRatio,
       element,
       frame,
-      priority: resolveVisibleNodeTexturePriority(quad.nodeId, activeNodeIds),
+      priority: resolveVisibleNodeTexturePriority(
+        quad.nodeId,
+        activeSurfaceIds,
+      ),
       surfaceId: quad.nodeId,
       zoom,
     });
   }
   return missingElementNodeIds;
+}
+
+function getActiveHtmlSurfaceIds(
+  activeNodeIds: ReadonlySet<string>,
+  overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
+): ReadonlySet<string> {
+  if (activeNodeIds.size === 0) {
+    return activeNodeIds;
+  }
+  const activeSurfaceIds = new Set(activeNodeIds);
+  for (const overlay of overlays ?? []) {
+    if (overlay.ownerNodeId && activeNodeIds.has(overlay.ownerNodeId)) {
+      activeSurfaceIds.add(overlay.surfaceId);
+    }
+  }
+  return activeSurfaceIds;
 }
 
 function uploadGpuNodeTextures({

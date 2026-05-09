@@ -892,10 +892,14 @@ export async function loadProjectConfig(
 export async function createCallableSection(
   page: Page,
   projectConfigId: string,
+  options: {
+    position?: { x: number; y: number } | null;
+  } = {},
 ): Promise<string> {
   const response = await createTopLevelSectionFromFrontend(page, {
     projectConfigId,
     implType: "Callable",
+    position: options.position ?? null,
   });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
@@ -915,8 +919,8 @@ export async function applyProjectMutationsFromFrontend(
       "/tests/e2e/browserAppSubsystemSdk.ts"
     );
     const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
-      await import("/src/state/actions/sectionInfos");
-    const openAPI = await import("/src/openapi/http");
+      await import("/src/state/actions/sectionInfos.ts");
+    const openAPI = await import("/src/openapi/http/index.ts");
     const { getLatestProjectState } = openAPI;
 
     if (getCurrProjectConfigId() !== input.projectConfigId) {

@@ -59,6 +59,9 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
   );
 }
 
+const PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS =
+  "relative h-full min-w-0 bg-white shadow-[0_0_0_2px_rgba(37,99,235,0.85),0_0_0_5px_rgba(37,99,235,0.18)] dark:bg-setta-900 dark:shadow-[0_0_0_2px_rgba(96,165,250,0.9),0_0_0_5px_rgba(96,165,250,0.25)]";
+
 function ProjectGpuParamControlDomIsland({
   activation,
   contentRect,
@@ -87,8 +90,10 @@ function ProjectGpuParamControlDomIsland({
 
   return (
     <div
-      className="relative h-full min-w-0 bg-white dark:bg-setta-900"
+      className={PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS}
+      data-gpu-flow-retained-content-native="true"
       data-gpu-project-param-dom-island="true"
+      data-gpu-project-param-dom-island-editor="codemirror-dom"
       data-param-id={paramInfoId}
       data-section-id={sectionId}
       ref={rootRef}
@@ -178,7 +183,9 @@ function ProjectGpuParamNameDomIsland({
 
   return (
     <div
-      className="relative h-full min-w-0 bg-white dark:bg-setta-900"
+      className={PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS}
+      data-gpu-flow-retained-content-native="true"
+      data-gpu-project-param-dom-island-editor="codemirror-dom"
       data-gpu-project-param-name-dom-island="true"
       data-param-id={paramInfoId}
       data-section-id={sectionId}

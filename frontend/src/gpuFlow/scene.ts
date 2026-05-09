@@ -181,6 +181,22 @@ export function createGpuFlowContentSurfacesFromSections(
   ]).filter(isGpuContentSurfaceInsideClip);
 }
 
+export function getGpuFlowExternalContentSurfaces(
+  sections: readonly GpuSectionSceneNode[],
+  contentSurfaces: readonly GpuContentSurface[],
+): readonly GpuContentSurface[] {
+  const sectionSurfaceIds = new Set(
+    sections.flatMap((section) =>
+      section.contentRenderer.kind === "scene-only"
+        ? []
+        : [section.contentRenderer.surfaceId],
+    ),
+  );
+  return contentSurfaces.filter(
+    (surface) => !sectionSurfaceIds.has(surface.id),
+  );
+}
+
 function isGpuSectionSceneNodeInsideClip(
   section: GpuSectionSceneNode,
 ): boolean {

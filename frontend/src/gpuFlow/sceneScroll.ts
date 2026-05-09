@@ -3,6 +3,7 @@ import type {
   GpuSectionSceneLayoutMode,
   GpuSectionSceneNode,
 } from "./scene";
+import { getGpuFlowExternalContentSurfaces } from "./scene";
 import { resolveGpuFlowSceneLayout } from "./sceneLayout";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -55,6 +56,10 @@ export function applyGpuSectionSceneScrollOffsets(
   }
   return resolveGpuFlowSceneLayout({
     ...scene,
+    contentSurfaces: getGpuFlowExternalContentSurfaces(
+      scene.sections,
+      scene.contentSurfaces,
+    ),
     sections: scene.sections.map((section) =>
       applyGpuSectionSceneNodeScrollOffset(section, scrollOffsets),
     ),

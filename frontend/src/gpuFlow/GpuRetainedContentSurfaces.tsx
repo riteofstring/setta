@@ -140,6 +140,7 @@ function toGpuRetainedContentSurfaceLayout(
 ): GpuHtmlSurfaceOverlayLayout {
   return {
     height: surface.rect.height,
+    ownerNodeId: surface.ownerSectionId,
     surfaceId: surface.id,
     width: surface.rect.width,
     x: surface.rect.x,

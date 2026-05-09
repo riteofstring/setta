@@ -614,6 +614,59 @@ describe("HTML surface frame helpers", () => {
     });
   });
 
+  it("keeps retained overlays owned by active nodes at active resolution during interactions", () => {
+    const sectionElement = document.createElement("div");
+    const retainedElement = document.createElement("div");
+    const elements = new Map([
+      ["section-a", sectionElement],
+      ["section-a:param-content:unpinned", retainedElement],
+    ]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderHtmlSurfaceFrame({
+      activeNodeId: "section-a",
+      canvasSize: canvasSize(),
+      deferResolutionUpdates: true,
+      elementByNodeId: elements,
+      frame: 1,
+      htmlSurfaceOverlays: [
+        surfaceOverlay(
+          "section-a:param-content:unpinned",
+          10,
+          20,
+          120,
+          40,
+          1,
+          "section-a",
+        ),
+      ],
+      nodes: [node("section-a", 10, 20, 120, 100, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1.5],
+    });
+
+    const sectionCall = getRegisterTextureCall(manager, "section-a");
+    const retainedCall = getRegisterTextureCall(
+      manager,
+      "section-a:param-content:unpinned",
+    );
+
+    expect(sectionCall).toMatchObject({
+      element: sectionElement,
+      priority: "interactive",
+      surfaceId: "section-a",
+    });
+    expect(retainedCall).toMatchObject({
+      element: retainedElement,
+      priority: "interactive",
+      surfaceId: "section-a:param-content:unpinned",
+    });
+    expect(sectionCall).not.toHaveProperty("deferResolution");
+    expect(retainedCall).not.toHaveProperty("deferResolution");
+  });
+
   it("keeps active node GPU quads rendered during interaction", () => {
     const active = document.createElement("div");
     const passive = document.createElement("div");
@@ -1146,15 +1199,30 @@ function surfaceOverlay(
   width: number,
   height: number,
   zIndex: number,
+  ownerNodeId?: string,
 ): GpuHtmlSurfaceOverlayLayout {
   return {
     height,
+    ownerNodeId,
     surfaceId,
     width,
     x,
     y,
     zIndex,
   };
+}
+
+function getRegisterTextureCall(
+  manager: ReturnType<typeof createFrameTextureManager>,
+  surfaceId: string,
+) {
+  const call = manager.registerSurfaceTexture.mock.calls.find(
+    ([input]) => input.surfaceId === surfaceId,
+  );
+  if (!call) {
+    throw new Error(`Missing registerSurfaceTexture call for ${surfaceId}.`);
+  }
+  return call[0];
 }
 
 function mockElementBox(
