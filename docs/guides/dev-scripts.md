@@ -61,7 +61,7 @@ quality, type, and dead-code scripts live under `scripts/`.
   - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` apply separately).
   - Frontend tests: ESLint complexity-only checks on selected test files, failing at complexity `>= 10`.
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
-  - Go tests: pinned `gocyclo` checks on selected test files, failing at complexity `>= 40`.
+  - Go tests: pinned `gocyclo` checks on selected test files, failing at complexity `>= 20`.
   - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language or test `--*-max` thresholds.
 - `./scripts/typecheck/report.sh`
   - Runs full-repo type checks across Go, Python, and frontend TypeScript packages.
@@ -76,7 +76,7 @@ quality, type, and dead-code scripts live under `scripts/`.
   - Supports `--git-changes`, `--staged`, `--files <path>...`, and `--go` / `--python` / `--frontend`.
 - `./scripts/quality/report_complexity.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Go tests, Python, frontend, and frontend tests.
-  - Defaults to the top `20` hotspots per section and uses the same default threshold floor as `./scripts/quality/check.sh`: Python `10`, frontend `10`, frontend tests `10`, Go `12`, Go tests `40`.
+  - Defaults to the top `20` hotspots per section and uses the same default threshold floor as `./scripts/quality/check.sh`: Python `10`, frontend `10`, frontend tests `10`, Go `12`, Go tests `20`.
   - Supports `--top`, `--python-min`, `--frontend-min`, `--frontend-test-min`, `--go-min`, and `--go-test-min` to narrow the report.
   - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./scripts/quality/report_file_lengths.sh`

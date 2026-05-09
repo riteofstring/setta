@@ -78,7 +78,7 @@ frontend:
       # specs split while allowing this central test support surface.
       - "frontend/tests/e2e/helpers.ts"
     exclude_generated: true
-    max_lines: 1800
+    max_lines: 1200
   test_complexity:
     include_globs:
       - "frontend/src/**/*.test.*"
@@ -142,4 +142,4 @@ go_tests:
   generated_globs:
     - "**/*_gen.go"
   file_length:
-    max_lines: 2000
+    max_lines: 1500

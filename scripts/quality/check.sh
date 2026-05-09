@@ -20,7 +20,7 @@ Thresholds:
   --frontend-test-max N
                      Fail frontend JS/TS test cyclomatic complexity at >= N (default: 10).
   --go-max N         Fail Go cyclomatic complexity at >= N (default: 12).
-  --go-test-max N    Fail Go test cyclomatic complexity at >= N (default: 40).
+  --go-test-max N    Fail Go test cyclomatic complexity at >= N (default: 20).
   -h, --help         Show this help text.
 EOF
 }
