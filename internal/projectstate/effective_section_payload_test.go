@@ -8,6 +8,32 @@ import (
 func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t *testing.T) {
 	t.Parallel()
 
+	project := presetDrawLayerTestProject(t)
+	layers := []any{
+		map[string]any{
+			"name":         "Layer 1",
+			"visible":      false,
+			"layerOpacity": 0.5,
+			"elements": []any{
+				map[string]any{
+					"dataPath":    "foo",
+					"transformId": "bar",
+				},
+			},
+		},
+	}
+
+	if err := project.setCurrentSectionField("draw-section", "layers", layers); err != nil {
+		t.Fatalf("set preset draw layers: %v", err)
+	}
+	assertPresetDrawLayersAvoidSharedAndImplPayload(t, project)
+	assertStoredDrawLayer(t, project)
+	assertEffectiveDrawLayer(t, project)
+}
+
+func presetDrawLayerTestProject(t *testing.T) Project {
+	t.Helper()
+
 	project, err := Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
@@ -46,24 +72,11 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if err != nil {
 		t.Fatalf("normalize preset draw project: %v", err)
 	}
+	return project
+}
 
-	layers := []any{
-		map[string]any{
-			"name":         "Layer 1",
-			"visible":      false,
-			"layerOpacity": 0.5,
-			"elements": []any{
-				map[string]any{
-					"dataPath":    "foo",
-					"transformId": "bar",
-				},
-			},
-		},
-	}
-
-	if err := project.setCurrentSectionField("draw-section", "layers", layers); err != nil {
-		t.Fatalf("set preset draw layers: %v", err)
-	}
+func assertPresetDrawLayersAvoidSharedAndImplPayload(t *testing.T, project Project) {
+	t.Helper()
 
 	sharedModifier, err := rawObjectFromProjectPayload(project.Sections["draw-section"].SharedModifier)
 	if err != nil {
@@ -72,7 +85,6 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if _, ok := sharedModifier["layers"]; ok {
 		t.Fatalf("expected preset draw layers to avoid sharedModifier, got %#v", sharedModifier["layers"])
 	}
-
 	implPayload, err := rawObjectFromProjectPayload(project.SectionImpls["draw-impl"].Payload)
 	if err != nil {
 		t.Fatalf("decode draw impl payload: %v", err)
@@ -81,6 +93,10 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok || len(rawImplLayers) != 0 {
 		t.Fatalf("expected preset impl payload layers to stay empty, got %#v", implPayload["layers"])
 	}
+}
+
+func assertStoredDrawLayer(t *testing.T, project Project) {
+	t.Helper()
 
 	modifier, err := rawObjectFromProjectPayload(project.SectionVariants["draw-variant"].Modifier)
 	if err != nil {
@@ -94,15 +110,11 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok {
 		t.Fatalf("expected stored draw layer object, got %#v", storedLayers[0])
 	}
-	if storedLayer["name"] != "Layer 1" {
-		t.Fatalf("expected stored layer name Layer 1, got %#v", storedLayer["name"])
-	}
-	if storedLayer["visible"] != false {
-		t.Fatalf("expected stored layer visible=false, got %#v", storedLayer["visible"])
-	}
-	if storedLayer["layerOpacity"] != 0.5 {
-		t.Fatalf("expected stored layer opacity 0.5, got %#v", storedLayer["layerOpacity"])
-	}
+	assertDrawLayerFields(t, storedLayer, "stored")
+}
+
+func assertEffectiveDrawLayer(t *testing.T, project Project) {
+	t.Helper()
 
 	effectivePayload, err := effectiveSectionPayload(project, "draw-section", "draw-variant")
 	if err != nil {
@@ -116,14 +128,20 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok {
 		t.Fatalf("expected effective draw layer object, got %#v", effectiveLayers[0])
 	}
-	if effectiveLayer["name"] != "Layer 1" {
-		t.Fatalf("expected effective layer name Layer 1, got %#v", effectiveLayer["name"])
+	assertDrawLayerFields(t, effectiveLayer, "effective")
+}
+
+func assertDrawLayerFields(t *testing.T, layer map[string]any, contextLabel string) {
+	t.Helper()
+
+	if layer["name"] != "Layer 1" {
+		t.Fatalf("expected %s layer name Layer 1, got %#v", contextLabel, layer["name"])
 	}
-	if effectiveLayer["visible"] != false {
-		t.Fatalf("expected effective layer visible=false, got %#v", effectiveLayer["visible"])
+	if layer["visible"] != false {
+		t.Fatalf("expected %s layer visible=false, got %#v", contextLabel, layer["visible"])
 	}
-	if effectiveLayer["layerOpacity"] != 0.5 {
-		t.Fatalf("expected effective layer opacity 0.5, got %#v", effectiveLayer["layerOpacity"])
+	if layer["layerOpacity"] != 0.5 {
+		t.Fatalf("expected %s layer opacity 0.5, got %#v", contextLabel, layer["layerOpacity"])
 	}
 }
 

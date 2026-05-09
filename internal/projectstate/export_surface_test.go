@@ -24,33 +24,49 @@ func TestProjectStatePackageDoesNotDeclareLoggerSymbol(t *testing.T) {
 		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
+		assertGoFileDoesNotDeclareLoggerSymbol(t, fset, name)
+	}
+}
 
-		file, err := parser.ParseFile(fset, filepath.Join(".", name), nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s: %v", name, err)
+func assertGoFileDoesNotDeclareLoggerSymbol(t *testing.T, fset *token.FileSet, name string) {
+	t.Helper()
+
+	file, err := parser.ParseFile(fset, filepath.Join(".", name), nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", name, err)
+	}
+	for _, decl := range file.Decls {
+		assertDeclDoesNotDeclareLoggerSymbol(t, name, decl)
+	}
+}
+
+func assertDeclDoesNotDeclareLoggerSymbol(t *testing.T, fileName string, decl ast.Decl) {
+	t.Helper()
+
+	switch typed := decl.(type) {
+	case *ast.FuncDecl:
+		if typed.Recv == nil && typed.Name != nil && typed.Name.Name == "logger" {
+			t.Fatalf("unexpected top-level logger function declared in %s", fileName)
 		}
+	case *ast.GenDecl:
+		for _, spec := range typed.Specs {
+			assertSpecDoesNotDeclareLoggerSymbol(t, fileName, spec)
+		}
+	}
+}
 
-		for _, decl := range file.Decls {
-			switch typed := decl.(type) {
-			case *ast.FuncDecl:
-				if typed.Recv == nil && typed.Name != nil && typed.Name.Name == "logger" {
-					t.Fatalf("unexpected top-level logger function declared in %s", name)
-				}
-			case *ast.GenDecl:
-				for _, spec := range typed.Specs {
-					switch typedSpec := spec.(type) {
-					case *ast.TypeSpec:
-						if typedSpec.Name != nil && typedSpec.Name.Name == "logger" {
-							t.Fatalf("unexpected top-level logger type declared in %s", name)
-						}
-					case *ast.ValueSpec:
-						for _, ident := range typedSpec.Names {
-							if ident != nil && ident.Name == "logger" {
-								t.Fatalf("unexpected top-level logger value declared in %s", name)
-							}
-						}
-					}
-				}
+func assertSpecDoesNotDeclareLoggerSymbol(t *testing.T, fileName string, spec ast.Spec) {
+	t.Helper()
+
+	switch typedSpec := spec.(type) {
+	case *ast.TypeSpec:
+		if typedSpec.Name != nil && typedSpec.Name.Name == "logger" {
+			t.Fatalf("unexpected top-level logger type declared in %s", fileName)
+		}
+	case *ast.ValueSpec:
+		for _, ident := range typedSpec.Names {
+			if ident != nil && ident.Name == "logger" {
+				t.Fatalf("unexpected top-level logger value declared in %s", fileName)
 			}
 		}
 	}
