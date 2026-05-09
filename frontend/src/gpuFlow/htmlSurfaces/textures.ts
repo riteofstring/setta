@@ -23,15 +23,18 @@ import {
 } from "./textureDirtyTiles";
 import {
   compareSurfaceIds,
+  getHtmlSurfaceTextureUsage,
   getNow,
   isMissingElementPaintRecordError,
   isResolutionOnlyDirtySurface,
+  normalizeTextureBudgetBytes,
   normalizeSurfaceIdSet,
   resolveDirtyFlags,
   shouldDeferDirtySurfaceUpload,
   shouldStopUploadLoop,
 } from "./textureManagerHelpers";
 import { createHtmlSurfaceTextureMemorySnapshot } from "./textureMemorySnapshot";
+import { HtmlSurfaceTexturePaintDeferral } from "./texturePaintDeferral";
 import {
   createTextureUploadBudget,
   pendingTextureResolutionMatches,
@@ -132,6 +135,7 @@ type MarkHtmlSurfaceTextureDirtyInput = Pick<
   DirtyNodeMark,
   "content" | "frame" | "priority" | "reason" | "resolution"
 > & {
+  readonly deferUploadUntilPaint?: boolean | undefined;
   readonly requestPaint?: boolean | undefined;
   readonly sourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly surfaceId: string;
@@ -205,7 +209,6 @@ type HtmlSurfaceTextureEntry = Mutable<HtmlSurfaceTextureRecord> & {
   pendingTextureRecord: PendingHtmlSurfaceTextureRecord | null;
 };
 const DEFAULT_HTML_SURFACE_TEXTURE_FORMAT = "rgba8unorm";
-const DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES = 384 * 1024 * 1024;
 
 export class HtmlSurfaceTextureManager {
   private readonly canvas: HtmlInCanvasCanvas | null;
@@ -215,6 +218,7 @@ export class HtmlSurfaceTextureManager {
   private readonly maxTextureBytes: number;
   private readonly maxTextureDimension2D: number;
   private readonly maxTextureTileDimension2D: number;
+  private readonly paintDeferral = new HtmlSurfaceTexturePaintDeferral();
   private readonly records = new Map<string, HtmlSurfaceTextureEntry>();
   private readonly textureUsage: GPUTextureUsageFlags;
 
@@ -240,6 +244,7 @@ export class HtmlSurfaceTextureManager {
     }
     this.records.clear();
     this.dirtyQueue.clearAll();
+    this.paintDeferral.clear();
   }
   destroySurfaceTexture(surfaceId: string) {
     const record = this.records.get(surfaceId);
@@ -249,6 +254,7 @@ export class HtmlSurfaceTextureManager {
     destroyTextureRecord(record);
     this.records.delete(surfaceId);
     this.dirtyQueue.clear(surfaceId);
+    this.paintDeferral.deleteSurface(surfaceId);
   }
   getDirtySurfaces(): DirtyHtmlSurfaceTextureState[] {
     return this.dirtyQueue
@@ -277,6 +283,7 @@ export class HtmlSurfaceTextureManager {
   }
 
   markSurfaceTextureDirty(input: MarkHtmlSurfaceTextureDirtyInput) {
+    this.paintDeferral.markDirty(input);
     const dirtyFlags = resolveDirtyFlags(input);
     const record = this.records.get(input.surfaceId);
     const shouldQueueDirtySurface = record
@@ -297,6 +304,10 @@ export class HtmlSurfaceTextureManager {
     if (shouldQueueDirtySurface && input.requestPaint !== false) {
       this.canvas?.requestPaint();
     }
+  }
+
+  markSurfacesPainted(surfaceIds: Iterable<string>) {
+    this.paintDeferral.markSurfacesPainted(surfaceIds);
   }
 
   registerSurfaceTexture(
@@ -489,10 +500,13 @@ export class HtmlSurfaceTextureManager {
     maxUploads = Number.POSITIVE_INFINITY,
     now = getNow,
   }: UploadDirtyHtmlSurfaceTexturesOptions): UploadDirtyHtmlSurfaceTexturesResult {
+    const normalizedDeferSurfaceIds = this.paintDeferral.resolveDeferredSurfaceIds(
+      normalizeSurfaceIdSet(deferSurfaceIds),
+    );
     const uploadOptions = {
       deferPassiveUploads,
       deferResolutionOnly,
-      deferSurfaceIds: normalizeSurfaceIdSet(deferSurfaceIds),
+      deferSurfaceIds: normalizedDeferSurfaceIds,
       frame,
       maxBytes,
       maxDurationMs,
@@ -506,6 +520,10 @@ export class HtmlSurfaceTextureManager {
       uploaded,
       uploadedBytes,
     } = this.uploadQueuedDirtySurfaceTextures(uploadOptions);
+    this.paintDeferral.clearSurfaceIds([
+      ...uploaded.map(({ record }) => record.surfaceId),
+      ...skippedSurfaceIds,
+    ]);
     const remainingDirtySurfaces = this.dirtyQueue.orderedDirtyNodes();
     const uploadableRemainingDirtySurfaces = this.uploadableDirtySurfaces(
       remainingDirtySurfaces,
@@ -953,25 +971,6 @@ function toDirtySurfaceState(
     ...dirtyTileSummary,
     surfaceId: nodeId,
   };
-}
-
-function getHtmlSurfaceTextureUsage(): GPUTextureUsageFlags {
-  const usage = globalThis.GPUTextureUsage;
-  if (!usage) {
-    throw new Error("Setta GPU flow requires GPUTextureUsage constants.");
-  }
-  return usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT;
-}
-
-function normalizeTextureBudgetBytes(budgetBytes: number | undefined): number {
-  const resolvedBudgetBytes =
-    budgetBytes ?? DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES;
-  if (Number.isNaN(resolvedBudgetBytes) || resolvedBudgetBytes <= 0) {
-    throw new Error(
-      "Setta GPU flow HTML surface texture memory budget must be greater than zero bytes.",
-    );
-  }
-  return resolvedBudgetBytes;
 }
 
 function compareEvictableSurfaceTextureRecords(

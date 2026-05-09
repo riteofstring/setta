@@ -168,6 +168,7 @@ export function createFrameTextureManager() {
     }),
     getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
     markSurfaceTextureDirty: vi.fn(),
+    markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
       ({ surfaceId }: { readonly surfaceId: string }) => {
         const record = textureRecord(surfaceId) as HtmlSurfaceTextureRecord & {

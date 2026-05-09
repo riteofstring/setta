@@ -17,6 +17,29 @@ export function getNow(): number {
   return globalThis.performance.now();
 }
 
+const DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES = 384 * 1024 * 1024;
+
+export function getHtmlSurfaceTextureUsage(): GPUTextureUsageFlags {
+  const usage = globalThis.GPUTextureUsage;
+  if (!usage) {
+    throw new Error("Setta GPU flow requires GPUTextureUsage constants.");
+  }
+  return usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT;
+}
+
+export function normalizeTextureBudgetBytes(
+  budgetBytes: number | undefined,
+): number {
+  const resolvedBudgetBytes =
+    budgetBytes ?? DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES;
+  if (Number.isNaN(resolvedBudgetBytes) || resolvedBudgetBytes <= 0) {
+    throw new Error(
+      "Setta GPU flow HTML surface texture memory budget must be greater than zero bytes.",
+    );
+  }
+  return resolvedBudgetBytes;
+}
+
 export function shouldStopUploadLoop({
   options,
   startedAt,

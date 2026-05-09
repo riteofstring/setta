@@ -21,6 +21,7 @@ type HtmlSurfacePaintInvalidationInput = {
 type HtmlSurfacePaintInvalidationResult = {
   readonly dirtySurfaceInvalidations: readonly HtmlSurfacePaintSourceInvalidation[];
   readonly dirtySurfaceIds: readonly string[];
+  readonly paintedSurfaceIds: readonly string[];
   readonly transformOnlyPaintSurfaceIds: readonly string[];
 };
 
@@ -38,6 +39,10 @@ type ChangedSourceResolution =
       readonly surfaceId: string;
     }
   | {
+      readonly kind: "paint-only";
+      readonly surfaceId: string;
+    }
+  | {
       readonly kind: "transform-only";
       readonly surfaceId: string;
     };
@@ -52,6 +57,7 @@ export function resolveHtmlSurfacePaintInvalidation({
 }: HtmlSurfacePaintInvalidationInput): HtmlSurfacePaintInvalidationResult {
   const dirtySurfaceInvalidations: HtmlSurfacePaintSourceInvalidation[] = [];
   const dirtySurfaceIds = new Set<string>();
+  const paintedSurfaceIds = new Set<string>();
   const transformOnlyPaintSurfaceIds = new Set<string>();
   const transformOnlyIds = normalizeSurfaceIdSet(transformOnlySourceIds);
 
@@ -59,6 +65,7 @@ export function resolveHtmlSurfacePaintInvalidation({
     return {
       dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
+      paintedSurfaceIds: [],
       transformOnlyPaintSurfaceIds: [],
     };
   }
@@ -75,6 +82,10 @@ export function resolveHtmlSurfacePaintInvalidation({
     if (!resolution) {
       continue;
     }
+    paintedSurfaceIds.add(resolution.surfaceId);
+    if (resolution.kind === "paint-only") {
+      continue;
+    }
     if (resolution.kind === "transform-only") {
       transformOnlyPaintSurfaceIds.add(resolution.surfaceId);
       continue;
@@ -89,6 +100,7 @@ export function resolveHtmlSurfacePaintInvalidation({
   return {
     dirtySurfaceInvalidations,
     dirtySurfaceIds: [...dirtySurfaceIds],
+    paintedSurfaceIds: [...paintedSurfaceIds],
     transformOnlyPaintSurfaceIds: [...transformOnlyPaintSurfaceIds],
   };
 }
@@ -200,7 +212,10 @@ function resolveDirectSourcePaint({
     };
   }
   if (isExplicitDirtyHtmlSurfaceSource(sourceElement)) {
-    return null;
+    return {
+      kind: "paint-only",
+      surfaceId: sourceId,
+    };
   }
   return {
     kind: "content",

@@ -28,6 +28,7 @@ describe("HTML surface paint invalidation", () => {
     expect(result).toEqual({
       dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
+      paintedSurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: ["surface-a"],
     });
   });
@@ -48,6 +49,7 @@ describe("HTML surface paint invalidation", () => {
     expect(result).toEqual({
       dirtySurfaceInvalidations: [{ surfaceId: "surface-a" }],
       dirtySurfaceIds: ["surface-a"],
+      paintedSurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: ["surface-a"],
     });
   });
@@ -73,6 +75,7 @@ describe("HTML surface paint invalidation", () => {
     expect(result.dirtySurfaceInvalidations).toEqual([
       { surfaceId: "surface-a" },
     ]);
+    expect(result.paintedSurfaceIds).toEqual(["surface-a"]);
     expect(sources.iterationCount).toBe(0);
   });
 
@@ -117,6 +120,7 @@ describe("HTML surface paint invalidation", () => {
         },
       ],
       dirtySurfaceIds: ["surface-a"],
+      paintedSurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: [],
     });
   });
@@ -147,6 +151,7 @@ describe("HTML surface paint invalidation", () => {
         },
       ],
       dirtySurfaceIds: ["surface-a"],
+      paintedSurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: [],
     });
 
@@ -194,6 +199,7 @@ describe("HTML surface paint invalidation", () => {
     ).toEqual({
       dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
+      paintedSurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: [],
     });
 
@@ -255,6 +261,7 @@ describe("HTML surface paint invalidation", () => {
     expect(result).toEqual({
       dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
+      paintedSurfaceIds: [],
       transformOnlyPaintSurfaceIds: [],
     });
   });

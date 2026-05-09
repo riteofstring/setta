@@ -177,6 +177,8 @@ const PROJECT_SURFACE_STYLE: CSSProperties = {
   width: "100%",
 };
 
+const ignoreProjectGpuHoveredParamTargetChange = () => undefined;
+
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dimensions = useProjectSurfaceDimensions(rootRef);
@@ -203,15 +205,12 @@ export function GpuProjectSurface() {
   useEffect(() => {
     setRetainedPasswordRevealStates(new Map());
   }, [projectConfigId]);
-  const [hoveredParamTarget, setHoveredParamTarget] =
-    useState<ProjectGpuRetainedParamTarget | null>(null);
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
     useState<ProjectGpuRetainedParamDragPreview | null>(null);
   const layoutAdapter = useProjectGpuLayoutAdapter({
     activeParamCanvasControl,
     activeParamCanvasPopup,
     activeParamDomIsland,
-    hoveredParamTarget,
     passwordRevealStates: retainedPasswordRevealStates,
     retainedParamDragPreview,
   });
@@ -352,7 +351,7 @@ export function GpuProjectSurface() {
             setActiveParamCanvasPopup(null);
           }
         }}
-        onHoveredParamTargetChange={setHoveredParamTarget}
+        onHoveredParamTargetChange={ignoreProjectGpuHoveredParamTargetChange}
         onPasswordRevealStateChange={handleRetainedPasswordRevealStateChange}
         onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
         passwordRevealStates={retainedPasswordRevealStates}

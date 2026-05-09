@@ -259,7 +259,7 @@ type MarkHtmlSurfaceFramePaintDirtyInput = {
   readonly ignoreDirectNodeIds?: ReadonlySet<string> | readonly string[];
   readonly textureManager: Pick<
     HtmlSurfaceTextureManager,
-    "markSurfaceTextureDirty"
+    "markSurfaceTextureDirty" | "markSurfacesPainted"
   >;
 };
 
@@ -602,7 +602,7 @@ export function markHtmlSurfaceFramePaintDirty({
   ignoreDirectNodeIds,
   textureManager,
 }: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
-  const { dirtySurfaceIds, dirtySurfaceInvalidations } =
+  const { dirtySurfaceIds, dirtySurfaceInvalidations, paintedSurfaceIds } =
     resolveHtmlSurfacePaintInvalidation({
       changedElements,
       sourceElementBySurfaceId: elementByNodeId,
@@ -611,6 +611,8 @@ export function markHtmlSurfaceFramePaintDirty({
       surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
       transformOnlySourceIds: ignoreDirectNodeIds,
     });
+
+  textureManager.markSurfacesPainted(paintedSurfaceIds);
 
   for (const invalidation of dirtySurfaceInvalidations) {
     textureManager.markSurfaceTextureDirty({

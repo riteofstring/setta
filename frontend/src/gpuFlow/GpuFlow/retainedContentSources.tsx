@@ -23,6 +23,11 @@ import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
 
+type GpuFlowRetainedContentSourceTextureManager = Pick<
+  HtmlSurfaceTextureManager,
+  "destroySurfaceTexture" | "markSurfaceTextureDirty"
+>;
+
 export function useGpuFlowRetainedContentSources({
   activeResizeNodeIdRef,
   nodeDomTransformSyncCacheRef,
@@ -39,7 +44,7 @@ export function useGpuFlowRetainedContentSources({
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
+  readonly textureManagerRef: MutableRefObject<GpuFlowRetainedContentSourceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }): {
   readonly retainedContentSourceElement: ReactNode;

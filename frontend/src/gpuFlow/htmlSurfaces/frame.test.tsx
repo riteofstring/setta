@@ -31,7 +31,10 @@ import {
   textureRecord,
   toVisibleQuad,
 } from "./frame.helpers.test";
-import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
+import {
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
+  HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
+} from "./sourceDom";
 import { HtmlSurfaceTextureManager } from "./textures";
 
 describe("HTML surface frame helpers", () => {
@@ -981,6 +984,7 @@ describe("HTML surface frame helpers", () => {
     }
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -992,6 +996,7 @@ describe("HTML surface frame helpers", () => {
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
     expect(elementByNodeId.iterationCount).toBe(0);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 7,
@@ -1005,6 +1010,7 @@ describe("HTML surface frame helpers", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1015,6 +1021,7 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 8,
@@ -1030,6 +1037,7 @@ describe("HTML surface frame helpers", () => {
     nodeElement.append(child);
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1041,6 +1049,7 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
@@ -1055,6 +1064,7 @@ describe("HTML surface frame helpers", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1066,6 +1076,30 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+  });
+
+  it("tracks explicit dirty source paints without marking them dirty again", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    nodeElement.setAttribute(
+      HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
+      "true",
+    );
+    const manager = {
+      markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
+    };
+
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
+      changedElements: [nodeElement],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
     expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 
@@ -1075,6 +1109,7 @@ describe("HTML surface frame helpers", () => {
     wrapper.append(nodeElement);
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1085,6 +1120,7 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 9,
@@ -1098,6 +1134,7 @@ describe("HTML surface frame helpers", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1107,6 +1144,7 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith([]);
     expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 
@@ -1118,6 +1156,7 @@ describe("HTML surface frame helpers", () => {
     canvas.append(nodeElement);
     const manager = {
       markSurfaceTextureDirty: vi.fn(),
+      markSurfacesPainted: vi.fn(),
     };
 
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
@@ -1128,6 +1167,7 @@ describe("HTML surface frame helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith([]);
     expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 });

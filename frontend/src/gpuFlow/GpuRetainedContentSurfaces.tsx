@@ -6,9 +6,9 @@ import {
 } from "./animationFrame";
 import type { GpuHtmlSurfaceOverlayLayout } from "./htmlSurfaces/frame";
 import {
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_SOURCE_CLASS_NAME,
-  HtmlSurfaceSourceLayer,
-  type HtmlSurfaceSourceElementConfig,
+  HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
 } from "./htmlSurfaces/sourceLayer";
 import {
   drawGpuRetainedContentCommand,
@@ -101,20 +101,18 @@ export function GpuRetainedContentSurfaceLayer({
     return null;
   }
   return (
-    <HtmlSurfaceSourceLayer
-      configureSourceElement={configureGpuRetainedContentSourceElement}
-      getSourceId={getGpuRetainedContentRenderableSourceId}
-      onSourceElementChange={onSurfaceElementChange}
-      renderSource={(source) => (
+    <>
+      {retainedSources.map((source) => (
         <GpuRetainedContentCanvas
+          key={source.sourceId}
+          onSurfaceElementChange={onSurfaceElementChange}
           onSurfaceDraw={onSurfaceDraw}
+          sourceId={source.sourceId}
           surface={source.surface}
           switchAnimations={switchAnimations}
         />
-      )}
-      sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME}`}
-      sources={retainedSources}
-    />
+      ))}
+    </>
   );
 }
 
@@ -132,6 +130,59 @@ export function getGpuRetainedContentSourceIdsForSurface(
   return getGpuRetainedContentSourceSurfaces([surface]).map(
     (source) => source.id,
   );
+}
+
+export function getGpuRetainedContentSourceRectForRows({
+  rowIds,
+  surface,
+}: {
+  readonly rowIds: Iterable<string>;
+  readonly surface: GpuRetainedContentSurface;
+}): GpuRect | null {
+  const rowIdSet = new Set(rowIds);
+  if (rowIdSet.size === 0) {
+    return null;
+  }
+  const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
+  const sourceInput = getGpuRetainedContentSceneSourceInput(
+    surface.retainedScene,
+  );
+  if (!sourceSurface || !sourceInput) {
+    return null;
+  }
+  const textureBounds: GpuRect = {
+    height: sourceSurface.textureWindow.textureHeight,
+    width: sourceSurface.textureWindow.textureWidth,
+    x: 0,
+    y: 0,
+  };
+  let dirtyRect: GpuRect | null = null;
+  for (const rowMetric of sourceInput.layout.rowMetrics) {
+    if (!rowIdSet.has(rowMetric.input.id)) {
+      continue;
+    }
+    const clippedRowRect = intersectGpuRetainedContentRects(
+      {
+        height: sourceInput.rowHeight,
+        width: sourceSurface.textureWindow.cacheViewportRect.width,
+        x:
+          sourceSurface.textureWindow.cacheViewportRect.x -
+          sourceSurface.textureWindow.cacheScrollOffset.x,
+        y:
+          sourceSurface.textureWindow.cacheViewportRect.y +
+          rowMetric.y -
+          sourceSurface.textureWindow.cacheScrollOffset.y,
+      },
+      textureBounds,
+    );
+    if (clippedRowRect.width <= 0 || clippedRowRect.height <= 0) {
+      continue;
+    }
+    dirtyRect = dirtyRect
+      ? unionGpuRetainedContentRects(dirtyRect, clippedRowRect)
+      : clippedRowRect;
+  }
+  return dirtyRect;
 }
 
 function toGpuRetainedContentSurfaceLayout({
@@ -184,9 +235,7 @@ export function redrawGpuRetainedContentSourceElement({
   if (!sourceSurface) {
     return null;
   }
-  const canvas = element.querySelector<HTMLCanvasElement>(
-    '[data-gpu-flow-retained-content-canvas="true"]',
-  );
+  const canvas = getGpuRetainedContentCanvasElement(element);
   if (!canvas) {
     return null;
   }
@@ -205,13 +254,19 @@ export function redrawGpuRetainedContentSourceElement({
 }
 
 function GpuRetainedContentCanvas({
+  onSurfaceElementChange,
   onSurfaceDraw,
+  sourceId,
   surface,
   switchAnimations,
 }: {
+  readonly onSurfaceElementChange?:
+    | ((surfaceId: string, element: HTMLElement | null) => void)
+    | undefined;
   readonly onSurfaceDraw?:
     | ((surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => void)
     | undefined;
+  readonly sourceId: string;
   readonly surface: GpuRetainedContentSourceSurface;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
@@ -225,6 +280,17 @@ function GpuRetainedContentCanvas({
       switchAnimations?.clearSurface(surface.id);
     };
   }, [surface.id, switchAnimations]);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    onSurfaceElementChange?.(sourceId, canvas);
+    return () => {
+      onSurfaceElementChange?.(sourceId, null);
+    };
+  }, [onSurfaceElementChange, sourceId]);
 
   useLayoutEffect(() => {
     const cancelPendingAnimationFrame = () => {
@@ -308,11 +374,17 @@ function GpuRetainedContentCanvas({
 
   return (
     <canvas
+      {...getGpuRetainedContentSourceAttributes(sourceId)}
       aria-hidden="true"
+      className={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME}`}
       data-gpu-flow-retained-content-canvas="true"
       data-gpu-flow-retained-content-id={surface.id}
+      data-gpu-flow-retained-content-source="true"
+      data-owner-section-id={surface.ownerSectionId}
+      data-retained-content-source-kind="content"
+      data-testid={`gpu-retained-content-source-${sourceId}`}
       ref={canvasRef}
-      style={getGpuRetainedContentCanvasStyle(surface)}
+      style={getGpuRetainedContentCanvasSourceStyle(surface)}
     />
   );
 }
@@ -473,29 +545,6 @@ function getGpuRetainedContentSourceNowMs(): number {
   return Date.now();
 }
 
-function configureGpuRetainedContentSourceElement({
-  host,
-  source,
-}: HtmlSurfaceSourceElementConfig<GpuRetainedContentRenderableSource>) {
-  host.dataset.gpuFlowRetainedContentSource = "true";
-  host.dataset.ownerSectionId = source.surface.ownerSectionId;
-  host.dataset.retainedContentSourceKind = "content";
-  host.setAttribute(
-    "data-testid",
-    `gpu-retained-content-source-${source.sourceId}`,
-  );
-  const style = getGpuRetainedContentSourceStyle(source.surface);
-  host.style.height = `${style.height}px`;
-  host.style.overflow = "hidden";
-  host.style.width = `${style.width}px`;
-}
-
-function getGpuRetainedContentRenderableSourceId(
-  source: GpuRetainedContentRenderableSource,
-): string {
-  return source.sourceId;
-}
-
 function getGpuRetainedContentRenderableSources(
   surfaces: readonly GpuContentSurface[] | undefined,
 ): readonly GpuRetainedContentRenderableSource[] {
@@ -562,14 +611,42 @@ function prepareGpuRetainedContentCanvas(
   ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function getGpuRetainedContentCanvasStyle(
+function getGpuRetainedContentCanvasSourceStyle(
   surface: GpuRetainedContentSourceSurface,
 ): CSSProperties {
   return {
+    contain: "layout paint style",
     display: "block",
     height: surface.textureWindow.textureHeight,
+    left: 0,
+    pointerEvents: "none",
+    position: "absolute",
+    top: 0,
+    transformOrigin: "0 0",
     width: surface.textureWindow.textureWidth,
   };
+}
+
+function getGpuRetainedContentSourceAttributes(sourceId: string) {
+  return {
+    [HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE]: "true",
+    [HTML_SURFACE_SOURCE_ID_ATTRIBUTE]: sourceId,
+    "data-gpu-flow-html-source": "true",
+  };
+}
+
+function getGpuRetainedContentCanvasElement(
+  element: HTMLElement,
+): HTMLCanvasElement | null {
+  if (
+    element.tagName.toLowerCase() === "canvas" &&
+    element.dataset.gpuFlowRetainedContentCanvas === "true"
+  ) {
+    return element as HTMLCanvasElement;
+  }
+  return element.querySelector<HTMLCanvasElement>(
+    '[data-gpu-flow-retained-content-canvas="true"]',
+  );
 }
 
 export function clipGpuRetainedContentSourceSurface(
@@ -776,10 +853,7 @@ function areGpuRetainedContentCacheRecordsEqual(
   return leftKeys.every(
     (key) =>
       Object.prototype.hasOwnProperty.call(rightRecord, key) &&
-      areGpuRetainedContentCacheValuesEqual(
-        leftRecord[key],
-        rightRecord[key],
-      ),
+      areGpuRetainedContentCacheValuesEqual(leftRecord[key], rightRecord[key]),
   );
 }
 
@@ -806,6 +880,19 @@ function intersectGpuRetainedContentRects(
     Math.min(left.y + left.height, right.y + right.height) - y,
   );
   return { height, width, x, y };
+}
+
+function unionGpuRetainedContentRects(left: GpuRect, right: GpuRect): GpuRect {
+  const x = Math.min(left.x, right.x);
+  const y = Math.min(left.y, right.y);
+  const maxX = Math.max(left.x + left.width, right.x + right.width);
+  const maxY = Math.max(left.y + left.height, right.y + right.height);
+  return {
+    height: maxY - y,
+    width: maxX - x,
+    x,
+    y,
+  };
 }
 
 function getGpuRetainedContentDevicePixelRatio(): number {

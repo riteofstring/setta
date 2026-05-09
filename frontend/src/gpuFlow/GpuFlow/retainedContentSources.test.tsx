@@ -116,6 +116,7 @@ const RetainedContentSourcesHarness = forwardRef<
     }) => {
       onDirtySurface({ sourceRect, surfaceId });
     },
+    markSurfacesPainted: vi.fn(),
   });
   const surfaceRef = useRef({
     getRuntime: () => null,
