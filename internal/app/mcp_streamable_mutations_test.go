@@ -775,6 +775,7 @@ func TestAppIDEMCPServerSupportsSetCodeOverAuthenticatedSSE(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -837,6 +838,11 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *te
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"section-main":  "14",
+	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -848,10 +854,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *te
 		}
 	})
 	seedAppWatchCodeBoundSectionProject(t, app)
-	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
-		"project-alpha": "11",
-		"section-main":  "14",
-	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -894,6 +896,7 @@ func TestAppIDEMCPServerSupportsFormatCodeOverAuthenticatedSSE(t *testing.T) {
 	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -964,6 +967,11 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE(t 
 	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"section-main":  "14",
+	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -983,10 +991,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE(t 
 	); err != nil {
 		t.Fatalf("seed app set_code before temp-id format_code: %v", err)
 	}
-	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
-		"project-alpha": "11",
-		"section-main":  "14",
-	})
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
