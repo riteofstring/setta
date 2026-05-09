@@ -382,6 +382,33 @@ function continueInNewThreadButton(surface: ParentNode): HTMLButtonElement {
   return element;
 }
 
+function conversationFilterInput(surface: ParentNode): HTMLInputElement {
+  const element = mustQueryHTMLElement(
+    surface,
+    '[data-testid="project-chat-conversation-filter-input"]',
+  );
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error("Expected the conversation filter input.");
+  }
+  return element;
+}
+
+async function setConversationFilter(surface: ParentNode, value: string) {
+  const input = conversationFilterInput(surface);
+  const inputValueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  if (!inputValueSetter) {
+    throw new Error("Expected the input value setter.");
+  }
+
+  await act(async () => {
+    inputValueSetter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 function SharedWindowInstanceHarness() {
   const [workspaceChatId, setWorkspaceChatId] = useState<
     string | null | undefined
@@ -1097,25 +1124,7 @@ describe("ProjectChat multi-surface state ownership", () => {
       throw new Error("Expected the first project chat surface.");
     }
 
-    const filterInput = surfaceA.querySelector(
-      '[data-testid="project-chat-conversation-filter-input"]',
-    ) as HTMLInputElement | null;
-    if (!filterInput) {
-      throw new Error("Expected the conversation filter input.");
-    }
-
-    const inputValueSetter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    if (!inputValueSetter) {
-      throw new Error("Expected the input value setter.");
-    }
-
-    await act(async () => {
-      inputValueSetter.call(filterInput, "queue");
-      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    await setConversationFilter(surfaceA, "queue");
 
     const filterContainer = surfaceA.querySelector(
       '[data-testid="project-chat-conversation-filter"]',
@@ -1123,7 +1132,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(filterContainer?.textContent ?? "").toContain("1/2");
 
     await act(async () => {
-      filterInput.dispatchEvent(
+      conversationFilterInput(surfaceA).dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
       );
     });
@@ -1171,25 +1180,7 @@ describe("ProjectChat multi-surface state ownership", () => {
       throw new Error("Expected the first project chat surface.");
     }
 
-    const filterInput = surfaceA.querySelector(
-      '[data-testid="project-chat-conversation-filter-input"]',
-    ) as HTMLInputElement | null;
-    if (!filterInput) {
-      throw new Error("Expected the conversation filter input.");
-    }
-
-    const inputValueSetter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    if (!inputValueSetter) {
-      throw new Error("Expected the input value setter.");
-    }
-
-    await act(async () => {
-      inputValueSetter.call(filterInput, "secret");
-      filterInput.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    await setConversationFilter(surfaceA, "secret");
 
     const filterContainer = surfaceA.querySelector(
       '[data-testid="project-chat-conversation-filter"]',
