@@ -230,9 +230,75 @@ func TestAppServesListenerCoverageRoute(t *testing.T) {
 func TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint(t *testing.T) {
 	// The real IDE app should route manifest-backed built-in listener endpoints
 	// through the Go listener websocket without falling back to /pythonScript/{id}.
+	harness := newAppListenerWebsocketChatHarness(t)
+	listenerConn := dialRegisteredAppListenerWebsocket(t, harness.serverURL, harness.authCookie, "listener-a")
+
+	assertListenerSetChatSectionChatID(t, harness.app, listenerConn)
+	saveListenerManagedChatRun(t, harness.cfg, "chat-2")
+	assertListenerGetChatSectionChatID(t, listenerConn)
+}
+
+func assertListenerSetChatSectionChatID(t *testing.T, app *App, listenerConn *websocket.Conn) {
+	t.Helper()
+
+	content := callListenerRouterEndpoint(t, listenerConn, "call-set", "route_set_chat_section_chat_id", `{"sectionId":"chat-section","chatId":"chat-2"}`)
+	assertListenerRouterOK(t, content, "call-set")
+	if content.Result != nil {
+		t.Fatalf("expected set-chat listener result to be null, got %#v", content.Result)
+	}
+
+	chatID, err := app.ProjectStates().Main().ChatSectionChatID("project-alpha", "chat-section")
+	if err != nil {
+		t.Fatalf("read chat section chat id: %v", err)
+	}
+	if chatID == nil || *chatID != "chat-2" {
+		t.Fatalf("expected chat id chat-2 after listener endpoint call, got %#v", chatID)
+	}
+}
+
+func saveListenerManagedChatRun(t *testing.T, cfg config.Config, chatID string) {
+	t.Helper()
+
+	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	if err := runStore.Save(agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          chatID,
+		"projectConfigId": "project-alpha",
+	}, time.Unix(100, 0).UTC())); err != nil {
+		t.Fatalf("save managed chat run: %v", err)
+	}
+}
+
+func assertListenerGetChatSectionChatID(t *testing.T, listenerConn *websocket.Conn) {
+	t.Helper()
+
+	content := callListenerRouterEndpoint(t, listenerConn, "call-get", "route_get_chat_section_chat_id", `{"sectionId":"chat-section"}`)
+	assertListenerRouterOK(t, content, "call-get")
+	if resolvedChatID, ok := content.Result.(string); !ok || resolvedChatID != "chat-2" {
+		t.Fatalf("expected get-chat listener result chat-2, got %#v", content.Result)
+	}
+}
+
+func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
+	// The real IDE app should invoke registered plugin listener endpoints over the Go listener websocket path.
+	harness := newAppPluginListenerEndpointHarness(t)
+	listenerConn := dialRegisteredAppListenerWebsocket(t, harness.serverURL, harness.authCookie, "listener-plugin")
+
+	content := callListenerRouterEndpoint(t, listenerConn, "call-plugin", "route_backend_fixture_ping", `{"value":"pong"}`)
+	assertPluginListenerEndpointResult(t, content, harness.sessionID)
+}
+
+func newAppPluginListenerEndpointHarness(t *testing.T) appPluginListenerEndpointHarness {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+	enableBackendFixtureListenerEndpointCapability(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -243,106 +309,30 @@ func TestAppListenerWebsocketDispatchesBuiltInListenerEndpoint(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = appChatSectionTestProject(t)
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
+	seedAppPluginListenerProject(t, app)
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	authCookie := newAppTestAuthCookie(t, app)
-	listenerConn, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1),
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial listener websocket route: %v", err)
+	currentSession, ok := app.Auth().CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
 	}
-	defer listenerConn.CloseNow()
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
-		t.Fatalf("write listener init message: %v", err)
-	}
-	initEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
-	var initContent realtime.ListenerForceRefreshContent
-	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
-		t.Fatalf("decode listener force refresh content: %v", err)
-	}
-	if initContent.Snapshot.ProjectConfigID != "project-alpha" {
-		t.Fatalf("expected listener init to resolve project-alpha, got %#v", initContent)
-	}
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
-		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
-	}
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-set","endpointName":"route_set_chat_section_chat_id","payload":{"sectionId":"chat-section","chatId":"chat-2"}}}`)); err != nil {
-		t.Fatalf("write listener set-chat endpoint call: %v", err)
-	}
-	setEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
-	var setContent realtime.ListenerRouterEndpointResultContent
-	if err := json.Unmarshal(setEnvelope.Content, &setContent); err != nil {
-		t.Fatalf("decode listener set-chat result: %v", err)
-	}
-	if setContent.ProjectConfigID != "project-alpha" || setContent.CallID != "call-set" || !setContent.OK || setContent.Result != nil {
-		t.Fatalf("unexpected set-chat listener result %#v", setContent)
-	}
-
-	chatID, err := app.ProjectStates().Main().ChatSectionChatID("project-alpha", "chat-section")
-	if err != nil {
-		t.Fatalf("read chat section chat id: %v", err)
-	}
-	if chatID == nil || *chatID != "chat-2" {
-		t.Fatalf("expected chat id chat-2 after listener endpoint call, got %#v", chatID)
-	}
-
-	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new run store: %v", err)
-	}
-	if err := runStore.Save(agentruns.NewRun(nil, map[string]any{
-		"runType":         managedchat.RunTypeManagedChat,
-		"chatId":          "chat-2",
-		"projectConfigId": "project-alpha",
-	}, time.Unix(100, 0).UTC())); err != nil {
-		t.Fatalf("save managed chat run: %v", err)
-	}
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-get","endpointName":"route_get_chat_section_chat_id","payload":{"sectionId":"chat-section"}}}`)); err != nil {
-		t.Fatalf("write listener get-chat endpoint call: %v", err)
-	}
-	getEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
-	var getContent realtime.ListenerRouterEndpointResultContent
-	if err := json.Unmarshal(getEnvelope.Content, &getContent); err != nil {
-		t.Fatalf("decode listener get-chat result: %v", err)
-	}
-	if getContent.ProjectConfigID != "project-alpha" || getContent.CallID != "call-get" || !getContent.OK {
-		t.Fatalf("unexpected get-chat listener result %#v", getContent)
-	}
-	if resolvedChatID, ok := getContent.Result.(string); !ok || resolvedChatID != "chat-2" {
-		t.Fatalf("expected get-chat listener result chat-2, got %#v", getContent.Result)
+	return appPluginListenerEndpointHarness{
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
+		sessionID:  currentSession.Metadata.ID,
 	}
 }
 
-func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
-	// The real IDE app should invoke registered plugin listener endpoints over the Go listener websocket path.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
-	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+type appPluginListenerEndpointHarness struct {
+	serverURL  string
+	authCookie *http.Cookie
+	sessionID  string
+}
+
+func enableBackendFixtureListenerEndpointCapability(t *testing.T, cfg config.Config) {
+	t.Helper()
 
 	manifestPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend", "setta.plugin.json")
 	manifestPayload, err := os.ReadFile(manifestPath)
@@ -362,16 +352,10 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
 		t.Fatalf("write backend plugin manifest: %v", err)
 	}
+}
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+func seedAppPluginListenerProject(t *testing.T, app *App) {
+	t.Helper()
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -383,60 +367,12 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed project runtime: %v", err)
 	}
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func assertPluginListenerEndpointResult(t *testing.T, resultContent realtime.ListenerRouterEndpointResultContent, sessionID string) {
+	t.Helper()
 
-	authCookie := newAppTestAuthCookie(t, app)
-	currentSession, ok := app.Auth().CurrentSession()
-	if !ok {
-		t.Fatal("expected current session")
-	}
-
-	listenerConn, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-plugin", 1),
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial listener websocket route: %v", err)
-	}
-	defer listenerConn.CloseNow()
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
-		t.Fatalf("write listener init message: %v", err)
-	}
-	initEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
-	var initContent realtime.ListenerForceRefreshContent
-	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
-		t.Fatalf("decode listener init content: %v", err)
-	}
-	if initContent.Snapshot.ProjectConfigID != "project-alpha" {
-		t.Fatalf("expected project-alpha listener init, got %#v", initContent)
-	}
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
-		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
-	}
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-plugin","endpointName":"route_backend_fixture_ping","payload":{"value":"pong"}}}`)); err != nil {
-		t.Fatalf("write plugin listener endpoint call: %v", err)
-	}
-	resultEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
-	var resultContent realtime.ListenerRouterEndpointResultContent
-	if err := json.Unmarshal(resultEnvelope.Content, &resultContent); err != nil {
-		t.Fatalf("decode plugin listener result: %v", err)
-	}
-	if resultContent.ProjectConfigID != "project-alpha" || resultContent.CallID != "call-plugin" || !resultContent.OK {
-		t.Fatalf("unexpected plugin listener result %#v", resultContent)
-	}
+	assertListenerRouterOK(t, resultContent, "call-plugin")
 
 	resultPayload, ok := resultContent.Result.(map[string]any)
 	if !ok {
@@ -445,7 +381,7 @@ func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
 	if resultPayload["endpointName"] != "route_backend_fixture_ping" || resultPayload["projectConfigId"] != "project-alpha" {
 		t.Fatalf("unexpected plugin listener payload %#v", resultPayload)
 	}
-	if resultPayload["sessionId"] != currentSession.Metadata.ID || resultPayload["hasAuth"] != true {
+	if resultPayload["sessionId"] != sessionID || resultPayload["hasAuth"] != true {
 		t.Fatalf("unexpected plugin listener auth payload %#v", resultPayload)
 	}
 	payload, ok := resultPayload["payload"].(map[string]any)
@@ -556,6 +492,42 @@ func seedAppListenerWebsocketChatProject(t *testing.T, app *App) {
 	}
 }
 
+type appListenerWebsocketChatHarness struct {
+	cfg        config.Config
+	app        *App
+	serverURL  string
+	authCookie *http.Cookie
+}
+
+func newAppListenerWebsocketChatHarness(t *testing.T) appListenerWebsocketChatHarness {
+	t.Helper()
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppListenerWebsocketChatProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	t.Cleanup(server.Close)
+
+	return appListenerWebsocketChatHarness{
+		cfg:        cfg,
+		app:        app,
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
+	}
+}
+
 func listenAppListenerWebsocketTCP(t *testing.T) net.Listener {
 	t.Helper()
 
@@ -632,7 +604,14 @@ func dialRegisteredAppListenerWebsocket(t *testing.T, serverURL string, authCook
 	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
 		t.Fatalf("write listener init message: %v", err)
 	}
-	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+	initEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+	var initContent realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(initEnvelope.Content, &initContent); err != nil {
+		t.Fatalf("decode listener init content: %v", err)
+	}
+	if initContent.Snapshot.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected listener init to resolve project-alpha, got %#v", initContent)
+	}
 
 	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
 		t.Fatalf("write listener register message: %v", err)
@@ -805,93 +784,48 @@ func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefres
 	// Listener chat-section state writes should be followed by an authoritative
 	// force-refresh so Python listeners do not have to rely on local heuristic
 	// patching alone.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
+	harness := newAppListenerWebsocketChatHarness(t)
+	listenerConn := dialRegisteredAppListenerWebsocket(t, harness.serverURL, harness.authCookie, "listener-chat-refresh")
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = appChatSectionTestProject(t)
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
+	resultContent := callListenerRouterEndpoint(t, listenerConn, "call-set-chat-state", "route_set_chat_section_state", listenerSetChatSectionStatePayload(t))
+	assertListenerRouterOK(t, resultContent, "call-set-chat-state")
+	if resultContent.Result != nil {
+		t.Fatalf("expected set-chat-section-state listener result to be null, got %#v", resultContent.Result)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	assertListenerForceRefreshMatchesProjectState(t, harness.app, listenerConn)
+}
 
-	authCookie := newAppTestAuthCookie(t, app)
-	listenerConn, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-chat-refresh", 1),
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+func listenerSetChatSectionStatePayload(t *testing.T) string {
+	t.Helper()
+
+	payload, err := json.Marshal(map[string]any{
+		"sectionId": "chat-section",
+		"state": map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":      "message-1",
+					"type":    "user",
+					"content": "hello",
+				},
 			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial listener websocket route: %v", err)
-	}
-	defer listenerConn.CloseNow()
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
-		t.Fatalf("write listener init message: %v", err)
-	}
-	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
-		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
-	}
-
-	setChatStatePayload, err := json.Marshal(map[string]any{
-		"messageType": "ListenerRouterEndpointCall",
-		"content": map[string]any{
-			"projectConfigId": "project-alpha",
-			"callId":          "call-set-chat-state",
-			"endpointName":    "route_set_chat_section_state",
-			"payload": map[string]any{
-				"sectionId": "chat-section",
-				"state": map[string]any{
+			"inputText":          "Draft input",
+			"waitingForResponse": true,
+			"toolCallArguments": map[string]any{
+				"tool-call-1": "{\"query\":\"hello\"}",
+			},
+			"activeBranchId": "branch-1",
+			"branches": map[string]any{
+				"branch-1": map[string]any{
 					"messages": []any{
 						map[string]any{
-							"id":      "message-1",
-							"type":    "user",
-							"content": "hello",
+							"id":   "message-1",
+							"type": "user",
 						},
 					},
-					"inputText":          "Draft input",
-					"waitingForResponse": true,
-					"toolCallArguments": map[string]any{
-						"tool-call-1": "{\"query\":\"hello\"}",
-					},
-					"activeBranchId": "branch-1",
-					"branches": map[string]any{
-						"branch-1": map[string]any{
-							"messages": []any{
-								map[string]any{
-									"id":   "message-1",
-									"type": "user",
-								},
-							},
-							"createdAt":           42,
-							"parentBranchId":      "root-branch",
-							"branchFromMessageId": "message-1",
-						},
-					},
+					"createdAt":           42,
+					"parentBranchId":      "root-branch",
+					"branchFromMessageId": "message-1",
 				},
 			},
 		},
@@ -899,18 +833,11 @@ func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefres
 	if err != nil {
 		t.Fatalf("marshal listener set-chat-section-state payload: %v", err)
 	}
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, setChatStatePayload); err != nil {
-		t.Fatalf("write listener set-chat-section-state endpoint call: %v", err)
-	}
+	return string(payload)
+}
 
-	resultEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
-	var resultContent realtime.ListenerRouterEndpointResultContent
-	if err := json.Unmarshal(resultEnvelope.Content, &resultContent); err != nil {
-		t.Fatalf("decode listener result content: %v", err)
-	}
-	if resultContent.ProjectConfigID != "project-alpha" || resultContent.CallID != "call-set-chat-state" || !resultContent.OK || resultContent.Result != nil {
-		t.Fatalf("unexpected set-chat-section-state listener result %#v", resultContent)
-	}
+func assertListenerForceRefreshMatchesProjectState(t *testing.T, app *App, listenerConn *websocket.Conn) {
+	t.Helper()
 
 	forceRefreshEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
 	var forceRefreshContent realtime.ListenerForceRefreshContent
@@ -943,85 +870,27 @@ func TestAppListenerWebsocketSetChatSectionStateTriggersAuthoritativeForceRefres
 func TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend(t *testing.T) {
 	// The listener chat stream endpoint should publish frontend streaming updates
 	// over the Go websocket hub instead of relying on the Python listener path.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = appChatSectionTestProject(t)
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	frontendConn, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend,
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer frontendConn.CloseNow()
-	_ = readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeFrontendIdentity, 2)
-
-	listenerConn, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-stream", 1),
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial listener websocket route: %v", err)
-	}
-	defer listenerConn.CloseNow()
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerInit","content":{"projectName":"Alpha"}}`)); err != nil {
-		t.Fatalf("write listener init message: %v", err)
-	}
-	_ = readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
-
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{}}}`)); err != nil {
-		t.Fatalf("write listener register message: %v", err)
-	}
-	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
-		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
-	}
+	harness := newAppListenerWebsocketChatHarness(t)
+	frontendConn := dialAuthenticatedAppFrontend(t, harness.app, harness.serverURL, 2)
+	listenerConn := dialRegisteredAppListenerWebsocket(t, harness.serverURL, harness.authCookie, "listener-stream")
 	_ = readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeListenerCoverageSnapshot, 2)
 
-	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"project-alpha","callId":"call-stream","endpointName":"route_emit_chat_stream_delta","payload":{"chatId":"chat-1","sectionId":"chat-section","chunk":{"type":"message_stop","message_id":"assistant-1"}}}}`)); err != nil {
-		t.Fatalf("write listener emit-chat-stream-delta endpoint call: %v", err)
+	emitChatStreamDeltaFromListener(t, listenerConn)
+	assertFrontendReceivesListenerChatStreamDelta(t, frontendConn)
+}
+
+func emitChatStreamDeltaFromListener(t *testing.T, listenerConn *websocket.Conn) {
+	t.Helper()
+
+	content := callListenerRouterEndpoint(t, listenerConn, "call-stream", "route_emit_chat_stream_delta", `{"chatId":"chat-1","sectionId":"chat-section","chunk":{"type":"message_stop","message_id":"assistant-1"}}`)
+	assertListenerRouterOK(t, content, "call-stream")
+	if content.Result != nil {
+		t.Fatalf("expected stream listener result to be null, got %#v", content.Result)
 	}
-	streamEnvelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerRouterResult, 1)
-	var streamContent realtime.ListenerRouterEndpointResultContent
-	if err := json.Unmarshal(streamEnvelope.Content, &streamContent); err != nil {
-		t.Fatalf("decode listener stream result: %v", err)
-	}
-	if streamContent.ProjectConfigID != "project-alpha" || streamContent.CallID != "call-stream" || !streamContent.OK || streamContent.Result != nil {
-		t.Fatalf("unexpected stream listener result %#v", streamContent)
-	}
+}
+
+func assertFrontendReceivesListenerChatStreamDelta(t *testing.T, frontendConn *websocket.Conn) {
+	t.Helper()
 
 	frontendEnvelope := readAppRouteEnvelopeUntilType(t, frontendConn, realtime.MessageTypeLLMStreamingResponse, 2)
 	var frontendContent realtime.LLMStreamingResponseContent
@@ -1049,6 +918,22 @@ func TestAppListenerWebsocketEmitsChatStreamDeltaToFrontend(t *testing.T) {
 func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
+	harness := newAppRunCodeDrawSnapshotHarness(t)
+	ref := uploadListenerSnapshotBinary(t, harness.serverURL, harness.authCookie)
+	runAppCodeWithDrawSnapshot(t, harness.serverURL, harness.authCookie, ref)
+	assertListenerDrawSnapshotRealtimeEvent(t, harness.app, harness.listenerConn, ref)
+}
+
+type appRunCodeDrawSnapshotHarness struct {
+	app          *App
+	serverURL    string
+	authCookie   *http.Cookie
+	listenerConn *websocket.Conn
+}
+
+func newAppRunCodeDrawSnapshotHarness(t *testing.T) appRunCodeDrawSnapshotHarness {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -1067,34 +952,43 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
+	authCookie := newAppTestAuthCookie(t, app)
+	listenerConn := dialAppListenerWebsocketForProject(t, server.URL, authCookie, "listener-a", "project-alpha")
+	registerDrawSnapshotListenerCallback(t, listenerConn)
+
+	return appRunCodeDrawSnapshotHarness{
+		app:          app,
+		serverURL:    server.URL,
+		authCookie:   authCookie,
+		listenerConn: listenerConn,
 	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-	authCookie := &http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	}
+}
+
+func dialAppListenerWebsocketForProject(t *testing.T, serverURL string, authCookie *http.Cookie, listenerID string, projectID string) *websocket.Conn {
+	t.Helper()
 
 	listenerConn, _, err := websocket.Dial(
 		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1)+"?projectId=project-alpha",
+		"ws"+strings.TrimPrefix(serverURL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", listenerID, 1)+"?projectId="+projectID,
 		&websocket.DialOptions{
 			HTTPHeader: http.Header{
-				"Cookie": []string{cookieName + "=" + token},
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("dial listener websocket route: %v", err)
 	}
-	defer listenerConn.CloseNow()
+	t.Cleanup(func() {
+		listenerConn.CloseNow()
+	})
+	return listenerConn
+}
+
+func registerDrawSnapshotListenerCallback(t *testing.T, listenerConn *websocket.Conn) {
+	t.Helper()
 
 	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["draw-section"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
 		t.Fatalf("write listener register message: %v", err)
@@ -1104,9 +998,13 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 	if ack.MessageType != realtime.MessageTypeListenerRegisterAck {
 		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
 	}
+}
+
+func uploadListenerSnapshotBinary(t *testing.T, serverURL string, authCookie *http.Cookie) binarypayload.ContentRef {
+	t.Helper()
 
 	uploadBody, uploadContentType := buildAppBinaryUploadBody(t, []byte("listener-snapshot"), "")
-	uploadRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
+	uploadRequest, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
 	if err != nil {
 		t.Fatalf("new binary upload request: %v", err)
 	}
@@ -1127,6 +1025,11 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 	if err := json.NewDecoder(uploadResponse.Body).Decode(&ref); err != nil {
 		t.Fatalf("decode binary upload response: %v", err)
 	}
+	return ref
+}
+
+func runAppCodeWithDrawSnapshot(t *testing.T, serverURL string, authCookie *http.Cookie, ref binarypayload.ContentRef) {
+	t.Helper()
 
 	runRequestBody, err := json.Marshal(httpapi.RunCodeRequest{
 		ProjectID:       "project-alpha",
@@ -1140,7 +1043,7 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 		t.Fatalf("marshal run code request: %v", err)
 	}
 
-	runRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(string(runRequestBody)))
+	runRequest, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RouteRunCode, strings.NewReader(string(runRequestBody)))
 	if err != nil {
 		t.Fatalf("new run code request: %v", err)
 	}
@@ -1156,6 +1059,10 @@ func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.
 		body, _ := io.ReadAll(runResponse.Body)
 		t.Fatalf("expected 200, got %d with body %q", runResponse.StatusCode, string(body))
 	}
+}
+
+func assertListenerDrawSnapshotRealtimeEvent(t *testing.T, app *App, listenerConn *websocket.Conn, ref binarypayload.ContentRef) {
+	t.Helper()
 
 	envelope, payload := readAppBinaryEnvelope(t, listenerConn)
 	if envelope.MessageType != realtime.MessageTypeListenerRealtimeEvent {
