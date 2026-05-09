@@ -117,6 +117,27 @@ describe("project GPU retained param drag adapter", () => {
     ).toBeNull();
   });
 
+  it("rejects retained same-parent adjacent no-op drops", () => {
+    const projectState = projectStateWithParams({
+      rootChildren: ["param-a", "param-b", "param-c"],
+      selectedParams: ["param-b"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "param-b",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      resolveProjectGpuRetainedParamDropMove({
+        event: retainedRowHit("param-a", { y: 20 }),
+        projectState,
+        session: session!,
+      }),
+    ).toBeNull();
+  });
+
   it("creates retained drag previews with row-target drop markers", () => {
     const projectState = projectStateWithParams({
       nestedChildrenByParent: { "parent-param": ["child-a", "child-b"] },

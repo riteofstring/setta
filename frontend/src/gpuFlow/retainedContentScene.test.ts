@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 
 import {
   createGpuRetainedRowContentScene,
   createGpuRetainedRowContentSceneWithScrollOffset,
   resolveGpuRetainedContentVisibleRowRange,
   type GpuRetainedContentDrawCommand,
+  type GpuRetainedContentRowInput,
 } from "./retainedContentScene";
 import { calendarCells, row } from "./retainedContentScene.helpers.test";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
+
+const RETAINED_CONTENT_PROPERTY_RUNS = 100;
 
 describe("retained content scene", () => {
   it("virtualizes retained rows from scroll offset and viewport height", () => {
@@ -64,6 +68,95 @@ describe("retained content scene", () => {
       x: 0,
       y: 60,
     });
+  });
+
+  it("keeps generated visible row ranges clamped and monotonic", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          overscanRows: fc.integer({ max: 8, min: 0 }),
+          rowCount: fc.integer({ max: 2_000, min: 0 }),
+          rowHeight: fc.double({
+            max: 80,
+            min: 1,
+            noDefaultInfinity: true,
+            noNaN: true,
+          }),
+          scrollOffsetY: fc.double({
+            max: 100_000,
+            min: 0,
+            noDefaultInfinity: true,
+            noNaN: true,
+          }),
+          viewportHeight: fc.double({
+            max: 2_000,
+            min: 0,
+            noDefaultInfinity: true,
+            noNaN: true,
+          }),
+        }),
+        ({ overscanRows, rowCount, rowHeight, scrollOffsetY, viewportHeight }) => {
+          const range = resolveGpuRetainedContentVisibleRowRange({
+            overscanRows,
+            rowCount,
+            rowHeight,
+            scrollOffsetY,
+            viewportHeight,
+          });
+
+          expect(range.rowCount).toBe(rowCount);
+          expect(range.startIndex).toBeGreaterThanOrEqual(0);
+          expect(range.startIndex).toBeLessThanOrEqual(range.endIndex);
+          expect(range.endIndex).toBeLessThanOrEqual(rowCount);
+        },
+      ),
+      { numRuns: RETAINED_CONTENT_PROPERTY_RUNS },
+    );
+  });
+
+  it("includes vertically gapped rows intersecting the overscanned window", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          gaps: fc.array(fc.integer({ max: 12, min: 0 }), {
+            maxLength: 40,
+            minLength: 1,
+          }),
+          overscanRows: fc.integer({ max: 4, min: 0 }),
+          rowHeight: fc.integer({ max: 48, min: 12 }),
+          scrollOffsetY: fc.integer({ max: 1_000, min: 0 }),
+          viewportHeight: fc.integer({ max: 300, min: 1 }),
+        }),
+        ({ gaps, overscanRows, rowHeight, scrollOffsetY, viewportHeight }) => {
+          const inputRows = gaps.map((gap, index) =>
+            row(`param-${index}`, { verticalGapBefore: gap }),
+          );
+          const scene = createGpuRetainedRowContentScene({
+            id: "surface-a",
+            ownerSectionId: "section-a",
+            overscanRows,
+            rowHeight,
+            rows: inputRows,
+            scrollOffset: { x: 0, y: scrollOffsetY },
+            viewportRect: { height: viewportHeight, width: 240, x: 0, y: 0 },
+          });
+          const visibleIds = new Set(scene.rows.map((visibleRow) => visibleRow.id));
+          const overscanPx = Math.floor(overscanRows) * rowHeight;
+          const visibleTop = Math.max(0, scrollOffsetY - overscanPx);
+          const visibleBottom = scrollOffsetY + viewportHeight + overscanPx;
+
+          for (const metric of computeRowMetrics(inputRows, rowHeight)) {
+            const rowEnd = metric.y + rowHeight;
+            const intersectsOverscan =
+              rowEnd >= visibleTop && metric.y <= visibleBottom;
+            if (intersectsOverscan) {
+              expect(visibleIds.has(metric.id)).toBe(true);
+            }
+          }
+        },
+      ),
+      { numRuns: RETAINED_CONTENT_PROPERTY_RUNS },
+    );
   });
 
   it("recreates retained row scenes from source metadata for renderer-owned scroll", () => {
@@ -1181,3 +1274,16 @@ describe("retained content scene", () => {
     );
   });
 });
+
+function computeRowMetrics(
+  rows: readonly GpuRetainedContentRowInput[],
+  rowHeight: number,
+): readonly { readonly id: string; readonly y: number }[] {
+  let y = 0;
+  return rows.map((retainedRow) => {
+    y += retainedRow.verticalGapBefore ?? 0;
+    const metric = { id: retainedRow.id, y };
+    y += rowHeight;
+    return metric;
+  });
+}

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 
 import { hitTestGpuRetainedContentScene } from "./retainedContentHitTest";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
+import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
+import type { GpuPoint, GpuRect } from "./viewportMath";
+
+const RETAINED_HIT_PROPERTY_RUNS = 100;
 
 describe("retained content hit testing", () => {
   it("hits the topmost retained content record under a flow point", () => {
@@ -79,6 +84,82 @@ describe("retained content hit testing", () => {
       }),
     ).toBeNull();
   });
+
+  it("clips generated hits by both surface and clip rects", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          clipRect: rectArbitrary({ maxOrigin: 100, maxSize: 100 }),
+          point: fc.record({
+            x: fc.integer({ max: 150, min: -50 }),
+            y: fc.integer({ max: 150, min: -50 }),
+          }),
+        }),
+        ({ clipRect, point }) => {
+          const surfaceRect = { height: 100, width: 100, x: 0, y: 0 };
+          const hit = hitTestGpuRetainedContentScene({
+            point,
+            scene: sceneWithSurfaces([
+              retainedSurface({
+                clipRect,
+                id: "params",
+                rect: surfaceRect,
+              }),
+            ]),
+          });
+          const expectedHit =
+            rectContainsPoint(surfaceRect, point) &&
+            rectContainsPoint(clipRect, point);
+
+          expect(hit !== null).toBe(expectedHit);
+        },
+      ),
+      { numRuns: RETAINED_HIT_PROPERTY_RUNS },
+    );
+  });
+
+  it("uses later hit records only when they contain the point", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          point: fc.record({
+            x: fc.integer({ max: 180, min: 20 }),
+            y: fc.integer({ max: 180, min: 20 }),
+          }),
+          secondRect: rectArbitrary({ maxOrigin: 220, maxSize: 80 }),
+        }),
+        ({ point, secondRect }) => {
+          const firstHit: GpuRetainedContentHitRecord = {
+            id: "first",
+            kind: "row",
+            ownerRowId: "param-0",
+            rect: { height: 220, width: 220, x: 0, y: 0 },
+          };
+          const secondHit: GpuRetainedContentHitRecord = {
+            id: "second",
+            kind: "label",
+            ownerRowId: "param-0",
+            rect: secondRect,
+          };
+          const hit = hitTestGpuRetainedContentScene({
+            point,
+            scene: sceneWithSurfaces([
+              retainedSurface({
+                hitRecords: [firstHit, secondHit],
+                id: "params",
+                rect: { height: 240, width: 240, x: 0, y: 0 },
+              }),
+            ]),
+          });
+
+          expect(hit?.hit.id).toBe(
+            rectContainsPoint(secondRect, point) ? "second" : "first",
+          );
+        },
+      ),
+      { numRuns: RETAINED_HIT_PROPERTY_RUNS },
+    );
+  });
 });
 
 function sceneWithSurfaces(
@@ -95,6 +176,7 @@ function sceneWithSurfaces(
 
 function retainedSurface({
   clipRect,
+  hitRecords,
   id,
   rect,
   zIndex = 1,
@@ -107,6 +189,7 @@ function retainedSurface({
         readonly y: number;
       }
     | undefined;
+  readonly hitRecords?: readonly GpuRetainedContentHitRecord[] | undefined;
   readonly id: string;
   readonly rect: {
     readonly height: number;
@@ -116,34 +199,59 @@ function retainedSurface({
   };
   readonly zIndex?: number | undefined;
 }): GpuContentSurface {
+  const retainedScene = createGpuRetainedRowContentScene({
+    controlWidth: 40,
+    id,
+    ownerSectionId: "section-a",
+    rowHeight: 28,
+    rows: Array.from({ length: 4 }, (_, index) => ({
+      control: {
+        commitPolicy: "native-island",
+        defaultDisplayValue: "",
+        displayValue: "",
+        editorKind: "text",
+        kind: "text-like",
+        rendererFamily: "text-like",
+      },
+      controlKind: "text-like",
+      depth: 0,
+      id: `param-${index}`,
+      label: `Param ${index}`,
+    })),
+    scrollOffset: { x: 0, y: 0 },
+    viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+  });
   return {
     clipRect: clipRect ?? rect,
     id,
     ownerSectionId: "section-a",
     rect,
     renderer: { kind: "canvas-content", surfaceId: id },
-    retainedScene: createGpuRetainedRowContentScene({
-      controlWidth: 40,
-      id,
-      ownerSectionId: "section-a",
-      rowHeight: 28,
-      rows: Array.from({ length: 4 }, (_, index) => ({
-        control: {
-          commitPolicy: "native-island",
-          defaultDisplayValue: "",
-          displayValue: "",
-          editorKind: "text",
-          kind: "text-like",
-          rendererFamily: "text-like",
-        },
-        controlKind: "text-like",
-        depth: 0,
-        id: `param-${index}`,
-        label: `Param ${index}`,
-      })),
-      scrollOffset: { x: 0, y: 0 },
-      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
-    }),
+    retainedScene: hitRecords ? { ...retainedScene, hitRecords } : retainedScene,
     zIndex,
   };
+}
+
+function rectArbitrary({
+  maxOrigin,
+  maxSize,
+}: {
+  readonly maxOrigin: number;
+  readonly maxSize: number;
+}) {
+  return fc.record({
+    height: fc.integer({ max: maxSize, min: 0 }),
+    width: fc.integer({ max: maxSize, min: 0 }),
+    x: fc.integer({ max: maxOrigin, min: 0 }),
+    y: fc.integer({ max: maxOrigin, min: 0 }),
+  });
+}
+
+function rectContainsPoint(rect: GpuRect, point: GpuPoint): boolean {
+  return (
+    point.x >= rect.x &&
+    point.y >= rect.y &&
+    point.x < rect.x + rect.width &&
+    point.y < rect.y + rect.height
+  );
 }

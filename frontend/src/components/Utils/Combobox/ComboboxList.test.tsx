@@ -16,6 +16,7 @@ describe("ComboboxList", () => {
   });
 
   it("portals into an explicit container and refreshes placement on GPU viewport transforms", async () => {
+    stubViewportSize({ height: 768, width: 1024 });
     const host = document.createElement("div");
     const portalRoot = document.createElement("div");
     const input = document.createElement("input");
@@ -52,6 +53,7 @@ describe("ComboboxList", () => {
       });
       await act(async () => {
         flushNextFrame(frameCallbacks);
+        await settleFloatingPosition();
       });
 
       const list = portalRoot.querySelector<HTMLElement>(
@@ -59,7 +61,8 @@ describe("ComboboxList", () => {
       );
       expect(list).not.toBeNull();
       expect(list?.style.left).toBe("12px");
-      expect(list?.style.top).toBe("24px");
+      expect(list?.style.position).toBe("fixed");
+      expect(list?.style.top).toBe("56px");
       expect(list?.style.minWidth).toBe("120px");
 
       rect = createRect({ bottom: 90, left: 40, width: 180 });
@@ -70,13 +73,14 @@ describe("ComboboxList", () => {
       });
       await act(async () => {
         flushNextFrame(frameCallbacks);
+        await settleFloatingPosition();
       });
 
       const repositionedList = portalRoot.querySelector<HTMLElement>(
         '[data-testid="combobox-list"]',
       );
       expect(repositionedList?.style.left).toBe("40px");
-      expect(repositionedList?.style.top).toBe("60px");
+      expect(repositionedList?.style.top).toBe("92px");
       expect(repositionedList?.style.minWidth).toBe("180px");
     } finally {
       await act(async () => {
@@ -122,4 +126,34 @@ function flushNextFrame(frameCallbacks: FrameRequestCallback[]) {
     throw new Error("Expected a pending animation frame callback.");
   }
   callback(performance.now());
+}
+
+async function settleFloatingPosition() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function stubViewportSize({
+  height,
+  width,
+}: {
+  readonly height: number;
+  readonly width: number;
+}) {
+  Object.defineProperty(document.documentElement, "clientHeight", {
+    configurable: true,
+    value: height,
+  });
+  Object.defineProperty(document.documentElement, "clientWidth", {
+    configurable: true,
+    value: width,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    configurable: true,
+    value: height,
+  });
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: width,
+  });
 }

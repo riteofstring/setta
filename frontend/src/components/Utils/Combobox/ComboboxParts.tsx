@@ -1,7 +1,6 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import { autoUpdateGpuFloatingPosition } from "gpuFlow/portals/floatingPosition";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
@@ -211,43 +210,42 @@ export function ComboboxList({
   portalContainerId?: string | undefined;
   repositionOnCanvasTransform?: boolean | undefined;
 }) {
-  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [listStyle, setListStyle] = useState<React.CSSProperties>({
+    left: "-9999px",
+    opacity: 0,
+    position: "fixed",
+    top: "-9999px",
+  });
   const display = isOpen ? "flex" : "hidden";
   const resolvedListThemeClassName = listThemeClassName
     ? ` ${listThemeClassName}`
     : "";
-  const updateListDims = useCallback(() => {
-    if (!inputRef.current) {
-      return;
-    }
-    const rect = inputRef.current.getBoundingClientRect();
-    const yMargin = -30;
-    setListDims({
-      x: rect.left,
-      y: rect.bottom + yMargin,
-      width: rect.width,
-    });
-  }, [inputRef]);
 
   useLayoutEffect(() => {
     if (!isOpen) {
+      setListStyle({
+        left: "-9999px",
+        opacity: 0,
+        position: "fixed",
+        top: "-9999px",
+      });
       return;
     }
-    updateListDims();
-    if (typeof window === "undefined") {
+    if (!inputRef.current || !listRef.current) {
       return;
     }
-    window.addEventListener("scroll", updateListDims, true);
-    window.addEventListener("resize", updateListDims);
-    const unsubscribeViewportReposition = repositionOnCanvasTransform
-      ? subscribeToGpuViewportReposition(gpuFlowViewportStore, updateListDims)
-      : noop;
-    return () => {
-      unsubscribeViewportReposition();
-      window.removeEventListener("scroll", updateListDims, true);
-      window.removeEventListener("resize", updateListDims);
-    };
-  }, [isOpen, repositionOnCanvasTransform, updateListDims]);
+    return autoUpdateGpuFloatingPosition({
+      floating: listRef.current,
+      matchReferenceWidth: true,
+      maxHeight: 384,
+      offsetPx: 2,
+      onPosition: setListStyle,
+      placement: "bottom-start",
+      reference: inputRef.current,
+      repositionOnGpuViewportTransform: repositionOnCanvasTransform,
+    });
+  }, [inputRef, isOpen, repositionOnCanvasTransform]);
 
   if (typeof document === "undefined") {
     return null;
@@ -259,12 +257,11 @@ export function ComboboxList({
 
   return createPortal(
     <div
-      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
+      className={`nowheel nodrag w-fit pb-2 ${display} z-[80] rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
       {...getMenuProps()}
+      ref={listRef}
       style={{
-        left: `${listDims.x}px`,
-        top: `${listDims.y}px`,
-        minWidth: listDims.width,
+        ...listStyle,
       }}
     >
       <div className="w-full overflow-y-scroll">{children}</div>
@@ -272,8 +269,6 @@ export function ComboboxList({
     portalContainer,
   );
 }
-
-function noop() {}
 
 function _ComboboxItem({
   getItemProps,
