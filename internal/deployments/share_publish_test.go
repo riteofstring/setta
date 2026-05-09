@@ -528,6 +528,23 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 		code:     map[string]string{},
 		json:     map[string]string{},
 	}
+	rewriteChatAndDictAttachmentPayloads(t, publisher, &project, attachmentRelativePath, deploymentRoot, pathMaps)
+
+	chatAttachment := mustRewrittenChatAttachment(t, project, deploymentRoot)
+	branchAttachment := mustRewrittenBranchAttachment(t, project, deploymentRoot)
+	dropzoneAttachment := mustRewrittenDropzoneAttachment(t, project, deploymentRoot)
+	assertRewrittenAttachmentsShareRebasedPath(t, chatAttachment, branchAttachment, dropzoneAttachment)
+}
+
+func rewriteChatAndDictAttachmentPayloads(
+	t *testing.T,
+	publisher *SharePublisher,
+	project *projectstate.Project,
+	attachmentRelativePath string,
+	deploymentRoot string,
+	pathMaps publishPathMaps,
+) {
+	t.Helper()
 
 	chatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
 	if err != nil {
@@ -551,7 +568,7 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 			},
 		},
 	}
-	if err := publisher.rewriteSectionPayload(&project, "chat-section", "chat-variant", chatPayload, deploymentRoot, pathMaps); err != nil {
+	if err := publisher.rewriteSectionPayload(project, "chat-section", "chat-variant", chatPayload, deploymentRoot, pathMaps); err != nil {
 		t.Fatalf("rewrite chat payload: %v", err)
 	}
 
@@ -559,9 +576,17 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 	if err != nil {
 		t.Fatalf("effective dict payload: %v", err)
 	}
-	if err := publisher.rewriteSectionPayload(&project, "dict-section", "dict-variant", dictPayload, deploymentRoot, pathMaps); err != nil {
+	if err := publisher.rewriteSectionPayload(project, "dict-section", "dict-variant", dictPayload, deploymentRoot, pathMaps); err != nil {
 		t.Fatalf("rewrite dict payload: %v", err)
 	}
+}
+
+func mustRewrittenChatAttachment(
+	t *testing.T,
+	project projectstate.Project,
+	deploymentRoot string,
+) map[string]any {
+	t.Helper()
 
 	updatedChatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
 	if err != nil {
@@ -584,6 +609,20 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 		t.Fatalf("expected rewritten chat attachment object, got %#v", chatAttachments[0])
 	}
 	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(chatAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+	return chatAttachment
+}
+
+func mustRewrittenBranchAttachment(
+	t *testing.T,
+	project projectstate.Project,
+	deploymentRoot string,
+) map[string]any {
+	t.Helper()
+
+	updatedChatPayload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effective rewritten chat payload: %v", err)
+	}
 
 	branches, ok := updatedChatPayload["branches"].(map[string]any)
 	if !ok {
@@ -610,6 +649,15 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 		t.Fatalf("expected rewritten branch attachment object, got %#v", branchAttachments[0])
 	}
 	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(branchAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+	return branchAttachment
+}
+
+func mustRewrittenDropzoneAttachment(
+	t *testing.T,
+	project projectstate.Project,
+	deploymentRoot string,
+) map[string]any {
+	t.Helper()
 
 	dropzonePayload, _, _, _, err := project.ResolveSectionCodeObject("dict-section", "dropzone-param")
 	if err != nil {
@@ -628,6 +676,16 @@ func TestSharePublisherRewriteSectionPayloadRewritesChatBranchesAndDropzoneAttac
 		t.Fatalf("expected rewritten dropzone attachment object, got %#v", dropzoneAttachments[0])
 	}
 	assertPublishedPathExistsWithin(t, deploymentRoot, stringField(dropzoneAttachment, "id"), filepath.Join(deploymentRoot, "artifacts"))
+	return dropzoneAttachment
+}
+
+func assertRewrittenAttachmentsShareRebasedPath(
+	t *testing.T,
+	chatAttachment map[string]any,
+	branchAttachment map[string]any,
+	dropzoneAttachment map[string]any,
+) {
+	t.Helper()
 
 	if stringField(chatAttachment, "id") != stringField(branchAttachment, "id") || stringField(chatAttachment, "id") != stringField(dropzoneAttachment, "id") {
 		t.Fatalf("expected all rewritten attachment ids to share the same rebased path, got chat=%q branch=%q dropzone=%q", stringField(chatAttachment, "id"), stringField(branchAttachment, "id"), stringField(dropzoneAttachment, "id"))
