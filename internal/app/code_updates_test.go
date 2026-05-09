@@ -329,6 +329,27 @@ func TestCodeUpdateServiceReloadBoundCodeFileSkipsWatchCodeApplyWithoutProvider(
 func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *testing.T) {
 	t.Parallel()
 
+	fixture := newWatchCodeParamResolutionFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	firstProject, firstCoolEntry := fixture.applyFirstWatchCodeSource(t, ctx)
+	fixture.assertDirectSignatureHelp(t, ctx, firstProject)
+	fixture.assertResolvedSignature(t, ctx, firstProject, firstCoolEntry)
+	fixture.applySecondWatchCodeSource(t, ctx)
+}
+
+type watchCodeParamResolutionFixture struct {
+	settaFilesRoot string
+	projectRuntime *projectstate.Runtime
+	service        *codeUpdateService
+	lspService     *lsp.Service
+	signatures     *lspsignature.Service
+}
+
+func newWatchCodeParamResolutionFixture(t *testing.T) watchCodeParamResolutionFixture {
+	t.Helper()
+
 	workspaceRoot := t.TempDir()
 	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
 	if err := os.MkdirAll(settaFilesRoot, 0o755); err != nil {
@@ -380,14 +401,23 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 		t.Fatalf("new code update service: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	return watchCodeParamResolutionFixture{
+		settaFilesRoot: settaFilesRoot,
+		projectRuntime: projectRuntime,
+		service:        service,
+		lspService:     lspService,
+		signatures:     signatures,
+	}
+}
+
+func (f watchCodeParamResolutionFixture) applyFirstWatchCodeSource(t *testing.T, ctx context.Context) (projectstate.Project, projectstate.WatchCodeRegistryEntry) {
+	t.Helper()
 
 	firstSource := "def cool_fn(a, b, c):\n    return a + b + c\n"
-	if err := service.SetCode(ctx, "project-alpha", "section-main", firstSource); err != nil {
+	if err := f.service.SetCode(ctx, "project-alpha", "section-main", firstSource); err != nil {
 		t.Fatalf("set first watch-code source: %v", err)
 	}
-	firstSnapshot := projectRuntime.Snapshot()
+	firstSnapshot := f.projectRuntime.Snapshot()
 	firstProject := firstSnapshot.Document.Projects["project-alpha"]
 	firstProjectData := readAppWatchCodePluginProjectData(t, firstSnapshot.Document, "project-alpha")
 	firstCoolEntry, ok := firstProjectData.Registry["watch_code_test.cool_fn:function"]
@@ -404,8 +434,17 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	if !strings.Contains(firstTarget.GenCodePrefix, "from watch_code_test import cool_fn") {
 		t.Fatalf("expected cool_fn import in gen code prefix, got %q", firstTarget.GenCodePrefix)
 	}
-	directSignature, err := lspService.SignatureHelpSnapshot(ctx, lsp.SnapshotSignatureHelpRequest{
-		ReferencePath: filepath.Join(settaFilesRoot, projectstate.GeneratedPythonCodeRelativePath(firstProject.Name)),
+	if got := watchCodeEntryParamNames(t, firstProject, firstCoolEntry); !equalStrings(got, []string{"a", "b", "c"}) {
+		t.Fatalf("expected cool_fn params [a b c] after first update, got %#v", got)
+	}
+	return firstProject, firstCoolEntry
+}
+
+func (f watchCodeParamResolutionFixture) assertDirectSignatureHelp(t *testing.T, ctx context.Context, firstProject projectstate.Project) {
+	t.Helper()
+
+	directSignature, err := f.lspService.SignatureHelpSnapshot(ctx, lsp.SnapshotSignatureHelpRequest{
+		ReferencePath: filepath.Join(f.settaFilesRoot, projectstate.GeneratedPythonCodeRelativePath(firstProject.Name)),
 		LanguageID:    "python",
 		Content:       "from watch_code_test import cool_fn\nvalue = cool_fn(\n",
 		Line:          1,
@@ -417,7 +456,17 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	if len(directSignature.Signatures) != 1 {
 		t.Fatalf("expected direct signature help match after first update, got %#v", directSignature)
 	}
-	firstSignature, signatureOK, err := signatures.ResolveCallableSignature(
+}
+
+func (f watchCodeParamResolutionFixture) assertResolvedSignature(
+	t *testing.T,
+	ctx context.Context,
+	firstProject projectstate.Project,
+	firstCoolEntry projectstate.WatchCodeRegistryEntry,
+) {
+	t.Helper()
+
+	firstSignature, signatureOK, err := f.signatures.ResolveCallableSignature(
 		ctx,
 		firstProject,
 		firstCoolEntry.SectionIDs[0],
@@ -432,16 +481,17 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	if firstSignature.Status != projectstate.SignatureHelpStatusMatched {
 		t.Fatalf("expected cool_fn signature to match after first update, got %#v", firstSignature)
 	}
-	if got := watchCodeEntryParamNames(t, firstProject, firstCoolEntry); !equalStrings(got, []string{"a", "b", "c"}) {
-		t.Fatalf("expected cool_fn params [a b c] after first update, got %#v", got)
-	}
+}
+
+func (f watchCodeParamResolutionFixture) applySecondWatchCodeSource(t *testing.T, ctx context.Context) {
+	t.Helper()
 
 	secondSource := "def cool_fn(a, b, c, d):\n    print('hello')\n\n\ndef another_fn(e, f, g):\n    pass\n"
-	if err := service.SetCode(ctx, "project-alpha", "section-main", secondSource); err != nil {
+	if err := f.service.SetCode(ctx, "project-alpha", "section-main", secondSource); err != nil {
 		t.Fatalf("set second watch-code source: %v", err)
 	}
 
-	updatedSnapshot := projectRuntime.Snapshot()
+	updatedSnapshot := f.projectRuntime.Snapshot()
 	updatedProject := updatedSnapshot.Document.Projects["project-alpha"]
 	updatedProjectData := readAppWatchCodePluginProjectData(t, updatedSnapshot.Document, "project-alpha")
 
