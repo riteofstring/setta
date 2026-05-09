@@ -138,6 +138,13 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	if !ok || len(messages) == 0 {
 		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
 	}
+	assertCodexApprovalMessages(t, messages)
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertCodexApprovalMessages(t *testing.T, messages []any) {
+	t.Helper()
+
 	toolResultFound := false
 	assistantFound := false
 	for _, rawMessage := range messages {
@@ -146,12 +153,8 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 			continue
 		}
 		role, _ := messageRole(message)
-		if role == "tool" && stringValue(message["tool_name"]) == ApprovalToolName {
-			toolResultFound = true
-		}
-		if role == "assistant" && extractMessageText(message) == "Approval granted" {
-			assistantFound = true
-		}
+		toolResultFound = toolResultFound || role == "tool" && stringValue(message["tool_name"]) == ApprovalToolName
+		assistantFound = assistantFound || role == "assistant" && extractMessageText(message) == "Approval granted"
 	}
 	if !toolResultFound {
 		t.Fatalf("expected persisted approval tool result, got %#v", messages)
@@ -159,7 +162,6 @@ func TestCodexExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	if !assistantFound {
 		t.Fatalf("expected persisted assistant follow-up, got %#v", messages)
 	}
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestApplyCodexResponseItemAttachesFunctionCallToFollowUpMessage(t *testing.T) {
@@ -243,6 +245,31 @@ func TestApplyCodexResponseItemAppendsToolResultOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply function_call_output response item: %v", err)
 	}
+	assertCodexResponseItemToolResult(t, state, applied, toolResult)
+
+	applied, toolResult, err = applyCodexResponseItem(state, map[string]any{
+		"payload": map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call-2",
+			"output":  "{\"sectionId\":\"6\"}",
+		},
+	})
+	if err != nil {
+		t.Fatalf("reapply function_call_output response item: %v", err)
+	}
+	if applied || toolResult != nil {
+		t.Fatalf("expected duplicate tool result to be ignored, got applied=%v metadata=%#v", applied, toolResult)
+	}
+}
+
+func assertCodexResponseItemToolResult(
+	t *testing.T,
+	state *ChatState,
+	applied bool,
+	toolResult *codexToolResultMetadata,
+) {
+	t.Helper()
+
 	if !applied || toolResult == nil {
 		t.Fatalf("expected tool result metadata, got applied=%v metadata=%#v", applied, toolResult)
 	}
@@ -259,20 +286,6 @@ func TestApplyCodexResponseItemAppendsToolResultOnce(t *testing.T) {
 	result, ok := lastMessage["result"].(map[string]any)
 	if !ok || stringValue(result["sectionId"]) != "6" {
 		t.Fatalf("unexpected tool result payload %#v", lastMessage)
-	}
-
-	applied, toolResult, err = applyCodexResponseItem(state, map[string]any{
-		"payload": map[string]any{
-			"type":    "function_call_output",
-			"call_id": "call-2",
-			"output":  "{\"sectionId\":\"6\"}",
-		},
-	})
-	if err != nil {
-		t.Fatalf("reapply function_call_output response item: %v", err)
-	}
-	if applied || toolResult != nil {
-		t.Fatalf("expected duplicate tool result to be ignored, got applied=%v metadata=%#v", applied, toolResult)
 	}
 }
 
@@ -351,12 +364,18 @@ func TestApplyCodexResponseItemPreservesReasoningAndText(t *testing.T) {
 	if !applied || toolResult != nil {
 		t.Fatalf("unexpected reasoning result applied=%v toolResult=%#v", applied, toolResult)
 	}
-	if len(state.Messages) != 1 {
-		t.Fatalf("expected one assistant message, got %#v", state.Messages)
+	assertCodexReasoningAndTextMessage(t, state.Messages)
+}
+
+func assertCodexReasoningAndTextMessage(t *testing.T, messages []map[string]any) {
+	t.Helper()
+
+	if len(messages) != 1 {
+		t.Fatalf("expected one assistant message, got %#v", messages)
 	}
-	content, ok := state.Messages[0]["content"].([]any)
+	content, ok := messages[0]["content"].([]any)
 	if !ok || len(content) != 2 {
-		t.Fatalf("expected reasoning plus text content, got %#v", state.Messages[0])
+		t.Fatalf("expected reasoning plus text content, got %#v", messages[0])
 	}
 	first, ok := content[0].(map[string]any)
 	if !ok || stringValue(first["type"]) != "thinking" || stringValue(first["summary"]) != "Plan" || stringValue(first["thinking"]) != "Evaluate options." {
@@ -427,53 +446,7 @@ func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T
 	if persisted.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed status, got %#v", persisted)
 	}
-	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
-	if !ok || len(rawSnapshot) != 1 {
-		t.Fatalf("expected one persisted external MCP status, got %#v", persisted.Outputs)
-	}
-	messages, ok := persisted.Outputs["messages"].([]any)
-	if !ok || len(messages) < 2 {
-		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
-	}
-	assistantFound := false
-	toolResultFound := false
-	for _, rawMessage := range messages {
-		message, ok := rawMessage.(map[string]any)
-		if !ok {
-			continue
-		}
-		role, _ := messageRole(message)
-		if role == "assistant" {
-			if rawToolCalls, ok := message["tool_calls"].([]any); ok && len(rawToolCalls) > 0 && extractMessageText(message) == "Created the top-level section." {
-				content, _ := message["content"].([]any)
-				if len(content) > 0 {
-					first, _ := content[0].(map[string]any)
-					if stringValue(first["type"]) == "thinking" {
-						assistantFound = true
-					}
-				}
-			}
-		}
-		if role == "tool" && stringValue(message["tool_call_id"]) == "call-create" {
-			toolResultFound = true
-		}
-	}
-	if !assistantFound {
-		t.Fatalf("expected persisted assistant message with tool call and reasoning, got %#v", messages)
-	}
-	if !toolResultFound {
-		t.Fatalf("expected persisted tool result message, got %#v", messages)
-	}
-	toolResultEventFound := false
-	for _, event := range persisted.Events {
-		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == "call-create" {
-			toolResultEventFound = true
-			break
-		}
-	}
-	if !toolResultEventFound {
-		t.Fatalf("expected persisted tool_result event, got %#v", persisted.Events)
-	}
+	assertCodexRichPersistedOutputs(t, persisted)
 
 	statuses, err := fixture.runtime.ExternalRuntimeStatuses(stringPtr(result.ChatID), stringPtr(fixture.engineID))
 	if err != nil {
@@ -483,6 +456,77 @@ func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T
 		t.Fatalf("unexpected external runtime statuses %#v", statuses)
 	}
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertCodexRichPersistedOutputs(t *testing.T, persisted agentruns.Run) {
+	t.Helper()
+
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected one persisted external MCP status, got %#v", persisted.Outputs)
+	}
+	messages := persistedOutputMessages(t, persisted, 2)
+	assertCodexRichMessages(t, messages)
+	assertCodexToolResultEvent(t, persisted.Events, "call-create")
+}
+
+func persistedOutputMessages(t *testing.T, persisted agentruns.Run, minCount int) []any {
+	t.Helper()
+
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < minCount {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	return messages
+}
+
+func assertCodexRichMessages(t *testing.T, messages []any) {
+	t.Helper()
+
+	assistantFound := false
+	toolResultFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		assistantFound = assistantFound || codexRichAssistantMessageMatches(message, role)
+		toolResultFound = toolResultFound || role == "tool" && stringValue(message["tool_call_id"]) == "call-create"
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted assistant message with tool call and reasoning, got %#v", messages)
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted tool result message, got %#v", messages)
+	}
+}
+
+func codexRichAssistantMessageMatches(message map[string]any, role string) bool {
+	if role != "assistant" || extractMessageText(message) != "Created the top-level section." {
+		return false
+	}
+	rawToolCalls, ok := message["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) == 0 {
+		return false
+	}
+	content, _ := message["content"].([]any)
+	if len(content) == 0 {
+		return false
+	}
+	first, _ := content[0].(map[string]any)
+	return stringValue(first["type"]) == "thinking"
+}
+
+func assertCodexToolResultEvent(t *testing.T, events []agentruns.RunEvent, toolCallID string) {
+	t.Helper()
+
+	for _, event := range events {
+		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == toolCallID {
+			return
+		}
+	}
+	t.Fatalf("expected persisted tool_result event for %s, got %#v", toolCallID, events)
 }
 
 func TestCodexExecutorPersistsRawToolItemsAndBufferedOutput(t *testing.T) {
@@ -509,97 +553,117 @@ func TestCodexExecutorPersistsRawToolItemsAndBufferedOutput(t *testing.T) {
 	if persisted.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed status, got %#v", persisted)
 	}
-	messages, ok := persisted.Outputs["messages"].([]any)
-	if !ok || len(messages) < 5 {
-		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
-	}
+	assertCodexRawPersistedOutputs(t, persisted)
 
-	assistantFound := false
-	commandResultFound := false
-	fileResultFound := false
-	mcpResultFound := false
-	genericResultFound := false
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertCodexRawPersistedOutputs(t *testing.T, persisted agentruns.Run) {
+	t.Helper()
+
+	messages := persistedOutputMessages(t, persisted, 5)
+	assertCodexRawMessages(t, messages)
+	for _, expectedID := range []string{"cmd-raw-1", "file-raw-1", "mcp-raw-1", "web-raw-1"} {
+		assertCodexToolResultEvent(t, persisted.Events, expectedID)
+	}
+}
+
+type codexRawMessageMatches struct {
+	assistant bool
+	command   bool
+	file      bool
+	mcp       bool
+	generic   bool
+}
+
+func assertCodexRawMessages(t *testing.T, messages []any) {
+	t.Helper()
+
+	matches := codexRawMessageMatches{}
 	for _, rawMessage := range messages {
 		message, ok := rawMessage.(map[string]any)
 		if !ok {
 			continue
 		}
-		role, _ := messageRole(message)
-		switch role {
-		case "assistant":
-			if extractMessageText(message) != "Raw tools finished." {
-				continue
-			}
-			rawToolCalls, ok := message["tool_calls"].([]any)
-			if !ok || len(rawToolCalls) != 4 {
-				t.Fatalf("expected four tool calls on raw assistant message, got %#v", message)
-			}
-			expectedNames := map[string]string{
-				"cmd-raw-1":  codexCommandExecutionToolName,
-				"file-raw-1": codexFileChangeToolName,
-				"mcp-raw-1":  "mcp__setta__echo",
-				"web-raw-1":  "webSearch",
-			}
-			for _, rawToolCall := range rawToolCalls {
-				toolCall, ok := rawToolCall.(map[string]any)
-				if !ok {
-					continue
-				}
-				toolCallID := stringValue(toolCall["id"])
-				function, _ := mapValue(toolCall["function"])
-				if expectedNames[toolCallID] != stringValue(function["name"]) {
-					t.Fatalf("unexpected raw tool call payload %#v", toolCall)
-				}
-			}
-			assistantFound = true
-		case "tool":
-			switch stringValue(message["tool_call_id"]) {
-			case "cmd-raw-1":
-				resultPayload, _ := mapValue(message["result"])
-				if stringValue(resultPayload["aggregated_output"]) != "command output\n" {
-					t.Fatalf("expected buffered command output, got %#v", message)
-				}
-				commandResultFound = true
-			case "file-raw-1":
-				resultPayload, _ := mapValue(message["result"])
-				if stringValue(resultPayload["diff"]) != "--- a/file.txt\n+++ b/file.txt\n" {
-					t.Fatalf("expected buffered file diff, got %#v", message)
-				}
-				fileResultFound = true
-			case "mcp-raw-1":
-				if stringValue(message["tool_name"]) != "mcp__setta__echo" {
-					t.Fatalf("expected normalized MCP tool name, got %#v", message)
-				}
-				mcpResultFound = true
-			case "web-raw-1":
-				if stringValue(message["tool_name"]) != "webSearch" {
-					t.Fatalf("expected generic tool result, got %#v", message)
-				}
-				genericResultFound = true
-			}
-		}
+		inspectCodexRawMessage(t, message, &matches)
 	}
-	if !assistantFound {
+	if !matches.assistant {
 		t.Fatalf("expected assistant message with raw tool calls, got %#v", messages)
 	}
-	if !commandResultFound || !fileResultFound || !mcpResultFound || !genericResultFound {
+	if !matches.command || !matches.file || !matches.mcp || !matches.generic {
 		t.Fatalf("expected all raw tool result messages, got %#v", messages)
 	}
+}
 
-	toolResultEventIDs := map[string]bool{}
-	for _, event := range persisted.Events {
-		if event.Type != "tool_result" {
+func inspectCodexRawMessage(t *testing.T, message map[string]any, matches *codexRawMessageMatches) {
+	t.Helper()
+
+	role, _ := messageRole(message)
+	switch role {
+	case "assistant":
+		matches.assistant = matches.assistant || codexRawAssistantMessageMatches(t, message)
+	case "tool":
+		inspectCodexRawToolMessage(t, message, matches)
+	}
+}
+
+func codexRawAssistantMessageMatches(t *testing.T, message map[string]any) bool {
+	t.Helper()
+
+	if extractMessageText(message) != "Raw tools finished." {
+		return false
+	}
+	rawToolCalls, ok := message["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) != 4 {
+		t.Fatalf("expected four tool calls on raw assistant message, got %#v", message)
+	}
+	expectedNames := map[string]string{
+		"cmd-raw-1":  codexCommandExecutionToolName,
+		"file-raw-1": codexFileChangeToolName,
+		"mcp-raw-1":  "mcp__setta__echo",
+		"web-raw-1":  "webSearch",
+	}
+	for _, rawToolCall := range rawToolCalls {
+		toolCall, ok := rawToolCall.(map[string]any)
+		if !ok {
 			continue
 		}
-		toolResultEventIDs[stringValue(event.Payload["toolCallId"])] = true
-	}
-	for _, expectedID := range []string{"cmd-raw-1", "file-raw-1", "mcp-raw-1", "web-raw-1"} {
-		if !toolResultEventIDs[expectedID] {
-			t.Fatalf("expected raw tool_result event for %s, got %#v", expectedID, persisted.Events)
+		toolCallID := stringValue(toolCall["id"])
+		function, _ := mapValue(toolCall["function"])
+		if expectedNames[toolCallID] != stringValue(function["name"]) {
+			t.Fatalf("unexpected raw tool call payload %#v", toolCall)
 		}
 	}
+	return true
+}
 
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+func inspectCodexRawToolMessage(t *testing.T, message map[string]any, matches *codexRawMessageMatches) {
+	t.Helper()
+
+	switch stringValue(message["tool_call_id"]) {
+	case "cmd-raw-1":
+		resultPayload, _ := mapValue(message["result"])
+		if stringValue(resultPayload["aggregated_output"]) != "command output\n" {
+			t.Fatalf("expected buffered command output, got %#v", message)
+		}
+		matches.command = true
+	case "file-raw-1":
+		resultPayload, _ := mapValue(message["result"])
+		if stringValue(resultPayload["diff"]) != "--- a/file.txt\n+++ b/file.txt\n" {
+			t.Fatalf("expected buffered file diff, got %#v", message)
+		}
+		matches.file = true
+	case "mcp-raw-1":
+		if stringValue(message["tool_name"]) != "mcp__setta__echo" {
+			t.Fatalf("expected normalized MCP tool name, got %#v", message)
+		}
+		matches.mcp = true
+	case "web-raw-1":
+		if stringValue(message["tool_name"]) != "webSearch" {
+			t.Fatalf("expected generic tool result, got %#v", message)
+		}
+		matches.generic = true
+	}
 }
 
 func TestApplyCodexStreamEventReusesSyntheticToolMessageForAssistantDelta(t *testing.T) {
@@ -644,11 +708,16 @@ func TestApplyCodexStreamEventReusesSyntheticToolMessageForAssistantDelta(t *tes
 	if !applied || toolResult != nil {
 		t.Fatalf("unexpected assistant delta result applied=%v toolResult=%#v", applied, toolResult)
 	}
+	assertCodexAdoptedSyntheticToolMessage(t, state.Messages)
+}
 
-	if len(state.Messages) != 1 {
-		t.Fatalf("expected one merged assistant message, got %#v", state.Messages)
+func assertCodexAdoptedSyntheticToolMessage(t *testing.T, messages []map[string]any) {
+	t.Helper()
+
+	if len(messages) != 1 {
+		t.Fatalf("expected one merged assistant message, got %#v", messages)
 	}
-	message := state.Messages[0]
+	message := messages[0]
 	if stringValue(message["id"]) != "assistant-real-1" {
 		t.Fatalf("expected synthetic message id to be adopted, got %#v", message)
 	}
@@ -1047,253 +1116,256 @@ func runCodexFixtureProcess(scenario string) error {
 	reader.Buffer(make([]byte, 0, 16*1024), codexStdoutBufferSize)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
-	mcpStatusListCount := 0
+	fixture := &codexFixtureProcess{scenario: scenario, writer: writer}
 
-	emit := func(payload map[string]any) error {
-		content, err := json.Marshal(payload)
+	for reader.Scan() {
+		done, err := fixture.handleLine(reader.Text())
 		if err != nil {
 			return err
 		}
-		if _, err := writer.Write(append(content, '\n')); err != nil {
-			return err
-		}
-		return writer.Flush()
-	}
-
-	for reader.Scan() {
-		line := strings.TrimSpace(reader.Text())
-		if line == "" {
-			continue
-		}
-		var payload map[string]any
-		if err := json.Unmarshal([]byte(line), &payload); err != nil {
-			return fmt.Errorf("decode fixture request: %w", err)
-		}
-		method := stringValue(payload["method"])
-		switch method {
-		case "initialize":
-			params, _ := mapValue(payload["params"])
-			clientInfo, _ := mapValue(params["clientInfo"])
-			if stringValue(clientInfo["name"]) != "setta" {
-				return fmt.Errorf("expected initialize clientInfo.name setta, got %#v", clientInfo["name"])
-			}
-			version := stringValue(clientInfo["version"])
-			if version == "" || strings.Contains(strings.ToLower(version), "rewrite") {
-				return fmt.Errorf("expected initialize clientInfo.version to use the app version, got %#v", clientInfo["version"])
-			}
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-				return err
-			}
-		case "initialized":
-		case "config/mcpServer/reload":
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-				return err
-			}
-		case "thread/start":
-			threadID := "thread-" + scenario
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"threadId": threadID}}); err != nil {
-				return err
-			}
-		case "thread/resume":
-			params, _ := mapValue(payload["params"])
-			threadID := stringValue(params["threadId"])
-			if threadID == "" {
-				threadID = "thread-" + scenario
-			}
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"threadId": threadID}}); err != nil {
-				return err
-			}
-		case "turn/start":
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-				return err
-			}
-			switch scenario {
-			case "approval":
-				if err := emit(map[string]any{
-					"id":     42,
-					"method": "item/commandExecution/requestApproval",
-					"params": map[string]any{
-						"item": map[string]any{
-							"type":    "commandExecution",
-							"command": "echo approval",
-						},
-					},
-				}); err != nil {
-					return err
-				}
-			case "rich":
-			case "raw":
-				if err := emitCodexRawTurn(writer); err != nil {
-					return err
-				}
-				return nil
-			case "env_handoff":
-				codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
-				if codexHome == "" {
-					return fmt.Errorf("missing CODEX_HOME")
-				}
-				if _, err := os.Stat(filepath.Join(codexHome, codexConfigFileName)); err != nil {
-					return fmt.Errorf("stat CODEX_HOME config: %w", err)
-				}
-				if err := emitAssistantTurn(writer, "assistant-env", codexHome); err != nil {
-					return err
-				}
-				return nil
-			case "usage_stream":
-				if err := emitCodexThreadTokenUsageUpdated(writer, map[string]any{
-					"total": map[string]any{
-						"inputTokens":  11,
-						"outputTokens": 2,
-						"totalTokens":  13,
-					},
-					"last": map[string]any{
-						"contextUsedTokens": 11,
-					},
-					"modelContextWindow": 272000,
-				}); err != nil {
-					return err
-				}
-				if err := emitAssistantTurn(writer, "assistant-usage", "HELLO"); err != nil {
-					return err
-				}
-				return nil
-			case "usage_live":
-				if err := emitCodexThreadTokenUsageUpdated(writer, map[string]any{
-					"total": map[string]any{
-						"inputTokens":  23,
-						"outputTokens": 5,
-						"totalTokens":  28,
-					},
-					"last": map[string]any{
-						"contextUsedTokens": 23,
-					},
-					"modelContextWindow": 400000,
-				}); err != nil {
-					return err
-				}
-				time.Sleep(200 * time.Millisecond)
-				if err := emitAssistantTurn(writer, "assistant-usage-live", "HELLO"); err != nil {
-					return err
-				}
-				return nil
-			case "usage_missing":
-				if err := emitAssistantTurn(writer, "assistant-usage", "HELLO"); err != nil {
-					return err
-				}
-				return nil
-			case "stalled_tool_call":
-				if err := emitCodexStalledToolCall(writer); err != nil {
-					return err
-				}
-				continue
-			case "stalled_raw_tool_call":
-				if err := emitCodexStalledRawToolCall(writer); err != nil {
-					return err
-				}
-				continue
-			case "slow_status":
-				if err := emitAssistantTurn(writer, "assistant-slow-status", "Hello from Codex"); err != nil {
-					return err
-				}
-			case "delayed_status":
-				if err := emitAssistantTurn(writer, "assistant-delayed-status", "Hello from Codex"); err != nil {
-					return err
-				}
-			case "late_status":
-				if err := emitAssistantTurn(writer, "assistant-late-status", "Hello from Codex"); err != nil {
-					return err
-				}
-			default:
-				if err := emitAssistantTurn(writer, "assistant-1", "Hello from Codex"); err != nil {
-					return err
-				}
-				return nil
-			}
-		case "mcpServerStatus/list":
-			mcpStatusListCount++
-			if scenario == "rich" {
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"result": map[string]any{
-						"servers": []any{
-							map[string]any{
-								"id":        "setta",
-								"connected": true,
-								"transport": "streamable_http",
-								"endpoint":  "http://127.0.0.1:8000/mcp",
-								"toolCount": 4,
-							},
-						},
-					},
-				}); err != nil {
-					return err
-				}
-				if err := emitCodexRichTurn(writer); err != nil {
-					return err
-				}
-				return nil
-			}
-			if scenario == "late_status" && mcpStatusListCount > 1 {
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"result": map[string]any{
-						"servers": []any{
-							map[string]any{
-								"id":        "setta",
-								"connected": true,
-								"transport": "streamable_http",
-								"endpoint":  "http://127.0.0.1:8000/mcp",
-								"toolCount": 4,
-							},
-						},
-					},
-				}); err != nil {
-					return err
-				}
-				continue
-			}
-			if scenario == "delayed_status" {
-				time.Sleep(2 * time.Second)
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"result": map[string]any{
-						"servers": []any{
-							map[string]any{
-								"id":        "setta",
-								"connected": true,
-								"transport": "streamable_http",
-								"endpoint":  "http://127.0.0.1:8000/mcp",
-								"toolCount": 4,
-							},
-						},
-					},
-				}); err != nil {
-					return err
-				}
-				continue
-			}
-			if scenario == "slow_status" {
-				time.Sleep(4 * time.Second)
-			}
-			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"servers": []any{}}}); err != nil {
-				return err
-			}
-		case "thread/tokenUsage/read", "thread/read":
-			return fmt.Errorf("unexpected undocumented codex usage read request: %#v", payload)
-		default:
-			if scenario == "approval" && payload["id"] == float64(42) {
-				result, _ := mapValue(payload["result"])
-				if stringValue(result["decision"]) != "accept" {
-					return fmt.Errorf("unexpected approval decision: %#v", payload)
-				}
-				if err := emitAssistantTurn(writer, "assistant-approval", "Approval granted"); err != nil {
-					return err
-				}
-				return nil
-			}
+		if done {
+			return nil
 		}
 	}
 	return reader.Err()
+}
+
+type codexFixtureProcess struct {
+	scenario           string
+	writer             *bufio.Writer
+	mcpStatusListCount int
+}
+
+func (f *codexFixtureProcess) handleLine(rawLine string) (bool, error) {
+	line := strings.TrimSpace(rawLine)
+	if line == "" {
+		return false, nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(line), &payload); err != nil {
+		return false, fmt.Errorf("decode fixture request: %w", err)
+	}
+	switch stringValue(payload["method"]) {
+	case "initialize":
+		return false, f.handleInitialize(payload)
+	case "initialized":
+		return false, nil
+	case "config/mcpServer/reload":
+		return false, f.emitResult(payload, map[string]any{})
+	case "thread/start":
+		return false, f.emitResult(payload, map[string]any{"threadId": "thread-" + f.scenario})
+	case "thread/resume":
+		return false, f.handleThreadResume(payload)
+	case "turn/start":
+		return f.handleTurnStart(payload)
+	case "mcpServerStatus/list":
+		return f.handleMCPServerStatusList(payload)
+	case "thread/tokenUsage/read", "thread/read":
+		return false, fmt.Errorf("unexpected undocumented codex usage read request: %#v", payload)
+	default:
+		return f.handleDefault(payload)
+	}
+}
+
+func (f *codexFixtureProcess) emit(payload map[string]any) error {
+	content, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := f.writer.Write(append(content, '\n')); err != nil {
+		return err
+	}
+	return f.writer.Flush()
+}
+
+func (f *codexFixtureProcess) emitResult(payload map[string]any, result map[string]any) error {
+	return f.emit(map[string]any{"id": payload["id"], "result": result})
+}
+
+func (f *codexFixtureProcess) handleInitialize(payload map[string]any) error {
+	params, _ := mapValue(payload["params"])
+	clientInfo, _ := mapValue(params["clientInfo"])
+	if stringValue(clientInfo["name"]) != "setta" {
+		return fmt.Errorf("expected initialize clientInfo.name setta, got %#v", clientInfo["name"])
+	}
+	version := stringValue(clientInfo["version"])
+	if version == "" || strings.Contains(strings.ToLower(version), "rewrite") {
+		return fmt.Errorf("expected initialize clientInfo.version to use the app version, got %#v", clientInfo["version"])
+	}
+	return f.emitResult(payload, map[string]any{})
+}
+
+func (f *codexFixtureProcess) handleThreadResume(payload map[string]any) error {
+	params, _ := mapValue(payload["params"])
+	threadID := stringValue(params["threadId"])
+	if threadID == "" {
+		threadID = "thread-" + f.scenario
+	}
+	return f.emitResult(payload, map[string]any{"threadId": threadID})
+}
+
+func (f *codexFixtureProcess) handleTurnStart(payload map[string]any) (bool, error) {
+	if err := f.emitResult(payload, map[string]any{}); err != nil {
+		return false, err
+	}
+	handler, ok := codexFixtureTurnStartHandlers[f.scenario]
+	if !ok {
+		return true, emitAssistantTurn(f.writer, "assistant-1", "Hello from Codex")
+	}
+	return handler(f)
+}
+
+var codexFixtureTurnStartHandlers = map[string]func(*codexFixtureProcess) (bool, error){
+	"approval":              handleCodexFixtureApprovalTurn,
+	"rich":                  func(*codexFixtureProcess) (bool, error) { return false, nil },
+	"raw":                   handleCodexFixtureRawTurn,
+	"env_handoff":           handleCodexFixtureEnvHandoffTurn,
+	"usage_stream":          handleCodexFixtureUsageStreamTurn,
+	"usage_live":            handleCodexFixtureUsageLiveTurn,
+	"usage_missing":         handleCodexFixtureUsageMissingTurn,
+	"stalled_tool_call":     handleCodexFixtureStalledToolCallTurn,
+	"stalled_raw_tool_call": handleCodexFixtureStalledRawToolCallTurn,
+	"slow_status":           handleCodexFixtureSlowStatusTurn,
+	"delayed_status":        handleCodexFixtureDelayedStatusTurn,
+	"late_status":           handleCodexFixtureLateStatusTurn,
+}
+
+func handleCodexFixtureApprovalTurn(f *codexFixtureProcess) (bool, error) {
+	return false, f.emit(map[string]any{
+		"id":     42,
+		"method": "item/commandExecution/requestApproval",
+		"params": map[string]any{
+			"item": map[string]any{
+				"type":    "commandExecution",
+				"command": "echo approval",
+			},
+		},
+	})
+}
+
+func handleCodexFixtureRawTurn(f *codexFixtureProcess) (bool, error) {
+	return true, emitCodexRawTurn(f.writer)
+}
+
+func handleCodexFixtureEnvHandoffTurn(f *codexFixtureProcess) (bool, error) {
+	codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+	if codexHome == "" {
+		return false, fmt.Errorf("missing CODEX_HOME")
+	}
+	if _, err := os.Stat(filepath.Join(codexHome, codexConfigFileName)); err != nil {
+		return false, fmt.Errorf("stat CODEX_HOME config: %w", err)
+	}
+	return true, emitAssistantTurn(f.writer, "assistant-env", codexHome)
+}
+
+func handleCodexFixtureUsageStreamTurn(f *codexFixtureProcess) (bool, error) {
+	if err := emitCodexThreadTokenUsageUpdated(f.writer, map[string]any{
+		"total": map[string]any{
+			"inputTokens":  11,
+			"outputTokens": 2,
+			"totalTokens":  13,
+		},
+		"last": map[string]any{
+			"contextUsedTokens": 11,
+		},
+		"modelContextWindow": 272000,
+	}); err != nil {
+		return false, err
+	}
+	return true, emitAssistantTurn(f.writer, "assistant-usage", "HELLO")
+}
+
+func handleCodexFixtureUsageLiveTurn(f *codexFixtureProcess) (bool, error) {
+	if err := emitCodexThreadTokenUsageUpdated(f.writer, map[string]any{
+		"total": map[string]any{
+			"inputTokens":  23,
+			"outputTokens": 5,
+			"totalTokens":  28,
+		},
+		"last": map[string]any{
+			"contextUsedTokens": 23,
+		},
+		"modelContextWindow": 400000,
+	}); err != nil {
+		return false, err
+	}
+	time.Sleep(200 * time.Millisecond)
+	return true, emitAssistantTurn(f.writer, "assistant-usage-live", "HELLO")
+}
+
+func handleCodexFixtureUsageMissingTurn(f *codexFixtureProcess) (bool, error) {
+	return true, emitAssistantTurn(f.writer, "assistant-usage", "HELLO")
+}
+
+func handleCodexFixtureStalledToolCallTurn(f *codexFixtureProcess) (bool, error) {
+	return false, emitCodexStalledToolCall(f.writer)
+}
+
+func handleCodexFixtureStalledRawToolCallTurn(f *codexFixtureProcess) (bool, error) {
+	return false, emitCodexStalledRawToolCall(f.writer)
+}
+
+func handleCodexFixtureSlowStatusTurn(f *codexFixtureProcess) (bool, error) {
+	return false, emitAssistantTurn(f.writer, "assistant-slow-status", "Hello from Codex")
+}
+
+func handleCodexFixtureDelayedStatusTurn(f *codexFixtureProcess) (bool, error) {
+	return false, emitAssistantTurn(f.writer, "assistant-delayed-status", "Hello from Codex")
+}
+
+func handleCodexFixtureLateStatusTurn(f *codexFixtureProcess) (bool, error) {
+	return false, emitAssistantTurn(f.writer, "assistant-late-status", "Hello from Codex")
+}
+
+func (f *codexFixtureProcess) handleMCPServerStatusList(payload map[string]any) (bool, error) {
+	f.mcpStatusListCount++
+	switch {
+	case f.scenario == "rich":
+		return f.emitRichMCPStatus(payload)
+	case f.scenario == "late_status" && f.mcpStatusListCount > 1:
+		return false, f.emit(codexFixtureConnectedMCPStatus(payload["id"]))
+	case f.scenario == "delayed_status":
+		time.Sleep(2 * time.Second)
+		return false, f.emit(codexFixtureConnectedMCPStatus(payload["id"]))
+	case f.scenario == "slow_status":
+		time.Sleep(4 * time.Second)
+	}
+	return false, f.emit(map[string]any{"id": payload["id"], "result": map[string]any{"servers": []any{}}})
+}
+
+func (f *codexFixtureProcess) emitRichMCPStatus(payload map[string]any) (bool, error) {
+	if err := f.emit(codexFixtureConnectedMCPStatus(payload["id"])); err != nil {
+		return false, err
+	}
+	return true, emitCodexRichTurn(f.writer)
+}
+
+func codexFixtureConnectedMCPStatus(id any) map[string]any {
+	return map[string]any{
+		"id": id,
+		"result": map[string]any{
+			"servers": []any{
+				map[string]any{
+					"id":        "setta",
+					"connected": true,
+					"transport": "streamable_http",
+					"endpoint":  "http://127.0.0.1:8000/mcp",
+					"toolCount": 4,
+				},
+			},
+		},
+	}
+}
+
+func (f *codexFixtureProcess) handleDefault(payload map[string]any) (bool, error) {
+	if f.scenario != "approval" || payload["id"] != float64(42) {
+		return false, nil
+	}
+	result, _ := mapValue(payload["result"])
+	if stringValue(result["decision"]) != "accept" {
+		return false, fmt.Errorf("unexpected approval decision: %#v", payload)
+	}
+	return true, emitAssistantTurn(f.writer, "assistant-approval", "Approval granted")
 }
 
 func emitAssistantTurn(writer *bufio.Writer, messageID string, text string) error {
