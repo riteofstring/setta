@@ -266,30 +266,36 @@ func TestAppRejectsUnauthorizedTranscriptionAppendBeforeJSONDecode(t *testing.T)
 	}
 }
 
-func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
-	// The real IDE app should own realtime transcription session lifecycle and
-	// stream incremental transcript deltas through the bounded Go runtime.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	t.Setenv("OPENAI_API_KEY", "app-realtime-secret")
+type appRealtimeTranscriptionHandshake struct {
+	Path          string
+	Query         string
+	Authorization string
+	OpenAIBeta    string
+}
 
-	type handshake struct {
-		Path          string
-		Query         string
-		Authorization string
-		OpenAIBeta    string
+type appRealtimeTranscriptionProvider struct {
+	server    *httptest.Server
+	handshake chan appRealtimeTranscriptionHandshake
+	update    chan map[string]any
+	append    chan map[string]any
+	commit    chan map[string]any
+	closed    chan error
+	emitFinal chan struct{}
+}
+
+func newAppRealtimeTranscriptionProvider(t *testing.T) *appRealtimeTranscriptionProvider {
+	t.Helper()
+
+	provider := &appRealtimeTranscriptionProvider{
+		handshake: make(chan appRealtimeTranscriptionHandshake, 1),
+		update:    make(chan map[string]any, 1),
+		append:    make(chan map[string]any, 1),
+		commit:    make(chan map[string]any, 1),
+		closed:    make(chan error, 1),
+		emitFinal: make(chan struct{}),
 	}
-
-	handshakes := make(chan handshake, 1)
-	updates := make(chan map[string]any, 1)
-	appends := make(chan map[string]any, 1)
-	commits := make(chan map[string]any, 1)
-	closed := make(chan error, 1)
-	emitFinal := make(chan struct{})
-
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handshakes <- handshake{
+	provider.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provider.handshake <- appRealtimeTranscriptionHandshake{
 			Path:          r.URL.Path,
 			Query:         r.URL.RawQuery,
 			Authorization: r.Header.Get("Authorization"),
@@ -305,7 +311,7 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 		if err != nil {
 			return
 		}
-		updates <- update
+		provider.update <- update
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
 			return
 		}
@@ -314,25 +320,30 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 		if err != nil {
 			return
 		}
-		appends <- appendPayload
+		provider.append <- appendPayload
 
 		commitPayload, err := readRealtimeProviderMessage(context.Background(), conn)
 		if err != nil {
 			return
 		}
-		commits <- commitPayload
+		provider.commit <- commitPayload
 
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-1","transcript":"ready"}`)); err != nil {
 			return
 		}
-		<-emitFinal
+		<-provider.emitFinal
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","item_id":"item-2","transcript":"now"}`)); err != nil {
 			return
 		}
 		_, _, err = conn.Read(context.Background())
-		closed <- err
+		provider.closed <- err
 	}))
-	defer provider.Close()
+	t.Cleanup(provider.server.Close)
+	return provider
+}
+
+func saveAppRealtimeTranscriptionConfig(t *testing.T, cfg config.Config, providerURL string) {
+	t.Helper()
 
 	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
@@ -340,7 +351,7 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 				ID:        "openai-realtime",
 				Model:     "gpt-4o-mini-transcribe",
 				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
+				BaseURL:   providerURL + "/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
@@ -364,6 +375,10 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write transcription profile: %v", err)
 	}
+}
+
+func startAppTranscriptionServer(t *testing.T, cfg config.Config) (*httptest.Server, *http.Cookie) {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -376,93 +391,125 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	})
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
+	return server, newAppTestAuthCookie(t, app)
+}
 
-	authCookie := newAppTestAuthCookie(t, app)
-	startRequest, err := http.NewRequest(
+func startAppRealtimeTranscriptionSession(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+) httpapi.StartTranscriptionSessionResponse {
+	t.Helper()
+
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStartTranscriptionSession,
+		serverURL+"/api"+httpapi.RouteStartTranscriptionSession,
 		strings.NewReader(`{"transcriptionProfileId":"profile-realtime","language":"en"}`),
 	)
 	if err != nil {
 		t.Fatalf("new start request: %v", err)
 	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	startResponse, err := http.DefaultClient.Do(startRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("start realtime transcription session: %v", err)
 	}
-	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected realtime start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected realtime start 200, got %d with body %q", response.StatusCode, string(body))
 	}
 	var started httpapi.StartTranscriptionSessionResponse
-	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&started); err != nil {
 		t.Fatalf("decode realtime start payload: %v", err)
 	}
 	if started.ResolvedTransportMode != "realtime" || started.ChunkMs != 200 {
 		t.Fatalf("unexpected realtime start payload %#v", started)
 	}
+	return started
+}
 
-	appendRequest, err := http.NewRequest(
+func appendAppRealtimeTranscriptionAudio(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	sessionID string,
+) httpapi.TranscriptionSessionDeltaResponse {
+	t.Helper()
+
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteAppendTranscriptionAudio,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+		serverURL+"/api"+httpapi.RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+sessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
 	)
 	if err != nil {
 		t.Fatalf("new realtime append request: %v", err)
 	}
-	appendRequest.Header.Set("Content-Type", "application/json")
-	appendRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	appendResponse, err := http.DefaultClient.Do(appendRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("append realtime transcription audio: %v", err)
 	}
-	defer appendResponse.Body.Close()
-	if appendResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(appendResponse.Body)
-		t.Fatalf("expected realtime append 200, got %d with body %q", appendResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected realtime append 200, got %d with body %q", response.StatusCode, string(body))
 	}
-	var appendPayload httpapi.TranscriptionSessionDeltaResponse
-	if err := json.NewDecoder(appendResponse.Body).Decode(&appendPayload); err != nil {
+	var payload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode realtime append payload: %v", err)
 	}
-	if appendPayload.IsFinal || appendPayload.AppendText != "ready" || appendPayload.FullText != "ready" {
-		t.Fatalf("unexpected realtime append payload %#v", appendPayload)
+	if payload.IsFinal || payload.AppendText != "ready" || payload.FullText != "ready" {
+		t.Fatalf("unexpected realtime append payload %#v", payload)
 	}
+	return payload
+}
 
-	close(emitFinal)
-	stopRequest, err := http.NewRequest(
+func stopAppRealtimeTranscriptionSession(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	sessionID string,
+) httpapi.TranscriptionSessionDeltaResponse {
+	t.Helper()
+
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopTranscriptionSession,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+		serverURL+"/api"+httpapi.RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+sessionID+`"}`),
 	)
 	if err != nil {
 		t.Fatalf("new realtime stop request: %v", err)
 	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("stop realtime transcription session: %v", err)
 	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected realtime stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected realtime stop 200, got %d with body %q", response.StatusCode, string(body))
 	}
-	var stopPayload httpapi.TranscriptionSessionDeltaResponse
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
+	var payload httpapi.TranscriptionSessionDeltaResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode realtime stop payload: %v", err)
 	}
-	if !stopPayload.IsFinal || stopPayload.AppendText != " now" || stopPayload.FullText != "ready now" {
-		t.Fatalf("unexpected realtime stop payload %#v", stopPayload)
+	if !payload.IsFinal || payload.AppendText != " now" || payload.FullText != "ready now" {
+		t.Fatalf("unexpected realtime stop payload %#v", payload)
 	}
+	return payload
+}
+
+func assertAppRealtimeTranscriptionHandshake(t *testing.T, handshakes <-chan appRealtimeTranscriptionHandshake) {
+	t.Helper()
 
 	select {
 	case captured := <-handshakes:
@@ -481,6 +528,10 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime handshake")
 	}
+}
+
+func assertAppRealtimeTranscriptionUpdate(t *testing.T, updates <-chan map[string]any) {
+	t.Helper()
 
 	select {
 	case payload := <-updates:
@@ -500,24 +551,28 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime session update")
 	}
+}
+
+func assertAppRealtimeTranscriptionPayloadType(
+	t *testing.T,
+	payloads <-chan map[string]any,
+	expectedType string,
+	timeoutMessage string,
+) {
+	t.Helper()
 
 	select {
-	case payload := <-appends:
-		if payload["type"] != "input_audio_buffer.append" {
-			t.Fatalf("unexpected realtime append payload %#v", payload)
+	case payload := <-payloads:
+		if payload["type"] != expectedType {
+			t.Fatalf("unexpected realtime payload %#v", payload)
 		}
 	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for realtime append payload")
+		t.Fatal(timeoutMessage)
 	}
+}
 
-	select {
-	case payload := <-commits:
-		if payload["type"] != "input_audio_buffer.commit" {
-			t.Fatalf("unexpected realtime commit payload %#v", payload)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for realtime commit payload")
-	}
+func assertAppRealtimeTranscriptionClosed(t *testing.T, closed <-chan error) {
+	t.Helper()
 
 	select {
 	case err := <-closed:
@@ -527,6 +582,30 @@ func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime close")
 	}
+}
+
+func TestAppServesRealtimeTranscriptionSessionRoutes(t *testing.T) {
+	// The real IDE app should own realtime transcription session lifecycle and
+	// stream incremental transcript deltas through the bounded Go runtime.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "app-realtime-secret")
+
+	provider := newAppRealtimeTranscriptionProvider(t)
+	saveAppRealtimeTranscriptionConfig(t, cfg, provider.server.URL)
+	server, authCookie := startAppTranscriptionServer(t, cfg)
+
+	started := startAppRealtimeTranscriptionSession(t, server.URL, authCookie)
+	appendAppRealtimeTranscriptionAudio(t, server.URL, authCookie, started.SessionID)
+	close(provider.emitFinal)
+	stopAppRealtimeTranscriptionSession(t, server.URL, authCookie, started.SessionID)
+
+	assertAppRealtimeTranscriptionHandshake(t, provider.handshake)
+	assertAppRealtimeTranscriptionUpdate(t, provider.update)
+	assertAppRealtimeTranscriptionPayloadType(t, provider.append, "input_audio_buffer.append", "timed out waiting for realtime append payload")
+	assertAppRealtimeTranscriptionPayloadType(t, provider.commit, "input_audio_buffer.commit", "timed out waiting for realtime commit payload")
+	assertAppRealtimeTranscriptionClosed(t, provider.closed)
 }
 
 func readRealtimeProviderMessage(ctx context.Context, conn *websocket.Conn) (map[string]any, error) {

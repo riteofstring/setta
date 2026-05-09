@@ -724,6 +724,326 @@ func TestAppServesManagedChatToolCallThroughInternalMCPClient(t *testing.T) {
 	}
 }
 
+type appManagedChatToolProviderRequest struct {
+	Path   string
+	Query  string
+	APIKey string
+	Body   map[string]any
+}
+
+func saveAppManagedChatToolRouteConfig(
+	t *testing.T,
+	cfg config.Config,
+	serverURL string,
+	llmConfig llmconfig.Config,
+	engineName string,
+) {
+	t.Helper()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": llmConfig,
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{
+			mcpx.DefaultServerID: {
+				Transport: "streamable_http",
+				URL:       serverURL + "/mcp",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             engineName,
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+}
+
+func startAppManagedChatToolRouteApp(t *testing.T, cfg config.Config, listener net.Listener) *App {
+	t.Helper()
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	setAppCompletionGuardEnabled(t, app, true)
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+	seedAppManagedChatToolRouteProject(t, app)
+	return app
+}
+
+func seedAppManagedChatToolRouteProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+}
+
+func sendAppManagedChatToolRouteMessage(t *testing.T, serverURL string, authCookie *http.Cookie, label string) string {
+	t.Helper()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		serverURL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Report status and then respond."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("new send request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("send managed %s chat: %v", label, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	return decodeAppManagedChatID(t, response, label+" tool")
+}
+
+func waitForAppManagedChatToolRouteHydration(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	chatID string,
+	expectedAssistantText string,
+	label string,
+) appManagedChatHydratePayload {
+	t.Helper()
+
+	var hydrated appManagedChatHydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			serverURL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed %s chat: %v", label, err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
+		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 4
+	})
+	if appTestMessageText(hydrated.Messages[3]) != expectedAssistantText {
+		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[3])
+	}
+	return hydrated
+}
+
+func assertAppManagedChatAnthropicToolProviderRequests(t *testing.T, providerRequests []appManagedChatToolProviderRequest) {
+	t.Helper()
+
+	if len(providerRequests) != 2 {
+		t.Fatalf("expected two provider requests, got %d", len(providerRequests))
+	}
+	if providerRequests[0].Path != "/v1/messages" {
+		t.Fatalf("unexpected provider path %q", providerRequests[0].Path)
+	}
+	if providerRequests[0].APIKey != "secret" {
+		t.Fatalf("unexpected provider api key %q", providerRequests[0].APIKey)
+	}
+	firstTools, ok := providerRequests[0].Body["tools"].([]any)
+	if !ok || len(firstTools) == 0 {
+		t.Fatalf("expected anthropic tool definitions, got %#v", providerRequests[0].Body["tools"])
+	}
+	if !appManagedChatAnthropicToolsIncludeCompletionStatus(firstTools) {
+		t.Fatalf("expected anthropic tool set to include report_completion_status, got %#v", firstTools)
+	}
+	assertAppManagedChatAnthropicToolFollowUp(t, providerRequests[1].Body)
+}
+
+func appManagedChatAnthropicToolsIncludeCompletionStatus(firstTools []any) bool {
+	for _, rawTool := range firstTools {
+		tool, ok := rawTool.(map[string]any)
+		if !ok {
+			continue
+		}
+		if tool["name"] == "setta__report_completion_status" {
+			return true
+		}
+	}
+	return false
+}
+
+func assertAppManagedChatAnthropicToolFollowUp(t *testing.T, body map[string]any) {
+	t.Helper()
+
+	secondMessages, ok := body["messages"].([]any)
+	if !ok || len(secondMessages) < 3 {
+		t.Fatalf("expected follow-up anthropic transcript, got %#v", body["messages"])
+	}
+	foundAssistantToolUse := false
+	foundUserToolResult := false
+	for _, rawMessage := range secondMessages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := message["role"].(string)
+		content, _ := message["content"].([]any)
+		if role == "assistant" && appManagedChatAnthropicContentHasBlock(content, "tool_use", "id") {
+			foundAssistantToolUse = true
+		}
+		if role == "user" && appManagedChatAnthropicContentHasBlock(content, "tool_result", "tool_use_id") {
+			foundUserToolResult = true
+		}
+	}
+	if !foundAssistantToolUse || !foundUserToolResult {
+		t.Fatalf("expected anthropic follow-up transcript with tool_use and tool_result, got %#v", secondMessages)
+	}
+}
+
+func appManagedChatAnthropicContentHasBlock(content []any, blockType string, idKey string) bool {
+	for _, rawBlock := range content {
+		block, _ := rawBlock.(map[string]any)
+		if block["type"] == blockType && block[idKey] == "tool-call-1" {
+			return true
+		}
+	}
+	return false
+}
+
+func assertAppManagedChatGeminiToolProviderRequests(t *testing.T, providerRequests []appManagedChatToolProviderRequest) {
+	t.Helper()
+
+	if len(providerRequests) != 2 {
+		t.Fatalf("expected two provider requests, got %d", len(providerRequests))
+	}
+	if providerRequests[0].Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
+		t.Fatalf("unexpected provider path %q", providerRequests[0].Path)
+	}
+	if providerRequests[0].Query != "alt=sse" {
+		t.Fatalf("unexpected provider query %q", providerRequests[0].Query)
+	}
+	if providerRequests[0].APIKey != "secret" {
+		t.Fatalf("unexpected provider api key %q", providerRequests[0].APIKey)
+	}
+	firstTools, ok := providerRequests[0].Body["tools"].([]any)
+	if !ok || len(firstTools) == 0 {
+		t.Fatalf("expected gemini tool definitions, got %#v", providerRequests[0].Body["tools"])
+	}
+	firstToolsJSON, err := json.Marshal(firstTools)
+	if err != nil {
+		t.Fatalf("marshal gemini tool definitions: %v", err)
+	}
+	if !strings.Contains(string(firstToolsJSON), "setta__report_completion_status") {
+		t.Fatalf("expected gemini tool set to include report_completion_status, got %s", string(firstToolsJSON))
+	}
+	assertAppManagedChatGeminiToolFollowUp(t, providerRequests[1].Body)
+}
+
+func assertAppManagedChatGeminiToolFollowUp(t *testing.T, body map[string]any) {
+	t.Helper()
+
+	secondContents, ok := body["contents"].([]any)
+	if !ok || len(secondContents) < 3 {
+		t.Fatalf("expected follow-up gemini contents, got %#v", body["contents"])
+	}
+	foundFunctionCall := false
+	foundFunctionResponse := false
+	for _, rawContent := range secondContents {
+		content, ok := rawContent.(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, _ := content["parts"].([]any)
+		if appManagedChatGeminiPartsHaveFunction(parts, "functionCall") {
+			foundFunctionCall = true
+		}
+		if appManagedChatGeminiPartsHaveFunction(parts, "functionResponse") {
+			foundFunctionResponse = true
+		}
+	}
+	if !foundFunctionCall || !foundFunctionResponse {
+		t.Fatalf("expected gemini follow-up transcript with functionCall and functionResponse, got %#v", secondContents)
+	}
+}
+
+func appManagedChatGeminiPartsHaveFunction(parts []any, key string) bool {
+	for _, rawPart := range parts {
+		part, ok := rawPart.(map[string]any)
+		if !ok {
+			continue
+		}
+		functionPayload, _ := part[key].(map[string]any)
+		if functionPayload != nil && functionPayload["id"] == "tool-call-1" {
+			return true
+		}
+	}
+	return false
+}
+
 func TestAppServesManagedChatAnthropicToolCallThroughInternalMCPClient(t *testing.T) {
 	// Managed Anthropic chat tool calls should run through the real IDE app's
 	// internal MCP client and continue the provider turn with tool_use/tool_result
@@ -751,12 +1071,7 @@ func TestAppServesManagedChatAnthropicToolCallThroughInternalMCPClient(t *testin
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
 	serverURL := "http://" + listener.Addr().String()
 
-	type providerRequest struct {
-		Path   string
-		APIKey string
-		Body   map[string]any
-	}
-	providerRequests := make([]providerRequest, 0, 2)
+	providerRequests := make([]appManagedChatToolProviderRequest, 0, 2)
 	requestCount := 0
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
@@ -764,7 +1079,7 @@ func TestAppServesManagedChatAnthropicToolCallThroughInternalMCPClient(t *testin
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		providerRequests = append(providerRequests, providerRequest{
+		providerRequests = append(providerRequests, appManagedChatToolProviderRequest{
 			Path:   r.URL.Path,
 			APIKey: r.Header.Get("X-Api-Key"),
 			Body:   body,
@@ -810,217 +1125,19 @@ func TestAppServesManagedChatAnthropicToolCallThroughInternalMCPClient(t *testin
 	}))
 	defer provider.Close()
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:           "primary",
-				Model:        "claude-sonnet-4-5-20250929",
-				Provider:     "anthropic",
-				BaseURL:      provider.URL,
-				APIKeyEnv:    "ANTHROPIC_API_KEY",
-				MCPServerIDs: []string{mcpx.DefaultServerID},
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{
-			mcpx.DefaultServerID: {
-				Transport: "streamable_http",
-				URL:       serverURL + "/mcp",
-			},
-		},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
-
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Anthropic Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	setAppCompletionGuardEnabled(t, app, true)
-
-	server := &http.Server{Handler: app.Handler()}
-	serverErrors := make(chan error, 1)
-	go func() {
-		serverErrors <- server.Serve(listener)
-	}()
-
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("shutdown http server: %v", err)
-		}
-		err := <-serverErrors
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("serve app: %v", err)
-		}
-	})
-
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
-
+	saveAppManagedChatToolRouteConfig(t, cfg, serverURL, llmconfig.Config{
+		ID:           "primary",
+		Model:        "claude-sonnet-4-5-20250929",
+		Provider:     "anthropic",
+		BaseURL:      provider.URL,
+		APIKeyEnv:    "ANTHROPIC_API_KEY",
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+	}, "Managed Anthropic Engine")
+	app := startAppManagedChatToolRouteApp(t, cfg, listener)
 	authCookie := newAppTestAuthCookie(t, app)
-	request, err := http.NewRequest(
-		http.MethodPost,
-		serverURL+"/api"+httpapi.RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Report status and then respond."}]},
-			"engineConfigId":"engine-managed",
-			"agentProfileId":null,
-			"thinking":false,
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("new send request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("send managed anthropic chat: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var chatID string
-	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode send chat id: %v", err)
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydrated hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			serverURL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed anthropic chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
-			t.Fatalf("decode hydrate payload: %v", err)
-		}
-		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 4
-	})
-
-	if appTestMessageText(hydrated.Messages[3]) != "Tool-backed anthropic reply" {
-		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[3])
-	}
-
-	if len(providerRequests) != 2 {
-		t.Fatalf("expected two provider requests, got %d", len(providerRequests))
-	}
-	if providerRequests[0].Path != "/v1/messages" {
-		t.Fatalf("unexpected provider path %q", providerRequests[0].Path)
-	}
-	if providerRequests[0].APIKey != "secret" {
-		t.Fatalf("unexpected provider api key %q", providerRequests[0].APIKey)
-	}
-	firstTools, ok := providerRequests[0].Body["tools"].([]any)
-	if !ok || len(firstTools) == 0 {
-		t.Fatalf("expected anthropic tool definitions, got %#v", providerRequests[0].Body["tools"])
-	}
-	foundCompletionStatusTool := false
-	for _, rawTool := range firstTools {
-		tool, ok := rawTool.(map[string]any)
-		if !ok {
-			continue
-		}
-		if tool["name"] == "setta__report_completion_status" {
-			foundCompletionStatusTool = true
-			break
-		}
-	}
-	if !foundCompletionStatusTool {
-		t.Fatalf("expected anthropic tool set to include report_completion_status, got %#v", firstTools)
-	}
-	secondMessages, ok := providerRequests[1].Body["messages"].([]any)
-	if !ok || len(secondMessages) < 3 {
-		t.Fatalf("expected follow-up anthropic transcript, got %#v", providerRequests[1].Body["messages"])
-	}
-	foundAssistantToolUse := false
-	foundUserToolResult := false
-	for _, rawMessage := range secondMessages {
-		message, ok := rawMessage.(map[string]any)
-		if !ok {
-			continue
-		}
-		role, _ := message["role"].(string)
-		content, _ := message["content"].([]any)
-		if role == "assistant" {
-			for _, rawBlock := range content {
-				block, _ := rawBlock.(map[string]any)
-				if block["type"] == "tool_use" && block["id"] == "tool-call-1" {
-					foundAssistantToolUse = true
-				}
-			}
-		}
-		if role == "user" {
-			for _, rawBlock := range content {
-				block, _ := rawBlock.(map[string]any)
-				if block["type"] == "tool_result" && block["tool_use_id"] == "tool-call-1" {
-					foundUserToolResult = true
-				}
-			}
-		}
-	}
-	if !foundAssistantToolUse || !foundUserToolResult {
-		t.Fatalf("expected anthropic follow-up transcript with tool_use and tool_result, got %#v", secondMessages)
-	}
+	chatID := sendAppManagedChatToolRouteMessage(t, serverURL, authCookie, "anthropic")
+	waitForAppManagedChatToolRouteHydration(t, serverURL, authCookie, chatID, "Tool-backed anthropic reply", "anthropic")
+	assertAppManagedChatAnthropicToolProviderRequests(t, providerRequests)
 }
 
 func TestAppServesManagedChatGeminiToolCallThroughInternalMCPClient(t *testing.T) {
@@ -1050,13 +1167,7 @@ func TestAppServesManagedChatGeminiToolCallThroughInternalMCPClient(t *testing.T
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
 	serverURL := "http://" + listener.Addr().String()
 
-	type providerRequest struct {
-		Path   string
-		Query  string
-		APIKey string
-		Body   map[string]any
-	}
-	providerRequests := make([]providerRequest, 0, 2)
+	providerRequests := make([]appManagedChatToolProviderRequest, 0, 2)
 	requestCount := 0
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
@@ -1064,7 +1175,7 @@ func TestAppServesManagedChatGeminiToolCallThroughInternalMCPClient(t *testing.T
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		providerRequests = append(providerRequests, providerRequest{
+		providerRequests = append(providerRequests, appManagedChatToolProviderRequest{
 			Path:   r.URL.Path,
 			Query:  r.URL.RawQuery,
 			APIKey: r.Header.Get("X-Goog-Api-Key"),
@@ -1091,208 +1202,17 @@ func TestAppServesManagedChatGeminiToolCallThroughInternalMCPClient(t *testing.T
 	}))
 	defer provider.Close()
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:           "primary",
-				Model:        "gemini-2.5-pro",
-				Provider:     "gemini",
-				BaseURL:      provider.URL,
-				APIKeyEnv:    "GEMINI_API_KEY",
-				MCPServerIDs: []string{mcpx.DefaultServerID},
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{
-			mcpx.DefaultServerID: {
-				Transport: "streamable_http",
-				URL:       serverURL + "/mcp",
-			},
-		},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
-
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Gemini Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	setAppCompletionGuardEnabled(t, app, true)
-
-	server := &http.Server{Handler: app.Handler()}
-	serverErrors := make(chan error, 1)
-	go func() {
-		serverErrors <- server.Serve(listener)
-	}()
-
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("shutdown http server: %v", err)
-		}
-		err := <-serverErrors
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("serve app: %v", err)
-		}
-	})
-
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
-
+	saveAppManagedChatToolRouteConfig(t, cfg, serverURL, llmconfig.Config{
+		ID:           "primary",
+		Model:        "gemini-2.5-pro",
+		Provider:     "gemini",
+		BaseURL:      provider.URL,
+		APIKeyEnv:    "GEMINI_API_KEY",
+		MCPServerIDs: []string{mcpx.DefaultServerID},
+	}, "Managed Gemini Engine")
+	app := startAppManagedChatToolRouteApp(t, cfg, listener)
 	authCookie := newAppTestAuthCookie(t, app)
-	request, err := http.NewRequest(
-		http.MethodPost,
-		serverURL+"/api"+httpapi.RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Report status and then respond."}]},
-			"engineConfigId":"engine-managed",
-			"agentProfileId":null,
-			"thinking":false,
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("new send request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("send managed gemini chat: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var chatID string
-	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode send chat id: %v", err)
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydrated hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			serverURL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed gemini chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
-			t.Fatalf("decode hydrate payload: %v", err)
-		}
-		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 4
-	})
-
-	if appTestMessageText(hydrated.Messages[3]) != "Tool-backed gemini reply" {
-		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[3])
-	}
-
-	if len(providerRequests) != 2 {
-		t.Fatalf("expected two provider requests, got %d", len(providerRequests))
-	}
-	if providerRequests[0].Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
-		t.Fatalf("unexpected provider path %q", providerRequests[0].Path)
-	}
-	if providerRequests[0].Query != "alt=sse" {
-		t.Fatalf("unexpected provider query %q", providerRequests[0].Query)
-	}
-	if providerRequests[0].APIKey != "secret" {
-		t.Fatalf("unexpected provider api key %q", providerRequests[0].APIKey)
-	}
-	firstTools, ok := providerRequests[0].Body["tools"].([]any)
-	if !ok || len(firstTools) == 0 {
-		t.Fatalf("expected gemini tool definitions, got %#v", providerRequests[0].Body["tools"])
-	}
-	firstToolsJSON, err := json.Marshal(firstTools)
-	if err != nil {
-		t.Fatalf("marshal gemini tool definitions: %v", err)
-	}
-	if !strings.Contains(string(firstToolsJSON), "setta__report_completion_status") {
-		t.Fatalf("expected gemini tool set to include report_completion_status, got %s", string(firstToolsJSON))
-	}
-	secondContents, ok := providerRequests[1].Body["contents"].([]any)
-	if !ok || len(secondContents) < 3 {
-		t.Fatalf("expected follow-up gemini contents, got %#v", providerRequests[1].Body["contents"])
-	}
-	foundFunctionCall := false
-	foundFunctionResponse := false
-	for _, rawContent := range secondContents {
-		content, ok := rawContent.(map[string]any)
-		if !ok {
-			continue
-		}
-		parts, _ := content["parts"].([]any)
-		for _, rawPart := range parts {
-			part, ok := rawPart.(map[string]any)
-			if !ok {
-				continue
-			}
-			functionCall, _ := part["functionCall"].(map[string]any)
-			if functionCall != nil && functionCall["id"] == "tool-call-1" {
-				foundFunctionCall = true
-			}
-			functionResponse, _ := part["functionResponse"].(map[string]any)
-			if functionResponse != nil && functionResponse["id"] == "tool-call-1" {
-				foundFunctionResponse = true
-			}
-		}
-	}
-	if !foundFunctionCall || !foundFunctionResponse {
-		t.Fatalf("expected gemini follow-up transcript with functionCall and functionResponse, got %#v", secondContents)
-	}
+	chatID := sendAppManagedChatToolRouteMessage(t, serverURL, authCookie, "gemini")
+	waitForAppManagedChatToolRouteHydration(t, serverURL, authCookie, chatID, "Tool-backed gemini reply", "gemini")
+	assertAppManagedChatGeminiToolProviderRequests(t, providerRequests)
 }

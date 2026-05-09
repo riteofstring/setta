@@ -111,6 +111,15 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 		t.Fatalf("execute managed llm reasoning request: %v", err)
 	}
 
+	assertOpenAIResponsesThinkingRequest(t, seenRequest)
+	assertOpenAIResponsesThinkingOutputs(t, result)
+	assertOpenAIResponsesThinkingLiveState(t, live, run.ID)
+	assertOpenAIResponsesThinkingBroadcasts(t, broadcaster)
+}
+
+func assertOpenAIResponsesThinkingRequest(t *testing.T, seenRequest map[string]any) {
+	t.Helper()
+
 	reasoning, ok := seenRequest["reasoning"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected reasoning payload, got %#v", seenRequest["reasoning"])
@@ -131,6 +140,11 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || len(includes) != 1 || includes[0] != "reasoning.encrypted_content" {
 		t.Fatalf("expected encrypted reasoning include, got %#v", seenRequest["include"])
 	}
+}
+
+func assertOpenAIResponsesThinkingOutputs(t *testing.T, result agentruns.ExecutionResult) {
+	t.Helper()
+
 	usage, ok := result.Outputs["usage"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected usage payload, got %#v", result.Outputs["usage"])
@@ -147,6 +161,12 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok {
 		t.Fatalf("expected assistant message map, got %#v", messages[1])
 	}
+	assertOpenAIResponsesThinkingAssistantMessage(t, assistant)
+}
+
+func assertOpenAIResponsesThinkingAssistantMessage(t *testing.T, assistant map[string]any) {
+	t.Helper()
+
 	content, ok := assistant["content"].([]any)
 	if !ok || len(content) != 2 {
 		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
@@ -155,15 +175,7 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || thinkingBlock["type"] != "thinking" {
 		t.Fatalf("expected thinking block, got %#v", content[0])
 	}
-	if thinkingBlock["summary"] != "Plan summary" || thinkingBlock["thinking"] != "Planning deeply" {
-		t.Fatalf("unexpected OpenAI reasoning block %#v", thinkingBlock)
-	}
-	if thinkingBlock["signature"] != "enc-thinking" {
-		t.Fatalf("expected OpenAI reasoning signature, got %#v", thinkingBlock)
-	}
-	if thinkingBlock["provider_item_id"] != "reasoning-1" {
-		t.Fatalf("expected OpenAI reasoning item id, got %#v", thinkingBlock)
-	}
+	assertOpenAIResponsesThinkingBlock(t, thinkingBlock, "OpenAI reasoning")
 	if assistant["provider_message_id"] != "message-1" {
 		t.Fatalf("expected OpenAI provider message id, got %#v", assistant)
 	}
@@ -174,7 +186,26 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || textBlock["text"] != "Final answer" {
 		t.Fatalf("unexpected text block %#v", content[1])
 	}
-	state, stateErr := live.GetLiveChatState(run.ID)
+}
+
+func assertOpenAIResponsesThinkingBlock(t *testing.T, block map[string]any, contextLabel string) {
+	t.Helper()
+
+	if block["summary"] != "Plan summary" || block["thinking"] != "Planning deeply" {
+		t.Fatalf("unexpected %s block %#v", contextLabel, block)
+	}
+	if block["signature"] != "enc-thinking" {
+		t.Fatalf("expected %s signature, got %#v", contextLabel, block)
+	}
+	if block["provider_item_id"] != "reasoning-1" {
+		t.Fatalf("expected %s item id, got %#v", contextLabel, block)
+	}
+}
+
+func assertOpenAIResponsesThinkingLiveState(t *testing.T, live *managedchat.LiveRuntime, runID string) {
+	t.Helper()
+
+	state, stateErr := live.GetLiveChatState(runID)
 	if stateErr != nil {
 		t.Fatalf("get live state: %v", stateErr)
 	}
@@ -186,15 +217,10 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 		t.Fatalf("expected completed response fallback to preserve full live assistant content, got %#v", state)
 	}
 	stateThinkingBlock, ok := stateContent[0].(map[string]any)
-	if !ok || stateThinkingBlock["summary"] != "Plan summary" || stateThinkingBlock["thinking"] != "Planning deeply" {
-		t.Fatalf("expected completed response fallback to preserve full live reasoning content, got %#v", state)
+	if !ok {
+		t.Fatalf("expected completed response fallback thinking block, got %#v", stateContent[0])
 	}
-	if stateThinkingBlock["signature"] != "enc-thinking" {
-		t.Fatalf("expected completed response fallback to preserve encrypted reasoning signature, got %#v", stateThinkingBlock)
-	}
-	if stateThinkingBlock["provider_item_id"] != "reasoning-1" {
-		t.Fatalf("expected completed response fallback to preserve reasoning item id, got %#v", stateThinkingBlock)
-	}
+	assertOpenAIResponsesThinkingBlock(t, stateThinkingBlock, "completed response fallback")
 	if state.Messages[1]["provider_message_id"] != "message-1" {
 		t.Fatalf("expected completed response fallback to preserve provider message id, got %#v", state.Messages[1])
 	}
@@ -205,6 +231,11 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 	if !ok || stateTextBlock["text"] != "Final answer" {
 		t.Fatalf("expected completed response fallback to preserve full live assistant text, got %#v", state)
 	}
+}
+
+func assertOpenAIResponsesThinkingBroadcasts(t *testing.T, broadcaster *captureBroadcaster) {
+	t.Helper()
+
 	broadcastMessages := broadcaster.Messages()
 	expectedSummary := "Plan summary"
 	if findBroadcastThinkingDelta(broadcastMessages, 0, "", &expectedSummary) == nil {

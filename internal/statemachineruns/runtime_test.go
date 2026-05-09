@@ -968,95 +968,72 @@ func TestRuntimeHandleTerminalChildRunUpdateBranchesGateEdgesBySourceActivationC
 	if len(fixture.managedStarter.requests) != 3 {
 		t.Fatalf("expected three initial managed chat requests, got %#v", fixture.managedStarter.requests)
 	}
-	for _, childRunID := range []string{"child-run-1", "child-run-2", "child-run-3"} {
-		childRun, err := fixture.runs.Load(childRunID)
-		if err != nil {
-			t.Fatalf("load initial child run %q: %v", childRunID, err)
-		}
-		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 0 {
-			t.Fatalf("expected initial child run source activation count 0, got %#v", childRun.Inputs)
-		}
-	}
+	assertChildRunSourceCounts(t, fixture, []string{"child-run-1", "child-run-2", "child-run-3"}, 0, "initial")
 
-	var afterFirstLoop *agentruns.Run
-	for _, childRunID := range []string{"child-run-1", "child-run-2", "child-run-3"} {
-		afterFirstLoop, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
-		if err != nil {
-			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-		}
-	}
-	if afterFirstLoop == nil {
-		t.Fatal("expected updated parent run after first loop")
-	}
-	if afterFirstLoop.Status != agentruns.RunStatusRunning {
-		t.Fatalf("expected running parent run after first gate loop, got %#v", afterFirstLoop)
-	}
-	if got := outputIntMap(*afterFirstLoop, outputKeySourceActivationCounts); got["chat-a"] != 1 || got["chat-b"] != 1 || got["chat-c"] != 1 || got["gate-section"] != 1 {
-		t.Fatalf("expected first-loop source activation counts, got %#v", got)
-	}
+	afterFirstLoop := completeTerminalChildRuns(t, fixture, []string{"child-run-1", "child-run-2", "child-run-3"})
+	assertGateSourceCountLoopRun(t, afterFirstLoop, 1, agentruns.RunStatusRunning, "first")
 	if len(fixture.managedStarter.requests) != 6 {
 		t.Fatalf("expected six managed chat requests after first loop, got %#v", fixture.managedStarter.requests)
 	}
-	for _, childRunID := range []string{"child-run-4", "child-run-5", "child-run-6"} {
-		childRun, err := fixture.runs.Load(childRunID)
-		if err != nil {
-			t.Fatalf("load second-loop child run %q: %v", childRunID, err)
-		}
-		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 0 {
-			t.Fatalf("expected first branched loop to see gate source activation count 0, got %#v", childRun.Inputs)
-		}
-	}
+	assertChildRunSourceCounts(t, fixture, []string{"child-run-4", "child-run-5", "child-run-6"}, 0, "second-loop")
 
-	var afterSecondLoop *agentruns.Run
-	for _, childRunID := range []string{"child-run-4", "child-run-5", "child-run-6"} {
-		afterSecondLoop, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
-		if err != nil {
-			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-		}
-	}
-	if afterSecondLoop == nil {
-		t.Fatal("expected updated parent run after second loop")
-	}
-	if afterSecondLoop.Status != agentruns.RunStatusRunning {
-		t.Fatalf("expected running parent run after second gate loop, got %#v", afterSecondLoop)
-	}
-	if got := outputIntMap(*afterSecondLoop, outputKeySourceActivationCounts); got["chat-a"] != 2 || got["chat-b"] != 2 || got["chat-c"] != 2 || got["gate-section"] != 2 {
-		t.Fatalf("expected second-loop source activation counts, got %#v", got)
-	}
+	afterSecondLoop := completeTerminalChildRuns(t, fixture, []string{"child-run-4", "child-run-5", "child-run-6"})
+	assertGateSourceCountLoopRun(t, afterSecondLoop, 2, agentruns.RunStatusRunning, "second")
 	if len(fixture.managedStarter.requests) != 9 {
 		t.Fatalf("expected nine managed chat requests after second loop, got %#v", fixture.managedStarter.requests)
 	}
-	for _, childRunID := range []string{"child-run-7", "child-run-8", "child-run-9"} {
-		childRun, err := fixture.runs.Load(childRunID)
-		if err != nil {
-			t.Fatalf("load third-loop child run %q: %v", childRunID, err)
-		}
-		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != 1 {
-			t.Fatalf("expected second branched loop to see gate source activation count 1, got %#v", childRun.Inputs)
-		}
-	}
+	assertChildRunSourceCounts(t, fixture, []string{"child-run-7", "child-run-8", "child-run-9"}, 1, "third-loop")
 
-	var completed *agentruns.Run
-	for _, childRunID := range []string{"child-run-7", "child-run-8", "child-run-9"} {
-		completed, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
-		if err != nil {
-			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-		}
-	}
-	if completed == nil {
-		t.Fatal("expected completed parent run after third loop")
-	}
-	if completed.Status != agentruns.RunStatusCompleted {
-		t.Fatalf("expected completed parent run after final gate branch, got %#v", completed)
-	}
-	if got := outputIntMap(*completed, outputKeySourceActivationCounts); got["chat-a"] != 3 || got["chat-b"] != 3 || got["chat-c"] != 3 || got["gate-section"] != 3 {
-		t.Fatalf("expected final source activation counts, got %#v", got)
-	}
+	completed := completeTerminalChildRuns(t, fixture, []string{"child-run-7", "child-run-8", "child-run-9"})
+	assertGateSourceCountLoopRun(t, completed, 3, agentruns.RunStatusCompleted, "final")
 	if got := outputStringList(*completed, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
 		t.Fatalf("expected end-section reached output, got %#v", got)
 	}
 	if got := eventTypes(*completed); !slices.Equal(got[len(got)-2:], []string{"end_reached", "run_completed"}) {
 		t.Fatalf("expected final completion event tail, got %#v", got)
+	}
+}
+
+func assertChildRunSourceCounts(t *testing.T, fixture runtimeFixture, childRunIDs []string, want int, label string) {
+	t.Helper()
+
+	for _, childRunID := range childRunIDs {
+		childRun, err := fixture.runs.Load(childRunID)
+		if err != nil {
+			t.Fatalf("load %s child run %q: %v", label, childRunID, err)
+		}
+		if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != want {
+			t.Fatalf("expected %s child run source activation count %v, got %#v", label, want, childRun.Inputs)
+		}
+	}
+}
+
+func completeTerminalChildRuns(t *testing.T, fixture runtimeFixture, childRunIDs []string) *agentruns.Run {
+	t.Helper()
+
+	var latest *agentruns.Run
+	for _, childRunID := range childRunIDs {
+		var err error
+		latest, err = fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
+		if err != nil {
+			t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+		}
+	}
+	if latest == nil {
+		t.Fatalf("expected updated parent run after completing %#v", childRunIDs)
+	}
+	return latest
+}
+
+func assertGateSourceCountLoopRun(t *testing.T, run *agentruns.Run, wantCount int, wantStatus agentruns.RunStatus, label string) {
+	t.Helper()
+
+	if run.Status != wantStatus {
+		t.Fatalf("expected %s parent run status %q, got %#v", label, wantStatus, run)
+	}
+	counts := outputIntMap(*run, outputKeySourceActivationCounts)
+	if counts["chat-a"] != wantCount || counts["chat-b"] != wantCount || counts["chat-c"] != wantCount || counts["gate-section"] != wantCount {
+		t.Fatalf("expected %s source activation counts %d, got %#v", label, wantCount, counts)
 	}
 }
 

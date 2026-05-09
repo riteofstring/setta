@@ -30,6 +30,20 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 	service, workspaceRoot, settaFilesRoot, binaryStore := newArtifactRouteService(t)
 	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
 
+	assertArtifactRoutesImportAndLoadCurrentCallerArtifacts(t, authService, handler, workspaceRoot, settaFilesRoot, binaryStore)
+	assertArtifactRoutesUpdateDeleteAndRejectCurrentCallerArtifacts(t, authService, handler, settaFilesRoot, binaryStore)
+}
+
+func assertArtifactRoutesImportAndLoadCurrentCallerArtifacts(
+	t *testing.T,
+	authService *auth.Service,
+	handler http.Handler,
+	workspaceRoot string,
+	settaFilesRoot string,
+	binaryStore *binarypayload.Store,
+) {
+	t.Helper()
+
 	workspaceFile := filepath.Join(workspaceRoot, "source.txt")
 	if err := os.WriteFile(workspaceFile, []byte("route import"), 0o644); err != nil {
 		t.Fatalf("write workspace file: %v", err)
@@ -113,6 +127,28 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 	if got := chartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
 		t.Fatalf("expected parsed chart column x values, got %#v", got)
 	}
+}
+
+func assertArtifactRoutesUpdateDeleteAndRejectCurrentCallerArtifacts(
+	t *testing.T,
+	authService *auth.Service,
+	handler http.Handler,
+	settaFilesRoot string,
+	binaryStore *binarypayload.Store,
+) {
+	t.Helper()
+	filePath := assertArtifactRoutesUpdateCurrentCallerArtifacts(t, authService, handler, settaFilesRoot, binaryStore)
+	assertArtifactRoutesDeleteAndRejectCurrentCallerArtifacts(t, authService, handler, filePath)
+}
+
+func assertArtifactRoutesUpdateCurrentCallerArtifacts(
+	t *testing.T,
+	authService *auth.Service,
+	handler http.Handler,
+	settaFilesRoot string,
+	binaryStore *binarypayload.Store,
+) string {
+	t.Helper()
 
 	fileRef, err := binaryStore.StoreBytes([]byte("route upload"), "text/plain", false)
 	if err != nil {
@@ -257,6 +293,16 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 	if len(transformPayload) != 1 || transformPayload[0] == nil || !strings.Contains(string(transformPayload[0].Value), `"transform":[1,0,0,1,3,4]`) {
 		t.Fatalf("expected cached transform payload, got %#v", transformPayload)
 	}
+	return filePath
+}
+
+func assertArtifactRoutesDeleteAndRejectCurrentCallerArtifacts(
+	t *testing.T,
+	authService *auth.Service,
+	handler http.Handler,
+	filePath string,
+) {
+	t.Helper()
 
 	fileDeleteRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/notes.txt","type":"File"}]}`))
 	fileDeleteRequest.Header.Set("Content-Type", "application/json")

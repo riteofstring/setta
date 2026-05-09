@@ -385,12 +385,41 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
 
-	type providerRequest struct {
-		Path          string
-		Authorization string
-		Body          map[string]any
+	provider, providerRequests := newAppManagedWorkflowProvider(t)
+	defer provider.Close()
+	saveAppManagedWorkflowConfig(t, cfg, provider.URL)
+
+	app := newAppManagedWorkflowApp(t, cfg)
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	started := startAppManagedWorkflowRun(t, server.URL, authCookie)
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", started)
 	}
-	providerRequests := make(chan providerRequest, 1)
+	assertAppManagedWorkflowChildRun(t, app, started)
+
+	parentByID := waitForAppManagedWorkflowParentRun(t, server.URL, authCookie, started.ID)
+	if parentByID.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed parent run, got %#v", parentByID)
+	}
+
+	latest := waitForAppManagedWorkflowLatestRun(t, server.URL, authCookie, started.ID)
+	assertAppManagedWorkflowLatestRun(t, latest)
+	assertAppManagedWorkflowProviderRequest(t, providerRequests)
+}
+
+type appManagedWorkflowProviderRequest struct {
+	Path          string
+	Authorization string
+	Body          map[string]any
+}
+
+func newAppManagedWorkflowProvider(t *testing.T) (*httptest.Server, <-chan appManagedWorkflowProviderRequest) {
+	t.Helper()
+
+	providerRequests := make(chan appManagedWorkflowProviderRequest, 1)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -398,7 +427,7 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 			return
 		}
 		select {
-		case providerRequests <- providerRequest{
+		case providerRequests <- appManagedWorkflowProviderRequest{
 			Path:          r.URL.Path,
 			Authorization: r.Header.Get("Authorization"),
 			Body:          body,
@@ -419,22 +448,26 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 		flusher.Flush()
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	}))
-	defer provider.Close()
+	return provider, providerRequests
+}
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
+func saveAppManagedWorkflowConfig(t *testing.T, cfg config.Config, providerURL string) {
+	t.Helper()
+
+	saveAppTestLLMConfigs(
+		t,
+		cfg,
+		map[string]llmconfig.Config{
 			"primary": {
 				ID:        "primary",
 				Model:     "gpt-4o-mini",
 				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
+				BaseURL:   providerURL + "/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
+		map[string]llmconfig.ServerConfig{},
+	)
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -451,6 +484,10 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
+}
+
+func newAppManagedWorkflowApp(t *testing.T, cfg config.Config) *App {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -469,39 +506,24 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed workflow project: %v", err)
 	}
+	return app
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func startAppManagedWorkflowRun(t *testing.T, serverURL string, authCookie *http.Cookie) agentruns.Run {
+	t.Helper()
 
-	authCookie := newAppTestAuthCookie(t, app)
-	startRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStartStateMachineRun,
-		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
-	)
-	if err != nil {
-		t.Fatalf("new start workflow request: %v", err)
-	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
-
-	startResponse, err := http.DefaultClient.Do(startRequest)
-	if err != nil {
-		t.Fatalf("start workflow run: %v", err)
-	}
-	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected workflow start 200, got %d with body %q", startResponse.StatusCode, string(body))
-	}
-
+	response := postAppManagedWorkflowRoute(t, serverURL, authCookie, httpapi.RouteStartStateMachineRun, `{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`, "workflow start")
+	defer response.Body.Close()
 	var started agentruns.Run
-	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&started); err != nil {
 		t.Fatalf("decode started workflow run: %v", err)
 	}
-	if started.Status != agentruns.RunStatusRunning {
-		t.Fatalf("expected running workflow run, got %#v", started)
-	}
+	return started
+}
+
+func assertAppManagedWorkflowChildRun(t *testing.T, app *App, started agentruns.Run) {
+	t.Helper()
+
 	childRunIDs := appTestStringList(started.Outputs["childRunIds"])
 	if len(childRunIDs) != 1 || strings.TrimSpace(childRunIDs[0]) == "" {
 		t.Fatalf("expected one child run id, got %#v", started.Outputs["childRunIds"])
@@ -516,65 +538,57 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	if got := appTestMessageTextMapList(childRun.Outputs["messages"]); len(got) != 2 || appTestMessageText(got[1]) != "Workflow child reply" {
 		t.Fatalf("unexpected child run messages %#v", childRun.Outputs["messages"])
 	}
+}
+
+func waitForAppManagedWorkflowParentRun(t *testing.T, serverURL string, authCookie *http.Cookie, runID string) agentruns.Run {
+	t.Helper()
 
 	var parentByID agentruns.Run
 	waitForAppCondition(t, 5*time.Second, func() bool {
-		getRunRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetAgentRun,
-			strings.NewReader(`{"runId":"`+started.ID+`"}`),
-		)
-		if err != nil {
-			t.Fatalf("new get parent run request: %v", err)
-		}
-		getRunRequest.Header.Set("Content-Type", "application/json")
-		getRunRequest.AddCookie(authCookie)
-
-		getRunResponse, err := http.DefaultClient.Do(getRunRequest)
-		if err != nil {
-			t.Fatalf("get parent run by id: %v", err)
-		}
-		defer getRunResponse.Body.Close()
-		if getRunResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(getRunResponse.Body)
-			t.Fatalf("expected get parent run 200, got %d with body %q", getRunResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(getRunResponse.Body).Decode(&parentByID); err != nil {
-			t.Fatalf("decode parent run by id: %v", err)
-		}
+		parentByID = getAppManagedWorkflowRunByID(t, serverURL, authCookie, runID)
 		return parentByID.Status == agentruns.RunStatusCompleted || parentByID.Status == agentruns.RunStatusFailed
 	})
-	if parentByID.Status != agentruns.RunStatusCompleted {
-		t.Fatalf("expected completed parent run, got %#v", parentByID)
+	return parentByID
+}
+
+func getAppManagedWorkflowRunByID(t *testing.T, serverURL string, authCookie *http.Cookie, runID string) agentruns.Run {
+	t.Helper()
+
+	response := postAppManagedWorkflowRoute(t, serverURL, authCookie, httpapi.RouteGetAgentRun, `{"runId":"`+runID+`"}`, "get parent run")
+	defer response.Body.Close()
+	var run agentruns.Run
+	if err := json.NewDecoder(response.Body).Decode(&run); err != nil {
+		t.Fatalf("decode parent run by id: %v", err)
 	}
+	return run
+}
+
+func waitForAppManagedWorkflowLatestRun(t *testing.T, serverURL string, authCookie *http.Cookie, runID string) agentruns.Run {
+	t.Helper()
 
 	var latest agentruns.Run
 	waitForAppCondition(t, 5*time.Second, func() bool {
-		getRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetStateMachineRun,
-			strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
-		)
-		if err != nil {
-			t.Fatalf("new get workflow run request: %v", err)
-		}
-		getRequest.Header.Set("Content-Type", "application/json")
-		getRequest.AddCookie(authCookie)
-
-		getResponse, err := http.DefaultClient.Do(getRequest)
-		if err != nil {
-			t.Fatalf("get workflow run: %v", err)
-		}
-		defer getResponse.Body.Close()
-		if getResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(getResponse.Body)
-			t.Fatalf("expected workflow get 200, got %d with body %q", getResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(getResponse.Body).Decode(&latest); err != nil {
-			t.Fatalf("decode latest workflow run: %v", err)
-		}
-		return latest.ID == started.ID && latest.Status == agentruns.RunStatusCompleted
+		latest = getAppManagedWorkflowLatestRun(t, serverURL, authCookie)
+		return latest.ID == runID && latest.Status == agentruns.RunStatusCompleted
 	})
+	return latest
+}
+
+func getAppManagedWorkflowLatestRun(t *testing.T, serverURL string, authCookie *http.Cookie) agentruns.Run {
+	t.Helper()
+
+	response := postAppManagedWorkflowRoute(t, serverURL, authCookie, httpapi.RouteGetStateMachineRun, `{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`, "workflow get")
+	defer response.Body.Close()
+	var latest agentruns.Run
+	if err := json.NewDecoder(response.Body).Decode(&latest); err != nil {
+		t.Fatalf("decode latest workflow run: %v", err)
+	}
+	return latest
+}
+
+func assertAppManagedWorkflowLatestRun(t *testing.T, latest agentruns.Run) {
+	t.Helper()
+
 	if latest.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed workflow run, got %#v", latest)
 	}
@@ -584,6 +598,10 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	if got := appTestStringList(latest.Outputs["reachedEndSectionIds"]); len(got) != 1 || got[0] != "end-section" {
 		t.Fatalf("expected workflow to reach end-section, got %#v", latest.Outputs["reachedEndSectionIds"])
 	}
+}
+
+func assertAppManagedWorkflowProviderRequest(t *testing.T, providerRequests <-chan appManagedWorkflowProviderRequest) {
+	t.Helper()
 
 	select {
 	case request := <-providerRequests:
@@ -599,6 +617,28 @@ func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for workflow provider request")
 	}
+}
+
+func postAppManagedWorkflowRoute(t *testing.T, serverURL string, authCookie *http.Cookie, route string, body string, label string) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+route, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("new %s request: %v", label, err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("%s: %v", label, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		t.Fatalf("expected %s 200, got %d with body %q", label, response.StatusCode, string(responseBody))
+	}
+	return response
 }
 
 func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) {

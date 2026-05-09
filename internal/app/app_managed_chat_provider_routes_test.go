@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -732,20 +730,14 @@ func TestAppServesManagedChatSendWithAttachmentsThroughGeminiExecutor(t *testing
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("GEMINI_API_KEY", "secret")
 
-	type providerRequest struct {
-		Path   string
-		Query  string
-		APIKey string
-		Body   map[string]any
-	}
-	providerRequests := make(chan providerRequest, 1)
+	providerRequests := make(chan appManagedChatAttachmentProviderRequest, 1)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		providerRequests <- providerRequest{
+		providerRequests <- appManagedChatAttachmentProviderRequest{
 			Path:   r.URL.Path,
 			Query:  r.URL.RawQuery,
 			APIKey: r.Header.Get("X-Goog-Api-Key"),
@@ -764,258 +756,55 @@ func TestAppServesManagedChatSendWithAttachmentsThroughGeminiExecutor(t *testing
 	}))
 	defer provider.Close()
 
-	artifactsRoot := filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
-	if err := os.MkdirAll(artifactsRoot, 0o755); err != nil {
-		t.Fatalf("mkdir artifacts root: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(artifactsRoot, "notes.txt"), []byte("Hello from attachment."), 0o644); err != nil {
-		t.Fatalf("write notes attachment: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(artifactsRoot, "image.png"), []byte{0x89, 'P', 'N', 'G'}, 0o644); err != nil {
-		t.Fatalf("write image attachment: %v", err)
-	}
+	seedAppManagedChatAttachmentArtifacts(t, cfg)
+	saveAppManagedChatAttachmentEngine(t, cfg, llmconfig.Config{
+		ID:        "primary",
+		Model:     "gemini-2.5-pro",
+		Provider:  "gemini",
+		BaseURL:   provider.URL,
+		APIKeyEnv: "GEMINI_API_KEY",
+	}, "Managed Gemini Engine")
+	app, server, authCookie := startAppManagedChatAttachmentServer(t, cfg)
+	chatID := sendAppManagedChatAttachmentMessage(t, server.URL, authCookie, "gemini")
+	waitForAppManagedChatAttachmentResult(t, app, cfg, server.URL, authCookie, chatID, "Go owned gemini attachment reply", "gemini")
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gemini-2.5-pro",
-				Provider:  "gemini",
-				BaseURL:   provider.URL,
-				APIKeyEnv: "GEMINI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
+	captured := waitForAppManagedChatAttachmentProviderRequest(t, providerRequests, "gemini")
+	if captured.Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
+		t.Fatalf("unexpected provider path %q", captured.Path)
 	}
+	if captured.Query != "alt=sse" {
+		t.Fatalf("unexpected provider query %q", captured.Query)
+	}
+	if captured.APIKey != "secret" {
+		t.Fatalf("unexpected provider api key %q", captured.APIKey)
+	}
+	assertAppManagedChatGeminiAttachmentPayload(t, captured.Body)
+}
 
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Gemini Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
+func assertAppManagedChatGeminiAttachmentPayload(t *testing.T, body map[string]any) {
+	t.Helper()
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
+	contents, ok := body["contents"].([]any)
+	if !ok || len(contents) != 1 {
+		t.Fatalf("unexpected provider contents %#v", body["contents"])
 	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
+	userContent, ok := contents[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected provider content map, got %#v", contents[0])
 	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{
-				"id":"user-managed",
-				"role":"user",
-				"content":[{"type":"text","text":"Use the project attachments."}],
-				"attachments":[
-					{"id":"artifacts/notes.txt","name":"notes.txt","mimeType":"text/plain","size":22},
-					{"id":"artifacts/image.png","name":"image.png","mimeType":"image/png","size":4}
-				]
-			},
-			"engineConfigId":"engine-managed",
-			"agentProfileId":null,
-			"thinking":false,
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("new Gemini attachment send request: %v", err)
+	parts, ok := userContent["parts"].([]any)
+	if !ok || len(parts) < 2 {
+		t.Fatalf("expected Gemini parts, got %#v", userContent["parts"])
 	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("send Gemini managed chat with attachments: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var chatID string
-	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode Gemini attachment chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed Gemini attachment chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-		LLMConfig          *struct {
-			ID string `json:"id"`
-		} `json:"llmConfig"`
-	}
-	var hydrated hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new Gemini attachment hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed Gemini attachment chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
-			t.Fatalf("decode Gemini attachment hydrate payload: %v", err)
-		}
-		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
-	})
-
-	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
-		t.Fatalf("expected hydrated llm config primary, got %#v", hydrated.LLMConfig)
-	}
-	if appTestMessageText(hydrated.Messages[0]) != "Use the project attachments." {
-		t.Fatalf("unexpected hydrated user message %#v", hydrated.Messages[0])
-	}
-	userAttachments, ok := hydrated.Messages[0]["attachments"].([]any)
-	if !ok || len(userAttachments) != 2 {
-		t.Fatalf("expected hydrated user attachments, got %#v", hydrated.Messages[0]["attachments"])
-	}
-	attachmentNames := make([]string, 0, len(userAttachments))
-	for _, entry := range userAttachments {
-		typed, ok := entry.(map[string]any)
+	textParts := make([]string, 0, len(parts))
+	for _, entry := range parts {
+		part, ok := entry.(map[string]any)
 		if !ok {
-			t.Fatalf("expected hydrated attachment map, got %#v", entry)
+			t.Fatalf("expected Gemini part map, got %#v", entry)
 		}
-		attachmentNames = append(attachmentNames, strings.TrimSpace(fmt.Sprint(typed["name"])))
+		textParts = append(textParts, strings.TrimSpace(fmt.Sprint(part["text"])))
 	}
-	if !reflect.DeepEqual(attachmentNames, []string{"notes.txt", "image.png"}) {
-		t.Fatalf("unexpected hydrated attachment names %#v", attachmentNames)
-	}
-	if appTestMessageText(hydrated.Messages[1]) != "Go owned gemini attachment reply" {
-		t.Fatalf("unexpected assistant reply %#v", hydrated.Messages[1])
-	}
-
-	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new run store: %v", err)
-	}
-	runType := "llm_chat"
-	projectID := "project-alpha"
-	completedRunID := ""
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
-			RunType:         &runType,
-			ChatID:          &chatID,
-			ProjectConfigID: &projectID,
-		})
-		if err != nil {
-			t.Fatalf("list managed Gemini attachment runs: %v", err)
-		}
-		for _, run := range runs {
-			if run.Status == agentruns.RunStatusCompleted {
-				completedRunID = run.ID
-				return true
-			}
-		}
-		return false
-	})
-	if strings.TrimSpace(completedRunID) == "" {
-		t.Fatal("expected completed managed Gemini attachment run id")
-	}
-	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
-		t.Fatalf("wait for managed Gemini attachment runtime completion: %v", err)
-	}
-
-	select {
-	case captured := <-providerRequests:
-		if captured.Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
-			t.Fatalf("unexpected provider path %q", captured.Path)
-		}
-		if captured.Query != "alt=sse" {
-			t.Fatalf("unexpected provider query %q", captured.Query)
-		}
-		if captured.APIKey != "secret" {
-			t.Fatalf("unexpected provider api key %q", captured.APIKey)
-		}
-		contents, ok := captured.Body["contents"].([]any)
-		if !ok || len(contents) != 1 {
-			t.Fatalf("unexpected provider contents %#v", captured.Body["contents"])
-		}
-		userContent, ok := contents[0].(map[string]any)
-		if !ok {
-			t.Fatalf("expected provider content map, got %#v", contents[0])
-		}
-		parts, ok := userContent["parts"].([]any)
-		if !ok || len(parts) < 2 {
-			t.Fatalf("expected Gemini parts, got %#v", userContent["parts"])
-		}
-		textParts := make([]string, 0, len(parts))
-		for _, entry := range parts {
-			part, ok := entry.(map[string]any)
-			if !ok {
-				t.Fatalf("expected Gemini part map, got %#v", entry)
-			}
-			textParts = append(textParts, strings.TrimSpace(fmt.Sprint(part["text"])))
-		}
-		text := strings.Join(textParts, "\n")
-		if !strings.Contains(text, "Use the project attachments.") {
-			t.Fatalf("expected original user text in provider payload, got %q", text)
-		}
-		if !strings.Contains(text, "[Attachment: notes.txt]") || !strings.Contains(text, "Hello from attachment.") {
-			t.Fatalf("expected text attachment block in provider payload, got %q", text)
-		}
-		if !strings.Contains(text, "[Attachment: image.png]") ||
-			!strings.Contains(text, "Type: image/png") ||
-			!strings.Contains(text, "Content not inlined.") {
-			t.Fatalf("expected image placeholder block in provider payload, got %q", text)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for Gemini attachment provider request")
-	}
+	assertAppManagedChatAttachmentPromptText(t, strings.Join(textParts, "\n"))
 }
 
 func TestAppServesManagedChatSendThroughGeminiExecutor(t *testing.T) {

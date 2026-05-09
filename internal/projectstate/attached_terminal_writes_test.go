@@ -27,8 +27,27 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 	if attachSnapshot.Revision != 2 {
 		t.Fatalf("expected revision 2 after attach, got %d", attachSnapshot.Revision)
 	}
+	assertAttachedTerminalProjectState(t, attachSnapshot.Document.Projects["project-alpha"])
 
-	project := attachSnapshot.Document.Projects["project-alpha"]
+	detachSnapshot, err := runtime.SetCodeSectionAttachedTerminal(
+		context.Background(),
+		"project-alpha",
+		"code-section",
+		nil,
+		settings,
+	)
+	if err != nil {
+		t.Fatalf("detach terminal: %v", err)
+	}
+	if detachSnapshot.Revision != 3 {
+		t.Fatalf("expected revision 3 after detach, got %d", detachSnapshot.Revision)
+	}
+	assertDetachedTerminalProjectState(t, detachSnapshot.Document.Projects["project-alpha"])
+}
+
+func assertAttachedTerminalProjectState(t *testing.T, project Project) {
+	t.Helper()
+
 	_, codeVariant, codeImpl, err := project.ResolveSection("code-section")
 	if err != nil {
 		t.Fatalf("resolve code section: %v", err)
@@ -104,23 +123,12 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 	if terminalHeight != 222.0 {
 		t.Fatalf("expected terminal height 222, got %v", terminalHeight)
 	}
+}
 
-	detachSnapshot, err := runtime.SetCodeSectionAttachedTerminal(
-		context.Background(),
-		"project-alpha",
-		"code-section",
-		nil,
-		settings,
-	)
-	if err != nil {
-		t.Fatalf("detach terminal: %v", err)
-	}
-	if detachSnapshot.Revision != 3 {
-		t.Fatalf("expected revision 3 after detach, got %d", detachSnapshot.Revision)
-	}
+func assertDetachedTerminalProjectState(t *testing.T, project Project) {
+	t.Helper()
 
-	project = detachSnapshot.Document.Projects["project-alpha"]
-	_, _, codeImpl, err = project.ResolveSection("code-section")
+	_, _, codeImpl, err := project.ResolveSection("code-section")
 	if err != nil {
 		t.Fatalf("resolve detached code section: %v", err)
 	}
@@ -131,7 +139,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 		t.Fatalf("expected cleared code children, got %#v", codeImpl.Code.Children)
 	}
 
-	terminalSection, _, _, err = project.ResolveSection("terminal-section")
+	terminalSection, _, _, err := project.ResolveSection("terminal-section")
 	if err != nil {
 		t.Fatalf("resolve detached terminal section: %v", err)
 	}

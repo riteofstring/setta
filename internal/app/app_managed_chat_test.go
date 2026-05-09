@@ -198,6 +198,173 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	}
 }
 
+type appManagedChatHydratePayload struct {
+	Messages           []map[string]any `json:"messages"`
+	WaitingForResponse bool             `json:"waitingForResponse"`
+	LLMConfig          *struct {
+		ID string `json:"id"`
+	} `json:"llmConfig"`
+}
+
+type appManagedChatStopResult struct {
+	RunID     string
+	MessageID string
+}
+
+func decodeAppManagedChatID(t *testing.T, response *http.Response, contextLabel string) string {
+	t.Helper()
+
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode %s chat id: %v", contextLabel, err)
+	}
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatalf("expected %s chat id", contextLabel)
+	}
+	return chatID
+}
+
+func waitForAppManagedChatHydration(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	chatID string,
+	wantWaiting bool,
+	expectedAssistantText string,
+	contextLabel string,
+) appManagedChatHydratePayload {
+	t.Helper()
+
+	var hydrated appManagedChatHydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			serverURL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new %s hydrate request: %v", contextLabel, err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate %s managed chat: %v", contextLabel, err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode %s hydrate payload: %v", contextLabel, err)
+		}
+		return hydrated.WaitingForResponse == wantWaiting &&
+			len(hydrated.Messages) == 2 &&
+			appTestMessageText(hydrated.Messages[1]) == expectedAssistantText
+	})
+	return hydrated
+}
+
+func stopAppManagedChat(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+	chatID string,
+	contextLabel string,
+) appManagedChatStopResult {
+	t.Helper()
+
+	stopRequest, err := http.NewRequest(
+		http.MethodPost,
+		serverURL+"/api"+httpapi.RouteStopLLMChat,
+		strings.NewReader(`{"chatId":"`+chatID+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new %s stop request: %v", contextLabel, err)
+	}
+	stopRequest.Header.Set("Content-Type", "application/json")
+	stopRequest.AddCookie(authCookie)
+
+	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	if err != nil {
+		t.Fatalf("stop %s managed chat: %v", contextLabel, err)
+	}
+	defer stopResponse.Body.Close()
+	if stopResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(stopResponse.Body)
+		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	}
+
+	var payload struct {
+		AlreadyStopped   bool    `json:"alreadyStopped"`
+		StoppedRunID     *string `json:"stoppedRunId"`
+		StoppedMessageID *string `json:"stoppedMessageId"`
+	}
+	if err := json.NewDecoder(stopResponse.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode %s stop payload: %v", contextLabel, err)
+	}
+	if payload.AlreadyStopped {
+		t.Fatalf("expected active stop payload, got %#v", payload)
+	}
+	if payload.StoppedRunID == nil || strings.TrimSpace(*payload.StoppedRunID) == "" {
+		t.Fatalf("expected stopped run id, got %#v", payload)
+	}
+	if payload.StoppedMessageID == nil || strings.TrimSpace(*payload.StoppedMessageID) == "" {
+		t.Fatalf("expected stopped message id, got %#v", payload)
+	}
+	return appManagedChatStopResult{
+		RunID:     *payload.StoppedRunID,
+		MessageID: *payload.StoppedMessageID,
+	}
+}
+
+func waitForAppManagedChatProviderAbort(t *testing.T, providerAborted <-chan struct{}, contextLabel string) {
+	t.Helper()
+
+	select {
+	case <-providerAborted:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s provider abort", contextLabel)
+	}
+}
+
+func assertAppManagedChatStoppedRun(
+	t *testing.T,
+	app *App,
+	stopResult appManagedChatStopResult,
+	expectedAssistantText string,
+	contextLabel string,
+) {
+	t.Helper()
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, stopResult.RunID)
+	if err != nil {
+		t.Fatalf("wait for stopped %s managed runtime: %v", contextLabel, err)
+	}
+	if stoppedRun.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
+	}
+	outputMessages, ok := stoppedRun.Outputs["messages"].([]any)
+	if !ok || len(outputMessages) != 2 {
+		t.Fatalf("expected persisted user and assistant messages, got %#v", stoppedRun.Outputs["messages"])
+	}
+	assistantMessage, ok := outputMessages[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted %s assistant message map, got %#v", contextLabel, outputMessages[1])
+	}
+	assistantMessageID, _ := assistantMessage["id"].(string)
+	if appTestMessageText(assistantMessage) != expectedAssistantText {
+		t.Fatalf("unexpected persisted %s assistant message %#v", contextLabel, assistantMessage)
+	}
+	if assistantMessageID != stopResult.MessageID {
+		t.Fatalf("expected stopped message id %q, got %q", stopResult.MessageID, assistantMessageID)
+	}
+}
+
 func TestAppStopsLiveManagedChatThroughStopRoute(t *testing.T) {
 	// The real IDE app should stop an in-flight managed provider turn through
 	// the Go-owned stop route, cancel the live provider request, and persist the
@@ -332,147 +499,12 @@ func TestAppStopsLiveManagedChatThroughStopRoute(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", sendResponse.StatusCode, string(body))
 	}
 
-	var chatID string
-	if err := json.NewDecoder(sendResponse.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode managed chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydratedRunning hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedRunning); err != nil {
-			t.Fatalf("decode hydrate payload: %v", err)
-		}
-		return hydratedRunning.WaitingForResponse &&
-			len(hydratedRunning.Messages) == 2 &&
-			appTestMessageText(hydratedRunning.Messages[1]) == "Streaming"
-	})
-
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopLLMChat,
-		strings.NewReader(`{"chatId":"`+chatID+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new stop request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop managed chat: %v", err)
-	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopPayload struct {
-		AlreadyStopped   bool    `json:"alreadyStopped"`
-		StoppedRunID     *string `json:"stoppedRunId"`
-		StoppedMessageID *string `json:"stoppedMessageId"`
-	}
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
-		t.Fatalf("decode stop payload: %v", err)
-	}
-	if stopPayload.AlreadyStopped {
-		t.Fatalf("expected active stop payload, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedRunID == nil || strings.TrimSpace(*stopPayload.StoppedRunID) == "" {
-		t.Fatalf("expected stopped run id, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedMessageID == nil || strings.TrimSpace(*stopPayload.StoppedMessageID) == "" {
-		t.Fatalf("expected stopped message id, got %#v", stopPayload)
-	}
-
-	select {
-	case <-providerAborted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for provider abort")
-	}
-
-	var hydratedStopped hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new stopped hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate stopped managed chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedStopped); err != nil {
-			t.Fatalf("decode stopped hydrate payload: %v", err)
-		}
-		return !hydratedStopped.WaitingForResponse &&
-			len(hydratedStopped.Messages) == 2 &&
-			appTestMessageText(hydratedStopped.Messages[1]) == "Streaming"
-	})
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
-	if err != nil {
-		t.Fatalf("wait for stopped managed runtime: %v", err)
-	}
-	if stoppedRun.Status != agentruns.RunStatusCancelled {
-		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
-	}
-	outputMessages, ok := stoppedRun.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected persisted user and assistant messages, got %#v", stoppedRun.Outputs["messages"])
-	}
-	assistantMessage, ok := outputMessages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected persisted assistant message map, got %#v", outputMessages[1])
-	}
-	assistantMessageID, _ := assistantMessage["id"].(string)
-	if appTestMessageText(assistantMessage) != "Streaming" {
-		t.Fatalf("unexpected persisted assistant message %#v", assistantMessage)
-	}
-	if assistantMessageID != *stopPayload.StoppedMessageID {
-		t.Fatalf("expected stopped message id %q, got %q", *stopPayload.StoppedMessageID, assistantMessageID)
-	}
+	chatID := decodeAppManagedChatID(t, sendResponse, "managed")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, true, "Streaming", "running")
+	stopResult := stopAppManagedChat(t, server.URL, authCookie, chatID, "openai")
+	waitForAppManagedChatProviderAbort(t, providerAborted, "openai")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, false, "Streaming", "stopped")
+	assertAppManagedChatStoppedRun(t, app, stopResult, "Streaming", "openai")
 
 	select {
 	case captured := <-providerRequests:
@@ -630,150 +662,12 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", sendResponse.StatusCode, string(body))
 	}
 
-	var chatID string
-	if err := json.NewDecoder(sendResponse.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode managed azure chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed azure chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydratedRunning hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new azure hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed azure chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedRunning); err != nil {
-			t.Fatalf("decode azure hydrate payload: %v", err)
-		}
-		return hydratedRunning.WaitingForResponse &&
-			len(hydratedRunning.Messages) == 2 &&
-			appTestMessageText(hydratedRunning.Messages[1]) == "Streaming"
-	})
-
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopLLMChat,
-		strings.NewReader(`{"chatId":"`+chatID+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new azure stop request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop managed azure chat: %v", err)
-	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopPayload struct {
-		AlreadyStopped   bool    `json:"alreadyStopped"`
-		StoppedRunID     *string `json:"stoppedRunId"`
-		StoppedMessageID *string `json:"stoppedMessageId"`
-	}
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
-		t.Fatalf("decode azure stop payload: %v", err)
-	}
-	if stopPayload.AlreadyStopped {
-		t.Fatalf("expected active stop payload, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedRunID == nil || strings.TrimSpace(*stopPayload.StoppedRunID) == "" {
-		t.Fatalf("expected stopped run id, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedMessageID == nil || strings.TrimSpace(*stopPayload.StoppedMessageID) == "" {
-		t.Fatalf("expected stopped message id, got %#v", stopPayload)
-	}
-
-	select {
-	case <-providerAborted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for azure provider abort")
-	}
-
-	var hydratedStopped hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new stopped azure hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate stopped managed azure chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedStopped); err != nil {
-			t.Fatalf("decode stopped azure hydrate payload: %v", err)
-		}
-		return !hydratedStopped.WaitingForResponse &&
-			len(hydratedStopped.Messages) == 2 &&
-			appTestMessageText(hydratedStopped.Messages[1]) == "Streaming"
-	})
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
-	if err != nil {
-		t.Fatalf("wait for stopped managed azure runtime: %v", err)
-	}
-	if stoppedRun.Status != agentruns.RunStatusCancelled {
-		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
-	}
-	outputMessages, ok := stoppedRun.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected persisted user and assistant messages, got %#v", stoppedRun.Outputs["messages"])
-	}
-	assistantMessage, ok := outputMessages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected assistant message map, got %#v", outputMessages[1])
-	}
-	if appTestMessageText(assistantMessage) != "Streaming" {
-		t.Fatalf("unexpected stopped azure assistant message %#v", assistantMessage)
-	}
-	assistantMessageID, ok := assistantMessage["id"].(string)
-	if !ok || strings.TrimSpace(assistantMessageID) == "" {
-		t.Fatalf("expected stopped assistant id, got %#v", assistantMessage["id"])
-	}
-	if assistantMessageID != *stopPayload.StoppedMessageID {
-		t.Fatalf("expected stopped message id %q, got %q", *stopPayload.StoppedMessageID, assistantMessageID)
-	}
+	chatID := decodeAppManagedChatID(t, sendResponse, "managed azure")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, true, "Streaming", "running azure")
+	stopResult := stopAppManagedChat(t, server.URL, authCookie, chatID, "azure")
+	waitForAppManagedChatProviderAbort(t, providerAborted, "azure")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, false, "Streaming", "stopped azure")
+	assertAppManagedChatStoppedRun(t, app, stopResult, "Streaming", "azure")
 
 	select {
 	case captured := <-providerRequests:
@@ -934,147 +828,12 @@ func TestAppStopsLiveManagedAnthropicChatThroughStopRoute(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", sendResponse.StatusCode, string(body))
 	}
 
-	var chatID string
-	if err := json.NewDecoder(sendResponse.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode managed anthropic chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed anthropic chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydratedRunning hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new anthropic hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed anthropic chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedRunning); err != nil {
-			t.Fatalf("decode anthropic hydrate payload: %v", err)
-		}
-		return hydratedRunning.WaitingForResponse &&
-			len(hydratedRunning.Messages) == 2 &&
-			appTestMessageText(hydratedRunning.Messages[1]) == "Streaming"
-	})
-
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopLLMChat,
-		strings.NewReader(`{"chatId":"`+chatID+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new anthropic stop request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop managed anthropic chat: %v", err)
-	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopPayload struct {
-		AlreadyStopped   bool    `json:"alreadyStopped"`
-		StoppedRunID     *string `json:"stoppedRunId"`
-		StoppedMessageID *string `json:"stoppedMessageId"`
-	}
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
-		t.Fatalf("decode anthropic stop payload: %v", err)
-	}
-	if stopPayload.AlreadyStopped {
-		t.Fatalf("expected active stop payload, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedRunID == nil || strings.TrimSpace(*stopPayload.StoppedRunID) == "" {
-		t.Fatalf("expected stopped run id, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedMessageID == nil || strings.TrimSpace(*stopPayload.StoppedMessageID) == "" {
-		t.Fatalf("expected stopped message id, got %#v", stopPayload)
-	}
-
-	select {
-	case <-providerAborted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for anthropic provider abort")
-	}
-
-	var hydratedStopped hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new stopped anthropic hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate stopped managed anthropic chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedStopped); err != nil {
-			t.Fatalf("decode stopped anthropic hydrate payload: %v", err)
-		}
-		return !hydratedStopped.WaitingForResponse &&
-			len(hydratedStopped.Messages) == 2 &&
-			appTestMessageText(hydratedStopped.Messages[1]) == "Streaming"
-	})
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
-	if err != nil {
-		t.Fatalf("wait for stopped managed anthropic runtime: %v", err)
-	}
-	if stoppedRun.Status != agentruns.RunStatusCancelled {
-		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
-	}
-	outputMessages, ok := stoppedRun.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected persisted user and assistant messages, got %#v", stoppedRun.Outputs["messages"])
-	}
-	assistantMessage, ok := outputMessages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected persisted anthropic assistant message map, got %#v", outputMessages[1])
-	}
-	assistantMessageID, _ := assistantMessage["id"].(string)
-	if appTestMessageText(assistantMessage) != "Streaming" {
-		t.Fatalf("unexpected persisted anthropic assistant message %#v", assistantMessage)
-	}
-	if assistantMessageID != *stopPayload.StoppedMessageID {
-		t.Fatalf("expected stopped message id %q, got %q", *stopPayload.StoppedMessageID, assistantMessageID)
-	}
+	chatID := decodeAppManagedChatID(t, sendResponse, "managed anthropic")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, true, "Streaming", "running anthropic")
+	stopResult := stopAppManagedChat(t, server.URL, authCookie, chatID, "anthropic")
+	waitForAppManagedChatProviderAbort(t, providerAborted, "anthropic")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, false, "Streaming", "stopped anthropic")
+	assertAppManagedChatStoppedRun(t, app, stopResult, "Streaming", "anthropic")
 
 	select {
 	case captured := <-providerRequests:
@@ -1227,147 +986,12 @@ func TestAppStopsLiveManagedGeminiChatThroughStopRoute(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", sendResponse.StatusCode, string(body))
 	}
 
-	var chatID string
-	if err := json.NewDecoder(sendResponse.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode managed gemini chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed gemini chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydratedRunning hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new gemini hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed gemini chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedRunning); err != nil {
-			t.Fatalf("decode gemini hydrate payload: %v", err)
-		}
-		return hydratedRunning.WaitingForResponse &&
-			len(hydratedRunning.Messages) == 2 &&
-			appTestMessageText(hydratedRunning.Messages[1]) == "Streaming"
-	})
-
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopLLMChat,
-		strings.NewReader(`{"chatId":"`+chatID+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new gemini stop request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop managed gemini chat: %v", err)
-	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopPayload struct {
-		AlreadyStopped   bool    `json:"alreadyStopped"`
-		StoppedRunID     *string `json:"stoppedRunId"`
-		StoppedMessageID *string `json:"stoppedMessageId"`
-	}
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
-		t.Fatalf("decode gemini stop payload: %v", err)
-	}
-	if stopPayload.AlreadyStopped {
-		t.Fatalf("expected active stop payload, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedRunID == nil || strings.TrimSpace(*stopPayload.StoppedRunID) == "" {
-		t.Fatalf("expected stopped run id, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedMessageID == nil || strings.TrimSpace(*stopPayload.StoppedMessageID) == "" {
-		t.Fatalf("expected stopped message id, got %#v", stopPayload)
-	}
-
-	select {
-	case <-providerAborted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for gemini provider abort")
-	}
-
-	var hydratedStopped hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
-		)
-		if err != nil {
-			t.Fatalf("new stopped gemini hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
-
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate stopped managed gemini chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratedStopped); err != nil {
-			t.Fatalf("decode stopped gemini hydrate payload: %v", err)
-		}
-		return !hydratedStopped.WaitingForResponse &&
-			len(hydratedStopped.Messages) == 2 &&
-			appTestMessageText(hydratedStopped.Messages[1]) == "Streaming"
-	})
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
-	if err != nil {
-		t.Fatalf("wait for stopped managed gemini runtime: %v", err)
-	}
-	if stoppedRun.Status != agentruns.RunStatusCancelled {
-		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
-	}
-	outputMessages, ok := stoppedRun.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected persisted user and assistant messages, got %#v", stoppedRun.Outputs["messages"])
-	}
-	assistantMessage, ok := outputMessages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected persisted gemini assistant message map, got %#v", outputMessages[1])
-	}
-	assistantMessageID, _ := assistantMessage["id"].(string)
-	if appTestMessageText(assistantMessage) != "Streaming" {
-		t.Fatalf("unexpected persisted gemini assistant message %#v", assistantMessage)
-	}
-	if assistantMessageID != *stopPayload.StoppedMessageID {
-		t.Fatalf("expected stopped message id %q, got %q", *stopPayload.StoppedMessageID, assistantMessageID)
-	}
+	chatID := decodeAppManagedChatID(t, sendResponse, "managed gemini")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, true, "Streaming", "running gemini")
+	stopResult := stopAppManagedChat(t, server.URL, authCookie, chatID, "gemini")
+	waitForAppManagedChatProviderAbort(t, providerAborted, "gemini")
+	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, false, "Streaming", "stopped gemini")
+	assertAppManagedChatStoppedRun(t, app, stopResult, "Streaming", "gemini")
 
 	select {
 	case captured := <-providerRequests:
