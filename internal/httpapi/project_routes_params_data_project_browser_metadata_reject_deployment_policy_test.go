@@ -107,103 +107,97 @@ func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
+	post := newProjectRoutePost(handler)
+
+	assertProjectRoutePostOK(t, post, RouteToggleGroupOrientation, `{"projectConfigId":"project-alpha","sectionId":"group-section"}`)
+	assertProjectRoutePostOK(t, post, RouteSetSpreadsheetFilePath, `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`)
+	for _, density := range []string{"comfortable", "compact"} {
+		assertProjectRoutePostOK(
+			t,
+			post,
+			RouteSetSpreadsheetSectionSettings,
+			`{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"`+density+`","autoReloadOnExternalChange":true}`,
+		)
+		spreadsheetModifier := decodeProjectRouteRawObject(t, latestProjectRoutePayload(t, post).ProjectState.Sections["spreadsheet-section"].SharedModifier)
+		if spreadsheetModifier["density"] != density {
+			t.Fatalf("expected spreadsheet density %s, got %#v", density, spreadsheetModifier["density"])
+		}
+	}
+	for _, viewMode := range []string{"task_list", "kanban"} {
+		assertProjectRoutePostOK(
+			t,
+			post,
+			RouteSetTaskBoardSectionState,
+			`{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"`+viewMode+`","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
+		)
+		taskBoardModifier := decodeProjectRouteRawObject(t, latestProjectRoutePayload(t, post).ProjectState.Sections["task-board-section"].SharedModifier)
+		if taskBoardModifier["viewMode"] != viewMode {
+			t.Fatalf("expected task board viewMode %s, got %#v", viewMode, taskBoardModifier["viewMode"])
+		}
+	}
+	assertProjectRoutePostOK(t, post, RouteSetImageAreaImagePath, `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/updated.png"}`)
+	assertProjectRoutePostOK(t, post, RouteSetSocialURL, `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com/watch?v=123"}`)
+
+	assertSectionDataPersistedModifiers(t, latestProjectRoutePayload(t, post))
+}
+
+type projectRoutePostFunc func(route string, body string) *httptest.ResponseRecorder
+
+func newProjectRoutePost(handler http.Handler) projectRoutePostFunc {
+	return func(route string, body string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		return response
 	}
+}
 
-	latestPayload := func() ProjectStateSingleConfigWithCompletedOpIDs {
-		t.Helper()
+func assertProjectRoutePostOK(t *testing.T, post projectRoutePostFunc, route string, body string) *httptest.ResponseRecorder {
+	t.Helper()
 
-		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-		if latestResponse.Code != http.StatusOK {
-			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-		}
-
-		var payload ProjectStateSingleConfigWithCompletedOpIDs
-		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode latest project payload: %v", err)
-		}
-		return payload
-	}
-
-	response := post(RouteToggleGroupOrientation, `{"projectConfigId":"project-alpha","sectionId":"group-section"}`)
+	response := post(route, body)
 	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteToggleGroupOrientation, response.Code, response.Body.String())
+		t.Fatalf("expected 200 for %s, got %d with body %q", route, response.Code, response.Body.String())
 	}
-	response = post(RouteSetSpreadsheetFilePath, `{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","filePath":"  reports/q1.xlsx  ","activeSheet":"Sheet 2"}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSpreadsheetFilePath, response.Code, response.Body.String())
-	}
-	for _, density := range []string{"comfortable", "compact"} {
-		response = post(
-			RouteSetSpreadsheetSectionSettings,
-			`{"projectConfigId":"project-alpha","sectionId":"spreadsheet-section","readOnly":true,"showRowNumbers":false,"density":"`+density+`","autoReloadOnExternalChange":true}`,
-		)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetSpreadsheetSectionSettings, density, response.Code, response.Body.String())
-		}
-		spreadsheetModifier := decodeProjectRouteRawObject(t, latestPayload().ProjectState.Sections["spreadsheet-section"].SharedModifier)
-		if spreadsheetModifier["density"] != density {
-			t.Fatalf("expected spreadsheet density %s, got %#v", density, spreadsheetModifier["density"])
-		}
-	}
-	for _, viewMode := range []string{"task_list", "kanban"} {
-		response = post(
-			RouteSetTaskBoardSectionState,
-			`{"projectConfigId":"project-alpha","sectionId":"task-board-section","viewMode":"`+viewMode+`","columns":[{"id":"todo","name":"Todo","color":"#3b82f6","sortIndex":0},{"id":"todo","name":"Duplicate","color":"#ef4444","sortIndex":1},{"id":"done","name":"Done","color":"#10b981","sortIndex":2}],"tasks":[{"id":"task-1","title":"Task One","description":"","completed":false,"columnId":"todo","dueDateIso":"","recurrence":"none","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":0},{"id":"task-2","title":"Task Two","description":"","completed":true,"columnId":"missing","dueDateIso":"","recurrence":"daily","recurrenceDays":[],"recurrenceMonths":[],"recurrenceYears":[],"sortIndex":1}]}`,
-		)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTaskBoardSectionState, viewMode, response.Code, response.Body.String())
-		}
-		taskBoardModifier := decodeProjectRouteRawObject(t, latestPayload().ProjectState.Sections["task-board-section"].SharedModifier)
-		if taskBoardModifier["viewMode"] != viewMode {
-			t.Fatalf("expected task board viewMode %s, got %#v", viewMode, taskBoardModifier["viewMode"])
-		}
-	}
-	response = post(RouteSetImageAreaImagePath, `{"projectConfigId":"project-alpha","sectionId":"image-section","imagePath":"/tmp/updated.png"}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetImageAreaImagePath, response.Code, response.Body.String())
-	}
-	response = post(RouteSetSocialURL, `{"projectConfigId":"project-alpha","sectionId":"social-section","url":"https://example.com/watch?v=123"}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSocialURL, response.Code, response.Body.String())
-	}
+	return response
+}
 
-	payload := latestPayload()
+func latestProjectRoutePayload(t *testing.T, post projectRoutePostFunc) ProjectStateSingleConfigWithCompletedOpIDs {
+	t.Helper()
+
+	latestResponse := assertProjectRoutePostOK(t, post, RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	return payload
+}
+
+func assertProjectRouteModifierValue(t *testing.T, modifier map[string]any, key string, expected any, message string) {
+	t.Helper()
+
+	if !reflect.DeepEqual(modifier[key], expected) {
+		t.Fatalf("%s, got %#v", message, modifier[key])
+	}
+}
+
+func assertSectionDataPersistedModifiers(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
+
 	groupModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["group-section"].SharedModifier)
-	if groupModifier["isHorizontalOrientation"] != true {
-		t.Fatalf("expected group orientation toggle to persist, got %#v", groupModifier["isHorizontalOrientation"])
-	}
+	assertProjectRouteModifierValue(t, groupModifier, "isHorizontalOrientation", true, "expected group orientation toggle to persist")
 
 	spreadsheetModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["spreadsheet-section"].SharedModifier)
-	if spreadsheetModifier["filePath"] != "reports/q1.xlsx" {
-		t.Fatalf("expected trimmed spreadsheet filePath, got %#v", spreadsheetModifier["filePath"])
-	}
-	if spreadsheetModifier["activeSheet"] != "Sheet 2" {
-		t.Fatalf("expected spreadsheet activeSheet Sheet 2, got %#v", spreadsheetModifier["activeSheet"])
-	}
-	if spreadsheetModifier["readOnly"] != true {
-		t.Fatalf("expected spreadsheet readOnly=true, got %#v", spreadsheetModifier["readOnly"])
-	}
-	if spreadsheetModifier["showRowNumbers"] != false {
-		t.Fatalf("expected spreadsheet showRowNumbers=false, got %#v", spreadsheetModifier["showRowNumbers"])
-	}
-	if spreadsheetModifier["density"] != "compact" {
-		t.Fatalf("expected final spreadsheet density compact, got %#v", spreadsheetModifier["density"])
-	}
-	if spreadsheetModifier["autoReloadOnExternalChange"] != true {
-		t.Fatalf("expected spreadsheet autoReloadOnExternalChange=true, got %#v", spreadsheetModifier["autoReloadOnExternalChange"])
-	}
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "filePath", "reports/q1.xlsx", "expected trimmed spreadsheet filePath")
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "activeSheet", "Sheet 2", "expected spreadsheet activeSheet Sheet 2")
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "readOnly", true, "expected spreadsheet readOnly=true")
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "showRowNumbers", false, "expected spreadsheet showRowNumbers=false")
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "density", "compact", "expected final spreadsheet density compact")
+	assertProjectRouteModifierValue(t, spreadsheetModifier, "autoReloadOnExternalChange", true, "expected spreadsheet autoReloadOnExternalChange=true")
 
 	taskBoardModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["task-board-section"].SharedModifier)
-	if taskBoardModifier["viewMode"] != "kanban" {
-		t.Fatalf("expected final task board viewMode kanban, got %#v", taskBoardModifier["viewMode"])
-	}
+	assertProjectRouteModifierValue(t, taskBoardModifier, "viewMode", "kanban", "expected final task board viewMode kanban")
 	rawColumns, ok := taskBoardModifier["columns"].([]any)
 	if !ok || len(rawColumns) != 2 {
 		t.Fatalf("expected two normalized task board columns, got %#v", taskBoardModifier["columns"])
@@ -228,14 +222,10 @@ func TestRegisterProjectRoutesSectionDataMutationsPersistLatestState(t *testing.
 	}
 
 	imageModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["image-section"].SharedModifier)
-	if imageModifier["imagePath"] != "/tmp/updated.png" {
-		t.Fatalf("expected imagePath /tmp/updated.png, got %#v", imageModifier["imagePath"])
-	}
+	assertProjectRouteModifierValue(t, imageModifier, "imagePath", "/tmp/updated.png", "expected imagePath /tmp/updated.png")
 
 	socialModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["social-section"].SharedModifier)
-	if socialModifier["url"] != "https://example.com/watch?v=123" {
-		t.Fatalf("expected social url to persist, got %#v", socialModifier["url"])
-	}
+	assertProjectRouteModifierValue(t, socialModifier, "url", "https://example.com/watch?v=123", "expected social url to persist")
 }
 
 func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing.T) {
@@ -982,590 +972,5 @@ func TestRegisterProjectRoutesChartMutationsRejectInvalidInputs(t *testing.T) {
 	}
 	if got := rawChartSettings["secondYAxisColumns"]; !reflect.DeepEqual(got, []any{"humidity"}) {
 		t.Fatalf("expected rejected chart-type requests to leave secondYAxisColumns unchanged, got %#v", got)
-	}
-}
-
-func TestRegisterProjectRoutesTextBlockMutationsPersistLatestState(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": textBlockRouteTestProject(t),
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+route,
-			strings.NewReader(body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
-
-	latestTextModifier := func() (ProjectStateSingleConfigWithCompletedOpIDs, map[string]any) {
-		t.Helper()
-
-		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-		if latestResponse.Code != http.StatusOK {
-			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-		}
-
-		var payload ProjectStateSingleConfigWithCompletedOpIDs
-		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode latest project payload: %v", err)
-		}
-		return payload, decodeProjectRouteRawObject(t, payload.ProjectState.Sections["text-section"].SharedModifier)
-	}
-
-	for _, format := range []string{"Plaintext", "Markdown"} {
-		response := post(RouteSetTextBlockFormat, `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"`+format+`"}`)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTextBlockFormat, format, response.Code, response.Body.String())
-		}
-		_, modifier := latestTextModifier()
-		if got := modifier["format"]; got != format {
-			t.Fatalf("expected format %s, got %#v", format, got)
-		}
-	}
-	response := post(RouteSetTextBlockHeadingAsSectionName, `{"projectConfigId":"project-alpha","sectionId":"text-section","headingAsSectionName":true}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockHeadingAsSectionName, response.Code, response.Body.String())
-	}
-	response = post(RouteSetTextBlockText, `{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Updated Heading\n\nBody"}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
-	}
-	for _, displayMode := range []string{"Render", "Edit"} {
-		response = post(RouteSetTextBlockDisplayMode, `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"`+displayMode+`"}`)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s=%s, got %d with body %q", RouteSetTextBlockDisplayMode, displayMode, response.Code, response.Body.String())
-		}
-		_, modifier := latestTextModifier()
-		if got := modifier["textDisplayMode"]; got != displayMode {
-			t.Fatalf("expected textDisplayMode %s, got %#v", displayMode, got)
-		}
-	}
-	response = post(RouteSetTextBlockMetaControlStyle, `{"projectConfigId":"project-alpha","sectionId":"text-section","metaControlStyle":true}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockMetaControlStyle, response.Code, response.Body.String())
-	}
-	response = post(RouteSetTextBlockMasterFontSize, `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockMasterFontSize, response.Code, response.Body.String())
-	}
-
-	payload, textSharedModifier := latestTextModifier()
-
-	textSection := payload.ProjectState.Sections["text-section"]
-	if textSection.Name != "Updated Heading" {
-		t.Fatalf("expected section name Updated Heading, got %q", textSection.Name)
-	}
-
-	if got := textSharedModifier["format"]; got != "Markdown" {
-		t.Fatalf("expected format Markdown, got %#v", got)
-	}
-	if got := textSharedModifier["text"]; got != "# Updated Heading\n\nBody" {
-		t.Fatalf("expected updated text, got %#v", got)
-	}
-	if got := textSharedModifier["textDisplayMode"]; got != "Edit" {
-		t.Fatalf("expected textDisplayMode Edit, got %#v", got)
-	}
-	if got := textSharedModifier["headingAsSectionName"]; got != true {
-		t.Fatalf("expected headingAsSectionName true, got %#v", got)
-	}
-	if got := textSharedModifier["metaControlStyle"]; got != true {
-		t.Fatalf("expected metaControlStyle true, got %#v", got)
-	}
-	if got := textSharedModifier["masterFontSizePx"]; got != float64(48) {
-		t.Fatalf("expected masterFontSizePx 48, got %#v", got)
-	}
-}
-
-func TestRegisterProjectRoutesTextBlockMutationsRejectInvalidInputs(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": textBlockRouteTestProject(t),
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
-
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+route,
-			strings.NewReader(body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
-
-	for _, requestSpec := range []struct {
-		name                string
-		route               string
-		body                string
-		expectedCode        int
-		expectedErrorCode   string
-		expectedMessagePart string
-	}{
-		{
-			name:                "text_requires_text_block_section",
-			route:               RouteSetTextBlockText,
-			body:                `{"projectConfigId":"project-alpha","sectionId":"plain-section","text":"hello"}`,
-			expectedCode:        http.StatusUnprocessableEntity,
-			expectedErrorCode:   "text_block_section_required",
-			expectedMessagePart: "Section must resolve to a text block section.",
-		},
-		{
-			name:                "display_mode_rejects_unknown_literal_at_transport",
-			route:               RouteSetTextBlockDisplayMode,
-			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Preview"}`,
-			expectedCode:        http.StatusUnprocessableEntity,
-			expectedErrorCode:   "invalid_request",
-			expectedMessagePart: `Invalid textDisplayMode value "Preview".`,
-		},
-		{
-			name:                "display_mode_rejects_padded_literal_without_trimming",
-			route:               RouteSetTextBlockDisplayMode,
-			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":" Edit "}`,
-			expectedCode:        http.StatusUnprocessableEntity,
-			expectedErrorCode:   "invalid_request",
-			expectedMessagePart: `Invalid textDisplayMode value " Edit ".`,
-		},
-		{
-			name:                "format_rejects_unknown_literal_at_transport",
-			route:               RouteSetTextBlockFormat,
-			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"HTML"}`,
-			expectedCode:        http.StatusUnprocessableEntity,
-			expectedErrorCode:   "invalid_request",
-			expectedMessagePart: `Invalid format value "HTML".`,
-		},
-		{
-			name:                "format_rejects_padded_literal_without_trimming",
-			route:               RouteSetTextBlockFormat,
-			body:                `{"projectConfigId":"project-alpha","sectionId":"text-section","format":" Markdown "}`,
-			expectedCode:        http.StatusUnprocessableEntity,
-			expectedErrorCode:   "invalid_request",
-			expectedMessagePart: `Invalid format value " Markdown ".`,
-		},
-	} {
-		response := post(requestSpec.route, requestSpec.body)
-		if response.Code != requestSpec.expectedCode {
-			t.Fatalf("%s: expected %d for %s, got %d with body %q", requestSpec.name, requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
-		}
-
-		var payload errorResponse
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("%s: decode error payload: %v", requestSpec.name, err)
-		}
-		if payload.Error.Code != requestSpec.expectedErrorCode {
-			t.Fatalf("%s: expected error code %q, got %#v", requestSpec.name, requestSpec.expectedErrorCode, payload)
-		}
-		if !strings.Contains(payload.Error.Message, requestSpec.expectedMessagePart) {
-			t.Fatalf("%s: expected error message to contain %q, got %#v", requestSpec.name, requestSpec.expectedMessagePart, payload)
-		}
-	}
-
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
-
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
-
-	textVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["text-section"]
-	textImplID := payload.ProjectState.SectionVariants[textVariantID].Impl
-	textImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[textImplID])
-	if got := textImplPayload["textDisplayMode"]; got != "Render" {
-		t.Fatalf("expected invalid display-mode requests to leave textDisplayMode unchanged, got %#v", got)
-	}
-	if got := textImplPayload["format"]; got != "Plaintext" {
-		t.Fatalf("expected invalid format requests to leave format unchanged, got %#v", got)
-	}
-}
-
-func TestRegisterProjectRoutesTextBlockMutationsUseDeploymentOverlayWhenPolicyAllows(t *testing.T) {
-	t.Parallel()
-
-	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
-		t.Run(string(mode), func(t *testing.T) {
-			t.Run("text_uses_param_policy", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": textBlockRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowParamChanges":  true,
-						"allowLayoutChanges": false,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				request := httptest.NewRequest(
-					http.MethodPost,
-					"/api"+RouteSetTextBlockText,
-					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Overlay Heading\n\nBody"}`),
-				)
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusOK {
-					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayText := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
-				if got := overlayText["text"]; got != "# Overlay Heading\n\nBody" {
-					t.Fatalf("expected overlay text update, got %#v", got)
-				}
-
-				baseText := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
-				if got := baseText["text"]; got != nil {
-					t.Fatalf("expected base text block modifier unchanged, got %#v", got)
-				}
-			})
-
-			t.Run("layout_uses_layout_policy", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": textBlockRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowParamChanges":  false,
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				for _, requestSpec := range []struct {
-					route string
-					body  string
-				}{
-					{
-						route: RouteSetTextBlockDisplayMode,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
-					},
-					{
-						route: RouteSetTextBlockFormat,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
-					},
-					{
-						route: RouteSetTextBlockMasterFontSize,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
-					},
-				} {
-					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
-					request.Header.Set("Content-Type", "application/json")
-					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-					response := httptest.NewRecorder()
-					handler.ServeHTTP(response, request)
-					if response.Code != http.StatusOK {
-						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-					}
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayText := decodeProjectRouteRawObject(t, overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
-				if got := overlayText["textDisplayMode"]; got != "Edit" {
-					t.Fatalf("expected overlay textDisplayMode Edit, got %#v", got)
-				}
-				if got := overlayText["format"]; got != "Markdown" {
-					t.Fatalf("expected overlay format Markdown, got %#v", got)
-				}
-				if got := overlayText["masterFontSizePx"]; got != float64(48) {
-					t.Fatalf("expected overlay masterFontSizePx 48, got %#v", got)
-				}
-
-				baseText := decodeProjectRouteRawObject(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"].Sections["text-section"].SharedModifier)
-				if len(baseText) != 0 {
-					t.Fatalf("expected base text block modifier unchanged, got %#v", baseText)
-				}
-			})
-		})
-	}
-}
-
-func TestRegisterProjectRoutesTextBlockMutationsRejectDeploymentPolicyWhenDisallowed(t *testing.T) {
-	t.Parallel()
-
-	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
-		t.Run(string(mode), func(t *testing.T) {
-			t.Run("text_rejects_param_policy", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": textBlockRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowParamChanges":  false,
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay before rejected text mutation: %v", err)
-				}
-				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				request := httptest.NewRequest(
-					http.MethodPost,
-					"/api"+RouteSetTextBlockText,
-					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"text-section","text":"# Forbidden Heading\n\nBody"}`),
-				)
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusForbidden {
-					t.Fatalf("expected 403 for %s, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
-				}
-				if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
-					t.Fatalf("expected param_changes_forbidden body, got %q", response.Body.String())
-				}
-				if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
-					t.Fatalf("expected deployment param policy denial, got %q", response.Body.String())
-				}
-
-				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
-				if !reflect.DeepEqual(after, before) {
-					t.Fatalf("expected rejected text mutation to leave overlay unchanged, got %#v", after)
-				}
-			})
-
-			t.Run("layout_rejects_layout_policy", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": textBlockRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowParamChanges":  true,
-						"allowLayoutChanges": false,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay before rejected layout mutations: %v", err)
-				}
-				before := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				for _, requestSpec := range []struct {
-					route string
-					body  string
-				}{
-					{
-						route: RouteSetTextBlockDisplayMode,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","textDisplayMode":"Edit"}`,
-					},
-					{
-						route: RouteSetTextBlockFormat,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","format":"Markdown"}`,
-					},
-					{
-						route: RouteSetTextBlockMasterFontSize,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"text-section","masterFontSizePx":64}`,
-					},
-				} {
-					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
-					request.Header.Set("Content-Type", "application/json")
-					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-					response := httptest.NewRecorder()
-					handler.ServeHTTP(response, request)
-					if response.Code != http.StatusForbidden {
-						t.Fatalf("expected 403 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-					}
-					if !strings.Contains(response.Body.String(), `"code":"layout_changes_forbidden"`) {
-						t.Fatalf("expected layout_changes_forbidden body, got %q", response.Body.String())
-					}
-					if !strings.Contains(response.Body.String(), "Deployment policy disallows layout changes.") {
-						t.Fatalf("expected deployment layout policy denial, got %q", response.Body.String())
-					}
-				}
-
-				after := overlay.Snapshot().Document.Projects["project-alpha"].Sections["text-section"]
-				if !reflect.DeepEqual(after, before) {
-					t.Fatalf("expected rejected layout mutations to leave overlay unchanged, got %#v", after)
-				}
-			})
-		})
-	}
-}
-
-func TestRegisterProjectRoutesTextBlockParamPolicyAppliesToAllProjectConfigs(t *testing.T) {
-	t.Parallel()
-
-	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
-		t.Run(string(mode), func(t *testing.T) {
-			projectBeta := textBlockRouteTestProject(t)
-			projectBeta.ID = "project-beta"
-			projectBeta.Name = "Beta"
-
-			deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-				Mode: mode,
-				Document: projectstate.Document{
-					SchemaVersion:    projectstate.CurrentSchemaVersion,
-					DefaultProjectID: "project-alpha",
-					Projects: map[string]projectstate.Project{
-						"project-alpha": textBlockRouteTestProject(t),
-						"project-beta":  projectBeta,
-					},
-				},
-				Policy: map[string]any{
-					"allowParamChanges":  false,
-					"allowLayoutChanges": true,
-				},
-			})
-			if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-				t.Fatalf("create deployment session: %v", err)
-			}
-
-			overlay, err := deploymentRuntime.Overlay("share-a")
-			if err != nil {
-				t.Fatalf("deployment overlay before rejected text mutation: %v", err)
-			}
-			before := overlay.Snapshot().Document.Projects["project-beta"].Sections["text-section"]
-
-			handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-			request := httptest.NewRequest(
-				http.MethodPost,
-				"/api"+RouteSetTextBlockText,
-				strings.NewReader(`{"projectConfigId":"project-beta","sectionId":"text-section","text":"blocked"}`),
-			)
-			request.Header.Set("Content-Type", "application/json")
-			request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			if response.Code != http.StatusForbidden {
-				t.Fatalf("expected 403 for %s on project-beta, got %d with body %q", RouteSetTextBlockText, response.Code, response.Body.String())
-			}
-			if !strings.Contains(response.Body.String(), `"code":"param_changes_forbidden"`) {
-				t.Fatalf("expected param_changes_forbidden body for project-beta, got %q", response.Body.String())
-			}
-			if !strings.Contains(response.Body.String(), "Deployment policy disallows param changes.") {
-				t.Fatalf("expected deployment param policy denial for project-beta, got %q", response.Body.String())
-			}
-
-			after := overlay.Snapshot().Document.Projects["project-beta"].Sections["text-section"]
-			if !reflect.DeepEqual(after, before) {
-				t.Fatalf("expected rejected project-beta text mutation to leave overlay unchanged, got %#v", after)
-			}
-
-			baseProjectBeta := deploymentRuntime.Base().Snapshot().Document.Projects["project-beta"].Sections["text-section"]
-			if !reflect.DeepEqual(baseProjectBeta, before) {
-				t.Fatalf("expected base project-beta section unchanged, got %#v", baseProjectBeta)
-			}
-		})
-	}
-}
-
-func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": layoutPresentationRouteTestProject(t),
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetSectionColumnWidth,
-		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"plain-section","columnWidth":180}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"section_param_column_width_unsupported"`) {
-		t.Fatalf("expected section_param_column_width_unsupported body, got %q", response.Body.String())
 	}
 }
