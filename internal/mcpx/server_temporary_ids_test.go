@@ -54,43 +54,7 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("expected temp-id summary success, got %#v", result.StructuredContent)
 	}
-
-	summary := mustStructuredMap(t, result.StructuredContent)
-	projectConfig := mustStructuredMap(t, summary["projectConfig"])
-	if projectConfig["id"] != "11" {
-		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
-	}
-	sectionVariantMap := mustStructuredMap(t, projectConfig["sectionVariantMap"])
-	if _, ok := sectionVariantMap["14"]; !ok {
-		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["15"]; !ok {
-		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["20"]; !ok {
-		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["24"]; !ok {
-		t.Fatalf("expected translated allowed-callable-section key 24, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["16"]; ok {
-		t.Fatalf("did not expect blocked-section key 16 in scoped summary, got %#v", sectionVariantMap)
-	}
-
-	sections := mustStructuredList(t, summary["sections"])
-	sectionIDs := make([]string, 0, len(sections))
-	for _, rawSection := range sections {
-		section := mustStructuredMap(t, rawSection)
-		sectionID, ok := section["sectionId"].(string)
-		if !ok {
-			t.Fatalf("expected translated sectionId string, got %#v", section["sectionId"])
-		}
-		sectionIDs = append(sectionIDs, sectionID)
-	}
-	sort.Strings(sectionIDs)
-	if len(sectionIDs) != 4 || sectionIDs[0] != "14" || sectionIDs[1] != "15" || sectionIDs[2] != "20" || sectionIDs[3] != "24" {
-		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
-	}
+	assertTemporaryIDProjectSummary(t, result.StructuredContent)
 
 	diagnosticsResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Meta: sdkmcp.Meta{
@@ -107,7 +71,64 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	if diagnosticsResult.IsError {
 		t.Fatalf("expected temp-id diagnostics success, got %#v", diagnosticsResult.StructuredContent)
 	}
-	diagnosticsPayload := mustStructuredMap(t, diagnosticsResult.StructuredContent)
+	assertTemporaryIDDiagnostics(t, diagnosticsResult.StructuredContent)
+}
+
+func assertTemporaryIDProjectSummary(t *testing.T, structuredContent any) {
+	t.Helper()
+
+	summary := mustStructuredMap(t, structuredContent)
+	projectConfig := mustStructuredMap(t, summary["projectConfig"])
+	if projectConfig["id"] != "11" {
+		t.Fatalf("expected translated project id 11, got %#v", projectConfig["id"])
+	}
+	assertTemporaryIDSectionVariantMap(t, mustStructuredMap(t, projectConfig["sectionVariantMap"]))
+	assertTemporaryIDSummarySectionIDs(t, summary)
+}
+
+func assertTemporaryIDSectionVariantMap(t *testing.T, sectionVariantMap map[string]any) {
+	t.Helper()
+
+	if _, ok := sectionVariantMap["14"]; !ok {
+		t.Fatalf("expected translated allowed-section key 14, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["15"]; !ok {
+		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["20"]; !ok {
+		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["24"]; !ok {
+		t.Fatalf("expected translated allowed-callable-section key 24, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["16"]; ok {
+		t.Fatalf("did not expect blocked-section key 16 in scoped summary, got %#v", sectionVariantMap)
+	}
+}
+
+func assertTemporaryIDSummarySectionIDs(t *testing.T, summary map[string]any) {
+	t.Helper()
+
+	sections := mustStructuredList(t, summary["sections"])
+	sectionIDs := make([]string, 0, len(sections))
+	for _, rawSection := range sections {
+		section := mustStructuredMap(t, rawSection)
+		sectionID, ok := section["sectionId"].(string)
+		if !ok {
+			t.Fatalf("expected translated sectionId string, got %#v", section["sectionId"])
+		}
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	sort.Strings(sectionIDs)
+	if len(sectionIDs) != 4 || sectionIDs[0] != "14" || sectionIDs[1] != "15" || sectionIDs[2] != "20" || sectionIDs[3] != "24" {
+		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
+	}
+}
+
+func assertTemporaryIDDiagnostics(t *testing.T, structuredContent any) {
+	t.Helper()
+
+	diagnosticsPayload := mustStructuredMap(t, structuredContent)
 	codeSections := mustStructuredMap(t, diagnosticsPayload["codeSections"])
 	if _, ok := codeSections["14"]; !ok {
 		t.Fatalf("expected translated allowed-section diagnostics key 14, got %#v", codeSections)
