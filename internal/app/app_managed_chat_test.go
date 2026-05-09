@@ -25,35 +25,23 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gpt-4o-mini",
-				Provider:  "openai",
-				APIKeyEnv: "OPENAI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
+	saveAppManagedChatProviderEngine(t, cfg, llmconfig.Config{
+		ID:        "primary",
+		Model:     "gpt-4o-mini",
+		Provider:  "openai",
+		APIKeyEnv: "OPENAI_API_KEY",
+	}, "Managed Engine")
+	run := seedAppManagedChatHydrateStopRun(t, cfg)
+	_, server, authCookie := startAppManagedChatProviderServer(t, cfg)
 
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
+	hydrated := waitForAppManagedChatHydration(t, server.URL, authCookie, "chat-app-managed", true, "Partial app reply", "hydrate stop")
+	assertAppManagedChatHydratedLLMConfig(t, hydrated, "primary")
+	stopResult := stopAppManagedChat(t, server.URL, authCookie, "chat-app-managed", "hydrate stop")
+	assertAppManagedChatStopResultRun(t, stopResult, run.ID)
+}
+
+func seedAppManagedChatHydrateStopRun(t *testing.T, cfg config.Config) agentruns.Run {
+	t.Helper()
 
 	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -64,37 +52,13 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 		"chatId":          "chat-app-managed",
 		"projectConfigId": "project-alpha",
 		"engineConfigId":  "engine-managed",
-		"messages": []any{
-			map[string]any{
-				"id":   "user-app",
-				"role": "user",
-				"content": []any{
-					map[string]any{"type": "text", "text": "Hello app"},
-				},
-				"attachments": []any{},
-			},
-		},
+		"messages":        []any{appManagedChatHydrateStopUserMessage()},
 	}, time.Date(2026, 3, 8, 16, 0, 0, 0, time.UTC))
 	run.Status = agentruns.RunStatusRunning
 	run.Outputs = map[string]any{
 		"messages": []any{
-			map[string]any{
-				"id":   "user-app",
-				"role": "user",
-				"content": []any{
-					map[string]any{"type": "text", "text": "Hello app"},
-				},
-				"attachments": []any{},
-			},
-			map[string]any{
-				"id":   "assistant-app",
-				"role": "assistant",
-				"content": []any{
-					map[string]any{"type": "text", "text": "Partial app reply"},
-				},
-				"attachments": []any{},
-				"tool_calls":  nil,
-			},
+			appManagedChatHydrateStopUserMessage(),
+			appManagedChatHydrateStopAssistantMessage(),
 		},
 		"usage": map[string]any{
 			"promptTokens":     11,
@@ -105,96 +69,37 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	if err := runStore.Save(run); err != nil {
 		t.Fatalf("save managed run: %v", err)
 	}
+	return run
+}
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
+func appManagedChatHydrateStopUserMessage() map[string]any {
+	return map[string]any{
+		"id":   "user-app",
+		"role": "user",
+		"content": []any{
+			map[string]any{"type": "text", "text": "Hello app"},
+		},
+		"attachments": []any{},
 	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func appManagedChatHydrateStopAssistantMessage() map[string]any {
+	return map[string]any{
+		"id":   "assistant-app",
+		"role": "assistant",
+		"content": []any{
+			map[string]any{"type": "text", "text": "Partial app reply"},
+		},
+		"attachments": []any{},
+		"tool_calls":  nil,
+	}
+}
 
-	authCookie := newAppTestAuthCookie(t, app)
+func assertAppManagedChatStopResultRun(t *testing.T, stopResult appManagedChatStopResult, wantRunID string) {
+	t.Helper()
 
-	hydrateRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteGetLLMChat,
-		strings.NewReader(`{"chatId":"chat-app-managed","projectConfigId":"project-alpha"}`),
-	)
-	if err != nil {
-		t.Fatalf("new hydrate request: %v", err)
-	}
-	hydrateRequest.Header.Set("Content-Type", "application/json")
-	hydrateRequest.AddCookie(authCookie)
-
-	hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-	if err != nil {
-		t.Fatalf("hydrate managed chat: %v", err)
-	}
-	defer hydrateResponse.Body.Close()
-	if hydrateResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(hydrateResponse.Body)
-		t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-	}
-
-	var hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-		LLMConfig          *struct {
-			ID string `json:"id"`
-		} `json:"llmConfig"`
-	}
-	if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydratePayload); err != nil {
-		t.Fatalf("decode hydrate payload: %v", err)
-	}
-	if len(hydratePayload.Messages) != 2 {
-		t.Fatalf("expected hydrated managed chat messages, got %#v", hydratePayload.Messages)
-	}
-	if !hydratePayload.WaitingForResponse {
-		t.Fatalf("expected running managed chat hydration, got %#v", hydratePayload)
-	}
-	if hydratePayload.LLMConfig == nil || hydratePayload.LLMConfig.ID != "primary" {
-		t.Fatalf("expected primary llm config, got %#v", hydratePayload.LLMConfig)
-	}
-
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopLLMChat,
-		strings.NewReader(`{"chatId":"chat-app-managed"}`),
-	)
-	if err != nil {
-		t.Fatalf("new stop request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop managed chat: %v", err)
-	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopPayload struct {
-		AlreadyStopped bool    `json:"alreadyStopped"`
-		StoppedRunID   *string `json:"stoppedRunId"`
-	}
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
-		t.Fatalf("decode stop payload: %v", err)
-	}
-	if stopPayload.AlreadyStopped {
-		t.Fatalf("expected active stop payload, got %#v", stopPayload)
-	}
-	if stopPayload.StoppedRunID == nil || *stopPayload.StoppedRunID != run.ID {
-		t.Fatalf("expected stopped run id %q, got %#v", run.ID, stopPayload.StoppedRunID)
+	if stopResult.RunID != wantRunID {
+		t.Fatalf("expected stopped run id %q, got %q", wantRunID, stopResult.RunID)
 	}
 }
 
@@ -530,14 +435,7 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("AZURE_OPENAI_API_KEY", "secret")
 
-	type providerRequest struct {
-		Path          string
-		Query         string
-		APIKey        string
-		Authorization string
-		Body          map[string]any
-	}
-	providerRequests := make(chan providerRequest, 1)
+	providerRequests := make(chan appManagedChatAzureStopProviderRequest, 1)
 	providerAborted := make(chan struct{}, 1)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
@@ -545,7 +443,7 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		providerRequests <- providerRequest{
+		providerRequests <- appManagedChatAzureStopProviderRequest{
 			Path:          r.URL.Path,
 			Query:         r.URL.RawQuery,
 			APIKey:        r.Header.Get("Api-Key"),
@@ -571,39 +469,16 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 	}))
 	defer provider.Close()
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gpt-4o-mini",
-				Provider:  "azure",
-				BaseURL:   provider.URL,
-				APIKeyEnv: "AZURE_OPENAI_API_KEY",
-				OtherParams: map[string]any{
-					"api_version": "2024-06-01",
-				},
-			},
+	saveAppManagedChatProviderEngine(t, cfg, llmconfig.Config{
+		ID:        "primary",
+		Model:     "gpt-4o-mini",
+		Provider:  "azure",
+		BaseURL:   provider.URL,
+		APIKeyEnv: "AZURE_OPENAI_API_KEY",
+		OtherParams: map[string]any{
+			"api_version": "2024-06-01",
 		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
-
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Azure Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
+	}, "Managed Azure Engine")
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -668,6 +543,22 @@ func TestAppStopsLiveManagedAzureChatThroughStopRoute(t *testing.T) {
 	waitForAppManagedChatProviderAbort(t, providerAborted, "azure")
 	waitForAppManagedChatHydration(t, server.URL, authCookie, chatID, false, "Streaming", "stopped azure")
 	assertAppManagedChatStoppedRun(t, app, stopResult, "Streaming", "azure")
+	assertAppManagedChatAzureStopProviderRequest(t, providerRequests)
+}
+
+type appManagedChatAzureStopProviderRequest struct {
+	Path          string
+	Query         string
+	APIKey        string
+	Authorization string
+	Body          map[string]any
+}
+
+func assertAppManagedChatAzureStopProviderRequest(
+	t *testing.T,
+	providerRequests <-chan appManagedChatAzureStopProviderRequest,
+) {
+	t.Helper()
 
 	select {
 	case captured := <-providerRequests:
@@ -1020,220 +911,65 @@ func TestAppServesManagedChatSendThroughManagedExecutor(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
 
-	type providerRequest struct {
-		Path          string
-		Authorization string
-		Body          map[string]any
-	}
-	providerRequests := make(chan providerRequest, 1)
+	providerRequests, provider := startAppManagedChatOpenAIProvider(t)
+	saveAppManagedChatProviderEngine(t, cfg, llmconfig.Config{
+		ID:        "primary",
+		Model:     "gpt-4o-mini",
+		Provider:  "openai",
+		BaseURL:   provider.URL + "/v1",
+		APIKeyEnv: "OPENAI_API_KEY",
+	}, "Managed Engine")
+	app, server, authCookie := startAppManagedChatProviderServer(t, cfg)
+
+	chatID := sendAppManagedChatProviderMessage(t, server.URL, authCookie, "Create a managed project.", false, "managed")
+	hydrated := waitForAppManagedChatProviderResult(t, app, cfg, server.URL, authCookie, chatID, "Go owned reply", "managed")
+	assertAppManagedChatHydratedLLMConfig(t, hydrated, "primary")
+	assertAppManagedChatOpenAIProviderRequest(t, providerRequests)
+}
+
+func startAppManagedChatOpenAIProvider(t *testing.T) (<-chan appManagedChatAttachmentProviderRequest, *httptest.Server) {
+	t.Helper()
+
+	providerRequests := make(chan appManagedChatAttachmentProviderRequest, 1)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body := map[string]any{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		providerRequests <- providerRequest{
-			Path:          r.URL.Path,
-			Authorization: r.Header.Get("Authorization"),
-			Body:          body,
-		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
+		captured, ok := captureAppManagedChatProviderRequest(w, r, "")
 		if !ok {
-			http.Error(w, "missing flusher", http.StatusInternalServerError)
 			return
 		}
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Go owned\"}}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":21,\"completion_tokens\":2,\"total_tokens\":23}}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: [DONE]\n\n")
-	}))
-	defer provider.Close()
-
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gpt-4o-mini",
-				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
-				APIKeyEnv: "OPENAI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
-
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteGetLLMResponse,
-		strings.NewReader(`{
-			"chatId":null,
-			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Create a managed project."}]},
-			"engineConfigId":"engine-managed",
-			"agentProfileId":null,
-			"thinking":false,
-			"projectConfigId":"project-alpha",
-			"sectionId":null,
-			"allowUnscoped":true,
-			"permissionMode":"minimal",
-			"searchEnabled":false
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("new send request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("send managed chat: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var chatID string
-	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
-		t.Fatalf("decode send chat id: %v", err)
-	}
-	if strings.TrimSpace(chatID) == "" {
-		t.Fatal("expected managed chat id")
-	}
-
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-		LLMConfig          *struct {
-			ID string `json:"id"`
-		} `json:"llmConfig"`
-	}
-	var hydrated hydratePayload
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		hydrateRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetLLMChat,
-			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		providerRequests <- captured
+		writeAppManagedChatProviderStream(w,
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Go owned\"}}]}\n\n",
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n",
+			"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":21,\"completion_tokens\":2,\"total_tokens\":23}}\n\n",
+			"data: [DONE]\n\n",
 		)
-		if err != nil {
-			t.Fatalf("new hydrate request: %v", err)
-		}
-		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(authCookie)
+	}))
+	t.Cleanup(provider.Close)
+	return providerRequests, provider
+}
 
-		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-		if err != nil {
-			t.Fatalf("hydrate managed chat: %v", err)
-		}
-		defer hydrateResponse.Body.Close()
-		if hydrateResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(hydrateResponse.Body)
-			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
-			t.Fatalf("decode hydrate payload: %v", err)
-		}
-		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
-	})
+func assertAppManagedChatHydratedLLMConfig(t *testing.T, hydrated appManagedChatHydratePayload, wantID string) {
+	t.Helper()
 
-	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
-		t.Fatalf("expected hydrated llm config primary, got %#v", hydrated.LLMConfig)
+	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != wantID {
+		t.Fatalf("expected hydrated llm config %s, got %#v", wantID, hydrated.LLMConfig)
 	}
-	if appTestMessageText(hydrated.Messages[1]) != "Go owned reply" {
-		t.Fatalf("unexpected assistant reply %#v", hydrated.Messages[1])
-	}
+}
 
-	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new run store: %v", err)
-	}
-	runType := "llm_chat"
-	projectID := "project-alpha"
-	completedRunID := ""
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
-			RunType:         &runType,
-			ChatID:          &chatID,
-			ProjectConfigID: &projectID,
-		})
-		if err != nil {
-			t.Fatalf("list managed runs: %v", err)
-		}
-		for _, run := range runs {
-			if run.Status == agentruns.RunStatusCompleted {
-				completedRunID = run.ID
-				return true
-			}
-		}
-		return false
-	})
-	if strings.TrimSpace(completedRunID) == "" {
-		t.Fatal("expected completed managed run id")
-	}
-	if _, err := app.agentRuntime.WaitForRun(context.Background(), completedRunID); err != nil {
-		t.Fatalf("wait for managed runtime completion: %v", err)
-	}
+func assertAppManagedChatOpenAIProviderRequest(
+	t *testing.T,
+	providerRequests <-chan appManagedChatAttachmentProviderRequest,
+) {
+	t.Helper()
 
-	select {
-	case captured := <-providerRequests:
-		if captured.Path != "/v1/chat/completions" {
-			t.Fatalf("unexpected provider path %q", captured.Path)
-		}
-		if captured.Authorization != "Bearer secret" {
-			t.Fatalf("unexpected provider authorization %q", captured.Authorization)
-		}
-		if captured.Body["model"] != "gpt-4o-mini" {
-			t.Fatalf("unexpected provider model %#v", captured.Body["model"])
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for provider request")
+	captured := waitForAppManagedChatProviderRequest(t, providerRequests, "OpenAI")
+	if captured.Path != "/v1/chat/completions" {
+		t.Fatalf("unexpected provider path %q", captured.Path)
+	}
+	if captured.Authorization != "Bearer secret" {
+		t.Fatalf("unexpected provider authorization %q", captured.Authorization)
+	}
+	if captured.Body["model"] != "gpt-4o-mini" {
+		t.Fatalf("unexpected provider model %#v", captured.Body["model"])
 	}
 }
