@@ -3,13 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
-import type {
-  GpuContentSurface,
-  GpuFlowScene,
-  GpuSectionSceneNode,
+import {
+  getGpuFlowSceneDomSectionNodes,
+  type GpuContentSurface,
+  type GpuFlowScene,
+  type GpuSectionSceneNode,
 } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
+import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
@@ -222,12 +224,47 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain("data-resize-direction");
   });
 
-  it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
+  it("prefers subscribed layout store geometry over matching scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [
         {
           height: 80,
-          nodeId: "live-node-a",
+          nodeId: "section-a",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+
+    const scene = sceneWithSection("section-a");
+    const storeNodes = layoutStore.getState().getNodes();
+    const sceneNodes = getGpuFlowSceneDomSectionNodes(scene);
+
+    expect(
+      resolveGpuFlowRenderableNodes({ sceneNodes, storeNodes })?.[0]?.width,
+    ).toBe(120);
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        scene={scene}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-source-id="section-a"');
+  });
+
+  it("uses scene snapshot nodes while a layout store has stale scene topology", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          nodeId: "stale-node-a",
           width: 120,
           x: 10,
           y: 20,
@@ -246,8 +283,8 @@ describe("GpuFlow", () => {
       />,
     );
 
-    expect(markup).toContain('data-gpu-flow-source-id="live-node-a"');
-    expect(markup).not.toContain('data-gpu-flow-source-id="scene-node-a"');
+    expect(markup).toContain('data-gpu-flow-source-id="scene-node-a"');
+    expect(markup).not.toContain('data-gpu-flow-source-id="stale-node-a"');
   });
 
   it("renders scene DOM islands inside the canvas source subtree", () => {

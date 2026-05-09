@@ -474,12 +474,16 @@ function getTemporaryMeasuredHeight(key: string): number {
   return typeof height === "number" ? height : 0;
 }
 
-export function getSectionMinMaxDims(sectionId: string) {
+export function getSectionMinMaxDims(
+  sectionId: string,
+  resizeEventOverride?: string | undefined,
+) {
   return resolveSectionMinMaxDims({
     sectionId,
     projectState: useProjectState.getState(),
     sizingPolicy: useSettings.getState().sectionSizingPolicy,
-    resizeEvent: useResizeEvent.getState().resizeEvent[sectionId],
+    resizeEvent:
+      resizeEventOverride ?? useResizeEvent.getState().resizeEvent[sectionId],
     measuredHeights: {
       kwargsControlsHeight: getTemporaryMeasuredHeight(
         getKwargsControlsHeightKey(sectionId),

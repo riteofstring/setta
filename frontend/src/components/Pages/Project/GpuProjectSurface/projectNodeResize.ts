@@ -21,7 +21,10 @@ import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { updateNodeDimensionsFromGpuResize } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { toTopLevelSectionInnerDimension } from "state/actions/sectionInfos/topLevelSectionNode";
+import {
+  toTopLevelSectionInnerDimension,
+  toTopLevelSectionOuterDimension,
+} from "state/actions/sectionInfos/topLevelSectionNode";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos/viewportUpdates";
 import {
   clampChangedSize,
@@ -83,6 +86,11 @@ type ProjectNodeResizeOptionsInput = {
   scene?: GpuFlowScene | undefined;
 };
 
+type ProjectNodeResizeOptionsSourceAccessors = {
+  readonly getLayoutStore: () => GpuFlowLayoutStoreApi | undefined;
+  readonly getScene: () => GpuFlowScene | undefined;
+};
+
 const EMPTY_PROJECT_NODE_RESIZE_SESSION: ProjectNodeResizeSession = {
   autoSizePromoted: false,
   clickState: {
@@ -115,22 +123,39 @@ export function useProjectNodeResizeOptions({
   const sessionRef = useRef<ProjectNodeResizeSession>(
     createProjectNodeResizeSession(),
   );
+  const resizeSourcesRef = useRef<{
+    layoutStore?: GpuFlowLayoutStoreApi | undefined;
+    scene?: GpuFlowScene | undefined;
+  }>({});
+  resizeSourcesRef.current = {
+    layoutStore,
+    scene,
+  };
+  const {
+    panActivationKeyPressed,
+    selectionKeyPressed,
+    zoomActivationKeyPressed,
+  } = flowInteractionKeys;
   return useMemo(
     () =>
-      createProjectNodeResizeOptions({
+      createProjectNodeResizeOptionsFromSources({
         canEditLayout,
-        flowInteractionKeys,
+        flowInteractionKeys: {
+          panActivationKeyPressed,
+          selectionKeyPressed,
+          zoomActivationKeyPressed,
+        },
         isFollowTransitioning,
-        layoutStore,
-        scene,
+        getLayoutStore: () => resizeSourcesRef.current.layoutStore,
+        getScene: () => resizeSourcesRef.current.scene,
         sessionRef,
       }),
     [
       canEditLayout,
-      flowInteractionKeys,
       isFollowTransitioning,
-      layoutStore,
-      scene,
+      panActivationKeyPressed,
+      selectionKeyPressed,
+      zoomActivationKeyPressed,
     ],
   );
 }
@@ -145,6 +170,27 @@ export function createProjectNodeResizeOptions({
 }: ProjectNodeResizeOptionsInput & {
   sessionRef: MutableRefObject<ProjectNodeResizeSession>;
 }): ProjectNodeResizeOptions {
+  return createProjectNodeResizeOptionsFromSources({
+    canEditLayout,
+    flowInteractionKeys,
+    isFollowTransitioning,
+    getLayoutStore: () => layoutStore,
+    getScene: () => scene,
+    sessionRef,
+  });
+}
+
+function createProjectNodeResizeOptionsFromSources({
+  canEditLayout,
+  flowInteractionKeys,
+  getLayoutStore,
+  getScene,
+  isFollowTransitioning,
+  sessionRef,
+}: Omit<ProjectNodeResizeOptionsInput, "layoutStore" | "scene"> &
+  ProjectNodeResizeOptionsSourceAccessors & {
+    sessionRef: MutableRefObject<ProjectNodeResizeSession>;
+  }): ProjectNodeResizeOptions {
   return {
     disabled: () =>
       isProjectGpuNodeResizeDisabled({
@@ -158,34 +204,34 @@ export function createProjectNodeResizeOptions({
       sessionRef.current.doubleClickPending = false;
       patchProjectNodeResizeSceneLayout({
         change,
-        layoutStore,
+        layoutStore: getLayoutStore(),
         phase: "change",
-        scene,
+        scene: getScene(),
       });
     },
     onNodeResizeCancel: (change: GpuNodeResizeChange) => {
       cancelProjectNodeResize(change, sessionRef);
       restoreProjectNodeResizeSceneLayout({
-        layoutStore,
+        layoutStore: getLayoutStore(),
         phase: "cancel",
-        scene,
+        scene: getScene(),
       });
     },
     onNodeResizeStart: (change: GpuNodeResizeChange) => {
       startProjectNodeResize(change, sessionRef);
       patchProjectNodeResizeSceneLayout({
         change,
-        layoutStore,
+        layoutStore: getLayoutStore(),
         phase: "start",
-        scene,
+        scene: getScene(),
       });
     },
     onNodeResizeStop: (change: GpuNodeResizeChange) => {
       patchProjectNodeResizeSceneLayout({
         change,
-        layoutStore,
+        layoutStore: getLayoutStore(),
         phase: "commit",
-        scene,
+        scene: getScene(),
       });
       stopProjectNodeResize(change, sessionRef);
     },
@@ -317,7 +363,15 @@ export function getProjectNodeResizePolicy(
     return false;
   }
   const scenePolicy = getProjectNodeSceneResizePolicy(input.node, input.nodeId);
-  if (scenePolicy.locked || !scenePolicy.directions.includes(input.direction)) {
+  const resizePolicy = getProjectNodeActiveResizePolicy(
+    input.nodeId,
+    input.direction,
+    scenePolicy,
+  );
+  if (
+    resizePolicy.locked ||
+    !resizePolicy.directions.includes(input.direction)
+  ) {
     return false;
   }
   const snapGrid = resolveResizableGrid({
@@ -325,16 +379,35 @@ export function getProjectNodeResizePolicy(
     snapToGrid: useLocalStorage.getState().snapToGrid,
   });
   return {
-    aspectRatio: scenePolicy.aspectRatio,
-    aspectRatioExtraHeight: scenePolicy.aspectRatioExtraHeight,
-    aspectRatioExtraWidth: scenePolicy.aspectRatioExtraWidth,
-    directions: scenePolicy.directions,
+    aspectRatio: resizePolicy.aspectRatio,
+    aspectRatioExtraHeight: resizePolicy.aspectRatioExtraHeight,
+    aspectRatioExtraWidth: resizePolicy.aspectRatioExtraWidth,
+    directions: resizePolicy.directions,
     enabled: true,
-    maxHeight: scenePolicy.maxHeight,
-    maxWidth: scenePolicy.maxWidth,
-    minHeight: scenePolicy.minHeight,
-    minWidth: scenePolicy.minWidth,
+    maxHeight: resizePolicy.maxHeight,
+    maxWidth: resizePolicy.maxWidth,
+    minHeight: resizePolicy.minHeight,
+    minWidth: resizePolicy.minWidth,
     ...(snapGrid ? { snapGrid, snapToGrid: true } : { snapToGrid: false }),
+  };
+}
+
+function getProjectNodeActiveResizePolicy(
+  sectionId: string,
+  direction: GpuNodeResizePolicyInput["direction"],
+  scenePolicy: GpuSectionSceneResizePolicy,
+): GpuSectionSceneResizePolicy {
+  if (!isHeightResizeDirection(direction as ResizeHandleDirection)) {
+    return scenePolicy;
+  }
+
+  const resizeStartDimensions = getSectionMinMaxDims(sectionId, "start");
+  return {
+    ...scenePolicy,
+    maxHeight: toTopLevelSectionOuterDimension(resizeStartDimensions.maxHeight),
+    maxWidth: toTopLevelSectionOuterDimension(resizeStartDimensions.maxWidth),
+    minHeight: toTopLevelSectionOuterDimension(resizeStartDimensions.minHeight),
+    minWidth: toTopLevelSectionOuterDimension(resizeStartDimensions.minWidth),
   };
 }
 

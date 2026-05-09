@@ -75,11 +75,6 @@ import {
 } from "../interactions/nodeDrag";
 
 import {
-  attachGpuNodeResizeController,
-  type GpuNodeResizeControllerOptions,
-} from "../interactions/nodeResize";
-
-import {
   attachGpuPanZoomController,
   type GpuPanZoomControllerOptions,
 } from "../interactions/panZoom";
@@ -128,6 +123,10 @@ import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
+import {
+  attachGpuFlowNodeResizeController,
+  type GpuFlowNodeResizeOptions,
+} from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
 
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
@@ -151,11 +150,9 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
-import {
-  resolveGpuFlowNodeResizeCursor,
-  resolveGpuFlowNodeResizeTarget,
-} from "./nodeResizeTarget";
+import { resolveGpuFlowNodeResizeCursor } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
+import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
@@ -195,17 +192,7 @@ type GpuFlowProps = Pick<
         "element" | "layoutStore" | "requestFrame" | "store"
       >
     | undefined;
-  nodeResize?:
-    | false
-    | Omit<
-        GpuNodeResizeControllerOptions,
-        | "element"
-        | "layoutStore"
-        | "requestFrame"
-        | "resolveResizeTarget"
-        | "store"
-      >
-    | undefined;
+  nodeResize?: GpuFlowNodeResizeOptions;
   onNodeLayerFrame?:
     | ((result: RenderHtmlSurfaceFrameResult) => void)
     | undefined;
@@ -332,7 +319,14 @@ export function GpuFlow({
     () => (scene ? getGpuFlowSceneDomSectionNodes(scene) : undefined),
     [scene],
   );
-  const nodes = storeNodes ?? sceneNodes;
+  const nodes = useMemo(
+    () =>
+      resolveGpuFlowRenderableNodes({
+        sceneNodes,
+        storeNodes,
+      }),
+    [sceneNodes, storeNodes],
+  );
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
@@ -342,6 +336,7 @@ export function GpuFlow({
   const [htmlSurfaceEffectProjectors] = useState(() =>
     createHtmlSurfaceShaderEffectProjectors(),
   );
+  const nodeResizeRef = useRef<GpuFlowProps["nodeResize"]>(nodeResize);
   const activeInteractionNodeIdRef = useRef<string | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
@@ -361,6 +356,8 @@ export function GpuFlow({
   );
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
+  nodeResizeRef.current = nodeResize;
+  const nodeResizeEnabled = nodeResize !== false;
   const {
     edgeLabelSourceElement,
     htmlSurfaceOverlays,
@@ -603,7 +600,7 @@ export function GpuFlow({
   }, [layoutStore, nodeDrag, viewportStore]);
 
   useEffect(() => {
-    if (nodeResize === false) {
+    if (!nodeResizeEnabled) {
       return;
     }
     const container = containerRef.current;
@@ -613,47 +610,22 @@ export function GpuFlow({
     if (!layoutStore) {
       throw new Error("GpuFlow node resize requires a layout store.");
     }
-    return attachGpuNodeResizeController({
-      ...nodeResize,
+    return attachGpuFlowNodeResizeController({
+      activeResizeNodeIdRef,
       element: container,
+      htmlSurfaceEffectProjectors,
       layoutStore,
-      onNodeResize: (change) => {
-        nodeResize?.onNodeResize?.(change);
-      },
-      onNodeResizeCancel: (change) => {
-        nodeResize?.onNodeResizeCancel?.(change);
-        activeResizeNodeIdRef.current = null;
-      },
-      onNodeResizeStart: (change) => {
-        activeResizeNodeIdRef.current = change.nodeId;
-        nodeResize?.onNodeResizeStart?.(change);
-      },
-      onNodeResizeStop: (change) => {
-        nodeResize?.onNodeResizeStop?.(change);
-        activeResizeNodeIdRef.current = null;
-      },
-      requestFrame: (reason) => {
-        surfaceRef.current?.requestFrame(reason);
-      },
-      resolveResizeTarget: (event) =>
-        resolveGpuFlowNodeResizeTarget({
-          event,
-          elementByNodeId: nodeElementByIdRef.current,
-          effectProjectors: htmlSurfaceEffectProjectors,
-          nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
-          sourceInteractionProjector,
-          surfaceElement: container,
-          viewport: nodeLayerRef.current.viewport,
-          visualScene: nodeLayerRef.current.visualScene,
-          requireVisualSceneHitSurfaces:
-            nodeLayerRef.current.scene !== undefined,
-        }),
-      store: viewportStore,
+      nodeElementByIdRef,
+      nodeLayerRef,
+      nodeResizeRef,
+      sourceInteractionProjector,
+      surfaceRef,
+      viewportStore,
     });
   }, [
     htmlSurfaceEffectProjectors,
     layoutStore,
-    nodeResize,
+    nodeResizeEnabled,
     sourceInteractionProjector,
     viewportStore,
   ]);

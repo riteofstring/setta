@@ -11,6 +11,8 @@ import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
 import type { GpuPoint, GpuRect } from "gpuFlow/viewportMath";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { setSectionSizes } from "openapi/http";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topLevelSectionNode";
 import {
   useNodeInternals,
@@ -18,6 +20,7 @@ import {
   useSettings,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   createChatSectionImpl,
   createCore,
@@ -31,6 +34,7 @@ import {
   createProjectNodeResizeOptions,
   createProjectNodeResizeSession,
   getProjectNodeResizePolicy,
+  useProjectNodeResizeOptions,
 } from "./projectNodeResize";
 
 vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
@@ -57,6 +61,11 @@ const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
+const STABLE_FLOW_INTERACTION_KEYS = {
+  panActivationKeyPressed: false,
+  selectionKeyPressed: false,
+  zoomActivationKeyPressed: false,
+};
 type CreateChatSectionImplOptions = NonNullable<
   Parameters<typeof createChatSectionImpl>[0]
 >;
@@ -309,6 +318,23 @@ function rect(x: number, y: number, width: number, height: number): GpuRect {
   return { height, width, x, y };
 }
 
+function ResizeOptionsProbe({
+  onOptions,
+  scene,
+}: {
+  readonly onOptions: (options: unknown) => void;
+  readonly scene: GpuFlowScene;
+}) {
+  const options = useProjectNodeResizeOptions({
+    canEditLayout: true,
+    flowInteractionKeys: { ...STABLE_FLOW_INTERACTION_KEYS },
+    isFollowTransitioning: false,
+    scene,
+  });
+  onOptions(options);
+  return null;
+}
+
 describe("project GPU node resize adapter", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -496,6 +522,74 @@ describe("project GPU node resize adapter", () => {
         { canEditLayout: true },
       ),
     ).toBe(false);
+  });
+
+  it("resolves height resize constraints from resize-start dimensions for auto-height sections", () => {
+    seedProjectState(
+      createSectionSize({
+        height: "auto",
+        width: 200,
+      }) as unknown as NonNullable<CreateChatSectionImplOptions["size"]>,
+    );
+    const sceneAutoMaxHeight = toTopLevelSectionOuterDimension(
+      useSettings.getState().sectionSizingPolicy.globals.autoMaxHeight,
+    );
+    const policyMaxHeight = toTopLevelSectionOuterDimension(
+      useSettings.getState().sectionSizingPolicy.byType.Chat.maxHeight,
+    );
+    const node = sectionNode({
+      id: sectionId,
+      resizePolicy: {
+        directions: ["bottom", "bottomRight"],
+        maxHeight: sceneAutoMaxHeight,
+      },
+    });
+
+    const policy = getProjectNodeResizePolicy(
+      { direction: "bottom", node, nodeId: sectionId },
+      { canEditLayout: true },
+    );
+
+    expect(policy).not.toBe(false);
+    expect(policy && policy.maxHeight).toBe(policyMaxHeight);
+    expect(policy && policy.maxHeight).toBeGreaterThan(sceneAutoMaxHeight);
+  });
+
+  it("keeps hook resize handlers stable while only the scene source changes", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    let root: Root | null = createRoot(host);
+    const options: unknown[] = [];
+    const sceneA = sceneWithSections([sectionNode({ id: "section-a" })]);
+    const sceneB = sceneWithSections([sectionNode({ id: "section-b" })]);
+
+    try {
+      await act(async () => {
+        root?.render(
+          createElement(ResizeOptionsProbe, {
+            onOptions: (value) => options.push(value),
+            scene: sceneA,
+          }),
+        );
+      });
+      await act(async () => {
+        root?.render(
+          createElement(ResizeOptionsProbe, {
+            onOptions: (value) => options.push(value),
+            scene: sceneB,
+          }),
+        );
+      });
+    } finally {
+      await act(async () => {
+        root?.unmount();
+      });
+      root = null;
+      host.remove();
+    }
+
+    expect(options).toHaveLength(2);
+    expect(options[1]).toBe(options[0]);
   });
 
   it("preserves live section width when persisting a later height-only resize", () => {
