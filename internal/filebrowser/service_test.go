@@ -30,6 +30,37 @@ func (p testSessionProvider) CurrentSession() (*auth.CurrentSession, bool) {
 func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	t.Parallel()
 
+	fixture := newListFolderInitializationFixture(t)
+	linkPath := seedListFolderInitializationEntries(t, fixture)
+
+	response, err := fixture.service.ListFolder(context.Background(), ListFolderRequest{
+		FolderPath:              fixture.workspaceRoot,
+		IncludeSettaInitialized: true,
+	})
+	if err != nil {
+		t.Fatalf("list folder: %v", err)
+	}
+
+	names := folderItemNames(response.Items)
+	assertFolderListingContains(t, names, response.Items, "child", "runtime", "visible.txt", ".env", ".gitignore")
+	assertFolderListingExcludes(t, names, response.Items, "node_modules", "setta_files", ".git")
+	if linkPath != "" {
+		assertFolderListingExcludes(t, names, response.Items, "setta-state-link")
+	}
+	assertSettaInitializedFlag(t, names, "initialized-local")
+	assertSettaInitializedFlag(t, names, "initialized-global")
+}
+
+type listFolderInitializationFixture struct {
+	service              *Service
+	workspaceRoot        string
+	settaFilesRoot       string
+	globalSettaFilesBase string
+}
+
+func newListFolderInitializationFixture(t *testing.T) listFolderInitializationFixture {
+	t.Helper()
+
 	root := t.TempDir()
 	workspaceRoot := filepath.Join(root, "workspace")
 	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
@@ -56,11 +87,21 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new file browser service: %v", err)
 	}
+	return listFolderInitializationFixture{
+		service:              service,
+		workspaceRoot:        workspaceRoot,
+		settaFilesRoot:       settaFilesRoot,
+		globalSettaFilesBase: globalSettaFilesBase,
+	}
+}
 
-	visibleFolder := filepath.Join(workspaceRoot, "child")
-	initializedLocal := filepath.Join(workspaceRoot, "initialized-local")
-	initializedGlobal := filepath.Join(workspaceRoot, "initialized-global")
-	userRuntime := filepath.Join(workspaceRoot, "runtime")
+func seedListFolderInitializationEntries(t *testing.T, fixture listFolderInitializationFixture) string {
+	t.Helper()
+
+	visibleFolder := filepath.Join(fixture.workspaceRoot, "child")
+	initializedLocal := filepath.Join(fixture.workspaceRoot, "initialized-local")
+	initializedGlobal := filepath.Join(fixture.workspaceRoot, "initialized-global")
+	userRuntime := filepath.Join(fixture.workspaceRoot, "runtime")
 	if err := os.MkdirAll(visibleFolder, 0o755); err != nil {
 		t.Fatalf("mkdir child: %v", err)
 	}
@@ -70,82 +111,70 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 	if err := os.MkdirAll(initializedGlobal, 0o755); err != nil {
 		t.Fatalf("mkdir initialized global: %v", err)
 	}
-	if err := os.MkdirAll(config.BuildFilesRootFromBase(globalSettaFilesBase, initializedGlobal), 0o755); err != nil {
+	if err := os.MkdirAll(config.BuildFilesRootFromBase(fixture.globalSettaFilesBase, initializedGlobal), 0o755); err != nil {
 		t.Fatalf("mkdir global initialized root: %v", err)
 	}
 	if err := os.MkdirAll(userRuntime, 0o755); err != nil {
 		t.Fatalf("mkdir user runtime: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(workspaceRoot, "node_modules"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(fixture.workspaceRoot, "node_modules"), 0o755); err != nil {
 		t.Fatalf("mkdir node_modules: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(workspaceRoot, ".git"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(fixture.workspaceRoot, ".git"), 0o755); err != nil {
 		t.Fatalf("mkdir .git: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspaceRoot, "visible.txt"), []byte("visible"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(fixture.workspaceRoot, "visible.txt"), []byte("visible"), 0o644); err != nil {
 		t.Fatalf("write visible file: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspaceRoot, ".env"), []byte("hidden"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(fixture.workspaceRoot, ".env"), []byte("hidden"), 0o644); err != nil {
 		t.Fatalf("write hidden file: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspaceRoot, ".gitignore"), []byte("dist/\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(fixture.workspaceRoot, ".gitignore"), []byte("dist/\n"), 0o644); err != nil {
 		t.Fatalf("write .gitignore: %v", err)
 	}
 
 	// Symlinks to Setta-managed roots should stay hidden from the browser view.
-	linkPath := filepath.Join(workspaceRoot, "setta-state-link")
-	if err := os.Symlink(settaFilesRoot, linkPath); err != nil && !os.IsExist(err) {
+	linkPath := filepath.Join(fixture.workspaceRoot, "setta-state-link")
+	if err := os.Symlink(fixture.settaFilesRoot, linkPath); err != nil && !os.IsExist(err) {
 		t.Logf("skipping symlink assertion: %v", err)
-		linkPath = ""
+		return ""
 	}
+	return linkPath
+}
 
-	response, err := service.ListFolder(context.Background(), ListFolderRequest{
-		FolderPath:              workspaceRoot,
-		IncludeSettaInitialized: true,
-	})
-	if err != nil {
-		t.Fatalf("list folder: %v", err)
-	}
-	items := response.Items
-
+func folderItemNames(items []FolderContentItem) map[string]FolderContentItem {
 	names := make(map[string]FolderContentItem, len(items))
 	for _, item := range items {
 		names[item.Name] = item
 	}
-	if _, ok := names["child"]; !ok {
-		t.Fatalf("expected child folder in listing, got %#v", items)
-	}
-	if _, ok := names["runtime"]; !ok {
-		t.Fatalf("expected user runtime folder to stay visible, got %#v", items)
-	}
-	if _, ok := names["visible.txt"]; !ok {
-		t.Fatalf("expected visible file in listing, got %#v", items)
-	}
-	if _, ok := names["node_modules"]; ok {
-		t.Fatalf("expected ignored folder to be hidden, got %#v", items)
-	}
-	if _, ok := names[".env"]; !ok {
-		t.Fatalf("expected dotfile to stay visible by default, got %#v", items)
-	}
-	if _, ok := names[".gitignore"]; !ok {
-		t.Fatalf("expected dotfile to stay visible by default, got %#v", items)
-	}
-	if _, ok := names["setta_files"]; ok {
-		t.Fatalf("expected internal setta_files root to be hidden, got %#v", items)
-	}
-	if _, ok := names[".git"]; ok {
-		t.Fatalf("expected ignored .git root to stay hidden, got %#v", items)
-	}
-	if linkPath != "" {
-		if _, ok := names["setta-state-link"]; ok {
-			t.Fatalf("expected symlinked internal root to be hidden, got %#v", items)
+	return names
+}
+
+func assertFolderListingContains(t *testing.T, names map[string]FolderContentItem, items []FolderContentItem, expectedNames ...string) {
+	t.Helper()
+
+	for _, expectedName := range expectedNames {
+		if _, ok := names[expectedName]; !ok {
+			t.Fatalf("expected %s in listing, got %#v", expectedName, items)
 		}
 	}
-	if value := names["initialized-local"].IsSettaInitialized; value == nil || !*value {
-		t.Fatalf("expected initialized-local flag, got %#v", names["initialized-local"])
+}
+
+func assertFolderListingExcludes(t *testing.T, names map[string]FolderContentItem, items []FolderContentItem, expectedHiddenNames ...string) {
+	t.Helper()
+
+	for _, expectedHiddenName := range expectedHiddenNames {
+		if _, ok := names[expectedHiddenName]; ok {
+			t.Fatalf("expected %s to be hidden, got %#v", expectedHiddenName, items)
+		}
 	}
-	if value := names["initialized-global"].IsSettaInitialized; value == nil || !*value {
-		t.Fatalf("expected initialized-global flag, got %#v", names["initialized-global"])
+}
+
+func assertSettaInitializedFlag(t *testing.T, names map[string]FolderContentItem, name string) {
+	t.Helper()
+
+	if value := names[name].IsSettaInitialized; value == nil || !*value {
+		t.Fatalf("expected %s flag, got %#v", name, names[name])
 	}
 }
 
@@ -312,35 +341,9 @@ func TestServiceWorkspacePythonSignalUsesGoOwnedRootDetection(t *testing.T) {
 func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	workspaceRoot := filepath.Join(root, "workspace")
-	settaFilesRoot := filepath.Join(root, "setta_files")
-	runtimeRoot := filepath.Join(root, "runtime-root")
-	globalSettaFilesBase := filepath.Join(root, ".setta", "setta_files")
-	for _, path := range []string{workspaceRoot, settaFilesRoot, runtimeRoot, globalSettaFilesBase} {
-		if err := os.MkdirAll(path, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", path, err)
-		}
-	}
-
-	binaryStore, err := binarypayload.NewStore(filepath.Join(root, "binary"))
-	if err != nil {
-		t.Fatalf("new binary store: %v", err)
-	}
-	service, err := NewService(ServiceOptions{
-		WorkspaceRoot:        workspaceRoot,
-		SettaFilesRoot:       settaFilesRoot,
-		RuntimeRoot:          runtimeRoot,
-		GlobalSettaFilesBase: globalSettaFilesBase,
-		BinaryStore:          binaryStore,
-		Sessions:             testSessionProvider{current: &auth.CurrentSession{Secret: []byte("test-secret")}},
-		TimeNow: func() time.Time {
-			return time.Unix(1_730_000_000, 0).UTC()
-		},
+	service, workspaceRoot, binaryStore, _ := newTestFileBrowserService(t, func() time.Time {
+		return time.Unix(1_730_000_000, 0).UTC()
 	})
-	if err != nil {
-		t.Fatalf("new file browser service: %v", err)
-	}
 
 	filePath := filepath.Join(workspaceRoot, "notes.csv")
 	if err := os.WriteFile(filePath, []byte("a,b\n1,2\n"), 0o644); err != nil {
