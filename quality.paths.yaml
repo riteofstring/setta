@@ -74,8 +74,11 @@ frontend:
       - ".tsx"
     exclude_globs:
       - "**/*.d.ts"
+      # Shared Playwright bootstrap and backend helper module; keep workflow
+      # specs split while allowing this central test support surface.
+      - "frontend/tests/e2e/helpers.ts"
     exclude_generated: true
-    max_lines: 2500
+    max_lines: 1800
   boundary:
     include_globs:
       - "frontend/src/**"
