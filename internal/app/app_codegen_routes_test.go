@@ -160,6 +160,26 @@ func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
 func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
+	harness := newAppRunCodeRouteHarness(t)
+	ref := uploadRunCodeDrawSnapshotBinary(t, harness.serverURL, harness.authCookie)
+	postRunCodeWithDrawSnapshot(t, harness.serverURL, harness.authCookie, ref)
+
+	drawSnapshotPath := assertRunCodeDrawSnapshotFile(t, harness.cfg)
+	assertRunCodeDrawImplRenderedImage(t, harness.app, drawSnapshotPath)
+	assertRunCodeUploadedBinaryDeleted(t, harness.app, ref)
+	assertRunCodeAttachedTerminalOutput(t, harness.app)
+}
+
+type appRunCodeRouteHarness struct {
+	cfg        config.Config
+	app        *App
+	serverURL  string
+	authCookie *http.Cookie
+}
+
+func newAppRunCodeRouteHarness(t *testing.T) appRunCodeRouteHarness {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -178,23 +198,21 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
+	return appRunCodeRouteHarness{
+		cfg:        cfg,
+		app:        app,
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
 	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-	authCookie := &http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	}
+}
+
+func uploadRunCodeDrawSnapshotBinary(t *testing.T, serverURL string, authCookie *http.Cookie) binarypayload.ContentRef {
+	t.Helper()
 
 	uploadBody, uploadContentType := buildAppBinaryUploadBody(t, []byte("snapshot-bytes"), "false")
-	uploadRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
+	uploadRequest, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RouteBinaryUpload, uploadBody)
 	if err != nil {
 		t.Fatalf("new binary upload request: %v", err)
 	}
@@ -215,6 +233,11 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	if err := json.NewDecoder(uploadResponse.Body).Decode(&ref); err != nil {
 		t.Fatalf("decode binary upload response: %v", err)
 	}
+	return ref
+}
+
+func postRunCodeWithDrawSnapshot(t *testing.T, serverURL string, authCookie *http.Cookie, ref binarypayload.ContentRef) {
+	t.Helper()
 
 	runRequestBody, err := json.Marshal(httpapi.RunCodeRequest{
 		ProjectID:       "project-alpha",
@@ -228,7 +251,7 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 		t.Fatalf("marshal run code request: %v", err)
 	}
 
-	runRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, bytes.NewReader(runRequestBody))
+	runRequest, err := http.NewRequest(http.MethodPost, serverURL+"/api"+httpapi.RouteRunCode, bytes.NewReader(runRequestBody))
 	if err != nil {
 		t.Fatalf("new run code request: %v", err)
 	}
@@ -244,6 +267,10 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 		body, _ := io.ReadAll(runResponse.Body)
 		t.Fatalf("expected 200, got %d with body %q", runResponse.StatusCode, string(body))
 	}
+}
+
+func assertRunCodeDrawSnapshotFile(t *testing.T, cfg config.Config) string {
+	t.Helper()
 
 	drawSnapshotPath, err := projectstate.BuildDrawSnapshotPath("draw-section", filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts"))
 	if err != nil {
@@ -256,6 +283,11 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	if string(written) != "snapshot-bytes" {
 		t.Fatalf("expected draw snapshot bytes, got %q", string(written))
 	}
+	return drawSnapshotPath
+}
+
+func assertRunCodeDrawImplRenderedImage(t *testing.T, app *App, drawSnapshotPath string) {
+	t.Helper()
 
 	snapshot := app.ProjectStates().Main().Snapshot()
 	project := snapshot.Document.Projects["project-alpha"]
@@ -269,11 +301,21 @@ func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	if drawImpl.Draw.RenderedImagePath != drawSnapshotPath {
 		t.Fatalf("expected rendered image path %q, got %q", drawSnapshotPath, drawImpl.Draw.RenderedImagePath)
 	}
+}
+
+func assertRunCodeUploadedBinaryDeleted(t *testing.T, app *App, ref binarypayload.ContentRef) {
+	t.Helper()
 
 	if _, err := app.binaryStore.ReadBytes(ref.ContentID); !errors.Is(err, binarypayload.ErrPayloadNotFound) {
 		t.Fatalf("expected binary payload to be deleted, got %v", err)
 	}
+}
 
+func assertRunCodeAttachedTerminalOutput(t *testing.T, app *App) {
+	t.Helper()
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
 	_, _, codeImpl, err := project.ResolveSection("code-section")
 	if err != nil {
 		t.Fatalf("resolve code section: %v", err)
