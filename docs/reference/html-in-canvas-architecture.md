@@ -21,8 +21,9 @@ The project surface is a WebGPU canvas backed by several source surfaces:
 - Retained parameter content sources: lightweight 2D canvas sources drawn from a
   retained parameter scene, then uploaded and composed with the same WebGPU
   surface pipeline.
-- DOM islands: temporary real DOM overlays for native controls that should not
-  be emulated on canvas, such as text inputs, textareas, dropzones, password
+- DOM islands: temporary real DOM children of the `layoutsubtree` canvas,
+  positioned over retained-content rects for native controls that should not be
+  emulated on canvas, such as text inputs, textareas, dropzones, password
   fields, date/time inputs, and parameter name editing.
 
 The source DOM remains authoritative for browser-native behavior where we need
@@ -55,6 +56,9 @@ The project integration is centered on these modules:
   and native DOM islands for active parameter controls.
 - `projectGpuRetainedParamInteractionAdapter.tsx` handles retained parameter
   click, drag, popup, and native-island activation behavior.
+- `projectGpuPortalAdapter.ts` declares the project-specific portal roots used
+  by CodeMirror tooltips, retained-native companion overlays, validation UI, and
+  other DOM overlays that must stay coordinated with the GPU surface.
 - `projectNodeResize.ts` adapts generic GPU node resizing to Setta section size
   persistence and scene previews.
 - `projectGpuSelectionAdapter.ts` adapts generic node dragging and selection to
@@ -72,9 +76,99 @@ The reusable canvas runtime is centered on these modules:
 - `htmlSurfaces/frame.tsx` resolves visible surfaces, syncs DOM transforms,
   registers and uploads dirty textures, builds the visual scene, renders, and
   evicts old textures.
+- `portals/portalManager.tsx` partitions portal roots into source-local,
+  viewport, and future flow-anchored coordinate spaces.
+- `portals/floatingPosition.ts` wraps Floating UI for canvas-aware floating
+  placement from real DOM references or virtual retained-content rects.
+- `viewportReposition.ts` bridges GPU viewport transforms to DOM overlay
+  repositioning for libraries that listen to scroll and resize.
 - `interactions/panZoom.ts`, `interactions/nodeDrag.ts`,
   `interactions/nodeResize.ts`, and `interactions/retainedContentInteraction.ts`
   implement the main pointer and wheel interaction controllers.
+
+## Support Library Boundaries
+
+The HTML-in-canvas architecture intentionally uses small support libraries
+without handing off ownership of the project surface. Setta still owns the GPU
+scene graph, layout, retained parameter renderer, texture lifecycle, dirty
+tracking, hit records, and interaction controllers.
+
+Adopted runtime support libraries have narrow jobs:
+
+- `@floating-ui/dom` owns placement math for custom DOM overlays that are not
+  already fully handled by a component primitive. The wrapper in
+  `gpuFlow/portals/floatingPosition.ts` supports offset, flip, shift, size
+  constraints, real element references, virtual point/rect references, fixed
+  positioning, and rescheduling on GPU viewport transforms. Current consumers
+  include context menu placement and shared combobox lists opened from
+  canvas-aware portal roots; combobox callers set `repositionOnCanvasTransform`,
+  which maps to the wrapper's GPU viewport transform rescheduling.
+- Radix primitives continue to own their normal browser behavior for popovers,
+  dialogs, dropdowns, sliders, and switches. When a Radix popup is opened from
+  the GPU surface and must track the camera, the caller uses a canvas-aware
+  portal root and `subscribeToGpuViewportReposition()` so Radix can recompute
+  placement after pan or zoom.
+- Downshift continues to own shared combobox input, listbox, selection, and
+  keyboard semantics. GPU integration only changes where the list is portaled
+  and how its floating position is refreshed during pan and zoom.
+- dnd-kit remains a DOM drag library behind
+  `frontend/src/forks/dnd-kit/adapter`. It is appropriate for DOM-only
+  sortables such as view-mode rows, task-board lists, draw layer ordering, and
+  non-retained parameter lists. The adapter normalizes DOM drag transforms by
+  the GPU viewport zoom where those surfaces live under the project viewport.
+
+Libraries must not become owners of the core project surface:
+
+- Do not use dnd-kit for retained parameter drag/drop, section drag, or section
+  resize in the GPU surface. Those flows use the GPU interaction controllers and
+  project adapters described below.
+- Do not reintroduce React Flow or XYFlow as the project-surface viewport,
+  node, edge, or drag owner.
+- Do not add a general canvas scene framework such as PixiJS, Konva, or Fabric
+  for retained parameter rendering or WebGPU composition.
+- Do not add a spatial index, matrix library, graph layout engine, or typed
+  WebGPU abstraction to the runtime without measurement or a concrete feature
+  that proves the local owner code is the wrong tool.
+
+Test-only support libraries document and protect invariants:
+
+- `fast-check` is used in focused Vitest property tests for viewport math,
+  retained visible row ranges, retained hit clipping and stacking, and
+  parameter-tree behavior. It is not runtime geometry ownership.
+- `@axe-core/playwright` is used through scoped E2E helpers for DOM islands,
+  canvas-aware listboxes and popovers, and focus handoff. It verifies accessible
+  DOM behavior around the retained canvas, but the runtime still uses the
+  standard owner components and GPU portal lifecycle.
+
+## Portal and Floating Overlay Model
+
+There are three portal coordinate spaces:
+
+- `source-local`: portal roots mounted inside the `layoutsubtree` canvas, used
+  for source-owned DOM such as CodeMirror tooltips that need to live with the
+  source subtree.
+- `viewport`: portal roots mounted as siblings of the canvas and positioned in
+  viewport CSS pixels, used for retained-native companion overlays such as
+  CodeMirror tooltips and validation UI that should not be uploaded as a
+  texture.
+- `flow-anchored`: reserved for graph-positioned DOM. The current runtime
+  rejects this space unless the UI is represented as a renderer overlay or HTML
+  surface descriptor, so callers cannot accidentally create visible DOM that
+  bypasses the texture and hit-test model.
+
+`GpuFlow` renders source-local portal roots inside `GpuSurface` and viewport
+portal roots outside the canvas. All portal roots include the standard no-pan
+and no-drag classes, so overlay interactions do not leak into canvas gestures.
+
+Floating DOM overlays follow this rule: the component primitive owns behavior,
+while `gpuFlow/portals/floatingPosition.ts` owns canvas-aware placement. For
+example, a retained native dropdown keeps Downshift ownership of combobox
+semantics, portals its list into the configured popover root, and sets
+`repositionOnCanvasTransform`, which maps to GPU viewport transform
+rescheduling so the list is repositioned after pan or zoom. Retained validation
+bubbles and Radix popovers use the same portal-root pattern; primitive-owned
+Radix overlays subscribe to GPU viewport repositioning so their own placement
+logic reruns when the camera changes.
 
 ## Frame Pipeline
 
@@ -349,7 +443,7 @@ parameter to a `GpuRetainedContentControlDescriptor` with a commit policy:
 - `preview-commit`: drag or keyboard changes update the UI optimistically during
   interaction and commit once the interaction ends.
 - `native-island`: the control needs real browser DOM input behavior, so a DOM
-  island is mounted above the canvas.
+  island is mounted as a positioned child of the `layoutsubtree` canvas.
 
 Immediate controls include controls such as switches, buttons, dropdown option
 selection, and some color/date sub-controls. The retained scene exposes hit
@@ -369,6 +463,15 @@ layer positions the island in screen space with the current viewport transform
 and scale. The native island renderer mounts the normal `ParamInput` or
 `ParamNameInput`, marks it as retained native content, focuses it, and can replay
 the original pointer activation so the browser interaction feels direct.
+
+Any popup, tooltip, validation bubble, or combobox list opened from a native
+island must use a known portal root instead of falling into an incidental DOM
+parent. Project-specific retained roots are declared by
+`projectGpuPortalAdapter.ts`; shared popover and combobox paths use the standard
+Setta popover portal root. Custom-positioned overlays should use
+`autoUpdateGpuFloatingPosition()` rather than local viewport-edge math.
+Primitive-owned overlays such as Radix popovers must subscribe to GPU viewport
+repositioning when their anchor moves because of pan or zoom.
 
 `ParamInput` owns the same input semantics used outside the GPU surface:
 
@@ -402,6 +505,27 @@ Pure pan and zoom should remain transform-only. If a change makes panning or
 zooming request HTML paints, re-render React section trees, or upload every
 texture, it is a regression in the HTML-in-canvas architecture.
 
+## Verification Surface
+
+The architecture is protected by both model-level and browser-level tests:
+
+- Property tests cover finite viewport coordinate conversion, zoom-at-point
+  invariants, fit-view bounds, retained visible row ranges, retained hit
+  clipping and precedence, and parameter insertion rules.
+- Focused unit tests cover portal partitioning, Floating UI virtual references,
+  combobox portal placement, retained scene diagnostics, and retained hit-test
+  diagnostics.
+- Browser tests under `frontend/tests/e2e/gpu-flow/` exercise realistic user
+  paths: pan and zoom, canvas-aware combobox placement, context menu edge
+  placement, retained native text/password/date/time/dropzone islands, scoped
+  axe checks, retained scroll, retained popup use, retained drag/drop, and
+  transform-only pan/zoom performance probes.
+
+When adding a support library or moving a UI path into this architecture, add
+coverage at the owner layer. Runtime behavior needs production-path unit tests
+and, for user-visible canvas/UI changes, Playwright or CDP verification that
+uses real pointer, wheel, keyboard, focus, and text input events.
+
 ## Extension Rules
 
 When extending this surface, prefer the existing owner path:
@@ -419,6 +543,8 @@ When extending this surface, prefer the existing owner path:
 - Do not add a second parameter row DOM rendering path for the GPU surface.
 - Do not use dnd-kit for retained parameter drag/drop in this surface; that path
   exists for other DOM-based drag surfaces and legacy integration points.
+- Use known portal roots plus the shared Floating UI wrapper for canvas-aware
+  custom overlays instead of writing local popup positioning.
 - Preserve direct canvas child source hosts and avoid wrapping source content in
   extra DOM that breaks `layoutsubtree` upload eligibility.
 - Preserve transform-only pan/zoom behavior and defer passive texture work while
