@@ -76,6 +76,164 @@ func (p *routeStateMachineRunProvider) ReportSignal(
 	}, nil
 }
 
+func newMCPToolRouteTestHandler(t *testing.T, server *mcpx.Server) http.Handler {
+	t.Helper()
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+	return handler
+}
+
+func assertMCPToolRouteMissingContextFailsClosed(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	payload := callScopedMCPToolRouteAllowError(t, handler, `{"tool":"read_file_range","arguments":{"path":"example.txt"}}`, "missing context read_file_range")
+	if !payload.IsError {
+		t.Fatal("expected scoped tool call to fail without agentic context")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "scope_violation" {
+		t.Fatalf("expected scope_violation code, got %#v", structured["code"])
+	}
+	if structured["reason"] != "missing_context" {
+		t.Fatalf("expected missing_context reason, got %#v", structured["reason"])
+	}
+}
+
+func assertMCPToolRouteBodyAgenticContextSummary(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, `{
+		"tool":"get_latest_project_state_summary",
+		"arguments":{"projectConfigId":"project-alpha"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`, "body agentic context summary")
+	summary := mustStructuredMapForRoute(t, payload.StructuredContent)
+	projectConfig := mustStructuredMapForRoute(t, summary["projectConfig"])
+	sectionVariantMap := mustStructuredMapForRoute(t, projectConfig["sectionVariantMap"])
+	if _, ok := sectionVariantMap["blocked-section"]; ok {
+		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
+	}
+}
+
+func assertMCPToolRouteNamespacedRejected(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	response := postMCPToolRoute(t, handler, `{"tool":"setta__read_file_range","arguments":{"path":"example.txt"}}`)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func assertMCPToolRouteMalformedJSONRejected(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, RouteMCPToolCall, strings.NewReader(`{"tool":"list_mcp_tools"`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func assertMCPToolRouteBlankToolRejected(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	response := postMCPToolRoute(t, handler, `{"tool":"   ","arguments":{}}`)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func assertMCPToolRouteUnknownToolRejected(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	response := postMCPToolRoute(t, handler, `{"tool":"tool_that_does_not_exist","arguments":{}}`)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func callRouteReportStateMachineSignal(t *testing.T, handler http.Handler) mcpxCallToolResult {
+	t.Helper()
+
+	return callScopedMCPToolRoute(t, handler, `{
+		"tool":"report_state_machine_signal",
+		"arguments":{
+			"signalName":"merge_decision",
+			"sectionId":"chat-section",
+			"payload":{"decision":"retry"}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"runId":"child-run-1",
+			"allowUnscoped":true
+		}
+	}`, "report_state_machine_signal")
+}
+
+func assertRouteReportStateMachineSignalResult(t *testing.T, payload mcpxCallToolResult) {
+	t.Helper()
+
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if result["status"] != "ok" {
+		t.Fatalf("expected ok status, got %#v", result["status"])
+	}
+}
+
+func assertRouteReportStateMachineSignalProvider(t *testing.T, provider *routeStateMachineRunProvider) {
+	t.Helper()
+
+	if provider.reportSignalCallCount != 1 {
+		t.Fatalf("expected one ReportSignal call, got %d", provider.reportSignalCallCount)
+	}
+	if provider.projectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha project config id, got %#v", provider.projectConfigID)
+	}
+	if provider.childRunID == nil || *provider.childRunID != "child-run-1" {
+		t.Fatalf("expected child-run-1 child run id, got %#v", provider.childRunID)
+	}
+	if provider.machineRunID != nil {
+		t.Fatalf("expected nil machine run id, got %#v", provider.machineRunID)
+	}
+	if provider.sectionID == nil || *provider.sectionID != "chat-section" {
+		t.Fatalf("expected chat-section source section id, got %#v", provider.sectionID)
+	}
+	if provider.signalName != "merge_decision" {
+		t.Fatalf("expected merge_decision signal name, got %#v", provider.signalName)
+	}
+	if provider.payload["decision"] != "retry" {
+		t.Fatalf("expected retry payload, got %#v", provider.payload)
+	}
+	if provider.shareSessionID != nil {
+		t.Fatalf("expected nil share session id in IDE mode, got %#v", provider.shareSessionID)
+	}
+}
+
 func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	t.Parallel()
 
@@ -95,103 +253,14 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 		t.Fatalf("new mcp server: %v", err)
 	}
 
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
 
-	t.Run("missing context fails closed", func(t *testing.T) {
-		response := postMCPToolRoute(t, handler, `{"tool":"read_file_range","arguments":{"path":"example.txt"}}`)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-		}
-
-		payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-		if !payload.IsError {
-			t.Fatal("expected scoped tool call to fail without agentic context")
-		}
-		structured := mustStructuredMapForRoute(t, payload.StructuredContent)
-		if structured["code"] != "scope_violation" {
-			t.Fatalf("expected scope_violation code, got %#v", structured["code"])
-		}
-		if structured["reason"] != "missing_context" {
-			t.Fatalf("expected missing_context reason, got %#v", structured["reason"])
-		}
-	})
-
-	t.Run("body agentic context enables filtered project summary", func(t *testing.T) {
-		response := postMCPToolRoute(t, handler, `{
-			"tool":"get_latest_project_state_summary",
-			"arguments":{"projectConfigId":"project-alpha"},
-			"agenticContext":{
-				"projectConfigId":"project-alpha",
-				"chatId":"chat-1",
-				"sectionId":"chat-section"
-			}
-		}`)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-		}
-
-		payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-		if payload.IsError {
-			t.Fatalf("expected summary success, got %#v", payload.StructuredContent)
-		}
-		summary := mustStructuredMapForRoute(t, payload.StructuredContent)
-		projectConfig := mustStructuredMapForRoute(t, summary["projectConfig"])
-		sectionVariantMap := mustStructuredMapForRoute(t, projectConfig["sectionVariantMap"])
-		if _, ok := sectionVariantMap["blocked-section"]; ok {
-			t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
-		}
-		if _, ok := sectionVariantMap["blocked-params-section"]; ok {
-			t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
-		}
-	})
-
-	t.Run("namespaced tool names are rejected", func(t *testing.T) {
-		response := postMCPToolRoute(t, handler, `{"tool":"setta__read_file_range","arguments":{"path":"example.txt"}}`)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-		}
-	})
-
-	t.Run("malformed JSON is rejected", func(t *testing.T) {
-		request := httptest.NewRequest(http.MethodPost, RouteMCPToolCall, strings.NewReader(`{"tool":"list_mcp_tools"`))
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-
-		handler.ServeHTTP(response, request)
-
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-		}
-	})
-
-	t.Run("blank tool names are rejected", func(t *testing.T) {
-		response := postMCPToolRoute(t, handler, `{"tool":"   ","arguments":{}}`)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-		}
-	})
-
-	t.Run("unknown tools return not found", func(t *testing.T) {
-		response := postMCPToolRoute(t, handler, `{"tool":"tool_that_does_not_exist","arguments":{}}`)
-		if response.Code != http.StatusNotFound {
-			t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
-		}
-	})
+	assertMCPToolRouteMissingContextFailsClosed(t, handler)
+	assertMCPToolRouteBodyAgenticContextSummary(t, handler)
+	assertMCPToolRouteNamespacedRejected(t, handler)
+	assertMCPToolRouteMalformedJSONRejected(t, handler)
+	assertMCPToolRouteBlankToolRejected(t, handler)
+	assertMCPToolRouteUnknownToolRejected(t, handler)
 }
 
 func TestMCPToolCallRouteRejectsNonObjectArgumentsAtTransportBoundary(t *testing.T) {
@@ -384,72 +453,10 @@ func TestMCPToolCallRouteReportStateMachineSignalUsesBodyRunContext(t *testing.T
 		t.Fatalf("new mcp server: %v", err)
 	}
 
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"report_state_machine_signal",
-		"arguments":{
-			"signalName":"merge_decision",
-			"sectionId":"chat-section",
-			"payload":{"decision":"retry"}
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"runId":"child-run-1",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected report_state_machine_signal success, got %#v", payload.StructuredContent)
-	}
-	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	if result["status"] != "ok" {
-		t.Fatalf("expected ok status, got %#v", result["status"])
-	}
-	if provider.reportSignalCallCount != 1 {
-		t.Fatalf("expected one ReportSignal call, got %d", provider.reportSignalCallCount)
-	}
-	if provider.projectConfigID != "project-alpha" {
-		t.Fatalf("expected project-alpha project config id, got %#v", provider.projectConfigID)
-	}
-	if provider.childRunID == nil || *provider.childRunID != "child-run-1" {
-		t.Fatalf("expected child-run-1 child run id, got %#v", provider.childRunID)
-	}
-	if provider.machineRunID != nil {
-		t.Fatalf("expected nil machine run id, got %#v", provider.machineRunID)
-	}
-	if provider.sectionID == nil || *provider.sectionID != "chat-section" {
-		t.Fatalf("expected chat-section source section id, got %#v", provider.sectionID)
-	}
-	if provider.signalName != "merge_decision" {
-		t.Fatalf("expected merge_decision signal name, got %#v", provider.signalName)
-	}
-	if provider.payload["decision"] != "retry" {
-		t.Fatalf("expected retry payload, got %#v", provider.payload)
-	}
-	if provider.shareSessionID != nil {
-		t.Fatalf("expected nil share session id in IDE mode, got %#v", provider.shareSessionID)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
+	payload := callRouteReportStateMachineSignal(t, handler)
+	assertRouteReportStateMachineSignalResult(t, payload)
+	assertRouteReportStateMachineSignalProvider(t, provider)
 }
 
 func TestMCPToolCallRouteReportStateMachineSignalForwardsShareSessionID(t *testing.T) {
@@ -701,7 +708,53 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("new handler: %v", err)
 	}
 
-	response := postMCPToolRoute(t, handler, `{
+	assertRouteScopedDiagnosticsMute(t, handler, projectRuntime)
+	assertRouteScopedDiagnosticsSuppression(t, handler, projectRuntime)
+	assertRouteScopedSectionName(t, handler, projectRuntime)
+	assertRouteScopedSetCode(t, handler, projectRuntime)
+	assertRouteScopedBlockedSetCode(t, handler)
+	assertRouteScopedParamEnteredValue(t, handler, projectRuntime)
+	assertRouteScopedParamNameAndValue(t, handler, projectRuntime)
+	assertRouteScopedParamImplConfig(t, handler, projectRuntime)
+	assertRouteScopedChangeParamImpl(t, handler, projectRuntime)
+	assertRouteScopedCallableSelection(t, handler, projectRuntime)
+
+	addedCallableParamID := addRouteScopedKwarg(t, handler, "first")
+	assertRouteScopedEmptyCallableParam(t, projectRuntime, addedCallableParamID)
+	assertRouteScopedCallableParamNameAndValue(t, handler, projectRuntime, addedCallableParamID)
+	assertRouteScopedDeletedKwarg(t, handler, projectRuntime, addedCallableParamID)
+
+	addedCallableParamID = addRouteScopedKwarg(t, handler, "second")
+	assertRouteScopedDeleteSelectedParams(t, handler, projectRuntime, addedCallableParamID)
+	assertRouteScopedTypeErrorIgnore(t, handler, projectRuntime)
+	assertRouteScopedCodeObjName(t, handler, projectRuntime)
+	assertRouteScopedCodeObjDisplayName(t, handler, projectRuntime)
+}
+
+func callScopedMCPToolRoute(t *testing.T, handler http.Handler, body string, label string) mcpxCallToolResult {
+	t.Helper()
+
+	payload := callScopedMCPToolRouteAllowError(t, handler, body, label)
+	if payload.IsError {
+		t.Fatalf("expected %s success, got %#v", label, payload.StructuredContent)
+	}
+	return payload
+}
+
+func callScopedMCPToolRouteAllowError(t *testing.T, handler http.Handler, body string, label string) mcpxCallToolResult {
+	t.Helper()
+
+	response := postMCPToolRoute(t, handler, body)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", label, response.Code, response.Body.String())
+	}
+	return decodeCallToolRouteResult(t, response.Body.Bytes())
+}
+
+func assertRouteScopedDiagnosticsMute(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_code_section_diagnostics_mute",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","mute":true},
 		"agenticContext":{
@@ -709,20 +762,9 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "scoped write")
 
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected scoped write success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route scoped write: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route scoped write")
 	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
 	if err != nil {
 		t.Fatalf("ignore state after route scoped write: %v", err)
@@ -730,8 +772,12 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if !ignoreState.Muted {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedDiagnosticsSuppression(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_code_section_diagnostic_code_suppression",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"reportFoo","suppress":true},
 		"agenticContext":{
@@ -739,29 +785,22 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "scoped suppression")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected scoped suppression success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route scoped suppression: %v", err)
-	}
-	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	project := loadRouteScopedProject(t, projectRuntime, "after route scoped suppression")
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
 	if err != nil {
 		t.Fatalf("ignore state after route scoped suppression: %v", err)
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedSectionName(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_section_name",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","name":"Allowed Renamed"},
 		"agenticContext":{
@@ -769,25 +808,18 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_section_name")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_section_name success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_section_name: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_section_name")
 	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
 		t.Fatalf("expected renamed section name, got %q", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedSetCode(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_code",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"print('route updated')\n"},
 		"agenticContext":{
@@ -795,26 +827,19 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_code")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_code success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_code: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_code")
 	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
 	if got := allowedPayload["code"]; got != "print('route updated')\n" {
 		t.Fatalf("expected updated route code payload, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedBlockedSetCode(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	payload := callScopedMCPToolRouteAllowError(t, handler, `{
 		"tool":"set_code",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"blocked-section","code":"print('blocked')\n"},
 		"agenticContext":{
@@ -822,12 +847,7 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	}`, "blocked set_code")
 	if !payload.IsError {
 		t.Fatal("expected blocked set_code route call to fail")
 	}
@@ -838,8 +858,12 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if ids := mustStringListForRoute(t, structured["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedParamEnteredValue(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_param_entered_value",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","value":"updated"},
 		"agenticContext":{
@@ -847,29 +871,19 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_param_entered_value")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_param_entered_value success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_param_entered_value: %v", err)
-	}
-	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after route set_param_entered_value: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_param_entered_value")
+	paramPayload := resolveRouteScopedAllowedParamPayload(t, project, "after route set_param_entered_value")
 	if got := paramPayload["value"]; got != "updated" {
 		t.Fatalf("expected updated param value, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedParamNameAndValue(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_param_name_and_value",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","codeObjId":"allowed-param","name":"user-id@v2","value":"renamed"},
 		"agenticContext":{
@@ -877,30 +891,20 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_param_name_and_value")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_param_name_and_value success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_param_name_and_value: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_param_name_and_value")
 	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
 		t.Fatalf("expected code object name user-id@v2, got %q", got)
 	}
-	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after route set_param_name_and_value: %v", err)
-	}
+	paramPayload := resolveRouteScopedAllowedParamPayload(t, project, "after route set_param_name_and_value")
 	if got := paramPayload["value"]; got != "renamed" {
 		t.Fatalf("expected renamed param value, got %#v", got)
 	}
+}
+
+func assertRouteScopedParamImplConfig(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
 
 	if _, err := projectRuntime.ChangeParamImpl(context.Background(), "project-alpha", "allowed-params-section", "allowed-param", "SliderParam"); err != nil {
 		t.Fatalf("prepare slider impl before route update_param_impl_config: %v", err)
@@ -909,7 +913,7 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("prepare slider value before route update_param_impl_config: %v", err)
 	}
 
-	response = postMCPToolRoute(t, handler, `{
+	payload := callScopedMCPToolRoute(t, handler, `{
 		"tool":"update_param_impl_config",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","newConfig":{"max":10}},
 		"agenticContext":{
@@ -917,33 +921,23 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected update_param_impl_config success, got %#v", payload.StructuredContent)
-	}
+	}`, "update_param_impl_config")
 	updateParamImplConfigPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	if updateParamImplConfigPayload["status"] != "ok" {
 		t.Fatalf("expected update_param_impl_config status ok, got %#v", updateParamImplConfigPayload["status"])
 	}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route update_param_impl_config: %v", err)
-	}
-	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after route update_param_impl_config: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route update_param_impl_config")
+	paramPayload := resolveRouteScopedAllowedParamPayload(t, project, "after route update_param_impl_config")
 	if got := paramPayload["value"]; got != "10" {
 		t.Fatalf("expected slider value to clamp to 10, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedChangeParamImpl(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, `{
 		"tool":"change_param_impl",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","selectedId":"PasswordParam"},
 		"agenticContext":{
@@ -951,24 +945,13 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected change_param_impl success, got %#v", payload.StructuredContent)
-	}
+	}`, "change_param_impl")
 	changeParamImplPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	if changeParamImplPayload["status"] != "ok" {
 		t.Fatalf("expected change_param_impl status ok, got %#v", changeParamImplPayload["status"])
 	}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route change_param_impl: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route change_param_impl")
 	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
 	if err != nil {
 		t.Fatalf("resolve allowed-param after route change_param_impl: %v", err)
@@ -982,8 +965,12 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if got := paramPayload["hasSecret"]; got != true {
 		t.Fatalf("expected hasSecret true after route change_param_impl, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedCallableSelection(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_callable",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","callableName":"sorted","refetchParams":false},
 		"agenticContext":{
@@ -991,24 +978,13 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_callable success, got %#v", payload.StructuredContent)
-	}
+	}`, "set_callable")
 	callablePayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	if callablePayload["callableId"] != "allowed-callable-2" {
 		t.Fatalf("expected callable id allowed-callable-2, got %#v", callablePayload["callableId"])
 	}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_callable: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_callable")
 	_, _, callableImpl, err := project.ResolveSection("allowed-callable-section")
 	if err != nil {
 		t.Fatalf("resolve allowed-callable-section after route set_callable: %v", err)
@@ -1017,8 +993,12 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if got := callableSectionPayload["callable"]; got != "allowed-callable-2" {
 		t.Fatalf("expected persisted callable allowed-callable-2, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func addRouteScopedKwarg(t *testing.T, handler http.Handler, label string) string {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, `{
 		"tool":"add_kwarg",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
 		"agenticContext":{
@@ -1026,25 +1006,19 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected add_kwarg success, got %#v", payload.StructuredContent)
-	}
+	}`, label+" add_kwarg")
 	addKwargPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	addedCallableParamID, ok := addKwargPayload["codeObjId"].(string)
 	if !ok || addedCallableParamID == "" {
-		t.Fatalf("expected add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+		t.Fatalf("expected %s add_kwarg codeObjId string, got %#v", label, addKwargPayload["codeObjId"])
 	}
+	return addedCallableParamID
+}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route add_kwarg: %v", err)
-	}
+func assertRouteScopedEmptyCallableParam(t *testing.T, projectRuntime *projectstate.Runtime, addedCallableParamID string) {
+	t.Helper()
+
+	project := loadRouteScopedProject(t, projectRuntime, "after route add_kwarg")
 	callableCodeObjPayload, addedCallableParam, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", addedCallableParamID)
 	if err != nil {
 		t.Fatalf("resolve added callable param after route add_kwarg: %v", err)
@@ -1055,8 +1029,17 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if got := callableCodeObjPayload["value"]; got != "" {
 		t.Fatalf("expected added callable param value to start empty, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, fmt.Sprintf(`{
+func assertRouteScopedCallableParamNameAndValue(
+	t *testing.T,
+	handler http.Handler,
+	projectRuntime *projectstate.Runtime,
+	addedCallableParamID string,
+) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, fmt.Sprintf(`{
 		"tool":"set_param_name_and_value",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","codeObjId":"%s","name":"key","value":"None"},
 		"agenticContext":{
@@ -1064,32 +1047,25 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`, addedCallableParamID))
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, addedCallableParamID), "callable set_param_name_and_value")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected callable set_param_name_and_value success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route callable set_param_name_and_value: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route callable set_param_name_and_value")
 	if got := project.CodeObjs[addedCallableParamID].Name; got != "key" {
 		t.Fatalf("expected added callable param name key, got %q", got)
 	}
-	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", addedCallableParamID)
+	callableCodeObjPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", addedCallableParamID)
 	if err != nil {
 		t.Fatalf("resolve added callable param after route rename/value: %v", err)
 	}
 	if got := callableCodeObjPayload["value"]; got != "None" {
 		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedDeletedKwarg(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime, addedCallableParamID string) {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, `{
 		"tool":"delete_kwarg",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
 		"agenticContext":{
@@ -1097,60 +1073,20 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected delete_kwarg success, got %#v", payload.StructuredContent)
-	}
+	}`, "delete_kwarg")
 	deleteKwargPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	if got := deleteKwargPayload["codeObjId"]; got != addedCallableParamID {
 		t.Fatalf("expected deleted codeObjId %q, got %#v", addedCallableParamID, got)
 	}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route delete_kwarg: %v", err)
-	}
-	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after route delete_kwarg: %v", err)
-	}
-	callableChildren := mustStringListForRoute(t, callableCodeObjPayload["children"])
-	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
-		t.Fatalf("expected callable children [allowed-param-existing] after delete_kwarg, got %#v", callableChildren)
-	}
-	if _, ok := project.CodeObjs[addedCallableParamID]; ok {
-		t.Fatalf("expected deleted callable param %q to be pruned after delete_kwarg, got %#v", addedCallableParamID, project.CodeObjs[addedCallableParamID])
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route delete_kwarg")
+	assertRouteScopedCallableChildrenPruned(t, project, addedCallableParamID, "after delete_kwarg")
+}
 
-	response = postMCPToolRoute(t, handler, `{
-		"tool":"add_kwarg",
-		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"chatId":"chat-1",
-			"sectionId":"chat-section"
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+func assertRouteScopedDeleteSelectedParams(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime, addedCallableParamID string) {
+	t.Helper()
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected second add_kwarg success, got %#v", payload.StructuredContent)
-	}
-	addKwargPayload = mustStructuredMapForRoute(t, payload.StructuredContent)
-	addedCallableParamID, ok = addKwargPayload["codeObjId"].(string)
-	if !ok || addedCallableParamID == "" {
-		t.Fatalf("expected second add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
-	}
-
-	response = postMCPToolRoute(t, handler, fmt.Sprintf(`{
+	payload := callScopedMCPToolRoute(t, handler, fmt.Sprintf(`{
 		"tool":"delete_selected_params",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","paramInfoIds":["%s"]},
 		"agenticContext":{
@@ -1158,38 +1094,21 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`, addedCallableParamID))
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected delete_selected_params success, got %#v", payload.StructuredContent)
-	}
+	}`, addedCallableParamID), "delete_selected_params")
 	deleteSelectedParamsPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
 	deletedParamIDs := mustStringListForRoute(t, deleteSelectedParamsPayload["paramInfoIds"])
 	if len(deletedParamIDs) != 1 || deletedParamIDs[0] != addedCallableParamID {
 		t.Fatalf("expected deleted paramInfoIds [%s], got %#v", addedCallableParamID, deletedParamIDs)
 	}
 
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route delete_selected_params: %v", err)
-	}
-	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
-	if err != nil {
-		t.Fatalf("resolve allowed-callable-2 after route delete_selected_params: %v", err)
-	}
-	callableChildren = mustStringListForRoute(t, callableCodeObjPayload["children"])
-	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
-		t.Fatalf("expected callable children [allowed-param-existing] after delete_selected_params, got %#v", callableChildren)
-	}
-	if _, ok := project.CodeObjs[addedCallableParamID]; ok {
-		t.Fatalf("expected deleted callable param %q to be pruned, got %#v", addedCallableParamID, project.CodeObjs[addedCallableParamID])
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route delete_selected_params")
+	assertRouteScopedCallableChildrenPruned(t, project, addedCallableParamID, "after delete_selected_params")
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedTypeErrorIgnore(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_type_error_ignore",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
 		"agenticContext":{
@@ -1197,20 +1116,9 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_type_error_ignore")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_type_error_ignore success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_type_error_ignore: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_type_error_ignore")
 	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
 	if err != nil {
 		t.Fatalf("type error ignore state after route set_type_error_ignore: %v", err)
@@ -1218,8 +1126,12 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if !typeErrorIgnoreState.Params["allowed-param"] {
 		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedCodeObjName(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_code_obj_name",
 		"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","name":"user-id@v2"},
 		"agenticContext":{
@@ -1227,25 +1139,18 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_code_obj_name")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_code_obj_name success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_code_obj_name: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_code_obj_name")
 	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
 		t.Fatalf("expected code object name user-id@v2, got %q", got)
 	}
+}
 
-	response = postMCPToolRoute(t, handler, `{
+func assertRouteScopedCodeObjDisplayName(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
 		"tool":"set_code_obj_display_name",
 		"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
 		"agenticContext":{
@@ -1253,22 +1158,115 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 			"chatId":"chat-1",
 			"sectionId":"chat-section"
 		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
+	}`, "set_code_obj_display_name")
 
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_code_obj_display_name success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_code_obj_display_name: %v", err)
-	}
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_code_obj_display_name")
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
+	}
+}
+
+func assertRouteScopedCallableChildrenPruned(t *testing.T, project projectstate.Project, deletedCallableParamID string, contextLabel string) {
+	t.Helper()
+
+	callableCodeObjPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 %s: %v", contextLabel, err)
+	}
+	callableChildren := mustStringListForRoute(t, callableCodeObjPayload["children"])
+	if len(callableChildren) != 1 || callableChildren[0] != "allowed-param-existing" {
+		t.Fatalf("expected callable children [allowed-param-existing] %s, got %#v", contextLabel, callableChildren)
+	}
+	if _, ok := project.CodeObjs[deletedCallableParamID]; ok {
+		t.Fatalf("expected deleted callable param %q to be pruned %s, got %#v", deletedCallableParamID, contextLabel, project.CodeObjs[deletedCallableParamID])
+	}
+}
+
+func loadRouteScopedProject(t *testing.T, projectRuntime *projectstate.Runtime, contextLabel string) projectstate.Project {
+	t.Helper()
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id %s: %v", contextLabel, err)
+	}
+	return project
+}
+
+func resolveRouteScopedAllowedParamPayload(t *testing.T, project projectstate.Project, contextLabel string) map[string]any {
+	t.Helper()
+
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param %s: %v", contextLabel, err)
+	}
+	return paramPayload
+}
+
+func seedRouteTopLevelSectionViewMode(t *testing.T, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+}
+
+func assertRouteAllowedTopLevelSectionLayout(t *testing.T, handler http.Handler, projectRuntime *projectstate.Runtime) {
+	t.Helper()
+
+	callScopedMCPToolRoute(t, handler, `{
+		"tool":"set_top_level_section_layout",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"topLevelSections":{
+				"allowed-section":{"x":412.5,"y":208.25,"zIndex":6,"w":720,"h":360}
+			}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`, "set_top_level_section_layout")
+
+	project := loadRouteScopedProject(t, projectRuntime, "after route set_top_level_section_layout")
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 412.5 || layout.Y != 208.25 || layout.ZIndex != 6 {
+		t.Fatalf("unexpected persisted route layout %#v", layout)
+	}
+	if layout.W == nil || *layout.W != 720 {
+		t.Fatalf("expected persisted width 720, got %#v", layout.W)
+	}
+	if layout.H == nil || *layout.H != 360 {
+		t.Fatalf("expected persisted height 360, got %#v", layout.H)
+	}
+}
+
+func assertRouteBlockedTopLevelSectionLayout(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	payload := callScopedMCPToolRouteAllowError(t, handler, `{
+		"tool":"set_top_level_section_layout",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"topLevelSections":{
+				"blocked-section":{"x":1,"y":2}
+			}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`, "blocked set_top_level_section_layout")
+	if !payload.IsError {
+		t.Fatal("expected blocked set_top_level_section_layout route call to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", structured["reason"])
+	}
+	if ids := mustStringListForRoute(t, structured["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
 	}
 }
 
@@ -1276,9 +1274,7 @@ func TestMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
-		t.Fatalf("seed view mode: %v", err)
-	}
+	seedRouteTopLevelSectionViewMode(t, projectRuntime)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
@@ -1293,90 +1289,9 @@ func TestMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
 		t.Fatalf("new mcp server: %v", err)
 	}
 
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"set_top_level_section_layout",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"topLevelSections":{
-				"allowed-section":{"x":412.5,"y":208.25,"zIndex":6,"w":720,"h":360}
-			}
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"chatId":"chat-1",
-			"sectionId":"chat-section"
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_top_level_section_layout success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_top_level_section_layout: %v", err)
-	}
-	layout := project.TopLevelSections["allowed-section"]
-	if layout.X != 412.5 || layout.Y != 208.25 || layout.ZIndex != 6 {
-		t.Fatalf("unexpected persisted route layout %#v", layout)
-	}
-	if layout.W == nil || *layout.W != 720 {
-		t.Fatalf("expected persisted width 720, got %#v", layout.W)
-	}
-	if layout.H == nil || *layout.H != 360 {
-		t.Fatalf("expected persisted height 360, got %#v", layout.H)
-	}
-
-	response = postMCPToolRoute(t, handler, `{
-		"tool":"set_top_level_section_layout",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"topLevelSections":{
-				"blocked-section":{"x":1,"y":2}
-			}
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"chatId":"chat-1",
-			"sectionId":"chat-section"
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
-	if !payload.IsError {
-		t.Fatal("expected blocked set_top_level_section_layout route call to fail")
-	}
-	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
-	if structured["reason"] != "out_of_scope" {
-		t.Fatalf("expected out_of_scope reason, got %#v", structured["reason"])
-	}
-	if ids := mustStringListForRoute(t, structured["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
-		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
+	assertRouteAllowedTopLevelSectionLayout(t, handler, projectRuntime)
+	assertRouteBlockedTopLevelSectionLayout(t, handler)
 }
 
 func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.T) {
