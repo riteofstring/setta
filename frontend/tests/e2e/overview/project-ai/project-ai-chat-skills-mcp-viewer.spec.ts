@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   allowExpectedApiError,
@@ -10,278 +10,22 @@ import {
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
-
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
-async function seedAIStore(
-  page: Page,
-  patch: Record<string, unknown>,
-): Promise<void> {
-  await page.evaluate((nextState) => {
-    const key = "setta_ai_data";
-    let payload: { state: Record<string, unknown>; version: number } = {
-      state: {},
-      version: 0,
-    };
-    const raw = window.localStorage.getItem(key);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as {
-          state?: unknown;
-          version?: unknown;
-        };
-        payload = {
-          state:
-            parsed && typeof parsed.state === "object" && parsed.state !== null
-              ? (parsed.state as Record<string, unknown>)
-              : {},
-          version: typeof parsed?.version === "number" ? parsed.version : 0,
-        };
-      } catch {
-        payload = { state: {}, version: 0 };
-      }
-    }
-    payload.state = { ...payload.state, ...nextState };
-    window.localStorage.setItem(key, JSON.stringify(payload));
-  }, patch);
-}
-
-function buildAppGenSkillsResponse(
-  skills: Array<Record<string, unknown>>,
-  overrides: {
-    customSkillCreateRootPath?: string | null;
-    customSkillCreateRootActionable?: boolean;
-  } = {},
-) {
-  return {
-    skills,
-    customSkillCreateRootPath: overrides.customSkillCreateRootPath ?? null,
-    customSkillCreateRootActionable:
-      overrides.customSkillCreateRootActionable ?? false,
-  };
-}
-
-function buildUpsertAppGenCustomSkillResponse({
-  skillId,
-  created,
-  rootPath,
-  rootLabel,
-  relativePath,
-  content,
-  description = "",
-  isEditable = true,
-  editabilityReason = null,
-}: {
-  skillId: string;
-  created: boolean;
-  rootPath: string;
-  rootLabel: string;
-  relativePath: string;
-  content: string;
-  description?: string;
-  isEditable?: boolean;
-  editabilityReason?: string | null;
-}) {
-  const name =
-    relativePath === "." ? rootPath.split("/").pop() ?? "skills" : relativePath;
-  const skillDocPath =
-    relativePath === "."
-      ? `${rootPath}/SKILL.md`
-      : `${rootPath}/${relativePath}/SKILL.md`;
-  return {
-    skillId,
-    created,
-    rootPath,
-    skillDocPath,
-    skill: {
-      skillId,
-      name,
-      rootLabel,
-      rootPath,
-      relativePath,
-      isEditable,
-      editabilityReason,
-      description,
-    },
-    skillContent: {
-      skillId,
-      content,
-      truncated: false,
-      originalSizeBytes: Buffer.byteLength(content, "utf8"),
-    },
-  };
-}
-
-function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
-}
-
-function buildMixedSlashCommandEngineFixture() {
-  const llmEngine = {
-    id: "engine-setta-e2e",
-    name: "Setta LLM",
-    engineType: "setta_llm",
-    settaLlmConfigId: "e2e-llm",
-    externalAgentConfigId: null,
-    defaults: {},
-  };
-  const externalEngine = {
-    id: "engine-external-e2e",
-    name: "Codex",
-    engineType: "external_agent",
-    settaLlmConfigId: null,
-    externalAgentConfigId: "external-codex",
-    defaults: {},
-  };
-  return {
-    llmEngine,
-    externalEngine,
-    engineConfigs: [llmEngine, externalEngine],
-  };
-}
-
-async function mockMixedSlashCommandEngines(page: Page): Promise<
-  ReturnType<typeof buildMixedSlashCommandEngineFixture>
-> {
-  const fixture = buildMixedSlashCommandEngineFixture();
-  await page.route("**/api/getEngineConfigs", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(fixture.engineConfigs),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {
-          "e2e-llm": {
-            id: "e2e-llm",
-            model: "gpt-4o-mini",
-            provider: "openai",
-            api_key_env: null,
-            base_url: null,
-            other_params: null,
-            mcpServerIds: [],
-            temporary: false,
-          },
-        },
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: "e2e-llm",
-        codexMcpImportedAt: null,
-      }),
-    });
-  });
-  return fixture;
-}
-
-async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
-  await expect(locator).toBeVisible();
-  const styleInfo = await locator.evaluate((node) => {
-    const element = node as HTMLElement;
-    const style = window.getComputedStyle(element);
-    return {
-      overflowX: style.overflowX,
-      textOverflow: style.textOverflow,
-      whiteSpace: style.whiteSpace,
-      scrollWidth: element.scrollWidth,
-      clientWidth: element.clientWidth,
-    };
-  });
-
-  expect(styleInfo.textOverflow).toBe("ellipsis");
-  expect(styleInfo.whiteSpace).toBe("nowrap");
-  expect(["hidden", "clip"]).toContain(styleInfo.overflowX);
-  expect(styleInfo.scrollWidth).toBeGreaterThanOrEqual(styleInfo.clientWidth);
-}
-
-async function openSkillsViewer(page: Page): Promise<Locator> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  const settingsButton = projectChatSurface.getByRole("button", {
-    name: "Project AI Settings",
-  });
-  await expect(settingsButton).toBeVisible();
-  await settingsButton.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-  await getVisibleProjectChatAuxTestId(
-    page,
-    "project-chat-settings-open-skills",
-  ).click();
-  return projectChatSurface;
-}
-
-async function openMcpViewer(page: Page): Promise<Locator> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  const settingsButton = projectChatSurface.getByRole("button", {
-    name: "Project AI Settings",
-  });
-  await expect(settingsButton).toBeVisible();
-  await settingsButton.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-  await getVisibleProjectChatAuxTestId(page, "project-chat-settings-open-mcp").click();
-  return projectChatSurface;
-}
-
-async function openSlashCommandsViewer(page: Page): Promise<Locator> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  const settingsButton = projectChatSurface.getByRole("button", {
-    name: "Project AI Settings",
-  });
-  await expect(settingsButton).toBeVisible();
-  await settingsButton.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-  await getVisibleProjectChatAuxTestId(
-    page,
-    "project-chat-settings-open-slash-commands",
-  ).click();
-  return projectChatSurface;
-}
-
-async function closeSkillsMcpViewer(page: Page): Promise<void> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  const returnToChatButton = projectChatSurface.getByRole("button", {
-    name: "Return to chat",
-  });
-  await expect(returnToChatButton).toBeVisible();
-  await returnToChatButton.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-}
-
-async function openRawSkillMarkdown(page: Page): Promise<Locator> {
-  const projectChatSurface = await getVisibleProjectChatSurface(page);
-  await projectChatSurface
-    .getByRole("button", { name: "Skill Markdown Viewer" })
-    .click();
-  await projectChatSurface
-    .getByTestId("project-chat-skill-markdown-view-raw")
-    .click();
-  return projectChatSurface;
-}
-
-async function clickSkillMarkdownViewToggle(
-  page: Page,
-  testId:
-    | "project-chat-skill-markdown-view-raw"
-    | "project-chat-skill-markdown-view-rendered",
-): Promise<void> {
-  const toggle = getVisibleProjectChatAuxTestId(page, testId);
-  await expect(toggle).toBeVisible();
-  await toggle.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-}
-
-function getVisibleProjectChatAuxTestId(page: Page, testId: string): Locator {
-  return page.locator(`[data-testid="${testId}"]:visible`).first();
-}
+import {
+  SELECT_ALL_SHORTCUT,
+  buildAppGenSkillsResponse,
+  buildGetLLMResponseResponse,
+  buildUpsertAppGenCustomSkillResponse,
+  clickSkillMarkdownViewToggle,
+  closeSkillsMcpViewer,
+  expectHasEllipsisTruncation,
+  getVisibleProjectChatAuxTestId,
+  mockMixedSlashCommandEngines,
+  openMcpViewer,
+  openRawSkillMarkdown,
+  openSkillsViewer,
+  openSlashCommandsViewer,
+  seedAIStore,
+} from "./project-ai-chat-skills-mcp-viewer-helpers";
 
 test("project ai chat can open the skills side view", async ({ page }) => {
   await seedLocalStorage(page, {
@@ -324,7 +68,7 @@ test("project ai chat can open the skills side view", async ({ page }) => {
         configs: {},
         mcpServers: {
           setta: {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
           context7: {
@@ -361,13 +105,12 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(
     projectChatSurface.getByTestId("project-chat-skills-content"),
   ).toBeVisible();
-  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-aux-tabs"),
+  ).toBeVisible();
   await expect(
     projectChatSurface.getByTestId("project-chat-aux-tab-skills"),
-  ).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  ).toHaveAttribute("aria-current", "page");
   await expect(
     projectChatSurface.getByTestId("project-chat-aux-tab-mcp"),
   ).toBeVisible();
@@ -381,8 +124,12 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     projectChatSurface.getByTestId("project-chat-skills-refresh"),
   ).toBeVisible();
   await expect(projectChatSurface.getByText("/workspace/skills")).toBeVisible();
-  await expect(projectChatSurface.getByText("/home/.codex/skills")).toBeVisible();
-  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(
+    projectChatSurface.getByText("/home/.codex/skills"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /ui-layout/i }).first(),
+  ).toBeVisible();
   await expect(
     projectChatSurface.getByRole("button", { name: /frontend-design/i }),
   ).toBeVisible();
@@ -415,10 +162,16 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     projectChatSurface.getByLabel("Skill Markdown Content"),
   ).toContainText("Create dense dashboard layouts.");
   await expect(
-    projectChatSurface.getByTestId("project-chat-custom-skill-relative-path-input"),
+    projectChatSurface.getByTestId(
+      "project-chat-custom-skill-relative-path-input",
+    ),
   ).toBeVisible();
-  await expect(projectChatSurface.getByTestId("project-chat-custom-skill-create")).toBeVisible();
-  await expect(projectChatSurface.getByTestId("project-chat-custom-skill-save")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-custom-skill-create"),
+  ).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-custom-skill-save"),
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -447,23 +200,28 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(page.getByTestId("skills-mcp-slash-command")).toHaveCount(0);
   await expect(page.getByTestId("skills-mcp-slash-list-pane")).toHaveCount(0);
   await projectChatSurface.getByTestId("project-chat-aux-tab-mcp").click();
-  await expect(projectChatSurface.getByTestId("project-chat-mcp-content")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-mcp-content"),
+  ).toBeVisible();
   await expect(
     projectChatSurface.getByTestId("project-chat-aux-tab-mcp"),
-  ).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
-  await projectChatSurface.getByTestId("project-chat-aux-tab-ai-settings").click();
+  ).toHaveAttribute("aria-current", "page");
+  await projectChatSurface
+    .getByTestId("project-chat-aux-tab-ai-settings")
+    .click();
   await expect(
     projectChatSurface.getByTestId("project-ai-settings-scroll-region"),
   ).toBeVisible();
-  await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-aux-tabs"),
+  ).toBeVisible();
   await expect(
     projectChatSurface.getByTestId("project-chat-aux-tab-ai-settings"),
   ).toHaveAttribute("aria-current", "page");
   await projectChatSurface.getByTestId("project-chat-aux-tab-skills").click();
-  await expect(projectChatSurface.getByTestId("project-chat-skills-content")).toBeVisible();
+  await expect(
+    projectChatSurface.getByTestId("project-chat-skills-content"),
+  ).toBeVisible();
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
@@ -575,12 +333,18 @@ test("project ai chat can open slash commands in a dedicated side view", async (
       projectChatSurface.getByTestId("skills-mcp-slash-commands-content"),
     ).toBeVisible();
     await expect(page.getByTestId("project-chat-mcp-content")).toHaveCount(0);
-    await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(0);
-    await expect(projectChatSurface.getByTestId("project-chat-aux-tabs")).toBeVisible();
+    await expect(page.getByTestId("project-chat-skills-content")).toHaveCount(
+      0,
+    );
+    await expect(
+      projectChatSurface.getByTestId("project-chat-aux-tabs"),
+    ).toBeVisible();
     await expect(
       projectChatSurface.getByTestId("project-chat-aux-tab-slash-commands"),
     ).toHaveAttribute("aria-current", "page");
-    await expect(projectChatSurface.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
+    await expect(
+      projectChatSurface.getByTestId("skills-mcp-slash-tab").first(),
+    ).toBeVisible();
     const slashCommandRows = projectChatSurface.getByTestId(
       "skills-mcp-slash-command",
     );
@@ -592,9 +356,9 @@ test("project ai chat can open slash commands in a dedicated side view", async (
     await expect(slashListPane).toBeVisible();
     await expect(slashListPane).toHaveCSS("overflow-y", "auto");
     await expect(slashListPane).toHaveCSS("border-top-width", "0px");
-    await expect(page.getByTestId("skills-mcp-slash-resize-handle")).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByTestId("skills-mcp-slash-resize-handle"),
+    ).toHaveCount(0);
     const customCommandInput = projectChatSurface.getByTestId(
       "project-chat-custom-slash-command-input",
     );
@@ -611,9 +375,11 @@ test("project ai chat can open slash commands in a dedicated side view", async (
       .toBe(true);
     await customAddButton.click();
     await expect(
-      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
-        hasText: "/project-status",
-      }),
+      projectChatSurface
+        .getByTestId("project-chat-custom-slash-command")
+        .filter({
+          hasText: "/project-status",
+        }),
     ).toBeVisible();
     await expect
       .poll(() =>
@@ -644,9 +410,11 @@ test("project ai chat can open slash commands in a dedicated side view", async (
       .first()
       .click();
     await expect(
-      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
-        hasText: "/project-status",
-      }),
+      projectChatSurface
+        .getByTestId("project-chat-custom-slash-command")
+        .filter({
+          hasText: "/project-status",
+        }),
     ).toHaveCount(0);
     await expect(
       projectChatSurface.getByText(
@@ -708,7 +476,9 @@ test("project ai chat keeps custom slash commands available without engine confi
   await expect(
     projectChatSurface.getByTestId("project-chat-custom-slash-prompt-input"),
   ).toBeVisible();
-  await expect(projectChatSurface.getByText("No engines configured.")).toBeVisible();
+  await expect(
+    projectChatSurface.getByText("No engines configured."),
+  ).toBeVisible();
   await expect(page.getByTestId("skills-mcp-slash-tab")).toHaveCount(0);
 
   await projectChatSurface
@@ -871,7 +641,10 @@ test("project ai chat only fetches agent runs for slash commands", async ({
   await page.waitForTimeout(1200);
   expect(getAgentRunsRequests).toBe(baselineRequestCount);
 
-  await getVisibleProjectChatAuxTestId(page, "project-chat-aux-tab-mcp").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-aux-tab-mcp",
+  ).click();
   await expect(
     getVisibleProjectChatAuxTestId(page, "project-chat-mcp-content"),
   ).toBeVisible();
@@ -939,7 +712,7 @@ test("project ai chat ignores stale native slash local storage from other projec
       },
     );
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
@@ -966,9 +739,11 @@ test("project ai chat ignores stale native slash local storage from other projec
       .toBe(true);
     await customAddButton.click();
     await expect(
-      projectChatSurface.getByTestId("project-chat-custom-slash-command").filter({
-        hasText: "/ship",
-      }),
+      projectChatSurface
+        .getByTestId("project-chat-custom-slash-command")
+        .filter({
+          hasText: "/ship",
+        }),
     ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
@@ -1099,7 +874,7 @@ test("project ai chat blocks custom slash creation until native command authorit
       agentRunsLoadError: "Failed to load agent runs",
     });
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
@@ -1264,7 +1039,7 @@ test("project ai chat reloads unresolved native slash commands once authority be
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const input = projectChatSurface.getByTestId("chat-input-textarea");
@@ -1297,8 +1072,11 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
-  const { llmEngine, externalEngine, engineConfigs: sortedEngineConfigs } =
-    await mockMixedSlashCommandEngines(page);
+  const {
+    llmEngine,
+    externalEngine,
+    engineConfigs: sortedEngineConfigs,
+  } = await mockMixedSlashCommandEngines(page);
 
   allowExpectedApiError(page, {
     path: "/api/getAgentRuns",
@@ -1368,7 +1146,7 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     agentRunsLoadError: "Failed to load agent runs",
   });
   await page.reload();
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const projectContext = await openIsolatedProject(page);
   currentProjectConfigId = projectContext.projectConfigId;
@@ -1456,7 +1234,9 @@ test("custom slash commands preserve attachments on submit", async ({
         { timeout: 10_000 },
       )
       .toBe(true);
-    await projectChatSurface.getByTestId("project-chat-custom-slash-add").click();
+    await projectChatSurface
+      .getByTestId("project-chat-custom-slash-add")
+      .click();
 
     await closeSkillsMcpViewer(page);
 
@@ -1466,10 +1246,10 @@ test("custom slash commands preserve attachments on submit", async ({
       .first();
     await expect(fileInput).not.toBeDisabled();
     await fileInput.setInputFiles({
-        name: "notes.txt",
-        mimeType: "text/plain",
-        buffer: Buffer.from("release notes"),
-      });
+      name: "notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("release notes"),
+    });
     await expect(activeProjectChatSurface.getByText("notes.txt")).toBeVisible();
 
     const requestPromise = page.waitForRequest(
@@ -1827,7 +1607,7 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
       },
     });
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const projectChatSurface = await openSlashCommandsViewer(page);
 
     const customCommandRow = projectChatSurface
@@ -1845,9 +1625,13 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
       .fill("/app-json support ops dashboard");
     await activeProjectChatSurface.getByLabel("Send message").click();
     await expect.poll(() => capturedRequests.length).toBe(1);
-    await expect(activeProjectChatSurface.getByLabel("Stop response")).toBeVisible();
+    await expect(
+      activeProjectChatSurface.getByLabel("Stop response"),
+    ).toBeVisible();
     await activeProjectChatSurface.getByLabel("Stop response").click();
-    await expect(activeProjectChatSurface.getByLabel("Send message")).toBeVisible();
+    await expect(
+      activeProjectChatSurface.getByLabel("Send message"),
+    ).toBeVisible();
 
     await activeProjectChatSurface
       .getByTestId("chat-input-textarea")
@@ -1945,7 +1729,9 @@ test("project ai chat can open the project ai settings pane from tools", async (
     "project-chat-settings-open-project-settings",
   ).click();
   await expect(
-    page.locator('[data-testid="project-ai-settings-scroll-region"]:visible').first(),
+    page
+      .locator('[data-testid="project-ai-settings-scroll-region"]:visible')
+      .first(),
   ).toBeVisible();
   await expect(
     getVisibleProjectChatAuxTestId(page, "project-chat-aux-tabs"),
@@ -2001,7 +1787,9 @@ test("project ai chat keeps aux views session-local across stale storage and rel
 
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
   await expect(
-    (await getVisibleProjectChatSurface(page)).getByTestId("chat-input-textarea"),
+    (await getVisibleProjectChatSurface(page)).getByTestId(
+      "chat-input-textarea",
+    ),
   ).toBeVisible();
 
   await openSkillsViewer(page);
@@ -2010,10 +1798,12 @@ test("project ai chat keeps aux views session-local across stale storage and rel
   ).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
   await expect(
-    (await getVisibleProjectChatSurface(page)).getByTestId("chat-input-textarea"),
+    (await getVisibleProjectChatSurface(page)).getByTestId(
+      "chat-input-textarea",
+    ),
   ).toBeVisible();
 });
 
@@ -2116,7 +1906,7 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
         configs: {},
         mcpServers: {
           "shared-server": {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
         },
@@ -2136,7 +1926,7 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
           {
             serverId: "shared-server",
             source: "setta_mcp",
-            transport: "sse",
+            transport: "streamable_http",
             endpoint: "http://127.0.0.1:8000/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -2152,7 +1942,7 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
           {
             serverId: "shared-server",
             source: "external_runtime",
-            transport: "sse",
+            transport: "streamable_http",
             endpoint: "https://external.example.dev/mcp",
             state: "error",
             lastAttemptAt: null,
@@ -2219,7 +2009,7 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
         configs: {},
         mcpServers: {
           setta: {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
         },
@@ -2239,7 +2029,7 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "sse",
+            transport: "streamable_http",
             endpoint: "http://127.0.0.1:8000/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -2261,7 +2051,9 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
   const mcpView = getVisibleProjectChatAuxTestId(page, "project-chat-mcp-view");
   await expect(mcpView).toBeVisible();
 
-  await expect(mcpView.getByText("Active custom setta_files root")).toBeVisible();
+  await expect(
+    mcpView.getByText("Active custom setta_files root"),
+  ).toBeVisible();
 });
 
 test("mcp view keeps threads visible when threads are open", async ({
@@ -2286,7 +2078,10 @@ test("mcp view keeps threads visible when threads are open", async ({
 
   await openMcpViewer(page);
   await expect(threadsPanel).toBeVisible();
-  const mcpPane = getVisibleProjectChatAuxTestId(page, "project-chat-mcp-content");
+  const mcpPane = getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-mcp-content",
+  );
   await expect(mcpPane).toBeVisible();
   const shellInfo = await mcpPane.evaluate((element) => {
     const shell = element.closest('[data-chat-width-shell="true"]');
@@ -2342,7 +2137,7 @@ test("project ai chat truncates long skill and mcp rows in narrow panes", async 
         mcpServers: {
           "server-id-with-a-very-long-name-that-should-truncate-cleanly-in-the-list":
             {
-              transport: "sse",
+              transport: "streamable_http",
               url: "https://example.com/very/long/mcp/endpoint/path/that/should-truncate-when-the-pane-is-narrower/and-still-remain-usable",
             },
         },
@@ -2407,7 +2202,7 @@ test("project ai chat shows inline skills endpoint error when routes are missing
         configs: {},
         mcpServers: {
           setta: {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
         },
@@ -2462,7 +2257,7 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
         configs: {},
         mcpServers: {
           setta: {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
         },
@@ -2497,7 +2292,7 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "sse",
+            transport: "streamable_http",
             endpoint: "http://127.0.0.1:8000/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -2534,12 +2329,16 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   await expect(
     projectChatSurface.getByRole("button", { name: /ui-layout/i }),
   ).toBeVisible();
-  await expect(projectChatSurface.getByText("Loading skills...")).toHaveCount(0);
+  await expect(projectChatSurface.getByText("Loading skills...")).toHaveCount(
+    0,
+  );
 
   await closeSkillsMcpViewer(page);
   const mcpSurface = await openMcpViewer(page);
   await expect(mcpSurface.getByText("Loading MCP servers...")).toBeVisible();
-  await expect(mcpSurface.getByText("No MCP servers configured.")).toHaveCount(0);
+  await expect(mcpSurface.getByText("No MCP servers configured.")).toHaveCount(
+    0,
+  );
   await expect(mcpSurface.getByTestId("skills-mcp-server-id")).toHaveCount(1);
   await expect(mcpSurface.getByText("Loading MCP servers...")).toHaveCount(0);
 });
@@ -2598,7 +2397,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
         configs: {},
         mcpServers: {
           setta: {
-            transport: "sse",
+            transport: "streamable_http",
             url: "http://127.0.0.1:8000/mcp",
           },
         },
@@ -2742,9 +2541,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   ).toBeVisible();
   await viewerToggle.click();
   await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
-  await projectChatSurface
-    .getByRole("button", { name: /beta-skill/i })
-    .click();
+  await projectChatSurface.getByRole("button", { name: /beta-skill/i }).click();
 
   // Allow the stale alpha response to resolve while the viewer is closed.
   await page.waitForTimeout(700);
@@ -2909,13 +2706,17 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
     .getByTestId("project-chat-skill-markdown-view-raw")
     .click();
 
-  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /ui-layout/i }).first(),
+  ).toBeVisible();
   await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "Stable preview",
   );
 
   await projectChatSurface.getByTestId("project-chat-skills-refresh").click();
-  await expect(page.getByRole("button", { name: /ui-layout/i }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /ui-layout/i }).first(),
+  ).toBeVisible();
   await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
     "Stable preview",
   );
@@ -3005,7 +2806,9 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
 
   await ensureAppReady(page);
   const projectChatSurface = await openSkillsViewer(page);
-  await expect(page.getByRole("button", { name: /baseline/i }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /baseline/i }).first(),
+  ).toBeVisible();
   const baselineRequestCount = skillsRequestCount;
 
   const refreshButton = projectChatSurface.getByTestId(
@@ -3182,7 +2985,10 @@ test("project ai chat uses the backend create root for the custom skills root hi
   await expect(rootHint).toContainText("not created yet");
   await expect(rootHint).not.toContainText("/workspace/.agents/skills");
   await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-reveal"),
+    getVisibleProjectChatAuxTestId(
+      page,
+      "project-chat-custom-skill-root-reveal",
+    ),
   ).toBeDisabled();
   expect(revealedPath).toBeNull();
 });
@@ -3390,7 +3196,10 @@ test("project ai chat keeps created custom skills usable without follow-up reads
     page,
     "project-chat-custom-skill-relative-path-input",
   ).fill("created-skill");
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
+  await getVisibleProjectChatAuxTestId(
+    page,
+    "project-chat-custom-skill-create",
+  ).click();
 
   await expect(
     page.getByText("Created custom skill created-skill."),
@@ -3406,1010 +3215,4 @@ test("project ai chat keeps created custom skills usable without follow-up reads
   ).toBeEnabled();
   expect(skillsRequestCount).toBe(baselineSkillsRequestCount);
   expect(skillContentRequestCount).toBe(0);
-});
-
-test("project ai chat can create and save custom skills from raw markdown mode", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  const rootPath = "/home/.agents/skills";
-  const skills: Array<{
-    skillId: string;
-    name: string;
-    rootLabel: string;
-    rootPath: string;
-    relativePath: string;
-    isEditable: boolean;
-    editabilityReason: string | null;
-    description: string;
-  }> = [
-    {
-      skillId: "user_agents_skills::custom-one",
-      name: "custom-one",
-      rootLabel: "User ~/.agents/skills",
-      rootPath,
-      relativePath: "custom-one",
-      isEditable: true,
-      editabilityReason: null,
-      description: "Custom skill",
-    },
-  ];
-  const contentBySkillId: Record<string, string> = {
-    "user_agents_skills::custom-one": "# custom-one\n\nInitial body",
-  };
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse(skills, {
-          customSkillCreateRootPath: rootPath,
-          customSkillCreateRootActionable: true,
-        }),
-      ),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    const skillId = payload.skillId ?? "user_agents_skills::custom-one";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId,
-        content: contentBySkillId[skillId] ?? "# unknown",
-        truncated: false,
-        originalSizeBytes: (contentBySkillId[skillId] ?? "# unknown").length,
-      }),
-    });
-  });
-
-  const upsertPayloads: Array<{
-    skillId: string | null;
-    relativePath: string | null;
-    content: string;
-  }> = [];
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    const payload = route.request().postDataJSON() as {
-      skillId?: string | null;
-      relativePath?: string | null;
-      content?: string;
-    };
-    const skillId = payload.skillId ?? null;
-    const relativePath = payload.relativePath ?? null;
-    const content = payload.content ?? "";
-    upsertPayloads.push({
-      skillId,
-      relativePath,
-      content,
-    });
-    if (skillId) {
-      contentBySkillId[skillId] = content;
-      const skillDirName = skillId.split("::")[1] ?? "custom-one";
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(
-          buildUpsertAppGenCustomSkillResponse({
-            skillId,
-            created: false,
-            rootPath,
-            rootLabel: "User ~/.agents/skills",
-            relativePath: skillDirName,
-            content,
-            description: "Custom skill",
-          }),
-        ),
-      });
-      return;
-    }
-    const nextRelativePath = relativePath ?? "new-custom-skill";
-    const createdSkillId = `user_agents_skills::${nextRelativePath}`;
-    contentBySkillId[createdSkillId] = content;
-    skills.push({
-      skillId: createdSkillId,
-      name: nextRelativePath,
-      rootLabel: "User ~/.agents/skills",
-      rootPath,
-      relativePath: nextRelativePath,
-      isEditable: true,
-      editabilityReason: null,
-      description: "",
-    });
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: createdSkillId,
-          created: true,
-          rootPath,
-          rootLabel: "User ~/.agents/skills",
-          relativePath: nextRelativePath,
-          content,
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
-  await expect.poll(() => upsertPayloads.length).toBe(1);
-  expect(upsertPayloads[0]).toMatchObject({
-    skillId: "user_agents_skills::custom-one",
-    relativePath: null,
-  });
-
-  await getVisibleProjectChatAuxTestId(
-    page,
-    "project-chat-custom-skill-relative-path-input",
-  ).fill("new-custom-skill");
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
-  await expect.poll(() => upsertPayloads.length).toBe(2);
-  expect(upsertPayloads[1]).toMatchObject({
-    skillId: null,
-    relativePath: "new-custom-skill",
-  });
-  await expect(
-    page.getByRole("button", { name: /new-custom-skill/i }),
-  ).toBeVisible();
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-path"),
-  ).toContainText(rootPath);
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-root-reveal"),
-  ).toBeEnabled();
-  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
-    "# new-custom-skill",
-  );
-});
-
-test("project ai chat renders unsaved raw markdown edits before save", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  const rootPath = "/home/.agents/skills";
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "user_agents_skills::custom-one",
-            name: "custom-one",
-            rootLabel: "User ~/.agents/skills",
-            rootPath,
-            relativePath: "custom-one",
-            isEditable: true,
-            editabilityReason: null,
-            description: "Custom skill",
-          },
-        ]),
-      ),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: "user_agents_skills::custom-one",
-        content: "# custom-one\n\nOriginal body",
-        truncated: false,
-        originalSizeBytes: "# custom-one\n\nOriginal body".length,
-      }),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  const markdown = page.getByLabel("Skill Markdown Content").first();
-  const editorContent = markdown.locator(".cm-content");
-  await editorContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type("# custom-one\n\nUpdated draft from raw mode");
-
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-rendered",
-  );
-  await expect(page.getByText("Updated draft from raw mode")).toBeVisible();
-  await expect(page.getByText("Original body")).toHaveCount(0);
-
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-raw",
-  );
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
-  ).toBeEnabled();
-  await expect(markdown).toContainText("Updated draft from raw mode");
-});
-
-test("project ai chat create custom skill rejects collisions without overwriting selected skill content", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  const rootPath = "/home/.agents/skills";
-  const skills = [
-    {
-      skillId: "user_agents_skills::existing",
-      name: "existing",
-      rootLabel: "User ~/.agents/skills",
-      rootPath,
-      relativePath: "existing",
-      isEditable: true,
-      editabilityReason: null,
-      description: "Existing custom skill",
-    },
-  ];
-  const contentBySkillId: Record<string, string> = {
-    "user_agents_skills::existing": "# existing\n\nOriginal body",
-  };
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse(skills, {
-          customSkillCreateRootPath: rootPath,
-          customSkillCreateRootActionable: true,
-        }),
-      ),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    const skillId = payload.skillId ?? "user_agents_skills::existing";
-    const content = contentBySkillId[skillId] ?? "# unknown";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId,
-        content,
-        truncated: false,
-        originalSizeBytes: content.length,
-      }),
-    });
-  });
-
-  const upsertPayloads: Array<{
-    skillId: string | null;
-    relativePath: string | null;
-  }> = [];
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    const payload = route.request().postDataJSON() as {
-      skillId?: string | null;
-      relativePath?: string | null;
-    };
-    upsertPayloads.push({
-      skillId: payload.skillId ?? null,
-      relativePath: payload.relativePath ?? null,
-    });
-    await route.fulfill({
-      status: 400,
-      contentType: "application/json",
-      body: JSON.stringify({
-        detail: "Custom skill already exists for relativePath 'existing'.",
-      }),
-    });
-  });
-  allowExpectedApiError(page, {
-    path: "/api/upsertAppGenCustomSkill",
-    statuses: [400],
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  const markdown = page.getByLabel("Skill Markdown Content").first();
-  await expect(markdown).toContainText("Original body");
-  await getVisibleProjectChatAuxTestId(
-    page,
-    "project-chat-custom-skill-relative-path-input",
-  ).fill("existing");
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-create").click();
-
-  await expect.poll(() => upsertPayloads.length).toBe(1);
-  expect(upsertPayloads[0]).toEqual({
-    skillId: null,
-    relativePath: "existing",
-  });
-  await expect(
-    page.getByText(
-      "Failed to create custom skill: Custom skill already exists for relativePath 'existing'.",
-    ),
-  ).toBeVisible();
-  await expect(markdown).toContainText("Original body");
-});
-
-test("project ai chat keeps selected skill content stable when another skill save resolves", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  const rootPath = "/home/.agents/skills";
-  const skills = [
-    {
-      skillId: "user_agents_skills::alpha-custom",
-      name: "alpha-custom",
-      rootLabel: "User ~/.agents/skills",
-      rootPath,
-      relativePath: "alpha-custom",
-      isEditable: true,
-      editabilityReason: null,
-      description: "Alpha custom skill",
-    },
-    {
-      skillId: "user_agents_skills::beta-custom",
-      name: "beta-custom",
-      rootLabel: "User ~/.agents/skills",
-      rootPath,
-      relativePath: "beta-custom",
-      isEditable: true,
-      editabilityReason: null,
-      description: "Beta custom skill",
-    },
-  ];
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  const contentBySkillId: Record<string, string> = {
-    "user_agents_skills::alpha-custom": "# alpha-custom\n\nAlpha initial body",
-    "user_agents_skills::beta-custom": "# beta-custom\n\nBeta stable body",
-  };
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    const skillId = payload.skillId ?? "user_agents_skills::alpha-custom";
-    const content = contentBySkillId[skillId] ?? "# unknown";
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId,
-        content,
-        truncated: false,
-        originalSizeBytes: content.length,
-      }),
-    });
-  });
-
-  let alphaSaveRequestCount = 0;
-  let releaseAlphaSave: (() => void) | null = null;
-  const alphaSaveBlock = new Promise<void>((resolve) => {
-    releaseAlphaSave = resolve;
-  });
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    const payload = route.request().postDataJSON() as {
-      skillId?: string | null;
-      content?: string;
-    };
-    if (payload.skillId === "user_agents_skills::alpha-custom") {
-      alphaSaveRequestCount += 1;
-      await alphaSaveBlock;
-      contentBySkillId["user_agents_skills::alpha-custom"] =
-        payload.content ?? "";
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(
-          buildUpsertAppGenCustomSkillResponse({
-            skillId: "user_agents_skills::alpha-custom",
-            created: false,
-            rootPath,
-            rootLabel: "User ~/.agents/skills",
-            relativePath: "alpha-custom",
-            content: payload.content ?? "",
-            description: "Alpha custom skill",
-          }),
-        ),
-      });
-      return;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: payload.skillId ?? "user_agents_skills::beta-custom",
-          created: false,
-          rootPath,
-          rootLabel: "User ~/.agents/skills",
-          relativePath: "beta-custom",
-          content:
-            payload.content ??
-            contentBySkillId["user_agents_skills::beta-custom"] ??
-            "",
-          description: "Beta custom skill",
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  const projectChatSurface = await openRawSkillMarkdown(page);
-
-  const markdown = projectChatSurface.getByLabel("Skill Markdown Content");
-  const betaSkillRow = projectChatSurface.getByRole("button", {
-    name: /beta-custom/i,
-  });
-  await expect(markdown).toContainText("Alpha initial body");
-
-  const editorContent = markdown.locator(".cm-content");
-  await editorContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type("# alpha-custom\n\nAlpha saved update");
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
-
-  await expect.poll(() => alphaSaveRequestCount).toBe(1);
-  await betaSkillRow.click();
-  await expect(markdown).toContainText("Beta stable body");
-  await expect(betaSkillRow).toHaveAttribute("data-selected", "true");
-
-  releaseAlphaSave?.();
-  await expect(page.getByText("Saved custom skill.")).toBeVisible();
-  await expect(markdown).toContainText("Beta stable body");
-  await expect(markdown).not.toContainText("Alpha saved update");
-  await expect(betaSkillRow).toHaveAttribute("data-selected", "true");
-});
-
-test("project ai chat blocks saving truncated editable skill previews", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "user_agents_skills::large-custom",
-            name: "large-custom",
-            rootLabel: "User ~/.agents/skills",
-            rootPath: "/home/.agents/skills",
-            relativePath: "large-custom",
-            isEditable: true,
-            editabilityReason: null,
-            description: "Large editable custom skill.",
-          },
-        ]),
-      ),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: payload.skillId ?? "user_agents_skills::large-custom",
-        content: "# large-custom\n\nPreview body",
-        truncated: true,
-        originalSizeBytes: 900000,
-      }),
-    });
-  });
-
-  let upsertRequestCount = 0;
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    upsertRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: "user_agents_skills::large-custom",
-          created: false,
-          rootPath: "/home/.agents/skills",
-          rootLabel: "User ~/.agents/skills",
-          relativePath: "large-custom",
-          content: "# large-custom\n\nPreview body",
-          description: "Large editable custom skill.",
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
-  ).toBeDisabled();
-  await expect(
-    page.getByText("Preview is truncated. Full content loading is required"),
-  ).toBeVisible();
-  expect(upsertRequestCount).toBe(0);
-});
-
-test("project ai chat disables save when skill content fetch fails", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "user_agents_skills::broken-custom",
-            name: "broken-custom",
-            rootLabel: "User ~/.agents/skills",
-            rootPath: "/home/.agents/skills",
-            relativePath: "broken-custom",
-            isEditable: true,
-            editabilityReason: null,
-            description: "Custom skill with failed fetch.",
-          },
-        ]),
-      ),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    await route.fulfill({
-      status: 404,
-      contentType: "application/json",
-      body: JSON.stringify({
-        detail: "Missing SKILL.md for user_agents_skills::broken-custom",
-      }),
-    });
-  });
-  allowExpectedApiError(page, {
-    path: "/api/getAppGenSkillContent",
-    statuses: [404],
-  });
-
-  let upsertRequestCount = 0;
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    upsertRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: "user_agents_skills::broken-custom",
-          created: false,
-          rootPath: "/home/.agents/skills",
-          rootLabel: "User ~/.agents/skills",
-          relativePath: "broken-custom",
-          content: "# broken-custom\n\nRecovered body",
-          description: "Custom skill with failed fetch.",
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
-  ).toBeDisabled();
-  await expect(
-    page.getByTestId("project-chat-skill-content-error"),
-  ).toContainText("Missing SKILL.md for user_agents_skills::broken-custom");
-  expect(upsertRequestCount).toBe(0);
-});
-
-test("project ai chat keeps root-level custom skills read-only from backend editability flags", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "user_agents_skills::.",
-            name: "skills",
-            rootLabel: "User ~/.agents/skills",
-            rootPath: "/home/.agents/skills",
-            relativePath: ".",
-            isEditable: false,
-            editabilityReason: "Editing root-level SKILL.md is not supported.",
-            description: "Root-level skill doc.",
-          },
-        ]),
-      ),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: "user_agents_skills::.",
-        content: "# Root skill\n\nRead-only content",
-        truncated: false,
-        originalSizeBytes: 30,
-      }),
-    });
-  });
-
-  let upsertRequestCount = 0;
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    upsertRequestCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: "user_agents_skills::.",
-          created: false,
-          rootPath: "/home/.agents/skills",
-          rootLabel: "User ~/.agents/skills",
-          relativePath: ".",
-          content: "# Root skill\n\nRead-only content",
-          isEditable: false,
-          editabilityReason: "Editing root-level SKILL.md is not supported.",
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  await expect(
-    getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save"),
-  ).toBeDisabled();
-  await expect(
-    page.getByText("Editing root-level SKILL.md is not supported."),
-  ).toBeVisible();
-  expect(upsertRequestCount).toBe(0);
-});
-
-test("project ai chat can save intentionally empty custom skill content", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  const rootPath = "/home/.agents/skills";
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "user_agents_skills::emptyable",
-            name: "emptyable",
-            rootLabel: "User ~/.agents/skills",
-            rootPath,
-            relativePath: "emptyable",
-            isEditable: true,
-            editabilityReason: null,
-            description: "Custom skill that can be emptied.",
-          },
-        ]),
-      ),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {},
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: payload.skillId ?? "user_agents_skills::emptyable",
-        content: "# emptyable\n\nInitial body",
-        truncated: false,
-        originalSizeBytes: 24,
-      }),
-    });
-  });
-
-  const upsertPayloads: Array<{ content: string }> = [];
-  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
-    const payload = route.request().postDataJSON() as { content?: string };
-    upsertPayloads.push({ content: payload.content ?? "" });
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildUpsertAppGenCustomSkillResponse({
-          skillId: "user_agents_skills::emptyable",
-          created: false,
-          rootPath,
-          rootLabel: "User ~/.agents/skills",
-          relativePath: "emptyable",
-          content: payload.content ?? "",
-          description: "Custom skill that can be emptied.",
-        }),
-      ),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsViewer(page);
-  await openRawSkillMarkdown(page);
-
-  const editor = page.getByLabel("Skill Markdown Content").first();
-  const editorContent = editor.locator(".cm-content");
-  await editorContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.press("Backspace");
-  await getVisibleProjectChatAuxTestId(page, "project-chat-custom-skill-save").click();
-
-  await expect.poll(() => upsertPayloads.length).toBe(1);
-  expect(upsertPayloads[0]?.content).toBe("");
-  await expect
-    .poll(async () => {
-      return editorContent.evaluate((node) => {
-        const element = node as HTMLElement;
-        return element.innerText.trim();
-      });
-    })
-    .toBe("");
-});
-
-test("project ai chat mounts markdown viewer lazily and shows truncation metadata", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(
-        buildAppGenSkillsResponse([
-          {
-            skillId: "workspace_skills::ui-layout",
-            name: "ui-layout",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
-            relativePath: "ui-layout",
-            description: "Create dense dashboard layouts.",
-          },
-        ]),
-      ),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {
-          setta: {
-            transport: "sse",
-            url: "http://127.0.0.1:8000/mcp",
-          },
-        },
-        defaultMcpServerIds: ["setta"],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        llmConfigPath: "",
-        activeSettaFilesLocation: "local",
-        servers: [
-          {
-            serverId: "setta",
-            source: "setta_mcp",
-            transport: "sse",
-            endpoint: "http://127.0.0.1:8000/mcp",
-            state: "connected",
-            lastAttemptAt: null,
-            lastConnectedAt: null,
-            lastFailureAt: null,
-            consecutiveFailures: 0,
-            lastError: null,
-            missingEnvVar: null,
-            toolCount: 1,
-          },
-        ],
-        externalServers: [],
-      }),
-    });
-  });
-
-  await page.route("**/api/getAppGenSkillContent", async (route) => {
-    const payload = route.request().postDataJSON() as { skillId?: string };
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_skills::ui-layout",
-        content: "# UI Layout\n\nPreview body",
-        truncated: true,
-        originalSizeBytes: 900000,
-      }),
-    });
-  });
-
-  await ensureAppReady(page);
-  const mcpSurface = await openMcpViewer(page);
-  await expect(mcpSurface.getByText("Unavailable")).toBeVisible();
-  await expect(
-    mcpSurface.getByRole("button", {
-      name: /Reveal path for Active .*setta_files/i,
-    }),
-  ).toBeDisabled();
-
-  await closeSkillsMcpViewer(page);
-  const projectChatSurface = await openSkillsViewer(page);
-
-  const skillMarkdownToggle = projectChatSurface.getByRole("button", {
-    name: "Skill Markdown Viewer",
-  });
-  await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
-
-  await skillMarkdownToggle.click();
-  await clickSkillMarkdownViewToggle(
-    page,
-    "project-chat-skill-markdown-view-raw",
-  );
-
-  await expect(page.getByLabel("Skill Markdown Content").first()).toContainText(
-    "Preview body",
-  );
-  await expect(
-    page.getByText("Preview truncated from 900,000 bytes."),
-  ).toBeVisible();
 });
