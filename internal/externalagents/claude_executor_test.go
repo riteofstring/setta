@@ -280,6 +280,14 @@ func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	if !ok || len(messages) == 0 {
 		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
 	}
+	assertClaudeApprovalToolResultMessages(t, messages)
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertClaudeApprovalToolResultMessages(t *testing.T, messages []any) {
+	t.Helper()
+
 	toolResultFound := false
 	assistantFound := false
 	for _, rawMessage := range messages {
@@ -301,8 +309,6 @@ func TestClaudeExecutorRoutesApprovalResponsesThroughRuntime(t *testing.T) {
 	if !assistantFound {
 		t.Fatalf("expected persisted assistant follow-up, got %#v", messages)
 	}
-
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
@@ -410,6 +416,14 @@ func TestClaudeExecutorRoutesMultipleQuestionResponsesThroughRuntime(t *testing.
 	if !ok || len(messages) == 0 {
 		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
 	}
+	assertClaudeMultiQuestionMessages(t, messages)
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertClaudeMultiQuestionMessages(t *testing.T, messages []any) {
+	t.Helper()
+
 	questionResultFound := false
 	assistantFound := false
 	toolCallQuestionsFound := false
@@ -420,38 +434,17 @@ func TestClaudeExecutorRoutesMultipleQuestionResponsesThroughRuntime(t *testing.
 		}
 		role, _ := messageRole(message)
 		if role == "assistant" {
-			rawToolCalls, _ := message["tool_calls"].([]any)
-			for _, rawToolCall := range rawToolCalls {
-				toolCall, ok := rawToolCall.(map[string]any)
-				if !ok {
-					continue
-				}
-				function, _ := mapValue(toolCall["function"])
-				if stringValue(function["name"]) != askUserQuestionToolName {
-					continue
-				}
-				arguments, _ := mapValue(function["arguments"])
-				rawQuestions, _ := arguments["questions"].([]any)
-				if len(rawQuestions) == 2 {
-					toolCallQuestionsFound = true
-				}
+			if assistantMessageHasQuestionToolCallCount(message, 2) {
+				toolCallQuestionsFound = true
 			}
 			if extractMessageText(message) == "Chosen: Python CLI" {
 				assistantFound = true
 			}
 		}
-		if role != "tool" || stringValue(message["tool_name"]) != askUserQuestionToolName {
-			continue
-		}
-		resultPayload, ok := mapValue(message["result"])
-		if !ok {
-			continue
-		}
-		answers, ok := mapValue(resultPayload["answers"])
-		if !ok {
-			continue
-		}
-		if stringValue(answers["Choose a language"]) == "Python" && stringValue(answers["Choose a target"]) == "CLI" {
+		if messageHasQuestionToolResultAnswers(message, map[string]string{
+			"Choose a language": "Python",
+			"Choose a target":   "CLI",
+		}) {
 			questionResultFound = true
 		}
 	}
@@ -464,8 +457,47 @@ func TestClaudeExecutorRoutesMultipleQuestionResponsesThroughRuntime(t *testing.
 	if !assistantFound {
 		t.Fatalf("expected persisted assistant follow-up for multi-question run, got %#v", messages)
 	}
+}
 
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+func assistantMessageHasQuestionToolCallCount(message map[string]any, expectedCount int) bool {
+	rawToolCalls, _ := message["tool_calls"].([]any)
+	for _, rawToolCall := range rawToolCalls {
+		toolCall, ok := rawToolCall.(map[string]any)
+		if !ok {
+			continue
+		}
+		function, _ := mapValue(toolCall["function"])
+		if stringValue(function["name"]) != askUserQuestionToolName {
+			continue
+		}
+		arguments, _ := mapValue(function["arguments"])
+		rawQuestions, _ := arguments["questions"].([]any)
+		if len(rawQuestions) == expectedCount {
+			return true
+		}
+	}
+	return false
+}
+
+func messageHasQuestionToolResultAnswers(message map[string]any, expectedAnswers map[string]string) bool {
+	role, _ := messageRole(message)
+	if role != "tool" || stringValue(message["tool_name"]) != askUserQuestionToolName {
+		return false
+	}
+	resultPayload, ok := mapValue(message["result"])
+	if !ok {
+		return false
+	}
+	answers, ok := mapValue(resultPayload["answers"])
+	if !ok {
+		return false
+	}
+	for key, expected := range expectedAnswers {
+		if stringValue(answers[key]) != expected {
+			return false
+		}
+	}
+	return true
 }
 
 func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
@@ -498,6 +530,20 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if !ok || len(messages) == 0 {
 		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
 	}
+	assertClaudeToolResultMessages(t, messages)
+	assertClaudeToolResultEvent(t, persisted.Events)
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(&result.ChatID, &fixture.engineID)
+	if err != nil {
+		t.Fatalf("read claude persisted external runtime statuses: %v", err)
+	}
+	assertClaudePersistedMCPStatuses(t, statuses, fixture.executor.settaServerURL)
+}
+
+func assertClaudeToolResultMessages(t *testing.T, messages []any) {
+	t.Helper()
+
 	toolResultFound := false
 	assistantFound := false
 	for _, rawMessage := range messages {
@@ -507,12 +553,7 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 		}
 		role, _ := messageRole(message)
 		if role == "tool" && stringValue(message["tool_call_id"]) == "toolu-1" {
-			if got := stringValue(message["tool_name"]); got != "Bash" {
-				t.Fatalf("unexpected claude tool result name %q", got)
-			}
-			if got := stringValue(message["result"]); got != "ok" {
-				t.Fatalf("unexpected claude tool result payload %#v", message["result"])
-			}
+			assertClaudeToolResultMessage(t, message)
 			toolResultFound = true
 		}
 		if role == "assistant" && extractMessageText(message) == "Tool completed." {
@@ -525,22 +566,37 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if !assistantFound {
 		t.Fatalf("expected persisted claude assistant follow-up, got %#v", messages)
 	}
+}
+
+func assertClaudeToolResultMessage(t *testing.T, message map[string]any) {
+	t.Helper()
+
+	if got := stringValue(message["tool_name"]); got != "Bash" {
+		t.Fatalf("unexpected claude tool result name %q", got)
+	}
+	if got := stringValue(message["result"]); got != "ok" {
+		t.Fatalf("unexpected claude tool result payload %#v", message["result"])
+	}
+}
+
+func assertClaudeToolResultEvent(t *testing.T, events []agentruns.RunEvent) {
+	t.Helper()
+
 	eventFound := false
-	for _, event := range persisted.Events {
+	for _, event := range events {
 		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == "toolu-1" {
 			eventFound = true
 			break
 		}
 	}
 	if !eventFound {
-		t.Fatalf("expected persisted tool_result event, got %#v", persisted.Events)
+		t.Fatalf("expected persisted tool_result event, got %#v", events)
 	}
+}
 
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
-	statuses, err := fixture.runtime.ExternalRuntimeStatuses(&result.ChatID, &fixture.engineID)
-	if err != nil {
-		t.Fatalf("read claude persisted external runtime statuses: %v", err)
-	}
+func assertClaudePersistedMCPStatuses(t *testing.T, statuses []mcpx.ServerRuntimeStatus, settaServerURL string) {
+	t.Helper()
+
 	if len(statuses) != 2 {
 		t.Fatalf("expected filesystem plus generated setta runtime status rows, got %#v", statuses)
 	}
@@ -559,8 +615,8 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if statuses[1].Transport != mcpx.TransportStreamableHTTP {
 		t.Fatalf("expected generated claude status transport streamable_http, got %#v", statuses[1])
 	}
-	if statuses[1].Endpoint != fixture.executor.settaServerURL {
-		t.Fatalf("expected generated claude status endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[1])
+	if statuses[1].Endpoint != settaServerURL {
+		t.Fatalf("expected generated claude status endpoint %q, got %#v", settaServerURL, statuses[1])
 	}
 	if statuses[1].State != mcpx.RuntimeStateUnknown {
 		t.Fatalf("expected generated claude status to remain unknown, got %#v", statuses[1])
@@ -594,17 +650,31 @@ func TestClaudeExecutorPersistsThinkingBlocksAndContextWindowUsage(t *testing.T)
 	if got := resolveRunOutputString(persisted, "sessionId"); got != "session-thinking" {
 		t.Fatalf("expected persisted thinking session id, got %q", got)
 	}
-	usage, ok := persisted.Outputs["usage"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected persisted usage payload, got %#v", persisted.Outputs["usage"])
-	}
-	if int(floatValueForTest(usage["promptTokens"])) != 11 || int(floatValueForTest(usage["completionTokens"])) != 2 || int(floatValueForTest(usage["totalTokens"])) != 13 || int(floatValueForTest(usage["contextWindowTokens"])) != 4096 {
-		t.Fatalf("unexpected persisted context-window usage %#v", usage)
-	}
+	assertClaudeThinkingUsage(t, persisted.Outputs["usage"])
 	messages, ok := persisted.Outputs["messages"].([]any)
 	if !ok || len(messages) < 2 {
 		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
 	}
+	assertClaudeThinkingMessages(t, messages)
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func assertClaudeThinkingUsage(t *testing.T, rawUsage any) {
+	t.Helper()
+
+	usage, ok := rawUsage.(map[string]any)
+	if !ok {
+		t.Fatalf("expected persisted usage payload, got %#v", rawUsage)
+	}
+	if int(floatValueForTest(usage["promptTokens"])) != 11 || int(floatValueForTest(usage["completionTokens"])) != 2 || int(floatValueForTest(usage["totalTokens"])) != 13 || int(floatValueForTest(usage["contextWindowTokens"])) != 4096 {
+		t.Fatalf("unexpected persisted context-window usage %#v", usage)
+	}
+}
+
+func assertClaudeThinkingMessages(t *testing.T, messages []any) {
+	t.Helper()
+
 	thinkingFound := false
 	answerFound := false
 	for _, rawMessage := range messages {
@@ -632,8 +702,6 @@ func TestClaudeExecutorPersistsThinkingBlocksAndContextWindowUsage(t *testing.T)
 	if !answerFound {
 		t.Fatalf("expected persisted assistant answer, got %#v", messages)
 	}
-
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *testing.T) {
@@ -798,6 +866,18 @@ func TestClaudeHandleEventAssistantMessagePersistsThinkingAndToolCalls(t *testin
 	if got := extractMessageText(assistant); got != "Hi" {
 		t.Fatalf("unexpected assistant text %q", got)
 	}
+	assertClaudeAssistantThinkingAndToolCall(t, assistant)
+
+	persisted, err := store.Load(request.Run.ID)
+	if err != nil {
+		t.Fatalf("load persisted assistant_message run: %v", err)
+	}
+	assertPersistedClaudeAssistantMessage(t, persisted)
+}
+
+func assertClaudeAssistantThinkingAndToolCall(t *testing.T, assistant map[string]any) {
+	t.Helper()
+
 	content, _ := assistant["content"].([]any)
 	if len(content) != 2 {
 		t.Fatalf("expected text plus thinking content, got %#v", assistant)
@@ -825,11 +905,11 @@ func TestClaudeHandleEventAssistantMessagePersistsThinkingAndToolCalls(t *testin
 	if stringValue(arguments["path"]) != "README.md" {
 		t.Fatalf("unexpected tool call arguments %#v", arguments)
 	}
+}
 
-	persisted, err := store.Load(request.Run.ID)
-	if err != nil {
-		t.Fatalf("load persisted assistant_message run: %v", err)
-	}
+func assertPersistedClaudeAssistantMessage(t *testing.T, persisted agentruns.Run) {
+	t.Helper()
+
 	messages, ok := persisted.Outputs["messages"].([]any)
 	if !ok || len(messages) == 0 {
 		t.Fatalf("expected persisted live-state messages, got %#v", persisted.Outputs)
@@ -841,7 +921,7 @@ func TestClaudeHandleEventAssistantMessagePersistsThinkingAndToolCalls(t *testin
 	if got := extractMessageText(lastMessage); got != "Hi" {
 		t.Fatalf("unexpected persisted assistant text %q", got)
 	}
-	rawToolCalls, ok = lastMessage["tool_calls"].([]any)
+	rawToolCalls, ok := lastMessage["tool_calls"].([]any)
 	if !ok || len(rawToolCalls) != 1 {
 		t.Fatalf("expected persisted tool call, got %#v", lastMessage)
 	}
