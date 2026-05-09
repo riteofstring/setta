@@ -2,7 +2,6 @@ import os
 import subprocess
 from pathlib import Path
 
-from tests.start.dev_script_wiring_helpers import repo_root
 from tests.start.branch_review_loop_prompts import (
     CLEANUP_REVIEW_PROMPT,
     CONSOLIDATE_PROMPT,
@@ -11,82 +10,18 @@ from tests.start.branch_review_loop_prompts import (
     FIX_PROMPT,
     SIMPLIFY_PROMPT,
 )
-
-
-def _run(
-    args: list[str],
-    *,
-    cwd: Path,
-    env: dict[str, str],
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        args,
-        cwd=cwd,
-        env=env,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-
-def _write_executable(path: Path, body: str) -> None:
-    path.write_text(body, encoding="utf-8")
-    path.chmod(0o755)
-
-
-def _create_git_repo(tmp_path: Path) -> Path:
-    root = tmp_path / "repo"
-    root.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "init"], cwd=root, check=True, capture_output=True, text=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    (root / "README.md").write_text("initial\n", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "README.md"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "commit", "-m", "init"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return root
-
-
-def _runner_script() -> Path:
-    return repo_root() / "scripts" / "run-codex-branch-review-loop.sh"
-
-
-def _standalone_wrapper_script() -> Path:
-    return (
-        repo_root()
-        / "scripts"
-        / "run-codex-app-subsystem-standalone-branch-review-loop.sh"
-    )
+from tests.start.branch_review_loop_test_helpers import (
+    create_git_repo,
+    run_branch_review_command,
+    runner_script,
+    standalone_wrapper_script,
+    write_executable,
+)
 
 
 def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -> None:
     result = subprocess.run(
-        ["bash", str(_runner_script()), "--help"],
+        ["bash", str(runner_script()), "--help"],
         check=False,
         capture_output=True,
         text=True,
@@ -106,7 +41,7 @@ def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -
 def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_file() -> (
     None
 ):
-    wrapper = _standalone_wrapper_script().read_text(encoding="utf-8")
+    wrapper = standalone_wrapper_script().read_text(encoding="utf-8")
 
     assert (
         'PROMPT_FILE="${SCRIPT_DIR}/prompts/app-subsystem-standalone-plugin-review.md"'
@@ -120,7 +55,7 @@ def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_fil
 def test_branch_review_loop_appends_extra_prompt_file(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -129,7 +64,7 @@ def test_branch_review_loop_appends_extra_prompt_file(
     bin_dir.mkdir()
     extra_prompt_file.write_text("Extra branch invariant.\n", encoding="utf-8")
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -179,10 +114,10 @@ EOR
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -212,14 +147,14 @@ EOR
 def test_branch_review_loop_stops_after_clean_consolidation(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -281,10 +216,10 @@ exit 2
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -367,7 +302,7 @@ exit 2
 def test_branch_review_loop_allows_nonstandard_review_output(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -375,7 +310,7 @@ def test_branch_review_loop_allows_nonstandard_review_output(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -453,10 +388,10 @@ exit 2
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -500,7 +435,7 @@ exit 2
 def test_branch_review_loop_fixes_and_commits_after_findings(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -508,7 +443,7 @@ def test_branch_review_loop_fixes_and_commits_after_findings(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -597,10 +532,10 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -671,14 +606,14 @@ printf 'finalized and committed\\n' > "${{response_file}}"
 def test_branch_review_loop_recovers_after_fix_session_failure(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -739,10 +674,10 @@ printf 'No actionable findings.\\n' > "${{response_file}}"
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -785,7 +720,7 @@ printf 'No actionable findings.\\n' > "${{response_file}}"
 def test_branch_review_loop_stops_repo_dev_sessions_between_iterations(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -795,7 +730,7 @@ def test_branch_review_loop_stops_repo_dev_sessions_between_iterations(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         repo_dir / "kill.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -818,7 +753,7 @@ printf 'stop\\n' >> "{kill_log_file}"
         text=True,
     )
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -930,10 +865,10 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -963,7 +898,7 @@ printf 'finalized and committed\\n' > "${{response_file}}"
 def test_branch_review_loop_repairs_invalid_consolidated_status_in_session(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -971,7 +906,7 @@ def test_branch_review_loop_repairs_invalid_consolidated_status_in_session(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -1039,10 +974,10 @@ EOR
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -1077,7 +1012,7 @@ EOR
 def test_branch_review_loop_repairs_missing_finalize_commit_in_session(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -1085,7 +1020,7 @@ def test_branch_review_loop_repairs_missing_finalize_commit_in_session(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -1179,10 +1114,10 @@ printf 'finalized and committed after repair\\n' > "${{response_file}}"
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -1241,7 +1176,7 @@ printf 'finalized and committed after repair\\n' > "${{response_file}}"
 def test_branch_review_loop_allows_simplify_to_expand_diff_when_simpler(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -1250,7 +1185,7 @@ def test_branch_review_loop_allows_simplify_to_expand_diff_when_simpler(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -1362,10 +1297,10 @@ exit 0
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
@@ -1406,7 +1341,7 @@ exit 0
 def test_branch_review_loop_retries_after_finalize_modifies_code(
     tmp_path: Path,
 ) -> None:
-    repo_dir = _create_git_repo(tmp_path)
+    repo_dir = create_git_repo(tmp_path)
     output_dir = tmp_path / "output"
     bin_dir = tmp_path / "bin"
     calls_file = tmp_path / "calls.txt"
@@ -1415,7 +1350,7 @@ def test_branch_review_loop_retries_after_finalize_modifies_code(
     output_dir.mkdir()
     bin_dir.mkdir()
 
-    _write_executable(
+    write_executable(
         bin_dir / "codex",
         f"""#!/usr/bin/env bash
 set -euo pipefail
@@ -1528,10 +1463,10 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     env = os.environ.copy()
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
 
-    result = _run(
+    result = run_branch_review_command(
         [
             "bash",
-            str(_runner_script()),
+            str(runner_script()),
             "--root-dir",
             str(repo_dir),
             "--iterations",
