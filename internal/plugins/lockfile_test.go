@@ -61,14 +61,17 @@ func TestServiceWriteLockfileIncludesMetadataAndExcludesShadowedAndPackageManage
 	if err != nil {
 		t.Fatalf("write lockfile: %v", err)
 	}
-	if result.LockfilePath != filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json") {
-		t.Fatalf("unexpected lockfile path %q", result.LockfilePath)
-	}
-	if result.PluginCount != 2 {
-		t.Fatalf("expected 2 lockfile entries, got %d", result.PluginCount)
-	}
+	assertLockfileWriteResult(t, result, roots.workspaceRoot, 2)
+	lockfile := readPluginsLockFile(t, result.LockfilePath)
+	assertWrittenLockfileHeader(t, lockfile, 2)
+	assertBackendPluginLockEntry(t, lockfile.Plugins[0], backendDigest)
+	assertFrontendPluginLockEntry(t, lockfile.Plugins[1], frontendFixtureRoot)
+}
 
-	content, err := os.ReadFile(result.LockfilePath)
+func readPluginsLockFile(t *testing.T, lockfilePath string) PluginsLockFile {
+	t.Helper()
+
+	content, err := os.ReadFile(lockfilePath)
 	if err != nil {
 		t.Fatalf("read lockfile: %v", err)
 	}
@@ -76,14 +79,39 @@ func TestServiceWriteLockfileIncludesMetadataAndExcludesShadowedAndPackageManage
 	if err := json.Unmarshal(content, &lockfile); err != nil {
 		t.Fatalf("decode lockfile: %v", err)
 	}
+	return lockfile
+}
+
+func assertLockfileWriteResult(
+	t *testing.T,
+	result PluginLockWriteResponse,
+	workspaceRoot string,
+	expectedPluginCount int,
+) {
+	t.Helper()
+
+	if result.LockfilePath != filepath.Join(workspaceRoot, ".setta_plugins", "plugins.lock.json") {
+		t.Fatalf("unexpected lockfile path %q", result.LockfilePath)
+	}
+	if result.PluginCount != expectedPluginCount {
+		t.Fatalf("expected %d lockfile entries, got %d", expectedPluginCount, result.PluginCount)
+	}
+}
+
+func assertWrittenLockfileHeader(t *testing.T, lockfile PluginsLockFile, expectedPluginCount int) {
+	t.Helper()
+
 	if lockfile.SchemaVersion != pluginLockSchemaVersion {
 		t.Fatalf("unexpected schema version %d", lockfile.SchemaVersion)
 	}
-	if len(lockfile.Plugins) != 2 {
-		t.Fatalf("expected 2 lockfile entries, got %d", len(lockfile.Plugins))
+	if len(lockfile.Plugins) != expectedPluginCount {
+		t.Fatalf("expected %d lockfile entries, got %d", expectedPluginCount, len(lockfile.Plugins))
 	}
+}
 
-	backendEntry := lockfile.Plugins[0]
+func assertBackendPluginLockEntry(t *testing.T, backendEntry PluginLockEntry, backendDigest string) {
+	t.Helper()
+
 	if backendEntry.PluginID != "setta-fixture-backend" || backendEntry.Scope != PluginScopeSettaFiles {
 		t.Fatalf("unexpected backend lock entry %#v", backendEntry)
 	}
@@ -96,8 +124,11 @@ func TestServiceWriteLockfileIncludesMetadataAndExcludesShadowedAndPackageManage
 	if backendEntry.SourceDigestSHA256 == nil || *backendEntry.SourceDigestSHA256 != backendDigest {
 		t.Fatalf("unexpected backend digest %#v", backendEntry.SourceDigestSHA256)
 	}
+}
 
-	frontendEntry := lockfile.Plugins[1]
+func assertFrontendPluginLockEntry(t *testing.T, frontendEntry PluginLockEntry, frontendFixtureRoot string) {
+	t.Helper()
+
 	if frontendEntry.PluginID != "setta-fixture-frontend" || frontendEntry.Scope != PluginScopeWorkspace {
 		t.Fatalf("unexpected frontend lock entry %#v", frontendEntry)
 	}
@@ -341,37 +372,9 @@ func TestServiceApplyLockfileUninstallsInvalidFilesystemPlugins(t *testing.T) {
 // Lockfile apply should reinstall a PyPI-managed plugin from the stored source spec and installer backend.
 func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	artifactDir := t.TempDir()
-	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+	service := newPyPIFrontendLockfileService(t, roots)
 
-	t.Setenv("PIP_NO_INDEX", "1")
-	t.Setenv("PIP_FIND_LINKS", artifactDir)
-
-	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
-		PackageManagerRuntime: mustNewPythonRuntime(t),
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaVersion:          "0.1.0",
-	})
-	service, err := NewService(ServiceOptions{
-		WorkspaceRoot:     roots.workspaceRoot,
-		SettaFilesRoot:    roots.settaFilesRoot,
-		SettaHome:         roots.settaHome,
-		ServerMode:        config.ModeIDE,
-		CandidateProvider: provider,
-	})
-	if err != nil {
-		t.Fatalf("new plugin service: %v", err)
-	}
-
-	installResult, err := service.Install(context.Background(), InstallOptions{
-		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
-		Scope:      scopePointer(PluginScopeWorkspace),
-		Installer:  installerPointer(PluginInstallerBackendPip),
-		Enable:     true,
-	})
-	if err != nil {
-		t.Fatalf("install plugin: %v", err)
-	}
+	installResult := installPyPIFrontendPluginForLockfile(t, service, true)
 	if installResult.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active install state, got %q", installResult.State)
 	}
@@ -380,24 +383,8 @@ func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write lockfile: %v", err)
 	}
-	if lockWrite.PluginCount != 1 {
-		t.Fatalf("expected one lockfile entry, got %d", lockWrite.PluginCount)
-	}
-
-	content, err := os.ReadFile(lockWrite.LockfilePath)
-	if err != nil {
-		t.Fatalf("read lockfile: %v", err)
-	}
-	var lockfile PluginsLockFile
-	if err := json.Unmarshal(content, &lockfile); err != nil {
-		t.Fatalf("decode lockfile: %v", err)
-	}
-	if len(lockfile.Plugins) != 1 {
-		t.Fatalf("expected one lockfile plugin entry, got %#v", lockfile.Plugins)
-	}
-	if lockfile.Plugins[0].InstallerBackend == nil || *lockfile.Plugins[0].InstallerBackend != PluginInstallerBackendPip {
-		t.Fatalf("expected pip installer backend in lockfile, got %#v", lockfile.Plugins[0].InstallerBackend)
-	}
+	assertLockfileWriteResult(t, lockWrite, roots.workspaceRoot, 1)
+	assertLockfilePipInstallerBackend(t, readPluginsLockFile(t, lockWrite.LockfilePath))
 
 	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
 		PluginID: "setta-fixture-frontend",
@@ -414,42 +401,25 @@ func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("check lockfile: %v", err)
 	}
-	if len(checkResult.PlannedChanges) != 1 || checkResult.PlannedChanges[0] != "install setta-fixture-frontend in workspace" {
-		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
-	}
+	assertSinglePlannedChangeEquals(t, checkResult, "install setta-fixture-frontend in workspace")
 
 	applyResult, err := service.ApplyLockfile(context.Background(), false)
 	if err != nil {
 		t.Fatalf("apply lockfile: %v", err)
 	}
-	if !applyResult.Applied {
-		t.Fatalf("expected lockfile apply to complete")
-	}
+	assertLockfileApplyCompleted(t, applyResult)
 
-	status, err := service.Status()
-	if err != nil {
-		t.Fatalf("load plugin status: %v", err)
-	}
-	entries := make([]PluginStatusEntry, 0)
-	for _, entry := range status.Plugins {
-		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
-			entries = append(entries, entry)
-		}
-	}
-	if len(entries) != 1 {
-		t.Fatalf("expected one primary plugin entry, got %#v", entries)
-	}
-	if entries[0].State != PluginRuntimeStateActive {
-		t.Fatalf("expected active state after reinstall, got %q", entries[0].State)
+	entry := mustPrimaryFrontendPluginStatusEntry(t, service)
+	if entry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active state after reinstall, got %q", entry.State)
 	}
 }
 
-// Lockfile apply should preserve disabled state when reconciling a plugin source.
-func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
+func newPyPIFrontendLockfileService(t *testing.T, roots filesystemResolverTestRoots) *Service {
+	t.Helper()
+
 	artifactDir := t.TempDir()
 	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
-
 	t.Setenv("PIP_NO_INDEX", "1")
 	t.Setenv("PIP_FIND_LINKS", artifactDir)
 
@@ -468,16 +438,96 @@ func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *test
 	if err != nil {
 		t.Fatalf("new plugin service: %v", err)
 	}
+	return service
+}
+
+func installPyPIFrontendPluginForLockfile(
+	t *testing.T,
+	service *Service,
+	enable bool,
+) PluginInstallResponse {
+	t.Helper()
 
 	installResult, err := service.Install(context.Background(), InstallOptions{
 		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
 		Scope:      scopePointer(PluginScopeWorkspace),
 		Installer:  installerPointer(PluginInstallerBackendPip),
-		Enable:     true,
+		Enable:     enable,
 	})
 	if err != nil {
 		t.Fatalf("install plugin: %v", err)
 	}
+	return installResult
+}
+
+func assertLockfilePipInstallerBackend(t *testing.T, lockfile PluginsLockFile) {
+	t.Helper()
+
+	if len(lockfile.Plugins) != 1 {
+		t.Fatalf("expected one lockfile plugin entry, got %#v", lockfile.Plugins)
+	}
+	if lockfile.Plugins[0].InstallerBackend == nil || *lockfile.Plugins[0].InstallerBackend != PluginInstallerBackendPip {
+		t.Fatalf("expected pip installer backend in lockfile, got %#v", lockfile.Plugins[0].InstallerBackend)
+	}
+}
+
+func assertSinglePlannedChangeEquals(
+	t *testing.T,
+	result PluginLockApplyResponse,
+	expected string,
+) {
+	t.Helper()
+
+	if len(result.PlannedChanges) != 1 || result.PlannedChanges[0] != expected {
+		t.Fatalf("unexpected planned changes %#v", result.PlannedChanges)
+	}
+}
+
+func assertSinglePlannedChangeContains(
+	t *testing.T,
+	result PluginLockApplyResponse,
+	expected string,
+) {
+	t.Helper()
+
+	if len(result.PlannedChanges) != 1 || !strings.Contains(result.PlannedChanges[0], expected) {
+		t.Fatalf("unexpected planned changes %#v", result.PlannedChanges)
+	}
+}
+
+func assertLockfileApplyCompleted(t *testing.T, result PluginLockApplyResponse) {
+	t.Helper()
+
+	if !result.Applied {
+		t.Fatalf("expected lockfile apply to complete")
+	}
+}
+
+func mustPrimaryFrontendPluginStatusEntry(t *testing.T, service *Service) PluginStatusEntry {
+	t.Helper()
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entries := make([]PluginStatusEntry, 0)
+	for _, entry := range status.Plugins {
+		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
+			entries = append(entries, entry)
+		}
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one primary plugin entry, got %#v", entries)
+	}
+	return entries[0]
+}
+
+// Lockfile apply should preserve disabled state when reconciling a plugin source.
+func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := newPyPIFrontendLockfileService(t, roots)
+
+	installResult := installPyPIFrontendPluginForLockfile(t, service, true)
 	if installResult.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active install state, got %q", installResult.State)
 	}
@@ -502,37 +552,26 @@ func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *test
 	if err != nil {
 		t.Fatalf("check lockfile: %v", err)
 	}
-	if len(checkResult.PlannedChanges) != 1 || !strings.Contains(checkResult.PlannedChanges[0], "reconcile source for setta-fixture-frontend in workspace") {
-		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
-	}
+	assertSinglePlannedChangeContains(t, checkResult, "reconcile source for setta-fixture-frontend in workspace")
 
 	applyResult, err := service.ApplyLockfile(context.Background(), false)
 	if err != nil {
 		t.Fatalf("apply lockfile: %v", err)
 	}
-	if !applyResult.Applied {
-		t.Fatalf("expected lockfile apply to complete")
-	}
+	assertLockfileApplyCompleted(t, applyResult)
 
-	status, err := service.Status()
-	if err != nil {
-		t.Fatalf("load plugin status: %v", err)
+	entry := mustPrimaryFrontendPluginStatusEntry(t, service)
+	if entry.State != PluginRuntimeStateDisabled {
+		t.Fatalf("expected disabled state after reconcile, got %q", entry.State)
 	}
-	entries := make([]PluginStatusEntry, 0)
-	for _, entry := range status.Plugins {
-		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
-			entries = append(entries, entry)
-		}
+	if entry.CanonicalSourceKey != "pypi:setta_fixture_frontend" {
+		t.Fatalf("unexpected canonical source key %q", entry.CanonicalSourceKey)
 	}
-	if len(entries) != 1 {
-		t.Fatalf("expected one primary plugin entry, got %#v", entries)
-	}
-	if entries[0].State != PluginRuntimeStateDisabled {
-		t.Fatalf("expected disabled state after reconcile, got %q", entries[0].State)
-	}
-	if entries[0].CanonicalSourceKey != "pypi:setta_fixture_frontend" {
-		t.Fatalf("unexpected canonical source key %q", entries[0].CanonicalSourceKey)
-	}
+	assertFrontendInstallMetadataSourceSpec(t, service, "pypi:setta_fixture_frontend==0.1.0")
+}
+
+func assertFrontendInstallMetadataSourceSpec(t *testing.T, service *Service, expectedSourceSpec string) {
+	t.Helper()
 
 	metadataEntry, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
 	if err != nil {
@@ -541,7 +580,7 @@ func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *test
 	if !ok {
 		t.Fatal("expected install metadata for reconciled plugin")
 	}
-	if metadataEntry.SourceSpec != "pypi:setta_fixture_frontend==0.1.0" {
+	if metadataEntry.SourceSpec != expectedSourceSpec {
 		t.Fatalf("unexpected stored source spec %q", metadataEntry.SourceSpec)
 	}
 }
@@ -617,36 +656,9 @@ func TestServiceApplyLockfileReconcilesDigestMismatchesForExistingPlugins(t *tes
 // Lockfile apply should reinstall when source metadata drifts even if version is unchanged.
 func TestServiceApplyLockfileReconcilesSourceSpecChangesForExistingPlugins(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	artifactDir := t.TempDir()
-	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+	service := newPyPIFrontendLockfileService(t, roots)
 
-	t.Setenv("PIP_NO_INDEX", "1")
-	t.Setenv("PIP_FIND_LINKS", artifactDir)
-
-	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
-		PackageManagerRuntime: mustNewPythonRuntime(t),
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaVersion:          "0.1.0",
-	})
-	service, err := NewService(ServiceOptions{
-		WorkspaceRoot:     roots.workspaceRoot,
-		SettaFilesRoot:    roots.settaFilesRoot,
-		SettaHome:         roots.settaHome,
-		ServerMode:        config.ModeIDE,
-		CandidateProvider: provider,
-	})
-	if err != nil {
-		t.Fatalf("new plugin service: %v", err)
-	}
-
-	if _, err := service.Install(context.Background(), InstallOptions{
-		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
-		Scope:      scopePointer(PluginScopeWorkspace),
-		Installer:  installerPointer(PluginInstallerBackendPip),
-		Enable:     true,
-	}); err != nil {
-		t.Fatalf("install plugin: %v", err)
-	}
+	installPyPIFrontendPluginForLockfile(t, service, true)
 
 	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
 	writeJSONFile(t, lockfilePath, map[string]any{
@@ -665,48 +677,20 @@ func TestServiceApplyLockfileReconcilesSourceSpecChangesForExistingPlugins(t *te
 	if err != nil {
 		t.Fatalf("check lockfile: %v", err)
 	}
-	if len(checkResult.PlannedChanges) != 1 || !strings.Contains(checkResult.PlannedChanges[0], "reconcile source for setta-fixture-frontend in workspace") {
-		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
-	}
+	assertSinglePlannedChangeContains(t, checkResult, "reconcile source for setta-fixture-frontend in workspace")
 
 	applyResult, err := service.ApplyLockfile(context.Background(), false)
 	if err != nil {
 		t.Fatalf("apply lockfile: %v", err)
 	}
-	if !applyResult.Applied {
-		t.Fatalf("expected lockfile apply to complete")
-	}
-	if len(applyResult.PlannedChanges) != 1 || !strings.Contains(applyResult.PlannedChanges[0], "reconcile source for setta-fixture-frontend in workspace") {
-		t.Fatalf("unexpected applied changes %#v", applyResult.PlannedChanges)
-	}
+	assertLockfileApplyCompleted(t, applyResult)
+	assertSinglePlannedChangeContains(t, applyResult, "reconcile source for setta-fixture-frontend in workspace")
 
-	status, err := service.Status()
-	if err != nil {
-		t.Fatalf("load plugin status: %v", err)
+	entry := mustPrimaryFrontendPluginStatusEntry(t, service)
+	if entry.CanonicalSourceKey != "pypi:setta_fixture_frontend" {
+		t.Fatalf("unexpected canonical source key %q", entry.CanonicalSourceKey)
 	}
-	entries := make([]PluginStatusEntry, 0)
-	for _, entry := range status.Plugins {
-		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
-			entries = append(entries, entry)
-		}
-	}
-	if len(entries) != 1 {
-		t.Fatalf("expected one primary plugin entry, got %#v", entries)
-	}
-	if entries[0].CanonicalSourceKey != "pypi:setta_fixture_frontend" {
-		t.Fatalf("unexpected canonical source key %q", entries[0].CanonicalSourceKey)
-	}
-
-	metadataEntry, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
-	if err != nil {
-		t.Fatalf("load install metadata: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected install metadata for reconciled plugin")
-	}
-	if metadataEntry.SourceSpec != "pypi:setta_fixture_frontend==0.1.0" {
-		t.Fatalf("unexpected stored source spec %q", metadataEntry.SourceSpec)
-	}
+	assertFrontendInstallMetadataSourceSpec(t, service, "pypi:setta_fixture_frontend==0.1.0")
 }
 
 // Source reconciliation must still fail fast when the lockfile omits sourceSpec.
