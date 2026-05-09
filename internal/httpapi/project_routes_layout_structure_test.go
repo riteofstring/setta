@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
@@ -34,6 +35,7 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := newProjectRoutePost(handler)
 
 	requests := []struct {
 		route string
@@ -90,35 +92,15 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	}
 
 	for _, requestSpec := range requests {
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+requestSpec.route,
-			strings.NewReader(requestSpec.body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusOK {
-			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-		}
+		assertProjectRoutePostOK(t, post, requestSpec.route, requestSpec.body)
 	}
 
-	latestRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLatestProjectState,
-		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
-	)
-	latestRequest.Header.Set("Content-Type", "application/json")
-	latestResponse := httptest.NewRecorder()
-	handler.ServeHTTP(latestResponse, latestRequest)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
+	payload := latestProjectRoutePayload(t, post)
+	assertLayoutPresentationProjectState(t, payload)
+}
 
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
+func assertLayoutPresentationProjectState(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
 
 	if !payload.ProjectState.ProjectConfig.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true")
@@ -139,6 +121,11 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	if !viewMode.ViewportInitialized {
 		t.Fatal("expected active view mode viewport initialized")
 	}
+	assertLayoutPresentationSectionModifiers(t, payload)
+}
+
+func assertLayoutPresentationSectionModifiers(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
 
 	callableSection := payload.ProjectState.Sections["callable-section"]
 	callableSharedModifier := decodeProjectRouteRawObject(t, callableSection.SharedModifier)
@@ -184,175 +171,146 @@ func TestRegisterProjectRoutesLayoutChromeUsesDeploymentOverlayWhenLayoutChanges
 	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Run("layout_presentation", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": layoutPresentationRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				post := func(route string, body string) *httptest.ResponseRecorder {
-					t.Helper()
-					request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
-					request.Header.Set("Content-Type", "application/json")
-					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-					response := httptest.NewRecorder()
-					handler.ServeHTTP(response, request)
-					return response
-				}
-
-				for _, requestSpec := range []struct {
-					route string
-					body  string
-				}{
-					{
-						route: RouteSetShowParamDisplayNames,
-						body:  `{"projectConfigId":"project-alpha","showParamDisplayNames":true}`,
-					},
-					{
-						route: RouteSetSectionTagColor,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","tagColor":"#123456"}`,
-					},
-					{
-						route: RouteSetSectionStyleColor,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
-					},
-					{
-						route: RouteSetSectionColumnWidth,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`,
-					},
-					{
-						route: RouteSetCallableHideParams,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`,
-					},
-					{
-						route: RouteSetSectionHideUnpinnedParams,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideUnpinnedParams":true}`,
-					},
-					{
-						route: RouteSetSectionPinnedParams,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","pinnedParams":["param-a","param-b"]}`,
-					},
-				} {
-					response := post(requestSpec.route, requestSpec.body)
-					if response.Code != http.StatusOK {
-						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-					}
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				if !overlayProject.ShowParamDisplayNames {
-					t.Fatal("expected overlay ShowParamDisplayNames=true")
-				}
-				overlayCallableModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["callable-section"].SharedModifier)
-				if got := overlayCallableModifier["tagColor"]; got != "#123456" {
-					t.Fatalf("expected overlay tagColor #123456, got %#v", got)
-				}
-				if got := overlayCallableModifier["styleColor"]; got != "#654321" {
-					t.Fatalf("expected overlay styleColor #654321, got %#v", got)
-				}
-				if got := overlayCallableModifier["columnWidth"]; got != 248.5 {
-					t.Fatalf("expected overlay columnWidth 248.5, got %#v", got)
-				}
-				if got := overlayCallableModifier["hideParams"]; got != true {
-					t.Fatalf("expected overlay hideParams=true, got %#v", got)
-				}
-				if got := overlayCallableModifier["hideUnpinnedParams"]; got != true {
-					t.Fatalf("expected overlay hideUnpinnedParams=true, got %#v", got)
-				}
-				if got := decodeProjectRouteStringArray(overlayCallableModifier["pinnedParams"]); !reflect.DeepEqual(got, []string{"param-a", "param-b"}) {
-					t.Fatalf("expected overlay pinnedParams [param-a param-b], got %#v", got)
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				if baseProject.ShowParamDisplayNames {
-					t.Fatal("expected base ShowParamDisplayNames to remain false")
-				}
-				baseCallableModifier := decodeProjectRouteRawObject(t, baseProject.Sections["callable-section"].SharedModifier)
-				if got := baseCallableModifier["tagColor"]; got == "#123456" {
-					t.Fatalf("expected base tagColor to remain unchanged, got %#v", got)
-				}
-				if got := baseCallableModifier["styleColor"]; got == "#654321" {
-					t.Fatalf("expected base styleColor to remain unchanged, got %#v", got)
-				}
-				if got := baseCallableModifier["columnWidth"]; got == 248.5 {
-					t.Fatalf("expected base columnWidth to remain unchanged, got %#v", got)
-				}
-				if got := baseCallableModifier["hideParams"]; got == true {
-					t.Fatalf("expected base hideParams to remain unchanged, got %#v", got)
-				}
-				if got := baseCallableModifier["hideUnpinnedParams"]; got == true {
-					t.Fatalf("expected base hideUnpinnedParams to remain unchanged, got %#v", got)
-				}
-				if got := decodeProjectRouteStringArray(baseCallableModifier["pinnedParams"]); len(got) != 0 {
-					t.Fatalf("expected base pinnedParams to remain empty, got %#v", got)
-				}
+				runLayoutChromeAllowedPresentation(t, mode)
 			})
 
 			t.Run("param_filter", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": sectionFilterMetaControlRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				request := httptest.NewRequest(
-					http.MethodPost,
-					"/api"+RouteSetSectionParamFilter,
-					strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"params-section","value":"   "}`),
-				)
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusOK {
-					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSectionParamFilter, response.Code, response.Body.String())
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				overlayParamsModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["params-section"].SharedModifier)
-				if got := overlayParamsModifier["paramFilter"]; got != "   " {
-					t.Fatalf("expected overlay paramFilter whitespace to persist, got %#v", got)
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				baseParamsModifier := decodeProjectRouteRawObject(t, baseProject.Sections["params-section"].SharedModifier)
-				if got := baseParamsModifier["paramFilter"]; got == "   " {
-					t.Fatalf("expected base paramFilter to remain unchanged, got %#v", got)
-				}
+				runLayoutChromeAllowedParamFilter(t, mode)
 			})
 		})
+	}
+}
+
+func runLayoutChromeAllowedPresentation(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutStructureDeploymentRuntime(t, mode, layoutPresentationRouteTestProject(t), true)
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	post := newShareProjectRoutePost(handler)
+	for _, requestSpec := range layoutChromePresentationRequests() {
+		assertProjectRoutePostOK(t, post, requestSpec.route, requestSpec.body)
+	}
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay: %v", err)
+	}
+	assertLayoutChromeOverlayPresentation(t, overlay.Snapshot().Document.Projects["project-alpha"])
+	assertLayoutChromeBasePresentationUnchanged(t, deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"])
+}
+
+func runLayoutChromeAllowedParamFilter(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutStructureDeploymentRuntime(t, mode, sectionFilterMetaControlRouteTestProject(t), true)
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	post := newShareProjectRoutePost(handler)
+	assertProjectRoutePostOK(t, post, RouteSetSectionParamFilter, `{"projectConfigId":"project-alpha","sectionId":"params-section","value":"   "}`)
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay: %v", err)
+	}
+	overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+	assertProjectRouteModifierValue(t, decodeProjectRouteRawObject(t, overlayProject.Sections["params-section"].SharedModifier), "paramFilter", "   ", "expected overlay paramFilter whitespace to persist")
+
+	baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+	baseParamsModifier := decodeProjectRouteRawObject(t, baseProject.Sections["params-section"].SharedModifier)
+	if got := baseParamsModifier["paramFilter"]; got == "   " {
+		t.Fatalf("expected base paramFilter to remain unchanged, got %#v", got)
+	}
+}
+
+func newShareProjectRoutePost(handler http.Handler) projectRoutePostFunc {
+	return func(route string, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+}
+
+func newLayoutStructureDeploymentRuntime(t *testing.T, mode config.Mode, project projectstate.Project, allowLayoutChanges bool) *deployments.Runtime {
+	t.Helper()
+
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode: mode,
+		Document: projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				"project-alpha": project,
+			},
+		},
+		Policy: map[string]any{
+			"allowLayoutChanges": allowLayoutChanges,
+		},
+	})
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+	return deploymentRuntime
+}
+
+func layoutChromePresentationRequests() []struct {
+	route string
+	body  string
+} {
+	return []struct {
+		route string
+		body  string
+	}{
+		{route: RouteSetShowParamDisplayNames, body: `{"projectConfigId":"project-alpha","showParamDisplayNames":true}`},
+		{route: RouteSetSectionTagColor, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","tagColor":"#123456"}`},
+		{route: RouteSetSectionStyleColor, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`},
+		{route: RouteSetSectionColumnWidth, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","columnWidth":248.5}`},
+		{route: RouteSetCallableHideParams, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`},
+		{route: RouteSetSectionHideUnpinnedParams, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideUnpinnedParams":true}`},
+		{route: RouteSetSectionPinnedParams, body: `{"projectConfigId":"project-alpha","sectionId":"callable-section","pinnedParams":["param-a","param-b"]}`},
+	}
+}
+
+func assertLayoutChromeOverlayPresentation(t *testing.T, project projectstate.Project) {
+	t.Helper()
+
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected overlay ShowParamDisplayNames=true")
+	}
+	modifier := decodeProjectRouteRawObject(t, project.Sections["callable-section"].SharedModifier)
+	assertProjectRouteModifierValue(t, modifier, "tagColor", "#123456", "expected overlay tagColor #123456")
+	assertProjectRouteModifierValue(t, modifier, "styleColor", "#654321", "expected overlay styleColor #654321")
+	assertProjectRouteModifierValue(t, modifier, "columnWidth", 248.5, "expected overlay columnWidth 248.5")
+	assertProjectRouteModifierValue(t, modifier, "hideParams", true, "expected overlay hideParams=true")
+	assertProjectRouteModifierValue(t, modifier, "hideUnpinnedParams", true, "expected overlay hideUnpinnedParams=true")
+	if got := decodeProjectRouteStringArray(modifier["pinnedParams"]); !reflect.DeepEqual(got, []string{"param-a", "param-b"}) {
+		t.Fatalf("expected overlay pinnedParams [param-a param-b], got %#v", got)
+	}
+}
+
+func assertLayoutChromeBasePresentationUnchanged(t *testing.T, project projectstate.Project) {
+	t.Helper()
+
+	if project.ShowParamDisplayNames {
+		t.Fatal("expected base ShowParamDisplayNames to remain false")
+	}
+	modifier := decodeProjectRouteRawObject(t, project.Sections["callable-section"].SharedModifier)
+	assertProjectRouteModifierUnchanged(t, modifier, "tagColor", "#123456")
+	assertProjectRouteModifierUnchanged(t, modifier, "styleColor", "#654321")
+	assertProjectRouteModifierUnchanged(t, modifier, "columnWidth", 248.5)
+	assertProjectRouteModifierUnchanged(t, modifier, "hideParams", true)
+	assertProjectRouteModifierUnchanged(t, modifier, "hideUnpinnedParams", true)
+	if got := decodeProjectRouteStringArray(modifier["pinnedParams"]); len(got) != 0 {
+		t.Fatalf("expected base pinnedParams to remain empty, got %#v", got)
+	}
+}
+
+func assertProjectRouteModifierUnchanged(t *testing.T, modifier map[string]any, key string, disallowed any) {
+	t.Helper()
+
+	if reflect.DeepEqual(modifier[key], disallowed) {
+		t.Fatalf("expected base %s to remain unchanged, got %#v", key, modifier[key])
 	}
 }
 
@@ -583,73 +541,50 @@ func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *tes
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := newProjectRoutePost(handler)
 
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+route,
-			strings.NewReader(body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
+	assertProjectRoutePostOK(t, post, RouteGroupSections, `{"projectConfigId":"project-alpha","sectionIds":["beta-section","alpha-section"]}`)
+	createdGroupID := assertGroupedSectionStructureState(t, latestProjectRoutePayload(t, post))
+	assertProjectRoutePostOK(t, post, RouteUngroupGroups, fmt.Sprintf(`{"projectConfigId":"project-alpha","groupIds":["%s"]}`, createdGroupID))
+	assertProjectRoutePostOK(t, post, RouteDeleteSections, `{"projectConfigId":"project-alpha","sectionIds":["top-group"]}`)
+	assertFinalSectionStructureState(t, latestProjectRoutePayload(t, post), createdGroupID)
+}
+
+func assertGroupedSectionStructureState(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) string {
+	t.Helper()
+
+	createdGroupID := createdProjectRouteGroupSectionID(t, payload)
+	assertProjectRouteParent(t, payload, "alpha-section", createdGroupID)
+	assertProjectRouteParent(t, payload, "beta-section", createdGroupID)
+	return createdGroupID
+}
+
+func createdProjectRouteGroupSectionID(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) string {
+	t.Helper()
+
+	knownSectionIDs := map[string]bool{
+		"alpha-section": true, "beta-section": true, "top-group": true, "top-child-a": true, "top-child-b": true,
+		"nested-parent": true, "nested-group": true, "nested-child-a": true, "nested-child-b": true, "nested-sibling": true,
 	}
-
-	groupResponse := post(RouteGroupSections, `{"projectConfigId":"project-alpha","sectionIds":["beta-section","alpha-section"]}`)
-	if groupResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 from groupSections, got %d with body %q", groupResponse.Code, groupResponse.Body.String())
-	}
-
-	groupedLatestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if groupedLatestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 grouped latest-state response, got %d with body %q", groupedLatestResponse.Code, groupedLatestResponse.Body.String())
-	}
-
-	var groupedPayload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(groupedLatestResponse.Body.Bytes(), &groupedPayload); err != nil {
-		t.Fatalf("decode grouped latest project payload: %v", err)
-	}
-
-	createdGroupID := ""
-	for sectionID := range groupedPayload.ProjectState.Sections {
-		switch sectionID {
-		case "alpha-section", "beta-section", "top-group", "top-child-a", "top-child-b", "nested-parent", "nested-group", "nested-child-a", "nested-child-b", "nested-sibling":
-			continue
-		default:
-			createdGroupID = sectionID
+	for sectionID := range payload.ProjectState.Sections {
+		if !knownSectionIDs[sectionID] {
+			return sectionID
 		}
 	}
-	if createdGroupID == "" {
-		t.Fatal("expected groupSections to create a new group section")
-	}
-	if parent := groupedPayload.ProjectState.ParentSectionMap["alpha-section"]; parent == nil || *parent != createdGroupID {
-		t.Fatalf("expected alpha-section parent %q after grouping, got %#v", createdGroupID, parent)
-	}
-	if parent := groupedPayload.ProjectState.ParentSectionMap["beta-section"]; parent == nil || *parent != createdGroupID {
-		t.Fatalf("expected beta-section parent %q after grouping, got %#v", createdGroupID, parent)
-	}
+	t.Fatal("expected groupSections to create a new group section")
+	return ""
+}
 
-	ungroupResponse := post(RouteUngroupGroups, fmt.Sprintf(`{"projectConfigId":"project-alpha","groupIds":["%s"]}`, createdGroupID))
-	if ungroupResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 from ungroupGroups, got %d with body %q", ungroupResponse.Code, ungroupResponse.Body.String())
-	}
+func assertProjectRouteParent(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs, sectionID string, expectedParentID string) {
+	t.Helper()
 
-	deleteResponse := post(RouteDeleteSections, `{"projectConfigId":"project-alpha","sectionIds":["top-group"]}`)
-	if deleteResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 from deleteSections, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	if parent := payload.ProjectState.ParentSectionMap[sectionID]; parent == nil || *parent != expectedParentID {
+		t.Fatalf("expected %s parent %q, got %#v", sectionID, expectedParentID, parent)
 	}
+}
 
-	finalLatestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-	if finalLatestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 final latest-state response, got %d with body %q", finalLatestResponse.Code, finalLatestResponse.Body.String())
-	}
-
-	var finalPayload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(finalLatestResponse.Body.Bytes(), &finalPayload); err != nil {
-		t.Fatalf("decode final latest project payload: %v", err)
-	}
+func assertFinalSectionStructureState(t *testing.T, finalPayload ProjectStateSingleConfigWithCompletedOpIDs, createdGroupID string) {
+	t.Helper()
 
 	if _, ok := finalPayload.ProjectState.Sections[createdGroupID]; ok {
 		t.Fatalf("expected temporary group %q to be removed after ungroup", createdGroupID)
@@ -766,37 +701,18 @@ func TestRegisterProjectRoutesMoveSectionsPersistsLatestState(t *testing.T) {
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := func(body string) *httptest.ResponseRecorder {
-		t.Helper()
-		request := httptest.NewRequest(http.MethodPost, "/api"+RouteMoveSections, strings.NewReader(body))
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
+	post := newProjectRoutePost(handler)
 
-	reparentResponse := post(`{"projectConfigId":"project-alpha","sectionIds":["top-a","top-b"],"newParentId":"group-parent","newIndex":0}`)
-	if reparentResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s reparent, got %d with body %q", RouteMoveSections, reparentResponse.Code, reparentResponse.Body.String())
-	}
+	assertProjectRoutePostOK(t, post, RouteMoveSections, `{"projectConfigId":"project-alpha","sectionIds":["top-a","top-b"],"newParentId":"group-parent","newIndex":0}`)
+	assertProjectRoutePostOK(t, post, RouteMoveSections, `{"projectConfigId":"project-alpha","sectionIds":["terminal-section"],"newParentId":null,"newIndex":null,"positionsById":{"terminal-section":{"x":120,"y":80}}}`)
 
-	paneResponse := post(`{"projectConfigId":"project-alpha","sectionIds":["terminal-section"],"newParentId":null,"newIndex":null,"positionsById":{"terminal-section":{"x":120,"y":80}}}`)
-	if paneResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s pane move, got %d with body %q", RouteMoveSections, paneResponse.Code, paneResponse.Body.String())
-	}
+	payload := latestProjectRoutePayload(t, post)
+	assertMoveSectionsReparentState(t, payload)
+	assertMoveSectionsDetachedTerminalState(t, payload)
+}
 
-	latestResponse := httptest.NewRequest(http.MethodPost, "/api"+RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
-	latestResponse.Header.Set("Content-Type", "application/json")
-	latestRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(latestRecorder, latestResponse)
-	if latestRecorder.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestRecorder.Code, latestRecorder.Body.String())
-	}
-
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestRecorder.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project payload: %v", err)
-	}
+func assertMoveSectionsReparentState(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
 
 	if parent := payload.ProjectState.ParentSectionMap["top-a"]; parent == nil || *parent != "group-parent" {
 		t.Fatalf("expected top-a parent group-parent, got %#v", parent)
@@ -817,6 +733,10 @@ func TestRegisterProjectRoutesMoveSectionsPersistsLatestState(t *testing.T) {
 	if got := decodeProjectRouteStringArray(groupPayload["children"]); !reflect.DeepEqual(got, []string{"top-a", "top-b", "nested-group"}) {
 		t.Fatalf("expected group-parent children [top-a top-b nested-group], got %#v", got)
 	}
+}
+
+func assertMoveSectionsDetachedTerminalState(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
 
 	codeVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["code-section"]
 	codeImplID := payload.ProjectState.SectionVariants[codeVariantID].Impl
@@ -1052,38 +972,14 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := newProjectRoutePost(handler)
 
-	prepareRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RoutePrepareSectionsForCopy,
-		strings.NewReader(`{"projectConfigId":"project-source","sectionIds":["group-root"]}`),
-	)
-	prepareRequest.Header.Set("Content-Type", "application/json")
-	prepareResponse := httptest.NewRecorder()
-	handler.ServeHTTP(prepareResponse, prepareRequest)
-	if prepareResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RoutePrepareSectionsForCopy, prepareResponse.Code, prepareResponse.Body.String())
-	}
-
+	prepareResponse := assertProjectRoutePostOK(t, post, RoutePrepareSectionsForCopy, `{"projectConfigId":"project-source","sectionIds":["group-root"]}`)
 	var clipboard projectstate.SectionsClipboardData
 	if err := json.Unmarshal(prepareResponse.Body.Bytes(), &clipboard); err != nil {
 		t.Fatalf("decode prepareSectionsForCopy payload: %v", err)
 	}
-	if clipboard.Type != projectstate.ClipboardDataTypeSections {
-		t.Fatalf("expected clipboard type %q, got %q", projectstate.ClipboardDataTypeSections, clipboard.Type)
-	}
-	if len(clipboard.Data.Core.Sections) != 3 {
-		t.Fatalf("expected copied subtree with three sections, got %#v", clipboard.Data.Core.Sections)
-	}
-	if got := clipboard.Data.SectionVariantMap["group-root"]; got != "group-root-variant" {
-		t.Fatalf("expected copied root active variant group-root-variant, got %q", got)
-	}
-	if got := clipboard.Data.SectionVariantMap["group-child-a"]; got != "group-child-a-variant-alt" {
-		t.Fatalf("expected copied descendant active variant group-child-a-variant-alt, got %q", got)
-	}
-	if got := clipboard.Data.SectionVariantMap["group-child-b"]; got != "group-child-b-variant-default" {
-		t.Fatalf("expected copied descendant active variant group-child-b-variant-default, got %q", got)
-	}
+	assertPreparedSectionsClipboard(t, clipboard)
 
 	pasteBody, err := json.Marshal(PasteSectionsRequest{
 		ProjectID: "project-target",
@@ -1094,19 +990,37 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 	if err != nil {
 		t.Fatalf("marshal pasteSections request: %v", err)
 	}
-	pasteRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RoutePasteSections,
-		strings.NewReader(string(pasteBody)),
-	)
-	pasteRequest.Header.Set("Content-Type", "application/json")
-	pasteResponse := httptest.NewRecorder()
-	handler.ServeHTTP(pasteResponse, pasteRequest)
-	if pasteResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 for %s, got %d with body %q", RoutePasteSections, pasteResponse.Code, pasteResponse.Body.String())
-	}
+	assertProjectRoutePostOK(t, post, RoutePasteSections, string(pasteBody))
 
 	targetProject := projectRuntime.Snapshot().Document.Projects["project-target"]
+	assertPastedSectionsTargetProject(t, targetProject)
+}
+
+func assertPreparedSectionsClipboard(t *testing.T, clipboard projectstate.SectionsClipboardData) {
+	t.Helper()
+
+	if clipboard.Type != projectstate.ClipboardDataTypeSections {
+		t.Fatalf("expected clipboard type %q, got %q", projectstate.ClipboardDataTypeSections, clipboard.Type)
+	}
+	if len(clipboard.Data.Core.Sections) != 3 {
+		t.Fatalf("expected copied subtree with three sections, got %#v", clipboard.Data.Core.Sections)
+	}
+	assertPreparedClipboardVariant(t, clipboard, "group-root", "group-root-variant")
+	assertPreparedClipboardVariant(t, clipboard, "group-child-a", "group-child-a-variant-alt")
+	assertPreparedClipboardVariant(t, clipboard, "group-child-b", "group-child-b-variant-default")
+}
+
+func assertPreparedClipboardVariant(t *testing.T, clipboard projectstate.SectionsClipboardData, sectionID string, variantID string) {
+	t.Helper()
+
+	if got := clipboard.Data.SectionVariantMap[sectionID]; got != variantID {
+		t.Fatalf("expected copied %s active variant %s, got %q", sectionID, variantID, got)
+	}
+}
+
+func assertPastedSectionsTargetProject(t *testing.T, targetProject projectstate.Project) {
+	t.Helper()
+
 	if len(targetProject.Sections) != 3 {
 		t.Fatalf("expected three pasted sections in target project, got %#v", targetProject.Sections)
 	}
@@ -1137,6 +1051,11 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 	if layout.X != 220 || layout.Y != 180 || layout.ZIndex != 0 {
 		t.Fatalf("expected pasted root layout {220 180 0}, got %#v", layout)
 	}
+	assertPastedGroupChildren(t, targetProject, pastedRootID)
+}
+
+func assertPastedGroupChildren(t *testing.T, targetProject projectstate.Project, pastedRootID string) {
+	t.Helper()
 
 	rootVariantID := targetProject.SectionVariantMap[pastedRootID]
 	rootPayload, err := targetProject.EffectiveSectionPayload(pastedRootID, rootVariantID)
@@ -1148,32 +1067,42 @@ func TestRegisterProjectRoutesPrepareAndPasteSectionsPersistLatestState(t *testi
 		t.Fatalf("expected pasted group children to be preserved, got %#v", children)
 	}
 	for _, childID := range children {
-		if childID == "group-child-a" || childID == "group-child-b" {
-			t.Fatalf("expected pasted child id to be remapped, got %#v", children)
-		}
-		childSection := targetProject.Sections[childID]
-		if childSection.ParentSectionID != pastedRootID {
-			t.Fatalf("expected pasted child %q parent %q, got %#v", childID, pastedRootID, childSection)
-		}
-		childVariantID := targetProject.SectionVariantMap[childID]
-		if childVariantID == "" {
-			t.Fatalf("expected pasted child %q to keep an explicit active variant entry, got %#v", childID, targetProject.SectionVariantMap)
-		}
-		childPayload, err := targetProject.EffectiveSectionPayload(childID, childVariantID)
-		if err != nil {
-			t.Fatalf("resolve pasted child payload %q: %v", childID, err)
-		}
-		switch childSection.Name {
-		case "Group Child A":
-			if got := fmt.Sprint(childPayload["text"]); got != "Child A Alt" {
-				t.Fatalf("expected pasted Group Child A active payload text %q, got %q", "Child A Alt", got)
-			}
-		case "Group Child B":
-			if got := fmt.Sprint(childPayload["text"]); got != "Child B Default" {
-				t.Fatalf("expected pasted Group Child B active payload text %q, got %q", "Child B Default", got)
-			}
-		default:
-			t.Fatalf("unexpected pasted child section %#v", childSection)
-		}
+		assertPastedGroupChild(t, targetProject, pastedRootID, childID, children)
+	}
+}
+
+func assertPastedGroupChild(t *testing.T, targetProject projectstate.Project, pastedRootID string, childID string, children []string) {
+	t.Helper()
+
+	if childID == "group-child-a" || childID == "group-child-b" {
+		t.Fatalf("expected pasted child id to be remapped, got %#v", children)
+	}
+	childSection := targetProject.Sections[childID]
+	if childSection.ParentSectionID != pastedRootID {
+		t.Fatalf("expected pasted child %q parent %q, got %#v", childID, pastedRootID, childSection)
+	}
+	childVariantID := targetProject.SectionVariantMap[childID]
+	if childVariantID == "" {
+		t.Fatalf("expected pasted child %q to keep an explicit active variant entry, got %#v", childID, targetProject.SectionVariantMap)
+	}
+	childPayload, err := targetProject.EffectiveSectionPayload(childID, childVariantID)
+	if err != nil {
+		t.Fatalf("resolve pasted child payload %q: %v", childID, err)
+	}
+	switch childSection.Name {
+	case "Group Child A":
+		assertPastedChildText(t, childPayload, "Group Child A", "Child A Alt")
+	case "Group Child B":
+		assertPastedChildText(t, childPayload, "Group Child B", "Child B Default")
+	default:
+		t.Fatalf("unexpected pasted child section %#v", childSection)
+	}
+}
+
+func assertPastedChildText(t *testing.T, childPayload map[string]any, label string, expected string) {
+	t.Helper()
+
+	if got := fmt.Sprint(childPayload["text"]); got != expected {
+		t.Fatalf("expected pasted %s active payload text %q, got %q", label, expected, got)
 	}
 }
