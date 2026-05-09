@@ -13,161 +13,19 @@ import {
   seedLocalStorage,
 } from "../helpers";
 
-const BACKEND_ORIGIN =
-  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const FRONTEND_ORIGIN = new URL(BASE_URL).origin;
-const FRONTEND_REFERER = `${FRONTEND_ORIGIN}/`;
-const BACKEND_HELPER_REQUEST_HEADERS = {
-  Origin: FRONTEND_ORIGIN,
-  Referer: FRONTEND_REFERER,
-};
-
-type CreateSectionResponse = {
-  sectionId?: string;
-};
-
-type EngineConfigSummary = {
-  id: string;
-  engineType?: string;
-  settaLlmConfigId?: string | null;
-};
-
-type LLMConfigEntry = {
-  model: string;
-  provider?: string | null;
-  api_key_env?: string | null;
-  base_url?: string | null;
-  other_params?: Record<string, unknown> | null;
-  mcpServerIds?: string[] | null;
-  temporary?: boolean;
-};
-
-type LLMConfigPayload = {
-  configs: Record<string, LLMConfigEntry>;
-  mcpServers: Record<string, unknown>;
-  defaultMcpServerIds?: string[];
-  default_config_id?: string | null;
-  codexMcpImportedAt?: string | null;
-};
-
-type ManagedAPIKeysSnapshot = {
-  apiKeys: Record<string, string>;
-  revision: number;
-  corrupt?: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
-
-type ManagedChatProviderRequest = {
-  path: string;
-  authorization: string;
-  body: Record<string, unknown>;
-};
-
-type ManagedChatProviderServer = {
-  origin: string;
-  requests: ManagedChatProviderRequest[];
-  close: () => Promise<void>;
-};
-
-const MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS = 3000;
-
-type DeterministicManagedChatEngine = {
-  engineConfigId: string;
-  providerServer: ManagedChatProviderServer;
-  cleanup: () => Promise<void>;
-};
-
-type LatestProjectStateResponse = {
-  projectState?: {
-    projectConfig?: {
-      stateMachineEdges?: Array<{
-        id?: string;
-        machineGroupId?: string;
-        sourceSectionId?: string;
-        sourcePortId?: string;
-        targetSectionId?: string;
-        targetPortId?: string;
-        sourceFilter?: {
-          type?: string | null;
-          signalName?: string | null;
-          payloadField?: string | null;
-          equals?: string | null;
-        } | null;
-        sourceActivationCountCondition?: {
-          operator?: string | null;
-          value?: number | null;
-        } | null;
-        targetAction?: {
-          type?: string | null;
-          promptTemplateId?: string | null;
-          promptSectionId?: string | null;
-          inlinePrompt?: string | null;
-          promptInputs?: Record<string, string> | null;
-          threadStrategy?: string | null;
-        } | null;
-        style?: Record<string, string | number> | null;
-        hidden?: boolean;
-        zIndex?: number;
-        selected?: boolean;
-      }>;
-      sectionVariantMap?: Record<string, string>;
-    };
-    sections?: Record<
-      string,
-      {
-        sharedModifier?: {
-          machineGroupId?: string;
-          label?: string;
-          maxIterations?: number | null;
-          engineConfigId?: string | null;
-        };
-      }
-    >;
-    sectionVariants?: Record<
-      string,
-      {
-        impl?: string;
-        modifier?: {
-          machineGroupId?: string;
-          label?: string;
-          maxIterations?: number | null;
-          engineConfigId?: string | null;
-        };
-      }
-    >;
-    sectionImpls?: Record<
-      string,
-      {
-        type?: string;
-        machineGroupId?: string;
-        label?: string;
-        maxIterations?: number | null;
-        engineConfigId?: string | null;
-      }
-    >;
-  };
-};
-
-type WorkflowRunRecord = {
-  id?: string;
-  status?: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  outputs?: Record<string, unknown> | null;
-  inputs?: {
-    runType?: string;
-    projectConfigId?: string;
-    machineGroupId?: string;
-  } | null;
-  events?: Array<{
-    type?: string;
-    timestamp?: string | null;
-    payload?: Record<string, unknown>;
-  }>;
-  [key: string]: unknown;
-};
+import {
+  BACKEND_HELPER_REQUEST_HEADERS,
+  BACKEND_ORIGIN,
+  MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS,
+  type DeterministicManagedChatEngine,
+  type EngineConfigSummary,
+  type LatestProjectStateResponse,
+  type LLMConfigPayload,
+  type ManagedAPIKeysSnapshot,
+  type ManagedChatProviderRequest,
+  type ManagedChatProviderServer,
+  type WorkflowRunRecord,
+} from "./state-machine-section-test-types";
 
 test.describe.serial("state machine sections", () => {
   test("creates workflow sections, connects workflow edges, edits workflow settings, and controls workflow runs", async ({

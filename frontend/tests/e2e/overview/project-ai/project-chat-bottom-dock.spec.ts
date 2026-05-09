@@ -1,10 +1,4 @@
-import {
-  expect,
-  test,
-  type Locator,
-  type Page,
-  type Route,
-} from "@playwright/test";
+import { expect, test, type Locator, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
@@ -15,360 +9,24 @@ import {
   setOverviewTab,
 } from "../../helpers";
 
-type FloatingWindowMetrics = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  visibleWidth: number;
-  viewportWidth: number;
-  viewportHeight: number;
-  workspaceTopInset: number;
-  bottomInset: number;
-};
-
-type CanvasDomRect = {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
-
-type FlowPoint = {
-  x: number;
-  y: number;
-};
-
-type ProjectChatCanvasBinding = {
-  placement: string;
-  sectionId: string | null;
-  positionX: number | null;
-  positionY: number | null;
-};
-
-type HeaderChromeMetrics = {
-  surfaceTopLeftRadius: number;
-  surfaceTopRightRadius: number;
-  iconInsetLeft: number;
-  closeInsetRight: number;
-  maximizeColor: string;
-  minimizeColor: string;
-  closeColor: string;
-};
-
-const SIDE_RAIL_WIDTH_PX = 40;
-const FLOATING_TITLE_BAR_HEIGHT_PX = 32;
-const WORKSPACE_TOP_INSET_FALLBACK_PX = 40;
-
-function getFloatingWorkArea(metrics: FloatingWindowMetrics): {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-} {
-  const left = SIDE_RAIL_WIDTH_PX;
-  const top =
-    metrics.workspaceTopInset > 0
-      ? metrics.workspaceTopInset
-      : WORKSPACE_TOP_INSET_FALLBACK_PX;
-  const right = metrics.viewportWidth - SIDE_RAIL_WIDTH_PX;
-  const bottom = metrics.viewportHeight - metrics.bottomInset;
-  return {
-    left,
-    top,
-    right,
-    bottom,
-    width: right - left,
-    height: bottom - top,
-  };
-}
-
-function expectBoxShadowToBeCleared(boxShadow: string) {
-  expect(boxShadow).toMatch(
-    /^(none|(?:rgba\(0, 0, 0, 0\) 0px 0px 0px 0px,?\s*)+)$/,
-  );
-}
-
-function expectOutlineToBeCleared({
-  outlineColor,
-  outlineWidth,
-}: {
-  outlineColor: string;
-  outlineWidth: string;
-}) {
-  const outlineIsTransparent = /^(transparent|rgba\(0, 0, 0, 0\))$/.test(
-    outlineColor,
-  );
-  expect(outlineIsTransparent || outlineWidth === "0px").toBe(true);
-}
-
-async function expectNoActiveOutlineOnPointerDown(
-  page: Page,
-  surface: Locator,
-): Promise<void> {
-  const bounds = await surface.boundingBox();
-  if (!bounds) {
-    throw new Error("Expected surface bounds for outline checks.");
-  }
-  const pointerX = bounds.x + Math.max(24, Math.min(bounds.width / 2, 160));
-  const pointerY = bounds.y + Math.max(24, Math.min(bounds.height / 2, 160));
-  await page.mouse.move(pointerX, pointerY);
-  await page.mouse.down();
-  try {
-    const outline = await surface.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return {
-        outlineColor: style.outlineColor,
-        outlineWidth: style.outlineWidth,
-      };
-    });
-    expectOutlineToBeCleared(outline);
-  } finally {
-    await page.mouse.up();
-  }
-}
-
-async function getWindowHeaderChromeMetrics(
-  surface: Locator,
-): Promise<HeaderChromeMetrics> {
-  return surface.evaluate((node) => {
-    const surfaceElement = node as HTMLElement;
-    const header = surfaceElement.querySelector("header.section-title");
-    const icon = header?.firstElementChild;
-    const title = header?.children.item(1);
-    const maximizeButton = header?.querySelector(
-      '[data-testid="project-chat-window-maximize"]',
-    );
-    const minimizeButton = header?.querySelector(
-      '[data-testid="project-chat-window-minimize"]',
-    );
-    const closeButton = header?.querySelector(
-      '[data-testid="project-chat-window-close"]',
-    );
-    if (
-      !(header instanceof HTMLElement) ||
-      !(icon instanceof HTMLElement) ||
-      !(title instanceof HTMLElement) ||
-      !(maximizeButton instanceof HTMLElement) ||
-      !(minimizeButton instanceof HTMLElement) ||
-      !(closeButton instanceof HTMLElement)
-    ) {
-      throw new Error("Expected window header chrome elements.");
-    }
-    const surfaceStyle = getComputedStyle(surfaceElement);
-    const headerRect = header.getBoundingClientRect();
-    const iconRect = icon.getBoundingClientRect();
-    const titleRect = title.getBoundingClientRect();
-    const closeRect = closeButton.getBoundingClientRect();
-    return {
-      surfaceTopLeftRadius: Number.parseFloat(surfaceStyle.borderTopLeftRadius),
-      surfaceTopRightRadius: Number.parseFloat(
-        surfaceStyle.borderTopRightRadius,
-      ),
-      iconInsetLeft: iconRect.left - headerRect.left,
-      closeInsetRight: headerRect.right - closeRect.right,
-      maximizeColor: getComputedStyle(maximizeButton).color,
-      minimizeColor: getComputedStyle(minimizeButton).color,
-      closeColor: getComputedStyle(closeButton).color,
-    };
-  });
-}
-
-async function getFloatingWindowMetrics(
-  floatingWindow: Locator,
-): Promise<FloatingWindowMetrics> {
-  return floatingWindow.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    const pane = document.querySelector(".react-flow__pane");
-    const workspaceTopInset =
-      pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 0;
-    const viewModeTabs = document.querySelector(
-      '[data-testid="view-mode-tabs-bar"]',
-    );
-    let bottomInset = 0;
-    if (viewModeTabs instanceof HTMLElement) {
-      const tabsRect = viewModeTabs.getBoundingClientRect();
-      if (
-        tabsRect.height > 0 &&
-        tabsRect.top >= window.innerHeight - tabsRect.height - 2
-      ) {
-        bottomInset = tabsRect.height;
-      }
-    }
-    const visibleWidth = Math.max(
-      0,
-      Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0),
-    );
-    return {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      visibleWidth,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-      workspaceTopInset,
-      bottomInset,
-    };
-  });
-}
-
-async function getWorkspaceTopInset(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const pane = document.querySelector(".react-flow__pane");
-    if (pane instanceof HTMLElement) {
-      const topInset = pane.getBoundingClientRect().top;
-      if (Number.isFinite(topInset) && topInset > 0) {
-        return topInset;
-      }
-    }
-    return 40;
-  });
-}
-
-async function getCanvasDomRect(page: Page): Promise<CanvasDomRect | null> {
-  return page.evaluate(async () => {
-    const { useReactFlow } = await import(
-      "/src/forks/xyflow/core/store/index.ts"
-    );
-    const domNode = useReactFlow.getState().domNode;
-    if (!domNode) {
-      return null;
-    }
-    const rect = domNode.getBoundingClientRect();
-    return {
-      left: rect.left,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom,
-      width: rect.width,
-      height: rect.height,
-    };
-  });
-}
-
-function getExpectedClampedScreenOrigin(
-  sourceRect: { x: number; y: number; width: number; height: number },
-  canvasRect: CanvasDomRect,
-): FlowPoint {
-  const maxX = Math.max(canvasRect.left, canvasRect.right - sourceRect.width);
-  const maxY = Math.max(canvasRect.top, canvasRect.bottom - sourceRect.height);
-  return {
-    x: Math.min(Math.max(sourceRect.x, canvasRect.left), maxX),
-    y: Math.min(Math.max(sourceRect.y, canvasRect.top), maxY),
-  };
-}
-
-async function getFlowPositionFromScreenPoint(
-  page: Page,
-  screenPoint: FlowPoint,
-): Promise<FlowPoint> {
-  return page.evaluate(async (point) => {
-    const { screenToFlowPosition } = await import(
-      "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
-    );
-    return screenToFlowPosition(point);
-  }, screenPoint);
-}
-
-async function getProjectChatCanvasBinding(
-  page: Page,
-  instanceId: string,
-): Promise<ProjectChatCanvasBinding | null> {
-  return page.evaluate(async (targetInstanceId) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    const state = useProjectState.getState();
-    const instance = state.projectChatWindowing.instancesById[targetInstanceId];
-    if (!instance) {
-      return null;
-    }
-    const sectionId = instance.sectionIdOrNull;
-    if (!sectionId) {
-      return {
-        placement: instance.placement,
-        sectionId: null,
-        positionX: null,
-        positionY: null,
-      };
-    }
-    const topLevelLayout = state.projectConfig.topLevelSections[sectionId];
-    if (!topLevelLayout) {
-      return {
-        placement: instance.placement,
-        sectionId,
-        positionX: null,
-        positionY: null,
-      };
-    }
-    return {
-      placement: instance.placement,
-      sectionId,
-      positionX: topLevelLayout.x,
-      positionY: topLevelLayout.y,
-    };
-  }, instanceId);
-}
-
-async function collapseSidePanesForWindowInteraction(
-  page: Page,
-): Promise<void> {
-  await page.evaluate(async () => {
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    useLocalStorage.setState({
-      overviewVis: false,
-      uiEditorVis: false,
-    });
-  });
-}
-
-async function setActiveSections(
-  page: Page,
-  sectionIds: string[],
-): Promise<void> {
-  await page.evaluate(async (ids) => {
-    const { setActiveSectionIds } = await import(
-      "/src/state/actions/activeSections.ts"
-    );
-    // Keyboard-driven chat routing should follow the immediate UI selection
-    // instead of waiting for the deferred backend-active-id sync.
-    setActiveSectionIds(ids, { syncMode: "ui-only" });
-  }, sectionIds);
-}
-
-async function ensureDockedWindow(page: Page, index = 0): Promise<Locator> {
-  const dockedWindow = page
-    .getByTestId("project-chat-bottom-dock-window-panel")
-    .nth(index);
-  await expect(dockedWindow).toBeVisible();
-  return dockedWindow;
-}
-
-async function ensureFloatingWindow(page: Page, index = 0): Promise<Locator> {
-  const floatingWindows = page.getByTestId("project-chat-floating-window");
-  if ((await floatingWindows.count()) > index) {
-    const floatingWindow = floatingWindows.nth(index);
-    await expect(floatingWindow).toBeVisible();
-    return floatingWindow;
-  }
-  const dockedWindow = await ensureDockedWindow(page, index);
-  await dockedWindow.getByTestId("project-chat-window-undock").click();
-  const floatingWindow = page
-    .getByTestId("project-chat-floating-window")
-    .last();
-  await expect(floatingWindow).toBeVisible();
-  return floatingWindow;
-}
-
-async function clickDom(target: Locator): Promise<void> {
-  await expect(target).toBeVisible();
-  await target.evaluate((element: HTMLElement) => {
-    element.click();
-  });
-}
+import {
+  clickDom,
+  collapseSidePanesForWindowInteraction,
+  ensureDockedWindow,
+  ensureFloatingWindow,
+  expectBoxShadowToBeCleared,
+  expectNoActiveOutlineOnPointerDown,
+  FLOATING_TITLE_BAR_HEIGHT_PX,
+  getCanvasDomRect,
+  getExpectedClampedScreenOrigin,
+  getFloatingWindowMetrics,
+  getFloatingWorkArea,
+  getFlowPositionFromScreenPoint,
+  getProjectChatCanvasBinding,
+  getWindowHeaderChromeMetrics,
+  setActiveSections,
+  type FlowPoint,
+} from "./project-chat-bottom-dock-helpers";
 
 test("project chat bottom dock auto-creates a chat and supports creating additional windows", async ({
   page,
@@ -1344,7 +1002,9 @@ test("project chat floating windows show inline threads and chat together when r
     );
     await expect(inlineThreadsPanel).toBeVisible();
     await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-    await expect(floatingWindow.getByTestId("chat-input-textarea")).toBeVisible();
+    await expect(
+      floatingWindow.getByTestId("chat-input-textarea"),
+    ).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
@@ -2021,7 +1681,7 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
 
     const canvasRect = await getCanvasDomRect(page);
     if (!canvasRect) {
-      throw new Error("Expected react-flow canvas bounds.");
+      throw new Error("Expected GPU flow canvas bounds.");
     }
 
     const insideCursorPoint = {
@@ -2309,7 +1969,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
         const { deleteSections } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+        const { callOpenAPI } = await import(
+          "/tests/e2e/browserAppSubsystemSdk.ts"
+        );
         await callOpenAPI(
           deleteSections({
             body: {
@@ -2338,7 +2000,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       const { createViewMode, toggleViewModeTab } = await import(
         "/src/openapi/http"
       );
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const response = await callOpenAPI(
         createViewMode({
           body: {
@@ -2366,7 +2030,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
         const { setActiveViewMode } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+        const { callOpenAPI } = await import(
+          "/tests/e2e/browserAppSubsystemSdk.ts"
+        );
         await callOpenAPI(
           setActiveViewMode({
             body: {
@@ -2598,7 +2264,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
 
     const canvasRect = await getCanvasDomRect(page);
     if (!canvasRect) {
-      throw new Error("Expected react-flow canvas bounds.");
+      throw new Error("Expected GPU flow canvas bounds.");
     }
     const viewportSize = page.viewportSize();
     if (!viewportSize) {
@@ -2627,7 +2293,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       };
     }
     if (!outsideCursorPoint) {
-      throw new Error("Unable to find a point outside the react-flow canvas.");
+      throw new Error("Unable to find a point outside the GPU flow canvas.");
     }
     await page.evaluate(async (cursorPoint) => {
       const { useMisc } = await import("/src/state/definitions.ts");
@@ -2691,7 +2357,8 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       `[id="${secondBinding.sectionId}-CustomResizable"]`,
     );
     await expect(canvasResizableSurface).toBeVisible();
-    const canvasResizableSurfaceBox = await canvasResizableSurface.boundingBox();
+    const canvasResizableSurfaceBox =
+      await canvasResizableSurface.boundingBox();
     if (!canvasResizableSurfaceBox) {
       throw new Error("Expected visible canvas section surface bounds.");
     }
@@ -2721,14 +2388,10 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
     );
     expect(
       canvasResizableSurfaceBox.x + canvasResizableSurfaceBox.width,
-    ).toBeLessThanOrEqual(
-      canvasRect.right + canvasEdgeTolerancePx,
-    );
+    ).toBeLessThanOrEqual(canvasRect.right + canvasEdgeTolerancePx);
     expect(
       canvasResizableSurfaceBox.y + canvasResizableSurfaceBox.height,
-    ).toBeLessThanOrEqual(
-      canvasRect.bottom + canvasEdgeTolerancePx,
-    );
+    ).toBeLessThanOrEqual(canvasRect.bottom + canvasEdgeTolerancePx);
     expect(
       Math.abs(canvasResizableSurfaceBox.width - sourceWindowBox.width),
     ).toBeLessThanOrEqual(4);
