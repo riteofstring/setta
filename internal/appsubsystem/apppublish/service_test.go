@@ -56,6 +56,47 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 
 	blockedSaveStarted := make(chan struct{}, 1)
 	releaseBlockedSave := make(chan struct{})
+	runtime := openAppPublishRuntimeWithBlockedSecondSave(
+		t,
+		settaFilesRoot,
+		initialDocument,
+		blockedSaveStarted,
+		releaseBlockedSave,
+	)
+	writeInitialAppPublishSpec(t, appSpecStore, settaFilesRoot, initialDefinition.AppSpecPath)
+	publisher := newAppPublishTestPublisher(t, settaFilesRoot, workspaceRoot, pluginID)
+
+	nextVersion := "v2"
+	nextActions := map[string]any{
+		"run2": map[string]any{"type": "run"},
+	}
+	setResult := startBlockedAppDefinitionUpdate(t, runtime, pluginID, nextVersion, nextActions)
+	<-blockedSaveStarted
+
+	publishResult := startAppPublish(t, publisher, runtime)
+	assertAppPublishWaitsForBlockedMutation(t, publishResult)
+
+	close(releaseBlockedSave)
+	if err := <-setResult; err != nil {
+		t.Fatalf("set next app definition: %v", err)
+	}
+	result := <-publishResult
+	if result.err != nil {
+		t.Fatalf("publish app deployment: %v", result.err)
+	}
+
+	assertPublishedAppDefinitionRevision(t, storage, appSpecStore, result.result)
+}
+
+func openAppPublishRuntimeWithBlockedSecondSave(
+	t *testing.T,
+	settaFilesRoot string,
+	initialDocument projectstate.Document,
+	blockedSaveStarted chan<- struct{},
+	releaseBlockedSave <-chan struct{},
+) *projectstate.Runtime {
+	t.Helper()
+
 	store, err := projectstate.NewStore(
 		filepath.Join(settaFilesRoot, projectstate.MainFileName),
 		projectstate.StoreOptions{},
@@ -91,10 +132,29 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 			t.Fatalf("close runtime: %v", err)
 		}
 	})
+	return runtime
+}
 
-	if err := appSpecStore.Write(settaFilesRoot, initialDefinition.AppSpecPath, appPublishSingleRunSpec("old-root")); err != nil {
+func writeInitialAppPublishSpec(
+	t *testing.T,
+	appSpecStore appspec.Store,
+	settaFilesRoot string,
+	appSpecPath string,
+) {
+	t.Helper()
+
+	if err := appSpecStore.Write(settaFilesRoot, appSpecPath, appPublishSingleRunSpec("old-root")); err != nil {
 		t.Fatalf("write initial app spec: %v", err)
 	}
+}
+
+func newAppPublishTestPublisher(
+	t *testing.T,
+	settaFilesRoot string,
+	workspaceRoot string,
+	pluginID string,
+) deployments.AppPublishService {
+	t.Helper()
 
 	catalogRoot, err := deployments.DefaultCatalogRoot(settaFilesRoot)
 	if err != nil {
@@ -121,11 +181,18 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 	if err != nil {
 		t.Fatalf("new app publish service: %v", err)
 	}
+	return publisher
+}
 
-	nextVersion := "v2"
-	nextActions := map[string]any{
-		"run2": map[string]any{"type": "run"},
-	}
+func startBlockedAppDefinitionUpdate(
+	t *testing.T,
+	runtime *projectstate.Runtime,
+	pluginID string,
+	nextVersion string,
+	nextActions map[string]any,
+) <-chan error {
+	t.Helper()
+
 	setResult := make(chan error, 1)
 	go func() {
 		_, _, err := appdefinition.NewAppDefinitionService(runtime, pluginID).SetAppDefinition(
@@ -138,7 +205,15 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 		)
 		setResult <- err
 	}()
-	<-blockedSaveStarted
+	return setResult
+}
+
+func startAppPublish(
+	t *testing.T,
+	publisher deployments.AppPublishService,
+	runtime *projectstate.Runtime,
+) <-chan appPublishTestResult {
+	t.Helper()
 
 	publishResult := make(chan appPublishTestResult, 1)
 	go func() {
@@ -149,25 +224,30 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 		})
 		publishResult <- appPublishTestResult{result: result, err: err}
 	}()
+	return publishResult
+}
+
+func assertAppPublishWaitsForBlockedMutation(t *testing.T, publishResult <-chan appPublishTestResult) {
+	t.Helper()
 
 	select {
 	case result := <-publishResult:
 		t.Fatalf("publish completed while app-definition mutation was blocked: result=%#v err=%v", result.result, result.err)
 	case <-time.After(100 * time.Millisecond):
 	}
+}
 
-	close(releaseBlockedSave)
-	if err := <-setResult; err != nil {
-		t.Fatalf("set next app definition: %v", err)
-	}
-	result := <-publishResult
-	if result.err != nil {
-		t.Fatalf("publish app deployment: %v", result.err)
-	}
+func assertPublishedAppDefinitionRevision(
+	t *testing.T,
+	storage appdefinition.DocumentStorage,
+	appSpecStore appspec.Store,
+	result deployments.AppPublishResult,
+) {
+	t.Helper()
 
 	publishedDefinition := mustDecodeAppPublishTestDefinition(
 		t,
-		storage.StoredDocumentAppDefinitionRaw(result.result.Snapshot),
+		storage.StoredDocumentAppDefinitionRaw(result.Snapshot),
 	)
 	if publishedDefinition.AppSpecVersion != "v2" {
 		t.Fatalf("expected published definition v2, got %#v", publishedDefinition)
@@ -175,7 +255,7 @@ func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *tes
 	if len(publishedDefinition.Actions) == 0 {
 		t.Fatalf("expected published definition to include run2 action metadata, got %#v", publishedDefinition)
 	}
-	publishedAppSpec, err := appSpecStore.Read(result.result.Metadata.DeploymentRoot, publishedDefinition.AppSpecPath)
+	publishedAppSpec, err := appSpecStore.Read(result.Metadata.DeploymentRoot, publishedDefinition.AppSpecPath)
 	if err != nil {
 		t.Fatalf("read published app spec: %v", err)
 	}
