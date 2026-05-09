@@ -1,14 +1,25 @@
 import { PARAM_NAME_EMPTY_DEFAULT_VALUE } from "components/Params/ParamItems/paramNameDefaults";
 import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "components/Section/SectionParts/sectionSearchLayout";
-import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import { AGENTIC_EDGE_HANDLE_IDS } from "state/actions/agenticEdges";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
-import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
+import {
+  addParamToProjectState,
+  createColorPickerParamImpl,
+  createDateParamImpl,
+  createNestedParamImpl,
+  createPasswordParamImpl,
+  createRotaryParamImpl,
+  createSliderParamImpl,
+  createTimeParamImpl,
+  projectNode,
+  projectStateWithSections,
+  sectionSize,
+} from "testUtils/projectGpuLayoutAdapter.test.support";
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
@@ -21,35 +32,19 @@ import {
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   TimeControlModeEnum,
-  TimeDisplayFontEnum,
-  TimeDisplayFormatEnum,
   createButtonParamCodeObjImpl,
   createCallableSectionImpl,
   createChatSectionImpl,
   createCodeParamCodeObjImpl,
-  createCore,
   createDateParamCodeObjImpl,
   createDictSectionImpl,
   createDropdownParamCodeObjImpl,
   createDropzoneParamCodeObjImpl,
   createGroupSectionImpl,
-  createPasswordParamCodeObjImpl,
-  createProjectConfig,
   createSettingsState,
   createShownParamIDs,
-  createSingleConfig,
   createStateMachineGateSectionImpl,
   createSwitchParamCodeObjImpl,
-  createVariant,
-  type BaseCodeObjImplUnion,
-  type BaseSectionImplUnion,
-  type ColorPickerParamCodeObjImpl,
-  type DateParamCodeObjImpl,
-  type PasswordParamCodeObjImpl,
-  type RotaryParamCodeObjImpl,
-  type SingleConfig,
-  type SliderParamCodeObjImpl,
-  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -68,7 +63,6 @@ import {
   PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
 } from "./projectGpuParamContentLayout";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
-import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
 
 describe("project GPU layout adapter", () => {
@@ -3443,355 +3437,4 @@ describe("project GPU layout adapter", () => {
       ["child-c", 96],
     ]);
   });
-
-  it("reveals nested sections through renderer-owned scene scroll offsets", () => {
-    const scene = getProjectGpuFlowScene(
-      projectStateWithSections({
-        sections: [
-          {
-            id: "group-a",
-            impl: createGroupSectionImpl({
-              children: ["child-a", "child-b", "child-c"],
-              id: "group-a-impl",
-              size: sectionSize({ height: "auto", width: "auto" }),
-            }),
-            parentId: null,
-          },
-          {
-            id: "child-a",
-            impl: createDictSectionImpl({
-              id: "child-a-impl",
-              size: sectionSize({ height: 50, width: 80 }),
-            }),
-            parentId: "group-a",
-          },
-          {
-            id: "child-b",
-            impl: createDictSectionImpl({
-              id: "child-b-impl",
-              size: sectionSize({ height: 50, width: 80 }),
-            }),
-            parentId: "group-a",
-          },
-          {
-            id: "child-c",
-            impl: createDictSectionImpl({
-              id: "child-c-impl",
-              size: sectionSize({ height: 50, width: 80 }),
-            }),
-            parentId: "group-a",
-          },
-        ],
-        topLevelSections: {
-          "group-a": { h: 100, w: 200, x: 10, y: 20, zIndex: 1 },
-        },
-      }),
-      { darkMode: false },
-    );
-
-    const result = resolveProjectGpuSceneSectionReveal({
-      scene,
-      scrollOffsets: new Map(),
-      sectionId: "child-c",
-    });
-
-    expect(result).toMatchObject({
-      changed: true,
-      parentSectionId: "group-a",
-    });
-    expect(result.scrollOffsets.get("group-a")).toEqual({
-      x: 0,
-      y: 66,
-    });
-  });
 });
-
-function projectNode(
-  id: string,
-  overrides: Partial<Omit<Node, "id">> = {},
-): Node {
-  return {
-    height: 50,
-    id,
-    position: { x: 0, y: 0 },
-    tempZIndex: overrides.zIndex ?? 1,
-    width: 100,
-    zIndex: 1,
-    ...overrides,
-  };
-}
-
-function sectionSize(size: {
-  readonly height: number | "auto";
-  readonly width: number | "auto";
-}): never {
-  // create*SectionImpl accepts the runtime section-size shape but its generated
-  // option type still exposes the Go wrapper representation.
-  return size as never;
-}
-
-function createNestedParamImpl(
-  id: string,
-  children: readonly string[],
-): BaseCodeObjImplUnion {
-  return {
-    children: [...children],
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    description: "",
-    id,
-    isPreset: false,
-    name: id,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    type: CodeObjTypeEnum.NestedParam,
-    typeAnnotation: "",
-  };
-}
-
-function createTimeParamImpl({
-  id,
-  name,
-  timeControlMode,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly timeControlMode: TimeParamCodeObjImpl["timeControlMode"];
-}): BaseCodeObjImplUnion {
-  const impl = {
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    defaultVal: "",
-    description: "",
-    id,
-    isPreset: false,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    timeControlMode,
-    timeDisplayFont: TimeDisplayFontEnum.monospace,
-    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-    timeDisplayScale: 1,
-    timeDisplayTransparent: false,
-    type: CodeObjTypeEnum.TimeParam,
-    typeAnnotation: "",
-    value: "12:30",
-  } satisfies TimeParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function createDateParamImpl({
-  dateControlMode,
-  dateSelectionMode = DateSelectionModeEnum.single,
-  id,
-  name,
-  value,
-}: {
-  readonly dateControlMode: DateParamCodeObjImpl["dateControlMode"];
-  readonly dateSelectionMode?: DateParamCodeObjImpl["dateSelectionMode"];
-  readonly id: string;
-  readonly name: string;
-  readonly value: string;
-}): BaseCodeObjImplUnion {
-  const impl = {
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-    dateControlMode,
-    dateDisplayFormat: DateDisplayFormatEnum.iso,
-    dateIncludesTime: false,
-    dateSelectionMode,
-    defaultVal: "",
-    description: "",
-    id,
-    isPreset: false,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    type: CodeObjTypeEnum.DateParam,
-    typeAnnotation: "",
-    value,
-  } satisfies DateParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function createSliderParamImpl({
-  id,
-  name,
-  value,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly value: string;
-}): BaseCodeObjImplUnion {
-  const impl = {
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    defaultVal: "0",
-    description: "",
-    id,
-    isPreset: false,
-    max: 10,
-    min: 0,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    step: 1,
-    type: CodeObjTypeEnum.SliderParam,
-    typeAnnotation: "",
-    value,
-  } satisfies SliderParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function createRotaryParamImpl({
-  id,
-  name,
-  value,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly value: string;
-}): BaseCodeObjImplUnion {
-  const impl = {
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    defaultVal: "0",
-    description: "",
-    id,
-    isPreset: false,
-    max: 10,
-    min: 0,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    step: 1,
-    type: CodeObjTypeEnum.RotaryParam,
-    typeAnnotation: "",
-    value,
-  } satisfies RotaryParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function createColorPickerParamImpl({
-  colorChoices,
-  id,
-  name,
-}: {
-  readonly colorChoices: ColorPickerParamCodeObjImpl["colorChoices"];
-  readonly id: string;
-  readonly name: string;
-}): BaseCodeObjImplUnion {
-  const impl = {
-    colorChoices: colorChoices ? [...colorChoices] : colorChoices,
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    defaultVal: "#000000",
-    description: "",
-    id,
-    isPreset: false,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    type: CodeObjTypeEnum.ColorPickerParam,
-    typeAnnotation: "",
-    value: "#000000",
-  } satisfies ColorPickerParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function createPasswordParamImpl({
-  hasSecret,
-  id,
-  name,
-  value,
-}: {
-  readonly hasSecret: boolean;
-  readonly id: string;
-  readonly name: string;
-  readonly value: string;
-}): BaseCodeObjImplUnion {
-  const impl = createPasswordParamCodeObjImpl({
-    coreNameEditable: true,
-    coreNameType: ParamNameTypeEnum.TEXT,
-    defaultVal: "",
-    description: "",
-    hasSecret,
-    id,
-    isPreset: false,
-    name,
-    passingStyle: ParameterPassingStyleEnum.DEFAULT,
-    type: CodeObjTypeEnum.PasswordParam,
-    typeAnnotation: "",
-    value,
-  }) satisfies PasswordParamCodeObjImpl;
-  return impl as BaseCodeObjImplUnion;
-}
-
-function addParamToProjectState(
-  state: ZustandProjectState,
-  paramId: string,
-  variantId: string,
-  implId: string,
-  impl: BaseCodeObjImplUnion,
-) {
-  state.codeObjs[paramId] = createCore({
-    defaultVariant: variantId,
-    displayName: "",
-    id: paramId,
-    name: paramId,
-    variants: [variantId],
-  });
-  state.codeObjVariants[variantId] = createVariant({
-    id: variantId,
-    impl: implId,
-    name: variantId,
-    nonPresetImpls: [],
-  });
-  state.codeObjImpls[implId] = impl;
-}
-
-function projectStateWithSections({
-  sections,
-  topLevelSections,
-}: {
-  readonly sections: readonly {
-    readonly id: string;
-    readonly impl: BaseSectionImplUnion;
-    readonly parentId: string | null;
-  }[];
-  readonly topLevelSections: SingleConfig["projectConfig"]["topLevelSections"];
-}): ZustandProjectState {
-  const sectionCores: ZustandProjectState["sections"] = {};
-  const sectionImpls: ZustandProjectState["sectionImpls"] = {};
-  const sectionVariants: ZustandProjectState["sectionVariants"] = {};
-  const sectionVariantMap: Record<string, string> = {};
-  const parentSectionMap: Record<string, string | null> = {};
-
-  for (const section of sections) {
-    const variantId = `${section.id}-variant`;
-    sectionCores[section.id] = createCore({
-      defaultVariant: variantId,
-      id: section.id,
-      name: section.id,
-      variants: [variantId],
-    });
-    sectionImpls[section.impl.id] = section.impl;
-    sectionVariants[variantId] = createVariant({
-      id: variantId,
-      impl: section.impl.id,
-      name: variantId,
-      nonPresetImpls: [],
-    });
-    sectionVariantMap[section.id] = variantId;
-    parentSectionMap[section.id] = section.parentId;
-  }
-
-  const state = createSingleConfig({
-    parentSectionMap,
-    projectConfig: createProjectConfig({
-      id: "project-1",
-      sectionVariantMap,
-      topLevelSections,
-    }),
-    sectionImpls,
-    sectionVariants,
-    sections: sectionCores,
-  }) as ZustandProjectState;
-  state.previewSectionVariantMap = {};
-  return state;
-}
