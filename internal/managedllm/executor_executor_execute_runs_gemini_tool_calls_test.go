@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -15,109 +13,28 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
 	"setta/internal/mcpx"
-	"setta/internal/tools"
 )
 
 func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
-	if err != nil {
-		t.Fatalf("new temporary id store: %v", err)
-	}
-	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
-	if err != nil {
-		t.Fatalf("ensure temporary section id: %v", err)
-	}
-
+	harness := newManagedLLMToolLoopHarness(t)
 	requestBodies := make([]map[string]any, 0, 2)
-	requestCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		body := map[string]any{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		requestBodies = append(requestBodies, body)
-
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-		switch requestCount {
-		case 0:
-			fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"id\":\"tool-call-1\",\"name\":\"setta__create_top_level_section\",\"args\":{\"projectConfigId\":\"project-alpha\",\"implType\":\"Dict\"}}}]}}],\"usageMetadata\":{\"promptTokenCount\":18,\"candidatesTokenCount\":4,\"totalTokenCount\":22}}\n\n")
-			flusher.Flush()
-		case 1:
-			fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Tool loop complete\"}]}}],\"usageMetadata\":{\"promptTokenCount\":23,\"candidatesTokenCount\":3,\"totalTokenCount\":26}}\n\n")
-			flusher.Flush()
-		default:
-			t.Fatalf("unexpected provider request count %d", requestCount)
-		}
-		requestCount++
-	}))
+	server := newManagedLLMProviderEventServer(
+		t,
+		&requestBodies,
+		[]string{
+			"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"id\":\"tool-call-1\",\"name\":\"setta__create_top_level_section\",\"args\":{\"projectConfigId\":\"project-alpha\",\"implType\":\"Dict\"}}}]}}],\"usageMetadata\":{\"promptTokenCount\":18,\"candidatesTokenCount\":4,\"totalTokenCount\":22}}\n\n",
+		},
+		[]string{
+			"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Tool loop complete\"}]}}],\"usageMetadata\":{\"promptTokenCount\":23,\"candidatesTokenCount\":3,\"totalTokenCount\":26}}\n\n",
+		},
+	)
 	defer server.Close()
 
-	broadcaster := &captureBroadcaster{}
-	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
-	run := newManagedChatTestRun()
-	live.ActivateRun(run)
-
-	capturedCalls := make([]struct {
-		ToolName  string
-		Arguments map[string]any
-		Meta      map[string]any
-	}, 0, 1)
-	toolClient := &stubToolClient{
-		initTools: managedCompletionStatusInitTools(),
-		discoverableTools: map[string]mcpx.ToolDescriptor{
-			"setta__create_top_level_section": {
-				ServerID:       mcpx.DefaultServerID,
-				NamespacedName: "setta__create_top_level_section",
-				RemoteName:     "create_top_level_section",
-				Description:    "Create a top-level section.",
-				InputSchema: map[string]any{
-					"type": "object",
-				},
-				Metadata: &tools.Metadata{
-					ResultIDPathsByType: map[tools.IDType][]string{
-						tools.IDTypeSection: {"sectionId"},
-					},
-				},
-			},
-		},
-		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
-			capturedCalls = append(capturedCalls, struct {
-				ToolName  string
-				Arguments map[string]any
-				Meta      map[string]any
-			}{
-				ToolName:  namespacedToolName,
-				Arguments: arguments,
-				Meta:      meta,
-			})
-			return mcpx.ToolCallResult{
-				StructuredContent: map[string]any{"sectionId": createdSectionID},
-				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
-			}, nil
-		},
-	}
-
-	executor := NewExecutor(ExecutorOptions{
-		Live:       live,
-		Tools:      toolClient,
-		HTTPClient: server.Client(),
-		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
-			Broadcaster:  broadcaster,
-			TemporaryIDs: temporaryIDs,
-		}),
-	})
+	executor := harness.executor(server.Client())
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
-		Run: run,
+		Run: harness.run,
 		LLMConfig: llmconfig.Config{
 			ID:        "primary",
 			Model:     "gemini-2.5-pro",
@@ -148,34 +65,15 @@ func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t
 			},
 		},
 		MCPServerIDs: []string{mcpx.DefaultServerID},
-		TemporaryIDs: temporaryIDs,
+		TemporaryIDs: harness.temporaryIDs,
 	})
 	if err != nil {
 		t.Fatalf("execute managed gemini tool stream: %v", err)
 	}
 
-	if len(capturedCalls) != 1 {
-		t.Fatalf("expected one tool call, got %#v", capturedCalls)
-	}
-	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
-		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
-	}
-	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
-		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
-	}
-
-	outputMessages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 4 {
-		t.Fatalf("expected user, tool-call assistant, tool result, and final assistant messages, got %#v", result.Outputs["messages"])
-	}
-	finalAssistant, ok := outputMessages[3].(map[string]any)
-	if !ok || assistantText(finalAssistant) != "Tool loop complete" {
-		t.Fatalf("unexpected final assistant %#v", outputMessages[3])
-	}
-
-	if len(requestBodies) != 2 {
-		t.Fatalf("expected two provider requests, got %#v", requestBodies)
-	}
+	assertCreateSectionToolCall(t, harness.capturedCalls)
+	assertOutputMessagesWithFinalAssistant(t, result, 4, "Tool loop complete")
+	assertProviderRequestCount(t, requestBodies, 2)
 	if _, ok := requestBodies[0]["tools"].([]any); !ok {
 		t.Fatalf("expected gemini tools on first request, got %#v", requestBodies[0])
 	}
@@ -188,127 +86,37 @@ func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t
 func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
-	if err != nil {
-		t.Fatalf("new temporary id store: %v", err)
-	}
-	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
-	if err != nil {
-		t.Fatalf("ensure temporary section id: %v", err)
-	}
-
+	harness := newManagedLLMToolLoopHarness(t)
 	requestBodies := make([]map[string]any, 0, 2)
-	requestCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		body := map[string]any{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		requestBodies = append(requestBodies, body)
-
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-		switch requestCount {
-		case 0:
-			fmt.Fprint(w, anthropicMessageStartEvent("msg-tool-1", "claude-sonnet-4-5-20250929", 18, 0))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicToolUseBlockStartEvent(0, "tool-call-1", "setta__create_top_level_section"))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicInputJSONDeltaEvent(0, `{"projectConfigId":"project-alpha","implType":"Dict"}`))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicContentBlockStopEvent(0))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicMessageDeltaEvent("tool_use", 18, 4))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicMessageStopEvent())
-			flusher.Flush()
-		case 1:
-			fmt.Fprint(w, anthropicMessageStartEvent("msg-tool-2", "claude-sonnet-4-5-20250929", 23, 0))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicTextBlockStartEvent(0))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicTextDeltaEvent(0, "Tool loop complete"))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicContentBlockStopEvent(0))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicMessageDeltaEvent("end_turn", 23, 3))
-			flusher.Flush()
-			fmt.Fprint(w, anthropicMessageStopEvent())
-			flusher.Flush()
-		default:
-			t.Fatalf("unexpected provider request count %d", requestCount)
-		}
-		requestCount++
-	}))
+	server := newManagedLLMProviderEventServer(
+		t,
+		&requestBodies,
+		[]string{
+			anthropicMessageStartEvent("msg-tool-1", "claude-sonnet-4-5-20250929", 18, 0),
+			anthropicToolUseBlockStartEvent(0, "tool-call-1", "setta__create_top_level_section"),
+			anthropicInputJSONDeltaEvent(0, `{"projectConfigId":"project-alpha","implType":"Dict"}`),
+			anthropicContentBlockStopEvent(0),
+			anthropicMessageDeltaEvent("tool_use", 18, 4),
+			anthropicMessageStopEvent(),
+		},
+		[]string{
+			anthropicMessageStartEvent("msg-tool-2", "claude-sonnet-4-5-20250929", 23, 0),
+			anthropicTextBlockStartEvent(0),
+			anthropicTextDeltaEvent(0, "Tool loop complete"),
+			anthropicContentBlockStopEvent(0),
+			anthropicMessageDeltaEvent("end_turn", 23, 3),
+			anthropicMessageStopEvent(),
+		},
+	)
 	defer server.Close()
 
-	broadcaster := &captureBroadcaster{}
-	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
-	run := newManagedChatTestRun()
-	live.ActivateRun(run)
-
-	capturedCalls := make([]struct {
-		ToolName  string
-		Arguments map[string]any
-		Meta      map[string]any
-	}, 0, 1)
-	toolClient := &stubToolClient{
-		initTools: managedCompletionStatusInitTools(),
-		discoverableTools: map[string]mcpx.ToolDescriptor{
-			"setta__create_top_level_section": {
-				ServerID:       mcpx.DefaultServerID,
-				NamespacedName: "setta__create_top_level_section",
-				RemoteName:     "create_top_level_section",
-				Description:    "Create a top-level section.",
-				InputSchema: map[string]any{
-					"type": "object",
-				},
-				Metadata: &tools.Metadata{
-					ResultIDPathsByType: map[tools.IDType][]string{
-						tools.IDTypeSection: {"sectionId"},
-					},
-				},
-			},
-		},
-		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
-			capturedCalls = append(capturedCalls, struct {
-				ToolName  string
-				Arguments map[string]any
-				Meta      map[string]any
-			}{
-				ToolName:  namespacedToolName,
-				Arguments: arguments,
-				Meta:      meta,
-			})
-			return mcpx.ToolCallResult{
-				StructuredContent: map[string]any{"sectionId": createdSectionID},
-				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
-			}, nil
-		},
-	}
-
-	executor := NewExecutor(ExecutorOptions{
-		Live:       live,
-		Tools:      toolClient,
-		HTTPClient: server.Client(),
-		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
-			Broadcaster:  broadcaster,
-			TemporaryIDs: temporaryIDs,
-		}),
-	})
+	executor := harness.executor(server.Client())
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
 		Profile: agentprofiles.Profile{
 			ID:   "profile-alpha",
 			Name: "Alpha",
 		},
-		Run: run,
+		Run: harness.run,
 		LLMConfig: llmconfig.Config{
 			ID:        "primary",
 			Model:     "claude-sonnet-4-5-20250929",
@@ -343,83 +151,16 @@ func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurn
 		t.Fatalf("execute managed anthropic tool stream: %v", err)
 	}
 
-	if len(capturedCalls) != 1 {
-		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	assertCreateSectionToolCall(t, harness.capturedCalls)
+	assertProviderRequestCount(t, requestBodies, 2)
+	assertToolDefinitionsInclude(t, requestBodies[0]["tools"], 2, "setta__create_top_level_section", "setta__report_completion_status")
+	assertAnthropicFollowUpToolExchange(t, requestBodies[1]["messages"])
+	assertOutputMessagesWithFinalAssistant(t, result, 4, "Tool loop complete")
+	assertSinglePersistedToolCall(t, result)
+	if harness.broadcaster.Count() != 10 {
+		t.Fatalf("expected 10 managed stream broadcasts, got %d", harness.broadcaster.Count())
 	}
-	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
-		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
-	}
-	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
-		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
-	}
-
-	if len(requestBodies) != 2 {
-		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
-	}
-	firstTools, ok := requestBodies[0]["tools"].([]any)
-	if !ok || len(firstTools) != 2 {
-		t.Fatalf("expected anthropic tool definitions including completion reporting, got %#v", requestBodies[0]["tools"])
-	}
-	if !toolPayloadIncludesName(firstTools, "setta__create_top_level_section") {
-		t.Fatalf("expected anthropic tool payload to include create_top_level_section, got %#v", firstTools)
-	}
-	if !toolPayloadIncludesName(firstTools, "setta__report_completion_status") {
-		t.Fatalf("expected anthropic tool payload to include report_completion_status, got %#v", firstTools)
-	}
-	secondMessages, ok := requestBodies[1]["messages"].([]any)
-	if !ok || len(secondMessages) < 3 {
-		t.Fatalf("expected follow-up anthropic transcript, got %#v", requestBodies[1]["messages"])
-	}
-	foundAssistantToolUse := false
-	foundUserToolResult := false
-	for _, rawMessage := range secondMessages {
-		message, ok := rawMessage.(map[string]any)
-		if !ok {
-			continue
-		}
-		role, _ := message["role"].(string)
-		content, _ := message["content"].([]any)
-		if role == "assistant" {
-			for _, rawBlock := range content {
-				block, _ := rawBlock.(map[string]any)
-				if block["type"] == "tool_use" && block["id"] == "tool-call-1" {
-					foundAssistantToolUse = true
-				}
-			}
-		}
-		if role == "user" {
-			for _, rawBlock := range content {
-				block, _ := rawBlock.(map[string]any)
-				if block["type"] == "tool_result" && block["tool_use_id"] == "tool-call-1" {
-					foundUserToolResult = true
-				}
-			}
-		}
-	}
-	if !foundAssistantToolUse || !foundUserToolResult {
-		t.Fatalf("expected anthropic follow-up transcript with tool_use and tool_result, got %#v", secondMessages)
-	}
-
-	messages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(messages) != 4 {
-		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
-	}
-	if len(result.ToolCalls) != 1 {
-		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
-	}
-	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
-		t.Fatalf("unexpected final assistant text %#v", messages[3])
-	}
-	if broadcaster.Count() != 10 {
-		t.Fatalf("expected 10 managed stream broadcasts, got %d", broadcaster.Count())
-	}
-	followMessages := broadcaster.ResultFollowMessages()
-	if len(followMessages) != 1 {
-		t.Fatalf("expected one result-follow update, got %#v", followMessages)
-	}
-	if got := followMessages[0].Content.IDsByType["section"]; len(got) != 1 || got[0] != "section-created" {
-		t.Fatalf("expected canonical section follow id, got %#v", followMessages[0].Content.IDsByType)
-	}
+	assertResultFollowSectionID(t, harness.broadcaster)
 }
 
 func TestExecutorValidateAllowsThinkingWithExplicitReasoningConfig(t *testing.T) {
@@ -598,40 +339,23 @@ func TestExecutorValidateAllowsThinkingForGeminiWithExplicitConfig(t *testing.T)
 func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 
-	var seenRequest map[string]any
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-		fmt.Fprint(w, anthropicMessageStartEvent("msg-thinking", "claude-sonnet-4-5-20250929", 12, 0))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicThinkingBlockStartEvent(0, "Planning"))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicThinkingDeltaEvent(0, " deeply"))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicSignatureDeltaEvent(0, "sig-thinking"))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicContentBlockStopEvent(0))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicTextBlockStartEvent(1))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicTextDeltaEvent(1, "Final answer"))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicContentBlockStopEvent(1))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicMessageDeltaEvent("end_turn", 12, 3))
-		flusher.Flush()
-		fmt.Fprint(w, anthropicMessageStopEvent())
-		flusher.Flush()
-	}))
+	requestBodies := make([]map[string]any, 0, 1)
+	server := newManagedLLMProviderEventServer(
+		t,
+		&requestBodies,
+		[]string{
+			anthropicMessageStartEvent("msg-thinking", "claude-sonnet-4-5-20250929", 12, 0),
+			anthropicThinkingBlockStartEvent(0, "Planning"),
+			anthropicThinkingDeltaEvent(0, " deeply"),
+			anthropicSignatureDeltaEvent(0, "sig-thinking"),
+			anthropicContentBlockStopEvent(0),
+			anthropicTextBlockStartEvent(1),
+			anthropicTextDeltaEvent(1, "Final answer"),
+			anthropicContentBlockStopEvent(1),
+			anthropicMessageDeltaEvent("end_turn", 12, 3),
+			anthropicMessageStopEvent(),
+		},
+	)
 	defer server.Close()
 
 	broadcaster := &captureBroadcaster{}
@@ -691,40 +415,9 @@ func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testi
 		t.Fatalf("execute managed anthropic thinking stream: %v", err)
 	}
 
-	thinkingConfig, ok := seenRequest["thinking"].(map[string]any)
-	if !ok || thinkingConfig["type"] != "enabled" || thinkingConfig["budget_tokens"] != float64(1024) {
-		t.Fatalf("expected anthropic thinking request config, got %#v", seenRequest["thinking"])
-	}
-	if seenRequest["max_tokens"] != float64(4096) {
-		t.Fatalf("expected anthropic max_tokens override, got %#v", seenRequest["max_tokens"])
-	}
-
-	messages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(messages) != 2 {
-		t.Fatalf("expected user and assistant messages, got %#v", result.Outputs["messages"])
-	}
-	assistant, ok := messages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected assistant message map, got %#v", messages[1])
-	}
-	content, ok := assistant["content"].([]any)
-	if !ok || len(content) != 2 {
-		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
-	}
-	thinkingBlock, ok := content[0].(map[string]any)
-	if !ok || thinkingBlock["type"] != "thinking" {
-		t.Fatalf("expected thinking block at content[0], got %#v", content[0])
-	}
-	if thinkingBlock["thinking"] != "Planning deeply" {
-		t.Fatalf("unexpected thinking content %#v", thinkingBlock)
-	}
-	if thinkingBlock["signature"] != "sig-thinking" {
-		t.Fatalf("unexpected thinking signature %#v", thinkingBlock)
-	}
-	textBlock, ok := content[1].(map[string]any)
-	if !ok || textBlock["text"] != "Final answer" {
-		t.Fatalf("unexpected text block %#v", content[1])
-	}
+	assertProviderRequestCount(t, requestBodies, 1)
+	assertAnthropicThinkingRequest(t, requestBodies[0])
+	assertThinkingAssistantOutput(t, result, "Planning deeply", "sig-thinking", "Final answer")
 	if broadcaster.Count() != 7 {
 		t.Fatalf("expected 7 streaming broadcasts, got %d", broadcaster.Count())
 	}
@@ -733,24 +426,15 @@ func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testi
 func TestExecutorExecuteStreamsGeminiThinkingBlocksAndReturnsOutputs(t *testing.T) {
 	t.Parallel()
 
-	var seenRequest map[string]any
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Planning\",\"thought\":true,\"thoughtSignature\":\"c2ln\"}]}}]}\n\n")
-		flusher.Flush()
-		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Final answer\"}]}}],\"usageMetadata\":{\"promptTokenCount\":12,\"candidatesTokenCount\":3,\"totalTokenCount\":15,\"thoughtsTokenCount\":2}}\n\n")
-		flusher.Flush()
-	}))
+	requestBodies := make([]map[string]any, 0, 1)
+	server := newManagedLLMProviderEventServer(
+		t,
+		&requestBodies,
+		[]string{
+			"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Planning\",\"thought\":true,\"thoughtSignature\":\"c2ln\"}]}}]}\n\n",
+			"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Final answer\"}]}}],\"usageMetadata\":{\"promptTokenCount\":12,\"candidatesTokenCount\":3,\"totalTokenCount\":15,\"thoughtsTokenCount\":2}}\n\n",
+		},
+	)
 	defer server.Close()
 
 	broadcaster := &captureBroadcaster{}
@@ -808,55 +492,10 @@ func TestExecutorExecuteStreamsGeminiThinkingBlocksAndReturnsOutputs(t *testing.
 		t.Fatalf("execute managed gemini thinking stream: %v", err)
 	}
 
-	generationConfig, ok := seenRequest["generationConfig"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected generationConfig payload, got %#v", seenRequest["generationConfig"])
-	}
-	thinkingConfig, ok := generationConfig["thinkingConfig"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected gemini thinkingConfig, got %#v", generationConfig["thinkingConfig"])
-	}
-	if thinkingConfig["includeThoughts"] != true {
-		t.Fatalf("expected includeThoughts=true, got %#v", thinkingConfig)
-	}
-	if thinkingConfig["thinkingBudget"] != float64(128) {
-		t.Fatalf("expected gemini thinkingBudget=128, got %#v", thinkingConfig)
-	}
-	if thinkingConfig["thinkingLevel"] != "MEDIUM" {
-		t.Fatalf("expected gemini thinkingLevel=MEDIUM, got %#v", thinkingConfig)
-	}
-
-	messages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(messages) != 2 {
-		t.Fatalf("expected user and assistant messages, got %#v", result.Outputs["messages"])
-	}
-	assistant, ok := messages[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected assistant message map, got %#v", messages[1])
-	}
-	content, ok := assistant["content"].([]any)
-	if !ok || len(content) != 2 {
-		t.Fatalf("expected thinking plus text content, got %#v", assistant["content"])
-	}
-	thinkingBlock, ok := content[0].(map[string]any)
-	if !ok || thinkingBlock["type"] != "thinking" {
-		t.Fatalf("expected thinking block at content[0], got %#v", content[0])
-	}
-	if thinkingBlock["thinking"] != "Planning" {
-		t.Fatalf("unexpected thinking content %#v", thinkingBlock)
-	}
-	if thinkingBlock["signature"] != "c2ln" {
-		t.Fatalf("unexpected thinking signature %#v", thinkingBlock)
-	}
-	textBlock, ok := content[1].(map[string]any)
-	if !ok || textBlock["text"] != "Final answer" {
-		t.Fatalf("unexpected text block %#v", content[1])
-	}
-
-	usage, ok := result.Outputs["usage"].(map[string]any)
-	if !ok || int(usage["reasoning_output_tokens"].(float64)) != 2 {
-		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
-	}
+	assertProviderRequestCount(t, requestBodies, 1)
+	assertGeminiThinkingRequest(t, requestBodies[0])
+	assertThinkingAssistantOutput(t, result, "Planning", "c2ln", "Final answer")
+	assertReasoningUsageTokens(t, result, 2)
 	if broadcaster.Count() != 5 {
 		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
 	}
@@ -865,110 +504,29 @@ func TestExecutorExecuteStreamsGeminiThinkingBlocksAndReturnsOutputs(t *testing.
 func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
 	t.Parallel()
 
-	root := t.TempDir()
-	temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(root))
-	if err != nil {
-		t.Fatalf("new temporary id store: %v", err)
-	}
-	createdSectionID, err := temporaryIDs.EnsureTemporaryID("section-created")
-	if err != nil {
-		t.Fatalf("ensure temporary section id: %v", err)
-	}
-
+	harness := newManagedLLMToolLoopHarness(t)
 	requestBodies := make([]map[string]any, 0, 2)
-	requestCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		body := map[string]any{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		requestBodies = append(requestBodies, body)
-
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-
-		switch requestCount {
-		case 0:
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__create_top_level_section\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"implType\\\":\\\"Dict\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
-			flusher.Flush()
-			fmt.Fprint(w, "data: [DONE]\n\n")
-		case 1:
-			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Tool loop complete\"},\"finish_reason\":\"stop\"}]}\n\n")
-			flusher.Flush()
-			fmt.Fprint(w, "data: [DONE]\n\n")
-		default:
-			t.Fatalf("unexpected provider request count %d", requestCount)
-		}
-		requestCount++
-	}))
+	server := newManagedLLMProviderEventServer(
+		t,
+		&requestBodies,
+		[]string{
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__create_top_level_section\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"implType\\\":\\\"Dict\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n",
+			"data: [DONE]\n\n",
+		},
+		[]string{
+			"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Tool loop complete\"},\"finish_reason\":\"stop\"}]}\n\n",
+			"data: [DONE]\n\n",
+		},
+	)
 	defer server.Close()
 
-	broadcaster := &captureBroadcaster{}
-	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
-	run := newManagedChatTestRun()
-	live.ActivateRun(run)
-
-	capturedCalls := make([]struct {
-		ToolName  string
-		Arguments map[string]any
-		Meta      map[string]any
-	}, 0, 1)
-	toolClient := &stubToolClient{
-		initTools: managedCompletionStatusInitTools(),
-		discoverableTools: map[string]mcpx.ToolDescriptor{
-			"setta__create_top_level_section": {
-				ServerID:       mcpx.DefaultServerID,
-				NamespacedName: "setta__create_top_level_section",
-				RemoteName:     "create_top_level_section",
-				Description:    "Create a top-level section.",
-				InputSchema: map[string]any{
-					"type": "object",
-				},
-				Metadata: &tools.Metadata{
-					ResultIDPathsByType: map[tools.IDType][]string{
-						tools.IDTypeSection: {"sectionId"},
-					},
-				},
-			},
-		},
-		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
-			capturedCalls = append(capturedCalls, struct {
-				ToolName  string
-				Arguments map[string]any
-				Meta      map[string]any
-			}{
-				ToolName:  namespacedToolName,
-				Arguments: arguments,
-				Meta:      meta,
-			})
-			return mcpx.ToolCallResult{
-				StructuredContent: map[string]any{"sectionId": createdSectionID},
-				Text:              "{\"sectionId\":\"" + createdSectionID + "\"}",
-			}, nil
-		},
-	}
-
-	executor := NewExecutor(ExecutorOptions{
-		Live:       live,
-		Tools:      toolClient,
-		HTTPClient: server.Client(),
-		ResultFollow: NewToolResultFollowEmitter(ToolResultFollowEmitterOptions{
-			Broadcaster:  broadcaster,
-			TemporaryIDs: temporaryIDs,
-		}),
-	})
+	executor := harness.executor(server.Client())
 	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
 		Profile: agentprofiles.Profile{
 			ID:   "profile-alpha",
 			Name: "Alpha",
 		},
-		Run: run,
+		Run: harness.run,
 		LLMConfig: llmconfig.Config{
 			ID:        "primary",
 			Model:     "gpt-4o-mini",
@@ -1003,83 +561,18 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 		t.Fatalf("execute managed llm tool stream: %v", err)
 	}
 
-	if len(capturedCalls) != 1 {
-		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	toolCall := assertCreateSectionToolCall(t, harness.capturedCalls)
+	assertCreateSectionToolMeta(t, toolCall)
+	assertProviderRequestCount(t, requestBodies, 2)
+	assertToolDefinitionsInclude(t, requestBodies[0]["tools"], 2, "setta__create_top_level_section", "setta__report_completion_status")
+	assertOpenAIFollowUpToolResult(t, requestBodies[1]["messages"])
+	assertOutputMessagesWithFinalAssistant(t, result, 4, "Tool loop complete")
+	assertSinglePersistedToolCall(t, result)
+	if harness.broadcaster.Count() != 9 {
+		t.Fatalf("expected 9 managed stream broadcasts, got %d", harness.broadcaster.Count())
 	}
-	if capturedCalls[0].ToolName != "setta__create_top_level_section" {
-		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
-	}
-	if capturedCalls[0].Arguments["projectConfigId"] != "project-alpha" {
-		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
-	}
-	if capturedCalls[0].Meta["projectConfigId"] != "project-alpha" {
-		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
-	}
-	if capturedCalls[0].Meta["chatId"] != "chat-alpha" {
-		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
-	}
-	if capturedCalls[0].Meta["allowUnscoped"] != true {
-		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
-	}
-
-	if len(requestBodies) != 2 {
-		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
-	}
-	firstTools, ok := requestBodies[0]["tools"].([]any)
-	if !ok || len(firstTools) != 2 {
-		t.Fatalf("expected tool definitions including completion reporting, got %#v", requestBodies[0]["tools"])
-	}
-	if !toolPayloadIncludesName(firstTools, "setta__create_top_level_section") {
-		t.Fatalf("expected OpenAI chat tool payload to include create_top_level_section, got %#v", firstTools)
-	}
-	if !toolPayloadIncludesName(firstTools, "setta__report_completion_status") {
-		t.Fatalf("expected OpenAI chat tool payload to include report_completion_status, got %#v", firstTools)
-	}
-	secondMessages, ok := requestBodies[1]["messages"].([]any)
-	if !ok || len(secondMessages) < 4 {
-		t.Fatalf("expected follow-up provider transcript, got %#v", requestBodies[1]["messages"])
-	}
-	foundToolMessage := false
-	for _, rawMessage := range secondMessages {
-		message, ok := rawMessage.(map[string]any)
-		if !ok {
-			continue
-		}
-		if message["role"] != "tool" {
-			continue
-		}
-		if message["tool_call_id"] != "tool-call-1" {
-			t.Fatalf("unexpected tool follow-up message %#v", message)
-		}
-		foundToolMessage = true
-	}
-	if !foundToolMessage {
-		t.Fatalf("expected provider follow-up to include tool result message, got %#v", secondMessages)
-	}
-
-	messages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(messages) != 4 {
-		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
-	}
-	if len(result.ToolCalls) != 1 {
-		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
-	}
-	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
-		t.Fatalf("unexpected final assistant text %#v", messages[3])
-	}
-	if broadcaster.Count() != 9 {
-		t.Fatalf("expected 9 managed stream broadcasts, got %d", broadcaster.Count())
-	}
-	followMessages := broadcaster.ResultFollowMessages()
-	if len(followMessages) != 1 {
-		t.Fatalf("expected one result-follow update, got %#v", followMessages)
-	}
-	if followMessages[0].Content.ProjectConfigID != "project-alpha" || followMessages[0].Content.ChatID != "chat-alpha" {
-		t.Fatalf("unexpected result-follow message %#v", followMessages[0])
-	}
-	if got := followMessages[0].Content.IDsByType["section"]; len(got) != 1 || got[0] != "section-created" {
-		t.Fatalf("expected canonical section follow id, got %#v", followMessages[0].Content.IDsByType)
-	}
+	assertResultFollowScope(t, harness.broadcaster)
+	assertResultFollowSectionID(t, harness.broadcaster)
 }
 
 func newManagedChatTestRun() agentruns.Run {
