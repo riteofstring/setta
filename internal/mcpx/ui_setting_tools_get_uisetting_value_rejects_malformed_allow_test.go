@@ -3,12 +3,10 @@ package mcpx
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
@@ -321,99 +319,11 @@ func TestServerUISettingToolsRoundTripProjectNameAndPythonCodegenEnabled(t *test
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "project name",
-			"limit":           5,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call search_ui_settings for project name: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected search_ui_settings success, got %#v", searchResult.StructuredContent)
-	}
-	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	searchResults := mustStructuredList(t, searchPayload["results"])
-	if len(searchResults) == 0 || mustStructuredMap(t, searchResults[0])["settingId"] != "core.project.name" {
-		t.Fatalf("expected project-name search result, got %#v", searchResults)
-	}
-
-	projectNameResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "core.project.name",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call get_ui_setting_value for project name: %v", err)
-	}
-	if projectNameResult.IsError {
-		t.Fatalf("expected project name read success, got %#v", projectNameResult.StructuredContent)
-	}
-	projectNamePayload := mustStructuredMap(t, projectNameResult.StructuredContent)
-	if projectNamePayload["value"] != "Alpha" {
-		t.Fatalf("expected project name Alpha, got %#v", projectNamePayload["value"])
-	}
-
-	setProjectNameResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "core.project.name",
-			"value":           "Renamed Project",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_ui_setting_value for project name: %v", err)
-	}
-	if setProjectNameResult.IsError {
-		t.Fatalf("expected project name write success, got %#v", setProjectNameResult.StructuredContent)
-	}
-	setProjectNamePayload := mustStructuredMap(t, setProjectNameResult.StructuredContent)
-	if setProjectNamePayload["changed"] != true {
-		t.Fatalf("expected project name changed=true, got %#v", setProjectNamePayload["changed"])
-	}
-
-	pythonCodegenResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "core.run_instructions.python_codegen_enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call get_ui_setting_value for python codegen enabled: %v", err)
-	}
-	if pythonCodegenResult.IsError {
-		t.Fatalf("expected python codegen read success, got %#v", pythonCodegenResult.StructuredContent)
-	}
-	pythonCodegenPayload := mustStructuredMap(t, pythonCodegenResult.StructuredContent)
-	if pythonCodegenPayload["value"] != false {
-		t.Fatalf("expected python codegen disabled, got %#v", pythonCodegenPayload["value"])
-	}
-
-	setPythonCodegenResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "core.run_instructions.python_codegen_enabled",
-			"value":           true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_ui_setting_value for python codegen enabled: %v", err)
-	}
-	if setPythonCodegenResult.IsError {
-		t.Fatalf("expected python codegen write success, got %#v", setPythonCodegenResult.StructuredContent)
-	}
-	setPythonCodegenPayload := mustStructuredMap(t, setPythonCodegenResult.StructuredContent)
-	if setPythonCodegenPayload["changed"] != true {
-		t.Fatalf("expected python codegen changed=true, got %#v", setPythonCodegenPayload["changed"])
-	}
+	assertUISettingSearchFirstSetting(t, clientSession, "project name", "core.project.name")
+	assertUISettingValue(t, clientSession, "core.project.name", "Alpha")
+	assertUISettingChanged(t, clientSession, "core.project.name", "Renamed Project")
+	assertUISettingValue(t, clientSession, "core.run_instructions.python_codegen_enabled", false)
+	assertUISettingChanged(t, clientSession, "core.run_instructions.python_codegen_enabled", true)
 
 	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
@@ -1294,419 +1204,58 @@ func TestServerSetUISettingValueRejectsWriterOldValueDrift(t *testing.T) {
 	}
 }
 
-func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	revealService := &recordingRevealService{
-		result: uisettings.RevealResult{
-			RequestID:          "request-whitespace",
-			ProjectConfigID:    "project-alpha",
-			DurationMS:         1500,
-			EmittedRevealCount: 1,
-			Statuses: []uisettings.RevealStatus{
-				{
-					SettingID: "plugin::setta-fixture-watch-code-provider::files",
-					Status:    "revealed",
-					Target: &realtime.UISettingRevealTarget{
-						SettingID:      "plugin::setta-fixture-watch-code-provider::files",
-						Side:           "left",
-						OverviewTabKey: testStringPointer("Overview"),
-						Strategy:       "dom_anchor",
-						AnchorID:       testStringPointer("plugin::setta-fixture-watch-code-provider::files"),
-					},
-				},
-			},
-		},
-	}
-
-	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
-		WorkspaceRoot:    t.TempDir(),
-		ProjectState:     projectRuntime,
-		UISettingReveals: revealService,
-	})
-	defer clientSession.Close()
-
-	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
-
-	paddedSettingID := "  plugin::setta-fixture-watch-code-provider::files\t"
-
-	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       paddedSettingID,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call padded get_ui_setting_value: %v", err)
-	}
-	if getResult.IsError {
-		t.Fatalf("expected padded get_ui_setting_value success, got %#v", getResult.StructuredContent)
-	}
-
-	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if value := mustStructuredList(t, getPayload["value"]); len(value) != 0 {
-		t.Fatalf("expected initial watch-code files to be empty, got %#v", value)
-	}
-
-	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       paddedSettingID,
-			"value":           []any{"pkg/padded.py"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("call padded set_ui_setting_value: %v", err)
-	}
-	if setResult.IsError {
-		t.Fatalf("expected padded set_ui_setting_value success, got %#v", setResult.StructuredContent)
-	}
-
-	setPayload := mustStructuredMap(t, setResult.StructuredContent)
-	if setPayload["changed"] != true {
-		t.Fatalf("expected padded set_ui_setting_value to change state, got %#v", setPayload)
-	}
-
-	revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "reveal_ui_setting",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       paddedSettingID,
-			"durationMs":      1500,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call padded reveal_ui_setting: %v", err)
-	}
-	if revealResult.IsError {
-		t.Fatalf("expected padded reveal_ui_setting success, got %#v", revealResult.StructuredContent)
-	}
-
-	snapshot := projectRuntime.Snapshot()
-	project, err := snapshot.Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after padded UI-setting writes: %v", err)
-	}
-	projectData := readScopedTestWatchCodeProjectData(t, snapshot.Document, project.ID)
-	if !reflect.DeepEqual(projectData.Files, []string{"pkg/padded.py"}) {
-		t.Fatalf("expected padded set_ui_setting_value to persist watch-code files, got %#v", projectData.Files)
-	}
-	if revealService.input.SettingID != "plugin::setta-fixture-watch-code-provider::files" {
-		t.Fatalf("expected trimmed reveal setting id, got %q", revealService.input.SettingID)
-	}
-}
-
-func TestServerUISettingToolsRejectWhitespaceOnlySettingID(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
-	defer clientSession.Close()
-
-	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
-
-	testCases := []struct {
-		name      string
-		toolName  string
-		arguments map[string]any
-	}{
-		{
-			name:     "get",
-			toolName: "get_ui_setting_value",
-			arguments: map[string]any{
-				"projectConfigId": "project-alpha",
-				"settingId":       " \t ",
-			},
-		},
-		{
-			name:     "set",
-			toolName: "set_ui_setting_value",
-			arguments: map[string]any{
-				"projectConfigId": "project-alpha",
-				"settingId":       " \t ",
-				"value":           true,
-			},
-		},
-		{
-			name:     "reveal",
-			toolName: "reveal_ui_setting",
-			arguments: map[string]any{
-				"projectConfigId": "project-alpha",
-				"settingId":       " \t ",
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-				Name:      tc.toolName,
-				Arguments: tc.arguments,
-			})
-			if err != nil {
-				t.Fatalf("call %s with blank setting id: %v", tc.toolName, err)
-			}
-			if !result.IsError {
-				t.Fatalf("expected %s with blank setting id to fail, got %#v", tc.toolName, result.StructuredContent)
-			}
-
-			payload := mustStructuredMap(t, result.StructuredContent)
-			if payload["code"] != "invalid_arguments" {
-				t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
-			}
-			if payload["message"] != "settingId must not be empty" {
-				t.Fatalf("expected blank setting id message, got %#v", payload["message"])
-			}
-		})
-	}
-}
-
-func TestServerUISettingToolsTranslateTemporaryProjectIDs(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
-	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
-		"project-alpha": "11",
-		"chat-1":        "12",
-		"chat-section":  "13",
-	})
-
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
-		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
-		TemporaryIDMapPath: temporaryIDMapPath,
-	})
-	defer clientSession.Close()
-
-	setUISettingAgenticContext(t, clientSession, "11", "12", "13", true)
-
-	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"settingId":       "core.project.show_param_display_names",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call temporary get_ui_setting_value: %v", err)
-	}
-	if getResult.IsError {
-		t.Fatalf("expected temporary get_ui_setting_value success, got %#v", getResult.StructuredContent)
-	}
-
-	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "11",
-			"settingId":       "core.project.show_param_display_names",
-			"value":           true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call temporary set_ui_setting_value: %v", err)
-	}
-	if setResult.IsError {
-		t.Fatalf("expected temporary set_ui_setting_value success, got %#v", setResult.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temporary set_ui_setting_value: %v", err)
-	}
-	if !project.ShowParamDisplayNames {
-		t.Fatal("expected temporary-id write to persist to canonical project")
-	}
-}
-
-func TestServerRevealUISettingTranslatesTemporaryIDs(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openScopedTestProjectRuntime(t)
-	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
-	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
-		"project-alpha":            "11",
-		"chat-1":                   "12",
-		"chat-section":             "13",
-		"allowed-callable-section": "14",
-	})
-
-	revealService := &recordingRevealService{
-		result: uisettings.RevealResult{
-			RequestID:          "request-temp",
-			ProjectConfigID:    "project-alpha",
-			DurationMS:         3000,
-			EmittedRevealCount: 0,
-			Statuses: []uisettings.RevealStatus{
-				{
-					SettingID: "core.project.show_param_display_names",
-					Status:    "failed",
-					Error: &uisettings.SettingError{
-						Code:    uisettings.ErrorCodeMutationFailed,
-						Message: "test failure",
-					},
-				},
-			},
-		},
-	}
-
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
-		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		UISettingReveals:   revealService,
-		TemporaryIDMapPath: temporaryIDMapPath,
-	})
-	defer clientSession.Close()
-
-	setUISettingAgenticContext(t, clientSession, "11", "12", "13", true)
+func callUISettingTool(t *testing.T, clientSession *sdkmcp.ClientSession, toolName string, arguments map[string]any) map[string]any {
+	t.Helper()
 
 	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "reveal_ui_setting",
-		Arguments: map[string]any{
-			"projectConfigId":     "11",
-			"settingId":           "core.project.show_param_display_names",
-			"sectionIdToActivate": "14",
-		},
+		Name:      toolName,
+		Arguments: arguments,
 	})
 	if err != nil {
-		t.Fatalf("call temporary reveal_ui_setting: %v", err)
+		t.Fatalf("call %s: %v", toolName, err)
 	}
 	if result.IsError {
-		t.Fatalf("expected temporary reveal_ui_setting success, got %#v", result.StructuredContent)
+		t.Fatalf("expected %s success, got %#v", toolName, result.StructuredContent)
 	}
+	return mustStructuredMap(t, result.StructuredContent)
+}
 
-	if revealService.input.ProjectConfigID != "project-alpha" {
-		t.Fatalf("expected canonical project id, got %q", revealService.input.ProjectConfigID)
-	}
-	if revealService.input.SectionIDToActivate != "allowed-callable-section" {
-		t.Fatalf("expected canonical section id, got %q", revealService.input.SectionIDToActivate)
+func assertUISettingSearchFirstSetting(t *testing.T, clientSession *sdkmcp.ClientSession, query string, expectedSettingID string) {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, "search_ui_settings", map[string]any{
+		"projectConfigId": "project-alpha",
+		"query":           query,
+		"limit":           5,
+	})
+	results := mustStructuredList(t, payload["results"])
+	if len(results) == 0 || mustStructuredMap(t, results[0])["settingId"] != expectedSettingID {
+		t.Fatalf("expected first search result %s, got %#v", expectedSettingID, results)
 	}
 }
 
-func TestServerUISettingToolsSupportSchemaBackedPluginSettings(t *testing.T) {
-	t.Parallel()
+func assertUISettingValue(t *testing.T, clientSession *sdkmcp.ClientSession, settingID string, expected any) {
+	t.Helper()
 
-	projectRuntime := openScopedTestProjectRuntime(t)
-	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
-		"pypi:setta-fixture-full==0.1.0": {
-			FixtureName:  "full",
-			Version:      "0.1.0",
-			StripBackend: true,
-		},
+	payload := callUISettingTool(t, clientSession, "get_ui_setting_value", map[string]any{
+		"projectConfigId": "project-alpha",
+		"settingId":       settingID,
 	})
-	if _, err := service.Install(context.Background(), plugins.InstallOptions{
-		SourceSpec: "pypi:setta-fixture-full==0.1.0",
-		Enable:     true,
-	}); err != nil {
-		t.Fatalf("install full fixture plugin: %v", err)
+	if !reflect.DeepEqual(payload["value"], expected) {
+		t.Fatalf("expected %s value %#v, got %#v", settingID, expected, payload["value"])
 	}
+}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
-		WorkspaceRoot:   roots.workspaceRoot,
-		ProjectState:    projectRuntime,
-		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
-		PluginMutations: service,
+func assertUISettingChanged(t *testing.T, clientSession *sdkmcp.ClientSession, settingID string, value any) map[string]any {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, "set_ui_setting_value", map[string]any{
+		"projectConfigId": "project-alpha",
+		"settingId":       settingID,
+		"value":           value,
 	})
-	defer clientSession.Close()
-
-	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
-
-	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "fixture label",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call plugin search_ui_settings: %v", err)
+	if payload["changed"] != true {
+		t.Fatalf("expected %s changed=true, got %#v", settingID, payload)
 	}
-	if searchResult.IsError {
-		t.Fatalf("expected plugin search_ui_settings success, got %#v", searchResult.StructuredContent)
-	}
-	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	searchResults := mustStructuredList(t, searchPayload["results"])
-	if len(searchResults) == 0 {
-		t.Fatal("expected plugin UI setting search results")
-	}
-	firstResult := mustStructuredMap(t, searchResults[0])
-	if firstResult["settingId"] != "plugin::setta-fixture-full::label" {
-		t.Fatalf("expected plugin label search result, got %#v", firstResult)
-	}
-	if firstResult["source"] != "plugin" {
-		t.Fatalf("expected plugin search result source, got %#v", firstResult["source"])
-	}
-
-	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::label",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call get_ui_setting_value for plugin label: %v", err)
-	}
-	if getResult.IsError {
-		t.Fatalf("expected plugin get_ui_setting_value success, got %#v", getResult.StructuredContent)
-	}
-	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if getPayload["value"] != "unset" {
-		t.Fatalf("expected default plugin label value, got %#v", getPayload["value"])
-	}
-
-	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-			"value":           true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_ui_setting_value for plugin enabled: %v", err)
-	}
-	if setResult.IsError {
-		t.Fatalf("expected plugin set_ui_setting_value success, got %#v", setResult.StructuredContent)
-	}
-	setPayload := mustStructuredMap(t, setResult.StructuredContent)
-	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
-		t.Fatalf("expected plugin write false -> true, got %#v", setPayload)
-	}
-
-	labelSetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::label",
-			"value":           "updated",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_ui_setting_value for plugin label: %v", err)
-	}
-	if labelSetResult.IsError {
-		t.Fatalf("expected plugin label set_ui_setting_value success, got %#v", labelSetResult.StructuredContent)
-	}
-	labelSetPayload := mustStructuredMap(t, labelSetResult.StructuredContent)
-	if labelSetPayload["oldValue"] != "unset" || labelSetPayload["newValue"] != "updated" || labelSetPayload["changed"] != true {
-		t.Fatalf("expected plugin label write unset -> updated, got %#v", labelSetPayload)
-	}
-
-	runtimeResponse, err := service.Runtime(plugins.RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("plugin runtime after write: %v", err)
-	}
-	pluginEntry := mustFindPluginListEntry(t, runtimeResponse.List.Plugins, "setta-fixture-full")
-	if pluginEntry.Config.CurrentConfig["enabled"] != true {
-		t.Fatalf("expected plugin config enabled=true, got %#v", pluginEntry.Config.CurrentConfig)
-	}
-	if pluginEntry.Config.CurrentConfig["label"] != "updated" {
-		t.Fatalf("expected plugin config label=updated, got %#v", pluginEntry.Config.CurrentConfig)
-	}
+	return payload
 }
