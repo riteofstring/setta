@@ -441,6 +441,20 @@ func TestRegisterProjectShellRoutesSavesProject(t *testing.T) {
 func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	t.Parallel()
 
+	store, handler := newProjectShellSaveAsRouteFixture(t)
+	postProjectShellSaveAsWithoutRefs(t, handler)
+
+	reloaded := loadProjectShellRouteStore(t, store)
+	clonedProject := findProjectShellRouteClonedProject(t, reloaded)
+	assertProjectShellRouteClonedLiveWindowingWithoutRefs(t, clonedProject)
+	assertProjectShellRouteClonedSavedWindowingWithoutRefs(t, clonedProject)
+}
+
+func newProjectShellSaveAsRouteFixture(
+	t *testing.T,
+) (*projectstate.Store, http.Handler) {
+	t.Helper()
+
 	root := t.TempDir()
 	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
 	if err != nil {
@@ -472,6 +486,12 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	}
 
 	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	return store, handler
+}
+
+func postProjectShellSaveAsWithoutRefs(t *testing.T, handler http.Handler) {
+	t.Helper()
+
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":false,"frontendOpId":"save-as-op-1"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -479,11 +499,21 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
+}
+
+func loadProjectShellRouteStore(t *testing.T, store *projectstate.Store) projectstate.Document {
+	t.Helper()
 
 	reloaded, err := store.Load(t.Context())
 	if err != nil {
 		t.Fatalf("reload project store: %v", err)
 	}
+	return reloaded
+}
+
+func findProjectShellRouteClonedProject(t *testing.T, reloaded projectstate.Document) projectstate.Project {
+	t.Helper()
+
 	if len(reloaded.Projects) != 2 {
 		t.Fatalf("expected two persisted projects, got %#v", reloaded.Projects)
 	}
@@ -501,6 +531,12 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	if !foundClone {
 		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
 	}
+	return clonedProject
+}
+
+func assertProjectShellRouteClonedLiveWindowingWithoutRefs(t *testing.T, clonedProject projectstate.Project) {
+	t.Helper()
+
 	if clonedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected cloned live windowing state")
 	}
@@ -519,6 +555,11 @@ func TestRegisterProjectShellRoutesSaveAsHonorsWithRefsFlag(t *testing.T) {
 	if _, ok := clonedProject.Sections["chat-section"]; !ok {
 		t.Fatalf("expected cloned project to retain section ids, got %#v", clonedProject.Sections)
 	}
+}
+
+func assertProjectShellRouteClonedSavedWindowingWithoutRefs(t *testing.T, clonedProject projectstate.Project) {
+	t.Helper()
+
 	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
 		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
 	}
