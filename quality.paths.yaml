@@ -18,7 +18,7 @@ python_tests:
   include_globs:
     - "tests/**/*.py"
   file_length:
-    max_lines: 2000
+    max_lines: 1800
 
 frontend:
   generated_globs:
@@ -75,7 +75,7 @@ frontend:
     exclude_globs:
       - "**/*.d.ts"
     exclude_generated: true
-    max_lines: 8000
+    max_lines: 6500
   boundary:
     include_globs:
       - "frontend/src/**"
@@ -122,4 +122,4 @@ go_tests:
   generated_globs:
     - "**/*_gen.go"
   file_length:
-    max_lines: 17000
+    max_lines: 15000

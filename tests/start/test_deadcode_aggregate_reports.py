@@ -70,6 +70,16 @@ def test_deadcode_configured_roots_default_and_override() -> None:
         "lint_roots",
         module.DEFAULT_PYTHON_LINT_ROOTS,
     ) == ["backend/setta", "plugins"]
+    assert module.config_string_list(
+        {},
+        "test_lint_roots",
+        module.python_reports.DEFAULT_PYTHON_TEST_LINT_ROOTS,
+    ) == ["tests"]
+    assert module.config_string_list(
+        {},
+        "test_reachability_roots",
+        module.python_reports.DEFAULT_PYTHON_TEST_REACHABILITY_ROOTS,
+    ) == ["tests"]
     assert module.python_reports.config_command_list(
         {},
         "entrypoint_commands",
@@ -92,8 +102,83 @@ def test_checked_in_deadcode_config_has_language_entrypoints() -> None:
         ["-m", "setta", "--help"],
         ["-m", "setta", "version"],
     ]
+    assert config["python"]["test_lint_roots"] == ["tests"]
+    assert config["python"]["test_reachability_roots"] == ["tests"]
     assert config["python"]["vulture_min_confidence"] == 60
     assert config["frontend"]["app_roots"] == ["frontend/src/index.tsx"]
+
+
+def test_deadcode_generated_globs_are_shared_with_quality_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_aggregate_reports_module()
+    monkeypatch.setattr(module, "ROOT_DIR", tmp_path)
+    (tmp_path / "quality.paths.yaml").write_text(
+        "\n".join(
+            [
+                "schema_version: 1",
+                "python:",
+                "  generated_globs:",
+                "    - shared/python/**",
+                "frontend:",
+                "  generated_globs:",
+                "    - shared/frontend/**",
+                "go:",
+                "  generated_globs:",
+                "    - shared/go/**",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert module.resolve_generated_globs(
+        "python", {"generated_globs": ["deadcode/python/**"]}, []
+    ) == ["shared/python/**", "deadcode/python/**"]
+    assert module.resolve_generated_globs(
+        "frontend", {"generated_globs": ["deadcode/frontend/**"]}, []
+    ) == ["shared/frontend/**", "deadcode/frontend/**"]
+    assert module.resolve_generated_globs(
+        "go", {"generated_globs": ["deadcode/go/**"]}, ["**/*_gen.go"]
+    ) == ["**/*_gen.go", "shared/go/**", "deadcode/go/**"]
+
+
+def test_python_reachability_includes_configured_script_roots() -> None:
+    module = _load_aggregate_reports_module()
+
+    findings = module.python_reports.normalize_python_vulture_findings(
+        output=(
+            "scripts/deadcode/aggregate_reports.py:10: "
+            "unused function 'helper' (90% confidence)"
+        ),
+        coverage_files={},
+        generated_globs=[],
+        public_modules=[],
+        analyzed_roots=["backend/setta", "scripts"],
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["path"] == "scripts/deadcode/aggregate_reports.py"
+    assert findings[0]["symbol"] == "helper"
+
+
+def test_python_test_reachability_marks_test_scope() -> None:
+    module = _load_aggregate_reports_module()
+
+    findings = module.python_reports.normalize_python_vulture_findings(
+        output="tests/api/test_example.py:12: unused function 'helper' (80% confidence)",
+        coverage_files={},
+        generated_globs=[],
+        public_modules=[],
+        analyzed_roots=["tests"],
+        root_scope="test",
+        bucket="test-dead",
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["root_scope"] == "test"
+    assert findings[0]["bucket"] == "test-dead"
 
 
 def test_relative_path_supports_external_output_directories(
@@ -170,3 +255,36 @@ def test_frontend_package_reports_use_frontend_relative_knip_directories(
         "plugins/demo/frontend/src/entry.ts",
         "plugins/demo/frontend/src/unused.ts",
     }
+
+
+def test_frontend_test_reachability_filters_to_test_paths() -> None:
+    module = _load_aggregate_reports_module()
+
+    findings = module.frontend_reports.normalize_knip_findings(
+        {
+            "files": ["src/unused.ts", "tests/e2e/unused.spec.ts"],
+            "issues": [
+                {
+                    "file": "src/component.ts",
+                    "exports": [{"name": "unusedProd", "line": 3, "col": 7}],
+                },
+                {
+                    "file": "tests/e2e/fixture.spec.ts",
+                    "exports": [{"name": "unusedTest", "line": 4, "col": 8}],
+                },
+            ],
+        },
+        generated_globs=[],
+        scope="test",
+        issue_label="knip full graph",
+        root_prefix="frontend",
+        bucket="test-dead",
+        root_scope="test",
+        only_test_paths=True,
+    )
+
+    assert {(finding["path"], finding["symbol"]) for finding in findings} == {
+        ("frontend/tests/e2e/fixture.spec.ts", "unusedTest"),
+        ("frontend/tests/e2e/unused.spec.ts", None),
+    }
+    assert {finding["root_scope"] for finding in findings} == {"test"}

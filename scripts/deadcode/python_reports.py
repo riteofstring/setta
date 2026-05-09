@@ -16,6 +16,8 @@ ROOT_DIR = common.ROOT_DIR
 SCHEMA_VERSION = common.SCHEMA_VERSION
 DEFAULT_PYTHON_LINT_ROOTS = ["backend/setta", "scripts"]
 DEFAULT_PYTHON_REACHABILITY_ROOTS = ["backend/setta", "scripts"]
+DEFAULT_PYTHON_TEST_LINT_ROOTS = ["tests"]
+DEFAULT_PYTHON_TEST_REACHABILITY_ROOTS = ["tests"]
 DEFAULT_PYTHON_ENTRYPOINT_COMMANDS = [
     ["-m", "setta", "--help"],
     ["-m", "setta", "version"],
@@ -57,8 +59,16 @@ def build_python_reports(
     lint_roots = config_string_list(
         python_config, "lint_roots", DEFAULT_PYTHON_LINT_ROOTS
     )
+    test_lint_roots = config_string_list(
+        python_config, "test_lint_roots", DEFAULT_PYTHON_TEST_LINT_ROOTS
+    )
     reachability_roots = config_string_list(
         python_config, "reachability_roots", DEFAULT_PYTHON_REACHABILITY_ROOTS
+    )
+    test_reachability_roots = config_string_list(
+        python_config,
+        "test_reachability_roots",
+        DEFAULT_PYTHON_TEST_REACHABILITY_ROOTS,
     )
     entrypoint_commands = config_command_list(
         python_config,
@@ -104,6 +114,44 @@ def build_python_reports(
     }
     lint_path = output_dir / "python.json"
     write_json(lint_path, lint_report)
+
+    test_lint_command = [
+        sys.executable,
+        "-m",
+        "ruff",
+        "check",
+        *test_lint_roots,
+        "--output-format",
+        "json",
+        "--exit-zero",
+        "--select",
+        ",".join(PYTHON_UNUSED_RULES),
+    ]
+    test_lint_completed = run_command(test_lint_command)
+    test_lint_raw_findings = json.loads(test_lint_completed.stdout or "[]")
+    test_lint_findings = normalize_python_ruff_findings(
+        test_lint_raw_findings,
+        generated_globs,
+        root_scope="test",
+        bucket="test-unused",
+    )
+    test_lint_report = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "language": "python",
+        "tool": "ruff",
+        "lane": "lint-unused",
+        "scope": "test",
+        "commands": [command_display(test_lint_command)],
+        "lint_roots": test_lint_roots,
+        "warnings": [],
+        "limitations": [
+            "Python test lint-unused is advisory in the dead-code report; the quality gate already enforces Ruff unused checks for tests."
+        ],
+        "findings": test_lint_findings,
+    }
+    test_lint_path = output_dir / "python-tests.json"
+    write_json(test_lint_path, test_lint_report)
 
     public_import_modules, public_module_warnings = (
         resolve_python_public_import_modules(public_modules)
@@ -154,19 +202,75 @@ def build_python_reports(
     reachability_path = output_dir / "python-reachability.json"
     write_json(reachability_path, reachability_report)
 
+    test_vulture_command = [
+        sys.executable,
+        "-m",
+        "vulture",
+        *test_reachability_roots,
+        "--min-confidence",
+        str(vulture_min_confidence),
+    ]
+    test_vulture_completed = run_command(
+        test_vulture_command, allowed_exit_codes={0, 3}
+    )
+    test_reachability_findings = normalize_python_vulture_findings(
+        output=test_vulture_completed.stdout,
+        coverage_files={},
+        generated_globs=generated_globs,
+        public_modules=[],
+        analyzed_roots=test_reachability_roots,
+        root_scope="test",
+        bucket="test-dead",
+    )
+    test_reachability_limitations = [
+        "Python test reachability is advisory: findings come from Vulture over configured test roots and are not coverage-filtered.",
+        "Pytest fixtures, parametrization, monkeypatching, subprocess scripts, and protocol fixtures require manual review before deleting candidates.",
+    ]
+    test_reachability_report = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "language": "python",
+        "lane": "reachability",
+        "tool": "vulture",
+        "scope": "test",
+        "commands": [command_display(test_vulture_command)],
+        "vulture_version": vulture_version,
+        "vulture_min_confidence": vulture_min_confidence,
+        "reachability_roots": test_reachability_roots,
+        "warnings": [],
+        "limitations": test_reachability_limitations,
+        "findings": test_reachability_findings,
+    }
+    test_reachability_path = output_dir / "python-test-reachability.json"
+    write_json(test_reachability_path, test_reachability_report)
+
     return {
-        "findings": dedupe_findings(lint_findings + reachability_findings),
+        "findings": dedupe_findings(
+            lint_findings
+            + test_lint_findings
+            + reachability_findings
+            + test_reachability_findings
+        ),
         "warnings": public_module_warnings,
-        "limitations": reachability_limitations,
+        "limitations": reachability_limitations + test_reachability_limitations,
         "report_paths": [
             {"language": "python", "path": relative_path(lint_path)},
+            {"language": "python", "path": relative_path(test_lint_path)},
             {"language": "python", "path": relative_path(reachability_path)},
+            {
+                "language": "python",
+                "path": relative_path(test_reachability_path),
+            },
         ],
         "tool_status": {
             "lint_unused": "ok",
+            "test_lint_unused": "ok",
             "reachability": "ok",
+            "test_reachability": "ok",
             "lint_roots": lint_roots,
+            "test_lint_roots": test_lint_roots,
             "reachability_roots": reachability_roots,
+            "test_reachability_roots": test_reachability_roots,
             "entrypoint_commands": entrypoint_commands,
             "public_modules": public_modules,
             "public_import_modules": public_import_modules,
@@ -179,6 +283,9 @@ def build_python_reports(
 def normalize_python_ruff_findings(
     raw_findings: list[dict[str, Any]],
     generated_globs: list[str],
+    *,
+    root_scope: str | None = None,
+    bucket: str = "lint-unused",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for record in raw_findings:
@@ -189,9 +296,10 @@ def normalize_python_ruff_findings(
             {
                 "language": "python",
                 "lane": "lint-unused",
-                "bucket": "lint-unused",
+                "bucket": bucket,
                 "tool": "ruff",
                 "confidence": "high",
+                "root_scope": root_scope,
                 "path": path,
                 "line": int(record.get("location", {}).get("row", 0)),
                 "column": int(record.get("location", {}).get("column", 0)),
@@ -384,6 +492,8 @@ def normalize_python_vulture_findings(
     generated_globs: list[str],
     public_modules: list[str],
     analyzed_roots: list[str],
+    root_scope: str = "prod",
+    bucket: str = "prod-dead",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     public_module_set = set(public_modules)
@@ -409,22 +519,22 @@ def normalize_python_vulture_findings(
         executed_lines = set(coverage_record.get("executed_lines", []))
         if line_number in executed_lines:
             continue
-        file_executed = bool(executed_lines)
         evidence = [f"reported by vulture ({match.group('confidence')}% confidence)"]
-        if file_executed:
-            evidence.append(
-                "candidate line was not executed while exercising the Python roots"
-            )
+        file_executed = bool(executed_lines)
+        if coverage_files and file_executed:
+            evidence.append("candidate line was not executed while exercising roots")
+        elif coverage_files:
+            evidence.append("file was not executed while exercising roots")
         else:
-            evidence.append("file was not executed while exercising the Python roots")
+            evidence.append("advisory vulture report is not coverage-filtered")
         findings.append(
             {
                 "language": "python",
                 "lane": "reachability",
-                "bucket": "prod-dead",
+                "bucket": bucket,
                 "tool": "vulture",
                 "confidence": "medium",
-                "root_scope": "prod",
+                "root_scope": root_scope,
                 "path": path,
                 "line": line_number,
                 "column": None,

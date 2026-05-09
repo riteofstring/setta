@@ -22,9 +22,13 @@ python:
     - backend/scripts
     - scripts
     - plugins
+  test_lint_roots:
+    - tests
   reachability_roots:
     - backend/setta
     - scripts
+  test_reachability_roots:
+    - tests
   entrypoint_commands:
     - ["-m", "setta", "--help"]
     - ["-m", "setta", "version"]
