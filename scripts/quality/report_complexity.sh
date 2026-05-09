@@ -3,15 +3,18 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/quality/report_complexity.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N]
+Usage: ./scripts/quality/report_complexity.sh [--top N] [--python-min N] [--frontend-min N] [--frontend-test-min N] [--go-min N] [--go-test-min N]
 
-Report the highest-complexity code hotspots across supported production source.
+Report the highest-complexity code hotspots across supported production and test source.
 
 Options:
   --top N            Show up to N hotspots per language section (default: 20).
   --python-min N     Only show Python hotspots with complexity >= N (default: 10).
   --frontend-min N   Only show frontend hotspots with complexity >= N (default: 10).
+  --frontend-test-min N
+                     Only show frontend test hotspots with complexity >= N (default: 10).
   --go-min N         Only show Go hotspots with complexity >= N (default: 12).
+  --go-test-min N    Only show Go test hotspots with complexity >= N (default: 63).
   -h, --help         Show this help text.
 
 Notes:
@@ -28,7 +31,9 @@ top_n="20"
 
 python_min="$(quality_default_python_complexity_threshold)"
 frontend_min="$(quality_default_frontend_complexity_threshold)"
+frontend_test_min="$(quality_default_frontend_test_complexity_threshold)"
 go_min="$(quality_default_go_complexity_threshold)"
+go_test_min="$(quality_default_go_test_complexity_threshold)"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,6 +64,15 @@ while [[ $# -gt 0 ]]; do
       frontend_min="$1"
       shift
       ;;
+    --frontend-test-min)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --frontend-test-min" >&2
+        exit 1
+      fi
+      frontend_test_min="$1"
+      shift
+      ;;
     --go-min)
       shift
       if [[ $# -eq 0 ]]; then
@@ -66,6 +80,15 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       go_min="$1"
+      shift
+      ;;
+    --go-test-min)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --go-test-min" >&2
+        exit 1
+      fi
+      go_test_min="$1"
       shift
       ;;
     -h|--help)
@@ -108,6 +131,7 @@ run_eslint_complexity_report() {
   set +e
   pnpm -C frontend exec eslint \
     --format json \
+    --no-warn-ignored \
     --rule 'complexity:["error",1]' \
     -- "$@" >"${output_path}"
   status=$?
@@ -122,7 +146,9 @@ run_eslint_complexity_report() {
 quality_validate_positive_integer "${top_n}" "--top"
 quality_validate_positive_integer "${python_min}" "--python-min"
 quality_validate_positive_integer "${frontend_min}" "--frontend-min"
+quality_validate_positive_integer "${frontend_test_min}" "--frontend-test-min"
 quality_validate_positive_integer "${go_min}" "--go-min"
+quality_validate_positive_integer "${go_test_min}" "--go-test-min"
 
 cd "${repo_root}"
 # shellcheck source=/dev/null
@@ -137,7 +163,9 @@ trap 'rm -rf "${tmp_dir}"' EXIT
 
 declare -a python_files=()
 declare -a frontend_relative_files=()
+declare -a frontend_test_relative_files=()
 declare -a go_files=()
+declare -a go_test_files=()
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && python_files+=("${path}")
@@ -152,8 +180,16 @@ while IFS= read -r path; do
 done < <(quality_collect_frontend_files)
 
 while IFS= read -r path; do
+  [[ -n "${path}" ]] && frontend_test_relative_files+=("$(quality_frontend_cli_path "${path}")")
+done < <(quality_collect_frontend_test_files)
+
+while IFS= read -r path; do
   [[ -n "${path}" ]] && go_files+=("${path}")
 done < <(quality_collect_go_files)
+
+while IFS= read -r path; do
+  [[ -n "${path}" ]] && go_test_files+=("${path}")
+done < <(quality_collect_go_test_files)
 
 echo "Quality hotspots (top ${top_n} per language)"
 echo "Scores are language-specific and should not be compared across sections."
@@ -190,6 +226,45 @@ with open(report_path, "r", encoding="utf-8") as handle:
 
 if not rows:
     print(f"No Go hotspots found with complexity >= {minimum}.")
+    raise SystemExit(0)
+
+for score, package, function, location in rows:
+    print(f"{score:>4}  {package}.{function}  {location}")
+PY
+fi
+
+echo
+echo "Go tests"
+if [[ ${#go_test_files[@]} -eq 0 ]]; then
+  echo "No Go test files matched the report filters."
+else
+  echo "Top ${top_n}, minimum complexity ${go_test_min}"
+  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -top "${top_n}" "${go_test_files[@]}" >"${tmp_dir}/go-tests.txt"
+  python - "${tmp_dir}/go-tests.txt" "${go_test_min}" <<'PY'
+import sys
+
+report_path = sys.argv[1]
+minimum = int(sys.argv[2])
+rows = []
+
+with open(report_path, "r", encoding="utf-8") as handle:
+    for raw_line in handle:
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        score = int(parts[0])
+        if score < minimum:
+            continue
+        package = parts[1]
+        function = " ".join(parts[2:-1])
+        location = parts[-1]
+        rows.append((score, package, function, location))
+
+if not rows:
+    print(f"No Go test hotspots found with complexity >= {minimum}.")
     raise SystemExit(0)
 
 for score, package, function, location in rows:
@@ -300,6 +375,63 @@ rows = rows[:top_n]
 
 if not rows:
     print(f"No frontend hotspots found with complexity >= {minimum}.")
+    raise SystemExit(0)
+
+for score, path, line, label in rows:
+    print(f"{score:>4}  {label}  {path}:{line}")
+PY
+fi
+
+echo
+echo "Frontend tests"
+if [[ ${#frontend_test_relative_files[@]} -eq 0 ]]; then
+  echo "No frontend test files matched the report filters."
+else
+  echo "Top ${top_n}, minimum complexity ${frontend_test_min}"
+  run_eslint_complexity_report "${tmp_dir}/frontend-tests.json" "${frontend_test_relative_files[@]}"
+  python - "${tmp_dir}/frontend-tests.json" "${top_n}" "${frontend_test_min}" "${repo_root}" <<'PY'
+import json
+import os
+import re
+import sys
+
+report_path = sys.argv[1]
+top_n = int(sys.argv[2])
+minimum = int(sys.argv[3])
+repo_root = sys.argv[4]
+pattern = re.compile(r"(?P<label>.+?) has a complexity of (?P<score>\d+)\.")
+
+with open(report_path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+rows = []
+for file_report in data:
+    for message in file_report.get("messages", []):
+        if message.get("ruleId") != "complexity":
+            continue
+        match = pattern.search(message.get("message", ""))
+        if not match:
+            continue
+        score = int(match.group("score"))
+        if score < minimum:
+            continue
+        label = match.group("label")
+        if label.startswith("Function '") and label.endswith("'"):
+          label = label[len("Function '"):-1]
+        rows.append(
+            (
+                score,
+                os.path.relpath(file_report["filePath"], repo_root),
+                int(message["line"]),
+                label,
+            )
+        )
+
+rows.sort(key=lambda row: (-row[0], row[1], row[2], row[3]))
+rows = rows[:top_n]
+
+if not rows:
+    print(f"No frontend test hotspots found with complexity >= {minimum}.")
     raise SystemExit(0)
 
 for score, path, line, label in rows:

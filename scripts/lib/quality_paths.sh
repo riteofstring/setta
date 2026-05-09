@@ -2,7 +2,9 @@
 
 readonly QUALITY_DEFAULT_PYTHON_COMPLEXITY_THRESHOLD="10"
 readonly QUALITY_DEFAULT_FRONTEND_COMPLEXITY_THRESHOLD="10"
+readonly QUALITY_DEFAULT_FRONTEND_TEST_COMPLEXITY_THRESHOLD="10"
 readonly QUALITY_DEFAULT_GO_COMPLEXITY_THRESHOLD="12"
+readonly QUALITY_DEFAULT_GO_TEST_COMPLEXITY_THRESHOLD="63"
 
 quality_default_python_complexity_threshold() {
   printf '%s\n' "${QUALITY_DEFAULT_PYTHON_COMPLEXITY_THRESHOLD}"
@@ -12,8 +14,16 @@ quality_default_frontend_complexity_threshold() {
   printf '%s\n' "${QUALITY_DEFAULT_FRONTEND_COMPLEXITY_THRESHOLD}"
 }
 
+quality_default_frontend_test_complexity_threshold() {
+  printf '%s\n' "${QUALITY_DEFAULT_FRONTEND_TEST_COMPLEXITY_THRESHOLD}"
+}
+
 quality_default_go_complexity_threshold() {
   printf '%s\n' "${QUALITY_DEFAULT_GO_COMPLEXITY_THRESHOLD}"
+}
+
+quality_default_go_test_complexity_threshold() {
+  printf '%s\n' "${QUALITY_DEFAULT_GO_TEST_COMPLEXITY_THRESHOLD}"
 }
 
 quality_validate_positive_integer() {
@@ -48,8 +58,16 @@ quality_collect_frontend_files() {
   python ./scripts/quality/list_files.py --category frontend-eslint --source tracked
 }
 
+quality_collect_frontend_test_files() {
+  python ./scripts/quality/list_files.py --category frontend-test-complexity --source tracked
+}
+
 quality_collect_go_files() {
   python ./scripts/quality/list_files.py --category go --source tracked
+}
+
+quality_collect_go_test_files() {
+  python ./scripts/quality/list_files.py --category go-test --source tracked
 }
 
 quality_frontend_cli_path() {
