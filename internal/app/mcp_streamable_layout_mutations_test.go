@@ -1224,79 +1224,45 @@ func TestAppIDEMCPServerSupportsSectionVariantCreateOverAuthenticatedStreamableH
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
+	app, _, session := startAppMCPTestServer(t, cfg)
+
+	setAuthenticatedMCPAgenticContextAllowUnscoped(t, session)
+	beforeVariantIDs := appMCPSectionVariantIDs(t, app, "allowed-params-section")
+	variantID := createAppMCPSectionVariant(t, session, "allowed-params-section")
+	assertAppMCPSectionVariantCreateResult(t, app, "allowed-params-section", beforeVariantIDs, variantID)
+}
+
+func createAppMCPSectionVariant(t *testing.T, session *sdkmcp.ClientSession, sectionID string) string {
+	t.Helper()
+
+	result := callAppMCPTool(t, session, "create_new_section_variant", map[string]any{
+		"projectConfigId": "project-alpha",
+		"sectionId":       sectionID,
 	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
-		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect authenticated mcp client: %v", err)
-	}
-	defer session.Close()
-
-	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_agentic_context",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"allowUnscoped":   true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_agentic_context unscoped: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
-	}
-
-	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id before section-variant create: %v", err)
-	}
-	beforeVariantIDs := append([]string(nil), beforeProject.Sections["allowed-params-section"].VariantIDs...)
-
-	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "create_new_section_variant",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"sectionId":       "allowed-params-section",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call create_new_section_variant: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected create_new_section_variant success, got %#v", result.StructuredContent)
-	}
-
 	payload := mustStructuredMapValue(t, result.StructuredContent)
 	variantID, ok := payload["variantId"].(string)
 	if !ok || strings.TrimSpace(variantID) == "" {
 		t.Fatalf("expected created variant id, got %#v", payload["variantId"])
 	}
+	return variantID
+}
+
+func appMCPSectionVariantIDs(t *testing.T, app *App, sectionID string) []string {
+	t.Helper()
 
 	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
-		t.Fatalf("project by id after section-variant create: %v", err)
+		t.Fatalf("project by id for section variant ids: %v", err)
 	}
-	afterVariantIDs := project.Sections["allowed-params-section"].VariantIDs
+	return append([]string(nil), project.Sections[sectionID].VariantIDs...)
+}
+
+func appMCPNewCanonicalSectionVariantID(t *testing.T, beforeVariantIDs []string, afterVariantIDs []string) string {
+	t.Helper()
+
 	if len(afterVariantIDs) != len(beforeVariantIDs)+1 {
 		t.Fatalf("expected one new section variant, got before=%#v after=%#v", beforeVariantIDs, afterVariantIDs)
 	}
-
-	var canonicalVariantID string
 	for _, currentVariantID := range afterVariantIDs {
 		found := false
 		for _, beforeVariantID := range beforeVariantIDs {
@@ -1306,21 +1272,36 @@ func TestAppIDEMCPServerSupportsSectionVariantCreateOverAuthenticatedStreamableH
 			}
 		}
 		if !found {
-			canonicalVariantID = currentVariantID
-			break
+			return currentVariantID
 		}
 	}
-	if canonicalVariantID == "" {
-		t.Fatalf("expected one new canonical section variant id, got %#v", afterVariantIDs)
+	t.Fatalf("expected one new canonical section variant id, got %#v", afterVariantIDs)
+	return ""
+}
+
+func assertAppMCPSectionVariantCreateResult(
+	t *testing.T,
+	app *App,
+	sectionID string,
+	beforeVariantIDs []string,
+	variantID string,
+) {
+	t.Helper()
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after section-variant create: %v", err)
 	}
+	afterVariantIDs := project.Sections[sectionID].VariantIDs
+	canonicalVariantID := appMCPNewCanonicalSectionVariantID(t, beforeVariantIDs, afterVariantIDs)
 	if variantID == canonicalVariantID {
 		t.Fatalf("expected translated variant id to differ from canonical %q", canonicalVariantID)
 	}
 	if _, ok := project.SectionVariants[variantID]; ok {
 		t.Fatalf("did not expect translated variant id %q to be a canonical project key", variantID)
 	}
-	if got := project.SectionVariantMap["allowed-params-section"]; got != canonicalVariantID {
-		t.Fatalf("expected active allowed-params-section variant %q, got %q", canonicalVariantID, got)
+	if got := project.SectionVariantMap[sectionID]; got != canonicalVariantID {
+		t.Fatalf("expected active %s variant %q, got %q", sectionID, canonicalVariantID, got)
 	}
 	if len(project.CodeObjs["allowed-param"].VariantIDs) != 2 {
 		t.Fatalf("expected allowed-param to gain one code-object variant, got %#v", project.CodeObjs["allowed-param"].VariantIDs)
