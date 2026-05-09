@@ -79,6 +79,25 @@ func TestDocumentCreateProjectInitializesSingleViewModeAndDefault(t *testing.T) 
 func assertDefaultGeneratedPythonProjectScaffold(t *testing.T, project Project) {
 	t.Helper()
 
+	assertDefaultPythonCodegenBindings(t, project)
+	section := assertDefaultGeneratedPythonSection(t, project)
+	variant, ok := project.SectionVariants[section.DefaultVariantID]
+	if !ok {
+		t.Fatalf("expected generated section variant %q, got %#v", section.DefaultVariantID, project.SectionVariants)
+	}
+	impl, ok := project.SectionImpls[variant.ImplID]
+	if !ok {
+		t.Fatalf("expected generated section impl %q, got %#v", variant.ImplID, project.SectionImpls)
+	}
+	if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
+		t.Fatalf("expected generated python code impl, got %#v", impl)
+	}
+	assertDefaultGeneratedPythonPayload(t, project, impl)
+}
+
+func assertDefaultPythonCodegenBindings(t *testing.T, project Project) {
+	t.Helper()
+
 	if len(project.CodegenTargets) != 1 {
 		t.Fatalf("expected one default codegen target, got %#v", project.CodegenTargets)
 	}
@@ -97,6 +116,11 @@ func assertDefaultGeneratedPythonProjectScaffold(t *testing.T, project Project) 
 	if project.GeneratedMetadataBinding != nil {
 		t.Fatalf("expected no generated metadata binding by default, got %#v", project.GeneratedMetadataBinding)
 	}
+}
+
+func assertDefaultGeneratedPythonSection(t *testing.T, project Project) Section {
+	t.Helper()
+
 	if len(project.TopLevelSectionIDs) != 1 {
 		t.Fatalf("expected one top-level section, got %#v", project.TopLevelSectionIDs)
 	}
@@ -129,18 +153,11 @@ func assertDefaultGeneratedPythonProjectScaffold(t *testing.T, project Project) 
 	if project.SectionVariantMap[sectionID] != section.DefaultVariantID {
 		t.Fatalf("expected section variant map %q to match default variant %q", project.SectionVariantMap[sectionID], section.DefaultVariantID)
 	}
+	return section
+}
 
-	variant, ok := project.SectionVariants[section.DefaultVariantID]
-	if !ok {
-		t.Fatalf("expected generated section variant %q, got %#v", section.DefaultVariantID, project.SectionVariants)
-	}
-	impl, ok := project.SectionImpls[variant.ImplID]
-	if !ok {
-		t.Fatalf("expected generated section impl %q, got %#v", variant.ImplID, project.SectionImpls)
-	}
-	if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
-		t.Fatalf("expected generated python code impl, got %#v", impl)
-	}
+func assertDefaultGeneratedPythonPayload(t *testing.T, project Project, impl SectionImpl) {
+	t.Helper()
 
 	payload, err := rawObjectFromProjectPayload(impl.Payload)
 	if err != nil {
