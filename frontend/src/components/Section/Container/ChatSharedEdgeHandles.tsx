@@ -1,12 +1,8 @@
-import {
-  getProjectGpuHandleConnectionProps,
-  getProjectGpuReverseStartHandleConnectionProps,
-} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { Handle } from "gpuFlow/Handle";
-import { useNodeId } from "gpuFlow/NodeIdContext";
-import { HandlePosition } from "gpuFlow/flowTypes";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { Handle } from "forks/xyflow/core/components/Handle";
+import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { HandlePosition } from "forks/xyflow/core/types";
 import {
   createSharedChatEdgeFromConnection,
   getChatSharedEdgeModeLabel,
@@ -16,8 +12,6 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -26,12 +20,6 @@ type SharedChatConnectionVisibility = {
   hasIncoming: boolean;
   hasOutgoing: boolean;
 };
-
-const SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-const EMPTY_SHARED_CHAT_CONNECTION_VISIBILITY = {
-  hasIncoming: false,
-  hasOutgoing: false,
-} satisfies SharedChatConnectionVisibility;
 
 type SectionConnectionEdge = {
   sourceSectionId: string;
@@ -55,13 +43,13 @@ function getSharedChatConnectionVisibility(
     hasIncoming: false,
     hasOutgoing: false,
   };
-  for (const edge of state.projectConfig.agenticEdges ?? []) {
+  for (const edge of state.projectConfig.agenticEdges) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
     }
   }
-  for (const edge of state.projectConfig.stateMachineEdges ?? []) {
+  for (const edge of state.projectConfig.stateMachineEdges) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
@@ -70,63 +58,41 @@ function getSharedChatConnectionVisibility(
   return visibility;
 }
 
-function useSharedChatConnectionVisibility(sectionId: string | null) {
-  return useProjectState(
-    (state) =>
-      sectionId
-        ? getSharedChatConnectionVisibility(sectionId, state)
-        : EMPTY_SHARED_CHAT_CONNECTION_VISIBILITY,
-    areSharedChatConnectionVisibilityEqual,
-  );
-}
-
-function areSharedChatConnectionVisibilityEqual(
-  left: SharedChatConnectionVisibility,
-  right: SharedChatConnectionVisibility,
-) {
-  return (
-    left.hasIncoming === right.hasIncoming &&
-    left.hasOutgoing === right.hasOutgoing
-  );
-}
-
-function shouldHideChatSharedEdgeHandles(
-  isUserView: boolean,
-  sectionId: string | null,
-): boolean {
-  return isUserView || !sectionId;
-}
-
-export function ChatSharedEdgeHandles({
-  isUserView,
-  scenePortGeometry,
-}: {
-  isUserView: boolean;
-  scenePortGeometry?: boolean;
-}) {
+export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingEdge = useGpuFlowViewportStore(
+  const isSelectingEdge = useReactFlow(
     (state) => state.connectionStartHandle !== null,
   );
   const chatSharedEdgeMode = useLocalStorage(
     (state) => state.chatSharedEdgeMode,
   );
-  const connectionVisibility = useSharedChatConnectionVisibility(sectionId);
+  const connectionVisibility = useProjectState(
+    (state) => {
+      if (!sectionId) {
+        return {
+          hasIncoming: false,
+          hasOutgoing: false,
+        };
+      }
+      return getSharedChatConnectionVisibility(sectionId, state);
+    },
+    (left, right) =>
+      left.hasIncoming === right.hasIncoming &&
+      left.hasOutgoing === right.hasOutgoing,
+  );
 
-  if (shouldHideChatSharedEdgeHandles(isUserView, sectionId)) {
+  if (isUserView || !sectionId) {
     return null;
   }
 
   const sharedModeLabel = getChatSharedEdgeModeLabel(chatSharedEdgeMode);
-  const registerPortGeometry = scenePortGeometry !== true;
-  const canStartDomConnection = registerPortGeometry && canEditStructure;
 
   return (
     <>
       <div
         aria-hidden="true"
-        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart}
@@ -138,13 +104,9 @@ export function ChatSharedEdgeHandles({
         aria-hidden="true"
         tabIndex={-1}
         isConnectable={canEditStructure}
-        isConnectableStart={canStartDomConnection}
+        isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
-        registerPortGeometry={registerPortGeometry}
-        {...getProjectGpuReverseStartHandleConnectionProps(
-          SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
-        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
       />
@@ -157,10 +119,6 @@ export function ChatSharedEdgeHandles({
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
-        registerPortGeometry={registerPortGeometry}
-        {...getProjectGpuHandleConnectionProps(
-          SHARED_CHAT_EDGE_HANDLE_IDS.target,
-        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat input"
@@ -170,7 +128,7 @@ export function ChatSharedEdgeHandles({
       />
       <div
         aria-hidden="true"
-        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.source}
@@ -179,12 +137,8 @@ export function ChatSharedEdgeHandles({
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`chat-shared-source-handle-${sectionId}`}
         isConnectable={canEditStructure}
-        isConnectableStart={canStartDomConnection}
+        isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
-        registerPortGeometry={registerPortGeometry}
-        {...getProjectGpuHandleConnectionProps(
-          SHARED_CHAT_EDGE_HANDLE_IDS.source,
-        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat output"

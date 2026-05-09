@@ -20,7 +20,7 @@ test("blank-canvas deselect persists after a selection-key click and reload", as
     );
 
     const sectionNode = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
 
@@ -48,7 +48,7 @@ test("blank-canvas deselect persists after a selection-key click and reload", as
     await expect.poll(async () => await readBackendActiveIds(page)).toEqual([]);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     // Reload must preserve the empty selection instead of restoring stale backend state.
     await expect(sectionNode).toBeVisible();
@@ -72,14 +72,14 @@ async function getBlankCanvasPoint(
   page: Page,
 ): Promise<{ x: number; y: number }> {
   return await page.evaluate(() => {
-    const pane = document.querySelector(".setta-gpu-flow__pane");
+    const pane = document.querySelector(".react-flow__pane");
     if (!(pane instanceof HTMLElement)) {
       throw new Error("Missing canvas pane.");
     }
 
     const paneRect = pane.getBoundingClientRect();
     const nodeRects = Array.from(
-      document.querySelectorAll<HTMLElement>(".setta-gpu-flow__node"),
+      document.querySelectorAll<HTMLElement>(".react-flow__node"),
     ).map((node) => node.getBoundingClientRect());
 
     const candidates = [
@@ -131,9 +131,7 @@ async function isSectionActive(
   sectionId: string,
 ): Promise<boolean> {
   return page.evaluate((id) => {
-    const node = document.querySelector(
-      `.setta-gpu-flow__node[data-id="${id}"]`,
-    );
+    const node = document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!node) {
       return false;
     }

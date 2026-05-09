@@ -89,79 +89,6 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project by id: %v", err)
 	}
-	assertSettingsProjectBasics(t, project)
-	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
-	assertSettingsProjectBootstrapMetadataContract(t, project, settingsPath)
-	assertSettingsProjectParamImplMappingContract(t, project)
-	assertSettingsProjectVisibleSectionCounts(t, project)
-	assertSettingsProjectRoundTripsDefaults(t, settingsDocument, projectDocument)
-}
-
-func TestSettingsProjectStructuredScalarDefaultsUseCompactTextParams(t *testing.T) {
-	t.Parallel()
-
-	settingsDocument, err := DefaultDocument()
-	if err != nil {
-		t.Fatalf("new settings document: %v", err)
-	}
-
-	projectDocument, err := buildProjectDocumentWithSharedSettingsPath(settingsDocument, DefaultFileName)
-	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
-	}
-	project, err := projectDocument.ProjectByID(SettingsProjectID)
-	if err != nil {
-		t.Fatalf("project by id: %v", err)
-	}
-	roundTripDocument, err := ApplySettingsProjectDocument(settingsDocument, projectDocument)
-	if err != nil {
-		t.Fatalf("apply settings project document: %v", err)
-	}
-
-	cases := []struct {
-		field              string
-		expectedStoredText string
-		expectedValue      any
-	}{
-		{field: "columnWidth", expectedStoredText: "null", expectedValue: nil},
-		{field: "edgeInputParams", expectedStoredText: "[]", expectedValue: []any{}},
-		{field: "edgeOutputPorts", expectedStoredText: "[]", expectedValue: []any{}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.field, func(t *testing.T) {
-			implID := settingsCodeObjImplID(
-				"callableSectionDefault",
-				[]string{"callableSectionDefault", tc.field},
-			)
-			impl, ok := project.CodeObjImpls[implID]
-			if !ok {
-				t.Fatalf("expected settings code object impl %q", implID)
-			}
-			if impl.Type != "TextParam" {
-				t.Fatalf("expected compact settings impl %q to use TextParam, got %q", implID, impl.Type)
-			}
-			payload := settingsProjectCodeObjImplPayload(t, impl)
-			if got := payload["type"]; got != "TextParam" {
-				t.Fatalf("expected compact settings payload %q type TextParam, got %#v", implID, got)
-			}
-			if got := settingsProjectCodeObjValue(t, project, implID); got != tc.expectedStoredText {
-				t.Fatalf("expected compact settings payload %q value %q, got %q", implID, tc.expectedStoredText, got)
-			}
-
-			roundTripSection, ok := roundTripDocument["callableSectionDefault"].(map[string]any)
-			if !ok {
-				t.Fatalf("expected callableSectionDefault round-trip object, got %#v", roundTripDocument["callableSectionDefault"])
-			}
-			if got := roundTripSection[tc.field]; !reflect.DeepEqual(got, tc.expectedValue) {
-				t.Fatalf("expected round-trip %s %#v, got %#v", tc.field, tc.expectedValue, got)
-			}
-		})
-	}
-}
-
-func assertSettingsProjectBasics(t *testing.T, project projectstate.Project) {
-	t.Helper()
-
 	if project.Name != SettingsProjectName {
 		t.Fatalf("expected settings project name %q, got %q", SettingsProjectName, project.Name)
 	}
@@ -189,10 +116,9 @@ func assertSettingsProjectBasics(t *testing.T, project projectstate.Project) {
 	if len(project.TopLevelSections) != 46 {
 		t.Fatalf("expected shared settings layout to include 46 sections, got %d", len(project.TopLevelSections))
 	}
-}
-
-func assertSettingsProjectVisibleSectionCounts(t *testing.T, project projectstate.Project) {
-	t.Helper()
+	assertSettingsProjectViewModeLayoutAndViewportContract(t, project)
+	assertSettingsProjectBootstrapMetadataContract(t, project, settingsPath)
+	assertSettingsProjectParamImplMappingContract(t, project)
 
 	expectedCountsByView := map[string]int{
 		"All Settings":                        46,
@@ -216,14 +142,6 @@ func assertSettingsProjectVisibleSectionCounts(t *testing.T, project projectstat
 			t.Fatalf("expected %q to expose %d visible sections, got %d", viewMode.Name, expectedCount, visibleCount)
 		}
 	}
-}
-
-func assertSettingsProjectRoundTripsDefaults(
-	t *testing.T,
-	settingsDocument Document,
-	projectDocument projectstate.Document,
-) {
-	t.Helper()
 
 	roundTripDocument, err := ApplySettingsProjectDocument(settingsDocument, projectDocument)
 	if err != nil {
@@ -1086,79 +1004,47 @@ func assertSettingsProjectBootstrapMetadataContract(
 	t.Helper()
 
 	for _, sectionName := range settingsSectionOrder {
-		assertSettingsProjectSectionBootstrapMetadata(
-			t,
-			project,
-			sectionName,
-			expectedSharedSettingsPath,
-		)
+		sectionVariant, ok := project.SectionVariants[settingsSectionVariantID(sectionName)]
+		if !ok {
+			t.Fatalf("expected settings section variant for %q", sectionName)
+		}
+		if sectionVariant.Name != expectedSharedSettingsPath {
+			t.Fatalf("expected settings section variant %q name %q, got %q", sectionName, expectedSharedSettingsPath, sectionVariant.Name)
+		}
+		sectionImpl, ok := project.SectionImpls[settingsSectionImplID(sectionName)]
+		if !ok {
+			t.Fatalf("expected settings section impl for %q", sectionName)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
+			t.Fatalf("unmarshal settings section impl %q: %v", sectionName, err)
+		}
+		if payload["configLanguage"] != "json" {
+			t.Fatalf("expected settings section %q configLanguage json, got %#v", sectionName, payload["configLanguage"])
+		}
+		isJSONSource, ok := payload["isJsonSource"].(bool)
+		if !ok || !isJSONSource {
+			t.Fatalf("expected settings section %q to stay JSON-source backed, got %#v", sectionName, payload["isJsonSource"])
+		}
+		jsonSourceKeys, ok := payload["jsonSourceKeys"].([]any)
+		if !ok || len(jsonSourceKeys) != 1 || jsonSourceKeys[0] != sectionName {
+			t.Fatalf("expected settings section %q jsonSourceKeys [%q], got %#v", sectionName, sectionName, payload["jsonSourceKeys"])
+		}
+		size, ok := payload["size"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected settings section %q to include a size payload", sectionName)
+		}
+		width, ok := size["width"].(float64)
+		if !ok {
+			t.Fatalf("expected settings section %q width to be numeric, got %#v", sectionName, size["width"])
+		}
+		if width != settingsSectionWidth {
+			t.Fatalf("expected settings section %q width %v, got %v", sectionName, settingsSectionWidth, width)
+		}
+		if got := size["height"]; got != "auto" {
+			t.Fatalf("expected settings section %q height auto, got %#v", sectionName, got)
+		}
 	}
-
-	assertSettingsProjectRootCodeObjDisplayNames(t, project)
-}
-
-func assertSettingsProjectSectionBootstrapMetadata(
-	t *testing.T,
-	project projectstate.Project,
-	sectionName string,
-	expectedSharedSettingsPath string,
-) {
-	t.Helper()
-
-	sectionVariant, ok := project.SectionVariants[settingsSectionVariantID(sectionName)]
-	if !ok {
-		t.Fatalf("expected settings section variant for %q", sectionName)
-	}
-	if sectionVariant.Name != expectedSharedSettingsPath {
-		t.Fatalf(
-			"expected settings section variant %q name %q, got %q",
-			sectionName,
-			expectedSharedSettingsPath,
-			sectionVariant.Name,
-		)
-	}
-	sectionImpl, ok := project.SectionImpls[settingsSectionImplID(sectionName)]
-	if !ok {
-		t.Fatalf("expected settings section impl for %q", sectionName)
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(sectionImpl.Payload, &payload); err != nil {
-		t.Fatalf("unmarshal settings section impl %q: %v", sectionName, err)
-	}
-	if payload["configLanguage"] != "json" {
-		t.Fatalf("expected settings section %q configLanguage json, got %#v", sectionName, payload["configLanguage"])
-	}
-	isJSONSource, ok := payload["isJsonSource"].(bool)
-	if !ok || !isJSONSource {
-		t.Fatalf("expected settings section %q to stay JSON-source backed, got %#v", sectionName, payload["isJsonSource"])
-	}
-	jsonSourceKeys, ok := payload["jsonSourceKeys"].([]any)
-	if !ok || len(jsonSourceKeys) != 1 || jsonSourceKeys[0] != sectionName {
-		t.Fatalf(
-			"expected settings section %q jsonSourceKeys [%q], got %#v",
-			sectionName,
-			sectionName,
-			payload["jsonSourceKeys"],
-		)
-	}
-	size, ok := payload["size"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected settings section %q to include a size payload", sectionName)
-	}
-	width, ok := size["width"].(float64)
-	if !ok {
-		t.Fatalf("expected settings section %q width to be numeric, got %#v", sectionName, size["width"])
-	}
-	if width != settingsSectionWidth {
-		t.Fatalf("expected settings section %q width %v, got %v", sectionName, settingsSectionWidth, width)
-	}
-	if got := size["height"]; got != "auto" {
-		t.Fatalf("expected settings section %q height auto, got %#v", sectionName, got)
-	}
-}
-
-func assertSettingsProjectRootCodeObjDisplayNames(t *testing.T, project projectstate.Project) {
-	t.Helper()
 
 	for sectionName, expectedDisplayName := range expectedSettingsBootstrapRootCodeObjDisplayNames {
 		section, ok := project.Sections[settingsSectionID(sectionName)]

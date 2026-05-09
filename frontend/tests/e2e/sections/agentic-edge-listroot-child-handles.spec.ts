@@ -3,10 +3,8 @@ import {
   cleanupIsolatedProject,
   createChildSectionsFromFrontend,
   createTopLevelSectionFromFrontend,
-  disableCanvasSidePanePointerInterception,
   ensureAppReady,
   getViewportBoundsForPlacement,
-  hoverGpuFlowNode,
   openIsolatedProject,
 } from "../helpers";
 
@@ -26,9 +24,7 @@ async function createTopLevelSection(
   });
   const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
-    throw new Error(
-      `Missing sectionId when creating section type ${implType}.`,
-    );
+    throw new Error(`Missing sectionId when creating section type ${implType}.`);
   }
   return sectionId;
 }
@@ -58,19 +54,22 @@ async function getChildSectionIds(
   await expect(parentNode).toBeVisible();
 
   const fetchIds = async () => {
-    return page.evaluate((parentId) => {
-      return import("/src/state/definitions.ts").then(({ useProjectState }) => {
-        const state = useProjectState.getState();
-        const variantId = state.projectConfig.sectionVariantMap[parentId];
-        const implId = variantId
-          ? state.sectionVariants[variantId]?.impl
-          : undefined;
-        const children = implId
-          ? state.sectionImpls[implId]?.children
-          : undefined;
-        return Array.isArray(children) ? children : [];
-      });
-    }, parentId);
+    const ids = await parentNode.locator("[data-section-id]").evaluateAll(
+      (nodes) => {
+        const output = new Set<string>();
+        for (const node of nodes) {
+          if (!(node instanceof HTMLElement)) {
+            continue;
+          }
+          const id = node.dataset.sectionId;
+          if (id) {
+            output.add(id);
+          }
+        }
+        return Array.from(output);
+      },
+    );
+    return ids.filter((id) => id !== parentId);
   };
 
   await expect.poll(fetchIds, { timeout: 10_000 }).toHaveLength(minCount);
@@ -83,7 +82,6 @@ test.describe.serial("agentic handles", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await disableCanvasSidePanePointerInterception(page);
 
     try {
       const projectConfigId = projectContext.projectConfigId;
@@ -104,58 +102,43 @@ test.describe.serial("agentic handles", () => {
       if (!childId) {
         throw new Error("Missing child callable section id.");
       }
-      const childNode = page.getByTestId(`rf__node-${childId}`);
-      await expect(childNode).toBeVisible();
 
-      await page
-        .getByRole("button", { name: "fit view" })
-        .click({ force: true });
+      await page.getByRole("button", { name: "fit view" }).click();
+
+      // Hover the parent node so agentic handles are visible.
+      await parentNode.hover();
 
       const parentTargetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${parentId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${parentId}"][data-handleid="agentic-edge-target"]`,
       );
       const childTargetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${childId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${childId}"][data-handleid="agentic-edge-target"]`,
       );
 
-      await expect(parentTargetHandle).toBeAttached();
-      await expect(childTargetHandle).toBeAttached();
-      await hoverGpuFlowNode(page, childNode);
+      await expect(parentTargetHandle).toBeVisible();
       await expect(childTargetHandle).toBeVisible();
 
       // The child callable is rendered below the list root, so its handle should
       // be significantly lower than the parent's. Previously the child's search
       // measurement could shift the parent's handles because the CSS var lived on
-      // the shared GPU flow node wrapper.
+      // the shared react-flow node wrapper.
       await expect
         .poll(
           async () => {
-            const [parentRect, childRect] = await Promise.all([
-              parentTargetHandle.evaluate((element) => {
-                const rect = element.getBoundingClientRect();
-                return {
-                  height: rect.height,
-                  y: rect.y,
-                };
-              }),
-              childTargetHandle.evaluate((element) => {
-                const rect = element.getBoundingClientRect();
-                return {
-                  height: rect.height,
-                  y: rect.y,
-                };
-              }),
+            const [parentBox, childBox] = await Promise.all([
+              parentTargetHandle.boundingBox(),
+              childTargetHandle.boundingBox(),
             ]);
-            if (parentRect.height <= 0 || childRect.height <= 0) {
+            if (!parentBox || !childBox) {
               return 0;
             }
-            const parentCenterY = parentRect.y + parentRect.height / 2;
-            const childCenterY = childRect.y + childRect.height / 2;
+            const parentCenterY = parentBox.y + parentBox.height / 2;
+            const childCenterY = childBox.y + childBox.height / 2;
             return childCenterY - parentCenterY;
           },
           { timeout: 3000 },
         )
-        .toBeGreaterThanOrEqual(30);
+        .toBeGreaterThanOrEqual(40);
 
       const childScope = page.locator(`[data-section-id="${childId}"]`);
       const childSearch = childScope.locator("search.section-search");
@@ -164,27 +147,15 @@ test.describe.serial("agentic handles", () => {
       await expect
         .poll(
           async () => {
-            const [searchRect, childRect] = await Promise.all([
-              childSearch.evaluate((element) => {
-                const rect = element.getBoundingClientRect();
-                return {
-                  height: rect.height,
-                  y: rect.y,
-                };
-              }),
-              childTargetHandle.evaluate((element) => {
-                const rect = element.getBoundingClientRect();
-                return {
-                  height: rect.height,
-                  y: rect.y,
-                };
-              }),
+            const [searchBox, childBox] = await Promise.all([
+              childSearch.boundingBox(),
+              childTargetHandle.boundingBox(),
             ]);
-            if (searchRect.height <= 0 || childRect.height <= 0) {
+            if (!searchBox || !childBox) {
               return 999;
             }
-            const searchCenterY = searchRect.y + searchRect.height / 2;
-            const handleCenterY = childRect.y + childRect.height / 2;
+            const searchCenterY = searchBox.y + searchBox.height / 2;
+            const handleCenterY = childBox.y + childBox.height / 2;
             return Math.abs(handleCenterY - searchCenterY);
           },
           { timeout: 3000 },

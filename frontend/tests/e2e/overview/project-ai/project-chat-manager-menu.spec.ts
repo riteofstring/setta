@@ -18,13 +18,11 @@ test("project chat bottom dock shows a persistent manager menu beside create cha
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const strip = page.getByTestId("project-chat-bottom-dock-strip");
     await expect(strip).toBeVisible();
-    await expect(
-      page.getByTestId("project-chat-bottom-dock-create"),
-    ).toBeVisible();
+    await expect(page.getByTestId("project-chat-bottom-dock-create")).toBeVisible();
 
     const managerTrigger = page.getByTestId(
       "project-chat-bottom-dock-menu-trigger",
@@ -32,9 +30,7 @@ test("project chat bottom dock shows a persistent manager menu beside create cha
     await expect(managerTrigger).toBeVisible();
     await managerTrigger.click();
 
-    const menuContent = page.getByTestId(
-      "project-chat-bottom-dock-menu-content",
-    );
+    const menuContent = page.getByTestId("project-chat-bottom-dock-menu-content");
     await expect(menuContent).toBeVisible();
     await expect(
       page.getByTestId("project-chat-bottom-dock-menu-item"),
@@ -60,7 +56,7 @@ test("project chat bottom dock manager reopens minimized windows", async ({
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const dockPanel = page
       .getByTestId("project-chat-bottom-dock-window-panel")
@@ -85,9 +81,7 @@ test("project chat bottom dock manager reopens minimized windows", async ({
     await expect(managerTrigger).toBeVisible();
     await managerTrigger.click();
 
-    const menuContent = page.getByTestId(
-      "project-chat-bottom-dock-menu-content",
-    );
+    const menuContent = page.getByTestId("project-chat-bottom-dock-menu-content");
     await expect(menuContent).toBeVisible();
     const reopenButton = menuContent.locator(
       `[data-testid="project-chat-manager-reopen"][data-chat-window-instance-id="${instanceId}"]`,

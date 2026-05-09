@@ -198,7 +198,7 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

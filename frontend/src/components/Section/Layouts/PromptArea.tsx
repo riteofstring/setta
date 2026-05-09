@@ -24,9 +24,7 @@ import {
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalPendingValue } from "state/hooks/utils";
 import {
-  NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
@@ -35,11 +33,6 @@ import {
   resolvePromptSectionSource,
 } from "utils/promptSectionSource";
 type PromptViewMode = "template" | "preview";
-
-const PROMPT_GPU_CONTROL_PREFIX = "prompt";
-const PROMPT_GPU_CONTROL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-const PROMPT_GPU_SCROLL_CLASS_NAME = `${PROMPT_GPU_CONTROL_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
-
 export function PromptArea({ sectionId }: { sectionId: string }) {
   useHydrateAgenticState();
   const {
@@ -200,8 +193,7 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         <article
           id={`CodeMirror-${sectionId}-prompt-template`}
           ref={wrapperRef}
-          className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${PROMPT_GPU_CONTROL_CLASS_NAME} mx-1 mb-2 mt-1 flex min-h-0 flex-1 cursor-auto flex-col rounded-md border border-setta-200/70 bg-white/70 ${overflow} ${nowheel} dark:border-setta-700/70 dark:bg-setta-900/60 [&_*]:!outline-0`}
-          data-gpu-flow-control={`${PROMPT_GPU_CONTROL_PREFIX}:template-editor:${sectionId}`}
+          className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} mx-1 mb-2 mt-1 flex min-h-0 flex-1 cursor-auto flex-col rounded-md border border-setta-200/70 bg-white/70 ${overflow} ${nowheel} nodrag dark:border-setta-700/70 dark:bg-setta-900/60 [&_*]:!outline-0`}
           data-section-main-editor
           data-testid={`prompt-template-editor-${sectionId}`}
           onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
@@ -253,12 +245,11 @@ function PromptModeButton({
     <button
       type="button"
       data-testid={`prompt-${mode}-tab-${sectionId}`}
-      className={`${PROMPT_GPU_CONTROL_CLASS_NAME} rounded px-2 py-1 text-[11px] font-medium ${
+      className={`rounded px-2 py-1 text-[11px] font-medium ${
         isActive
           ? "bg-setta-200/80 text-setta-900 dark:bg-setta-700 dark:text-setta-50"
           : "text-setta-500 hover:bg-setta-100 dark:text-setta-400 dark:hover:bg-setta-800/70"
       }`}
-      data-gpu-flow-control={`${PROMPT_GPU_CONTROL_PREFIX}:mode:${sectionId}:${mode}`}
       aria-pressed={isActive}
       onClick={() => onClick(mode)}
     >
@@ -277,10 +268,8 @@ function PromptPreview({
 }) {
   return (
     <div
-      data-gpu-flow-control={`${PROMPT_GPU_CONTROL_PREFIX}:preview:${sectionId}`}
-      data-gpu-flow-wheel-target="true"
       data-testid={`prompt-render-preview-${sectionId}`}
-      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${PROMPT_GPU_SCROLL_CLASS_NAME} section-main -mt-1 mb-3 ml-1 mr-[13px] cursor-auto overflow-y-scroll pr-4 text-xs text-setta-700 dark:text-setta-300`}
+      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1 mb-3 ml-1 mr-[13px] cursor-auto overflow-y-scroll pr-4 text-xs text-setta-700 dark:text-setta-300`}
     >
       {errorText ? (
         <div className="mx-2 mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">

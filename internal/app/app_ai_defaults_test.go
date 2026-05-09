@@ -11,12 +11,14 @@ import (
 	"reflect"
 	"testing"
 
+	toml "github.com/pelletier/go-toml/v2"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/transcriptionprofiles"
 )
@@ -105,6 +107,80 @@ func TestAppSeedsProjectAIDefaultsWhenConfigFilesAreMissing(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(cfg.Paths.SettaFilesRoot, relativePath)); err != nil {
 			t.Fatalf("expected seeded file %s: %v", relativePath, err)
 		}
+	}
+}
+
+func TestAppRepairsLegacyCodexManagedConfigTransportOnStartup(t *testing.T) {
+	// Existing workspaces may already have a legacy Codex canonical config that
+	// omits the transport field, which makes Codex infer streamable_http. App
+	// startup should rewrite managed canonical configs back to the Setta SSE
+	// transport so sends do not pay the remote auth-discovery penalty.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	store, err := externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new external agent config store: %v", err)
+	}
+	service, err := externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
+		Configs:        store,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		SettaServerURL: "http://127.0.0.1:8000/mcp",
+	})
+	if err != nil {
+		t.Fatalf("new external agent config service: %v", err)
+	}
+	created, err := service.Create(externalagentconfigs.Config{
+		ID:                 "external-codex",
+		Name:               "Codex (app-server)",
+		ToolType:           externalagentconfigs.ToolTypeCodex,
+		RunMode:            externalagentconfigs.RunModeAppServer,
+		WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		EnvVarWhitelist:    []string{"OPENAI_API_KEY"},
+	})
+	if err != nil {
+		t.Fatalf("create codex config: %v", err)
+	}
+
+	configPath := filepath.Join(
+		cfg.Paths.SettaFilesRoot,
+		"external_agent_settings",
+		"codex",
+		created.ID,
+		"config.toml",
+	)
+	if err := os.WriteFile(configPath, []byte("[mcp_servers.setta]\nurl = \"http://127.0.0.1:8000/mcp\"\n"), 0o644); err != nil {
+		t.Fatalf("write legacy codex canonical config: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read reconciled codex config: %v", err)
+	}
+	payload := map[string]any{}
+	if err := toml.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("decode reconciled codex config: %v", err)
+	}
+	expectedURL := mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port)
+	mcpServers, ok := payload["mcp_servers"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
+	}
+	settaServer, ok := mcpServers["setta"].(map[string]any)
+	if !ok || settaServer["transport"] != "sse" || settaServer["url"] != expectedURL {
+		t.Fatalf("expected reconciled setta codex server entry, got %#v", mcpServers["setta"])
 	}
 }
 

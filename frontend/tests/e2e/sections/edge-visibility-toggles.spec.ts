@@ -15,15 +15,6 @@ type SetCallableResponse = {
   lspStatus?: string | null;
 };
 const TARGET_CALLABLE = "sorted";
-type GpuFlowFrameProbeWindow = Window & {
-  __settaGpuFlowFrameProbeRecords?: Array<{
-    drawnEdgeCount: number;
-    frame: number;
-  }>;
-  __settaGpuFlowPerformanceProbe?: {
-    recordNodeLayerFrame?: (event: unknown) => void;
-  };
-};
 
 async function setCallable(
   page: Page,
@@ -56,78 +47,25 @@ async function getParamIds(
   minCount: number,
 ): Promise<string[]> {
   const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+  const idPrefix = `ParamContainer-${sectionId}-`;
   await expect(sectionNode).toBeVisible();
-  const readParamIds = async () => {
-    return page.evaluate((sectionId) => {
-      return import("/src/state/definitions.ts").then(({ useProjectState }) => {
-        const state = useProjectState.getState();
-        const variantId = state.projectConfig.sectionVariantMap[sectionId];
-        const shown = variantId ? state.shownParamIds[variantId] : undefined;
-        const shownParamIds = [
-          ...(shown?.unpinned?.topLevelParamIds ?? []),
-          ...(shown?.pinned?.topLevelParamIds ?? []),
-        ];
-        if (shownParamIds.length > 0) {
-          return shownParamIds;
-        }
-        const implId = variantId
-          ? state.sectionVariants[variantId]?.impl
-          : undefined;
-        const impl = implId ? state.sectionImpls[implId] : undefined;
-        return Object.keys(impl?.codeObjVariantMap ?? {});
-      });
-    }, sectionId);
-  };
-  await expect
-    .poll(async () => (await readParamIds()).length, { timeout: 20000 })
-    .toBeGreaterThanOrEqual(minCount);
-  return await readParamIds();
-}
-
-async function installGpuFlowFrameProbe(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const view = window as GpuFlowFrameProbeWindow;
-    view.__settaGpuFlowFrameProbeRecords = [];
-    view.__settaGpuFlowPerformanceProbe = {
-      recordNodeLayerFrame(event: unknown) {
-        if (
-          !event ||
-          typeof event !== "object" ||
-          typeof (event as { drawnEdgeCount?: unknown }).drawnEdgeCount !==
-            "number" ||
-          typeof (event as { frame?: unknown }).frame !== "number"
-        ) {
-          return;
-        }
-        const records = view.__settaGpuFlowFrameProbeRecords ?? [];
-        records.push({
-          drawnEdgeCount: (event as { drawnEdgeCount: number }).drawnEdgeCount,
-          frame: (event as { frame: number }).frame,
-        });
-        if (records.length > 120) {
-          records.splice(0, records.length - 120);
-        }
-        view.__settaGpuFlowFrameProbeRecords = records;
-      },
-    };
+  await expect(sectionNode.locator(`[id^="${idPrefix}"]`).first()).toBeVisible({
+    timeout: 20000,
   });
-}
-
-async function waitForDrawnEdgeCount(
-  page: Page,
-  expected: number,
-): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(() => {
-          const records = (window as GpuFlowFrameProbeWindow)
-            .__settaGpuFlowFrameProbeRecords;
-          return records?.at(-1)?.drawnEdgeCount ?? -1;
-        }),
-      { timeout: 15000 },
-    )
-    .toBe(expected);
+  const ids = await sectionNode.locator(`[id^="${idPrefix}"]`).evaluateAll(
+    (nodes, prefix) =>
+      nodes
+        .map((node) => node.id)
+        .filter((id) => id.startsWith(prefix))
+        .map((id) => id.slice(prefix.length)),
+    idPrefix,
+  );
+  if (ids.length < minCount) {
+    throw new Error(
+      `Expected at least ${minCount} params in section ${sectionId}. Found ${ids.length}.`,
+    );
+  }
+  return ids;
 }
 
 test.describe.serial("edge visibility toggles", () => {
@@ -136,7 +74,6 @@ test.describe.serial("edge visibility toggles", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await installGpuFlowFrameProbe(page);
 
     try {
       const projectConfigId = projectContext.projectConfigId;
@@ -207,47 +144,55 @@ test.describe.serial("edge visibility toggles", () => {
         ],
       });
 
-      await page
-        .getByRole("button", { name: "fit view" })
-        .click({ force: true });
+      await page.getByRole("button", { name: "fit view" }).click();
 
-      const gpuFlowRoot = page.locator(".setta-gpu-flow-root");
-      await expect(gpuFlowRoot).toHaveAttribute(
+      const reactFlowRoot = page.locator(".react-flow");
+      await expect(reactFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "true",
       );
-      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
+      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
+
+      const argHandle = page.locator(
+        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionB}"]`,
+      );
+      await expect(argHandle.first()).toBeVisible();
 
       const agenticHandle = page.locator(
-        `.setta-gpu-flow__handle.agentic-handle--connected[data-nodeid="${sectionB}"]`,
+        `.react-flow__handle.agentic-handle--connected[data-nodeid="${sectionB}"]`,
       );
       await expect(agenticHandle.first()).toBeVisible();
 
-      await waitForDrawnEdgeCount(page, 2);
+      const agenticEdges = page.locator("svg.react-flow__agentic-edges");
+      const argEdges = page.locator("svg.react-flow__edges");
+      await expect(agenticEdges).toBeVisible();
+      await expect(argEdges).toBeVisible();
 
       await page.getByTestId("rf__toggle-agentic-edges").click();
-      await expect(gpuFlowRoot).toHaveAttribute(
+      await expect(reactFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "false",
       );
+      await expect(agenticEdges).toBeHidden();
       await expect(agenticHandle.first()).toBeHidden();
-      await waitForDrawnEdgeCount(page, 1);
 
       await page.getByTestId("rf__toggle-agentic-edges").click();
-      await expect(gpuFlowRoot).toHaveAttribute(
+      await expect(reactFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "true",
       );
+      await expect(agenticEdges).toBeVisible();
       await expect(agenticHandle.first()).toBeVisible();
-      await waitForDrawnEdgeCount(page, 2);
 
       await page.getByTestId("rf__toggle-arg-edges").click();
-      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "false");
-      await waitForDrawnEdgeCount(page, 1);
+      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "false");
+      await expect(argEdges).toBeHidden();
+      await expect(argHandle.first()).toBeHidden();
 
       await page.getByTestId("rf__toggle-arg-edges").click();
-      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
-      await waitForDrawnEdgeCount(page, 2);
+      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
+      await expect(argEdges).toBeVisible();
+      await expect(argHandle.first()).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

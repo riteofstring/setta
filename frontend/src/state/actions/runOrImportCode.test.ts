@@ -251,7 +251,7 @@ describe("runCodeBlock", () => {
       expect.objectContaining({
         body: expect.objectContaining({
           projectConfigId: "project-1",
-          sectionId: genPythonSectionId,
+          sectionId: null,
           terminalSectionId: null,
         }),
       }),

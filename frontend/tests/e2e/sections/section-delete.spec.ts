@@ -3,7 +3,6 @@ import {
   cleanupIsolatedProject,
   createCallableSection,
   ensureAppReady,
-  hoverGpuFlowNode,
   loadProjectConfig,
   openIsolatedProject,
 } from "../helpers";
@@ -23,17 +22,13 @@ test("delete section removes the section from the live canvas", async ({
       .locator(`section[data-section-id="${sectionId}"]`)
       .first();
     await expect(sectionNode).toBeVisible();
-    await hoverGpuFlowNode(page, sectionNode);
+    await sectionNode.hover();
 
     const deleteButton = sectionNode
       .locator('button[aria-label="Delete section"]')
       .first();
     await expect(deleteButton).toBeVisible();
-    await deleteButton.evaluate((element) => {
-      element.dispatchEvent(
-        new MouseEvent("click", { bubbles: true, cancelable: true }),
-      );
-    });
+    await deleteButton.click();
 
     // The delete route must both persist the removal and broadcast the fresh
     // project snapshot so the canvas drops the deleted section immediately.

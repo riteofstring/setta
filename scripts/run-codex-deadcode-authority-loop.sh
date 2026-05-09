@@ -244,7 +244,7 @@ mkdir -p "${output_dir}" "${state_dir}"
 
 deadcode_report_command="$(
   shell_join \
-    "./scripts/deadcode/report.sh"
+    "./scripts/report_dead_code.sh"
 )"
 deadcode_candidates_command="$(
   shell_join \
@@ -377,7 +377,7 @@ Rules:
 - [ ] Mark Phase 3 complete only after ${duplication_audit_file} reflects the current repo state and a fresh audit finds no remaining actionable unjustified duplication under the repo rules.
 
 ## Completion
-- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./scripts/quality/check.sh\`.
+- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./check_quality.sh\`.
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 EOF
 fi
@@ -431,9 +431,9 @@ Execution rules for every iteration:
 - Do not use Chrome DevTools, browser MCP, or other browser-driven verification unless the active change genuinely modifies frontend runtime behavior and non-browser verification is insufficient.
 - For dead-code cleanup, alias cleanup, and duplication cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
 - If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
-- Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/quality/check.sh\`. If either fails, fix the failure or stop without committing.
+- Before every non-stop commit, run \`./gcf.sh\` and then \`./check_quality.sh\`. If either fails, fix the failure or stop without committing.
 - When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
-- Treat \`No supported files to check.\` from \`./scripts/quality/check.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./scripts/quality/check.sh\` would normally inspect.
+- Treat \`No supported files to check.\` from \`./check_quality.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.

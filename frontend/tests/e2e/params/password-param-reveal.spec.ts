@@ -6,9 +6,9 @@ import {
   createCallableSection,
   ensureAppReady,
   openIsolatedProject,
-  setCallableFromFrontend,
   setCodeObjNameFromFrontend,
   setParamEnteredValueFromFrontend,
+  setCallableFromFrontend,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -27,14 +27,15 @@ test("password param reveals saved secret on demand", async ({ page }) => {
       page.locator(`[id="${sectionId}-CustomResizable"]`),
     ).toBeVisible();
 
-    const beforeParamIds = await readShownParamIds(page, sectionId);
+    const beforeParamIds = await getSectionParamIds(page, sectionId);
 
     await addKwargFromFrontend(page, {
       projectConfigId,
       sectionId,
     });
 
-    const paramId = await waitForNewParamId(page, sectionId, beforeParamIds);
+    const afterParamIds = await getSectionParamIds(page, sectionId);
+    const paramId = getNewParamId(beforeParamIds, afterParamIds);
 
     await setCodeObjNameFromFrontend(page, {
       projectConfigId,
@@ -54,62 +55,32 @@ test("password param reveals saved secret on demand", async ({ page }) => {
       value: "topsecret",
     });
 
-    await expect
-      .poll(
-        async () => await readPasswordParamControl(page, sectionId, paramId),
-        { timeout: 20000 },
-      )
-      .toMatchObject({
-        hasSecret: true,
-        placeholder: "Saved",
-        revealAvailable: true,
-      });
+    const paramRow = page.locator(`#ParamContainer-${sectionId}-${paramId}`);
+    await expect(paramRow).toBeVisible();
 
     await page.reload();
     await expect(
       page.locator(`[id="${sectionId}-CustomResizable"]`),
     ).toBeVisible();
+    await expect(paramRow).toBeVisible();
 
-    await expect
-      .poll(
-        async () => await readPasswordParamControl(page, sectionId, paramId),
-        { timeout: 20000 },
-      )
-      .toMatchObject({
-        hasSecret: true,
-        placeholder: "Saved",
-        revealAvailable: true,
-      });
+    const passwordInput = paramRow.locator('input[type="password"]');
+    await expect(passwordInput).toHaveValue("");
+    await expect(passwordInput).toHaveAttribute("placeholder", "Saved");
 
-    let revealRequestCount = 0;
-    const onRequest = (request: import("@playwright/test").Request) => {
-      if (request.url().includes("/api/getPasswordParamValue")) {
-        revealRequestCount += 1;
-      }
-    };
-    page.on("request", onRequest);
+    const revealButton = paramRow.getByRole("button", {
+      name: "Reveal",
+    });
+    await expect(revealButton).toBeVisible();
+    // Dispatching the click avoids actionability blockers from aria-disabled ancestors.
     const revealResponsePromise = page.waitForResponse((response) =>
       response.url().includes("/api/getPasswordParamValue"),
     );
-    const revealPoint = await resolveRetainedPasswordRevealClickPoint(
-      page,
-      sectionId,
-      paramId,
-    );
-    await page.mouse.click(revealPoint.x, revealPoint.y);
-    const revealResponse = await revealResponsePromise;
+    await revealButton.dispatchEvent("click");
+    await revealResponsePromise;
 
-    expect(revealResponse.ok()).toBeTruthy();
-    await expect(await revealResponse.json()).toMatchObject({
-      value: "topsecret",
-    });
-    await expect.poll(() => revealRequestCount).toBe(1);
-
-    await page.waitForTimeout(100);
-    await page.mouse.click(revealPoint.x, revealPoint.y);
-    await page.waitForTimeout(300);
-    expect(revealRequestCount).toBe(1);
-    page.off("request", onRequest);
+    await expect(passwordInput).toHaveValue("topsecret");
+    await expect(revealButton).toHaveCount(0);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,
@@ -119,35 +90,28 @@ test("password param reveals saved secret on demand", async ({ page }) => {
   }
 });
 
-async function readShownParamIds(
+async function getSectionParamIds(
   page: Page,
   sectionId: string,
 ): Promise<string[]> {
-  return await page.evaluate(async (targetSectionId) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    const state = useProjectState.getState();
-    const variantId = state.projectConfig.sectionVariantMap[targetSectionId];
-    const shown = variantId ? state.shownParamIds[variantId] : null;
-    return [
-      ...(shown?.pinned.topLevelParamIds ?? []),
-      ...(shown?.unpinned.topLevelParamIds ?? []),
-    ];
-  }, sectionId);
+  const prefix = `ParamContainer-${sectionId}-`;
+  return await page
+    .locator(`[id^="${prefix}"]`)
+    .evaluateAll(
+      (nodes, idPrefix) =>
+        nodes
+          .map((node) => node.id)
+          .filter((id) => id.startsWith(idPrefix))
+          .map((id) => id.slice(idPrefix.length)),
+      prefix,
+    );
 }
 
-async function waitForNewParamId(
-  page: Page,
-  sectionId: string,
+function getNewParamId(
   beforeIds: string[],
-): Promise<string> {
+  afterIds: string[],
+): string {
   const beforeIdSet = new Set(beforeIds);
-  await expect
-    .poll(async () => {
-      const afterIds = await readShownParamIds(page, sectionId);
-      return afterIds.filter((id) => !beforeIdSet.has(id));
-    })
-    .toHaveLength(1);
-  const afterIds = await readShownParamIds(page, sectionId);
   const newIds = afterIds.filter((id) => !beforeIdSet.has(id));
   if (newIds.length !== 1) {
     throw new Error(
@@ -155,155 +119,6 @@ async function waitForNewParamId(
     );
   }
   return newIds[0];
-}
-
-async function readPasswordParamControl(
-  page: Page,
-  sectionId: string,
-  paramInfoId: string,
-): Promise<{
-  hasSecret: boolean;
-  placeholder: string;
-  revealAvailable: boolean;
-} | null> {
-  return await page.evaluate(
-    async ({ targetParamInfoId, targetSectionId }) => {
-      const { useLocalStorage, useProjectState } = await import(
-        "/src/state/definitions.ts"
-      );
-      const { getProjectGpuFlowScene } = await import(
-        "/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts"
-      );
-      const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-        darkMode: useLocalStorage.getState().darkMode,
-      });
-      for (const surface of scene.contentSurfaces) {
-        if (surface.ownerSectionId !== targetSectionId) {
-          continue;
-        }
-        const row = surface.retainedScene?.rows.find(
-          (candidate) => candidate.id === targetParamInfoId,
-        );
-        if (row?.control?.kind !== "password") {
-          continue;
-        }
-        return {
-          hasSecret: row.control.hasSecret,
-          placeholder: row.control.placeholder,
-          revealAvailable: row.control.revealAvailable,
-        };
-      }
-      return null;
-    },
-    { targetParamInfoId: paramInfoId, targetSectionId: sectionId },
-  );
-}
-
-async function resolveRetainedPasswordRevealClickPoint(
-  page: Page,
-  sectionId: string,
-  paramInfoId: string,
-): Promise<{ x: number; y: number }> {
-  return await page.evaluate(
-    async ({ targetParamInfoId, targetSectionId }) => {
-      const { useLocalStorage, useProjectState } = await import(
-        "/src/state/definitions.ts"
-      );
-      const { getProjectGpuFlowScene } = await import(
-        "/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts"
-      );
-      const { gpuFlowViewportStore } = await import(
-        "/src/gpuFlow/viewportStore.ts"
-      );
-      const { flowToScreenPosition } = await import(
-        "/src/gpuFlow/viewportMath.ts"
-      );
-      const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-        darkMode: useLocalStorage.getState().darkMode,
-      });
-      for (const surface of scene.contentSurfaces) {
-        if (surface.ownerSectionId !== targetSectionId) {
-          continue;
-        }
-        const hit = surface.retainedScene?.hitRecords.find(
-          (candidate) =>
-            candidate.kind === "control-subpart" &&
-            candidate.subpartKind === "password-reveal" &&
-            candidate.ownerRowId === targetParamInfoId,
-        );
-        if (!hit) {
-          continue;
-        }
-        const pane =
-          document
-            .querySelector(
-              `[data-testid="gpu-retained-content-source-${surface.id}"]`,
-            )
-            ?.closest(".setta-gpu-flow__pane") ??
-          document.querySelector(".setta-gpu-flow__pane");
-        if (!(pane instanceof HTMLElement)) {
-          throw new Error("Missing GPU flow pane.");
-        }
-        const flowPoint = {
-          x: surface.rect.x + hit.rect.x + hit.rect.width / 2,
-          y: surface.rect.y + hit.rect.y + hit.rect.height / 2,
-        };
-        const resolvePoint = () => {
-          const paneRect = pane.getBoundingClientRect();
-          const screenPoint = flowToScreenPosition(
-            flowPoint,
-            gpuFlowViewportStore.getState().transform,
-          );
-          return {
-            x: paneRect.left + screenPoint.x,
-            y: paneRect.top + screenPoint.y,
-          };
-        };
-        let point = resolvePoint();
-        if (!isElementInsidePane(document.elementFromPoint(point.x, point.y))) {
-          const paneRect = pane.getBoundingClientRect();
-          const zoom = 1;
-          gpuFlowViewportStore
-            .getState()
-            .setTransform([
-              paneRect.width / 2 - flowPoint.x * zoom,
-              paneRect.height / 2 - flowPoint.y * zoom,
-              zoom,
-            ]);
-          await new Promise((resolve) => setTimeout(resolve, 50));
-          point = resolvePoint();
-        }
-        const target = document.elementFromPoint(point.x, point.y);
-        if (!isElementInsidePane(target)) {
-          throw new Error(
-            `Resolved retained password reveal point is not on the GPU pane: ${JSON.stringify(
-              {
-                point,
-                target:
-                  target instanceof Element
-                    ? {
-                        className: String(target.className),
-                        tagName: target.tagName,
-                      }
-                    : null,
-              },
-            )}`,
-          );
-        }
-        return point;
-
-        function isElementInsidePane(
-          target: Element | null,
-        ): target is Element {
-          return Boolean(target && (target === pane || pane.contains(target)));
-        }
-      }
-      throw new Error(
-        `Missing retained password reveal hit for ${targetSectionId}:${targetParamInfoId}.`,
-      );
-    },
-    { targetParamInfoId: paramInfoId, targetSectionId: sectionId },
-  );
 }
 
 async function setCallable(

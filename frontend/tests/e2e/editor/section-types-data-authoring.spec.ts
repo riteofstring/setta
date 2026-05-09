@@ -6,25 +6,407 @@ import {
   type Request,
 } from "@playwright/test";
 import fs from "node:fs/promises";
+import * as XLSX from "xlsx";
 import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   clearProjectChatWindows,
+  createTopLevelSectionFromFrontend,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
 } from "../helpers";
-import {
-  createChildSectionsViaIncrementerFromFrontend,
-  createTopLevelSection,
-  dragPointerSurfaceToTarget,
-  getChildSectionIds,
-  getLatestProjectState,
-  getSortableSectionDistances,
-  type RootResponse,
-} from "./section-types-data-authoring-helpers";
+
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+type LatestProjectStateResponse = {
+  projectState?: {
+    projectConfig?: {
+      sectionVariantMap?: Record<string, string>;
+    };
+    sectionVariants?: Record<string, { impl: string }>;
+    sectionImpls?: Record<
+      string,
+      {
+        type: string;
+        codeObjVariantMap?: Record<string, string>;
+        defaultChildSectionType?: string;
+        viewMode?: string;
+        readOnly?: boolean;
+        showRowNumbers?: boolean;
+        density?: string;
+        autoReloadOnExternalChange?: boolean;
+      }
+    >;
+    parentSectionMap?: Record<string, string | null>;
+  };
+};
+
+type RootResponse = {
+  rootPath: string;
+};
+
+type FileContentResponse = {
+  contentId: string;
+};
+
+async function readFileBrowserText(
+  page: Page,
+  filePath: string,
+): Promise<string> {
+  const fileRead = await postBackend<FileContentResponse>(
+    page,
+    "/getFileBrowserFileContent",
+    { path: filePath },
+  );
+  const contentId = fileRead?.contentId;
+  if (!contentId) {
+    throw new Error("Missing file browser content id.");
+  }
+  const binaryResponse = await page.request.get(
+    `${BACKEND_ORIGIN}/api/binary/${encodeURIComponent(contentId)}`,
+  );
+  if (!binaryResponse.ok()) {
+    throw new Error(
+      `Failed to download binary file payload (${binaryResponse.status()}).`,
+    );
+  }
+  return binaryResponse.text();
+}
+
+async function getLatestProjectState(
+  page: Page,
+  projectConfigId: string,
+): Promise<LatestProjectStateResponse> {
+  return (
+    (await postBackend<LatestProjectStateResponse>(
+      page,
+      "/getLatestProjectState",
+      {
+        projectConfigId,
+      },
+    )) ?? {}
+  );
+}
+
+async function createTopLevelSection(
+  page: Page,
+  projectConfigId: string,
+  implType: string,
+): Promise<string> {
+  const res = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType,
+  });
+  const sectionId = res?.sectionId;
+  if (!sectionId) {
+    throw new Error(`Failed to create ${implType} section.`);
+  }
+  return sectionId;
+}
+
+async function createChildSectionsViaIncrementerFromFrontend(
+  page: Page,
+  payload: {
+    projectConfigId: string;
+    sectionId: string;
+    implType: string;
+    numChildren: number;
+  },
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const {
+      createChildSectionsViaIncrementer,
+      getLatestProjectState,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
+      await import("/src/state/actions/sectionInfos");
+
+    if (getCurrProjectConfigId() !== input.projectConfigId) {
+      throw new Error(
+        `Active project mismatch while creating incrementer children: expected ${input.projectConfigId}.`,
+      );
+    }
+
+    const response = await callOpenAPI(
+      createChildSectionsViaIncrementer({
+        body: {
+          projectConfigId: input.projectConfigId,
+          calledBy: input.sectionId,
+          implType: input.implType,
+          numChildren: input.numChildren,
+        },
+      } as Parameters<typeof createChildSectionsViaIncrementer>[0]),
+    );
+    if (response.status !== 200) {
+      throw new Error(
+        `Failed to create incrementer children for ${input.sectionId}: ${response.status}`,
+      );
+    }
+    const latestProjectStateResponse = await callOpenAPI(
+      getLatestProjectState({
+        body: {
+          projectConfigId: input.projectConfigId,
+        },
+      } as Parameters<typeof getLatestProjectState>[0]),
+    );
+    if (
+      latestProjectStateResponse.status !== 200 ||
+      !latestProjectStateResponse.data
+    ) {
+      throw new Error(
+        `Failed to hydrate latest project state for ${input.projectConfigId}: ${latestProjectStateResponse.status}`,
+      );
+    }
+    processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+  }, payload);
+}
+
+async function dragBrowserRowToTarget(
+  source: Locator,
+  target: Locator,
+): Promise<void> {
+  const page = source.page();
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  await source.dispatchEvent("dragstart", { dataTransfer });
+  await target.dispatchEvent("dragenter", { dataTransfer });
+  await target.dispatchEvent("dragover", { dataTransfer });
+  await target.dispatchEvent("drop", { dataTransfer });
+  await source.dispatchEvent("dragend", { dataTransfer });
+}
+
+async function dragPointerSurfaceToTarget(
+  source: Locator,
+  target: Locator,
+  options?: {
+    sourcePosition?: { x: number; y: number };
+    targetPosition?: { x: number; y: number };
+  },
+): Promise<void> {
+  const sourcePosition = options?.sourcePosition ?? { x: 3, y: 3 };
+  const targetPosition = options?.targetPosition ?? { x: 3, y: 3 };
+  const page = source.page();
+  const sourceBox = await source.boundingBox();
+  if (!sourceBox) {
+    throw new Error("Source drag surface bounds unavailable.");
+  }
+  const targetBox = await target.boundingBox();
+  if (!targetBox) {
+    throw new Error("Target drag surface bounds unavailable.");
+  }
+  await page.mouse.move(
+    sourceBox.x + sourcePosition.x,
+    sourceBox.y + sourcePosition.y,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBox.x + targetPosition.x,
+    targetBox.y + targetPosition.y,
+    {
+      steps: 12,
+    },
+  );
+  await page.mouse.up();
+}
+
+async function getViewportScale(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector(".react-flow__viewport");
+    if (!viewport) {
+      return 1;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === "none") {
+      return 1;
+    }
+    const matrix = new DOMMatrixReadOnly(transform);
+    if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
+      return 1;
+    }
+    return matrix.a;
+  });
+}
+
+const ZOOM_EPSILON = 0.0005;
+
+async function waitForViewportScaleToStabilize(page: Page): Promise<number> {
+  const timeoutMs = 3000;
+  const pollIntervalMs = 50;
+  const requiredStableSamples = 2;
+  const deadline = Date.now() + timeoutMs;
+  let previousZoom = await getViewportScale(page);
+  let stableSampleCount = 0;
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(pollIntervalMs);
+    const currentZoom = await getViewportScale(page);
+    if (Math.abs(currentZoom - previousZoom) <= ZOOM_EPSILON) {
+      stableSampleCount += 1;
+      if (stableSampleCount >= requiredStableSamples) {
+        return currentZoom;
+      }
+    } else {
+      stableSampleCount = 0;
+    }
+    previousZoom = currentZoom;
+  }
+
+  throw new Error("Viewport zoom did not stabilize in time.");
+}
+
+async function clickAndWaitForViewportScaleChange(
+  page: Page,
+  zoomButton: Locator,
+): Promise<void> {
+  const previousZoom = await getViewportScale(page);
+  await zoomButton.click();
+  await expect
+    .poll(
+      async () =>
+        Math.abs((await getViewportScale(page)) - previousZoom) > ZOOM_EPSILON,
+      {
+        timeout: 3000,
+      },
+    )
+    .toBe(true);
+  await waitForViewportScaleToStabilize(page);
+}
+
+async function applyZoomPreset(
+  page: Page,
+  zoomOutClicks: number,
+  zoomInClicks: number,
+): Promise<number> {
+  const resetZoomButton = page.getByRole("button", { name: "reset zoom" });
+  const zoomOutButton = page.getByRole("button", { name: "zoom out" });
+  const zoomInButton = page.getByRole("button", { name: "zoom in" });
+
+  await resetZoomButton.click();
+  await expect
+    .poll(async () => await getViewportScale(page))
+    .toBeGreaterThan(0);
+  await waitForViewportScaleToStabilize(page);
+
+  for (let i = 0; i < zoomOutClicks; i += 1) {
+    await clickAndWaitForViewportScaleChange(page, zoomOutButton);
+  }
+  for (let i = 0; i < zoomInClicks; i += 1) {
+    await clickAndWaitForViewportScaleChange(page, zoomInButton);
+  }
+  await expect
+    .poll(async () => await getViewportScale(page))
+    .toBeGreaterThan(0);
+  return waitForViewportScaleToStabilize(page);
+}
+
+function getExpectedSpreadsheetDensityMultiplier(viewportZoom: number): number {
+  const safeZoom = viewportZoom > 0 ? viewportZoom : 1;
+  const desiredMultiplier =
+    safeZoom >= 1 ? safeZoom : 1 / Math.max(0.01, safeZoom);
+  return Math.min(6, Math.max(1, desiredMultiplier));
+}
+
+type SpreadsheetCanvasDensityMetrics = {
+  densityX: number;
+  densityY: number;
+  cssWidth: number;
+  cssHeight: number;
+  pixelWidth: number;
+  pixelHeight: number;
+  baseFontPx: number;
+};
+
+async function getSpreadsheetCanvasDensityMetrics(
+  spreadsheetNode: Locator,
+): Promise<SpreadsheetCanvasDensityMetrics> {
+  const metrics = await spreadsheetNode.evaluate((node) => {
+    const grid = node.querySelector('[data-testid="spreadsheet-glide-grid"]');
+    if (!(grid instanceof HTMLElement)) {
+      return null;
+    }
+    const canvases = Array.from(grid.querySelectorAll("canvas"));
+    if (canvases.length === 0) {
+      return null;
+    }
+    const largest = canvases.reduce((best, current) => {
+      const currentRect = current.getBoundingClientRect();
+      const bestRect = best.getBoundingClientRect();
+      if (
+        currentRect.width * currentRect.height >
+        bestRect.width * bestRect.height
+      ) {
+        return current;
+      }
+      return best;
+    });
+    const rect = largest.getBoundingClientRect();
+    const themedElement =
+      grid.querySelector<HTMLElement>('[style*="--gdg-base-font-style"]') ??
+      (grid.firstElementChild as HTMLElement | null);
+    const computedTheme = themedElement
+      ? window.getComputedStyle(themedElement)
+      : null;
+    const baseFontStyle =
+      computedTheme?.getPropertyValue("--gdg-base-font-style").trim() ?? "";
+    const baseFontMatch = /([0-9.]+)px/.exec(baseFontStyle);
+    const baseFontPx = baseFontMatch ? Number(baseFontMatch[1]) : NaN;
+    return {
+      densityX: largest.width / Math.max(1, rect.width),
+      densityY: largest.height / Math.max(1, rect.height),
+      cssWidth: rect.width,
+      cssHeight: rect.height,
+      pixelWidth: largest.width,
+      pixelHeight: largest.height,
+      baseFontPx,
+    };
+  });
+
+  if (!metrics) {
+    throw new Error("Spreadsheet canvas metrics unavailable.");
+  }
+  return metrics;
+}
+
+function getChildSectionIds(
+  latest: LatestProjectStateResponse,
+  parentSectionId: string,
+): string[] {
+  return Object.entries(latest.projectState?.parentSectionMap ?? {})
+    .filter(([, parentId]) => parentId === parentSectionId)
+    .map(([childId]) => childId);
+}
+
+type SortableSectionDistances = {
+  xDelta: number;
+  yDelta: number;
+};
+
+async function getSortableSectionDistances(
+  page: Page,
+  childIds: string[],
+): Promise<SortableSectionDistances | null> {
+  return await page.evaluate((ids) => {
+    const first = document.querySelector(
+      `[data-sortable-section-id="${ids[0]}"]`,
+    ) as HTMLElement | null;
+    const second = document.querySelector(
+      `[data-sortable-section-id="${ids[1]}"]`,
+    ) as HTMLElement | null;
+    if (!first || !second) {
+      return null;
+    }
+    const firstRect = first.getBoundingClientRect();
+    const secondRect = second.getBoundingClientRect();
+    return {
+      xDelta: Math.abs(firstRect.x - secondRect.x),
+      yDelta: Math.abs(firstRect.y - secondRect.y),
+    };
+  }, childIds);
+}
 
 test.describe.serial("section types data authoring", () => {
   test("text block master font slider scales markdown typography", async ({
@@ -88,11 +470,9 @@ test.describe.serial("section types data authoring", () => {
         ],
       });
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const heading = node.locator("h1").first();
       const body = node.locator("p").first();
@@ -197,11 +577,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const uiEditorPane = page.locator("#UiEditorPane");
       const defaultChildCard = uiEditorPane
@@ -270,11 +648,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const uiEditorPane = page.locator("#UiEditorPane");
       const defaultChildCard = uiEditorPane
@@ -330,12 +706,12 @@ test.describe.serial("section types data authoring", () => {
       ).toBe(true);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
       const reloadedNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(reloadedNode).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await reloadedNode.click();
       viewModeSelect = page
         .locator("#UiEditorPane")
         .locator("div")
@@ -348,18 +724,16 @@ test.describe.serial("section types data authoring", () => {
       await viewModeSelect.selectOption("task_list");
       await expect(viewModeSelect).toHaveValue("task_list");
       await expect
-        .poll(async () => await getListRootViewModeFromFrontendState(page, sectionId))
-        .toBe("task_list");
+        .poll(async () => await getSortableSectionDistances(page, childIds))
+        .not.toBeNull();
+      const taskListDistances = await getSortableSectionDistances(
+        page,
+        childIds,
+      );
+      expect(taskListDistances).not.toBeNull();
       expect(
-        await getVisibleGpuChildRectCount(page, childIds),
-        "task-list layout should keep at least one nested child projected",
-      ).toBeGreaterThan(0);
-      const taskListDistances = await getSortableSectionDistances(page, childIds);
-      if (taskListDistances) {
-        expect(
-          (taskListDistances.yDelta ?? 0) >= (taskListDistances.xDelta ?? 0),
-        ).toBe(true);
-      }
+        (taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0),
+      ).toBe(true);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -370,7 +744,7 @@ test.describe.serial("section types data authoring", () => {
   }) => {
     await seedLocalStorage(page, {
       overviewTab: "Overview",
-      overviewVis: false,
+      overviewVis: true,
       uiEditorVis: true,
       colorMode: "light",
       darkMode: false,
@@ -419,13 +793,13 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const taskBoardNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${taskBoardSectionId}"]`,
+        `.react-flow__node[data-id="${taskBoardSectionId}"]`,
       );
       const spreadsheetNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
+        `.react-flow__node[data-id="${browserSectionId}"]`,
       );
 
       await expect(taskBoardNode).toBeVisible();
@@ -458,9 +832,7 @@ test.describe.serial("section types data authoring", () => {
       expect(taskBoardMainSurfaceMetrics.paddingBottom).toBeLessThan(0.5);
       expect(taskBoardMainSurfaceMetrics.paddingLeft).toBeLessThan(0.5);
 
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-task-list"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
       const taskTitleInput = taskBoardNode.getByPlaceholder("Add task title");
       await taskTitleInput.fill("ship task board");
       await taskTitleInput.press("Enter");
@@ -512,9 +884,9 @@ test.describe.serial("section types data authoring", () => {
       expect(doneCheckboxBounds.x).toBeLessThan(taskInputBounds.x);
       expect(taskInputBounds.x - doneCheckboxBounds.x).toBeLessThan(36);
       const firstTaskRow = taskListRows.nth(0);
-      await clickSourceControl(
-        firstTaskRow.locator('[data-testid^="task-board-task-schedule-menu-"]'),
-      );
+      await firstTaskRow
+        .locator('[data-testid^="task-board-task-schedule-menu-"]')
+        .click();
       const schedulePopover = page
         .locator('[data-testid^="task-board-task-schedule-content-"]')
         .first();
@@ -533,14 +905,14 @@ test.describe.serial("section types data authoring", () => {
       const firstTaskDescriptionToggle = firstTaskRow
         .locator('[data-testid^="task-board-task-description-toggle-"]')
         .first();
-      await clickSourceControl(firstTaskDescriptionToggle);
+      await firstTaskDescriptionToggle.click();
       const firstTaskDescriptionInput = firstTaskRow
         .locator('[data-testid^="task-board-task-description-input-"]')
         .first();
       await expect(firstTaskDescriptionInput).toBeVisible();
       await firstTaskDescriptionInput.fill("follow-up checklist");
       await firstTaskDescriptionInput.blur();
-      await clickSourceControl(firstTaskDescriptionToggle);
+      await firstTaskDescriptionToggle.click();
       await expect(
         firstTaskRow.locator(
           '[data-testid^="task-board-task-description-input-"]',
@@ -570,9 +942,7 @@ test.describe.serial("section types data authoring", () => {
       ).toHaveValue("ship task board");
       expect(setTopLevelLayoutCalls).toBe(setTopLevelLayoutCallsBeforeListDrag);
 
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-kanban"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
       await expect(
         taskBoardNode.locator("[data-task-board-column-id]"),
       ).toHaveCount(3);
@@ -591,6 +961,35 @@ test.describe.serial("section types data authoring", () => {
       const firstLane = taskBoardNode
         .locator("[data-task-board-column-id]")
         .nth(0);
+      const [firstLaneBoundsBeforeResize, firstResizeHandleBounds] =
+        await Promise.all([
+          firstLane.boundingBox(),
+          kanbanResizeHandles.first().boundingBox(),
+        ]);
+      if (!firstLaneBoundsBeforeResize) {
+        throw new Error("First kanban lane bounds unavailable before resize.");
+      }
+      if (!firstResizeHandleBounds) {
+        throw new Error("First kanban resize handle bounds unavailable.");
+      }
+      await page.mouse.move(
+        firstResizeHandleBounds.x + firstResizeHandleBounds.width / 2,
+        firstResizeHandleBounds.y + firstResizeHandleBounds.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        firstResizeHandleBounds.x + firstResizeHandleBounds.width / 2 + 36,
+        firstResizeHandleBounds.y + firstResizeHandleBounds.height / 2,
+        { steps: 10 },
+      );
+      await page.mouse.up();
+      const firstLaneBoundsAfterResize = await firstLane.boundingBox();
+      if (!firstLaneBoundsAfterResize) {
+        throw new Error("First kanban lane bounds unavailable after resize.");
+      }
+      expect(
+        firstLaneBoundsAfterResize.width - firstLaneBoundsBeforeResize.width,
+      ).toBeGreaterThan(8);
       const firstLaneTasks = firstLane.locator("[data-task-board-task-id]");
       await expect(firstLaneTasks).toHaveCount(2);
       const firstKanbanDragSurface = firstLaneTasks.first();
@@ -670,9 +1069,7 @@ test.describe.serial("section types data authoring", () => {
         setTopLevelLayoutCallsBeforeKanbanDrag,
       );
 
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-task-list"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
       const refreshedTaskRows = taskBoardNode.locator(
         "[data-task-board-task-id]",
       );
@@ -683,15 +1080,13 @@ test.describe.serial("section types data authoring", () => {
       const firstRowDoneCheckbox = refreshedTaskRows
         .first()
         .getByTestId("task-board-task-list-done-checkbox");
-      await clickSourceControl(firstRowDoneCheckbox);
+      await firstRowDoneCheckbox.check();
       await expect(firstRowDoneCheckbox).toBeChecked();
       await expect(firstRowColumnSelect.locator("option:checked")).toHaveText(
         "Done",
       );
 
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-kanban"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
       const doneLane = taskBoardNode
         .locator("[data-task-board-column-id]")
         .nth(2);
@@ -700,9 +1095,7 @@ test.describe.serial("section types data authoring", () => {
       await expect(
         doneLaneTasks.first().locator('input[type="checkbox"]'),
       ).toHaveCount(0);
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-task-list"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
       const taskRowsBeforeDelete = taskBoardNode.locator(
         "[data-task-board-task-id]",
       );
@@ -711,16 +1104,9 @@ test.describe.serial("section types data authoring", () => {
         .nth(1)
         .locator('[data-testid^="task-board-task-remove-"]')
         .first()
-        .evaluate((element) => {
-          if (!(element instanceof HTMLElement)) {
-            throw new Error("Task removal control is not an HTMLElement.");
-          }
-          element.click();
-        });
+        .click();
       await expect(taskRowsBeforeDelete).toHaveCount(1);
-      await clickSourceControl(
-        taskBoardNode.getByTestId("task-board-view-kanban"),
-      );
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
       const allKanbanTasksAfterDelete = taskBoardNode.locator(
         "[data-task-board-column-id] [data-task-board-task-id]",
       );
@@ -770,20 +1156,47 @@ test.describe.serial("section types data authoring", () => {
       const sortColumn = spreadsheetNode.getByTestId("spreadsheet-sort-column");
       await sortColumn.selectOption("1");
       await expect(sortColumn).toHaveValue("1");
-      await clickSourceControl(
-        spreadsheetNode.getByTestId("spreadsheet-sort-direction"),
-      );
-      await clickSourceControl(spreadsheetNode.getByTestId("spreadsheet-clear-view"));
+      await spreadsheetNode.getByTestId("spreadsheet-sort-direction").click();
+      await spreadsheetNode.getByTestId("spreadsheet-clear-view").click();
       await expect(filterInput).toHaveValue("");
       await expect(
         spreadsheetNode.getByText("2 rows · 2 columns"),
       ).toBeVisible();
 
+      // Validate baseline in-grid interactions: click select, drag-range select,
+      // and direct type-to-edit.
+      const gridCanvas = spreadsheetGlideGrid.locator("canvas").first();
+      await expect(gridCanvas).toBeVisible();
+      await gridCanvas.click({ position: { x: 80, y: 50 } });
+      const selectionSummary = spreadsheetNode.getByTestId(
+        "spreadsheet-selection-summary",
+      );
+      await expect(selectionSummary).toContainText("Selected");
+      const gridBounds = await gridCanvas.boundingBox();
+      if (!gridBounds) {
+        throw new Error("Spreadsheet grid canvas bounds unavailable.");
+      }
+      await page.mouse.move(gridBounds.x + 80, gridBounds.y + 50);
+      await page.mouse.down();
+      await page.mouse.move(gridBounds.x + 250, gridBounds.y + 90);
+      await page.mouse.up();
+      await expect(selectionSummary).toContainText(":");
+
+      const editPosition = { x: 80, y: 50 };
+      await gridCanvas.click({ position: editPosition });
+      await expect(selectionSummary).toContainText("Selected");
+      await gridCanvas.click({ position: editPosition });
+      const overlayEditor = page.locator("#portal .gdg-input").first();
+      await expect(overlayEditor).toBeVisible();
+      await overlayEditor.fill("done");
+      await overlayEditor.press("Enter");
+      await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
+
       const spreadsheetAddRow = spreadsheetNode.getByTestId(
         "spreadsheet-add-row",
       );
       await expect(spreadsheetAddRow).toBeEnabled();
-      await activateSectionForEditor(page, spreadsheetSectionId);
+      await spreadsheetNode.click();
       const uiEditorPane = page.locator("#UiEditorPane");
       const readOnlyToggleLabel = uiEditorPane
         .locator("label")
@@ -820,7 +1233,7 @@ test.describe.serial("section types data authoring", () => {
       await densitySelect.selectOption("comfortable");
       await expect(densitySelect).toHaveValue("comfortable");
 
-      await clickSourceControl(spreadsheetAddRow);
+      await spreadsheetAddRow.click();
       await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
       await expect(
         spreadsheetNode.getByTestId("spreadsheet-save"),
@@ -830,97 +1243,455 @@ test.describe.serial("section types data authoring", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
-});
 
-async function activateSectionForEditor(
-  page: Page,
-  sectionId: string,
-): Promise<void> {
-  await page.evaluate(async (id) => {
-    const { setActiveSectionIds } = await import(
-      "/src/state/actions/activeSections"
-    );
-    setActiveSectionIds([id], { syncMode: "ui-only" });
-  }, sectionId);
-  await expect
-    .poll(async () =>
-      page.evaluate(async () => {
-        const { getActiveSectionUIIds } = await import(
-          "/src/state/activeSectionUI"
-        );
-        return getActiveSectionUIIds();
-      }),
-    )
-    .toEqual([sectionId]);
-}
+  test("spreadsheet filter and sort controls render correctly in dark mode", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "dark",
+      darkMode: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await clearProjectChatWindows(page);
 
-async function clickSourceControl(control: Locator): Promise<void> {
-  await expect(control).toBeVisible();
-  await control.evaluate((element) => {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("Source control is not an HTMLElement.");
-    }
-    const pointerInit = {
-      bubbles: true,
-      button: 0,
-      buttons: 1,
-      cancelable: true,
-      pointerId: 1,
-      pointerType: "mouse",
-    };
-    element.dispatchEvent(new PointerEvent("pointerdown", pointerInit));
-    element.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        cancelable: true,
-      }),
-    );
-    element.dispatchEvent(
-      new PointerEvent("pointerup", {
-        ...pointerInit,
-        buttons: 0,
-      }),
-    );
-    element.dispatchEvent(
-      new MouseEvent("mouseup", {
-        bubbles: true,
-        button: 0,
-        buttons: 0,
-        cancelable: true,
-      }),
-    );
-    element.click();
-  });
-}
-
-async function getListRootViewModeFromFrontendState(
-  page: Page,
-  sectionId: string,
-): Promise<string | null> {
-  return await page.evaluate(async (id) => {
-    const { getCurrEffectiveSectionImpl } = await import(
-      "/src/state/actions/sectionInfos"
-    );
-    const { useProjectState } = await import("/src/state/definitions");
-    const impl = getCurrEffectiveSectionImpl(useProjectState.getState(), id);
-    return impl.type === "ListRoot" ? impl.viewMode : null;
-  }, sectionId);
-}
-
-async function getVisibleGpuChildRectCount(
-  page: Page,
-  childIds: readonly string[],
-): Promise<number> {
-  return await page.evaluate((ids) => {
-    const getGpuRect = (
-      window as typeof window & {
-        __settaGpuFlowNodeScreenRect?: (
-          nodeId: string,
-        ) => { height: number; width: number; x: number; y: number } | null;
+    try {
+      const root = await postBackend<RootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
       }
-    ).__settaGpuFlowNodeScreenRect;
-    return ids.filter((id) => getGpuRect?.(id) ?? null).length;
-  }, childIds);
-}
+      const csvPath = `${rootPath}/pw-dark-sheet.csv`;
+      await fs.writeFile(
+        csvPath,
+        "task,status\nalpha,todo\nbeta,done\n",
+        "utf-8",
+      );
+
+      const spreadsheetSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Spreadsheet",
+      );
+      const browserSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Browser",
+      );
+
+      const spreadsheetNode = page.locator(
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+      );
+      const browserNode = page.locator(
+        `.react-flow__node[data-id="${browserSectionId}"]`,
+      );
+      await expect(spreadsheetNode).toBeVisible();
+      await expect(browserNode).toBeVisible();
+
+      const browserExplorer = browserNode
+        .locator('[role="region"][aria-label="File explorer"]')
+        .first();
+      await expect(browserExplorer).toBeVisible();
+      const csvRow = browserExplorer
+        .locator("button")
+        .filter({ hasText: "pw-dark-sheet.csv" })
+        .first();
+      await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
+
+      const filterInput = spreadsheetNode.getByTestId(
+        "spreadsheet-filter-input",
+      );
+      await expect(filterInput).toBeVisible();
+      const sortColumn = spreadsheetNode.getByTestId("spreadsheet-sort-column");
+      await expect(sortColumn).toBeVisible();
+      const pageIsDark = await page.evaluate(() =>
+        document.documentElement.classList.contains("dark"),
+      );
+      expect(pageIsDark).toBe(true);
+
+      const filterStyles = await filterInput.evaluate((element) => {
+        const styles = window.getComputedStyle(element);
+        return {
+          backgroundColor: styles.backgroundColor,
+          color: styles.color,
+          borderColor: styles.borderColor,
+        };
+      });
+      expect(filterStyles.backgroundColor).not.toBe("rgb(255, 255, 255)");
+      expect(filterStyles.color).not.toBe("rgb(0, 0, 0)");
+      expect(filterStyles.borderColor).not.toBe("rgb(0, 0, 0)");
+
+      const glideBgCell = await spreadsheetNode
+        .getByTestId("spreadsheet-glide-grid")
+        .evaluate((element) => {
+          const themedElement =
+            element.querySelector<HTMLElement>('[style*="--gdg-bg-cell"]') ??
+            (element.firstElementChild as HTMLElement | null);
+          if (!themedElement) {
+            return "";
+          }
+          const computed = window.getComputedStyle(themedElement);
+          return (
+            computed.getPropertyValue("--gdg-bg-cell").trim() ||
+            computed.backgroundColor
+          );
+        });
+      expect(glideBgCell).not.toContain("255, 255, 255");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("spreadsheet zoom rendering stays stable across five zoom levels", async ({
+    page,
+  }, testInfo) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await clearProjectChatWindows(page);
+
+    try {
+      const root = await postBackend<RootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+      const csvPath = `${rootPath}/pw-zoom-sheet.csv`;
+      await fs.writeFile(
+        csvPath,
+        "task,status\nalpha,done\nbeta,todo\ngamma,todo\n",
+        "utf-8",
+      );
+
+      const spreadsheetSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Spreadsheet",
+      );
+      const browserSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Browser",
+      );
+
+      const spreadsheetNode = page.locator(
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+      );
+      const browserNode = page.locator(
+        `.react-flow__node[data-id="${browserSectionId}"]`,
+      );
+      await expect(spreadsheetNode).toBeVisible();
+      await expect(browserNode).toBeVisible();
+
+      const browserExplorer = browserNode
+        .locator('[role="region"][aria-label="File explorer"]')
+        .first();
+      await expect(browserExplorer).toBeVisible();
+      const csvRow = browserExplorer
+        .locator("button")
+        .filter({ hasText: "pw-zoom-sheet.csv" })
+        .first();
+      await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
+
+      const spreadsheetGrid = spreadsheetNode.getByTestId(
+        "spreadsheet-glide-grid",
+      );
+      await expect(spreadsheetGrid).toBeVisible();
+      await expect(
+        spreadsheetNode.getByText("4 rows · 2 columns"),
+      ).toBeVisible();
+
+      const zoomPresets = [
+        { label: "zoom-out-6", zoomOutClicks: 6, zoomInClicks: 0 },
+        { label: "zoom-out-3", zoomOutClicks: 3, zoomInClicks: 0 },
+        { label: "zoom-reset", zoomOutClicks: 0, zoomInClicks: 0 },
+        { label: "zoom-in-2", zoomOutClicks: 0, zoomInClicks: 2 },
+        { label: "zoom-in-4", zoomOutClicks: 0, zoomInClicks: 4 },
+      ] as const;
+
+      const samples: Array<{
+        label: string;
+        zoom: number;
+        densityX: number;
+        densityY: number;
+        baseFontPx: number;
+        effectiveFontPx: number;
+      }> = [];
+
+      for (const preset of zoomPresets) {
+        const zoom = await applyZoomPreset(
+          page,
+          preset.zoomOutClicks,
+          preset.zoomInClicks,
+        );
+        const metrics =
+          await getSpreadsheetCanvasDensityMetrics(spreadsheetNode);
+        samples.push({
+          label: preset.label,
+          zoom,
+          densityX: metrics.densityX,
+          densityY: metrics.densityY,
+          baseFontPx: metrics.baseFontPx,
+          effectiveFontPx:
+            (metrics.baseFontPx /
+              getExpectedSpreadsheetDensityMultiplier(zoom)) *
+            zoom,
+        });
+
+        await testInfo.attach(`spreadsheet-${preset.label}.png`, {
+          body: await spreadsheetNode.screenshot(),
+          contentType: "image/png",
+        });
+      }
+
+      await testInfo.attach("spreadsheet-zoom-density-metrics.json", {
+        body: Buffer.from(JSON.stringify(samples, null, 2), "utf-8"),
+        contentType: "application/json",
+      });
+
+      const zoomValues = samples.map((sample) => sample.zoom);
+      const distinctZoomCount = new Set(
+        zoomValues.map((zoom) => zoom.toFixed(3)),
+      ).size;
+      expect(
+        distinctZoomCount,
+        `Unexpected zoom levels: ${JSON.stringify(zoomValues)}`,
+      ).toBe(5);
+
+      const sortedByZoom = [...samples].sort(
+        (left, right) => left.zoom - right.zoom,
+      );
+      for (const sample of sortedByZoom) {
+        expect(Number.isFinite(sample.baseFontPx)).toBe(true);
+        expect(Number.isFinite(sample.effectiveFontPx)).toBe(true);
+      }
+      expect(sortedByZoom[0]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[1]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[1]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[2]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[2]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[3]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[3]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[4]?.zoom ?? 0,
+      );
+      expect(
+        (sortedByZoom[4]?.zoom ?? 0) - (sortedByZoom[0]?.zoom ?? 0),
+      ).toBeGreaterThan(0.5);
+
+      const maxSample = sortedByZoom[4];
+      const midInSample = sortedByZoom[3];
+      const farOutSample = sortedByZoom[0];
+      if (!maxSample || !midInSample || !farOutSample) {
+        throw new Error(
+          "Missing zoom sample set for spreadsheet density checks.",
+        );
+      }
+
+      expect(maxSample.densityX).toBeGreaterThanOrEqual(0.95);
+      expect(maxSample.densityX).toBeGreaterThanOrEqual(
+        midInSample.densityX * 0.9,
+      );
+      expect(maxSample.densityY).toBeGreaterThanOrEqual(0.95);
+      expect(farOutSample.densityX).toBeGreaterThanOrEqual(1);
+      expect(farOutSample.densityY).toBeGreaterThanOrEqual(1);
+
+      const effectiveFontPxByZoom = sortedByZoom.map(
+        (sample) => sample.effectiveFontPx,
+      );
+      const effectiveFontDebug = JSON.stringify(effectiveFontPxByZoom);
+      expect(
+        sortedByZoom[0]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[1]?.effectiveFontPx ?? 0);
+      expect(
+        sortedByZoom[1]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[2]?.effectiveFontPx ?? 0);
+      expect(
+        sortedByZoom[2]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[3]?.effectiveFontPx ?? 0);
+      expect(
+        sortedByZoom[3]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[4]?.effectiveFontPx ?? 0);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("file browser uses bottom universal preview with csv/xlsx/pdf support", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "FileBrowser",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await clearProjectChatWindows(page);
+
+    try {
+      const root = await postBackend<RootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+
+      const csvPath = `${rootPath}/pw-sheet.csv`;
+      await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
+      const pdfPath = `${rootPath}/pw-sheet.pdf`;
+      await fs.writeFile(
+        pdfPath,
+        Buffer.from(
+          "%PDF-1.1\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 120] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 38 >>\nstream\nBT /F1 14 Tf 24 60 Td (PDF Preview) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000202 00000 n \ntrailer\n<< /Root 1 0 R /Size 5 >>\nstartxref\n287\n%%EOF\n",
+          "utf-8",
+        ),
+      );
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        ["Task", "Owner"],
+        ["Beta", "Dev"],
+      ]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      const xlsxBytes = XLSX.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+      }) as Buffer;
+      const xlsxPath = `${rootPath}/pw-sheet.xlsx`;
+      await fs.writeFile(xlsxPath, xlsxBytes);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".react-flow__pane");
+
+      const listPane = page.getByTestId("file-browser-list-pane");
+      const previewPane = page.getByTestId("file-browser-preview-pane");
+      const previewToggle = page.getByTestId("file-browser-preview-toggle");
+      const previewResizeHandle = page.getByTestId(
+        "file-browser-preview-resize-handle",
+      );
+      await expect(listPane).toBeVisible();
+      await expect(previewPane).toBeVisible();
+      await expect(previewToggle).toBeVisible();
+      await expect(previewResizeHandle).toBeVisible();
+      const listBox = await listPane.boundingBox();
+      const previewBox = await previewPane.boundingBox();
+      if (!listBox || !previewBox) {
+        throw new Error("Missing file browser pane bounding boxes.");
+      }
+      expect(previewBox.y).toBeGreaterThan(listBox.y + 10);
+
+      const resizeBox = await previewResizeHandle.boundingBox();
+      if (!resizeBox) {
+        throw new Error("Missing preview resize handle bounds.");
+      }
+      await page.mouse.move(
+        resizeBox.x + resizeBox.width / 2,
+        resizeBox.y + resizeBox.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        resizeBox.x + resizeBox.width / 2,
+        resizeBox.y + resizeBox.height / 2 + 80,
+      );
+      await page.mouse.up();
+
+      const resizedListBox = await listPane.boundingBox();
+      const resizedPreviewBox = await previewPane.boundingBox();
+      if (!resizedListBox || !resizedPreviewBox) {
+        throw new Error("Missing resized pane bounds.");
+      }
+      expect(resizedListBox.height).toBeGreaterThan(listBox.height + 20);
+      expect(resizedPreviewBox.height).toBeLessThan(previewBox.height - 20);
+
+      await previewToggle.click();
+      await expect(page.getByTestId("file-browser-preview-pane")).toHaveCount(
+        0,
+      );
+      await previewToggle.click();
+      await expect(page.getByTestId("file-browser-preview-pane")).toBeVisible();
+
+      const pdfRow = page.locator("button").filter({ hasText: "pw-sheet.pdf" });
+      await expect(pdfRow).toBeVisible({ timeout: 20000 });
+      await pdfRow.first().click();
+      await expect(
+        previewPane.locator('[data-spreadsheet-cell="1:1"]'),
+      ).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const pdfCount = await page
+            .getByTestId("file-browser-universal-preview-pdf")
+            .count();
+          const unavailableCount = await previewPane
+            .getByText("Preview unavailable.")
+            .count();
+          return pdfCount + unavailableCount;
+        })
+        .toBeGreaterThan(0);
+
+      const csvRow = page.locator("button").filter({ hasText: "pw-sheet.csv" });
+      await expect(csvRow).toBeVisible({ timeout: 20000 });
+      await csvRow.first().click();
+
+      const targetCell = previewPane
+        .locator('[data-spreadsheet-cell="1:1"]')
+        .first();
+      await expect(targetCell).toBeVisible();
+      await expect(targetCell).toHaveValue("todo");
+      await targetCell.fill("done");
+      await targetCell.press("Enter");
+      await expect(previewPane.getByText("Unsaved edits.")).toBeVisible();
+      await expect(targetCell).toHaveValue("done");
+
+      const xlsxRow = page
+        .locator("button")
+        .filter({ hasText: "pw-sheet.xlsx" });
+      await expect(xlsxRow).toBeVisible({ timeout: 20000 });
+      await xlsxRow.first().click();
+
+      const xlsxCell = previewPane
+        .locator('[data-spreadsheet-cell="1:0"]')
+        .first();
+      await expect(xlsxCell).toBeVisible();
+      await expect(xlsxCell).toHaveValue("Beta");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+});

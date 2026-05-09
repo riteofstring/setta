@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"setta/internal/deployments"
+	"setta/internal/plugins"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
-	"setta/internal/testutil/pluginfrontend"
 )
 
 func TestRunRoutesAppSubcommandAndDelegatesLatestDeployment(t *testing.T) {
@@ -401,7 +401,9 @@ func enableSettacmdAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot strin
 
 	targetRoot := filepath.Join(deploymentRoot, ".setta_plugins", pluginID)
 	copySettacmdPluginFixtureRoot(t, settacmdAppPluginSourceRoot(t, pluginID), targetRoot)
-	pluginfrontend.MaterializeRuntimeManagedAssets(t, targetRoot)
+	if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+		t.Fatalf("materialize settacmd app provider frontend assets: %v", err)
+	}
 	writeJSONFileForSettacmdTest(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds": []string{pluginID},
 	})

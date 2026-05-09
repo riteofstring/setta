@@ -24,7 +24,6 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
-	"setta/internal/testutil/pluginfrontend"
 )
 
 type appDeploymentIDERouteFixture struct {
@@ -155,38 +154,6 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if payload.DeploymentVersion != "v1" {
 		t.Fatalf("expected app deployment version v1, got %q", payload.DeploymentVersion)
 	}
-	assertPublishedAppDeploymentContents(t, payload, appSpecPath, appSpecPayload)
-
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
-	secondResponse := httptest.NewRecorder()
-	secondRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+httpapi.RouteAppDeployments,
-		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-	)
-	secondRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(secondResponse, secondRequest)
-	if secondResponse.Code != http.StatusOK {
-		t.Fatalf("expected second app publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
-	}
-
-	var secondPayload httpapi.DeploymentMetadataResponse
-	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
-		t.Fatalf("decode second app publish payload: %v", err)
-	}
-	if secondPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected second app deployment version v2, got %q", secondPayload.DeploymentVersion)
-	}
-	assertAppDeploymentVersionRoutes(t, handler)
-}
-
-func assertPublishedAppDeploymentContents(
-	t *testing.T,
-	payload httpapi.DeploymentMetadataResponse,
-	appSpecPath string,
-	appSpecPayload map[string]any,
-) {
-	t.Helper()
 
 	manifest, err := deployments.LoadManifest(payload.DeploymentRoot)
 	if err != nil {
@@ -208,15 +175,8 @@ func assertPublishedAppDeploymentContents(
 	if string(listenerContent) != "print('listener')\n" {
 		t.Fatalf("unexpected copied app listener content %q", string(listenerContent))
 	}
-	assertPublishedAppPolicyAndDocument(t, payload.DeploymentRoot, appSpecPath)
-	assertPublishedAppSpec(t, payload.DeploymentRoot, appSpecPath, appSpecPayload)
-	assertPublishedAppPluginState(t, payload.DeploymentRoot)
-}
 
-func assertPublishedAppPolicyAndDocument(t *testing.T, deploymentRoot string, appSpecPath string) {
-	t.Helper()
-
-	policy, err := deployments.LoadPolicy(deploymentRoot)
+	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
 	if err != nil {
 		t.Fatalf("load app policy: %v", err)
 	}
@@ -224,7 +184,7 @@ func assertPublishedAppPolicyAndDocument(t *testing.T, deploymentRoot string, ap
 		t.Fatalf("expected app policy allowRun override false, got %#v", policy)
 	}
 
-	store, err := projectstate.NewStore(filepath.Join(deploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	store, err := projectstate.NewStore(filepath.Join(payload.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
 	if err != nil {
 		t.Fatalf("open published app store: %v", err)
 	}
@@ -239,17 +199,8 @@ func assertPublishedAppPolicyAndDocument(t *testing.T, deploymentRoot string, ap
 	if storedDefinition.AppSpecPath != appSpecPath {
 		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
 	}
-}
 
-func assertPublishedAppSpec(
-	t *testing.T,
-	deploymentRoot string,
-	appSpecPath string,
-	appSpecPayload map[string]any,
-) {
-	t.Helper()
-
-	publishedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(deploymentRoot, appSpecPath)
+	publishedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(payload.DeploymentRoot, appSpecPath)
 	if err != nil {
 		t.Fatalf("read published app spec: %v", err)
 	}
@@ -264,13 +215,8 @@ func assertPublishedAppSpec(
 	if string(encodedPublished) != string(encodedExpected) {
 		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
 	}
-}
-
-func assertPublishedAppPluginState(t *testing.T, deploymentRoot string) {
-	t.Helper()
-
 	if _, err := os.Stat(filepath.Join(
-		deploymentRoot,
+		payload.DeploymentRoot,
 		".setta_plugins",
 		ProviderPluginID,
 		"setta.plugin.json",
@@ -278,7 +224,9 @@ func assertPublishedAppPluginState(t *testing.T, deploymentRoot string) {
 		t.Fatalf("expected published deployment to package provider plugin, got %v", err)
 	}
 	var pluginsState plugins.PluginsStateFile
-	pluginsStatePayload, err := os.ReadFile(filepath.Join(deploymentRoot, "plugins_state.json"))
+	pluginsStatePayload, err := os.ReadFile(
+		filepath.Join(payload.DeploymentRoot, "plugins_state.json"),
+	)
 	if err != nil {
 		t.Fatalf("read published deployment plugins state: %v", err)
 	}
@@ -296,10 +244,27 @@ func assertPublishedAppPluginState(t *testing.T, deploymentRoot string) {
 	if _, ok := pluginsState.PluginConfigByID["global:"+ProviderPluginID]; ok {
 		t.Fatalf("expected published deployment to omit global-scoped provider config, got %#v", pluginsState.PluginConfigByID)
 	}
-}
 
-func assertAppDeploymentVersionRoutes(t *testing.T, handler http.Handler) {
-	t.Helper()
+	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
+	secondResponse := httptest.NewRecorder()
+	secondRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+httpapi.RouteAppDeployments,
+		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
+	)
+	secondRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(secondResponse, secondRequest)
+	if secondResponse.Code != http.StatusOK {
+		t.Fatalf("expected second app publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
+	}
+
+	var secondPayload httpapi.DeploymentMetadataResponse
+	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
+		t.Fatalf("decode second app publish payload: %v", err)
+	}
+	if secondPayload.DeploymentVersion != "v2" {
+		t.Fatalf("expected second app deployment version v2, got %q", secondPayload.DeploymentVersion)
+	}
 
 	versionsResponse := httptest.NewRecorder()
 	versionsRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/versions", nil)
@@ -863,7 +828,9 @@ func newAppDeploymentIDERouteFixture(
 			if err := plugins.CopyDirectoryTree(appDeploymentIDEProviderSourcePath(t), targetRoot); err != nil {
 				return deployments.AppProviderPackageState{}, err
 			}
-			pluginfrontend.MaterializeRuntimeManagedAssets(t, targetRoot)
+			if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+				return deployments.AppProviderPackageState{}, err
+			}
 			return deployments.AppProviderPackageState{
 				EnabledPluginIDs: []string{ProviderPluginID},
 				PluginConfigByID: map[string]any{

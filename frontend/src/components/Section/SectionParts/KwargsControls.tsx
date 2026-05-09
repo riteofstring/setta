@@ -1,11 +1,10 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
   addKwarg,
   deleteKwarg,
   deleteSelectedParams,
-  getLatestProjectState,
   setSectionEdgeInputs,
   setSectionParamFilter,
   setSectionPinnedParams,
@@ -16,7 +15,6 @@ import {
   getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
   updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
@@ -40,55 +38,13 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import { getKwargsControlsContainerHeightPx } from "./kwargsControlsLayout";
 import {
   getKwargsControlsActionState,
   getKwargsControlsThemeState,
 } from "./kwargsControlsState";
 type KwargsControlsProps = {
   sectionId: string;
-  trackMeasuredHeight?: boolean;
 };
-
-async function refreshProjectStateAfterKwargMutation(
-  projectConfigId: string,
-): Promise<void> {
-  const response = await callOpenAPI(
-    getLatestProjectState({
-      body: {
-        projectConfigId,
-      },
-    } as Parameters<typeof getLatestProjectState>[0]),
-  );
-  if (res200(response)) {
-    processProjectStateUpdateFromBackend(response.data);
-  }
-}
-
-async function addKwargAndRefresh(payload: {
-  projectConfigId: string;
-  sectionId: string;
-}): Promise<void> {
-  const response = await callOpenAPI(
-    addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
-  );
-  if (res200(response)) {
-    await refreshProjectStateAfterKwargMutation(payload.projectConfigId);
-  }
-}
-
-async function deleteKwargAndRefresh(payload: {
-  projectConfigId: string;
-  sectionId: string;
-}): Promise<void> {
-  const response = await callOpenAPI(
-    deleteKwarg({ body: payload } as Parameters<typeof deleteKwarg>[0]),
-  );
-  if (res200(response)) {
-    await refreshProjectStateAfterKwargMutation(payload.projectConfigId);
-  }
-}
-
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -106,17 +62,10 @@ function getDeletableSelectedParamIds(
     return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
   });
 }
-export function KwargsControls({
-  sectionId,
-  trackMeasuredHeight = true,
-}: KwargsControlsProps) {
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
-  useKwargsControlsHeightMeasurement(
-    controlsRef,
-    heightKey,
-    trackMeasuredHeight,
-  );
+  useKwargsControlsHeightMeasurement(controlsRef, heightKey);
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -403,17 +352,11 @@ export function KwargsControls({
   }
   return (
     <>
-      <section
-        className={controlsContainerClassName}
-        ref={controlsRef}
-        style={{
-          height: getKwargsControlsContainerHeightPx(isCallableSection),
-        }}
-      >
+      <section className={controlsContainerClassName} ref={controlsRef}>
         <article
-          className={`flex flex-nowrap items-center ${isCallableSection ? "py-1" : ""}`}
+          className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
-          <section className="ml-1 flex shrink-0 items-center gap-1">
+          <section className="ml-1 flex items-center gap-1">
             <h3
               className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
             >
@@ -426,7 +369,11 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void deleteKwargAndRefresh(payload);
+                void callOpenAPI(
+                  deleteKwarg({ body: payload } as Parameters<
+                    typeof deleteKwarg
+                  >[0]),
+                );
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -444,7 +391,9 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void addKwargAndRefresh(payload);
+                void callOpenAPI(
+                  addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
+                );
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -571,15 +520,10 @@ function ParamFilter({
 function useKwargsControlsHeightMeasurement(
   controlsRef: React.RefObject<HTMLElement | null>,
   heightKey: string,
-  trackMeasuredHeight: boolean,
 ) {
   const lastMeasuredHeightRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
-    if (!trackMeasuredHeight) {
-      lastMeasuredHeightRef.current = null;
-      return;
-    }
     const node = controlsRef.current;
     if (!node) {
       lastMeasuredHeightRef.current = null;
@@ -611,7 +555,7 @@ function useKwargsControlsHeightMeasurement(
       lastMeasuredHeightRef.current = null;
       useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
-  }, [controlsRef, heightKey, trackMeasuredHeight]);
+  }, [controlsRef, heightKey]);
 }
 
 const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {

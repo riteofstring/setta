@@ -46,7 +46,7 @@ test("chat section resize persists after reload", async ({ page }) => {
       projectContext.projectConfigId,
       "__pw_chat_resize__",
     );
-    const node = page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
+    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
     await expect(node).toBeVisible();
     const section = node.locator("section").first();
 
@@ -74,32 +74,28 @@ test("chat section resize persists after reload", async ({ page }) => {
     await expect
       .poll(
         async () =>
-          (
-            await getSectionLayoutFromState(
-              page,
-              projectContext.projectConfigId,
-              sectionId,
-            )
-          ).width ?? 0,
+          (await getSectionLayoutFromState(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          )).width ?? 0,
         { timeout: 10000 },
       )
       .toBeGreaterThan(baseWidth);
     await expect
       .poll(
         async () =>
-          (
-            await getSectionLayoutFromState(
-              page,
-              projectContext.projectConfigId,
-              sectionId,
-            )
-          ).height ?? 0,
+          (await getSectionLayoutFromState(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          )).height ?? 0,
         { timeout: 10000 },
       )
       .toBeGreaterThan(baseHeight);
 
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const reloadedLayout = await getSectionLayoutFromState(
       page,
@@ -163,9 +159,7 @@ async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-async function openIsolatedProject(
-  page: Page,
-): Promise<IsolatedProjectContext> {
+async function openIsolatedProject(page: Page): Promise<IsolatedProjectContext> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -182,7 +176,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,

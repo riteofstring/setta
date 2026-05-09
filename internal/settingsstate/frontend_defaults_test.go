@@ -70,8 +70,8 @@ func TestFrontendSettingsStateFromDocumentPreservesChatWindowing(t *testing.T) {
 	}
 
 	defaults := FrontendDefaultSettingsState()
-	if defaults.ChatWindowing.AutoCreateInitialChat {
-		t.Fatalf("expected chat windowing defaults to disable autoCreateInitialChat")
+	if !defaults.ChatWindowing.AutoCreateInitialChat {
+		t.Fatalf("expected chat windowing defaults to include autoCreateInitialChat")
 	}
 	if !defaults.ChatWindowing.RestorePriorStateOnUnmaximize {
 		t.Fatalf("expected chat windowing defaults to include restorePriorStateOnUnmaximize")

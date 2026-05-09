@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { act, createElement, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -342,7 +341,6 @@ describe("useCreateAndGoToProjectConfig", () => {
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
@@ -418,20 +416,6 @@ describe("loadProjectState", () => {
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
       backendProjectConfig.windowSpaces,
     );
-  });
-
-  it("hydrates the saved viewport into the GPU viewport store on load", async () => {
-    await loadProjectState({
-      projectConfig: createProjectConfig({
-        id: "project-viewport",
-        name: "Project Viewport",
-        viewport: { x: 24, y: -16, zoom: 1.75 },
-        viewportInitialized: true,
-      }),
-      projectChatWindowing: createProjectChatWindowingState(),
-    });
-
-    expect(gpuFlowViewportStore.getState().transform).toEqual([24, -16, 1.75]);
   });
 
   it("prunes stale git graph ephemeral state on full project load", async () => {

@@ -115,7 +115,7 @@ async function openProjectChatWithManagedEngine(page: Page) {
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
   await page.reload();
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const projectChatSurface = await getVisibleProjectChatSurface(page);
   await expect(
     projectChatSurface.getByTestId("chat-input-textarea"),

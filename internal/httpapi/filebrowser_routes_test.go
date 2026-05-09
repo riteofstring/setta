@@ -645,42 +645,26 @@ func TestRegisterFileBrowserRoutesMapReadAndWriteGuardErrors(t *testing.T) {
 	}
 	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
 
-	assertFileBrowserOversizeReadGuardError(t, handler, authService, workspaceRoot)
-	assertFileBrowserCreateOnlyWriteGuardError(t, handler, authService, binaryStore, workspaceRoot)
-	assertFileBrowserInvalidBinaryPayloadGuardError(t, handler, authService, workspaceRoot)
-	assertFileBrowserStaleWriteGuardError(t, handler, authService, binaryStore, workspaceRoot)
-}
-
-func assertFileBrowserOversizeReadGuardError(
-	t *testing.T,
-	handler http.Handler,
-	authService *auth.Service,
-	workspaceRoot string,
-) {
-	t.Helper()
-
 	oversizePath := filepath.Join(workspaceRoot, "oversize.txt")
 	if err := os.WriteFile(oversizePath, []byte("too large"), 0o644); err != nil {
 		t.Fatalf("write oversize file: %v", err)
 	}
-	oversizeResponse := postFileBrowserRouteJSON(
-		t,
-		handler,
-		authService,
-		RouteGetFileBrowserFileContent,
-		`{"path":"`+oversizePath+`","maxBytes":4}`,
-	)
-	assertFileBrowserRouteErrorCode(t, oversizeResponse, http.StatusRequestEntityTooLarge, "file_too_large")
-}
+	oversizeRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetFileBrowserFileContent, strings.NewReader(`{"path":"`+oversizePath+`","maxBytes":4}`))
+	oversizeRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, oversizeRequest, authService)
 
-func assertFileBrowserCreateOnlyWriteGuardError(
-	t *testing.T,
-	handler http.Handler,
-	authService *auth.Service,
-	binaryStore *binarypayload.Store,
-	workspaceRoot string,
-) {
-	t.Helper()
+	oversizeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(oversizeResponse, oversizeRequest)
+	if oversizeResponse.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d with body %q", oversizeResponse.Code, oversizeResponse.Body.String())
+	}
+	var oversizePayload errorResponse
+	if err := json.Unmarshal(oversizeResponse.Body.Bytes(), &oversizePayload); err != nil {
+		t.Fatalf("decode oversize error: %v", err)
+	}
+	if oversizePayload.Error.Code != "file_too_large" {
+		t.Fatalf("expected file_too_large, got %#v", oversizePayload)
+	}
 
 	existingPath := filepath.Join(workspaceRoot, "existing.txt")
 	if err := os.WriteFile(existingPath, []byte("existing"), 0o644); err != nil {
@@ -690,42 +674,39 @@ func assertFileBrowserCreateOnlyWriteGuardError(
 	if err != nil {
 		t.Fatalf("store create payload: %v", err)
 	}
-	createOnlyResponse := postFileBrowserRouteJSON(
-		t,
-		handler,
-		authService,
-		RouteWriteFileBrowserContent,
-		`{"path":"`+existingPath+`","contentId":"`+createRef.ContentID+`","expectedMtimeNs":null}`,
-	)
-	assertFileBrowserRouteErrorCode(t, createOnlyResponse, http.StatusConflict, "file_conflict")
-}
+	createOnlyRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteWriteFileBrowserContent, strings.NewReader(`{"path":"`+existingPath+`","contentId":"`+createRef.ContentID+`","expectedMtimeNs":null}`))
+	createOnlyRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, createOnlyRequest, authService)
 
-func assertFileBrowserInvalidBinaryPayloadGuardError(
-	t *testing.T,
-	handler http.Handler,
-	authService *auth.Service,
-	workspaceRoot string,
-) {
-	t.Helper()
+	createOnlyResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createOnlyResponse, createOnlyRequest)
+	if createOnlyResponse.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", createOnlyResponse.Code, createOnlyResponse.Body.String())
+	}
+	var createOnlyPayload errorResponse
+	if err := json.Unmarshal(createOnlyResponse.Body.Bytes(), &createOnlyPayload); err != nil {
+		t.Fatalf("decode create-only error: %v", err)
+	}
+	if createOnlyPayload.Error.Code != "file_conflict" {
+		t.Fatalf("expected file_conflict, got %#v", createOnlyPayload)
+	}
 
-	invalidPayloadResponse := postFileBrowserRouteJSON(
-		t,
-		handler,
-		authService,
-		RouteWriteFileBrowserContent,
-		`{"path":"`+filepath.Join(workspaceRoot, "invalid.txt")+`","contentId":"missing","expectedMtimeNs":null}`,
-	)
-	assertFileBrowserRouteErrorCode(t, invalidPayloadResponse, http.StatusBadRequest, "invalid_binary_content_payload")
-}
+	invalidPayloadRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteWriteFileBrowserContent, strings.NewReader(`{"path":"`+filepath.Join(workspaceRoot, "invalid.txt")+`","contentId":"missing","expectedMtimeNs":null}`))
+	invalidPayloadRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, invalidPayloadRequest, authService)
 
-func assertFileBrowserStaleWriteGuardError(
-	t *testing.T,
-	handler http.Handler,
-	authService *auth.Service,
-	binaryStore *binarypayload.Store,
-	workspaceRoot string,
-) {
-	t.Helper()
+	invalidPayloadResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidPayloadResponse, invalidPayloadRequest)
+	if invalidPayloadResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", invalidPayloadResponse.Code, invalidPayloadResponse.Body.String())
+	}
+	var invalidPayload errorResponse
+	if err := json.Unmarshal(invalidPayloadResponse.Body.Bytes(), &invalidPayload); err != nil {
+		t.Fatalf("decode invalid payload error: %v", err)
+	}
+	if invalidPayload.Error.Code != "invalid_binary_content_payload" {
+		t.Fatalf("expected invalid_binary_content_payload, got %#v", invalidPayload)
+	}
 
 	stalePath := filepath.Join(workspaceRoot, "stale.txt")
 	if err := os.WriteFile(stalePath, []byte("old"), 0o644); err != nil {
@@ -743,50 +724,21 @@ func assertFileBrowserStaleWriteGuardError(
 	if err != nil {
 		t.Fatalf("store update payload: %v", err)
 	}
-	staleResponse := postFileBrowserRouteJSON(
-		t,
-		handler,
-		authService,
-		RouteWriteFileBrowserContent,
-		`{"path":"`+stalePath+`","contentId":"`+updateRef.ContentID+`","expectedMtimeNs":`+strconv.FormatInt(staleInfo.ModTime().UnixNano(), 10)+`}`,
-	)
-	assertFileBrowserRouteErrorCode(t, staleResponse, http.StatusConflict, "file_conflict")
-}
+	staleRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteWriteFileBrowserContent, strings.NewReader(`{"path":"`+stalePath+`","contentId":"`+updateRef.ContentID+`","expectedMtimeNs":`+strconv.FormatInt(staleInfo.ModTime().UnixNano(), 10)+`}`))
+	staleRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, staleRequest, authService)
 
-func postFileBrowserRouteJSON(
-	t *testing.T,
-	handler http.Handler,
-	authService *auth.Service,
-	route string,
-	body string,
-) *httptest.ResponseRecorder {
-	t.Helper()
-
-	request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
-	request.Header.Set("Content-Type", "application/json")
-	addHTTPTestAuthCookie(t, request, authService)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	return response
-}
-
-func assertFileBrowserRouteErrorCode(
-	t *testing.T,
-	response *httptest.ResponseRecorder,
-	expectedStatus int,
-	expectedCode string,
-) {
-	t.Helper()
-
-	if response.Code != expectedStatus {
-		t.Fatalf("expected %d, got %d with body %q", expectedStatus, response.Code, response.Body.String())
+	staleResponse := httptest.NewRecorder()
+	handler.ServeHTTP(staleResponse, staleRequest)
+	if staleResponse.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", staleResponse.Code, staleResponse.Body.String())
 	}
-	var payload errorResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode file-browser error payload: %v", err)
+	var stalePayload errorResponse
+	if err := json.Unmarshal(staleResponse.Body.Bytes(), &stalePayload); err != nil {
+		t.Fatalf("decode stale error: %v", err)
 	}
-	if payload.Error.Code != expectedCode {
-		t.Fatalf("expected %s, got %#v", expectedCode, payload)
+	if stalePayload.Error.Code != "file_conflict" {
+		t.Fatalf("expected file_conflict, got %#v", stalePayload)
 	}
 }
 

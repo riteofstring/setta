@@ -3,9 +3,8 @@
   "name": "Setta Chrome Repro Recorder",
   "version": "0.0.1",
   "description": "Records browser interactions for Setta repro capture.",
-  "permissions": ["<all_urls>", "activeTab", "debugger", "storage", "tabs"],
+  "permissions": ["storage"],
   "host_permissions": [
-    "<all_urls>",
     "http://127.0.0.1/*",
     "http://localhost/*",
     "http://[::1]/*",

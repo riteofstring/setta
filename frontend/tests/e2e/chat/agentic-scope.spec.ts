@@ -78,7 +78,7 @@ test.describe.serial("agentic scope", () => {
       });
 
       const chatNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${chatSectionId}"]`,
+        `.react-flow__node[data-id="${chatSectionId}"]`,
       );
       await expect(chatNode).toBeVisible();
       await chatNode.click();
@@ -258,13 +258,13 @@ test.describe.serial("agentic scope", () => {
       const configBUrl = new URL(page.url());
       configBUrl.pathname = `/${projectConfigNameB}`;
       await page.goto(configBUrl.toString(), { waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       await expect(
-        page.locator(`.setta-gpu-flow__node[data-id="${chatSectionId}"]`),
+        page.locator(`.react-flow__node[data-id="${chatSectionId}"]`),
       ).toBeVisible();
       await expect(
-        page.locator(`.setta-gpu-flow__node[data-id="${targetSectionId}"]`),
+        page.locator(`.react-flow__node[data-id="${targetSectionId}"]`),
       ).toBeVisible();
 
       const now = new Date().toISOString();
@@ -392,7 +392,7 @@ test.describe.serial("agentic scope", () => {
       });
 
       const chatNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${chatSectionId}"]`,
+        `.react-flow__node[data-id="${chatSectionId}"]`,
       );
       await expect(chatNode).toBeVisible();
       await chatNode.click();

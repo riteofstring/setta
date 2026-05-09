@@ -3620,7 +3620,7 @@ type ProjectviewShownParamIds = {
   unpinned: ProjectviewShownParamIdDetails;
 };
 
-export type ProjectviewSingleConfig = {
+type ProjectviewSingleConfig = {
   artifactGroups?: {
     [key: string]: unknown;
   };

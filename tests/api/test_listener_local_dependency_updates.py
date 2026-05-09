@@ -100,9 +100,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
                     projectConfigId=project_config_id,
                     callId=message.content.callId,
                     ok=True,
-                    result=None,
-                    error="",
-                    details={},
+                    result={"ok": True},
                 ),
             )
         )

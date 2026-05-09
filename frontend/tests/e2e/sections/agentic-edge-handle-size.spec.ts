@@ -4,7 +4,6 @@ import {
   createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
-  hoverGpuFlowNode,
   openIsolatedProject,
 } from "../helpers";
 
@@ -24,9 +23,7 @@ async function createTopLevelSection(
   });
   const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
-    throw new Error(
-      `Missing sectionId when creating section type ${implType}.`,
-    );
+    throw new Error(`Missing sectionId when creating section type ${implType}.`);
   }
   return sectionId;
 }
@@ -49,16 +46,14 @@ test.describe.serial("agentic handles", () => {
       await expect(node).toBeVisible();
 
       // Ensure the node is fully in view so hover reliably reveals the handles.
-      await page
-        .getByRole("button", { name: "fit view" })
-        .click({ force: true });
-      await hoverGpuFlowNode(page, node);
+      await page.getByRole("button", { name: "fit view" }).click();
+      await node.hover();
 
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const sourceHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
 
       await expect(targetHandle).toBeVisible();

@@ -4,14 +4,11 @@ import base64
 import importlib.util
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from types import ModuleType
+from typing import Any
 
+import pytest
 from setta.types.generated import go_shared_constants as C
-
-if TYPE_CHECKING:
-    from types import ModuleType
-
-    import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

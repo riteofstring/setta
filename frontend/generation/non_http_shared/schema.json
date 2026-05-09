@@ -10480,75 +10480,6 @@
         "TEXT"
       ]
     },
-    "ParamUIRendererConfigValue": {
-      "type": "object",
-      "properties": {
-        "textLikeParamTypes": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/CodeObjType"
-          }
-        },
-        "dateTimeParamTypes": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/CodeObjType"
-          }
-        },
-        "rendererTypes": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/CodeObjType"
-          }
-        },
-        "rendererFamiliesByType": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/ParamUIRendererFamily"
-          }
-        },
-        "specializedRendererFamilies": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/ParamUIRendererFamily"
-          }
-        }
-      },
-      "title": "ParamUIRendererConfigValue",
-      "required": [
-        "textLikeParamTypes",
-        "dateTimeParamTypes",
-        "rendererTypes",
-        "rendererFamiliesByType",
-        "specializedRendererFamilies"
-      ],
-      "additionalProperties": false
-    },
-    "ParamUIRendererFamily": {
-      "type": "string",
-      "title": "ParamUIRendererFamily",
-      "enum": [
-        "text-like",
-        "date-time",
-        "button",
-        "slider",
-        "rotary",
-        "switch",
-        "color-picker",
-        "dropdown",
-        "password",
-        "dropzone"
-      ]
-    },
     "ParameterPassingStyle": {
       "type": "string",
       "title": "ParameterPassingStyle",
@@ -13223,143 +13154,6 @@
       "required": [
         "name",
         "id"
-      ],
-      "additionalProperties": false
-    },
-    "ProjectParamUpdateContent": {
-      "type": "object",
-      "properties": {
-        "projectConfigId": {
-          "type": "string"
-        },
-        "sectionId": {
-          "type": "string"
-        },
-        "sectionVariantId": {
-          "type": "string"
-        },
-        "paramInfoId": {
-          "type": "string"
-        },
-        "codeObj": {
-          "$ref": "#/$defs/Core"
-        },
-        "codeObjVariant": {
-          "$ref": "#/$defs/Variant"
-        },
-        "codeObjImpl": {
-          "anyOf": [
-            {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/BaseCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/CodeCallableCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/CodeParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/TextParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/DateParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/TimeParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/ButtonParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/SliderParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/RotaryParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/SwitchParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/DropdownParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/PasswordParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/TextAreaParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/DropzoneParamCodeObjImpl"
-                },
-                {
-                  "$ref": "#/$defs/NestedParamCodeObjImpl"
-                }
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "completedOpIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "pendingOpIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "title": "ProjectParamUpdateContent",
-      "required": [
-        "projectConfigId",
-        "sectionId",
-        "sectionVariantId",
-        "paramInfoId",
-        "codeObj",
-        "codeObjVariant",
-        "codeObjImpl",
-        "completedOpIds",
-        "pendingOpIds"
-      ],
-      "additionalProperties": false
-    },
-    "ProjectParamUpdateMessage": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "messageType": {
-          "$ref": "#/$defs/WebsocketMessageType"
-        },
-        "content": {
-          "$ref": "#/$defs/ProjectParamUpdateContent"
-        }
-      },
-      "title": "ProjectParamUpdateMessage",
-      "required": [
-        "id",
-        "messageType",
-        "content"
       ],
       "additionalProperties": false
     },
@@ -20788,6 +20582,7 @@
       "type": "string",
       "title": "Transport",
       "enum": [
+        "sse",
         "streamable_http",
         "stdio"
       ]
@@ -21680,7 +21475,6 @@
         "PromptTemplatesUpdated",
         "TranscriptionProfilesUpdated",
         "UpdateFrontendProjectState",
-        "UpdateFrontendProjectParam",
         "UpdateSettings",
         "UpdatePluginRuntime",
         "ReturnRenameRefactorResults",

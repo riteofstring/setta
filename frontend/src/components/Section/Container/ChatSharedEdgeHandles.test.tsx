@@ -1,5 +1,5 @@
-import { NodeIdContext } from "gpuFlow/NodeIdContext";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { NodeIdContext } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -13,8 +13,7 @@ import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
->["projectConfig"]["stateMachineEdges"];
-type WorkflowEdgeItem = NonNullable<WorkflowEdge>[number];
+>["projectConfig"]["stateMachineEdges"][number];
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -27,9 +26,7 @@ function syncStoreInitialState(store: {
   Object.assign(initialState, store.getState());
 }
 
-function createWorkflowEdge(
-  options: Partial<WorkflowEdgeItem> = {},
-): WorkflowEdgeItem {
+function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
   return {
     id: "",
     machineGroupId: "workflow-main",
@@ -52,7 +49,7 @@ function seedSharedChatEdges({
   stateMachineEdges = [],
 }: {
   agenticEdges?: ReturnType<typeof createAgenticEdge>[];
-  stateMachineEdges?: WorkflowEdgeItem[];
+  stateMachineEdges?: WorkflowEdge[];
 } = {}): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -64,21 +61,10 @@ function seedSharedChatEdges({
   syncStoreInitialState(useProjectState);
 }
 
-function renderHandles({
-  isUserView = false,
-  scenePortGeometry = false,
-  sectionId,
-}: {
-  sectionId: string;
-  isUserView?: boolean;
-  scenePortGeometry?: boolean;
-}): string {
+function renderHandles(sectionId: string, isUserView: boolean = false): string {
   return renderToStaticMarkup(
     <NodeIdContext.Provider value={sectionId}>
-      <ChatSharedEdgeHandles
-        isUserView={isUserView}
-        scenePortGeometry={scenePortGeometry}
-      />
+      <ChatSharedEdgeHandles isUserView={isUserView} />
     </NodeIdContext.Provider>,
   );
 }
@@ -111,12 +97,20 @@ function createSharedChatEdge(options: {
 describe("ChatSharedEdgeHandles", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   afterEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   it("marks shared chat handles connected across agentic and workflow edges", () => {
@@ -138,7 +132,7 @@ describe("ChatSharedEdgeHandles", () => {
       ],
     });
 
-    const markup = renderHandles({ sectionId: "section-chat" });
+    const markup = renderHandles("section-chat");
 
     expectConnectedHandle(
       markup,
@@ -159,7 +153,7 @@ describe("ChatSharedEdgeHandles", () => {
       ],
     });
 
-    const markup = renderHandles({ sectionId: "section-chat" });
+    const markup = renderHandles("section-chat");
 
     expectConnectedHandle(
       markup,
@@ -169,27 +163,10 @@ describe("ChatSharedEdgeHandles", () => {
     expectUnconnectedHandle(markup, "chat-shared-source-handle-section-chat");
   });
 
-  it("leaves scene-owned shared chat handles out of DOM gesture-start ownership", () => {
-    seedSharedChatEdges();
-
-    const standaloneMarkup = renderHandles({ sectionId: "section-chat" });
-    const sceneMarkup = renderHandles({
-      scenePortGeometry: true,
-      sectionId: "section-chat",
-    });
-
-    expect(standaloneMarkup).toContain("connectablestart");
-    expect(sceneMarkup).not.toContain("connectablestart");
-    expect(sceneMarkup).toContain("connectableend");
-  });
-
   it("suppresses shared chat handles in user view", () => {
     seedSharedChatEdges();
 
-    const markup = renderHandles({
-      isUserView: true,
-      sectionId: "section-chat",
-    });
+    const markup = renderHandles("section-chat", true);
 
     expect(markup).toBe("");
   });

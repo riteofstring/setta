@@ -26,7 +26,6 @@ export function DummyCodeMirror({
   className,
   placeholder,
   language,
-  gpuFlowControl,
   useJsx = false,
   singleLine = false,
   wrapLines,
@@ -42,7 +41,6 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       className={className}
       language={language}
-      gpuFlowControl={gpuFlowControl}
       useJsx={useJsx}
       style={resolvedStyle}
     />
@@ -53,7 +51,6 @@ export function DummyCodeMirror({
       placeholder={placeholder}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
-      gpuFlowControl={gpuFlowControl}
       style={resolvedStyle}
     />
   );
@@ -65,15 +62,12 @@ function PlaceholderCode({
   placeholder,
   onMouseDownCapture,
   onFocus,
-  gpuFlowControl,
   style,
 }) {
-  const gpuFlowAttributes = getGpuFlowCodeMirrorAttributes(gpuFlowControl);
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
       id={divId}
-      {...gpuFlowAttributes}
       className={`${className} text-gray-600 outline-none`}
       style={style}
       onMouseDownCapture={onMouseDownCapture}
@@ -94,16 +88,13 @@ function HighlightedCode({
   language,
   useJsx,
   onFocus,
-  gpuFlowControl,
   style,
 }) {
-  const gpuFlowAttributes = getGpuFlowCodeMirrorAttributes(gpuFlowControl);
   const parser = getCodeMirrorLanguageParser(language, useJsx);
   if (!parser) {
     return (
       <div
         id={divId}
-        {...gpuFlowAttributes}
         className={`${className} outline-none`}
         style={style}
         onMouseDownCapture={onMouseDownCapture}
@@ -183,7 +174,6 @@ function HighlightedCode({
   return (
     <div
       id={divId}
-      {...gpuFlowAttributes}
       className={`${className} ${scopeClassName} outline-none`}
       style={style}
       onMouseDownCapture={onMouseDownCapture}
@@ -193,15 +183,4 @@ function HighlightedCode({
       {outputDivs}
     </div>
   );
-}
-
-function getGpuFlowCodeMirrorAttributes(gpuFlowControl) {
-  if (!gpuFlowControl) {
-    return {};
-  }
-  return {
-    "data-gpu-flow-activation": "mousedown",
-    "data-gpu-flow-control": gpuFlowControl,
-    "data-gpu-flow-interactive": "true",
-  };
 }

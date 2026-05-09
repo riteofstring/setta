@@ -29,56 +29,92 @@ func TestRegisterStateMachineRunRoutesStartGetStopAndResetInIDE(t *testing.T) {
 
 	fixture := newStateMachineRunRouteFixture(t, config.ModeIDE)
 
-	started := startStateMachineWorkflowRouteRun(t, fixture, stringPointer("start-section"))
-	assertRunningStateMachineWorkflowRun(t, started)
+	startedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+		StartSectionID:  stringPointer("start-section"),
+	}, http.StatusOK)
 
-	latest := getStateMachineWorkflowRouteRun(t, fixture, http.StatusOK)
-	assertLatestStateMachineWorkflowRun(t, latest, started)
-
-	stopped := stopStateMachineWorkflowRouteRun(t, fixture)
-	assertStateMachineWorkflowStoppedRun(t, stopped, started.ID)
-
-	alreadyStopped := stopStateMachineWorkflowRouteRun(t, fixture)
-	assertAlreadyStoppedStateMachineWorkflowRun(t, alreadyStopped)
-
-	restarted := startStateMachineWorkflowRouteRun(t, fixture, nil)
-	assertStateMachineWorkflowRestarted(t, restarted, started.ID)
-
-	reset := resetStateMachineWorkflowRouteRun(t, fixture)
-	assertStateMachineWorkflowResetResponse(t, reset, restarted.ID)
-
-	assertMissingStateMachineWorkflowRouteRun(t, fixture)
-	assertManagedWorkflowChildrenStopped(t, fixture)
-}
-
-func TestRegisterStateMachineRunRoutesCompletesStructuralMachineAndRestart(t *testing.T) {
-	t.Parallel()
-
-	fixture := newStateMachineRunRouteFixture(t, config.ModeIDE)
-	seedStructuralWorkflowRouteEdges(t, fixture)
-
-	started := startStateMachineWorkflowRouteRun(t, fixture, stringPointer("start-section"))
-	assertCompletedStructuralWorkflowRun(t, started)
-	if len(fixture.managedStarter.requests) != 0 {
-		t.Fatalf("expected no managed chat dispatch for structural workflow, got %#v", fixture.managedStarter.requests)
+	var started agentruns.Run
+	if err := json.Unmarshal(startedResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode started run: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running workflow run, got %#v", started)
+	}
+	if got := started.Inputs["runType"]; got != statemachineruns.RunTypeStateMachine {
+		t.Fatalf("expected workflow run type, got %#v", started.Inputs)
 	}
 
-	latest := getStateMachineWorkflowRouteRun(t, fixture, http.StatusOK)
-	assertLatestStructuralWorkflowRun(t, latest, started)
+	latestResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
 
-	stopped := stopStateMachineWorkflowRouteRun(t, fixture)
-	assertAlreadyStoppedStateMachineWorkflowRun(t, stopped)
+	var latest agentruns.Run
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latest); err != nil {
+		t.Fatalf("decode latest run: %v", err)
+	}
+	if latest.ID != started.ID {
+		t.Fatalf("expected latest run %q, got %#v", started.ID, latest)
+	}
 
-	restarted := startStateMachineWorkflowRouteRun(t, fixture, nil)
+	stoppedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStopStateMachineRun, StopStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+
+	var stopped StateMachineRunControlResponse
+	if err := json.Unmarshal(stoppedResponse.Body.Bytes(), &stopped); err != nil {
+		t.Fatalf("decode stop response: %v", err)
+	}
+	if stopped.AlreadyStopped {
+		t.Fatalf("expected running workflow to stop, got %#v", stopped)
+	}
+	if stopped.StoppedRunID == nil || *stopped.StoppedRunID != started.ID {
+		t.Fatalf("expected stopped run id %q, got %#v", started.ID, stopped)
+	}
+
+	alreadyStoppedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStopStateMachineRun, StopStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+	var alreadyStopped StateMachineRunControlResponse
+	if err := json.Unmarshal(alreadyStoppedResponse.Body.Bytes(), &alreadyStopped); err != nil {
+		t.Fatalf("decode already-stopped response: %v", err)
+	}
+	if !alreadyStopped.AlreadyStopped || alreadyStopped.StoppedRunID != nil {
+		t.Fatalf("expected alreadyStopped response, got %#v", alreadyStopped)
+	}
+
+	restartedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+
+	var restarted agentruns.Run
+	if err := json.Unmarshal(restartedResponse.Body.Bytes(), &restarted); err != nil {
+		t.Fatalf("decode restarted run: %v", err)
+	}
 	if restarted.ID == started.ID {
-		t.Fatalf("expected a new structural workflow run after restart, got %#v", restarted)
-	}
-	if restarted.Status != agentruns.RunStatusCompleted {
-		t.Fatalf("expected restarted structural workflow to complete, got %#v", restarted)
+		t.Fatalf("expected a new workflow run after stop, got %#v", restarted)
 	}
 
-	reset := resetStateMachineWorkflowRouteRun(t, fixture)
-	assertStateMachineWorkflowResetResponse(t, reset, restarted.ID)
+	resetResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteResetStateMachine, ResetStateMachineRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+
+	var reset StateMachineRunControlResponse
+	if err := json.Unmarshal(resetResponse.Body.Bytes(), &reset); err != nil {
+		t.Fatalf("decode reset response: %v", err)
+	}
+	if reset.AlreadyStopped {
+		t.Fatalf("expected reset to clear the active workflow run, got %#v", reset)
+	}
+	if reset.StoppedRunID == nil || *reset.StoppedRunID != restarted.ID {
+		t.Fatalf("expected reset run id %q, got %#v", restarted.ID, reset)
+	}
 
 	missingResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
 		ProjectConfigID: "project-alpha",
@@ -86,19 +122,15 @@ func TestRegisterStateMachineRunRoutesCompletesStructuralMachineAndRestart(t *te
 	}, http.StatusNotFound)
 	stateMachineRouteErrorCode(t, missingResponse, "state_machine_run_not_found")
 
-	resetRun, err := fixture.runs.Load(restarted.ID)
-	if err != nil {
-		t.Fatalf("load reset structural workflow run: %v", err)
-	}
-	assertResetStructuralWorkflowRun(t, resetRun)
-	if len(fixture.managedStopper.stopped) != 0 {
-		t.Fatalf("expected no managed child stops for structural workflow, got %#v", fixture.managedStopper.stopped)
+	if len(fixture.managedStopper.stopped) != 2 {
+		t.Fatalf("expected both workflow child runs to be cancelled, got %#v", fixture.managedStopper.stopped)
 	}
 }
 
-func seedStructuralWorkflowRouteEdges(t *testing.T, fixture stateMachineRunRouteFixture) {
-	t.Helper()
+func TestRegisterStateMachineRunRoutesCompletesStructuralMachineAndRestart(t *testing.T) {
+	t.Parallel()
 
+	fixture := newStateMachineRunRouteFixture(t, config.ModeIDE)
 	if _, err := fixture.projectRuntime.SetStateMachineEdges(context.Background(), "project-alpha", []projectstate.StateMachineEdge{
 		{
 			ID:              "edge-start-gate",
@@ -119,171 +151,52 @@ func seedStructuralWorkflowRouteEdges(t *testing.T, fixture stateMachineRunRoute
 	}, nil); err != nil {
 		t.Fatalf("seed structural workflow edges: %v", err)
 	}
-}
 
-func startStateMachineWorkflowRouteRun(t *testing.T, fixture stateMachineRunRouteFixture, startSectionID *string) agentruns.Run {
-	t.Helper()
-
-	response := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+	startedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
 		ProjectConfigID: "project-alpha",
 		MachineGroupID:  "workflow-a",
-		StartSectionID:  startSectionID,
+		StartSectionID:  stringPointer("start-section"),
 	}, http.StatusOK)
-	var run agentruns.Run
-	if err := json.Unmarshal(response.Body.Bytes(), &run); err != nil {
-		t.Fatalf("decode workflow run: %v", err)
+
+	var started agentruns.Run
+	if err := json.Unmarshal(startedResponse.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode structural workflow run: %v", err)
 	}
-	return run
-}
-
-func getStateMachineWorkflowRouteRun(t *testing.T, fixture stateMachineRunRouteFixture, expectedStatus int) agentruns.Run {
-	t.Helper()
-
-	response := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
-		ProjectConfigID: "project-alpha",
-		MachineGroupID:  "workflow-a",
-	}, expectedStatus)
-	var run agentruns.Run
-	if err := json.Unmarshal(response.Body.Bytes(), &run); err != nil {
-		t.Fatalf("decode latest workflow run: %v", err)
+	if started.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed structural workflow run, got %#v", started)
 	}
-	return run
-}
-
-func stopStateMachineWorkflowRouteRun(t *testing.T, fixture stateMachineRunRouteFixture) StateMachineRunControlResponse {
-	t.Helper()
-
-	response := stateMachineRunRouteRequest(t, fixture.handler, RouteStopStateMachineRun, StopStateMachineRunRequest{
-		ProjectConfigID: "project-alpha",
-		MachineGroupID:  "workflow-a",
-	}, http.StatusOK)
-	var control StateMachineRunControlResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &control); err != nil {
-		t.Fatalf("decode stop response: %v", err)
+	if got := started.Inputs["runType"]; got != statemachineruns.RunTypeStateMachine {
+		t.Fatalf("expected workflow run type, got %#v", started.Inputs)
 	}
-	return control
-}
-
-func resetStateMachineWorkflowRouteRun(t *testing.T, fixture stateMachineRunRouteFixture) StateMachineRunControlResponse {
-	t.Helper()
-
-	response := stateMachineRunRouteRequest(t, fixture.handler, RouteResetStateMachine, ResetStateMachineRequest{
-		ProjectConfigID: "project-alpha",
-		MachineGroupID:  "workflow-a",
-	}, http.StatusOK)
-	var control StateMachineRunControlResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &control); err != nil {
-		t.Fatalf("decode reset response: %v", err)
+	if got := started.Inputs["projectConfigId"]; got != "project-alpha" {
+		t.Fatalf("expected project-alpha project config id, got %#v", started.Inputs)
 	}
-	return control
-}
-
-func assertRunningStateMachineWorkflowRun(t *testing.T, run agentruns.Run) {
-	t.Helper()
-
-	if run.Status != agentruns.RunStatusRunning {
-		t.Fatalf("expected running workflow run, got %#v", run)
+	if got := started.Inputs["machineGroupId"]; got != "workflow-a" {
+		t.Fatalf("expected workflow-a machine group id, got %#v", started.Inputs)
 	}
-	if got := run.Inputs["runType"]; got != statemachineruns.RunTypeStateMachine {
-		t.Fatalf("expected workflow run type, got %#v", run.Inputs)
+	if got := started.Inputs["startSectionId"]; got != "start-section" {
+		t.Fatalf("expected start-section start section id, got %#v", started.Inputs)
 	}
-}
-
-func assertLatestStateMachineWorkflowRun(t *testing.T, latest agentruns.Run, started agentruns.Run) {
-	t.Helper()
-
-	if latest.ID != started.ID {
-		t.Fatalf("expected latest run %q, got %#v", started.ID, latest)
+	if got := started.Inputs["machineName"]; got != "Start" {
+		t.Fatalf("expected machine name from graph, got %#v", started.Inputs)
 	}
-}
-
-func assertStateMachineWorkflowStoppedRun(t *testing.T, stopped StateMachineRunControlResponse, expectedStoppedRunID string) {
-	t.Helper()
-
-	if stopped.AlreadyStopped {
-		t.Fatalf("expected running workflow to stop, got %#v", stopped)
-	}
-	if stopped.StoppedRunID == nil || *stopped.StoppedRunID != expectedStoppedRunID {
-		t.Fatalf("expected stopped run id %q, got %#v", expectedStoppedRunID, stopped)
-	}
-}
-
-func assertStateMachineWorkflowRestarted(t *testing.T, restarted agentruns.Run, previousRunID string) {
-	t.Helper()
-
-	if restarted.ID == previousRunID {
-		t.Fatalf("expected a new workflow run after stop, got %#v", restarted)
-	}
-}
-
-func assertMissingStateMachineWorkflowRouteRun(t *testing.T, fixture stateMachineRunRouteFixture) {
-	t.Helper()
-
-	missingResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
-		ProjectConfigID: "project-alpha",
-		MachineGroupID:  "workflow-a",
-	}, http.StatusNotFound)
-	stateMachineRouteErrorCode(t, missingResponse, "state_machine_run_not_found")
-}
-
-func assertManagedWorkflowChildrenStopped(t *testing.T, fixture stateMachineRunRouteFixture) {
-	t.Helper()
-
-	if len(fixture.managedStopper.stopped) != 2 {
-		t.Fatalf("expected both workflow child runs to be cancelled, got %#v", fixture.managedStopper.stopped)
-	}
-}
-
-func assertCompletedStructuralWorkflowRun(t *testing.T, run agentruns.Run) {
-	t.Helper()
-
-	if run.Status != agentruns.RunStatusCompleted {
-		t.Fatalf("expected completed structural workflow run, got %#v", run)
-	}
-	if got := run.Inputs["runType"]; got != statemachineruns.RunTypeStateMachine {
-		t.Fatalf("expected workflow run type, got %#v", run.Inputs)
-	}
-	if got := run.Inputs["projectConfigId"]; got != "project-alpha" {
-		t.Fatalf("expected project-alpha project config id, got %#v", run.Inputs)
-	}
-	if got := run.Inputs["machineGroupId"]; got != "workflow-a" {
-		t.Fatalf("expected workflow-a machine group id, got %#v", run.Inputs)
-	}
-	if got := run.Inputs["startSectionId"]; got != "start-section" {
-		t.Fatalf("expected start-section start section id, got %#v", run.Inputs)
-	}
-	if got := run.Inputs["machineName"]; got != "Start" {
-		t.Fatalf("expected machine name from graph, got %#v", run.Inputs)
-	}
-	assertStructuralWorkflowOutputs(t, run)
-	assertStructuralWorkflowEvents(t, run)
-}
-
-func assertStructuralWorkflowOutputs(t *testing.T, run agentruns.Run) {
-	t.Helper()
-
-	if got := stateMachineRunOutputStringSlice(t, run, "startOutgoingTargetSectionIds"); !slices.Equal(got, []string{"gate-section"}) {
+	if got := stateMachineRunOutputStringSlice(t, started, "startOutgoingTargetSectionIds"); !slices.Equal(got, []string{"gate-section"}) {
 		t.Fatalf("expected gate-section start outgoing target, got %#v", got)
 	}
-	if actions, ok := run.Outputs["dispatchedStartEdgeActions"].([]any); !ok || len(actions) != 0 {
-		t.Fatalf("expected no dispatched start edge actions, got %#v", run.Outputs["dispatchedStartEdgeActions"])
+	if actions, ok := started.Outputs["dispatchedStartEdgeActions"].([]any); !ok || len(actions) != 0 {
+		t.Fatalf("expected no dispatched start edge actions, got %#v", started.Outputs["dispatchedStartEdgeActions"])
 	}
-	if got := stateMachineRunOutputStringSlice(t, run, "firedGateSectionIds"); !slices.Equal(got, []string{"gate-section"}) {
+	if got := stateMachineRunOutputStringSlice(t, started, "firedGateSectionIds"); !slices.Equal(got, []string{"gate-section"}) {
 		t.Fatalf("expected fired gate-section output, got %#v", got)
 	}
-	gateStatuses, ok := run.Outputs["gateStatusBySectionId"].(map[string]any)
+	gateStatuses, ok := started.Outputs["gateStatusBySectionId"].(map[string]any)
 	if !ok || len(gateStatuses) != 1 || gateStatuses["gate-section"] != "satisfied" {
-		t.Fatalf("expected satisfied gate status, got %#v", run.Outputs["gateStatusBySectionId"])
+		t.Fatalf("expected satisfied gate status, got %#v", started.Outputs["gateStatusBySectionId"])
 	}
-	if got := stateMachineRunOutputStringSlice(t, run, "reachedEndSectionIds"); !slices.Equal(got, []string{"end-section"}) {
+	if got := stateMachineRunOutputStringSlice(t, started, "reachedEndSectionIds"); !slices.Equal(got, []string{"end-section"}) {
 		t.Fatalf("expected end-section reached output, got %#v", got)
 	}
-}
-
-func assertStructuralWorkflowEvents(t *testing.T, run agentruns.Run) {
-	t.Helper()
-
-	if got := stateMachineRunEventTypes(run); !slices.Equal(got, []string{
+	if got := stateMachineRunEventTypes(started); !slices.Equal(got, []string{
 		"run_started",
 		"graph_resolved",
 		"start_edges_activated",
@@ -294,38 +207,74 @@ func assertStructuralWorkflowEvents(t *testing.T, run agentruns.Run) {
 	}) {
 		t.Fatalf("expected structural workflow event sequence, got %#v", got)
 	}
-}
+	if len(fixture.managedStarter.requests) != 0 {
+		t.Fatalf("expected no managed chat dispatch for structural workflow, got %#v", fixture.managedStarter.requests)
+	}
 
-func assertLatestStructuralWorkflowRun(t *testing.T, latest agentruns.Run, started agentruns.Run) {
-	t.Helper()
-
+	latestResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+	var latest agentruns.Run
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latest); err != nil {
+		t.Fatalf("decode latest structural workflow run: %v", err)
+	}
 	if latest.ID != started.ID || latest.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected latest structural workflow run %#v, got %#v", started, latest)
 	}
-}
 
-func assertAlreadyStoppedStateMachineWorkflowRun(t *testing.T, stopped StateMachineRunControlResponse) {
-	t.Helper()
-
+	stoppedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStopStateMachineRun, StopStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+	var stopped StateMachineRunControlResponse
+	if err := json.Unmarshal(stoppedResponse.Body.Bytes(), &stopped); err != nil {
+		t.Fatalf("decode stop response: %v", err)
+	}
 	if !stopped.AlreadyStopped || stopped.StoppedRunID != nil {
-		t.Fatalf("expected already-stopped workflow response, got %#v", stopped)
+		t.Fatalf("expected already-stopped structural workflow response, got %#v", stopped)
 	}
-}
 
-func assertStateMachineWorkflowResetResponse(t *testing.T, reset StateMachineRunControlResponse, expectedStoppedRunID string) {
-	t.Helper()
+	restartedResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteStartStateMachineRun, StartStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+	var restarted agentruns.Run
+	if err := json.Unmarshal(restartedResponse.Body.Bytes(), &restarted); err != nil {
+		t.Fatalf("decode restarted structural workflow run: %v", err)
+	}
+	if restarted.ID == started.ID {
+		t.Fatalf("expected a new structural workflow run after restart, got %#v", restarted)
+	}
+	if restarted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected restarted structural workflow to complete, got %#v", restarted)
+	}
 
+	resetResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteResetStateMachine, ResetStateMachineRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusOK)
+	var reset StateMachineRunControlResponse
+	if err := json.Unmarshal(resetResponse.Body.Bytes(), &reset); err != nil {
+		t.Fatalf("decode reset response: %v", err)
+	}
 	if reset.AlreadyStopped {
-		t.Fatalf("expected reset to clear latest workflow run, got %#v", reset)
+		t.Fatalf("expected reset to clear latest structural run, got %#v", reset)
 	}
-	if reset.StoppedRunID == nil || *reset.StoppedRunID != expectedStoppedRunID {
-		t.Fatalf("expected reset to target restarted run %q, got %#v", expectedStoppedRunID, reset)
+	if reset.StoppedRunID == nil || *reset.StoppedRunID != restarted.ID {
+		t.Fatalf("expected reset to target restarted run %q, got %#v", restarted.ID, reset)
 	}
-}
 
-func assertResetStructuralWorkflowRun(t *testing.T, resetRun agentruns.Run) {
-	t.Helper()
+	missingResponse := stateMachineRunRouteRequest(t, fixture.handler, RouteGetStateMachineRun, GetStateMachineRunRequest{
+		ProjectConfigID: "project-alpha",
+		MachineGroupID:  "workflow-a",
+	}, http.StatusNotFound)
+	stateMachineRouteErrorCode(t, missingResponse, "state_machine_run_not_found")
 
+	resetRun, err := fixture.runs.Load(restarted.ID)
+	if err != nil {
+		t.Fatalf("load reset structural workflow run: %v", err)
+	}
 	if resetRun.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed reset run record, got %#v", resetRun)
 	}
@@ -349,6 +298,9 @@ func assertResetStructuralWorkflowRun(t *testing.T, resetRun agentruns.Run) {
 	}
 	if got := stateMachineRunEventTypes(resetRun); got[len(got)-1] != "run_reset" {
 		t.Fatalf("expected run_reset as final event, got %#v", got)
+	}
+	if len(fixture.managedStopper.stopped) != 0 {
+		t.Fatalf("expected no managed child stops for structural workflow, got %#v", fixture.managedStopper.stopped)
 	}
 }
 

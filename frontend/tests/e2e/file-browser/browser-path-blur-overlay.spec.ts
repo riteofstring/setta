@@ -79,7 +79,7 @@ test("browser path overlay snaps visible on blur (no blank flash)", async ({
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

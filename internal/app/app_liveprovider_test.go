@@ -89,53 +89,12 @@ type appManagedLiveProviderTestCase struct {
 func runAppManagedChatLiveProviderTest(t *testing.T, testCase appManagedLiveProviderTestCase) {
 	t.Helper()
 
-	fixture := newAppManagedLiveProviderFixture(t, testCase)
-	chatID := sendAppManagedLiveProviderChat(t, fixture)
-	hydrated := waitForAppManagedLiveProviderHydration(t, fixture, chatID)
-	assertAppManagedLiveProviderHydration(t, hydrated)
-	runStore := newAppManagedLiveProviderRunStore(t, fixture.cfg)
-	completedRun := waitForAppManagedLiveProviderCompletedRun(t, fixture.app, runStore, chatID, nil)
-	assertAppManagedLiveProviderSimpleCompletedRun(t, completedRun)
-}
-
-type appManagedLiveProviderFixture struct {
-	cfg        config.Config
-	app        *App
-	server     *httptest.Server
-	authCookie *http.Cookie
-}
-
-type appManagedLiveProviderChatHydratePayload struct {
-	Messages           []map[string]any `json:"messages"`
-	WaitingForResponse bool             `json:"waitingForResponse"`
-	LLMConfig          *struct {
-		ID string `json:"id"`
-	} `json:"llmConfig"`
-}
-
-func newAppManagedLiveProviderFixture(t *testing.T, testCase appManagedLiveProviderTestCase) appManagedLiveProviderFixture {
-	t.Helper()
-
 	apiKey := requireAppLiveProviderAPIKey(t, testCase.apiKeyEnv, testCase.host)
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv(testCase.apiKeyEnv, apiKey)
-
-	saveAppManagedLiveProviderConfig(t, cfg, testCase)
-	app := startAppManagedLiveProviderApp(t, cfg)
-	server := httptest.NewServer(app.Handler())
-	t.Cleanup(server.Close)
-	return appManagedLiveProviderFixture{
-		cfg:        cfg,
-		app:        app,
-		server:     server,
-		authCookie: newAppTestAuthCookie(t, app),
-	}
-}
-
-func saveAppManagedLiveProviderConfig(t *testing.T, cfg config.Config, testCase appManagedLiveProviderTestCase) {
-	t.Helper()
 
 	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
@@ -151,29 +110,22 @@ func saveAppManagedLiveProviderConfig(t *testing.T, cfg config.Config, testCase 
 	}); err != nil {
 		t.Fatalf("save llm config: %v", err)
 	}
-	writeAppManagedLiveProviderEngineConfig(t, cfg)
-}
-
-func writeAppManagedLiveProviderEngineConfig(t *testing.T, cfg config.Config) {
-	t.Helper()
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("new engine store: %v", err)
 	}
 	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{{
-		ID:               "engine-managed",
-		Name:             "Managed Live Provider Engine",
-		EngineType:       agentruns.EngineTypeSettaLLM,
-		SettaLLMConfigID: &managedConfigID,
-	}}); err != nil {
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Live Provider Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-}
-
-func startAppManagedLiveProviderApp(t *testing.T, cfg config.Config) *App {
-	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -184,30 +136,43 @@ func startAppManagedLiveProviderApp(t *testing.T, cfg config.Config) *App {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	seedAppManagedLiveProviderProject(t, app)
-	return app
-}
 
-func sendAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProviderFixture) string {
-	t.Helper()
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
 
-	request, err := http.NewRequest(http.MethodPost, fixture.server.URL+"/api"+httpapi.RouteGetLLMResponse, strings.NewReader(`{
-		"chatId":null,
-		"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reply with exactly HELLO and nothing else."}]},
-		"engineConfigId":"engine-managed",
-		"agentProfileId":null,
-		"thinking":false,
-		"projectConfigId":"project-alpha",
-		"sectionId":null,
-		"allowUnscoped":true,
-		"permissionMode":"minimal",
-		"searchEnabled":false
-	}`))
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Reply with exactly HELLO and nothing else."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
 	if err != nil {
 		t.Fatalf("new send request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(fixture.authCookie)
+	request.AddCookie(authCookie)
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
@@ -226,48 +191,41 @@ func sendAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProvider
 	if strings.TrimSpace(chatID) == "" {
 		t.Fatal("expected managed chat id")
 	}
-	return chatID
-}
 
-func waitForAppManagedLiveProviderHydration(t *testing.T, fixture appManagedLiveProviderFixture, chatID string) appManagedLiveProviderChatHydratePayload {
-	t.Helper()
-
-	var hydrated appManagedLiveProviderChatHydratePayload
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+		LLMConfig          *struct {
+			ID string `json:"id"`
+		} `json:"llmConfig"`
+	}
+	var hydrated hydratePayload
 	waitForAppCondition(t, 90*time.Second, func() bool {
-		hydrated = hydrateAppManagedLiveProviderChat(t, fixture, chatID)
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
 		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
 	})
-	return hydrated
-}
-
-func hydrateAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProviderFixture, chatID string) appManagedLiveProviderChatHydratePayload {
-	t.Helper()
-
-	request, err := http.NewRequest(http.MethodPost, fixture.server.URL+"/api"+httpapi.RouteGetLLMChat, strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`))
-	if err != nil {
-		t.Fatalf("new hydrate request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(fixture.authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("hydrate managed chat: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected hydrate 200, got %d with body %q", response.StatusCode, string(body))
-	}
-	var hydrated appManagedLiveProviderChatHydratePayload
-	if err := json.NewDecoder(response.Body).Decode(&hydrated); err != nil {
-		t.Fatalf("decode hydrate payload: %v", err)
-	}
-	return hydrated
-}
-
-func assertAppManagedLiveProviderHydration(t *testing.T, hydrated appManagedLiveProviderChatHydratePayload) {
-	t.Helper()
 
 	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
 		t.Fatalf("expected hydrated llm config primary, got %#v", hydrated.LLMConfig)
@@ -275,20 +233,44 @@ func assertAppManagedLiveProviderHydration(t *testing.T, hydrated appManagedLive
 	if text := strings.TrimSpace(appTestMessageText(hydrated.Messages[1])); text != "HELLO" {
 		t.Fatalf("unexpected hydrated assistant reply %q", text)
 	}
-}
-
-func newAppManagedLiveProviderRunStore(t *testing.T, cfg config.Config) *agentruns.RunStore {
-	t.Helper()
 
 	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("new run store: %v", err)
 	}
-	return runStore
-}
+	runType := "llm_chat"
+	projectID := "project-alpha"
+	completedRunID := ""
+	waitForAppCondition(t, 90*time.Second, func() bool {
+		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
+			RunType:         &runType,
+			ChatID:          &chatID,
+			ProjectConfigID: &projectID,
+		})
+		if err != nil {
+			t.Fatalf("list managed runs: %v", err)
+		}
+		for _, run := range runs {
+			if run.Status == agentruns.RunStatusCompleted {
+				completedRunID = run.ID
+				return true
+			}
+		}
+		return false
+	})
+	if strings.TrimSpace(completedRunID) == "" {
+		t.Fatal("expected completed managed run id")
+	}
 
-func assertAppManagedLiveProviderSimpleCompletedRun(t *testing.T, completedRun agentruns.Run) {
-	t.Helper()
+	waitCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	completedRun, err := app.agentRuntime.WaitForRun(waitCtx, completedRunID)
+	if err != nil {
+		t.Fatalf("wait for managed runtime completion: %v", err)
+	}
+	if completedRun.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed run, got %#v", completedRun)
+	}
 
 	outputMessages, ok := completedRun.Outputs["messages"].([]any)
 	if !ok || len(outputMessages) != 2 {
@@ -301,6 +283,7 @@ func assertAppManagedLiveProviderSimpleCompletedRun(t *testing.T, completedRun a
 	if text := strings.TrimSpace(appTestMessageText(assistant)); text != "HELLO" {
 		t.Fatalf("unexpected persisted assistant reply %q", text)
 	}
+
 	usage, ok := completedRun.Outputs["usage"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected usage payload, got %#v", completedRun.Outputs["usage"])
@@ -334,27 +317,6 @@ func runAppManagedChatLiveProviderToolCallTest(t *testing.T, testCase appManaged
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
 	serverURL := "http://" + listener.Addr().String()
 
-	saveAppManagedLiveProviderToolConfig(t, cfg, testCase, serverURL, profileID, systemPrompt, safeToolName)
-	app := startAppManagedLiveProviderToolApp(t, cfg, listener)
-	authCookie := newAppTestAuthCookie(t, app)
-	chatID := sendAppManagedLiveProviderToolChat(t, serverURL, authCookie, userPrompt, profileID, testCase.thinking)
-	hydrated, runStore, terminalRun := waitForAppManagedLiveProviderToolHydration(t, cfg, serverURL, authCookie, chatID)
-	assertAppManagedLiveProviderToolHydration(t, hydrated, safeToolName)
-	completedRun := waitForAppManagedLiveProviderCompletedRun(t, app, runStore, chatID, terminalRun)
-	assertAppManagedLiveProviderCompletedRun(t, completedRun, safeToolName)
-}
-
-func saveAppManagedLiveProviderToolConfig(
-	t *testing.T,
-	cfg config.Config,
-	testCase appManagedLiveProviderTestCase,
-	serverURL string,
-	profileID string,
-	systemPrompt string,
-	safeToolName string,
-) {
-	t.Helper()
-
 	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
 			"primary": {
@@ -368,7 +330,7 @@ func saveAppManagedLiveProviderToolConfig(
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "streamable_http",
+				Transport: "sse",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -400,10 +362,6 @@ func saveAppManagedLiveProviderToolConfig(
 			ToolAllowlist: []string{safeToolName},
 		},
 	})
-}
-
-func startAppManagedLiveProviderToolApp(t *testing.T, cfg config.Config, listener net.Listener) *App {
-	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -433,12 +391,6 @@ func startAppManagedLiveProviderToolApp(t *testing.T, cfg config.Config, listene
 	})
 
 	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-	seedAppManagedLiveProviderProject(t, app)
-	return app
-}
-
-func seedAppManagedLiveProviderProject(t *testing.T, app *App) {
-	t.Helper()
 
 	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -450,18 +402,8 @@ func seedAppManagedLiveProviderProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("seed app project: %v", err)
 	}
-}
 
-func sendAppManagedLiveProviderToolChat(
-	t *testing.T,
-	serverURL string,
-	authCookie *http.Cookie,
-	userPrompt string,
-	profileID string,
-	thinking bool,
-) string {
-	t.Helper()
-
+	authCookie := newAppTestAuthCookie(t, app)
 	requestBody, err := json.Marshal(map[string]any{
 		"chatId": nil,
 		"message": map[string]any{
@@ -476,7 +418,7 @@ func sendAppManagedLiveProviderToolChat(
 		},
 		"engineConfigId":  "engine-managed",
 		"agentProfileId":  profileID,
-		"thinking":        thinking,
+		"thinking":        testCase.thinking,
 		"projectConfigId": "project-alpha",
 		"sectionId":       nil,
 		"allowUnscoped":   true,
@@ -506,19 +448,23 @@ func sendAppManagedLiveProviderToolChat(
 		body, _ := io.ReadAll(response.Body)
 		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
-	return decodeAppManagedChatID(t, response, "managed live provider tool")
-}
 
-func waitForAppManagedLiveProviderToolHydration(
-	t *testing.T,
-	cfg config.Config,
-	serverURL string,
-	authCookie *http.Cookie,
-	chatID string,
-) (appManagedChatHydratePayload, *agentruns.RunStore, *agentruns.Run) {
-	t.Helper()
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode send chat id: %v", err)
+	}
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatal("expected managed chat id")
+	}
 
-	var hydrated appManagedChatHydratePayload
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+		LLMConfig          *struct {
+			ID string `json:"id"`
+		} `json:"llmConfig"`
+	}
+	var hydrated hydratePayload
 	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("new run store: %v", err)
@@ -528,7 +474,36 @@ func waitForAppManagedLiveProviderToolHydration(
 	var terminalRun *agentruns.Run
 	deadline := time.Now().Add(120 * time.Second)
 	for time.Now().Before(deadline) {
-		hydrated = hydrateAppManagedLiveProviderToolChat(t, serverURL, authCookie, chatID)
+		hydrateBody, err := json.Marshal(map[string]any{
+			"chatId":          chatID,
+			"projectConfigId": "project-alpha",
+		})
+		if err != nil {
+			t.Fatalf("marshal hydrate request: %v", err)
+		}
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			serverURL+"/api"+httpapi.RouteGetLLMChat,
+			bytes.NewReader(hydrateBody),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
 		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
 			RunType:         &runType,
 			ChatID:          &chatID,
@@ -537,7 +512,13 @@ func waitForAppManagedLiveProviderToolHydration(
 		if err != nil {
 			t.Fatalf("list managed runs: %v", err)
 		}
-		terminalRun = latestTerminalAppManagedLiveProviderRun(runs)
+		terminalRun = nil
+		for index := range runs {
+			run := runs[index]
+			if run.Status == agentruns.RunStatusCompleted || run.Status == agentruns.RunStatusFailed || run.Status == agentruns.RunStatusCancelled {
+				terminalRun = &run
+			}
+		}
 		if !hydrated.WaitingForResponse || terminalRun != nil {
 			break
 		}
@@ -552,68 +533,6 @@ func waitForAppManagedLiveProviderToolHydration(
 	if hydrated.WaitingForResponse {
 		t.Fatalf("expected hydrated chat to stop waiting, got %#v", hydrated)
 	}
-	return hydrated, runStore, terminalRun
-}
-
-func hydrateAppManagedLiveProviderToolChat(
-	t *testing.T,
-	serverURL string,
-	authCookie *http.Cookie,
-	chatID string,
-) appManagedChatHydratePayload {
-	t.Helper()
-
-	hydrateBody, err := json.Marshal(map[string]any{
-		"chatId":          chatID,
-		"projectConfigId": "project-alpha",
-	})
-	if err != nil {
-		t.Fatalf("marshal hydrate request: %v", err)
-	}
-	hydrateRequest, err := http.NewRequest(
-		http.MethodPost,
-		serverURL+"/api"+httpapi.RouteGetLLMChat,
-		bytes.NewReader(hydrateBody),
-	)
-	if err != nil {
-		t.Fatalf("new hydrate request: %v", err)
-	}
-	hydrateRequest.Header.Set("Content-Type", "application/json")
-	hydrateRequest.AddCookie(authCookie)
-
-	hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
-	if err != nil {
-		t.Fatalf("hydrate managed chat: %v", err)
-	}
-	defer hydrateResponse.Body.Close()
-	if hydrateResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(hydrateResponse.Body)
-		t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
-	}
-	var hydrated appManagedChatHydratePayload
-	if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
-		t.Fatalf("decode hydrate payload: %v", err)
-	}
-	return hydrated
-}
-
-func latestTerminalAppManagedLiveProviderRun(runs []agentruns.Run) *agentruns.Run {
-	var terminalRun *agentruns.Run
-	for index := range runs {
-		run := runs[index]
-		if run.Status == agentruns.RunStatusCompleted || run.Status == agentruns.RunStatusFailed || run.Status == agentruns.RunStatusCancelled {
-			terminalRun = &run
-		}
-	}
-	return terminalRun
-}
-
-func assertAppManagedLiveProviderToolHydration(
-	t *testing.T,
-	hydrated appManagedChatHydratePayload,
-	safeToolName string,
-) {
-	t.Helper()
 
 	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
 		t.Fatalf("expected hydrated llm config primary, got %#v", hydrated.LLMConfig)
@@ -625,23 +544,11 @@ func assertAppManagedLiveProviderToolHydration(
 	if !appLiveProviderHasToolMessage(hydrated.Messages, safeToolName) {
 		t.Fatalf("expected hydrated tool message for %q, got %#v", safeToolName, hydrated.Messages)
 	}
-}
-
-func waitForAppManagedLiveProviderCompletedRun(
-	t *testing.T,
-	app *App,
-	runStore *agentruns.RunStore,
-	chatID string,
-	terminalRun *agentruns.Run,
-) agentruns.Run {
-	t.Helper()
 
 	completedRunID := ""
 	if terminalRun != nil {
 		completedRunID = terminalRun.ID
 	} else {
-		runType := "llm_chat"
-		projectID := "project-alpha"
 		waitForAppCondition(t, 30*time.Second, func() bool {
 			runs, err := runStore.ListByMetadata(agentruns.RunFilter{
 				RunType:         &runType,
@@ -673,11 +580,6 @@ func waitForAppManagedLiveProviderCompletedRun(
 	if completedRun.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed run, got %#v", completedRun)
 	}
-	return completedRun
-}
-
-func assertAppManagedLiveProviderCompletedRun(t *testing.T, completedRun agentruns.Run, safeToolName string) {
-	t.Helper()
 
 	outputMessages, ok := completedRun.Outputs["messages"].([]any)
 	if !ok || len(outputMessages) < 4 {

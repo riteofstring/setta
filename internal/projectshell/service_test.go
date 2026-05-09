@@ -310,7 +310,15 @@ func TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook(t *testing.T)
 		t.Fatalf("seed project store: %v", err)
 	}
 
-	projectRuntime := openProjectShellRuntimeForTest(t, store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
 
 	hookCalls := 0
 	service, err := NewService(ServiceOptions{
@@ -611,41 +619,7 @@ func TestServiceCreateProjectConfigSeedsSingleViewModeAndFlushesPersistenceOnRun
 		t.Fatalf("expected metadata hook once, got %d", hookCalls)
 	}
 
-	assertCreatedProjectShellSnapshot(t, projectRuntime.Snapshot(), createdName)
-
-	if err := projectRuntime.Close(); err != nil {
-		t.Fatalf("close project runtime: %v", err)
-	}
-
-	reloaded, err := store.Load(t.Context())
-	if err != nil {
-		t.Fatalf("reload store: %v", err)
-	}
-	assertCreatedProjectShellPersistedDocument(t, reloaded, createdName)
-}
-
-func openProjectShellRuntimeForTest(t *testing.T, store *projectstate.Store) *projectstate.Runtime {
-	t.Helper()
-
-	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("open project runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close project runtime: %v", err)
-		}
-	})
-	return projectRuntime
-}
-
-func assertCreatedProjectShellSnapshot(
-	t *testing.T,
-	snapshot projectstate.Snapshot,
-	createdName string,
-) {
-	t.Helper()
-
+	snapshot := projectRuntime.Snapshot()
 	if len(snapshot.Document.Projects) != 1 {
 		t.Fatalf("expected one in-memory project after create, got %#v", snapshot.Document.Projects)
 	}
@@ -656,42 +630,36 @@ func assertCreatedProjectShellSnapshot(
 	if len(project.ViewModes) != 1 {
 		t.Fatalf("expected one initial in-memory view mode, got %#v", project.ViewModes)
 	}
-}
 
-func assertCreatedProjectShellPersistedDocument(
-	t *testing.T,
-	document projectstate.Document,
-	createdName string,
-) {
-	t.Helper()
-
-	if len(document.Projects) != 1 {
-		t.Fatalf("expected one persisted project, got %#v", document.Projects)
+	if err := projectRuntime.Close(); err != nil {
+		t.Fatalf("close project runtime: %v", err)
 	}
-	persistedProject := document.Projects[document.DefaultProjectID]
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if len(reloaded.Projects) != 1 {
+		t.Fatalf("expected one persisted project, got %#v", reloaded.Projects)
+	}
+	persistedProject := reloaded.Projects[reloaded.DefaultProjectID]
 	if persistedProject.Name != createdName {
 		t.Fatalf("expected persisted project name %q, got %q", createdName, persistedProject.Name)
 	}
 	if len(persistedProject.ViewModes) != 1 {
 		t.Fatalf("expected one initial view mode, got %#v", persistedProject.ViewModes)
 	}
-	assertEmptyCreatedProjectChatWindowing(t, persistedProject)
-}
-
-func assertEmptyCreatedProjectChatWindowing(t *testing.T, project projectstate.Project) {
-	t.Helper()
-
-	if project.ProjectChatWindowing == nil {
+	if persistedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected persisted project chat windowing state")
 	}
-	if len(project.ProjectChatWindowing.InstancesByID) != 0 {
-		t.Fatalf("expected no created project chat windows, got %#v", project.ProjectChatWindowing.InstancesByID)
+	if len(persistedProject.ProjectChatWindowing.InstancesByID) != 0 {
+		t.Fatalf("expected no created project chat windows, got %#v", persistedProject.ProjectChatWindowing.InstancesByID)
 	}
-	if !reflect.DeepEqual(project.ProjectChatWindowing.Order, []string{}) {
-		t.Fatalf("expected empty created project chat window order, got %#v", project.ProjectChatWindowing.Order)
+	if !reflect.DeepEqual(persistedProject.ProjectChatWindowing.Order, []string{}) {
+		t.Fatalf("expected empty created project chat window order, got %#v", persistedProject.ProjectChatWindowing.Order)
 	}
-	if project.ProjectChatWindowing.NextInstanceNumber != 1 {
-		t.Fatalf("expected next instance number 1, got %d", project.ProjectChatWindowing.NextInstanceNumber)
+	if persistedProject.ProjectChatWindowing.NextInstanceNumber != 1 {
+		t.Fatalf("expected next instance number 1, got %d", persistedProject.ProjectChatWindowing.NextInstanceNumber)
 	}
 }
 
@@ -703,9 +671,25 @@ func TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing(t *testing
 	if err != nil {
 		t.Fatalf("new project store: %v", err)
 	}
-	seedProjectShellStoreWithWindowing(t, store)
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": serviceTestProjectWithWindowing(),
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
 
-	projectRuntime := openProjectShellRuntimeForTest(t, store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
 
 	hookCalls := 0
 	service, err := NewService(ServiceOptions{
@@ -734,47 +718,20 @@ func TestServiceSaveAsNewProjectConfigWithRefsSeedsEmptyLiveWindowing(t *testing
 		t.Fatalf("expected two persisted projects, got %#v", reloaded.Projects)
 	}
 
-	clonedProject := mustFindClonedProjectShellProject(t, reloaded, "Cloned Alpha")
-	assertClonedProjectShellGraphCopied(t, clonedProject)
-	assertWithRefsClonedProjectShellWindowingReset(t, clonedProject)
-}
-
-func seedProjectShellStoreWithWindowing(t *testing.T, store *projectstate.Store) {
-	t.Helper()
-
-	if err := store.Save(t.Context(), projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": serviceTestProjectWithWindowing(),
-		},
-	}); err != nil {
-		t.Fatalf("seed project store: %v", err)
-	}
-}
-
-func mustFindClonedProjectShellProject(
-	t *testing.T,
-	document projectstate.Document,
-	expectedName string,
-) projectstate.Project {
-	t.Helper()
-
-	for projectID, project := range document.Projects {
+	var clonedProject projectstate.Project
+	foundClone := false
+	for projectID, project := range reloaded.Projects {
 		if projectID == "project-alpha" {
 			continue
 		}
-		if project.Name == expectedName {
-			return project
+		if project.Name == "Cloned Alpha" {
+			clonedProject = project
+			foundClone = true
 		}
 	}
-	t.Fatalf("expected cloned project in %#v", document.Projects)
-	return projectstate.Project{}
-}
-
-func assertClonedProjectShellGraphCopied(t *testing.T, clonedProject projectstate.Project) {
-	t.Helper()
-
+	if !foundClone {
+		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
+	}
 	if clonedProject.ID == "project-alpha" {
 		t.Fatalf("expected cloned project id to differ, got %#v", clonedProject)
 	}
@@ -784,11 +741,6 @@ func assertClonedProjectShellGraphCopied(t *testing.T, clonedProject projectstat
 	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
 		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
 	}
-}
-
-func assertWithRefsClonedProjectShellWindowingReset(t *testing.T, clonedProject projectstate.Project) {
-	t.Helper()
-
 	if clonedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected cloned live windowing state")
 	}
@@ -805,9 +757,25 @@ func TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout(t *te
 	if err != nil {
 		t.Fatalf("new project store: %v", err)
 	}
-	seedProjectShellStoreWithWindowing(t, store)
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": serviceTestProjectWithWindowing(),
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
 
-	projectRuntime := openProjectShellRuntimeForTest(t, store)
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(t.Context(), store, projectstate.RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
 
 	service, err := NewService(ServiceOptions{ProjectState: projectRuntime})
 	if err != nil {
@@ -823,13 +791,20 @@ func TestServiceSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingLayout(t *te
 		t.Fatalf("reload store: %v", err)
 	}
 
-	clonedProject := mustFindClonedProjectShellProject(t, reloaded, "Cloned Alpha")
-	assertWithoutRefsClonedProjectShellWindowingCopied(t, clonedProject)
-}
-
-func assertWithoutRefsClonedProjectShellWindowingCopied(t *testing.T, clonedProject projectstate.Project) {
-	t.Helper()
-
+	var clonedProject projectstate.Project
+	foundClone := false
+	for projectID, project := range reloaded.Projects {
+		if projectID == "project-alpha" {
+			continue
+		}
+		if project.Name == "Cloned Alpha" {
+			clonedProject = project
+			foundClone = true
+		}
+	}
+	if !foundClone {
+		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
+	}
 	if clonedProject.ProjectChatWindowing == nil {
 		t.Fatal("expected cloned live windowing state")
 	}

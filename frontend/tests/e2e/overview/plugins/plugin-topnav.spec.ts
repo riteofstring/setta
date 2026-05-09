@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import { randomUUID } from "crypto";
 import {
   cleanupIsolatedProject,
   openIsolatedProject,
@@ -31,7 +31,7 @@ test("plugin top-nav fixture button click updates frontend side effect", async (
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const topNavButton = page.getByRole("button", {
       name: "Fixture Nav",
@@ -128,7 +128,7 @@ test("plugin top-nav busy state only disables the active item", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const slowButton = page.getByRole("button", {
       name: "Fixture Slow Nav",
@@ -217,7 +217,7 @@ test("plugin disable and uninstall clear top-nav and pane actions after rescan",
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(
       page.getByRole("button", {
@@ -240,7 +240,7 @@ test("plugin disable and uninstall clear top-nav and pane actions after rescan",
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(
       page.getByRole("button", {
@@ -265,7 +265,7 @@ test("plugin disable and uninstall clear top-nav and pane actions after rescan",
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(
       page.getByRole("button", {

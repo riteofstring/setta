@@ -36,7 +36,7 @@
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.
-- Unless the developer explicitly narrows verification scope, run `./scripts/quality/check.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
+- Unless the developer explicitly narrows verification scope, run `./check_quality.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
@@ -52,6 +52,7 @@
 - Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
 - Treat frontend performance verification as first-class. Prefer automated guardrails, and use chrome-devtools profiling when deeper analysis is needed.
 - UI changes require chrome-devtools visual verification when relevant.
+- Never start `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
 
 ## Code Shape & Safety

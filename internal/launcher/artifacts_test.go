@@ -274,26 +274,6 @@ func TestInstallLinuxArtifactsWritesWrapperEntryAndShortcut(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve desktop shortcut path: %v", err)
 	}
-	assertLinuxManagedArtifactPaths(t, artifacts, resolvedDesktopEntryPath, resolvedWrapperPath, resolvedDesktopShortcutPath)
-	assertLinuxWrapperScript(t, wrapperPath, executable, settaHome)
-	assertLinuxDesktopEntryAndShortcut(
-		t,
-		filepath.Join(applicationsDir, "setta.desktop"),
-		desktopShortcutPath,
-		resolvedWrapperPath,
-		iconPath,
-	)
-}
-
-func assertLinuxManagedArtifactPaths(
-	t *testing.T,
-	artifacts map[string]string,
-	resolvedDesktopEntryPath string,
-	resolvedWrapperPath string,
-	resolvedDesktopShortcutPath string,
-) {
-	t.Helper()
-
 	if !reflect.DeepEqual(artifacts, map[string]string{
 		"linuxDesktopEntry":    resolvedDesktopEntryPath,
 		"linuxWrapper":         resolvedWrapperPath,
@@ -301,10 +281,6 @@ func assertLinuxManagedArtifactPaths(
 	}) {
 		t.Fatalf("unexpected managed artifacts %#v", artifacts)
 	}
-}
-
-func assertLinuxWrapperScript(t *testing.T, wrapperPath string, executable string, settaHome string) {
-	t.Helper()
 
 	wrapperScript, err := os.ReadFile(wrapperPath)
 	if err != nil {
@@ -320,18 +296,8 @@ func assertLinuxWrapperScript(t *testing.T, wrapperPath string, executable strin
 	if !strings.Contains(wrapperScriptText, "--setta-home") || !strings.Contains(wrapperScriptText, settaHome) {
 		t.Fatalf("expected launcher wrapper to scope setta home %q, got:\n%s", settaHome, wrapperScriptText)
 	}
-}
 
-func assertLinuxDesktopEntryAndShortcut(
-	t *testing.T,
-	desktopEntryPath string,
-	desktopShortcutPath string,
-	resolvedWrapperPath string,
-	iconPath string,
-) {
-	t.Helper()
-
-	desktopEntry, err := os.ReadFile(desktopEntryPath)
+	desktopEntry, err := os.ReadFile(filepath.Join(applicationsDir, "setta.desktop"))
 	if err != nil {
 		t.Fatalf("read desktop entry: %v", err)
 	}

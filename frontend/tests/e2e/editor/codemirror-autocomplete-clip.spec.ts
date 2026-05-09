@@ -43,16 +43,13 @@ test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
     }
 
     const codeMirror = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-section-main-editor] .cm-content`,
+      `.react-flow__node[data-id="${sectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(codeMirror).toBeVisible();
-    await focusCodeMirrorContent(codeMirror);
+    await codeMirror.click();
 
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.insertText(COMPLETION_INPUT);
-    await expect
-      .poll(async () => codeMirror.textContent())
-      .toContain(COMPLETION_INPUT);
+    await page.keyboard.type(COMPLETION_INPUT);
     const completionResponsePromise = page.waitForResponse(
       (response) => response.url().includes("/api/codeAreaCompletion"),
       { timeout: COMPLETION_WAIT_TIMEOUT_MS },
@@ -123,8 +120,8 @@ async function getSectionHeight(
   return resizable.evaluate((el) => {
     const rect = el.getBoundingClientRect();
     const viewport =
-      el.closest(".setta-gpu-flow__canvas") ??
-      document.querySelector(".setta-gpu-flow__canvas");
+      el.closest(".react-flow__viewport") ??
+      document.querySelector(".react-flow__viewport");
     let scale = 1;
     if (viewport) {
       const transform = window.getComputedStyle(viewport).transform;
@@ -137,22 +134,6 @@ async function getSectionHeight(
     }
     return scale > 0 ? rect.height / scale : rect.height;
   });
-}
-
-async function focusCodeMirrorContent(
-  codeMirror: ReturnType<Page["locator"]>,
-): Promise<void> {
-  await codeMirror.evaluate((element) => {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("CodeMirror content is not an HTMLElement.");
-    }
-    element.focus({ preventScroll: true });
-  });
-  await expect
-    .poll(async () =>
-      codeMirror.evaluate((element) => element.contains(document.activeElement)),
-    )
-    .toBe(true);
 }
 
 async function createCodeSection(

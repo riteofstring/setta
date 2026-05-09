@@ -1,4 +1,4 @@
-import type { Node } from "gpuFlow/flowTypes";
+import type { Node } from "forks/xyflow/core/types";
 import { createTopLevelSectionLayoutDict } from "state/actions/sectionInfos";
 import { createCore } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
