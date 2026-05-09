@@ -258,41 +258,8 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 	results := realtime.NewUISettingRevealResultHub()
 	transport := &stubRevealTransport{registry: registry}
 	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
-		if connectionID != "frontend-1" {
-			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
-		}
-		revealMessage, ok := message.(realtime.UISettingRevealMessage)
-		if !ok {
-			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
-		}
-		if revealMessage.MessageType != realtime.MessageTypeUISettingReveal {
-			t.Fatalf("expected message type %q, got %q", realtime.MessageTypeUISettingReveal, revealMessage.MessageType)
-		}
-		if revealMessage.Content.RequestID != "request-steps-1" {
-			t.Fatalf("expected requestId request-steps-1, got %q", revealMessage.Content.RequestID)
-		}
-		if len(revealMessage.Content.Reveals) != 1 {
-			t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
-		}
-		target := revealMessage.Content.Reveals[0]
-		if target.SettingID != "core.project.activation_steps" {
-			t.Fatalf("expected activation-steps setting id, got %#v", target.SettingID)
-		}
-		if target.Strategy != string(HighlightStrategyDOMAnchor) {
-			t.Fatalf("expected strategy %q, got %q", HighlightStrategyDOMAnchor, target.Strategy)
-		}
-		if target.AnchorID == nil || *target.AnchorID != "core.project.activation_steps" {
-			t.Fatalf("expected anchor id core.project.activation_steps, got %#v", target.AnchorID)
-		}
-		if len(target.RevealActivationSteps) != 2 {
-			t.Fatalf("expected two activation steps, got %#v", target.RevealActivationSteps)
-		}
-		if target.RevealActivationSteps[0].Type != string(RevealActivationRunInstructions) || target.RevealActivationSteps[0].ItemValue != "python" {
-			t.Fatalf("unexpected first activation step %#v", target.RevealActivationSteps[0])
-		}
-		if target.RevealActivationSteps[1].Type != string(RevealActivationProjectAIAccordion) || target.RevealActivationSteps[1].ItemValue != "skills" {
-			t.Fatalf("unexpected second activation step %#v", target.RevealActivationSteps[1])
-		}
+		revealMessage := mustRevealMessageToFrontend(t, message, connectionID)
+		assertActivationStepsRevealMessage(t, revealMessage)
 		if !results.Resolve(realtime.UISettingRevealResultContent{
 			ProjectConfigID: "project-alpha",
 			RequestID:       revealMessage.Content.RequestID,
@@ -331,7 +298,60 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 	if err != nil {
 		t.Fatalf("reveal: %v", err)
 	}
+	assertActivationStepsRevealResult(t, result)
+}
 
+func mustRevealMessageToFrontend(t *testing.T, message any, connectionID string) realtime.UISettingRevealMessage {
+	t.Helper()
+
+	if connectionID != "frontend-1" {
+		t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
+	}
+	revealMessage, ok := message.(realtime.UISettingRevealMessage)
+	if !ok {
+		t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
+	}
+	return revealMessage
+}
+
+func assertActivationStepsRevealMessage(t *testing.T, revealMessage realtime.UISettingRevealMessage) {
+	t.Helper()
+	if revealMessage.MessageType != realtime.MessageTypeUISettingReveal {
+		t.Fatalf("expected message type %q, got %q", realtime.MessageTypeUISettingReveal, revealMessage.MessageType)
+	}
+	if revealMessage.Content.RequestID != "request-steps-1" {
+		t.Fatalf("expected requestId request-steps-1, got %q", revealMessage.Content.RequestID)
+	}
+	if len(revealMessage.Content.Reveals) != 1 {
+		t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
+	}
+	assertActivationStepsRevealTarget(t, revealMessage.Content.Reveals[0])
+}
+
+func assertActivationStepsRevealTarget(t *testing.T, target realtime.UISettingRevealTarget) {
+	t.Helper()
+	if target.SettingID != "core.project.activation_steps" {
+		t.Fatalf("expected activation-steps setting id, got %#v", target.SettingID)
+	}
+	if target.Strategy != string(HighlightStrategyDOMAnchor) {
+		t.Fatalf("expected strategy %q, got %q", HighlightStrategyDOMAnchor, target.Strategy)
+	}
+	if target.AnchorID == nil || *target.AnchorID != "core.project.activation_steps" {
+		t.Fatalf("expected anchor id core.project.activation_steps, got %#v", target.AnchorID)
+	}
+	if len(target.RevealActivationSteps) != 2 {
+		t.Fatalf("expected two activation steps, got %#v", target.RevealActivationSteps)
+	}
+	if target.RevealActivationSteps[0].Type != string(RevealActivationRunInstructions) || target.RevealActivationSteps[0].ItemValue != "python" {
+		t.Fatalf("unexpected first activation step %#v", target.RevealActivationSteps[0])
+	}
+	if target.RevealActivationSteps[1].Type != string(RevealActivationProjectAIAccordion) || target.RevealActivationSteps[1].ItemValue != "skills" {
+		t.Fatalf("unexpected second activation step %#v", target.RevealActivationSteps[1])
+	}
+}
+
+func assertActivationStepsRevealResult(t *testing.T, result RevealResult) {
+	t.Helper()
 	if result.RequestID != "request-steps-1" {
 		t.Fatalf("expected request-steps-1 request id, got %q", result.RequestID)
 	}
@@ -393,35 +413,8 @@ func TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget(t *test
 	results := realtime.NewUISettingRevealResultHub()
 	transport := &stubRevealTransport{registry: registry}
 	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
-		if connectionID != "frontend-1" {
-			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
-		}
-		revealMessage, ok := message.(realtime.UISettingRevealMessage)
-		if !ok {
-			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
-		}
-		if len(revealMessage.Content.Reveals) != 1 {
-			t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
-		}
-		target := revealMessage.Content.Reveals[0]
-		if target.SettingID != "plugin::plugin-a::enabled" {
-			t.Fatalf("expected plugin setting id, got %q", target.SettingID)
-		}
-		if target.PluginID == nil || *target.PluginID != "plugin-a" {
-			t.Fatalf("expected plugin id plugin-a, got %#v", target.PluginID)
-		}
-		if target.PluginRevealKey == nil || *target.PluginRevealKey != "watch-code-settings" {
-			t.Fatalf("expected plugin reveal key watch-code-settings, got %#v", target.PluginRevealKey)
-		}
-		if target.PaneID != nil {
-			t.Fatalf("expected pane-less backend target, got pane %#v", target.PaneID)
-		}
-		if target.OverviewTabKey != nil {
-			t.Fatalf("expected backend target without overview tab, got %#v", target.OverviewTabKey)
-		}
-		if target.Strategy != string(HighlightStrategyPluginHandler) {
-			t.Fatalf("expected plugin handler strategy, got %q", target.Strategy)
-		}
+		revealMessage := mustRevealMessageToFrontend(t, message, connectionID)
+		assertBackendOnlyPluginRevealMessage(t, revealMessage)
 		if !results.Resolve(realtime.UISettingRevealResultContent{
 			ProjectConfigID: "project-alpha",
 			RequestID:       revealMessage.Content.RequestID,
@@ -457,6 +450,37 @@ func TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget(t *test
 	if err != nil {
 		t.Fatalf("reveal: %v", err)
 	}
+	assertSingleSuccessfulRevealResult(t, result)
+}
+
+func assertBackendOnlyPluginRevealMessage(t *testing.T, revealMessage realtime.UISettingRevealMessage) {
+	t.Helper()
+	if len(revealMessage.Content.Reveals) != 1 {
+		t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
+	}
+	target := revealMessage.Content.Reveals[0]
+	if target.SettingID != "plugin::plugin-a::enabled" {
+		t.Fatalf("expected plugin setting id, got %q", target.SettingID)
+	}
+	if target.PluginID == nil || *target.PluginID != "plugin-a" {
+		t.Fatalf("expected plugin id plugin-a, got %#v", target.PluginID)
+	}
+	if target.PluginRevealKey == nil || *target.PluginRevealKey != "watch-code-settings" {
+		t.Fatalf("expected plugin reveal key watch-code-settings, got %#v", target.PluginRevealKey)
+	}
+	if target.PaneID != nil {
+		t.Fatalf("expected pane-less backend target, got pane %#v", target.PaneID)
+	}
+	if target.OverviewTabKey != nil {
+		t.Fatalf("expected backend target without overview tab, got %#v", target.OverviewTabKey)
+	}
+	if target.Strategy != string(HighlightStrategyPluginHandler) {
+		t.Fatalf("expected plugin handler strategy, got %q", target.Strategy)
+	}
+}
+
+func assertSingleSuccessfulRevealResult(t *testing.T, result RevealResult) {
+	t.Helper()
 	if result.EmittedRevealCount != 1 {
 		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
 	}
