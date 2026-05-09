@@ -337,7 +337,35 @@ func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
 	if err := runtime.ActivateRun(run.ID, controller); err != nil {
 		t.Fatalf("activate run: %v", err)
 	}
-	if err := runtime.SetLiveChatState(run.ID, ChatState{
+	setLiveQuestionChatState(t, runtime, run.ID)
+	if err := runtime.RegisterQuestion(QuestionState{
+		ToolCallID:      "question-1",
+		RunID:           run.ID,
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+	}); err != nil {
+		t.Fatalf("register question: %v", err)
+	}
+
+	answers := map[string]string{"Language": "Go"}
+	if err := runtime.RespondToQuestion("question-1", answers); err != nil {
+		t.Fatalf("respond to question: %v", err)
+	}
+	assertQuestionResponseDispatch(t, controller)
+	persisted, err := store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load run after question response: %v", err)
+	}
+	assertPersistedQuestionResponse(t, persisted)
+	if err := runtime.RespondToQuestion("question-1", answers); !errors.Is(err, ErrQuestionNotFound) {
+		t.Fatalf("expected question to be removed after response, got %v", err)
+	}
+}
+
+func setLiveQuestionChatState(t *testing.T, runtime *Runtime, runID string) {
+	t.Helper()
+
+	if err := runtime.SetLiveChatState(runID, ChatState{
 		Messages: []map[string]any{
 			{
 				"id":      "assistant-1",
@@ -365,19 +393,11 @@ func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("set live question state: %v", err)
 	}
-	if err := runtime.RegisterQuestion(QuestionState{
-		ToolCallID:      "question-1",
-		RunID:           run.ID,
-		ProjectConfigID: "project-alpha",
-		ChatID:          "chat-alpha",
-	}); err != nil {
-		t.Fatalf("register question: %v", err)
-	}
+}
 
-	answers := map[string]string{"Language": "Go"}
-	if err := runtime.RespondToQuestion("question-1", answers); err != nil {
-		t.Fatalf("respond to question: %v", err)
-	}
+func assertQuestionResponseDispatch(t *testing.T, controller *stubRunController) {
+	t.Helper()
+
 	if len(controller.toolCalls) != 1 {
 		t.Fatalf("expected one tool response dispatch, got %#v", controller.toolCalls)
 	}
@@ -387,10 +407,11 @@ func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
 	if got := controller.toolCalls[0].Payload["answers"]; got == nil {
 		t.Fatalf("expected answers payload, got %#v", controller.toolCalls[0].Payload)
 	}
-	persisted, err := store.Load(run.ID)
-	if err != nil {
-		t.Fatalf("load run after question response: %v", err)
-	}
+}
+
+func assertPersistedQuestionResponse(t *testing.T, persisted agentruns.Run) {
+	t.Helper()
+
 	lastEvent := persisted.Events[len(persisted.Events)-1]
 	if lastEvent.Type != "question_response" {
 		t.Fatalf("expected question_response event, got %#v", lastEvent)
@@ -419,9 +440,6 @@ func TestRuntimeRespondToQuestionDispatchesAndPersistsEvent(t *testing.T) {
 	answerPayload, ok := result["answers"].(map[string]any)
 	if !ok || answerPayload["Language"] != "Go" {
 		t.Fatalf("unexpected answers payload %#v", result)
-	}
-	if err := runtime.RespondToQuestion("question-1", answers); !errors.Is(err, ErrQuestionNotFound) {
-		t.Fatalf("expected question to be removed after response, got %v", err)
 	}
 }
 
