@@ -1317,23 +1317,7 @@ func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"set_top_level_section_layout",
@@ -1394,23 +1378,7 @@ func TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections(t *testing.T) {
 		WorkspaceRoot:  t.TempDir(),
 		LSPDiagnostics: diagnostics,
 	})
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"auto_layout_top_level_sections",
@@ -1480,23 +1448,7 @@ func TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs(t *testin
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
+	handler := newMCPToolRouteTestHandler(t, server)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"auto_layout_top_level_sections",
