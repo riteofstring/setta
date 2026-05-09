@@ -512,7 +512,19 @@ def test_report_file_lengths_reports_all_tracked_violations_without_failing(
 ) -> None:
     sandbox_root = _build_check_quality_sandbox(tmp_path)
     long_typescript = sandbox_root / "frontend" / "src" / "LongComponent.tsx"
+    long_python_test = sandbox_root / "tests" / "test_long_quality.py"
+    long_typescript_test = sandbox_root / "frontend" / "tests" / "e2e" / "long.spec.ts"
+    long_go_test = sandbox_root / "internal" / "demo" / "long_test.go"
     long_typescript.write_text("export const value = 1;\n" * 1001, encoding="utf-8")
+    long_python_test.write_text("# filler\n" * 1001, encoding="utf-8")
+    long_typescript_test.write_text(
+        "export const value = 1;\n" * 1801,
+        encoding="utf-8",
+    )
+    long_go_test.write_text(
+        "package main\n" + ("const value = 1\n" * 2000),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         ["git", "init"],
@@ -541,5 +553,17 @@ def test_report_file_lengths_reports_all_tracked_violations_without_failing(
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert (
         "TypeScript frontend/src/LongComponent.tsx: 1001 lines (max 1000)"
+        in result.stdout
+    )
+    assert (
+        "Python test tests/test_long_quality.py: 1001 lines (max 1000)"
+        in result.stdout
+    )
+    assert (
+        "TypeScript test frontend/tests/e2e/long.spec.ts: 1801 lines (max 1800)"
+        in result.stdout
+    )
+    assert (
+        "Go test internal/demo/long_test.go: 2001 lines (max 2000)"
         in result.stdout
     )
