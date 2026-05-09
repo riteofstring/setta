@@ -8,7 +8,7 @@ Complete the cleanup needed to make test code participate meaningfully in qualit
 - Python, Go, and TypeScript test files have file-length categories in `quality.paths.yaml`.
 - Current branch test file-length thresholds are ratchets, not final targets:
   - Python tests: `1000` lines
-  - TypeScript tests: `3500` lines
+  - TypeScript tests: `2500` lines
   - Go tests: `6000` lines
 - Dead-code analysis has explicit production entrypoints for Go, Python, and frontend TypeScript.
 - Dead-code reporting now has advisory test-only lanes for Python, Go, and frontend TypeScript, and aggregate candidates carry `root_scope`.
@@ -225,9 +225,9 @@ For every cleanup batch:
 ## Branch Progress
 - Dead-code confidence is lowered to `60`, production entrypoints are configured, and test-only dead-code reports are advisory and filterable by `root_scope`.
 - Python test file length has been ratcheted from `2000` to `1000`.
-- TypeScript test file length has been ratcheted from `8000` to `3500`.
+- TypeScript test file length has been ratcheted from `8000` to `2500`.
 - Go test file length has been ratcheted from `17000` to `6000`.
 - Remaining file-length ratchets from this plan:
   - Python: complete at `1000`
-  - TypeScript: `3500` to `2500`, then `1800` or narrow exceptions
+  - TypeScript: `2500` to `1800` or narrow exceptions
   - Go: `6000` to `3500`, then `2000` or narrow exceptions
