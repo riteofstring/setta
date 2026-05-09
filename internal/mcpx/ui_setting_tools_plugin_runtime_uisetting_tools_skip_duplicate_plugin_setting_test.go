@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -34,46 +35,7 @@ func TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingD
 		t.Fatalf("install full fixture plugin: %v", err)
 	}
 
-	schemaPath := filepath.Join(
-		roots.workspaceRoot,
-		".setta_plugins",
-		"setta-fixture-full",
-		"content",
-		"config",
-		"schema.json",
-	)
-	schemaPayload, err := os.ReadFile(schemaPath)
-	if err != nil {
-		t.Fatalf("read plugin schema: %v", err)
-	}
-	var schema map[string]any
-	if err := json.Unmarshal(schemaPayload, &schema); err != nil {
-		t.Fatalf("decode plugin schema: %v", err)
-	}
-	rawEntries, ok := schema["x-setta-ui-settings"].([]any)
-	if !ok || len(rawEntries) == 0 {
-		t.Fatalf("expected x-setta-ui-settings entries, got %#v", schema["x-setta-ui-settings"])
-	}
-	firstEntry, ok := rawEntries[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected first ui setting entry to be an object, got %#v", rawEntries[0])
-	}
-	duplicateEntry := make(map[string]any, len(firstEntry))
-	for key, value := range firstEntry {
-		duplicateEntry[key] = value
-	}
-	schema["x-setta-ui-settings"] = append(rawEntries, duplicateEntry)
-	encodedSchema, err := json.MarshalIndent(schema, "", "  ")
-	if err != nil {
-		t.Fatalf("encode plugin schema: %v", err)
-	}
-	encodedSchema = append(encodedSchema, '\n')
-	if err := os.WriteFile(schemaPath, encodedSchema, 0o644); err != nil {
-		t.Fatalf("write plugin schema: %v", err)
-	}
-	if _, err := service.Rescan(); err != nil {
-		t.Fatalf("rescan plugin runtime after duplicate setting injection: %v", err)
-	}
+	mutateFullPluginSchema(t, roots, service, "duplicate setting injection", appendDuplicateFirstUISettingEntry)
 
 	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
 		WorkspaceRoot:   roots.workspaceRoot,
@@ -85,79 +47,11 @@ func TestServerUISettingToolsSkipDuplicatePluginSettingIDsAndKeepUnknownSettingD
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "full fixture enabled",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call duplicate-setting search_ui_settings: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected duplicate-setting search_ui_settings success, got %#v", searchResult.StructuredContent)
-	}
-	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	searchResults := mustStructuredList(t, searchPayload["results"])
-	searchResultIDs := make([]string, 0, len(searchResults))
-	for _, rawResult := range searchResults {
-		searchResultIDs = append(searchResultIDs, mustStructuredMap(t, rawResult)["settingId"].(string))
-	}
-	for _, settingID := range searchResultIDs {
-		if settingID == "plugin::setta-fixture-full::enabled" {
-			t.Fatalf("expected duplicated setting id to be omitted from search results, got %#v", searchResultIDs)
-		}
-	}
-	foundLabel := false
-	for _, settingID := range searchResultIDs {
-		if settingID == "plugin::setta-fixture-full::label" {
-			foundLabel = true
-			break
-		}
-	}
-	if !foundLabel {
-		t.Fatalf("expected healthy plugin setting to remain searchable, got %#v", searchResultIDs)
-	}
+	assertUISettingSearchOmits(t, clientSession, "full fixture enabled", "plugin", "plugin::setta-fixture-full::enabled")
+	assertUISettingSearchIncludes(t, clientSession, "full fixture enabled", "plugin", "plugin::setta-fixture-full::label")
 
-	knownInvalidResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call duplicated plugin setting get_ui_setting_value: %v", err)
-	}
-	if knownInvalidResult.IsError {
-		t.Fatalf("expected structured duplicated-setting response, got %#v", knownInvalidResult.StructuredContent)
-	}
-	knownInvalidPayload := mustStructuredMap(t, knownInvalidResult.StructuredContent)
-	knownInvalidError := mustStructuredMap(t, knownInvalidPayload["error"])
-	if knownInvalidError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for duplicated plugin setting, got %#v", knownInvalidError["code"])
-	}
-
-	unknownResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::unknown_setting",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call unknown plugin setting get_ui_setting_value: %v", err)
-	}
-	if unknownResult.IsError {
-		t.Fatalf("expected structured unknown-setting response, got %#v", unknownResult.StructuredContent)
-	}
-	unknownPayload := mustStructuredMap(t, unknownResult.StructuredContent)
-	unknownError := mustStructuredMap(t, unknownPayload["error"])
-	if unknownError["code"] != string(uisettings.ErrorCodeSettingNotFound) {
-		t.Fatalf("expected setting_not_found for unknown plugin setting, got %#v", unknownError["code"])
-	}
+	assertUISettingToolErrorCode(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::enabled", nil, uisettings.ErrorCodePluginUnavailable)
+	assertUISettingToolErrorCode(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::unknown_setting", nil, uisettings.ErrorCodeSettingNotFound)
 }
 
 func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKeepHealthySibling(t *testing.T) {
@@ -178,42 +72,9 @@ func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKe
 		t.Fatalf("install full fixture plugin: %v", err)
 	}
 
-	schemaPath := filepath.Join(
-		roots.workspaceRoot,
-		".setta_plugins",
-		"setta-fixture-full",
-		"content",
-		"config",
-		"schema.json",
-	)
-	schemaPayload, err := os.ReadFile(schemaPath)
-	if err != nil {
-		t.Fatalf("read plugin schema: %v", err)
-	}
-	var schema map[string]any
-	if err := json.Unmarshal(schemaPayload, &schema); err != nil {
-		t.Fatalf("decode plugin schema: %v", err)
-	}
-	rawEntries, ok := schema["x-setta-ui-settings"].([]any)
-	if !ok || len(rawEntries) == 0 {
-		t.Fatalf("expected x-setta-ui-settings entries, got %#v", schema["x-setta-ui-settings"])
-	}
-	firstEntry, ok := rawEntries[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected first ui setting entry to be an object, got %#v", rawEntries[0])
-	}
-	firstEntry["defaultValue"] = "not-a-boolean-default"
-	encodedSchema, err := json.MarshalIndent(schema, "", "  ")
-	if err != nil {
-		t.Fatalf("encode plugin schema: %v", err)
-	}
-	encodedSchema = append(encodedSchema, '\n')
-	if err := os.WriteFile(schemaPath, encodedSchema, 0o644); err != nil {
-		t.Fatalf("write plugin schema: %v", err)
-	}
-	if _, err := service.Rescan(); err != nil {
-		t.Fatalf("rescan plugin runtime after invalid default injection: %v", err)
-	}
+	mutateFullPluginSchema(t, roots, service, "invalid default injection", func(t *testing.T, _ map[string]any, rawEntries []any) {
+		firstPluginUISettingEntry(t, rawEntries)["defaultValue"] = "not-a-boolean-default"
+	})
 
 	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
 		WorkspaceRoot:   roots.workspaceRoot,
@@ -225,125 +86,11 @@ func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKe
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	coreSearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "project name",
-			"sourceFilter":    "core",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call core search_ui_settings with schema-invalid plugin setting: %v", err)
-	}
-	if coreSearchResult.IsError {
-		t.Fatalf("expected core search_ui_settings success with schema-invalid plugin setting, got %#v", coreSearchResult.StructuredContent)
-	}
-	coreSearchPayload := mustStructuredMap(t, coreSearchResult.StructuredContent)
-	coreSearchResults := mustStructuredList(t, coreSearchPayload["results"])
-	foundCoreProjectName := false
-	for _, rawResult := range coreSearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "core.project.name" {
-			foundCoreProjectName = true
-			break
-		}
-	}
-	if !foundCoreProjectName {
-		t.Fatalf("expected core.project.name to remain searchable, got %#v", coreSearchResults)
-	}
-
-	pluginSearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "full fixture enabled",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call plugin search_ui_settings with schema-invalid plugin setting: %v", err)
-	}
-	if pluginSearchResult.IsError {
-		t.Fatalf("expected plugin search_ui_settings success with schema-invalid plugin setting, got %#v", pluginSearchResult.StructuredContent)
-	}
-	pluginSearchPayload := mustStructuredMap(t, pluginSearchResult.StructuredContent)
-	pluginSearchResults := mustStructuredList(t, pluginSearchPayload["results"])
-	for _, rawResult := range pluginSearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::enabled" {
-			t.Fatalf("expected schema-invalid plugin setting to be omitted from search results, got %#v", pluginSearchResults)
-		}
-	}
-
-	healthySearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "full label",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call healthy plugin search_ui_settings with schema-invalid sibling: %v", err)
-	}
-	if healthySearchResult.IsError {
-		t.Fatalf("expected healthy plugin search_ui_settings success, got %#v", healthySearchResult.StructuredContent)
-	}
-	healthySearchPayload := mustStructuredMap(t, healthySearchResult.StructuredContent)
-	healthySearchResults := mustStructuredList(t, healthySearchPayload["results"])
-	foundHealthyLabel := false
-	for _, rawResult := range healthySearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::label" {
-			foundHealthyLabel = true
-			break
-		}
-	}
-	if !foundHealthyLabel {
-		t.Fatalf("expected healthy sibling plugin setting to remain searchable, got %#v", healthySearchResults)
-	}
-
-	invalidResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call schema-invalid plugin setting get_ui_setting_value: %v", err)
-	}
-	if invalidResult.IsError {
-		t.Fatalf("expected structured schema-invalid response, got %#v", invalidResult.StructuredContent)
-	}
-	invalidPayload := mustStructuredMap(t, invalidResult.StructuredContent)
-	invalidError := mustStructuredMap(t, invalidPayload["error"])
-	if invalidError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for schema-invalid plugin setting, got %#v", invalidError["code"])
-	}
-	message, ok := invalidError["message"].(string)
-	if !ok || !strings.Contains(message, "defaultValue is invalid") {
-		t.Fatalf("expected invalid defaultValue message, got %#v", invalidError["message"])
-	}
-
-	healthyResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::label",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call healthy sibling plugin get_ui_setting_value: %v", err)
-	}
-	if healthyResult.IsError {
-		t.Fatalf("expected healthy sibling plugin setting success, got %#v", healthyResult.StructuredContent)
-	}
-	healthyPayload := mustStructuredMap(t, healthyResult.StructuredContent)
-	if healthyPayload["value"] != "unset" {
-		t.Fatalf("expected healthy sibling plugin setting to remain readable, got %#v", healthyPayload["value"])
-	}
+	assertUISettingSearchIncludes(t, clientSession, "project name", "core", "core.project.name")
+	assertUISettingSearchOmits(t, clientSession, "full fixture enabled", "plugin", "plugin::setta-fixture-full::enabled")
+	assertUISettingSearchIncludes(t, clientSession, "full label", "plugin", "plugin::setta-fixture-full::label")
+	assertUISettingToolErrorMessage(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::enabled", nil, uisettings.ErrorCodePluginUnavailable, "defaultValue is invalid")
+	assertUISettingValue(t, clientSession, "plugin::setta-fixture-full::label", "unset")
 }
 
 func TestServerUISettingToolsReturnPluginUnavailableForBackendRegisteredSettingWithInvalidValueSchemaAndKeepHealthySibling(t *testing.T) {
@@ -385,97 +132,10 @@ func TestServerUISettingToolsReturnPluginUnavailableForBackendRegisteredSettingW
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	invalidSearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "backend enabled",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call invalid backend-registered plugin search_ui_settings: %v", err)
-	}
-	if invalidSearchResult.IsError {
-		t.Fatalf("expected invalid backend-registered plugin search success, got %#v", invalidSearchResult.StructuredContent)
-	}
-	invalidSearchPayload := mustStructuredMap(t, invalidSearchResult.StructuredContent)
-	invalidSearchResults := mustStructuredList(t, invalidSearchPayload["results"])
-	for _, rawResult := range invalidSearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::backend_enabled" {
-			t.Fatalf("expected invalid backend-registered plugin setting to be omitted from search results, got %#v", invalidSearchResults)
-		}
-	}
-
-	healthySearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "backend label",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call healthy backend-registered plugin search_ui_settings: %v", err)
-	}
-	if healthySearchResult.IsError {
-		t.Fatalf("expected healthy backend-registered plugin search success, got %#v", healthySearchResult.StructuredContent)
-	}
-	healthySearchPayload := mustStructuredMap(t, healthySearchResult.StructuredContent)
-	healthySearchResults := mustStructuredList(t, healthySearchPayload["results"])
-	foundHealthyLabel := false
-	for _, rawResult := range healthySearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::backend_label" {
-			foundHealthyLabel = true
-			break
-		}
-	}
-	if !foundHealthyLabel {
-		t.Fatalf("expected healthy backend-registered plugin setting to remain searchable, got %#v", healthySearchResults)
-	}
-
-	invalidResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::backend_enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call invalid backend-registered plugin get_ui_setting_value: %v", err)
-	}
-	if invalidResult.IsError {
-		t.Fatalf("expected structured invalid backend-registered response, got %#v", invalidResult.StructuredContent)
-	}
-	invalidPayload := mustStructuredMap(t, invalidResult.StructuredContent)
-	invalidError := mustStructuredMap(t, invalidPayload["error"])
-	if invalidError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for invalid backend-registered plugin setting, got %#v", invalidError["code"])
-	}
-	message, ok := invalidError["message"].(string)
-	if !ok || !strings.Contains(message, "valueSchema type is invalid") {
-		t.Fatalf("expected invalid valueSchema message, got %#v", invalidError["message"])
-	}
-
-	healthyResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::backend_label",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call healthy backend-registered plugin get_ui_setting_value: %v", err)
-	}
-	if healthyResult.IsError {
-		t.Fatalf("expected healthy backend-registered plugin get success, got %#v", healthyResult.StructuredContent)
-	}
-	healthyPayload := mustStructuredMap(t, healthyResult.StructuredContent)
-	if healthyPayload["value"] != "unset" {
-		t.Fatalf("expected healthy backend-registered plugin setting to remain readable, got %#v", healthyPayload["value"])
-	}
+	assertUISettingSearchOmits(t, clientSession, "backend enabled", "plugin", "plugin::setta-fixture-full::backend_enabled")
+	assertUISettingSearchIncludes(t, clientSession, "backend label", "plugin", "plugin::setta-fixture-full::backend_label")
+	assertUISettingToolErrorMessage(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::backend_enabled", nil, uisettings.ErrorCodePluginUnavailable, "valueSchema type is invalid")
+	assertUISettingValue(t, clientSession, "plugin::setta-fixture-full::backend_label", "unset")
 }
 
 func TestServerUISettingToolsIsolateCrossSourceDuplicatePluginSettingIDs(t *testing.T) {
@@ -518,123 +178,183 @@ func TestServerUISettingToolsIsolateCrossSourceDuplicatePluginSettingIDs(t *test
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	coreSearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "project name",
-			"sourceFilter":    "core",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call core search_ui_settings with cross-source duplicate plugin setting: %v", err)
-	}
-	if coreSearchResult.IsError {
-		t.Fatalf("expected core search_ui_settings success with cross-source duplicate plugin setting, got %#v", coreSearchResult.StructuredContent)
-	}
-	coreSearchPayload := mustStructuredMap(t, coreSearchResult.StructuredContent)
-	coreSearchResults := mustStructuredList(t, coreSearchPayload["results"])
-	foundCoreProjectName := false
-	for _, rawResult := range coreSearchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "core.project.name" {
-			foundCoreProjectName = true
-			break
-		}
-	}
-	if !foundCoreProjectName {
-		t.Fatalf("expected core.project.name to remain searchable, got %#v", coreSearchResults)
-	}
+	assertUISettingSearchIncludes(t, clientSession, "project name", "core", "core.project.name")
+	assertUISettingValueIsString(t, clientSession, "plugin::setta-fixture-full::label")
+	assertUISettingToolErrorMessage(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::enabled", nil, uisettings.ErrorCodePluginUnavailable, "declared in both schema and backend registration")
+	assertUISettingToolErrorCode(t, clientSession, "set_ui_setting_value", "plugin::setta-fixture-full::enabled", map[string]any{"value": true}, uisettings.ErrorCodePluginUnavailable)
+	assertUISettingRevealErrorCode(t, clientSession, "plugin::setta-fixture-full::enabled", uisettings.ErrorCodePluginUnavailable, "cross-source duplicate")
+}
 
-	healthyGetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::label",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call healthy sibling get_ui_setting_value with cross-source duplicate: %v", err)
-	}
-	if healthyGetResult.IsError {
-		t.Fatalf("expected healthy sibling get_ui_setting_value success, got %#v", healthyGetResult.StructuredContent)
-	}
-	healthyGetPayload := mustStructuredMap(t, healthyGetResult.StructuredContent)
-	if _, ok := healthyGetPayload["value"].(string); !ok {
-		t.Fatalf("expected healthy sibling plugin setting value to remain string, got %#v", healthyGetPayload["value"])
-	}
+func mutateFullPluginSchema(
+	t *testing.T,
+	roots testPluginRoots,
+	service *plugins.Service,
+	rescanReason string,
+	mutate func(t *testing.T, schema map[string]any, rawEntries []any),
+) {
+	t.Helper()
 
-	conflictingGetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
-	})
+	schemaPath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-full", "content", "config", "schema.json")
+	schemaPayload, err := os.ReadFile(schemaPath)
 	if err != nil {
-		t.Fatalf("call conflicting get_ui_setting_value: %v", err)
+		t.Fatalf("read plugin schema: %v", err)
 	}
-	if conflictingGetResult.IsError {
-		t.Fatalf("expected structured conflicting get response, got %#v", conflictingGetResult.StructuredContent)
+	var schema map[string]any
+	if err := json.Unmarshal(schemaPayload, &schema); err != nil {
+		t.Fatalf("decode plugin schema: %v", err)
 	}
-	conflictingGetPayload := mustStructuredMap(t, conflictingGetResult.StructuredContent)
-	conflictingGetError := mustStructuredMap(t, conflictingGetPayload["error"])
-	if conflictingGetError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for cross-source duplicate get, got %#v", conflictingGetError["code"])
+	rawEntries := pluginUISettingEntries(t, schema)
+	mutate(t, schema, rawEntries)
+	encodedSchema, err := json.MarshalIndent(schema, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin schema: %v", err)
 	}
-	getMessage, ok := conflictingGetError["message"].(string)
-	if !ok || !strings.Contains(getMessage, "declared in both schema and backend registration") {
-		t.Fatalf("expected cross-source duplicate get message, got %#v", conflictingGetError["message"])
+	encodedSchema = append(encodedSchema, '\n')
+	if err := os.WriteFile(schemaPath, encodedSchema, 0o644); err != nil {
+		t.Fatalf("write plugin schema: %v", err)
 	}
+	if _, err := service.Rescan(); err != nil {
+		t.Fatalf("rescan plugin runtime after %s: %v", rescanReason, err)
+	}
+}
 
-	conflictingSetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-			"value":           true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call conflicting set_ui_setting_value: %v", err)
-	}
-	if conflictingSetResult.IsError {
-		t.Fatalf("expected structured conflicting set response, got %#v", conflictingSetResult.StructuredContent)
-	}
-	conflictingSetPayload := mustStructuredMap(t, conflictingSetResult.StructuredContent)
-	conflictingSetError := mustStructuredMap(t, conflictingSetPayload["error"])
-	if conflictingSetError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for cross-source duplicate set, got %#v", conflictingSetError["code"])
-	}
+func pluginUISettingEntries(t *testing.T, schema map[string]any) []any {
+	t.Helper()
 
-	conflictingRevealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "reveal_ui_setting",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
+	rawEntries, ok := schema["x-setta-ui-settings"].([]any)
+	if !ok || len(rawEntries) == 0 {
+		t.Fatalf("expected x-setta-ui-settings entries, got %#v", schema["x-setta-ui-settings"])
+	}
+	return rawEntries
+}
+
+func appendDuplicateFirstUISettingEntry(t *testing.T, schema map[string]any, rawEntries []any) {
+	t.Helper()
+
+	firstEntry := firstPluginUISettingEntry(t, rawEntries)
+	duplicateEntry := make(map[string]any, len(firstEntry))
+	for key, value := range firstEntry {
+		duplicateEntry[key] = value
+	}
+	schema["x-setta-ui-settings"] = append(rawEntries, duplicateEntry)
+}
+
+func firstPluginUISettingEntry(t *testing.T, rawEntries []any) map[string]any {
+	t.Helper()
+
+	firstEntry, ok := rawEntries[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first ui setting entry to be an object, got %#v", rawEntries[0])
+	}
+	return firstEntry
+}
+
+func assertUISettingSearchIncludes(t *testing.T, clientSession *sdkmcp.ClientSession, query string, sourceFilter string, settingID string) {
+	t.Helper()
+
+	if ids := uiSettingSearchResultIDs(t, clientSession, query, sourceFilter); !slices.Contains(ids, settingID) {
+		t.Fatalf("expected search results for %q to include %s, got %#v", query, settingID, ids)
+	}
+}
+
+func assertUISettingSearchOmits(t *testing.T, clientSession *sdkmcp.ClientSession, query string, sourceFilter string, settingID string) {
+	t.Helper()
+
+	if ids := uiSettingSearchResultIDs(t, clientSession, query, sourceFilter); slices.Contains(ids, settingID) {
+		t.Fatalf("expected search results for %q to omit %s, got %#v", query, settingID, ids)
+	}
+}
+
+func uiSettingSearchResultIDs(t *testing.T, clientSession *sdkmcp.ClientSession, query string, sourceFilter string) []string {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, "search_ui_settings", map[string]any{
+		"projectConfigId": "project-alpha",
+		"query":           query,
+		"sourceFilter":    sourceFilter,
 	})
-	if err != nil {
-		t.Fatalf("call conflicting reveal_ui_setting: %v", err)
+	results := mustStructuredList(t, payload["results"])
+	ids := make([]string, 0, len(results))
+	for _, rawResult := range results {
+		ids = append(ids, mustStructuredMap(t, rawResult)["settingId"].(string))
 	}
-	if conflictingRevealResult.IsError {
-		t.Fatalf("expected structured conflicting reveal response, got %#v", conflictingRevealResult.StructuredContent)
+	return ids
+}
+
+func assertUISettingToolErrorCode(
+	t *testing.T,
+	clientSession *sdkmcp.ClientSession,
+	toolName string,
+	settingID string,
+	extraArguments map[string]any,
+	code uisettings.ErrorCode,
+) map[string]any {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, toolName, uiSettingToolArguments(settingID, extraArguments))
+	errorPayload := mustStructuredMap(t, payload["error"])
+	if errorPayload["code"] != string(code) {
+		t.Fatalf("expected %s for %s %s, got %#v", code, toolName, settingID, errorPayload["code"])
 	}
-	conflictingRevealPayload := mustStructuredMap(t, conflictingRevealResult.StructuredContent)
-	if got := mustStructuredInteger(t, conflictingRevealPayload["emittedRevealCount"]); got != 0 {
-		t.Fatalf("expected emittedRevealCount=0 for cross-source duplicate reveal, got %d", got)
+	return errorPayload
+}
+
+func assertUISettingToolErrorMessage(
+	t *testing.T,
+	clientSession *sdkmcp.ClientSession,
+	toolName string,
+	settingID string,
+	extraArguments map[string]any,
+	code uisettings.ErrorCode,
+	messageFragment string,
+) {
+	t.Helper()
+
+	errorPayload := assertUISettingToolErrorCode(t, clientSession, toolName, settingID, extraArguments, code)
+	message, ok := errorPayload["message"].(string)
+	if !ok || !strings.Contains(message, messageFragment) {
+		t.Fatalf("expected %s message to contain %q, got %#v", toolName, messageFragment, errorPayload["message"])
 	}
-	conflictingRevealStatuses := mustStructuredList(t, conflictingRevealPayload["statuses"])
-	if len(conflictingRevealStatuses) != 1 {
-		t.Fatalf("expected one cross-source duplicate reveal status, got %#v", conflictingRevealStatuses)
+}
+
+func uiSettingToolArguments(settingID string, extraArguments map[string]any) map[string]any {
+	arguments := map[string]any{
+		"projectConfigId": "project-alpha",
+		"settingId":       settingID,
 	}
-	conflictingRevealStatus := mustStructuredMap(t, conflictingRevealStatuses[0])
-	if conflictingRevealStatus["status"] != "failed" {
-		t.Fatalf("expected failed cross-source duplicate reveal status, got %#v", conflictingRevealStatus["status"])
+	for key, value := range extraArguments {
+		arguments[key] = value
 	}
-	conflictingRevealError := mustStructuredMap(t, conflictingRevealStatus["error"])
-	if conflictingRevealError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for cross-source duplicate reveal, got %#v", conflictingRevealError["code"])
+	return arguments
+}
+
+func assertUISettingValueIsString(t *testing.T, clientSession *sdkmcp.ClientSession, settingID string) {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, "get_ui_setting_value", uiSettingToolArguments(settingID, nil))
+	if _, ok := payload["value"].(string); !ok {
+		t.Fatalf("expected %s value to remain string, got %#v", settingID, payload["value"])
+	}
+}
+
+func assertUISettingRevealErrorCode(t *testing.T, clientSession *sdkmcp.ClientSession, settingID string, code uisettings.ErrorCode, label string) {
+	t.Helper()
+
+	payload := callUISettingTool(t, clientSession, "reveal_ui_setting", uiSettingToolArguments(settingID, nil))
+	if got := mustStructuredInteger(t, payload["emittedRevealCount"]); got != 0 {
+		t.Fatalf("expected emittedRevealCount=0 for %s reveal, got %d", label, got)
+	}
+	statuses := mustStructuredList(t, payload["statuses"])
+	if len(statuses) != 1 {
+		t.Fatalf("expected one %s reveal status, got %#v", label, statuses)
+	}
+	status := mustStructuredMap(t, statuses[0])
+	if status["status"] != "failed" {
+		t.Fatalf("expected failed %s reveal status, got %#v", label, status["status"])
+	}
+	errorPayload := mustStructuredMap(t, status["error"])
+	if errorPayload["code"] != string(code) {
+		t.Fatalf("expected %s for %s reveal, got %#v", code, label, errorPayload["code"])
 	}
 }
 

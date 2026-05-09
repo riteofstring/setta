@@ -903,97 +903,10 @@ func TestServerUISettingToolsDisabledPluginRejectsReadWriteRevealAndHidesSearchR
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "full fixture enabled",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call disabled plugin search_ui_settings: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected structured disabled plugin search response, got %#v", searchResult.StructuredContent)
-	}
-	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	searchResults := mustStructuredList(t, searchPayload["results"])
-	for _, rawResult := range searchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::enabled" {
-			t.Fatalf("expected disabled plugin setting to disappear from plugin search results, got %#v", searchResults)
-		}
-	}
-
-	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call disabled plugin get_ui_setting_value: %v", err)
-	}
-	if getResult.IsError {
-		t.Fatalf("expected structured disabled plugin get response, got %#v", getResult.StructuredContent)
-	}
-	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	getError := mustStructuredMap(t, getPayload["error"])
-	if getError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for disabled plugin get, got %#v", getError["code"])
-	}
-
-	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-			"value":           false,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call disabled plugin set_ui_setting_value: %v", err)
-	}
-	if setResult.IsError {
-		t.Fatalf("expected structured disabled plugin set response, got %#v", setResult.StructuredContent)
-	}
-	setPayload := mustStructuredMap(t, setResult.StructuredContent)
-	setError := mustStructuredMap(t, setPayload["error"])
-	if setError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for disabled plugin set, got %#v", setError["code"])
-	}
-
-	revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "reveal_ui_setting",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call disabled plugin reveal_ui_setting: %v", err)
-	}
-	if revealResult.IsError {
-		t.Fatalf("expected structured disabled plugin reveal response, got %#v", revealResult.StructuredContent)
-	}
-	revealPayload := mustStructuredMap(t, revealResult.StructuredContent)
-	if got := mustStructuredInteger(t, revealPayload["emittedRevealCount"]); got != 0 {
-		t.Fatalf("expected emittedRevealCount=0 for disabled plugin reveal, got %d", got)
-	}
-	statuses := mustStructuredList(t, revealPayload["statuses"])
-	if len(statuses) != 1 {
-		t.Fatalf("expected one disabled plugin reveal status, got %#v", statuses)
-	}
-	status := mustStructuredMap(t, statuses[0])
-	if status["status"] != "failed" {
-		t.Fatalf("expected failed disabled plugin reveal status, got %#v", status["status"])
-	}
-	revealError := mustStructuredMap(t, status["error"])
-	if revealError["code"] != string(uisettings.ErrorCodePluginUnavailable) {
-		t.Fatalf("expected plugin_unavailable for disabled plugin reveal, got %#v", revealError["code"])
-	}
+	assertUISettingSearchOmits(t, clientSession, "full fixture enabled", "plugin", "plugin::setta-fixture-full::enabled")
+	assertUISettingToolErrorCode(t, clientSession, "get_ui_setting_value", "plugin::setta-fixture-full::enabled", nil, uisettings.ErrorCodePluginUnavailable)
+	assertUISettingToolErrorCode(t, clientSession, "set_ui_setting_value", "plugin::setta-fixture-full::enabled", map[string]any{"value": false}, uisettings.ErrorCodePluginUnavailable)
+	assertUISettingRevealErrorCode(t, clientSession, "plugin::setta-fixture-full::enabled", uisettings.ErrorCodePluginUnavailable, "disabled plugin")
 }
 
 func TestServerUISettingToolsKeepPendingRestartPluginSettingsAvailable(t *testing.T) {
@@ -1154,68 +1067,7 @@ func TestServerUISettingToolsKeepShadowedPluginSettingsAvailableThroughEffective
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_ui_settings",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"query":           "full fixture label",
-			"sourceFilter":    "plugin",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call shadowed plugin search_ui_settings: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected shadowed plugin search success, got %#v", searchResult.StructuredContent)
-	}
-	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
-	searchResults := mustStructuredList(t, searchPayload["results"])
-	foundLabel := false
-	for _, rawResult := range searchResults {
-		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-full::label" {
-			foundLabel = true
-			break
-		}
-	}
-	if !foundLabel {
-		t.Fatalf("expected shadowed plugin setting in search results, got %#v", searchResults)
-	}
-
-	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "get_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::label",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call shadowed plugin get_ui_setting_value: %v", err)
-	}
-	if getResult.IsError {
-		t.Fatalf("expected shadowed plugin get success, got %#v", getResult.StructuredContent)
-	}
-	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if getPayload["value"] != "unset" {
-		t.Fatalf("expected default shadowed plugin label value, got %#v", getPayload["value"])
-	}
-
-	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_ui_setting_value",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-full::enabled",
-			"value":           true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call shadowed plugin set_ui_setting_value: %v", err)
-	}
-	if setResult.IsError {
-		t.Fatalf("expected shadowed plugin set success, got %#v", setResult.StructuredContent)
-	}
-	setPayload := mustStructuredMap(t, setResult.StructuredContent)
-	if setPayload["oldValue"] != false || setPayload["newValue"] != true || setPayload["changed"] != true {
-		t.Fatalf("expected shadowed plugin write false -> true, got %#v", setPayload)
-	}
+	assertUISettingSearchIncludes(t, clientSession, "full fixture label", "plugin", "plugin::setta-fixture-full::label")
+	assertUISettingValue(t, clientSession, "plugin::setta-fixture-full::label", "unset")
+	assertUISettingWriteTransition(t, clientSession, "plugin::setta-fixture-full::enabled", false, true)
 }
