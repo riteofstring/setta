@@ -152,6 +152,25 @@ function buildPluginListEntry(
     ...overrides,
   });
 }
+type PluginFrontendLoadResult = Awaited<
+  ReturnType<typeof loadPluginFrontendModule>
+>;
+
+function pluginModuleUrl(source: string) {
+  return "data:text/javascript," + encodeURIComponent(source);
+}
+
+function canvasControlsForPlugin(
+  result: PluginFrontendLoadResult,
+  pluginId: string,
+) {
+  const controls = result?.registryDelta?.canvasControls[pluginId];
+  if (!controls) {
+    throw new Error(`Expected canvas controls for ${pluginId}.`);
+  }
+  return controls;
+}
+
 function withPluginConfigDigests(
   config: PluginListEntry["config"],
   overrides: {
@@ -1151,16 +1170,14 @@ describe("plugin runtime helpers", () => {
     );
   });
   it("registers canvas controls when capability is effective", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  host.registerCanvasControl({ id: 'utility', label: 'Utility', placement: 'utility', order: 1, renderer: { mount() {} } });\n" +
-          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', order: 20, renderer: { mount(el, props) { el.dataset.controlId = props.controlId; } } });\n" +
-          "  host.registerCanvasControl({ id: 'project-first', label: 'Project First', placement: 'project', order: 10, renderer: { mount() {} } });\n" +
-          "}\n",
-      );
+    const moduleUrl = pluginModuleUrl(
+      "export const apiVersion = 1;\n" +
+        "export function register(host) {\n" +
+        "  host.registerCanvasControl({ id: 'utility', label: 'Utility', placement: 'utility', order: 1, renderer: { mount() {} } });\n" +
+        "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', order: 20, renderer: { mount(el, props) { el.dataset.controlId = props.controlId; } } });\n" +
+        "  host.registerCanvasControl({ id: 'project-first', label: 'Project First', placement: 'project', order: 10, renderer: { mount() {} } });\n" +
+        "}\n",
+    );
     const plugin = buildPluginListEntry({
       frontend: {
         entrypointUrl: moduleUrl,
@@ -1170,16 +1187,19 @@ describe("plugin runtime helpers", () => {
     });
     const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
-    const control = result?.registryDelta?.canvasControls["acme.plugin"]?.[0];
-    expect(
-      result?.registryDelta?.canvasControls["acme.plugin"]?.map(
-        (entry) => entry.id,
-      ),
-    ).toEqual(["project-first", "watch-code", "utility"]);
-    expect(control?.id).toBe("project-first");
-    expect(control?.label).toBe("Project First");
-    expect(control?.placement).toBe("project");
-    expect(control?.order).toBe(10);
+    const controls = canvasControlsForPlugin(result, "acme.plugin");
+    const control = controls[0];
+    expect(controls.map((entry) => entry.id)).toEqual([
+      "project-first",
+      "watch-code",
+      "utility",
+    ]);
+    expect(control).toMatchObject({
+      id: "project-first",
+      label: "Project First",
+      placement: "project",
+      order: 10,
+    });
   });
   it("suppresses pending-restart Watch Code provider frontend side effects", async () => {
     const pluginId = "setta-watch-code";

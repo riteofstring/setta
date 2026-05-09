@@ -918,70 +918,106 @@ function loadNodeInternals(nodes: readonly MovementNodeInput[]) {
   });
 }
 
+type MovementProjectStateRecords = {
+  parentSectionMap: SingleConfig["parentSectionMap"];
+  sectionImpls: SingleConfig["sectionImpls"];
+  sectionVariantMap: Record<string, string>;
+  sectionVariants: SingleConfig["sectionVariants"];
+  stateSections: SingleConfig["sections"];
+  topLevelSections: SingleConfig["projectConfig"]["topLevelSections"];
+};
+
+function createMovementProjectStateRecords(): MovementProjectStateRecords {
+  return {
+    parentSectionMap: {},
+    sectionImpls: {},
+    sectionVariantMap: {},
+    sectionVariants: {},
+    stateSections: {},
+    topLevelSections: {},
+  };
+}
+
+function movementTopLevelSection(
+  section: MovementSectionInput,
+  index: number,
+) {
+  return {
+    h: section.topLevelHeight ?? 160,
+    w: section.topLevelWidth ?? 200,
+    x: index * 240,
+    y: index * 120,
+    zIndex: index,
+  };
+}
+
+function movementSectionImpl(section: MovementSectionInput, implId: string) {
+  const size = getMovementSectionSize(section);
+  const sharedOptions = {
+    id: implId,
+    positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+    ...(size ? { size } : {}),
+  };
+  if (section.kind === "group") {
+    return createGroupSectionImpl({
+      ...sharedOptions,
+      children: [...(section.children ?? [])],
+    });
+  }
+  return createCodeSectionImpl(sharedOptions);
+}
+
+function addMovementSectionRecord(
+  records: MovementProjectStateRecords,
+  section: MovementSectionInput,
+  index: number,
+) {
+  const variantId = `variant-${section.id}`;
+  const implId = `impl-${section.id}`;
+  const parentId = section.parentId ?? null;
+
+  records.sectionVariantMap[section.id] = variantId;
+  records.parentSectionMap[section.id] = parentId;
+  if (parentId === null) {
+    records.topLevelSections[section.id] = movementTopLevelSection(
+      section,
+      index,
+    );
+  }
+  records.stateSections[section.id] = createCore({
+    defaultVariant: variantId,
+    id: section.id,
+    variants: [variantId],
+  });
+  records.sectionVariants[variantId] = createVariant({
+    id: variantId,
+    impl: implId,
+    name: variantId,
+    nonPresetImpls: [implId],
+  });
+  records.sectionImpls[implId] = movementSectionImpl(section, implId);
+}
+
 function loadProjectStateForSections(
   sections: readonly MovementSectionInput[],
 ) {
-  const sectionVariantMap: Record<string, string> = {};
-  const stateSections: SingleConfig["sections"] = {};
-  const sectionImpls: SingleConfig["sectionImpls"] = {};
-  const sectionVariants: SingleConfig["sectionVariants"] = {};
-  const parentSectionMap: SingleConfig["parentSectionMap"] = {};
-  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
-    {};
+  const records = createMovementProjectStateRecords();
 
   for (const [index, section] of sections.entries()) {
-    const variantId = `variant-${section.id}`;
-    const implId = `impl-${section.id}`;
-    sectionVariantMap[section.id] = variantId;
-    const parentId = section.parentId ?? null;
-    parentSectionMap[section.id] = parentId;
-    if (parentId === null) {
-      topLevelSections[section.id] = {
-        h: section.topLevelHeight ?? 160,
-        w: section.topLevelWidth ?? 200,
-        x: index * 240,
-        y: index * 120,
-        zIndex: index,
-      };
-    }
-    stateSections[section.id] = createCore({
-      defaultVariant: variantId,
-      id: section.id,
-      variants: [variantId],
-    });
-    sectionVariants[variantId] = createVariant({
-      id: variantId,
-      impl: implId,
-      name: variantId,
-      nonPresetImpls: [implId],
-    });
-    const size = getMovementSectionSize(section);
-    sectionImpls[implId] =
-      section.kind === "group"
-        ? createGroupSectionImpl({
-            children: [...(section.children ?? [])],
-            id: implId,
-            positionAndSizeLocked: section.positionAndSizeLocked ?? false,
-            ...(size ? { size } : {}),
-          })
-        : createCodeSectionImpl({
-            id: implId,
-            positionAndSizeLocked: section.positionAndSizeLocked ?? false,
-            ...(size ? { size } : {}),
-          });
+    addMovementSectionRecord(records, section, index);
   }
 
   useProjectState.setState(
     createSingleConfig({
-      parentSectionMap,
+      parentSectionMap: records.parentSectionMap,
       projectConfig: createProjectConfig({
         id: NULL_PROJECT_CONFIG_ID,
-        sectionVariantMap,
-        topLevelSections,
+        sectionVariantMap: records.sectionVariantMap,
+        topLevelSections: records.topLevelSections,
       }),
-      sectionImpls,
-      sections: stateSections,
-      sectionVariants,
+      sectionImpls: records.sectionImpls,
+      sections: records.stateSections,
+      sectionVariants: records.sectionVariants,
     }),
   );
 }

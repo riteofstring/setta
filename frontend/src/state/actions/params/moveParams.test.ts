@@ -98,13 +98,7 @@ function seedDictParamState({
   selectedParams: Array<string>;
   nestedChildrenByParent?: Record<string, Array<string>>;
 }) {
-  const allIds = new Set<string>([rootParamId, ...rootChildren]);
-  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
-    allIds.add(parentId);
-    for (const childId of children) {
-      allIds.add(childId);
-    }
-  }
+  const allIds = collectParamIds(rootChildren, nestedChildrenByParent);
   const codeObjs: Record<string, ReturnType<typeof createCore>> = {};
   const codeObjVariants: Record<string, ReturnType<typeof createVariant>> = {};
   const codeObjImpls: Record<string, BaseCodeObjImplUnion> = {
@@ -113,56 +107,19 @@ function seedDictParamState({
   const codeObjVariantMap: Record<string, string> = {
     [rootParamId]: "root-param-variant",
   };
-  codeObjs[rootParamId] = createCore({
-    id: rootParamId,
-    name: "root",
-    variants: ["root-param-variant"],
-    defaultVariant: "root-param-variant",
+  addRootParamRecords(codeObjs, codeObjVariants);
+  addChildParamRecords({
+    allIds,
+    codeObjImpls,
+    codeObjVariantMap,
+    codeObjVariants,
+    codeObjs,
+    nestedChildrenByParent,
   });
-  codeObjVariants["root-param-variant"] = createVariant({
-    id: "root-param-variant",
-    impl: "root-param-impl",
-    nonPresetImpls: ["root-param-impl"],
-  });
-  for (const id of allIds) {
-    if (id === rootParamId) {
-      continue;
-    }
-    const variantId = `${id}-variant`;
-    const implId = `${id}-impl`;
-    codeObjs[id] = createCore({
-      id,
-      name: id,
-      variants: [variantId],
-      defaultVariant: variantId,
-    });
-    codeObjVariants[variantId] = createVariant({
-      id: variantId,
-      impl: implId,
-      nonPresetImpls: [implId],
-    });
-    codeObjVariantMap[id] = variantId;
-    const nestedChildren = nestedChildrenByParent[id];
-    codeObjImpls[implId] = nestedChildren
-      ? createNestedParamImpl(implId, nestedChildren)
-      : createCodeParamCodeObjImpl({
-          id: implId,
-          value: id,
-        });
-  }
-  const requiredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const id of allIds) {
-    if (id === rootParamId) {
-      continue;
-    }
-    const path = [id];
-    for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
-      if (children.includes(id)) {
-        path.unshift(parentId);
-      }
-    }
-    requiredParamIdsToPaths[id] = path;
-  }
+  const requiredParamIdsToPaths = buildRequiredParamIdsToPaths(
+    allIds,
+    nestedChildrenByParent,
+  );
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: "project-1",
@@ -210,6 +167,124 @@ function seedDictParamState({
     state.requiredDecodedImages = [];
   });
 }
+
+function collectParamIds(
+  rootChildren: Array<string>,
+  nestedChildrenByParent: Record<string, Array<string>>,
+) {
+  const allIds = new Set<string>([rootParamId, ...rootChildren]);
+  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
+    allIds.add(parentId);
+    for (const childId of children) {
+      allIds.add(childId);
+    }
+  }
+  return allIds;
+}
+
+function addRootParamRecords(
+  codeObjs: Record<string, ReturnType<typeof createCore>>,
+  codeObjVariants: Record<string, ReturnType<typeof createVariant>>,
+) {
+  codeObjs[rootParamId] = createCore({
+    id: rootParamId,
+    name: "root",
+    variants: ["root-param-variant"],
+    defaultVariant: "root-param-variant",
+  });
+  codeObjVariants["root-param-variant"] = createVariant({
+    id: "root-param-variant",
+    impl: "root-param-impl",
+    nonPresetImpls: ["root-param-impl"],
+  });
+}
+
+function addChildParamRecords({
+  allIds,
+  codeObjImpls,
+  codeObjVariantMap,
+  codeObjVariants,
+  codeObjs,
+  nestedChildrenByParent,
+}: {
+  allIds: Set<string>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariantMap: Record<string, string>;
+  codeObjVariants: Record<string, ReturnType<typeof createVariant>>;
+  codeObjs: Record<string, ReturnType<typeof createCore>>;
+  nestedChildrenByParent: Record<string, Array<string>>;
+}) {
+  for (const id of allIds) {
+    if (id === rootParamId) {
+      continue;
+    }
+    const variantId = `${id}-variant`;
+    const implId = `${id}-impl`;
+    codeObjs[id] = createCore({
+      id,
+      name: id,
+      variants: [variantId],
+      defaultVariant: variantId,
+    });
+    codeObjVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+    });
+    codeObjVariantMap[id] = variantId;
+    codeObjImpls[implId] = createSeedParamImpl(
+      id,
+      implId,
+      nestedChildrenByParent,
+    );
+  }
+}
+
+function createSeedParamImpl(
+  id: string,
+  implId: string,
+  nestedChildrenByParent: Record<string, Array<string>>,
+) {
+  const nestedChildren = nestedChildrenByParent[id];
+  if (nestedChildren) {
+    return createNestedParamImpl(implId, nestedChildren);
+  }
+  return createCodeParamCodeObjImpl({
+    id: implId,
+    value: id,
+  });
+}
+
+function buildRequiredParamIdsToPaths(
+  allIds: Set<string>,
+  nestedChildrenByParent: Record<string, Array<string>>,
+) {
+  const requiredParamIdsToPaths: Record<string, Array<string>> = {};
+  for (const id of allIds) {
+    if (id === rootParamId) {
+      continue;
+    }
+    requiredParamIdsToPaths[id] = buildRequiredParamPath(
+      id,
+      nestedChildrenByParent,
+    );
+  }
+  return requiredParamIdsToPaths;
+}
+
+function buildRequiredParamPath(
+  id: string,
+  nestedChildrenByParent: Record<string, Array<string>>,
+) {
+  const path = [id];
+  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
+    if (children.includes(id)) {
+      path.unshift(parentId);
+    }
+  }
+  return path;
+}
+
 describe("moveParams", () => {
   beforeEach(() => {
     resetProjectStores();

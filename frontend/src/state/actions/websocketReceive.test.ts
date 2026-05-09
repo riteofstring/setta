@@ -151,6 +151,82 @@ class MockWebSocket {
     }
   }
 }
+
+type RealtimeUIChangeMessage = {
+  content: {
+    dependencyKey: {
+      sectionId: string;
+    };
+    value: {
+      type: string;
+      payload: {
+        contentId: string;
+      };
+    };
+  };
+};
+
+function firstMockSocket(): MockWebSocket {
+  const socket = MockWebSocket.instances[0];
+  if (!socket) {
+    throw new Error("Expected websocket instance.");
+  }
+  return socket;
+}
+
+function installRealtimeBinaryCoverage() {
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-1";
+  });
+  useListenerCoverage.setState((state) => {
+    state.byProjectId["project-1"] = {
+      hasRealtimeWildcard: false,
+      dependenciesByKey: {
+        "section-binary::": {
+          type: DependencyKeyTypeEnum.Section,
+          sectionId: "section-binary",
+        },
+      },
+    };
+  });
+}
+
+function mockOversizedRealtimeUpload() {
+  uploadBinaryMock.mockResolvedValue({
+    data: createContentRef({
+      contentId: "uploaded-realtime-ref",
+      byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
+      mimeType: "image/png",
+      sha256: null,
+    }),
+    status: 200,
+    hasResponse: true,
+  });
+}
+
+function sentJsonMessagesAfter(
+  socket: MockWebSocket,
+  sendCountBefore: number,
+) {
+  return socket.send.mock.calls
+    .slice(sendCountBefore)
+    .map((call) => call[0])
+    .filter((payload): payload is string => typeof payload === "string")
+    .map((payload) => JSON.parse(payload) as Record<string, unknown>);
+}
+
+function mustRealtimeUIChangeMessage(
+  messages: Array<Record<string, unknown>>,
+): RealtimeUIChangeMessage {
+  const message = messages.find(
+    (payload) => payload.messageType === "RealtimeUIChange",
+  );
+  if (!message) {
+    throw new Error("Expected realtime UI change message.");
+  }
+  return message as RealtimeUIChangeMessage;
+}
+
 function buildUISettingRevealMessage({
   id,
   requestId,
@@ -642,37 +718,15 @@ describe("openWebSocket", () => {
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
   it("uploads oversized realtime section binaries and sends the uploaded ref", async () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-1";
-    });
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-1"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "section-binary::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "section-binary",
-          },
-        },
-      };
-    });
+    installRealtimeBinaryCoverage();
     const { openWebSocket, sendRealtimeSectionBinary } = await import(
       "state/actions/websocketReceive"
     );
     const { uploadBinary } = await import("openapi/http");
-    vi.mocked(uploadBinary).mockResolvedValue({
-      data: createContentRef({
-        contentId: "uploaded-realtime-ref",
-        byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
-        mimeType: "image/png",
-        sha256: null,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
+    mockOversizedRealtimeUpload();
     openWebSocket("/project", "share-session-realtime-binary-upload");
     vi.runAllTimers();
-    const socket = MockWebSocket.instances[0];
+    const socket = firstMockSocket();
     await socket.emit("open");
     const sendCountBefore = socket.send.mock.calls.length;
     // Oversized section snapshots should fail over from websocket binary frames
@@ -686,35 +740,16 @@ describe("openWebSocket", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(uploadBinary).toHaveBeenCalledTimes(1);
-    const laterMessages = socket.send.mock.calls
-      .slice(sendCountBefore)
-      .map((call) => call[0])
-      .filter((payload): payload is string => typeof payload === "string")
-      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
-    const realtimeMessage = laterMessages.find(
-      (payload) => payload.messageType === "RealtimeUIChange",
-    ) as
-      | {
-          content?: {
-            dependencyKey?: {
-              sectionId?: string;
-            };
-            value?: {
-              type?: string;
-              payload?: {
-                contentId?: string;
-              };
-            };
-          };
-        }
-      | undefined;
-    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
+    const realtimeMessage = mustRealtimeUIChangeMessage(
+      sentJsonMessagesAfter(socket, sendCountBefore),
+    );
+    expect(realtimeMessage.content.dependencyKey.sectionId).toBe(
       "section-binary",
     );
-    expect(realtimeMessage?.content?.value?.type).toBe(
+    expect(realtimeMessage.content.value.type).toBe(
       DependencyValueTypeEnum.Binary,
     );
-    expect(realtimeMessage?.content?.value?.payload?.contentId).toBe(
+    expect(realtimeMessage.content.value.payload.contentId).toBe(
       "uploaded-realtime-ref",
     );
   });

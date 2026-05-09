@@ -427,6 +427,54 @@ function getCapturedPluginHost(): CapturedPluginHost {
   return globalScope.__settaCapturedPluginHost;
 }
 
+function pluginModuleUrl(source: string): string {
+  return "data:text/javascript," + encodeURIComponent(source);
+}
+
+async function loadCapturedHostPlugin(
+  effectiveCapabilities: string[] = [],
+): Promise<CapturedPluginHost> {
+  const result = await loadPluginFrontendModule(
+    buildPluginListEntry({
+      frontend: {
+        entrypointUrl: pluginModuleUrl(
+          "export const apiVersion = 1;\n" +
+            "export function register(host) {\n" +
+            "  globalThis.__settaCapturedPluginHost = host;\n" +
+            "}\n",
+        ),
+        styleUrl: null,
+      },
+      effectiveCapabilities,
+    }),
+    "ide",
+  );
+  expect(result?.error).toBeNull();
+  return getCapturedPluginHost();
+}
+
+function fetchCall(fetchMock: ReturnType<typeof vi.fn>, index: number) {
+  const call = fetchMock.mock.calls[index];
+  if (!call) {
+    throw new Error(`Expected fetch call ${index}.`);
+  }
+  return call;
+}
+
+async function expectInvalidBackendRoutes(host: CapturedPluginHost) {
+  await expect(host.fetchBackendRoute("watch-code/inputs")).rejects.toMatchObject(
+    {
+      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    },
+  );
+  await expect(host.fetchBackendRoute("/../admin")).rejects.toMatchObject({
+    code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+  });
+  await expect(host.fetchBackendRoute("/%2e%2e/admin")).rejects.toMatchObject({
+    code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+  });
+}
+
 async function loadPluginRevealHandlerFixture(
   registerSource: string,
 ): Promise<void> {
@@ -745,24 +793,7 @@ describe("plugin runtime host route APIs", () => {
         new Response(null, { status: 200 }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerRouter"],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error).toBeNull();
-    const host = getCapturedPluginHost();
+    const host = await loadCapturedHostPlugin(["registerRouter"]);
 
     await expect(
       host.fetchBackendRoute("/watch-code/inputs", {
@@ -782,10 +813,11 @@ describe("plugin runtime host route APIs", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+    const watchCodeCall = fetchCall(fetchMock, 0);
+    expect(String(watchCodeCall[0])).toContain(
       "/plugins/acme.plugin/watch-code/inputs",
     );
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+    expect(watchCodeCall[1]).toMatchObject({
       method: "POST",
       credentials: "include",
       body: JSON.stringify({
@@ -794,29 +826,16 @@ describe("plugin runtime host route APIs", () => {
         files: ["pkg/mod.py"],
       }),
     });
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers);
-    expect(
-      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("Content-Type"),
-    ).toBe("application/json");
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/plugins/acme.plugin/health",
+    expect(watchCodeCall[1]?.headers).toBeInstanceOf(Headers);
+    expect((watchCodeCall[1]?.headers as Headers).get("Content-Type")).toBe(
+      "application/json",
     );
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+    const healthCall = fetchCall(fetchMock, 1);
+    expect(String(healthCall[0])).toContain("/plugins/acme.plugin/health");
+    expect(healthCall[1]).toMatchObject({
       credentials: "include",
     });
-    await expect(
-      host.fetchBackendRoute("watch-code/inputs"),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
-    await expect(host.fetchBackendRoute("/../admin")).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
-    await expect(host.fetchBackendRoute("/%2e%2e/admin")).rejects.toMatchObject(
-      {
-        code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      },
-    );
+    await expectInvalidBackendRoutes(host);
   });
   it("exposes createStore on the plugin host", async () => {
     const moduleUrl =

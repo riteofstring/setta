@@ -8,7 +8,10 @@ import { uploadBinary } from "openapi/http";
 
 import { addTemporaryNotification } from "state/actions/notifications";
 
-import { sendRealtimeDependencyValue } from "state/actions/realtimeDependencySend";
+import {
+  registerRealtimeDependencySenders,
+  sendRealtimeDependencyValue,
+} from "state/actions/realtimeDependencySend";
 
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 
@@ -125,6 +128,11 @@ export function sendBinaryMessage(
     wss.send(frame);
   }
 }
+
+registerRealtimeDependencySenders({
+  sendBinaryMessage,
+  sendMessage,
+});
 
 function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();

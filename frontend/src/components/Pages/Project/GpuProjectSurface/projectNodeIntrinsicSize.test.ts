@@ -381,25 +381,10 @@ function projectStateWithNestedRetainedParamSection({
   readonly includeSecondNestedChild?: boolean;
   readonly includeTrailingSibling?: boolean;
 } = {}): ZustandProjectState {
-  const rootParamId = "root-param";
-  const parentParamId = "parent-param";
-  const childParamId = "child-param";
-  const secondChildParamId = "second-child-param";
-  const siblingParamId = "sibling-param";
-  const nestedChildIds = includeSecondNestedChild
-    ? [childParamId, secondChildParamId]
-    : [childParamId];
-  const shownTopLevelParamIds = includeTrailingSibling
-    ? [parentParamId, siblingParamId]
-    : [parentParamId];
-  const shownParamPaths = {
-    [childParamId]: [parentParamId, childParamId],
-    [parentParamId]: [parentParamId],
-    ...(includeSecondNestedChild
-      ? { [secondChildParamId]: [parentParamId, secondChildParamId] }
-      : {}),
-    ...(includeTrailingSibling ? { [siblingParamId]: [siblingParamId] } : {}),
-  };
+  const ids = nestedRetainedParamIds({
+    includeSecondNestedChild,
+    includeTrailingSibling,
+  });
   const projectState = createSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-1",
@@ -410,20 +395,10 @@ function projectStateWithNestedRetainedParamSection({
     }),
     sectionImpls: {
       "dict-a-impl": createDictSectionImpl({
-        codeObjVariantMap: {
-          [childParamId]: `${childParamId}-variant`,
-          [parentParamId]: `${parentParamId}-variant`,
-          [rootParamId]: `${rootParamId}-variant`,
-          ...(includeSecondNestedChild
-            ? { [secondChildParamId]: `${secondChildParamId}-variant` }
-            : {}),
-          ...(includeTrailingSibling
-            ? { [siblingParamId]: `${siblingParamId}-variant` }
-            : {}),
-        },
+        codeObjVariantMap: ids.codeObjVariantMap,
         id: "dict-a-impl",
         size: sectionSize({ height: "auto", width: 260 }),
-        topLevelParamId: rootParamId,
+        topLevelParamId: ids.rootParamId,
       }),
     },
     sectionVariants: {
@@ -445,62 +420,127 @@ function projectStateWithNestedRetainedParamSection({
     shownParamIds: {
       "dict-a-variant": createShownParamIDs({
         unpinned: {
-          requiredParamIdsToPaths: shownParamPaths,
-          topLevelParamIds: shownTopLevelParamIds,
+          requiredParamIdsToPaths: ids.shownParamPaths,
+          topLevelParamIds: ids.shownTopLevelParamIds,
         },
       }),
     },
   }) as ZustandProjectState;
   projectState.previewSectionVariantMap = {};
-  addParamToProjectState(
-    projectState,
-    rootParamId,
-    `${rootParamId}-variant`,
-    `${rootParamId}-impl`,
-    createNestedParamImpl(`${rootParamId}-impl`, [parentParamId]),
-  );
-  addParamToProjectState(
-    projectState,
-    parentParamId,
-    `${parentParamId}-variant`,
-    `${parentParamId}-impl`,
-    createNestedParamImpl(`${parentParamId}-impl`, nestedChildIds),
-  );
-  addParamToProjectState(
-    projectState,
-    childParamId,
-    `${childParamId}-variant`,
-    `${childParamId}-impl`,
-    createCodeParamCodeObjImpl({
-      id: `${childParamId}-impl`,
-      name: childParamId,
-    }) as BaseCodeObjImplUnion,
-  );
+  addNestedRetainedParamImpls(projectState, ids);
+  return projectState;
+}
+
+type NestedRetainedParamIds = {
+  childParamId: string;
+  codeObjVariantMap: Record<string, string>;
+  nestedChildIds: string[];
+  parentParamId: string;
+  rootParamId: string;
+  secondChildParamId: string;
+  shownParamPaths: Record<string, string[]>;
+  shownTopLevelParamIds: string[];
+  siblingParamId: string;
+};
+
+function nestedRetainedParamIds({
+  includeSecondNestedChild,
+  includeTrailingSibling,
+}: {
+  readonly includeSecondNestedChild: boolean;
+  readonly includeTrailingSibling: boolean;
+}): NestedRetainedParamIds {
+  const rootParamId = "root-param";
+  const parentParamId = "parent-param";
+  const childParamId = "child-param";
+  const secondChildParamId = "second-child-param";
+  const siblingParamId = "sibling-param";
+  const nestedChildIds = [childParamId];
+  const shownTopLevelParamIds = [parentParamId];
+  const shownParamPaths: Record<string, string[]> = {
+    [childParamId]: [parentParamId, childParamId],
+    [parentParamId]: [parentParamId],
+  };
+  const codeObjVariantMap: Record<string, string> = {
+    [childParamId]: `${childParamId}-variant`,
+    [parentParamId]: `${parentParamId}-variant`,
+    [rootParamId]: `${rootParamId}-variant`,
+  };
   if (includeSecondNestedChild) {
-    addParamToProjectState(
-      projectState,
-      secondChildParamId,
-      `${secondChildParamId}-variant`,
-      `${secondChildParamId}-impl`,
-      createCodeParamCodeObjImpl({
-        id: `${secondChildParamId}-impl`,
-        name: secondChildParamId,
-      }) as BaseCodeObjImplUnion,
-    );
+    nestedChildIds.push(secondChildParamId);
+    shownParamPaths[secondChildParamId] = [parentParamId, secondChildParamId];
+    codeObjVariantMap[secondChildParamId] = `${secondChildParamId}-variant`;
   }
   if (includeTrailingSibling) {
+    shownTopLevelParamIds.push(siblingParamId);
+    shownParamPaths[siblingParamId] = [siblingParamId];
+    codeObjVariantMap[siblingParamId] = `${siblingParamId}-variant`;
+  }
+  return {
+    childParamId,
+    codeObjVariantMap,
+    nestedChildIds,
+    parentParamId,
+    rootParamId,
+    secondChildParamId,
+    shownParamPaths,
+    shownTopLevelParamIds,
+    siblingParamId,
+  };
+}
+
+function addNestedRetainedParamImpls(
+  projectState: ZustandProjectState,
+  ids: NestedRetainedParamIds,
+) {
+  addParamToProjectState(
+    projectState,
+    ids.rootParamId,
+    `${ids.rootParamId}-variant`,
+    `${ids.rootParamId}-impl`,
+    createNestedParamImpl(`${ids.rootParamId}-impl`, [ids.parentParamId]),
+  );
+  addParamToProjectState(
+    projectState,
+    ids.parentParamId,
+    `${ids.parentParamId}-variant`,
+    `${ids.parentParamId}-impl`,
+    createNestedParamImpl(`${ids.parentParamId}-impl`, ids.nestedChildIds),
+  );
+  addParamToProjectState(
+    projectState,
+    ids.childParamId,
+    `${ids.childParamId}-variant`,
+    `${ids.childParamId}-impl`,
+    createCodeParamCodeObjImpl({
+      id: `${ids.childParamId}-impl`,
+      name: ids.childParamId,
+    }) as BaseCodeObjImplUnion,
+  );
+  if (ids.nestedChildIds.includes(ids.secondChildParamId)) {
     addParamToProjectState(
       projectState,
-      siblingParamId,
-      `${siblingParamId}-variant`,
-      `${siblingParamId}-impl`,
+      ids.secondChildParamId,
+      `${ids.secondChildParamId}-variant`,
+      `${ids.secondChildParamId}-impl`,
       createCodeParamCodeObjImpl({
-        id: `${siblingParamId}-impl`,
-        name: siblingParamId,
+        id: `${ids.secondChildParamId}-impl`,
+        name: ids.secondChildParamId,
       }) as BaseCodeObjImplUnion,
     );
   }
-  return projectState;
+  if (ids.shownTopLevelParamIds.includes(ids.siblingParamId)) {
+    addParamToProjectState(
+      projectState,
+      ids.siblingParamId,
+      `${ids.siblingParamId}-variant`,
+      `${ids.siblingParamId}-impl`,
+      createCodeParamCodeObjImpl({
+        id: `${ids.siblingParamId}-impl`,
+        name: ids.siblingParamId,
+      }) as BaseCodeObjImplUnion,
+    );
+  }
 }
 
 function createNestedParamImpl(

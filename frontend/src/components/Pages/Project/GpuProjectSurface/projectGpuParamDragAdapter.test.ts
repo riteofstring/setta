@@ -269,13 +269,7 @@ function retainedHit(
     id: "dict-a:param-content:unpinned",
     ownerSectionId: "dict-a",
     rowHeight: 28,
-    rows: rows.map((id) => ({
-      controlKind:
-        id === "parent-param" || id === "empty-parent" ? "nested" : "text-like",
-      depth: id.startsWith("child") ? 1 : 0,
-      id,
-      label: id,
-    })),
+    rows: rows.map(retainedTestRow),
     scrollOffset: { x: 0, y: 0 },
     viewportRect: { height: 240, width: 260, x: 0, y: 0 },
   });
@@ -298,6 +292,45 @@ function retainedHit(
   };
 }
 
+function retainedTestRow(id: string) {
+  const depth = id.startsWith("child") ? 1 : 0;
+  if (id === "parent-param") {
+    return {
+      controlKind: "nested" as const,
+      depth,
+      id,
+      label: id,
+    };
+  }
+  if (id === "empty-parent") {
+    return {
+      control: retainedTextControl("nested"),
+      controlKind: "nested" as const,
+      depth,
+      id,
+      label: id,
+    };
+  }
+  return {
+    control: retainedTextControl(),
+    controlKind: "text-like" as const,
+    depth,
+    id,
+    label: id,
+  };
+}
+
+function retainedTextControl(rendererFamily = "text-like") {
+  return {
+    commitPolicy: "native-island" as const,
+    defaultDisplayValue: "",
+    displayValue: "",
+    editorKind: "text" as const,
+    kind: "text-like" as const,
+    rendererFamily,
+  };
+}
+
 function projectStateWithParams({
   nestedChildrenByParent = {},
   rootChildren,
@@ -311,56 +344,30 @@ function projectStateWithParams({
   const sectionVariantId = "dict-a-variant";
   const sectionImplId = "dict-a-impl";
   const rootParamId = "root-param";
-  const allParamIds = new Set<string>([rootParamId, ...rootChildren]);
-  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
-    allParamIds.add(parentId);
-    for (const childId of children) {
-      allParamIds.add(childId);
-    }
-  }
+  const allParamIds = collectParamIds(
+    rootParamId,
+    rootChildren,
+    nestedChildrenByParent,
+  );
   const codeObjs: ZustandProjectState["codeObjs"] = {};
   const codeObjVariants: ZustandProjectState["codeObjVariants"] = {};
   const codeObjImpls: ZustandProjectState["codeObjImpls"] = {};
   const codeObjVariantMap: Record<string, string> = {};
-  for (const paramId of allParamIds) {
-    const variantId = `${paramId}-variant`;
-    const implId = `${paramId}-impl`;
-    codeObjs[paramId] = createCore({
-      defaultVariant: variantId,
-      id: paramId,
-      name: paramId,
-      variants: [variantId],
-    });
-    codeObjVariants[variantId] = createVariant({
-      id: variantId,
-      impl: implId,
-      name: variantId,
-      nonPresetImpls: [implId],
-    });
-    codeObjImpls[implId] =
-      paramId === rootParamId || nestedChildrenByParent[paramId]
-        ? createNestedParamImpl(
-            implId,
-            paramId === rootParamId
-              ? rootChildren
-              : nestedChildrenByParent[paramId] ?? [],
-          )
-        : createCodeParamCodeObjImpl({
-            id: implId,
-            name: paramId,
-          });
-    codeObjVariantMap[paramId] = variantId;
-  }
-  const requiredParamIdsToPaths: Record<string, string[]> = {};
-  for (const paramId of allParamIds) {
-    if (paramId === rootParamId) {
-      continue;
-    }
-    requiredParamIdsToPaths[paramId] = getParamPath(
-      paramId,
-      nestedChildrenByParent,
-    );
-  }
+  addParamRecords({
+    allParamIds,
+    codeObjImpls,
+    codeObjVariantMap,
+    codeObjVariants,
+    codeObjs,
+    nestedChildrenByParent,
+    rootChildren,
+    rootParamId,
+  });
+  const requiredParamIdsToPaths = buildRequiredParamIdsToPaths(
+    allParamIds,
+    rootParamId,
+    nestedChildrenByParent,
+  );
   const state = createSingleConfig({
     codeObjImpls,
     codeObjVariants,
@@ -407,6 +414,104 @@ function projectStateWithParams({
   }) as ZustandProjectState;
   state.previewSectionVariantMap = {};
   return state;
+}
+
+function collectParamIds(
+  rootParamId: string,
+  rootChildren: readonly string[],
+  nestedChildrenByParent: Record<string, readonly string[]>,
+) {
+  const allParamIds = new Set<string>([rootParamId, ...rootChildren]);
+  for (const [parentId, children] of Object.entries(nestedChildrenByParent)) {
+    allParamIds.add(parentId);
+    for (const childId of children) {
+      allParamIds.add(childId);
+    }
+  }
+  return allParamIds;
+}
+
+function addParamRecords({
+  allParamIds,
+  codeObjImpls,
+  codeObjVariantMap,
+  codeObjVariants,
+  codeObjs,
+  nestedChildrenByParent,
+  rootChildren,
+  rootParamId,
+}: {
+  readonly allParamIds: Set<string>;
+  readonly codeObjImpls: ZustandProjectState["codeObjImpls"];
+  readonly codeObjVariantMap: Record<string, string>;
+  readonly codeObjVariants: ZustandProjectState["codeObjVariants"];
+  readonly codeObjs: ZustandProjectState["codeObjs"];
+  readonly nestedChildrenByParent: Record<string, readonly string[]>;
+  readonly rootChildren: readonly string[];
+  readonly rootParamId: string;
+}) {
+  for (const paramId of allParamIds) {
+    const variantId = `${paramId}-variant`;
+    const implId = `${paramId}-impl`;
+    codeObjs[paramId] = createCore({
+      defaultVariant: variantId,
+      id: paramId,
+      name: paramId,
+      variants: [variantId],
+    });
+    codeObjVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      name: variantId,
+      nonPresetImpls: [implId],
+    });
+    codeObjImpls[implId] = createParamImpl(
+      paramId,
+      implId,
+      rootParamId,
+      rootChildren,
+      nestedChildrenByParent,
+    );
+    codeObjVariantMap[paramId] = variantId;
+  }
+}
+
+function createParamImpl(
+  paramId: string,
+  implId: string,
+  rootParamId: string,
+  rootChildren: readonly string[],
+  nestedChildrenByParent: Record<string, readonly string[]>,
+) {
+  if (paramId === rootParamId) {
+    return createNestedParamImpl(implId, rootChildren);
+  }
+  const nestedChildren = nestedChildrenByParent[paramId];
+  if (nestedChildren) {
+    return createNestedParamImpl(implId, nestedChildren);
+  }
+  return createCodeParamCodeObjImpl({
+    id: implId,
+    name: paramId,
+  });
+}
+
+function buildRequiredParamIdsToPaths(
+  allParamIds: Set<string>,
+  rootParamId: string,
+  nestedChildrenByParent: Record<string, readonly string[]>,
+) {
+  const requiredParamIdsToPaths: Record<string, string[]> = {};
+  for (const paramId of allParamIds) {
+    if (paramId === rootParamId) {
+      continue;
+    }
+    requiredParamIdsToPaths[paramId] = getParamPath(
+      paramId,
+      nestedChildrenByParent,
+    );
+  }
+  return requiredParamIdsToPaths;
 }
 
 function createNestedParamImpl(

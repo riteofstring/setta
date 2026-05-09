@@ -113,21 +113,23 @@ function createHitRecord(
       >
     | undefined,
 ): GpuRetainedContentHitRecord {
-  return {
-    id: `${input?.kind ?? "control"}:param-a`,
-    kind: input?.kind ?? "control",
+  const { kind = "control", optionIndex, optionValue, subpartKind } = input ?? {};
+  const hitRecord: GpuRetainedContentHitRecord = {
+    id: `${kind}:param-a`,
+    kind,
     ownerRowId: "param-a",
     rect: { height: 20, width: 56, x: 104, y: 4 },
-    ...(input?.optionIndex !== undefined
-      ? { optionIndex: input.optionIndex }
-      : {}),
-    ...(input?.optionValue !== undefined
-      ? { optionValue: input.optionValue }
-      : {}),
-    ...(input?.subpartKind !== undefined
-      ? { subpartKind: input.subpartKind }
-      : {}),
   };
+  if (optionIndex !== undefined) {
+    hitRecord.optionIndex = optionIndex;
+  }
+  if (optionValue !== undefined) {
+    hitRecord.optionValue = optionValue;
+  }
+  if (subpartKind !== undefined) {
+    hitRecord.subpartKind = subpartKind;
+  }
+  return hitRecord;
 }
 
 function textControl(): GpuRetainedContentControlDescriptor {
