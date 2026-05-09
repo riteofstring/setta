@@ -75,7 +75,7 @@ frontend:
     exclude_globs:
       - "**/*.d.ts"
     exclude_generated: true
-    max_lines: 6500
+    max_lines: 5000
   boundary:
     include_globs:
       - "frontend/src/**"
