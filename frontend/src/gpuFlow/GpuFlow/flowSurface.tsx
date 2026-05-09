@@ -124,6 +124,7 @@ import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
+import { resolveGpuFlowCanvasCursor } from "./flowCanvasCursor";
 import {
   attachGpuFlowNodeResizeController,
   type GpuFlowNodeResizeOptions,
@@ -152,7 +153,6 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
-import { resolveGpuFlowNodeResizeCursor } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
@@ -339,6 +339,7 @@ export function GpuFlow({
     createHtmlSurfaceShaderEffectProjectors(),
   );
   const nodeResizeRef = useRef<GpuFlowProps["nodeResize"]>(nodeResize);
+  const retainedContentInteractionRef = useRef(retainedContentInteraction);
   const activeInteractionNodeIdRef = useRef<string | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
@@ -362,6 +363,7 @@ export function GpuFlow({
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
+  retainedContentInteractionRef.current = retainedContentInteraction;
   const nodeResizeEnabled = nodeResize !== false;
   const {
     edgeLabelSourceElement,
@@ -781,13 +783,18 @@ export function GpuFlow({
         requestFrame: (reason) => {
           surfaceRef.current?.requestFrame(reason);
         },
-        resolveCanvasCursor: (event) =>
-          resolveGpuFlowNodeResizeCursor({
+        resolveCanvasCursor: (event) => {
+          const surfaceElement = containerRef.current ?? runtime.canvas;
+          return resolveGpuFlowCanvasCursor({
             event,
+            getScene: () => nodeLayerRef.current.scene,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
-            surfaceElement: containerRef.current ?? runtime.canvas,
+            retainedContentInteraction: retainedContentInteractionRef.current,
+            store: viewportStore,
+            surfaceElement,
             viewport: nodeLayerRef.current.viewport,
-          }),
+          });
+        },
         resolvePointerHandoffTarget: (event, options) => {
           const surfaceElement = containerRef.current ?? runtime.canvas;
           const shouldProjectSource = options?.projectSource ?? true;
