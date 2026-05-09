@@ -34,132 +34,144 @@ func TestRegisterDeploymentIDERoutesPublishesShareDeploymentsAndListsLatestVersi
 	t.Parallel()
 
 	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
-	listenerPath := filepath.Join(fixture.WorkspaceRoot, "listeners", "app.py")
+	writeDeploymentIDERouteListener(t, fixture.WorkspaceRoot)
+	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+
+	firstPayload := publishDeploymentIDERouteShare(
+		t,
+		fixture,
+		handler,
+		time.Date(2026, 3, 8, 10, 0, 0, 0, time.UTC),
+		`{"deploymentName":"demo-share","projectConfigId":"project-alpha","sharePolicyOverrides":{"allowRun":true,"runSnapshotMode":"always"},"listenerEntrypoint":"listeners/app.py","listenerEnabled":false}`,
+		"v1",
+	)
+	assertDeploymentIDERouteFirstShareArtifacts(t, firstPayload)
+
+	publishDeploymentIDERouteShare(
+		t,
+		fixture,
+		handler,
+		time.Date(2026, 3, 8, 11, 0, 0, 0, time.UTC),
+		`{"deploymentName":"demo-share","projectConfigId":"project-alpha"}`,
+		"v2",
+	)
+	assertDeploymentIDERouteMetadataList(t, handler, "/api/share/deployments/demo-share/versions", "share versions")
+	assertDeploymentIDERouteLatestMetadata(t, handler, "/api/share/deployments/demo-share/latest")
+	assertDeploymentIDERouteMetadataList(t, handler, "/api"+RouteShareDeployments, "share list")
+}
+
+func writeDeploymentIDERouteListener(t *testing.T, workspaceRoot string) {
+	t.Helper()
+
+	listenerPath := filepath.Join(workspaceRoot, "listeners", "app.py")
 	if err := os.MkdirAll(filepath.Dir(listenerPath), 0o755); err != nil {
 		t.Fatalf("mkdir listener path: %v", err)
 	}
 	if err := os.WriteFile(listenerPath, []byte("print('listener')\n"), 0o644); err != nil {
 		t.Fatalf("write listener source: %v", err)
 	}
+}
 
-	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
+func publishDeploymentIDERouteShare(
+	t *testing.T,
+	fixture deploymentIDERouteFixture,
+	handler http.Handler,
+	publishedAt time.Time,
+	body string,
+	expectedVersion string,
+) DeploymentMetadataResponse {
+	t.Helper()
 
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 10, 0, 0, 0, time.UTC))
-	firstResponse := httptest.NewRecorder()
-	firstRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteShareDeployments,
-		strings.NewReader(`{"deploymentName":"demo-share","projectConfigId":"project-alpha","sharePolicyOverrides":{"allowRun":true,"runSnapshotMode":"always"},"listenerEntrypoint":"listeners/app.py","listenerEnabled":false}`),
-	)
-	firstRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(firstResponse, firstRequest)
-	if firstResponse.Code != http.StatusOK {
-		t.Fatalf("expected first share publish 200, got %d with body %q", firstResponse.Code, firstResponse.Body.String())
+	fixture.setPublishedAt(publishedAt)
+	response := deploymentIDERouteJSONRequest(t, handler, http.MethodPost, "/api"+RouteShareDeployments, body)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected share publish 200, got %d with body %q", response.Code, response.Body.String())
 	}
-
-	var firstPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(firstResponse.Body.Bytes(), &firstPayload); err != nil {
-		t.Fatalf("decode first share publish payload: %v", err)
+	payload := decodeDeploymentIDERouteMetadata(t, response, "share publish")
+	if payload.DeploymentVersion != expectedVersion {
+		t.Fatalf("expected share deployment version %s, got %q", expectedVersion, payload.DeploymentVersion)
 	}
-	if firstPayload.DeploymentVersion != "v1" {
-		t.Fatalf("expected first share deployment version v1, got %q", firstPayload.DeploymentVersion)
-	}
+	return payload
+}
 
-	firstManifest, err := deployments.LoadManifest(firstPayload.DeploymentRoot)
+func deploymentIDERouteJSONRequest(t *testing.T, handler http.Handler, method string, path string, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(method, path, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func decodeDeploymentIDERouteMetadata(t *testing.T, response *httptest.ResponseRecorder, label string) DeploymentMetadataResponse {
+	t.Helper()
+
+	var payload DeploymentMetadataResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode %s payload: %v", label, err)
+	}
+	return payload
+}
+
+func assertDeploymentIDERouteFirstShareArtifacts(t *testing.T, payload DeploymentMetadataResponse) {
+	t.Helper()
+
+	manifest, err := deployments.LoadManifest(payload.DeploymentRoot)
 	if err != nil {
 		t.Fatalf("load first share manifest: %v", err)
 	}
-	if firstManifest.Listener == nil || firstManifest.Listener.Enabled {
-		t.Fatalf("expected disabled listener config in first manifest, got %#v", firstManifest.Listener)
+	if manifest.Listener == nil || manifest.Listener.Enabled {
+		t.Fatalf("expected disabled listener config in first manifest, got %#v", manifest.Listener)
 	}
-	if firstManifest.Listener.Entrypoint != "listener/app.py" {
-		t.Fatalf("expected first share listener entrypoint listener/app.py, got %q", firstManifest.Listener.Entrypoint)
+	if manifest.Listener.Entrypoint != "listener/app.py" {
+		t.Fatalf("expected first share listener entrypoint listener/app.py, got %q", manifest.Listener.Entrypoint)
 	}
-	firstListenerContent, err := os.ReadFile(filepath.Join(firstPayload.DeploymentRoot, "listener", "app.py"))
+	listenerContent, err := os.ReadFile(filepath.Join(payload.DeploymentRoot, "listener", "app.py"))
 	if err != nil {
 		t.Fatalf("read first copied share listener entrypoint: %v", err)
 	}
-	if string(firstListenerContent) != "print('listener')\n" {
-		t.Fatalf("unexpected first copied share listener content %q", string(firstListenerContent))
+	if string(listenerContent) != "print('listener')\n" {
+		t.Fatalf("unexpected first copied share listener content %q", string(listenerContent))
 	}
-	firstPolicy, err := deployments.LoadPolicy(firstPayload.DeploymentRoot)
+	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
 	if err != nil {
 		t.Fatalf("load first share policy: %v", err)
 	}
-	if !firstPolicy.AllowRun || firstPolicy.RunSnapshotMode != deployments.RunSnapshotModeAlways {
-		t.Fatalf("expected first share policy override to persist, got %#v", firstPolicy)
+	if !policy.AllowRun || policy.RunSnapshotMode != deployments.RunSnapshotModeAlways {
+		t.Fatalf("expected first share policy override to persist, got %#v", policy)
 	}
+}
 
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 11, 0, 0, 0, time.UTC))
-	secondResponse := httptest.NewRecorder()
-	secondRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteShareDeployments,
-		strings.NewReader(`{"deploymentName":"demo-share","projectConfigId":"project-alpha"}`),
-	)
-	secondRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(secondResponse, secondRequest)
-	if secondResponse.Code != http.StatusOK {
-		t.Fatalf("expected second share publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
-	}
+func assertDeploymentIDERouteMetadataList(t *testing.T, handler http.Handler, path string, label string) {
+	t.Helper()
 
-	var secondPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
-		t.Fatalf("decode second share publish payload: %v", err)
+	response := deploymentIDERouteJSONRequest(t, handler, http.MethodGet, path, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected %s 200, got %d with body %q", label, response.Code, response.Body.String())
 	}
-	if secondPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected second share deployment version v2, got %q", secondPayload.DeploymentVersion)
+	var payload []DeploymentMetadataResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode %s payload: %v", label, err)
 	}
+	if len(payload) != 2 {
+		t.Fatalf("expected two %s entries, got %#v", label, payload)
+	}
+	if payload[0].DeploymentVersion != "v2" || payload[1].DeploymentVersion != "v1" {
+		t.Fatalf("expected newest-first %s entries, got %#v", label, payload)
+	}
+}
 
-	versionsResponse := httptest.NewRecorder()
-	versionsRequest := httptest.NewRequest(http.MethodGet, "/api/share/deployments/demo-share/versions", nil)
-	handler.ServeHTTP(versionsResponse, versionsRequest)
-	if versionsResponse.Code != http.StatusOK {
-		t.Fatalf("expected share versions 200, got %d with body %q", versionsResponse.Code, versionsResponse.Body.String())
-	}
+func assertDeploymentIDERouteLatestMetadata(t *testing.T, handler http.Handler, path string) {
+	t.Helper()
 
-	var versionsPayload []DeploymentMetadataResponse
-	if err := json.Unmarshal(versionsResponse.Body.Bytes(), &versionsPayload); err != nil {
-		t.Fatalf("decode share versions payload: %v", err)
+	response := deploymentIDERouteJSONRequest(t, handler, http.MethodGet, path, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected share latest 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	if len(versionsPayload) != 2 {
-		t.Fatalf("expected two share versions, got %#v", versionsPayload)
-	}
-	if versionsPayload[0].DeploymentVersion != "v2" || versionsPayload[1].DeploymentVersion != "v1" {
-		t.Fatalf("expected newest-first share versions, got %#v", versionsPayload)
-	}
-
-	latestResponse := httptest.NewRecorder()
-	latestRequest := httptest.NewRequest(http.MethodGet, "/api/share/deployments/demo-share/latest", nil)
-	handler.ServeHTTP(latestResponse, latestRequest)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected share latest 200, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
-
-	var latestPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
-		t.Fatalf("decode share latest payload: %v", err)
-	}
-	if latestPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected latest share deployment version v2, got %q", latestPayload.DeploymentVersion)
-	}
-
-	listResponse := httptest.NewRecorder()
-	listRequest := httptest.NewRequest(http.MethodGet, "/api"+RouteShareDeployments, nil)
-	handler.ServeHTTP(listResponse, listRequest)
-	if listResponse.Code != http.StatusOK {
-		t.Fatalf("expected share list 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
-	}
-
-	var listPayload []DeploymentMetadataResponse
-	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
-		t.Fatalf("decode share list payload: %v", err)
-	}
-	if len(listPayload) != 2 {
-		t.Fatalf("expected two share list entries, got %#v", listPayload)
-	}
-	if listPayload[0].DeploymentVersion != "v2" || listPayload[1].DeploymentVersion != "v1" {
-		t.Fatalf("expected newest-first share list entries, got %#v", listPayload)
+	payload := decodeDeploymentIDERouteMetadata(t, response, "share latest")
+	if payload.DeploymentVersion != "v2" {
+		t.Fatalf("expected latest share deployment version v2, got %q", payload.DeploymentVersion)
 	}
 }
 
