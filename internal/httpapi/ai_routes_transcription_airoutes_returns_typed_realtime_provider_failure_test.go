@@ -1233,20 +1233,26 @@ func TestRegisterAIRoutesReturnsTypedMissingAPIKeyForRealtimeTranscriptionStart(
 	}
 }
 
-func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
-	t.Parallel()
+type aiRouteAutoTranscriptionProvider struct {
+	url       string
+	handshake <-chan aiRouteAutoTranscriptionProviderHandshake
+	closed    <-chan error
+}
 
-	type providerHandshake struct {
-		Path          string
-		Query         string
-		Authorization string
-		OpenAIBeta    string
-	}
+type aiRouteAutoTranscriptionProviderHandshake struct {
+	Path          string
+	Query         string
+	Authorization string
+	OpenAIBeta    string
+}
 
-	handshakes := make(chan providerHandshake, 1)
+func newAIRouteAutoTranscriptionProvider(t *testing.T) aiRouteAutoTranscriptionProvider {
+	t.Helper()
+
+	handshakes := make(chan aiRouteAutoTranscriptionProviderHandshake, 1)
 	closed := make(chan error, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handshakes <- providerHandshake{
+		handshakes <- aiRouteAutoTranscriptionProviderHandshake{
 			Path:          r.URL.Path,
 			Query:         r.URL.RawQuery,
 			Authorization: r.Header.Get("Authorization"),
@@ -1267,16 +1273,38 @@ func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
 		_, _, err = conn.Read(context.Background())
 		closed <- err
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
+	return aiRouteAutoTranscriptionProvider{
+		url:       server.URL,
+		handshake: handshakes,
+		closed:    closed,
+	}
+}
+
+func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
+	t.Parallel()
+
+	provider := newAIRouteAutoTranscriptionProvider(t)
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	configureAIRouteAutoRealtimeTranscription(t, fixture, provider.url)
+	handler := newAIRouteTranscriptionHandler(t, fixture)
+	started := startAIRouteAutoTranscriptionSession(t, handler)
+	assertAIRouteAutoTranscriptionHandshake(t, provider.handshake)
+	cancelAIRouteRealtimeTranscriptionSession(t, handler, started.SessionID)
+	assertAIRouteAutoTranscriptionProviderClosed(t, provider.closed)
+}
+
+func configureAIRouteAutoRealtimeTranscription(t *testing.T, fixture aiRouteFixture, providerURL string) {
+	t.Helper()
+
 	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
 			"openai-realtime": {
 				ID:        "openai-realtime",
 				Model:     "gpt-4o-mini-transcribe",
 				Provider:  "openai",
-				BaseURL:   server.URL + "/v1",
+				BaseURL:   providerURL + "/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
@@ -1299,19 +1327,11 @@ func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write transcription profile: %v", err)
 	}
+}
 
-	handler := newAIRouteTestHandlerWithTranscription(
-		t,
-		config.ModeIDE,
-		fixture.managed,
-		fixture.send,
-		fixture.service,
-		fixture.runtime,
-		fixture.transcriptionProfiles,
-		fixture.transcriptionSessions,
-		fixture.sessions,
-		fixture.follow,
-	)
+func startAIRouteAutoTranscriptionSession(t *testing.T, handler http.Handler) StartTranscriptionSessionResponse {
+	t.Helper()
+
 	startRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStartTranscriptionSession,
@@ -1332,6 +1352,14 @@ func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
 	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
 		t.Fatalf("unexpected auto start payload %#v", started)
 	}
+	return started
+}
+
+func assertAIRouteAutoTranscriptionHandshake(
+	t *testing.T,
+	handshakes <-chan aiRouteAutoTranscriptionProviderHandshake,
+) {
+	t.Helper()
 
 	select {
 	case captured := <-handshakes:
@@ -1350,20 +1378,10 @@ func TestRegisterAIRoutesAutoTranscriptionResolvesToRealtime(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for auto realtime handshake")
 	}
+}
 
-	cancelRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteCancelTranscriptionSession,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
-	)
-	cancelRequest.Header.Set("Content-Type", "application/json")
-	cancelResponse := httptest.NewRecorder()
-
-	handler.ServeHTTP(cancelResponse, cancelRequest)
-
-	if cancelResponse.Code != http.StatusOK {
-		t.Fatalf("expected cancel 200, got %d with body %q", cancelResponse.Code, cancelResponse.Body.String())
-	}
+func assertAIRouteAutoTranscriptionProviderClosed(t *testing.T, closed <-chan error) {
+	t.Helper()
 
 	select {
 	case err := <-closed:
