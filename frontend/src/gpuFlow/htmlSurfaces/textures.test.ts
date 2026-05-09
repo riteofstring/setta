@@ -287,7 +287,7 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(manager.getDirtySurfaces()).toMatchObject([
       {
-        dirtyTileBytes: 128 * 128 * 4,
+        dirtyTileBytes: 20 * 20 * 4,
         dirtyTileIds: ["large-node:1:0"],
         surfaceId: "large-node",
       },
@@ -304,27 +304,33 @@ describe("HtmlSurfaceTextureManager", () => {
             x: 130,
             y: 16,
           },
-          dirtyTileBytes: 128 * 128 * 4,
+          dirtyTileBytes: 20 * 20 * 4,
           dirtyTileCount: 1,
           reasons: ["paint"],
           surfaceId: "large-node",
-          uploadedBytes: 128 * 128 * 4,
+          uploadedBytes: 20 * 20 * 4,
         }),
       ],
       remainingDirtySurfaceIds: [],
       skippedUploadBytes: 0,
-      uploadedBytes: 128 * 128 * 4,
+      uploadedBytes: 20 * 20 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(7);
     expect(gpu.copyElementImageToTexture).toHaveBeenLastCalledWith(
       element,
-      128,
-      0,
-      128,
-      128,
-      128,
-      128,
-      { texture: record.tiles[1]?.texture },
+      130,
+      16,
+      20,
+      20,
+      20,
+      20,
+      {
+        origin: {
+          x: 2,
+          y: 16,
+        },
+        texture: record.tiles[1]?.texture,
+      },
     );
     expect(record.tiles[1]).toMatchObject({
       dirtyContent: false,

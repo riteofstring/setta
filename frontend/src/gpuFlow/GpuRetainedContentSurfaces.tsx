@@ -10,55 +10,25 @@ import {
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
-import { drawGpuRetainedContentButtonControl } from "./retainedContentButtonCanvas";
-import { fillRoundRect, strokeRoundRect } from "./retainedContentCanvasDrawing";
+import {
+  drawGpuRetainedContentCommand,
+  drawGpuRetainedContentPortAnchors,
+} from "./retainedContentCanvasCommands";
 import {
   getGpuRetainedContentCanvasPalette,
   isGpuRetainedContentCanvasDarkMode,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
-import {
-  drawGpuRetainedContentColorPickerControl,
-  drawGpuRetainedContentColorPickerPopupOption,
-  drawGpuRetainedContentControlPopupBackground,
-} from "./retainedContentColorPickerCanvas";
-import {
-  drawGpuRetainedContentDateCalendarCell,
-  drawGpuRetainedContentDateCalendarHeader,
-  drawGpuRetainedContentDateCalendarNavigation,
-  drawGpuRetainedContentDateCalendarSummary,
-  drawGpuRetainedContentDateCalendarWeekday,
-} from "./retainedContentDateCalendarPopupCanvas";
-import { drawGpuRetainedContentDateTimeControl } from "./retainedContentDateTimeCanvas";
-import {
-  drawGpuRetainedContentDropdownControl,
-  drawGpuRetainedContentDropdownPopupOption,
-} from "./retainedContentDropdownCanvas";
-import { drawGpuRetainedContentDropzoneControl } from "./retainedContentDropzoneCanvas";
-import { drawGpuRetainedContentPasswordControl } from "./retainedContentPasswordCanvas";
-import {
-  drawGpuRetainedContentRotaryControl,
-  drawGpuRetainedContentSliderControl,
-} from "./retainedContentRangedCanvas";
-import {
-  drawGpuRetainedContentLabel,
-  drawGpuRetainedContentNestGuide,
-  drawGpuRetainedContentRowBackground,
-} from "./retainedContentRowCanvas";
 import type {
-  GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
-  GpuRetainedContentRowState,
   GpuRetainedContentScene,
 } from "./retainedContentScene";
-import { drawGpuRetainedContentScrollbar } from "./retainedContentScrollbarCanvas";
+import { createGpuRetainedRowContentSceneWithScrollWindow } from "./retainedContentScene";
 import {
-  drawGpuRetainedContentStatusBadge,
-  drawGpuRetainedContentStatusOverlay,
-} from "./retainedContentStatusCanvas";
+  getGpuRetainedContentSceneSourceInput,
+  type GpuRetainedContentSceneSourceInput,
+} from "./retainedContentSceneSourceMetadata";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
-import { drawGpuRetainedContentSwitchControl } from "./retainedContentSwitchCanvas";
-import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 import type { GpuContentSurface } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -68,6 +38,26 @@ type GpuRetainedContentSurface = GpuContentSurface & {
 
 type GpuRetainedContentSourceSurface = GpuRetainedContentSurface & {
   readonly sourceClipOffset: GpuPoint;
+  readonly textureWindow: GpuRetainedContentTextureWindow;
+};
+
+type GpuRetainedContentTextureWindow = {
+  readonly cacheScrollOffset: GpuPoint;
+  readonly cacheViewportRect: GpuRect;
+  readonly sourceRect: GpuRect;
+  readonly textureHeight: number;
+  readonly textureWidth: number;
+};
+
+type GpuRetainedContentCanvasCacheKey = {
+  readonly cacheScrollX: number;
+  readonly cacheScrollY: number;
+  readonly darkMode: boolean;
+  readonly sourceClipX: number;
+  readonly sourceClipY: number;
+  readonly sourceInput: GpuRetainedContentSceneSourceInput;
+  readonly textureHeight: number;
+  readonly textureWidth: number;
 };
 
 type GpuRetainedContentSurfaceLayerProps = {
@@ -90,11 +80,10 @@ export type GpuRetainedContentSurfaceDrawEvent = {
 
 const GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__retained-content-source";
-
-const RETAINED_CONTENT_FONT =
-  "12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-const RETAINED_CONTENT_CONTROL_FONT =
-  "10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+const gpuRetainedContentCanvasCacheKeys = new WeakMap<
+  HTMLCanvasElement,
+  GpuRetainedContentCanvasCacheKey
+>();
 
 export function GpuRetainedContentSurfaceLayer({
   onSurfaceDraw,
@@ -142,6 +131,9 @@ function toGpuRetainedContentSurfaceLayout(
     height: surface.rect.height,
     ownerNodeId: surface.ownerSectionId,
     surfaceId: surface.id,
+    textureCssHeight: surface.textureWindow.textureHeight,
+    textureCssWidth: surface.textureWindow.textureWidth,
+    textureSourceRect: surface.textureWindow.sourceRect,
     width: surface.rect.width,
     x: surface.rect.x,
     y: surface.rect.y,
@@ -154,8 +146,8 @@ export function getGpuRetainedContentSourceStyle(
 ): CSSProperties {
   const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
   return {
-    height: sourceSurface?.rect.height ?? 0,
-    width: sourceSurface?.rect.width ?? 0,
+    height: sourceSurface?.textureWindow.textureHeight ?? 0,
+    width: sourceSurface?.textureWindow.textureWidth ?? 0,
   };
 }
 
@@ -171,32 +163,32 @@ export function redrawGpuRetainedContentSourceElement({
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-}): boolean {
+}): GpuRetainedContentSurfaceDrawEvent | null {
   if (!isGpuRetainedContentSurface(surface)) {
-    return false;
+    return null;
   }
   const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
   if (!sourceSurface) {
-    return false;
+    return null;
   }
   const canvas = element.querySelector<HTMLCanvasElement>(
     '[data-gpu-flow-retained-content-canvas="true"]',
   );
   if (!canvas) {
-    return false;
+    return null;
   }
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    return false;
+    return null;
   }
-  drawGpuRetainedContentSourceCanvas({
+  return redrawGpuRetainedContentSourceCanvas({
     canvas,
     ctx,
     nowMs,
+    reason: "content",
     sourceSurface,
     switchAnimations,
   });
-  return true;
 }
 
 function GpuRetainedContentCanvas({
@@ -249,21 +241,17 @@ function GpuRetainedContentCanvas({
       nowMs: number,
       reason: GpuRetainedContentSurfaceDrawEvent["reason"],
     ) => {
-      const sourceRect =
-        reason === "animation"
-          ? switchAnimations?.getActiveSurfaceSourceRect(sourceSurface)
-          : undefined;
-      drawGpuRetainedContentSourceCanvas({
+      const drawEvent = redrawGpuRetainedContentSourceCanvas({
         canvas,
         ctx,
         nowMs,
+        reason,
         sourceSurface,
         switchAnimations,
       });
-      onSurfaceDraw?.(sourceSurface.id, {
-        reason,
-        ...(sourceRect ? { sourceRect } : {}),
-      });
+      if (drawEvent) {
+        onSurfaceDraw?.(sourceSurface.id, drawEvent);
+      }
     };
     const scheduleAnimationFrame = () => {
       if (!switchAnimations || animationFrameRef.current !== null) {
@@ -283,7 +271,27 @@ function GpuRetainedContentCanvas({
       scheduleAnimationFrame();
     }
     return cancelPendingAnimationFrame;
-  }, [onSurfaceDraw, surface, switchAnimations]);
+  }, [
+    onSurfaceDraw,
+    surface.id,
+    surface.ownerSectionId,
+    surface.rect.height,
+    surface.rect.width,
+    surface.rect.x,
+    surface.rect.y,
+    surface.retainedScene,
+    surface.sourceClipOffset.x,
+    surface.sourceClipOffset.y,
+    surface.textureWindow.cacheScrollOffset.x,
+    surface.textureWindow.cacheScrollOffset.y,
+    surface.textureWindow.sourceRect.height,
+    surface.textureWindow.sourceRect.width,
+    surface.textureWindow.sourceRect.x,
+    surface.textureWindow.sourceRect.y,
+    surface.textureWindow.textureHeight,
+    surface.textureWindow.textureWidth,
+    switchAnimations,
+  ]);
 
   return (
     <canvas
@@ -311,9 +319,13 @@ function drawGpuRetainedContentSurface(
       | undefined;
   },
 ) {
-  const scene = surface.retainedScene;
-  const width = Math.max(0, surface.rect.width);
-  const height = Math.max(0, surface.rect.height);
+  const scene = createGpuRetainedRowContentSceneWithScrollWindow({
+    scene: surface.retainedScene,
+    scrollOffset: surface.textureWindow.cacheScrollOffset,
+    viewportRect: surface.textureWindow.cacheViewportRect,
+  });
+  const width = Math.max(0, surface.textureWindow.textureWidth);
+  const height = Math.max(0, surface.textureWindow.textureHeight);
   const rowStateById = new Map(scene.rows.map((row) => [row.id, row.state]));
 
   ctx.save();
@@ -323,9 +335,11 @@ function drawGpuRetainedContentSurface(
   ctx.clip();
   ctx.fillStyle = palette.surfaceBackground;
   ctx.fillRect(0, 0, width, height);
-  ctx.translate(-surface.sourceClipOffset.x, -surface.sourceClipOffset.y);
 
   for (const command of scene.drawCommands) {
+    if (command.kind === "scrollbar") {
+      continue;
+    }
     drawGpuRetainedContentCommand({
       command,
       ctx,
@@ -337,369 +351,244 @@ function drawGpuRetainedContentSurface(
     });
   }
   drawGpuRetainedContentPortAnchors(ctx, scene);
+  drawGpuRetainedContentCurrentScrollbars({
+    ctx,
+    nowMs,
+    palette,
+    scrollDeltaY:
+      surface.retainedScene.scrollOffset.y -
+      surface.textureWindow.cacheScrollOffset.y,
+    surface,
+    switchAnimations,
+  });
   ctx.restore();
 }
 
-function drawGpuRetainedContentCommand({
-  command,
+function drawGpuRetainedContentCurrentScrollbars({
   ctx,
   nowMs,
   palette,
-  rowState,
-  surfaceId,
+  scrollDeltaY,
+  surface,
   switchAnimations,
 }: {
-  readonly command: GpuRetainedContentDrawCommand;
   readonly ctx: CanvasRenderingContext2D;
   readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;
-  readonly rowState: GpuRetainedContentRowState | undefined;
-  readonly surfaceId: string;
+  readonly scrollDeltaY: number;
+  readonly surface: GpuRetainedContentSourceSurface;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
 }) {
-  if (
-    drawGpuRetainedContentRowCommand({
-      command,
-      ctx,
-      palette,
-    })
-  ) {
+  if (!surface.retainedScene.drawCommands.some(isGpuRetainedContentScrollbar)) {
     return;
   }
-  if (
-    drawGpuRetainedContentPopupCommand({
-      command,
-      ctx,
-    })
-  ) {
-    return;
-  }
-  if (command.kind === "row-label") {
-    drawGpuRetainedContentLabel({
-      appearance: command.appearance,
-      ctx,
-      palette,
-      rect: command.rect,
-      state: rowState,
-      text: command.text,
-    });
-    return;
-  }
-  if (command.kind === "row-control") {
-    drawGpuRetainedContentControl({
-      control: command.control,
-      controlKind: command.controlKind,
-      ctx,
-      nowMs,
-      palette,
-      rect: command.rect,
-      rowId: command.rowId,
-      state: rowState,
-      surfaceId,
-      switchAnimations,
-    });
-    return;
-  }
-  if (command.kind === "scrollbar") {
-    drawGpuRetainedContentScrollbar({
-      command,
-      ctx,
-      palette,
-    });
-  }
-}
-
-function drawGpuRetainedContentRowCommand({
-  command,
-  ctx,
-  palette,
-}: {
-  readonly command: GpuRetainedContentDrawCommand;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly palette: GpuRetainedContentCanvasPalette;
-}): boolean {
-  if (command.kind === "row-background") {
-    drawGpuRetainedContentRowBackground({
-      ctx,
-      dividerRects: command.dividerRects,
-      palette,
-      rect: command.rect,
-      state: command.state,
-    });
-    return true;
-  }
-  if (command.kind === "nest-guide") {
-    drawGpuRetainedContentNestGuide(ctx, command.rect, palette);
-    return true;
-  }
-  if (command.kind === "row-drop-marker") {
-    drawGpuRetainedContentDropMarker(ctx, command.rect);
-    return true;
-  }
-  if (command.kind === "row-drag-preview") {
-    drawGpuRetainedContentDragPreview({
-      ctx,
-      rect: command.rect,
-      rowCount: command.rowCount,
-      text: command.text,
-    });
-    return true;
-  }
-  if (command.kind === "row-status-badge") {
-    drawGpuRetainedContentStatusBadge({
-      ctx,
-      rect: command.rect,
-    });
-    return true;
-  }
-  if (command.kind === "row-status-overlay") {
-    drawGpuRetainedContentStatusOverlay({
-      ctx,
-      rect: command.rect,
-      status: command.status,
-    });
-    return true;
-  }
-  return false;
-}
-
-function drawGpuRetainedContentPopupCommand({
-  command,
-  ctx,
-}: {
-  readonly command: GpuRetainedContentDrawCommand;
-  readonly ctx: CanvasRenderingContext2D;
-}): boolean {
-  if (command.kind === "control-popup-background") {
-    drawGpuRetainedContentControlPopupBackground(ctx, command.rect);
-    return true;
-  }
-  if (command.kind === "control-popup-option") {
-    if ("color" in command.option) {
-      drawGpuRetainedContentColorPickerPopupOption({
-        ctx,
-        highlighted: command.highlighted,
-        option: command.option,
-        rect: command.rect,
-        selected: command.selected,
-      });
-      return true;
+  ctx.save();
+  ctx.translate(0, scrollDeltaY);
+  for (const command of surface.retainedScene.drawCommands) {
+    if (!isGpuRetainedContentScrollbar(command)) {
+      continue;
     }
-    drawGpuRetainedContentDropdownPopupOption({
-      ctx,
-      highlighted: command.highlighted,
-      option: command.option,
-      rect: command.rect,
-      selected: command.selected,
-    });
-    return true;
-  }
-  if (command.kind === "control-popup-date-calendar-header") {
-    drawGpuRetainedContentDateCalendarHeader({
-      ctx,
-      monthTitle: command.monthTitle,
-      rect: command.rect,
-    });
-    return true;
-  }
-  if (command.kind === "control-popup-date-calendar-navigation") {
-    drawGpuRetainedContentDateCalendarNavigation({
-      ctx,
-      direction: command.direction,
-      rect: command.rect,
-    });
-    return true;
-  }
-  if (command.kind === "control-popup-date-calendar-weekday") {
-    drawGpuRetainedContentDateCalendarWeekday({
-      ctx,
-      rect: command.rect,
-      text: command.text,
-    });
-    return true;
-  }
-  if (command.kind === "control-popup-date-calendar-cell") {
-    drawGpuRetainedContentDateCalendarCell({
-      cell: command.cell,
-      ctx,
-      highlighted: command.highlighted,
-      rect: command.rect,
-    });
-    return true;
-  }
-  if (command.kind === "control-popup-date-calendar-summary") {
-    drawGpuRetainedContentDateCalendarSummary({
-      ctx,
-      rect: command.rect,
-      text: command.text,
-    });
-    return true;
-  }
-  return false;
-}
-
-function drawGpuRetainedContentControl({
-  control,
-  controlKind,
-  ctx,
-  nowMs,
-  palette,
-  rect,
-  rowId,
-  state,
-  surfaceId,
-  switchAnimations,
-}: {
-  readonly control: GpuRetainedContentControlDescriptor;
-  readonly controlKind: string;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly nowMs: number | undefined;
-  readonly palette: GpuRetainedContentCanvasPalette;
-  readonly rect: GpuRect;
-  readonly rowId: string;
-  readonly state: GpuRetainedContentRowState | undefined;
-  readonly surfaceId: string;
-  readonly switchAnimations?:
-    | GpuRetainedContentSwitchAnimationStore
-    | undefined;
-}) {
-  if (
-    drawGpuRetainedContentInputControl({
-      control,
+    drawGpuRetainedContentCommand({
+      command,
       ctx,
       nowMs,
       palette,
-      rect,
-      rowId,
-      state,
-      surfaceId,
+      rowState: undefined,
+      surfaceId: surface.id,
       switchAnimations,
-    })
-  ) {
-    return;
+    });
   }
-  if (
-    drawGpuRetainedContentPickerControl({
-      control,
-      ctx,
-      palette,
-      rect,
-      state,
-    })
-  ) {
-    return;
-  }
-  drawGpuRetainedContentGenericControl({
-    controlKind,
-    ctx,
-    rect,
-    state,
-  });
+  ctx.restore();
 }
 
-function drawGpuRetainedContentInputControl({
-  control,
+function redrawGpuRetainedContentScrollbarStrip({
   ctx,
   nowMs,
   palette,
-  rect,
-  rowId,
-  state,
-  surfaceId,
+  surface,
   switchAnimations,
 }: {
-  readonly control: GpuRetainedContentControlDescriptor;
   readonly ctx: CanvasRenderingContext2D;
   readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;
-  readonly rect: GpuRect;
-  readonly rowId: string;
-  readonly state: GpuRetainedContentRowState | undefined;
-  readonly surfaceId: string;
+  readonly surface: GpuRetainedContentSourceSurface;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-}): boolean {
-  switch (control.kind) {
-    case "text-like":
-      drawGpuRetainedContentTextLikeControl({
-        control,
-        ctx,
-        palette,
-        rect,
-        state,
-      });
-      return true;
-    case "button":
-      drawGpuRetainedContentButtonControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    case "switch":
-      drawGpuRetainedContentSwitchControl({
-        animationProgress: switchAnimations?.resolveProgress({
-          checked: control.checked,
-          ...(nowMs !== undefined ? { nowMs } : {}),
-          rowId,
-          surfaceId,
-        }),
-        control,
-        ctx,
-        palette,
-        rect,
-        state,
-      });
-      return true;
-    case "slider":
-      drawGpuRetainedContentSliderControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    case "rotary":
-      drawGpuRetainedContentRotaryControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    default:
-      return false;
+}): GpuRect | null {
+  const sourceRect = resolveGpuRetainedContentScrollbarSourceRect(surface);
+  if (!sourceRect) {
+    return null;
   }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height);
+  ctx.clip();
+  ctx.clearRect(
+    sourceRect.x,
+    sourceRect.y,
+    sourceRect.width,
+    sourceRect.height,
+  );
+  ctx.fillStyle = palette.surfaceBackground;
+  ctx.fillRect(sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height);
+  drawGpuRetainedContentCurrentScrollbars({
+    ctx,
+    nowMs,
+    palette,
+    scrollDeltaY:
+      surface.retainedScene.scrollOffset.y -
+      surface.textureWindow.cacheScrollOffset.y,
+    surface,
+    switchAnimations,
+  });
+  ctx.restore();
+
+  return sourceRect;
 }
 
-function drawGpuRetainedContentSourceCanvas({
+function resolveGpuRetainedContentScrollbarSourceRect(
+  surface: GpuRetainedContentSourceSurface,
+): GpuRect | null {
+  let sourceRect: GpuRect | null = null;
+  const scrollDeltaY =
+    surface.retainedScene.scrollOffset.y -
+    surface.textureWindow.cacheScrollOffset.y;
+  for (const command of surface.retainedScene.drawCommands) {
+    if (!isGpuRetainedContentScrollbar(command)) {
+      continue;
+    }
+    const trackRect = expandGpuRect(
+      offsetGpuRect(command.trackRect, { x: 0, y: scrollDeltaY }),
+      2,
+    );
+    const thumbRect = expandGpuRect(
+      offsetGpuRect(command.thumbRect, { x: 0, y: scrollDeltaY }),
+      2,
+    );
+    sourceRect = sourceRect ? unionGpuRects(sourceRect, trackRect) : trackRect;
+    sourceRect = unionGpuRects(sourceRect, thumbRect);
+  }
+  if (!sourceRect) {
+    return null;
+  }
+  const visibleRect = intersectGpuRetainedContentRects(
+    sourceRect,
+    surface.textureWindow.sourceRect,
+  );
+  return visibleRect.width > 0 && visibleRect.height > 0 ? visibleRect : null;
+}
+
+function isGpuRetainedContentScrollbar(
+  command: GpuRetainedContentDrawCommand,
+): boolean {
+  return command.kind === "scrollbar";
+}
+
+function redrawGpuRetainedContentSourceCanvas({
   canvas,
   ctx,
   nowMs,
+  reason,
   sourceSurface,
   switchAnimations,
 }: {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   readonly nowMs?: number | undefined;
+  readonly reason: GpuRetainedContentSurfaceDrawEvent["reason"];
+  readonly sourceSurface: GpuRetainedContentSourceSurface;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
+}): GpuRetainedContentSurfaceDrawEvent | null {
+  prepareGpuRetainedContentCanvas(canvas, sourceSurface);
+  const darkMode = isGpuRetainedContentCanvasDarkMode(canvas);
+  const palette = getGpuRetainedContentCanvasPalette(darkMode);
+  switchAnimations?.syncSurface(sourceSurface, nowMs);
+  if (reason === "animation") {
+    drawGpuRetainedContentFullSourceCanvas({
+      canvas,
+      ctx,
+      darkMode,
+      nowMs,
+      palette,
+      sourceSurface,
+      switchAnimations,
+    });
+    return { reason };
+  }
+
+  const nextCacheKey = createGpuRetainedContentCanvasCacheKey({
+    darkMode,
+    sourceSurface,
+  });
+  const cacheHit =
+    nextCacheKey &&
+    isGpuRetainedContentCanvasCacheKeyEqual(
+      gpuRetainedContentCanvasCacheKeys.get(canvas),
+      nextCacheKey,
+    ) &&
+    !switchAnimations?.hasActiveSurface(sourceSurface.id, nowMs);
+  if (cacheHit) {
+    const sourceRect = redrawGpuRetainedContentScrollbarStrip({
+      ctx,
+      nowMs,
+      palette,
+      surface: sourceSurface,
+      switchAnimations,
+    });
+    return sourceRect ? { reason, sourceRect } : null;
+  }
+
+  drawGpuRetainedContentFullSourceCanvas({
+    canvas,
+    ctx,
+    darkMode,
+    nowMs,
+    palette,
+    sourceSurface,
+    switchAnimations,
+  });
+  return { reason };
+}
+
+function drawGpuRetainedContentFullSourceCanvas({
+  canvas,
+  ctx,
+  darkMode,
+  nowMs,
+  palette,
+  sourceSurface,
+  switchAnimations,
+}: {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly darkMode: boolean;
+  readonly nowMs: number | undefined;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly sourceSurface: GpuRetainedContentSourceSurface;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
 }) {
-  prepareGpuRetainedContentCanvas(canvas, sourceSurface);
-  switchAnimations?.syncSurface(sourceSurface, nowMs);
   drawGpuRetainedContentSurface(ctx, sourceSurface, {
     nowMs,
-    palette: getGpuRetainedContentCanvasPalette(
-      isGpuRetainedContentCanvasDarkMode(canvas),
-    ),
+    palette,
     switchAnimations,
   });
+  const cacheKey = createGpuRetainedContentCanvasCacheKey({
+    darkMode,
+    sourceSurface,
+  });
+  if (cacheKey) {
+    gpuRetainedContentCanvasCacheKeys.set(canvas, cacheKey);
+  } else {
+    gpuRetainedContentCanvasCacheKeys.delete(canvas);
+  }
 }
 
 function getGpuRetainedContentSourceNowMs(): number {
@@ -710,152 +599,6 @@ function getGpuRetainedContentSourceNowMs(): number {
     return globalThis.performance.now();
   }
   return Date.now();
-}
-
-function drawGpuRetainedContentPickerControl({
-  control,
-  ctx,
-  palette,
-  rect,
-  state,
-}: {
-  readonly control: GpuRetainedContentControlDescriptor;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly palette: GpuRetainedContentCanvasPalette;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-}): boolean {
-  switch (control.kind) {
-    case "color-picker":
-      drawGpuRetainedContentColorPickerControl({
-        control,
-        ctx,
-        palette,
-        rect,
-        state,
-      });
-      return true;
-    case "dropdown":
-      drawGpuRetainedContentDropdownControl({
-        control,
-        ctx,
-        palette,
-        rect,
-        state,
-      });
-      return true;
-    case "password":
-      drawGpuRetainedContentPasswordControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    case "dropzone":
-      drawGpuRetainedContentDropzoneControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    case "date-time":
-      drawGpuRetainedContentDateTimeControl({
-        control,
-        ctx,
-        rect,
-        state,
-      });
-      return true;
-    default:
-      return false;
-  }
-}
-
-function drawGpuRetainedContentGenericControl({
-  controlKind,
-  ctx,
-  rect,
-  state,
-}: {
-  readonly controlKind: string;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-}) {
-  const outer = insetRect(rect, 6, 5);
-  ctx.fillStyle = state?.disabled ? "#e2e8f0" : "#e0f2fe";
-  ctx.strokeStyle = state?.selected ? "#2563eb" : "#bae6fd";
-  ctx.lineWidth = 1;
-  fillRoundRect(ctx, outer, 5);
-  strokeRoundRect(ctx, outer, 5);
-  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = state?.disabled ? "#64748b" : "#075985";
-  ctx.fillText(
-    controlKind,
-    outer.x + outer.width / 2,
-    outer.y + outer.height / 2,
-    Math.max(0, outer.width - 8),
-  );
-  ctx.textAlign = "start";
-}
-
-function drawGpuRetainedContentPortAnchors(
-  ctx: CanvasRenderingContext2D,
-  scene: GpuRetainedContentScene,
-) {
-  for (const anchor of scene.portAnchors) {
-    ctx.beginPath();
-    ctx.arc(anchor.localPosition.x, anchor.localPosition.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = anchor.kind === "input" ? "#2563eb" : "#f97316";
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
-}
-
-function drawGpuRetainedContentDropMarker(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-) {
-  ctx.fillStyle = "#2563eb";
-  fillRoundRect(ctx, rect, Math.min(2, rect.height / 2));
-}
-
-function drawGpuRetainedContentDragPreview({
-  ctx,
-  rect,
-  rowCount,
-  text,
-}: {
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly rowCount: number;
-  readonly text: string;
-}) {
-  ctx.save();
-  ctx.globalAlpha = 0.92;
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeStyle = "#2563eb";
-  ctx.lineWidth = 1;
-  fillRoundRect(ctx, rect, 5);
-  strokeRoundRect(ctx, rect, 5);
-  ctx.globalAlpha = 1;
-  ctx.font = RETAINED_CONTENT_FONT;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#0f172a";
-  const suffix = rowCount > 1 ? ` (${rowCount})` : "";
-  ctx.fillText(
-    `${text}${suffix}`,
-    rect.x + 8,
-    rect.y + rect.height / 2,
-    Math.max(0, rect.width - 16),
-  );
-  ctx.restore();
 }
 
 function configureGpuRetainedContentSourceElement({
@@ -904,8 +647,8 @@ function prepareGpuRetainedContentCanvas(
   surface: GpuRetainedContentSourceSurface,
 ) {
   const dpr = getGpuRetainedContentDevicePixelRatio();
-  const cssWidth = Math.max(0, surface.rect.width);
-  const cssHeight = Math.max(0, surface.rect.height);
+  const cssWidth = Math.max(0, surface.textureWindow.textureWidth);
+  const cssHeight = Math.max(0, surface.textureWindow.textureHeight);
   const pixelWidth = Math.max(1, Math.ceil(cssWidth * dpr));
   const pixelHeight = Math.max(1, Math.ceil(cssHeight * dpr));
   if (canvas.width !== pixelWidth) {
@@ -925,8 +668,8 @@ function getGpuRetainedContentCanvasStyle(
 ): CSSProperties {
   return {
     display: "block",
-    height: surface.rect.height,
-    width: surface.rect.width,
+    height: surface.textureWindow.textureHeight,
+    width: surface.textureWindow.textureWidth,
   };
 }
 
@@ -941,14 +684,146 @@ function clipGpuRetainedContentSourceSurface(
     "sourceClipOffset" in surface
       ? (surface.sourceClipOffset as GpuPoint)
       : { x: 0, y: 0 };
+  const sourceClipOffset = {
+    x: previousOffset.x + rect.x - surface.rect.x,
+    y: previousOffset.y + rect.y - surface.rect.y,
+  };
   return {
     ...surface,
     rect,
-    sourceClipOffset: {
-      x: previousOffset.x + rect.x - surface.rect.x,
-      y: previousOffset.y + rect.y - surface.rect.y,
-    },
+    sourceClipOffset,
+    textureWindow: resolveGpuRetainedContentTextureWindow({
+      rect,
+      scene: surface.retainedScene,
+      sourceClipOffset,
+    }),
   };
+}
+
+function resolveGpuRetainedContentTextureWindow({
+  rect,
+  scene,
+  sourceClipOffset,
+}: {
+  readonly rect: GpuRect;
+  readonly scene: GpuRetainedContentScene;
+  readonly sourceClipOffset: GpuPoint;
+}): GpuRetainedContentTextureWindow {
+  const viewportHeight = Math.max(1, scene.viewportRect.height);
+  const contentHeight = Math.max(viewportHeight, scene.contentRect.height);
+  const cacheHeight = resolveGpuRetainedContentTextureCacheHeight({
+    contentHeight,
+    rowHeight: scene.rowHeight,
+    viewportHeight,
+  });
+  const maxScrollY = Math.max(0, contentHeight - viewportHeight);
+  const scrollY = clampGpuRetainedContentNumber(
+    scene.scrollOffset.y,
+    0,
+    maxScrollY,
+  );
+  const maxCacheTop = Math.max(0, contentHeight - cacheHeight);
+  const cacheStride = Math.max(1, cacheHeight - viewportHeight);
+  const cacheTop = clampGpuRetainedContentNumber(
+    Math.floor(scrollY / cacheStride) * cacheStride,
+    0,
+    maxCacheTop,
+  );
+  const sourceRect = {
+    height: rect.height,
+    width: rect.width,
+    x: sourceClipOffset.x,
+    y: sourceClipOffset.y + scrollY - cacheTop,
+  };
+  const textureHeight = Math.max(
+    sourceRect.y + sourceRect.height,
+    Math.min(contentHeight - cacheTop + sourceClipOffset.y, cacheHeight),
+  );
+  const textureWidth = Math.max(
+    sourceRect.x + sourceRect.width,
+    scene.viewportRect.width,
+  );
+  return {
+    cacheScrollOffset: {
+      x: scene.scrollOffset.x,
+      y: cacheTop,
+    },
+    cacheViewportRect: {
+      ...scene.viewportRect,
+      height: textureHeight,
+    },
+    sourceRect,
+    textureHeight,
+    textureWidth,
+  };
+}
+
+function resolveGpuRetainedContentTextureCacheHeight({
+  contentHeight,
+  rowHeight,
+  viewportHeight,
+}: {
+  readonly contentHeight: number;
+  readonly rowHeight: number;
+  readonly viewportHeight: number;
+}): number {
+  if (contentHeight <= viewportHeight) {
+    return viewportHeight;
+  }
+  return Math.min(
+    contentHeight,
+    Math.max(viewportHeight * 6, viewportHeight + rowHeight * 48),
+  );
+}
+
+function createGpuRetainedContentCanvasCacheKey({
+  darkMode,
+  sourceSurface,
+}: {
+  readonly darkMode: boolean;
+  readonly sourceSurface: GpuRetainedContentSourceSurface;
+}): GpuRetainedContentCanvasCacheKey | null {
+  const sourceInput = getGpuRetainedContentSceneSourceInput(
+    sourceSurface.retainedScene,
+  );
+  if (!sourceInput) {
+    return null;
+  }
+  return {
+    cacheScrollX: sourceSurface.textureWindow.cacheScrollOffset.x,
+    cacheScrollY: sourceSurface.textureWindow.cacheScrollOffset.y,
+    darkMode,
+    sourceClipX: sourceSurface.sourceClipOffset.x,
+    sourceClipY: sourceSurface.sourceClipOffset.y,
+    sourceInput,
+    textureHeight: sourceSurface.textureWindow.textureHeight,
+    textureWidth: sourceSurface.textureWindow.textureWidth,
+  };
+}
+
+function isGpuRetainedContentCanvasCacheKeyEqual(
+  left: GpuRetainedContentCanvasCacheKey | undefined,
+  right: GpuRetainedContentCanvasCacheKey,
+): boolean {
+  return Boolean(
+    left &&
+      left.cacheScrollX === right.cacheScrollX &&
+      left.cacheScrollY === right.cacheScrollY &&
+      left.darkMode === right.darkMode &&
+      left.sourceClipX === right.sourceClipX &&
+      left.sourceClipY === right.sourceClipY &&
+      left.sourceInput === right.sourceInput &&
+      left.textureHeight === right.textureHeight &&
+      left.textureWidth === right.textureWidth,
+  );
+}
+
+function clampGpuRetainedContentNumber(
+  value: number,
+  min: number,
+  max: number,
+): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function intersectGpuRetainedContentRects(
@@ -968,12 +843,34 @@ function intersectGpuRetainedContentRects(
   return { height, width, x, y };
 }
 
-function insetRect(rect: GpuRect, x: number, y: number): GpuRect {
+function offsetGpuRect(rect: GpuRect, offset: GpuPoint): GpuRect {
   return {
-    height: Math.max(0, rect.height - y * 2),
-    width: Math.max(0, rect.width - x * 2),
-    x: rect.x + x,
-    y: rect.y + y,
+    height: rect.height,
+    width: rect.width,
+    x: rect.x + offset.x,
+    y: rect.y + offset.y,
+  };
+}
+
+function expandGpuRect(rect: GpuRect, amount: number): GpuRect {
+  return {
+    height: rect.height + amount * 2,
+    width: rect.width + amount * 2,
+    x: rect.x - amount,
+    y: rect.y - amount,
+  };
+}
+
+function unionGpuRects(left: GpuRect, right: GpuRect): GpuRect {
+  const x = Math.min(left.x, right.x);
+  const y = Math.min(left.y, right.y);
+  const rightEdge = Math.max(left.x + left.width, right.x + right.width);
+  const bottomEdge = Math.max(left.y + left.height, right.y + right.height);
+  return {
+    height: bottomEdge - y,
+    width: rightEdge - x,
+    x,
+    y,
   };
 }
 

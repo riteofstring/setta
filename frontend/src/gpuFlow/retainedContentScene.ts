@@ -255,6 +255,30 @@ export function createGpuRetainedRowContentSceneWithScrollOffset({
   });
 }
 
+export function createGpuRetainedRowContentSceneWithScrollWindow({
+  scene,
+  scrollOffset,
+  viewportRect,
+}: {
+  readonly scene: GpuRetainedContentScene;
+  readonly scrollOffset: GpuPoint;
+  readonly viewportRect: GpuRect;
+}): GpuRetainedContentScene {
+  const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
+  if (!sourceInput) {
+    throw new Error(
+      "Cannot create retained content scroll window without retained row source metadata.",
+    );
+  }
+  return createGpuRetainedRowContentSceneFromSourceInput({
+    scrollOffset,
+    sourceInput: {
+      ...sourceInput,
+      viewportRect,
+    },
+  });
+}
+
 function getGpuRetainedRowContentHeightFromMetrics({
   rowHeight,
   rowMetrics,

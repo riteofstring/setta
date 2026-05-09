@@ -1,6 +1,7 @@
 import {
   useCallback,
   useMemo,
+  useRef,
   type MutableRefObject,
   type ReactNode,
 } from "react";
@@ -56,6 +57,10 @@ export function useGpuFlowRetainedContentSources({
       ),
     [scene?.contentSurfaces],
   );
+  const retainedContentOwnerBySurfaceIdRef = useRef(
+    retainedContentOwnerBySurfaceId,
+  );
+  retainedContentOwnerBySurfaceIdRef.current = retainedContentOwnerBySurfaceId;
   const handleRetainedContentElementChange = useCallback(
     (surfaceId: string, element: HTMLElement | null) => {
       clearGpuNodeDomTransformSyncCacheNode(
@@ -86,7 +91,7 @@ export function useGpuFlowRetainedContentSources({
         content: true,
         priority:
           event.reason === "animation" ||
-          retainedContentOwnerBySurfaceId.get(surfaceId) ===
+          retainedContentOwnerBySurfaceIdRef.current.get(surfaceId) ===
             activeResizeNodeIdRef.current
             ? "interactive"
             : "visible",
@@ -95,17 +100,9 @@ export function useGpuFlowRetainedContentSources({
         ...(event.sourceRect ? { sourceRect: event.sourceRect } : {}),
         surfaceId,
       });
-      surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame(
-        event.reason === "animation" ? "texture-upload" : "manual",
-      );
+      surfaceRef.current?.requestFrame("texture-upload");
     },
-    [
-      activeResizeNodeIdRef,
-      retainedContentOwnerBySurfaceId,
-      surfaceRef,
-      textureManagerRef,
-    ],
+    [activeResizeNodeIdRef, surfaceRef, textureManagerRef],
   );
 
   return {

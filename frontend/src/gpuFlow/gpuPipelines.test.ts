@@ -15,6 +15,7 @@ import {
   encodeHtmlSurfaceCameraUniform,
   HtmlSurfaceRenderer,
 } from "./htmlSurfaces/renderer";
+import { createTiledFlatSurfaceDrawTiles } from "./htmlSurfaces/rendererTiledFlat";
 import {
   HTML_SURFACE_RIPPLE_EFFECT_ID,
   HTML_SURFACE_RIPPLE_PROJECTOR_ID,
@@ -53,6 +54,60 @@ describe("html surface renderer", () => {
     ).toEqual([
       10, 15, 0, 0, 40, 15, 1, 0, 10, 35, 0, 1, 10, 35, 0, 1, 40, 15, 1, 0, 40,
       35, 1, 1,
+    ]);
+  });
+
+  it("builds flat surface vertices from a retained source texture window", () => {
+    expect(
+      Array.from(
+        buildFlatSurfaceVertexData([
+          {
+            height: 20,
+            textureCoordinates: { u0: 0.25, u1: 0.5, v0: 0.25, v1: 0.75 },
+            width: 30,
+            x: 10,
+            y: 15,
+          },
+        ]),
+      ),
+    ).toEqual([
+      10, 15, 0.25, 0.25, 40, 15, 0.5, 0.25, 10, 35, 0.25, 0.75, 10, 35, 0.25,
+      0.75, 40, 15, 0.5, 0.25, 40, 35, 0.5, 0.75,
+    ]);
+  });
+
+  it("clips tiled flat draw tiles to a retained source texture window", () => {
+    expect(
+      createTiledFlatSurfaceDrawTiles([
+        tiledFlatSurface("large-node", {
+          rect: { height: 50, width: 100, x: 20, y: 30 },
+          textureSourceRect: { height: 50, width: 100, x: 100, y: 25 },
+        }),
+      ]).map((tile) => ({
+        height: tile.height,
+        surfaceId: tile.surfaceId,
+        textureCoordinates: tile.textureCoordinates,
+        width: tile.width,
+        x: tile.x,
+        y: tile.y,
+      })),
+    ).toEqual([
+      {
+        height: 50,
+        surfaceId: "large-node:0:0",
+        textureCoordinates: { u0: 100 / 128, u1: 1, v0: 0.25, v1: 0.75 },
+        width: 28,
+        x: 20,
+        y: 30,
+      },
+      {
+        height: 50,
+        surfaceId: "large-node:1:0",
+        textureCoordinates: { u0: 0, u1: 1, v0: 0.25, v1: 0.75 },
+        width: 72,
+        x: 48,
+        y: 30,
+      },
     ]);
   });
 
@@ -933,7 +988,9 @@ function meshSurface(
 
 function tiledFlatSurface(
   surfaceId: string,
-  overrides: Partial<Pick<HtmlSurfaceTiledFlatVisual, "rect">> = {},
+  overrides: Partial<
+    Pick<HtmlSurfaceTiledFlatVisual, "rect" | "textureSourceRect">
+  > = {},
 ): HtmlSurfaceTiledFlatVisual {
   const firstTileTexture = textureRecord(`${surfaceId}:0:0`);
   const secondTileTexture = textureRecord(`${surfaceId}:1:0`);
@@ -942,6 +999,9 @@ function tiledFlatSurface(
     rect: overrides.rect ?? { height: 100, width: 200, x: 20, y: 30 },
     surfaceId,
     texture: textureRecord(surfaceId),
+    ...(overrides.textureSourceRect
+      ? { textureSourceRect: overrides.textureSourceRect }
+      : {}),
     tiles: [
       {
         cssHeight: 100,

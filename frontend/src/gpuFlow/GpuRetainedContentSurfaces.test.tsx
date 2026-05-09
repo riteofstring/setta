@@ -18,7 +18,11 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     expect(getGpuRetainedContentSurfaceLayouts([surface])).toEqual([
       {
         height: 96,
+        ownerNodeId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
+        textureCssHeight: 96,
+        textureCssWidth: 240,
+        textureSourceRect: { height: 96, width: 240, x: 0, y: 0 },
         width: 240,
         x: 12,
         y: 34,
@@ -40,7 +44,11 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     expect(getGpuRetainedContentSurfaceLayouts([surface])).toEqual([
       {
         height: 40,
+        ownerNodeId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
+        textureCssHeight: 96,
+        textureCssWidth: 240,
+        textureSourceRect: { height: 40, width: 200, x: 20, y: 36 },
         width: 200,
         x: 32,
         y: 70,
@@ -48,8 +56,8 @@ describe("GpuRetainedContentSurfaceLayer", () => {
       },
     ]);
     expect(getGpuRetainedContentSourceStyle(surface)).toEqual({
-      height: 40,
-      width: 200,
+      height: 96,
+      width: 240,
     });
   });
 
@@ -88,12 +96,12 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     canvas.setAttribute("data-gpu-flow-retained-content-canvas", "true");
     host.append(canvas);
 
-    const redrawn = redrawGpuRetainedContentSourceElement({
+    const drawEvent = redrawGpuRetainedContentSourceElement({
       element: host,
       surface,
     });
 
-    expect(redrawn).toBe(true);
+    expect(drawEvent).toEqual({ reason: "content" });
     expect(canvas.width).toBeGreaterThan(0);
     expect(context.clearRect).toHaveBeenCalled();
     expect(context.fillRect).toHaveBeenCalled();

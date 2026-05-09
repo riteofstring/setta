@@ -17,10 +17,18 @@ export type SurfaceVertex = {
   readonly y: number;
 };
 
+export type HtmlSurfaceTextureCoordinates = {
+  readonly u0: number;
+  readonly u1: number;
+  readonly v0: number;
+  readonly v1: number;
+};
+
 export type HtmlSurfaceFlatVisual = FlowRect & {
   readonly kind: "flat";
   readonly surfaceId: string;
   readonly texture: HtmlSurfaceTextureRecord;
+  readonly textureCoordinates?: HtmlSurfaceTextureCoordinates | undefined;
   readonly zIndex: number;
 };
 
@@ -29,6 +37,7 @@ export type HtmlSurfaceTiledFlatVisual = {
   readonly rect: FlowRect;
   readonly surfaceId: string;
   readonly texture: HtmlSurfaceTextureRecord;
+  readonly textureSourceRect?: FlowRect | undefined;
   readonly tiles: readonly HtmlSurfaceTextureTileRecord[];
   readonly zIndex: number;
 };

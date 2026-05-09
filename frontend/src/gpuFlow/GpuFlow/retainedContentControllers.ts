@@ -1,7 +1,11 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 
-import { redrawGpuRetainedContentSourceElement } from "../GpuRetainedContentSurfaces";
+import {
+  getGpuRetainedContentSurfaceLayouts,
+  redrawGpuRetainedContentSourceElement,
+} from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import type { GpuHtmlSurfaceOverlayLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnostics";
 import {
@@ -597,6 +601,10 @@ function applyGpuFlowRetainedContentScrollResult({
   });
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
+    edgeLabelSurfaces: mergeGpuFlowRetainedContentSurfaceLayouts({
+      overlays: nodeLayerRef.current.edgeLabelSurfaces,
+      scene: nextScene,
+    }),
     scene: nextScene,
   };
   redrawGpuFlowRetainedContentSurfaceSources({
@@ -682,6 +690,10 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
   }
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
+    edgeLabelSurfaces: mergeGpuFlowRetainedContentSurfaceLayouts({
+      overlays: nodeLayerRef.current.edgeLabelSurfaces,
+      scene: update.scene,
+    }),
     scene: update.scene,
   };
   redrawGpuFlowRetainedContentSurfaceSources({
@@ -691,6 +703,41 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
     switchAnimations,
     textureManagerRef,
   });
+}
+
+function mergeGpuFlowRetainedContentSurfaceLayouts({
+  overlays,
+  scene,
+}: {
+  readonly overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined;
+  readonly scene: GpuFlowScene;
+}): readonly GpuHtmlSurfaceOverlayLayout[] {
+  const retainedLayouts = getGpuRetainedContentSurfaceLayouts(
+    scene.contentSurfaces,
+  );
+  if (retainedLayouts.length === 0) {
+    return overlays ?? [];
+  }
+  const retainedLayoutById = new Map(
+    retainedLayouts.map((layout) => [layout.surfaceId, layout]),
+  );
+  const seenRetainedSurfaceIds = new Set<string>();
+  const nextOverlays: GpuHtmlSurfaceOverlayLayout[] = [];
+  for (const overlay of overlays ?? []) {
+    const retainedLayout = retainedLayoutById.get(overlay.surfaceId);
+    if (!retainedLayout) {
+      nextOverlays.push(overlay);
+      continue;
+    }
+    seenRetainedSurfaceIds.add(overlay.surfaceId);
+    nextOverlays.push(retainedLayout);
+  }
+  for (const retainedLayout of retainedLayouts) {
+    if (!seenRetainedSurfaceIds.has(retainedLayout.surfaceId)) {
+      nextOverlays.push(retainedLayout);
+    }
+  }
+  return nextOverlays;
 }
 
 function redrawGpuFlowRetainedContentSurfaceSources({
@@ -709,14 +756,15 @@ function redrawGpuFlowRetainedContentSurfaceSources({
   let redrawn = false;
   for (const surface of surfaces) {
     const sourceElement = nodeElementByIdRef.current.get(surface.id);
-    if (
-      !sourceElement ||
-      !redrawGpuRetainedContentSourceElement({
-        element: sourceElement,
-        surface,
-        switchAnimations,
-      })
-    ) {
+    if (!sourceElement) {
+      continue;
+    }
+    const drawEvent = redrawGpuRetainedContentSourceElement({
+      element: sourceElement,
+      surface,
+      switchAnimations,
+    });
+    if (!drawEvent) {
       continue;
     }
     redrawn = true;
@@ -724,11 +772,12 @@ function redrawGpuFlowRetainedContentSurfaceSources({
       content: true,
       reason: "content",
       requestPaint: false,
+      ...(drawEvent.sourceRect ? { sourceRect: drawEvent.sourceRect } : {}),
       surfaceId: surface.id,
     });
   }
   if (redrawn) {
-    surfaceRef.current?.requestPaint();
+    surfaceRef.current?.requestFrame("texture-upload");
   }
 }
 

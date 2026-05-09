@@ -19,10 +19,7 @@ import {
 } from "./pipelineTypes";
 
 export function buildFlatSurfaceVertexData(
-  surfaces: readonly Pick<
-    HtmlSurfaceFlatVisual,
-    "height" | "width" | "x" | "y"
-  >[],
+  surfaces: readonly FlatSurfaceGeometryInput[],
 ): Float32Array {
   const data = new Float32Array(
     surfaces.length * VERTICES_PER_QUAD * FLOATS_PER_VERTEX,
@@ -33,44 +30,63 @@ export function buildFlatSurfaceVertexData(
     const top = surface.y;
     const right = surface.x + surface.width;
     const bottom = surface.y + surface.height;
+    const { u0, u1, v0, v1 } = resolveFlatSurfaceTextureCoordinates(surface);
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 0,
-      v: 0,
+      u: u0,
+      v: v0,
       x: left,
       y: top,
     });
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 1,
-      v: 0,
+      u: u1,
+      v: v0,
       x: right,
       y: top,
     });
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 0,
-      v: 1,
+      u: u0,
+      v: v1,
       x: left,
       y: bottom,
     });
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 0,
-      v: 1,
+      u: u0,
+      v: v1,
       x: left,
       y: bottom,
     });
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 1,
-      v: 0,
+      u: u1,
+      v: v0,
       x: right,
       y: top,
     });
     offset = writeFlatSurfaceVertex(data, offset, {
-      u: 1,
-      v: 1,
+      u: u1,
+      v: v1,
       x: right,
       y: bottom,
     });
   }
   return data;
+}
+
+type FlatSurfaceGeometryInput = Pick<
+  HtmlSurfaceFlatVisual,
+  "height" | "textureCoordinates" | "width" | "x" | "y"
+>;
+
+function resolveFlatSurfaceTextureCoordinates({
+  textureCoordinates,
+}: FlatSurfaceGeometryInput) {
+  return (
+    textureCoordinates ?? {
+      u0: 0,
+      u1: 1,
+      v0: 0,
+      v1: 1,
+    }
+  );
 }
 
 export function buildMeshSurfaceVertexCache(
@@ -123,14 +139,15 @@ export function buildMeshSurfaceVertexCache(
 
 export function isFlatSurfaceVertexCacheValid(
   cache: FlatSurfaceVertexCache | null,
-  surfaces: readonly CachedFlatSurfaceGeometry[],
+  surfaces: readonly FlatSurfaceGeometryCaptureInput[],
 ): cache is FlatSurfaceVertexCache {
   if (!cache || cache.geometry.length !== surfaces.length) {
     return false;
   }
-  for (let index = 0; index < surfaces.length; index += 1) {
+  const geometry = captureFlatSurfaceGeometry(surfaces);
+  for (let index = 0; index < geometry.length; index += 1) {
     const cached = cache.geometry[index];
-    const surface = surfaces[index];
+    const surface = geometry[index];
     if (
       !cached ||
       !surface ||
@@ -167,14 +184,34 @@ function isCachedFlatSurfaceGeometryEqual(
   cached: CachedFlatSurfaceGeometry,
   surface: CachedFlatSurfaceGeometry,
 ): boolean {
-  return (
-    cached.surfaceId === surface.surfaceId &&
-    cached.x === surface.x &&
-    cached.y === surface.y &&
-    cached.width === surface.width &&
-    cached.height === surface.height &&
-    cached.zIndex === surface.zIndex
+  return areFlatSurfaceGeometryValuesEqual(
+    flatSurfaceGeometryValues(cached),
+    flatSurfaceGeometryValues(surface),
   );
+}
+
+type FlatSurfaceGeometryValue = string | number;
+
+function flatSurfaceGeometryValues({
+  height,
+  surfaceId,
+  u0,
+  u1,
+  v0,
+  v1,
+  width,
+  x,
+  y,
+  zIndex,
+}: CachedFlatSurfaceGeometry): readonly FlatSurfaceGeometryValue[] {
+  return [surfaceId, x, y, width, height, u0, u1, v0, v1, zIndex];
+}
+
+function areFlatSurfaceGeometryValuesEqual(
+  left: readonly FlatSurfaceGeometryValue[],
+  right: readonly FlatSurfaceGeometryValue[],
+): boolean {
+  return left.every((value, index) => value === right[index]);
 }
 
 function isCachedMeshSurfaceGeometryEqual(
@@ -238,17 +275,27 @@ function areMeshVerticesEqual(
 }
 
 export function captureFlatSurfaceGeometry(
-  surfaces: readonly CachedFlatSurfaceGeometry[],
+  surfaces: readonly FlatSurfaceGeometryCaptureInput[],
 ): readonly CachedFlatSurfaceGeometry[] {
-  return surfaces.map((surface) => ({
-    height: surface.height,
-    surfaceId: surface.surfaceId,
-    width: surface.width,
-    x: surface.x,
-    y: surface.y,
-    zIndex: surface.zIndex,
-  }));
+  return surfaces.map((surface) => {
+    const { u0, u1, v0, v1 } = resolveFlatSurfaceTextureCoordinates(surface);
+    return {
+      height: surface.height,
+      surfaceId: surface.surfaceId,
+      u0,
+      u1,
+      v0,
+      v1,
+      width: surface.width,
+      x: surface.x,
+      y: surface.y,
+      zIndex: surface.zIndex,
+    };
+  });
 }
+
+type FlatSurfaceGeometryCaptureInput = FlatSurfaceGeometryInput &
+  Pick<CachedFlatSurfaceGeometry, "surfaceId" | "zIndex">;
 
 function captureMeshSurfaceGeometry(
   surfaces: readonly HtmlSurfaceMeshVisual[],

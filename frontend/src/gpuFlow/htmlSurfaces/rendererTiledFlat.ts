@@ -12,11 +12,16 @@ import {
   type HtmlSurfaceRenderRuntime,
 } from "../gpuPipelines/pipelineTypes";
 import type { HtmlSurfaceTextureTileRecord } from "./textures";
-import type { HtmlSurfaceTiledFlatVisual } from "./visualScene";
+import type {
+  FlowRect,
+  HtmlSurfaceTextureCoordinates,
+  HtmlSurfaceTiledFlatVisual,
+} from "./visualScene";
 
 export type TiledFlatSurfaceDrawTile = {
   readonly height: number;
   readonly surfaceId: string;
+  readonly textureCoordinates?: HtmlSurfaceTextureCoordinates | undefined;
   readonly texture: HtmlSurfaceTextureTileRecord;
   readonly width: number;
   readonly x: number;
@@ -165,16 +170,81 @@ export function createTiledFlatSurfaceDrawTiles(
   const tiles: TiledFlatSurfaceDrawTile[] = [];
   for (const surface of surfaces) {
     for (const tile of surface.tiles) {
-      tiles.push({
-        height: tile.cssHeight,
-        surfaceId: tile.tileId,
-        texture: tile,
-        width: tile.cssWidth,
-        x: surface.rect.x + tile.cssX,
-        y: surface.rect.y + tile.cssY,
-        zIndex: surface.zIndex,
-      });
+      const drawTile = createTiledFlatSurfaceDrawTile(surface, tile);
+      if (drawTile) {
+        tiles.push(drawTile);
+      }
     }
   }
   return tiles;
+}
+
+function createTiledFlatSurfaceDrawTile(
+  surface: HtmlSurfaceTiledFlatVisual,
+  tile: HtmlSurfaceTextureTileRecord,
+): TiledFlatSurfaceDrawTile | null {
+  if (!surface.textureSourceRect) {
+    return {
+      height: tile.cssHeight,
+      surfaceId: tile.tileId,
+      texture: tile,
+      width: tile.cssWidth,
+      x: surface.rect.x + tile.cssX,
+      y: surface.rect.y + tile.cssY,
+      zIndex: surface.zIndex,
+    };
+  }
+  const sourceRect = surface.textureSourceRect;
+  if (sourceRect.width <= 0 || sourceRect.height <= 0) {
+    return null;
+  }
+  const tileRect = {
+    height: tile.cssHeight,
+    width: tile.cssWidth,
+    x: tile.cssX,
+    y: tile.cssY,
+  };
+  const intersection = intersectFlowRects(sourceRect, tileRect);
+  if (intersection.width <= 0 || intersection.height <= 0) {
+    return null;
+  }
+  const scaleX = surface.rect.width / sourceRect.width;
+  const scaleY = surface.rect.height / sourceRect.height;
+  return {
+    height: intersection.height * scaleY,
+    surfaceId: tile.tileId,
+    texture: tile,
+    textureCoordinates: {
+      u0: clampUnit((intersection.x - tile.cssX) / tile.cssWidth),
+      u1: clampUnit(
+        (intersection.x + intersection.width - tile.cssX) / tile.cssWidth,
+      ),
+      v0: clampUnit((intersection.y - tile.cssY) / tile.cssHeight),
+      v1: clampUnit(
+        (intersection.y + intersection.height - tile.cssY) / tile.cssHeight,
+      ),
+    },
+    width: intersection.width * scaleX,
+    x: surface.rect.x + (intersection.x - sourceRect.x) * scaleX,
+    y: surface.rect.y + (intersection.y - sourceRect.y) * scaleY,
+    zIndex: surface.zIndex,
+  };
+}
+
+function intersectFlowRects(left: FlowRect, right: FlowRect): FlowRect {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
+  return { height, width, x, y };
+}
+
+function clampUnit(value: number): number {
+  return Math.min(1, Math.max(0, value));
 }

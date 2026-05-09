@@ -62,6 +62,10 @@ export type MeshSurfaceDrawResources = {
 export type CachedFlatSurfaceGeometry = {
   readonly height: number;
   readonly surfaceId: string;
+  readonly u0: number;
+  readonly u1: number;
+  readonly v0: number;
+  readonly v1: number;
   readonly width: number;
   readonly x: number;
   readonly y: number;

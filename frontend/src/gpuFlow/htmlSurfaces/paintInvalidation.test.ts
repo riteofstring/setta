@@ -7,6 +7,7 @@ import {
   releaseHtmlSurfaceActivePaintSourceRectHint,
   setHtmlSurfaceActivePaintSourceRectHint,
 } from "./paintSourceRectHints";
+import { HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE } from "./sourceDom";
 
 const SOURCE_SELECTOR = '[data-html-surface-source="true"]';
 const SOURCE_ID_ATTRIBUTE = "data-surface-id";
@@ -170,6 +171,35 @@ describe("HTML surface paint invalidation", () => {
     expect(
       resolveHtmlSurfacePaintInvalidation({
         changedElements: [source],
+        sourceElementBySurfaceId: new Map([["surface-a", source]]),
+        sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+        sourceSelector: SOURCE_SELECTOR,
+      }).dirtySurfaceInvalidations,
+    ).toEqual([{ surfaceId: "surface-a" }]);
+  });
+
+  it("ignores direct source paints for sources with explicit dirty ownership", () => {
+    const source = createSource("surface-a");
+    const child = document.createElement("button");
+    source.append(child);
+    source.setAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE, "true");
+
+    expect(
+      resolveHtmlSurfacePaintInvalidation({
+        changedElements: [source],
+        sourceElementBySurfaceId: new Map([["surface-a", source]]),
+        sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+        sourceSelector: SOURCE_SELECTOR,
+      }),
+    ).toEqual({
+      dirtySurfaceInvalidations: [],
+      dirtySurfaceIds: [],
+      transformOnlyPaintSurfaceIds: [],
+    });
+
+    expect(
+      resolveHtmlSurfacePaintInvalidation({
+        changedElements: [child],
         sourceElementBySurfaceId: new Map([["surface-a", source]]),
         sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
         sourceSelector: SOURCE_SELECTOR,

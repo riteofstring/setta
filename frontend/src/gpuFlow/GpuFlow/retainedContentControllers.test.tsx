@@ -4,6 +4,7 @@ import { act, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
@@ -84,6 +85,50 @@ describe("GpuFlow retained content controllers", () => {
     );
     expect(click.defaultPrevented).toBe(true);
   });
+
+  it("keeps unrelated retained surfaces clean when one section scrolls", () => {
+    const animationFrames = installAnimationFrameStub();
+    const dirtySurfaceIds: string[] = [];
+    let host: HTMLDivElement | null = null;
+
+    act(() => {
+      root = createRoot(
+        document.body.appendChild(document.createElement("div")),
+      );
+      root.render(
+        <RetainedContentScrollHarness
+          onDirtySurface={(surfaceId) => {
+            dirtySurfaceIds.push(surfaceId);
+          }}
+          onHostChange={(element) => {
+            host = element;
+          }}
+        />,
+      );
+    });
+
+    if (!host) {
+      throw new Error("Expected retained content scroll host to mount.");
+    }
+
+    const wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+
+    act(() => {
+      host?.dispatchEvent(wheel);
+    });
+    act(() => {
+      animationFrames.flush();
+    });
+
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(dirtySurfaceIds).toEqual(["dict-a:param-content:unpinned"]);
+  });
 });
 
 function RetainedContentInteractionHarness({
@@ -143,6 +188,89 @@ function RetainedContentInteractionHarness({
   );
 }
 
+function RetainedContentScrollHarness({
+  onDirtySurface,
+  onHostChange,
+}: {
+  readonly onDirtySurface: (surfaceId: string) => void;
+  readonly onHostChange: (element: HTMLDivElement | null) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const nodeLayerRef = useRef<{ scene: GpuFlowScene | undefined }>({
+    scene: scrollableRetainedContentScene(),
+  });
+  const nodeElementByIdRef = useRef(
+    new Map<string, HTMLElement>([
+      [
+        "dict-a:param-content:unpinned",
+        createRetainedContentSourceElement("dict-a:param-content:unpinned"),
+      ],
+      [
+        "dict-b:param-content:unpinned",
+        createRetainedContentSourceElement("dict-b:param-content:unpinned"),
+      ],
+    ]),
+  );
+  const textureManagerRef = useRef({
+    markSurfaceTextureDirty: ({
+      surfaceId,
+    }: {
+      readonly surfaceId: string;
+    }) => {
+      onDirtySurface(surfaceId);
+    },
+  });
+  const surfaceRef = useRef({
+    getRuntime: () => null,
+    requestFrame: vi.fn(),
+    requestPaint: () => {
+      markHtmlSurfaceFramePaintDirty({
+        changedElements: [...nodeElementByIdRef.current.values()],
+        elementByNodeId: nodeElementByIdRef.current,
+        frame: 1,
+        ignoreDirectNodeIds: new Set(),
+        textureManager: textureManagerRef.current,
+      });
+    },
+  });
+  const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
+  const switchAnimations = useMemo(
+    () => createGpuRetainedContentSwitchAnimationStore(),
+    [],
+  );
+  const scrollOffsetsRef = useRef(new Map<string, { x: number; y: number }>());
+
+  useGpuFlowRetainedContentControllers({
+    containerRef,
+    layoutStore: null,
+    nodeElementByIdRef,
+    nodeLayerRef,
+    retainedContentConnection: false,
+    retainedContentInteraction: false,
+    retainedContentKeyboard: false,
+    retainedContentScroll: {
+      getScrollOffsets: () => scrollOffsetsRef.current,
+      onScrollOffsetsChange: (scrollOffsets) => {
+        scrollOffsetsRef.current = new Map(scrollOffsets);
+      },
+    },
+    retainedContentSwitchAnimations: switchAnimations,
+    scenePortConnection: false,
+    surfaceRef,
+    textureManagerRef,
+    viewportStore,
+  });
+
+  return (
+    <div
+      ref={(element) => {
+        containerRef.current = element;
+        onHostChange(element);
+      }}
+    />
+  );
+}
+
 function retainedContentScene(revision: number): GpuFlowScene {
   return {
     contentSurfaces: [retainedSurface()],
@@ -150,6 +278,65 @@ function retainedContentScene(revision: number): GpuFlowScene {
     edges: [],
     revision,
     sections: [],
+  };
+}
+
+function scrollableRetainedContentScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [
+      scrollableRetainedSurface({
+        id: "dict-a:param-content:unpinned",
+        ownerSectionId: "dict-a",
+        x: 0,
+      }),
+      scrollableRetainedSurface({
+        id: "dict-b:param-content:unpinned",
+        ownerSectionId: "dict-b",
+        x: 240,
+      }),
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function scrollableRetainedSurface({
+  id,
+  ownerSectionId,
+  x,
+}: {
+  readonly id: string;
+  readonly ownerSectionId: string;
+  readonly x: number;
+}): GpuContentSurface {
+  const rect = { height: 80, width: 160, x, y: 0 };
+  return {
+    clipRect: rect,
+    id,
+    ownerSectionId,
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: id,
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id,
+      ownerSectionId,
+      rowHeight: 28,
+      rows: Array.from({ length: 10 }, (_, index) => ({
+        control: textLikeControlDescriptor(),
+        controlKind: "text-like",
+        depth: 0,
+        id: `param-${index}`,
+        label: `Param ${index}`,
+      })),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
+    zIndex: 1,
   };
 }
 
@@ -235,4 +422,65 @@ function createMouseEvent(
     clientX: init.clientX,
     clientY: init.clientY,
   });
+}
+
+function createRetainedContentSourceElement(surfaceId: string): HTMLElement {
+  const host = document.createElement("div");
+  const canvas = document.createElement("canvas");
+  vi.spyOn(canvas, "getContext").mockReturnValue(
+    createCanvasContextStub() as never,
+  );
+  host.dataset.gpuFlowHtmlSource = "true";
+  host.setAttribute("data-gpu-flow-source-id", surfaceId);
+  canvas.setAttribute("data-gpu-flow-retained-content-canvas", "true");
+  host.append(canvas);
+  return host;
+}
+
+function createCanvasContextStub(): CanvasRenderingContext2D {
+  return {
+    arc: vi.fn(),
+    beginPath: vi.fn(),
+    closePath: vi.fn(),
+    clearRect: vi.fn(),
+    clip: vi.fn(),
+    fill: vi.fn(),
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    lineTo: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
+    moveTo: vi.fn(),
+    quadraticCurveTo: vi.fn(),
+    rect: vi.fn(),
+    restore: vi.fn(),
+    roundRect: vi.fn(),
+    save: vi.fn(),
+    setTransform: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    translate: vi.fn(),
+  } as unknown as CanvasRenderingContext2D;
+}
+
+function installAnimationFrameStub() {
+  let nextId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const id = nextId;
+    nextId += 1;
+    callbacks.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+    callbacks.delete(id);
+  });
+  return {
+    flush() {
+      const pending = [...callbacks.entries()];
+      callbacks.clear();
+      for (const [id, callback] of pending) {
+        callback(id);
+      }
+    },
+  };
 }

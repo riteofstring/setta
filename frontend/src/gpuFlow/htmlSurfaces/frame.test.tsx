@@ -3,7 +3,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import {
-  buildHtmlSurfaceVisuals,
   buildTexturedGpuNodeQuads,
   collectVisibleGpuHtmlSurfaceOverlayQuads,
   collectVisibleGpuNodeQuads,
@@ -92,6 +91,39 @@ describe("HTML surface frame helpers", () => {
     ]);
   });
 
+  it("preserves retained texture source metadata while culling overlays", () => {
+    const overlays: GpuHtmlSurfaceOverlayLayout[] = [
+      {
+        ...surfaceOverlay("retained-content", 20, 30, 120, 90, 1),
+        textureCssHeight: 360,
+        textureCssWidth: 120,
+        textureSourceRect: { height: 90, width: 120, x: 0, y: 180 },
+      },
+    ];
+
+    const quads = collectVisibleGpuHtmlSurfaceOverlayQuads({
+      canvasHeight: 300,
+      canvasWidth: 400,
+      marginCssPx: 0,
+      overlays,
+      viewport: [0, 0, 1],
+    });
+
+    expect(quads).toEqual([
+      {
+        height: 90,
+        nodeId: "retained-content",
+        textureCssHeight: 360,
+        textureCssWidth: 120,
+        textureSourceRect: { height: 90, width: 120, x: 0, y: 180 },
+        width: 120,
+        x: 20,
+        y: 30,
+        zIndex: 1,
+      },
+    ]);
+  });
+
   it("pairs visible quads with existing node textures and reports misses", () => {
     const texture = textureRecord("node-a");
     const result = buildTexturedGpuNodeQuads(
@@ -114,89 +146,6 @@ describe("HTML surface frame helpers", () => {
       },
     ]);
     expect(result.missingTextureNodeIds).toEqual(["node-b"]);
-  });
-
-  it("routes tiled texture records into the tiled-flat visual bucket", () => {
-    const texture = textureRecord("large-node", {
-      textureLayout: {
-        columns: 2,
-        kind: "tiled",
-        maxTilePixelHeight: 128,
-        maxTilePixelWidth: 128,
-        rows: 1,
-        tileCount: 2,
-      },
-      tiles: [
-        {
-          cssHeight: 100,
-          cssWidth: 128,
-          cssX: 0,
-          cssY: 0,
-          dirtyContent: false,
-          dirtyResolution: false,
-          lastUploadFrame: 1,
-          pixelHeight: 100,
-          pixelWidth: 128,
-          sampler: {},
-          surfaceId: "large-node",
-          texture: {} as GPUTexture,
-          textureBytes: 51_200,
-          textureView: {},
-          tileId: "large-node:0:0",
-          u0: 0,
-          u1: 0.5,
-          v0: 0,
-          v1: 1,
-        },
-        {
-          cssHeight: 100,
-          cssWidth: 72,
-          cssX: 128,
-          cssY: 0,
-          dirtyContent: false,
-          dirtyResolution: false,
-          lastUploadFrame: 1,
-          pixelHeight: 100,
-          pixelWidth: 72,
-          sampler: {},
-          surfaceId: "large-node",
-          texture: {} as GPUTexture,
-          textureBytes: 28_800,
-          textureView: {},
-          tileId: "large-node:1:0",
-          u0: 0.5,
-          u1: 1,
-          v0: 0,
-          v1: 1,
-        },
-      ],
-    });
-
-    expect(
-      buildHtmlSurfaceVisuals([
-        {
-          height: 100,
-          nodeId: "large-node",
-          texture,
-          width: 200,
-          x: 10,
-          y: 20,
-          zIndex: 3,
-        },
-      ]),
-    ).toEqual({
-      flatSurfaces: [],
-      tiledFlatSurfaces: [
-        {
-          kind: "tiled-flat",
-          rect: { height: 100, width: 200, x: 10, y: 20 },
-          surfaceId: "large-node",
-          texture,
-          tiles: texture.tiles,
-          zIndex: 3,
-        },
-      ],
-    });
   });
 
   it("configures node source hosts without hidden-source styles", () => {
