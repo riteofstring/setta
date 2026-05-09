@@ -167,42 +167,57 @@ func TestRuntimeUngroupGroupsMovesChildrenBackToTopLevelAndParentOrder(t *testin
 	}
 
 	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	assertUngroupDeletedGroups(t, project)
+	assertUngroupedTopLevelChildren(t, project)
+	assertNestedUngroupedChildren(t, project)
+}
+
+func assertUngroupDeletedGroups(t *testing.T, project Project) {
+	t.Helper()
+
 	if _, ok := project.Sections["top-group"]; ok {
 		t.Fatal("expected top-group to be deleted")
 	}
 	if _, ok := project.Sections["nested-group"]; ok {
 		t.Fatal("expected nested-group to be deleted")
 	}
+}
 
-	if got := project.Sections["top-child-a"].ParentSectionID; got != "" {
-		t.Fatalf("expected top-child-a to become top-level, got parent %q", got)
+func assertUngroupedTopLevelChildren(t *testing.T, project Project) {
+	t.Helper()
+
+	for _, sectionID := range []string{"top-child-a", "top-child-b"} {
+		if got := project.Sections[sectionID].ParentSectionID; got != "" {
+			t.Fatalf("expected %s to become top-level, got parent %q", sectionID, got)
+		}
 	}
-	if got := project.Sections["top-child-b"].ParentSectionID; got != "" {
-		t.Fatalf("expected top-child-b to become top-level, got parent %q", got)
-	}
-	topChildALayout, ok := project.TopLevelSections["top-child-a"]
-	if !ok {
-		t.Fatal("expected top-child-a layout after ungroup")
-	}
-	topChildBLayout, ok := project.TopLevelSections["top-child-b"]
-	if !ok {
-		t.Fatal("expected top-child-b layout after ungroup")
-	}
-	if topChildALayout.X != 400 || topChildALayout.Y != 60 {
-		t.Fatalf("unexpected top-child-a layout %#v", topChildALayout)
-	}
-	if topChildBLayout.X != 400 || topChildBLayout.Y != 60 {
-		t.Fatalf("unexpected top-child-b layout %#v", topChildBLayout)
-	}
+	topChildALayout := assertTopLevelLayoutAfterUngroup(t, project, "top-child-a")
+	topChildBLayout := assertTopLevelLayoutAfterUngroup(t, project, "top-child-b")
 	if topChildALayout.ZIndex <= 4 || topChildBLayout.ZIndex <= 4 {
 		t.Fatalf("expected ungrouped top-level children to receive fresh z-indices, got %#v and %#v", topChildALayout, topChildBLayout)
 	}
+}
 
-	if got := project.Sections["nested-child-a"].ParentSectionID; got != "nested-parent" {
-		t.Fatalf("expected nested-child-a parent nested-parent, got %q", got)
+func assertTopLevelLayoutAfterUngroup(t *testing.T, project Project, sectionID string) TopLevelSectionLayout {
+	t.Helper()
+
+	layout, ok := project.TopLevelSections[sectionID]
+	if !ok {
+		t.Fatalf("expected %s layout after ungroup", sectionID)
 	}
-	if got := project.Sections["nested-child-b"].ParentSectionID; got != "nested-parent" {
-		t.Fatalf("expected nested-child-b parent nested-parent, got %q", got)
+	if layout.X != 400 || layout.Y != 60 {
+		t.Fatalf("unexpected %s layout %#v", sectionID, layout)
+	}
+	return layout
+}
+
+func assertNestedUngroupedChildren(t *testing.T, project Project) {
+	t.Helper()
+
+	for _, sectionID := range []string{"nested-child-a", "nested-child-b"} {
+		if got := project.Sections[sectionID].ParentSectionID; got != "nested-parent" {
+			t.Fatalf("expected %s parent nested-parent, got %q", sectionID, got)
+		}
 	}
 	parentPayload, err := effectiveSectionPayload(project, "nested-parent", "nested-parent-variant")
 	if err != nil {
