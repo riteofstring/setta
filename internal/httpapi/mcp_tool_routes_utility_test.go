@@ -732,15 +732,53 @@ func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	t.Parallel()
 
+	handler := newMCPToolRouteUtilityReadInitHandler(t)
+	assertMCPToolRouteUtilitySearch(t, handler)
+	assertMCPToolRouteUtilityRuntimeStatus(t, handler)
+	assertMCPToolRouteUtilityProjectConfigs(t, handler)
+	assertMCPToolRouteUtilityPythonPackages(t, handler)
+	assertMCPToolRouteUtilityDocs(t, handler)
+}
+
+func newMCPToolRouteUtilityReadInitHandler(t *testing.T) http.Handler {
+	t.Helper()
+
 	workspaceRoot := t.TempDir()
+	writeMCPToolRouteUtilityDocs(t, workspaceRoot)
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		MCPStatuses:    newMCPToolRouteUtilityStatusClient(t),
+		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
+		PythonPackages: routePythonPackageProvider{
+			packages: []string{"Alpha=1.0.0", "beta=2.0.0"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	return newMCPToolRouteTestHandler(t, server)
+}
+
+func writeMCPToolRouteUtilityDocs(t *testing.T, workspaceRoot string) {
+	t.Helper()
+
 	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-examples.md"), "# Examples\n")
 	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "emit_to_frontend.md"), "# Emit\n")
 	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-hot-reload.md"), "# Hot Reload\n")
 	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-realtime-behavior.md"), "# Realtime\n")
 	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "listener-flows.md"), "# Listener Flows\n")
+}
 
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+func newMCPToolRouteUtilityStatusClient(t *testing.T) *mcpx.Client {
+	t.Helper()
+
 	statusClient, err := mcpx.NewClient(mcpx.ClientOptions{
 		Servers: map[string]mcpx.ServerConfig{
 			mcpx.DefaultServerID: {
@@ -752,123 +790,79 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new status client: %v", err)
 	}
+	return statusClient
+}
 
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  workspaceRoot,
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
-		MCPStatuses:    statusClient,
-		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
-		PythonPackages: routePythonPackageProvider{
-			packages: []string{"Alpha=1.0.0", "beta=2.0.0"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
+func assertMCPToolRouteUtilitySearch(t *testing.T, handler http.Handler) {
+	t.Helper()
 
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	searchResponse := postMCPToolRoute(t, handler, `{
+	searchResult := callMCPToolRouteStructuredResult(t, handler, `{
 		"tool":"search_mcp_tools",
 		"arguments":{"query":"section size settings","limit":2}
-	}`)
-	if searchResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", searchResponse.Code, searchResponse.Body.String())
-	}
-	searchPayload := decodeCallToolRouteResult(t, searchResponse.Body.Bytes())
-	if searchPayload.IsError {
-		t.Fatalf("expected search_mcp_tools success, got %#v", searchPayload.StructuredContent)
-	}
-	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
+	}`, "search_mcp_tools")
 	searchEntries := mustStructuredListForRoute(t, searchResult["results"])
 	if len(searchEntries) == 0 || mustStructuredMapForRoute(t, searchEntries[0])["name"] != "set_section_sizes" {
 		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
 	}
+}
 
-	statusResponse := postMCPToolRoute(t, handler, `{
+func assertMCPToolRouteUtilityRuntimeStatus(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	statusResult := callMCPToolRouteStructuredResult(t, handler, `{
 		"tool":"get_mcp_server_runtime_status",
 		"arguments":{}
-	}`)
-	if statusResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", statusResponse.Code, statusResponse.Body.String())
-	}
-	statusPayload := decodeCallToolRouteResult(t, statusResponse.Body.Bytes())
-	if statusPayload.IsError {
-		t.Fatalf("expected get_mcp_server_runtime_status success, got %#v", statusPayload.StructuredContent)
-	}
-	statusResult := mustStructuredMapForRoute(t, statusPayload.StructuredContent)
+	}`, "get_mcp_server_runtime_status")
 	serverStatuses := mustStructuredListForRoute(t, statusResult["servers"])
 	if len(serverStatuses) != 1 || mustStructuredMapForRoute(t, serverStatuses[0])["serverId"] != mcpx.DefaultServerID {
 		t.Fatalf("expected one default runtime status, got %#v", serverStatuses)
 	}
+}
 
-	projectsResponse := postMCPToolRoute(t, handler, `{
+func assertMCPToolRouteUtilityProjectConfigs(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	projectsResult := callMCPToolRouteStructuredResult(t, handler, `{
 		"tool":"getProjectConfigNamesAndIds",
 		"arguments":{}
-	}`)
-	if projectsResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", projectsResponse.Code, projectsResponse.Body.String())
-	}
-	projectsPayload := decodeCallToolRouteResult(t, projectsResponse.Body.Bytes())
-	if projectsPayload.IsError {
-		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsPayload.StructuredContent)
-	}
-	projectsResult := mustStructuredMapForRoute(t, projectsPayload.StructuredContent)
+	}`, "getProjectConfigNamesAndIds")
 	projectConfigs := mustStructuredListForRoute(t, projectsResult["projectConfigs"])
 	if len(projectConfigs) != 1 || mustStructuredMapForRoute(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
 	}
+}
 
-	packagesResponse := postMCPToolRoute(t, handler, `{
+func assertMCPToolRouteUtilityPythonPackages(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	packagesResult := callMCPToolRouteStructuredResult(t, handler, `{
 		"tool":"getInstalledPythonPackages",
 		"arguments":{}
-	}`)
-	if packagesResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", packagesResponse.Code, packagesResponse.Body.String())
-	}
-	packagesPayload := decodeCallToolRouteResult(t, packagesResponse.Body.Bytes())
-	if packagesPayload.IsError {
-		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesPayload.StructuredContent)
-	}
-	packagesResult := mustStructuredMapForRoute(t, packagesPayload.StructuredContent)
+	}`, "getInstalledPythonPackages")
 	packages := mustStructuredListForRoute(t, packagesResult["packages"])
 	if !reflect.DeepEqual(packages, []any{"Alpha=1.0.0", "beta=2.0.0"}) {
 		t.Fatalf("expected installed python package list, got %#v", packages)
 	}
+}
 
-	docsResponse := postMCPToolRoute(t, handler, `{
+func assertMCPToolRouteUtilityDocs(t *testing.T, handler http.Handler) {
+	t.Helper()
+
+	docsResult := callMCPToolRouteStructuredResult(t, handler, `{
 		"tool":"get_setta_docs",
 		"arguments":{}
-	}`)
-	if docsResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", docsResponse.Code, docsResponse.Body.String())
-	}
-	docsPayload := decodeCallToolRouteResult(t, docsResponse.Body.Bytes())
-	if docsPayload.IsError {
-		t.Fatalf("expected get_setta_docs success, got %#v", docsPayload.StructuredContent)
-	}
-	docsResult := mustStructuredMapForRoute(t, docsPayload.StructuredContent)
+	}`, "get_setta_docs")
 	docs := mustStructuredListForRoute(t, docsResult["docs"])
 	if len(docs) != 4 {
 		t.Fatalf("expected four default docs, got %#v", docs)
 	}
+}
+
+func callMCPToolRouteStructuredResult(t *testing.T, handler http.Handler, body string, label string) map[string]any {
+	t.Helper()
+
+	payload := callScopedMCPToolRoute(t, handler, body, label)
+	return mustStructuredMapForRoute(t, payload.StructuredContent)
 }
 
 func TestMCPToolCallRouteReturnsStructuredToolErrorsWithHTTP200(t *testing.T) {
