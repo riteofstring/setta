@@ -39,6 +39,7 @@ import {
   createShownParamIDs,
   createSingleConfig,
   createStateMachineGateSectionImpl,
+  createSwitchParamCodeObjImpl,
   createVariant,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
@@ -1627,6 +1628,91 @@ describe("project GPU layout adapter", () => {
         zIndex: 4,
       },
     ]);
+  });
+
+  it("keeps canvas-owned retained controls out of row focus state", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "child-param": "child-param-variant",
+              "parent-param": "parent-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["parent-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "parent-param",
+      "parent-param-variant",
+      "parent-param-impl",
+      createNestedParamImpl("parent-param-impl", ["child-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "child-param",
+      "child-param-variant",
+      "child-param-impl",
+      createSwitchParamCodeObjImpl({
+        id: "child-param-impl",
+        name: "child",
+        type: CodeObjTypeEnum.SwitchParam,
+        value: "false",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "child-param": ["parent-param", "child-param"],
+          "parent-param": ["parent-param"],
+        },
+        topLevelParamIds: ["parent-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamCanvasControl: {
+        hitRecordId: "control:child-param",
+        paramInfoId: "child-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(
+      paramSurface?.retainedScene?.rows.map((row) => ({
+        controlFocused: row.state.controlFocused,
+        focused: row.state.focused,
+        id: row.id,
+      })),
+    ).toEqual([
+      { controlFocused: false, focused: false, id: "parent-param" },
+      { controlFocused: true, focused: false, id: "child-param" },
+    ]);
+    expect(scene.domIslands).toEqual([]);
   });
 
   it("marks frozen retained param controls disabled and keeps them canvas-owned", () => {

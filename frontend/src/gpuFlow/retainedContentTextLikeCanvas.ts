@@ -88,7 +88,7 @@ function drawTextLikeActiveUnderline(
   palette: GpuRetainedContentCanvasPalette,
   state: GpuRetainedContentRowState | undefined,
 ) {
-  if (!state?.focused && !state?.selected) {
+  if (!isTextLikeControlFocused(state) && !state?.selected) {
     return;
   }
   ctx.strokeStyle = getTextLikeControlStrokeColor(state, palette);
@@ -104,13 +104,19 @@ function getTextLikeControlStrokeColor(
   state: GpuRetainedContentRowState | undefined,
   palette: GpuRetainedContentCanvasPalette,
 ): string {
-  if (state?.focused) {
+  if (isTextLikeControlFocused(state)) {
     return palette.textLikeFocusedBorder;
   }
   if (state?.selected) {
     return palette.textLikeSelectedBorder;
   }
   return palette.textLikeBorder;
+}
+
+function isTextLikeControlFocused(
+  state: GpuRetainedContentRowState | undefined,
+): boolean {
+  return Boolean(state?.focused || state?.controlFocused);
 }
 
 function getTextLikeControlTextLayout({

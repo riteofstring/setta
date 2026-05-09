@@ -1,11 +1,13 @@
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
+import type { GpuFlowInteractionDiagnostics } from "./interactionDiagnostics";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
 export type GpuFlowFramePerformanceInput = {
   readonly deferResolutionUpdates: boolean;
   readonly frame: number;
   readonly frameReasons: readonly GpuFrameReason[];
+  readonly interactionDiagnostics?: GpuFlowInteractionDiagnostics | undefined;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly renderDurationMs: number;
   readonly viewport: GpuViewportInput;
@@ -53,6 +55,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly evictedTextureNodeCount: number;
   readonly frame: number;
   readonly frameReasons: readonly GpuFrameReason[];
+  readonly interactionDiagnostics: GpuFlowInteractionDiagnostics | null;
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
@@ -85,6 +88,7 @@ export function createGpuFlowFramePerformanceEvent({
   deferResolutionUpdates,
   frame,
   frameReasons,
+  interactionDiagnostics,
   layerResult,
   renderDurationMs,
   viewport,
@@ -109,6 +113,7 @@ export function createGpuFlowFramePerformanceEvent({
     evictedTextureNodeCount: layerResult.evictedTextureNodeIds.length,
     frame,
     frameReasons: [...frameReasons],
+    interactionDiagnostics: interactionDiagnostics ?? null,
     missingElementNodeCount: layerResult.missingElementNodeIds.length,
     missingTextureNodeCount: layerResult.missingTextureNodeIds.length,
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,

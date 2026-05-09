@@ -386,6 +386,96 @@ describe("GPU retained content interaction controller", () => {
     vi.useRealTimers();
   });
 
+  it("cancels the active retained pointer when pointer capture is lost", () => {
+    const element = createHostElement();
+    const capturedPointerIds = new Set<number>();
+    const onHitClick = vi.fn();
+    const onHitDragCancel = vi.fn();
+    const onHitDragEnd = vi.fn();
+    const onHitDragStart = vi.fn();
+    const requestFrame = vi.fn();
+    element.setPointerCapture = vi.fn((pointerId: number) => {
+      capturedPointerIds.add(pointerId);
+    });
+    element.releasePointerCapture = vi.fn((pointerId: number) => {
+      capturedPointerIds.delete(pointerId);
+    });
+    element.hasPointerCapture = vi.fn((pointerId: number) =>
+      capturedPointerIds.has(pointerId),
+    );
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      onHitDragCancel,
+      onHitDragEnd,
+      onHitDragStart,
+      requestFrame,
+      shouldStartDrag: (hit) => hit.hit.kind === "row",
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 116,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 1,
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    capturedPointerIds.delete(1);
+    element.dispatchEvent(
+      createPointerEvent("lostpointercapture", {
+        buttons: 0,
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 2,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 2,
+      }),
+    );
+
+    expect(onHitDragStart).toHaveBeenCalledTimes(1);
+    expect(onHitDragCancel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeHit: expect.objectContaining({
+          hit: expect.objectContaining({ ownerRowId: "param-0" }),
+        }),
+      }),
+    );
+    expect(onHitDragEnd).not.toHaveBeenCalled();
+    expect(onHitClick).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+
+    cleanup();
+  });
+
   it("lets callers gate which retained hits take pointer ownership", () => {
     const element = createHostElement();
     const onHitClick = vi.fn();

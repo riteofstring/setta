@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
-import { drawGpuRetainedContentLabel } from "./retainedContentRowCanvas";
+import {
+  drawGpuRetainedContentLabel,
+  drawGpuRetainedContentRowBackground,
+} from "./retainedContentRowCanvas";
+import type { GpuRetainedContentRowState } from "./retainedContentScene";
 
 describe("retained content row canvas", () => {
   it("draws muted monospace labels with the retained param-name inset", () => {
@@ -64,6 +68,37 @@ describe("retained content row canvas", () => {
 
     expect(ctx.fillText).toHaveBeenCalledWith("Extra L\u2026", 15, 14, 82);
   });
+
+  it("does not draw row focus treatment for canvas-owned control focus", () => {
+    const ctx = canvasContext();
+
+    drawGpuRetainedContentRowBackground({
+      ctx: ctx as unknown as CanvasRenderingContext2D,
+      dividerRects: [],
+      palette,
+      rect: { height: 24, width: 120, x: 0, y: 0 },
+      state: rowState({ controlFocused: true }),
+    });
+
+    expect(ctx.fillStyles[0]).toBe(palette.rowBackground);
+    expect(ctx.strokeRect).not.toHaveBeenCalled();
+  });
+
+  it("draws row focus treatment for DOM-island focus", () => {
+    const ctx = canvasContext();
+
+    drawGpuRetainedContentRowBackground({
+      ctx: ctx as unknown as CanvasRenderingContext2D,
+      dividerRects: [],
+      palette,
+      rect: { height: 24, width: 120, x: 0, y: 0 },
+      state: rowState({ focused: true }),
+    });
+
+    expect(ctx.fillStyles[0]).toBe(palette.rowFocusedBackground);
+    expect(ctx.strokeStyles).toContain(palette.focusRing);
+    expect(ctx.strokeRect).toHaveBeenCalledWith(0.5, 0.5, 119, 23);
+  });
 });
 
 const palette: GpuRetainedContentCanvasPalette = {
@@ -99,11 +134,51 @@ function canvasContext({
 }: {
   readonly textWidth?: (text: string) => number;
 } = {}) {
-  return {
+  const context = {
+    beginPath: vi.fn(),
+    fillRect: vi.fn(),
+    fillStyles: [] as string[],
     fillStyle: "",
     fillText: vi.fn(),
     font: "",
+    lineTo: vi.fn(),
+    lineWidth: 0,
     measureText: vi.fn((text: string) => ({ width: textWidth(text) })),
+    moveTo: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    strokeStyles: [] as string[],
+    strokeStyle: "",
     textBaseline: "alphabetic",
+  };
+  Object.defineProperty(context, "fillStyle", {
+    get: () => context.fillStyles.at(-1) ?? "",
+    set: (value: string) => {
+      context.fillStyles.push(value);
+    },
+  });
+  Object.defineProperty(context, "strokeStyle", {
+    get: () => context.strokeStyles.at(-1) ?? "",
+    set: (value: string) => {
+      context.strokeStyles.push(value);
+    },
+  });
+  return context;
+}
+
+function rowState(
+  overrides: Partial<GpuRetainedContentRowState> = {},
+): GpuRetainedContentRowState {
+  return {
+    controlFocused: false,
+    disabled: false,
+    dragging: false,
+    error: false,
+    focused: false,
+    hovered: false,
+    searchFocused: false,
+    searchMatched: false,
+    selected: false,
+    ...overrides,
   };
 }

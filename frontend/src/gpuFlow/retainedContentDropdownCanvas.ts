@@ -145,7 +145,7 @@ function drawGpuRetainedContentDropdownRowTextFrame({
 }) {
   ctx.fillStyle = "#0b0e13";
   fillRoundRect(ctx, outer, 5);
-  if (state?.focused || state?.selected) {
+  if (isGpuRetainedContentControlFocused(state) || state?.selected) {
     ctx.fillStyle = palette.rowFocusedBackground;
     fillRoundRect(ctx, outer, 5);
   }
@@ -154,6 +154,12 @@ function drawGpuRetainedContentDropdownRowTextFrame({
     : palette.textLikeBorder;
   ctx.lineWidth = 1;
   strokeRoundRect(ctx, outer, 5);
+}
+
+function isGpuRetainedContentControlFocused(
+  state: GpuRetainedContentRowState | undefined,
+): boolean {
+  return Boolean(state?.focused || state?.controlFocused);
 }
 
 function drawGpuRetainedContentDropdownLabel({

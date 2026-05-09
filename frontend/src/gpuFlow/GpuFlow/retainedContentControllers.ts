@@ -3,6 +3,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import { redrawGpuRetainedContentSourceElement } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnostics";
 import {
   attachGpuRetainedContentConnectionController,
   type GpuRetainedContentConnectionControllerOptions,
@@ -57,7 +58,11 @@ export type GpuFlowRetainedContentInteractionOptions =
   | false
   | Omit<
       GpuRetainedContentInteractionControllerOptions,
-      "element" | "getScene" | "requestFrame" | "store"
+      | "element"
+      | "getScene"
+      | "interactionDiagnostics"
+      | "requestFrame"
+      | "store"
     >
   | undefined;
 
@@ -88,6 +93,7 @@ export type GpuFlowScenePortConnectionOptions =
 type GpuFlowRetainedContentControllerOptions = {
   readonly containerRef: MutableRefObject<HTMLDivElement | null>;
   readonly layoutStore: GpuFlowLayoutStoreApi | null | undefined;
+  readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeLayerRef: MutableRefObject<{
     readonly scene: GpuFlowScene | undefined;
   }>;
@@ -109,6 +115,7 @@ type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
 
 export function useGpuFlowRetainedContentControllers({
   containerRef,
+  interactionDiagnosticsRef,
   layoutStore,
   nodeLayerRef,
   nodeElementByIdRef,
@@ -254,6 +261,7 @@ export function useGpuFlowRetainedContentControllers({
         ),
       element: container,
       getScene: () => nodeLayerRef.current.scene,
+      interactionDiagnostics: interactionDiagnosticsRef,
       onHitClick: (event) => {
         const retainedContentInteraction = getRetainedContentInteraction();
         const retainedContentScrollbarScroll =
@@ -417,6 +425,7 @@ export function useGpuFlowRetainedContentControllers({
     });
   }, [
     containerRef,
+    interactionDiagnosticsRef,
     nodeLayerRef,
     retainedContentInteractionEnabled,
     retainedContentSwitchAnimations,

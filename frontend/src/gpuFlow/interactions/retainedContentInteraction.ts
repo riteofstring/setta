@@ -1,5 +1,10 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
+  recordGpuFlowPointerDiagnostics,
+  toGpuFlowRetainedHitDiagnostics,
+  type MutableGpuFlowInteractionDiagnostics,
+} from "../interactionDiagnostics";
+import {
   hitTestGpuRetainedContentScene,
   type GpuRetainedContentHitTarget,
 } from "../retainedContentHitTest";
@@ -44,11 +49,18 @@ export type GpuRetainedContentDragCancelEvent<
   readonly nativeEvent: NativeEvent;
 };
 
+export type GpuRetainedContentInteractionDiagnosticsRef = {
+  readonly current: MutableGpuFlowInteractionDiagnostics;
+};
+
 export type GpuRetainedContentInteractionControllerOptions = {
   readonly disabled?: boolean | (() => boolean) | undefined;
   readonly dragThresholdPx?: number | undefined;
   readonly element: HTMLElement;
   readonly getScene: () => GpuFlowScene | undefined;
+  readonly interactionDiagnostics?:
+    | GpuRetainedContentInteractionDiagnosticsRef
+    | undefined;
   readonly onHitClick?:
     | ((event: GpuRetainedContentInteractionEvent) => void)
     | undefined;
@@ -179,6 +191,11 @@ class GpuRetainedContentInteractionController {
     this.element.addEventListener("pointercancel", this.onPointerCancel, {
       capture: true,
     });
+    this.element.addEventListener(
+      "lostpointercapture",
+      this.onLostPointerCapture,
+      { capture: true },
+    );
     this.element.addEventListener("pointerleave", this.onPointerLeave, {
       capture: true,
     });
@@ -196,15 +213,22 @@ class GpuRetainedContentInteractionController {
       this.onPointerCancel,
       true,
     );
+    this.element.removeEventListener(
+      "lostpointercapture",
+      this.onLostPointerCapture,
+      true,
+    );
     this.element.removeEventListener("pointerleave", this.onPointerLeave, true);
     this.element.removeEventListener("click", this.onClick, true);
     this.activePointer = null;
-    this.suppressNextClick = false;
+    this.suppressNextClick = null;
     this.cancelDragFrameLoop();
     this.clearHover();
+    this.clearInteractionDiagnostics();
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
     if (this.shouldSkipPointerEvent(event)) {
       return;
     }
@@ -232,10 +256,16 @@ class GpuRetainedContentInteractionController {
       surfaceId: hit.surfaceId,
     };
     this.element.setPointerCapture?.(event.pointerId);
+    this.setPointerCaptureDiagnostics(
+      event.pointerId,
+      this.element.hasPointerCapture?.(event.pointerId) ?? true,
+    );
+    this.setActiveRetainedHitDiagnostics(hit, event.pointerId, false);
     this.options.onHitPointerDown?.({ ...hit, nativeEvent: event });
   };
 
   private readonly onPointerMove = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
     const activePointer = this.activePointer;
     if (activePointer && activePointer.pointerId === event.pointerId) {
       preventRetainedContentEvent(event);
@@ -255,16 +285,20 @@ class GpuRetainedContentInteractionController {
       return;
     }
     this.hoveredHitKey = nextHoveredHitKey;
+    this.setHoveredRetainedHitDiagnostics(hit);
     this.options.onHitPointerMove?.({ hit, nativeEvent: event });
   };
 
   private readonly onPointerUp = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
     const activePointer = this.activePointer;
     if (!isEventForActiveRetainedContentPointer(activePointer, event)) {
       return;
     }
     preventRetainedContentEvent(event);
-    this.element.releasePointerCapture?.(event.pointerId);
+    this.releasePointerCapture(event.pointerId);
+    this.clearPointerCaptureDiagnostics(event.pointerId);
+    this.clearActiveRetainedHitDiagnostics(event.pointerId);
     this.activePointer = null;
     this.cancelDragFrameLoop();
     if (activePointer.dragging) {
@@ -275,6 +309,7 @@ class GpuRetainedContentInteractionController {
   };
 
   private readonly onPointerCancel = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
     const activePointer = this.activePointer;
     if (!activePointer || activePointer.pointerId !== event.pointerId) {
       return;
@@ -283,7 +318,18 @@ class GpuRetainedContentInteractionController {
     this.cancelActivePointer(event);
   };
 
-  private readonly onPointerLeave = () => {
+  private readonly onLostPointerCapture = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
+    const activePointer = this.activePointer;
+    if (!activePointer || activePointer.pointerId !== event.pointerId) {
+      return;
+    }
+    this.clearPointerCaptureDiagnostics(event.pointerId);
+    this.cancelActivePointer(event, { releaseCapture: false });
+  };
+
+  private readonly onPointerLeave = (event: PointerEvent) => {
+    this.recordPointerDiagnostics(event);
     this.clearHover();
   };
 
@@ -332,6 +378,7 @@ class GpuRetainedContentInteractionController {
       return;
     }
     this.hoveredHitKey = null;
+    this.setHoveredRetainedHitDiagnostics(null);
     this.options.onHitPointerLeave?.();
   }
 
@@ -350,6 +397,7 @@ class GpuRetainedContentInteractionController {
         lastNativeEvent: event,
       };
       this.activePointer = nextActivePointer;
+      this.setActiveRetainedPointerDragging(activePointer.pointerId, true);
       this.options.onHitDragStart?.({
         ...activePointer.startHit,
         nativeEvent: event,
@@ -369,9 +417,16 @@ class GpuRetainedContentInteractionController {
     this.options.requestFrame?.("manual");
   }
 
-  private cancelActivePointer(event: PointerEvent) {
+  private cancelActivePointer(
+    event: PointerEvent,
+    options?: { readonly releaseCapture?: boolean },
+  ) {
     const activePointer = this.activePointer;
-    this.element.releasePointerCapture?.(event.pointerId);
+    if (options?.releaseCapture !== false) {
+      this.releasePointerCapture(event.pointerId);
+      this.clearPointerCaptureDiagnostics(event.pointerId);
+    }
+    this.clearActiveRetainedHitDiagnostics(event.pointerId);
     this.activePointer = null;
     this.cancelDragFrameLoop();
     if (!activePointer?.dragging) {
@@ -479,6 +534,97 @@ class GpuRetainedContentInteractionController {
     }
     cancelAnimationFrame(this.dragAnimationFrame);
     this.dragAnimationFrame = null;
+  }
+
+  private releasePointerCapture(pointerId: number) {
+    if (this.element.hasPointerCapture?.(pointerId)) {
+      this.element.releasePointerCapture?.(pointerId);
+    }
+  }
+
+  private recordPointerDiagnostics(event: PointerEvent) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    recordGpuFlowPointerDiagnostics({
+      diagnostics,
+      element: this.element,
+      event,
+    });
+  }
+
+  private setActiveRetainedHitDiagnostics(
+    hit: GpuRetainedContentInteractionHit,
+    pointerId: number,
+    dragging: boolean,
+  ) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.activeRetainedHit = toGpuFlowRetainedHitDiagnostics(hit);
+    diagnostics.activeRetainedPointerDragging = dragging;
+    diagnostics.activeRetainedPointerId = pointerId;
+  }
+
+  private setActiveRetainedPointerDragging(
+    pointerId: number,
+    dragging: boolean,
+  ) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics || diagnostics.activeRetainedPointerId !== pointerId) {
+      return;
+    }
+    diagnostics.activeRetainedPointerDragging = dragging;
+  }
+
+  private clearActiveRetainedHitDiagnostics(pointerId: number) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics || diagnostics.activeRetainedPointerId !== pointerId) {
+      return;
+    }
+    diagnostics.activeRetainedHit = null;
+    diagnostics.activeRetainedPointerDragging = false;
+    diagnostics.activeRetainedPointerId = null;
+  }
+
+  private setHoveredRetainedHitDiagnostics(
+    hit: GpuRetainedContentInteractionHit | null,
+  ) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.hoveredRetainedHit = toGpuFlowRetainedHitDiagnostics(hit);
+  }
+
+  private setPointerCaptureDiagnostics(pointerId: number, active: boolean) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.pointerCapture = { active, pointerId };
+  }
+
+  private clearPointerCaptureDiagnostics(pointerId: number) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics || diagnostics.pointerCapture?.pointerId !== pointerId) {
+      return;
+    }
+    diagnostics.pointerCapture = { active: false, pointerId };
+  }
+
+  private clearInteractionDiagnostics() {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.activeRetainedHit = null;
+    diagnostics.activeRetainedPointerDragging = false;
+    diagnostics.activeRetainedPointerId = null;
+    diagnostics.hoveredRetainedHit = null;
+    diagnostics.pointerCapture = null;
   }
 }
 

@@ -58,6 +58,7 @@ import { createHtmlSurfaceShaderEffectProjectors } from "../htmlSurfaces/shaderE
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
 import type { GpuFlowFramePerformanceReporter } from "../framePerformance";
+import { createGpuFlowInteractionDiagnosticsState } from "../interactionDiagnostics";
 
 import {
   attachGpuEdgeInteractionController,
@@ -138,6 +139,7 @@ import {
   type GpuFlowRetainedContentScrollOptions,
   type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
+import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
 
 import {
   clearGpuFlowNodeElement,
@@ -340,6 +342,9 @@ export function GpuFlow({
   const activeInteractionNodeIdRef = useRef<string | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
+  const interactionDiagnosticsRef = useRef(
+    createGpuFlowInteractionDiagnosticsState(),
+  );
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
   const nodeInteractionCleanupRef = useRef<(() => void) | null>(null);
   const nodeInteractionRef = useRef<GpuNodeInteractionDirtyController | null>(
@@ -450,6 +455,15 @@ export function GpuFlow({
     viewportStore.getState().setTransform(viewport);
   }, [viewport, viewportStore]);
 
+  useGpuFlowDebugGlobals({
+    activeResizeNodeIdRef,
+    containerRef,
+    interactionDiagnosticsRef,
+    nodeInteractionRef,
+    nodeLayerRef,
+    viewportStore,
+  });
+
   useEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
       if (state.transform !== previousState.transform) {
@@ -511,6 +525,7 @@ export function GpuFlow({
 
   useGpuFlowRetainedContentControllers({
     containerRef,
+    interactionDiagnosticsRef,
     layoutStore,
     nodeElementByIdRef,
     nodeLayerRef,
@@ -888,6 +903,7 @@ export function GpuFlow({
         frameReasons: event.reasons,
         frameRef,
         activeResizeNodeIdRef,
+        interactionDiagnosticsRef,
         nodeElementByIdRef,
         nodeDomTransformSyncCacheRef,
         nodeInteractionRef,
@@ -898,6 +914,7 @@ export function GpuFlow({
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
         visibleNodeIdsRef,
+        viewportStore,
         viewportFrame: event.reasons.includes("viewport"),
       });
       callbacksRef.current.onFrame?.(runtime, event);

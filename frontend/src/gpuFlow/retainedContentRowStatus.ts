@@ -9,6 +9,7 @@ export type GpuRetainedContentRowStatus = {
 
 type GpuRetainedContentStatusOverlayRow = {
   readonly state: {
+    readonly controlFocused: boolean;
     readonly focused: boolean;
     readonly hovered: boolean;
     readonly searchFocused: boolean;
@@ -49,7 +50,12 @@ export function createGpuRetainedContentStatusOverlayRect({
 }): GpuRect | null {
   if (
     !row.status ||
-    !(row.state.hovered || row.state.focused || row.state.searchFocused)
+    !(
+      row.state.hovered ||
+      row.state.focused ||
+      row.state.controlFocused ||
+      row.state.searchFocused
+    )
   ) {
     return null;
   }

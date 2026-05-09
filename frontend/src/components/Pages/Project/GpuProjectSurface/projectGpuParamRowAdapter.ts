@@ -909,26 +909,27 @@ function createProjectGpuParamRowState({
   readonly surfaceId: string;
   readonly status: GpuRetainedContentRowStatus | null;
 }): Partial<GpuRetainedContentRowState> {
+  const rowTarget = {
+    paramInfoId: rowId,
+    sectionId,
+    surfaceId,
+  };
   return {
+    controlFocused: isProjectGpuRetainedParamTargetForRow(
+      activeParamCanvasControl,
+      rowTarget,
+    ),
     disabled: Boolean(disabled),
     dragging: draggingParamIds?.has(rowId) ?? false,
     error: status !== null,
-    focused:
-      isProjectGpuRetainedParamTargetForRow(activeParamDomIsland, {
-        paramInfoId: rowId,
-        sectionId,
-        surfaceId,
-      }) ||
-      isProjectGpuRetainedParamTargetForRow(activeParamCanvasControl, {
-        paramInfoId: rowId,
-        sectionId,
-        surfaceId,
-      }),
-    hovered: isProjectGpuRetainedParamTargetForRow(hoveredParamTarget, {
-      paramInfoId: rowId,
-      sectionId,
-      surfaceId,
-    }),
+    focused: isProjectGpuRetainedParamTargetForRow(
+      activeParamDomIsland,
+      rowTarget,
+    ),
+    hovered: isProjectGpuRetainedParamTargetForRow(
+      hoveredParamTarget,
+      rowTarget,
+    ),
     searchFocused: isProjectGpuParamSearchFocused({
       projectSearch,
       rowId,
