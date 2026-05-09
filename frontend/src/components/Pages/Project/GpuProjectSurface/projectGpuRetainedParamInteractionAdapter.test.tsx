@@ -135,6 +135,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("components/Params/ParamItems/ParamInput", () => ({
   ParamInput: (props: {
+    focusActiveSectionOnTextInput?: boolean;
     maybeErrorMessage?: string;
     paramInfoId: string;
     sectionId: string;
@@ -443,6 +444,7 @@ describe("project GPU retained param DOM islands", () => {
     try {
       expect(mocks.paramInputProps).toHaveBeenCalledWith(
         expect.objectContaining({
+          focusActiveSectionOnTextInput: false,
           paramInfoId: "param-1",
           sectionId: "section-1",
           tooltipParentDivId: PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
@@ -1482,6 +1484,7 @@ describe("project GPU retained param DOM islands", () => {
           paramInfoId: "param-1",
         }),
       );
+      expect(mocks.setActiveIdsMock).not.toHaveBeenCalled();
 
       await act(async () => {
         vi.advanceTimersByTime(60);

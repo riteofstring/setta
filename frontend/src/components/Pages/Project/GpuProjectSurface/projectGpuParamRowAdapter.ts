@@ -99,7 +99,6 @@ type ProjectGpuParamTreeRowLike = {
 export function createProjectGpuParamRowInput({
   activeParamCanvasControl,
   activeParamCanvasPopup,
-  activeParamDomIsland,
   codeObjImpl,
   disabled,
   draggingParamIds,
@@ -122,10 +121,6 @@ export function createProjectGpuParamRowInput({
     | undefined;
   readonly activeParamCanvasPopup?:
     | ProjectGpuRetainedParamCanvasPopupLike
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
-    | ProjectGpuRetainedParamTargetLike
     | null
     | undefined;
   readonly codeObjImpl: {
@@ -199,7 +194,6 @@ export function createProjectGpuParamRowInput({
       : [],
     state: createProjectGpuParamRowState({
       activeParamCanvasControl,
-      activeParamDomIsland,
       disabled,
       draggingParamIds,
       hoveredParamTarget,
@@ -877,7 +871,6 @@ function isProjectGpuSwitchValueChecked(value: string): boolean {
 
 function createProjectGpuParamRowState({
   activeParamCanvasControl,
-  activeParamDomIsland,
   disabled,
   draggingParamIds,
   hoveredParamTarget,
@@ -889,10 +882,6 @@ function createProjectGpuParamRowState({
   status,
 }: {
   readonly activeParamCanvasControl?:
-    | ProjectGpuRetainedParamTargetLike
-    | null
-    | undefined;
-  readonly activeParamDomIsland?:
     | ProjectGpuRetainedParamTargetLike
     | null
     | undefined;
@@ -922,10 +911,7 @@ function createProjectGpuParamRowState({
     disabled: Boolean(disabled),
     dragging: draggingParamIds?.has(rowId) ?? false,
     error: status !== null,
-    focused: isProjectGpuRetainedParamTargetForRow(
-      activeParamDomIsland,
-      rowTarget,
-    ),
+    focused: false,
     hovered: isProjectGpuRetainedParamTargetForRow(
       hoveredParamTarget,
       rowTarget,

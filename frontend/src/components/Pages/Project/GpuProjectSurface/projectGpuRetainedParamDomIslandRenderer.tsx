@@ -60,7 +60,7 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
 }
 
 const PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS =
-  "relative h-full min-w-0 bg-white shadow-[0_0_0_2px_rgba(37,99,235,0.85),0_0_0_5px_rgba(37,99,235,0.18)] dark:bg-setta-900 dark:shadow-[0_0_0_2px_rgba(96,165,250,0.9),0_0_0_5px_rgba(96,165,250,0.25)]";
+  "relative h-full min-w-0 bg-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.85),0_1px_2px_rgba(15,23,42,0.12)] dark:bg-setta-900 dark:shadow-[inset_0_0_0_1px_rgba(148,163,184,0.55),0_1px_2px_rgba(0,0,0,0.24)]";
 
 function ProjectGpuParamControlDomIsland({
   activation,
@@ -111,6 +111,7 @@ function ProjectGpuParamControlDomIsland({
           maybeErrorMessage={maybeErrorMessage}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
+          focusActiveSectionOnTextInput={false}
           tooltipParentDivId={PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}
         />
       </div>

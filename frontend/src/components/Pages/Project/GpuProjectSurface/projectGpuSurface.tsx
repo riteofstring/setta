@@ -1,5 +1,4 @@
 import { GpuFlow } from "gpuFlow/GpuFlow";
-
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
@@ -84,6 +83,7 @@ import type {
 } from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { projectGpuResizePreviewSceneMatchesCommittedScene } from "./projectGpuResizePreviewSceneMatch";
+import { isProjectRetainedContentClickPoint } from "./projectGpuRetainedContentClickGuard";
 import {
   useProjectGpuRetainedParamCanvasControlKeyboard,
   useProjectGpuRetainedParamCanvasControlWheel,
@@ -294,6 +294,15 @@ export function GpuProjectSurface() {
         }
       }}
       onClick={(event) => {
+        if (
+          isProjectRetainedContentClickPoint({
+            event,
+            root: rootRef.current,
+            scene: layoutAdapter.scene,
+          })
+        ) {
+          return;
+        }
         if (isProjectPaneBackgroundTarget(event.target)) {
           setActiveParamCanvasControl(null);
           setActiveParamDomIsland(null);

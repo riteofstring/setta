@@ -19,7 +19,6 @@ import type { GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
 import type { MutableRefObject } from "react";
 import { flushSync } from "react-dom";
-import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
   createAgenticEdgeFromConnection,
@@ -362,10 +361,6 @@ function handleProjectRetainedContentClick(
   ) {
     return;
   }
-  applyActiveSectionChange({
-    interaction: "input-focus",
-    sectionId: event.ownerSectionId,
-  });
   const controlTarget = toProjectGpuRetainedCanvasControlTarget(event);
   onActiveParamCanvasControlChange(controlTarget);
   if (
@@ -415,10 +410,6 @@ function handleProjectRetainedContentPointerDown(
   ) {
     return;
   }
-  applyActiveSectionChange({
-    interaction: "input-focus",
-    sectionId: event.ownerSectionId,
-  });
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
   flushSync(() => {
@@ -503,10 +494,6 @@ function handleProjectRetainedContentDragStart(
   },
 ) {
   if (isProjectGpuRetainedParamRangedControlHit(event)) {
-    applyActiveSectionChange({
-      interaction: "input-focus",
-      sectionId: event.ownerSectionId,
-    });
     retainedParamDragSessionRef.current = null;
     const controlTarget = toProjectGpuRetainedCanvasControlTarget(event);
     onActiveParamCanvasControlChange(controlTarget);

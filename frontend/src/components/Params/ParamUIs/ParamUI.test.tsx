@@ -77,6 +77,7 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
 vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
   TextInputCodeMirror: (props: {
     defaultVal: string;
+    focusActiveSectionOnMouseDown?: boolean;
     isDisabled: boolean;
     language: string;
     tooltipParentDivId?: string | null;
@@ -328,6 +329,7 @@ describe("ParamUI", () => {
 
   it("forwards a retained CodeMirror tooltip parent override to text inputs", async () => {
     const rendered = await renderParamUI({
+      focusActiveSectionOnTextInput: false,
       tooltipParentDivId: "retained-codemirror-tooltips",
     });
 
@@ -340,6 +342,7 @@ describe("ParamUI", () => {
       );
       expect(mocks.textInputProps).toHaveBeenCalledWith(
         expect.objectContaining({
+          focusActiveSectionOnMouseDown: false,
           tooltipParentDivId: "retained-codemirror-tooltips",
         }),
       );

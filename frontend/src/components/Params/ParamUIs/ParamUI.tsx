@@ -73,6 +73,7 @@ type ParamUIProps = {
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
+  focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
   tooltipParentDivId?: string | null | undefined;
 };
@@ -241,6 +242,7 @@ function renderTextLikeParam({
   onChange,
   onEscape,
   maybeErrorMessage,
+  focusActiveSectionOnTextInput,
   tooltipParentDivId,
   isDisabled,
   isSelectingParams,
@@ -264,6 +266,7 @@ function renderTextLikeParam({
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
+      focusActiveSectionOnTextInput={focusActiveSectionOnTextInput ?? true}
       tooltipParentDivId={tooltipParentDivId}
     />
   );
@@ -570,6 +573,7 @@ export function ParamUI({
   onDropzoneStateless,
   onRevealPassword,
   isPasswordRevealPending,
+  focusActiveSectionOnTextInput,
   maybeErrorMessage,
   tooltipParentDivId,
 }: ParamUIProps) {
@@ -612,6 +616,7 @@ export function ParamUI({
     onDropzoneStateless,
     onRevealPassword,
     isPasswordRevealPending,
+    focusActiveSectionOnTextInput,
     maybeErrorMessage,
     tooltipParentDivId,
     isDisabled,
@@ -648,6 +653,7 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  focusActiveSectionOnTextInput,
   tooltipParentDivId,
 }: {
   sectionId: string;
@@ -661,6 +667,7 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
+  focusActiveSectionOnTextInput: boolean;
   tooltipParentDivId: string | null | undefined;
 }) {
   const resolvedTooltipParentDivId =
@@ -685,6 +692,7 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
+        focusActiveSectionOnMouseDown={focusActiveSectionOnTextInput}
         tooltipParentDivId={resolvedTooltipParentDivId}
       />
       {waitingForResult && (

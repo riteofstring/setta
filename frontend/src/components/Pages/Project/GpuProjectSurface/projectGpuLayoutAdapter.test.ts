@@ -1600,7 +1600,7 @@ describe("project GPU layout adapter", () => {
       })),
     ).toEqual([
       { focused: false, hovered: true, id: "parent-param" },
-      { focused: true, hovered: false, id: "child-param" },
+      { focused: false, hovered: false, id: "child-param" },
     ]);
     expect(scene.domIslands).toEqual([
       {
@@ -2749,7 +2749,7 @@ describe("project GPU layout adapter", () => {
       })),
     ).toEqual([
       { focused: false, id: "parent-param" },
-      { focused: true, id: "child-param" },
+      { focused: false, id: "child-param" },
     ]);
     expect(scene.domIslands).toEqual([
       {

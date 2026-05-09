@@ -132,6 +132,21 @@ describe("gpu project interaction guards", () => {
     expect(isProjectPaneBackgroundTarget(target)).toBe(false);
   });
 
+  it.each([
+    ["retained DOM island", "gpuFlowDomIsland"],
+    ["retained content canvas", "gpuFlowRetainedContentCanvas"],
+    ["retained content native target", "gpuFlowRetainedContentNative"],
+    ["retained content source", "gpuFlowRetainedContentSource"],
+  ] as const)(
+    "rejects %s as a pane background target",
+    (_label, dataAttribute) => {
+      const { surface } = createProjectPaneFixture();
+      const target = appendNestedTarget(surface, { dataAttribute });
+
+      expect(isProjectPaneBackgroundTarget(target)).toBe(false);
+    },
+  );
+
   it("rejects GpuFlow portal root content as a pane background target", () => {
     const { surface } = createProjectPaneFixture();
     const target = appendNestedTarget(surface, { gpuFlowPortalRoot: true });
@@ -163,6 +178,12 @@ function appendNestedTarget(
   parent: Element,
   options: {
     readonly className?: string | undefined;
+    readonly dataAttribute?:
+      | "gpuFlowDomIsland"
+      | "gpuFlowRetainedContentCanvas"
+      | "gpuFlowRetainedContentNative"
+      | "gpuFlowRetainedContentSource"
+      | undefined;
     readonly gpuFlowPortalRoot?: boolean | undefined;
     readonly id?: string | undefined;
   },
@@ -170,6 +191,9 @@ function appendNestedTarget(
   const wrapper = document.createElement("div");
   if (options.className) {
     wrapper.className = options.className;
+  }
+  if (options.dataAttribute) {
+    wrapper.dataset[options.dataAttribute] = "true";
   }
   if (options.id) {
     wrapper.id = options.id;

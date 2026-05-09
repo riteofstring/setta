@@ -29,6 +29,7 @@ import {
 type ParamInputProps = {
   sectionId: string;
   paramInfoId: string;
+  focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
   tooltipParentDivId?: string | null | undefined;
 };
@@ -213,6 +214,7 @@ async function revealPasswordValue({
 function _ParamInput({
   sectionId,
   paramInfoId,
+  focusActiveSectionOnTextInput,
   maybeErrorMessage,
   tooltipParentDivId,
 }: ParamInputProps) {
@@ -292,6 +294,7 @@ function _ParamInput({
       onDropzoneStateless={onDropzoneStateless}
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}
+      focusActiveSectionOnTextInput={focusActiveSectionOnTextInput}
       maybeErrorMessage={maybeErrorMessage}
       tooltipParentDivId={tooltipParentDivId}
     />
