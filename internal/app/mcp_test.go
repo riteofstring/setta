@@ -240,6 +240,49 @@ func assertAuthenticatedMCPDiagnostics(t *testing.T, session *sdkmcp.ClientSessi
 	}
 }
 
+func startAppMCPTestServer(t *testing.T, cfg config.Config) (*App, *httptest.Server, *sdkmcp.ClientSession) {
+	t.Helper()
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	t.Cleanup(server.Close)
+
+	session := connectAuthenticatedAppMCPSession(t, app, server.URL)
+	t.Cleanup(func() {
+		_ = session.Close()
+	})
+	return app, server, session
+}
+
+func dialAuthenticatedAppFrontend(t *testing.T, app *App, serverURL string, maxIdentityReads int) *websocket.Conn {
+	t.Helper()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.CloseNow()
+	})
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, maxIdentityReads)
+	return conn
+}
+
 func TestAppIDEMCPServerRejectsUnauthorizedClients(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -379,129 +422,78 @@ func TestAppIDEMCPServerSupportsCreateTopLevelSectionAfterProjectSummaryOverAuth
 	saveAppScopedMCPProject(t, cfg)
 	mustEnableAppSavedPythonCodegen(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
+	app, server, session := startAppMCPTestServer(t, cfg)
+	conn := dialAuthenticatedAppFrontend(t, app, server.URL, 2)
+
+	setAuthenticatedMCPAgenticContextAllowUnscoped(t, session)
+	callAppMCPTool(t, session, "getProjectConfigNamesAndIds", map[string]any{})
+	callAppMCPTool(t, session, "get_latest_project_state_summary", map[string]any{"projectConfigId": "project-alpha"})
+
+	beforeSectionIDs := appMCPProjectSectionIDs(t, app, "project-alpha")
+	createdSectionID := createAppMCPTopLevelCallableSection(t, session)
+	canonicalSectionID := appMCPNewCanonicalSectionID(t, app, "project-alpha", beforeSectionIDs)
+	if createdSectionID == canonicalSectionID {
+		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
 	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
+	assertAppMCPProjectStateBroadcastIncludesSection(t, conn, canonicalSectionID)
+}
+
+func setAuthenticatedMCPAgenticContextAllowUnscoped(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callAppMCPTool(t, session, "set_agentic_context", map[string]any{
+		"projectConfigId": "project-alpha",
+		"allowUnscoped":   true,
 	})
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func appMCPProjectSectionIDs(t *testing.T, app *App, projectID string) map[string]struct{} {
+	t.Helper()
 
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID(projectID)
+	if err != nil {
+		t.Fatalf("project by id %s: %v", projectID, err)
+	}
+	sectionIDs := map[string]struct{}{}
+	for sectionID := range project.Sections {
+		sectionIDs[sectionID] = struct{}{}
+	}
+	return sectionIDs
+}
+
+func createAppMCPTopLevelCallableSection(t *testing.T, session *sdkmcp.ClientSession) string {
+	t.Helper()
+
+	result := callAppMCPTool(t, session, "create_top_level_section", map[string]any{
+		"projectConfigId": "project-alpha",
+		"implType":        "Callable",
 	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
-		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect authenticated streamable-http mcp client: %v", err)
-	}
-	defer session.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := session.CallTool(ctx, &sdkmcp.CallToolParams{
-		Name: "set_agentic_context",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"allowUnscoped":   true,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_agentic_context over streamable-http: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
-	}
-
-	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
-		Name:      "getProjectConfigNamesAndIds",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call getProjectConfigNamesAndIds over streamable-http: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", result.StructuredContent)
-	}
-
-	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
-		Name: "get_latest_project_state_summary",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call get_latest_project_state_summary over streamable-http: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected get_latest_project_state_summary success, got %#v", result.StructuredContent)
-	}
-
-	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id before create_top_level_section: %v", err)
-	}
-	beforeSectionIDs := map[string]struct{}{}
-	for sectionID := range beforeProject.Sections {
-		beforeSectionIDs[sectionID] = struct{}{}
-	}
-
-	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
-		Name: "create_top_level_section",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"implType":        "Callable",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call create_top_level_section over streamable-http after summary: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected create_top_level_section success, got %#v", result.StructuredContent)
-	}
-
 	payload := mustStructuredMapValue(t, result.StructuredContent)
 	sectionID, ok := payload["sectionId"].(string)
 	if !ok || strings.TrimSpace(sectionID) == "" {
 		t.Fatalf("expected created section id, got %#v", payload["sectionId"])
 	}
+	return sectionID
+}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+func appMCPNewCanonicalSectionID(t *testing.T, app *App, projectID string, beforeSectionIDs map[string]struct{}) string {
+	t.Helper()
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID(projectID)
 	if err != nil {
 		t.Fatalf("project by id after create_top_level_section: %v", err)
 	}
-	var canonicalSectionID string
 	for currentSectionID := range project.Sections {
 		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
-			canonicalSectionID = currentSectionID
-			break
+			return currentSectionID
 		}
 	}
-	if canonicalSectionID == "" {
-		t.Fatalf("expected one new canonical section after create_top_level_section, got %#v", project.Sections)
-	}
-	if sectionID == canonicalSectionID {
-		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
-	}
+	t.Fatalf("expected one new canonical section after create_top_level_section, got %#v", project.Sections)
+	return ""
+}
+
+func assertAppMCPProjectStateBroadcastIncludesSection(t *testing.T, conn *websocket.Conn, sectionID string) {
+	t.Helper()
 
 	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
 	var update realtime.ProjectStateUpdateContent
@@ -511,8 +503,8 @@ func TestAppIDEMCPServerSupportsCreateTopLevelSectionAfterProjectSummaryOverAuth
 	if update.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha state update, got %q", update.ProjectState.ProjectConfig.ID)
 	}
-	if _, ok := update.ProjectState.Sections[canonicalSectionID]; !ok {
-		t.Fatalf("expected websocket update to include created canonical section %q", canonicalSectionID)
+	if _, ok := update.ProjectState.Sections[sectionID]; !ok {
+		t.Fatalf("expected websocket update to include created canonical section %q", sectionID)
 	}
 }
 
@@ -524,120 +516,76 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedStreamableHTTP(
 	enableAppSubsystemPluginForTest(t, cfg)
 	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
+	_, _, session := startAppMCPTestServer(t, cfg)
+
+	assertAppMCPToolSearch(t, session)
+	assertAppMCPProjectConfigNames(t, session)
+	assertAppMCPInstalledPythonPackages(t, session)
+	assertAppMCPAppCatalog(t, session)
+	assertAppMCPAppComponents(t, session)
+	assertAppMCPSettaDocs(t, session)
+}
+
+func assertAppMCPToolSearch(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	searchResult := callAppMCPTool(t, session, "search_mcp_tools", map[string]any{
+		"query": "section size settings",
+		"limit": 2,
 	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
-		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect authenticated mcp client: %v", err)
-	}
-	defer session.Close()
-
-	searchResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_mcp_tools",
-		Arguments: map[string]any{
-			"query": "section size settings",
-			"limit": 2,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call search_mcp_tools: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected search_mcp_tools success, got %#v", searchResult.StructuredContent)
-	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	searchEntries := mustStructuredListValue(t, searchPayload["results"])
 	if len(searchEntries) == 0 || mustStructuredMapValue(t, searchEntries[0])["name"] != "set_section_sizes" {
 		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
 	}
+}
 
-	projectsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "getProjectConfigNamesAndIds",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call getProjectConfigNamesAndIds: %v", err)
-	}
-	if projectsResult.IsError {
-		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsResult.StructuredContent)
-	}
+func assertAppMCPProjectConfigNames(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	projectsResult := callAppMCPTool(t, session, "getProjectConfigNamesAndIds", map[string]any{})
 	projectsPayload := mustStructuredMapValue(t, projectsResult.StructuredContent)
 	projectConfigs := mustStructuredListValue(t, projectsPayload["projectConfigs"])
 	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
 	}
+}
 
-	packagesResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "getInstalledPythonPackages",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call getInstalledPythonPackages: %v", err)
-	}
-	if packagesResult.IsError {
-		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesResult.StructuredContent)
-	}
+func assertAppMCPInstalledPythonPackages(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	packagesResult := callAppMCPTool(t, session, "getInstalledPythonPackages", map[string]any{})
 	packagesPayload := mustStructuredMapValue(t, packagesResult.StructuredContent)
 	packages := mustStringSliceValue(t, packagesPayload["packages"])
 	assertInstalledPythonPackages(t, packages)
+}
 
-	catalogResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "get_app_catalog",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call get_app_catalog: %v", err)
-	}
-	if catalogResult.IsError {
-		t.Fatalf("expected get_app_catalog success, got %#v", catalogResult.StructuredContent)
-	}
+func assertAppMCPAppCatalog(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	catalogResult := callAppMCPTool(t, session, "get_app_catalog", map[string]any{})
 	catalogPayload := mustStructuredMapValue(t, catalogResult.StructuredContent)
 	catalog := mustStructuredMapValue(t, catalogPayload["catalog"])
 	if catalog["id"] != appspec.DefaultCatalogID {
 		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, catalog["id"])
 	}
+}
 
-	componentsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "list_app_components",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call list_app_components: %v", err)
-	}
-	if componentsResult.IsError {
-		t.Fatalf("expected list_app_components success, got %#v", componentsResult.StructuredContent)
-	}
+func assertAppMCPAppComponents(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	componentsResult := callAppMCPTool(t, session, "list_app_components", map[string]any{})
 	componentsPayload := mustStructuredMapValue(t, componentsResult.StructuredContent)
 	componentTypes := mustStringSliceValue(t, componentsPayload["components"])
 	if len(componentTypes) == 0 || componentTypes[0] != "Stack" {
 		t.Fatalf("expected ordered component list, got %#v", componentTypes)
 	}
+}
 
-	docsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "get_setta_docs",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call get_setta_docs: %v", err)
-	}
-	if docsResult.IsError {
-		t.Fatalf("expected get_setta_docs success, got %#v", docsResult.StructuredContent)
-	}
+func assertAppMCPSettaDocs(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	docsResult := callAppMCPTool(t, session, "get_setta_docs", map[string]any{})
 	docsPayload := mustStructuredMapValue(t, docsResult.StructuredContent)
 	docs := mustStructuredListValue(t, docsPayload["docs"])
 	if len(docs) != 4 {
@@ -652,46 +600,26 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	saveAppScopedMCPProject(t, cfg)
 	installAppPluginFixture(t, cfg, "backend-mcp-tools", "setta-fixture-backend-mcp-tools")
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
-		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect authenticated mcp client: %v", err)
-	}
-	defer session.Close()
+	_, _, session := startAppMCPTestServer(t, cfg)
 
 	toolsResult, err := session.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
+	assertAppMCPPluginBackendToolMetadata(t, toolsResult.Tools)
 
-	var readTool *sdkmcp.Tool
-	var writeTool *sdkmcp.Tool
-	for _, tool := range toolsResult.Tools {
-		if tool.Name == "setta_fixture_mcp_read" {
-			readTool = tool
-		}
-		if tool.Name == "setta_fixture_mcp_write" {
-			writeTool = tool
-		}
-	}
+	setAuthenticatedMCPAgenticContext(t, session)
+	assertAppMCPPluginBackendReadTool(t, session)
+	assertAppMCPPluginBackendSearch(t, session)
+}
+
+func assertAppMCPPluginBackendToolMetadata(t *testing.T, tools []*sdkmcp.Tool) {
+	t.Helper()
+
+	readTool := appMCPToolByName(tools, "setta_fixture_mcp_read")
+	writeTool := appMCPToolByName(tools, "setta_fixture_mcp_write")
 	if readTool == nil || writeTool == nil {
-		t.Fatalf("expected plugin backend MCP tools in list, got %#v", toolsResult.Tools)
+		t.Fatalf("expected plugin backend MCP tools in list, got %#v", tools)
 	}
 	if readTool.Annotations == nil || !readTool.Annotations.ReadOnlyHint {
 		t.Fatalf("expected read-only hint on backend read tool, got %#v", readTool.Annotations)
@@ -713,34 +641,23 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	if writeMeta["accessType"] != "write" {
 		t.Fatalf("expected write access type on backend write tool, got %#v", writeMeta["accessType"])
 	}
+}
 
-	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_agentic_context",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"chatId":          "chat-1",
-			"sectionId":       "chat-section",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_agentic_context: %v", err)
+func appMCPToolByName(tools []*sdkmcp.Tool, name string) *sdkmcp.Tool {
+	for _, tool := range tools {
+		if tool.Name == name {
+			return tool
+		}
 	}
-	if setContextResult.IsError {
-		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
-	}
+	return nil
+}
 
-	readResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "setta_fixture_mcp_read",
-		Arguments: map[string]any{
-			"value": "alpha",
-		},
+func assertAppMCPPluginBackendReadTool(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	readResult := callAppMCPTool(t, session, "setta_fixture_mcp_read", map[string]any{
+		"value": "alpha",
 	})
-	if err != nil {
-		t.Fatalf("call plugin backend read tool: %v", err)
-	}
-	if readResult.IsError {
-		t.Fatalf("expected plugin backend read tool success, got %#v", readResult.StructuredContent)
-	}
 	readPayload, ok := readResult.StructuredContent.(string)
 	if !ok {
 		t.Fatalf("expected string read payload, got %#v", readResult.StructuredContent)
@@ -748,20 +665,15 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	if readPayload != "read:setta-fixture-backend-mcp-tools:alpha" {
 		t.Fatalf("unexpected plugin backend read payload %q", readPayload)
 	}
+}
 
-	searchResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "search_mcp_tools",
-		Arguments: map[string]any{
-			"query": "fixture mcp read",
-			"limit": 5,
-		},
+func assertAppMCPPluginBackendSearch(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	searchResult := callAppMCPTool(t, session, "search_mcp_tools", map[string]any{
+		"query": "fixture mcp read",
+		"limit": 5,
 	})
-	if err != nil {
-		t.Fatalf("call search_mcp_tools: %v", err)
-	}
-	if searchResult.IsError {
-		t.Fatalf("expected search_mcp_tools success, got %#v", searchResult.StructuredContent)
-	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	results := mustStructuredListValue(t, searchPayload["results"])
 	if len(results) == 0 {
