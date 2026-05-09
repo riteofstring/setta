@@ -1,5 +1,6 @@
 import type { Node } from "gpuFlow/flowTypes";
 import type { ZustandProjectState } from "state/definitions";
+import type { getProjectGpuFlowScene } from "components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -25,6 +26,12 @@ import {
   type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 
+type ProjectGpuFlowScene = ReturnType<typeof getProjectGpuFlowScene>;
+type ProjectGpuContentSurface = ProjectGpuFlowScene["contentSurfaces"][number];
+type ProjectGpuRetainedScene = NonNullable<
+  ProjectGpuContentSurface["retainedScene"]
+>;
+
 export function projectNode(
   id: string,
   overrides: Partial<Omit<Node, "id">> = {},
@@ -38,6 +45,67 @@ export function projectNode(
     zIndex: 1,
     ...overrides,
   };
+}
+
+export function mustSceneSection(
+  scene: ProjectGpuFlowScene,
+  sectionId: string,
+) {
+  const section = scene.sections.find(
+    (candidate) => candidate.sectionId === sectionId,
+  );
+  if (!section) {
+    throw new Error(`Expected section ${sectionId}.`);
+  }
+  return section;
+}
+
+export function mustContentSurface(
+  scene: ProjectGpuFlowScene,
+  surfaceId: string,
+): ProjectGpuContentSurface {
+  const surface = scene.contentSurfaces.find(
+    (candidate) => candidate.id === surfaceId,
+  );
+  if (!surface) {
+    throw new Error(`Expected content surface ${surfaceId}.`);
+  }
+  return surface;
+}
+
+export function mustRetainedScene(
+  scene: ProjectGpuFlowScene,
+  surfaceId: string,
+): ProjectGpuRetainedScene {
+  const retainedScene = mustContentSurface(scene, surfaceId).retainedScene;
+  if (!retainedScene) {
+    throw new Error(`Expected retained scene ${surfaceId}.`);
+  }
+  return retainedScene;
+}
+
+export function rowControlWidth(
+  retainedScene: ProjectGpuRetainedScene,
+  rowId: string,
+): number {
+  return retainedDrawCommandRect(retainedScene, "row-control", rowId).width;
+}
+
+export function retainedDrawCommandRect(
+  retainedScene: ProjectGpuRetainedScene,
+  kind: string,
+  rowId: string,
+) {
+  const command = retainedScene.drawCommands.find(
+    (candidate) =>
+      candidate.kind === kind &&
+      "rowId" in candidate &&
+      candidate.rowId === rowId,
+  ) as { rect: { width: number; x: number } } | undefined;
+  if (!command) {
+    throw new Error(`Expected ${kind} command ${rowId}.`);
+  }
+  return command.rect;
 }
 
 export function sectionSize(size: {

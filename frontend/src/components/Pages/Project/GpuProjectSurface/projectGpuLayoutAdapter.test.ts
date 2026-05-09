@@ -9,8 +9,13 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   addParamToProjectState,
   createNestedParamImpl,
+  mustContentSurface,
+  mustRetainedScene,
+  mustSceneSection,
   projectNode,
   projectStateWithSections,
+  retainedDrawCommandRect,
+  rowControlWidth,
   sectionSize,
 } from "testUtils/projectGpuLayoutAdapter.test.support";
 import {
@@ -286,8 +291,13 @@ describe("project GPU layout adapter", () => {
       },
     });
 
-    const paramSurface = scene.contentSurfaces.find(
-      (surface) => surface.id === "dict-a:param-content:unpinned",
+    const paramSurface = mustContentSurface(
+      scene,
+      "dict-a:param-content:unpinned",
+    );
+    const retainedScene = mustRetainedScene(
+      scene,
+      "dict-a:param-content:unpinned",
     );
     expect(paramSurface).toMatchObject({
       clipRect: {
@@ -309,7 +319,7 @@ describe("project GPU layout adapter", () => {
       },
       zIndex: 3,
     });
-    expect(paramSurface?.retainedScene).toMatchObject({
+    expect(retainedScene).toMatchObject({
       contentRect: { height: 48, width: 262, x: 0, y: 0 },
       ownerSectionId: "dict-a",
       rowHeight: 24,
@@ -317,7 +327,7 @@ describe("project GPU layout adapter", () => {
       visibleRange: { endIndex: 2, rowCount: 2, startIndex: 0 },
     });
     expect(
-      paramSurface?.retainedScene?.rows.map((row) => ({
+      retainedScene.rows.map((row) => ({
         controlKind: row.controlKind,
         depth: row.depth,
         id: row.id,
@@ -360,8 +370,7 @@ describe("project GPU layout adapter", () => {
       },
     ]);
     expect(
-      paramSurface?.retainedScene?.rows.find((row) => row.id === "child-param")
-        ?.control,
+      retainedScene.rows.find((row) => row.id === "child-param")?.control,
     ).toMatchObject({
       displayValue: "",
       editorKind: "code",
@@ -369,7 +378,7 @@ describe("project GPU layout adapter", () => {
       rendererFamily: "text-like",
       commitPolicy: "native-island",
     });
-    expect(paramSurface?.retainedScene?.portAnchors).toEqual([
+    expect(retainedScene.portAnchors).toEqual([
       expect.objectContaining({
         id: "child-param",
         kind: "input",
@@ -400,11 +409,12 @@ describe("project GPU layout adapter", () => {
       },
       revision: 3,
     });
-    const dragPreviewSurface = dragPreviewScene.contentSurfaces.find(
-      (surface) => surface.id === "dict-a:param-content:unpinned",
+    const dragPreviewRetainedScene = mustRetainedScene(
+      dragPreviewScene,
+      "dict-a:param-content:unpinned",
     );
     expect(
-      dragPreviewSurface?.retainedScene?.rows.map((row) => ({
+      dragPreviewRetainedScene.rows.map((row) => ({
         dragging: row.state.dragging,
         id: row.id,
       })),
@@ -412,7 +422,7 @@ describe("project GPU layout adapter", () => {
       { dragging: false, id: "parent-param" },
       { dragging: true, id: "child-param" },
     ]);
-    expect(dragPreviewSurface?.retainedScene?.drawCommands).toEqual(
+    expect(dragPreviewRetainedScene.drawCommands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: "row-drop-marker",
@@ -476,16 +486,12 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 5,
     });
-    const section = scene.sections.find(
-      (candidate) => candidate.sectionId === "dict-a",
+    const section = mustSceneSection(scene, "dict-a");
+    const surface = mustContentSurface(scene, "dict-a:param-content:unpinned");
+    const retainedScene = mustRetainedScene(
+      scene,
+      "dict-a:param-content:unpinned",
     );
-    const surface = scene.contentSurfaces.find(
-      (candidate) => candidate.id === "dict-a:param-content:unpinned",
-    );
-    const retainedScene = surface?.retainedScene;
-    if (!section || !surface || !retainedScene) {
-      throw new Error("Expected dict-a section and retained surface.");
-    }
 
     const previewScene = resolveProjectGpuResizePreviewScene(
       projectState,
@@ -500,15 +506,17 @@ describe("project GPU layout adapter", () => {
         sectionId: "dict-a",
       },
     );
-    const previewSurface = previewScene.contentSurfaces.find(
-      (candidate) => candidate.id === "dict-a:param-content:unpinned",
+    const previewSection = mustSceneSection(previewScene, "dict-a");
+    const previewSurface = mustContentSurface(
+      previewScene,
+      "dict-a:param-content:unpinned",
+    );
+    const previewRetainedScene = mustRetainedScene(
+      previewScene,
+      "dict-a:param-content:unpinned",
     );
 
-    expect(
-      previewScene.sections.find(
-        (candidate) => candidate.sectionId === "dict-a",
-      )?.worldRect,
-    ).toMatchObject({
+    expect(previewSection.worldRect).toMatchObject({
       height: section.worldRect.height + 60,
       width: section.worldRect.width + 100,
     });
@@ -518,20 +526,12 @@ describe("project GPU layout adapter", () => {
         width: surface.rect.width + 100,
       },
     });
-    expect(previewSurface?.retainedScene?.viewportRect).toMatchObject({
+    expect(previewRetainedScene.viewportRect).toMatchObject({
       height: retainedScene.viewportRect.height + 60,
       width: retainedScene.viewportRect.width + 100,
     });
-    expect(
-      previewSurface?.retainedScene?.drawCommands.find(
-        (command) =>
-          command.kind === "row-control" && command.rowId === "param-a",
-      )?.rect.width,
-    ).toBeGreaterThan(
-      retainedScene.drawCommands.find(
-        (command) =>
-          command.kind === "row-control" && command.rowId === "param-a",
-      )?.rect.width ?? 0,
+    expect(rowControlWidth(previewRetainedScene, "param-a")).toBeGreaterThan(
+      rowControlWidth(retainedScene, "param-a"),
     );
   });
 
@@ -608,29 +608,39 @@ describe("project GPU layout adapter", () => {
       revision: 3,
     });
 
-    const pinnedSurface = scene.contentSurfaces.find(
-      (surface) => surface.id === "callable-a:param-content:pinned",
+    const pinnedSurface = mustContentSurface(
+      scene,
+      "callable-a:param-content:pinned",
     );
-    const unpinnedSurface = scene.contentSurfaces.find(
-      (surface) => surface.id === "callable-a:param-content:unpinned",
+    const unpinnedSurface = mustContentSurface(
+      scene,
+      "callable-a:param-content:unpinned",
+    );
+    const pinnedRetainedScene = mustRetainedScene(
+      scene,
+      "callable-a:param-content:pinned",
+    );
+    const unpinnedRetainedScene = mustRetainedScene(
+      scene,
+      "callable-a:param-content:unpinned",
     );
 
-    expect(pinnedSurface?.retainedScene?.rows.map((row) => row.id)).toEqual([
+    expect(pinnedRetainedScene.rows.map((row) => row.id)).toEqual([
       "pinned-param",
     ]);
-    expect(unpinnedSurface?.retainedScene?.rows.map((row) => row.id)).toEqual([
+    expect(unpinnedRetainedScene.rows.map((row) => row.id)).toEqual([
       "body-param",
     ]);
-    expect(pinnedSurface?.rect.y).toBe(
+    expect(pinnedSurface.rect.y).toBe(
       20 +
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         PROJECT_SECTION_SEARCH_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         5,
     );
-    expect(unpinnedSurface?.rect.y).toBe(
-      (pinnedSurface?.rect.y ?? 0) +
-        (pinnedSurface?.retainedScene?.rowHeight ?? 0) +
+    expect(unpinnedSurface.rect.y).toBe(
+      pinnedSurface.rect.y +
+        pinnedRetainedScene.rowHeight +
         PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
     );
   });
@@ -696,8 +706,10 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 2,
     });
-    const section = scene.sections.find(
-      (candidate) => candidate.sectionId === "dict-a",
+    const section = mustSceneSection(scene, "dict-a");
+    const retainedScene = mustRetainedScene(
+      scene,
+      "dict-a:param-content:unpinned",
     );
     const expectedHeight =
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
@@ -705,17 +717,13 @@ describe("project GPU layout adapter", () => {
       PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
       3 * 24;
 
-    expect(section?.worldRect).toMatchObject({
+    expect(section.worldRect).toMatchObject({
       height: expectedHeight,
       width: 262,
       x: 10,
       y: 20,
     });
-    expect(
-      scene.contentSurfaces.find(
-        (surface) => surface.id === "dict-a:param-content:unpinned",
-      )?.retainedScene?.contentRect.height,
-    ).toBe(72);
+    expect(retainedScene.contentRect.height).toBe(72);
   });
 
   it("adds nested retained row chrome to auto-height param sections", () => {
@@ -790,8 +798,10 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 2,
     });
-    const section = scene.sections.find(
-      (candidate) => candidate.sectionId === "dict-a",
+    const section = mustSceneSection(scene, "dict-a");
+    const retainedScene = mustRetainedScene(
+      scene,
+      "dict-a:param-content:unpinned",
     );
     const expectedHeight =
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
@@ -800,49 +810,38 @@ describe("project GPU layout adapter", () => {
       4 +
       3 * 24;
 
-    expect(section?.worldRect).toMatchObject({
+    expect(section.worldRect).toMatchObject({
       height: expectedHeight,
       width: 262,
       x: 10,
       y: 20,
     });
-    expect(
-      scene.contentSurfaces
-        .find((surface) => surface.id === "dict-a:param-content:unpinned")
-        ?.retainedScene?.rows.map((row) => [row.id, row.depth]),
-    ).toEqual([
+    expect(retainedScene.rows.map((row) => [row.id, row.depth])).toEqual([
       ["parent-param", 0],
       ["child-param", 1],
       ["sibling-param", 0],
     ]);
-    const retainedScene = scene.contentSurfaces.find(
-      (surface) => surface.id === "dict-a:param-content:unpinned",
-    )?.retainedScene;
-    const childControl = retainedScene?.drawCommands.find(
-      (command) =>
-        command.kind === "row-control" && command.rowId === "child-param",
+    const childControlRect = retainedDrawCommandRect(
+      retainedScene,
+      "row-control",
+      "child-param",
     );
-    const siblingControl = retainedScene?.drawCommands.find(
-      (command) =>
-        command.kind === "row-control" && command.rowId === "sibling-param",
+    const siblingControlRect = retainedDrawCommandRect(
+      retainedScene,
+      "row-control",
+      "sibling-param",
     );
-    expect(childControl?.rect.x).toBe(
-      (siblingControl?.rect.x ?? 0) +
-        PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+    expect(childControlRect.x).toBe(
+      siblingControlRect.x + PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
     );
-    expect(childControl?.rect.width).toBe(
-      (siblingControl?.rect.width ?? 0) -
-        PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+    expect(childControlRect.width).toBe(
+      siblingControlRect.width - PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
     );
-    expect(
-      retainedScene?.drawCommands.find(
-        (command) =>
-          command.kind === "nest-guide" && command.rowId === "child-param",
-      )?.rect,
-    ).toMatchObject({
-      width: 6,
-      x: PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX + 1,
-    });
+    expect(retainedDrawCommandRect(retainedScene, "nest-guide", "child-param"))
+      .toMatchObject({
+        width: 6,
+        x: PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX + 1,
+      });
   });
 
   it("reserves blank retained content height for empty auto-height param sections", () => {

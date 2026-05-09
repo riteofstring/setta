@@ -66,6 +66,86 @@ async function renderDropzoneInput() {
   return { host, root } satisfies RenderedDropzoneInput;
 }
 
+function mustDropzoneFileInput(host: HTMLElement): HTMLInputElement {
+  const input = host.querySelector('input[type="file"]');
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Expected dropzone file input.");
+  }
+  return input;
+}
+
+function dropzoneSerializedValue(host: HTMLElement): string {
+  return host.querySelector('[data-testid="dropzone-value"]')?.textContent ?? "";
+}
+
+function firstUpdateArtifactRequest() {
+  return vi.mocked(updateArtifacts).mock.calls[0]?.[0];
+}
+
+function configureSuccessfulUploadMocks() {
+  vi.mocked(uploadBinary).mockResolvedValue({
+    data: createContentRef({
+      contentId: "uploaded-dropzone-ref",
+      byteLength: 4,
+      mimeType: "image/png",
+      sha256: null,
+    }),
+    status: 200,
+    hasResponse: true,
+  });
+  vi.mocked(updateArtifacts).mockResolvedValue({
+    data: [],
+    status: 200,
+    hasResponse: true,
+  });
+}
+
+async function uploadFileThroughDropzone(host: HTMLElement, file: File) {
+  const input = mustDropzoneFileInput(host);
+  Object.defineProperty(input, "files", {
+    value: [file],
+    configurable: true,
+  });
+
+  await act(async () => {
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function waitForDropzoneUpload() {
+  await vi.waitFor(() => {
+    expect(uploadBinary).toHaveBeenCalledTimes(1);
+    expect(updateArtifacts).toHaveBeenCalledTimes(1);
+  });
+}
+
+function firstUploadedArtifact() {
+  const uploadedArtifact = firstUpdateArtifactRequest()?.body?.artifacts?.[0];
+  if (!uploadedArtifact) {
+    throw new Error("Expected uploaded artifact update request.");
+  }
+  return uploadedArtifact;
+}
+
+function firstDropzoneAttachment(host: HTMLElement) {
+  const attachment = parseDropzoneValue(
+    dropzoneSerializedValue(host),
+  )?.attachments[0];
+  if (!attachment) {
+    throw new Error("Expected serialized dropzone attachment.");
+  }
+  return attachment;
+}
+
+async function cleanupRenderedDropzone({ host, root }: RenderedDropzoneInput) {
+  await act(async () => {
+    root.unmount();
+  });
+  host.remove();
+}
+
 describe("DropzoneInput attachment display", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -141,55 +221,18 @@ describe("DropzoneInput attachment display", () => {
   });
 
   it("uploads local files through the Go binary route before updating artifacts", async () => {
-    vi.mocked(uploadBinary).mockResolvedValue({
-      data: createContentRef({
-        contentId: "uploaded-dropzone-ref",
-        byteLength: 4,
-        mimeType: "image/png",
-        sha256: null,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(updateArtifacts).mockResolvedValue({
-      data: [],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const { host, root } = await renderDropzoneInput();
+    configureSuccessfulUploadMocks();
+    const rendered = await renderDropzoneInput();
+    const { host } = rendered;
 
     try {
-      const input = host.querySelector(
-        'input[type="file"]',
-      ) as HTMLInputElement | null;
-      if (!input) {
-        throw new Error("Expected dropzone file input.");
-      }
       const file = new File(["png!"], "photo.png", { type: "image/png" });
-      Object.defineProperty(input, "files", {
-        value: [file],
-        configurable: true,
-      });
+      await uploadFileThroughDropzone(host, file);
+      await waitForDropzoneUpload();
 
-      await act(async () => {
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-
-      await vi.waitFor(() => {
-        expect(uploadBinary).toHaveBeenCalledTimes(1);
-        expect(updateArtifacts).toHaveBeenCalledTimes(1);
-      });
-
-      const updateRequest = vi.mocked(updateArtifacts).mock.calls[0]?.[0];
-      const uploadedArtifact = updateRequest?.body?.artifacts?.[0];
-      const serializedValue =
-        host.querySelector('[data-testid="dropzone-value"]')?.textContent ?? "";
-      const parsedValue = parseDropzoneValue(serializedValue);
-
-      expect(uploadedArtifact?.value).toEqual(
+      const uploadedArtifact = firstUploadedArtifact();
+      const attachment = firstDropzoneAttachment(host);
+      expect(uploadedArtifact.value).toEqual(
         createContentRef({
           contentId: "uploaded-dropzone-ref",
           byteLength: 4,
@@ -202,22 +245,19 @@ describe("DropzoneInput attachment display", () => {
           artifacts: [
             {
               type: ArtifactTypeEnum.File,
-              id: uploadedArtifact?.id,
-              value: uploadedArtifact?.value,
+              id: uploadedArtifact.id,
+              value: uploadedArtifact.value,
             },
           ],
           uploadScope: "generic",
         },
       });
       expect(host.textContent).toContain("photo.png");
-      expect(parsedValue?.attachments[0]?.kind).toBe("file");
-      expect(parsedValue?.attachments[0]?.name).toBe("photo.png");
-      expect(parsedValue?.attachments[0]?.id).toBe(uploadedArtifact?.id);
+      expect(attachment.kind).toBe("file");
+      expect(attachment.name).toBe("photo.png");
+      expect(attachment.id).toBe(uploadedArtifact.id);
     } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
+      await cleanupRenderedDropzone(rendered);
     }
   });
 });

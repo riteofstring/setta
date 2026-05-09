@@ -3,6 +3,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import {
+  mustQueryHTMLCanvasElement,
+  mustQueryHTMLElement,
+} from "testUtils/domQueries.test.support";
 import "testUtils/reactRefreshPreamble";
 import { describe, expect, it, vi } from "vitest";
 import type { GpuEdgeSceneLabel } from "./edges/edgeSources";
@@ -69,35 +73,39 @@ describe("GpuEdgeLabelSurfaceLayer", () => {
         );
       });
 
-      const workflowSource = host.querySelector<HTMLElement>(
+      const workflowSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-edge-label-source-workflow-source-activation:workflow-a"]',
       );
-      const dataSource = host.querySelector<HTMLElement>(
+      const dataSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-edge-label-source-data-edge-label:data-edge-a"]',
       );
-      const workflowLabelCanvas = host.querySelector<HTMLCanvasElement>(
+      const workflowLabelCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-edge-label-canvas-workflow-source-activation:workflow-a"]',
       );
-      const dataLabelCanvas = host.querySelector<HTMLCanvasElement>(
+      const dataLabelCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-edge-label-canvas-data-edge-label:data-edge-a"]',
       );
 
-      expect(workflowSource?.dataset.gpuFlowEdgeLabelSource).toBe("true");
-      expect(workflowSource?.dataset.edgeid).toBe("workflow-a");
-      expect(workflowSource?.style.width).toBe("96px");
-      expect(workflowSource?.style.height).toBe("20px");
-      expect(workflowLabelCanvas?.dataset.gpuFlowEdgeLabelCanvas).toBe("true");
-      expect(workflowLabelCanvas?.dataset.edgeid).toBe("workflow-a");
-      expect(workflowLabelCanvas?.width).toBe(96);
-      expect(workflowLabelCanvas?.height).toBe(20);
-      expect(dataSource?.dataset.gpuFlowEdgeLabelSource).toBe("true");
-      expect(dataSource?.dataset.edgeid).toBe("data-edge-a");
-      expect(dataSource?.style.width).toBe("59.5px");
-      expect(dataSource?.style.height).toBe("18px");
-      expect(dataLabelCanvas?.dataset.gpuFlowEdgeLabelCanvas).toBe("true");
-      expect(dataLabelCanvas?.dataset.edgeid).toBe("data-edge-a");
-      expect(dataLabelCanvas?.width).toBe(60);
-      expect(dataLabelCanvas?.height).toBe(18);
+      expect(workflowSource.dataset.gpuFlowEdgeLabelSource).toBe("true");
+      expect(workflowSource.dataset.edgeid).toBe("workflow-a");
+      expect(workflowSource.style.width).toBe("96px");
+      expect(workflowSource.style.height).toBe("20px");
+      expect(workflowLabelCanvas.dataset.gpuFlowEdgeLabelCanvas).toBe("true");
+      expect(workflowLabelCanvas.dataset.edgeid).toBe("workflow-a");
+      expect(workflowLabelCanvas.width).toBe(96);
+      expect(workflowLabelCanvas.height).toBe(20);
+      expect(dataSource.dataset.gpuFlowEdgeLabelSource).toBe("true");
+      expect(dataSource.dataset.edgeid).toBe("data-edge-a");
+      expect(dataSource.style.width).toBe("59.5px");
+      expect(dataSource.style.height).toBe("18px");
+      expect(dataLabelCanvas.dataset.gpuFlowEdgeLabelCanvas).toBe("true");
+      expect(dataLabelCanvas.dataset.edgeid).toBe("data-edge-a");
+      expect(dataLabelCanvas.width).toBe(60);
+      expect(dataLabelCanvas.height).toBe(18);
       expect(canvasContext.fillText).toHaveBeenCalledWith(
         "src count >= 3",
         48,

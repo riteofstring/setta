@@ -3,6 +3,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import {
+  mustQueryHTMLCanvasElement,
+  mustQueryHTMLElement,
+} from "testUtils/domQueries.test.support";
 import "testUtils/reactRefreshPreamble";
 import { describe, expect, it, vi } from "vitest";
 
@@ -91,34 +95,38 @@ describe("GpuSelectionOverlaySurfaceLayer", () => {
         );
       });
 
-      const userSource = host.querySelector<HTMLElement>(
+      const userSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-user-selection-source"]',
       );
-      const nodesSource = host.querySelector<HTMLElement>(
+      const nodesSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-nodes-selection-source"]',
       );
-      const userCanvas = host.querySelector<HTMLCanvasElement>(
+      const userCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-selection-canvas-gpu-user-selection"]',
       );
-      const nodesCanvas = host.querySelector<HTMLCanvasElement>(
+      const nodesCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-selection-canvas-gpu-nodes-selection"]',
       );
 
-      expect(userSource?.dataset.gpuFlowSelectionSource).toBe("true");
-      expect(userSource?.dataset.gpuFlowSelectionKind).toBe("user-selection");
-      expect(userSource?.style.width).toBe("50px");
-      expect(userSource?.style.height).toBe("30px");
-      expect(nodesSource?.dataset.gpuFlowSelectionSource).toBe("true");
-      expect(nodesSource?.dataset.gpuFlowSelectionKind).toBe("nodes-selection");
-      expect(nodesSource?.dataset.id).toBe("section-a");
-      expect(nodesSource?.style.width).toBe("120px");
-      expect(nodesSource?.style.height).toBe("80px");
-      expect(userCanvas?.dataset.gpuFlowSelectionCanvas).toBe("true");
-      expect(userCanvas?.width).toBe(50);
-      expect(userCanvas?.height).toBe(30);
-      expect(nodesCanvas?.dataset.gpuFlowSelectionCanvas).toBe("true");
-      expect(nodesCanvas?.width).toBe(120);
-      expect(nodesCanvas?.height).toBe(80);
+      expect(userSource.dataset.gpuFlowSelectionSource).toBe("true");
+      expect(userSource.dataset.gpuFlowSelectionKind).toBe("user-selection");
+      expect(userSource.style.width).toBe("50px");
+      expect(userSource.style.height).toBe("30px");
+      expect(nodesSource.dataset.gpuFlowSelectionSource).toBe("true");
+      expect(nodesSource.dataset.gpuFlowSelectionKind).toBe("nodes-selection");
+      expect(nodesSource.dataset.id).toBe("section-a");
+      expect(nodesSource.style.width).toBe("120px");
+      expect(nodesSource.style.height).toBe("80px");
+      expect(userCanvas.dataset.gpuFlowSelectionCanvas).toBe("true");
+      expect(userCanvas.width).toBe(50);
+      expect(userCanvas.height).toBe(30);
+      expect(nodesCanvas.dataset.gpuFlowSelectionCanvas).toBe("true");
+      expect(nodesCanvas.width).toBe(120);
+      expect(nodesCanvas.height).toBe(80);
       expect(canvasContext.fillRect).toHaveBeenCalledWith(0, 0, 50, 30);
       expect(canvasContext.strokeRect).toHaveBeenCalledWith(0.5, 0.5, 119, 79);
       expect(canvasContext.setLineDash).toHaveBeenCalledWith([4, 3]);

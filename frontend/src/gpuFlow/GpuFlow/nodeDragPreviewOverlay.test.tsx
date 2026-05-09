@@ -3,6 +3,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import {
+  mustQueryHTMLCanvasElement,
+  mustQueryHTMLElement,
+} from "testUtils/domQueries.test.support";
 import "testUtils/reactRefreshPreamble";
 import { describe, expect, it, vi } from "vitest";
 
@@ -95,35 +99,39 @@ describe("GpuNodeDragPreviewSurfaceLayer", () => {
         );
       });
 
-      const nodeSource = host.querySelector<HTMLElement>(
+      const nodeSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-drag-preview-node-source-dragging-node"]',
       );
-      const markerSource = host.querySelector<HTMLElement>(
+      const markerSource = mustQueryHTMLElement(
+        host,
         '[data-testid="gpu-drop-marker-source"]',
       );
-      const nodeCanvas = host.querySelector<HTMLCanvasElement>(
+      const nodeCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-drag-preview-canvas-gpu-drag-preview-node:dragging-node"]',
       );
-      const markerCanvas = host.querySelector<HTMLCanvasElement>(
+      const markerCanvas = mustQueryHTMLCanvasElement(
+        host,
         '[data-testid="gpu-drag-preview-canvas-gpu-drop-marker"]',
       );
 
-      expect(nodeSource?.dataset.gpuFlowDragPreviewSource).toBe("true");
-      expect(nodeSource?.dataset.gpuFlowDragPreviewKind).toBe("node-bounds");
-      expect(nodeSource?.dataset.nodeid).toBe("dragging-node");
-      expect(nodeSource?.style.width).toBe("156px");
-      expect(nodeSource?.style.height).toBe("116px");
-      expect(markerSource?.dataset.gpuFlowDragPreviewSource).toBe("true");
-      expect(markerSource?.dataset.gpuFlowDragPreviewKind).toBe("drop-marker");
-      expect(markerSource?.dataset.gpuFlowDropMarkerParent).toBe("parent-node");
-      expect(markerSource?.style.width).toBe("208px");
-      expect(markerSource?.style.height).toBe("32px");
-      expect(nodeCanvas?.dataset.gpuFlowDragPreviewCanvas).toBe("true");
-      expect(nodeCanvas?.width).toBe(156);
-      expect(nodeCanvas?.height).toBe(116);
-      expect(markerCanvas?.dataset.gpuFlowDragPreviewCanvas).toBe("true");
-      expect(markerCanvas?.width).toBe(208);
-      expect(markerCanvas?.height).toBe(32);
+      expect(nodeSource.dataset.gpuFlowDragPreviewSource).toBe("true");
+      expect(nodeSource.dataset.gpuFlowDragPreviewKind).toBe("node-bounds");
+      expect(nodeSource.dataset.nodeid).toBe("dragging-node");
+      expect(nodeSource.style.width).toBe("156px");
+      expect(nodeSource.style.height).toBe("116px");
+      expect(markerSource.dataset.gpuFlowDragPreviewSource).toBe("true");
+      expect(markerSource.dataset.gpuFlowDragPreviewKind).toBe("drop-marker");
+      expect(markerSource.dataset.gpuFlowDropMarkerParent).toBe("parent-node");
+      expect(markerSource.style.width).toBe("208px");
+      expect(markerSource.style.height).toBe("32px");
+      expect(nodeCanvas.dataset.gpuFlowDragPreviewCanvas).toBe("true");
+      expect(nodeCanvas.width).toBe(156);
+      expect(nodeCanvas.height).toBe(116);
+      expect(markerCanvas.dataset.gpuFlowDragPreviewCanvas).toBe("true");
+      expect(markerCanvas.width).toBe(208);
+      expect(markerCanvas.height).toBe(32);
       expect(canvasContext.arc).toHaveBeenCalledWith(14, 16, 5, 0, Math.PI * 2);
       expect(canvasContext.arc).toHaveBeenCalledWith(
         194,
