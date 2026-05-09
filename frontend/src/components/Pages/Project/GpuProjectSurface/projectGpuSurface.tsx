@@ -1,13 +1,9 @@
-import { SectionContainer } from "components/Section/Container/SectionContainer";
-
 import { GpuFlow } from "gpuFlow/GpuFlow";
-
-import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
-import type { GpuFlowScene, GpuSectionSceneNode } from "gpuFlow/scene";
+import type { GpuFlowScene } from "gpuFlow/scene";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
@@ -78,11 +74,16 @@ import {
   type ProjectGpuLayoutAdapter,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
+import {
+  getProjectSceneSectionById,
+  renderProjectGpuNode,
+} from "./projectGpuNodeRenderer";
 import type {
   ProjectGpuRetainedParamDragPreview,
   ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
+import { projectGpuResizePreviewSceneMatchesCommittedScene } from "./projectGpuResizePreviewSceneMatch";
 import {
   useProjectGpuRetainedParamCanvasControlKeyboard,
   useProjectGpuRetainedParamCanvasControlWheel,
@@ -221,12 +222,6 @@ export function GpuProjectSurface() {
   const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
-  const edgeScene = useProjectGpuEdgeScene({
-    layoutNodes: layoutAdapter.nodeLayouts,
-    scene: layoutAdapter.scene,
-    showAgenticEdges,
-    showDataEdges,
-  });
   const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
@@ -324,7 +319,6 @@ export function GpuProjectSurface() {
       <ProjectGpuFlowLayer
         canEditStructure={canEditStructure}
         darkMode={darkMode}
-        edgeScene={edgeScene}
         flowInteractionKeys={flowInteractionKeys}
         isFollowTransitioning={isFollowTransitioning}
         canEditLayout={canEditLayout}
@@ -355,6 +349,8 @@ export function GpuProjectSurface() {
         passwordRevealStates={retainedPasswordRevealStates}
         readyToRender={readyToRender}
         settings={settings}
+        showAgenticEdges={showAgenticEdges}
+        showDataEdges={showDataEdges}
       />
     </div>
   );
@@ -364,7 +360,6 @@ function ProjectGpuFlowLayer({
   canEditStructure,
   canEditLayout,
   darkMode,
-  edgeScene,
   flowInteractionKeys,
   isFollowTransitioning,
   layoutAdapter,
@@ -377,11 +372,12 @@ function ProjectGpuFlowLayer({
   passwordRevealStates,
   readyToRender,
   settings,
+  showAgenticEdges,
+  showDataEdges,
 }: {
   readonly canEditStructure: boolean;
   readonly canEditLayout: boolean;
   readonly darkMode: boolean;
-  readonly edgeScene: ReturnType<typeof useProjectGpuEdgeScene>;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
@@ -406,14 +402,42 @@ function ProjectGpuFlowLayer({
   readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
+  readonly showAgenticEdges: boolean;
+  readonly showDataEdges: boolean;
 }) {
   const { layoutStore, nodeLayouts } = layoutAdapter;
   const retainedParamDragSessionRef =
     useRef<ProjectGpuRetainedParamDragSession | null>(null);
-  const sceneSectionById = useMemo(
-    () => getProjectSceneSectionById(layoutAdapter.scene),
-    [layoutAdapter.scene],
+  const [resizePreviewScene, setResizePreviewScene] =
+    useState<GpuFlowScene | null>(null);
+  const effectiveScene = resizePreviewScene ?? layoutAdapter.scene;
+  useEffect(() => {
+    if (
+      resizePreviewScene &&
+      projectGpuResizePreviewSceneMatchesCommittedScene(
+        resizePreviewScene,
+        layoutAdapter.scene,
+      )
+    ) {
+      setResizePreviewScene(null);
+    }
+  }, [layoutAdapter.scene, resizePreviewScene]);
+  const handleResizePreviewSceneChange = useCallback(
+    (scene: GpuFlowScene | null) => {
+      setResizePreviewScene(scene);
+    },
+    [],
   );
+  const sceneSectionById = useMemo(
+    () => getProjectSceneSectionById(effectiveScene),
+    [effectiveScene],
+  );
+  const edgeScene = useProjectGpuEdgeScene({
+    layoutNodes: nodeLayouts,
+    scene: effectiveScene,
+    showAgenticEdges,
+    showDataEdges,
+  });
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const activeNodeIds = useActiveSectionUI(
     (state) => state.activeIds,
@@ -452,13 +476,13 @@ function ProjectGpuFlowLayer({
         flowInteractionKeys,
         isFollowTransitioning,
         layoutStore,
-        scene: layoutAdapter.scene,
+        scene: effectiveScene,
         settings,
       }),
     [
       flowInteractionKeys,
       isFollowTransitioning,
-      layoutAdapter.scene,
+      effectiveScene,
       layoutStore,
       settings,
     ],
@@ -468,6 +492,8 @@ function ProjectGpuFlowLayer({
     flowInteractionKeys,
     isFollowTransitioning,
     layoutStore,
+    onResizePreviewSceneChange: handleResizePreviewSceneChange,
+    resolveResizePreviewScene: layoutAdapter.resolveResizePreviewScene,
     scene: layoutAdapter.scene,
   });
   const portals = getProjectGpuPortalDescriptors();
@@ -531,7 +557,7 @@ function ProjectGpuFlowLayer({
         onRetainedParamDragPreviewChange,
         passwordRevealStates,
         retainedContentScroll: {
-          getScene: () => layoutAdapter.scene,
+          getScene: () => effectiveScene,
           getScrollOffsets: layoutAdapter.getContentScrollOffsets,
           onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
         },
@@ -548,6 +574,7 @@ function ProjectGpuFlowLayer({
       onPasswordRevealStateChange,
       onRetainedParamDragPreviewChange,
       passwordRevealStates,
+      effectiveScene,
       layoutAdapter,
       retainedParamDragSessionRef,
     ],
@@ -603,7 +630,7 @@ function ProjectGpuFlowLayer({
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}
       retainedContentScroll={retainedContentScrollOptions}
-      scene={layoutAdapter.scene}
+      scene={effectiveScene}
       scenePortConnection={scenePortConnectionOptions}
       sceneScroll={sceneScrollOptions}
       selection={selectionOptions}
@@ -669,28 +696,6 @@ function getProjectEdgeReconnectOptions({
     isValidConnection: isValidDataEdgeConnection,
     onReconnect: reconnectEdgeFromConnection,
   };
-}
-
-function renderProjectGpuNode(
-  node: GpuNodeLayout,
-  sceneSectionById: ReadonlyMap<string, GpuSectionSceneNode>,
-) {
-  const sceneNode = sceneSectionById.get(node.nodeId);
-  if (!sceneNode) {
-    throw new Error(`Missing GPU project scene section ${node.nodeId}.`);
-  }
-  return (
-    <SectionContainer
-      sectionId={node.nodeId}
-      isTopLevel={sceneNode.parentSectionId === null}
-    />
-  );
-}
-
-function getProjectSceneSectionById(
-  scene: GpuFlowScene,
-): ReadonlyMap<string, GpuSectionSceneNode> {
-  return new Map(scene.sections.map((section) => [section.sectionId, section]));
 }
 
 function getProjectGpuEdgePaletteInput({

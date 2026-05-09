@@ -471,6 +471,110 @@ describe("project GPU node resize adapter", () => {
     });
   });
 
+  it("publishes resolved preview scenes during live resize frames", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        id: sectionId,
+        worldRect: rect(0, 0, 200, 120),
+      }),
+    ]);
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+    const sessionRef = { current: createProjectNodeResizeSession() };
+    const previewChanges: Array<{
+      readonly phase: string;
+      readonly scene: GpuFlowScene | null;
+    }> = [];
+    const options = createProjectNodeResizeOptions({
+      canEditLayout: true,
+      flowInteractionKeys: {
+        panActivationKeyPressed: false,
+        selectionKeyPressed: false,
+        zoomActivationKeyPressed: false,
+      },
+      isFollowTransitioning: false,
+      layoutStore,
+      onResizePreviewSceneChange: (previewScene, phase) => {
+        previewChanges.push({ phase, scene: previewScene });
+      },
+      resolveResizePreviewScene: (input) => ({
+        ...input.scene,
+        contentSurfaces: [
+          {
+            clipRect: input.resizedWorldRect,
+            id: `${input.sectionId}:param-content:unpinned`,
+            ownerSectionId: input.sectionId,
+            rect: input.resizedWorldRect,
+            renderer: {
+              kind: "canvas-content",
+              surfaceId: `${input.sectionId}:param-content:unpinned`,
+            },
+            zIndex: 1,
+          },
+        ],
+        sections: [
+          sectionNode({
+            id: input.sectionId,
+            worldRect: input.resizedWorldRect,
+          }),
+        ],
+      }),
+      scene,
+      sessionRef,
+    });
+
+    options.onNodeResize(
+      createSceneResizeChange({
+        height: 160,
+        nodeId: sectionId,
+        phase: "resize",
+        startHeight: 120,
+        startWidth: 200,
+        width: 260,
+      }),
+    );
+
+    expect(layoutStore.getState().getNode(sectionId)).toMatchObject({
+      height: 160,
+      width: 260,
+    });
+    expect(previewChanges).toHaveLength(1);
+    expect(previewChanges[0]).toMatchObject({
+      phase: "change",
+      scene: {
+        contentSurfaces: [
+          expect.objectContaining({
+            id: `${sectionId}:param-content:unpinned`,
+            rect: rect(0, 0, 260, 160),
+          }),
+        ],
+      },
+    });
+
+    options.onNodeResizeStop(
+      createSceneResizeChange({
+        height: 170,
+        nodeId: sectionId,
+        phase: "stop",
+        startHeight: 120,
+        startWidth: 200,
+        width: 280,
+      }),
+    );
+
+    expect(previewChanges.at(-1)).toMatchObject({
+      phase: "commit",
+      scene: {
+        contentSurfaces: [
+          expect.objectContaining({
+            rect: rect(0, 0, 280, 170),
+          }),
+        ],
+      },
+    });
+  });
+
   it("resolves live resize constraints from section scene metadata", () => {
     const node = sectionNode({
       id: sectionId,

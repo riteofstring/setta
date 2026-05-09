@@ -15,7 +15,6 @@ import {
 } from "gpuFlow/layoutStore";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
-  createGpuFlowContentSurfacesFromSections,
   getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
   type GpuPortAnchorDescriptor,
@@ -51,9 +50,7 @@ import {
   useSettings,
   useShareSession,
   useTypeErrors,
-  type ZustandProjectSearch,
   type ZustandProjectState,
-  type ZustandTypeErrors,
 } from "state/definitions";
 import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
@@ -66,14 +63,16 @@ import {
   type GroupSectionImpl,
   type ListRootSectionImpl,
 } from "utils/generatedTypes";
+import {
+  createProjectGpuFlowSceneFromLayoutScene,
+  resolveProjectGpuResizePreviewScene,
+  type ProjectGpuFlowSceneOptions,
+  type ProjectGpuResizePreviewSceneInput,
+} from "./projectGpuFlowSceneFactory";
 import { getProjectGpuLayoutNode } from "./projectGpuLayoutNodeAdapter";
 import {
-  createProjectGpuParamContentSurfaces,
-  createProjectGpuParamDomIslands,
-  DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
-  type ProjectGpuParamEditPolicy,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
 import { getProjectGpuParamFixedContentHeightForSection } from "./projectGpuParamContentHeight";
@@ -95,11 +94,20 @@ import {
   getRenderableProjectChildSectionIds,
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
+import {
+  clampProjectGpuSectionSceneDimension,
+  resolveProjectSectionSceneDimension,
+} from "./projectSectionSceneDimension";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
+export {
+  resolveProjectGpuResizePreviewScene,
+  type ProjectGpuFlowSceneOptions,
+  type ProjectGpuResizePreviewSceneInput,
+} from "./projectGpuFlowSceneFactory";
 export type {
   ProjectGpuActiveParamCanvasPopup,
   ProjectGpuActiveParamDomIsland,
@@ -111,6 +119,9 @@ export type ProjectGpuLayoutAdapter = {
   readonly getContentScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
+  readonly resolveResizePreviewScene: (
+    input: ProjectGpuResizePreviewSceneInput,
+  ) => GpuFlowScene;
   readonly scene: GpuFlowScene;
   readonly sceneScrollOffsets: GpuSectionSceneScrollOffsetMap;
   readonly revealSceneSection: (
@@ -275,11 +286,60 @@ export function useProjectGpuLayoutAdapter({
     },
     [scene, sceneScrollOffsets, setNextSceneScrollOffsets],
   );
+  const resolveResizePreviewScene = useCallback(
+    (input: ProjectGpuResizePreviewSceneInput) =>
+      resolveProjectGpuResizePreviewScene(
+        projectState,
+        {
+          darkMode,
+          resizePolicyContext: {
+            resizeEventBySectionId,
+            sizingPolicy,
+          },
+          revision: input.scene.revision,
+          activeParamCanvasControl,
+          activeParamCanvasPopup,
+          activeParamDomIsland,
+          contentScrollOffsets: contentScrollOffsetsRef.current,
+          paramEditPolicy: {
+            canEditParams,
+            canEditStructure,
+            isDeploymentMode,
+          },
+          hoveredParamTarget,
+          passwordRevealStates,
+          projectSearch,
+          retainedParamDragPreview,
+          scrollOffsets: sceneScrollOffsets,
+          typeErrors,
+        },
+        input,
+      ),
+    [
+      activeParamCanvasControl,
+      activeParamCanvasPopup,
+      activeParamDomIsland,
+      canEditParams,
+      canEditStructure,
+      darkMode,
+      hoveredParamTarget,
+      isDeploymentMode,
+      passwordRevealStates,
+      projectSearch,
+      projectState,
+      resizeEventBySectionId,
+      retainedParamDragPreview,
+      sceneScrollOffsets,
+      sizingPolicy,
+      typeErrors,
+    ],
+  );
   return useMemo(
     () => ({
       getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
+      resolveResizePreviewScene,
       revealSceneSection,
       scene,
       sceneScrollOffsets,
@@ -291,6 +351,7 @@ export function useProjectGpuLayoutAdapter({
       getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
+      resolveResizePreviewScene,
       revealSceneSection,
       scene,
       sceneScrollOffsets,
@@ -320,36 +381,13 @@ export function syncProjectGpuLayoutStoreFromScene(
 
 export function getProjectGpuFlowScene(
   projectState: ZustandProjectState,
-  options: {
-    readonly darkMode: boolean;
-    readonly contentScrollOffsets?:
-      | GpuRetainedContentScrollOffsetMap
-      | undefined;
-    readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
-    readonly activeParamCanvasControl?: OptionalParamTarget;
-    readonly activeParamDomIsland?: OptionalParamDomIsland;
-    readonly hoveredParamTarget?: OptionalParamTarget;
-    readonly passwordRevealStates?:
-      | ProjectGpuRetainedPasswordRevealStateMap
-      | undefined;
-    readonly projectSearch?:
-      | Pick<ZustandProjectSearch, "focused" | "lookup">
-      | undefined;
-    readonly paramEditPolicy?: ProjectGpuParamEditPolicy | undefined;
-    readonly retainedParamDragPreview?: OptionalParamDragPreview;
-    readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
-    readonly revision?: number | undefined;
-    readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
-    readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;
-  },
+  options: ProjectGpuFlowSceneOptions,
 ): GpuFlowScene {
   const sections: GpuSectionSceneNode[] = [];
   const seenSectionIds = new Set<string>();
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
   const resizePolicyContext =
     options.resizePolicyContext ?? getProjectGpuSceneResizePolicyContext();
-  const paramEditPolicy =
-    options.paramEditPolicy ?? DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY;
 
   for (const sectionId of getProjectGpuRenderableTopLevelSectionIds(
     projectState,
@@ -423,33 +461,11 @@ export function getProjectGpuFlowScene(
     revision: options.revision ?? 0,
     sections,
   });
-  const paramContentSurfaces = createProjectGpuParamContentSurfaces({
-    activeParamCanvasControl: options.activeParamCanvasControl,
-    activeParamCanvasPopup: options.activeParamCanvasPopup,
-    activeParamDomIsland: options.activeParamDomIsland,
-    contentScrollOffsets: options.contentScrollOffsets,
-    editPolicy: paramEditPolicy,
-    hoveredParamTarget: options.hoveredParamTarget,
-    passwordRevealStates: options.passwordRevealStates,
+  return createProjectGpuFlowSceneFromLayoutScene(
     projectState,
-    projectSearch: options.projectSearch,
-    retainedParamDragPreview: options.retainedParamDragPreview,
-    sections: layoutScene.sections,
-    typeErrors: options.typeErrors,
-  });
-  return {
-    ...layoutScene,
-    domIslands: createProjectGpuParamDomIslands({
-      activeParamDomIsland: options.activeParamDomIsland,
-      contentSurfaces: paramContentSurfaces,
-      editPolicy: paramEditPolicy,
-      projectState,
-    }),
-    contentSurfaces: createGpuFlowContentSurfacesFromSections(
-      layoutScene.sections,
-      paramContentSurfaces,
-    ),
-  };
+    options,
+    layoutScene,
+  );
 }
 
 function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
@@ -980,21 +996,4 @@ function resolveProjectGpuSectionAutoHeightDimension({
     toTopLevelSectionOuterDimension(dimensions.minHeight),
     toTopLevelSectionOuterDimension(dimensions.maxHeight),
   );
-}
-
-function clampProjectGpuSectionSceneDimension(
-  value: number,
-  min: number,
-  max: number,
-): number {
-  return Math.max(min, Math.min(value, max));
-}
-
-function resolveProjectSectionSceneDimension(
-  value: unknown,
-  fallback: number,
-): number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? value
-    : fallback;
 }

@@ -39,6 +39,7 @@ export type GpuFlowFrameUploadDiagnostic = {
 };
 
 export type GpuFlowFramePerformanceEvent = {
+  readonly activeNodeId: string | null;
   readonly activeNodePresent: boolean;
   readonly budgetExhausted: boolean;
   readonly deferResolutionUpdates: boolean;
@@ -94,6 +95,7 @@ export function createGpuFlowFramePerformanceEvent({
   const textureMemoryBeforeEviction = layerResult.textureMemoryBeforeEviction;
   const uploadDiagnostics = layerResult.uploadDiagnostics;
   return {
+    activeNodeId: layerResult.activeNodeId,
     activeNodePresent: layerResult.activeNodeId !== null,
     budgetExhausted: layerResult.budgetExhausted,
     deferResolutionUpdates,

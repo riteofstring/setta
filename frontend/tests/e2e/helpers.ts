@@ -118,10 +118,18 @@ type ProjectStateSectionImpl = { size: ProjectStateSectionSize; type: string };
 type ProjectStateSectionCore = {
   sharedModifier?: { size?: ProjectStateSectionSize };
 };
+type ProjectStateTopLevelSectionLayout = {
+  h?: number | null;
+  w?: number | null;
+  x: number;
+  y: number;
+  zIndex?: number | null;
+};
 type ProjectStateViewport = { x: number; y: number; zoom: number };
 export type SingleConfigResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
+    topLevelSections?: Record<string, ProjectStateTopLevelSectionLayout>;
     viewport?: ProjectStateViewport | null;
   };
   sectionVariants: Record<string, ProjectStateVariant>;
@@ -1511,10 +1519,10 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       }
       const gutter = 16;
       const transform = window.getComputedStyle(viewport).transform;
-      if (!transform || transform === "none") {
-        return null;
-      }
-      const matrix = new DOMMatrixReadOnly(transform);
+      const matrix =
+        !transform || transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(transform);
       const scale = matrix.a || 1;
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;

@@ -64,6 +64,11 @@ function resizeGpuSectionSceneNodeOuterRect(
       previousReference: section.worldRect,
       rect: section.chromeRect,
     }),
+    clipRect: resizeGpuRectRelativeToReference({
+      nextReference: worldRect,
+      previousReference: section.worldRect,
+      rect: section.clipRect,
+    }),
     height: resizedWorldRect.height,
     localRect,
     width: resizedWorldRect.width,

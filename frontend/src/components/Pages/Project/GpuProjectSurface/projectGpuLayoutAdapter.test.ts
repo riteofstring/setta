@@ -54,6 +54,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getProjectGpuFlowScene,
+  resolveProjectGpuResizePreviewScene,
   syncProjectGpuLayoutStoreFromScene,
 } from "./projectGpuLayoutAdapter";
 import {
@@ -448,6 +449,115 @@ describe("project GPU layout adapter", () => {
           rowId: "child-param",
         }),
       ]),
+    );
+  });
+
+  it("derives retained param content geometry from resize preview sections", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "param-a": "param-a-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 160, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 160, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["param-a"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "param-a",
+      "param-a-variant",
+      "param-a-impl",
+      createCodeParamCodeObjImpl({
+        id: "param-a-impl",
+        name: "param-a",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "param-a": ["param-a"],
+        },
+        topLevelParamIds: ["param-a"],
+      },
+    });
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 5,
+    });
+    const section = scene.sections.find(
+      (candidate) => candidate.sectionId === "dict-a",
+    );
+    const surface = scene.contentSurfaces.find(
+      (candidate) => candidate.id === "dict-a:param-content:unpinned",
+    );
+    const retainedScene = surface?.retainedScene;
+    if (!section || !surface || !retainedScene) {
+      throw new Error("Expected dict-a section and retained surface.");
+    }
+
+    const previewScene = resolveProjectGpuResizePreviewScene(
+      projectState,
+      { darkMode: false, revision: scene.revision },
+      {
+        resizedWorldRect: {
+          ...section.worldRect,
+          height: section.worldRect.height + 60,
+          width: section.worldRect.width + 100,
+        },
+        scene,
+        sectionId: "dict-a",
+      },
+    );
+    const previewSurface = previewScene.contentSurfaces.find(
+      (candidate) => candidate.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(
+      previewScene.sections.find(
+        (candidate) => candidate.sectionId === "dict-a",
+      )?.worldRect,
+    ).toMatchObject({
+      height: section.worldRect.height + 60,
+      width: section.worldRect.width + 100,
+    });
+    expect(previewSurface).toMatchObject({
+      rect: {
+        height: surface.rect.height + 60,
+        width: surface.rect.width + 100,
+      },
+    });
+    expect(previewSurface?.retainedScene?.viewportRect).toMatchObject({
+      height: retainedScene.viewportRect.height + 60,
+      width: retainedScene.viewportRect.width + 100,
+    });
+    expect(
+      previewSurface?.retainedScene?.drawCommands.find(
+        (command) =>
+          command.kind === "row-control" && command.rowId === "param-a",
+      )?.rect.width,
+    ).toBeGreaterThan(
+      retainedScene.drawCommands.find(
+        (command) =>
+          command.kind === "row-control" && command.rowId === "param-a",
+      )?.rect.width ?? 0,
     );
   });
 

@@ -83,11 +83,27 @@ type ProjectNodeResizeOptionsInput = {
   flowInteractionKeys: ProjectFlowInteractionKeys;
   isFollowTransitioning: boolean;
   layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  onResizePreviewSceneChange?:
+    | ((scene: GpuFlowScene | null, phase: GpuFlowLayoutChangePhase) => void)
+    | undefined;
+  resolveResizePreviewScene?:
+    | ((input: {
+        readonly resizedWorldRect: GpuRect;
+        readonly scene: GpuFlowScene;
+        readonly sectionId: string;
+      }) => GpuFlowScene)
+    | undefined;
   scene?: GpuFlowScene | undefined;
 };
 
 type ProjectNodeResizeOptionsSourceAccessors = {
   readonly getLayoutStore: () => GpuFlowLayoutStoreApi | undefined;
+  readonly getOnResizePreviewSceneChange: () =>
+    | ProjectNodeResizeOptionsInput["onResizePreviewSceneChange"]
+    | undefined;
+  readonly getResolveResizePreviewScene: () =>
+    | ProjectNodeResizeOptionsInput["resolveResizePreviewScene"]
+    | undefined;
   readonly getScene: () => GpuFlowScene | undefined;
 };
 
@@ -118,6 +134,8 @@ export function useProjectNodeResizeOptions({
   flowInteractionKeys,
   isFollowTransitioning,
   layoutStore,
+  onResizePreviewSceneChange,
+  resolveResizePreviewScene,
   scene,
 }: ProjectNodeResizeOptionsInput) {
   const sessionRef = useRef<ProjectNodeResizeSession>(
@@ -125,10 +143,18 @@ export function useProjectNodeResizeOptions({
   );
   const resizeSourcesRef = useRef<{
     layoutStore?: GpuFlowLayoutStoreApi | undefined;
+    onResizePreviewSceneChange?:
+      | ProjectNodeResizeOptionsInput["onResizePreviewSceneChange"]
+      | undefined;
+    resolveResizePreviewScene?:
+      | ProjectNodeResizeOptionsInput["resolveResizePreviewScene"]
+      | undefined;
     scene?: GpuFlowScene | undefined;
   }>({});
   resizeSourcesRef.current = {
     layoutStore,
+    onResizePreviewSceneChange,
+    resolveResizePreviewScene,
     scene,
   };
   const {
@@ -147,6 +173,10 @@ export function useProjectNodeResizeOptions({
         },
         isFollowTransitioning,
         getLayoutStore: () => resizeSourcesRef.current.layoutStore,
+        getOnResizePreviewSceneChange: () =>
+          resizeSourcesRef.current.onResizePreviewSceneChange,
+        getResolveResizePreviewScene: () =>
+          resizeSourcesRef.current.resolveResizePreviewScene,
         getScene: () => resizeSourcesRef.current.scene,
         sessionRef,
       }),
@@ -165,6 +195,8 @@ export function createProjectNodeResizeOptions({
   flowInteractionKeys,
   isFollowTransitioning,
   layoutStore,
+  onResizePreviewSceneChange,
+  resolveResizePreviewScene,
   scene,
   sessionRef,
 }: ProjectNodeResizeOptionsInput & {
@@ -175,6 +207,8 @@ export function createProjectNodeResizeOptions({
     flowInteractionKeys,
     isFollowTransitioning,
     getLayoutStore: () => layoutStore,
+    getOnResizePreviewSceneChange: () => onResizePreviewSceneChange,
+    getResolveResizePreviewScene: () => resolveResizePreviewScene,
     getScene: () => scene,
     sessionRef,
   });
@@ -184,6 +218,8 @@ function createProjectNodeResizeOptionsFromSources({
   canEditLayout,
   flowInteractionKeys,
   getLayoutStore,
+  getOnResizePreviewSceneChange,
+  getResolveResizePreviewScene,
   getScene,
   isFollowTransitioning,
   sessionRef,
@@ -205,7 +241,9 @@ function createProjectNodeResizeOptionsFromSources({
       patchProjectNodeResizeSceneLayout({
         change,
         layoutStore: getLayoutStore(),
+        onResizePreviewSceneChange: getOnResizePreviewSceneChange(),
         phase: "change",
+        resolveResizePreviewScene: getResolveResizePreviewScene(),
         scene: getScene(),
       });
     },
@@ -213,6 +251,7 @@ function createProjectNodeResizeOptionsFromSources({
       cancelProjectNodeResize(change, sessionRef);
       restoreProjectNodeResizeSceneLayout({
         layoutStore: getLayoutStore(),
+        onResizePreviewSceneChange: getOnResizePreviewSceneChange(),
         phase: "cancel",
         scene: getScene(),
       });
@@ -222,7 +261,9 @@ function createProjectNodeResizeOptionsFromSources({
       patchProjectNodeResizeSceneLayout({
         change,
         layoutStore: getLayoutStore(),
+        onResizePreviewSceneChange: getOnResizePreviewSceneChange(),
         phase: "start",
+        resolveResizePreviewScene: getResolveResizePreviewScene(),
         scene: getScene(),
       });
     },
@@ -230,7 +271,9 @@ function createProjectNodeResizeOptionsFromSources({
       patchProjectNodeResizeSceneLayout({
         change,
         layoutStore: getLayoutStore(),
+        onResizePreviewSceneChange: getOnResizePreviewSceneChange(),
         phase: "commit",
+        resolveResizePreviewScene: getResolveResizePreviewScene(),
         scene: getScene(),
       });
       stopProjectNodeResize(change, sessionRef);
@@ -241,40 +284,65 @@ function createProjectNodeResizeOptionsFromSources({
 function patchProjectNodeResizeSceneLayout({
   change,
   layoutStore,
+  onResizePreviewSceneChange,
   phase,
+  resolveResizePreviewScene,
   scene,
 }: {
   readonly change: GpuNodeResizeChange;
   readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  readonly onResizePreviewSceneChange?:
+    | ProjectNodeResizeOptionsInput["onResizePreviewSceneChange"]
+    | undefined;
   readonly phase: GpuFlowLayoutChangePhase;
+  readonly resolveResizePreviewScene?:
+    | ProjectNodeResizeOptionsInput["resolveResizePreviewScene"]
+    | undefined;
   readonly scene?: GpuFlowScene | undefined;
 }): boolean {
   if (!layoutStore || !scene) {
     return false;
   }
+  const resizedWorldRect = getProjectNodeResizeChangeRect(change);
+  const previewScene = resolveResizePreviewScene
+    ? resolveResizePreviewScene({
+        resizedWorldRect,
+        scene,
+        sectionId: change.nodeId,
+      })
+    : {
+        ...scene,
+        sections: resolveGpuSectionSceneResizePreviewSections({
+          resizedWorldRect,
+          scene,
+          sectionId: change.nodeId,
+        }),
+      };
+  onResizePreviewSceneChange?.(previewScene, phase);
   return replaceProjectNodeResizeSceneLayoutStore({
     layoutStore,
     phase,
-    sections: resolveGpuSectionSceneResizePreviewSections({
-      resizedWorldRect: getProjectNodeResizeChangeRect(change),
-      scene,
-      sectionId: change.nodeId,
-    }),
+    sections: previewScene.sections,
   });
 }
 
 function restoreProjectNodeResizeSceneLayout({
   layoutStore,
+  onResizePreviewSceneChange,
   phase,
   scene,
 }: {
   readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  readonly onResizePreviewSceneChange?:
+    | ProjectNodeResizeOptionsInput["onResizePreviewSceneChange"]
+    | undefined;
   readonly phase: GpuFlowLayoutChangePhase;
   readonly scene?: GpuFlowScene | undefined;
 }): boolean {
   if (!layoutStore || !scene) {
     return false;
   }
+  onResizePreviewSceneChange?.(null, phase);
   return replaceProjectNodeResizeSceneLayoutStore({
     layoutStore,
     phase,

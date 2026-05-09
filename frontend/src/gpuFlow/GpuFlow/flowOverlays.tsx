@@ -27,6 +27,7 @@ export type GpuFlowOverlaySources = {
 };
 
 export function useGpuFlowOverlaySources({
+  activeResizeNodeIdRef,
   edgeScene,
   layoutStore,
   nodeDomTransformSyncCacheRef,
@@ -40,6 +41,7 @@ export function useGpuFlowOverlaySources({
   transformOnlyPaintNodeIdsRef,
   viewportStore,
 }: {
+  readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly edgeScene: GpuEdgeScene | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi | undefined;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
@@ -64,6 +66,7 @@ export function useGpuFlowOverlaySources({
     });
   const { retainedContentSourceElement, retainedContentSurfaces } =
     useGpuFlowRetainedContentSources({
+      activeResizeNodeIdRef,
       nodeDomTransformSyncCacheRef,
       nodeElementByIdRef,
       scene,

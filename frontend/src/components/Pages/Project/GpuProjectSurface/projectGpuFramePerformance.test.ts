@@ -73,6 +73,7 @@ describe("projectGpuFramePerformance", () => {
 
 function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
   return {
+    activeNodeId: "node-1",
     activeNodePresent: true,
     budgetExhausted: true,
     deferResolutionUpdates: true,

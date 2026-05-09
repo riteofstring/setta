@@ -366,6 +366,7 @@ export function GpuFlow({
     retainedContentSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
+    activeResizeNodeIdRef,
     edgeScene,
     layoutStore,
     nodeDomTransformSyncCacheRef,

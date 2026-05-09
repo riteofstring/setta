@@ -94,6 +94,32 @@ describe("GPU flow scene resize preview", () => {
       clipRect: rect(0, 58, 100, 0),
     });
   });
+
+  it("grows root clip geometry with the resized root", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          id: "root",
+          worldRect: rect(20, 30, 120, 90),
+        }),
+      ]),
+    );
+
+    const sections = sectionById({
+      ...scene,
+      sections: resolveGpuSectionSceneResizePreviewSections({
+        resizedWorldRect: rect(20, 30, 180, 90),
+        scene,
+        sectionId: "root",
+      }),
+    });
+
+    expect(sections.get("root")).toMatchObject({
+      bodyRect: rect(20, 30, 180, 90),
+      clipRect: rect(20, 30, 180, 90),
+      worldRect: rect(20, 30, 180, 90),
+    });
+  });
 });
 
 function sceneWithSections(

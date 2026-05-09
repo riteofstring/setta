@@ -1,8 +1,12 @@
 import { defineConfig } from "@playwright/test";
 
-const chromeExecutablePath = process.env.SETTA_CHROME_BIN ?? process.env.CHROME_BIN;
-const browserLaunchArgs =
-  process.platform === "darwin" ? ["--use-mock-keychain"] : [];
+import {
+  resolveBrowserLaunchArgs,
+  resolveChromeExecutablePath,
+} from "./tests/e2e/browserLaunch";
+
+const chromeExecutablePath = resolveChromeExecutablePath();
+const browserLaunchArgs = resolveBrowserLaunchArgs();
 
 export default defineConfig({
   testDir: "./tests/e2e",

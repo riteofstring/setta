@@ -21,6 +21,7 @@ import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentS
 import type { GpuFlowScene } from "../scene";
 
 export function useGpuFlowRetainedContentSources({
+  activeResizeNodeIdRef,
   nodeDomTransformSyncCacheRef,
   nodeElementByIdRef,
   scene,
@@ -29,6 +30,7 @@ export function useGpuFlowRetainedContentSources({
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
 }: {
+  readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly scene: GpuFlowScene | undefined;
@@ -42,6 +44,16 @@ export function useGpuFlowRetainedContentSources({
 } {
   const retainedContentSurfaces = useMemo(
     () => getGpuRetainedContentSurfaceLayouts(scene?.contentSurfaces),
+    [scene?.contentSurfaces],
+  );
+  const retainedContentOwnerBySurfaceId = useMemo(
+    () =>
+      new Map(
+        (scene?.contentSurfaces ?? []).map((surface) => [
+          surface.id,
+          surface.ownerSectionId,
+        ]),
+      ),
     [scene?.contentSurfaces],
   );
   const handleRetainedContentElementChange = useCallback(
@@ -72,7 +84,12 @@ export function useGpuFlowRetainedContentSources({
     (surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => {
       textureManagerRef.current?.markSurfaceTextureDirty({
         content: true,
-        priority: event.reason === "animation" ? "interactive" : "visible",
+        priority:
+          event.reason === "animation" ||
+          retainedContentOwnerBySurfaceId.get(surfaceId) ===
+            activeResizeNodeIdRef.current
+            ? "interactive"
+            : "visible",
         reason: event.reason,
         requestPaint: false,
         ...(event.sourceRect ? { sourceRect: event.sourceRect } : {}),
@@ -83,7 +100,12 @@ export function useGpuFlowRetainedContentSources({
         event.reason === "animation" ? "texture-upload" : "manual",
       );
     },
-    [surfaceRef, textureManagerRef],
+    [
+      activeResizeNodeIdRef,
+      retainedContentOwnerBySurfaceId,
+      surfaceRef,
+      textureManagerRef,
+    ],
   );
 
   return {
