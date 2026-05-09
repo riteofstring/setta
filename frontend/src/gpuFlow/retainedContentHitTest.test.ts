@@ -1,15 +1,19 @@
-import { describe, expect, it } from "vitest";
 import fc from "fast-check";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { hitTestGpuRetainedContentScene } from "./retainedContentHitTest";
-import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
+import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 const RETAINED_HIT_PROPERTY_RUNS = 100;
 
 describe("retained content hit testing", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("hits the topmost retained content record under a flow point", () => {
     const scene = sceneWithSurfaces([
       retainedSurface({
@@ -160,6 +164,56 @@ describe("retained content hit testing", () => {
       { numRuns: RETAINED_HIT_PROPERTY_RUNS },
     );
   });
+
+  it("records retained hit-test diagnostics when a probe is installed", () => {
+    const recordHitTest = vi.fn();
+    vi.stubGlobal("window", {
+      __SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS__: { recordHitTest },
+    });
+    const firstHit: GpuRetainedContentHitRecord = {
+      id: "first",
+      kind: "row",
+      ownerRowId: "param-0",
+      rect: { height: 220, width: 220, x: 0, y: 0 },
+    };
+    const secondHit: GpuRetainedContentHitRecord = {
+      id: "second",
+      kind: "label",
+      ownerRowId: "param-0",
+      rect: { height: 10, width: 10, x: 500, y: 500 },
+    };
+
+    const hit = hitTestGpuRetainedContentScene({
+      point: { x: 40, y: 40 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          hitRecords: [firstHit, secondHit],
+          id: "params",
+          rect: { height: 240, width: 240, x: 0, y: 0 },
+        }),
+      ]),
+    });
+
+    expect(hit?.hit.id).toBe("first");
+    expect(recordHitTest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkedHitRecordCount: 2,
+        contentSurfaceCount: 1,
+        matched: true,
+        retainedSurfaceCount: 1,
+        testedHitRecordCount: 2,
+        testedSurfaceCount: 1,
+      }),
+    );
+    expect(recordHitTest.mock.calls[0]?.[0].surfaces).toEqual([
+      expect.objectContaining({
+        checkedHitRecordCount: 2,
+        hitRecordCount: 2,
+        matched: true,
+        surfaceId: "params",
+      }),
+    ]);
+  });
 });
 
 function sceneWithSurfaces(
@@ -227,7 +281,9 @@ function retainedSurface({
     ownerSectionId: "section-a",
     rect,
     renderer: { kind: "canvas-content", surfaceId: id },
-    retainedScene: hitRecords ? { ...retainedScene, hitRecords } : retainedScene,
+    retainedScene: hitRecords
+      ? { ...retainedScene, hitRecords }
+      : retainedScene,
     zIndex,
   };
 }

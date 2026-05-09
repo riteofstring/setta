@@ -51,6 +51,30 @@ describe("ContextMenuCore", () => {
       }
       return originalGetBoundingClientRect.call(this);
     };
+    const originalOffsetWidth = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "offsetWidth",
+    );
+    const originalOffsetHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "offsetHeight",
+    );
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).dataset.testid === "context-menu-core"
+          ? 160
+          : 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).dataset.testid === "context-menu-core"
+          ? 120
+          : 0;
+      },
+    });
 
     try {
       await act(async () => {
@@ -85,6 +109,20 @@ describe("ContextMenuCore", () => {
       });
       HTMLElement.prototype.getBoundingClientRect =
         originalGetBoundingClientRect;
+      if (originalOffsetWidth) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "offsetWidth",
+          originalOffsetWidth,
+        );
+      }
+      if (originalOffsetHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "offsetHeight",
+          originalOffsetHeight,
+        );
+      }
       window.requestAnimationFrame = originalRequestAnimationFrame;
       window.cancelAnimationFrame = originalCancelAnimationFrame;
     }

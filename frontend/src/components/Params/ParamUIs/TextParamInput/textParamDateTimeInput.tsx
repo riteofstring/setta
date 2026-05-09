@@ -157,7 +157,7 @@ function resolveEditableDateTimeChange({
   if (mode === "formatted-date") {
     const nextIso = normalizeDateToIso(rawValue, dateDisplayFormat);
     return {
-      nextCommittedValue: nextIso === "" ? undefined : nextIso,
+      ...(nextIso === "" ? {} : { nextCommittedValue: nextIso }),
       nextLocalDateInputValue: rawValue,
     };
   }
@@ -179,8 +179,9 @@ function resolveFormattedDateBlur({
   const fallbackIso = normalizeDateToIso(committedValue, dateDisplayFormat);
   const resolvedIso = nextIso !== "" ? nextIso : fallbackIso;
   return {
-    nextCommittedValue:
-      nextIso !== "" && nextIso !== fallbackIso ? nextIso : undefined,
+    ...(nextIso !== "" && nextIso !== fallbackIso
+      ? { nextCommittedValue: nextIso }
+      : {}),
     nextLocalDateInputValue: formatDateForDisplay(
       resolvedIso,
       dateDisplayFormat,
@@ -224,6 +225,7 @@ function EditableTextParamDateTimeInput({
     <>
       <div className={classes.wrapper}>
         <input
+          aria-label={getEditableDateTimeInputLabel(view.mode)}
           type={view.inputType}
           className={classes.input}
           value={renderedInputValue}
@@ -268,6 +270,18 @@ function EditableTextParamDateTimeInput({
   );
 }
 
+function getEditableDateTimeInputLabel(
+  mode: EditableTextParamDateTimeMode,
+): string {
+  if (mode === "time") {
+    return "Time input";
+  }
+  if (mode === "datetime-local") {
+    return "Date and time input";
+  }
+  return "Date input";
+}
+
 export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
   const classes = resolveTextParamDateTimeClasses(props);
   const displayOptions = resolveTextParamDateTimeDisplayOptions(props);
@@ -299,7 +313,7 @@ export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
           <DateCalendarInput
             value={props.value}
             onChange={props.onChange}
-            onEscape={props.onEscape}
+            {...(props.onEscape ? { onEscape: props.onEscape } : {})}
             isDisabled={props.isDisabled}
             selectionMode={view.selectionMode}
             weekStart={props.dateCalendarWeekStart}
@@ -317,7 +331,7 @@ export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
     <EditableTextParamDateTimeInput
       value={props.value}
       onChange={props.onChange}
-      onEscape={props.onEscape}
+      {...(props.onEscape ? { onEscape: props.onEscape } : {})}
       isDisabled={props.isDisabled}
       dateDisplayFormat={props.dateDisplayFormat}
       classes={classes}

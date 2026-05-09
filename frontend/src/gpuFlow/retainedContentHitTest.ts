@@ -1,3 +1,8 @@
+import {
+  getGpuRetainedContentDiagnosticsRecorder,
+  nowForGpuRetainedContentDiagnostics,
+  type GpuRetainedContentHitTestSurfaceDiagnostic,
+} from "./retainedContentDiagnostics";
 import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentScene,
@@ -26,7 +31,15 @@ export function hitTestGpuRetainedContentScene({
   readonly point: GpuPoint;
   readonly scene: GpuFlowScene;
 }): GpuRetainedContentHitTarget | null {
+  const recordHitTest =
+    getGpuRetainedContentDiagnosticsRecorder()?.recordHitTest;
+  const startTime = recordHitTest ? nowForGpuRetainedContentDiagnostics() : 0;
   const surfaces = getRetainedContentHitSurfaces(scene.contentSurfaces);
+  const surfaceDiagnostics: GpuRetainedContentHitTestSurfaceDiagnostic[] = [];
+  let checkedHitRecordCount = 0;
+  let testedHitRecordCount = 0;
+  let testedSurfaceCount = 0;
+
   for (const surface of surfaces) {
     if (
       !rectContainsPoint(surface.rect, point) ||
@@ -38,13 +51,34 @@ export function hitTestGpuRetainedContentScene({
       x: point.x - surface.rect.x,
       y: point.y - surface.rect.y,
     };
-    const hit = hitTestRetainedContentRecords({
+    testedSurfaceCount += 1;
+    testedHitRecordCount += surface.retainedScene.hitRecords.length;
+    const result = hitTestRetainedContentRecords({
       point: localPoint,
       retainedScene: surface.retainedScene,
     });
+    checkedHitRecordCount += result.checkedCount;
+    surfaceDiagnostics.push({
+      checkedHitRecordCount: result.checkedCount,
+      hitRecordCount: surface.retainedScene.hitRecords.length,
+      matched: Boolean(result.hit),
+      surfaceId: surface.id,
+    });
+    const hit = result.hit;
     if (!hit) {
       continue;
     }
+    recordHitTest?.({
+      checkedHitRecordCount,
+      contentSurfaceCount: scene.contentSurfaces.length,
+      durationMs: nowForGpuRetainedContentDiagnostics() - startTime,
+      matched: true,
+      retainedSurfaceCount: surfaces.length,
+      surfaces: surfaceDiagnostics,
+      testedHitRecordCount,
+      testedSurfaceCount,
+      timestampMs: nowForGpuRetainedContentDiagnostics(),
+    });
     return {
       flowPoint: point,
       hit,
@@ -55,6 +89,17 @@ export function hitTestGpuRetainedContentScene({
       zIndex: surface.zIndex,
     };
   }
+  recordHitTest?.({
+    checkedHitRecordCount,
+    contentSurfaceCount: scene.contentSurfaces.length,
+    durationMs: nowForGpuRetainedContentDiagnostics() - startTime,
+    matched: false,
+    retainedSurfaceCount: surfaces.length,
+    surfaces: surfaceDiagnostics,
+    testedHitRecordCount,
+    testedSurfaceCount,
+    timestampMs: nowForGpuRetainedContentDiagnostics(),
+  });
   return null;
 }
 
@@ -97,14 +142,19 @@ function hitTestRetainedContentRecords({
 }: {
   readonly point: GpuPoint;
   readonly retainedScene: GpuRetainedContentScene;
-}): GpuRetainedContentHitRecord | null {
+}): {
+  readonly checkedCount: number;
+  readonly hit: GpuRetainedContentHitRecord | null;
+} {
+  let checkedCount = 0;
   for (let index = retainedScene.hitRecords.length - 1; index >= 0; index--) {
     const hit = retainedScene.hitRecords[index];
+    checkedCount += 1;
     if (hit && rectContainsPoint(hit.rect, point)) {
-      return hit;
+      return { checkedCount, hit };
     }
   }
-  return null;
+  return { checkedCount, hit: null };
 }
 
 function rectContainsPoint(rect: GpuRect, point: GpuPoint): boolean {

@@ -264,7 +264,9 @@ export function ComboboxList({
         ...listStyle,
       }}
     >
-      <div className="w-full overflow-y-scroll">{children}</div>
+      <div className="w-full overflow-y-scroll" role="presentation">
+        {children}
+      </div>
     </div>,
     portalContainer,
   );
@@ -283,12 +285,12 @@ function _ComboboxItem({
     ? highlightedItemStyle || "bg-setta-300/50 dark:bg-setta-900/50"
     : "";
   return (
-    <dd
+    <div
       className={`mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
     >
       {itemString}
-    </dd>
+    </div>
   );
 }
 
@@ -309,12 +311,13 @@ export function ComboboxItems({
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
-        <dl key={groupIndex}>
-          <dt
-            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2${resolvedGroupHeaderThemeClassName}`}
+        <div aria-label={group.group} key={groupIndex} role="group">
+          <div
+            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-600 first:pt-2 dark:text-setta-300${resolvedGroupHeaderThemeClassName}`}
+            role="presentation"
           >
             {group.group}
-          </dt>
+          </div>
           {group.items.map((item, itemIndex) => {
             const globalIndex = result.itemIndex++;
             return (
@@ -330,7 +333,7 @@ export function ComboboxItems({
               />
             );
           })}
-        </dl>,
+        </div>,
       );
 
       return result;

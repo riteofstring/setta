@@ -1,3 +1,5 @@
+import type { Completion } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
 import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
@@ -36,7 +38,9 @@ export function TextInputCodeMirror({
   isDisabled = false,
   completionsFn,
 }) {
-  const [activationEvent, setActivationEvent] = useState(null);
+  const [activationEvent, setActivationEvent] = useState<
+    "tab" | { readonly clientX: number; readonly clientY: number } | null
+  >(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
   const gpuFlowControl = getTextInputCodeMirrorGpuFlowControl({
@@ -193,6 +197,7 @@ function CoreCodeMirror({
     onTab,
     onEscape,
   });
+  const accessibleName = isKeyName ? "Parameter name" : "Parameter value";
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
     setRealIsInitialized,
@@ -217,7 +222,10 @@ function CoreCodeMirror({
       }}
       onCreateEditor={onCreateEditor}
       theme={theme}
-      extensions={extensions}
+      extensions={[
+        ...extensions,
+        EditorView.contentAttributes.of({ "aria-label": accessibleName }),
+      ]}
       onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
@@ -229,26 +237,28 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
-  const fn = async (fullText: string, position: number) => {
+  const fn = async (
+    fullText: string,
+    position: number,
+  ): Promise<Completion[]> => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
       paramInfoId,
     });
     const projectConfigId = getCurrProjectConfigId();
-    const res = await callOpenAPI(
-      textFieldCompletion({
-        body: {
-          projectConfigId,
-          sectionId,
-          paramInfoId,
-          fullText,
-          position,
-        },
-      } as Parameters<typeof textFieldCompletion>[0]),
-    );
+    const request = textFieldCompletion({
+      body: {
+        projectConfigId,
+        sectionId,
+        paramInfoId,
+        fullText,
+        position,
+      },
+    } as Parameters<typeof textFieldCompletion>[0]);
+    const res = await callOpenAPI(request as Parameters<typeof callOpenAPI>[0]);
     setToNotWaiting();
     if (res200(res)) {
-      return res.data;
+      return (res.data ?? []) as Completion[];
     }
     return [];
   };

@@ -1,5 +1,9 @@
 import { createGpuRetainedContentControlSubpartHitRecords } from "./retainedContentControlSubpartHits";
 import { createGpuRetainedContentDateCalendarHitRecords } from "./retainedContentDateCalendarScene";
+import {
+  getGpuRetainedContentDiagnosticsRecorder,
+  nowForGpuRetainedContentDiagnostics,
+} from "./retainedContentDiagnostics";
 import { createGpuRetainedContentDrawCommands } from "./retainedContentDrawCommands";
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 import {
@@ -140,6 +144,11 @@ function createGpuRetainedRowContentSceneFromSourceInput({
     ...sourceInput,
     scrollOffset,
   });
+  const recordSceneBuild =
+    getGpuRetainedContentDiagnosticsRecorder()?.recordSceneBuild;
+  const sceneBuildStartTime = recordSceneBuild
+    ? nowForGpuRetainedContentDiagnostics()
+    : 0;
   const draggingRowIds = new Set(sourceInput.dragPreview?.draggingRowIds ?? []);
   const visibleRange = resolveGpuRetainedContentVisibleRowRangeFromMetrics({
     hasVerticalGaps: sourceInput.layout.hasVerticalGaps,
@@ -162,6 +171,25 @@ function createGpuRetainedRowContentSceneFromSourceInput({
         viewportRect: sourceInput.viewportRect,
       }),
     );
+  const hitRecordBuildStartTime = recordSceneBuild
+    ? nowForGpuRetainedContentDiagnostics()
+    : 0;
+  const hitRecords = createGpuRetainedContentHitRecords({
+    activePopup: sourceInput.activePopup,
+    contentRect: sourceInput.layout.contentRect,
+    controlRightInset: sourceInput.controlRightInset,
+    controlWidth: sourceInput.controlWidth,
+    indentWidth: sourceInput.indentWidth,
+    labelControlGap: sourceInput.labelControlGap,
+    portHitSize: sourceInput.portHitSize,
+    rows: visibleRows,
+    sceneId: sourceInput.id,
+    scrollOffset,
+    viewportRect: sourceInput.viewportRect,
+  });
+  const hitRecordBuildDurationMs = recordSceneBuild
+    ? nowForGpuRetainedContentDiagnostics() - hitRecordBuildStartTime
+    : 0;
   const scene = {
     contentRect: sourceInput.layout.contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
@@ -179,19 +207,7 @@ function createGpuRetainedRowContentSceneFromSourceInput({
       sceneId: sourceInput.id,
       viewportRect: sourceInput.viewportRect,
     }),
-    hitRecords: createGpuRetainedContentHitRecords({
-      activePopup: sourceInput.activePopup,
-      contentRect: sourceInput.layout.contentRect,
-      controlRightInset: sourceInput.controlRightInset,
-      controlWidth: sourceInput.controlWidth,
-      indentWidth: sourceInput.indentWidth,
-      labelControlGap: sourceInput.labelControlGap,
-      portHitSize: sourceInput.portHitSize,
-      rows: visibleRows,
-      sceneId: sourceInput.id,
-      scrollOffset,
-      viewportRect: sourceInput.viewportRect,
-    }),
+    hitRecords,
     id: sourceInput.id,
     ownerSectionId: sourceInput.ownerSectionId,
     portAnchors: createGpuRetainedContentPortAnchors({
@@ -207,6 +223,16 @@ function createGpuRetainedRowContentSceneFromSourceInput({
     viewportRect: sourceInput.viewportRect,
   };
   setGpuRetainedContentSceneSourceInput(scene, sourceInput);
+  recordSceneBuild?.({
+    activePopup: Boolean(sourceInput.activePopup),
+    durationMs: nowForGpuRetainedContentDiagnostics() - sceneBuildStartTime,
+    hitRecordBuildDurationMs,
+    hitRecordCount: hitRecords.length,
+    rowCount: sourceInput.rows.length,
+    sceneId: sourceInput.id,
+    timestampMs: nowForGpuRetainedContentDiagnostics(),
+    visibleRowCount: visibleRows.length,
+  });
   return scene;
 }
 
