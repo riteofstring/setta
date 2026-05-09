@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,7 +19,6 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/observability"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
@@ -219,35 +217,91 @@ func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
 
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	provider := newAppTestManagedChatSSEProvider(t,
+		"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Managed agent\"}}]}\n\n",
+		"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n",
+		"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n",
+		"data: [DONE]\n\n",
+	)
+	defer provider.Close()
+	saveAppManagedLLMEngineConfig(t, cfg, provider.URL)
+	saveAppManagedAgentProfile(t, cfg, "profile-alpha", "engine-managed")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppManagedAgentProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	startResponse := postAppManagedWorkflowRoute(
+		t,
+		server.URL,
+		authCookie,
+		httpapi.RouteStartAgentRun,
+		`{"profileId":"profile-alpha","inputs":{"allowUnscoped":true,"prompt":"Plan this task."}}`,
+		"start managed agent run",
+	)
+	defer startResponse.Body.Close()
+	started := decodeAppRunResponse(t, startResponse, "started run")
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running managed run, got %#v", started)
+	}
+
+	loaded := waitForAppAgentRunStatus(t, server.URL, authCookie, started.ID, agentruns.RunStatusCompleted)
+	if _, err := app.agentRuntime.WaitForRun(context.Background(), started.ID); err != nil {
+		t.Fatalf("wait for managed runtime completion: %v", err)
+	}
+
+	messages, ok := loaded.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected prompt and assistant outputs, got %#v", loaded.Outputs["messages"])
+	}
+	if message, ok := messages[1].(map[string]any); !ok || appTestMessageText(message) != "Managed agent reply" {
+		t.Fatalf("unexpected managed agent output %#v", loaded.Outputs["messages"])
+	}
+}
+
+func newAppTestManagedChatSSEProvider(t *testing.T, chunks ...string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			http.Error(w, "missing flusher", http.StatusInternalServerError)
 			return
 		}
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Managed agent\"}}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		for _, chunk := range chunks {
+			_, _ = io.WriteString(w, chunk)
+			flusher.Flush()
+		}
 	}))
-	defer provider.Close()
+}
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gpt-4o-mini",
-				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
-				APIKeyEnv: "OPENAI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
+func saveAppManagedLLMEngineConfig(t *testing.T, cfg config.Config, providerURL string) {
+	t.Helper()
+	configPath := llmconfig.Path(cfg.Paths.SettaFilesRoot)
+	allConfigs, err := llmconfig.Load(configPath, llmconfig.LoadOptions{})
+	if err != nil {
+		t.Fatalf("load llm config defaults: %v", err)
+	}
+	allConfigs.Configs["primary"] = llmconfig.Config{
+		ID:        "primary",
+		Model:     "gpt-4o-mini",
+		Provider:  "openai",
+		BaseURL:   providerURL + "/v1",
+		APIKeyEnv: "OPENAI_API_KEY",
+	}
+	if err := llmconfig.Save(configPath, allConfigs); err != nil {
 		t.Fatalf("save llm config: %v", err)
 	}
 
@@ -266,32 +320,27 @@ func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
+}
 
+func saveAppManagedAgentProfile(t *testing.T, cfg config.Config, profileID string, engineConfigID string) {
+	t.Helper()
 	profileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("new profile store: %v", err)
 	}
-	engineConfigID := "engine-managed"
 	if err := profileStore.Write([]agentprofiles.Profile{
 		{
-			ID:             "profile-alpha",
+			ID:             profileID,
 			Name:           "Alpha",
 			EngineConfigID: &engineConfigID,
 		},
 	}); err != nil {
 		t.Fatalf("write agent profile: %v", err)
 	}
+}
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
+func seedAppManagedAgentProject(t *testing.T, app *App) {
+	t.Helper()
 	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
@@ -302,78 +351,34 @@ func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed app project: %v", err)
 	}
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func decodeAppRunResponse(t *testing.T, response *http.Response, label string) agentruns.Run {
+	t.Helper()
+	var run agentruns.Run
+	if err := json.NewDecoder(response.Body).Decode(&run); err != nil {
+		t.Fatalf("decode %s: %v", label, err)
+	}
+	return run
+}
 
-	authCookie := newAppTestAuthCookie(t, app)
-	startRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStartAgentRun,
-		strings.NewReader(`{"profileId":"profile-alpha","inputs":{"allowUnscoped":true,"prompt":"Plan this task."}}`),
-	)
-	if err != nil {
-		t.Fatalf("new start run request: %v", err)
-	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
-
-	startResponse, err := http.DefaultClient.Do(startRequest)
-	if err != nil {
-		t.Fatalf("start managed agent run: %v", err)
-	}
-	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected start run 200, got %d with body %q", startResponse.StatusCode, string(body))
-	}
-
-	var started agentruns.Run
-	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
-		t.Fatalf("decode started run: %v", err)
-	}
-	if started.Status != agentruns.RunStatusRunning {
-		t.Fatalf("expected running managed run, got %#v", started)
-	}
-
+func waitForAppAgentRunStatus(t *testing.T, serverURL string, authCookie *http.Cookie, runID string, status agentruns.RunStatus) agentruns.Run {
+	t.Helper()
 	var loaded agentruns.Run
 	waitForAppCondition(t, 5*time.Second, func() bool {
-		getRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetAgentRun,
-			strings.NewReader(`{"runId":"`+started.ID+`"}`),
+		response := postAppManagedWorkflowRoute(
+			t,
+			serverURL,
+			authCookie,
+			httpapi.RouteGetAgentRun,
+			`{"runId":"`+runID+`"}`,
+			"get managed run",
 		)
-		if err != nil {
-			t.Fatalf("new get run request: %v", err)
-		}
-		getRequest.Header.Set("Content-Type", "application/json")
-		getRequest.AddCookie(authCookie)
-
-		getResponse, err := http.DefaultClient.Do(getRequest)
-		if err != nil {
-			t.Fatalf("get managed run: %v", err)
-		}
-		defer getResponse.Body.Close()
-		if getResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(getResponse.Body)
-			t.Fatalf("expected get run 200, got %d with body %q", getResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(getResponse.Body).Decode(&loaded); err != nil {
-			t.Fatalf("decode managed run: %v", err)
-		}
-		return loaded.Status == agentruns.RunStatusCompleted
+		defer response.Body.Close()
+		loaded = decodeAppRunResponse(t, response, "managed run")
+		return loaded.Status == status
 	})
-	if _, err := app.agentRuntime.WaitForRun(context.Background(), started.ID); err != nil {
-		t.Fatalf("wait for managed runtime completion: %v", err)
-	}
-
-	messages, ok := loaded.Outputs["messages"].([]any)
-	if !ok || len(messages) != 2 {
-		t.Fatalf("expected prompt and assistant outputs, got %#v", loaded.Outputs["messages"])
-	}
-	if message, ok := messages[1].(map[string]any); !ok || appTestMessageText(message) != "Managed agent reply" {
-		t.Fatalf("unexpected managed agent output %#v", loaded.Outputs["messages"])
-	}
+	return loaded
 }
 
 func TestAppServesStateMachineRunRoutesWithManagedChatExecutor(t *testing.T) {
@@ -621,6 +626,11 @@ func assertAppManagedWorkflowProviderRequest(t *testing.T, providerRequests <-ch
 
 func postAppManagedWorkflowRoute(t *testing.T, serverURL string, authCookie *http.Cookie, route string, body string, label string) *http.Response {
 	t.Helper()
+	return postAppRouteOKWithClient(t, http.DefaultClient, serverURL, authCookie, route, body, label)
+}
+
+func postAppRouteOKWithClient(t *testing.T, client *http.Client, serverURL string, authCookie *http.Cookie, route string, body string, label string) *http.Response {
+	t.Helper()
 
 	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+route, strings.NewReader(body))
 	if err != nil {
@@ -641,16 +651,34 @@ func postAppManagedWorkflowRoute(t *testing.T, serverURL string, authCookie *htt
 	return response
 }
 
-func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	t.Setenv("OPENAI_API_KEY", "secret")
+func getAppRouteOK(t *testing.T, serverURL string, authCookie *http.Cookie, route string, label string) *http.Response {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, serverURL+"/api"+route, nil)
+	if err != nil {
+		t.Fatalf("new %s request: %v", label, err)
+	}
+	request.AddCookie(authCookie)
 
-	providerStarted := make(chan struct{}, 1)
-	providerCancelled := make(chan struct{}, 1)
-	releaseProvider := make(chan struct{})
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("%s: %v", label, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		t.Fatalf("expected %s 200, got %d with body %q", label, response.StatusCode, string(responseBody))
+	}
+	return response
+}
+
+func newAppBlockingManagedWorkflowProvider(
+	t *testing.T,
+	providerStarted chan<- struct{},
+	providerCancelled chan<- struct{},
+	releaseProvider <-chan struct{},
+) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -683,39 +711,50 @@ func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) 
 		flusher.Flush()
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	}))
+}
+
+func waitForAppSignal(t *testing.T, signal <-chan struct{}, label string) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for %s", label)
+	}
+}
+
+func waitForAppWorkflowRunStatus(t *testing.T, serverURL string, authCookie *http.Cookie, status agentruns.RunStatus) agentruns.Run {
+	t.Helper()
+	var latest agentruns.Run
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		response := postAppManagedWorkflowRoute(
+			t,
+			serverURL,
+			authCookie,
+			httpapi.RouteGetStateMachineRun,
+			`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`,
+			"workflow get",
+		)
+		defer response.Body.Close()
+		latest = decodeAppRunResponse(t, response, "latest workflow run")
+		return latest.Status == status
+	})
+	return latest
+}
+
+func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+
+	providerStarted := make(chan struct{}, 1)
+	providerCancelled := make(chan struct{}, 1)
+	releaseProvider := make(chan struct{})
+	provider := newAppBlockingManagedWorkflowProvider(t, providerStarted, providerCancelled, releaseProvider)
 	defer provider.Close()
 	defer close(releaseProvider)
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"primary": {
-				ID:        "primary",
-				Model:     "gpt-4o-mini",
-				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
-				APIKeyEnv: "OPENAI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
-
-	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("new engine store: %v", err)
-	}
-	managedConfigID := "primary"
-	if err := engineStore.Write([]agentruns.EngineConfig{
-		{
-			ID:               "engine-managed",
-			Name:             "Managed Engine",
-			EngineType:       agentruns.EngineTypeSettaLLM,
-			SettaLLMConfigID: &managedConfigID,
-		},
-	}); err != nil {
-		t.Fatalf("write engine config: %v", err)
-	}
+	saveAppManagedLLMEngineConfig(t, cfg, provider.URL)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -739,88 +778,32 @@ func TestAppStopsStateMachineRunWhileManagedChildIsStillStreaming(t *testing.T) 
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
-	startRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStartStateMachineRun,
-		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	startResponse := postAppManagedWorkflowRoute(
+		t,
+		server.URL,
+		authCookie,
+		httpapi.RouteStartStateMachineRun,
+		`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`,
+		"workflow start",
 	)
-	if err != nil {
-		t.Fatalf("new start workflow request: %v", err)
-	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
-
-	startResponse, err := http.DefaultClient.Do(startRequest)
-	if err != nil {
-		t.Fatalf("start workflow run: %v", err)
-	}
 	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected workflow start 200, got %d with body %q", startResponse.StatusCode, string(body))
-	}
 
-	select {
-	case <-providerStarted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for workflow child provider request")
-	}
+	waitForAppSignal(t, providerStarted, "workflow child provider request")
 
-	stopRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopStateMachineRun,
-		strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
+	stopResponse := postAppRouteOKWithClient(
+		t,
+		&http.Client{Timeout: 2 * time.Second},
+		server.URL,
+		authCookie,
+		httpapi.RouteStopStateMachineRun,
+		`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`,
+		"workflow stop",
 	)
-	if err != nil {
-		t.Fatalf("new stop workflow request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopClient := &http.Client{Timeout: 2 * time.Second}
-	stopResponse, err := stopClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("stop workflow run: %v", err)
-	}
 	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected workflow stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
 
-	select {
-	case <-providerCancelled:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for workflow child provider cancellation")
-	}
+	waitForAppSignal(t, providerCancelled, "workflow child provider cancellation")
 
-	var latest agentruns.Run
-	waitForAppCondition(t, 5*time.Second, func() bool {
-		getRequest, err := http.NewRequest(
-			http.MethodPost,
-			server.URL+"/api"+httpapi.RouteGetStateMachineRun,
-			strings.NewReader(`{"projectConfigId":"project-alpha","machineGroupId":"workflow-a"}`),
-		)
-		if err != nil {
-			t.Fatalf("new get workflow run request: %v", err)
-		}
-		getRequest.Header.Set("Content-Type", "application/json")
-		getRequest.AddCookie(authCookie)
-
-		getResponse, err := http.DefaultClient.Do(getRequest)
-		if err != nil {
-			t.Fatalf("get workflow run: %v", err)
-		}
-		defer getResponse.Body.Close()
-		if getResponse.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(getResponse.Body)
-			t.Fatalf("expected workflow get 200, got %d with body %q", getResponse.StatusCode, string(body))
-		}
-		if err := json.NewDecoder(getResponse.Body).Decode(&latest); err != nil {
-			t.Fatalf("decode latest workflow run: %v", err)
-		}
-		return latest.Status == agentruns.RunStatusCancelled
-	})
+	latest := waitForAppWorkflowRunStatus(t, server.URL, authCookie, agentruns.RunStatusCancelled)
 	if latest.Status != agentruns.RunStatusCancelled {
 		t.Fatalf("expected cancelled workflow run, got %#v", latest)
 	}
@@ -853,27 +836,16 @@ func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 
 	authCookie := newAppTestAuthCookie(t, app)
 
-	startRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteStartRunChain, strings.NewReader(`{"spec":{"id":"chain-alpha","name":"Chain Alpha","steps":[]}}`))
-	if err != nil {
-		t.Fatalf("new start run chain request: %v", err)
-	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
-
-	startResponse, err := http.DefaultClient.Do(startRequest)
-	if err != nil {
-		t.Fatalf("post start run chain: %v", err)
-	}
+	startResponse := postAppManagedWorkflowRoute(
+		t,
+		server.URL,
+		authCookie,
+		httpapi.RouteStartRunChain,
+		`{"spec":{"id":"chain-alpha","name":"Chain Alpha","steps":[]}}`,
+		"start run chain",
+	)
 	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", startResponse.StatusCode, string(body))
-	}
-
-	var started agentruns.Run
-	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
-		t.Fatalf("decode started run chain: %v", err)
-	}
+	started := decodeAppRunResponse(t, startResponse, "started run chain")
 	if strings.TrimSpace(started.ID) == "" {
 		t.Fatalf("expected run id, got %#v", started)
 	}
@@ -888,46 +860,22 @@ func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 		t.Fatalf("expected completed run chain, got %#v", completed)
 	}
 
-	getRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetAgentRun, strings.NewReader(`{"runId":"`+started.ID+`"}`))
-	if err != nil {
-		t.Fatalf("new get agent run request: %v", err)
-	}
-	getRequest.Header.Set("Content-Type", "application/json")
-	getRequest.AddCookie(authCookie)
-
-	getResponse, err := http.DefaultClient.Do(getRequest)
-	if err != nil {
-		t.Fatalf("post get agent run: %v", err)
-	}
+	getResponse := postAppManagedWorkflowRoute(
+		t,
+		server.URL,
+		authCookie,
+		httpapi.RouteGetAgentRun,
+		`{"runId":"`+started.ID+`"}`,
+		"get agent run",
+	)
 	defer getResponse.Body.Close()
-	if getResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(getResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", getResponse.StatusCode, string(body))
-	}
-
-	var fetched agentruns.Run
-	if err := json.NewDecoder(getResponse.Body).Decode(&fetched); err != nil {
-		t.Fatalf("decode fetched run: %v", err)
-	}
+	fetched := decodeAppRunResponse(t, getResponse, "fetched run")
 	if fetched.ID != started.ID || fetched.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed fetched run %q, got %#v", started.ID, fetched)
 	}
 
-	listRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RouteGetAgentRuns, nil)
-	if err != nil {
-		t.Fatalf("new get agent runs request: %v", err)
-	}
-	listRequest.AddCookie(authCookie)
-
-	listResponse, err := http.DefaultClient.Do(listRequest)
-	if err != nil {
-		t.Fatalf("get agent runs: %v", err)
-	}
+	listResponse := getAppRouteOK(t, server.URL, authCookie, httpapi.RouteGetAgentRuns, "get agent runs")
 	defer listResponse.Body.Close()
-	if listResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(listResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", listResponse.StatusCode, string(body))
-	}
 
 	var runs []agentruns.Run
 	if err := json.NewDecoder(listResponse.Body).Decode(&runs); err != nil {
@@ -937,27 +885,16 @@ func TestAppServesRunChainRoutesAndPersistedReadback(t *testing.T) {
 		t.Fatalf("expected one run %q in list, got %#v", started.ID, runs)
 	}
 
-	stopRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteStopRunChain, strings.NewReader(`{"runId":"`+started.ID+`"}`))
-	if err != nil {
-		t.Fatalf("new stop run chain request: %v", err)
-	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
-
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
-	if err != nil {
-		t.Fatalf("post stop run chain: %v", err)
-	}
+	stopResponse := postAppManagedWorkflowRoute(
+		t,
+		server.URL,
+		authCookie,
+		httpapi.RouteStopRunChain,
+		`{"runId":"`+started.ID+`"}`,
+		"stop run chain",
+	)
 	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", stopResponse.StatusCode, string(body))
-	}
-
-	var stopped agentruns.Run
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopped); err != nil {
-		t.Fatalf("decode stopped run chain: %v", err)
-	}
+	stopped := decodeAppRunResponse(t, stopResponse, "stopped run chain")
 	if stopped.ID != started.ID || stopped.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed stopped run %q, got %#v", started.ID, stopped)
 	}
@@ -1322,424 +1259,5 @@ func TestAppRunCodeSaveDoesNotMaterializePluginCodegenOutputs(t *testing.T) {
 	output := waitForAppTestOutputContains(t, app.Terminals(), terminalID, attachment, "APP_PLUGIN_RUN_OK")
 	if !strings.Contains(output, "APP_PLUGIN_RUN_OK") {
 		t.Fatalf("expected run output in attached terminal, got %q", output)
-	}
-}
-
-func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputsToCanonicalPath(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-	linkAppBackendCodegenFixture(t, server.URL, newAppTestAuthCookie(t, app))
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-			CodegenTargets: []projectstate.ProjectCodegenTarget{
-				{
-					Language: "setta-fixture-backend-codegen:typescript",
-					Payload: mustAppJSON(t, map[string]any{
-						"language": "setta-fixture-backend-codegen:typescript",
-						"options": map[string]any{
-							"className":  "DirectSaveState",
-							"outputPath": "./nested//setta_gen.ts",
-						},
-					}),
-				},
-			},
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("mutate project runtime: %v", err)
-	}
-
-	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
-		t.Fatalf("save project runtime: %v", err)
-	}
-
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "nested", "setta_gen.ts"))
-	if err != nil {
-		t.Fatalf("glob plugin codegen output: %v", err)
-	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one plugin codegen output after main save, got %v", matches)
-	}
-	content, err := os.ReadFile(matches[0])
-	if err != nil {
-		t.Fatalf("read plugin codegen output: %v", err)
-	}
-	if !strings.Contains(string(content), "export class DirectSaveState") {
-		t.Fatalf("expected materialized plugin codegen output, got %q", string(content))
-	}
-}
-
-func TestAppMainRuntimeSaveRejectsAbsolutePluginCodegenOutputPath(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-	linkAppBackendCodegenFixture(t, server.URL, newAppTestAuthCookie(t, app))
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-			CodegenTargets: []projectstate.ProjectCodegenTarget{
-				{
-					Language: "setta-fixture-backend-codegen:typescript",
-					Payload: mustAppJSON(t, map[string]any{
-						"language": "setta-fixture-backend-codegen:typescript",
-						"options": map[string]any{
-							"className":  "DirectSaveState",
-							"outputPath": "C:/outside.ts",
-						},
-					}),
-				},
-			},
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("mutate project runtime: %v", err)
-	}
-
-	_, err = app.ProjectStates().Main().Save(context.Background())
-	if err == nil {
-		t.Fatal("expected plugin codegen absolute-path rejection")
-	}
-	if !strings.Contains(err.Error(), "cannot be absolute") {
-		t.Fatalf("expected absolute-path rejection, got %v", err)
-	}
-
-	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "*"))
-	if err != nil {
-		t.Fatalf("glob plugin codegen output: %v", err)
-	}
-	if len(matches) != 0 {
-		t.Fatalf("expected no plugin codegen output after failed save, got %v", matches)
-	}
-}
-
-func TestAppMainRuntimeSaveMaterializesPythonCodegenOutputs(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-	prepareAppLSPFixture(t)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	seedAppPythonCodegenProject(t, app)
-
-	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
-		t.Fatalf("save project runtime: %v", err)
-	}
-
-	projectRoot := projectstate.ProjectCodeSectionsRoot(cfg.Paths.SettaFilesRoot, "Alpha")
-	codePath := filepath.Join(projectRoot, projectstate.GeneratedPythonCodeFileName)
-	metaPath := filepath.Join(projectRoot, projectstate.GeneratedPythonMetadataFileName)
-
-	code, err := os.ReadFile(codePath)
-	if err != nil {
-		t.Fatalf("read generated python code: %v", err)
-	}
-	if !strings.Contains(string(code), "from . import setta_gen_meta") {
-		t.Fatalf("expected metadata import in generated code:\n%s", string(code))
-	}
-	if !strings.Contains(string(code), "state.Greeting = 'hello world'") {
-		t.Fatalf("expected generated section assignment:\n%s", string(code))
-	}
-
-	meta, err := os.ReadFile(metaPath)
-	if err != nil {
-		t.Fatalf("read generated python metadata: %v", err)
-	}
-	if !strings.Contains(string(meta), "class SettaGenMetadata:") {
-		t.Fatalf("expected generated python metadata:\n%s", string(meta))
-	}
-}
-
-func TestAppRejectsPluginSetProjectConfigCodegenTargetsRoute(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigCodegenTargets, strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"RouteState"}}]}`))
-	if err != nil {
-		t.Fatalf("new request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post codegen targets: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusBadRequest {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 400, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var payload struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode project error response: %v", err)
-	}
-	if payload.Error.Code != "invalid_project_codegen_targets" {
-		t.Fatalf("expected invalid_project_codegen_targets, got %#v", payload)
-	}
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after rejection: %v", err)
-	}
-	if len(project.CodegenTargets) != 0 {
-		t.Fatalf("expected no persisted codegen targets after rejection, got %#v", project.CodegenTargets)
-	}
-}
-
-func TestAppLinkedPluginCodegenTargetsBecomeAvailableAfterLink(t *testing.T) {
-	// Linking a backend plugin after startup should make its registered codegen targets available without a separate app restart.
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed project runtime: %v", err)
-	}
-
-	repoRoot := appTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
-	localPluginRoot := filepath.Join(t.TempDir(), "backend")
-	copyAppTestDir(t, sourceRoot, localPluginRoot)
-	manifestPath := filepath.Join(localPluginRoot, "setta.plugin.json")
-	manifestPayload, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read linked plugin manifest: %v", err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
-		t.Fatalf("decode linked plugin manifest: %v", err)
-	}
-	manifest["capabilities"] = []string{"registerCodegenTarget"}
-	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatalf("encode linked plugin manifest: %v", err)
-	}
-	encodedManifest = append(encodedManifest, '\n')
-	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
-		t.Fatalf("write linked plugin manifest: %v", err)
-	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	postJSON := func(path string, body any, responseBody any) {
-		t.Helper()
-
-		requestBody := mustAppJSON(t, body)
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, bytes.NewReader(requestBody))
-		if err != nil {
-			t.Fatalf("new request %s: %v", path, err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
-
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatalf("post %s: %v", path, err)
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			payload, _ := io.ReadAll(response.Body)
-			t.Fatalf("expected %s 200, got %d with body %q", path, response.StatusCode, string(payload))
-		}
-		if responseBody == nil {
-			return
-		}
-		if err := json.NewDecoder(response.Body).Decode(responseBody); err != nil {
-			t.Fatalf("decode %s response: %v", path, err)
-		}
-	}
-	getRuntime := func() struct {
-		Status struct {
-			Plugins []struct {
-				PluginID                 string                                  `json:"pluginId"`
-				RegisteredCodegenTargets []plugins.PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
-			} `json:"plugins"`
-		} `json:"status"`
-	} {
-		t.Helper()
-
-		request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
-		if err != nil {
-			t.Fatalf("new plugin runtime request: %v", err)
-		}
-		request.AddCookie(authCookie)
-
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			t.Fatalf("get plugin runtime: %v", err)
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(response.Body)
-			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
-		}
-
-		var payload struct {
-			Status struct {
-				Plugins []struct {
-					PluginID                 string                                  `json:"pluginId"`
-					RegisteredCodegenTargets []plugins.PluginRegisteredCodegenTarget `json:"registeredCodegenTargets"`
-				} `json:"plugins"`
-			} `json:"status"`
-		}
-		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode plugin runtime payload: %v", err)
-		}
-		return payload
-	}
-
-	postJSON(httpapi.RoutePluginsLink, map[string]any{
-		"localPluginRoot": localPluginRoot,
-		"scope":           "workspace",
-		"enable":          true,
-		"force":           true,
-	}, nil)
-
-	runtimePayload := getRuntime()
-	if len(runtimePayload.Status.Plugins) != 1 {
-		t.Fatalf("expected one linked plugin in runtime payload, got %#v", runtimePayload.Status.Plugins)
-	}
-	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend" {
-		t.Fatalf("unexpected linked plugin runtime payload %#v", runtimePayload.Status.Plugins[0])
-	}
-	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 1 {
-		t.Fatalf("expected linked plugin codegen registration in runtime payload, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
-	}
-
-	requestBody := mustAppJSON(t, map[string]any{
-		"projectConfigId": "project-alpha",
-		"codegenTargets": []map[string]any{
-			{
-				"language": "setta-fixture-backend-codegen:typescript",
-				"options": map[string]any{
-					"className": "LinkedState",
-				},
-			},
-		},
-	})
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetProjectConfigCodegenTargets, bytes.NewReader(requestBody))
-	if err != nil {
-		t.Fatalf("new setProjectConfigCodegenTargets request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post setProjectConfigCodegenTargets: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected setProjectConfigCodegenTargets 200, got %d with body %q", response.StatusCode, string(payload))
-	}
-
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after linked plugin codegen update: %v", err)
-	}
-	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
-		t.Fatalf("expected persisted linked plugin codegen target, got %#v", project.CodegenTargets)
 	}
 }
