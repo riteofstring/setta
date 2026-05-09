@@ -253,15 +253,7 @@ func TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState(t
 	if err != nil {
 		t.Fatalf("ReportSignal returned error: %v", err)
 	}
-	if report["status"] != "ok" {
-		t.Fatalf("expected ok report status, got %#v", report)
-	}
-	if report["childRunId"] != "child-run-1" {
-		t.Fatalf("expected child-run-1 in signal report, got %#v", report)
-	}
-	if report["sourceSectionId"] != "chat-source" {
-		t.Fatalf("expected chat-source in signal report, got %#v", report)
-	}
+	assertSignalReportResponse(t, report, "child-run-1", "chat-source")
 
 	latest, err := fixture.runtime.GetLatestRun("project-alpha", "workflow-signal", nil)
 	if err != nil {
@@ -270,31 +262,8 @@ func TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState(t
 	if latest == nil {
 		t.Fatal("expected latest workflow run after signal")
 	}
-	if got := outputStringList(*latest, outputKeyChildRunIDs); len(got) != 2 || got[0] != "child-run-1" || got[1] != "child-run-2" {
-		t.Fatalf("expected both child runs to be tracked, got %#v", got)
-	}
-	if got := outputStringList(*latest, outputKeyProcessedSignalEventIDs); len(got) != 1 || got[0] != report["signalEventId"] {
-		t.Fatalf("expected processed signal event id to persist, got %#v", got)
-	}
-	if got := outputIntMap(*latest, outputKeySourceActivationCounts); got["start-section"] != 1 || got["chat-source"] != 1 {
-		t.Fatalf("expected start/chat source activation counts to increment, got %#v", got)
-	}
-	if got := outputListOfMaps(*latest, outputKeySignalEvents); len(got) != 1 {
-		t.Fatalf("expected one persisted signal event, got %#v", got)
-	} else {
-		if got[0]["signalName"] != "merge_decision" {
-			t.Fatalf("expected merge_decision signal event, got %#v", got[0])
-		}
-		if payload, ok := got[0]["payload"].(map[string]any); !ok || payload["decision"] != "retry" {
-			t.Fatalf("expected retry payload, got %#v", got[0]["payload"])
-		}
-	}
-	if got := outputListOfMaps(*latest, outputKeyDispatchedEdgeActions); len(got) != 1 || got[0]["runId"] != "child-run-2" {
-		t.Fatalf("expected signal-dispatched child run child-run-2, got %#v", got)
-	}
-	if !hasEventType(*latest, "signal_reported") || !hasEventType(*latest, "signal_edges_activated") {
-		t.Fatalf("expected signal lifecycle events, got %#v", latest.Events)
-	}
+	assertSignalActivatedParentState(t, *latest, report, started.ID)
+	assertSignalChildRunSourceCount(t, fixture, "child-run-2", 0, "signal-dispatched")
 
 	dispatchedChildRun, err := fixture.runs.Load("child-run-2")
 	if err != nil {
@@ -302,21 +271,6 @@ func TestRuntimeReportSignalActivatesMatchingSignalEdgesAndPersistsSignalState(t
 	}
 	if runInputString(dispatchedChildRun, inputKeyStateMachineTargetSection) != "chat-target" {
 		t.Fatalf("expected signal-dispatched target section chat-target, got %#v", dispatchedChildRun.Inputs)
-	}
-	switch value := dispatchedChildRun.Inputs[inputKeyStateMachineSourceCount].(type) {
-	case int:
-		if value != 0 {
-			t.Fatalf("expected signal-dispatched child run source activation count 0, got %#v", dispatchedChildRun.Inputs)
-		}
-	case float64:
-		if value != 0 {
-			t.Fatalf("expected signal-dispatched child run source activation count 0, got %#v", dispatchedChildRun.Inputs)
-		}
-	default:
-		t.Fatalf("expected numeric signal-dispatched child run source activation count, got %#v", dispatchedChildRun.Inputs[inputKeyStateMachineSourceCount])
-	}
-	if latest.ID != started.ID {
-		t.Fatalf("expected signal report to update parent run %q, got %q", started.ID, latest.ID)
 	}
 }
 
@@ -436,9 +390,7 @@ func TestRuntimeReportSignalCountsSourceActivationsForRetryLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first ReportSignal returned error: %v", err)
 	}
-	if firstReport["sourceActivationCount"] != 0 {
-		t.Fatalf("expected first signal to report source activation count 0, got %#v", firstReport)
-	}
+	assertSignalReportSourceActivationCount(t, firstReport, 0, "first")
 
 	secondReport, err := fixture.runtime.ReportSignal(
 		"project-alpha",
@@ -452,9 +404,7 @@ func TestRuntimeReportSignalCountsSourceActivationsForRetryLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second ReportSignal returned error: %v", err)
 	}
-	if secondReport["sourceActivationCount"] != 1 {
-		t.Fatalf("expected second signal to report source activation count 1, got %#v", secondReport)
-	}
+	assertSignalReportSourceActivationCount(t, secondReport, 1, "second")
 
 	latest, err := fixture.runtime.GetLatestRun("project-alpha", "workflow-signal-retry", nil)
 	if err != nil {
@@ -463,51 +413,98 @@ func TestRuntimeReportSignalCountsSourceActivationsForRetryLoop(t *testing.T) {
 	if latest == nil {
 		t.Fatal("expected latest workflow run after retry loop")
 	}
-	if got := outputStringList(*latest, outputKeyChildRunIDs); len(got) != 3 || got[0] != "child-run-1" || got[1] != "child-run-2" || got[2] != "child-run-3" {
+	assertRetryLoopSignalState(t, *latest, firstReport, secondReport)
+	assertSignalChildRunSourceCount(t, fixture, "child-run-2", 0, "first retry-loop")
+	assertSignalChildRunSourceCount(t, fixture, "child-run-3", 1, "second retry-loop")
+}
+
+func assertSignalReportResponse(t *testing.T, report map[string]any, childRunID string, sourceSectionID string) {
+	t.Helper()
+
+	if report["status"] != "ok" {
+		t.Fatalf("expected ok report status, got %#v", report)
+	}
+	if report["childRunId"] != childRunID {
+		t.Fatalf("expected %s in signal report, got %#v", childRunID, report)
+	}
+	if report["sourceSectionId"] != sourceSectionID {
+		t.Fatalf("expected %s in signal report, got %#v", sourceSectionID, report)
+	}
+}
+
+func assertSignalActivatedParentState(t *testing.T, latest agentruns.Run, report map[string]any, parentRunID string) {
+	t.Helper()
+
+	if got := outputStringList(latest, outputKeyChildRunIDs); !slices.Equal(got, []string{"child-run-1", "child-run-2"}) {
+		t.Fatalf("expected both child runs to be tracked, got %#v", got)
+	}
+	if got := outputStringList(latest, outputKeyProcessedSignalEventIDs); len(got) != 1 || got[0] != report["signalEventId"] {
+		t.Fatalf("expected processed signal event id to persist, got %#v", got)
+	}
+	if got := outputIntMap(latest, outputKeySourceActivationCounts); got["start-section"] != 1 || got["chat-source"] != 1 {
+		t.Fatalf("expected start/chat source activation counts to increment, got %#v", got)
+	}
+	assertSignalEvent(t, outputListOfMaps(latest, outputKeySignalEvents))
+	if got := outputListOfMaps(latest, outputKeyDispatchedEdgeActions); len(got) != 1 || got[0]["runId"] != "child-run-2" {
+		t.Fatalf("expected signal-dispatched child run child-run-2, got %#v", got)
+	}
+	if !hasEventType(latest, "signal_reported") || !hasEventType(latest, "signal_edges_activated") {
+		t.Fatalf("expected signal lifecycle events, got %#v", latest.Events)
+	}
+	if latest.ID != parentRunID {
+		t.Fatalf("expected signal report to update parent run %q, got %q", parentRunID, latest.ID)
+	}
+}
+
+func assertSignalEvent(t *testing.T, events []map[string]any) {
+	t.Helper()
+
+	if len(events) != 1 {
+		t.Fatalf("expected one persisted signal event, got %#v", events)
+	}
+	event := events[0]
+	if event["signalName"] != "merge_decision" {
+		t.Fatalf("expected merge_decision signal event, got %#v", event)
+	}
+	if payload, ok := event["payload"].(map[string]any); !ok || payload["decision"] != "retry" {
+		t.Fatalf("expected retry payload, got %#v", event["payload"])
+	}
+}
+
+func assertSignalReportSourceActivationCount(t *testing.T, report map[string]any, want int, label string) {
+	t.Helper()
+
+	if report["sourceActivationCount"] != want {
+		t.Fatalf("expected %s signal to report source activation count %d, got %#v", label, want, report)
+	}
+}
+
+func assertRetryLoopSignalState(t *testing.T, latest agentruns.Run, firstReport map[string]any, secondReport map[string]any) {
+	t.Helper()
+
+	if got := outputStringList(latest, outputKeyChildRunIDs); !slices.Equal(got, []string{"child-run-1", "child-run-2", "child-run-3"}) {
 		t.Fatalf("expected retry loop child runs to be tracked in order, got %#v", got)
 	}
-	if got := outputStringList(*latest, outputKeyProcessedSignalEventIDs); len(got) != 2 || got[0] != firstReport["signalEventId"] || got[1] != secondReport["signalEventId"] {
+	if got := outputStringList(latest, outputKeyProcessedSignalEventIDs); len(got) != 2 || got[0] != firstReport["signalEventId"] || got[1] != secondReport["signalEventId"] {
 		t.Fatalf("expected both processed signal ids to persist, got %#v", got)
 	}
-	if got := outputIntMap(*latest, outputKeySourceActivationCounts); got["chat-source"] != 2 {
+	if got := outputIntMap(latest, outputKeySourceActivationCounts); got["chat-source"] != 2 {
 		t.Fatalf("expected chat-source activation count 2 after retry loop, got %#v", got)
 	}
-	if got := outputListOfMaps(*latest, outputKeyDispatchedEdgeActions); len(got) != 2 || got[0]["runId"] != "child-run-2" || got[1]["runId"] != "child-run-3" {
+	if got := outputListOfMaps(latest, outputKeyDispatchedEdgeActions); len(got) != 2 || got[0]["runId"] != "child-run-2" || got[1]["runId"] != "child-run-3" {
 		t.Fatalf("expected two dispatched retry-loop edge actions, got %#v", got)
 	}
+}
 
-	secondChildRun, err := fixture.runs.Load("child-run-2")
-	if err != nil {
-		t.Fatalf("load first retry-loop child run: %v", err)
-	}
-	switch value := secondChildRun.Inputs[inputKeyStateMachineSourceCount].(type) {
-	case int:
-		if value != 0 {
-			t.Fatalf("expected first retry-loop child source count 0, got %#v", secondChildRun.Inputs)
-		}
-	case float64:
-		if value != 0 {
-			t.Fatalf("expected first retry-loop child source count 0, got %#v", secondChildRun.Inputs)
-		}
-	default:
-		t.Fatalf("expected numeric first retry-loop source count, got %#v", secondChildRun.Inputs[inputKeyStateMachineSourceCount])
-	}
+func assertSignalChildRunSourceCount(t *testing.T, fixture runtimeFixture, childRunID string, want int, label string) {
+	t.Helper()
 
-	thirdChildRun, err := fixture.runs.Load("child-run-3")
+	childRun, err := fixture.runs.Load(childRunID)
 	if err != nil {
-		t.Fatalf("load second retry-loop child run: %v", err)
+		t.Fatalf("load %s child run: %v", label, err)
 	}
-	switch value := thirdChildRun.Inputs[inputKeyStateMachineSourceCount].(type) {
-	case int:
-		if value != 1 {
-			t.Fatalf("expected second retry-loop child source count 1, got %#v", thirdChildRun.Inputs)
-		}
-	case float64:
-		if value != 1 {
-			t.Fatalf("expected second retry-loop child source count 1, got %#v", thirdChildRun.Inputs)
-		}
-	default:
-		t.Fatalf("expected numeric second retry-loop source count, got %#v", thirdChildRun.Inputs[inputKeyStateMachineSourceCount])
+	if got := numericInputValue(t, childRun, inputKeyStateMachineSourceCount); got != want {
+		t.Fatalf("expected %s child source count %d, got %#v", label, want, childRun.Inputs)
 	}
 }
 
