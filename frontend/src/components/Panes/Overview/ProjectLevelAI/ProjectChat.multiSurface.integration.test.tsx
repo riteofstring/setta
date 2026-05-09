@@ -2,6 +2,7 @@
 
 import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { mustQueryHTMLElement } from "testUtils/domQueries.test.support";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -348,6 +349,39 @@ function SharedThreadHarness() {
   );
 }
 
+function projectChatSurface(host: ParentNode, surfaceId: string): HTMLElement {
+  return mustQueryHTMLElement(host, `[data-testid="${surfaceId}"]`);
+}
+
+function projectChatCore(surface: ParentNode, surfaceId: string): HTMLElement {
+  return mustQueryHTMLElement(
+    surface,
+    `[data-testid="mock-project-chat-core-${surfaceId}"]`,
+  );
+}
+
+function engineSelect(surface: ParentNode): HTMLSelectElement {
+  const element = mustQueryHTMLElement(
+    surface,
+    '[data-testid="project-ai-engine-combobox"]',
+  );
+  if (!(element instanceof HTMLSelectElement)) {
+    throw new Error("Expected project AI engine select.");
+  }
+  return element;
+}
+
+function continueInNewThreadButton(surface: ParentNode): HTMLButtonElement {
+  const element = mustQueryHTMLElement(
+    surface,
+    '[data-testid="project-chat-engine-switch-continue-button"]',
+  );
+  if (!(element instanceof HTMLButtonElement)) {
+    throw new Error("Expected continue-in-new-thread button.");
+  }
+  return element;
+}
+
 function SharedWindowInstanceHarness() {
   const [workspaceChatId, setWorkspaceChatId] = useState<
     string | null | undefined
@@ -572,38 +606,20 @@ describe("ProjectChat multi-surface state ownership", () => {
   });
 
   it("keeps engine provenance isolated per controlled surface", () => {
-    const surfaceA = host.querySelector('[data-testid="surface-a"]');
-    const surfaceB = host.querySelector('[data-testid="surface-b"]');
-    if (!surfaceA || !surfaceB) {
-      throw new Error("Expected both project chat surfaces.");
-    }
+    const surfaceA = projectChatSurface(host, "surface-a");
+    const surfaceB = projectChatSurface(host, "surface-b");
+    const coreA = projectChatCore(surfaceA, "surface-a");
+    const coreB = projectChatCore(surfaceB, "surface-b");
 
-    const coreA = surfaceA.querySelector(
-      '[data-testid="mock-project-chat-core-surface-a"]',
-    );
-    const coreB = surfaceB.querySelector(
-      '[data-testid="mock-project-chat-core-surface-b"]',
-    );
-    expect(coreA?.getAttribute("data-engine-id")).toBe("engine-a");
-    expect(coreB?.getAttribute("data-engine-id")).toBe("engine-b");
+    expect(coreA.getAttribute("data-engine-id")).toBe("engine-a");
+    expect(coreB.getAttribute("data-engine-id")).toBe("engine-b");
   });
 
   it("keeps continue-in-new-thread draft seeds isolated per surface", async () => {
-    const surfaceA = host.querySelector('[data-testid="surface-a"]');
-    const surfaceB = host.querySelector('[data-testid="surface-b"]');
-    if (!surfaceA || !surfaceB) {
-      throw new Error("Expected both project chat surfaces.");
-    }
-
-    const engineSelectA = surfaceA.querySelector(
-      '[data-testid="project-ai-engine-combobox"]',
-    ) as HTMLSelectElement | null;
-    const engineSelectB = surfaceB.querySelector(
-      '[data-testid="project-ai-engine-combobox"]',
-    ) as HTMLSelectElement | null;
-    if (!engineSelectA || !engineSelectB) {
-      throw new Error("Expected engine selectors.");
-    }
+    const surfaceA = projectChatSurface(host, "surface-a");
+    const surfaceB = projectChatSurface(host, "surface-b");
+    const engineSelectA = engineSelect(surfaceA);
+    const engineSelectB = engineSelect(surfaceB);
 
     await act(async () => {
       engineSelectA.value = "engine-b";
@@ -627,16 +643,12 @@ describe("ProjectChat multi-surface state ownership", () => {
       continueButtonB.click();
     });
 
-    const coreA = surfaceA.querySelector(
-      '[data-testid="mock-project-chat-core-surface-a"]',
-    );
-    const coreB = surfaceB.querySelector(
-      '[data-testid="mock-project-chat-core-surface-b"]',
-    );
-    expect(coreA?.textContent ?? "").toContain("Alpha seed");
-    expect(coreA?.textContent ?? "").not.toContain("Beta seed");
-    expect(coreB?.textContent ?? "").toContain("Beta seed");
-    expect(coreB?.textContent ?? "").not.toContain("Alpha seed");
+    const coreA = projectChatCore(surfaceA, "surface-a");
+    const coreB = projectChatCore(surfaceB, "surface-b");
+    expect(coreA.textContent).toContain("Alpha seed");
+    expect(coreA.textContent).not.toContain("Beta seed");
+    expect(coreB.textContent).toContain("Beta seed");
+    expect(coreB.textContent).not.toContain("Alpha seed");
   });
 
   it("keeps a new-thread draft isolated when two surfaces start on the same chat", async () => {
@@ -644,46 +656,28 @@ describe("ProjectChat multi-surface state ownership", () => {
       root.render(<SharedThreadHarness />);
     });
 
-    const surfaceA = host.querySelector('[data-testid="surface-a"]');
-    const surfaceB = host.querySelector('[data-testid="surface-b"]');
-    if (!surfaceA || !surfaceB) {
-      throw new Error("Expected both project chat surfaces.");
-    }
-
-    const engineSelectA = surfaceA.querySelector(
-      '[data-testid="project-ai-engine-combobox"]',
-    ) as HTMLSelectElement | null;
-    if (!engineSelectA) {
-      throw new Error("Expected engine selector for surface A.");
-    }
+    const surfaceA = projectChatSurface(host, "surface-a");
+    const surfaceB = projectChatSurface(host, "surface-b");
+    const engineSelectA = engineSelect(surfaceA);
 
     await act(async () => {
       engineSelectA.value = "engine-b";
       engineSelectA.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    const continueButtonA = surfaceA.querySelector(
-      '[data-testid="project-chat-engine-switch-continue-button"]',
-    ) as HTMLButtonElement | null;
-    if (!continueButtonA) {
-      throw new Error("Expected continue-in-new-thread button for surface A.");
-    }
+    const continueButtonA = continueInNewThreadButton(surfaceA);
 
     await act(async () => {
       continueButtonA.click();
     });
 
-    const coreA = surfaceA.querySelector(
-      '[data-testid="mock-project-chat-core-surface-a"]',
-    );
-    const coreB = surfaceB.querySelector(
-      '[data-testid="mock-project-chat-core-surface-b"]',
-    );
-    expect(coreA?.textContent ?? "").toContain("Alpha seed");
-    expect(coreA?.getAttribute("data-chat-id")).toBe("");
-    expect(coreB?.textContent ?? "").toContain("Alpha seed");
-    expect(coreB?.textContent ?? "").toContain("Alpha reply");
-    expect(coreB?.getAttribute("data-chat-id")).toBe("chat-a");
+    const coreA = projectChatCore(surfaceA, "surface-a");
+    const coreB = projectChatCore(surfaceB, "surface-b");
+    expect(coreA.textContent).toContain("Alpha seed");
+    expect(coreA.getAttribute("data-chat-id")).toBe("");
+    expect(coreB.textContent).toContain("Alpha seed");
+    expect(coreB.textContent).toContain("Alpha reply");
+    expect(coreB.getAttribute("data-chat-id")).toBe("chat-a");
     expect(
       useAIStore.getState().pendingChatDetailsBySurfaceId["surface-b"],
     ).toBeUndefined();
