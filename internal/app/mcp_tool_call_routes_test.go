@@ -1121,6 +1121,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -1179,6 +1180,7 @@ func TestAppIDEMCPToolCallRouteSupportsFormatCode(t *testing.T) {
 	addRepoVenvRuffToPath(t)
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

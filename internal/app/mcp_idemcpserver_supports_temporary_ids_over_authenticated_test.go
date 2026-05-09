@@ -1474,8 +1474,20 @@ func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 	if err != nil {
 		t.Fatalf("resolve callable section after bound set_code: %v", err)
 	}
-	if impl.Kind != projectstate.SectionKind("callable") {
-		t.Fatalf("expected callable section impl, got %q", impl.Kind)
+	payload := mustDecodedProjectPayloadValue(t, impl.Payload)
+	if got := payload["type"]; got != "Callable" {
+		t.Fatalf("expected callable section payload type, got %#v", got)
+	}
+	callableID, ok := payload["callable"].(string)
+	if !ok || callableID == "" {
+		t.Fatalf("expected callable section to select a callable, got %#v", payload["callable"])
+	}
+	codeObj, ok := project.CodeObjs[callableID]
+	if !ok {
+		t.Fatalf("expected callable code object %q to exist", callableID)
+	}
+	if codeObj.Name != "sorted" {
+		t.Fatalf("expected callable code object sorted, got %q", codeObj.Name)
 	}
 }
 
