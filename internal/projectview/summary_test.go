@@ -168,6 +168,14 @@ func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T
 	if !summary.ProjectConfig.HasPythonCodegenTarget {
 		t.Fatal("expected python codegen target flag to survive summary filtering")
 	}
+	assertSummaryRunCapabilitiesTrimmed(t, summary)
+	assertSummarySectionSlugsTrimmed(t, view, summary)
+	assertSummaryWindowSpacesTrimmed(t, view, summary)
+}
+
+func assertSummaryRunCapabilitiesTrimmed(t *testing.T, summary ProjectStateSummary) {
+	t.Helper()
+
 	if summary.ProjectConfig.RunCapabilities.CanRunFromMain {
 		t.Fatalf("expected main run to be disabled when the effective entry section is out of scope, got %#v", summary.ProjectConfig.RunCapabilities)
 	}
@@ -177,6 +185,11 @@ func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T
 	if summary.ProjectConfig.RunCapabilities.EffectiveEntrySectionID != nil {
 		t.Fatalf("expected effective entry section id to be cleared, got %#v", summary.ProjectConfig.RunCapabilities.EffectiveEntrySectionID)
 	}
+}
+
+func assertSummarySectionSlugsTrimmed(t *testing.T, view SingleConfig, summary ProjectStateSummary) {
+	t.Helper()
+
 	callableSlug := view.ProjectConfig.SectionPathSlugsByID["callable-section"]
 	if callableSlug == "" {
 		t.Fatal("expected callable-section slug to be populated")
@@ -187,6 +200,11 @@ func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T
 	if got := summary.ProjectConfig.SectionIDsByPathSlug; !reflect.DeepEqual(got, map[string][]string{callableSlug: {"callable-section"}}) {
 		t.Fatalf("expected filtered section slug index %#v, got %#v", map[string][]string{callableSlug: {"callable-section"}}, got)
 	}
+}
+
+func assertSummaryWindowSpacesTrimmed(t *testing.T, view SingleConfig, summary ProjectStateSummary) {
+	t.Helper()
+
 	if _, ok := summary.ProjectConfig.WindowSpaces["space-2"]; ok {
 		t.Fatalf("expected blocked-only window space to be dropped, got %#v", summary.ProjectConfig.WindowSpaces)
 	}

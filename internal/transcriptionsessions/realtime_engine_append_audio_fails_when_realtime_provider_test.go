@@ -535,42 +535,7 @@ func TestServiceRealtimeStopUsesCommittedOrderingForOutOfOrderTurnCompletion(t *
 	t.Parallel()
 
 	emitFinal := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
-
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
-			return
-		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
-		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
-			return
-		}
-
-		// The provider can complete later turns before earlier ones; committed ordering metadata is the source of truth.
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-1","item_id":"item-1"}`)); err != nil {
-			return
-		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-2","item_id":"item-2","previous_item_id":"item-1"}`)); err != nil {
-			return
-		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-2","transcript":"world"}`)); err != nil {
-			return
-		}
-		<-emitFinal
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-1","transcript":"hello"}`)); err != nil {
-			return
-		}
-		_ = conn.Close(websocket.StatusNormalClosure, "")
-	}))
+	server := startRealtimeOrderingProvider(t, emitFinal)
 	defer server.Close()
 
 	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
@@ -630,6 +595,48 @@ func TestServiceRealtimeStopUsesCommittedOrderingForOutOfOrderTurnCompletion(t *
 	if !stopped.IsFinal || stopped.AppendText != "" || stopped.FullText != "hello world" {
 		t.Fatalf("unexpected stop result %#v", stopped)
 	}
+}
+
+func startRealtimeOrderingProvider(t *testing.T, emitFinal <-chan struct{}) *httptest.Server {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.updated","event_id":"evt-ready"}`)); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+		if _, err := readRealtimeProviderMessage(context.Background(), conn); err != nil {
+			return
+		}
+
+		// The provider can complete later turns before earlier ones; committed ordering metadata is the source of truth.
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-1","item_id":"item-1"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"input_audio_buffer.committed","event_id":"evt-2","item_id":"item-2","previous_item_id":"item-1"}`)); err != nil {
+			return
+		}
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-2","transcript":"world"}`)); err != nil {
+			return
+		}
+		<-emitFinal
+		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-1","transcript":"hello"}`)); err != nil {
+			return
+		}
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	return server
 }
 
 func TestServiceRealtimeAppendRecomputesDeltaWhenCommitOrderingArrivesAfterTranscript(t *testing.T) {

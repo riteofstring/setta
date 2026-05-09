@@ -46,17 +46,13 @@ func TestServiceUpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched(t *testin
 	if err != nil {
 		t.Fatalf("update share overlay: %v", err)
 	}
-	if len(results) != 1 || results[0].ID != "artifacts/stroke.json" {
-		t.Fatalf("expected normalized save result, got %#v", results)
-	}
+	assertShareArtifactSaveResult(t, results)
 
 	diskPayload, err := os.ReadFile(artifactPath)
 	if err != nil {
 		t.Fatalf("read disk artifact: %v", err)
 	}
-	if strings.Contains(string(diskPayload), "#000000") {
-		t.Fatalf("expected disk artifact to remain unchanged, got %q", string(diskPayload))
-	}
+	assertShareArtifactDiskPayloadUnchanged(t, diskPayload)
 
 	loadedA, err := service.LoadCachedBrushStrokes(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{
 		Paths: []string{artifactPath},
@@ -64,12 +60,7 @@ func TestServiceUpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched(t *testin
 	if err != nil {
 		t.Fatalf("load share-a brush strokes: %v", err)
 	}
-	if len(loadedA) != 1 || loadedA[0] == nil {
-		t.Fatalf("expected share-a overlay artifact, got %#v", loadedA)
-	}
-	if loadedA[0].ID != "artifacts/stroke.json" || !strings.Contains(string(loadedA[0].Value), "#000000") {
-		t.Fatalf("expected share-a overlay payload, got %#v", loadedA[0])
-	}
+	assertShareArtifactOverlayPayload(t, loadedA)
 
 	loadedB, err := service.LoadCachedBrushStrokes(context.Background(), "share-b", artifacts.LoadCachedPathsRequest{
 		Paths: []string{artifactPath},
@@ -77,11 +68,44 @@ func TestServiceUpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched(t *testin
 	if err != nil {
 		t.Fatalf("load share-b brush strokes: %v", err)
 	}
-	if len(loadedB) != 1 || loadedB[0] == nil {
-		t.Fatalf("expected share-b disk artifact, got %#v", loadedB)
+	assertShareArtifactFallbackDiskPayload(t, loadedB)
+}
+
+func assertShareArtifactSaveResult(t *testing.T, results []artifacts.ArtifactSaveResult) {
+	t.Helper()
+
+	if len(results) != 1 || results[0].ID != "artifacts/stroke.json" {
+		t.Fatalf("expected normalized save result, got %#v", results)
 	}
-	if strings.Contains(string(loadedB[0].Value), "#000000") || !strings.Contains(string(loadedB[0].Value), "#111111") {
-		t.Fatalf("expected share-b disk payload, got %#v", loadedB[0])
+}
+
+func assertShareArtifactDiskPayloadUnchanged(t *testing.T, diskPayload []byte) {
+	t.Helper()
+
+	if strings.Contains(string(diskPayload), "#000000") {
+		t.Fatalf("expected disk artifact to remain unchanged, got %q", string(diskPayload))
+	}
+}
+
+func assertShareArtifactOverlayPayload(t *testing.T, loaded []*artifacts.JSONArtifact) {
+	t.Helper()
+
+	if len(loaded) != 1 || loaded[0] == nil {
+		t.Fatalf("expected share-a overlay artifact, got %#v", loaded)
+	}
+	if loaded[0].ID != "artifacts/stroke.json" || !strings.Contains(string(loaded[0].Value), "#000000") {
+		t.Fatalf("expected share-a overlay payload, got %#v", loaded[0])
+	}
+}
+
+func assertShareArtifactFallbackDiskPayload(t *testing.T, loaded []*artifacts.JSONArtifact) {
+	t.Helper()
+
+	if len(loaded) != 1 || loaded[0] == nil {
+		t.Fatalf("expected share-b disk artifact, got %#v", loaded)
+	}
+	if strings.Contains(string(loaded[0].Value), "#000000") || !strings.Contains(string(loaded[0].Value), "#111111") {
+		t.Fatalf("expected share-b disk payload, got %#v", loaded[0])
 	}
 }
 
