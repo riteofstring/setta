@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/lsp"
 	"setta/internal/testutil/firstpartyplugin"
 )
 
@@ -263,24 +265,53 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	if err != nil {
 		t.Fatalf("load first-party basedpyright language server specs: %v", err)
 	}
-	if len(specs) != 1 {
-		t.Fatalf("expected one basedpyright spec, got %#v", specs)
-	}
+	spec := mustSingleLanguageServerSpec(t, specs, "basedpyright")
+	assertBasedpyrightCommandAndSettingsKey(t, spec, pythonPath)
+	assertBasedpyrightDefaultAnalysisSettings(t, spec, roots.settaFilesRoot)
+	assertBasedpyrightRuntimePythonPath(t, spec, targetRoot, vendoredRoot)
+}
 
-	spec := specs[0]
+func mustSingleLanguageServerSpec(
+	t *testing.T,
+	specs []lsp.LanguageServerSpec,
+	name string,
+) lsp.LanguageServerSpec {
+	t.Helper()
+
+	if len(specs) != 1 {
+		t.Fatalf("expected one %s spec, got %#v", name, specs)
+	}
+	return specs[0]
+}
+
+func assertStringSliceEqual(t *testing.T, got []string, want []string, label string) {
+	t.Helper()
+
+	if !slices.Equal(got, want) {
+		t.Fatalf("expected %s %#v, got %#v", label, want, got)
+	}
+}
+
+func assertBasedpyrightCommandAndSettingsKey(
+	t *testing.T,
+	spec lsp.LanguageServerSpec,
+	pythonPath string,
+) {
+	t.Helper()
+
 	assertEquivalentLanguageServerCommandPath(t, spec.Command, pythonPath)
-	expectedArgs := []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"}
-	if len(spec.Args) != len(expectedArgs) {
-		t.Fatalf("expected basedpyright args %#v, got %#v", expectedArgs, spec.Args)
-	}
-	for index, expected := range expectedArgs {
-		if spec.Args[index] != expected {
-			t.Fatalf("expected basedpyright args %#v, got %#v", expectedArgs, spec.Args)
-		}
-	}
+	assertStringSliceEqual(t, spec.Args, []string{"-c", "from basedpyright.langserver import main; main()", "--stdio"}, "basedpyright args")
 	if spec.SettingsKey == nil || *spec.SettingsKey != "basedpyright" {
 		t.Fatalf("unexpected basedpyright settings key %#v", spec.SettingsKey)
 	}
+}
+
+func assertBasedpyrightDefaultAnalysisSettings(
+	t *testing.T,
+	spec lsp.LanguageServerSpec,
+	settaFilesRoot string,
+) {
+	t.Helper()
 
 	basedpyrightSettings, ok := spec.Settings["basedpyright"].(map[string]any)
 	if !ok {
@@ -305,6 +336,20 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 			t.Fatalf("expected %s to default to none, got %#v", rule, overrides[rule])
 		}
 	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != settaFilesRoot {
+		t.Fatalf("expected setta_files extra path %#v, got %#v", settaFilesRoot, analysis["extraPaths"])
+	}
+}
+
+func assertBasedpyrightRuntimePythonPath(
+	t *testing.T,
+	spec lsp.LanguageServerSpec,
+	targetRoot string,
+	vendoredRoot string,
+) {
+	t.Helper()
+
 	pythonPathEnv, ok := spec.Environment["PYTHONPATH"]
 	if !ok {
 		t.Fatalf("expected basedpyright spec to carry PYTHONPATH override, got %#v", spec.Environment)
@@ -315,10 +360,6 @@ func TestServiceLanguageServerSpecsIncludesFirstPartyBasedpyrightDefaults(t *tes
 	}
 	if len(pythonPathEntries) < 2 || pythonPathEntries[1] != vendoredRoot {
 		t.Fatalf("expected vendored root %q in basedpyright PYTHONPATH, got %#v", vendoredRoot, pythonPathEntries)
-	}
-	extraPaths, ok := analysis["extraPaths"].([]any)
-	if !ok || len(extraPaths) != 1 || extraPaths[0] != roots.settaFilesRoot {
-		t.Fatalf("expected setta_files extra path %#v, got %#v", roots.settaFilesRoot, analysis["extraPaths"])
 	}
 }
 
