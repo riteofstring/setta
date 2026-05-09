@@ -47,6 +47,199 @@ func assertInstalledPythonPackages(t *testing.T, packages []string) {
 	}
 }
 
+func callAppMCPTool(
+	t *testing.T,
+	session *sdkmcp.ClientSession,
+	name string,
+	arguments map[string]any,
+) *sdkmcp.CallToolResult {
+	t.Helper()
+
+	result := callAppMCPToolAllowError(t, session, name, arguments)
+	if result.IsError {
+		t.Fatalf("expected %s success, got %#v", name, result.StructuredContent)
+	}
+	return result
+}
+
+func callAppMCPToolAllowError(
+	t *testing.T,
+	session *sdkmcp.ClientSession,
+	name string,
+	arguments map[string]any,
+) *sdkmcp.CallToolResult {
+	t.Helper()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      name,
+		Arguments: arguments,
+	})
+	if err != nil {
+		t.Fatalf("call %s: %v", name, err)
+	}
+	return result
+}
+
+func assertAuthenticatedMCPToolListing(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	if len(toolsResult.Tools) != 74 {
+		t.Fatalf("expected 74 tools, got %d", len(toolsResult.Tools))
+	}
+
+	listResult := callAppMCPTool(t, session, "list_mcp_tools", map[string]any{})
+	listPayload, ok := listResult.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured list payload, got %#v", listResult.StructuredContent)
+	}
+	rawNames, ok := listPayload["tools"].([]any)
+	if !ok {
+		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
+	}
+	if len(rawNames) != 74 {
+		t.Fatalf("expected 74 registered tool names, got %d", len(rawNames))
+	}
+	assertAuthenticatedMCPRegisteredToolNames(t, rawNames)
+}
+
+func assertAuthenticatedMCPRegisteredToolNames(t *testing.T, rawNames []any) {
+	t.Helper()
+
+	for _, toolName := range []string{
+		"getInstalledPythonPackages",
+		"get_app_definition",
+		"set_app_definition",
+		"stream_app_definition",
+		"format_code",
+		"getProjectConfigNamesAndIds",
+		"set_gen_code_prefix",
+		"set_gen_code_suffix",
+		"getTerminalOutput",
+		"get_agent_profile",
+		"get_app_catalog",
+		"get_mcp_server_runtime_status",
+		"get_setta_docs",
+		"get_ui_setting_value",
+		"install_plugin",
+		"list_app_components",
+		"list_agent_profiles",
+		"report_completion_status",
+		"rescan_plugins",
+		"reveal_ui_setting",
+		"rollback_plugin",
+		"run_agent_profile",
+		"set_group_overflow_mode",
+		"set_default_section_variant",
+		"set_section_variant",
+		"set_section_variant_sort_order",
+		"update_app_definition",
+		"validate_app_definition",
+		"search_mcp_tools",
+		"search_ui_settings",
+		"toggle_group_orientation",
+		"uninstall_plugin",
+		"set_ui_setting_value",
+		"update_plugin",
+	} {
+		if !containsStructuredStringValue(rawNames, toolName) {
+			t.Fatalf("expected %s in registered tool names, got %#v", toolName, rawNames)
+		}
+	}
+	for _, removedTool := range []string{
+		"set_watch_code_enabled",
+		"set_watch_code_inputs",
+		"compare_and_set_watch_code_enabled",
+		"compare_and_set_watch_code_folders",
+		"compare_and_set_watch_code_files",
+	} {
+		if containsStructuredStringValue(rawNames, removedTool) {
+			t.Fatalf("expected removed Watch Code MCP tool %q to be absent, got %#v", removedTool, rawNames)
+		}
+	}
+}
+
+func assertAuthenticatedMCPMissingContext(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	missingContextResult := callAppMCPToolAllowError(t, session, "read_file_range", map[string]any{"path": "example.txt"})
+	if !missingContextResult.IsError {
+		t.Fatal("expected read_file_range missing context to fail")
+	}
+	missingContextPayload := mustStructuredMapValue(t, missingContextResult.StructuredContent)
+	if missingContextPayload["code"] != "scope_violation" {
+		t.Fatalf("expected scope_violation code, got %#v", missingContextPayload["code"])
+	}
+	if missingContextPayload["reason"] != "missing_context" {
+		t.Fatalf("expected missing_context reason, got %#v", missingContextPayload["reason"])
+	}
+}
+
+func setAuthenticatedMCPAgenticContext(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	callAppMCPTool(t, session, "set_agentic_context", map[string]any{
+		"projectConfigId": "project-alpha",
+		"chatId":          "chat-1",
+		"sectionId":       "chat-section",
+	})
+}
+
+func assertAuthenticatedMCPReadFileRange(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	readResult := callAppMCPTool(t, session, "read_file_range", map[string]any{
+		"path":       "example.txt",
+		"start_line": 2,
+		"end_line":   3,
+	})
+	readPayload, ok := readResult.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured read payload, got %#v", readResult.StructuredContent)
+	}
+	if readPayload["path"] != "example.txt" {
+		t.Fatalf("expected relative path example.txt, got %#v", readPayload["path"])
+	}
+	if readPayload["content"] != "beta\ngamma" {
+		t.Fatalf("expected ranged file content, got %#v", readPayload["content"])
+	}
+}
+
+func assertAuthenticatedMCPProjectSummary(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	summaryResult := callAppMCPTool(t, session, "get_latest_project_state_summary", map[string]any{"projectConfigId": "project-alpha"})
+	summaryPayload := mustStructuredMapValue(t, summaryResult.StructuredContent)
+	sections := mustStructuredListValue(t, summaryPayload["sections"])
+	if len(sections) != 4 {
+		t.Fatalf("expected four scoped sections in summary, got %#v", sections)
+	}
+	projectConfig := mustStructuredMapValue(t, summaryPayload["projectConfig"])
+	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
+	if len(sectionVariantMap) != 4 {
+		t.Fatalf("expected four scoped section variants, got %#v", sectionVariantMap)
+	}
+	for _, blockedSectionID := range []string{"blocked-section", "blocked-callable-section", "blocked-params-section"} {
+		if _, ok := sectionVariantMap[blockedSectionID]; ok {
+			t.Fatalf("did not expect %s in scoped summary, got %#v", blockedSectionID, sectionVariantMap)
+		}
+	}
+}
+
+func assertAuthenticatedMCPDiagnostics(t *testing.T, session *sdkmcp.ClientSession) {
+	t.Helper()
+
+	diagnosticsResult := callAppMCPTool(t, session, "get_latest_lsp_diagnostics", map[string]any{"projectConfigId": "project-alpha"})
+	diagnosticsPayload := mustStructuredMapValue(t, diagnosticsResult.StructuredContent)
+	codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"])
+	if len(codeSections) != 0 {
+		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
+	}
+}
+
 func TestAppIDEMCPServerRejectsUnauthorizedClients(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -105,259 +298,15 @@ func TestAppIDEMCPServerSupportsAuthenticatedStreamableHTTPCalls(t *testing.T) {
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
-		Endpoint:   server.URL + "/mcp",
-		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect authenticated mcp client: %v", err)
-	}
+	session := connectAuthenticatedAppMCPSession(t, app, server.URL)
 	defer session.Close()
 
-	toolsResult, err := session.ListTools(context.Background(), nil)
-	if err != nil {
-		t.Fatalf("list tools: %v", err)
-	}
-	if len(toolsResult.Tools) != 74 {
-		t.Fatalf("expected 74 tools, got %d", len(toolsResult.Tools))
-	}
-
-	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "list_mcp_tools",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call list_mcp_tools: %v", err)
-	}
-	listPayload, ok := listResult.StructuredContent.(map[string]any)
-	if !ok {
-		t.Fatalf("expected structured list payload, got %#v", listResult.StructuredContent)
-	}
-	rawNames, ok := listPayload["tools"].([]any)
-	if !ok {
-		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
-	}
-	if len(rawNames) != 74 {
-		t.Fatalf("expected 74 registered tool names, got %d", len(rawNames))
-	}
-	if !containsStructuredStringValue(rawNames, "getInstalledPythonPackages") {
-		t.Fatalf("expected getInstalledPythonPackages in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_app_definition") {
-		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_app_definition") {
-		t.Fatalf("expected set_app_definition in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "stream_app_definition") {
-		t.Fatalf("expected stream_app_definition in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "format_code") {
-		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "getProjectConfigNamesAndIds") {
-		t.Fatalf("expected getProjectConfigNamesAndIds in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_gen_code_prefix") {
-		t.Fatalf("expected set_gen_code_prefix in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_gen_code_suffix") {
-		t.Fatalf("expected set_gen_code_suffix in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "getTerminalOutput") {
-		t.Fatalf("expected getTerminalOutput in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_agent_profile") {
-		t.Fatalf("expected get_agent_profile in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_app_catalog") {
-		t.Fatalf("expected get_app_catalog in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_mcp_server_runtime_status") {
-		t.Fatalf("expected get_mcp_server_runtime_status in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_setta_docs") {
-		t.Fatalf("expected get_setta_docs in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "get_ui_setting_value") {
-		t.Fatalf("expected get_ui_setting_value in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "install_plugin") {
-		t.Fatalf("expected install_plugin in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "list_app_components") {
-		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "list_agent_profiles") {
-		t.Fatalf("expected list_agent_profiles in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "report_completion_status") {
-		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "rescan_plugins") {
-		t.Fatalf("expected rescan_plugins in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "reveal_ui_setting") {
-		t.Fatalf("expected reveal_ui_setting in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "rollback_plugin") {
-		t.Fatalf("expected rollback_plugin in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "run_agent_profile") {
-		t.Fatalf("expected run_agent_profile in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
-		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_default_section_variant") {
-		t.Fatalf("expected set_default_section_variant in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_section_variant") {
-		t.Fatalf("expected set_section_variant in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_section_variant_sort_order") {
-		t.Fatalf("expected set_section_variant_sort_order in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "update_app_definition") {
-		t.Fatalf("expected update_app_definition in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "validate_app_definition") {
-		t.Fatalf("expected validate_app_definition in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "search_mcp_tools") {
-		t.Fatalf("expected search_mcp_tools in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "search_ui_settings") {
-		t.Fatalf("expected search_ui_settings in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
-		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "uninstall_plugin") {
-		t.Fatalf("expected uninstall_plugin in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "set_ui_setting_value") {
-		t.Fatalf("expected set_ui_setting_value in registered tool names, got %#v", rawNames)
-	}
-	if !containsStructuredStringValue(rawNames, "update_plugin") {
-		t.Fatalf("expected update_plugin in registered tool names, got %#v", rawNames)
-	}
-	for _, removedTool := range []string{
-		"set_watch_code_enabled",
-		"set_watch_code_inputs",
-		"compare_and_set_watch_code_enabled",
-		"compare_and_set_watch_code_folders",
-		"compare_and_set_watch_code_files",
-	} {
-		if containsStructuredStringValue(rawNames, removedTool) {
-			t.Fatalf("expected removed Watch Code MCP tool %q to be absent, got %#v", removedTool, rawNames)
-		}
-	}
-
-	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "read_file_range",
-		Arguments: map[string]any{"path": "example.txt"},
-	})
-	if err != nil {
-		t.Fatalf("call read_file_range missing context: %v", err)
-	}
-	if !missingContextResult.IsError {
-		t.Fatal("expected read_file_range missing context to fail")
-	}
-	missingContextPayload := mustStructuredMapValue(t, missingContextResult.StructuredContent)
-	if missingContextPayload["code"] != "scope_violation" {
-		t.Fatalf("expected scope_violation code, got %#v", missingContextPayload["code"])
-	}
-	if missingContextPayload["reason"] != "missing_context" {
-		t.Fatalf("expected missing_context reason, got %#v", missingContextPayload["reason"])
-	}
-
-	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "set_agentic_context",
-		Arguments: map[string]any{
-			"projectConfigId": "project-alpha",
-			"chatId":          "chat-1",
-			"sectionId":       "chat-section",
-		},
-	})
-	if err != nil {
-		t.Fatalf("call set_agentic_context: %v", err)
-	}
-	if setContextResult.IsError {
-		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
-	}
-
-	readResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name: "read_file_range",
-		Arguments: map[string]any{
-			"path":       "example.txt",
-			"start_line": 2,
-			"end_line":   3,
-		},
-	})
-	if err != nil {
-		t.Fatalf("call read_file_range after context: %v", err)
-	}
-	if readResult.IsError {
-		t.Fatalf("expected read_file_range success, got %#v", readResult.StructuredContent)
-	}
-	readPayload, ok := readResult.StructuredContent.(map[string]any)
-	if !ok {
-		t.Fatalf("expected structured read payload, got %#v", readResult.StructuredContent)
-	}
-	if readPayload["path"] != "example.txt" {
-		t.Fatalf("expected relative path example.txt, got %#v", readPayload["path"])
-	}
-	if readPayload["content"] != "beta\ngamma" {
-		t.Fatalf("expected ranged file content, got %#v", readPayload["content"])
-	}
-
-	summaryResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "get_latest_project_state_summary",
-		Arguments: map[string]any{"projectConfigId": "project-alpha"},
-	})
-	if err != nil {
-		t.Fatalf("call get_latest_project_state_summary: %v", err)
-	}
-	if summaryResult.IsError {
-		t.Fatalf("expected summary success, got %#v", summaryResult.StructuredContent)
-	}
-	summaryPayload := mustStructuredMapValue(t, summaryResult.StructuredContent)
-	sections := mustStructuredListValue(t, summaryPayload["sections"])
-	if len(sections) != 4 {
-		t.Fatalf("expected four scoped sections in summary, got %#v", sections)
-	}
-	projectConfig := mustStructuredMapValue(t, summaryPayload["projectConfig"])
-	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
-	if len(sectionVariantMap) != 4 {
-		t.Fatalf("expected four scoped section variants, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["blocked-section"]; ok {
-		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["blocked-callable-section"]; ok {
-		t.Fatalf("did not expect blocked-callable-section in scoped summary, got %#v", sectionVariantMap)
-	}
-	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
-		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
-	}
-
-	diagnosticsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "get_latest_lsp_diagnostics",
-		Arguments: map[string]any{"projectConfigId": "project-alpha"},
-	})
-	if err != nil {
-		t.Fatalf("call get_latest_lsp_diagnostics: %v", err)
-	}
-	if diagnosticsResult.IsError {
-		t.Fatalf("expected diagnostics success, got %#v", diagnosticsResult.StructuredContent)
-	}
-	diagnosticsPayload := mustStructuredMapValue(t, diagnosticsResult.StructuredContent)
-	codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"])
-	if len(codeSections) != 0 {
-		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
-	}
+	assertAuthenticatedMCPToolListing(t, session)
+	assertAuthenticatedMCPMissingContext(t, session)
+	setAuthenticatedMCPAgenticContext(t, session)
+	assertAuthenticatedMCPReadFileRange(t, session)
+	assertAuthenticatedMCPProjectSummary(t, session)
+	assertAuthenticatedMCPDiagnostics(t, session)
 }
 
 func TestAppIDEMCPServerSupportsAuthenticatedStreamableHTTPToolListing(t *testing.T) {
