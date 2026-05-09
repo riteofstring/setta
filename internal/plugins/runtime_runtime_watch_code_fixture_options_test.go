@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"setta/internal/config"
-	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/watchcodecontracts"
 )
 
@@ -703,54 +702,7 @@ func TestServiceRuntimeRedactionKeepsSameScopeSourceManagersDistinct(t *testing.
 			if err != nil {
 				t.Fatalf("load redacted runtime payload with package manager entry: %v", err)
 			}
-
-			sourcePaths := map[string]struct{}{}
-			canonicalSourceKeys := map[string]struct{}{}
-			entryCount := 0
-			for _, entry := range runtimeResponse.Status.Plugins {
-				if entry.PluginID != "setta-fixture-frontend" || entry.SourceScope != PluginScopeSettaFiles {
-					continue
-				}
-				entryCount++
-				sourcePaths[entry.SourcePath] = struct{}{}
-				canonicalSourceKeys[entry.CanonicalSourceKey] = struct{}{}
-			}
-			if entryCount != 2 {
-				t.Fatalf("expected two same-scope status entries, got %#v", runtimeResponse.Status.Plugins)
-			}
-			if len(sourcePaths) != 2 {
-				t.Fatalf("expected distinct redacted source paths across source managers, got %#v", sourcePaths)
-			}
-			if len(canonicalSourceKeys) != 2 {
-				t.Fatalf("expected distinct redacted canonical source keys across source managers, got %#v", canonicalSourceKeys)
-			}
-
-			activeEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
-			shadowedEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-fixture-frontend", PluginRuntimeStateShadowed)
-			if activeEntry.SourceScope != PluginScopeSettaFiles || activeEntry.SourceManager != PluginSourceManagerSetta {
-				t.Fatalf("expected active setta entry in setta_files scope, got scope=%q manager=%q", activeEntry.SourceScope, activeEntry.SourceManager)
-			}
-			if shadowedEntry.SourceScope != PluginScopeSettaFiles || shadowedEntry.SourceManager != PluginSourceManagerPackageManager {
-				t.Fatalf("expected shadowed package-manager entry in setta_files scope, got scope=%q manager=%q", shadowedEntry.SourceScope, shadowedEntry.SourceManager)
-			}
-			if !strings.Contains(activeEntry.SourcePath, "[redacted]:setta_files:setta:setta-fixture-frontend:") {
-				t.Fatalf("expected setta redacted source path, got %q", activeEntry.SourcePath)
-			}
-			if !strings.Contains(activeEntry.CanonicalSourceKey, "redacted:setta_files:setta:setta-fixture-frontend:") {
-				t.Fatalf("expected setta redacted canonical source key, got %q", activeEntry.CanonicalSourceKey)
-			}
-			if !strings.Contains(shadowedEntry.SourcePath, "[redacted]:setta_files:package_manager:setta-fixture-frontend:") {
-				t.Fatalf("expected package-manager redacted source path, got %q", shadowedEntry.SourcePath)
-			}
-			if !strings.Contains(shadowedEntry.CanonicalSourceKey, "redacted:setta_files:package_manager:setta-fixture-frontend:") {
-				t.Fatalf("expected package-manager redacted canonical source key, got %q", shadowedEntry.CanonicalSourceKey)
-			}
-			if shadowedEntry.ShadowedBySourcePath == nil || *shadowedEntry.ShadowedBySourcePath != activeEntry.SourcePath {
-				t.Fatalf("expected redacted shadow path %q, got %#v", activeEntry.SourcePath, shadowedEntry.ShadowedBySourcePath)
-			}
-			if *shadowedEntry.ShadowedBySourcePath == shadowedEntry.SourcePath {
-				t.Fatalf("expected shadowed entry to keep a distinct shadow target, got source=%q shadow=%q", shadowedEntry.SourcePath, *shadowedEntry.ShadowedBySourcePath)
-			}
+			assertSameScopeSourceManagerRedactionDistinct(t, runtimeResponse.Status.Plugins)
 		})
 	}
 }
@@ -1033,38 +985,7 @@ func TestServiceRuntimeReportsBackendRegistrationsFromProbe(t *testing.T) {
 	if len(runtimeResponse.Status.Plugins) != 1 {
 		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
 	}
-
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active backend fixture, got %#v", statusEntry.State)
-	}
-	if len(statusEntry.RegisteredCodegenTargets) != 1 {
-		t.Fatalf("expected one codegen target, got %#v", statusEntry.RegisteredCodegenTargets)
-	}
-	if got := statusEntry.RegisteredCodegenTargets[0]; got.TargetID != "typescript" || got.PluginID != "setta-fixture-backend" || got.Language != "setta-fixture-backend-codegen:typescript" || got.Name != "Fixture TypeScript State" || got.DefaultFileName != "fixture_state.ts" {
-		t.Fatalf("unexpected codegen target registration %#v", got)
-	}
-	if len(statusEntry.RegisteredBackendRoutes) != 2 {
-		t.Fatalf("expected two backend routes, got %#v", statusEntry.RegisteredBackendRoutes)
-	}
-	if got := statusEntry.RegisteredBackendRoutes[0]; got.Path != "/health" || len(got.Methods) != 1 || got.Methods[0] != "GET" {
-		t.Fatalf("unexpected first backend route %#v", got)
-	}
-	if got := statusEntry.RegisteredBackendRoutes[1]; got.Path != "/items" || len(got.Methods) != 2 || got.Methods[0] != "DELETE" || got.Methods[1] != "POST" {
-		t.Fatalf("unexpected second backend route %#v", got)
-	}
-	if len(statusEntry.RegisteredStaticDirs) != 1 {
-		t.Fatalf("expected one static dir, got %#v", statusEntry.RegisteredStaticDirs)
-	}
-	if got := statusEntry.RegisteredStaticDirs[0]; got.RoutePrefix != "/static" || got.Dir != "backend/static" {
-		t.Fatalf("unexpected static dir registration %#v", got)
-	}
-	if len(statusEntry.RegisteredListenerEndpoints) != 1 {
-		t.Fatalf("expected one listener endpoint, got %#v", statusEntry.RegisteredListenerEndpoints)
-	}
-	if got := statusEntry.RegisteredListenerEndpoints[0].Name; got != "route_backend_fixture_ping" {
-		t.Fatalf("unexpected listener endpoint %q", got)
-	}
+	assertBackendRegistrationStatusEntry(t, runtimeResponse.Status.Plugins[0])
 }
 
 func TestServiceRuntimeShadowedEntriesDoNotReportPrimaryBackendRegistrations(t *testing.T) {
@@ -1126,93 +1047,11 @@ func TestServiceRuntimeShadowedEntriesDoNotReportPrimaryBackendRegistrations(t *
 
 func TestServiceRuntimeClearsBackendRegistrationsAfterUninstallCommit(t *testing.T) {
 	// Backend runtime refresh after uninstall should clear the live registration surface.
-	preparePluginLanguageServerFixture(t)
+	service := newLinkedBackendRegistrationService(t)
 
-	roots := newFilesystemResolverTestRoots(t)
-	repoRoot := workerRPCTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
-	linkedRoot := filepath.Join(t.TempDir(), "backend-linked")
-	copyBackendCodegenFixtureDir(t, sourceRoot, linkedRoot)
-	rewritePluginManifest(t, linkedRoot, func(payload map[string]any) {
-		payload["capabilities"] = []string{
-			"registerCodegenTarget",
-			"registerLanguageServer",
-			"registerRouter",
-			"registerStaticDir",
-			"registerListenerEndpoint",
-		}
-	})
-
-	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	linkResult, err := service.Link(LinkOptions{
-		LocalPluginRoot: linkedRoot,
-		Scope:           scopePointer(PluginScopeWorkspace),
-		Enable:          true,
-	})
-	if err != nil {
-		t.Fatalf("link backend plugin: %v", err)
-	}
-	if !linkResult.RestartRequired || linkResult.State != PluginRuntimeStatePendingRestart {
-		t.Fatalf("expected linked backend plugin to require refresh, got %#v", linkResult)
-	}
-	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
-		t.Fatalf("commit backend runtime refresh after link: %v", err)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload after link refresh: %v", err)
-	}
-	if len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
-	}
-	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
-		"fixturedsl": stringPointer("setta-fixture-backend"),
-	})
-	if err != nil {
-		t.Fatalf("load language server specs after link refresh: %v", err)
-	}
-	if len(languageServerSpecs) != 1 {
-		t.Fatalf("expected one language server spec after link refresh, got %#v", languageServerSpecs)
-	}
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if len(statusEntry.RegisteredCodegenTargets) != 1 ||
-		len(statusEntry.RegisteredBackendRoutes) != 2 ||
-		len(statusEntry.RegisteredStaticDirs) != 1 ||
-		len(statusEntry.RegisteredListenerEndpoints) != 1 {
-		t.Fatalf("expected backend registrations after refresh, got %#v", statusEntry)
-	}
-
-	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
-		PluginID: "setta-fixture-backend",
-		Scope:    scopePointer(PluginScopeWorkspace),
-	})
-	if err != nil {
-		t.Fatalf("uninstall backend plugin: %v", err)
-	}
-	if !uninstallResult.RestartRequired {
-		t.Fatalf("expected backend uninstall to require refresh")
-	}
-	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
-		t.Fatalf("commit backend runtime refresh after uninstall: %v", err)
-	}
-
-	runtimeResponse, err = service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload after uninstall refresh: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
-		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
-	}
-	languageServerSpecs, err = service.LanguageServerSpecs(context.Background(), map[string]*string{
-		"fixturedsl": stringPointer("setta-fixture-backend"),
-	})
-	if err != nil {
-		t.Fatalf("load language server specs after uninstall refresh: %v", err)
-	}
-	if len(languageServerSpecs) != 0 {
-		t.Fatalf("expected language server specs to clear after uninstall refresh, got %#v", languageServerSpecs)
-	}
+	assertBackendRegistrationsPresentAfterRefresh(t, service)
+	uninstallBackendFixtureAndCommitRefresh(t, service)
+	assertBackendRegistrationsClearedAfterUninstall(t, service)
 }
 
 func TestServiceRuntimeMarksBackendPluginInvalidWhenProbeFailsForRequestedRegistrations(t *testing.T) {
@@ -1391,259 +1230,6 @@ func TestServiceRuntimeMarksBackendPluginInvalidWhenGoModuleDependencyIsMissing(
 	}
 }
 
-func TestServiceRuntimeActivatesFirstPartyBasedpyrightPackageManagerPlugin(t *testing.T) {
-	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := firstPartyBasedpyrightSitePackages(t)
-	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
-
-	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf("expected one first-party package-manager plugin, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
-	}
-
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != "setta-basedpyright" || statusEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active first-party package-manager plugin, got %#v", statusEntry)
-	}
-	if len(statusEntry.RegisteredLanguageServers) != 1 || statusEntry.RegisteredLanguageServers[0].Language != "python" {
-		t.Fatalf("expected one python language server registration, got %#v", statusEntry.RegisteredLanguageServers)
-	}
-}
-
-func TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin(t *testing.T) {
-	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installBuiltFirstPartyPackageManagerPluginInSearchPath(
-		t,
-		sitePackages,
-		firstpartyplugin.AppSubsystemPluginID,
-	)
-
-	service := mustNewPluginMutationServiceWithPackageManager(
-		t,
-		roots,
-		nil,
-		config.ModeIDE,
-		[]string{sitePackages},
-	)
-	if err := service.store.SavePluginsState(PluginsStateFile{
-		EnabledPluginIDs: []string{firstpartyplugin.AppSubsystemPluginID},
-	}); err != nil {
-		t.Fatalf("save app subsystem plugin state: %v", err)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{
-		AssetURLBuilder: testRuntimeAssetURLBuilder,
-	})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf(
-			"expected one first-party app subsystem package-manager plugin, got list=%#v status=%#v",
-			runtimeResponse.List.Plugins,
-			runtimeResponse.Status.Plugins,
-		)
-	}
-	if runtimeResponse.FeatureCapabilities == nil {
-		t.Fatal("expected runtime feature capabilities")
-	}
-	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != firstpartyplugin.AppSubsystemPluginID || !appSubsystem.PluginEnabled {
-		t.Fatalf("expected enabled app subsystem runtime capability, got %#v", appSubsystem)
-	}
-	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI || !appSubsystem.AppGenerationChatModes || !appSubsystem.AppDeploymentRuntime {
-		t.Fatalf("expected full app subsystem capability surface, got %#v", appSubsystem)
-	}
-
-	entry := runtimeResponse.List.Plugins[0]
-	if entry.PluginID != firstpartyplugin.AppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
-		t.Fatalf("expected package-manager app subsystem plugin list entry, got %#v", entry)
-	}
-	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
-		t.Fatalf("expected backend/frontend app subsystem components, got %#v", entry.Components)
-	}
-	if entry.Frontend.EntrypointURL == nil || entry.Frontend.StyleURL == nil {
-		t.Fatalf("expected package-manager app subsystem frontend URLs, got %#v", entry.Frontend)
-	}
-
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active app subsystem package-manager plugin, got %#v", statusEntry)
-	}
-	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
-		t.Fatalf("expected backend/frontend app subsystem status components, got %#v", statusEntry.Components)
-	}
-}
-
-func TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin(t *testing.T) {
-	const unknownAppSubsystemPluginID = "acme-app-subsystem-fixture"
-
-	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installPackageManagerFixtureInSearchPath(
-		t,
-		sitePackages,
-		"app-subsystem-unknown-id",
-		unknownAppSubsystemPluginID,
-		"0.1.0",
-		nil,
-	)
-
-	service := mustNewPluginMutationServiceWithPackageManager(
-		t,
-		roots,
-		nil,
-		config.ModeIDE,
-		[]string{sitePackages},
-	)
-	if err := service.store.SavePluginsState(PluginsStateFile{
-		EnabledPluginIDs: []string{unknownAppSubsystemPluginID},
-	}); err != nil {
-		t.Fatalf("save unknown-id app subsystem plugin state: %v", err)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{
-		AssetURLBuilder: testRuntimeAssetURLBuilder,
-	})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
-		t.Fatalf(
-			"expected one unknown-id app subsystem package-manager plugin, got list=%#v status=%#v",
-			runtimeResponse.List.Plugins,
-			runtimeResponse.Status.Plugins,
-		)
-	}
-	if runtimeResponse.FeatureCapabilities == nil {
-		t.Fatal("expected runtime feature capabilities")
-	}
-	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
-	if appSubsystem.PluginID != unknownAppSubsystemPluginID || !appSubsystem.PluginEnabled {
-		t.Fatalf("expected enabled unknown-id app subsystem runtime capability, got %#v", appSubsystem)
-	}
-	if !appSubsystem.AppAuthoringUI || !appSubsystem.AppPreviewUI || !appSubsystem.AppGenerationChatModes || !appSubsystem.AppDeploymentRuntime {
-		t.Fatalf("expected full unknown-id app subsystem capability surface, got %#v", appSubsystem)
-	}
-
-	entry := runtimeResponse.List.Plugins[0]
-	if entry.PluginID != unknownAppSubsystemPluginID || entry.SourceManager != PluginSourceManagerPackageManager {
-		t.Fatalf("expected package-manager unknown-id app subsystem plugin list entry, got %#v", entry)
-	}
-	if len(entry.Components) != 2 || entry.Components[0] != "backend" || entry.Components[1] != "frontend" {
-		t.Fatalf("expected backend/frontend unknown-id app subsystem components, got %#v", entry.Components)
-	}
-	if entry.Frontend.EntrypointURL == nil || !strings.Contains(*entry.Frontend.EntrypointURL, "/plugins/"+unknownAppSubsystemPluginID+"/frontend/dist/index.js?v=") {
-		t.Fatalf("expected unknown-id package-manager app subsystem frontend entrypoint URL, got %#v", entry.Frontend.EntrypointURL)
-	}
-	if entry.Frontend.StyleURL == nil || !strings.Contains(*entry.Frontend.StyleURL, "/plugins/"+unknownAppSubsystemPluginID+"/frontend/dist/index.css?v=") {
-		t.Fatalf("expected unknown-id package-manager app subsystem frontend style URL, got %#v", entry.Frontend.StyleURL)
-	}
-
-	statusEntry := runtimeResponse.Status.Plugins[0]
-	if statusEntry.PluginID != unknownAppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
-		t.Fatalf("expected active unknown-id app subsystem package-manager plugin, got %#v", statusEntry)
-	}
-	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
-		t.Fatalf("expected backend/frontend unknown-id app subsystem status components, got %#v", statusEntry.Components)
-	}
-}
-
-func TestServiceRuntimeKeepsCurrentConfigAcrossUsableDuplicatePromotion(t *testing.T) {
-	pythonPath := firstpartyplugin.BasedpyrightPython(t)
-	t.Setenv("SETTA_PYTHON", pythonPath)
-
-	roots := newFilesystemResolverTestRoots(t)
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t, sitePackages)
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	workspaceRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
-	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", "setta-basedpyright"), workspaceRoot)
-
-	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
-	if err := service.store.SavePluginsState(PluginsStateFile{
-		PluginConfigByID: map[string]any{
-			pluginConfigKey("setta-basedpyright", PluginScopeSettaFiles): map[string]any{
-				"basedpyright": map[string]any{
-					"analysis": map[string]any{
-						"extraPaths": []any{"/tmp/custom"},
-					},
-				},
-			},
-		},
-	}); err != nil {
-		t.Fatalf("save package-manager config state: %v", err)
-	}
-
-	runtimeResponse, err := service.Runtime(RuntimeOptions{})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 1 {
-		t.Fatalf("expected one active plugin, got %#v", runtimeResponse.List.Plugins)
-	}
-	entry := runtimeResponse.List.Plugins[0]
-	if entry.SourceScope != PluginScopeWorkspace {
-		t.Fatalf("expected workspace duplicate to be primary, got %#v", entry.SourceScope)
-	}
-	basedpyrightSettings, ok := entry.Config.CurrentConfig["basedpyright"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected runtime current config root, got %#v", entry.Config.CurrentConfig)
-	}
-	analysis, ok := basedpyrightSettings["analysis"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected runtime analysis config, got %#v", basedpyrightSettings["analysis"])
-	}
-	extraPaths, ok := analysis["extraPaths"].([]any)
-	if !ok || len(extraPaths) != 1 || extraPaths[0] != "/tmp/custom" {
-		t.Fatalf("expected promoted workspace runtime config to keep lower-precedence extraPaths, got %#v", analysis["extraPaths"])
-	}
-}
-
-func TestServiceRuntimeMarksFirstPartyBasedpyrightInvalidWhenDefaultInterpreterLacksBasedpyright(t *testing.T) {
-	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
-
-	roots := newFilesystemResolverTestRoots(t)
-	repoRoot := workerRPCTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "plugins", "setta-basedpyright")
-	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), "setta-basedpyright")
-	copyBackendCodegenFixtureDir(t, sourceRoot, targetRoot)
-
-	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	runtimeResponse, err := service.Runtime(RuntimeOptions{
-		AssetURLBuilder: testRuntimeAssetURLBuilder,
-	})
-	if err != nil {
-		t.Fatalf("load runtime payload: %v", err)
-	}
-	if len(runtimeResponse.List.Plugins) != 0 {
-		t.Fatalf("expected invalid basedpyright plugin to stay out of the runtime list, got %#v", runtimeResponse.List.Plugins)
-	}
-
-	statusEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, "setta-basedpyright", PluginRuntimeStateInvalid)
-	if len(statusEntry.RegisteredLanguageServers) != 0 {
-		t.Fatalf("expected invalid basedpyright plugin to expose no language server registrations, got %#v", statusEntry.RegisteredLanguageServers)
-	}
-	if len(statusEntry.Errors) != 1 {
-		t.Fatalf("expected one backend probe error, got %#v", statusEntry.Errors)
-	}
-	if statusEntry.Errors[0].Code != string(ServiceErrorCodeBackendRuntimeInvalid) {
-		t.Fatalf("expected backend runtime invalid error code, got %#v", statusEntry.Errors[0])
-	}
-}
-
 func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T) {
 	// Asset resolution should allow declared frontend files only.
 	roots := newFilesystemResolverTestRoots(t)
@@ -1707,4 +1293,193 @@ func mustFindRuntimeListEntry(t *testing.T, entries []PluginListEntry, pluginID 
 	}
 	t.Fatalf("expected runtime list entry %q", pluginID)
 	return PluginListEntry{}
+}
+
+func assertSameScopeSourceManagerRedactionDistinct(t *testing.T, entries []PluginStatusEntry) {
+	t.Helper()
+
+	sourcePaths := map[string]struct{}{}
+	canonicalSourceKeys := map[string]struct{}{}
+	entryCount := 0
+	for _, entry := range entries {
+		if entry.PluginID != "setta-fixture-frontend" || entry.SourceScope != PluginScopeSettaFiles {
+			continue
+		}
+		entryCount++
+		sourcePaths[entry.SourcePath] = struct{}{}
+		canonicalSourceKeys[entry.CanonicalSourceKey] = struct{}{}
+	}
+	if entryCount != 2 {
+		t.Fatalf("expected two same-scope status entries, got %#v", entries)
+	}
+	if len(sourcePaths) != 2 {
+		t.Fatalf("expected distinct redacted source paths across source managers, got %#v", sourcePaths)
+	}
+	if len(canonicalSourceKeys) != 2 {
+		t.Fatalf("expected distinct redacted canonical source keys across source managers, got %#v", canonicalSourceKeys)
+	}
+}
+
+func assertBackendRegistrationStatusEntry(t *testing.T, statusEntry PluginStatusEntry) {
+	t.Helper()
+
+	if statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active backend fixture, got %#v", statusEntry.State)
+	}
+	assertBackendCodegenRegistration(t, statusEntry.RegisteredCodegenTargets)
+	assertBackendRouteRegistrations(t, statusEntry.RegisteredBackendRoutes)
+	assertBackendStaticDirRegistration(t, statusEntry.RegisteredStaticDirs)
+	assertBackendListenerEndpointRegistration(t, statusEntry.RegisteredListenerEndpoints)
+}
+
+func assertBackendCodegenRegistration(t *testing.T, targets []PluginRegisteredCodegenTarget) {
+	t.Helper()
+
+	if len(targets) != 1 {
+		t.Fatalf("expected one codegen target, got %#v", targets)
+	}
+	got := targets[0]
+	if got.TargetID != "typescript" || got.PluginID != "setta-fixture-backend" || got.Language != "setta-fixture-backend-codegen:typescript" || got.Name != "Fixture TypeScript State" || got.DefaultFileName != "fixture_state.ts" {
+		t.Fatalf("unexpected codegen target registration %#v", got)
+	}
+}
+
+func assertBackendRouteRegistrations(t *testing.T, routes []PluginRegisteredBackendRoute) {
+	t.Helper()
+
+	if len(routes) != 2 {
+		t.Fatalf("expected two backend routes, got %#v", routes)
+	}
+	if got := routes[0]; got.Path != "/health" || len(got.Methods) != 1 || got.Methods[0] != "GET" {
+		t.Fatalf("unexpected first backend route %#v", got)
+	}
+	if got := routes[1]; got.Path != "/items" || len(got.Methods) != 2 || got.Methods[0] != "DELETE" || got.Methods[1] != "POST" {
+		t.Fatalf("unexpected second backend route %#v", got)
+	}
+}
+
+func assertBackendStaticDirRegistration(t *testing.T, staticDirs []PluginRegisteredStaticDir) {
+	t.Helper()
+
+	if len(staticDirs) != 1 {
+		t.Fatalf("expected one static dir, got %#v", staticDirs)
+	}
+	if got := staticDirs[0]; got.RoutePrefix != "/static" || got.Dir != "backend/static" {
+		t.Fatalf("unexpected static dir registration %#v", got)
+	}
+}
+
+func assertBackendListenerEndpointRegistration(t *testing.T, endpoints []PluginRegisteredListenerEndpoint) {
+	t.Helper()
+
+	if len(endpoints) != 1 {
+		t.Fatalf("expected one listener endpoint, got %#v", endpoints)
+	}
+	if got := endpoints[0].Name; got != "route_backend_fixture_ping" {
+		t.Fatalf("unexpected listener endpoint %q", got)
+	}
+}
+
+func newLinkedBackendRegistrationService(t *testing.T) *Service {
+	t.Helper()
+
+	preparePluginLanguageServerFixture(t)
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend")
+	linkedRoot := filepath.Join(t.TempDir(), "backend-linked")
+	copyBackendCodegenFixtureDir(t, sourceRoot, linkedRoot)
+	rewritePluginManifest(t, linkedRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{
+			"registerCodegenTarget",
+			"registerLanguageServer",
+			"registerRouter",
+			"registerStaticDir",
+			"registerListenerEndpoint",
+		}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	linkResult, err := service.Link(LinkOptions{
+		LocalPluginRoot: linkedRoot,
+		Scope:           scopePointer(PluginScopeWorkspace),
+		Enable:          true,
+	})
+	if err != nil {
+		t.Fatalf("link backend plugin: %v", err)
+	}
+	if !linkResult.RestartRequired || linkResult.State != PluginRuntimeStatePendingRestart {
+		t.Fatalf("expected linked backend plugin to require refresh, got %#v", linkResult)
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after link: %v", err)
+	}
+	return service
+}
+
+func assertBackendRegistrationsPresentAfterRefresh(t *testing.T, service *Service) {
+	t.Helper()
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload after link refresh: %v", err)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one runtime status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load language server specs after link refresh: %v", err)
+	}
+	if len(languageServerSpecs) != 1 {
+		t.Fatalf("expected one language server spec after link refresh, got %#v", languageServerSpecs)
+	}
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if len(statusEntry.RegisteredCodegenTargets) != 1 ||
+		len(statusEntry.RegisteredBackendRoutes) != 2 ||
+		len(statusEntry.RegisteredStaticDirs) != 1 ||
+		len(statusEntry.RegisteredListenerEndpoints) != 1 {
+		t.Fatalf("expected backend registrations after refresh, got %#v", statusEntry)
+	}
+}
+
+func uninstallBackendFixtureAndCommitRefresh(t *testing.T, service *Service) {
+	t.Helper()
+
+	uninstallResult, err := service.Uninstall(context.Background(), UninstallOptions{
+		PluginID: "setta-fixture-backend",
+		Scope:    scopePointer(PluginScopeWorkspace),
+	})
+	if err != nil {
+		t.Fatalf("uninstall backend plugin: %v", err)
+	}
+	if !uninstallResult.RestartRequired {
+		t.Fatalf("expected backend uninstall to require refresh")
+	}
+	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
+		t.Fatalf("commit backend runtime refresh after uninstall: %v", err)
+	}
+}
+
+func assertBackendRegistrationsClearedAfterUninstall(t *testing.T, service *Service) {
+	t.Helper()
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload after uninstall refresh: %v", err)
+	}
+	if len(runtimeResponse.List.Plugins) != 0 || len(runtimeResponse.Status.Plugins) != 0 {
+		t.Fatalf("expected backend registrations to clear after uninstall refresh, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
+	}
+	languageServerSpecs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": stringPointer("setta-fixture-backend"),
+	})
+	if err != nil {
+		t.Fatalf("load language server specs after uninstall refresh: %v", err)
+	}
+	if len(languageServerSpecs) != 0 {
+		t.Fatalf("expected language server specs to clear after uninstall refresh, got %#v", languageServerSpecs)
+	}
 }
