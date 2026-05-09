@@ -24,10 +24,8 @@ import (
 	"github.com/coder/websocket"
 )
 
-func TestAppAgentProfileMutationsBroadcastAgentProfilesUpdated(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareCurrentSession(t, cfg)
+func newAppWebsocketBroadcastTestApp(t *testing.T, cfg config.Config) *App {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -38,121 +36,130 @@ func TestAppAgentProfileMutationsBroadcastAgentProfilesUpdated(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+	return app
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func readAppProjectStateUpdate(
+	t *testing.T,
+	harness appWebsocketMutationHarness,
+	projectID string,
+	completedOpID string,
+	label string,
+	maxReads int,
+) realtime.ProjectStateUpdateContent {
+	t.Helper()
 
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
+	envelope := readAppRouteEnvelopeUntilType(t, harness.conn, realtime.MessageTypeUpdateFrontendProjectState, maxReads)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode %s project state update: %v", label, err)
 	}
-	defer conn.CloseNow()
+	if content.ProjectState.ProjectConfig.ID != projectID {
+		t.Fatalf("expected %s state update for %q, got %q", label, projectID, content.ProjectState.ProjectConfig.ID)
+	}
+	if completedOpID != "" && !containsAppString(content.CompletedOpIDs, completedOpID) {
+		t.Fatalf("expected completed %s in websocket update, got %#v", completedOpID, content.CompletedOpIDs)
+	}
+	return content
+}
 
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+func countAppProjectStateChildrenForParent(parentSectionMap map[string]*string, parentID string) int {
+	count := 0
+	for _, parent := range parentSectionMap {
+		if parent != nil && *parent == parentID {
+			count++
+		}
+	}
+	return count
+}
 
-	createRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteCreateAgentProfile,
-		strings.NewReader(`{"name":"Planner","description":"Planning profile","systemPrompt":"Plan tasks","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-1","toolAllowlist":["tool.a"],"memoryScope":"workspace"}`),
+func findAppAgentProfileSnapshotEntry(profiles []agentprofiles.Profile, profileID string) (agentprofiles.Profile, bool) {
+	for _, profile := range profiles {
+		if profile.ID == profileID {
+			return profile, true
+		}
+	}
+	return agentprofiles.Profile{}, false
+}
+
+func readAppRenameRefactorBroadcasts(
+	t *testing.T,
+	harness appWebsocketMutationHarness,
+	projectID string,
+	frontendOpID string,
+) (realtime.ProjectStateUpdateContent, realtime.RenameRefactorBroadcastContent) {
+	t.Helper()
+
+	var projectUpdate realtime.ProjectStateUpdateContent
+	var renamePrompt realtime.RenameRefactorBroadcastContent
+	for range 6 {
+		envelope := readAppRouteEnvelope(t, harness.conn)
+		switch envelope.MessageType {
+		case realtime.MessageTypeUpdateFrontendProjectState:
+			if err := json.Unmarshal(envelope.Content, &projectUpdate); err != nil {
+				t.Fatalf("decode project state update content: %v", err)
+			}
+			if projectUpdate.ProjectState.ProjectConfig.ID != projectID {
+				t.Fatalf("expected %s state update, got %q", projectID, projectUpdate.ProjectState.ProjectConfig.ID)
+			}
+			if !containsAppString(projectUpdate.CompletedOpIDs, frontendOpID) {
+				t.Fatalf("expected completed rename op in websocket project update, got %#v", projectUpdate.CompletedOpIDs)
+			}
+		case realtime.MessageTypeReturnRenameRefactorResults:
+			if err := json.Unmarshal(envelope.Content, &renamePrompt); err != nil {
+				t.Fatalf("decode rename refactor content: %v", err)
+			}
+		}
+		if projectUpdate.ProjectState.ProjectConfig.ID != "" && renamePrompt.ProjectConfigID != "" {
+			return projectUpdate, renamePrompt
+		}
+	}
+	t.Fatalf("expected websocket project update and rename prompt for %s", frontendOpID)
+	return projectUpdate, renamePrompt
+}
+
+func TestAppAgentProfileMutationsBroadcastAgentProfilesUpdated(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	harness := newAppWebsocketMutationHarness(t, cfg)
+	createResponse := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteCreateAgentProfile,
+		`{"name":"Planner","description":"Planning profile","systemPrompt":"Plan tasks","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-1","toolAllowlist":["tool.a"],"memoryScope":"workspace"}`,
 	)
-	if err != nil {
-		t.Fatalf("new create agent profile request: %v", err)
-	}
-	createRequest.Header.Set("Content-Type", "application/json")
-	createRequest.AddCookie(authCookie)
+	created := decodeAppJSONResponse[agentprofiles.Profile](t, createResponse, "create agent profile")
 
-	createResponse, err := http.DefaultClient.Do(createRequest)
-	if err != nil {
-		t.Fatalf("post create agent profile: %v", err)
-	}
-	defer createResponse.Body.Close()
-	if createResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(createResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", createResponse.StatusCode, string(body))
-	}
-	var created agentprofiles.Profile
-	if err := json.NewDecoder(createResponse.Body).Decode(&created); err != nil {
-		t.Fatalf("decode create agent profile response: %v", err)
-	}
-
-	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
-	var createdSnapshot realtime.AgentProfilesUpdatedContent
-	if err := json.Unmarshal(createEnvelope.Content, &createdSnapshot); err != nil {
-		t.Fatalf("decode agent profile websocket create payload: %v", err)
-	}
-	if len(createdSnapshot.Profiles) != 1 {
-		t.Fatalf("expected one agent profile after create, got %#v", createdSnapshot.Profiles)
-	}
-	if createdSnapshot.Profiles[0].ID != created.ID {
+	createdSnapshot := readAppMutationContent[realtime.AgentProfilesUpdatedContent](t, harness.conn, realtime.MessageTypeAgentProfilesUpdated, "agent profile create")
+	if _, ok := findAppAgentProfileSnapshotEntry(createdSnapshot.Profiles, created.ID); !ok {
 		t.Fatalf("expected created agent profile id %q in websocket payload, got %#v", created.ID, createdSnapshot.Profiles)
 	}
 
-	updateRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteUpdateAgentProfile,
-		strings.NewReader(`{"profile":{"id":"`+created.ID+`","name":"Planner v2","description":"Updated profile","systemPrompt":"Plan better","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-2","toolAllowlist":["tool.b"],"memoryScope":"project"}}`),
+	updateResponse := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteUpdateAgentProfile,
+		`{"profile":{"id":"`+created.ID+`","name":"Planner v2","description":"Updated profile","systemPrompt":"Plan better","enableBackgroundSummaryFill":true,"enableLlmChatTitles":true,"engineConfigId":"engine-2","toolAllowlist":["tool.b"],"memoryScope":"project"}}`,
 	)
-	if err != nil {
-		t.Fatalf("new update agent profile request: %v", err)
-	}
-	updateRequest.Header.Set("Content-Type", "application/json")
-	updateRequest.AddCookie(authCookie)
+	updateResponse.Body.Close()
 
-	updateResponse, err := http.DefaultClient.Do(updateRequest)
-	if err != nil {
-		t.Fatalf("post update agent profile: %v", err)
+	updatedSnapshot := readAppMutationContent[realtime.AgentProfilesUpdatedContent](t, harness.conn, realtime.MessageTypeAgentProfilesUpdated, "agent profile update")
+	updated, ok := findAppAgentProfileSnapshotEntry(updatedSnapshot.Profiles, created.ID)
+	if !ok {
+		t.Fatalf("expected updated agent profile id %q in websocket payload, got %#v", created.ID, updatedSnapshot.Profiles)
 	}
-	defer updateResponse.Body.Close()
-	if updateResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(updateResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", updateResponse.StatusCode, string(body))
+	if updated.Name != "Planner v2" {
+		t.Fatalf("expected updated agent profile name, got %#v", updated)
 	}
 
-	updateEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
-	var updatedSnapshot realtime.AgentProfilesUpdatedContent
-	if err := json.Unmarshal(updateEnvelope.Content, &updatedSnapshot); err != nil {
-		t.Fatalf("decode agent profile websocket update payload: %v", err)
-	}
-	if len(updatedSnapshot.Profiles) != 1 {
-		t.Fatalf("expected one agent profile after update, got %#v", updatedSnapshot.Profiles)
-	}
-	if updatedSnapshot.Profiles[0].Name != "Planner v2" {
-		t.Fatalf("expected updated agent profile name, got %#v", updatedSnapshot.Profiles[0])
-	}
+	deleteResponse := postAppRouteJSONOK(t, harness, httpapi.RouteDeleteAgentProfile, `{"profileId":"`+created.ID+`"}`)
+	deleteResponse.Body.Close()
 
-	deleteRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteDeleteAgentProfile,
-		strings.NewReader(`{"profileId":"`+created.ID+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new delete agent profile request: %v", err)
-	}
-	deleteRequest.Header.Set("Content-Type", "application/json")
-	deleteRequest.AddCookie(authCookie)
-
-	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
-	if err != nil {
-		t.Fatalf("post delete agent profile: %v", err)
-	}
-	defer deleteResponse.Body.Close()
-	if deleteResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(deleteResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", deleteResponse.StatusCode, string(body))
-	}
-
-	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAgentProfilesUpdated, 4)
-	var deletedSnapshot realtime.AgentProfilesUpdatedContent
-	if err := json.Unmarshal(deleteEnvelope.Content, &deletedSnapshot); err != nil {
-		t.Fatalf("decode agent profile websocket delete payload: %v", err)
-	}
-	if len(deletedSnapshot.Profiles) != 0 {
-		t.Fatalf("expected empty agent profile snapshot after delete, got %#v", deletedSnapshot.Profiles)
+	deletedSnapshot := readAppMutationContent[realtime.AgentProfilesUpdatedContent](t, harness.conn, realtime.MessageTypeAgentProfilesUpdated, "agent profile delete")
+	if _, ok := findAppAgentProfileSnapshotEntry(deletedSnapshot.Profiles, created.ID); ok {
+		t.Fatalf("expected deleted agent profile id %q to be absent, got %#v", created.ID, deletedSnapshot.Profiles)
 	}
 }
 
@@ -161,15 +168,8 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	harness := newAppWebsocketMutationHarness(t, cfg)
+	app := harness.app
 
 	if _, err := app.SettingsState().MutateAndSave(context.Background(), func(document settingsstate.Document) (settingsstate.Document, error) {
 		document["backend"].(map[string]any)["autoRefetchCallableParamsOnLspMismatch"] = false
@@ -177,23 +177,6 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed live settings runtime: %v", err)
 	}
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
 	if _, err := app.ProjectStates().Settings().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		return appSettingsProjectMaterializerTestDocument(
@@ -204,11 +187,7 @@ func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
 		t.Fatalf("save settings project runtime: %v", err)
 	}
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateSettings, 4)
-	var websocketPayload settingsstate.Document
-	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
-		t.Fatalf("decode websocket settings payload: %v", err)
-	}
+	websocketPayload := readAppMutationContent[settingsstate.Document](t, harness.conn, realtime.MessageTypeUpdateSettings, "settings materialization")
 	if got := websocketPayload["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
 		t.Fatalf("expected websocket renameRefactorMode ALWAYS_RENAME, got %#v", got)
 	}
@@ -249,80 +228,19 @@ func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{cookieName + "=" + token},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	harness := newAppWebsocketMutationHarness(t, cfg)
+	app := harness.app
 
 	seedAppLSPCodeSectionProjectWithSource(t, app, "__fixture_error__\n")
 	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
 		t.Fatalf("save lsp diagnostics project: %v", err)
 	}
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLSPDiagnostics, 4)
-	var websocketPayload projectstate.LSPDiagnosticsPayload
-	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
-		t.Fatalf("decode websocket diagnostics payload: %v", err)
-	}
+	websocketPayload := readAppMutationContent[projectstate.LSPDiagnosticsPayload](t, harness.conn, realtime.MessageTypeLSPDiagnostics, "lsp diagnostics websocket")
 	assertAppLSPDiagnosticsPayload(t, websocketPayload)
 
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteGetLatestLSPDiagnostics,
-		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
-	)
-	if err != nil {
-		t.Fatalf("new diagnostics request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post latest diagnostics: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var routePayload projectstate.LSPDiagnosticsPayload
-	if err := json.NewDecoder(response.Body).Decode(&routePayload); err != nil {
-		t.Fatalf("decode route diagnostics payload: %v", err)
-	}
+	response := postAppRouteJSONOK(t, harness, httpapi.RouteGetLatestLSPDiagnostics, `{"projectConfigId":"project-alpha"}`)
+	routePayload := decodeAppJSONResponse[projectstate.LSPDiagnosticsPayload](t, response, "latest diagnostics")
 	assertAppLSPDiagnosticsPayload(t, routePayload)
 }
 
@@ -537,26 +455,8 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
-	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
-	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
-	if err := os.MkdirAll(watchDir, 0o755); err != nil {
-		t.Fatalf("mkdir watch dir: %v", err)
-	}
-
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	// Seed a project that is already in view-edit mode so the route has to
-	// persist the exit and push the updated project state back to the frontend.
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
@@ -570,66 +470,34 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 			},
 		}
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Folders: []projectstate.WatchCodeFolder{
-				{Path: "pkg", Recursive: false},
+			Registry: map[string]projectstate.WatchCodeRegistryEntry{
+				"pkg.missing.MissingFunc:function": {
+					CallableName: "MissingFunc",
+					SourcePath:   "pkg/missing.py",
+				},
 			},
 		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed watch code project: %v", err)
 	}
-	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
-		t.Fatalf("save watch code project: %v", err)
+
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
+	warningBroadcaster := codeUpdateService{
+		watchCodeWarnings: newWatchCodeWarningTracker(func() (string, bool) {
+			return testAppWatchCodeProviderPluginID, true
+		}),
+		frontendWebsocketHub: app.websocketHub,
+	}
+	snapshot := app.ProjectStates().Main().Snapshot()
+	attempts := map[string]projectstate.SignatureHelpStatus{
+		"MissingFunc": projectstate.SignatureHelpStatusNoMatch,
+	}
+	if err := warningBroadcaster.broadcastWatchCodeWarnings(context.Background(), snapshot.Document, []string{"project-alpha"}, attempts); err != nil {
+		t.Fatalf("broadcast watch code warning: %v", err)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{cookieName + "=" + token},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	watchFile := filepath.Join(watchDir, "missing.py")
-	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write initial watch file: %v", err)
-	}
-
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
-		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
-	})
-
-	initialSnapshot := app.ProjectStates().Main().Snapshot()
-	initialProjectData := readAppWatchCodePluginProjectData(t, initialSnapshot.Document, "project-alpha")
-	initialHash := initialProjectData.Registry["pkg.missing.MissingFunc:function"].SignatureHash
-
-	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra):\n    return value + extra\n"), 0o644); err != nil {
-		t.Fatalf("write signature-change watch file: %v", err)
-	}
-
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
-		return ok && entry.SignatureHash != initialHash
-	})
-
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNotification, 6)
+	envelope := readAppRouteEnvelopeUntilType(t, harness.conn, realtime.MessageTypeNotification, 4)
 	var notification realtime.NotificationContent
 	if err := json.Unmarshal(envelope.Content, &notification); err != nil {
 		t.Fatalf("decode notification content: %v", err)
@@ -650,20 +518,11 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 		t.Fatalf("expected warning notification timestamp, got %#v", notification)
 	}
 
-	secondSnapshot := app.ProjectStates().Main().Snapshot()
-	secondProjectData := readAppWatchCodePluginProjectData(t, secondSnapshot.Document, "project-alpha")
-	secondHash := secondProjectData.Registry["pkg.missing.MissingFunc:function"].SignatureHash
-
-	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra, third):\n    return value + extra + third\n"), 0o644); err != nil {
-		t.Fatalf("write repeated signature-change watch file: %v", err)
+	if err := warningBroadcaster.broadcastWatchCodeWarnings(context.Background(), snapshot.Document, []string{"project-alpha"}, attempts); err != nil {
+		t.Fatalf("broadcast duplicate watch code warning: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
-		return ok && entry.SignatureHash != secondHash
-	})
-
-	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeNotification, 750*time.Millisecond)
+	assertNoAppRouteEnvelopeOfType(t, harness.conn, realtime.MessageTypeNotification, 750*time.Millisecond)
 }
 
 func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
@@ -678,15 +537,7 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		t.Fatalf("mkdir watch dir: %v", err)
 	}
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -713,29 +564,7 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		t.Fatalf("save watch code project: %v", err)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{cookieName + "=" + token},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
 
 	watchFile := filepath.Join(watchDir, "created.py")
 	if err := os.WriteFile(watchFile, []byte("def created(value):\n    return value\n"), 0o644); err != nil {
@@ -747,7 +576,7 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
 	})
 
-	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
+	createEnvelope := readAppRouteEnvelopeUntilType(t, harness.conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
 	var createContent realtime.ProjectStateUpdateContent
 	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
 		t.Fatalf("decode create project state update content: %v", err)
@@ -776,7 +605,7 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		return len(projectData.Registry) == 0
 	})
 
-	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, harness.conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
 	var deleteContent realtime.ProjectStateUpdateContent
 	if err := json.Unmarshal(deleteEnvelope.Content, &deleteContent); err != nil {
 		t.Fatalf("decode delete project state update content: %v", err)
@@ -799,15 +628,7 @@ func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *te
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -823,111 +644,30 @@ func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *te
 		t.Fatalf("seed rename refactor settings: %v", err)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{cookieName + "=" + token},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteSetSectionName,
-		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"source","name":"Renamed Section","frontendOpId":"rename-op-1"}`),
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
+	response := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteSetSectionName,
+		`{"projectConfigId":"project-alpha","sectionId":"source","name":"Renamed Section","frontendOpId":"rename-op-1"}`,
 	)
-	if err != nil {
-		t.Fatalf("new set section name request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
+	response.Body.Close()
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post set section name: %v", err)
+	_, prompt := readAppRenameRefactorBroadcasts(t, harness, "project-alpha", "rename-op-1")
+	if prompt.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha rename prompt, got %q", prompt.ProjectConfigID)
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	if prompt.FrontendOpID != "rename-op-1" {
+		t.Fatalf("expected rename-op-1 prompt, got %q", prompt.FrontendOpID)
 	}
-
-	var (
-		foundProjectUpdate bool
-		foundRenamePrompt  bool
-	)
-	for range 6 {
-		envelope := readAppRouteEnvelope(t, conn)
-		switch envelope.MessageType {
-		case realtime.MessageTypeUpdateFrontendProjectState:
-			var content realtime.ProjectStateUpdateContent
-			if err := json.Unmarshal(envelope.Content, &content); err != nil {
-				t.Fatalf("decode project state update content: %v", err)
-			}
-			if content.ProjectState.ProjectConfig.ID != "project-alpha" {
-				t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
-			}
-			completedRenameOp := false
-			for _, completedOpID := range content.CompletedOpIDs {
-				if completedOpID == "rename-op-1" {
-					completedRenameOp = true
-					break
-				}
-			}
-			if !completedRenameOp {
-				t.Fatalf("expected completed rename op in websocket project update, got %#v", content.CompletedOpIDs)
-			}
-			foundProjectUpdate = true
-		case realtime.MessageTypeReturnRenameRefactorResults:
-			var content realtime.RenameRefactorBroadcastContent
-			if err := json.Unmarshal(envelope.Content, &content); err != nil {
-				t.Fatalf("decode rename refactor content: %v", err)
-			}
-			if content.ProjectConfigID != "project-alpha" {
-				t.Fatalf("expected project-alpha rename prompt, got %q", content.ProjectConfigID)
-			}
-			if content.FrontendOpID != "rename-op-1" {
-				t.Fatalf("expected rename-op-1 prompt, got %q", content.FrontendOpID)
-			}
-			if content.RenameMode != projectstate.RenameRefactorModeAlwaysAsk {
-				t.Fatalf("expected ALWAYS_ASK rename mode, got %q", content.RenameMode)
-			}
-			if len(content.ChangedNodeValues) != 1 {
-				t.Fatalf("expected one changed node value, got %#v", content.ChangedNodeValues)
-			}
-			if content.ChangedNodeValues[0].NewValue != "state.Renamed_Section + state.Renamed_Section" {
-				t.Fatalf("unexpected rename prompt new value %q", content.ChangedNodeValues[0].NewValue)
-			}
-			foundRenamePrompt = true
-		}
-		if foundProjectUpdate && foundRenamePrompt {
-			break
-		}
+	if prompt.RenameMode != projectstate.RenameRefactorModeAlwaysAsk {
+		t.Fatalf("expected ALWAYS_ASK rename mode, got %q", prompt.RenameMode)
 	}
-	if !foundProjectUpdate {
-		t.Fatal("expected websocket project state update after section rename")
+	if len(prompt.ChangedNodeValues) != 1 {
+		t.Fatalf("expected one changed node value, got %#v", prompt.ChangedNodeValues)
 	}
-	if !foundRenamePrompt {
-		t.Fatal("expected websocket rename prompt after section rename")
+	if prompt.ChangedNodeValues[0].NewValue != "state.Renamed_Section + state.Renamed_Section" {
+		t.Fatalf("unexpected rename prompt new value %q", prompt.ChangedNodeValues[0].NewValue)
 	}
 }
 
@@ -936,15 +676,7 @@ func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *t
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -954,63 +686,18 @@ func TestAppSetStateMachineSectionSettingsRouteBroadcastsProjectStateUpdate(t *t
 		t.Fatalf("seed workflow project: %v", err)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	request, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteSetStateMachineSectionSettings,
-		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"gate-section","machineGroupId":"workflow-a","label":"Decision","gateType":"XOR","frontendOpId":"workflow-section-op"}`),
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
+	response := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteSetStateMachineSectionSettings,
+		`{"projectConfigId":"project-alpha","sectionId":"gate-section","machineGroupId":"workflow-a","label":"Decision","gateType":"XOR","frontendOpId":"workflow-section-op"}`,
 	)
-	if err != nil {
-		t.Fatalf("new set state machine section settings request: %v", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(authCookie)
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("post set state machine section settings: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
+	response.Body.Close()
 
 	// The overview pane does not apply a local optimistic patch for this toggle,
 	// so the websocket update is what clears the stale eye/hide affordances live.
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
-	var content realtime.ProjectStateUpdateContent
-	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode project state update content: %v", err)
-	}
-	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
-	}
-	completedWorkflowOp := false
-	for _, completedOpID := range content.CompletedOpIDs {
-		if completedOpID == "workflow-section-op" {
-			completedWorkflowOp = true
-			break
-		}
-	}
-	if !completedWorkflowOp {
-		t.Fatalf("expected completed workflow op in websocket update, got %#v", content.CompletedOpIDs)
-	}
+	content := readAppProjectStateUpdate(t, harness, "project-alpha", "workflow-section-op", "workflow section settings", 4)
 	if len(content.PendingOpIDs) != 0 {
 		t.Fatalf("expected no pending op ids after successful workflow update, got %#v", content.PendingOpIDs)
 	}
@@ -1021,15 +708,7 @@ func TestAppChildSectionIncrementerRoutesBroadcastProjectStateUpdate(t *testing.
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	app := newAppWebsocketBroadcastTestApp(t, cfg)
 
 	project, listRootID := websocketIncrementerTestProject(t)
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
@@ -1040,113 +719,29 @@ func TestAppChildSectionIncrementerRoutesBroadcastProjectStateUpdate(t *testing.
 		t.Fatalf("seed incrementer project: %v", err)
 	}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
-		HTTPHeader: http.Header{
-			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
-		},
-	})
-	if err != nil {
-		t.Fatalf("dial frontend websocket route: %v", err)
-	}
-	defer conn.CloseNow()
-
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	createRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteCreateChildSectionsViaIncrementer,
-		strings.NewReader(`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","implType":"Callable","numChildren":1,"frontendOpId":"incrementer-op-create"}`),
+	harness := newAppWebsocketMutationHarnessForApp(t, app)
+	createResponse := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteCreateChildSectionsViaIncrementer,
+		`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","implType":"Callable","numChildren":1,"frontendOpId":"incrementer-op-create"}`,
 	)
-	if err != nil {
-		t.Fatalf("new incrementer create request: %v", err)
-	}
-	createRequest.Header.Set("Content-Type", "application/json")
-	createRequest.AddCookie(authCookie)
-
-	createResponse, err := http.DefaultClient.Do(createRequest)
-	if err != nil {
-		t.Fatalf("post incrementer create: %v", err)
-	}
-	defer createResponse.Body.Close()
-	if createResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(createResponse.Body)
-		t.Fatalf("expected 200 from incrementer create, got %d with body %q", createResponse.StatusCode, string(body))
-	}
-
-	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
-	var createContent realtime.ProjectStateUpdateContent
-	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
-		t.Fatalf("decode incrementer create project state update: %v", err)
-	}
-	if createContent.ProjectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha state update, got %q", createContent.ProjectState.ProjectConfig.ID)
-	}
-	createCompleted := false
-	for _, completedOpID := range createContent.CompletedOpIDs {
-		if completedOpID == "incrementer-op-create" {
-			createCompleted = true
-			break
-		}
-	}
-	if !createCompleted {
-		t.Fatalf("expected completed incrementer create op in websocket update, got %#v", createContent.CompletedOpIDs)
-	}
-	childCountAfterCreate := 0
-	for _, parent := range createContent.ProjectState.ParentSectionMap {
-		if parent != nil && *parent == listRootID {
-			childCountAfterCreate++
-		}
-	}
+	createResponse.Body.Close()
+	createContent := readAppProjectStateUpdate(t, harness, "project-alpha", "incrementer-op-create", "incrementer create", 4)
+	childCountAfterCreate := countAppProjectStateChildrenForParent(createContent.ProjectState.ParentSectionMap, listRootID)
 	if childCountAfterCreate != 1 {
 		t.Fatalf("expected one live child after incrementer create, got %d in %#v", childCountAfterCreate, createContent.ProjectState.ParentSectionMap)
 	}
 
-	deleteRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteDeleteChildSectionsViaDecrementer,
-		strings.NewReader(`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","numChildren":1,"frontendOpId":"incrementer-op-delete"}`),
+	deleteResponse := postAppRouteJSONOK(
+		t,
+		harness,
+		httpapi.RouteDeleteChildSectionsViaDecrementer,
+		`{"projectConfigId":"project-alpha","calledBy":"`+listRootID+`","numChildren":1,"frontendOpId":"incrementer-op-delete"}`,
 	)
-	if err != nil {
-		t.Fatalf("new incrementer delete request: %v", err)
-	}
-	deleteRequest.Header.Set("Content-Type", "application/json")
-	deleteRequest.AddCookie(authCookie)
-
-	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
-	if err != nil {
-		t.Fatalf("post incrementer delete: %v", err)
-	}
-	defer deleteResponse.Body.Close()
-	if deleteResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(deleteResponse.Body)
-		t.Fatalf("expected 200 from incrementer delete, got %d with body %q", deleteResponse.StatusCode, string(body))
-	}
-
-	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
-	var deleteContent realtime.ProjectStateUpdateContent
-	if err := json.Unmarshal(deleteEnvelope.Content, &deleteContent); err != nil {
-		t.Fatalf("decode incrementer delete project state update: %v", err)
-	}
-	deleteCompleted := false
-	for _, completedOpID := range deleteContent.CompletedOpIDs {
-		if completedOpID == "incrementer-op-delete" {
-			deleteCompleted = true
-			break
-		}
-	}
-	if !deleteCompleted {
-		t.Fatalf("expected completed incrementer delete op in websocket update, got %#v", deleteContent.CompletedOpIDs)
-	}
-	childCountAfterDelete := 0
-	for _, parent := range deleteContent.ProjectState.ParentSectionMap {
-		if parent != nil && *parent == listRootID {
-			childCountAfterDelete++
-		}
-	}
+	deleteResponse.Body.Close()
+	deleteContent := readAppProjectStateUpdate(t, harness, "project-alpha", "incrementer-op-delete", "incrementer delete", 4)
+	childCountAfterDelete := countAppProjectStateChildrenForParent(deleteContent.ProjectState.ParentSectionMap, listRootID)
 	if childCountAfterDelete != 0 {
 		t.Fatalf("expected no live children after incrementer delete, got %d in %#v", childCountAfterDelete, deleteContent.ProjectState.ParentSectionMap)
 	}

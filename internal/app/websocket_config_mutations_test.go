@@ -26,6 +26,7 @@ type appWebsocketMutationHarness struct {
 	server     *httptest.Server
 	authCookie *http.Cookie
 	conn       *websocket.Conn
+	app        *App
 }
 
 func newAppWebsocketMutationHarness(t *testing.T, cfg config.Config) appWebsocketMutationHarness {
@@ -40,6 +41,12 @@ func newAppWebsocketMutationHarness(t *testing.T, cfg config.Config) appWebsocke
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+
+	return newAppWebsocketMutationHarnessForApp(t, app)
+}
+
+func newAppWebsocketMutationHarnessForApp(t *testing.T, app *App) appWebsocketMutationHarness {
+	t.Helper()
 
 	server := httptest.NewServer(app.Handler())
 	t.Cleanup(server.Close)
@@ -62,6 +69,7 @@ func newAppWebsocketMutationHarness(t *testing.T, cfg config.Config) appWebsocke
 		server:     server,
 		authCookie: authCookie,
 		conn:       conn,
+		app:        app,
 	}
 }
 
