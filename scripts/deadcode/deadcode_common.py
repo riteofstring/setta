@@ -153,6 +153,8 @@ def finding_identity(finding: dict[str, Any]) -> tuple[Any, ...]:
     return (
         finding.get("language"),
         finding.get("lane"),
+        finding.get("bucket"),
+        finding.get("root_scope"),
         finding.get("tool"),
         finding.get("path"),
         finding.get("line"),
