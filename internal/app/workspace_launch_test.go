@@ -210,6 +210,34 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 		}
 	})
 
+	remoteWorkspace, remoteSession := configureAppRemoteWorkspaceLaunch(t)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	cookie := consumeAppWorkspaceLaunchBootstrapCookie(t, app, server)
+	intentToken := createRemoteWorkspaceLaunchIntent(t, server, cookie, remoteWorkspace)
+	payload := launchRemoteWorkspaceFromIntent(t, server, cookie, intentToken)
+	assertRemoteWorkspaceLaunchPayload(t, payload, remoteSession)
+	assertRemoteWorkspaceBootstrapFragment(t, *payload.BootstrapURLFragment)
+}
+
+type remoteWorkspaceLaunchPayload struct {
+	Ok                   bool    `json:"ok"`
+	BootstrapURLFragment *string `json:"bootstrapUrlFragment"`
+	WorkspaceRoot        *string `json:"workspaceRoot"`
+	SettaFilesLocation   *string `json:"settaFilesLocation"`
+	RemoteCmdResolved    *string `json:"remoteCmdResolved"`
+	SessionID            *string `json:"sessionId"`
+	Error                *struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+func configureAppRemoteWorkspaceLaunch(t *testing.T) (string, auth.SessionMetadata) {
+	t.Helper()
+
 	repoRoot := appTestRepoRoot(t)
 	backendPath := filepath.Join(repoRoot, "backend")
 	existingPythonPath := strings.TrimSpace(os.Getenv("PYTHONPATH"))
@@ -231,15 +259,16 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	remoteSession := createAppRemoteSSHSession(t, remoteSessionsRoot, remoteWorkspace)
 	t.Setenv("SETTA_SESSIONS_ROOT", remoteSessionsRoot)
 	t.Setenv("SETTA_SESSION_ID", remoteSession.ID)
+	return remoteWorkspace, remoteSession
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func consumeAppWorkspaceLaunchBootstrapCookie(t *testing.T, app *App, server *httptest.Server) *http.Cookie {
+	t.Helper()
 
 	bootstrapToken, err := app.authService.MintBootstrapToken(time.Now().UTC())
 	if err != nil {
 		t.Fatalf("mint bootstrap token: %v", err)
 	}
-
 	consumeRequest, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/__setta__/bootstrap/consume",
@@ -263,6 +292,11 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	if len(cookies) != 1 {
 		t.Fatalf("expected auth cookie, got %d", len(cookies))
 	}
+	return cookies[0]
+}
+
+func createRemoteWorkspaceLaunchIntent(t *testing.T, server *httptest.Server, cookie *http.Cookie, remoteWorkspace string) string {
+	t.Helper()
 
 	launchIntentRequest, err := http.NewRequest(
 		http.MethodPost,
@@ -274,7 +308,7 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	}
 	launchIntentRequest.Header.Set("Content-Type", "application/json")
 	launchIntentRequest.Header.Set("Origin", "http://launcher.example:7999")
-	launchIntentRequest.AddCookie(cookies[0])
+	launchIntentRequest.AddCookie(cookie)
 
 	launchIntentResponse, err := http.DefaultClient.Do(launchIntentRequest)
 	if err != nil {
@@ -296,18 +330,23 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	if !intentPayload.Ok || intentPayload.LaunchIntentToken == nil {
 		t.Fatalf("unexpected launch intent payload %#v", intentPayload)
 	}
+	return *intentPayload.LaunchIntentToken
+}
+
+func launchRemoteWorkspaceFromIntent(t *testing.T, server *httptest.Server, cookie *http.Cookie, intentToken string) remoteWorkspaceLaunchPayload {
+	t.Helper()
 
 	launchRequest, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/api"+httpapi.RouteLaunch,
-		strings.NewReader(`{"launchIntentToken":"`+*intentPayload.LaunchIntentToken+`"}`),
+		strings.NewReader(`{"launchIntentToken":"`+intentToken+`"}`),
 	)
 	if err != nil {
 		t.Fatalf("new launch request: %v", err)
 	}
 	launchRequest.Header.Set("Content-Type", "application/json")
 	launchRequest.Header.Set("Origin", "http://launcher.example:7999")
-	launchRequest.AddCookie(cookies[0])
+	launchRequest.AddCookie(cookie)
 
 	launchResponse, err := http.DefaultClient.Do(launchRequest)
 	if err != nil {
@@ -319,21 +358,16 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 		t.Fatalf("expected launch 200, got %d with body %q", launchResponse.StatusCode, string(body))
 	}
 
-	var payload struct {
-		Ok                   bool    `json:"ok"`
-		BootstrapURLFragment *string `json:"bootstrapUrlFragment"`
-		WorkspaceRoot        *string `json:"workspaceRoot"`
-		SettaFilesLocation   *string `json:"settaFilesLocation"`
-		RemoteCmdResolved    *string `json:"remoteCmdResolved"`
-		SessionID            *string `json:"sessionId"`
-		Error                *struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-	}
+	var payload remoteWorkspaceLaunchPayload
 	if err := json.NewDecoder(launchResponse.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode launch payload: %v", err)
 	}
+	return payload
+}
+
+func assertRemoteWorkspaceLaunchPayload(t *testing.T, payload remoteWorkspaceLaunchPayload, remoteSession auth.SessionMetadata) {
+	t.Helper()
+
 	if !payload.Ok || payload.BootstrapURLFragment == nil {
 		t.Fatalf("expected successful launch payload, got %#v", payload)
 	}
@@ -352,8 +386,12 @@ func TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP(t *testing.T) {
 	if payload.SessionID == nil || *payload.SessionID != remoteSession.ID {
 		t.Fatalf("expected remote session id %q, got %#v", remoteSession.ID, payload.SessionID)
 	}
+}
 
-	parsedURL, err := url.Parse(*payload.BootstrapURLFragment)
+func assertRemoteWorkspaceBootstrapFragment(t *testing.T, bootstrapURLFragment string) {
+	t.Helper()
+
+	parsedURL, err := url.Parse(bootstrapURLFragment)
 	if err != nil {
 		t.Fatalf("parse bootstrap URL fragment: %v", err)
 	}
