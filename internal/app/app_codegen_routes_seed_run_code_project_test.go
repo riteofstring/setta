@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -517,6 +518,8 @@ func writeAppGeneratedPythonCodeFixture(t *testing.T, cfg config.Config, project
 func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
 	t.Helper()
 
+	markAppDefaultsProfileBootstrapApplied(t, cfg)
+	isolateAppPackageManagerPlugins(t)
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.BasedpyrightPython(t))
 	installAppRepoPlugin(t, cfg, "setta-basedpyright")
 }
@@ -524,6 +527,7 @@ func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
 func prepareAppPluginLanguageServerFixture(t *testing.T) {
 	t.Helper()
 
+	isolateAppPackageManagerPlugins(t)
 	repoRoot := appTestRepoRoot(t)
 	t.Setenv("SETTA_PLUGIN_FIXTURE_PYTHON", appTestWorkerPython(t, repoRoot))
 	t.Setenv(
@@ -536,6 +540,33 @@ func prepareAppPluginLanguageServerFixture(t *testing.T) {
 			"mini_language_server.py",
 		),
 	)
+}
+
+func isolateAppPackageManagerPlugins(t *testing.T) {
+	t.Helper()
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	if err := os.MkdirAll(sitePackages, 0o755); err != nil {
+		t.Fatalf("mkdir empty package-manager site-packages: %v", err)
+	}
+	t.Setenv("PYTHONPATH", sitePackages)
+}
+
+func markAppDefaultsProfileBootstrapApplied(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	if err := saveDefaultsProfileBootstrapState(cfg.Paths.RuntimeRoot, plugins.DefaultsInstallProfile()); err != nil {
+		t.Fatalf("mark defaults profile bootstrap applied: %v", err)
+	}
+}
+
+func allowAppDefaultsProfileBootstrap(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	statePath := defaultsProfileBootstrapStatePath(cfg.Paths.RuntimeRoot)
+	if err := os.Remove(statePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("remove defaults profile bootstrap marker: %v", err)
+	}
 }
 
 func installAppLanguageServerOnlyFixturePlugin(t *testing.T, cfg config.Config) {
