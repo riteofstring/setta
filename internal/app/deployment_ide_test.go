@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -18,6 +17,33 @@ import (
 )
 
 func TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP(t *testing.T) {
+	harness := newAppShareDeploymentHarness(t)
+
+	publishPayload := publishAppShareDeployment(t, harness)
+	assertAppShareDeploymentPublish(t, publishPayload)
+	assertAppShareDeploymentManifest(t, publishPayload.DeploymentRoot)
+	assertAppShareDeploymentList(t, harness)
+}
+
+type appShareDeploymentHarness struct {
+	serverURL  string
+	authCookie *http.Cookie
+}
+
+type appShareDeploymentPublishPayload struct {
+	DeploymentName    string `json:"deploymentName"`
+	DeploymentVersion string `json:"deploymentVersion"`
+	DeploymentRoot    string `json:"deploymentRoot"`
+}
+
+type appShareDeploymentListEntry struct {
+	DeploymentName    string `json:"deploymentName"`
+	DeploymentVersion string `json:"deploymentVersion"`
+}
+
+func newAppShareDeploymentHarness(t *testing.T) appShareDeploymentHarness {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -46,30 +72,27 @@ func TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP(t *testing.T) {
 	})
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
+	return appShareDeploymentHarness{
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
 	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
+}
+
+func publishAppShareDeployment(t *testing.T, harness appShareDeploymentHarness) appShareDeploymentPublishPayload {
+	t.Helper()
 
 	publishRequest, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteShareDeployments,
+		harness.serverURL+"/api"+httpapi.RouteShareDeployments,
 		strings.NewReader(`{"deploymentName":"demo-share","projectConfigId":"project-alpha"}`),
 	)
 	if err != nil {
 		t.Fatalf("new publish request: %v", err)
 	}
 	publishRequest.Header.Set("Content-Type", "application/json")
-	publishRequest.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
+	publishRequest.AddCookie(harness.authCookie)
 
 	publishResponse, err := http.DefaultClient.Do(publishRequest)
 	if err != nil {
@@ -81,38 +104,45 @@ func TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP(t *testing.T) {
 		t.Fatalf("expected share publish 200, got %d with body %q", publishResponse.StatusCode, string(body))
 	}
 
-	var publishPayload struct {
-		DeploymentName    string `json:"deploymentName"`
-		DeploymentVersion string `json:"deploymentVersion"`
-		DeploymentRoot    string `json:"deploymentRoot"`
-	}
+	var publishPayload appShareDeploymentPublishPayload
 	if err := json.NewDecoder(publishResponse.Body).Decode(&publishPayload); err != nil {
 		t.Fatalf("decode share publish response: %v", err)
 	}
+	return publishPayload
+}
+
+func assertAppShareDeploymentPublish(t *testing.T, publishPayload appShareDeploymentPublishPayload) {
+	t.Helper()
+
 	if publishPayload.DeploymentName != "demo-share" || publishPayload.DeploymentVersion != "v1" {
 		t.Fatalf("unexpected share publish payload %#v", publishPayload)
 	}
+}
 
-	manifest, err := deployments.LoadManifest(publishPayload.DeploymentRoot)
+func assertAppShareDeploymentManifest(t *testing.T, deploymentRoot string) {
+	t.Helper()
+
+	manifest, err := deployments.LoadManifest(deploymentRoot)
 	if err != nil {
 		t.Fatalf("load published manifest: %v", err)
 	}
 	if manifest.DeploymentType != deployments.TypeShare {
 		t.Fatalf("expected share deployment type, got %q", manifest.DeploymentType)
 	}
+}
+
+func assertAppShareDeploymentList(t *testing.T, harness appShareDeploymentHarness) {
+	t.Helper()
 
 	listRequest, err := http.NewRequest(
 		http.MethodGet,
-		server.URL+"/api"+httpapi.RouteShareDeployments,
+		harness.serverURL+"/api"+httpapi.RouteShareDeployments,
 		nil,
 	)
 	if err != nil {
 		t.Fatalf("new share list request: %v", err)
 	}
-	listRequest.AddCookie(&http.Cookie{
-		Name:  cookieName,
-		Value: token,
-	})
+	listRequest.AddCookie(harness.authCookie)
 
 	listResponse, err := http.DefaultClient.Do(listRequest)
 	if err != nil {
@@ -124,10 +154,7 @@ func TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP(t *testing.T) {
 		t.Fatalf("expected share list 200, got %d with body %q", listResponse.StatusCode, string(body))
 	}
 
-	var listPayload []struct {
-		DeploymentName    string `json:"deploymentName"`
-		DeploymentVersion string `json:"deploymentVersion"`
-	}
+	var listPayload []appShareDeploymentListEntry
 	if err := json.NewDecoder(listResponse.Body).Decode(&listPayload); err != nil {
 		t.Fatalf("decode share list response: %v", err)
 	}
