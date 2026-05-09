@@ -20,6 +20,7 @@ CATEGORIES = (
     "frontend-eslint",
     "frontend-file-length",
     "frontend-test-file-length",
+    "frontend-test-complexity",
     "frontend-boundary",
     "frontend-guardrail",
     "go",
@@ -29,6 +30,7 @@ FRONTEND_CATEGORY_SECTIONS = {
     "frontend-eslint": "eslint",
     "frontend-file-length": "file_length",
     "frontend-test-file-length": "test_file_length",
+    "frontend-test-complexity": "test_complexity",
     "frontend-boundary": "boundary",
     "frontend-guardrail": "guardrail",
 }

@@ -12,7 +12,8 @@ The metrics are guardrails, not the design goal. A cleanup is successful when th
   - TypeScript tests: `1800` lines, with only documented narrow exceptions
   - Go tests: `2000` lines
 - Python tests are covered by Ruff and C901 complexity checks.
-- Go and TypeScript test complexity should remain report-driven until a cleaned baseline is stable.
+- TypeScript tests are covered by ESLint complexity-only checks at complexity `>= 10`.
+- Go tests are covered by `gocyclo` checks at complexity `>= 63`; lower this cap as cleanup reduces the current baseline.
 - Test-only dead-code findings should stay separate from production dead-code findings.
 
 ## Guardrails
