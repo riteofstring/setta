@@ -1,11 +1,14 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 
 import {
+  getGpuRetainedContentSourceIdsForSurface,
   getGpuRetainedContentSurfaceLayouts,
   redrawGpuRetainedContentSourceElement,
 } from "../GpuRetainedContentSurfaces";
+import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuHtmlSurfaceOverlayLayout } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnostics";
 import {
@@ -99,6 +102,12 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeLayerRef: MutableRefObject<{
+    readonly edgeLabelSurfaces:
+      | readonly GpuHtmlSurfaceOverlayLayout[]
+      | undefined;
+    readonly htmlSurfaceNativeVisuals:
+      | readonly HtmlSurfaceSolidRoundedRectVisual[]
+      | undefined;
     readonly scene: GpuFlowScene | undefined;
   }>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
@@ -605,6 +614,9 @@ function applyGpuFlowRetainedContentScrollResult({
       overlays: nodeLayerRef.current.edgeLabelSurfaces,
       scene: nextScene,
     }),
+    htmlSurfaceNativeVisuals: getGpuRetainedContentScrollbarVisuals(
+      nextScene.contentSurfaces,
+    ),
     scene: nextScene,
   };
   redrawGpuFlowRetainedContentSurfaceSources({
@@ -614,6 +626,7 @@ function applyGpuFlowRetainedContentScrollResult({
     switchAnimations,
     textureManagerRef,
   });
+  surfaceRef.current?.requestFrame("manual");
 }
 
 function isGpuFlowRetainedContentInteractionOptionsDisabled(
@@ -694,6 +707,9 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
       overlays: nodeLayerRef.current.edgeLabelSurfaces,
       scene: update.scene,
     }),
+    htmlSurfaceNativeVisuals: getGpuRetainedContentScrollbarVisuals(
+      update.scene.contentSurfaces,
+    ),
     scene: update.scene,
   };
   redrawGpuFlowRetainedContentSurfaceSources({
@@ -703,6 +719,7 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
     switchAnimations,
     textureManagerRef,
   });
+  surfaceRef.current?.requestFrame("manual");
 }
 
 function mergeGpuFlowRetainedContentSurfaceLayouts({
@@ -755,26 +772,29 @@ function redrawGpuFlowRetainedContentSurfaceSources({
 }) {
   let redrawn = false;
   for (const surface of surfaces) {
-    const sourceElement = nodeElementByIdRef.current.get(surface.id);
-    if (!sourceElement) {
-      continue;
+    for (const sourceId of getGpuRetainedContentSourceIdsForSurface(surface)) {
+      const sourceElement = nodeElementByIdRef.current.get(sourceId);
+      if (!sourceElement) {
+        continue;
+      }
+      const drawEvent = redrawGpuRetainedContentSourceElement({
+        element: sourceElement,
+        sourceId,
+        surface,
+        switchAnimations,
+      });
+      if (!drawEvent) {
+        continue;
+      }
+      redrawn = true;
+      textureManagerRef.current?.markSurfaceTextureDirty({
+        content: true,
+        reason: "content",
+        requestPaint: false,
+        ...(drawEvent.sourceRect ? { sourceRect: drawEvent.sourceRect } : {}),
+        surfaceId: sourceId,
+      });
     }
-    const drawEvent = redrawGpuRetainedContentSourceElement({
-      element: sourceElement,
-      surface,
-      switchAnimations,
-    });
-    if (!drawEvent) {
-      continue;
-    }
-    redrawn = true;
-    textureManagerRef.current?.markSurfaceTextureDirty({
-      content: true,
-      reason: "content",
-      requestPaint: false,
-      ...(drawEvent.sourceRect ? { sourceRect: drawEvent.sourceRect } : {}),
-      surfaceId: surface.id,
-    });
   }
   if (redrawn) {
     surfaceRef.current?.requestFrame("texture-upload");

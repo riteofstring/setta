@@ -35,11 +35,8 @@ import {
 } from "../interactionDiagnostics";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
-import {
-  EMPTY_GPU_NODE_LAYOUTS,
-  type GpuFlowCallbacks,
-  type GpuFlowNodeLayerState,
-} from "./flowSurface";
+import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks } from "./flowSurface";
 
 function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -107,7 +104,11 @@ function ensureNodeLayerResources({
 
 function hasRenderableGpuFlowLayer(layer: GpuFlowNodeLayerState): boolean {
   return Boolean(
-    layer.nodes || layer.edges || layer.grid || layer.edgeLabelSurfaces?.length,
+    layer.nodes ||
+      layer.edges ||
+      layer.grid ||
+      layer.edgeLabelSurfaces?.length ||
+      layer.htmlSurfaceNativeVisuals?.length,
   );
 }
 
@@ -258,6 +259,7 @@ export function renderGpuFlowNodeLayerFrame({
     frame,
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
+    htmlSurfaceNativeVisuals: layer.htmlSurfaceNativeVisuals,
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,

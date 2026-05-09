@@ -59,6 +59,11 @@ export type MeshSurfaceDrawResources = {
   readonly vertexBuffer: GPUBuffer;
 };
 
+export type SolidRoundedRectDrawResources = {
+  readonly pipeline: GPURenderPipeline;
+  readonly vertexBuffer: GPUBuffer;
+};
+
 export type CachedFlatSurfaceGeometry = {
   readonly height: number;
   readonly surfaceId: string;
@@ -74,6 +79,25 @@ export type CachedFlatSurfaceGeometry = {
 
 export type FlatSurfaceVertexCache = {
   readonly geometry: readonly CachedFlatSurfaceGeometry[];
+  readonly vertexData: Float32Array;
+};
+
+export type CachedSolidRoundedRectGeometry = {
+  readonly colorA: number;
+  readonly colorB: number;
+  readonly colorG: number;
+  readonly colorR: number;
+  readonly height: number;
+  readonly radius: number;
+  readonly surfaceId: string;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex: number;
+};
+
+export type SolidRoundedRectVertexCache = {
+  readonly geometry: readonly CachedSolidRoundedRectGeometry[];
   readonly vertexData: Float32Array;
 };
 
@@ -116,6 +140,8 @@ export const GRID_UNIFORM_BYTES = 32;
 
 export const FLOATS_PER_VERTEX = 4;
 
+export const SOLID_ROUNDED_RECT_VERTEX_FLOATS = 12;
+
 export const VERTICES_PER_QUAD = 6;
 
 export const EDGE_VERTEX_BYTES =
@@ -123,6 +149,9 @@ export const EDGE_VERTEX_BYTES =
 
 export const FLAT_SURFACE_VERTEX_BYTES =
   Float32Array.BYTES_PER_ELEMENT * FLOATS_PER_VERTEX;
+
+export const SOLID_ROUNDED_RECT_VERTEX_BYTES =
+  Float32Array.BYTES_PER_ELEMENT * SOLID_ROUNDED_RECT_VERTEX_FLOATS;
 
 export const DEFAULT_CLEAR_COLOR: GPUColorDict = { a: 0, b: 0, g: 0, r: 0 };
 

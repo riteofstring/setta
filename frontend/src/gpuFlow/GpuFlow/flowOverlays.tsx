@@ -6,6 +6,7 @@ import type {
   GpuHtmlSurfaceOverlayLayout,
   GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
@@ -19,6 +20,7 @@ import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 export type GpuFlowOverlaySources = {
   readonly edgeLabelSourceElement: ReactNode;
+  readonly htmlSurfaceNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly htmlSurfaceOverlays: readonly GpuHtmlSurfaceOverlayLayout[];
   readonly nodeDragPreviewSourceElement: ReactNode;
   readonly nodeResizeOverlaySourceElement: ReactNode;
@@ -64,8 +66,11 @@ export function useGpuFlowOverlaySources({
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
     });
-  const { retainedContentSourceElement, retainedContentSurfaces } =
-    useGpuFlowRetainedContentSources({
+  const {
+    retainedContentNativeVisuals,
+    retainedContentSourceElement,
+    retainedContentSurfaces,
+  } = useGpuFlowRetainedContentSources({
       activeResizeNodeIdRef,
       nodeDomTransformSyncCacheRef,
       nodeElementByIdRef,
@@ -124,6 +129,7 @@ export function useGpuFlowOverlaySources({
 
   return {
     edgeLabelSourceElement,
+    htmlSurfaceNativeVisuals: retainedContentNativeVisuals,
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,

@@ -77,16 +77,7 @@ describe("GpuFlow retained content sources", () => {
       harnessRef.current?.scrollFirstSurface();
     });
 
-    expect(dirtyEvents).toEqual([
-      {
-        sourceRect: expect.objectContaining({
-          height: 80,
-          width: expect.any(Number),
-        }),
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-    ]);
-    expect(dirtyEvents[0]?.sourceRect?.width).toBeLessThan(40);
+    expect(dirtyEvents).toEqual([]);
   });
 });
 
@@ -143,16 +134,6 @@ const RetainedContentSourcesHarness = forwardRef<
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
   );
-  const stableSecondSurface = useMemo(
-    () =>
-      retainedSurface({
-        id: "dict-b:param-content:unpinned",
-        ownerSectionId: "dict-b",
-        scrollY: 0,
-        x: 240,
-      }),
-    [],
-  );
   const stableFirstScene = useMemo(
     () =>
       retainedScene({
@@ -179,14 +160,19 @@ const RetainedContentSourcesHarness = forwardRef<
           scrollY,
           x: 0,
         }),
-        stableSecondSurface,
+        retainedSurface({
+          id: "dict-b:param-content:unpinned",
+          ownerSectionId: "dict-b",
+          scrollY: 0,
+          x: 240,
+        }),
       ],
       domIslands: [],
       edges: [],
       revision: scrollY,
       sections: [],
     }),
-    [scrollY, stableFirstScene, stableSecondSurface],
+    [scrollY, stableFirstScene],
   );
 
   useImperativeHandle(

@@ -24,11 +24,27 @@ export type HtmlSurfaceTextureCoordinates = {
   readonly v1: number;
 };
 
+export type HtmlSurfaceColor = {
+  readonly a: number;
+  readonly b: number;
+  readonly g: number;
+  readonly r: number;
+};
+
 export type HtmlSurfaceFlatVisual = FlowRect & {
   readonly kind: "flat";
   readonly surfaceId: string;
   readonly texture: HtmlSurfaceTextureRecord;
   readonly textureCoordinates?: HtmlSurfaceTextureCoordinates | undefined;
+  readonly zIndex: number;
+};
+
+export type HtmlSurfaceSolidRoundedRectVisual = {
+  readonly color: HtmlSurfaceColor;
+  readonly kind: "solid-rounded-rect";
+  readonly radius: number;
+  readonly rect: FlowRect;
+  readonly surfaceId: string;
   readonly zIndex: number;
 };
 
@@ -64,6 +80,7 @@ export type HtmlSurfaceEffectVisual = {
 
 export type HtmlSurfaceVisual =
   | HtmlSurfaceFlatVisual
+  | HtmlSurfaceSolidRoundedRectVisual
   | HtmlSurfaceTiledFlatVisual
   | HtmlSurfaceMeshVisual
   | HtmlSurfaceEffectVisual;
@@ -72,6 +89,7 @@ export type HtmlSurfaceVisualScene = {
   readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
+  readonly solidRoundedRectSurfaces: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
 };
 
@@ -79,12 +97,14 @@ export function createHtmlSurfaceVisualScene({
   effectSurfaces = [],
   flatSurfaces = [],
   meshSurfaces = [],
+  solidRoundedRectSurfaces = [],
   tiledFlatSurfaces = [],
 }: Partial<HtmlSurfaceVisualScene> = {}): HtmlSurfaceVisualScene {
   return {
     effectSurfaces,
     flatSurfaces,
     meshSurfaces,
+    solidRoundedRectSurfaces,
     tiledFlatSurfaces,
   };
 }

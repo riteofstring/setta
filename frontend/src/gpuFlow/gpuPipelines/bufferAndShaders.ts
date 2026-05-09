@@ -3,11 +3,13 @@ import { parseGpuHexColor } from "../gpuColors";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceMeshVisual,
+  HtmlSurfaceSolidRoundedRectVisual,
 } from "../htmlSurfaces/visualScene";
 
 import {
   CachedFlatSurfaceGeometry,
   CachedMeshSurfaceGeometry,
+  CachedSolidRoundedRectGeometry,
   FLOATS_PER_VERTEX,
   FlatSurfaceVertexCache,
   GpuEdgePaletteInput,
@@ -15,6 +17,8 @@ import {
   GpuGridVariant,
   MeshSurfaceDrawRange,
   MeshSurfaceVertexCache,
+  SOLID_ROUNDED_RECT_VERTEX_FLOATS,
+  SolidRoundedRectVertexCache,
   VERTICES_PER_QUAD,
 } from "./pipelineTypes";
 
@@ -64,6 +68,62 @@ export function buildFlatSurfaceVertexData(
     offset = writeFlatSurfaceVertex(data, offset, {
       u: u1,
       v: v1,
+      x: right,
+      y: bottom,
+    });
+  }
+  return data;
+}
+
+export function buildSolidRoundedRectVertexData(
+  surfaces: readonly HtmlSurfaceSolidRoundedRectVisual[],
+): Float32Array {
+  const data = new Float32Array(
+    surfaces.length *
+      VERTICES_PER_QUAD *
+      SOLID_ROUNDED_RECT_VERTEX_FLOATS,
+  );
+  let offset = 0;
+  for (const surface of surfaces) {
+    const left = surface.rect.x;
+    const top = surface.rect.y;
+    const right = surface.rect.x + surface.rect.width;
+    const bottom = surface.rect.y + surface.rect.height;
+    const width = surface.rect.width;
+    const height = surface.rect.height;
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: 0,
+      localY: 0,
+      x: left,
+      y: top,
+    });
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: width,
+      localY: 0,
+      x: right,
+      y: top,
+    });
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: 0,
+      localY: height,
+      x: left,
+      y: bottom,
+    });
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: 0,
+      localY: height,
+      x: left,
+      y: bottom,
+    });
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: width,
+      localY: 0,
+      x: right,
+      y: top,
+    });
+    offset = writeSolidRoundedRectVertex(data, offset, surface, {
+      localX: width,
+      localY: height,
       x: right,
       y: bottom,
     });
@@ -180,6 +240,31 @@ export function isMeshSurfaceVertexCacheValid(
   return true;
 }
 
+export function isSolidRoundedRectVertexCacheValid(
+  cache: SolidRoundedRectVertexCache | null,
+  surfaces: readonly HtmlSurfaceSolidRoundedRectVisual[],
+): cache is SolidRoundedRectVertexCache {
+  if (!cache || cache.geometry.length !== surfaces.length) {
+    return false;
+  }
+  const geometry = captureSolidRoundedRectGeometry(surfaces);
+  for (let index = 0; index < geometry.length; index += 1) {
+    const cached = cache.geometry[index];
+    const surface = geometry[index];
+    if (
+      !cached ||
+      !surface ||
+      !areSolidRoundedRectGeometryValuesEqual(
+        solidRoundedRectGeometryValues(cached),
+        solidRoundedRectGeometryValues(surface),
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isCachedFlatSurfaceGeometryEqual(
   cached: CachedFlatSurfaceGeometry,
   surface: CachedFlatSurfaceGeometry,
@@ -191,6 +276,8 @@ function isCachedFlatSurfaceGeometryEqual(
 }
 
 type FlatSurfaceGeometryValue = string | number;
+
+type SolidRoundedRectGeometryValue = string | number;
 
 function flatSurfaceGeometryValues({
   height,
@@ -207,9 +294,44 @@ function flatSurfaceGeometryValues({
   return [surfaceId, x, y, width, height, u0, u1, v0, v1, zIndex];
 }
 
+function solidRoundedRectGeometryValues({
+  colorA,
+  colorB,
+  colorG,
+  colorR,
+  height,
+  radius,
+  surfaceId,
+  width,
+  x,
+  y,
+  zIndex,
+}: CachedSolidRoundedRectGeometry): readonly SolidRoundedRectGeometryValue[] {
+  return [
+    surfaceId,
+    x,
+    y,
+    width,
+    height,
+    radius,
+    colorR,
+    colorG,
+    colorB,
+    colorA,
+    zIndex,
+  ];
+}
+
 function areFlatSurfaceGeometryValuesEqual(
   left: readonly FlatSurfaceGeometryValue[],
   right: readonly FlatSurfaceGeometryValue[],
+): boolean {
+  return left.every((value, index) => value === right[index]);
+}
+
+function areSolidRoundedRectGeometryValuesEqual(
+  left: readonly SolidRoundedRectGeometryValue[],
+  right: readonly SolidRoundedRectGeometryValue[],
 ): boolean {
   return left.every((value, index) => value === right[index]);
 }
@@ -294,6 +416,24 @@ export function captureFlatSurfaceGeometry(
   });
 }
 
+export function captureSolidRoundedRectGeometry(
+  surfaces: readonly HtmlSurfaceSolidRoundedRectVisual[],
+): readonly CachedSolidRoundedRectGeometry[] {
+  return surfaces.map((surface) => ({
+    colorA: surface.color.a,
+    colorB: surface.color.b,
+    colorG: surface.color.g,
+    colorR: surface.color.r,
+    height: surface.rect.height,
+    radius: surface.radius,
+    surfaceId: surface.surfaceId,
+    width: surface.rect.width,
+    x: surface.rect.x,
+    y: surface.rect.y,
+    zIndex: surface.zIndex,
+  }));
+}
+
 type FlatSurfaceGeometryCaptureInput = FlatSurfaceGeometryInput &
   Pick<CachedFlatSurfaceGeometry, "surfaceId" | "zIndex">;
 
@@ -320,6 +460,13 @@ type FlatSurfaceVertex = {
   readonly y: number;
 };
 
+type SolidRoundedRectVertex = {
+  readonly localX: number;
+  readonly localY: number;
+  readonly x: number;
+  readonly y: number;
+};
+
 function writeFlatSurfaceVertex(
   data: Float32Array,
   offset: number,
@@ -330,6 +477,27 @@ function writeFlatSurfaceVertex(
   data[offset + 2] = vertex.u;
   data[offset + 3] = vertex.v;
   return offset + FLOATS_PER_VERTEX;
+}
+
+function writeSolidRoundedRectVertex(
+  data: Float32Array,
+  offset: number,
+  surface: HtmlSurfaceSolidRoundedRectVisual,
+  vertex: SolidRoundedRectVertex,
+): number {
+  data[offset] = vertex.x;
+  data[offset + 1] = vertex.y;
+  data[offset + 2] = vertex.localX;
+  data[offset + 3] = vertex.localY;
+  data[offset + 4] = surface.rect.width;
+  data[offset + 5] = surface.rect.height;
+  data[offset + 6] = surface.radius;
+  data[offset + 7] = 0;
+  data[offset + 8] = surface.color.r;
+  data[offset + 9] = surface.color.g;
+  data[offset + 10] = surface.color.b;
+  data[offset + 11] = surface.color.a;
+  return offset + SOLID_ROUNDED_RECT_VERTEX_FLOATS;
 }
 
 export function encodeGpuGridUniform(grid: GpuGridInput): Float32Array {
@@ -511,6 +679,65 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
   return textureSample(nodeTexture, nodeSampler, input.uv);
+}
+`;
+
+export const SOLID_ROUNDED_RECT_SHADER = `
+struct Camera {
+  viewport: vec4<f32>,
+  canvas: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> camera: Camera;
+
+struct VertexInput {
+  @location(0) flowPosition: vec2<f32>,
+  @location(1) localPosition: vec2<f32>,
+  @location(2) rectSize: vec2<f32>,
+  @location(3) radius: f32,
+  @location(4) color: vec4<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) position: vec4<f32>,
+  @location(0) localPosition: vec2<f32>,
+  @location(1) rectSize: vec2<f32>,
+  @location(2) radius: f32,
+  @location(3) color: vec4<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+  let screen = camera.viewport.xy + input.flowPosition * camera.viewport.z;
+  let clip = vec2<f32>(
+    (screen.x / camera.canvas.x) * 2.0 - 1.0,
+    1.0 - (screen.y / camera.canvas.y) * 2.0
+  );
+  var output: VertexOutput;
+  output.position = vec4<f32>(clip, 0.0, 1.0);
+  output.localPosition = input.localPosition;
+  output.rectSize = input.rectSize;
+  output.radius = input.radius;
+  output.color = input.color;
+  return output;
+}
+
+fn rounded_rect_alpha(localPosition: vec2<f32>, rectSize: vec2<f32>, radius: f32) -> f32 {
+  let safeSize = max(rectSize, vec2<f32>(0.0001, 0.0001));
+  let safeRadius = clamp(radius, 0.0, min(safeSize.x, safeSize.y) * 0.5);
+  if (safeRadius <= 0.0) {
+    return 1.0;
+  }
+  let center = safeSize * 0.5;
+  let q = abs(localPosition - center) - (center - vec2<f32>(safeRadius, safeRadius));
+  let distance = length(max(q, vec2<f32>(0.0, 0.0))) - safeRadius;
+  return 1.0 - smoothstep(0.0, 1.0, distance);
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+  let alpha = rounded_rect_alpha(input.localPosition, input.rectSize, input.radius);
+  return vec4<f32>(input.color.rgb, input.color.a * alpha);
 }
 `;
 

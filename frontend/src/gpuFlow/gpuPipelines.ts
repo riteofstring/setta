@@ -7,6 +7,7 @@ export type {
 export {
   buildFlatSurfaceVertexData,
   buildMeshSurfaceVertexCache,
+  buildSolidRoundedRectVertexData,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
   parseGpuGridColor,

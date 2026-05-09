@@ -11,12 +11,14 @@ import {
   GpuRetainedContentSurfaceLayer,
   type GpuRetainedContentSurfaceDrawEvent,
 } from "../GpuRetainedContentSurfaces";
+import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCacheNode,
   type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
@@ -41,21 +43,27 @@ export function useGpuFlowRetainedContentSources({
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }): {
   readonly retainedContentSourceElement: ReactNode;
+  readonly retainedContentNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly retainedContentSurfaces: readonly GpuHtmlSurfaceOverlayLayout[];
 } {
   const retainedContentSurfaces = useMemo(
     () => getGpuRetainedContentSurfaceLayouts(scene?.contentSurfaces),
     [scene?.contentSurfaces],
   );
+  const retainedContentNativeVisuals = useMemo(
+    () => getGpuRetainedContentScrollbarVisuals(scene?.contentSurfaces),
+    [scene?.contentSurfaces],
+  );
   const retainedContentOwnerBySurfaceId = useMemo(
     () =>
       new Map(
-        (scene?.contentSurfaces ?? []).map((surface) => [
-          surface.id,
-          surface.ownerSectionId,
-        ]),
+        retainedContentSurfaces.flatMap((surface): [string, string][] =>
+          surface.ownerNodeId
+            ? [[surface.surfaceId, surface.ownerNodeId]]
+            : [],
+        ),
       ),
-    [scene?.contentSurfaces],
+    [retainedContentSurfaces],
   );
   const retainedContentOwnerBySurfaceIdRef = useRef(
     retainedContentOwnerBySurfaceId,
@@ -114,6 +122,7 @@ export function useGpuFlowRetainedContentSources({
         switchAnimations={switchAnimations}
       />
     ),
+    retainedContentNativeVisuals,
     retainedContentSurfaces,
   };
 }

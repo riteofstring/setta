@@ -578,6 +578,9 @@ function filterVisualSceneBySurfaceIds(
     meshSurfaces: scene.meshSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),
+    solidRoundedRectSurfaces: scene.solidRoundedRectSurfaces.filter(
+      (surface) => surfaceIds.has(surface.surfaceId),
+    ),
     tiledFlatSurfaces: scene.tiledFlatSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),

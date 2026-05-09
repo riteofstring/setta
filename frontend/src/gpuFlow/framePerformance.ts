@@ -60,6 +60,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly skippedNodeCount: number;
+  readonly solidRoundedRectSurfaceCount: number;
   readonly textureMemoryAllocatedBytes: number;
   readonly textureMemoryBeforeEvictionAllocatedBytes: number;
   readonly textureMemoryBeforeEvictionCount: number;
@@ -118,6 +119,8 @@ export function createGpuFlowFramePerformanceEvent({
     missingTextureNodeCount: layerResult.missingTextureNodeIds.length,
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,
     skippedNodeCount: layerResult.skippedNodeIds.length,
+    solidRoundedRectSurfaceCount:
+      layerResult.visualScene.solidRoundedRectSurfaces.length,
     textureMemoryAllocatedBytes: textureMemory.allocatedBytes,
     textureMemoryBeforeEvictionAllocatedBytes:
       textureMemoryBeforeEviction.allocatedBytes,

@@ -2,10 +2,12 @@ import {
   EDGE_LINE_SHADER,
   FLAT_SURFACE_SHADER,
   GRID_SHADER,
+  SOLID_ROUNDED_RECT_SHADER,
 } from "../gpuPipelines/bufferAndShaders";
 import {
   EDGE_VERTEX_BYTES,
   FLAT_SURFACE_VERTEX_BYTES,
+  SOLID_ROUNDED_RECT_VERTEX_BYTES,
   type HtmlSurfaceRenderRuntime,
 } from "../gpuPipelines/pipelineTypes";
 
@@ -25,6 +27,11 @@ type CreateFlatPipelineInput = {
   readonly cameraBindGroupLayout: GPUBindGroupLayout;
   readonly runtime: HtmlSurfaceRenderRuntime;
   readonly textureBindGroupLayout: GPUBindGroupLayout;
+};
+
+type CreateSolidRoundedRectPipelineInput = {
+  readonly cameraBindGroupLayout: GPUBindGroupLayout;
+  readonly runtime: HtmlSurfaceRenderRuntime;
 };
 
 export function createHtmlSurfaceGridPipeline({
@@ -149,6 +156,68 @@ export function createHtmlSurfaceFlatPipeline({
               format: "float32x2",
               offset: Float32Array.BYTES_PER_ELEMENT * 2,
               shaderLocation: 1,
+            },
+          ],
+        },
+      ],
+      entryPoint: "vs_main",
+      module: shaderModule,
+    },
+  });
+}
+
+export function createHtmlSurfaceSolidRoundedRectPipeline({
+  cameraBindGroupLayout,
+  runtime,
+}: CreateSolidRoundedRectPipelineInput): GPURenderPipeline {
+  const device = runtime.device;
+  const shaderModule = device.createShaderModule({
+    code: SOLID_ROUNDED_RECT_SHADER,
+    label: "setta-html-surface-solid-rounded-rect-shader",
+  });
+  return device.createRenderPipeline({
+    fragment: {
+      entryPoint: "fs_main",
+      module: shaderModule,
+      targets: [createAlphaBlendTarget(runtime.format)],
+    },
+    label: "setta-html-surface-solid-rounded-rect-pipeline",
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [cameraBindGroupLayout],
+      label: "setta-html-surface-solid-rounded-rect-pipeline-layout",
+    }),
+    primitive: {
+      topology: "triangle-list",
+    },
+    vertex: {
+      buffers: [
+        {
+          arrayStride: SOLID_ROUNDED_RECT_VERTEX_BYTES,
+          attributes: [
+            {
+              format: "float32x2",
+              offset: 0,
+              shaderLocation: 0,
+            },
+            {
+              format: "float32x2",
+              offset: Float32Array.BYTES_PER_ELEMENT * 2,
+              shaderLocation: 1,
+            },
+            {
+              format: "float32x2",
+              offset: Float32Array.BYTES_PER_ELEMENT * 4,
+              shaderLocation: 2,
+            },
+            {
+              format: "float32",
+              offset: Float32Array.BYTES_PER_ELEMENT * 6,
+              shaderLocation: 3,
+            },
+            {
+              format: "float32x4",
+              offset: Float32Array.BYTES_PER_ELEMENT * 8,
+              shaderLocation: 4,
             },
           ],
         },

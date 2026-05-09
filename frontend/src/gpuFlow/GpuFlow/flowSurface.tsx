@@ -32,7 +32,6 @@ import {
   clearGpuNodeDomTransformSyncCacheNode,
   createGpuNodeDomTransformSyncCache,
   markHtmlSurfaceFramePaintDirty,
-  type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
@@ -54,8 +53,6 @@ import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interacti
 import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
 import { createHtmlSurfaceShaderEffectProjectors } from "../htmlSurfaces/shaderEffects";
-
-import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
 import type { GpuFlowFramePerformanceReporter } from "../framePerformance";
 import { createGpuFlowInteractionDiagnosticsState } from "../interactionDiagnostics";
@@ -125,6 +122,7 @@ import {
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
 import { resolveGpuFlowCanvasCursor } from "./flowCanvasCursor";
+import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   attachGpuFlowNodeResizeController,
   type GpuFlowNodeResizeOptions,
@@ -244,27 +242,6 @@ export type GpuFlowCallbacks = Pick<
     | undefined;
 };
 
-export type GpuFlowNodeLayerState = {
-  readonly edgeScene: GpuEdgeScene | undefined;
-  readonly edgePalette: GpuEdgePaletteInput | undefined;
-  readonly edges: readonly GpuEdgeBufferInput[] | undefined;
-  readonly forceVisibleNodeIds:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
-  readonly grid: GpuGridInput | undefined;
-  readonly edgeLabelSurfaces:
-    | readonly GpuHtmlSurfaceOverlayLayout[]
-    | undefined;
-  readonly marginCssPx: number | undefined;
-  readonly nodes: readonly GpuNodeLayout[] | undefined;
-  readonly nodeTextureMemoryBudgetBytes: number | undefined;
-  readonly uploadBudget: GpuNodeUploadBudget | undefined;
-  readonly scene: GpuFlowScene | undefined;
-  readonly viewport: GpuViewportInput;
-  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
-};
-
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 
 export function GpuFlow({
@@ -367,6 +344,7 @@ export function GpuFlow({
   const nodeResizeEnabled = nodeResize !== false;
   const {
     edgeLabelSourceElement,
+    htmlSurfaceNativeVisuals,
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
@@ -401,6 +379,7 @@ export function GpuFlow({
     edgePalette,
     edges: drawEdges,
     edgeLabelSurfaces: htmlSurfaceOverlays,
+    htmlSurfaceNativeVisuals,
     forceVisibleNodeIds,
     grid,
     marginCssPx,
@@ -491,6 +470,7 @@ export function GpuFlow({
       edgePalette,
       edges: nextEdges,
       edgeLabelSurfaces: htmlSurfaceOverlays,
+      htmlSurfaceNativeVisuals,
       forceVisibleNodeIds,
       grid,
       marginCssPx,
@@ -500,7 +480,13 @@ export function GpuFlow({
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
-    if (!nodes && !nextEdges && !grid && htmlSurfaceOverlays.length === 0) {
+    if (
+      !nodes &&
+      !nextEdges &&
+      !grid &&
+      htmlSurfaceOverlays.length === 0 &&
+      htmlSurfaceNativeVisuals.length === 0
+    ) {
       visibleNodeIdsRef.current = new Set();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
@@ -516,6 +502,7 @@ export function GpuFlow({
     edges,
     forceVisibleNodeIds,
     grid,
+    htmlSurfaceNativeVisuals,
     htmlSurfaceOverlays,
     marginCssPx,
     nodes,

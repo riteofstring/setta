@@ -137,3 +137,41 @@ CDP visual check:
 - Screenshot: `/tmp/setta-settings-retained-scroll-fixed.png`
 - Zoomed screenshot: `/tmp/setta-settings-retained-scroll-fixed-zoomed.png`
 - `settings-section__shortcuts:param-content:unpinned` retained source reported `canvasCssHeight: "1488px"` and `canvasAttrHeight: 2976`, confirming it is registered as a texture window rather than a viewport-sized squashed texture.
+
+## Scrollbar Overlay Follow-Up
+
+The 2026-05-09 17:32 Chrome recording and sequential screenshots showed a new visual artifact after the texture-window fix: the retained section scrollbar rail could move with the row content for an initial frame and then recover.
+
+The 2026-05-09 18:02 Chrome recording showed the first overlay attempt was still not principled enough: the scrollbar had moved to its own small retained source, but that source still used `GPUQueue.copyElementImageToTexture`. The scrollbar was no longer coupled to the content texture window, but it could still disappear or lag while that small upload caught up.
+
+Cause:
+
+- The retained scrollbar was still painted into the same large texture window as the scrolling row content.
+- Wheel scrolling advances the WebGPU `textureSourceRect` immediately so rows can scroll without reuploading the main retained texture.
+- The scrollbar strip redraw/upload was a separate follow-up operation. Until that upload landed, the new source rect could sample old scrollbar pixels from the previous scroll-window position, making the rail appear to travel with the content.
+- The first small-overlay fix removed the content-window sampling problem but retained the same asynchronous DOM/canvas-to-texture upload class for the scrollbar itself.
+
+Fix:
+
+- Retained row content no longer paints scrollbars into the scrolling texture window.
+- Overflowing retained sections now publish scrollbar track/thumb geometry as GPU-native solid rounded rectangles, rendered after texture-backed content.
+- The scrollbar has no source DOM node, no source canvas, no `textureSourceRect`, and no `copyElementImageToTexture` upload path.
+- The retained scroll and scrollbar visual-state paths update native scrollbar visuals and request a WebGPU frame directly.
+- Retained content canvas cache equality now compares the draw input structurally, so equivalent rebuilt settings scenes do not redraw and upload unrelated retained canvases during a scroll gesture.
+
+Behavioral guardrail:
+
+- `frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts` centers the real `settings-section__shortcuts:param-content:unpinned` retained section at normal zoom, captures before/after screenshots, and captures a sequential wheel-scroll screenshot strip of the scrollbar.
+- The test verifies the retained section actually scrolls via retained row debug snapshots.
+- The screenshot-derived scrollbar rail must remain present, full-height, and anchored while the thumb moves immediately across sequential wheel screenshots.
+- The GPU probe must report no retained scrollbar source elements and no `:scrollbar` `copyElementImageToTexture` calls. It also reports native solid rounded rect surfaces on rendered frames.
+
+Verification:
+
+`pnpm -C frontend exec vitest run src/gpuFlow/htmlSurfaces/paintInvalidation.test.ts src/gpuFlow/gpuPipelines.test.ts src/gpuFlow/htmlSurfaces/textures.test.ts src/gpuFlow/GpuRetainedContentSurfaces.test.tsx src/gpuFlow/GpuFlow/retainedContentSources.test.tsx src/gpuFlow/htmlSurfaces/frame.test.tsx src/gpuFlow/htmlSurfaces/surfaceVisuals.test.ts src/gpuFlow/retainedContentScene.test.ts src/gpuFlow/GpuFlow/retainedContentControllers.test.tsx src/gpuFlow/retainedContentScrollbar.test.ts src/gpuFlow/retainedContentScrollbarCanvas.test.ts src/gpuFlow/framePerformance.test.ts`
+
+Result: 12 files, 133 tests passed.
+
+`./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts`
+
+Result: 1 test passed and captured retained target and retained scrollbar wheel screenshots.

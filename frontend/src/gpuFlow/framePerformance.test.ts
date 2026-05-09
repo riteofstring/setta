@@ -172,6 +172,7 @@ function createLayerResult(
       effectSurfaces: [],
       flatSurfaces: [],
       meshSurfaces: [],
+      solidRoundedRectSurfaces: [],
       tiledFlatSurfaces: [],
     },
     ...overrides,

@@ -216,9 +216,17 @@ export function createFrameRenderer() {
   return {
     render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
-      drawnSurfaceIds: scene.flatSurfaces.map((surface) => surface.surfaceId),
+      drawnSurfaceIds: [
+        ...scene.flatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
+      ],
       edgeVertexCount: (edges?.length ?? 0) * 2,
-      vertexCount: scene.flatSurfaces.length * 6,
+      vertexCount:
+        (scene.flatSurfaces.length +
+          scene.tiledFlatSurfaces.length +
+          scene.solidRoundedRectSurfaces.length) *
+        6,
     })),
   };
 }

@@ -7,6 +7,7 @@ import type { HtmlSurfaceRenderRuntime } from "./gpuPipelines";
 import {
   buildFlatSurfaceVertexData,
   buildMeshSurfaceVertexCache,
+  buildSolidRoundedRectVertexData,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
   parseGpuGridColor,
@@ -26,6 +27,7 @@ import {
   type HtmlSurfaceEffectVisual,
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceMeshVisual,
+  type HtmlSurfaceSolidRoundedRectVisual,
   type HtmlSurfaceTiledFlatVisual,
 } from "./htmlSurfaces/visualScene";
 
@@ -73,6 +75,26 @@ describe("html surface renderer", () => {
     ).toEqual([
       10, 15, 0.25, 0.25, 40, 15, 0.5, 0.25, 10, 35, 0.25, 0.75, 10, 35, 0.25,
       0.75, 40, 15, 0.5, 0.25, 40, 35, 0.5, 0.75,
+    ]);
+  });
+
+  it("builds GPU-native rounded rectangle vertices with local geometry and color", () => {
+    expect(
+      Array.from(
+        buildSolidRoundedRectVertexData([
+          solidRoundedRectSurface("scrollbar-thumb", {
+            color: { a: 1, b: 0.75, g: 0.5, r: 0.25 },
+            radius: 4,
+            rect: { height: 20, width: 8, x: 10, y: 15 },
+          }),
+        ]),
+      ),
+    ).toEqual([
+      10, 15, 0, 0, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8, 0, 8, 20,
+      4, 0, 0.25, 0.5, 0.75, 1, 10, 35, 0, 20, 8, 20, 4, 0, 0.25, 0.5,
+      0.75, 1, 10, 35, 0, 20, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8,
+      0, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 35, 8, 20, 8, 20, 4, 0,
+      0.25, 0.5, 0.75, 1,
     ]);
   });
 
@@ -359,6 +381,41 @@ describe("html surface renderer", () => {
     expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipelines[0]);
     expect(gpu.pass.setVertexBuffer).toHaveBeenCalledWith(0, gpu.buffers[1]);
     expect(gpu.pass.draw).toHaveBeenCalledWith(6, 1, 0, 0);
+  });
+
+  it("draws GPU-native solid rounded rectangles after textured surfaces", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const flat = flatSurface("node-a", 0, 0, 100, 50);
+    const scrollbar = solidRoundedRectSurface("node-a:scrollbar:y:thumb", {
+      rect: { height: 24, width: 8, x: 92, y: 8 },
+    });
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        flatSurfaces: [flat],
+        solidRoundedRectSurfaces: [scrollbar],
+      }),
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: [],
+      drawnSurfaceIds: ["node-a", "node-a:scrollbar:y:thumb"],
+      edgeVertexCount: 0,
+      vertexCount: 12,
+    });
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-flat-vertices",
+      "setta-html-surface-solid-rounded-rect-vertices",
+    ]);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(1, gpu.pipelines[0]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 6, 1, 0, 0);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(2, gpu.pipelines[1]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 0, 0);
   });
 
   it("rejects shader-effect surfaces without their declared projector", () => {
@@ -1046,6 +1103,22 @@ function tiledFlatSurface(
         v1: 1,
       },
     ],
+    zIndex: 0,
+  };
+}
+
+function solidRoundedRectSurface(
+  surfaceId: string,
+  overrides: Partial<
+    Pick<HtmlSurfaceSolidRoundedRectVisual, "color" | "radius" | "rect">
+  > = {},
+): HtmlSurfaceSolidRoundedRectVisual {
+  return {
+    color: overrides.color ?? { a: 0.62, b: 0.72, g: 0.64, r: 0.58 },
+    kind: "solid-rounded-rect",
+    radius: overrides.radius ?? 4,
+    rect: overrides.rect ?? { height: 24, width: 8, x: 92, y: 8 },
+    surfaceId,
     zIndex: 0,
   };
 }

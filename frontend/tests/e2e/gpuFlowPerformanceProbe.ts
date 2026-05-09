@@ -53,6 +53,7 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly skippedNodeCount: number;
+  readonly solidRoundedRectSurfaceCount: number;
   readonly textureAllocatedBytes: number;
   readonly textureCount: number;
   readonly textureLargestBytes: number;
@@ -730,6 +731,9 @@ function toNodeLayerFrameSummary(
     skippedNodeCount: numberOrArrayLength(
       value.skippedNodeCount,
       value.skippedNodeIds,
+    ),
+    solidRoundedRectSurfaceCount: numberValue(
+      value.solidRoundedRectSurfaceCount,
     ),
     textureAllocatedBytes:
       numberValue(value.textureMemoryAllocatedBytes) ||
