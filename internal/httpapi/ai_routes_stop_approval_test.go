@@ -492,6 +492,20 @@ type aiRouteFixtureOptions struct {
 	appGenerationModesAvailable *bool
 }
 
+type aiRouteFixtureCore struct {
+	root                  string
+	store                 *agentruns.RunStore
+	engineStore           *agentruns.EngineStore
+	externalConfigStore   *externalagentconfigs.Store
+	agentProfileStore     *agentprofiles.Store
+	projectRuntime        *projectstate.Runtime
+	llm                   *llmconfig.Runtime
+	transcriptionStore    *transcriptionprofiles.Store
+	transcriptionProfiles *transcriptionprofiles.Service
+	transcriptionSessions *transcriptionsessions.Service
+	sessions              aiRouteStaticSessionProvider
+}
+
 func testAIRouteAppGenerationModes(
 	t *testing.T,
 	available bool,
@@ -509,6 +523,41 @@ func testAIRouteAppGenerationModes(
 }
 
 func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixture {
+	t.Helper()
+
+	core := newAIRouteFixtureCore(t)
+	configID := seedAIRouteFixtureConfigStores(t, core)
+	follow := newAIRouteFixtureFollowService(t)
+	managedRunRuntime := newAIRouteFixtureManagedRunRuntime(t, core)
+	managedStarter := aiRouteFixtureManagedStarter(options)
+	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{})
+	managedService := newAIRouteFixtureManagedService(t, core, options, managedStarter, managedLiveRuntime, managedRunRuntime)
+	runtime := newAIRouteFixtureExternalRuntime(t, core, follow)
+	service := newAIRouteFixtureExternalService(t, core, runtime)
+	preflightStatus := options.preflightStatus
+	if preflightStatus == nil {
+		preflightStatus = defaultAIRouteFixturePreflightStatus(configID)
+	}
+	send := newAIRouteFixtureSendService(t, core, options, runtime, preflightStatus)
+
+	return aiRouteFixture{
+		store:                 core.store,
+		llm:                   core.llm,
+		transcriptionStore:    core.transcriptionStore,
+		transcriptionProfiles: core.transcriptionProfiles,
+		transcriptionSessions: core.transcriptionSessions,
+		sessions:              core.sessions,
+		managedLive:           managedLiveRuntime,
+		managed:               managedService,
+		managedStarter:        managedStarter,
+		runtime:               runtime,
+		service:               service,
+		send:                  send,
+		follow:                follow,
+	}
+}
+
+func newAIRouteFixtureCore(t *testing.T) aiRouteFixtureCore {
 	t.Helper()
 
 	root := t.TempDir()
@@ -569,16 +618,36 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	if err != nil {
 		t.Fatalf("new transcription session service: %v", err)
 	}
-	sessionProvider := aiRouteStaticSessionProvider{
+
+	return aiRouteFixtureCore{
+		root:                  root,
+		store:                 store,
+		engineStore:           engineStore,
+		externalConfigStore:   externalConfigStore,
+		agentProfileStore:     agentProfileStore,
+		projectRuntime:        projectRuntime,
+		llm:                   llmRuntime,
+		transcriptionStore:    transcriptionStore,
+		transcriptionProfiles: transcriptionProfileService,
+		transcriptionSessions: transcriptionSessionService,
+		sessions:              newAIRouteFixtureSessionProvider(),
+	}
+}
+
+func newAIRouteFixtureSessionProvider() aiRouteStaticSessionProvider {
+	return aiRouteStaticSessionProvider{
 		current: &auth.CurrentSession{
-			Metadata: auth.SessionMetadata{
-				ID: "session-route",
-			},
+			Metadata: auth.SessionMetadata{ID: "session-route"},
 		},
 	}
+}
+
+func seedAIRouteFixtureConfigStores(t *testing.T, core aiRouteFixtureCore) string {
+	t.Helper()
+
 	commandPath := "/usr/local/bin/codex"
 	configID := "external-config"
-	if err := externalConfigStore.Write([]externalagentconfigs.Config{
+	if err := core.externalConfigStore.Write([]externalagentconfigs.Config{
 		{
 			ID:                 configID,
 			Name:               "Codex app-server",
@@ -591,7 +660,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 		t.Fatalf("write external configs: %v", err)
 	}
 	engineID := "engine-external"
-	if err := engineStore.Write([]agentruns.EngineConfig{
+	if err := core.engineStore.Write([]agentruns.EngineConfig{
 		{
 			ID:               "engine-managed",
 			Name:             "Managed Engine",
@@ -607,7 +676,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	}); err != nil {
 		t.Fatalf("write engine configs: %v", err)
 	}
-	if err := agentProfileStore.Write([]agentprofiles.Profile{
+	if err := core.agentProfileStore.Write([]agentprofiles.Profile{
 		{
 			ID:             "profile-alpha",
 			Name:           "Alpha",
@@ -616,20 +685,30 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	}); err != nil {
 		t.Fatalf("write profiles: %v", err)
 	}
+	return configID
+}
+
+func newAIRouteFixtureFollowService(t *testing.T) *externalagents.FollowService {
+	t.Helper()
+
 	follow, err := externalagents.NewFollowService(externalagents.FollowServiceOptions{
 		Tools: aiRouteStaticFollowToolProvider{},
 	})
 	if err != nil {
 		t.Fatalf("new follow service: %v", err)
 	}
+	return follow
+}
+
+func newAIRouteFixtureManagedRunRuntime(t *testing.T, core aiRouteFixtureCore) *agentruns.Runtime {
+	t.Helper()
+
 	managedRunService, err := agentruns.NewService(agentruns.ServiceOptions{
-		ProjectState: projectRuntime,
-		Engines:      engineStore,
-		Runs:         store,
-		LLM:          llmRuntime,
-		TimeNow: func() time.Time {
-			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
-		},
+		ProjectState: core.projectRuntime,
+		Engines:      core.engineStore,
+		Runs:         core.store,
+		LLM:          core.llm,
+		TimeNow:      aiRouteFixtureNow,
 	})
 	if err != nil {
 		t.Fatalf("new managed run service: %v", err)
@@ -640,63 +719,106 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	if err != nil {
 		t.Fatalf("new managed runtime: %v", err)
 	}
+	return managedRunRuntime
+}
+
+func aiRouteFixtureManagedStarter(options aiRouteFixtureOptions) *aiRouteStubManagedStarter {
 	managedStarter := options.managedStarter
 	if managedStarter == nil {
 		managedStarter = &aiRouteStubManagedStarter{disabled: true}
 	}
-	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{})
+	return managedStarter
+}
+
+func newAIRouteFixtureManagedService(
+	t *testing.T,
+	core aiRouteFixtureCore,
+	options aiRouteFixtureOptions,
+	managedStarter *aiRouteStubManagedStarter,
+	managedLiveRuntime *managedchat.LiveRuntime,
+	managedRunRuntime *agentruns.Runtime,
+) *managedchat.Service {
+	t.Helper()
+
 	managedService, err := managedchat.NewService(managedchat.ServiceOptions{
-		ProjectState: projectRuntime,
-		Runs:         store,
-		Engines:      engineStore,
-		LLM:          llmRuntime,
-		Profiles:     agentProfileStore,
-		Starter:      managedStarter,
-		Live:         managedLiveRuntime,
-		Stopper:      managedRunRuntime,
-		AppGenerationModes: testAIRouteAppGenerationModes(
-			t,
-			options.appGenerationModesAvailable == nil || *options.appGenerationModesAvailable,
-		),
+		ProjectState:       core.projectRuntime,
+		Runs:               core.store,
+		Engines:            core.engineStore,
+		LLM:                core.llm,
+		Profiles:           core.agentProfileStore,
+		Starter:            managedStarter,
+		Live:               managedLiveRuntime,
+		Stopper:            managedRunRuntime,
+		AppGenerationModes: testAIRouteAppGenerationModes(t, aiRouteFixtureAppGenerationModesAvailable(options)),
 	})
 	if err != nil {
 		t.Fatalf("new managed chat service: %v", err)
 	}
+	return managedService
+}
+
+func newAIRouteFixtureExternalRuntime(
+	t *testing.T,
+	core aiRouteFixtureCore,
+	follow *externalagents.FollowService,
+) *externalagents.Runtime {
+	t.Helper()
+
 	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
-		Runs:   store,
-		Follow: follow,
-		TimeNow: func() time.Time {
-			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
-		},
+		Runs:    core.store,
+		Follow:  follow,
+		TimeNow: aiRouteFixtureNow,
 	})
 	if err != nil {
 		t.Fatalf("new runtime: %v", err)
 	}
+	return runtime
+}
+
+func newAIRouteFixtureExternalService(
+	t *testing.T,
+	core aiRouteFixtureCore,
+	runtime *externalagents.Runtime,
+) *externalagents.Service {
+	t.Helper()
+
 	service, err := externalagents.NewService(externalagents.ServiceOptions{
-		Runs: store,
+		Runs: core.store,
 		Live: runtime,
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	preflightStatus := options.preflightStatus
-	if preflightStatus == nil {
-		preflightStatus = &externalagentconfigs.Status{
-			ConfigID:  configID,
-			Name:      "Codex app-server",
-			ToolType:  externalagentconfigs.ToolTypeCodex,
-			RunMode:   externalagentconfigs.RunModeAppServer,
-			Supported: true,
-			Available: true,
-			Issues:    []string{},
-		}
+	return service
+}
+
+func defaultAIRouteFixturePreflightStatus(configID string) *externalagentconfigs.Status {
+	return &externalagentconfigs.Status{
+		ConfigID:  configID,
+		Name:      "Codex app-server",
+		ToolType:  externalagentconfigs.ToolTypeCodex,
+		RunMode:   externalagentconfigs.RunModeAppServer,
+		Supported: true,
+		Available: true,
+		Issues:    []string{},
 	}
+}
+
+func newAIRouteFixtureSendService(
+	t *testing.T,
+	core aiRouteFixtureCore,
+	options aiRouteFixtureOptions,
+	runtime *externalagents.Runtime,
+	preflightStatus *externalagentconfigs.Status,
+) *externalagents.SendService {
+	t.Helper()
+
 	send, err := externalagents.NewSendService(externalagents.SendServiceOptions{
-		ProjectState: projectRuntime,
-		Engines:      engineStore,
-		Runs:         store,
-		Profiles:     agentProfileStore,
-		Configs:      externalConfigStore,
+		ProjectState: core.projectRuntime,
+		Engines:      core.engineStore,
+		Runs:         core.store,
+		Profiles:     core.agentProfileStore,
+		Configs:      core.externalConfigStore,
 		Runtime:      runtime,
 		Preflight: aiRouteStubPreflightChecker{
 			status: *preflightStatus,
@@ -705,32 +827,21 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 			response: externalagents.StartResponse{Controller: &aiRouteStubController{}},
 			err:      options.executorErr,
 		},
-		AppGenerationModes: testAIRouteAppGenerationModes(
-			t,
-			options.appGenerationModesAvailable == nil || *options.appGenerationModesAvailable,
-		),
-		TimeNow: func() time.Time {
-			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
-		},
+		AppGenerationModes: testAIRouteAppGenerationModes(t, aiRouteFixtureAppGenerationModesAvailable(options)),
+		TimeNow:            aiRouteFixtureNow,
 	})
 	if err != nil {
 		t.Fatalf("new send service: %v", err)
 	}
-	return aiRouteFixture{
-		store:                 store,
-		llm:                   llmRuntime,
-		transcriptionStore:    transcriptionStore,
-		transcriptionProfiles: transcriptionProfileService,
-		transcriptionSessions: transcriptionSessionService,
-		sessions:              sessionProvider,
-		managedLive:           managedLiveRuntime,
-		managed:               managedService,
-		managedStarter:        managedStarter,
-		runtime:               runtime,
-		service:               service,
-		send:                  send,
-		follow:                follow,
-	}
+	return send
+}
+
+func aiRouteFixtureAppGenerationModesAvailable(options aiRouteFixtureOptions) bool {
+	return options.appGenerationModesAvailable == nil || *options.appGenerationModesAvailable
+}
+
+func aiRouteFixtureNow() time.Time {
+	return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
 }
 
 type aiRouteFallbackTranscriptionSupport struct {
