@@ -169,6 +169,14 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 	if err != nil {
 		t.Fatalf("StartRun returned error: %v", err)
 	}
+	assertStartedManagedChatParentRun(t, run)
+	assertStartedManagedChatChildRun(t, fixture, run.ID)
+	assertStartedManagedChatBindingAndEvents(t, fixture, run)
+}
+
+func assertStartedManagedChatParentRun(t *testing.T, run agentruns.Run) {
+	t.Helper()
+
 	if run.Status != agentruns.RunStatusRunning {
 		t.Fatalf("expected running parent run, got %#v", run)
 	}
@@ -190,6 +198,11 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 	if got := outputMap(run, outputKeyOwnedChatBindings)["chat-section"]; got != "chat-managed-1" {
 		t.Fatalf("expected owned chat binding, got %#v", outputMap(run, outputKeyOwnedChatBindings))
 	}
+}
+
+func assertStartedManagedChatChildRun(t *testing.T, fixture runtimeFixture, parentRunID string) {
+	t.Helper()
+
 	if len(fixture.managedStarter.requests) != 1 {
 		t.Fatalf("expected one managed chat request, got %d", len(fixture.managedStarter.requests))
 	}
@@ -197,12 +210,17 @@ func TestRuntimeStartRunDispatchesManagedChatAndPersistsParentState(t *testing.T
 	if err != nil {
 		t.Fatalf("load child run: %v", err)
 	}
-	if runInputString(childRun, inputKeyStateMachineRunID) != run.ID {
-		t.Fatalf("expected child run parent id %q, got %#v", run.ID, childRun.Inputs)
+	if runInputString(childRun, inputKeyStateMachineRunID) != parentRunID {
+		t.Fatalf("expected child run parent id %q, got %#v", parentRunID, childRun.Inputs)
 	}
 	if runInputString(childRun, inputKeyStateMachineTargetSection) != "chat-section" {
 		t.Fatalf("expected child run target section metadata, got %#v", childRun.Inputs)
 	}
+}
+
+func assertStartedManagedChatBindingAndEvents(t *testing.T, fixture runtimeFixture, run agentruns.Run) {
+	t.Helper()
+
 	chatID, err := fixture.projectRuntime.ChatSectionChatID("project-alpha", "chat-section")
 	if err != nil {
 		t.Fatalf("ChatSectionChatID returned error: %v", err)
@@ -587,66 +605,58 @@ func TestRuntimeHandleTerminalChildRunUpdateTracksAllANDGateInputsForThreeChatCo
 		t.Fatalf("StartRun returned error: %v", err)
 	}
 
-	afterFirst, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusCompleted))
-	if err != nil {
-		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-	}
-	if afterFirst == nil {
-		t.Fatal("expected updated parent run after first completion")
-	}
-	firstChildRun, err := fixture.runs.Load("child-run-1")
-	if err != nil {
-		t.Fatalf("load first child run: %v", err)
-	}
-	firstGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(firstChildRun, inputKeyStateMachineTargetSection))
-	gateInputs, ok := rawOutputMap(*afterFirst, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
-	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID}) {
-		t.Fatalf("expected first gate input to track %s, got %#v", firstGateEdgeID, rawOutputMap(*afterFirst, outputKeyGateInputEdgeIDs))
-	}
+	firstGateEdgeID, _ := completeGateChildAndAssertInputs(t, fixture, "child-run-1", nil, "first")
+	secondGateEdgeID, _ := completeGateChildAndAssertInputs(t, fixture, "child-run-2", []string{firstGateEdgeID}, "second")
+	thirdGateEdgeID, afterThird := completeGateChildAndAssertInputs(t, fixture, "child-run-3", []string{firstGateEdgeID, secondGateEdgeID}, "third")
+	assertThreeInputANDGateCompletion(t, *afterThird, []string{firstGateEdgeID, secondGateEdgeID, thirdGateEdgeID})
+}
 
-	afterSecond, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-2", agentruns.RunStatusCompleted))
-	if err != nil {
-		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-	}
-	if afterSecond == nil {
-		t.Fatal("expected updated parent run after second completion")
-	}
-	secondChildRun, err := fixture.runs.Load("child-run-2")
-	if err != nil {
-		t.Fatalf("load second child run: %v", err)
-	}
-	secondGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(secondChildRun, inputKeyStateMachineTargetSection))
-	gateInputs, ok = rawOutputMap(*afterSecond, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
-	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID, secondGateEdgeID}) {
-		t.Fatalf("expected first two gate inputs to be tracked, got %#v", rawOutputMap(*afterSecond, outputKeyGateInputEdgeIDs))
-	}
+func completeGateChildAndAssertInputs(
+	t *testing.T,
+	fixture runtimeFixture,
+	childRunID string,
+	previousGateEdgeIDs []string,
+	label string,
+) (string, *agentruns.Run) {
+	t.Helper()
 
-	afterThird, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, "child-run-3", agentruns.RunStatusCompleted))
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, agentruns.RunStatusCompleted))
 	if err != nil {
 		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
 	}
-	if afterThird == nil {
-		t.Fatal("expected updated parent run after third completion")
+	if updated == nil {
+		t.Fatalf("expected updated parent run after %s completion", label)
 	}
-	thirdChildRun, err := fixture.runs.Load("child-run-3")
+	childRun, err := fixture.runs.Load(childRunID)
 	if err != nil {
-		t.Fatalf("load third child run: %v", err)
+		t.Fatalf("load %s child run: %v", label, err)
 	}
-	thirdGateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(thirdChildRun, inputKeyStateMachineTargetSection))
-	gateInputs, ok = rawOutputMap(*afterThird, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
-	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), []string{firstGateEdgeID, secondGateEdgeID, thirdGateEdgeID}) {
-		t.Fatalf("expected all gate inputs to remain visible on completion, got %#v", rawOutputMap(*afterThird, outputKeyGateInputEdgeIDs))
+	gateEdgeID := fmt.Sprintf("edge-%s-gate", runInputString(childRun, inputKeyStateMachineTargetSection))
+	expectedGateEdgeIDs := append(append([]string(nil), previousGateEdgeIDs...), gateEdgeID)
+	gateInputs, ok := rawOutputMap(*updated, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
+	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), expectedGateEdgeIDs) {
+		t.Fatalf("expected %s gate inputs to be tracked, got %#v", label, rawOutputMap(*updated, outputKeyGateInputEdgeIDs))
 	}
-	if got := outputStringList(*afterThird, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+	return gateEdgeID, updated
+}
+
+func assertThreeInputANDGateCompletion(t *testing.T, afterThird agentruns.Run, gateEdgeIDs []string) {
+	t.Helper()
+
+	gateInputs, ok := rawOutputMap(afterThird, outputKeyGateInputEdgeIDs)["gate-section"].([]any)
+	if !ok || !sameStringMembers(anySliceToStrings(gateInputs), gateEdgeIDs) {
+		t.Fatalf("expected all gate inputs to remain visible on completion, got %#v", rawOutputMap(afterThird, outputKeyGateInputEdgeIDs))
+	}
+	if got := outputStringList(afterThird, outputKeyFiredGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
 		t.Fatalf("expected fired gate-section output, got %#v", got)
 	}
-	if got := outputMap(*afterThird, outputKeyGateStatuses)["gate-section"]; got != "satisfied" {
-		t.Fatalf("expected satisfied gate status, got %#v", outputMap(*afterThird, outputKeyGateStatuses))
+	if got := outputMap(afterThird, outputKeyGateStatuses)["gate-section"]; got != "satisfied" {
+		t.Fatalf("expected satisfied gate status, got %#v", outputMap(afterThird, outputKeyGateStatuses))
 	}
-	if got := outputStringList(*afterThird, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
+	if got := outputStringList(afterThird, outputKeyReachedEndSectionIDs); !slices.Equal(got, []string{"end-section"}) {
 		t.Fatalf("expected end-section reached output, got %#v", got)
 	}
-	if got := eventTypes(*afterThird); !slices.Equal(got[len(got)-6:], []string{
+	if got := eventTypes(afterThird); !slices.Equal(got[len(got)-6:], []string{
 		"child_run_completed",
 		"child_run_edges_activated",
 		"gate_input_activated",
@@ -682,18 +692,26 @@ func TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionB
 	if latest == nil {
 		t.Fatal("expected updated parent run after failed child")
 	}
+	assertBlockedANDGateRunState(t, *latest)
+	assertBlockedANDGateFailureSummary(t, *latest)
+	assertBlockedANDGateCancellationAndEvents(t, fixture, *latest)
+}
+
+func assertBlockedANDGateRunState(t *testing.T, latest agentruns.Run) {
+	t.Helper()
+
 	if latest.Status != agentruns.RunStatusFailed {
 		t.Fatalf("expected failed parent run after gate block, got %#v", latest)
 	}
-	if got := outputMap(*latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
-		t.Fatalf("expected blocked gate status, got %#v", outputMap(*latest, outputKeyGateStatuses))
+	if got := outputMap(latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
+		t.Fatalf("expected blocked gate status, got %#v", outputMap(latest, outputKeyGateStatuses))
 	}
-	if got := outputStringList(*latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+	if got := outputStringList(latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
 		t.Fatalf("expected blocked gate output, got %#v", got)
 	}
-	blockedDetail, ok := outputMap(*latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
+	blockedDetail, ok := outputMap(latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected blocked gate detail, got %#v", outputMap(*latest, outputKeyBlockedGateDetailsByID))
+		t.Fatalf("expected blocked gate detail, got %#v", outputMap(latest, outputKeyBlockedGateDetailsByID))
 	}
 	if blockedDetail["gateType"] != string(projectstate.StateMachineGateTypeAND) {
 		t.Fatalf("expected AND gate detail, got %#v", blockedDetail)
@@ -704,12 +722,17 @@ func TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionB
 	if got := len(anySliceToStrings(blockedDetail["impossibleEdgeIds"].([]any))); got != 2 {
 		t.Fatalf("expected two impossible edge ids after cancellation, got %#v", blockedDetail)
 	}
-	if got := outputStringList(*latest, outputKeyActiveChildRunIDs); len(got) != 0 {
+	if got := outputStringList(latest, outputKeyActiveChildRunIDs); len(got) != 0 {
 		t.Fatalf("expected no active child runs after gate block, got %#v", got)
 	}
-	if got := outputStringList(*latest, outputKeyProcessedChildTerminalIDs); !slices.Equal(got, []string{"child-run-1"}) {
+	if got := outputStringList(latest, outputKeyProcessedChildTerminalIDs); !slices.Equal(got, []string{"child-run-1"}) {
 		t.Fatalf("expected only the failed child to be marked processed, got %#v", got)
 	}
+}
+
+func assertBlockedANDGateFailureSummary(t *testing.T, latest agentruns.Run) {
+	t.Helper()
+
 	failureSummary, ok := latest.Outputs[outputKeyFailureSummary].(map[string]any)
 	if !ok {
 		t.Fatalf("expected failure summary, got %#v", latest.Outputs)
@@ -735,10 +758,15 @@ func TestRuntimeHandleTerminalChildRunUpdateBlocksANDGateWhenRequiredCompletionB
 			t.Fatalf("expected failure details to capture both impossible edge ids after cancellation, got %#v", gateDetail)
 		}
 	}
+}
+
+func assertBlockedANDGateCancellationAndEvents(t *testing.T, fixture runtimeFixture, latest agentruns.Run) {
+	t.Helper()
+
 	if got := fixture.managedStopper.stopped; !slices.Equal(got, []string{"child-run-2"}) {
 		t.Fatalf("expected running sibling child to be cancelled, got %#v", got)
 	}
-	if got := eventTypes(*latest); !slices.Equal(got[len(got)-5:], []string{
+	if got := eventTypes(latest); !slices.Equal(got[len(got)-5:], []string{
 		"child_run_failed",
 		"gate_blocked",
 		"child_runs_cancelled",
@@ -760,85 +788,115 @@ func TestRuntimeHandleTerminalChildRunUpdateBlocksORAndXORWhenAllMatchingOutputs
 		projectstate.StateMachineGateTypeXOR,
 	} {
 		t.Run(string(gateType), func(t *testing.T) {
-			fixture := newSignalRuntimeFixtureForProjectWithProfiles(
-				t,
-				gateRuntimeTestProject(t, "workflow-gate-"+strings.ToLower(string(gateType)), gateType, []string{"chat-a", "chat-b"}, nil),
-				nil,
-				[]string{"chat-managed-1", "chat-managed-2"},
-				[]string{"child-run-1", "child-run-2"},
-			)
-
-			_, err := fixture.runtime.StartRun("project-alpha", "workflow-gate-"+strings.ToLower(string(gateType)), nil, nil)
-			if err != nil {
-				t.Fatalf("StartRun returned error: %v", err)
-			}
-
-			firstFailed := setChildRunStatus(t, fixture, "child-run-1", agentruns.RunStatusFailed)
-			waiting, err := fixture.runtime.HandleTerminalChildRunUpdate(firstFailed)
-			if err != nil {
-				t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-			}
-			if waiting == nil {
-				t.Fatal("expected updated parent run after first failed child")
-			}
-			if waiting.Status != agentruns.RunStatusRunning {
-				t.Fatalf("expected workflow to keep running while one qualifying completion remains possible, got %#v", waiting)
-			}
-
-			secondFailed := setChildRunStatus(t, fixture, "child-run-2", agentruns.RunStatusFailed)
-			latest, err := fixture.runtime.HandleTerminalChildRunUpdate(secondFailed)
-			if err != nil {
-				t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
-			}
-			if latest == nil {
-				t.Fatal("expected updated parent run after second failed child")
-			}
-			if latest.Status != agentruns.RunStatusFailed {
-				t.Fatalf("expected failed parent run after all matching outputs were exhausted, got %#v", latest)
-			}
-			if got := outputMap(*latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
-				t.Fatalf("expected blocked gate status, got %#v", outputMap(*latest, outputKeyGateStatuses))
-			}
-			if got := outputStringList(*latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
-				t.Fatalf("expected blocked gate output, got %#v", got)
-			}
-			blockedDetail, ok := outputMap(*latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
-			if !ok {
-				t.Fatalf("expected blocked gate detail, got %#v", outputMap(*latest, outputKeyBlockedGateDetailsByID))
-			}
-			if blockedDetail["gateType"] != string(gateType) {
-				t.Fatalf("expected %s gate detail, got %#v", gateType, blockedDetail)
-			}
-			if got := len(anySliceToStrings(blockedDetail["requiredEdgeIds"].([]any))); got != 2 {
-				t.Fatalf("expected two required edge ids, got %#v", blockedDetail)
-			}
-			if got := len(anySliceToStrings(blockedDetail["impossibleEdgeIds"].([]any))); got != 2 {
-				t.Fatalf("expected two impossible edge ids, got %#v", blockedDetail)
-			}
-			if got := outputStringList(*latest, outputKeyReachedEndSectionIDs); len(got) != 0 {
-				t.Fatalf("expected no reached ends for blocked workflow, got %#v", got)
-			}
-			if got := outputStringList(*latest, outputKeyActiveChildRunIDs); len(got) != 0 {
-				t.Fatalf("expected no active child runs after gate block, got %#v", got)
-			}
-			failureSummary, ok := latest.Outputs[outputKeyFailureSummary].(map[string]any)
-			if !ok {
-				t.Fatalf("expected failure summary, got %#v", latest.Outputs)
-			}
-			if failureSummary["reason"] != "run_blocked" {
-				t.Fatalf("expected run_blocked failure reason, got %#v", failureSummary)
-			}
-			if failureSummary["message"] != "Workflow blocked at gate gate-section." {
-				t.Fatalf("expected gate-blocked failure message, got %#v", failureSummary)
-			}
-			if got := eventTypes(*latest); !slices.Equal(got[len(got)-3:], []string{
-				"gate_blocked",
-				"run_blocked",
-				"run_failed",
-			}) {
-				t.Fatalf("expected blocked gate event tail, got %#v", got)
-			}
+			runBlockedORXORGateExhaustionCase(t, gateType)
 		})
+	}
+}
+
+func runBlockedORXORGateExhaustionCase(t *testing.T, gateType projectstate.StateMachineGateType) {
+	t.Helper()
+
+	workflowID := "workflow-gate-" + strings.ToLower(string(gateType))
+	fixture := newSignalRuntimeFixtureForProjectWithProfiles(
+		t,
+		gateRuntimeTestProject(t, workflowID, gateType, []string{"chat-a", "chat-b"}, nil),
+		nil,
+		[]string{"chat-managed-1", "chat-managed-2"},
+		[]string{"child-run-1", "child-run-2"},
+	)
+	if _, err := fixture.runtime.StartRun("project-alpha", workflowID, nil, nil); err != nil {
+		t.Fatalf("StartRun returned error: %v", err)
+	}
+
+	waiting := handleTerminalChildRunUpdateForGateTest(t, fixture, "child-run-1", agentruns.RunStatusFailed)
+	if waiting.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected workflow to keep running while one qualifying completion remains possible, got %#v", waiting)
+	}
+	latest := handleTerminalChildRunUpdateForGateTest(t, fixture, "child-run-2", agentruns.RunStatusFailed)
+	assertBlockedORXORGateExhaustion(t, latest, gateType)
+}
+
+func handleTerminalChildRunUpdateForGateTest(
+	t *testing.T,
+	fixture runtimeFixture,
+	childRunID string,
+	status agentruns.RunStatus,
+) agentruns.Run {
+	t.Helper()
+
+	updated, err := fixture.runtime.HandleTerminalChildRunUpdate(setChildRunStatus(t, fixture, childRunID, status))
+	if err != nil {
+		t.Fatalf("HandleTerminalChildRunUpdate returned error: %v", err)
+	}
+	if updated == nil {
+		t.Fatalf("expected updated parent run after %s became %s", childRunID, status)
+	}
+	return *updated
+}
+
+func assertBlockedORXORGateExhaustion(
+	t *testing.T,
+	latest agentruns.Run,
+	gateType projectstate.StateMachineGateType,
+) {
+	t.Helper()
+
+	if latest.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed parent run after all matching outputs were exhausted, got %#v", latest)
+	}
+	assertBlockedGateOutputs(t, latest, string(gateType))
+	if got := outputStringList(latest, outputKeyReachedEndSectionIDs); len(got) != 0 {
+		t.Fatalf("expected no reached ends for blocked workflow, got %#v", got)
+	}
+	if got := outputStringList(latest, outputKeyActiveChildRunIDs); len(got) != 0 {
+		t.Fatalf("expected no active child runs after gate block, got %#v", got)
+	}
+	assertGateBlockedFailureSummary(t, latest)
+	if got := eventTypes(latest); !slices.Equal(got[len(got)-3:], []string{
+		"gate_blocked",
+		"run_blocked",
+		"run_failed",
+	}) {
+		t.Fatalf("expected blocked gate event tail, got %#v", got)
+	}
+}
+
+func assertBlockedGateOutputs(t *testing.T, latest agentruns.Run, expectedGateType string) {
+	t.Helper()
+
+	if got := outputMap(latest, outputKeyGateStatuses)["gate-section"]; got != "blocked" {
+		t.Fatalf("expected blocked gate status, got %#v", outputMap(latest, outputKeyGateStatuses))
+	}
+	if got := outputStringList(latest, outputKeyBlockedGateSectionIDs); !slices.Equal(got, []string{"gate-section"}) {
+		t.Fatalf("expected blocked gate output, got %#v", got)
+	}
+	blockedDetail, ok := outputMap(latest, outputKeyBlockedGateDetailsByID)["gate-section"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected blocked gate detail, got %#v", outputMap(latest, outputKeyBlockedGateDetailsByID))
+	}
+	if blockedDetail["gateType"] != expectedGateType {
+		t.Fatalf("expected %s gate detail, got %#v", expectedGateType, blockedDetail)
+	}
+	if got := len(anySliceToStrings(blockedDetail["requiredEdgeIds"].([]any))); got != 2 {
+		t.Fatalf("expected two required edge ids, got %#v", blockedDetail)
+	}
+	if got := len(anySliceToStrings(blockedDetail["impossibleEdgeIds"].([]any))); got != 2 {
+		t.Fatalf("expected two impossible edge ids, got %#v", blockedDetail)
+	}
+}
+
+func assertGateBlockedFailureSummary(t *testing.T, latest agentruns.Run) {
+	t.Helper()
+
+	failureSummary, ok := latest.Outputs[outputKeyFailureSummary].(map[string]any)
+	if !ok {
+		t.Fatalf("expected failure summary, got %#v", latest.Outputs)
+	}
+	if failureSummary["reason"] != "run_blocked" {
+		t.Fatalf("expected run_blocked failure reason, got %#v", failureSummary)
+	}
+	if failureSummary["message"] != "Workflow blocked at gate gate-section." {
+		t.Fatalf("expected gate-blocked failure message, got %#v", failureSummary)
 	}
 }
 
@@ -1152,21 +1210,33 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpCha
 	if updated == nil {
 		t.Fatal("expected updated parent run")
 	}
+	assertFollowUpParentRunState(t, *updated, parentRun.ID)
+	assertFollowUpChildRunDispatch(t, fixture, *updated)
+}
+
+func assertFollowUpParentRunState(t *testing.T, updated agentruns.Run, parentRunID string) {
+	t.Helper()
+
 	if updated.Status != agentruns.RunStatusRunning {
 		t.Fatalf("expected running parent run after follow-up dispatch, got %#v", updated)
 	}
-	if updated.ID != parentRun.ID {
-		t.Fatalf("expected same parent run id %q, got %q", parentRun.ID, updated.ID)
+	if updated.ID != parentRunID {
+		t.Fatalf("expected same parent run id %q, got %q", parentRunID, updated.ID)
 	}
-	if got := outputStringList(*updated, outputKeyProcessedChildTerminalIDs); len(got) != 1 || got[0] != "child-run-1" {
+	if got := outputStringList(updated, outputKeyProcessedChildTerminalIDs); len(got) != 1 || got[0] != "child-run-1" {
 		t.Fatalf("expected processed child-run-1 tracking, got %#v", got)
 	}
-	if got := outputStringList(*updated, outputKeyChildRunIDs); !sameStringMembers(got, []string{"child-run-1", "child-run-2"}) {
+	if got := outputStringList(updated, outputKeyChildRunIDs); !sameStringMembers(got, []string{"child-run-1", "child-run-2"}) {
 		t.Fatalf("expected both child runs to be tracked, got %#v", got)
 	}
-	if got := outputStringList(*updated, outputKeyActiveChildRunIDs); len(got) != 1 || got[0] != "child-run-2" {
+	if got := outputStringList(updated, outputKeyActiveChildRunIDs); len(got) != 1 || got[0] != "child-run-2" {
 		t.Fatalf("expected follow-up child run to stay active, got %#v", got)
 	}
+}
+
+func assertFollowUpChildRunDispatch(t *testing.T, fixture runtimeFixture, updated agentruns.Run) {
+	t.Helper()
+
 	if len(fixture.managedStarter.requests) != 2 {
 		t.Fatalf("expected second managed chat dispatch for follow-up chat, got %#v", fixture.managedStarter.requests)
 	}
@@ -1177,7 +1247,7 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpCha
 	if runInputString(secondChildRun, inputKeyStateMachineTargetSection) != "chat-b" {
 		t.Fatalf("expected follow-up child run to target chat-b, got %#v", secondChildRun.Inputs)
 	}
-	if got := outputListOfMaps(*updated, outputKeyDispatchedEdgeActions); len(got) != 1 {
+	if got := outputListOfMaps(updated, outputKeyDispatchedEdgeActions); len(got) != 1 {
 		t.Fatalf("expected one follow-up dispatched edge action, got %#v", got)
 	} else {
 		if got[0]["edgeId"] != "edge-chat-a-chat-b" {
@@ -1190,7 +1260,7 @@ func TestRuntimeHandleTerminalChildRunUpdateRoutesCompletedChildRunToFollowUpCha
 			t.Fatalf("expected follow-up child run id child-run-2, got %#v", got[0])
 		}
 	}
-	if got := eventTypes(*updated); !slices.Equal(got[len(got)-3:], []string{
+	if got := eventTypes(updated); !slices.Equal(got[len(got)-3:], []string{
 		"child_run_completed",
 		"child_run_edges_activated",
 		"edge_action_dispatched",
