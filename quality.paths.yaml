@@ -18,7 +18,7 @@ python_tests:
   include_globs:
     - "tests/**/*.py"
   file_length:
-    max_lines: 1800
+    max_lines: 1500
 
 frontend:
   generated_globs:
