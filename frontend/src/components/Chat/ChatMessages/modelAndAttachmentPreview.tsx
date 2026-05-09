@@ -171,7 +171,7 @@ export const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 export const TOOL_CALL_RAIL_BACKGROUND_CLASS =
   "bg-setta-100/75 dark:bg-setta-800/75";
 
-export const ACTIVITY_ROW_HOVER_CLASS =
+const ACTIVITY_ROW_HOVER_CLASS =
   "hover:bg-setta-100/35 dark:hover:bg-setta-900/55";
 
 export const ACTIVITY_CHILD_TRIGGER_CLASS =
@@ -204,10 +204,10 @@ export const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group group/chat-activity-paren
 export const ACTIVITY_COUNT_BADGE_CLASS =
   "inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200";
 
-export const ACTIVITY_COPY_BUTTON_BASE_CLASS =
+const ACTIVITY_COPY_BUTTON_BASE_CLASS =
   "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] text-setta-500 transition-colors hover:bg-setta-200/80 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:text-setta-300 dark:hover:bg-setta-700 dark:hover:text-setta-100";
 
-export const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
+const ACTIVITY_SECTION_COPY_BUTTON_CLASS = `${ACTIVITY_COPY_BUTTON_BASE_CLASS} bg-setta-100/90 dark:bg-setta-800/85`;
 
 export const ACTIVITY_ITEM_HOVER_COPY_BUTTON_CLASS = `${ACTIVITY_SECTION_COPY_BUTTON_CLASS} opacity-0 pointer-events-none transition-opacity group-hover/chat-activity-row:opacity-100 group-hover/chat-activity-row:pointer-events-auto group-focus-within/chat-activity-row:opacity-100 group-focus-within/chat-activity-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto`;
 
@@ -344,7 +344,7 @@ export async function fetchAttachmentTextPreview(
   };
 }
 
-export function renderAttachmentLoadingState(icon: ReactNode): ReactNode {
+function renderAttachmentLoadingState(icon: ReactNode): ReactNode {
   return (
     <div className="flex flex-col items-center gap-2 text-sm text-setta-400 dark:text-setta-500">
       <div>{icon}</div>
@@ -353,7 +353,7 @@ export function renderAttachmentLoadingState(icon: ReactNode): ReactNode {
   );
 }
 
-export function renderAttachmentTextPreview(
+function renderAttachmentTextPreview(
   preview: AttachmentTextPreview,
 ): ReactNode {
   return (
@@ -370,7 +370,7 @@ export function renderAttachmentTextPreview(
   );
 }
 
-export function renderImageAttachmentPreview({
+function renderImageAttachmentPreview({
   attachment,
   attachmentUrl,
   onImageError,
@@ -395,7 +395,7 @@ export function renderImageAttachmentPreview({
   );
 }
 
-export function renderTextAttachmentPreviewCard({
+function renderTextAttachmentPreviewCard({
   attachment,
   preview,
   renderFileCard,
@@ -418,7 +418,7 @@ export function renderTextAttachmentPreviewCard({
   );
 }
 
-export function renderPdfAttachmentPreview({
+function renderPdfAttachmentPreview({
   attachment,
   attachmentUrl,
   renderFileCard,
@@ -460,7 +460,7 @@ export function renderPdfAttachmentPreview({
   );
 }
 
-export function renderAudioAttachmentPreview({
+function renderAudioAttachmentPreview({
   attachment,
   attachmentUrl,
   renderFileCard,
@@ -489,7 +489,7 @@ export function renderAudioAttachmentPreview({
   );
 }
 
-export function renderVideoAttachmentPreview({
+function renderVideoAttachmentPreview({
   attachment,
   attachmentUrl,
   renderFileCard,
@@ -518,7 +518,7 @@ export function renderVideoAttachmentPreview({
   );
 }
 
-export function renderFallbackAttachmentPreview({
+function renderFallbackAttachmentPreview({
   attachment,
   previewKind,
   renderFileCard,
@@ -660,9 +660,7 @@ export function assignScrollRef(
   scrollRef.current = nextNode;
 }
 
-export function clearActiveSearchHighlightTargets(
-  scrollContainer: HTMLDivElement,
-) {
+function clearActiveSearchHighlightTargets(scrollContainer: HTMLDivElement) {
   const highlights = scrollContainer.querySelectorAll<HTMLElement>(
     'mark[data-chat-search-highlight="true"]',
   );
@@ -672,14 +670,14 @@ export function clearActiveSearchHighlightTargets(
   return highlights;
 }
 
-export function resolveSearchMatchCount(args: {
+function resolveSearchMatchCount(args: {
   conversationSearchTerms: Array<string>;
   highlights: NodeListOf<HTMLElement>;
 }): number {
   return args.conversationSearchTerms.length === 0 ? 0 : args.highlights.length;
 }
 
-export function resolveActiveSearchMessageId(
+function resolveActiveSearchMessageId(
   activeHighlight: HTMLElement | null,
 ): string | null {
   return (
@@ -756,7 +754,7 @@ export const CHAT_MARKDOWN_COMPONENTS: Components = {
   ),
 };
 
-export function buildInitialAnimatedStreamingCharacters(
+function buildInitialAnimatedStreamingCharacters(
   text: string,
 ): Array<AnimatedStreamingCharacter> {
   let nextId = 0;
@@ -767,7 +765,7 @@ export function buildInitialAnimatedStreamingCharacters(
   }));
 }
 
-export function useAnimatedStreamingCharacters(
+function useAnimatedStreamingCharacters(
   text: string,
   enabled: boolean,
 ): Array<AnimatedStreamingCharacter> {

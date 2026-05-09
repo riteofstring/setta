@@ -1,80 +1,8 @@
-import {
-  AgenticEdgeKindEnum,
-  type AgenticEdge,
-  type TopLevelSectionLayout,
-} from "utils/generatedTypes";
-
 import type { GpuPoint } from "../../viewportMath";
 
 import { type GpuEdgeSide } from "../edgeGeometry";
 
-import {
-  GpuEdgeFamily,
-  GpuEdgeNodeFrame,
-  NodeAnchorSide,
-  WorkflowEdge,
-} from "./edgeScene";
-
-export function getNodeFrameWidth(
-  node: GpuEdgeNodeFrame | undefined,
-): number | null | undefined {
-  return node ? node.width : null;
-}
-
-export function getNodeFrameHeight(
-  node: GpuEdgeNodeFrame | undefined,
-): number | null | undefined {
-  return node ? node.height : null;
-}
-
-export function getFallbackFrameWidth(
-  fallback: TopLevelSectionLayout | undefined,
-): number | null | undefined {
-  return fallback ? fallback.w : null;
-}
-
-export function getFallbackFrameHeight(
-  fallback: TopLevelSectionLayout | undefined,
-): number | null | undefined {
-  return fallback ? fallback.h : null;
-}
-
-export function resolveNodeFrameX(
-  node: GpuEdgeNodeFrame | undefined,
-  fallback: TopLevelSectionLayout | undefined,
-): number {
-  if (node) {
-    return node.x;
-  }
-  return fallback ? fallback.x : 0;
-}
-
-export function resolveNodeFrameY(
-  node: GpuEdgeNodeFrame | undefined,
-  fallback: TopLevelSectionLayout | undefined,
-): number {
-  if (node) {
-    return node.y;
-  }
-  return fallback ? fallback.y : 0;
-}
-
-export function resolveNodeDimension(
-  primaryValue: number | null | undefined,
-  fallbackValue: TopLevelSectionLayout["w"],
-): number | null {
-  if (primaryValue !== null && primaryValue !== undefined && primaryValue > 0) {
-    return primaryValue;
-  }
-  if (
-    fallbackValue !== null &&
-    fallbackValue !== undefined &&
-    fallbackValue > 0
-  ) {
-    return fallbackValue;
-  }
-  return null;
-}
+import { GpuEdgeFamily, GpuEdgeNodeFrame, NodeAnchorSide } from "./edgeScene";
 
 export function resolveNodeAnchor(
   frame: GpuEdgeNodeFrame | null,
@@ -107,31 +35,11 @@ export function resolveRelativeAnchorSides(
   return { sourceSide: "left", targetSide: "right" };
 }
 
-export function getNodeCenterX(frame: GpuEdgeNodeFrame | null): number | null {
+function getNodeCenterX(frame: GpuEdgeNodeFrame | null): number | null {
   if (!frame || !frame.width) {
     return null;
   }
   return frame.x + frame.width / 2;
-}
-
-export function getWorkflowPromptSectionId(edge: WorkflowEdge): string | null {
-  if (edge.targetAction?.type !== "send_prompt") {
-    return null;
-  }
-  return edge.targetAction.promptSectionId ?? null;
-}
-
-export function getAgenticEdgeKey(
-  edge: Pick<AgenticEdge, "kind" | "sourceSectionId" | "targetSectionId">,
-): string {
-  if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
-    const [first, second] =
-      edge.sourceSectionId < edge.targetSectionId
-        ? [edge.sourceSectionId, edge.targetSectionId]
-        : [edge.targetSectionId, edge.sourceSectionId];
-    return `${edge.kind}:${first}:${second}`;
-  }
-  return `${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
 }
 
 export function getGpuSceneEdgeId(

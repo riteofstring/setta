@@ -8,7 +8,6 @@ export {
   useBrowserSectionFileBrowserState,
   useContextMenus,
   useDropzoneFileBrowserState,
-  useEdgeHandleRegistry,
   useFileBrowserState,
   useHomeFileBrowserState,
   useHomePageSearch,
@@ -35,8 +34,6 @@ export type {
   BackendLogEventsFilter,
   CustomRunAction,
   CustomRunItem,
-  EdgeHandlePosition,
-  EdgeHandleRecord,
   ListenerCoverageRecord,
   PendingOperation,
   ProjectChatAuxView,
@@ -44,6 +41,7 @@ export type {
   ZustandNodeInternalsState,
   ZustandProjectSearch,
   ZustandProjectState,
+  ZustandTypeErrors,
 } from "./definitions/storesCore";
 
 export {

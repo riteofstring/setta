@@ -60,7 +60,7 @@ import {
 
 import { formatToolResult } from "./messageListAndFormatting";
 
-export function StreamingMarkdownContent({
+function StreamingMarkdownContent({
   content,
   className,
   highlightTerms = [],
@@ -166,7 +166,7 @@ export function ThoughtPreviewMarkdown({
   );
 }
 
-export function StaticMarkdownContent({
+function StaticMarkdownContent({
   content,
   className,
   highlightTerms = [],
@@ -238,7 +238,7 @@ export function formatToolArgs(args: unknown) {
   }
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -284,7 +284,7 @@ export function extractNonEmptyStringArg(
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function resolveToolDisplayName(
+function resolveToolDisplayName(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): string | null {
@@ -296,7 +296,7 @@ export function resolveToolDisplayName(
   return normalizeToolName(entry.toolCall.function?.name);
 }
 
-export function resolveToolRawName(
+function resolveToolRawName(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): string {
@@ -316,7 +316,7 @@ export function resolveToolRawName(
   return "";
 }
 
-export function resolveToolCallDisplayKind(
+function resolveToolCallDisplayKind(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): ToolCallDisplayKind {
@@ -341,7 +341,7 @@ export function resolveToolCallDisplayKind(
   return "tool";
 }
 
-export function resolveRuntimeToolCategory(
+function resolveRuntimeToolCategory(
   toolName: string | null,
 ): "terminal" | "subagent" | null {
   if (!toolName) {
@@ -361,7 +361,7 @@ export function resolveRuntimeToolCategory(
   return null;
 }
 
-export function resolveActiveRuntimeDisplayKind(
+function resolveActiveRuntimeDisplayKind(
   entry: ToolCallRenderEntry,
   toolResultsById: Record<string, ToolChatMessage>,
 ): "terminal" | "subagent" | null {
@@ -376,7 +376,7 @@ export function resolveActiveRuntimeDisplayKind(
   );
 }
 
-export function hashStringToBase36(input: string): string {
+function hashStringToBase36(input: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < input.length; index += 1) {
     hash ^= input.charCodeAt(index);
@@ -385,7 +385,7 @@ export function hashStringToBase36(input: string): string {
   return (hash >>> 0).toString(36);
 }
 
-export function resolveThinkingTimerRunKey({
+function resolveThinkingTimerRunKey({
   messageId,
   itemIndex,
   item,
@@ -475,7 +475,7 @@ export function resolveActionLabel(name: string, args: unknown): string {
   return normalized || "Action";
 }
 
-export const FILE_READ_ACTION_NAMES = new Set<string>([
+const FILE_READ_ACTION_NAMES = new Set<string>([
   "read_file",
   "list_files",
   "search_files",
@@ -484,7 +484,7 @@ export const FILE_READ_ACTION_NAMES = new Set<string>([
   "grep",
 ]);
 
-export const FILE_EDIT_ACTION_NAMES = new Set<string>([
+const FILE_EDIT_ACTION_NAMES = new Set<string>([
   "file_change",
   "write_file",
   "edit_file",
@@ -494,19 +494,19 @@ export const FILE_EDIT_ACTION_NAMES = new Set<string>([
   "create_file",
 ]);
 
-export const FILE_DELETE_ACTION_NAMES = new Set<string>([
+const FILE_DELETE_ACTION_NAMES = new Set<string>([
   "delete_file",
   "remove_file",
   "unlink_file",
 ]);
 
-export function resolveToolNameSuffix(name: string): string {
+function resolveToolNameSuffix(name: string): string {
   const segments = name.split("__");
   const suffix = segments[segments.length - 1];
   return suffix ?? name;
 }
 
-export function toolNameMatchesActionSet(
+function toolNameMatchesActionSet(
   name: string,
   actionNames: Set<string>,
 ): boolean {
@@ -516,7 +516,7 @@ export function toolNameMatchesActionSet(
   return actionNames.has(resolveToolNameSuffix(name));
 }
 
-export function resolveActionOperation(args: unknown): string | null {
+function resolveActionOperation(args: unknown): string | null {
   const operationKeys = [
     "operation",
     "action",
@@ -533,7 +533,7 @@ export function resolveActionOperation(args: unknown): string | null {
   return null;
 }
 
-export function diffRepresentsDeletion(diffText: string): boolean {
+function diffRepresentsDeletion(diffText: string): boolean {
   const normalized = diffText.toLowerCase();
   return (
     normalized.includes("deleted file mode ") ||
@@ -541,7 +541,7 @@ export function diffRepresentsDeletion(diffText: string): boolean {
   );
 }
 
-export function resolveDiffTextFromUnknown(value: unknown): string | null {
+function resolveDiffTextFromUnknown(value: unknown): string | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -556,7 +556,7 @@ export function resolveDiffTextFromUnknown(value: unknown): string | null {
   return diff;
 }
 
-export function resolveActionIconFromOperation(
+function resolveActionIconFromOperation(
   operation: string | null,
 ): ReactNode | null {
   if (!operation) {
@@ -576,7 +576,7 @@ export function resolveActionIconFromOperation(
   return null;
 }
 
-export function isDeletedFileChange(
+function isDeletedFileChange(
   normalizedName: string,
   args: unknown,
   result: ToolResultValue | undefined,
@@ -589,7 +589,7 @@ export function isDeletedFileChange(
   );
 }
 
-export function resolveActionIconFromToolName(
+function resolveActionIconFromToolName(
   normalizedName: string,
 ): ReactNode | null {
   if (normalizedName === "command_execution") {
@@ -639,7 +639,7 @@ export function resolveActionRailIcon({
   );
 }
 
-export function resolveToolResultDisplay(
+function resolveToolResultDisplay(
   result: ToolResultValue | undefined,
 ): string | null {
   if (typeof result === "string") {
@@ -658,7 +658,7 @@ export function resolveToolResultDisplay(
   return null;
 }
 
-export function resolveCompactionSummaryText(
+function resolveCompactionSummaryText(
   entries: ToolCallRenderEntry[],
   toolResultsById: Record<string, ToolChatMessage>,
   toolCallArguments: Record<string, string>,
@@ -680,7 +680,7 @@ export function resolveCompactionSummaryText(
   return null;
 }
 
-export function resolveCompactionSummaryEntryText(args: {
+function resolveCompactionSummaryEntryText(args: {
   entry: ToolCallRenderEntry;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;

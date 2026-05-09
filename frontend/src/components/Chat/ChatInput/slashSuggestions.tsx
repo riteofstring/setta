@@ -22,7 +22,7 @@ import {
   SLASH_SUGGESTIONS_ROW_HEIGHT_PX,
 } from "./shared";
 
-export function resolveSlashSuggestionsPlacement(args: {
+function resolveSlashSuggestionsPlacement(args: {
   estimatedMenuHeight: number;
   slashSuggestionsPlacement: "auto" | "above" | "below";
   spaceAbove: number;
@@ -45,7 +45,7 @@ export function resolveSlashSuggestionsPlacement(args: {
     : "above";
 }
 
-export function resolveSlashSuggestionsPortalStyle(args: {
+function resolveSlashSuggestionsPortalStyle(args: {
   inputRect: DOMRect;
   nextPlacement: "above" | "below";
 }): CSSProperties {
@@ -106,7 +106,7 @@ export function resolveSlashSuggestionsPortalStyle(args: {
   };
 }
 
-export function resolveSlashSuggestionsDisplayState(args: {
+function resolveSlashSuggestionsDisplayState(args: {
   resolvedSlashPlacement: "above" | "below";
   shouldShowSlashSuggestions: boolean;
   slashSuggestionsPortalStyle: CSSProperties | null;

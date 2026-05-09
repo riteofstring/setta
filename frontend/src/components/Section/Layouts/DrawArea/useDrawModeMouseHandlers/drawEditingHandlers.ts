@@ -213,7 +213,7 @@ export function editingOnMouseDown({
   };
 }
 
-export function tryStartResizeHandleDrag({
+function tryStartResizeHandleDrag({
   x,
   y,
   selectedIdx,
@@ -256,7 +256,7 @@ export function tryStartResizeHandleDrag({
   return true;
 }
 
-export function findResizeHandleIndex(
+function findResizeHandleIndex(
   x: number,
   y: number,
   corners: ResizeHandleCorners,
@@ -274,7 +274,7 @@ export function findResizeHandleIndex(
   return null;
 }
 
-export function resolveLocalSelectionAtPoint({
+function resolveLocalSelectionAtPoint({
   x,
   y,
   localTransforms,
@@ -308,7 +308,7 @@ export function resolveLocalSelectionAtPoint({
   return null;
 }
 
-export function getLocalSelectionBounds({
+function getLocalSelectionBounds({
   x,
   y,
   local,
@@ -344,17 +344,13 @@ export function getLocalSelectionBounds({
   return null;
 }
 
-export function isPointInBounds(
-  x: number,
-  y: number,
-  bounds: ResizeBounds,
-): boolean {
+function isPointInBounds(x: number, y: number, bounds: ResizeBounds): boolean {
   return (
     x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY
   );
 }
 
-export function clearEditSelectionState({
+function clearEditSelectionState({
   selectedIdx,
   resizeHandleCorners,
   isDragging,
@@ -465,7 +461,7 @@ export function editingOnMouseMove({
   };
 }
 
-export function hasActiveEditInteraction({
+function hasActiveEditInteraction({
   isDragging,
   draggedIdx,
   resizeHandle,
@@ -482,7 +478,7 @@ export function hasActiveEditInteraction({
   );
 }
 
-export function hasActiveResizeInteraction({
+function hasActiveResizeInteraction({
   resizeHandle,
   selectedIdx,
   resizeHandleCorners,
@@ -498,7 +494,7 @@ export function hasActiveResizeInteraction({
   );
 }
 
-export function getMouseDelta(
+function getMouseDelta(
   lastPos: React.RefObject<CanvasPointXY | null>,
   nextPos: CanvasPointXY,
 ): { dx: number; dy: number } | null {
@@ -514,7 +510,7 @@ export function getMouseDelta(
   };
 }
 
-export function moveDraggedSelection({
+function moveDraggedSelection({
   draggedIdx,
   localArtifactTransformsRef,
   resizeHandleCorners,
@@ -551,7 +547,7 @@ export function moveDraggedSelection({
   return true;
 }
 
-export function resizeSelectedArtifact({
+function resizeSelectedArtifact({
   selectedIdx,
   localArtifactTransformsRef,
   resizeHandle,
@@ -602,7 +598,7 @@ export function resizeSelectedArtifact({
   return false;
 }
 
-export function resizeSelectedImage({
+function resizeSelectedImage({
   local,
   resizeHandle,
   dx,
@@ -642,7 +638,7 @@ export function resizeSelectedImage({
   return preserveAspectRatio ? getImageBounds(image, local.transform) : null;
 }
 
-export function resizeSelectedBrushStroke({
+function resizeSelectedBrushStroke({
   local,
   resizeHandleIdx,
   resizeHandleCorners,
@@ -721,14 +717,11 @@ export function resolveAspectRatioResizeDeltas({
   };
 }
 
-export function resolveSignedMagnitude(
-  value: number,
-  magnitude: number,
-): number {
+function resolveSignedMagnitude(value: number, magnitude: number): number {
   return value > 0 ? magnitude : -magnitude;
 }
 
-export function flipDerivedAspectRatioDelta(
+function flipDerivedAspectRatioDelta(
   resizeHandleIdx: number,
   value: number,
 ): number {
@@ -773,7 +766,7 @@ export function applyBrushHandleResize({
   );
 }
 
-export function applyScaleAroundAnchor(
+function applyScaleAroundAnchor(
   transform: LocalLayerItemState["transform"],
   anchorX: number,
   anchorY: number,
@@ -786,7 +779,7 @@ export function applyScaleAroundAnchor(
   transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
 }
 
-export function updateResizeHandleCornersAfterMove({
+function updateResizeHandleCornersAfterMove({
   resizeHandle,
   resizeHandleCorners,
   preserveAspectRatio,

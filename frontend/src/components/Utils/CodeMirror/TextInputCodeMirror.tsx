@@ -31,6 +31,7 @@ export function TextInputCodeMirror({
   dummyDivId,
   tooltipParentDivId,
   autocomplete = true,
+  focusActiveSectionOnMouseDown = true,
   isKeyName = false,
   isDisabled = false,
   completionsFn,
@@ -62,7 +63,9 @@ export function TextInputCodeMirror({
     }
     if (event.button === 0) {
       setActivationEvent(event);
-      applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      if (focusActiveSectionOnMouseDown) {
+        applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      }
     }
     onMouseDown?.(event);
   }

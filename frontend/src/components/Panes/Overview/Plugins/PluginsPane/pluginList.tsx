@@ -636,7 +636,7 @@ export function PluginCapabilitiesSection({
   );
 }
 
-export function runPluginCommand(
+function runPluginCommand(
   pluginId: string,
   command: PluginCommandSummary,
 ): void {
@@ -757,7 +757,7 @@ export function PluginPanesSection({
   );
 }
 
-export function resolveCapabilityUnavailableMessage({
+function resolveCapabilityUnavailableMessage({
   capability,
   status,
   reason,

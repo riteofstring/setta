@@ -11,8 +11,10 @@ export {
 } from "./edgeSources/edgeScene";
 
 export type {
+  GpuAgenticEdgeSource,
   GpuAgenticMissingEdgeSource,
   GpuConnectionLineSource,
+  GpuDataEdgeSource,
   GpuEdgeFamily,
   GpuEdgeHandlePosition,
   GpuEdgeNodeFrame,
@@ -21,4 +23,5 @@ export type {
   GpuEdgeSceneEntry,
   GpuEdgeSceneHitTestResult,
   GpuEdgeSceneLabel,
+  GpuWorkflowEdgeSource,
 } from "./edgeSources/edgeScene";

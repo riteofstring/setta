@@ -68,7 +68,7 @@ import {
 
 import { SelectedProjectDetails } from "./projectListItems";
 
-export const HOME_MIN_PANE_WIDTH = 260;
+const HOME_MIN_PANE_WIDTH = 260;
 
 export const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
@@ -81,22 +81,22 @@ export const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
 
 export const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 
-export const HOME_PANE_TITLE_CLASS =
+const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
 
-export const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
+const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 
-export const HOME_INSET_PANE_CONTENT_CLASS =
+const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 
-export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
+const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed flex w-10 flex-col items-center gap-1 bg-setta-50 py-2 dark:bg-setta-900`;
 
-export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   HOME_PANE_TITLE_CLASS,
 );
 
-export const HOME_PROJECT_GALLERY_CLASS_NAMES = {
+const HOME_PROJECT_GALLERY_CLASS_NAMES = {
   default: {
     surface:
       "flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40",
@@ -114,9 +114,7 @@ export const HOME_PROJECT_GALLERY_CLASS_NAMES = {
 export type HomeProject = ProjectConfigMetadata &
   Partial<Pick<ProjectConfig, "previewImgColor" | "topLevelSections">>;
 
-export function shouldUseCompactHomeLayout(
-  winWidth: number | undefined,
-): boolean {
+function shouldUseCompactHomeLayout(winWidth: number | undefined): boolean {
   if (typeof winWidth === "number") {
     return winWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
   }
@@ -139,7 +137,7 @@ export function shouldApplyHomeFileBrowserPath({
   return nextPath !== currentRootPath;
 }
 
-export function partitionProjectsByFavoriteStatus({
+function partitionProjectsByFavoriteStatus({
   projects,
   favoriteProjectConfigIds,
 }: {
@@ -175,13 +173,11 @@ export function getHomeProjectConfigsSectionTitle(
   return "All Projects";
 }
 
-export function shouldOpenProjectOnListRowSpace(
-  selectionEnabled: boolean,
-): boolean {
+function shouldOpenProjectOnListRowSpace(selectionEnabled: boolean): boolean {
   return !selectionEnabled;
 }
 
-export function shouldShowCompactHomeSettingsButton({
+function shouldShowCompactHomeSettingsButton({
   isCompactLayout,
   isDeploymentMode,
 }: {
@@ -191,7 +187,7 @@ export function shouldShowCompactHomeSettingsButton({
   return isCompactLayout && !isDeploymentMode;
 }
 
-export function getNextActiveProjectId({
+function getNextActiveProjectId({
   activeProjectId,
   filteredProjects,
 }: {
@@ -210,7 +206,7 @@ export function getNextActiveProjectId({
   return filteredProjects[0]?.id ?? null;
 }
 
-export function resolveSelectedProjectDetails({
+function resolveSelectedProjectDetails({
   activeProjectId,
   filteredProjects,
   projects,
@@ -241,7 +237,7 @@ export function resolveSelectedProjectDetails({
   return filteredProjects[0] ?? null;
 }
 
-export function syncStoredFavoriteProjectIds({
+function syncStoredFavoriteProjectIds({
   hasLoadedProjectMetadata,
   projects,
 }: {
@@ -263,7 +259,7 @@ export function syncStoredFavoriteProjectIds({
   useLocalStorage.setState({ favoriteProjectConfigIds: nextFavoriteIds });
 }
 
-export function filterValidSelectedProjectIds(
+function filterValidSelectedProjectIds(
   previousProjects: Array<string>,
   validProjectIds: Set<string>,
 ): Array<string> {
@@ -279,7 +275,7 @@ export function filterValidSelectedProjectIds(
   return nextSelectedProjects;
 }
 
-export function selectSingleProjectId(
+function selectSingleProjectId(
   previousProjects: Array<string>,
   projectConfigId: string,
 ): Array<string> {
@@ -292,7 +288,7 @@ export function selectSingleProjectId(
   return [projectConfigId];
 }
 
-export function toggleSelectedProjectId(
+function toggleSelectedProjectId(
   previousProjects: Array<string>,
   projectConfigId: string,
 ): Array<string> {
@@ -304,7 +300,7 @@ export function toggleSelectedProjectId(
   return [...previousProjects, projectConfigId];
 }
 
-export function getDeleteProjectTargets({
+function getDeleteProjectTargets({
   projects,
   selectedProjects,
 }: {
@@ -317,7 +313,7 @@ export function getDeleteProjectTargets({
   }));
 }
 
-export function getHomePaneInset({
+function getHomePaneInset({
   paneVisible,
   paneWidth,
   showSidePanes,
@@ -485,7 +481,7 @@ export function HomePage() {
   );
 }
 
-export function HomeWorkspaceHeader({
+function HomeWorkspaceHeader({
   hasSelectedProjects,
   isDeploymentMode,
   onCreateProject,
@@ -548,7 +544,7 @@ export function HomeWorkspaceHeader({
   );
 }
 
-export function HomeWorkspaceLayout({
+function HomeWorkspaceLayout({
   projects,
   defaultProjectConfigId,
   setIsCreatingConfig,
@@ -798,22 +794,22 @@ export function HomeWorkspaceLayout({
   );
 }
 
-export function getHomeRailButtonColor(isActive: boolean): string {
+function getHomeRailButtonColor(isActive: boolean): string {
   if (isActive) {
     return "text-blue-500";
   }
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }
 
-export function toggleHomeWorkspacePaneVisibility() {
+function toggleHomeWorkspacePaneVisibility() {
   togglePaneVisibility(PaneNameEnum.homeWorkspace);
 }
 
-export function toggleHomeSelectedProjectPaneVisibility() {
+function toggleHomeSelectedProjectPaneVisibility() {
   togglePaneVisibility(PaneNameEnum.homeSelectedProject);
 }
 
-export function HomeLeftIconRail({
+function HomeLeftIconRail({
   workspacePaneVisible,
   isDeploymentMode,
 }: {
@@ -853,7 +849,7 @@ export function HomeLeftIconRail({
   );
 }
 
-export function HomeRightIconRail({
+function HomeRightIconRail({
   selectedProjectPaneVisible,
 }: {
   selectedProjectPaneVisible: boolean;

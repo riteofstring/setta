@@ -1,10 +1,3 @@
-import {
-  AgenticEdgeKindEnum,
-  createAgenticEdge,
-  createTopLevelSectionLayout,
-  type Edge,
-  type SingleConfig,
-} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildGpuAgenticEdgeEntries,
@@ -16,11 +9,13 @@ import {
   buildGpuWorkflowEdgeEntries,
   buildGpuWorkflowEdgeLabels,
   hitTestGpuEdgeScene,
+  type GpuAgenticEdgeSource,
+  type GpuAgenticMissingEdgeSource,
+  type GpuDataEdgeSource,
   type GpuEdgeHandlePosition,
   type GpuEdgeNodeFrame,
+  type GpuWorkflowEdgeSource,
 } from "./edgeSources";
-
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 describe("edgeSources", () => {
   it("derives data edges from active variants and registered handle positions", () => {
@@ -49,17 +44,15 @@ describe("edgeSources", () => {
           selected: true,
           sourcePortId: "out",
           sourceSectionId: "source",
-          sourceVariantId: "source-variant",
           style: { stroke: "#112233cc" },
           targetPortId: "in",
           targetSectionId: "target",
-          targetVariantId: "target-variant",
           type: "straight",
           zIndex: 5,
         }),
         createDataEdge({
-          id: "edge-inactive-variant",
-          sourceVariantId: "old-source-variant",
+          id: "edge-missing-handle",
+          sourcePortId: "missing",
         }),
         createDataEdge({
           hidden: true,
@@ -67,10 +60,6 @@ describe("edgeSources", () => {
         }),
       ],
       handlePositions,
-      sectionVariantMap: {
-        source: "source-variant",
-        target: "target-variant",
-      },
     });
 
     expect(entries).toHaveLength(1);
@@ -117,10 +106,8 @@ describe("edgeSources", () => {
           label: "count",
           sourcePortId: "out",
           sourceSectionId: "source",
-          sourceVariantId: "source-variant",
           targetPortId: "in",
           targetSectionId: "target",
-          targetVariantId: "target-variant",
           zIndex: 4,
         }),
         createDataEdge({
@@ -128,16 +115,12 @@ describe("edgeSources", () => {
           label: null,
         }),
         createDataEdge({
-          id: "edge-inactive",
+          id: "edge-missing-handle",
           label: "hidden by variant",
-          sourceVariantId: "old-source-variant",
+          sourcePortId: "missing",
         }),
       ],
       handlePositions,
-      sectionVariantMap: {
-        source: "source-variant",
-        target: "target-variant",
-      },
     });
 
     expect(labels).toEqual([
@@ -181,22 +164,16 @@ describe("edgeSources", () => {
           id: "edge-reconnect",
           sourcePortId: "out",
           sourceSectionId: "source",
-          sourceVariantId: "source-variant",
           targetPortId: "in",
           targetSectionId: "target",
-          targetVariantId: "target-variant",
           zIndex: 6,
         }),
         createDataEdge({
-          id: "edge-inactive",
-          sourceVariantId: "old-source-variant",
+          id: "edge-missing-handle",
+          sourcePortId: "missing",
         }),
       ],
       handlePositions,
-      sectionVariantMap: {
-        source: "source-variant",
-        target: "target-variant",
-      },
     });
 
     expect(anchors).toEqual([
@@ -233,31 +210,24 @@ describe("edgeSources", () => {
     const nodes = new Map<string, GpuEdgeNodeFrame>([
       ["chat-a", { height: 100, width: 180, x: 50, y: 40 }],
       ["chat-b", { height: 100, width: 180, x: 360, y: 40 }],
-      ["context", { height: null, width: null, x: 360, y: 220 }],
+      ["context", { height: 120, width: 220, x: 360, y: 220 }],
     ]);
-    const topLevelSections = {
-      context: createTopLevelSectionLayout({
-        h: 120,
-        w: 220,
-        x: 360,
-        y: 220,
-      }),
-    };
 
     const entries = buildGpuAgenticEdgeEntries({
       edges: [
-        createAgenticEdge({
+        createAgenticEdgeSource({
           id: "edge-chat-chat",
-          kind: AgenticEdgeKindEnum.chat_chat,
+          kind: "chat_chat",
           selected: true,
           sourceSectionId: "chat-b",
           style: { stroke: "#00ff00" },
           targetSectionId: "chat-a",
           zIndex: 3,
         }),
-        createAgenticEdge({
+        createAgenticEdgeSource({
           hidden: true,
           id: "edge-hidden",
+          kind: "hidden",
           sourceSectionId: "chat-a",
           targetSectionId: "context",
         }),
@@ -265,18 +235,17 @@ describe("edgeSources", () => {
       nodes,
       runningSourceSectionIds: new Set(["chat-b"]),
       scopeViolationEdges: [
-        {
-          kind: AgenticEdgeKindEnum.chat_chat,
+        createAgenticMissingEdgeSource({
+          kind: "chat_chat",
           sourceSectionId: "chat-a",
           targetSectionId: "chat-b",
-        },
-        {
-          kind: AgenticEdgeKindEnum.chat_section,
+        }),
+        createAgenticMissingEdgeSource({
+          kind: "chat_section",
           sourceSectionId: "chat-a",
           targetSectionId: "context",
-        },
+        }),
       ],
-      topLevelSections,
     });
 
     expect(entries.map((entry) => entry.family)).toEqual([
@@ -311,6 +280,25 @@ describe("edgeSources", () => {
     });
   });
 
+  it("omits node-anchor edges whose endpoints are missing from renderer frames", () => {
+    const nodes = new Map<string, GpuEdgeNodeFrame>([
+      ["chat-a", { height: 100, width: 180, x: 50, y: 40 }],
+    ]);
+
+    expect(
+      buildGpuAgenticEdgeEntries({
+        edges: [
+          createAgenticEdgeSource({
+            id: "missing-target",
+            sourceSectionId: "chat-a",
+            targetSectionId: "chat-b",
+          }),
+        ],
+        nodes,
+      }),
+    ).toEqual([]);
+  });
+
   it("derives workflow main edges and prompt-link geometry", () => {
     const nodes = new Map<string, GpuEdgeNodeFrame>([
       ["source", { height: 120, width: 200, x: 100, y: 80 }],
@@ -321,22 +309,10 @@ describe("edgeSources", () => {
       edges: [
         createWorkflowEdge({
           id: "workflow-a",
+          promptSectionId: "prompt",
           selected: true,
           sourceSectionId: "source",
           style: { stroke: "#abcdef" },
-          targetAction: {
-            agentProfileId: null,
-            engineConfigId: null,
-            inlinePrompt: null,
-            permissionMode: null,
-            promptInputs: {},
-            promptSectionId: "prompt",
-            promptTemplateId: null,
-            searchEnabled: null,
-            stopIfRunning: false,
-            threadStrategy: "continue_current_thread",
-            type: "send_prompt",
-          },
           targetSectionId: "target",
           zIndex: 8,
         }),
@@ -346,7 +322,6 @@ describe("edgeSources", () => {
         }),
       ],
       nodes,
-      topLevelSections: {},
     });
 
     expect(entries.map((entry) => entry.family)).toEqual([
@@ -390,29 +365,22 @@ describe("edgeSources", () => {
       edges: [
         createWorkflowEdge({
           id: "workflow-threshold",
-          sourceActivationCountCondition: {
-            operator: "gte",
-            value: 3,
-          },
+          sourceActivationLabel: "src count >= 3",
           sourceSectionId: "source",
           targetSectionId: "target",
           zIndex: 8,
         }),
         createWorkflowEdge({
           id: "workflow-no-condition",
-          sourceActivationCountCondition: null,
+          sourceActivationLabel: null,
         }),
         createWorkflowEdge({
           hidden: true,
           id: "workflow-hidden",
-          sourceActivationCountCondition: {
-            operator: "gte",
-            value: 1,
-          },
+          sourceActivationLabel: "src count >= 1",
         }),
       ],
       nodes,
-      topLevelSections: {},
     });
 
     expect(labels).toEqual([
@@ -506,18 +474,12 @@ describe("edgeSources", () => {
           label: "value",
           sourcePortId: "out",
           sourceSectionId: "source",
-          sourceVariantId: "source-variant",
           targetPortId: "in",
           targetSectionId: "target",
-          targetVariantId: "target-variant",
           type: "straight",
         }),
       ],
       handlePositions,
-      sectionVariantMap: {
-        source: "source-variant",
-        target: "target-variant",
-      },
     });
 
     expect(scene.entries.map((entry) => entry.edgeId)).toEqual([
@@ -584,10 +546,6 @@ describe("edgeSources", () => {
           }),
         ],
         handlePositions,
-        sectionVariantMap: {
-          source: "source-variant",
-          target: "target-variant",
-        },
       }),
     ).toThrow("Setta GPU data edge style.stroke requires a hex color");
   });
@@ -604,33 +562,90 @@ function createHandlePositions(
   );
 }
 
-function createDataEdge(options: Partial<Edge> = {}): Edge {
+type AgenticEdgeSourceOptions = Partial<GpuAgenticEdgeSource> & {
+  readonly kind?: string | undefined;
+};
+
+function createAgenticEdgeSource(
+  options: AgenticEdgeSourceOptions = {},
+): GpuAgenticEdgeSource {
+  const { kind = "chat_section", ...edgeOptions } = options;
+  const sourceSectionId = edgeOptions.sourceSectionId ?? "chat-a";
+  const targetSectionId = edgeOptions.targetSectionId ?? "context";
+  return {
+    dedupeKey:
+      edgeOptions.dedupeKey ??
+      getTestAgenticEdgeKey({ kind, sourceSectionId, targetSectionId }),
+    id: "agentic-edge",
+    sourceSectionId,
+    targetSectionId,
+    ...edgeOptions,
+  };
+}
+
+function createAgenticMissingEdgeSource({
+  kind = "chat_section",
+  sourceSectionId = "chat-a",
+  targetSectionId = "context",
+}: {
+  readonly kind?: string | undefined;
+  readonly sourceSectionId?: string | undefined;
+  readonly targetSectionId?: string | undefined;
+} = {}): GpuAgenticMissingEdgeSource {
+  return {
+    dedupeKey: getTestAgenticEdgeKey({
+      kind,
+      sourceSectionId,
+      targetSectionId,
+    }),
+    sourceSectionId,
+    targetSectionId,
+  };
+}
+
+function getTestAgenticEdgeKey({
+  kind,
+  sourceSectionId,
+  targetSectionId,
+}: {
+  readonly kind: string;
+  readonly sourceSectionId: string;
+  readonly targetSectionId: string;
+}): string {
+  if (kind === "chat_chat") {
+    const [first, second] =
+      sourceSectionId < targetSectionId
+        ? [sourceSectionId, targetSectionId]
+        : [targetSectionId, sourceSectionId];
+    return `${kind}:${first}:${second}`;
+  }
+  return `${kind}:${sourceSectionId}:${targetSectionId}`;
+}
+
+function createDataEdge(
+  options: Partial<GpuDataEdgeSource> = {},
+): GpuDataEdgeSource {
   return {
     id: "edge",
     sourcePortId: "out",
     sourceSectionId: "source",
-    sourceVariantId: "source-variant",
     targetPortId: "in",
     targetSectionId: "target",
-    targetVariantId: "target-variant",
     zIndex: 0,
     ...options,
   };
 }
 
-function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
+function createWorkflowEdge(
+  options: Partial<GpuWorkflowEdgeSource> = {},
+): GpuWorkflowEdgeSource {
   return {
     hidden: false,
     id: "workflow",
-    machineGroupId: "machine",
     selected: false,
-    sourceActivationCountCondition: null,
-    sourceFilter: null,
-    sourcePortId: "workflow-source",
+    sourceActivationLabel: null,
     sourceSectionId: "source",
     style: null,
-    targetAction: null,
-    targetPortId: "workflow-target",
     targetSectionId: "target",
     zIndex: 0,
     ...options,

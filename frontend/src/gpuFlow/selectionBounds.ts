@@ -1,4 +1,3 @@
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { getSectionBounds } from "./flowGeometry";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 import {
@@ -16,12 +15,6 @@ const EMPTY_SELECTION_BOUNDS: GpuRect = {
   x: 0,
   y: 0,
 };
-
-export function updateActiveNodesSelectionBounds(
-  options: GpuSelectionBoundsOptions = {},
-): void {
-  updateNodesSelectionBoundsForSections(getActiveSectionUIIds(), options);
-}
 
 export function updateNodesSelectionBoundsForSections(
   sectionIds: readonly string[],

@@ -1,41 +1,27 @@
 /* @vitest-environment jsdom */
 
 import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
-  isProjectGpuSelectionBoxDragDisabled,
-  isProjectGpuSelectionDisabled,
-  isProjectGpuViewportGestureDisabled,
   isProjectPaneBackgroundTarget,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
 } from "./gpuProjectInteractionGuards";
 
 describe("gpu project interaction guards", () => {
   it.each([
-    ["pan activation key", true, false, false, false],
-    ["AI follow transition", false, true, false, false],
-    ["dnd sorting mode", false, false, true, false],
-    ["dnd moving-free mode", false, false, false, true],
+    ["pan activation key", true, false],
+    ["AI follow transition", false, true],
   ])(
     "disables GPU direct node drag during %s",
-    (
-      _label,
-      panActivationKeyPressed,
-      isFollowTransitioning,
-      isSorting,
-      isMovingFree,
-    ) => {
+    (_label, panActivationKeyPressed, isFollowTransitioning) => {
       expect(
         isProjectGpuNodeDragDisabled({
-          dndMode: { isMovingFree, isSorting },
           isFollowTransitioning,
           panActivationKeyPressed,
         }),
@@ -46,7 +32,6 @@ describe("gpu project interaction guards", () => {
   it("allows GPU direct node drag in normal mode", () => {
     expect(
       isProjectGpuNodeDragDisabled({
-        dndMode: { isMovingFree: false, isSorting: false },
         isFollowTransitioning: false,
         panActivationKeyPressed: false,
       }),
@@ -54,50 +39,14 @@ describe("gpu project interaction guards", () => {
   });
 
   it.each([
-    ["dnd sorting mode", true, false],
-    ["dnd moving-free mode", false, true],
-  ])(
-    "disables GPU viewport gestures during %s",
-    (_label, isSorting, isMovingFree) => {
-      expect(
-        isProjectGpuViewportGestureDisabled({
-          dndMode: { isMovingFree, isSorting },
-        }),
-      ).toBe(true);
-    },
-  );
-
-  it("allows GPU viewport gestures during AI follow transitions so user input can cancel the animation", () => {
-    expect(
-      isProjectGpuViewportGestureDisabled({
-        dndMode: { isMovingFree: false, isSorting: false },
-      }),
-    ).toBe(false);
-  });
-
-  it("allows GPU viewport gestures in normal mode", () => {
-    expect(
-      isProjectGpuViewportGestureDisabled({
-        dndMode: { isMovingFree: false, isSorting: false },
-      }),
-    ).toBe(false);
-  });
-
-  it.each([
-    ["AI follow transition", false, false, false, true, false, false, false],
-    ["dnd sorting mode", true, false, false, false, false, false, false],
-    ["dnd moving-free mode", false, true, false, false, false, false, false],
-    ["active dnd drag", false, false, true, false, false, false, false],
-    ["viewport interaction", false, false, false, false, true, false, false],
-    ["user selection", false, false, false, false, false, true, false],
-    ["active connection", false, false, false, false, false, false, true],
+    ["AI follow transition", true, false, false, false],
+    ["viewport interaction", false, true, false, false],
+    ["user selection", false, false, true, false],
+    ["active connection", false, false, false, true],
   ])(
     "disables GPU edge interaction during %s",
     (
       _label,
-      isSorting,
-      isMovingFree,
-      isDndActive,
       isFollowTransitioning,
       viewportInteractionActive,
       userSelectionActive,
@@ -106,8 +55,6 @@ describe("gpu project interaction guards", () => {
       expect(
         isProjectGpuEdgeInteractionDisabled({
           connectionActive,
-          dndMode: { isMovingFree, isSorting },
-          isDndActive,
           isFollowTransitioning,
           userSelectionActive,
           viewportInteractionActive,
@@ -120,55 +67,9 @@ describe("gpu project interaction guards", () => {
     expect(
       isProjectGpuEdgeInteractionDisabled({
         connectionActive: false,
-        dndMode: { isMovingFree: false, isSorting: false },
-        isDndActive: false,
         isFollowTransitioning: false,
         userSelectionActive: false,
         viewportInteractionActive: false,
-      }),
-    ).toBe(false);
-  });
-
-  it.each([
-    ["dnd sorting mode", true, false],
-    ["dnd moving-free mode", false, true],
-  ])(
-    "disables GPU marquee selection during %s",
-    (_label, isSorting, isMovingFree) => {
-      expect(
-        isProjectGpuSelectionDisabled({
-          dndMode: { isMovingFree, isSorting },
-        }),
-      ).toBe(true);
-    },
-  );
-
-  it("allows GPU marquee selection in normal mode", () => {
-    expect(
-      isProjectGpuSelectionDisabled({
-        dndMode: { isMovingFree: false, isSorting: false },
-      }),
-    ).toBe(false);
-  });
-
-  it.each([
-    ["dnd sorting mode", true, false],
-    ["dnd moving-free mode", false, true],
-  ])(
-    "disables direct selection-box movement during %s",
-    (_label, isSorting, isMovingFree) => {
-      expect(
-        isProjectGpuSelectionBoxDragDisabled({
-          dndMode: { isMovingFree, isSorting },
-        }),
-      ).toBe(true);
-    },
-  );
-
-  it("allows direct selection-box movement in normal mode", () => {
-    expect(
-      isProjectGpuSelectionBoxDragDisabled({
-        dndMode: { isMovingFree: false, isSorting: false },
       }),
     ).toBe(false);
   });
@@ -219,11 +120,7 @@ describe("gpu project interaction guards", () => {
   it.each([
     ["GPU node", "setta-gpu-flow__node"],
     ["GPU flow node contract", "setta-gpu-flow__node"],
-    ["selection box", "setta-gpu-flow__nodes-selection-rect"],
-    ["marquee selection", "setta-gpu-flow__selection"],
     ["edge handle", "setta-gpu-flow__handle"],
-    ["edge reconnect handle", "setta-gpu-flow__edge-updater"],
-    ["GPU edge reconnect anchor", "setta-gpu-flow__edge-reconnect-anchor"],
     ["resize handle", "section-resize-handle"],
     ["nodrag target", NO_DRAG_CLASS_NAME],
     ["nopan target", NO_PAN_CLASS_NAME],
@@ -236,11 +133,23 @@ describe("gpu project interaction guards", () => {
   });
 
   it.each([
-    ["CodeMirror tooltip portal", CODEMIRROR_TOOLTIP_PARENT_ID],
-    ["popover portal", SETTA_POPOVER_PORTAL_PARENT_ID],
-  ])("rejects %s content as a pane background target", (_label, id) => {
+    ["retained DOM island", "gpuFlowDomIsland"],
+    ["retained content canvas", "gpuFlowRetainedContentCanvas"],
+    ["retained content native target", "gpuFlowRetainedContentNative"],
+    ["retained content source", "gpuFlowRetainedContentSource"],
+  ] as const)(
+    "rejects %s as a pane background target",
+    (_label, dataAttribute) => {
+      const { surface } = createProjectPaneFixture();
+      const target = appendNestedTarget(surface, { dataAttribute });
+
+      expect(isProjectPaneBackgroundTarget(target)).toBe(false);
+    },
+  );
+
+  it("rejects GpuFlow portal root content as a pane background target", () => {
     const { surface } = createProjectPaneFixture();
-    const target = appendNestedTarget(surface, { id });
+    const target = appendNestedTarget(surface, { gpuFlowPortalRoot: true });
 
     expect(isProjectPaneBackgroundTarget(target)).toBe(false);
   });
@@ -269,6 +178,13 @@ function appendNestedTarget(
   parent: Element,
   options: {
     readonly className?: string | undefined;
+    readonly dataAttribute?:
+      | "gpuFlowDomIsland"
+      | "gpuFlowRetainedContentCanvas"
+      | "gpuFlowRetainedContentNative"
+      | "gpuFlowRetainedContentSource"
+      | undefined;
+    readonly gpuFlowPortalRoot?: boolean | undefined;
     readonly id?: string | undefined;
   },
 ) {
@@ -276,8 +192,14 @@ function appendNestedTarget(
   if (options.className) {
     wrapper.className = options.className;
   }
+  if (options.dataAttribute) {
+    wrapper.dataset[options.dataAttribute] = "true";
+  }
   if (options.id) {
     wrapper.id = options.id;
+  }
+  if (options.gpuFlowPortalRoot) {
+    wrapper.dataset.gpuFlowPortalRoot = "true";
   }
   const target = document.createElement("button");
   wrapper.append(target);

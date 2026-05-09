@@ -243,14 +243,14 @@ export function useBrowserAreaFilePreviewState() {
   };
 }
 
-export function getFreshFileUrlEntry(
+function getFreshFileUrlEntry(
   entry: FileUrlEntry | null | undefined,
   now: number,
 ): FileUrlEntry | null {
   return entry && !isFileUrlStale(entry, now) ? entry : null;
 }
 
-export async function waitForFreshFileUrlEntry(
+async function waitForFreshFileUrlEntry(
   path: string,
   fileUrlPromises: React.MutableRefObject<
     Map<string, Promise<FileUrlEntry | null>>
@@ -263,7 +263,7 @@ export async function waitForFreshFileUrlEntry(
   return getFreshFileUrlEntry(await pendingPromise, Date.now());
 }
 
-export async function refreshFileUrlEntry(
+async function refreshFileUrlEntry(
   path: string,
   requestFileUrls: (
     paths: string[],

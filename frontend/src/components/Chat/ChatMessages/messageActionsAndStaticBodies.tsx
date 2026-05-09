@@ -62,7 +62,7 @@ import {
 
 import { formatToolResult } from "./messageListAndFormatting";
 
-export function SystemChatBubble({
+function SystemChatBubble({
   children,
   actions,
   footer,
@@ -107,11 +107,11 @@ export function SystemChatBubble({
   );
 }
 
-export const USER_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-950 dark:prose-invert dark:text-white prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
+const USER_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-950 dark:prose-invert dark:text-white prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
 
-export const SYSTEM_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-600 dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-h1:text-sm prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[12px] prose-ul:text-[12px] prose-ol:text-[12px] prose-li:text-[12px] [&_*]:marker:text-setta-400`;
+const SYSTEM_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-600 dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-h1:text-sm prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[12px] prose-ul:text-[12px] prose-ol:text-[12px] prose-li:text-[12px] [&_*]:marker:text-setta-400`;
 
-export function ChatMessageBranchNavigator({
+function ChatMessageBranchNavigator({
   branchInfo,
   onBranchSwitch,
 }: {
@@ -236,7 +236,7 @@ export function ChatMessageActions({
   );
 }
 
-export function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
+function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   const content = message.content ?? [];
   const output: string[] = [];
   for (const item of content) {
@@ -249,7 +249,7 @@ export function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   return output.join("\n\n").trim();
 }
 
-export function resolveCopyToolCallArgs({
+function resolveCopyToolCallArgs({
   toolCall,
   toolResult,
   toolCallArguments,
@@ -265,7 +265,7 @@ export function resolveCopyToolCallArgs({
   });
 }
 
-export function resolveCopyToolCallResult(
+function resolveCopyToolCallResult(
   toolResult: ToolChatMessage | undefined,
 ): string | null {
   const result = formatToolResult(toolResult);
@@ -281,7 +281,7 @@ export function resolveCopyToolCallResult(
   return null;
 }
 
-export function buildCopyTextForToolCall({
+function buildCopyTextForToolCall({
   toolCall,
   toolResult,
   toolCallArguments,
@@ -339,7 +339,7 @@ export function buildCopyTextForMessage({
   return output.join("\n\n").trim();
 }
 
-export function buildCopyTextForAssistantActivityMessage({
+function buildCopyTextForAssistantActivityMessage({
   message,
   toolResultsById,
   toolCallArguments,
@@ -436,7 +436,7 @@ export type ChatMessageProps = {
   onBranchSwitch?: (nextChatId: string) => void;
 };
 
-export type ResolvedChatMessageProps = ChatMessageProps & {
+type ResolvedChatMessageProps = ChatMessageProps & {
   isSearchMatchActive: boolean;
   suppressActivityThoughtScroll: boolean;
   suppressActivitySection: boolean;
@@ -448,9 +448,9 @@ export type ResolvedChatMessageProps = ChatMessageProps & {
   editDisabledReason: string | null;
 };
 
-export const EMPTY_CONVERSATION_SEARCH_TERMS: Array<string> = [];
+const EMPTY_CONVERSATION_SEARCH_TERMS: Array<string> = [];
 
-export const DEFAULT_CHAT_MESSAGE_OPTIONAL_PROPS: Pick<
+const DEFAULT_CHAT_MESSAGE_OPTIONAL_PROPS: Pick<
   ResolvedChatMessageProps,
   | "isSearchMatchActive"
   | "suppressActivityThoughtScroll"
@@ -482,7 +482,7 @@ export function resolveChatMessageProps(
   };
 }
 
-export type ChatMessageActionBarProps = {
+type ChatMessageActionBarProps = {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
@@ -536,7 +536,7 @@ export type AssistantChatMessageBodyProps = {
   messageTimestampMs: number | null;
 };
 
-export type StaticChatMessageBodyProps = {
+type StaticChatMessageBodyProps = {
   message: NonAssistantChatMessage;
   attachments: ChatFileAttachment[];
   actionBar: ReactNode;
@@ -550,7 +550,7 @@ export type StaticChatMessageBodyProps = {
   messageTimestampMs: number | null;
 };
 
-export type EditableUserChatMessageBodyProps = {
+type EditableUserChatMessageBodyProps = {
   message: BaseChatMessageUnion;
   attachments: ChatFileAttachment[];
   editingBubbleWidthPx?: number | null;
@@ -635,7 +635,7 @@ export function useChatMessageActionBar({
   );
 }
 
-export function renderStaticChatMessageContentItem({
+function renderStaticChatMessageContentItem({
   item,
   message,
   itemIndex,

@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { GpuNodeLayout } from "../GpuNodeLayer";
+import type { GpuNodeLayout } from "../htmlSurfaces/frame";
+import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuNodeDragController,
@@ -13,6 +14,7 @@ import {
 describe("GPU node drag controller", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    vi.unstubAllGlobals();
   });
 
   it("groups selected nodes only when the grabbed node is selected", () => {
@@ -88,7 +90,10 @@ describe("GPU node drag controller", () => {
     const element = createFlowElement();
     const nodeElement = createNodeElement("a");
     element.append(nodeElement);
-    const store = createGpuFlowViewportStore({
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 5, 10, 30, 40)],
+    });
+    const viewportStore = createGpuFlowViewportStore({
       transform: [10, 20, 2],
     });
     const onNodeDragStart = vi.fn();
@@ -98,7 +103,7 @@ describe("GPU node drag controller", () => {
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 5, 10, 30, 40)],
+      layoutStore,
       nodeDragThresholdPx: 1,
       onNodeDrag,
       onNodeDragStart,
@@ -106,7 +111,7 @@ describe("GPU node drag controller", () => {
       requestFrame,
       snapGrid: [10, 10],
       snapToGrid: true,
-      store,
+      store: viewportStore,
     });
 
     dispatchPointer(nodeElement, "pointerdown", {
@@ -122,8 +127,13 @@ describe("GPU node drag controller", () => {
       pointerId: 1,
     });
 
-    expect(store.getState().nodeDragging).toBe(true);
-    expect(store.getState().viewportInteractionActive).toBe(true);
+    expect(viewportStore.getState().nodeDragging).toBe(true);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(true);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { dragging: true },
+      x: 15,
+      y: 22,
+    });
     expect(onNodeDragStart).toHaveBeenCalledWith({
       active: true,
       delta: { x: 0, y: 0 },
@@ -164,10 +174,81 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "stop",
     });
-    expect(store.getState().nodeDragging).toBe(false);
-    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      x: 20,
+      y: 20,
+    });
+    expect(
+      layoutStore.getState().getNode("a")?.interactionFlags,
+    ).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "commit",
+      reason: "drag",
+    });
+    expect(viewportStore.getState().nodeDragging).toBe(false);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
+    detach();
+  });
+
+  it("starts dragging from a canvas-origin pointerdown by hit-testing layout nodes", () => {
+    const element = createFlowElement();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 20, 30, 100, 80)],
+    });
+    const viewportStore = createGpuFlowViewportStore();
+    const onNodeDragStart = vi.fn();
+    const onNodeDrag = vi.fn();
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      element,
+      layoutStore,
+      nodeDragThresholdPx: 1,
+      onNodeDrag,
+      onNodeDragStart,
+      store: viewportStore,
+    });
+
+    const pointerDown = dispatchPointer(element, "pointerdown", {
+      button: 0,
+      clientX: 40,
+      clientY: 60,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 80,
+      clientY: 100,
+      pointerId: 1,
+    });
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(onNodeDragStart).toHaveBeenCalledWith({
+      active: true,
+      delta: { x: 0, y: 0 },
+      items: [expect.objectContaining({ nodeId: "a" })],
+      nodeId: "a",
+      phase: "start",
+    });
+    expect(onNodeDrag).toHaveBeenLastCalledWith({
+      active: true,
+      delta: { x: 40, y: 40 },
+      items: [
+        expect.objectContaining({
+          nodeId: "a",
+          position: { x: 60, y: 70 },
+        }),
+      ],
+      nodeId: "a",
+      phase: "drag",
+    });
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { dragging: true },
+      x: 60,
+      y: 70,
+    });
     detach();
   });
 
@@ -175,16 +256,19 @@ describe("GPU node drag controller", () => {
     const element = createFlowElement();
     const nodeElement = createNodeElement("a");
     element.append(nodeElement);
-    const store = createGpuFlowViewportStore();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 0, 0, 30, 40)],
+    });
+    const viewportStore = createGpuFlowViewportStore();
     const onNodeDragCancel = vi.fn();
     const requestFrame = vi.fn();
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore,
       onNodeDragCancel,
       requestFrame,
-      store,
+      store: viewportStore,
     });
 
     dispatchPointer(nodeElement, "pointerdown", {
@@ -200,7 +284,12 @@ describe("GPU node drag controller", () => {
       pointerId: 1,
     });
 
-    expect(store.getState().nodeDragging).toBe(true);
+    expect(viewportStore.getState().nodeDragging).toBe(true);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { dragging: true },
+      x: 10,
+      y: 10,
+    });
     requestFrame.mockClear();
 
     dispatchPointer(document, "pointercancel", {
@@ -217,8 +306,20 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "cancel",
     });
-    expect(store.getState().nodeDragging).toBe(false);
-    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      x: 10,
+      y: 10,
+    });
+    expect(
+      layoutStore.getState().getNode("a")?.interactionFlags,
+    ).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "cancel",
+      reason: "drag",
+    });
+    expect(viewportStore.getState().nodeDragging).toBe(false);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledOnce();
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
@@ -235,7 +336,9 @@ describe("GPU node drag controller", () => {
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       onNodeDrag,
     });
 
@@ -265,7 +368,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       canDragNode: (nodeId) => nodeId !== "a",
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       onNodeDrag,
     });
 
@@ -296,7 +401,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       disabled: () => disabled,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       nodeDragThresholdPx: 10,
       onNodeDrag,
     });
@@ -351,7 +458,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       canDragNode: () => canDrag,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       nodeDragThresholdPx: 10,
       onNodeDrag,
     });
@@ -393,6 +502,61 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "drag",
     });
+    detach();
+  });
+
+  it("emits drag frame callbacks while the pointer is stationary", () => {
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const element = createFlowElement();
+    const nodeElement = createNodeElement("a");
+    element.append(nodeElement);
+    const onNodeDragFrame = vi.fn(() => true);
+    const requestFrame = vi.fn();
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      element,
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
+      onNodeDragFrame,
+      requestFrame,
+    });
+
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    });
+    requestFrame.mockClear();
+    frameCallbacks.shift()?.(0);
+
+    expect(onNodeDragFrame).toHaveBeenCalledWith({
+      active: true,
+      delta: { x: 0, y: 0 },
+      items: [
+        expect.objectContaining({ nodeId: "a", position: { x: 10, y: 10 } }),
+      ],
+      nodeId: "a",
+      phase: "drag",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+    expect(frameCallbacks.length).toBe(1);
+
     detach();
   });
 
@@ -470,7 +634,7 @@ function dispatchPointer(
     readonly clientY: number;
     readonly pointerId: number;
   },
-) {
+): MouseEvent {
   const event = new MouseEvent(type, {
     bubbles: true,
     button: options.button,
@@ -480,4 +644,5 @@ function dispatchPointer(
   });
   Object.defineProperty(event, "pointerId", { value: options.pointerId });
   element.dispatchEvent(event);
+  return event;
 }

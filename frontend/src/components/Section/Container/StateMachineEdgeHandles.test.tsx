@@ -129,13 +129,21 @@ function seedWorkflowSectionWithoutImpl({
   syncStoreInitialState(useProjectState);
 }
 
-function renderEdgeHandles(
-  sectionId: string,
-  isUserView: boolean = false,
-): string {
+function renderEdgeHandles({
+  isUserView = false,
+  scenePortGeometry = false,
+  sectionId,
+}: {
+  sectionId: string;
+  isUserView?: boolean;
+  scenePortGeometry?: boolean;
+}): string {
   return renderToStaticMarkup(
     <NodeIdContext.Provider value={sectionId}>
-      <StateMachineEdgeHandles isUserView={isUserView} />
+      <StateMachineEdgeHandles
+        isUserView={isUserView}
+        scenePortGeometry={scenePortGeometry}
+      />
     </NodeIdContext.Provider>,
   );
 }
@@ -166,7 +174,7 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles("section-start");
+    const markup = renderEdgeHandles({ sectionId: "section-start" });
 
     expect(markup).toContain(
       'data-testid="workflow-source-handle-section-start"',
@@ -190,7 +198,7 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles("section-end");
+    const markup = renderEdgeHandles({ sectionId: "section-end" });
 
     expect(markup).toContain(
       'data-testid="workflow-target-handle-section-end"',
@@ -241,7 +249,7 @@ describe("StateMachineEdgeHandles", () => {
       ],
     });
 
-    const markup = renderEdgeHandles("section-chat");
+    const markup = renderEdgeHandles({ sectionId: "section-chat" });
 
     expect(markup).toContain(
       'data-testid="workflow-source-handle-section-chat"',
@@ -261,6 +269,32 @@ describe("StateMachineEdgeHandles", () => {
     );
   });
 
+  it("leaves scene-owned workflow handles out of DOM gesture-start ownership", () => {
+    seedWorkflowSection({
+      sectionId: "section-start",
+      variantId: "variant-start",
+      impl: {
+        id: "impl-start",
+        type: SectionTypeEnum.StateMachineStart,
+        name: "Start Node",
+        size: createSectionSize({ width: 240, height: 96 }),
+        machineGroupId: "workflow-main",
+        label: "Kickoff",
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+
+    const standaloneMarkup = renderEdgeHandles({ sectionId: "section-start" });
+    const sceneMarkup = renderEdgeHandles({
+      scenePortGeometry: true,
+      sectionId: "section-start",
+    });
+
+    expect(standaloneMarkup).toContain("connectablestart");
+    expect(sceneMarkup).not.toContain("connectablestart");
+    expect(sceneMarkup).toContain("connectableend");
+  });
+
   it("suppresses workflow handles in user view", () => {
     seedWorkflowSection({
       sectionId: "section-gate",
@@ -278,7 +312,10 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles("section-gate", true);
+    const markup = renderEdgeHandles({
+      isUserView: true,
+      sectionId: "section-gate",
+    });
 
     expect(markup).toBe("");
   });
@@ -306,7 +343,7 @@ describe("StateMachineEdgeHandles", () => {
       ],
     });
 
-    const markup = renderEdgeHandles("section-missing-impl");
+    const markup = renderEdgeHandles({ sectionId: "section-missing-impl" });
 
     expect(markup).toBe("");
   });

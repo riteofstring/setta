@@ -44,36 +44,32 @@ import {
   sleep,
 } from "./pluginRevealAndDom";
 
-export let revealMutationLock: Promise<void> = Promise.resolve();
+let revealMutationLock: Promise<void> = Promise.resolve();
 
-export let revealMutationOwnerForOverviewVis: number | null = null;
+let revealMutationOwnerForOverviewVis: number | null = null;
 
-export let revealMutationOwnerForOverviewTab: number | null = null;
+let revealMutationOwnerForOverviewTab: number | null = null;
 
-export let revealMutationOwnerForUiEditorVis: number | null = null;
+let revealMutationOwnerForUiEditorVis: number | null = null;
 
-export const revealMutationOwnerByUiEditorTabSectionType = new Map<
+const revealMutationOwnerByUiEditorTabSectionType = new Map<string, number>();
+
+const revealMutationOwnerByProjectChatAuxViewProjectConfigId = new Map<
   string,
   number
 >();
 
-export const revealMutationOwnerByProjectChatAuxViewProjectConfigId = new Map<
+const revealMutationOwnerByRunInstructionsProjectConfigId = new Map<
   string,
   number
 >();
 
-export const revealMutationOwnerByRunInstructionsProjectConfigId = new Map<
+const revealMutationOwnerByProjectAiProjectConfigId = new Map<string, number>();
+
+const revealMutationOwnerByProjectStateActiveIdsProjectConfigId = new Map<
   string,
   number
 >();
-
-export const revealMutationOwnerByProjectAiProjectConfigId = new Map<
-  string,
-  number
->();
-
-export const revealMutationOwnerByProjectStateActiveIdsProjectConfigId =
-  new Map<string, number>();
 
 export function recordRevealMutationOwnership({
   leaseId,
@@ -126,7 +122,7 @@ export function recordRevealMutationOwnership({
   }
 }
 
-export function clearRevealMutationScalarOwnerIfOwned({
+function clearRevealMutationScalarOwnerIfOwned({
   wasTouched,
   ownerLeaseId,
   leaseId,
@@ -143,7 +139,7 @@ export function clearRevealMutationScalarOwnerIfOwned({
   clear();
 }
 
-export function clearRevealMutationOwnershipForKeys(
+function clearRevealMutationOwnershipForKeys(
   touchedKeys: Iterable<string>,
   ownerMap: Map<string, number>,
   leaseId: number,
@@ -210,7 +206,7 @@ export function clearRevealMutationOwnershipForLease({
   );
 }
 
-export function shouldRestoreRevealLocalStorageValue<T>({
+function shouldRestoreRevealLocalStorageValue<T>({
   wasTouched,
   ownerLeaseId,
   leaseId,
@@ -230,7 +226,7 @@ export function shouldRestoreRevealLocalStorageValue<T>({
   );
 }
 
-export function restoreScalarRevealLocalStorageFieldsIfOwned({
+function restoreScalarRevealLocalStorageFieldsIfOwned({
   state,
   snapshot,
   postMutationSnapshot,
@@ -280,7 +276,7 @@ export function restoreScalarRevealLocalStorageFieldsIfOwned({
   return nextState;
 }
 
-export function restoreRevealUiEditorTabsIfOwned({
+function restoreRevealUiEditorTabsIfOwned({
   state,
   snapshot,
   postMutationSnapshot,
@@ -315,7 +311,7 @@ export function restoreRevealUiEditorTabsIfOwned({
   return nextUiEditorTab;
 }
 
-export function restoreRevealStringRecordIfOwned({
+function restoreRevealStringRecordIfOwned({
   currentRecord,
   postMutationRecord,
   snapshotRecord,
@@ -350,7 +346,7 @@ export function restoreRevealStringRecordIfOwned({
   return nextRecord;
 }
 
-export function restoreRevealStringArrayRecordIfOwned({
+function restoreRevealStringArrayRecordIfOwned({
   currentRecord,
   postMutationRecord,
   snapshotRecord,
@@ -414,7 +410,7 @@ export function restoreRevealMutationSnapshotsIfOwned({
   });
 }
 
-export function restoreRevealLocalStorageSnapshotIfOwned({
+function restoreRevealLocalStorageSnapshotIfOwned({
   snapshot,
   postMutationSnapshot,
   mutationDiff,
@@ -493,7 +489,7 @@ export function restoreRevealLocalStorageSnapshotIfOwned({
   });
 }
 
-export function restoreRevealProjectStateSnapshotIfOwned({
+function restoreRevealProjectStateSnapshotIfOwned({
   snapshot,
   postMutationSnapshot,
   mutationDiff,
@@ -536,7 +532,7 @@ export function restoreRevealProjectStateSnapshotIfOwned({
   restoreBackendAuthoritativeActiveSectionIds(snapshot.activeIds);
 }
 
-export function isRevealMutationOwnerMatch(
+function isRevealMutationOwnerMatch(
   ownerLeaseId: number | undefined | null,
   leaseId: number | undefined,
 ): boolean {
@@ -546,7 +542,7 @@ export function isRevealMutationOwnerMatch(
   return ownerLeaseId === leaseId;
 }
 
-export function revertStringArrayRecordEntryIfOwned({
+function revertStringArrayRecordEntryIfOwned({
   currentRecord,
   postMutationRecord,
   snapshotRecord,
@@ -581,7 +577,7 @@ export function revertStringArrayRecordEntryIfOwned({
   return true;
 }
 
-export function revertStringRecordEntryIfOwned({
+function revertStringRecordEntryIfOwned({
   currentRecord,
   postMutationRecord,
   snapshotRecord,
@@ -690,7 +686,7 @@ export function openPaneForRevealTarget(
   return openRightPaneForRevealTarget(target, mutationDiff);
 }
 
-export function openLeftPaneForRevealTarget(
+function openLeftPaneForRevealTarget(
   target: UISettingRevealTarget,
   mutationDiff: RevealMutationDiff,
 ): OpenPaneResult {
@@ -713,7 +709,7 @@ export function openLeftPaneForRevealTarget(
   return { ok: true };
 }
 
-export function openRightPaneForRevealTarget(
+function openRightPaneForRevealTarget(
   target: UISettingRevealTarget,
   mutationDiff: RevealMutationDiff,
 ): OpenPaneResult {
@@ -792,20 +788,18 @@ export async function revealWithPluginHandler(
   };
 }
 
-export function canRevealWithPluginHandler(
-  target: UISettingRevealTarget,
-): boolean {
+function canRevealWithPluginHandler(target: UISettingRevealTarget): boolean {
   return Boolean(target.pluginId) && Boolean(target.pluginRevealKey);
 }
 
-export function shouldContinuePluginRevealPolling(
+function shouldContinuePluginRevealPolling(
   pendingResult: PluginRevealPendingResult,
   remainingMs: number,
 ): boolean {
   return !pendingResult.stop && remainingMs > 0;
 }
 
-export async function runPluginRevealIteration({
+async function runPluginRevealIteration({
   target,
   deadlineMs,
   executionContext,
@@ -870,7 +864,7 @@ export async function runPluginRevealIteration({
   };
 }
 
-export function getPluginRevealLoopContext(
+function getPluginRevealLoopContext(
   deadlineMs: number,
   executionContext: UISettingRevealExecutionContext | null,
 ): PluginRevealLoopContext {

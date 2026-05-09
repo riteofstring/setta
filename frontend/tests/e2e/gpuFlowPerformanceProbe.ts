@@ -18,6 +18,19 @@ export type GpuFlowQueueCall = {
   readonly width?: number | undefined;
 };
 
+export type GpuFlowRequestPaintCall = {
+  readonly index: number;
+  readonly timestampMs: number;
+};
+
+export type GpuFlowSourceMutation = {
+  readonly attributeName: string;
+  readonly index: number;
+  readonly sourceNodeId?: string | undefined;
+  readonly timestampMs: number;
+  readonly transformChanged: boolean;
+};
+
 export type GpuFlowLongTask = {
   readonly durationMs: number;
   readonly name: string;
@@ -53,6 +66,8 @@ export type GpuFlowPerformanceSnapshot = {
   readonly nodeLayerFrames: readonly GpuFlowNodeLayerFrameProbeSummary[];
   readonly queueCalls: readonly GpuFlowQueueCall[];
   readonly queueWrappersInstalled: boolean;
+  readonly requestPaintCalls: readonly GpuFlowRequestPaintCall[];
+  readonly sourceMutations: readonly GpuFlowSourceMutation[];
   readonly timestampMs: number;
 };
 
@@ -78,6 +93,11 @@ export type GpuFlowPerformanceSummary = {
     readonly writeBufferBytesByLabel: Readonly<Record<string, number>>;
     readonly writeBufferCalls: number;
     readonly writeBufferCallsByLabel: Readonly<Record<string, number>>;
+  };
+  readonly requestPaintCalls: number;
+  readonly sourceMutations: {
+    readonly total: number;
+    readonly transformWrites: number;
   };
 };
 
@@ -169,6 +189,11 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuQueueMethod.toString(),
     recordCopyElementImageToTextureCall.toString(),
     recordWriteBufferCall.toString(),
+    recordSourceMutation.toString(),
+    startSourceMutationObserver.toString(),
+    stopSourceMutationObserver.toString(),
+    hasTransformMutation.toString(),
+    styleTransformValue.toString(),
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
@@ -191,6 +216,7 @@ export function summarizeGpuFlowPerformanceSnapshot(
   let textureUploads = 0;
   let unknownTextureUploads = 0;
   let writeBufferCalls = 0;
+  let sourceTransformWrites = 0;
 
   for (const call of snapshot.queueCalls) {
     if (call.method === "copyElementImageToTexture") {
@@ -219,6 +245,11 @@ export function summarizeGpuFlowPerformanceSnapshot(
   const worstLongTaskMs = maxOrNull(
     snapshot.longTasks.map((task) => task.durationMs),
   );
+  for (const mutation of snapshot.sourceMutations) {
+    if (mutation.transformChanged) {
+      sourceTransformWrites += 1;
+    }
+  }
 
   return {
     durationMs: snapshot.timestampMs - snapshot.installedAtMs,
@@ -246,6 +277,11 @@ export function summarizeGpuFlowPerformanceSnapshot(
       writeBufferBytesByLabel,
       writeBufferCalls,
       writeBufferCallsByLabel,
+    },
+    requestPaintCalls: snapshot.requestPaintCalls.length,
+    sourceMutations: {
+      total: snapshot.sourceMutations.length,
+      transformWrites: sourceTransformWrites,
     },
   };
 }
@@ -277,6 +313,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const win = window as Window &
     typeof globalThis & {
       GPUQueue?: { prototype?: Record<string, unknown> } | undefined;
+      HTMLCanvasElement?: { prototype?: Record<string, unknown> } | undefined;
       [probeKey]?: unknown;
     };
   const existing = win[probeKey] as
@@ -288,6 +325,12 @@ function installGpuFlowPerformanceProbeInPage() {
   }
 
   const originalRequestAnimationFrame = window.requestAnimationFrame;
+  const originalCanvasRequestPaint =
+    typeof win.HTMLCanvasElement?.prototype?.requestPaint === "function"
+      ? (win.HTMLCanvasElement.prototype.requestPaint as (
+          ...args: unknown[]
+        ) => unknown)
+      : null;
   const originalCopyElementImageToTexture = getGpuQueueMethod(
     win,
     "copyElementImageToTexture",
@@ -303,6 +346,9 @@ function installGpuFlowPerformanceProbeInPage() {
     nodeLayerFrames: [] as GpuFlowNodeLayerFrameProbeSummary[],
     queueCalls: [] as GpuFlowQueueCall[],
     queueWrappersInstalled: false,
+    requestPaintCalls: [] as GpuFlowRequestPaintCall[],
+    sourceMutationObserver: null as MutationObserver | null,
+    sourceMutations: [] as GpuFlowSourceMutation[],
   };
 
   window.requestAnimationFrame = (callback: FrameRequestCallback): number => {
@@ -315,6 +361,21 @@ function installGpuFlowPerformanceProbeInPage() {
       callback(timestamp);
     });
   };
+
+  if (originalCanvasRequestPaint && win.HTMLCanvasElement?.prototype) {
+    win.HTMLCanvasElement.prototype.requestPaint = function (
+      this: unknown,
+      ...args: unknown[]
+    ) {
+      state.requestPaintCalls.push({
+        index: state.requestPaintCalls.length,
+        timestampMs: performance.now(),
+      });
+      return originalCanvasRequestPaint.apply(this, args);
+    };
+  }
+
+  startSourceMutationObserver(state);
 
   if (
     typeof PerformanceObserver === "function" &&
@@ -375,6 +436,8 @@ function installGpuFlowPerformanceProbeInPage() {
       state.longTasks = [];
       state.nodeLayerFrames = [];
       state.queueCalls = [];
+      state.requestPaintCalls = [];
+      state.sourceMutations = [];
     },
     snapshot(): GpuFlowPerformanceSnapshot {
       return {
@@ -385,11 +448,17 @@ function installGpuFlowPerformanceProbeInPage() {
         nodeLayerFrames: [...state.nodeLayerFrames],
         queueCalls: [...state.queueCalls],
         queueWrappersInstalled: state.queueWrappersInstalled,
+        requestPaintCalls: [...state.requestPaintCalls],
+        sourceMutations: [...state.sourceMutations],
         timestampMs: performance.now(),
       };
     },
     uninstall() {
       window.requestAnimationFrame = originalRequestAnimationFrame;
+      if (originalCanvasRequestPaint && win.HTMLCanvasElement?.prototype) {
+        win.HTMLCanvasElement.prototype.requestPaint =
+          originalCanvasRequestPaint;
+      }
       const queuePrototype = win.GPUQueue?.prototype;
       if (queuePrototype) {
         if (originalCopyElementImageToTexture) {
@@ -401,6 +470,7 @@ function installGpuFlowPerformanceProbeInPage() {
         }
       }
       state.longTaskObserver?.disconnect();
+      stopSourceMutationObserver(state);
       delete win[probeKey];
     },
     version: 1,
@@ -430,8 +500,7 @@ function recordCopyElementImageToTextureCall(
     index: state.queueCalls.length,
     method: "copyElementImageToTexture",
     sourceInteractive: sourceNode
-      ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true" ||
-        sourceNode.classList.contains("setta-gpu-flow__node--teleported")
+      ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true"
       : undefined,
     sourceNodeId: sourceNode?.getAttribute("data-id") ?? undefined,
     timestampMs: performance.now(),
@@ -450,6 +519,95 @@ function recordWriteBufferCall(
     method: "writeBuffer",
     timestampMs: performance.now(),
   });
+}
+
+function recordSourceMutation(
+  state: { sourceMutations: GpuFlowSourceMutation[] },
+  mutation: MutationRecord,
+) {
+  const target = mutation.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const sourceNode =
+    target.matches('[data-gpu-flow-node="true"]') ||
+    target.matches('[data-gpu-flow-surface="true"]')
+      ? target
+      : target.closest(
+          '[data-gpu-flow-node="true"], [data-gpu-flow-surface="true"]',
+        );
+  if (!(sourceNode instanceof HTMLElement)) {
+    return;
+  }
+  state.sourceMutations.push({
+    attributeName: mutation.attributeName ?? "",
+    index: state.sourceMutations.length,
+    sourceNodeId:
+      sourceNode.getAttribute("data-id") ??
+      sourceNode.getAttribute("data-html-surface-id") ??
+      undefined,
+    timestampMs: performance.now(),
+    transformChanged: hasTransformMutation(target, mutation),
+  });
+}
+
+function startSourceMutationObserver(state: {
+  sourceMutationObserver: MutationObserver | null;
+  sourceMutations: GpuFlowSourceMutation[];
+}) {
+  if (typeof MutationObserver !== "function") {
+    return;
+  }
+  const start = () => {
+    if (state.sourceMutationObserver || !document.body) {
+      return;
+    }
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        recordSourceMutation(state, mutation);
+      }
+    });
+    observer.observe(document.body, {
+      attributeFilter: ["class", "data-gpu-flow-interactive", "style"],
+      attributeOldValue: true,
+      attributes: true,
+      subtree: true,
+    });
+    state.sourceMutationObserver = observer;
+  };
+  if (document.body) {
+    start();
+    return;
+  }
+  document.addEventListener("DOMContentLoaded", start, { once: true });
+}
+
+function stopSourceMutationObserver(state: {
+  sourceMutationObserver: MutationObserver | null;
+}) {
+  state.sourceMutationObserver?.disconnect();
+  state.sourceMutationObserver = null;
+}
+
+function hasTransformMutation(
+  target: HTMLElement,
+  mutation: MutationRecord,
+): boolean {
+  if (mutation.attributeName !== "style") {
+    return false;
+  }
+  return (
+    styleTransformValue(mutation.oldValue ?? "") !== target.style.transform
+  );
+}
+
+function styleTransformValue(styleText: string): string {
+  if (!styleText) {
+    return "";
+  }
+  const probe = document.createElement("div");
+  probe.setAttribute("style", styleText);
+  return probe.style.transform;
 }
 
 function getGpuBufferLabel(buffer: unknown): string | undefined {

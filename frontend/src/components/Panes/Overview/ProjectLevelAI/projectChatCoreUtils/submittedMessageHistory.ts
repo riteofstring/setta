@@ -80,7 +80,7 @@ export function findBranchSourceUserMessage(
   return null;
 }
 
-export function collectUserPrompts(
+function collectUserPrompts(
   messages: Array<BaseChatMessageUnion>,
 ): Array<string> {
   const prompts: string[] = [];
@@ -116,7 +116,7 @@ export function filterProjectConversationMessagesBySearch({
   );
 }
 
-export function appendUniquePrompts(
+function appendUniquePrompts(
   prompts: Array<string>,
   seen: Set<string>,
   incoming: Array<string>,

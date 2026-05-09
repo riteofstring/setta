@@ -1,3 +1,7 @@
+import {
+  getProjectGpuHandleConnectionProps,
+  getProjectGpuReverseStartHandleConnectionProps,
+} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "gpuFlow/Handle";
 import { useNodeId } from "gpuFlow/NodeIdContext";
@@ -24,6 +28,10 @@ type SharedChatConnectionVisibility = {
 };
 
 const SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const EMPTY_SHARED_CHAT_CONNECTION_VISIBILITY = {
+  hasIncoming: false,
+  hasOutgoing: false,
+} satisfies SharedChatConnectionVisibility;
 
 type SectionConnectionEdge = {
   sourceSectionId: string;
@@ -62,7 +70,40 @@ function getSharedChatConnectionVisibility(
   return visibility;
 }
 
-export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
+function useSharedChatConnectionVisibility(sectionId: string | null) {
+  return useProjectState(
+    (state) =>
+      sectionId
+        ? getSharedChatConnectionVisibility(sectionId, state)
+        : EMPTY_SHARED_CHAT_CONNECTION_VISIBILITY,
+    areSharedChatConnectionVisibilityEqual,
+  );
+}
+
+function areSharedChatConnectionVisibilityEqual(
+  left: SharedChatConnectionVisibility,
+  right: SharedChatConnectionVisibility,
+) {
+  return (
+    left.hasIncoming === right.hasIncoming &&
+    left.hasOutgoing === right.hasOutgoing
+  );
+}
+
+function shouldHideChatSharedEdgeHandles(
+  isUserView: boolean,
+  sectionId: string | null,
+): boolean {
+  return isUserView || !sectionId;
+}
+
+export function ChatSharedEdgeHandles({
+  isUserView,
+  scenePortGeometry,
+}: {
+  isUserView: boolean;
+  scenePortGeometry?: boolean;
+}) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
   const isSelectingEdge = useGpuFlowViewportStore(
@@ -71,26 +112,15 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const chatSharedEdgeMode = useLocalStorage(
     (state) => state.chatSharedEdgeMode,
   );
-  const connectionVisibility = useProjectState(
-    (state) => {
-      if (!sectionId) {
-        return {
-          hasIncoming: false,
-          hasOutgoing: false,
-        };
-      }
-      return getSharedChatConnectionVisibility(sectionId, state);
-    },
-    (left, right) =>
-      left.hasIncoming === right.hasIncoming &&
-      left.hasOutgoing === right.hasOutgoing,
-  );
+  const connectionVisibility = useSharedChatConnectionVisibility(sectionId);
 
-  if (isUserView || !sectionId) {
+  if (shouldHideChatSharedEdgeHandles(isUserView, sectionId)) {
     return null;
   }
 
   const sharedModeLabel = getChatSharedEdgeModeLabel(chatSharedEdgeMode);
+  const registerPortGeometry = scenePortGeometry !== true;
+  const canStartDomConnection = registerPortGeometry && canEditStructure;
 
   return (
     <>
@@ -108,9 +138,13 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         aria-hidden="true"
         tabIndex={-1}
         isConnectable={canEditStructure}
-        isConnectableStart={canEditStructure}
+        isConnectableStart={canStartDomConnection}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
+        registerPortGeometry={registerPortGeometry}
+        {...getProjectGpuReverseStartHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
       />
@@ -123,6 +157,10 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
+        {...getProjectGpuHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.target,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat input"
@@ -141,8 +179,12 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--source${connectionVisibility.hasOutgoing ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         data-testid={`chat-shared-source-handle-${sectionId}`}
         isConnectable={canEditStructure}
-        isConnectableStart={canEditStructure}
+        isConnectableStart={canStartDomConnection}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
+        {...getProjectGpuHandleConnectionProps(
+          SHARED_CHAT_EDGE_HANDLE_IDS.source,
+        )}
         isValidConnection={isValidSharedChatEdgeConnection}
         onConnect={createSharedChatEdgeFromConnection}
         aria-label="Shared chat output"

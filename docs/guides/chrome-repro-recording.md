@@ -20,7 +20,7 @@ Run:
 Behavior:
 
 - starts Setta with the normal dev-state defaults
-- prefers Playwright's bundled Chrome for Testing when available
+- resolves the shared Chrome for Testing 149+ browser used by Setta's browser helpers
 - launches a dedicated browser profile with a local recording extension
 - runs the backend at debug log level for the repro session
 - captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`
@@ -54,6 +54,7 @@ The recorder also writes a stable pointer under the recording root:
 - `transport.ndjson`: fetch/XHR/websocket activity captured from the page runtime
 - `transport_details.ndjson`: full request/websocket payload sidecar for large transport events
 - `app_state.ndjson`: app-published debug snapshots such as diagnostics state
+- `performance.ndjson`: frame gaps, long tasks, event timing, and app-published `gpu-flow-*`/`perf-*` metrics
 - `session.json`: recording summary metadata
 - `launcher.json`: launcher/bootstrap metadata
 - `llm_engine_artifacts/`: redacted generated external-agent artifacts copied from the active `setta_files` root when a recording includes external-agent runs
@@ -69,6 +70,9 @@ The recorder captures more than raw clicks and inputs:
 - fetch/XHR/websocket activity from the page
 - full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates
+- active-interaction frame gaps, `PerformanceObserver` long tasks, and slow event timing entries
+- compact GPU-flow frame metrics such as frame reasons, CPU render duration, texture upload counts, dirty-node counts, and texture memory totals
+- app-side performance timings for websocket message parsing/handlers, settings updates, project-state application, and settings param submissions
 - backend debug summaries in `logs/backend.log` for LSP diagnostics and watch-code refresh flows
 - generated external-agent session artifacts such as run metadata, session config, session logs, and rollout JSONL when those runs were part of the recording
 

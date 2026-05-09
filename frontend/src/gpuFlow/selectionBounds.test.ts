@@ -1,53 +1,48 @@
 /* @vitest-environment jsdom */
 
-import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { useNodeInternals } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
+import { gpuFlowLayoutStore } from "./layoutStore";
 import {
   clearNodesSelectionBounds,
   shiftNodesSelectionBounds,
-  updateActiveNodesSelectionBounds,
   updateNodesSelectionBoundsForSections,
 } from "./selectionBounds";
 import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("selectionBounds", () => {
   beforeEach(() => {
-    resetProjectStores();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
   });
 
-  it("updates GPU selection bounds from active measured sections", () => {
+  it("updates GPU selection bounds from requested measured sections", () => {
     const store = createGpuFlowViewportStore();
-    setActiveSectionUIIds(["section-a", "section-b"]);
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            height: 80,
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            tempZIndex: 0,
-            width: 100,
-            zIndex: 0,
-          },
-        ],
-        [
-          "section-b",
-          {
-            height: 90,
-            id: "section-b",
-            position: { x: 180, y: 40 },
-            tempZIndex: 0,
-            width: 120,
-            zIndex: 0,
-          },
-        ],
-      ]),
-    });
+    gpuFlowLayoutStore.getState().replaceNodes(
+      [
+        {
+          height: 80,
+          nodeId: "section-a",
+          tempZIndex: 0,
+          width: 100,
+          x: 10,
+          y: 20,
+          zIndex: 0,
+        },
+        {
+          height: 90,
+          nodeId: "section-b",
+          tempZIndex: 0,
+          width: 120,
+          x: 180,
+          y: 40,
+          zIndex: 0,
+        },
+      ],
+      { reason: "project-sync" },
+    );
 
-    updateActiveNodesSelectionBounds({ store });
+    updateNodesSelectionBoundsForSections(["section-a", "section-b"], {
+      store,
+    });
 
     expect(store.getState().nodesSelectionBounds).toEqual({
       height: 110,

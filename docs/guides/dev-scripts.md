@@ -179,12 +179,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Use this for focused long-running feature work.
   - Requires `--plan`, `--sentinel`, and `--name`.
   - Pass extra plan-specific instructions with `--extra-prompt` or `--extra-prompt-file`.
-- `./scripts/run-codex-canvas-pan-zoom-loop.sh`
-  - Dedicated plan loop for `docs/plans/canvas-pan-zoom-html-in-canvas-plan.md`.
-  - Uses the generic plan-loop engine with Canvas 2D html-in-canvas instructions, `CANVAS_PAN_ZOOM_PLAN_COMPLETE`, and `canvas-pan-zoom:` commits.
-- `./scripts/run-codex-webgpu-pan-zoom-loop.sh`
-  - Dedicated plan loop for `docs/plans/webgpu-html-texture-pan-zoom-plan.md`.
-  - Uses the generic plan-loop engine with WebGPU/html texture instructions, `WEBGPU_HTML_TEXTURE_PAN_ZOOM_PLAN_COMPLETE`, and `webgpu-pan-zoom:` commits.
+- `./scripts/run-codex-gpuflow-full-scene-canvas-content-clean-break-loop.sh`
+  - Dedicated plan loop for `docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md`.
+  - Uses the generic plan-loop engine with full-scene/canvas-content clean-break instructions, `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE`, and `gpuflow-full-scene:` commits.
+  - The older scene-ownership wrapper and plan were removed so new loop work starts from the full-scene plan.
 - `./scripts/run-codex-test-fix-loop.sh`
   - Codex loop for working through Go, Python, Vitest, and Playwright test failures in small chunks.
   - Stops only after external full-suite verification passes.

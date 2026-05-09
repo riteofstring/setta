@@ -1,18 +1,12 @@
-import { SectionContainer } from "components/Section/Container/SectionContainer";
-
-import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
-
-import type { NodeDragItem } from "gpuFlow/flowTypes";
-
 import { GpuFlow } from "gpuFlow/GpuFlow";
-
-import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
-
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
+import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
+import type { GpuFlowScene } from "gpuFlow/scene";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
-import { cancelViewportTransition } from "gpuFlow/viewportActions";
+import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 
@@ -30,31 +24,27 @@ import {
   type RefObject,
 } from "react";
 
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
+import { selectOnlyParam } from "state/actions/params/moveParams";
 
 import {
-  getNodeUpdateInformation,
-  updateNodeDimensions,
-} from "state/actions/nodeInternals";
-
-import { getActiveSectionUIIds } from "state/activeSectionUI";
+  getActiveSectionUIIds,
+  useActiveSectionUI,
+} from "state/activeSectionUI";
 
 import {
   useAIFollow,
   useLocalStorage,
-  useNodeInternals,
+  useMisc,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 
 import { useShareCapabilities } from "state/hooks/share";
-
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
 
 import { useTabScope } from "utils/focusManager";
 
@@ -67,13 +57,61 @@ import {
 
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
+import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { useProjectGpuActiveParamCanvasPopupDismissal } from "./projectGpuActiveParamCanvasPopupDismissal";
+import {
+  useProjectGpuActiveParamCanvasPopupKeyboard,
+  useProjectGpuActiveParamCanvasPopupWheel,
+} from "./projectGpuActiveParamCanvasPopupKeyboard";
+import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
+import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
+import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
+import {
+  useProjectGpuLayoutAdapter,
+  type ProjectGpuActiveParamCanvasPopup,
+  type ProjectGpuActiveParamDomIsland,
+  type ProjectGpuLayoutAdapter,
+  type ProjectGpuRetainedParamTarget,
+} from "./projectGpuLayoutAdapter";
+import {
+  getProjectSceneSectionById,
+  renderProjectGpuNode,
+} from "./projectGpuNodeRenderer";
+import type {
+  ProjectGpuRetainedParamDragPreview,
+  ProjectGpuRetainedParamDragSession,
+} from "./projectGpuParamDragAdapter";
+import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
+import { projectGpuResizePreviewSceneMatchesCommittedScene } from "./projectGpuResizePreviewSceneMatch";
+import { isProjectRetainedContentClickPoint } from "./projectGpuRetainedContentClickGuard";
+import {
+  useProjectGpuRetainedParamCanvasControlKeyboard,
+  useProjectGpuRetainedParamCanvasControlWheel,
+} from "./projectGpuRetainedParamCanvasControlInput";
+import { renderProjectGpuDomIsland } from "./projectGpuRetainedParamDomIslandRenderer";
+import {
+  getProjectRetainedContentConnectionOptions,
+  getProjectRetainedContentInteractionOptions,
+  getProjectScenePortConnectionOptions,
+} from "./projectGpuRetainedParamInteractionAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
+import {
+  applyProjectGpuRetainedPasswordRevealUpdate,
+  type ProjectGpuRetainedPasswordRevealStateMap,
+  type ProjectGpuRetainedPasswordRevealUpdate,
+} from "./projectGpuRetainedParamPasswordRevealState";
+import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
+import {
+  getProjectSurfaceClientDimensions,
+  type ProjectSurfaceDimensions,
+} from "./projectGpuSurfaceDimensions";
+import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
+import { useProjectNodeResizeOptions } from "./projectNodeResize";
+
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
-  isProjectGpuSelectionDisabled,
-  isProjectGpuViewportGestureDisabled,
   isProjectPaneBackgroundTarget,
-  type ProjectGpuDndMode,
 } from "../gpuProjectInteractionGuards";
 
 import {
@@ -84,29 +122,21 @@ import {
 } from "../gpuProjectPaneEvents";
 
 import {
-  GpuProjectNodesSelectionOverlay,
   canDragProjectNode,
   getVisibleProjectSurfaceWidth,
   handleProjectNodeDrag,
   handleProjectNodeDragCancel,
+  handleProjectNodeDragFrame,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionChange,
+  handleProjectSelectionContextMenu,
+  handleProjectSelectionDragCancel,
+  handleProjectSelectionDragStart,
+  handleProjectSelectionDragStop,
+  handleProjectSelectionKeyboardNudge,
   resolveProjectWireColor,
-} from "./nodeSelectionOverlay";
-
-export type ProjectSurfaceDimensions = {
-  readonly height: number;
-  readonly width: number;
-};
-
-export type ProjectSelectionDragState = {
-  readonly pointerId: number;
-  readonly selectedNodeIds: readonly string[];
-  items: NodeDragItem[];
-  lastFlowPoint: { x: number; y: number };
-  lastScreenPoint: { x: number; y: number };
-};
+} from "./projectGpuSelectionAdapter";
 
 export type ProjectGpuNodeDragItem = {
   readonly distance: { readonly x: number; readonly y: number };
@@ -119,6 +149,7 @@ export type ProjectGpuNodeDragItem = {
 export type ProjectGpuNodeDragChange = {
   readonly delta: { readonly x: number; readonly y: number };
   readonly items: readonly ProjectGpuNodeDragItem[];
+  readonly nodeId?: string | undefined;
 };
 
 export type ProjectGpuSelectionChange = {
@@ -127,7 +158,7 @@ export type ProjectGpuSelectionChange = {
   readonly selectedNodeIds: readonly string[];
 };
 
-export type ProjectGpuSurfaceSettings = ReturnType<
+type ProjectGpuSurfaceSettings = ReturnType<
   typeof useProjectGpuSurfaceSettings
 >;
 
@@ -137,7 +168,7 @@ export type ProjectFlowInteractionKeys = {
   readonly zoomActivationKeyPressed: boolean;
 };
 
-export const PROJECT_SURFACE_STYLE: CSSProperties = {
+const PROJECT_SURFACE_STYLE: CSSProperties = {
   height: "100%",
   overflow: "hidden",
   overflowAnchor: "none",
@@ -146,42 +177,52 @@ export const PROJECT_SURFACE_STYLE: CSSProperties = {
   width: "100%",
 };
 
-export const PROJECT_GPU_NODE_UPLOAD_BUDGET = {
-  maxDurationMs: 4,
-  maxUploads: 2,
-} as const;
-
-export const SELECTION_ARROW_KEY_DIFFS: Record<
-  string,
-  { x: number; y: number }
-> = {
-  ArrowDown: { x: 0, y: 1 },
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-  ArrowUp: { x: 0, y: -1 },
-};
-
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const nodeElementChange = useProjectNodeResizeObserver();
   const dimensions = useProjectSurfaceDimensions(rootRef);
-  const nodeLayouts = useProjectGpuNodeLayouts();
+  const [activeParamDomIsland, setActiveParamDomIsland] =
+    useState<ProjectGpuActiveParamDomIsland | null>(null);
+  const [activeParamCanvasPopup, setActiveParamCanvasPopup] =
+    useState<ProjectGpuActiveParamCanvasPopup | null>(null);
+  const [activeParamCanvasControl, setActiveParamCanvasControl] =
+    useState<ProjectGpuRetainedParamTarget | null>(null);
+  const [retainedPasswordRevealStates, setRetainedPasswordRevealStates] =
+    useState<ProjectGpuRetainedPasswordRevealStateMap>(() => new Map());
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const dismissActiveParamCanvasPopup = useCallback(() => {
+    setActiveParamCanvasPopup(null);
+  }, []);
+  const handleRetainedPasswordRevealStateChange = useCallback(
+    (update: ProjectGpuRetainedPasswordRevealUpdate) => {
+      setRetainedPasswordRevealStates((current) =>
+        applyProjectGpuRetainedPasswordRevealUpdate(current, update),
+      );
+    },
+    [],
+  );
+  useEffect(() => {
+    setRetainedPasswordRevealStates(new Map());
+  }, [projectConfigId]);
+  const [hoveredParamTarget, setHoveredParamTarget] =
+    useState<ProjectGpuRetainedParamTarget | null>(null);
+  const [retainedParamDragPreview, setRetainedParamDragPreview] =
+    useState<ProjectGpuRetainedParamDragPreview | null>(null);
+  const layoutAdapter = useProjectGpuLayoutAdapter({
+    activeParamCanvasControl,
+    activeParamCanvasPopup,
+    activeParamDomIsland,
+    hoveredParamTarget,
+    passwordRevealStates: retainedPasswordRevealStates,
+    retainedParamDragPreview,
+  });
   const settings = useProjectGpuSurfaceSettings();
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
   const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
-  const readyToBeVisible = useGpuFlowViewportStore(
-    (state) => !state.fitViewOnInit || state.fitViewOnInitDone,
-  );
-  const edgeScene = useProjectGpuEdgeScene({
-    showAgenticEdges,
-    showDataEdges,
-  });
-  const { canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
   );
@@ -196,6 +237,38 @@ export function GpuProjectSurface() {
   const readyToRender = dimensions.height > 0 && dimensions.width > 0;
 
   useProjectViewportSettingsSync(settings);
+  useProjectGpuSearchReveal({ layoutAdapter, readyToRender, settings });
+  useProjectGpuActiveParamCanvasPopupDismissal({
+    activeParamCanvasPopup,
+    onDismiss: dismissActiveParamCanvasPopup,
+    rootRef,
+  });
+  useProjectGpuActiveParamCanvasPopupKeyboard({
+    activeParamCanvasPopup,
+    onActiveParamCanvasPopupChange: setActiveParamCanvasPopup,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
+  useProjectGpuActiveParamCanvasPopupWheel({
+    activeParamCanvasPopup,
+    onActiveParamCanvasPopupChange: setActiveParamCanvasPopup,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
+  useProjectGpuRetainedParamCanvasControlKeyboard({
+    activeParamCanvasControl,
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    onPasswordRevealStateChange: handleRetainedPasswordRevealStateChange,
+    passwordRevealStates: retainedPasswordRevealStates,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
+  useProjectGpuRetainedParamCanvasControlWheel({
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    onActiveParamCanvasControlChange: setActiveParamCanvasControl,
+    rootRef,
+    scene: layoutAdapter.scene,
+  });
   useTabScope({
     behavior: "canvas",
     order: 20,
@@ -212,7 +285,31 @@ export function GpuProjectSurface() {
         showDataEdges,
       })}
       data-tab-scope="canvas"
-      onClick={handleProjectPaneClick}
+      onPointerDownCapture={(event) => {
+        if (
+          activeParamDomIsland &&
+          shouldClearProjectGpuActiveParamDomIslandOnPointerDown(event.target)
+        ) {
+          setActiveParamDomIsland(null);
+        }
+      }}
+      onClick={(event) => {
+        if (
+          isProjectRetainedContentClickPoint({
+            event,
+            root: rootRef.current,
+            scene: layoutAdapter.scene,
+          })
+        ) {
+          return;
+        }
+        if (isProjectPaneBackgroundTarget(event.target)) {
+          setActiveParamCanvasControl(null);
+          setActiveParamDomIsland(null);
+          dismissActiveParamCanvasPopup();
+        }
+        handleProjectPaneClick(event);
+      }}
       onContextMenu={handleProjectPaneContextMenu(settings.panOnDrag)}
       onDragOver={handleProjectPaneDragOver}
       onDrop={handleProjectPaneDrop}
@@ -231,48 +328,134 @@ export function GpuProjectSurface() {
       <ProjectGpuFlowLayer
         canEditStructure={canEditStructure}
         darkMode={darkMode}
-        edgeScene={edgeScene}
         flowInteractionKeys={flowInteractionKeys}
         isFollowTransitioning={isFollowTransitioning}
-        nodeElementChange={nodeElementChange}
-        nodeLayouts={nodeLayouts}
-        readyToBeVisible={readyToBeVisible}
+        canEditLayout={canEditLayout}
+        layoutAdapter={layoutAdapter}
+        onActiveParamCanvasPopupChange={(popup) => {
+          setActiveParamCanvasPopup(popup);
+          if (popup) {
+            setActiveParamCanvasControl(null);
+            setActiveParamDomIsland(null);
+          }
+        }}
+        onActiveParamCanvasControlChange={(target) => {
+          setActiveParamCanvasControl(target);
+          if (target) {
+            setActiveParamDomIsland(null);
+          }
+        }}
+        onActiveParamDomIslandChange={(island) => {
+          setActiveParamDomIsland(island);
+          if (island) {
+            setActiveParamCanvasControl(null);
+            setActiveParamCanvasPopup(null);
+          }
+        }}
+        onHoveredParamTargetChange={setHoveredParamTarget}
+        onPasswordRevealStateChange={handleRetainedPasswordRevealStateChange}
+        onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
+        passwordRevealStates={retainedPasswordRevealStates}
         readyToRender={readyToRender}
         settings={settings}
+        showAgenticEdges={showAgenticEdges}
+        showDataEdges={showDataEdges}
       />
-      <GpuProjectNodesSelectionOverlay snapToGrid={snapToGrid} />
     </div>
   );
 }
 
-export function ProjectGpuFlowLayer({
+function ProjectGpuFlowLayer({
   canEditStructure,
+  canEditLayout,
   darkMode,
-  edgeScene,
   flowInteractionKeys,
   isFollowTransitioning,
-  nodeElementChange,
-  nodeLayouts,
-  readyToBeVisible,
+  layoutAdapter,
+  onActiveParamCanvasPopupChange,
+  onActiveParamCanvasControlChange,
+  onActiveParamDomIslandChange,
+  onHoveredParamTargetChange,
+  onPasswordRevealStateChange,
+  onRetainedParamDragPreviewChange,
+  passwordRevealStates,
   readyToRender,
   settings,
+  showAgenticEdges,
+  showDataEdges,
 }: {
   readonly canEditStructure: boolean;
+  readonly canEditLayout: boolean;
   readonly darkMode: boolean;
-  readonly edgeScene: ReturnType<typeof useProjectGpuEdgeScene>;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
-  readonly nodeElementChange: (
-    nodeId: string,
-    element: HTMLElement | null,
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+  readonly onActiveParamCanvasPopupChange: (
+    popup: ProjectGpuActiveParamCanvasPopup | null,
   ) => void;
-  readonly nodeLayouts: readonly GpuNodeLayout[];
-  readonly readyToBeVisible: boolean;
+  readonly onActiveParamCanvasControlChange: (
+    target: ProjectGpuRetainedParamTarget | null,
+  ) => void;
+  readonly onActiveParamDomIslandChange: (
+    island: ProjectGpuActiveParamDomIsland | null,
+  ) => void;
+  readonly onHoveredParamTargetChange: (
+    target: ProjectGpuRetainedParamTarget | null,
+  ) => void;
+  readonly onPasswordRevealStateChange: (
+    update: ProjectGpuRetainedPasswordRevealUpdate,
+  ) => void;
+  readonly onRetainedParamDragPreviewChange: (
+    preview: ProjectGpuRetainedParamDragPreview | null,
+  ) => void;
+  readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
+  readonly showAgenticEdges: boolean;
+  readonly showDataEdges: boolean;
 }) {
+  const { layoutStore, nodeLayouts } = layoutAdapter;
+  const retainedParamDragSessionRef =
+    useRef<ProjectGpuRetainedParamDragSession | null>(null);
+  const [resizePreviewScene, setResizePreviewScene] =
+    useState<GpuFlowScene | null>(null);
+  const effectiveScene = resizePreviewScene ?? layoutAdapter.scene;
+  useEffect(() => {
+    if (
+      resizePreviewScene &&
+      projectGpuResizePreviewSceneMatchesCommittedScene(
+        resizePreviewScene,
+        layoutAdapter.scene,
+      )
+    ) {
+      setResizePreviewScene(null);
+    }
+  }, [layoutAdapter.scene, resizePreviewScene]);
+  const handleResizePreviewSceneChange = useCallback(
+    (scene: GpuFlowScene | null) => {
+      setResizePreviewScene(scene);
+    },
+    [],
+  );
+  const sceneSectionById = useMemo(
+    () => getProjectSceneSectionById(effectiveScene),
+    [effectiveScene],
+  );
+  const edgeScene = useProjectGpuEdgeScene({
+    layoutNodes: nodeLayouts,
+    scene: effectiveScene,
+    showAgenticEdges,
+    showDataEdges,
+  });
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
-  const dndMode = useDndMode();
+  const activeNodeIds = useActiveSectionUI(
+    (state) => state.activeIds,
+    _.isEqual,
+  );
+  const primarySelectionId =
+    activeNodeIds.length > 0
+      ? activeNodeIds[activeNodeIds.length - 1] ?? null
+      : null;
   const edgeInteractionOptions = useMemo(
     () =>
       getProjectEdgeInteractionOptions({
@@ -301,32 +484,136 @@ export function ProjectGpuFlowLayer({
       getProjectNodeDragOptions({
         flowInteractionKeys,
         isFollowTransitioning,
+        layoutStore,
+        scene: effectiveScene,
         settings,
       }),
-    [flowInteractionKeys, isFollowTransitioning, settings],
+    [
+      flowInteractionKeys,
+      isFollowTransitioning,
+      effectiveScene,
+      layoutStore,
+      settings,
+    ],
+  );
+  const nodeResizeOptions = useProjectNodeResizeOptions({
+    canEditLayout,
+    flowInteractionKeys,
+    isFollowTransitioning,
+    layoutStore,
+    onResizePreviewSceneChange: handleResizePreviewSceneChange,
+    resolveResizePreviewScene: layoutAdapter.resolveResizePreviewScene,
+    scene: layoutAdapter.scene,
+  });
+  const portals = getProjectGpuPortalDescriptors();
+  const handleNodeElementChange = useProjectNodeIntrinsicSizeObserver(
+    layoutStore,
+    nodeLayouts,
   );
   const panZoomOptions = useMemo(
     () =>
       getProjectPanZoomOptions({
-        dndMode,
         flowInteractionKeys,
         settings,
       }),
-    [dndMode, flowInteractionKeys, settings],
+    [flowInteractionKeys, settings],
   );
   const selectionOptions = useMemo(
     () => ({
       isBackgroundTarget: (target: EventTarget) =>
         isProjectPaneBackgroundTarget(target),
-      isSelecting: () =>
-        gpuFlowViewportStore.getState().selectionKeyPressed &&
-        !isProjectGpuSelectionDisabled({ dndMode }),
+      isSelecting: () => gpuFlowViewportStore.getState().selectionKeyPressed,
       mode: settings.selectionMode,
       onSelectionChange: handleProjectSelectionChange,
     }),
-    [dndMode, settings.selectionMode],
+    [settings.selectionMode],
   );
-  useProjectGpuDndViewportTransitionCancel(dndMode);
+  const selectionDragOptions = useMemo(
+    () =>
+      getProjectSelectionDragOptions({
+        activeNodeIds,
+        primarySelectionId,
+        settings,
+      }),
+    [activeNodeIds, primarySelectionId, settings],
+  );
+  const sceneScrollOptions = useMemo(
+    () =>
+      getProjectSceneScrollOptions({
+        flowInteractionKeys,
+        layoutAdapter,
+        primarySelectionId,
+      }),
+    [flowInteractionKeys, layoutAdapter, primarySelectionId],
+  );
+  const retainedContentScrollOptions = useMemo(
+    () =>
+      getProjectRetainedContentScrollOptions({
+        flowInteractionKeys,
+        layoutAdapter,
+      }),
+    [flowInteractionKeys, layoutAdapter],
+  );
+  const retainedContentInteractionOptions = useMemo(
+    () =>
+      getProjectRetainedContentInteractionOptions({
+        canEditStructure,
+        onActiveParamCanvasPopupChange,
+        onActiveParamCanvasControlChange,
+        onActiveParamDomIslandChange,
+        onHoveredParamTargetChange,
+        onPasswordRevealStateChange,
+        onRetainedParamDragPreviewChange,
+        passwordRevealStates,
+        retainedContentScroll: {
+          getScene: () => effectiveScene,
+          getScrollOffsets: layoutAdapter.getContentScrollOffsets,
+          onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
+        },
+        retainedParamDragSessionRef,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+      }),
+    [
+      canEditStructure,
+      flowInteractionKeys,
+      onActiveParamCanvasPopupChange,
+      onActiveParamCanvasControlChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange,
+      onPasswordRevealStateChange,
+      onRetainedParamDragPreviewChange,
+      passwordRevealStates,
+      effectiveScene,
+      layoutAdapter,
+      retainedParamDragSessionRef,
+    ],
+  );
+  const retainedContentConnectionOptions = useMemo(
+    () =>
+      getProjectRetainedContentConnectionOptions({
+        canEditStructure,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+      }),
+    [canEditStructure, flowInteractionKeys.zoomActivationKeyPressed],
+  );
+  const scenePortConnectionOptions = useMemo(
+    () =>
+      getProjectScenePortConnectionOptions({
+        canEditStructure,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+      }),
+    [canEditStructure, flowInteractionKeys.zoomActivationKeyPressed],
+  );
+  const retainedContentKeyboardOptions = useMemo(
+    () =>
+      getProjectRetainedContentKeyboardOptions({
+        activeNodeIds,
+        canEditStructure,
+        flowInteractionKeys,
+        layoutAdapter,
+      }),
+    [activeNodeIds, canEditStructure, flowInteractionKeys, layoutAdapter],
+  );
   if (!readyToRender) {
     return null;
   }
@@ -337,40 +624,32 @@ export function ProjectGpuFlowLayer({
       edgePalette={edgePaletteInput}
       edgeReconnect={edgeReconnectOptions}
       edgeScene={edgeScene}
+      framePerformanceReporter={PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER}
       grid={gridInput}
+      layoutStore={layoutStore}
       nodeDrag={nodeDragOptions}
-      nodeVisibility={readyToBeVisible ? "visible" : "hidden"}
-      nodes={nodeLayouts}
-      onNodeElementChange={nodeElementChange}
+      nodeResize={nodeResizeOptions}
+      onNodeElementChange={handleNodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
-      renderNode={renderProjectGpuNode}
+      portals={portals}
+      renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
+      renderDomIsland={renderProjectGpuDomIsland}
+      retainedContentConnection={retainedContentConnectionOptions}
+      retainedContentInteraction={retainedContentInteractionOptions}
+      retainedContentKeyboard={retainedContentKeyboardOptions}
+      retainedContentScroll={retainedContentScrollOptions}
+      scene={effectiveScene}
+      scenePortConnection={scenePortConnectionOptions}
+      sceneScroll={sceneScrollOptions}
       selection={selectionOptions}
+      selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
-    >
-      <div
-        className="setta-codemirror-tooltips"
-        id={CODEMIRROR_TOOLTIP_PARENT_ID}
-      />
-      <div
-        className="setta-popover-portals"
-        id={SETTA_POPOVER_PORTAL_PARENT_ID}
-      />
-    </GpuFlow>
+    />
   );
 }
 
-export function useProjectGpuDndViewportTransitionCancel(
-  dndMode: ProjectGpuDndMode,
-) {
-  useEffect(() => {
-    if (dndMode.isMovingFree || dndMode.isSorting) {
-      cancelViewportTransition();
-    }
-  }, [dndMode.isMovingFree, dndMode.isSorting]);
-}
-
-export function useProjectGpuEdgeSelection(canEditStructure: boolean) {
+function useProjectGpuEdgeSelection(canEditStructure: boolean) {
   return useCallback(
     (event: Pick<GpuEdgeInteractionEvent, "edgeId" | "family">) => {
       selectProjectGpuEdge({
@@ -383,7 +662,7 @@ export function useProjectGpuEdgeSelection(canEditStructure: boolean) {
   );
 }
 
-export function getProjectEdgeInteractionOptions({
+function getProjectEdgeInteractionOptions({
   isFollowTransitioning,
   selectEdge,
 }: {
@@ -394,15 +673,9 @@ export function getProjectEdgeInteractionOptions({
 }) {
   return {
     disabled: () => {
-      const dndState = useDndState.getState();
       const viewportState = gpuFlowViewportStore.getState();
       return isProjectGpuEdgeInteractionDisabled({
         connectionActive: viewportState.connectionStartHandle !== null,
-        dndMode: {
-          isMovingFree: dndState.isMovingFree,
-          isSorting: dndState.isSorting,
-        },
-        isDndActive: dndState.activeId !== null,
         isFollowTransitioning,
         userSelectionActive: viewportState.userSelectionActive,
         viewportInteractionActive: viewportState.viewportInteractionActive,
@@ -413,37 +686,28 @@ export function getProjectEdgeInteractionOptions({
   };
 }
 
-export function getProjectEdgeReconnectOptions({
+function getProjectEdgeReconnectOptions({
   isFollowTransitioning,
 }: {
   readonly isFollowTransitioning: boolean;
 }) {
   return {
     disabled: () => {
-      const dndState = useDndState.getState();
       const viewportState = gpuFlowViewportStore.getState();
       return isProjectGpuEdgeInteractionDisabled({
         connectionActive: viewportState.connectionStartHandle !== null,
-        dndMode: {
-          isMovingFree: dndState.isMovingFree,
-          isSorting: dndState.isSorting,
-        },
-        isDndActive: dndState.activeId !== null,
         isFollowTransitioning,
         userSelectionActive: viewportState.userSelectionActive,
         viewportInteractionActive: viewportState.viewportInteractionActive,
       });
     },
+    autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
     isValidConnection: isValidDataEdgeConnection,
     onReconnect: reconnectEdgeFromConnection,
   };
 }
 
-export function renderProjectGpuNode(node: GpuNodeLayout) {
-  return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
-}
-
-export function getProjectGpuEdgePaletteInput({
+function getProjectGpuEdgePaletteInput({
   darkMode,
   settings,
 }: {
@@ -455,7 +719,7 @@ export function getProjectGpuEdgePaletteInput({
   };
 }
 
-export function handleProjectFlowResize(
+function handleProjectFlowResize(
   _: unknown,
   size: { readonly cssHeight: number; readonly cssWidth: number },
 ) {
@@ -465,7 +729,7 @@ export function handleProjectFlowResize(
   });
 }
 
-export function getProjectSurfaceDataAttributes({
+function getProjectSurfaceDataAttributes({
   isConnecting,
   showAgenticEdges,
   showDataEdges,
@@ -481,88 +745,176 @@ export function getProjectSurfaceDataAttributes({
   };
 }
 
-export function getProjectNodeDragOptions({
+function getProjectNodeDragOptions({
   flowInteractionKeys,
   isFollowTransitioning,
+  layoutStore,
+  scene,
   settings,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
+  readonly layoutStore: GpuFlowLayoutStoreApi;
+  readonly scene: GpuFlowScene;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   return {
     autoPanOnNodeDrag: true,
-    canDragNode: canDragProjectNode,
+    canDragNode: (nodeId) => canDragProjectNode(nodeId, scene),
     disabled: () => {
-      const dndState = useDndState.getState();
       return isProjectGpuNodeDragDisabled({
-        dndMode: {
-          isMovingFree: dndState.isMovingFree,
-          isSorting: dndState.isSorting,
-        },
         isFollowTransitioning,
         panActivationKeyPressed: flowInteractionKeys.panActivationKeyPressed,
       });
     },
     getSelectedNodeIds: getActiveSectionUIIds,
     nodeDragThresholdPx: 1,
-    onNodeDrag: handleProjectNodeDrag,
-    onNodeDragCancel: handleProjectNodeDragCancel,
-    onNodeDragStart: handleProjectNodeDragStart,
-    onNodeDragStop: handleProjectNodeDragStop,
+    onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change, scene),
+    onNodeDragCancel: (change) =>
+      handleProjectNodeDragCancel(layoutStore, change, scene),
+    onNodeDragFrame: (change) =>
+      handleProjectNodeDragFrame(layoutStore, change, scene),
+    onNodeDragStart: (change) =>
+      handleProjectNodeDragStart(layoutStore, change),
+    onNodeDragStop: (change) =>
+      handleProjectNodeDragStop(layoutStore, change, scene),
     snapGrid: settings.snapGrid,
     snapToGrid: () => useLocalStorage.getState().snapToGrid,
   };
 }
 
-export function getProjectPanZoomOptions({
-  dndMode,
-  flowInteractionKeys,
+function getProjectSelectionDragOptions({
+  activeNodeIds,
+  primarySelectionId,
   settings,
 }: {
-  readonly dndMode: ProjectGpuDndMode;
-  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly activeNodeIds: readonly string[];
+  readonly primarySelectionId: string | null;
   readonly settings: ProjectGpuSurfaceSettings;
-}) {
-  const interactionEnabled = !isProjectGpuViewportGestureDisabled({
-    dndMode,
-  });
+}): Omit<
+  GpuSelectionDragControllerOptions,
+  "element" | "layoutStore" | "requestFrame" | "store"
+> {
   return {
-    panActivationKeyPressed:
-      interactionEnabled && flowInteractionKeys.panActivationKeyPressed,
-    panOnDrag:
-      interactionEnabled &&
-      !flowInteractionKeys.selectionKeyPressed &&
-      settings.panOnDrag,
-    panOnScroll: interactionEnabled && settings.panOnScroll,
-    panOnScrollMode: settings.panOnScrollMode,
-    panOnScrollSpeed: settings.panOnScrollSpeed,
-    zoomActivationKeyPressed:
-      interactionEnabled && flowInteractionKeys.zoomActivationKeyPressed,
-    zoomOnDoubleClick: interactionEnabled && settings.zoomOnDoubleClick,
-    zoomOnPinch: interactionEnabled && settings.zoomOnPinch,
-    zoomOnScroll: interactionEnabled && settings.zoomOnScroll,
+    autoPanOnSelectionDrag: true,
+    canDragNode: canDragProjectNode,
+    onSelectionContextMenu: handleProjectSelectionContextMenu,
+    onSelectionDragCancel: handleProjectSelectionDragCancel,
+    onSelectionDragStart: handleProjectSelectionDragStart,
+    onSelectionDragStop: handleProjectSelectionDragStop,
+    onSelectionKeyboardNudge: handleProjectSelectionKeyboardNudge,
+    primaryNodeId: primarySelectionId,
+    selectedNodeIds: activeNodeIds,
+    snapGrid: settings.snapGrid,
+    snapToGrid: () => useLocalStorage.getState().snapToGrid,
   };
 }
 
-export function booleanDataAttribute(value: boolean): "true" | "false" {
-  return value ? "true" : "false";
+function getProjectSceneScrollOptions({
+  flowInteractionKeys,
+  layoutAdapter,
+  primarySelectionId,
+}: {
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+  readonly primarySelectionId: string | null;
+}) {
+  return {
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    getKeyboardScrollParentSectionId: (scene: GpuFlowScene) =>
+      getProjectKeyboardScrollParentSectionId(scene, primarySelectionId),
+    getScrollOffsets: () => layoutAdapter.sceneScrollOffsets,
+    onScrollOffsetsChange: layoutAdapter.setSceneScrollOffsets,
+  };
 }
 
-export function useProjectGpuNodeLayouts(): readonly GpuNodeLayout[] {
-  return useNodeInternals(
-    (state) =>
-      Array.from(state.x.values()).map((node) => ({
-        height: node.height,
-        nodeId: node.id,
-        tempZIndex: node.tempZIndex,
-        width: node.width,
-        x: node.position.x,
-        y: node.position.y,
-        zIndex: node.zIndex,
-      })),
-    _.isEqual,
+function getProjectRetainedContentScrollOptions({
+  flowInteractionKeys,
+  layoutAdapter,
+}: {
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+}) {
+  return {
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
+    onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
+  };
+}
+
+function getProjectRetainedContentKeyboardOptions({
+  activeNodeIds,
+  canEditStructure,
+  flowInteractionKeys,
+  layoutAdapter,
+}: {
+  readonly activeNodeIds: readonly string[];
+  readonly canEditStructure: boolean;
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+}) {
+  return {
+    disabled: () =>
+      flowInteractionKeys.zoomActivationKeyPressed ||
+      !canEditStructure ||
+      !useMisc.getState().isSelectingParams,
+    getCurrentTarget: (scene: GpuFlowScene) =>
+      getProjectGpuRetainedParamNavigationTarget({
+        activeSectionIds: activeNodeIds,
+        projectState: useProjectState.getState(),
+        scene,
+      }),
+    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
+    onNavigation: (event: GpuRetainedContentKeyboardNavigationEvent) => {
+      layoutAdapter.setContentScrollOffsets(event.scrollOffsets);
+      selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
+    },
+  };
+}
+
+function getProjectKeyboardScrollParentSectionId(
+  scene: GpuFlowScene,
+  selectedSectionId: string | null,
+): string | null {
+  if (!selectedSectionId) {
+    return null;
+  }
+  const sectionById = new Map(
+    scene.sections.map((section) => [section.sectionId, section]),
   );
+  const selectedSection = sectionById.get(selectedSectionId);
+  if (!selectedSection) {
+    return null;
+  }
+  if (selectedSection.childSectionIds.length > 0) {
+    return selectedSection.sectionId;
+  }
+  return selectedSection.parentSectionId;
+}
+
+function getProjectPanZoomOptions({
+  flowInteractionKeys,
+  settings,
+}: {
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly settings: ProjectGpuSurfaceSettings;
+}) {
+  return {
+    panActivationKeyPressed: flowInteractionKeys.panActivationKeyPressed,
+    panOnDrag: !flowInteractionKeys.selectionKeyPressed && settings.panOnDrag,
+    panOnScroll: settings.panOnScroll,
+    panOnScrollMode: settings.panOnScrollMode,
+    panOnScrollSpeed: settings.panOnScrollSpeed,
+    onPointerPanStart: closeAllContextMenus,
+    zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+    zoomOnDoubleClick: settings.zoomOnDoubleClick,
+    zoomOnPinch: settings.zoomOnPinch,
+    zoomOnScroll: settings.zoomOnScroll,
+  };
+}
+
+function booleanDataAttribute(value: boolean): "true" | "false" {
+  return value ? "true" : "false";
 }
 
 export function useProjectGpuSurfaceSettings() {
@@ -594,7 +946,7 @@ export function useProjectGpuSurfaceSettings() {
   );
 }
 
-export function useProjectViewportSettingsSync(
+function useProjectViewportSettingsSync(
   settings: ReturnType<typeof useProjectGpuSurfaceSettings>,
 ) {
   useEffect(() => {
@@ -606,7 +958,7 @@ export function useProjectViewportSettingsSync(
   }, [settings.defaultZoomLevel, settings.maxZoom, settings.minZoom]);
 }
 
-export function useProjectSurfaceDimensions(
+function useProjectSurfaceDimensions(
   ref: RefObject<HTMLDivElement | null>,
 ): ProjectSurfaceDimensions {
   const [dimensions, setDimensions] = useState<ProjectSurfaceDimensions>({
@@ -619,58 +971,30 @@ export function useProjectSurfaceDimensions(
     if (!node) {
       return;
     }
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) {
-        return;
-      }
+    const updateDimensions = (
+      rect: Pick<DOMRectReadOnly, "height" | "width">,
+    ) => {
       const nextDimensions = {
-        height: entry.contentRect.height,
-        width: entry.contentRect.width,
+        height: rect.height,
+        width: rect.width,
       };
       setDimensions(nextDimensions);
       gpuFlowViewportStore.getState().setViewportSize({
         height: nextDimensions.height,
         width: getVisibleProjectSurfaceWidth(nextDimensions.width),
       });
+    };
+    updateDimensions(getProjectSurfaceClientDimensions(node));
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
+      updateDimensions(entry.contentRect);
     });
     observer.observe(node);
     return () => observer.disconnect();
   }, [ref]);
 
   return dimensions;
-}
-
-export function useProjectNodeResizeObserver() {
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const elementByNodeId = useRef(new Map<string, HTMLElement>());
-
-  useEffect(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-    observerRef.current = new ResizeObserver((entries) => {
-      const updates = getNodeUpdateInformation(entries, true);
-      updateNodeDimensions(updates);
-    });
-    return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
-      elementByNodeId.current.clear();
-    };
-  }, []);
-
-  return useCallback((nodeId: string, element: HTMLElement | null) => {
-    const previousElement = elementByNodeId.current.get(nodeId);
-    const observer = observerRef.current;
-    if (previousElement && previousElement !== element) {
-      observer?.unobserve(previousElement);
-      elementByNodeId.current.delete(nodeId);
-    }
-    if (!element) {
-      return;
-    }
-    elementByNodeId.current.set(nodeId, element);
-    observer?.observe(element);
-  }, []);
 }

@@ -57,9 +57,9 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   ),
 }));
 
-vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-custom-resizable">{children}</section>
+vi.mock("./SectionResizeFrame", () => ({
+  SectionResizeFrame: ({ children }: { children: ReactNode }) => (
+    <section data-testid="mock-section-resize-frame">{children}</section>
   ),
 }));
 
@@ -133,7 +133,12 @@ vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
 vi.mock("../Layouts/DictArea", () => ({
-  DictArea: () => <div data-testid="mock-dict-area" />,
+  DictArea: ({ renderParamRows = true }: { renderParamRows?: boolean }) => (
+    <div
+      data-testid="mock-dict-area"
+      data-render-param-rows={String(renderParamRows)}
+    />
+  ),
 }));
 vi.mock("../Layouts/DrawArea/DrawArea", () => ({
   DrawArea: () => <div data-testid="mock-draw-area" />,
@@ -199,6 +204,22 @@ describe("SectionContainerCoreResizable", () => {
     );
   });
 
+  it("passes retained row ownership into dict section areas", () => {
+    const markup = renderToStaticMarkup(
+      <AreaSwitch
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Dict}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+        renderParamRows={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-dict-area"');
+    expect(markup).toContain('data-render-param-rows="false"');
+  });
+
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
     mockProjectState = {
       projectConfig: {
@@ -232,6 +253,36 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
     expect(markup).toContain('data-instance-id="project-chat-window-1"');
     expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("uses passive resize handles for top-level GPU sections", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-resize-frame"');
+  });
+
+  it("uses passive resize handles for nested sections", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-resize-frame"');
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {

@@ -4,6 +4,10 @@ import {
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { getPaneRect } from "gpuFlow/flowGeometry";
+import {
+  gpuFlowLayoutStore,
+  type GpuFlowLayoutNode,
+} from "gpuFlow/layoutStore";
 import { getViewport, getZoom, setCenter } from "gpuFlow/viewportActions";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
@@ -13,7 +17,6 @@ import {
 } from "openapi/http";
 import {
   useLocalStorage,
-  useNodeInternals,
   useProjectState,
   useShareSession,
 } from "state/definitions";
@@ -37,10 +40,11 @@ import {
 } from "utils/tabbingLogic";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
-  createTopLevelSectionLayoutDict,
+  copyExistingTopLevelSectionLayouts,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "../sectionInfos";
+import { getPositiveTopLevelLayoutDimension } from "../sectionInfos/topLevelSectionNode";
 import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionRequestBody = CreateTopLevelSectionData["body"];
@@ -206,8 +210,7 @@ export async function createTopLevelSection({
   return created.sectionId;
 }
 function ensureSectionOnTop(sectionId: string, attempt = 0) {
-  const nodeInternals = useNodeInternals.getState().x;
-  if (nodeInternals.has(sectionId)) {
+  if (gpuFlowLayoutStore.getState().getNode(sectionId)) {
     applyActiveSectionChange({ interaction: "go-to", sectionId });
     return;
   }
@@ -241,15 +244,41 @@ export function addTerminalInEmptySpace() {
 }
 function getTopLevelSectionLayoutSnapshot() {
   const projectState = useProjectState.getState();
-  const nodeInternals = useNodeInternals.getState().x;
-  if (nodeInternals.size === 0) {
-    return { ...projectState.projectConfig.topLevelSections };
-  }
-  return createTopLevelSectionLayoutDict(
+  const topLevelSections = copyExistingTopLevelSectionLayouts(
     projectState.sections,
-    nodeInternals,
     projectState.projectConfig.topLevelSections,
   );
+  for (const layoutNode of gpuFlowLayoutStore.getState().getNodes()) {
+    if (!(layoutNode.nodeId in projectState.sections)) {
+      continue;
+    }
+    topLevelSections[layoutNode.nodeId] =
+      buildTopLevelSectionLayoutFromGpuLayoutNode(
+        layoutNode,
+        topLevelSections[layoutNode.nodeId],
+      );
+  }
+  return topLevelSections;
+}
+function buildTopLevelSectionLayoutFromGpuLayoutNode(
+  layoutNode: GpuFlowLayoutNode,
+  existingLayout?: TopLevelSectionLayout,
+): TopLevelSectionLayout {
+  const nextLayout = existingLayout
+    ? { ...existingLayout }
+    : { h: null, w: null, x: layoutNode.x, y: layoutNode.y, zIndex: 0 };
+  nextLayout.x = layoutNode.x;
+  nextLayout.y = layoutNode.y;
+  if (layoutNode.zIndex !== undefined) {
+    nextLayout.zIndex = layoutNode.zIndex;
+  }
+  if (getPositiveTopLevelLayoutDimension(layoutNode.width) !== null) {
+    nextLayout.w = layoutNode.width;
+  }
+  if (getPositiveTopLevelLayoutDimension(layoutNode.height) !== null) {
+    nextLayout.h = layoutNode.height;
+  }
+  return nextLayout;
 }
 function getViewportBoundsForPlacement(): ViewportBounds | null {
   const viewportState = gpuFlowViewportStore.getState();
@@ -258,8 +287,7 @@ function getViewportBoundsForPlacement(): ViewportBounds | null {
     return null;
   }
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
-  const uiEditorWidth = useLocalStorage.getState().uiEditorTrueWidth;
-  const paneRect = getPaneRect(viewportState, overviewWidth, uiEditorWidth);
+  const paneRect = getPaneRect(viewportState, overviewWidth);
   if (paneRect.width <= 0 || paneRect.height <= 0) {
     return null;
   }

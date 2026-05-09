@@ -1,6 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 
-import type { HandlePosition, HandleType, Node } from "gpuFlow/flowTypes";
+import type { Node } from "gpuFlow/flowTypes";
 
 import type {
   HttpapiExternalAgentPreflightStatus,
@@ -62,7 +62,7 @@ import {
   ZustandLocalStorage,
 } from "./storesLocalState";
 
-export const createInMemoryStorage = () => {
+const createInMemoryStorage = () => {
   const storage = new Map<string, string>();
   return {
     getItem: (name: string) => storage.get(name) ?? null,
@@ -104,7 +104,7 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
-export type ZustandContextMenu = {
+type ZustandContextMenu = {
   pane: { isOpen: boolean; x: number; y: number };
   selection: { isOpen: boolean; x: number; y: number; nodeIds: Array<string> };
   typeError: {
@@ -167,7 +167,7 @@ export const useProjectState = withProjectState(
   ),
 );
 
-export type ShareSessionState = {
+type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
@@ -191,7 +191,7 @@ export const useShareSession = withProjectState(
   ),
 );
 
-export type ServerModeState = {
+type ServerModeState = {
   mode: ServerModeValue;
   modeResolved: boolean;
   modeError: string | null;
@@ -216,7 +216,7 @@ export type PendingOperation = {
   acknowledged: boolean;
 };
 
-export type ZustandPendingOperations = {
+type ZustandPendingOperations = {
   pending: Array<PendingOperation>;
 };
 
@@ -226,7 +226,7 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
-export type ActiveSectionUIState = {
+type ActiveSectionUIState = {
   activeIds: Array<string>;
   selectionGeneration: number;
   backendGeneration: number;
@@ -261,7 +261,7 @@ export type ListenerCoverageRecord = {
   dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
 };
 
-export type ListenerCoverageState = {
+type ListenerCoverageState = {
   byProjectId: Record<string, ListenerCoverageRecord>;
 };
 
@@ -275,7 +275,7 @@ export const useListenerCoverage = withProjectState(
   ),
 );
 
-export type ZustandRenameRefactors = {
+type ZustandRenameRefactors = {
   byOpId: Record<string, RenameRefactorBroadcastContent>;
   queue: Array<string>;
   readyOpIds: Record<string, boolean>;
@@ -297,7 +297,7 @@ export const useHomePageSearch = createWithEqualityFn(
   })),
 );
 
-export type ZustandWaitingForLSPResult = {
+type ZustandWaitingForLSPResult = {
   textFields: Record<string, boolean>;
   parametersRequest: Record<string, boolean>;
 };
@@ -316,7 +316,7 @@ export const useWaitingForLSPResult = withProjectState(
   ),
 );
 
-export type ZustandModalState = {
+type ZustandModalState = {
   open: boolean;
   modalInfo: ModalInfoType | null;
 };
@@ -340,13 +340,13 @@ export const useNodeInternals = withProjectState(
   ),
 );
 
-export type AtomicallyPublishedProjectStoreState = {
+type AtomicallyPublishedProjectStoreState = {
   projectState: ZustandProjectState;
   nodeInternals: ZustandNodeInternalsState;
   activeSectionUI: ActiveSectionUIState;
 };
 
-export let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
+let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
   null;
 
 export function patchPublishedProjectStoreGetState<TState>(
@@ -370,7 +370,7 @@ export function patchPublishedProjectStoreGetState<TState>(
 export const readRawProjectState =
   useProjectState.getState.bind(useProjectState);
 
-export const readRawActiveSectionUIState =
+const readRawActiveSectionUIState =
   useActiveSectionUI.getState.bind(useActiveSectionUI);
 
 export const readRawNodeInternalsState =
@@ -404,7 +404,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-export type ZustandNotificationState = {
+type ZustandNotificationState = {
   notifications: Array<AppNotification>;
 };
 
@@ -414,7 +414,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-export type FileBrowserState = {
+type FileBrowserState = {
   rootPath: string | null;
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
@@ -477,7 +477,7 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
   })),
 );
 
-export type RunMode = "once" | "continuous";
+type RunMode = "once" | "continuous";
 
 export type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
@@ -506,13 +506,11 @@ export type ProjectChatAuxView =
   | "slash_commands"
   | "ai_settings";
 
-export function isPersistedRecord(
-  value: unknown,
-): value is Record<string, unknown> {
+function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function normalizeTrimmedPersistedString(value: unknown): string | null {
+function normalizeTrimmedPersistedString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -520,7 +518,7 @@ export function normalizeTrimmedPersistedString(value: unknown): string | null {
   return normalized ? normalized : null;
 }
 
-export function normalizePersistedProjectChatSlashCommand(
+function normalizePersistedProjectChatSlashCommand(
   value: unknown,
 ): ProjectChatCustomSlashCommand | null {
   if (!isPersistedRecord(value)) {
@@ -538,7 +536,7 @@ export function normalizePersistedProjectChatSlashCommand(
   };
 }
 
-export function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
+function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   value: unknown,
 ): Record<string, Array<ProjectChatCustomSlashCommand>> {
   if (!isPersistedRecord(value)) {
@@ -568,7 +566,7 @@ export function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigI
   return normalized;
 }
 
-export function normalizePersistedProjectChatDraftMessageByProjectConfigId(
+function normalizePersistedProjectChatDraftMessageByProjectConfigId(
   value: unknown,
 ): Record<string, string> {
   if (!isPersistedRecord(value)) {
@@ -588,56 +586,50 @@ export function normalizePersistedProjectChatDraftMessageByProjectConfigId(
   return normalized;
 }
 
-export function normalizePersistedStringArray(
+function normalizePersistedStringArray(
   value: unknown,
   fallback: string[],
 ): string[] {
   return Array.isArray(value) ? value : fallback;
 }
 
-export function normalizePersistedBoolean(
-  value: unknown,
-  fallback: boolean,
-): boolean {
+function normalizePersistedBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-export function normalizePersistedNumber(
-  value: unknown,
-  fallback: number,
-): number {
+function normalizePersistedNumber(value: unknown, fallback: number): number {
   return typeof value === "number" ? value : fallback;
 }
 
-export function normalizePersistedObjectMap<T extends Record<string, unknown>>(
+function normalizePersistedObjectMap<T extends Record<string, unknown>>(
   value: unknown,
   fallback: T,
 ): T {
   return isPersistedRecord(value) ? (value as T) : fallback;
 }
 
-export function normalizePersistedHomeProjectGalleryViewMode(
+function normalizePersistedHomeProjectGalleryViewMode(
   value: unknown,
   fallback: HomeProjectGalleryViewMode,
 ): HomeProjectGalleryViewMode {
   return value === "thumbnails" || value === "list" ? value : fallback;
 }
 
-export function normalizePersistedChatSharedEdgeMode(
+function normalizePersistedChatSharedEdgeMode(
   value: unknown,
   fallback: ChatSharedEdgeMode,
 ): ChatSharedEdgeMode {
   return value === "agentic" || value === "workflow" ? value : fallback;
 }
 
-export function normalizePersistedOverviewTab(
+function normalizePersistedOverviewTab(
   value: unknown,
   fallback: OverviewTabKey,
 ): OverviewTabKey {
   return isOverviewTabKey(value) ? value : fallback;
 }
 
-export function normalizePersistedOverviewNotificationsPaneTab(
+function normalizePersistedOverviewNotificationsPaneTab(
   value: unknown,
   fallback: OverviewNotificationsPaneTab,
 ): OverviewNotificationsPaneTab {
@@ -647,7 +639,7 @@ export function normalizePersistedOverviewNotificationsPaneTab(
     : fallback;
 }
 
-export function resolvePersistedColorMode(
+function resolvePersistedColorMode(
   value: unknown,
   darkMode: boolean,
   hasPersistedValue: boolean,
@@ -658,7 +650,7 @@ export function resolvePersistedColorMode(
   return value as ColorModePreference;
 }
 
-export function normalizePersistedProjectChatThreadState(
+function normalizePersistedProjectChatThreadState(
   merged: ZustandLocalStorage,
   defaults: ZustandLocalStorage,
 ): void {
@@ -766,7 +758,7 @@ export function normalizePersistedLocalStorageState(
   return merged;
 }
 
-export type ZustandRunControl = {
+type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
   continuousRunCustomRunId: string | null;
@@ -782,7 +774,7 @@ export const useRunControl = withProjectState(
   ),
 );
 
-export type BackendLogSeverity = BackendLogEvent["severity"];
+type BackendLogSeverity = BackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
@@ -796,7 +788,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
   query: "",
 };
 
-export type BackendLogEventsState = {
+type BackendLogEventsState = {
   events: Array<BackendLogEvent>;
   filter: BackendLogEventsFilter;
   unreadHighSeverityCount: number;
@@ -847,40 +839,6 @@ export const useSectionRefs = withProjectState(
           selfOnly: {},
         })),
       ),
-    ),
-  ),
-);
-
-export type EdgeHandleRecord = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  element: HTMLElement | null;
-  isConnectableEnd?: boolean;
-};
-
-export type EdgeHandlePosition = {
-  sectionId: string;
-  portId: string;
-  type: HandleType;
-  side: HandlePosition;
-  x: number;
-  y: number;
-};
-
-export type ZustandEdgeHandleRegistry = {
-  handles: Record<string, EdgeHandleRecord>;
-  positions: Record<string, EdgeHandlePosition>;
-};
-
-export const useEdgeHandleRegistry = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<ZustandEdgeHandleRegistry>(() => ({
-        handles: {},
-        positions: {},
-      })),
     ),
   ),
 );

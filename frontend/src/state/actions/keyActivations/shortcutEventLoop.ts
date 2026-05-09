@@ -37,7 +37,7 @@ import {
   unindentSelectedParams,
 } from "state/actions/params/moveParams";
 
-import { useSettings } from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 
 import { focusAdjacentTopLevelSection, focusScope } from "utils/focusManager";
 
@@ -118,9 +118,9 @@ import {
   onEscapeKey,
 } from "./tabAndModeActions";
 
-export let aModShortcutWasPressed = false;
+let aModShortcutWasPressed = false;
 
-export function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
+function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
   // keyup does not trigger on mac when cmd is held down, so stale keys need
   // pruning before the next keydown is processed.
   if (aModShortcutWasPressed) {
@@ -133,7 +133,7 @@ export function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
   }
 }
 
-export function runShortcutKeyDownAction(
+function runShortcutKeyDownAction(
   event: KeyboardEvent,
   shortcut,
   isMac,
@@ -159,7 +159,7 @@ export function runShortcutKeyDownAction(
   return true;
 }
 
-export function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
+function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
   if (!shortcut.wasPressed || shortcut.keepKeyDownCondition?.(event)) {
     return;
   }
@@ -167,11 +167,7 @@ export function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
   shortcut.wasPressed = false;
 }
 
-export function handleShortcutKeyDownEvent(
-  event: KeyboardEvent,
-  shortcutInfo,
-  isMac,
-) {
+function handleShortcutKeyDownEvent(event: KeyboardEvent, shortcutInfo, isMac) {
   syncPressedKeysFromKeyDown(event);
   const isInput = getIsInput(event);
   for (const shortcut of shortcutInfo) {
@@ -182,7 +178,7 @@ export function handleShortcutKeyDownEvent(
   }
 }
 
-export function keyUpLoop(e, shortcutInfo) {
+function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
     if (x.wasPressed && !x.keepKeyDownCondition?.(e)) {
       x.wasPressed = false;
@@ -191,7 +187,7 @@ export function keyUpLoop(e, shortcutInfo) {
   }
 }
 
-export function addKeepKeyDownConditions(sInfo, _isMacOs) {
+function addKeepKeyDownConditions(sInfo, _isMacOs) {
   // post processing that depends on parsed shortcuts
   sInfo.showTooltipShortcut.keepKeyDownCondition = (e) =>
     isShortcutPressed(e, sInfo.showTooltipShortcut.parsedShortcut, _isMacOs) ||
@@ -339,7 +335,7 @@ export function attachKeyEventListeners() {
     ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, fitGpuViewportShortcut],
-    [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
+    [shortcuts.zoomToMouseShortcut, zoomToProjectMouseLocation],
     [shortcuts.deleteSectionShortcut, deleteEdgesOrSections],
     [
       shortcuts.selectTopLevelNonGroupSections,
@@ -455,7 +451,7 @@ export function attachKeyEventListeners() {
 // and if metaKey is false, then call the keyup actions if necessary.
 // If the user doesn't move the mouse, then they'll probably press a key, in which case
 // the keyup action will be called in the keydown listener (since wasPressed is true).
-export function specialModTabCase(shortcutInfo) {
+function specialModTabCase(shortcutInfo) {
   const modShortcuts = shortcutInfo.filter((x) => x.parsedShortcut.mod);
   if (modShortcuts.length > 0) {
     const cleanup = attachEventListenerAndReturnCleanup(
@@ -475,4 +471,11 @@ export function specialModTabCase(shortcutInfo) {
     );
     return cleanup;
   }
+}
+
+function zoomToProjectMouseLocation() {
+  return zoomToMouseLocation({
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    zoom: useSettings.getState().gui.defaultZoomLevel,
+  });
 }

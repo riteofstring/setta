@@ -1,57 +1,69 @@
-import { BackgroundVariantEnum } from "utils/generatedTypes";
-
 import { parseGpuHexColor } from "../gpuColors";
 
-import type { GpuTexturedNodeQuad } from "../GpuNodeLayer";
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceMeshVisual,
+} from "../htmlSurfaces/visualScene";
 
 import {
-  CachedNodeQuadGeometry,
+  CachedFlatSurfaceGeometry,
+  CachedMeshSurfaceGeometry,
   FLOATS_PER_VERTEX,
+  FlatSurfaceVertexCache,
   GpuEdgePaletteInput,
   GpuGridInput,
   GpuGridVariant,
-  NodeQuadVertexCache,
+  MeshSurfaceDrawRange,
+  MeshSurfaceVertexCache,
   VERTICES_PER_QUAD,
 } from "./pipelineTypes";
 
-export function buildNodeQuadVertexData(
-  quads: readonly Pick<GpuTexturedNodeQuad, "height" | "width" | "x" | "y">[],
+export function buildFlatSurfaceVertexData(
+  surfaces: readonly Pick<
+    HtmlSurfaceFlatVisual,
+    "height" | "width" | "x" | "y"
+  >[],
 ): Float32Array {
   const data = new Float32Array(
-    quads.length * VERTICES_PER_QUAD * FLOATS_PER_VERTEX,
+    surfaces.length * VERTICES_PER_QUAD * FLOATS_PER_VERTEX,
   );
   let offset = 0;
-  for (const quad of quads) {
-    const left = quad.x;
-    const top = quad.y;
-    const right = quad.x + quad.width;
-    const bottom = quad.y + quad.height;
-    offset = writeNodeQuadVertex(data, offset, { u: 0, v: 0, x: left, y: top });
-    offset = writeNodeQuadVertex(data, offset, {
+  for (const surface of surfaces) {
+    const left = surface.x;
+    const top = surface.y;
+    const right = surface.x + surface.width;
+    const bottom = surface.y + surface.height;
+    offset = writeFlatSurfaceVertex(data, offset, {
+      u: 0,
+      v: 0,
+      x: left,
+      y: top,
+    });
+    offset = writeFlatSurfaceVertex(data, offset, {
       u: 1,
       v: 0,
       x: right,
       y: top,
     });
-    offset = writeNodeQuadVertex(data, offset, {
+    offset = writeFlatSurfaceVertex(data, offset, {
       u: 0,
       v: 1,
       x: left,
       y: bottom,
     });
-    offset = writeNodeQuadVertex(data, offset, {
+    offset = writeFlatSurfaceVertex(data, offset, {
       u: 0,
       v: 1,
       x: left,
       y: bottom,
     });
-    offset = writeNodeQuadVertex(data, offset, {
+    offset = writeFlatSurfaceVertex(data, offset, {
       u: 1,
       v: 0,
       x: right,
       y: top,
     });
-    offset = writeNodeQuadVertex(data, offset, {
+    offset = writeFlatSurfaceVertex(data, offset, {
       u: 1,
       v: 1,
       x: right,
@@ -61,61 +73,210 @@ export function buildNodeQuadVertexData(
   return data;
 }
 
-export function isNodeQuadVertexCacheValid(
-  cache: NodeQuadVertexCache | null,
-  quads: readonly GpuTexturedNodeQuad[],
-): cache is NodeQuadVertexCache {
-  if (!cache || cache.geometry.length !== quads.length) {
+export function buildMeshSurfaceVertexCache(
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): MeshSurfaceVertexCache {
+  const indexCount = surfaces.reduce(
+    (count, surface) => count + surface.indices.length,
+    0,
+  );
+  const vertexData = new Float32Array(indexCount * FLOATS_PER_VERTEX);
+  const indexData = new Uint32Array(indexCount);
+  const ranges: MeshSurfaceDrawRange[] = [];
+  let vertexCount = 0;
+  let vertexDataOffset = 0;
+  let indexOffset = 0;
+
+  for (const surface of surfaces) {
+    const firstVertex = vertexCount;
+    for (const index of surface.indices) {
+      const vertex = surface.vertices[index];
+      if (!vertex) {
+        throw new Error(
+          `Setta HTML surface mesh "${surface.surfaceId}" references missing vertex ${index}.`,
+        );
+      }
+      vertexDataOffset = writeFlatSurfaceVertex(
+        vertexData,
+        vertexDataOffset,
+        vertex,
+      );
+      indexData[indexOffset] = index;
+      indexOffset += 1;
+      vertexCount += 1;
+    }
+    ranges.push({
+      firstVertex,
+      surfaceId: surface.surfaceId,
+      vertexCount: surface.indices.length,
+    });
+  }
+
+  return {
+    geometry: captureMeshSurfaceGeometry(surfaces),
+    indexData,
+    ranges,
+    vertexCount,
+    vertexData,
+  };
+}
+
+export function isFlatSurfaceVertexCacheValid(
+  cache: FlatSurfaceVertexCache | null,
+  surfaces: readonly CachedFlatSurfaceGeometry[],
+): cache is FlatSurfaceVertexCache {
+  if (!cache || cache.geometry.length !== surfaces.length) {
     return false;
   }
-  for (let index = 0; index < quads.length; index += 1) {
+  for (let index = 0; index < surfaces.length; index += 1) {
     const cached = cache.geometry[index];
-    const quad = quads[index];
-    if (!cached || !isCachedNodeQuadGeometryEqual(cached, quad)) {
+    const surface = surfaces[index];
+    if (
+      !cached ||
+      !surface ||
+      !isCachedFlatSurfaceGeometryEqual(cached, surface)
+    ) {
       return false;
     }
   }
   return true;
 }
 
-export function isCachedNodeQuadGeometryEqual(
-  cached: CachedNodeQuadGeometry,
-  quad: GpuTexturedNodeQuad,
+export function isMeshSurfaceVertexCacheValid(
+  cache: MeshSurfaceVertexCache | null,
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): cache is MeshSurfaceVertexCache {
+  if (!cache || cache.geometry.length !== surfaces.length) {
+    return false;
+  }
+  for (let index = 0; index < surfaces.length; index += 1) {
+    const cached = cache.geometry[index];
+    const surface = surfaces[index];
+    if (
+      !cached ||
+      !surface ||
+      !isCachedMeshSurfaceGeometryEqual(cached, surface)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isCachedFlatSurfaceGeometryEqual(
+  cached: CachedFlatSurfaceGeometry,
+  surface: CachedFlatSurfaceGeometry,
 ): boolean {
   return (
-    cached.nodeId === quad.nodeId &&
-    cached.x === quad.x &&
-    cached.y === quad.y &&
-    cached.width === quad.width &&
-    cached.height === quad.height &&
-    cached.zIndex === quad.zIndex
+    cached.surfaceId === surface.surfaceId &&
+    cached.x === surface.x &&
+    cached.y === surface.y &&
+    cached.width === surface.width &&
+    cached.height === surface.height &&
+    cached.zIndex === surface.zIndex
   );
 }
 
-export function captureNodeQuadGeometry(
-  quads: readonly GpuTexturedNodeQuad[],
-): readonly CachedNodeQuadGeometry[] {
-  return quads.map((quad) => ({
-    height: quad.height,
-    nodeId: quad.nodeId,
-    width: quad.width,
-    x: quad.x,
-    y: quad.y,
-    zIndex: quad.zIndex,
+function isCachedMeshSurfaceGeometryEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  if (
+    cached.surfaceId !== surface.surfaceId ||
+    cached.zIndex !== surface.zIndex ||
+    cached.vertices.length !== surface.vertices.length ||
+    cached.indices.length !== surface.indices.length
+  ) {
+    return false;
+  }
+  return (
+    areCachedMeshVerticesEqual(cached, surface) &&
+    areCachedMeshIndicesEqual(cached, surface)
+  );
+}
+
+function areCachedMeshVerticesEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  for (let index = 0; index < cached.vertices.length; index += 1) {
+    const cachedVertex = cached.vertices[index];
+    const vertex = surface.vertices[index];
+    if (
+      !cachedVertex ||
+      !vertex ||
+      !areMeshVerticesEqual(cachedVertex, vertex)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areCachedMeshIndicesEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  for (let index = 0; index < cached.indices.length; index += 1) {
+    if (cached.indices[index] !== surface.indices[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areMeshVerticesEqual(
+  left: CachedMeshSurfaceGeometry["vertices"][number],
+  right: HtmlSurfaceMeshVisual["vertices"][number],
+): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.u === right.u &&
+    left.v === right.v
+  );
+}
+
+export function captureFlatSurfaceGeometry(
+  surfaces: readonly CachedFlatSurfaceGeometry[],
+): readonly CachedFlatSurfaceGeometry[] {
+  return surfaces.map((surface) => ({
+    height: surface.height,
+    surfaceId: surface.surfaceId,
+    width: surface.width,
+    x: surface.x,
+    y: surface.y,
+    zIndex: surface.zIndex,
   }));
 }
 
-export type NodeQuadVertex = {
+function captureMeshSurfaceGeometry(
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): readonly CachedMeshSurfaceGeometry[] {
+  return surfaces.map((surface) => ({
+    indices: Array.from(surface.indices),
+    surfaceId: surface.surfaceId,
+    vertices: surface.vertices.map((vertex) => ({
+      u: vertex.u,
+      v: vertex.v,
+      x: vertex.x,
+      y: vertex.y,
+    })),
+    zIndex: surface.zIndex,
+  }));
+}
+
+type FlatSurfaceVertex = {
   readonly u: number;
   readonly v: number;
   readonly x: number;
   readonly y: number;
 };
 
-export function writeNodeQuadVertex(
+function writeFlatSurfaceVertex(
   data: Float32Array,
   offset: number,
-  vertex: NodeQuadVertex,
+  vertex: FlatSurfaceVertex,
 ): number {
   data[offset] = vertex.x;
   data[offset + 1] = vertex.y;
@@ -151,13 +312,13 @@ export function parseGpuGridColor(
   return parseGpuHexColor(color, "grid");
 }
 
-export function parseGpuEdgeColor(
+function parseGpuEdgeColor(
   color: string,
 ): readonly [number, number, number, number] {
   return parseGpuHexColor(color, "edge palette");
 }
 
-export function requirePositiveFiniteGpuGridValue(
+function requirePositiveFiniteGpuGridValue(
   value: number,
   field: string,
 ): number {
@@ -167,13 +328,13 @@ export function requirePositiveFiniteGpuGridValue(
   return value;
 }
 
-export function encodeGpuGridVariant(variant: GpuGridVariant): number {
+function encodeGpuGridVariant(variant: GpuGridVariant): number {
   switch (variant) {
-    case BackgroundVariantEnum.lines:
+    case "lines":
       return 0;
-    case BackgroundVariantEnum.dots:
+    case "dots":
       return 1;
-    case BackgroundVariantEnum.cross:
+    case "cross":
       return 2;
     default:
       throw new Error(
@@ -267,7 +428,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 `;
 
-export const NODE_QUAD_SHADER = `
+export const FLAT_SURFACE_SHADER = `
 struct Camera {
   viewport: vec4<f32>,
   canvas: vec4<f32>,

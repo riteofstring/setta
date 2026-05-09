@@ -1,9 +1,14 @@
 import type { CSSProperties } from "react";
-import type { Position } from "utils/generatedTypes";
+import type { GpuFlowScene } from "./scene";
 
-export interface Dimensions {
+interface Dimensions {
   width: number;
   height: number;
+}
+
+interface Position {
+  x: number;
+  y: number;
 }
 
 export interface Rect extends Dimensions, Position {}
@@ -51,6 +56,33 @@ export type Connection = {
   targetHandle: string | null;
 };
 
+export type GpuFlowConnectionContext = {
+  readonly scene?: GpuFlowScene | null | undefined;
+};
+
+export type HandleConnectionCandidate = {
+  sectionId: string;
+  handleId: string | null;
+  type: HandleType | null;
+};
+
+export type HandleConnectionCandidateFilter = (
+  candidate: HandleConnectionCandidate,
+) => boolean;
+
+export type GpuFlowAutoPanInsetsPx = {
+  readonly bottom?: number | undefined;
+  readonly left?: number | undefined;
+  readonly right?: number | undefined;
+  readonly top?: number | undefined;
+};
+
+export type GpuFlowAutoPanInsetsInput =
+  | GpuFlowAutoPanInsetsPx
+  | (() => GpuFlowAutoPanInsetsPx | null | undefined)
+  | null
+  | undefined;
+
 export type ConnectingHandle = {
   sectionId: string;
   type: HandleType;
@@ -72,6 +104,13 @@ export type HandleProps = {
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
   connectionStartSemanticType?: HandleType;
+  registerPortGeometry?: boolean;
+  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
-  onConnect?: (connection: Connection) => void;
+  onConnect?: (
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
+  pointerUpSnapRadius?: number;
+  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 };

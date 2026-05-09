@@ -288,6 +288,9 @@ summary = {
     "appStateEventsFile": session_payload.get(
         "appStateEventsFile", str(artifact_dir / "app_state.ndjson")
     ),
+    "performanceEventsFile": session_payload.get(
+        "performanceEventsFile", str(artifact_dir / "performance.ndjson")
+    ),
     "logsDir": str(artifact_dir / "logs"),
     "backendLog": str(artifact_dir / "logs" / "backend.log"),
     "devInstanceLog": str(artifact_dir / "logs" / "dev-instance.log"),

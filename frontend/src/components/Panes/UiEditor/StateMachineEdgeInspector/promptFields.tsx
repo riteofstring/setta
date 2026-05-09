@@ -16,9 +16,9 @@ export type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
 >["projectConfig"]["stateMachineEdges"][number];
 
-export type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
+type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
 
-export type WorkflowSourceFilterType = NonNullable<
+type WorkflowSourceFilterType = NonNullable<
   NonNullable<WorkflowEdge["sourceFilter"]>["type"]
 >;
 
@@ -30,12 +30,12 @@ export type WorkflowThreadStrategy =
   | "continue_current_thread"
   | "new_thread_before_send";
 
-export type WorkflowCountOperator = StateMachineCountOperator;
+type WorkflowCountOperator = StateMachineCountOperator;
 
 export type WorkflowPromptSourceType =
   (typeof StateMachineUIConfig.promptSourceTypes)[keyof typeof StateMachineUIConfig.promptSourceTypes];
 
-export type WorkflowSignalSourceFilterField = Exclude<
+type WorkflowSignalSourceFilterField = Exclude<
   keyof NonNullable<WorkflowEdge["sourceFilter"]>,
   "type"
 >;
@@ -44,7 +44,7 @@ export type WorkflowEdgeInspectorProps = {
   edgeId: string;
 };
 
-export type WorkflowEdgeDetails = {
+type WorkflowEdgeDetails = {
   edge: WorkflowEdge | null;
   sourceSectionName: string | null;
   targetSectionName: string | null;
@@ -54,23 +54,23 @@ export type WorkflowEdgeDetails = {
 
 export type WorkflowEdgeUpdater = (current: WorkflowEdge) => WorkflowEdge;
 
-export type WorkflowOptionGroups = Array<{
+type WorkflowOptionGroups = Array<{
   group: string;
   items: Array<{ id: string; name: string }>;
 }>;
 
-export type WorkflowConfigOption<T extends string> = {
+type WorkflowConfigOption<T extends string> = {
   value: T;
   label: string;
 };
 
-export type WorkflowDraftState = {
+type WorkflowDraftState = {
   draftEdge: WorkflowEdge | null;
   promptSourceType: WorkflowPromptSourceType;
   promptInputsText: string;
 };
 
-export type ResetPromptInputs = (promptInputs?: Record<string, string>) => void;
+type ResetPromptInputs = (promptInputs?: Record<string, string>) => void;
 
 export type WorkflowTriggerSectionProps = {
   draftEdge: WorkflowEdge;
@@ -78,7 +78,7 @@ export type WorkflowTriggerSectionProps = {
   updateDraft: (updater: WorkflowEdgeUpdater) => void;
 };
 
-export type WorkflowConditionSectionProps = WorkflowTriggerSectionProps;
+type WorkflowConditionSectionProps = WorkflowTriggerSectionProps;
 
 export type WorkflowActionSectionProps = {
   draftEdge: WorkflowEdge;
@@ -102,11 +102,11 @@ export type WorkflowFooterProps = {
   onReset: () => void;
 };
 
-export const SIGNAL_SOURCE_FILTER_TYPE: WorkflowSourceFilterType = "signal";
+const SIGNAL_SOURCE_FILTER_TYPE: WorkflowSourceFilterType = "signal";
 
 export const SEND_PROMPT_ACTION_TYPE: WorkflowTargetActionType = "send_prompt";
 
-export function buildComboboxItems<T extends string>(
+function buildComboboxItems<T extends string>(
   group: string,
   options: ReadonlyArray<WorkflowConfigOption<T>>,
 ): AllItemsType<T> {
@@ -121,7 +121,7 @@ export function buildComboboxItems<T extends string>(
   ];
 }
 
-export const SOURCE_FILTER_OPTIONS = buildComboboxItems(
+const SOURCE_FILTER_OPTIONS = buildComboboxItems(
   "Chat Triggers",
   StateMachineUIConfig.sourceFilterOptions,
 );
@@ -136,14 +136,14 @@ export const PROMPT_SOURCE_OPTIONS = buildComboboxItems(
   StateMachineUIConfig.promptSourceOptions,
 );
 
-export const PROMPT_INPUTS_PLACEHOLDER = '{\n  "name": "Kevin"\n}';
+const PROMPT_INPUTS_PLACEHOLDER = '{\n  "name": "Kevin"\n}';
 
 export const THREAD_STRATEGY_OPTIONS = buildComboboxItems(
   "Thread Strategy",
   StateMachineUIConfig.threadStrategyOptions,
 );
 
-export const SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS = buildComboboxItems(
+const SOURCE_ACTIVATION_COUNT_OPERATOR_OPTIONS = buildComboboxItems(
   "Count Operators",
   StateMachineUIConfig.sourceActivationCountOperatorOptions,
 );
@@ -153,7 +153,7 @@ export const PERMISSION_MODE_OPTIONS = buildComboboxItems(
   StateMachineUIConfig.permissionModeOptions,
 );
 
-export function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
+function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
   return {
     ...edge,
     sourceFilter: edge.sourceFilter ? { ...edge.sourceFilter } : null,
@@ -170,20 +170,20 @@ export function cloneWorkflowEdge(edge: WorkflowEdge): WorkflowEdge {
   };
 }
 
-export function clonePromptInputs(
+function clonePromptInputs(
   promptInputs: Record<string, string> | null | undefined,
 ): Record<string, string> {
   return { ...(promptInputs ?? {}) };
 }
 
-export function normalizeOptionalSignalText(
+function normalizeOptionalSignalText(
   value: string | null | undefined,
 ): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
 
-export function getSharedTargetActionSettings(
+function getSharedTargetActionSettings(
   currentAction: WorkflowEdge["targetAction"],
 ): Pick<
   WorkflowTargetAction,
@@ -212,7 +212,7 @@ export function getSharedTargetActionSettings(
   };
 }
 
-export function getCurrentSendPromptAction(
+function getCurrentSendPromptAction(
   currentAction: WorkflowEdge["targetAction"],
 ): WorkflowTargetAction | null {
   return currentAction?.type === SEND_PROMPT_ACTION_TYPE ? currentAction : null;
@@ -245,7 +245,7 @@ export function createResetThreadAction(
   };
 }
 
-export function getInitialPromptSourceType(
+function getInitialPromptSourceType(
   edge: WorkflowEdge | null,
 ): WorkflowPromptSourceType {
   const targetAction = edge?.targetAction;
@@ -279,7 +279,7 @@ export function buildWorkflowDraftState(
   };
 }
 
-export function getSectionTypeById(
+function getSectionTypeById(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
 ): SectionTypeEnum | null {
@@ -317,7 +317,7 @@ export function getPromptSectionOptions(
   ];
 }
 
-export function createSignalSourceFilter(
+function createSignalSourceFilter(
   sourceFilter: WorkflowEdge["sourceFilter"],
 ): NonNullable<WorkflowEdge["sourceFilter"]> {
   return {
@@ -328,7 +328,7 @@ export function createSignalSourceFilter(
   };
 }
 
-export function sanitizeSourceFilter(
+function sanitizeSourceFilter(
   sourceFilter: WorkflowEdge["sourceFilter"],
   sourceType: SectionTypeEnum | null,
 ): WorkflowEdge["sourceFilter"] {
@@ -379,7 +379,7 @@ export function buildPromptSourceTargetAction(
   }
 }
 
-export function sanitizeTargetAction(
+function sanitizeTargetAction(
   targetAction: WorkflowEdge["targetAction"],
   targetType: SectionTypeEnum | null,
   promptSourceType: WorkflowPromptSourceType,
@@ -421,7 +421,7 @@ export function sanitizeWorkflowEdge(
   return nextEdge;
 }
 
-export function buildSelectedSourceFilter(
+function buildSelectedSourceFilter(
   value: WorkflowSourceFilterType,
   sourceFilter: WorkflowEdge["sourceFilter"],
 ): NonNullable<WorkflowEdge["sourceFilter"]> {
@@ -441,7 +441,7 @@ export function buildSelectedSourceFilter(
   };
 }
 
-export function updateSignalSourceFilterField(
+function updateSignalSourceFilterField(
   sourceFilter: WorkflowEdge["sourceFilter"],
   field: WorkflowSignalSourceFilterField,
   value: string,
@@ -451,12 +451,12 @@ export function updateSignalSourceFilterField(
   return nextSourceFilter;
 }
 
-export function normalizeSourceActivationValue(value: string): number {
+function normalizeSourceActivationValue(value: string): number {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-export function buildSourceActivationCountCondition(
+function buildSourceActivationCountCondition(
   current:
     | NonNullable<WorkflowEdge["sourceActivationCountCondition"]>
     | null
@@ -495,7 +495,7 @@ export function getWorkflowEdgeDetails(
   };
 }
 
-export function WorkflowSignalSourceFilterFields({
+function WorkflowSignalSourceFilterFields({
   draftEdge,
   isDisabled,
   updateDraft,

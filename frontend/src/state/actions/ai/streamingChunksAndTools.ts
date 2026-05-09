@@ -55,7 +55,7 @@ import {
   handleSectionAwareChatDetailsChunk,
 } from "./appDefinitionsAndRollback";
 
-export function resolveResponseChunkSectionId(
+function resolveResponseChunkSectionId(
   chatId: string,
   sectionId: string | undefined,
 ): string | undefined {
@@ -65,7 +65,7 @@ export function resolveResponseChunkSectionId(
   return resolveSectionIdForChatId(chatId);
 }
 
-export function shouldUpdateChatDetailsForChunk(
+function shouldUpdateChatDetailsForChunk(
   sectionId: string | undefined,
 ): boolean {
   if (!sectionId) {
@@ -74,7 +74,7 @@ export function shouldUpdateChatDetailsForChunk(
   return isManagedChatSection(useProjectState.getState(), sectionId);
 }
 
-export function isActiveStreamingChunk(
+function isActiveStreamingChunk(
   chunk: LLMStreamingResponseContent["chunk"],
 ): boolean {
   return (
@@ -85,7 +85,7 @@ export function isActiveStreamingChunk(
   );
 }
 
-export function isTerminalStreamingChunk(
+function isTerminalStreamingChunk(
   chunk: LLMStreamingResponseContent["chunk"],
 ): boolean {
   return (
@@ -94,7 +94,7 @@ export function isTerminalStreamingChunk(
   );
 }
 
-export function handleLLMResponseChatDetailsChunk(
+function handleLLMResponseChatDetailsChunk(
   chatId: string,
   chunk: LLMStreamingResponseContent["chunk"],
   sectionId: string | undefined,
@@ -152,7 +152,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   handleLLMResponseChatDetailsChunk(chatId, chunk, sectionId, projectConfigId);
 }
 
-export function resolveEngineConfigIdFromRuns(
+function resolveEngineConfigIdFromRuns(
   runs: AgentRun[],
   chatId: string,
 ): string | null {
@@ -170,7 +170,7 @@ export function resolveEngineConfigIdFromRuns(
   return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
 }
 
-export async function ensureAgentRunsLoadedForChatResolution(): Promise<boolean> {
+async function ensureAgentRunsLoadedForChatResolution(): Promise<boolean> {
   const { agentRunsInitialLoadComplete } = useAIStore.getState();
   if (agentRunsInitialLoadComplete) {
     return true;
@@ -179,9 +179,7 @@ export async function ensureAgentRunsLoadedForChatResolution(): Promise<boolean>
   return useAIStore.getState().agentRunsInitialLoadComplete;
 }
 
-export function resolveEngineConfigIdFromStoredChat(
-  chatId: string,
-): string | null {
+function resolveEngineConfigIdFromStoredChat(chatId: string): string | null {
   const { chatDetails, engineConfigs } = useAIStore.getState();
   const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
   if (!llmConfigId) {
@@ -216,7 +214,7 @@ export async function resolveEngineConfigIdForChat(
   return resolveEngineConfigIdFromStoredChat(chatId);
 }
 
-export function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
+function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
     setStopEligibleAssistantMessageId(chatId, chunk.message.id);
     clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
@@ -224,11 +222,11 @@ export function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
 
-export function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
+function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
 
-export function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
+function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
 

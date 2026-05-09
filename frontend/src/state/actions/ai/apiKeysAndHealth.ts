@@ -61,9 +61,9 @@ import { isRecord } from "./streamingChunksAndTools";
 
 export type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
 
-export type ManagedApiKeysSnapshot = HttpapiLlmapiKeysSnapshot;
+type ManagedApiKeysSnapshot = HttpapiLlmapiKeysSnapshot;
 
-export type APIKeys = ManagedApiKeysSnapshot["apiKeys"];
+type APIKeys = ManagedApiKeysSnapshot["apiKeys"];
 
 export type AIStateSnapshot = ReturnType<typeof useAIStore.getState>;
 
@@ -72,9 +72,9 @@ export const scopeViolationToastTimeouts = new Map<
   ReturnType<typeof setTimeout>
 >();
 
-export let llmConfigLoadPromise: Promise<void> | null = null;
+let llmConfigLoadPromise: Promise<void> | null = null;
 
-export let llmApiKeysLoadPromise: Promise<void> | null = null;
+let llmApiKeysLoadPromise: Promise<void> | null = null;
 
 export const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
 
@@ -149,11 +149,11 @@ export const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-export function valueOrNull<T>(value: T | null | undefined): T | null {
+function valueOrNull<T>(value: T | null | undefined): T | null {
   return value ?? null;
 }
 
-export function arrayOrEmpty<T>(value: T[] | null | undefined): T[] {
+function arrayOrEmpty<T>(value: T[] | null | undefined): T[] {
   return value ?? [];
 }
 
@@ -167,9 +167,7 @@ export function requireNonNull<T>(
   return value;
 }
 
-export function normalizeLLMConfigPayload(
-  payload: LlmconfigAllConfigs,
-): AllConfigs {
+function normalizeLLMConfigPayload(payload: LlmconfigAllConfigs): AllConfigs {
   return {
     ...payload,
     configs: Object.fromEntries(
@@ -270,7 +268,7 @@ export function normalizeTranscriptionProfile(
   } as TranscriptionProfile;
 }
 
-export function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
+function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   if (bytes.length === 0) {
     return "";
@@ -332,7 +330,7 @@ export async function appendTranscriptionAudio(
   return res.data;
 }
 
-export async function stopTranscriptionSession(
+async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionsessionsDelta | null> {
@@ -350,9 +348,7 @@ export async function stopTranscriptionSession(
   return res.data;
 }
 
-export async function cancelTranscriptionSession(
-  sessionId: string,
-): Promise<boolean> {
+async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   if (!sessionId) {
     return true;
   }
@@ -364,13 +360,13 @@ export async function cancelTranscriptionSession(
   return res200(res);
 }
 
-export type DictationPcmPayload = {
+type DictationPcmPayload = {
   audioPcm16: Int16Array;
   sampleRateHz: number;
   channels: number;
 };
 
-export type ProviderDictationTranscriptionResult =
+type ProviderDictationTranscriptionResult =
   | {
       kind: "ok";
       transcript: string;
@@ -379,21 +375,21 @@ export type ProviderDictationTranscriptionResult =
       kind: "no_speech";
     };
 
-export const PCM16_BYTES_PER_SAMPLE = 2;
+const PCM16_BYTES_PER_SAMPLE = 2;
 
-export const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24000;
+const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24000;
 
-export const TRANSCRIPTION_APPEND_MAX_BYTES =
+const TRANSCRIPTION_APPEND_MAX_BYTES =
   C.REALTIME_BINARY_MAX_BYTES > 0
     ? C.REALTIME_BINARY_MAX_BYTES
     : 10 * 1024 * 1024;
 
-export type TranscriptionRequestOptions = {
+type TranscriptionRequestOptions = {
   suppressNotification?: boolean;
   throwOnError?: boolean;
 };
 
-export function handleTranscriptionEndpointError(
+function handleTranscriptionEndpointError(
   responseData: unknown,
   responseStatus: number | undefined,
   options: TranscriptionRequestOptions,
@@ -415,7 +411,7 @@ export function handleTranscriptionEndpointError(
   return null;
 }
 
-export function float32ToInt16(input: Float32Array): Int16Array {
+function float32ToInt16(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length);
   for (let index = 0; index < input.length; index += 1) {
     const sample = Math.max(-1, Math.min(1, input[index] ?? 0));
@@ -424,7 +420,7 @@ export function float32ToInt16(input: Float32Array): Int16Array {
   return output;
 }
 
-export function validateTranscriptionSampleRates(
+function validateTranscriptionSampleRates(
   sourceSampleRateHz: number,
   targetSampleRateHz: number,
 ): void {
@@ -439,7 +435,7 @@ export function validateTranscriptionSampleRates(
   }
 }
 
-export function interpolateResampledMonoPcm16Sample(
+function interpolateResampledMonoPcm16Sample(
   input: Int16Array,
   outputIndex: number,
   sourceSampleRateHz: number,
@@ -482,7 +478,7 @@ export function resampleMonoPcm16ToSampleRate(
   return output;
 }
 
-export function resolveProviderTranscriptionPcmPayloadForSession(
+function resolveProviderTranscriptionPcmPayloadForSession(
   pcmPayload: DictationPcmPayload,
   session: HttpapiStartTranscriptionSessionResponse,
 ): DictationPcmPayload {
@@ -541,7 +537,7 @@ export function resolveProviderTranscriptionChunkSampleCount({
   return Math.min(chunkSamplesByDuration, maxSamplesByPayload);
 }
 
-export async function decodeDictationBlobToPcm16(
+async function decodeDictationBlobToPcm16(
   audioBlob: Blob,
 ): Promise<DictationPcmPayload | null> {
   if (typeof window === "undefined") {
@@ -585,7 +581,7 @@ export async function decodeDictationBlobToPcm16(
   }
 }
 
-export function asProviderDictationTranscriptionError(
+function asProviderDictationTranscriptionError(
   error: unknown,
   fallbackMessage: string,
 ): ProviderTranscriptionError {
@@ -776,7 +772,7 @@ export async function saveLLMConfig(
   return nextConfig;
 }
 
-export type ManagedAPIKeysErrorDetails = {
+type ManagedAPIKeysErrorDetails = {
   detail: string | null;
   revision: number | null;
   errorCode: string | null;
@@ -784,7 +780,7 @@ export type ManagedAPIKeysErrorDetails = {
   isUnavailable: boolean;
 };
 
-export function resolveManagedApiKeysErrorDetails(
+function resolveManagedApiKeysErrorDetails(
   payload: unknown,
 ): ManagedAPIKeysErrorDetails {
   const detail = getErrorDetail(payload);
@@ -801,7 +797,7 @@ export function resolveManagedApiKeysErrorDetails(
   };
 }
 
-export function applyManagedApiKeysReadFailure(payload: unknown): void {
+function applyManagedApiKeysReadFailure(payload: unknown): void {
   const errorDetails = resolveManagedApiKeysErrorDetails(payload);
   useAIStore.setState((state) => ({
     apiKeys:
@@ -908,9 +904,7 @@ export function receiveLLMApiKeysSnapshotUpdate(
   });
 }
 
-export function extractApiKeysRevisionFromErrorPayload(
-  value: unknown,
-): number | null {
+function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
   if (!isRecord(value)) {
     return null;
   }

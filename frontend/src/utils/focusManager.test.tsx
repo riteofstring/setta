@@ -12,7 +12,7 @@ import {
 } from "./focusManager";
 
 const hoisted = vi.hoisted(() => {
-  const movePaneToIncludeElementMock = vi.fn();
+  const movePaneToIncludeSectionMock = vi.fn();
   const applyActiveSectionChangeMock = vi.fn();
   const getCurrEffectiveSectionImplMock = vi.fn(() => ({ type: "Code" }));
   const getTopLevelSectionIdsForDisplayMock = vi.fn(() => [
@@ -31,19 +31,24 @@ const hoisted = vi.hoisted(() => {
     selfOnly: {} as Record<string, HTMLElement>,
     withNested: {} as Record<string, HTMLElement>,
   };
+  const localStorageState = {
+    overviewTrueWidth: 24,
+    uiEditorTrueWidth: 48,
+  };
 
   return {
     applyActiveSectionChangeMock,
     getCurrEffectiveSectionImplMock,
     getTopLevelSectionIdsForDisplayMock,
-    movePaneToIncludeElementMock,
+    localStorageState,
+    movePaneToIncludeSectionMock,
     projectState,
     sectionRefsState,
   };
 });
 
 vi.mock("gpuFlow/flowGeometry", () => ({
-  movePaneToIncludeElement: hoisted.movePaneToIncludeElementMock,
+  movePaneToIncludeSection: hoisted.movePaneToIncludeSectionMock,
 }));
 
 vi.mock("state/actions/activeSectionController", () => ({
@@ -56,6 +61,9 @@ vi.mock("state/actions/sectionInfos", () => ({
 }));
 
 vi.mock("state/definitions", () => ({
+  useLocalStorage: {
+    getState: () => hoisted.localStorageState,
+  },
   useProjectState: {
     getState: () => hoisted.projectState,
   },
@@ -108,13 +116,15 @@ describe("focusManager", () => {
       "section-1",
       "section-2",
     ]);
-    hoisted.movePaneToIncludeElementMock.mockReset();
+    hoisted.movePaneToIncludeSectionMock.mockReset();
     hoisted.projectState.projectConfig.topLevelSections = {
       "section-1": { x: 0, y: 0, zIndex: 0 },
       "section-2": { x: 100, y: 0, zIndex: 0 },
     };
     hoisted.sectionRefsState.selfOnly = {};
     hoisted.sectionRefsState.withNested = {};
+    hoisted.localStorageState.overviewTrueWidth = 24;
+    hoisted.localStorageState.uiEditorTrueWidth = 48;
   });
 
   afterEach(async () => {
@@ -263,8 +273,11 @@ describe("focusManager", () => {
       sectionId: "section-2",
     });
     expect(document.activeElement?.textContent).toBe("target");
-    expect(hoisted.movePaneToIncludeElementMock).toHaveBeenCalledWith(
-      targetButton,
+    expect(hoisted.movePaneToIncludeSectionMock).toHaveBeenCalledWith(
+      "section-2",
+      {
+        overviewWidth: 24,
+      },
     );
   });
 });

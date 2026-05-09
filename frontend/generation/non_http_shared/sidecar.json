@@ -138,7 +138,9 @@
       "name": "AppGenerationMode",
       "kind": "enum",
       "schemaRef": "#/$defs/AppGenerationMode",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "json_render",
@@ -192,7 +194,9 @@
       "name": "ArtifactType",
       "kind": "enum",
       "schemaRef": "#/$defs/ArtifactType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "Image",
@@ -846,7 +850,9 @@
       "name": "CodeObjType",
       "kind": "enum",
       "schemaRef": "#/$defs/CodeObjType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "CodeCallable",
@@ -1006,7 +1012,9 @@
       "name": "ConfigLanguage",
       "kind": "enum",
       "schemaRef": "#/$defs/ConfigLanguage",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "python",
@@ -1110,7 +1118,9 @@
       "name": "DateCalendarWeekStart",
       "kind": "enum",
       "schemaRef": "#/$defs/DateCalendarWeekStart",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "sunday",
@@ -1126,7 +1136,9 @@
       "name": "DateControlMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DateControlMode",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "input",
@@ -1142,7 +1154,9 @@
       "name": "DateDisplayFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/DateDisplayFormat",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "iso",
@@ -1171,7 +1185,9 @@
       "name": "DateSelectionMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DateSelectionMode",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "single",
@@ -1237,7 +1253,9 @@
       "name": "DependencyKeyType",
       "kind": "enum",
       "schemaRef": "#/$defs/DependencyKeyType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "Section",
@@ -1253,7 +1271,9 @@
       "name": "DependencyValueType",
       "kind": "enum",
       "schemaRef": "#/$defs/DependencyValueType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "Literal",
@@ -1407,7 +1427,9 @@
       "name": "DropzoneMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DropzoneMode",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "STATEFUL",
@@ -1443,7 +1465,9 @@
       "name": "EndpointOrigin",
       "kind": "enum",
       "schemaRef": "#/$defs/EndpointOrigin",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "backend",
@@ -2627,6 +2651,58 @@
       ]
     },
     {
+      "name": "ParamUIRendererConfigValue",
+      "kind": "model",
+      "schemaRef": "#/$defs/ParamUIRendererConfigValue"
+    },
+    {
+      "name": "ParamUIRendererFamily",
+      "kind": "enum",
+      "schemaRef": "#/$defs/ParamUIRendererFamily",
+      "enumValues": [
+        {
+          "name": "TextLike",
+          "value": "text-like"
+        },
+        {
+          "name": "DateTime",
+          "value": "date-time"
+        },
+        {
+          "name": "button",
+          "value": "button"
+        },
+        {
+          "name": "slider",
+          "value": "slider"
+        },
+        {
+          "name": "rotary",
+          "value": "rotary"
+        },
+        {
+          "name": "switch",
+          "value": "switch"
+        },
+        {
+          "name": "ColorPicker",
+          "value": "color-picker"
+        },
+        {
+          "name": "dropdown",
+          "value": "dropdown"
+        },
+        {
+          "name": "password",
+          "value": "password"
+        },
+        {
+          "name": "dropzone",
+          "value": "dropzone"
+        }
+      ]
+    },
+    {
       "name": "ParameterPassingStyle",
       "kind": "enum",
       "schemaRef": "#/$defs/ParameterPassingStyle",
@@ -3284,6 +3360,16 @@
       "name": "ProjectConfigMetadata",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectConfigMetadata"
+    },
+    {
+      "name": "ProjectParamUpdateContent",
+      "kind": "model",
+      "schemaRef": "#/$defs/ProjectParamUpdateContent"
+    },
+    {
+      "name": "ProjectParamUpdateMessage",
+      "kind": "model",
+      "schemaRef": "#/$defs/ProjectParamUpdateMessage"
     },
     {
       "name": "ProjectPluginData",
@@ -5081,7 +5167,9 @@
       "name": "SectionType",
       "kind": "enum",
       "schemaRef": "#/$defs/SectionType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "Callable",
@@ -6147,7 +6235,9 @@
       "name": "TextBlockFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/TextBlockFormat",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "Plaintext",
@@ -6193,7 +6283,9 @@
       "name": "TextParamInputUIType",
       "kind": "enum",
       "schemaRef": "#/$defs/TextParamInputUIType",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "plain",
@@ -6233,7 +6325,9 @@
       "name": "TimeControlMode",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeControlMode",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "input",
@@ -6249,7 +6343,9 @@
       "name": "TimeDisplayFont",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeDisplayFont",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "clock",
@@ -6269,7 +6365,9 @@
       "name": "TimeDisplayFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeDisplayFormat",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "twenty_four_hour",
@@ -6721,6 +6819,10 @@
           "value": "UpdateFrontendProjectState"
         },
         {
+          "name": "UpdateFrontendProjectParam",
+          "value": "UpdateFrontendProjectParam"
+        },
+        {
           "name": "UpdateSettings",
           "value": "UpdateSettings"
         },
@@ -6796,7 +6898,9 @@
       "name": "WorkspaceLaunchRouteKind",
       "kind": "enum",
       "schemaRef": "#/$defs/WorkspaceLaunchRouteKind",
-      "frontendSDKScopes": ["app-subsystem"],
+      "frontendSDKScopes": [
+        "app-subsystem"
+      ],
       "enumValues": [
         {
           "name": "ide",
@@ -8620,7 +8724,14 @@
       "type": "DrawAreaLayerItemTransform",
       "value": {
         "eraserStrokes": [],
-        "transform": [1, 0, 0, 1, 0, 0]
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
       }
     },
     {
@@ -8631,7 +8742,14 @@
         "type": "DrawAreaLayerItemTransform",
         "value": {
           "eraserStrokes": [],
-          "transform": [1, 0, 0, 1, 0, 0]
+          "transform": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
         }
       }
     },
@@ -10009,7 +10127,7 @@
       "profile": "frontend",
       "type": "SettingsChatWindowing",
       "value": {
-        "autoCreateInitialChat": true,
+        "autoCreateInitialChat": false,
         "restorePriorStateOnUnmaximize": true,
         "shortcuts": {
           "canvasToggle": "Shift + Esc",
@@ -10087,7 +10205,10 @@
         ],
         "selectionMode": "partial",
         "showGridLines": true,
-        "snapGrid": [15, 15],
+        "snapGrid": [
+          15,
+          15
+        ],
         "transitionDuration": 50,
         "wireColor": "#41506c",
         "wireColorDarkMode": "#bac2d3",
@@ -10192,7 +10313,7 @@
           "showDefaultConfigOnLoad": true
         },
         "chatWindowing": {
-          "autoCreateInitialChat": true,
+          "autoCreateInitialChat": false,
           "restorePriorStateOnUnmaximize": true,
           "shortcuts": {
             "canvasToggle": "Shift + Esc",
@@ -10253,7 +10374,10 @@
           ],
           "selectionMode": "partial",
           "showGridLines": true,
-          "snapGrid": [15, 15],
+          "snapGrid": [
+            15,
+            15
+          ],
           "transitionDuration": 50,
           "wireColor": "#41506c",
           "wireColorDarkMode": "#bac2d3",
@@ -10929,12 +11053,19 @@
         }
       ],
       "value": {
-        "allowedOps": ["set", "add", "replace", "remove"],
+        "allowedOps": [
+          "set",
+          "add",
+          "replace",
+          "remove"
+        ],
         "commentPrefix": "//",
         "elementsPathPrefix": "/elements/",
         "rootPath": "/root",
         "rootResetValue": "",
-        "valueOptionalOps": ["remove"]
+        "valueOptionalOps": [
+          "remove"
+        ]
       }
     },
     {
@@ -11013,7 +11144,11 @@
       "frontendSDKScopes": [
         {
           "scope": "app-subsystem",
-          "valuePaths": [["launcherOriginStorageKey"]]
+          "valuePaths": [
+            [
+              "launcherOriginStorageKey"
+            ]
+          ]
         }
       ],
       "value": {
@@ -11224,7 +11359,11 @@
       "frontendSDKScopes": [
         {
           "scope": "app-subsystem",
-          "valuePaths": [["/__setta__/tools/call"]]
+          "valuePaths": [
+            [
+              "/__setta__/tools/call"
+            ]
+          ]
         }
       ],
       "value": {
@@ -11281,7 +11420,10 @@
           "Bash(shutdown:*)",
           "Bash(reboot:*)"
         ],
-        "defaultClaudeSettingsSources": ["project", "local"]
+        "defaultClaudeSettingsSources": [
+          "project",
+          "local"
+        ]
       }
     },
     {
@@ -11294,7 +11436,11 @@
         }
       ],
       "value": {
-        "loopbackHosts": ["127.0.0.1", "localhost", "::1"]
+        "loopbackHosts": [
+          "127.0.0.1",
+          "localhost",
+          "::1"
+        ]
       }
     },
     {
@@ -11305,13 +11451,19 @@
           "scope": "app-subsystem"
         }
       ],
-      "value": ["/launch", "/createWorkspaceLaunchIntent"]
+      "value": [
+        "/launch",
+        "/createWorkspaceLaunchIntent"
+      ]
     },
     {
       "name": "NameValidationRules",
       "type": "NameValidationContract",
       "value": {
-        "projectReservedNames": ["home", "settings"],
+        "projectReservedNames": [
+          "home",
+          "settings"
+        ],
         "pythonIdentifierContinueChars": [
           "0",
           "1",
@@ -11539,7 +11691,13 @@
           "y",
           "z"
         ],
-        "slugReplacementChars": ["[", "]", "\"", "'", " "]
+        "slugReplacementChars": [
+          "[",
+          "]",
+          "\"",
+          "'",
+          " "
+        ]
       }
     },
     {
@@ -11571,6 +11729,61 @@
           "RunInstructions": "Custom Runs",
           "ViewModes": "View Modes"
         }
+      }
+    },
+    {
+      "name": "ParamUIRendererConfig",
+      "type": "ParamUIRendererConfigValue",
+      "value": {
+        "dateTimeParamTypes": [
+          "DateParam",
+          "TimeParam"
+        ],
+        "rendererFamiliesByType": {
+          "ButtonParam": "button",
+          "CodeParam": "text-like",
+          "ColorPickerParam": "color-picker",
+          "DateParam": "date-time",
+          "DropdownParam": "dropdown",
+          "DropzoneParam": "dropzone",
+          "PasswordParam": "password",
+          "RotaryParam": "rotary",
+          "SliderParam": "slider",
+          "SwitchParam": "switch",
+          "TextAreaParam": "text-like",
+          "TextParam": "text-like",
+          "TimeParam": "date-time"
+        },
+        "rendererTypes": [
+          "CodeParam",
+          "TextParam",
+          "TextAreaParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "DropzoneParam"
+        ],
+        "specializedRendererFamilies": {
+          "ButtonParam": "button",
+          "ColorPickerParam": "color-picker",
+          "DropdownParam": "dropdown",
+          "DropzoneParam": "dropzone",
+          "PasswordParam": "password",
+          "RotaryParam": "rotary",
+          "SliderParam": "slider",
+          "SwitchParam": "switch"
+        },
+        "textLikeParamTypes": [
+          "CodeParam",
+          "TextParam",
+          "TextAreaParam"
+        ]
       }
     },
     {
@@ -11650,21 +11863,58 @@
       "type": "PythonCodegenPolicyUIConfigValue",
       "value": {
         "codeObjRepresentationOptionsByType": {
-          "ButtonParam": ["expression"],
-          "CodeCallable": ["expression"],
-          "CodeParam": ["expression", "string"],
-          "ColorPickerParam": ["string"],
-          "DateParam": ["string"],
-          "DropdownParam": ["expression", "string"],
-          "DropzoneParam": ["file_path", "file_read"],
-          "NestedParam": ["expression"],
-          "PasswordParam": ["string"],
-          "RotaryParam": ["expression", "string"],
-          "SliderParam": ["expression", "json_parsed", "string"],
-          "SwitchParam": ["expression", "string"],
-          "TextAreaParam": ["string"],
-          "TextParam": ["string"],
-          "TimeParam": ["string"]
+          "ButtonParam": [
+            "expression"
+          ],
+          "CodeCallable": [
+            "expression"
+          ],
+          "CodeParam": [
+            "expression",
+            "string"
+          ],
+          "ColorPickerParam": [
+            "string"
+          ],
+          "DateParam": [
+            "string"
+          ],
+          "DropdownParam": [
+            "expression",
+            "string"
+          ],
+          "DropzoneParam": [
+            "file_path",
+            "file_read"
+          ],
+          "NestedParam": [
+            "expression"
+          ],
+          "PasswordParam": [
+            "string"
+          ],
+          "RotaryParam": [
+            "expression",
+            "string"
+          ],
+          "SliderParam": [
+            "expression",
+            "json_parsed",
+            "string"
+          ],
+          "SwitchParam": [
+            "expression",
+            "string"
+          ],
+          "TextAreaParam": [
+            "string"
+          ],
+          "TextParam": [
+            "string"
+          ],
+          "TimeParam": [
+            "string"
+          ]
         },
         "codeObjTypes": [
           "CodeParam",
@@ -11682,8 +11932,12 @@
           "DropzoneParam",
           "NestedParam"
         ],
-        "defaultCodeObjRepresentationOptions": ["expression"],
-        "defaultSectionRepresentationOptions": ["expression"],
+        "defaultCodeObjRepresentationOptions": [
+          "expression"
+        ],
+        "defaultSectionRepresentationOptions": [
+          "expression"
+        ],
         "metaControlCodeObjTypes": [
           {
             "label": "Dropdown",
@@ -11738,33 +11992,92 @@
             "type": "DropzoneParam"
           }
         ],
-        "sectionModeOptions": ["inherit", "include", "exclude"],
+        "sectionModeOptions": [
+          "inherit",
+          "include",
+          "exclude"
+        ],
         "sectionRepresentationOptionsByType": {
-          "Browser": ["expression"],
-          "Callable": ["expression"],
-          "Chart": ["expression", "file_path"],
-          "Chat": ["expression", "file_path", "file_read"],
-          "Code": ["expression"],
-          "Dict": ["expression"],
-          "Draw": ["file_path", "file_read"],
-          "GenPythonCode": ["expression"],
-          "GenPythonMetadata": ["expression"],
-          "GlobalVariables": ["expression"],
-          "Group": ["expression"],
-          "IFrame": ["expression"],
-          "Image": ["file_path", "file_read"],
-          "ListRoot": ["expression"],
-          "MetaControl": ["expression"],
-          "Plugin": ["expression"],
-          "Prompt": ["expression"],
-          "Social": ["expression"],
-          "Spreadsheet": ["expression"],
-          "StateMachineEnd": ["expression"],
-          "StateMachineGate": ["expression"],
-          "StateMachineStart": ["expression"],
-          "TaskBoard": ["expression"],
-          "Terminal": ["expression"],
-          "TextBlock": ["expression"]
+          "Browser": [
+            "expression"
+          ],
+          "Callable": [
+            "expression"
+          ],
+          "Chart": [
+            "expression",
+            "file_path"
+          ],
+          "Chat": [
+            "expression",
+            "file_path",
+            "file_read"
+          ],
+          "Code": [
+            "expression"
+          ],
+          "Dict": [
+            "expression"
+          ],
+          "Draw": [
+            "file_path",
+            "file_read"
+          ],
+          "GenPythonCode": [
+            "expression"
+          ],
+          "GenPythonMetadata": [
+            "expression"
+          ],
+          "GlobalVariables": [
+            "expression"
+          ],
+          "Group": [
+            "expression"
+          ],
+          "IFrame": [
+            "expression"
+          ],
+          "Image": [
+            "file_path",
+            "file_read"
+          ],
+          "ListRoot": [
+            "expression"
+          ],
+          "MetaControl": [
+            "expression"
+          ],
+          "Plugin": [
+            "expression"
+          ],
+          "Prompt": [
+            "expression"
+          ],
+          "Social": [
+            "expression"
+          ],
+          "Spreadsheet": [
+            "expression"
+          ],
+          "StateMachineEnd": [
+            "expression"
+          ],
+          "StateMachineGate": [
+            "expression"
+          ],
+          "StateMachineStart": [
+            "expression"
+          ],
+          "TaskBoard": [
+            "expression"
+          ],
+          "Terminal": [
+            "expression"
+          ],
+          "TextBlock": [
+            "expression"
+          ]
         },
         "sectionTypes": [
           "Callable",
@@ -11784,46 +12097,92 @@
       "name": "RequiredUIEditorTabs",
       "type": "RequiredUIEditorTabMap",
       "value": {
-        "Browser": ["SectionConfig"],
+        "Browser": [
+          "SectionConfig"
+        ],
         "Callable": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Chart": ["SectionConfig"],
-        "Chat": ["SectionConfig"],
-        "Code": ["SectionConfig", "SectionVariantsConfig"],
+        "Chart": [
+          "SectionConfig"
+        ],
+        "Chat": [
+          "SectionConfig"
+        ],
+        "Code": [
+          "SectionConfig",
+          "SectionVariantsConfig"
+        ],
         "Dict": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Draw": ["SectionConfig"],
-        "GenPythonCode": ["SectionConfig"],
-        "GenPythonMetadata": ["SectionConfig"],
+        "Draw": [
+          "SectionConfig"
+        ],
+        "GenPythonCode": [
+          "SectionConfig"
+        ],
+        "GenPythonMetadata": [
+          "SectionConfig"
+        ],
         "GlobalVariables": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Group": ["SectionConfig"],
+        "Group": [
+          "SectionConfig"
+        ],
         "IFrame": [],
-        "Image": ["SectionConfig"],
-        "ListRoot": ["SectionConfig", "SectionVariantsConfig"],
-        "MetaControl": ["SectionConfig"],
-        "Plugin": ["SectionConfig"],
-        "Prompt": ["SectionConfig"],
-        "Social": ["SectionConfig"],
-        "Spreadsheet": ["SectionConfig"],
-        "StateMachineEnd": ["SectionConfig"],
-        "StateMachineGate": ["SectionConfig"],
-        "StateMachineStart": ["SectionConfig"],
-        "TaskBoard": ["SectionConfig"],
-        "Terminal": ["SectionConfig"],
-        "TextBlock": ["SectionConfig", "InfoConfig", "SectionVariantsConfig"]
+        "Image": [
+          "SectionConfig"
+        ],
+        "ListRoot": [
+          "SectionConfig",
+          "SectionVariantsConfig"
+        ],
+        "MetaControl": [
+          "SectionConfig"
+        ],
+        "Plugin": [
+          "SectionConfig"
+        ],
+        "Prompt": [
+          "SectionConfig"
+        ],
+        "Social": [
+          "SectionConfig"
+        ],
+        "Spreadsheet": [
+          "SectionConfig"
+        ],
+        "StateMachineEnd": [
+          "SectionConfig"
+        ],
+        "StateMachineGate": [
+          "SectionConfig"
+        ],
+        "StateMachineStart": [
+          "SectionConfig"
+        ],
+        "TaskBoard": [
+          "SectionConfig"
+        ],
+        "Terminal": [
+          "SectionConfig"
+        ],
+        "TextBlock": [
+          "SectionConfig",
+          "InfoConfig",
+          "SectionVariantsConfig"
+        ]
       }
     },
     {
@@ -11947,8 +12306,15 @@
       "name": "SettaFilesLocationPolicyConfig",
       "type": "SettaFilesLocationPolicy",
       "value": {
-        "requested": ["auto", "local", "global"],
-        "resolved": ["local", "global"]
+        "requested": [
+          "auto",
+          "local",
+          "global"
+        ],
+        "resolved": [
+          "local",
+          "global"
+        ]
       }
     },
     {
@@ -12018,7 +12384,9 @@
           "promptSection": "prompt_section",
           "promptTemplate": "prompt_template"
         },
-        "selfLoopSectionTypes": ["Chat"],
+        "selfLoopSectionTypes": [
+          "Chat"
+        ],
         "sourceActivationCountOperatorOptions": [
           {
             "label": "\u003c",
@@ -12204,8 +12572,24 @@
       "type": "TextParamUIConfigValue",
       "value": {
         "calendarWeekdayLabelsByWeekStart": {
-          "monday": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-          "sunday": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+          "monday": [
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+          ],
+          "sunday": [
+            "Sun",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat"
+          ]
         },
         "dateCalendarWeekStartOptions": [
           {
@@ -12341,14 +12725,37 @@
         {
           "scope": "app-subsystem",
           "valuePaths": [
-            ["apiPrefix"],
-            ["binary", "download"],
-            ["binary", "upload"],
-            ["root", "bootstrapPage"],
-            ["root", "toolsCall"],
-            ["websocket", "frontend"],
-            ["websocket", "listenerById"],
-            ["websocket", "terminalBySection"]
+            [
+              "apiPrefix"
+            ],
+            [
+              "binary",
+              "download"
+            ],
+            [
+              "binary",
+              "upload"
+            ],
+            [
+              "root",
+              "bootstrapPage"
+            ],
+            [
+              "root",
+              "toolsCall"
+            ],
+            [
+              "websocket",
+              "frontend"
+            ],
+            [
+              "websocket",
+              "listenerById"
+            ],
+            [
+              "websocket",
+              "terminalBySection"
+            ]
           ]
         }
       ],
@@ -12655,7 +13062,10 @@
           "unionName": "BaseParentCodeObjImplUnion",
           "localUnion": true,
           "includeBase": false,
-          "memberTypes": ["CodeCallableCodeObjImpl", "NestedParamCodeObjImpl"]
+          "memberTypes": [
+            "CodeCallableCodeObjImpl",
+            "NestedParamCodeObjImpl"
+          ]
         }
       ],
       "defaultValuesByDiscriminator": {

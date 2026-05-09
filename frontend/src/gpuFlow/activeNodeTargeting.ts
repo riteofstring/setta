@@ -1,11 +1,17 @@
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
-import type { GpuNodeLayout } from "./GpuNodeLayer";
-import { resolveGpuNodeZIndex } from "./nodeZIndex";
+import type { GpuNodeLayout } from "./htmlSurfaces/frame";
 import {
-  flowToScreenPosition,
-  normalizeGpuViewport,
-  type GpuViewportInput,
-} from "./viewportMath";
+  createHtmlSurfaceHitScene,
+  createHtmlSurfaceHitSceneFromVisualScene,
+  resolveHtmlSurfaceHitAtClientPoint,
+  type HtmlSurfaceEffectHitProjector,
+  type HtmlSurfaceFlatHitSurface,
+  type HtmlSurfaceHitScene,
+} from "./htmlSurfaces/hitScene";
+import type { HtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
+import { resolveGpuNodeZIndex } from "./nodeZIndex";
+import { GPU_NODE_RESIZE_HANDLE_SELECTOR } from "./resizeHandles";
+import { type GpuViewportInput } from "./viewportMath";
 
 type GpuNodeTargetDescriptor =
   | {
@@ -27,16 +33,34 @@ export type GpuNodePointerHandoffTarget = {
   readonly nodeId: string;
 };
 
+export type GpuNodeSourceProjection = {
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
+  readonly node: GpuNodeLayout;
+  readonly nodeId: string;
+  readonly sourceElement: HTMLElement;
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+};
+
 type ResolveGpuNodePointerHandoffTargetInput = {
   readonly clientX: number;
   readonly clientY: number;
+  readonly effectProjectors?:
+    | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
+    | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly projectSourceForHitTesting?:
+    | ((projection: GpuNodeSourceProjection) => void)
+    | undefined;
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 };
-
-const RESIZE_HANDLE_SELECTOR = ".section-resize-handle";
 
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
@@ -60,7 +84,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
   "[role='spinbutton']",
   "[role='switch']",
   "[role='textbox']",
-  RESIZE_HANDLE_SELECTOR,
+  GPU_NODE_RESIZE_HANDLE_SELECTOR,
   ".cm-content",
   ".cm-editor",
   ".xterm",
@@ -83,29 +107,36 @@ const STABLE_TARGET_ATTRIBUTES = [
 export function resolveGpuNodePointerHandoffTarget({
   clientX,
   clientY,
+  effectProjectors,
   elementByNodeId,
   nodes,
+  projectSourceForHitTesting,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
+  visualScene,
 }: ResolveGpuNodePointerHandoffTargetInput): GpuNodePointerHandoffTarget | null {
-  const node = findTopmostGpuNodeAtClientPoint({
+  const hit = resolveTopmostGpuNodeHitAtClientPoint({
     clientX,
     clientY,
+    effectProjectors,
     nodes,
+    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
+    visualScene,
   });
-  if (!node) {
+  if (!hit) {
     return null;
   }
 
-  const nodeElement = elementByNodeId.get(node.nodeId);
+  const nodeElement = elementByNodeId.get(hit.node.nodeId);
   if (!nodeElement) {
     return null;
   }
-  const target = findInteractiveTargetAtClientPoint({
-    clientX,
-    clientY,
+  const target = findInteractiveTargetAtLocalPoint({
+    localX: hit.localX,
+    localY: hit.localY,
     root: nodeElement,
   });
   if (!target) {
@@ -115,49 +146,67 @@ export function resolveGpuNodePointerHandoffTarget({
   if (!descriptor) {
     return null;
   }
+  projectSourceForHitTesting?.({
+    clientX,
+    clientY,
+    localX: hit.localX,
+    localY: hit.localY,
+    node: hit.node,
+    nodeId: hit.node.nodeId,
+    sourceElement: nodeElement,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
+  });
   return {
     descriptor,
-    nodeId: node.nodeId,
+    nodeId: hit.node.nodeId,
   };
 }
 
 export function resolveGpuNodeWheelHandoffTarget({
   clientX,
   clientY,
+  effectProjectors,
   elementByNodeId,
   nodes,
+  projectSourceForHitTesting,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
+  visualScene,
 }: ResolveGpuNodePointerHandoffTargetInput): GpuNodePointerHandoffTarget | null {
-  const node = findTopmostGpuNodeAtClientPoint({
+  const hit = resolveTopmostGpuNodeHitAtClientPoint({
     clientX,
     clientY,
+    effectProjectors,
     nodes,
+    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
+    visualScene,
   });
-  if (!node) {
+  if (!hit) {
     return null;
   }
 
-  const nodeElement = elementByNodeId.get(node.nodeId);
+  const nodeElement = elementByNodeId.get(hit.node.nodeId);
   if (!nodeElement) {
     return null;
   }
   const target =
-    findWheelTargetAtClientPoint({
-      clientX,
-      clientY,
+    findWheelTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
       root: nodeElement,
     }) ??
-    findScrollableTargetAtClientPoint({
-      clientX,
-      clientY,
+    findScrollableTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
       root: nodeElement,
     }) ??
-    findNearestScrollableWheelTarget({
-      clientX,
-      clientY,
+    findNearestScrollableWheelTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
       root: nodeElement,
     });
   if (!target) {
@@ -167,9 +216,20 @@ export function resolveGpuNodeWheelHandoffTarget({
   if (!descriptor) {
     return null;
   }
+  projectSourceForHitTesting?.({
+    clientX,
+    clientY,
+    localX: hit.localX,
+    localY: hit.localY,
+    node: hit.node,
+    nodeId: hit.node.nodeId,
+    sourceElement: nodeElement,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
+  });
   return {
     descriptor,
-    nodeId: node.nodeId,
+    nodeId: hit.node.nodeId,
   };
 }
 
@@ -240,7 +300,7 @@ export function isGpuNodeResizeHandleEventTarget(
   target: EventTarget | Node | null,
 ): boolean {
   const element = toElement(target);
-  return Boolean(element?.closest(RESIZE_HANDLE_SELECTOR));
+  return Boolean(element?.closest(GPU_NODE_RESIZE_HANDLE_SELECTOR));
 }
 
 export function createGpuNodeTargetDescriptor(
@@ -280,19 +340,19 @@ export function createGpuNodeTargetDescriptor(
   };
 }
 
-function findInteractiveTargetAtClientPoint({
-  clientX,
-  clientY,
+function findInteractiveTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   const candidates = getInteractiveTargetCandidates(root);
   let match: HTMLElement | null = null;
   for (const candidate of candidates) {
-    if (!elementContainsClientPoint(candidate, clientX, clientY)) {
+    if (!elementContainsLocalPoint(candidate, root, localX, localY)) {
       continue;
     }
     if (
@@ -306,19 +366,20 @@ function findInteractiveTargetAtClientPoint({
   return match;
 }
 
-function findWheelTargetAtClientPoint({
-  clientX,
-  clientY,
+function findWheelTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   const explicitTarget = findSmallestContainingElement(
     getNativeWheelTargetCandidates(root),
-    clientX,
-    clientY,
+    root,
+    localX,
+    localY,
   );
   if (!explicitTarget) {
     return null;
@@ -326,34 +387,36 @@ function findWheelTargetAtClientPoint({
   return (
     findSmallestContainingElement(
       getScrollableDescendantCandidates(explicitTarget),
-      clientX,
-      clientY,
+      root,
+      localX,
+      localY,
     ) ?? explicitTarget
   );
 }
 
-function findNearestScrollableWheelTarget({
-  clientX,
-  clientY,
+function findNearestScrollableWheelTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   let match: HTMLElement | null = null;
   let matchDistance = Number.POSITIVE_INFINITY;
   for (const candidate of getNativeWheelTargetCandidates(root)) {
     const scrollTarget =
-      findNearestScrollableDescendant(candidate, clientX, clientY) ??
+      findNearestScrollableDescendant(candidate, root, localX, localY) ??
       (isScrollableElement(candidate) ? candidate : null);
     if (!scrollTarget) {
       continue;
     }
     const distance = getDistanceSquaredToElementRect(
       scrollTarget,
-      clientX,
-      clientY,
+      root,
+      localX,
+      localY,
     );
     if (distance < matchDistance) {
       match = scrollTarget;
@@ -363,34 +426,37 @@ function findNearestScrollableWheelTarget({
   return match;
 }
 
-function findScrollableTargetAtClientPoint({
-  clientX,
-  clientY,
+function findScrollableTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   return findSmallestContainingElement(
     getScrollableDescendantCandidates(root),
-    clientX,
-    clientY,
+    root,
+    localX,
+    localY,
   );
 }
 
 function findNearestScrollableDescendant(
   root: HTMLElement,
-  clientX: number,
-  clientY: number,
+  sourceRoot: HTMLElement,
+  localX: number,
+  localY: number,
 ): HTMLElement | null {
   let match: HTMLElement | null = null;
   let matchDistance = Number.POSITIVE_INFINITY;
   for (const candidate of getScrollableDescendantCandidates(root)) {
     const distance = getDistanceSquaredToElementRect(
       candidate,
-      clientX,
-      clientY,
+      sourceRoot,
+      localX,
+      localY,
     );
     if (distance < matchDistance) {
       match = candidate;
@@ -400,75 +466,155 @@ function findNearestScrollableDescendant(
   return match;
 }
 
-function findTopmostGpuNodeAtClientPoint({
+export function resolveTopmostGpuNodeHitAtClientPoint({
   clientX,
   clientY,
+  effectProjectors,
   nodes,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
+  visualScene,
 }: {
   readonly clientX: number;
   readonly clientY: number;
+  readonly effectProjectors?:
+    | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
+    | undefined;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
-}): GpuNodeLayout | null {
-  const surfaceRect = surfaceElement.getBoundingClientRect();
-  const screenX = clientX - surfaceRect.left;
-  const screenY = clientY - surfaceRect.top;
-  const normalizedViewport = normalizeGpuViewport(viewport);
-  let match: (GpuNodeLayout & { readonly sourceIndex: number }) | null = null;
-
-  nodes.forEach((node, sourceIndex) => {
-    if (
-      !gpuNodeContainsScreenPoint(node, screenX, screenY, normalizedViewport)
-    ) {
-      return;
-    }
-    if (!match || compareGpuNodeStacking(node, sourceIndex, match) > 0) {
-      match = { ...node, sourceIndex };
-    }
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
+}): {
+  readonly localX: number;
+  readonly localY: number;
+  readonly node: GpuNodeLayout;
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+} | null {
+  const nodeById = new Map<string, GpuNodeLayout>();
+  nodes.forEach((node) => {
+    nodeById.set(node.nodeId, node);
   });
-
-  return match;
+  const scene = resolveGpuNodeHitScene({
+    nodeById,
+    nodes,
+    requireVisualSceneHitSurfaces,
+    visualScene,
+  });
+  if (!scene) {
+    return null;
+  }
+  const hit = resolveHtmlSurfaceHitAtClientPoint({
+    clientX,
+    clientY,
+    ...(effectProjectors ? { effectProjectors } : {}),
+    scene,
+    surfaceElement,
+    viewport,
+  });
+  if (!hit) {
+    return null;
+  }
+  const node = nodeById.get(hit.surfaceId);
+  if (!node) {
+    return null;
+  }
+  return {
+    localX: hit.localX,
+    localY: hit.localY,
+    node,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
+  };
 }
 
-function gpuNodeContainsScreenPoint(
+function resolveGpuNodeHitScene({
+  nodeById,
+  nodes,
+  requireVisualSceneHitSurfaces = false,
+  visualScene,
+}: {
+  readonly nodeById: ReadonlyMap<string, GpuNodeLayout>;
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
+  readonly visualScene: HtmlSurfaceVisualScene | undefined;
+}): HtmlSurfaceHitScene | null {
+  if (visualScene) {
+    const nodeVisualScene = filterVisualSceneBySurfaceIds(
+      visualScene,
+      nodeById,
+    );
+    if (hasVisualSceneHitSurfaces(nodeVisualScene)) {
+      return createHtmlSurfaceHitSceneFromVisualScene(nodeVisualScene);
+    }
+  }
+  if (requireVisualSceneHitSurfaces) {
+    return null;
+  }
+
+  const flatSurfaces: HtmlSurfaceFlatHitSurface[] = [];
+  nodes.forEach((node, sourceIndex) => {
+    const surface = toFlatNodeHitSurface(node, sourceIndex);
+    if (surface) {
+      flatSurfaces.push(surface);
+    }
+  });
+  return createHtmlSurfaceHitScene({ flatSurfaces });
+}
+
+function filterVisualSceneBySurfaceIds(
+  scene: HtmlSurfaceVisualScene,
+  surfaceIds: ReadonlyMap<string, unknown>,
+): HtmlSurfaceVisualScene {
+  return {
+    effectSurfaces: scene.effectSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
+    flatSurfaces: scene.flatSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
+    meshSurfaces: scene.meshSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
+    tiledFlatSurfaces: scene.tiledFlatSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
+  };
+}
+
+function hasVisualSceneHitSurfaces(scene: HtmlSurfaceVisualScene): boolean {
+  return (
+    scene.flatSurfaces.length > 0 ||
+    scene.tiledFlatSurfaces.length > 0 ||
+    scene.meshSurfaces.length > 0 ||
+    scene.effectSurfaces.length > 0
+  );
+}
+
+function toFlatNodeHitSurface(
   node: GpuNodeLayout,
-  screenX: number,
-  screenY: number,
-  viewport: ReturnType<typeof normalizeGpuViewport>,
-): boolean {
+  sourceIndex: number,
+): HtmlSurfaceFlatHitSurface | null {
   if (
     node.width === null ||
     node.height === null ||
     node.width <= 0 ||
     node.height <= 0
   ) {
-    return false;
+    return null;
   }
-  const screenPosition = flowToScreenPosition(
-    { x: node.x, y: node.y },
-    viewport,
-  );
-  const width = node.width * viewport.zoom;
-  const height = node.height * viewport.zoom;
-  return (
-    screenX >= screenPosition.x &&
-    screenX < screenPosition.x + width &&
-    screenY >= screenPosition.y &&
-    screenY < screenPosition.y + height
-  );
-}
-
-function compareGpuNodeStacking(
-  node: GpuNodeLayout,
-  sourceIndex: number,
-  current: GpuNodeLayout & { readonly sourceIndex: number },
-): number {
-  const zIndex = resolveGpuNodeZIndex(node);
-  const currentZIndex = resolveGpuNodeZIndex(current);
-  return zIndex - currentZIndex || sourceIndex - current.sourceIndex;
+  return {
+    height: node.height,
+    kind: "flat",
+    stackOrder: sourceIndex,
+    surfaceId: node.nodeId,
+    width: node.width,
+    x: node.x,
+    y: node.y,
+    zIndex: resolveGpuNodeZIndex(node),
+  };
 }
 
 function getInteractiveTargetCandidates(root: HTMLElement): HTMLElement[] {
@@ -567,12 +713,13 @@ function isScrollableOverflowValue(value: string | undefined): boolean {
 
 function findSmallestContainingElement(
   candidates: readonly HTMLElement[],
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): HTMLElement | null {
   let match: HTMLElement | null = null;
   for (const candidate of candidates) {
-    if (!elementContainsClientPoint(candidate, clientX, clientY)) {
+    if (!elementContainsLocalPoint(candidate, root, localX, localY)) {
       continue;
     }
     if (
@@ -588,39 +735,56 @@ function findSmallestContainingElement(
 
 function getDistanceSquaredToElementRect(
   element: HTMLElement,
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): number {
-  const rect = element.getBoundingClientRect();
+  const rect = getElementLocalRect(element, root);
   const dx =
-    clientX < rect.left
-      ? rect.left - clientX
-      : clientX > rect.right
-        ? clientX - rect.right
+    localX < rect.left
+      ? rect.left - localX
+      : localX > rect.right
+        ? localX - rect.right
         : 0;
   const dy =
-    clientY < rect.top
-      ? rect.top - clientY
-      : clientY > rect.bottom
-        ? clientY - rect.bottom
+    localY < rect.top
+      ? rect.top - localY
+      : localY > rect.bottom
+        ? localY - rect.bottom
         : 0;
   return dx * dx + dy * dy;
 }
 
-function elementContainsClientPoint(
+function elementContainsLocalPoint(
   element: HTMLElement,
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): boolean {
-  const rect = element.getBoundingClientRect();
+  const rect = getElementLocalRect(element, root);
   return (
     rect.width > 0 &&
     rect.height > 0 &&
-    clientX >= rect.left &&
-    clientX < rect.right &&
-    clientY >= rect.top &&
-    clientY < rect.bottom
+    localX >= rect.left &&
+    localX < rect.right &&
+    localY >= rect.top &&
+    localY < rect.bottom
   );
+}
+
+function getElementLocalRect(element: HTMLElement, root: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const rootRect = root.getBoundingClientRect();
+  const left = rect.left - rootRect.left;
+  const top = rect.top - rootRect.top;
+  return {
+    bottom: top + rect.height,
+    height: rect.height,
+    left,
+    right: left + rect.width,
+    top,
+    width: rect.width,
+  };
 }
 
 function getElementRectArea(element: HTMLElement): number {

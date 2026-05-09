@@ -1,17 +1,19 @@
 import { HandlePosition, type Connection } from "gpuFlow/flowTypes";
 import {
+  registerGpuFlowPortDescriptor,
+  unregisterGpuFlowPortDescriptor,
+  useGpuFlowPortRegistry,
+} from "gpuFlow/ports/portGeometry";
+import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import type { GpuFlowScene } from "gpuFlow/scene";
+import {
   createEdge,
   deleteEdges,
   reconnectEdge,
   setEdges,
   updateEdge,
 } from "openapi/http";
-import {
-  useEdgeHandleRegistry,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
+import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCore,
@@ -23,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createEdgeFromConnection,
   deleteSelectedEdges,
+  isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "./edges";
@@ -101,28 +104,19 @@ function seedEdgeState(edges: Array<Edge>) {
     };
     state.previewSectionVariantMap = {};
   });
-  const sourceKey = makeEdgeHandleKey(sourceSectionId, sourcePortId, "source");
-  const targetKey = makeEdgeHandleKey(targetSectionId, targetPortId, "target");
-  useEdgeHandleRegistry.setState({
-    handles: {},
-    positions: {
-      [sourceKey]: {
-        sectionId: sourceSectionId,
-        portId: sourcePortId,
-        type: "source",
-        side: HandlePosition.Right,
-        x: 10,
-        y: 10,
-      },
-      [targetKey]: {
-        sectionId: targetSectionId,
-        portId: targetPortId,
-        type: "target",
-        side: HandlePosition.Left,
-        x: 20,
-        y: 20,
-      },
-    },
+  registerGpuFlowPortDescriptor({
+    localRect: { height: 10, width: 10, x: 5, y: 5 },
+    nodeId: sourceSectionId,
+    portId: sourcePortId,
+    side: HandlePosition.Right,
+    type: "source",
+  });
+  registerGpuFlowPortDescriptor({
+    localRect: { height: 10, width: 10, x: 15, y: 15 },
+    nodeId: targetSectionId,
+    portId: targetPortId,
+    side: HandlePosition.Left,
+    type: "target",
   });
 }
 function createConnection(): Connection {
@@ -131,6 +125,98 @@ function createConnection(): Connection {
     target: targetSectionId,
     sourceHandle: sourcePortId,
     targetHandle: targetPortId,
+  };
+}
+function createSceneWithRetainedEdgePorts(): GpuFlowScene {
+  const sourceRect = { height: 40, width: 200, x: 20, y: 60 };
+  const targetRect = { height: 40, width: 200, x: 100, y: 120 };
+  return {
+    contentSurfaces: [
+      createRetainedPortSurface({
+        ownerSectionId: sourceSectionId,
+        portId: sourcePortId,
+        portKind: "output",
+        rect: sourceRect,
+      }),
+      createRetainedPortSurface({
+        ownerSectionId: targetSectionId,
+        portId: targetPortId,
+        portKind: "input",
+        rect: targetRect,
+      }),
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+function createRetainedPortSurface({
+  ownerSectionId,
+  portId,
+  portKind,
+  rect,
+}: {
+  readonly ownerSectionId: string;
+  readonly portId: string;
+  readonly portKind: "input" | "output";
+  readonly rect: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  };
+}): GpuFlowScene["contentSurfaces"][number] {
+  const surfaceId = `${ownerSectionId}:param-content:unpinned`;
+  return {
+    clipRect: rect,
+    id: surfaceId,
+    ownerSectionId,
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId,
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: surfaceId,
+      ownerSectionId,
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "",
+            editorKind: "text",
+            kind: "text-like",
+            rendererFamily: "text",
+            commitPolicy: "native-island",
+          },
+          controlKind: "text-like",
+          depth: 0,
+          id: portId,
+          label: portKind === "input" ? "Input" : "Output",
+          ports: [
+            {
+              id: portId,
+              kind: portKind,
+              side: portKind === "input" ? "left" : "right",
+            },
+          ],
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
+    zIndex: 1,
+  };
+}
+function createEmptyScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }
 describe("edges actions", () => {
@@ -146,6 +232,7 @@ describe("edges actions", () => {
   });
   afterEach(() => {
     resetProjectStores();
+    useGpuFlowPortRegistry.getState().reset();
   });
   it("posts createEdge with the canonical connection payload", () => {
     seedEdgeState([]);
@@ -180,6 +267,101 @@ describe("edges actions", () => {
         targetPortId,
       },
     });
+  });
+  it("persists data-edge mutations when both ports are scene-owned", () => {
+    seedEdgeState([]);
+    unregisterGpuFlowPortDescriptor(sourceSectionId, sourcePortId, "source");
+    unregisterGpuFlowPortDescriptor(targetSectionId, targetPortId, "target");
+    const context = { scene: createSceneWithRetainedEdgePorts() };
+
+    createEdgeFromConnection(createConnection(), context);
+    reconnectEdgeFromConnection("edge-1", createConnection(), context);
+
+    expect(mockedRouteCreateEdge).toHaveBeenCalledTimes(1);
+    expect(mockedRouteReconnectEdge).toHaveBeenCalledTimes(1);
+    expect(mockedRouteCreateEdge.mock.calls[0]?.[0]).toEqual({
+      body: expect.objectContaining({
+        sourcePortId,
+        targetPortId,
+      }),
+    });
+    expect(mockedRouteReconnectEdge.mock.calls[0]?.[0]).toEqual({
+      body: expect.objectContaining({
+        edgeId: "edge-1",
+        sourcePortId,
+        targetPortId,
+      }),
+    });
+  });
+  it("ignores registered DOM ports when scene context omits them", () => {
+    seedEdgeState([]);
+    const context = { scene: createEmptyScene() };
+
+    createEdgeFromConnection(createConnection(), context);
+    reconnectEdgeFromConnection("edge-1", createConnection(), context);
+
+    expect(mockedRouteCreateEdge).not.toHaveBeenCalled();
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+  });
+  it("validates reconnect candidates as data-edge handle pairs", () => {
+    expect(isValidDataEdgeConnection(createConnection())).toBe(true);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        sourceHandle: "agentic-edge-source",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: "workflow-target",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        sourceHandle: "agentic-edge-reverse-start",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: "chat-shared-edge-target",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: null,
+      }),
+    ).toBe(false);
+  });
+  it("does not persist reconnects until the final connection is complete and registered", () => {
+    seedEdgeState([]);
+    reconnectEdgeFromConnection("edge-1", {
+      ...createConnection(),
+      targetHandle: null,
+    });
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+
+    reconnectEdgeFromConnection("edge-1", {
+      ...createConnection(),
+      target: "missing-section",
+    });
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+
+    unregisterGpuFlowPortDescriptor(sourceSectionId, sourcePortId, "source");
+    unregisterGpuFlowPortDescriptor(targetSectionId, targetPortId, "target");
+    reconnectEdgeFromConnection("edge-1", createConnection());
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+  });
+  it("does not persist reconnects in deployment mode", () => {
+    seedEdgeState([]);
+    useShareSession.setState({ isDeploymentMode: true });
+
+    reconnectEdgeFromConnection("edge-1", createConnection());
+
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
   });
   it("single-selects an edge and persists the full edge list", () => {
     seedEdgeState([

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
@@ -13,23 +13,39 @@ import {
   type SingleConfigResponse,
 } from "../helpers";
 
+const SECTION_SHELL_CHROME_PX = 2;
+
 async function createSection(
   page: Page,
   projectConfigId: string,
   implType: string,
+  placement: {
+    readonly xRatio?: number | undefined;
+    readonly yRatio?: number | undefined;
+  } = {},
 ) {
   const viewportBounds = await getViewportBoundsForPlacement(page);
   if (!viewportBounds) {
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
+  const state = await loadProjectConfig(page);
+  const viewport = state.projectConfig.viewport ?? { x: 0, y: 0, zoom: 1 };
+  const flowViewportBounds = {
+    h: viewportBounds.h / viewport.zoom,
+    w: viewportBounds.w / viewport.zoom,
+    x: (viewportBounds.x - viewport.x) / viewport.zoom,
+    y: (viewportBounds.y - viewport.y) / viewport.zoom,
+  };
+  const xRatio = placement.xRatio ?? 0.35;
+  const yRatio = placement.yRatio ?? 0.35;
   const response = await createTopLevelSectionFromFrontend(page, {
     projectConfigId,
     implType,
     position: {
-      x: viewportBounds.x + viewportBounds.w * 0.35,
-      y: viewportBounds.y + viewportBounds.h * 0.35,
+      x: flowViewportBounds.x + flowViewportBounds.w * xRatio,
+      y: flowViewportBounds.y + flowViewportBounds.h * yRatio,
     },
-    viewportBounds,
+    viewportBounds: flowViewportBounds,
   });
   if (!response?.sectionId) {
     throw new Error(`Missing sectionId for ${implType} creation.`);
@@ -103,6 +119,15 @@ async function addKwargs(
   });
 }
 
+async function setActiveSections(page: Page, sectionIds: readonly string[]) {
+  await page.evaluate(async (ids) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    setActiveSectionIds([...ids], { syncMode: "ui-only" });
+  }, sectionIds);
+}
+
 function getSectionSizeFromState(
   state: SingleConfigResponse,
   sectionId: string,
@@ -139,6 +164,63 @@ async function clearResizeEvent(page: Page, sectionId: string) {
       delete state.resizeEvent[id];
     });
   }, sectionId);
+}
+
+async function waitForAnimationFrame(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+}
+
+async function getRetainedParamResizeGeometry({
+  retainedSource,
+  sectionNode,
+}: {
+  readonly retainedSource: Locator;
+  readonly sectionNode: Locator;
+}) {
+  const [sectionBox, sourceBox, canvasBox] = await Promise.all([
+    sectionNode.boundingBox(),
+    retainedSource.boundingBox(),
+    retainedSource
+      .locator('[data-gpu-flow-retained-content-canvas="true"]')
+      .boundingBox(),
+  ]);
+  if (!sectionBox || !sourceBox || !canvasBox) {
+    throw new Error("Missing section or retained content geometry.");
+  }
+  return {
+    retainedCanvasHeight: canvasBox.height,
+    retainedCanvasWidth: canvasBox.width,
+    retainedHeight: sourceBox.height,
+    retainedWidth: sourceBox.width,
+    sectionHeight: sectionBox.height,
+    sectionWidth: sectionBox.width,
+  };
+}
+
+async function resolveSectionResizeStartPoint(page: Page, sectionId: string) {
+  const state = await loadProjectConfig(page);
+  const layout = state.projectConfig.topLevelSections?.[sectionId];
+  if (!layout) {
+    throw new Error(`Missing top-level layout for ${sectionId}.`);
+  }
+  const size = getSectionSizeFromState(state, sectionId);
+  if (typeof size.width !== "number" || typeof size.height !== "number") {
+    throw new Error(`Missing numeric size for ${sectionId}.`);
+  }
+  const paneBox = await page.locator(".setta-gpu-flow__pane").boundingBox();
+  if (!paneBox) {
+    throw new Error("Missing GPU flow pane for resize pointer placement.");
+  }
+  const viewport = state.projectConfig.viewport ?? { x: 0, y: 0, zoom: 1 };
+  const outerWidth = size.width + SECTION_SHELL_CHROME_PX;
+  const outerHeight = size.height + SECTION_SHELL_CHROME_PX;
+  return {
+    x: paneBox.x + viewport.x + (layout.x + outerWidth - 4) * viewport.zoom,
+    y: paneBox.y + viewport.y + (layout.y + outerHeight - 4) * viewport.zoom,
+  };
 }
 
 function isolatedSizingTest(
@@ -266,6 +348,127 @@ isolatedSizingTest(
       const rightHandle = sectionNode.locator(".cursor-col-resize");
       await expect(rightHandle).toHaveCount(1);
     } finally {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [sectionId],
+      });
+    }
+  },
+);
+
+isolatedSizingTest(
+  "callable retained param content resizes while the pointer is down",
+  async (page, projectConfigId) => {
+    await page.addStyleTag({
+      content: `
+        #OverviewPane,
+        #UiEditorPane {
+          pointer-events: none !important;
+        }
+      `,
+    });
+    const sectionId = await createSection(page, projectConfigId, "Callable", {
+      xRatio: 0.08,
+      yRatio: 0.25,
+    });
+
+    try {
+      await setCallable(page, projectConfigId, sectionId, "sorted");
+      await setSectionSizes(page, projectConfigId, {
+        [sectionId]: { height: 320, width: 420 },
+      });
+
+      const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+      const retainedSource = page.getByTestId(
+        `gpu-retained-content-source-${sectionId}:param-content:unpinned`,
+      );
+      await expect(sectionNode).toBeVisible();
+      await expect(retainedSource).toHaveCount(1);
+      await expect
+        .poll(async () => {
+          const box = await retainedSource.boundingBox();
+          return box?.width ?? 0;
+        })
+        .toBeGreaterThan(360);
+
+      await setActiveSections(page, [sectionId]);
+      const before = await getRetainedParamResizeGeometry({
+        retainedSource,
+        sectionNode,
+      });
+      const startPoint = await resolveSectionResizeStartPoint(page, sectionId);
+      const startX = startPoint.x;
+      const startY = startPoint.y;
+
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(startX - 80, startY);
+      await waitForAnimationFrame(page);
+      const shrinkDuringDrag = await getRetainedParamResizeGeometry({
+        retainedSource,
+        sectionNode,
+      });
+
+      expect(shrinkDuringDrag.sectionWidth).toBeLessThan(
+        before.sectionWidth - 40,
+      );
+      expect(shrinkDuringDrag.retainedWidth).toBeLessThan(
+        before.retainedWidth - 40,
+      );
+      expect(
+        Math.abs(
+          shrinkDuringDrag.retainedCanvasWidth - shrinkDuringDrag.retainedWidth,
+        ),
+      ).toBeLessThan(2);
+      expect(
+        Math.abs(
+          shrinkDuringDrag.sectionWidth - shrinkDuringDrag.retainedWidth,
+        ),
+      ).toBeLessThan(8);
+
+      await page.mouse.move(startX + 80, startY);
+      await waitForAnimationFrame(page);
+      await waitForAnimationFrame(page);
+      const growDuringDrag = await getRetainedParamResizeGeometry({
+        retainedSource,
+        sectionNode,
+      });
+
+      expect(growDuringDrag.sectionWidth).toBeGreaterThan(
+        shrinkDuringDrag.sectionWidth + 120,
+      );
+      expect(growDuringDrag.retainedWidth).toBeGreaterThan(
+        shrinkDuringDrag.retainedWidth + 120,
+      );
+      expect(
+        Math.abs(growDuringDrag.sectionWidth - growDuringDrag.retainedWidth),
+      ).toBeLessThan(8);
+
+      await page.mouse.up();
+      await waitForAnimationFrame(page);
+      const firstAfterRelease = await getRetainedParamResizeGeometry({
+        retainedSource,
+        sectionNode,
+      });
+      await waitForAnimationFrame(page);
+      await waitForAnimationFrame(page);
+      const settledAfterRelease = await getRetainedParamResizeGeometry({
+        retainedSource,
+        sectionNode,
+      });
+
+      expect(
+        Math.abs(
+          firstAfterRelease.retainedWidth - settledAfterRelease.retainedWidth,
+        ),
+      ).toBeLessThan(8);
+      expect(
+        Math.abs(
+          firstAfterRelease.sectionWidth - settledAfterRelease.sectionWidth,
+        ),
+      ).toBeLessThan(8);
+    } finally {
+      await page.mouse.up().catch(() => {});
       await postBackend(page, "/deleteSections", {
         projectConfigId,
         sectionIds: [sectionId],

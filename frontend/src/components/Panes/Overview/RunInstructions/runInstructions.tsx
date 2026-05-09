@@ -110,18 +110,18 @@ export type RunnableCodeBlock = {
   depth: number;
 };
 
-export type RunnableCodeBlockListingContext = {
+type RunnableCodeBlockListingContext = {
   state: ZustandProjectState;
   viewMode: ViewMode;
   isEditingViewMode: boolean;
   outputList: Array<RunnableCodeBlock>;
 };
 
-export type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
+type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
-export type RunSnapshotModeChoice = RunSnapshotMode | "default";
+type RunSnapshotModeChoice = RunSnapshotMode | "default";
 
-export type RunInstructionsAccordionItem = {
+type RunInstructionsAccordionItem = {
   value: RunInstructionsAccordionItemValue;
   title: string;
   triggerTestId: string;
@@ -139,7 +139,7 @@ export const TOGGLE_THUMB_CLASSES =
 export const TOGGLE_LABEL_CLASSES =
   "text-[10px] text-setta-500 dark:text-setta-400";
 
-export const PANEL_CARD_CLASSES =
+const PANEL_CARD_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 p-2 text-xs dark:bg-setta-900/40";
 
 export const PANEL_ROW_CLASSES =
@@ -148,49 +148,49 @@ export const PANEL_ROW_CLASSES =
 export const PANEL_SELECT_CLASSES =
   "min-w-0 rounded border border-setta-200 bg-white/70 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
 
-export const PANEL_COMPACT_SELECT_CLASSES =
+const PANEL_COMPACT_SELECT_CLASSES =
   "min-w-0 rounded border border-setta-200 bg-white/70 px-1.5 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
 
-export const PANEL_ICON_BUTTON_CLASSES =
+const PANEL_ICON_BUTTON_CLASSES =
   "inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100";
 
-export const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
+const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
   "inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400";
 
-export const RUN_INSTRUCTIONS_INLINE_INSET_CLASS = "pl-[0.375rem] pr-[0.75rem]";
+const RUN_INSTRUCTIONS_INLINE_INSET_CLASS = "pl-[0.375rem] pr-[0.75rem]";
 
-export const CUSTOM_RUN_ROW_CLASSES =
+const CUSTOM_RUN_ROW_CLASSES =
   "mx-[2px] flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md bg-setta-100/30 px-2 py-0.5 text-xs dark:bg-setta-900/40";
 
 export const CUSTOM_RUN_EMPTY_STATE_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1 text-xs text-setta-600 dark:bg-setta-900/40 dark:text-setta-300";
 
-export const WORKFLOW_CONTROL_ROW_CLASSES =
+const WORKFLOW_CONTROL_ROW_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1.5 text-xs dark:bg-setta-900/40";
 
-export const WORKFLOW_CONTROL_BUTTON_CLASSES =
+const WORKFLOW_CONTROL_BUTTON_CLASSES =
   "inline-flex h-6 items-center rounded px-2 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-45";
 
-export const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
+const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
 
-export const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
+const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
 
-export const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
+const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
 
-export type WorkflowControlAction = "start" | "stop" | "reset";
+type WorkflowControlAction = "start" | "stop" | "reset";
 
-export type WorkflowControlPresentation = ReturnType<
+type WorkflowControlPresentation = ReturnType<
   typeof getStateMachineNodePresentation
 >;
 
-export type WorkflowControlActionConfig = {
+type WorkflowControlActionConfig = {
   action: WorkflowControlAction;
   label: string;
   className: string;
   isUnavailable: (machineRun: WorkflowControlPresentation) => boolean;
 };
 
-export const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
+const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
   {
     action: "start",
     label: "Start",
@@ -224,7 +224,7 @@ export const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   ...RunSnapshotModeUIConfig.options,
 ];
 
-export const RUN_INSTRUCTIONS_CODEGEN_POLICY_STYLES: RunInstructionsCodegenPolicyStyles =
+const RUN_INSTRUCTIONS_CODEGEN_POLICY_STYLES: RunInstructionsCodegenPolicyStyles =
   {
     toggleRoot: TOGGLE_ROOT_CLASSES,
     toggleThumb: TOGGLE_THUMB_CLASSES,
@@ -698,7 +698,7 @@ export function AddCodeBlockRow({
   );
 }
 
-export function useRunnableCodeBlockListing() {
+function useRunnableCodeBlockListing() {
   return useProjectState((x) => {
     const outputList: Array<RunnableCodeBlock> = [];
     const viewMode = getActiveViewModeConfig(x);
@@ -722,7 +722,7 @@ export function useRunnableCodeBlockListing() {
   }, _.isEqual);
 }
 
-export function useSectionOptions(): RunInstructionsSectionOption[] {
+function useSectionOptions(): RunInstructionsSectionOption[] {
   return useProjectState((x) => {
     const outputList: Array<RunInstructionsSectionOption> = [];
     for (const [sectionId, section] of Object.entries(x.sections)) {
@@ -738,11 +738,11 @@ export function useSectionOptions(): RunInstructionsSectionOption[] {
   }, _.isEqual);
 }
 
-export function useCodeObjOptions(): RunInstructionsCodeObjOption[] {
+function useCodeObjOptions(): RunInstructionsCodeObjOption[] {
   return useProjectState(getRunInstructionsCodeObjOptions, _.isEqual);
 }
 
-export function getRunnableCodeBlockListingHelper(
+function getRunnableCodeBlockListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
   depth: number,
@@ -778,7 +778,7 @@ export function getRunnableCodeBlockListingHelper(
   }
 }
 
-export function getWorkflowControlActivityLabel(
+function getWorkflowControlActivityLabel(
   machineRun: WorkflowControlPresentation,
 ): string | null {
   return (
@@ -786,7 +786,7 @@ export function getWorkflowControlActivityLabel(
   );
 }
 
-export function getWorkflowControlActivityToneClasses(
+function getWorkflowControlActivityToneClasses(
   machineRun: WorkflowControlPresentation,
 ): string {
   return machineRun.failureSummaryLabel
@@ -794,7 +794,7 @@ export function getWorkflowControlActivityToneClasses(
     : "text-setta-500 dark:text-setta-300";
 }
 
-export async function runWorkflowControlAction(
+async function runWorkflowControlAction(
   workflow: RunInstructionsStateMachineControl,
   action: WorkflowControlAction,
 ): Promise<void> {
@@ -860,7 +860,7 @@ export function useRunSnapshotModeState(projectConfigId: string) {
   };
 }
 
-export function useSelectionAvailabilityReset(
+function useSelectionAvailabilityReset(
   pendingId: string,
   setPendingId: React.Dispatch<React.SetStateAction<string>>,
   availableIds: readonly string[],
@@ -873,7 +873,7 @@ export function useSelectionAvailabilityReset(
   }, [availableIds, pendingId, setPendingId]);
 }
 
-export function buildRunInstructionsAccordionItems({
+function buildRunInstructionsAccordionItems({
   projectConfigId,
   isDeploymentMode,
   pythonCodegenEnabled,

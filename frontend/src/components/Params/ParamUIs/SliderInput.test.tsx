@@ -20,6 +20,7 @@ describe("SliderInput GPU flow ownership", () => {
     );
 
     expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain('data-gpu-flow-activation="pointer"');
     expect(markup).toContain("nodrag nopan fixture-wrapper");
     expect(markup).toContain("nodrag nopan fixture-root");
     expect(markup).toContain("nodrag nopan fixture-track");

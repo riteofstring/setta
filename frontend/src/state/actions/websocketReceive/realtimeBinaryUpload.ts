@@ -39,9 +39,9 @@ import {
   wssReady,
 } from "./websocketConnection";
 
-export const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
+const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
 
-export let lastRealtimeBinaryOversizeWarningAt = 0;
+let lastRealtimeBinaryOversizeWarningAt = 0;
 
 export function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
@@ -96,7 +96,7 @@ export function sendRealtimeSectionBinary(
   });
 }
 
-export function sendMessage(message: FrontendOutboundMessage) {
+function sendMessage(message: FrontendOutboundMessage) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
@@ -126,7 +126,7 @@ export function sendBinaryMessage(
   }
 }
 
-export function maybeWarnRealtimeOversize(message: string) {
+function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();
   if (
     now - lastRealtimeBinaryOversizeWarningAt <
@@ -138,7 +138,7 @@ export function maybeWarnRealtimeOversize(message: string) {
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export async function uploadRealtimeBinaryPayload(
+async function uploadRealtimeBinaryPayload(
   payload: ArrayBuffer,
   mimeType: string,
 ) {
@@ -157,7 +157,7 @@ export async function uploadRealtimeBinaryPayload(
   return res.data;
 }
 
-export async function sendRealtimeSectionBinaryViaUpload(
+async function sendRealtimeSectionBinaryViaUpload(
   sectionId: string,
   payload: ArrayBuffer,
   mimeType: string,

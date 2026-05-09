@@ -29,7 +29,7 @@ import {
 } from "./shared";
 import { ProjectChatWindowContent } from "./windowContent";
 
-export type MaximizedWindowLayerProps = {
+type MaximizedWindowLayerProps = {
   openMaximizedWindow: ResolvedWindowPill;
   projectConfigId: string;
   canEditLayout: boolean;
@@ -49,14 +49,14 @@ export type MaximizedWindowLayerProps = {
   onSetWindowTitle: (instanceId: string, nextTitle: string) => void;
 };
 
-export type MaximizedWindowSurfaceProps = Omit<
+type MaximizedWindowSurfaceProps = Omit<
   MaximizedWindowLayerProps,
   | "maximizedExitAnimation"
   | "maximizedEnterAnimation"
   | "maximizedEnterAnimationPrime"
 >;
 
-export function MaximizedSectionWindowSurface({
+function MaximizedSectionWindowSurface({
   openMaximizedWindow,
   canEditLayout,
   onShowInCanvas,
@@ -186,7 +186,7 @@ export function MaximizedSectionWindowSurface({
   );
 }
 
-export function MaximizedProjectWindowSurface({
+function MaximizedProjectWindowSurface({
   openMaximizedWindow,
   projectConfigId,
   canEditLayout,

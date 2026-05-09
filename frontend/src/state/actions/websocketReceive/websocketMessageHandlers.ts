@@ -12,6 +12,8 @@ import { processNameValidationErrors } from "state/actions/nameValidation";
 
 import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 
+import { createChromeReproPerfTimer } from "state/actions/chromeRepro";
+
 import { setWebsocketConnections } from "state/actions/websocketConnectionList";
 
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
@@ -50,6 +52,7 @@ import { handleRenameRefactorBroadcast } from "../renameRefactors";
 
 import {
   getCurrProjectConfigId,
+  receiveProjectParamUpdate,
   updateAllProjectMetadata,
 } from "../sectionInfos";
 
@@ -71,7 +74,6 @@ import {
   PromptTemplatesUpdatedContent,
   TranscriptionProfilesUpdatedContent,
   WebsocketMessageHandler,
-  createWebsocketMessageHandler,
   receiveFrontendProjectState,
   wss,
   wssReady,
@@ -84,7 +86,15 @@ import {
   sendMessageForGeneration,
 } from "./realtimeBinaryUpload";
 
-export const websocketMessageHandlers = {
+function createWebsocketMessageHandler<T>(
+  handler: (content: T, socketGeneration: number) => void,
+): WebsocketMessageHandler {
+  return (content, socketGeneration) => {
+    handler(content as T, socketGeneration);
+  };
+}
+
+const websocketMessageHandlers = {
   [WebsocketMessageTypeEnum.FrontendIdentity]:
     createWebsocketMessageHandler<FrontendIdentityContent>(
       (content, socketGeneration) => {
@@ -130,6 +140,12 @@ export const websocketMessageHandlers = {
   [WebsocketMessageTypeEnum.UpdateFrontendProjectState]:
     createWebsocketMessageHandler((content) => {
       receiveFrontendProjectState(content);
+    }),
+  [WebsocketMessageTypeEnum.UpdateFrontendProjectParam]:
+    createWebsocketMessageHandler<
+      Parameters<typeof receiveProjectParamUpdate>[0]
+    >((content) => {
+      receiveProjectParamUpdate(content);
     }),
   [WebsocketMessageTypeEnum.UpdateSettings]: createWebsocketMessageHandler<
     Parameters<typeof updateSettings>[0]
@@ -224,17 +240,152 @@ export const websocketMessageHandlers = {
 } satisfies Record<WebsocketMessageType, WebsocketMessageHandler>;
 
 export function receiveMessage(message: string, socketGeneration: number) {
+  const timer = createChromeReproPerfTimer("websocket-message", {
+    rawTextLength: message.length,
+    socketGeneration,
+  });
   const m = JSON.parse(message) as FrontendWebsocketEnvelope;
+  timer.mark("json-parse");
   websocketMessageHandlers[m.messageType](m.content, socketGeneration);
+  timer.mark("handler");
+  timer.finish({
+    messageType: m.messageType,
+    ...summarizeWebsocketPerfContent(m.messageType, m.content),
+  });
 }
 
-export function enqueueUISettingRevealMessage(
+function summarizeWebsocketPerfContent(
+  messageType: WebsocketMessageType,
+  content: unknown,
+): Record<string, unknown> {
+  if (messageType === WebsocketMessageTypeEnum.UpdateFrontendProjectState) {
+    return summarizeFrontendProjectStateUpdate(content);
+  }
+  if (messageType === WebsocketMessageTypeEnum.UpdateFrontendProjectParam) {
+    return summarizeFrontendProjectParamUpdate(content);
+  }
+  if (messageType === WebsocketMessageTypeEnum.UpdateSettings) {
+    return summarizeSettingsUpdate(content);
+  }
+  return {};
+}
+
+function summarizeFrontendProjectStateUpdate(
+  content: unknown,
+): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  const projectState = getRecordField(content, "projectState");
+  if (projectState === null) {
+    return { contentKind: "missing-project-state" };
+  }
+  const projectConfig = getRecordField(projectState, "projectConfig");
+  const projectChatWindowing = getRecordField(
+    projectState,
+    "projectChatWindowing",
+  );
+  const chatWindowInstances = getRecordField(
+    projectChatWindowing,
+    "instancesById",
+  );
+  return {
+    activeViewModeId: getStringField(projectConfig, "activeViewModeId"),
+    activeSectionCount: countArrayField(projectConfig, "activeIds"),
+    codeObjCount: countRecordKeys(projectState.codeObjs),
+    codeObjImplCount: countRecordKeys(projectState.codeObjImpls),
+    codeObjVariantCount: countRecordKeys(projectState.codeObjVariants),
+    completedOpCount: countArrayItems(content.completedOpIds),
+    pendingOpCount: countArrayItems(content.pendingOpIds),
+    projectChatWindowCount: countRecordKeys(chatWindowInstances),
+    sectionCount: countRecordKeys(projectState.sections),
+    sectionImplCount: countRecordKeys(projectState.sectionImpls),
+    sectionVariantCount: countRecordKeys(projectState.sectionVariants),
+    shownParamVariantCount: countRecordKeys(projectState.shownParamIds),
+    topLevelSectionCount: countRecordKeys(
+      getRecordField(projectConfig, "topLevelSections"),
+    ),
+    viewModeCount: countRecordKeys(getRecordField(projectConfig, "viewModes")),
+    windowSpaceCount: countRecordKeys(
+      getRecordField(projectConfig, "windowSpaces"),
+    ),
+  };
+}
+
+function summarizeFrontendProjectParamUpdate(
+  content: unknown,
+): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  const codeObjImpl = content.codeObjImpl;
+  return {
+    codeObjImplJsonLength:
+      codeObjImpl === undefined ? 0 : JSON.stringify(codeObjImpl).length,
+    completedOpCount: countArrayItems(content.completedOpIds),
+    paramInfoId: content.paramInfoId,
+    pendingOpCount: countArrayItems(content.pendingOpIds),
+    projectConfigId: content.projectConfigId,
+    sectionId: content.sectionId,
+  };
+}
+
+function summarizeSettingsUpdate(content: unknown): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  return {
+    settingsGroupCount: Object.keys(content).length,
+  };
+}
+
+function countRecordKeys(value: unknown): number | null {
+  return isRecord(value) ? Object.keys(value).length : null;
+}
+
+function getRecordField(
+  source: Record<string, unknown> | null,
+  key: string,
+): Record<string, unknown> | null {
+  if (source === null) {
+    return null;
+  }
+  const value = source[key];
+  return isRecord(value) ? value : null;
+}
+
+function getStringField(
+  source: Record<string, unknown> | null,
+  key: string,
+): string | null {
+  if (source === null) {
+    return null;
+  }
+  const value = source[key];
+  return typeof value === "string" ? value : null;
+}
+
+function countArrayField(
+  source: Record<string, unknown> | null,
+  key: string,
+): number | null {
+  if (source === null) {
+    return null;
+  }
+  return countArrayItems(source[key]);
+}
+
+function countArrayItems(value: unknown): number | null {
+  return Array.isArray(value) ? value.length : null;
+}
+
+function enqueueUISettingRevealMessage(
   message: PendingUISettingRevealMessage,
 ): void {
   void handleUISettingRevealMessage(message.content, message.socketGeneration);
 }
 
-export async function handleUISettingRevealMessage(
+async function handleUISettingRevealMessage(
   content: unknown,
   socketGeneration: number,
 ): Promise<void> {
@@ -300,7 +451,7 @@ export async function handleUISettingRevealMessage(
   });
 }
 
-export function sendUISettingRevealResult({
+function sendUISettingRevealResult({
   projectConfigId,
   requestId,
   statuses,
@@ -323,7 +474,7 @@ export function sendUISettingRevealResult({
   sendMessageForGeneration(revealResultMessage, socketGeneration);
 }
 
-export function resolveRevealProjectConfigId(
+function resolveRevealProjectConfigId(
   content: unknown,
   fallbackProjectConfigId: string,
 ): string {
@@ -345,7 +496,7 @@ export function resolveRevealProjectConfigId(
   return fallbackNormalizedId;
 }
 
-export function resolveRevealRequestId(content: unknown): string {
+function resolveRevealRequestId(content: unknown): string {
   if (isRecord(content)) {
     const candidateRequestId = content.requestId;
     if (
@@ -358,7 +509,7 @@ export function resolveRevealRequestId(content: unknown): string {
   return createNewId();
 }
 
-export function buildMalformedRevealStatuses(
+function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
 ): UISettingRevealResultStatus[] {
@@ -371,7 +522,7 @@ export function buildMalformedRevealStatuses(
   }));
 }
 
-export function extractRevealSettingIds(content: unknown): string[] {
+function extractRevealSettingIds(content: unknown): string[] {
   if (!isRecord(content)) {
     return [];
   }
@@ -394,7 +545,7 @@ export function extractRevealSettingIds(content: unknown): string[] {
   return ids;
 }
 
-export function resolveAckContextMismatchStatuses({
+function resolveAckContextMismatchStatuses({
   content,
   executionContext,
 }: {

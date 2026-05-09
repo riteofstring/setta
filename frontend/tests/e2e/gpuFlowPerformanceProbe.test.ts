@@ -13,6 +13,8 @@ describe("GPU flow performance probe helpers", () => {
     const api = getInstalledProbeApi();
     api?.uninstall();
     delete (window as unknown as Record<string, unknown>).GPUQueue;
+    delete (HTMLCanvasElement.prototype as { requestPaint?: unknown })
+      .requestPaint;
     vi.unstubAllGlobals();
   });
 
@@ -76,6 +78,23 @@ describe("GPU flow performance probe helpers", () => {
         },
       ],
       queueWrappersInstalled: true,
+      requestPaintCalls: [{ index: 0, timestampMs: 225 }],
+      sourceMutations: [
+        {
+          attributeName: "style",
+          index: 0,
+          sourceNodeId: "node-a",
+          timestampMs: 230,
+          transformChanged: true,
+        },
+        {
+          attributeName: "class",
+          index: 1,
+          sourceNodeId: "node-b",
+          timestampMs: 235,
+          transformChanged: false,
+        },
+      ],
       timestampMs: 350,
     };
 
@@ -109,10 +128,15 @@ describe("GPU flow performance probe helpers", () => {
         "setta-gpu-node-quad-vertices": 1,
       },
     });
+    expect(summary.requestPaintCalls).toBe(1);
+    expect(summary.sourceMutations).toEqual({
+      total: 2,
+      transformWrites: 1,
+    });
     expect(summary.latestNodeLayerFrame?.drawnNodeCount).toBe(3);
   });
 
-  it("injects a self-contained browser probe that records real wrapper calls", () => {
+  it("injects a self-contained browser probe that records real wrapper calls", async () => {
     const rafCallbacks: FrameRequestCallback[] = [];
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       rafCallbacks.push(callback);
@@ -125,6 +149,11 @@ describe("GPU flow performance probe helpers", () => {
     Object.defineProperty(window, "GPUQueue", {
       configurable: true,
       value: FakeGPUQueue,
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, "requestPaint", {
+      configurable: true,
+      value: vi.fn(),
+      writable: true,
     });
 
     window.eval(createGpuFlowPerformanceProbeInitScript());
@@ -159,6 +188,13 @@ describe("GPU flow performance probe helpers", () => {
     rafCallbacks[0]?.(10);
     requestAnimationFrame(() => {});
     rafCallbacks[1]?.(26);
+    (
+      document.createElement("canvas") as HTMLCanvasElement & {
+        requestPaint(): void;
+      }
+    ).requestPaint();
+    nodeElement.style.transform = "translate(10px, 20px)";
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     getInstalledProbeApi()?.recordNodeLayerFrame({
       activeNodeId: "node-a",
       budgetExhausted: false,
@@ -201,6 +237,14 @@ describe("GPU flow performance probe helpers", () => {
     ]);
     expect(snapshot?.frameCount).toBe(2);
     expect(snapshot?.frameIntervalsMs).toEqual([16]);
+    expect(snapshot?.requestPaintCalls).toHaveLength(1);
+    expect(snapshot?.sourceMutations).toEqual([
+      expect.objectContaining({
+        attributeName: "style",
+        sourceNodeId: "node-a",
+        transformChanged: true,
+      }),
+    ]);
     expect(snapshot?.nodeLayerFrames[0]).toMatchObject({
       activeNodeId: "node-a",
       drawnEdgeCount: 1,
