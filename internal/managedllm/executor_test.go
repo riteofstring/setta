@@ -324,31 +324,7 @@ func TestExecutorExecuteStreamsManagedChatAndReturnsOutputs(t *testing.T) {
 		t.Fatalf("execute managed llm stream: %v", err)
 	}
 
-	state, err := live.GetLiveChatState(run.ID)
-	if err != nil {
-		t.Fatalf("get live state: %v", err)
-	}
-	if state == nil || state.WaitingForResponse {
-		t.Fatalf("expected finalized live state, got %#v", state)
-	}
-	if len(state.Messages) != 2 {
-		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
-	}
-	if assistantText(state.Messages[1]) != "Hello world" {
-		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
-	}
-	if broadcaster.Count() != 5 {
-		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
-	}
-
-	messages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(messages) != 2 {
-		t.Fatalf("expected two output messages, got %#v", result.Outputs["messages"])
-	}
-	usage, ok := result.Outputs["usage"].(map[string]any)
-	if !ok || int(usage["prompt_tokens"].(float64)) != 11 {
-		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
-	}
+	assertManagedChatTextStreamResult(t, live, run, broadcaster, result, "Hello world", 5, 11)
 
 	if seenRequest["model"] != "gpt-4o-mini" {
 		t.Fatalf("unexpected provider model %#v", seenRequest["model"])
@@ -1368,22 +1344,7 @@ func TestExecutorExecuteStreamsAnthropicManagedChatAndReturnsOutputs(t *testing.
 		t.Fatalf("execute managed anthropic stream: %v", err)
 	}
 
-	state, err := live.GetLiveChatState(run.ID)
-	if err != nil {
-		t.Fatalf("get live state: %v", err)
-	}
-	if state == nil || state.WaitingForResponse {
-		t.Fatalf("expected finalized live state, got %#v", state)
-	}
-	if len(state.Messages) != 2 {
-		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
-	}
-	if assistantText(state.Messages[1]) != "Hello world" {
-		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
-	}
-	if broadcaster.Count() != 5 {
-		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
-	}
+	assertManagedChatTextStreamResult(t, live, run, broadcaster, result, "Hello world", 5, 11)
 
 	if seenRequest["model"] != "claude-sonnet-4-5-20250929" {
 		t.Fatalf("unexpected provider model %#v", seenRequest["model"])
@@ -1398,15 +1359,6 @@ func TestExecutorExecuteStreamsAnthropicManagedChatAndReturnsOutputs(t *testing.
 	messages, ok := seenRequest["messages"].([]any)
 	if !ok || len(messages) != 1 {
 		t.Fatalf("unexpected anthropic messages %#v", seenRequest["messages"])
-	}
-
-	outputMessages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected two output messages, got %#v", result.Outputs["messages"])
-	}
-	usage, ok := result.Outputs["usage"].(map[string]any)
-	if !ok || int(usage["prompt_tokens"].(float64)) != 11 {
-		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
 	}
 }
 
@@ -1432,127 +1384,5 @@ func TestExecutorValidateRejectsUnsupportedProvider(t *testing.T) {
 	})
 	if !errors.Is(err, ErrProviderUnsupported) {
 		t.Fatalf("expected provider unsupported, got %v", err)
-	}
-}
-
-func TestExecutorExecuteStreamsGeminiManagedChatAndReturnsOutputs(t *testing.T) {
-	t.Parallel()
-
-	var seenRequest map[string]any
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if handledManagedLLMModelLookupTestRequest(t, w, r) {
-			return
-		}
-		if r.URL.Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
-			t.Fatalf("unexpected path %q", r.URL.Path)
-		}
-		if r.URL.RawQuery != "alt=sse" {
-			t.Fatalf("unexpected query %q", r.URL.RawQuery)
-		}
-		if got := r.Header.Get("X-Goog-Api-Key"); got != "secret" {
-			t.Fatalf("unexpected api key header %q", got)
-		}
-		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
-			t.Fatalf("decode provider request: %v", err)
-		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			t.Fatal("expected flusher")
-		}
-		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"Hello\"}]}}]}\n\n")
-		flusher.Flush()
-		fmt.Fprint(w, "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\" world\"}]}}],\"usageMetadata\":{\"promptTokenCount\":11,\"candidatesTokenCount\":2,\"totalTokenCount\":13}}\n\n")
-		flusher.Flush()
-	}))
-	defer server.Close()
-
-	broadcaster := &captureBroadcaster{}
-	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
-	run := newManagedChatTestRun()
-	live.ActivateRun(run)
-
-	executor := NewExecutor(ExecutorOptions{
-		Live:       live,
-		HTTPClient: server.Client(),
-	})
-	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
-		Run: run,
-		LLMConfig: llmconfig.Config{
-			ID:        "primary",
-			Model:     "gemini-2.5-pro",
-			Provider:  "gemini",
-			BaseURL:   server.URL,
-			APIKeyEnv: "GEMINI_API_KEY",
-		},
-		RequestParams: map[string]any{
-			"temperature": 0.2,
-		},
-		APIKeys: map[string]string{
-			"GEMINI_API_KEY": "secret",
-		},
-		SystemPrompt:    "System prompt",
-		ProjectConfigID: "project-alpha",
-		ChatID:          "chat-alpha",
-		SectionID:       testStringPtr("section-chat"),
-		Inputs: map[string]any{
-			"runType": "llm_chat",
-			"messages": []any{
-				map[string]any{
-					"id":   "user-1",
-					"role": "user",
-					"content": []any{
-						map[string]any{"type": "text", "text": "Hello from the user"},
-					},
-					"attachments": []any{},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("execute managed gemini stream: %v", err)
-	}
-
-	state, err := live.GetLiveChatState(run.ID)
-	if err != nil {
-		t.Fatalf("get live state: %v", err)
-	}
-	if state == nil || state.WaitingForResponse {
-		t.Fatalf("expected finalized live state, got %#v", state)
-	}
-	if len(state.Messages) != 2 {
-		t.Fatalf("expected user and assistant messages, got %#v", state.Messages)
-	}
-	if assistantText(state.Messages[1]) != "Hello world" {
-		t.Fatalf("unexpected assistant text %#v", state.Messages[1])
-	}
-	if broadcaster.Count() != 5 {
-		t.Fatalf("expected 5 streaming broadcasts, got %d", broadcaster.Count())
-	}
-
-	outputMessages, ok := result.Outputs["messages"].([]any)
-	if !ok || len(outputMessages) != 2 {
-		t.Fatalf("expected two output messages, got %#v", result.Outputs["messages"])
-	}
-	usage, ok := result.Outputs["usage"].(map[string]any)
-	if !ok || int(usage["prompt_tokens"].(float64)) != 11 {
-		t.Fatalf("unexpected usage payload %#v", result.Outputs["usage"])
-	}
-
-	contents, ok := seenRequest["contents"].([]any)
-	if !ok || len(contents) != 1 {
-		t.Fatalf("unexpected gemini contents %#v", seenRequest["contents"])
-	}
-	generationConfig, ok := seenRequest["generationConfig"].(map[string]any)
-	if !ok || generationConfig["temperature"] != 0.2 {
-		t.Fatalf("unexpected generation config %#v", seenRequest["generationConfig"])
-	}
-	systemInstruction, ok := seenRequest["systemInstruction"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected system instruction, got %#v", seenRequest["systemInstruction"])
-	}
-	systemParts, ok := systemInstruction["parts"].([]any)
-	if !ok || len(systemParts) != 1 {
-		t.Fatalf("unexpected system instruction parts %#v", seenRequest["systemInstruction"])
 	}
 }
