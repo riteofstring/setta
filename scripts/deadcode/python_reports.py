@@ -16,6 +16,11 @@ ROOT_DIR = common.ROOT_DIR
 SCHEMA_VERSION = common.SCHEMA_VERSION
 DEFAULT_PYTHON_LINT_ROOTS = ["backend/setta", "scripts"]
 DEFAULT_PYTHON_REACHABILITY_ROOTS = ["backend/setta", "scripts"]
+DEFAULT_PYTHON_ENTRYPOINT_COMMANDS = [
+    ["-m", "setta", "--help"],
+    ["-m", "setta", "version"],
+]
+DEFAULT_PYTHON_VULTURE_MIN_CONFIDENCE = 60
 PYTHON_UNUSED_RULES = [
     "F401",
     "F822",
@@ -55,8 +60,18 @@ def build_python_reports(
     reachability_roots = config_string_list(
         python_config, "reachability_roots", DEFAULT_PYTHON_REACHABILITY_ROOTS
     )
+    entrypoint_commands = config_command_list(
+        python_config,
+        "entrypoint_commands",
+        DEFAULT_PYTHON_ENTRYPOINT_COMMANDS,
+    )
     public_modules = list(python_config.get("public_modules", []))
-    vulture_min_confidence = int(python_config.get("vulture_min_confidence", 80))
+    vulture_min_confidence = int(
+        python_config.get(
+            "vulture_min_confidence",
+            DEFAULT_PYTHON_VULTURE_MIN_CONFIDENCE,
+        )
+    )
     vulture_version = installed_python_package_version("vulture")
     command = [
         sys.executable,
@@ -94,6 +109,7 @@ def build_python_reports(
         resolve_python_public_import_modules(public_modules)
     )
     coverage_payload, coverage_commands = collect_python_root_coverage(
+        entrypoint_commands=entrypoint_commands,
         root_import_modules=public_import_modules,
         generated_globs=generated_globs,
     )
@@ -127,6 +143,7 @@ def build_python_reports(
         "vulture_version": vulture_version,
         "vulture_min_confidence": vulture_min_confidence,
         "reachability_roots": reachability_roots,
+        "entrypoint_commands": entrypoint_commands,
         "public_modules": public_modules,
         "public_import_modules": public_import_modules,
         "warnings": public_module_warnings,
@@ -150,6 +167,7 @@ def build_python_reports(
             "reachability": "ok",
             "lint_roots": lint_roots,
             "reachability_roots": reachability_roots,
+            "entrypoint_commands": entrypoint_commands,
             "public_modules": public_modules,
             "public_import_modules": public_import_modules,
             "coverage_version": coverage_version,
@@ -184,6 +202,26 @@ def normalize_python_ruff_findings(
             }
         )
     return dedupe_findings(findings)
+
+
+def config_command_list(
+    config: dict[str, Any],
+    key: str,
+    default: list[list[str]],
+) -> list[list[str]]:
+    value = config.get(key, default)
+    if not isinstance(value, list):
+        raise TypeError(f"Dead code config key {key!r} must be a list of commands.")
+    commands: list[list[str]] = []
+    for index, command in enumerate(value):
+        if not isinstance(command, list) or not all(
+            isinstance(part, str) and part for part in command
+        ):
+            raise TypeError(
+                f"Dead code config key {key!r} command {index} must be a list of non-empty strings."
+            )
+        commands.append(list(command))
+    return commands
 
 
 def resolve_python_public_import_modules(
@@ -223,6 +261,7 @@ def python_module_name_from_path(path: str) -> str:
 
 def collect_python_root_coverage(
     *,
+    entrypoint_commands: list[list[str]],
     root_import_modules: list[str],
     generated_globs: list[str],
 ) -> tuple[dict[str, Any], list[str]]:
@@ -243,8 +282,10 @@ def collect_python_root_coverage(
 
         commands = [
             [*coverage_base, "erase"],
-            [*coverage_base, "run", "--append", "-m", "setta", "--help"],
-            [*coverage_base, "run", "--append", "-m", "setta", "version"],
+            *(
+                [*coverage_base, "run", "--append", *entrypoint_command]
+                for entrypoint_command in entrypoint_commands
+            ),
             [*coverage_base, "run", "--append", str(root_import_path)],
             [
                 *coverage_base,
@@ -280,7 +321,8 @@ def collect_python_root_coverage(
         {
             "files": files,
             "summary": {
-                "executed_root_command_count": 3,
+                "executed_root_command_count": len(entrypoint_commands) + 1,
+                "entrypoint_command_count": len(entrypoint_commands),
                 "root_import_module_count": len(root_import_modules),
                 "covered_file_count": len(files),
                 "executed_file_count": executed_file_count,

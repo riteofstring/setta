@@ -40,6 +40,10 @@ quality_collect_python_files() {
   python ./scripts/quality/list_files.py --category python --source tracked
 }
 
+quality_collect_python_test_files() {
+  python ./scripts/quality/list_files.py --category python-test --source tracked
+}
+
 quality_collect_frontend_files() {
   python ./scripts/quality/list_files.py --category frontend-eslint --source tracked
 }

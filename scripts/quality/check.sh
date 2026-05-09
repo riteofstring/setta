@@ -147,10 +147,13 @@ selected_files_path="${tmp_dir}/selected-files.txt"
 collect_files | LC_ALL=C sort -u >"${selected_files_path}"
 
 declare -a python_files=()
+declare -a python_test_files=()
 declare -a frontend_eslint_files=()
+declare -a frontend_test_file_length_files=()
 declare -a frontend_boundary_files=()
 declare -a frontend_guardrail_files=()
 declare -a go_files=()
+declare -a go_test_files=()
 declare -a go_packages=()
 
 while IFS= read -r file_path; do
@@ -160,8 +163,18 @@ done < <(quality_filter_files python <"${selected_files_path}")
 
 while IFS= read -r file_path; do
   [[ -z "${file_path}" ]] && continue
+  python_test_files+=("${file_path}")
+done < <(quality_filter_files python-test <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
   frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
 done < <(quality_filter_files frontend-eslint <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_test_file_length_files+=("${file_path}")
+done < <(quality_filter_files frontend-test-file-length <"${selected_files_path}")
 
 while IFS= read -r file_path; do
   [[ -z "${file_path}" ]] && continue
@@ -179,28 +192,40 @@ while IFS= read -r file_path; do
   go_packages+=("./$(dirname "${file_path}")")
 done < <(quality_filter_files go <"${selected_files_path}")
 
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  go_test_files+=("${file_path}")
+done < <(quality_filter_files go-test <"${selected_files_path}")
+
 if [[ ${#go_packages[@]} -gt 0 ]]; then
   IFS=$'\n' go_packages=($(printf '%s\n' "${go_packages[@]}" | LC_ALL=C sort -u))
   unset IFS
 fi
 
-if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#frontend_boundary_files[@]} -eq 0 && ${#frontend_guardrail_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
+if [[ ${#python_files[@]} -eq 0 && ${#python_test_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#frontend_test_file_length_files[@]} -eq 0 && ${#frontend_boundary_files[@]} -eq 0 && ${#frontend_guardrail_files[@]} -eq 0 && ${#go_files[@]} -eq 0 && ${#go_test_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
 
 status=0
 
+declare -a python_quality_files=()
 if [[ ${#python_files[@]} -gt 0 ]]; then
-  echo "Python quality checks (${#python_files[@]} files)..."
+  python_quality_files+=("${python_files[@]}")
+fi
+if [[ ${#python_test_files[@]} -gt 0 ]]; then
+  python_quality_files+=("${python_test_files[@]}")
+fi
+if [[ ${#python_quality_files[@]} -gt 0 ]]; then
+  echo "Python quality checks (${#python_quality_files[@]} files)..."
   (
     set -euo pipefail
-    ruff check "${python_files[@]}"
-    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_files[@]}"
+    ruff check "${python_quality_files[@]}"
+    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_quality_files[@]}"
   ) || status=1
 fi
 
-if [[ ${#python_files[@]} -gt 0 || ${#frontend_eslint_files[@]} -gt 0 || ${#go_files[@]} -gt 0 ]]; then
+if [[ ${#python_files[@]} -gt 0 || ${#python_test_files[@]} -gt 0 || ${#frontend_eslint_files[@]} -gt 0 || ${#frontend_test_file_length_files[@]} -gt 0 || ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
   echo "File length checks..."
   python ./scripts/quality/check_file_lengths.py --paths-file "${selected_files_path}" || status=1
 fi

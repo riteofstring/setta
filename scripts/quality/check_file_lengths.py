@@ -26,14 +26,29 @@ CHECKS = (
         ("python", "file_length", "max_lines"),
     ),
     FileLengthCheck(
+        "Python test",
+        "python-test",
+        ("python_tests", "file_length", "max_lines"),
+    ),
+    FileLengthCheck(
         "TypeScript",
         "frontend-file-length",
         ("frontend", "file_length", "max_lines"),
     ),
     FileLengthCheck(
+        "TypeScript test",
+        "frontend-test-file-length",
+        ("frontend", "test_file_length", "max_lines"),
+    ),
+    FileLengthCheck(
         "Go",
         "go",
         ("go", "file_length", "max_lines"),
+    ),
+    FileLengthCheck(
+        "Go test",
+        "go-test",
+        ("go_tests", "file_length", "max_lines"),
     ),
 )
 

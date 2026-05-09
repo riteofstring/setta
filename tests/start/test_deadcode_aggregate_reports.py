@@ -3,6 +3,8 @@ import subprocess
 from pathlib import Path
 from types import ModuleType
 
+import yaml
+
 from tests.start.dev_script_wiring_helpers import repo_root
 
 
@@ -68,6 +70,30 @@ def test_deadcode_configured_roots_default_and_override() -> None:
         "lint_roots",
         module.DEFAULT_PYTHON_LINT_ROOTS,
     ) == ["backend/setta", "plugins"]
+    assert module.python_reports.config_command_list(
+        {},
+        "entrypoint_commands",
+        module.python_reports.DEFAULT_PYTHON_ENTRYPOINT_COMMANDS,
+    ) == [["-m", "setta", "--help"], ["-m", "setta", "version"]]
+    assert module.python_reports.config_command_list(
+        {"entrypoint_commands": [["-m", "setta", "plugins", "status"]]},
+        "entrypoint_commands",
+        module.python_reports.DEFAULT_PYTHON_ENTRYPOINT_COMMANDS,
+    ) == [["-m", "setta", "plugins", "status"]]
+    assert module.python_reports.DEFAULT_PYTHON_VULTURE_MIN_CONFIDENCE == 60
+
+
+def test_checked_in_deadcode_config_has_language_entrypoints() -> None:
+    config_path = repo_root() / "deadcode.overrides.yaml"
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+
+    assert config["go"]["production_mains"] == ["./cmd/setta", "./cmd/setta-server"]
+    assert config["python"]["entrypoint_commands"] == [
+        ["-m", "setta", "--help"],
+        ["-m", "setta", "version"],
+    ]
+    assert config["python"]["vulture_min_confidence"] == 60
+    assert config["frontend"]["app_roots"] == ["frontend/src/index.tsx"]
 
 
 def test_deadcode_generated_globs_are_shared_with_quality_paths(

@@ -144,6 +144,10 @@ while IFS= read -r path; do
 done < <(quality_collect_python_files)
 
 while IFS= read -r path; do
+  [[ -n "${path}" ]] && python_files+=("${path}")
+done < <(quality_collect_python_test_files)
+
+while IFS= read -r path; do
   [[ -n "${path}" ]] && frontend_relative_files+=("$(quality_frontend_cli_path "${path}")")
 done < <(quality_collect_frontend_files)
 
