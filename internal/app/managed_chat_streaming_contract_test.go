@@ -31,32 +31,45 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 	// A narrowly allowlisted managed profile should only expose that one tool
 	// to the upstream provider, even when the app resolves tools through the
 	// internal MCP client.
+	cfg, listener, serverURL := newManagedAllowlistContractConfig(t)
+	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
+	providerRequests := make(chan map[string]any, 1)
+	provider := newManagedAllowlistContractProvider(providerRequests)
+	defer provider.Close()
+
+	saveManagedAllowlistContractConfig(t, cfg, provider.URL, serverURL, safeToolName)
+
+	app := newManagedAllowlistContractApp(t, cfg, listener)
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+	seedManagedStreamingContractProject(t, app)
+
+	authCookie := newAppTestAuthCookie(t, app)
+	chatID := sendManagedAllowlistContractChat(t, serverURL, authCookie)
+	hydrated := waitForManagedAllowlistContractHydration(t, serverURL, authCookie, chatID)
+	assertManagedAllowlistProviderTools(t, providerRequests, []string{safeToolName})
+
+	if appTestMessageText(hydrated.Messages[1]) != "Allowlist OK" {
+		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[1])
+	}
+}
+
+func newManagedAllowlistContractConfig(t *testing.T) (config.Config, net.Listener, string) {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
-	t.Cleanup(func() {
-		deadline := time.Now().Add(2 * time.Second)
-		for time.Now().Before(deadline) {
-			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
-			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-	})
+	cleanupManagedStreamingContractWorkspace(t, cfg)
 
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
+	listener := listenManagedStreamingContractTCP(t)
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
-	serverURL := "http://" + listener.Addr().String()
+	return cfg, listener, "http://" + listener.Addr().String()
+}
 
-	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
-	providerRequests := make(chan map[string]any, 1)
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func newManagedAllowlistContractProvider(providerRequests chan<- map[string]any) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -76,28 +89,31 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 		flusher.Flush()
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	}))
-	defer provider.Close()
+}
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
+func saveManagedAllowlistContractConfig(t *testing.T, cfg config.Config, providerURL, serverURL, safeToolName string) {
+	t.Helper()
+
+	saveAppTestLLMConfigs(
+		t,
+		cfg,
+		map[string]llmconfig.Config{
 			"primary": {
 				ID:           "primary",
 				Model:        "gpt-4o-mini",
 				Provider:     "openai",
-				BaseURL:      provider.URL + "/v1",
+				BaseURL:      providerURL + "/v1",
 				APIKeyEnv:    "OPENAI_API_KEY",
 				MCPServerIDs: []string{mcpx.DefaultServerID},
 			},
 		},
-		MCPServers: map[string]llmconfig.ServerConfig{
+		map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
 				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
-	}
+	)
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -122,48 +138,23 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 			ToolAllowlist: []string{safeToolName},
 		},
 	})
+}
+
+func newManagedAllowlistContractApp(t *testing.T, cfg config.Config, listener net.Listener) *App {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
 		t.Fatalf("new app: %v", err)
 	}
 	setAppCompletionGuardEnabled(t, app, false)
+	serveManagedStreamingContractApp(t, app, listener)
+	return app
+}
 
-	server := &http.Server{Handler: app.Handler()}
-	serverErrors := make(chan error, 1)
-	go func() {
-		serverErrors <- server.Serve(listener)
-	}()
+func sendManagedAllowlistContractChat(t *testing.T, serverURL string, authCookie *http.Cookie) string {
+	t.Helper()
 
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("shutdown http server: %v", err)
-		}
-		err := <-serverErrors
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			t.Fatalf("serve app: %v", err)
-		}
-	})
-
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
-
-	authCookie := newAppTestAuthCookie(t, app)
 	request, err := http.NewRequest(
 		http.MethodPost,
 		serverURL+"/api"+httpapi.RouteGetLLMResponse,
@@ -200,12 +191,18 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
 		t.Fatalf("decode send chat id: %v", err)
 	}
+	return chatID
+}
 
-	type hydratePayload struct {
-		Messages           []map[string]any `json:"messages"`
-		WaitingForResponse bool             `json:"waitingForResponse"`
-	}
-	var hydrated hydratePayload
+type managedAllowlistContractHydratePayload struct {
+	Messages           []map[string]any `json:"messages"`
+	WaitingForResponse bool             `json:"waitingForResponse"`
+}
+
+func waitForManagedAllowlistContractHydration(t *testing.T, serverURL string, authCookie *http.Cookie, chatID string) managedAllowlistContractHydratePayload {
+	t.Helper()
+
+	var hydrated managedAllowlistContractHydratePayload
 	waitForAppCondition(t, 5*time.Second, func() bool {
 		hydrateRequest, err := http.NewRequest(
 			http.MethodPost,
@@ -232,10 +229,11 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 		}
 		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
 	})
+	return hydrated
+}
 
-	if appTestMessageText(hydrated.Messages[1]) != "Allowlist OK" {
-		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[1])
-	}
+func assertManagedAllowlistProviderTools(t *testing.T, providerRequests <-chan map[string]any, want []string) {
+	t.Helper()
 
 	select {
 	case providerRequest := <-providerRequests:
@@ -244,7 +242,6 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 			t.Fatalf("expected provider tools payload, got %#v", providerRequest["tools"])
 		}
 		got := appManagedToolNamesFromProviderPayload(rawTools)
-		want := []string{safeToolName}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("unexpected provider tool names %#v", got)
 		}
