@@ -28,56 +28,83 @@ func TestAppServesFileModeTranscriptionSessionRoutes(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "app-transcription-secret")
 
-	type providerRequest struct {
-		Path          string
-		Authorization string
-		Model         string
-		Language      string
-		FileSize      int
-	}
-	providerRequests := make(chan providerRequest, 1)
+	providerRequests, provider := newAppFileTranscriptionProvider(t)
+	saveAppFileTranscriptionConfig(t, cfg, provider.URL)
+	server, authCookie := startAppTranscriptionServer(t, cfg)
+
+	started := startAppFileTranscriptionSession(t, server.URL, authCookie)
+	appendAppFileTranscriptionAudio(t, server.URL, authCookie, started.SessionID)
+	stopAppFileTranscriptionSession(t, server.URL, authCookie, started.SessionID)
+	assertAppFileTranscriptionProviderRequest(t, providerRequests)
+}
+
+type appFileTranscriptionProviderRequest struct {
+	Path          string
+	Authorization string
+	Model         string
+	Language      string
+	FileSize      int
+}
+
+func newAppFileTranscriptionProvider(
+	t *testing.T,
+) (<-chan appFileTranscriptionProviderRequest, *httptest.Server) {
+	t.Helper()
+
+	providerRequests := make(chan appFileTranscriptionProviderRequest, 1)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(2 << 20); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		captured, ok := captureAppFileTranscriptionProviderRequest(w, r)
+		if !ok {
 			return
 		}
-		file, _, err := r.FormFile("file")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-		fileBytes, err := io.ReadAll(file)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		providerRequests <- providerRequest{
-			Path:          r.URL.Path,
-			Authorization: r.Header.Get("Authorization"),
-			Model:         r.FormValue("model"),
-			Language:      r.FormValue("language"),
-			FileSize:      len(fileBytes),
-		}
+		providerRequests <- captured
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"text": "transcribed by go"})
 	}))
-	defer provider.Close()
+	t.Cleanup(provider.Close)
+	return providerRequests, provider
+}
 
-	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
-		Configs: map[string]llmconfig.Config{
-			"openai-file": {
-				ID:        "openai-file",
-				Model:     "whisper-1",
-				Provider:  "openai",
-				BaseURL:   provider.URL + "/v1",
-				APIKeyEnv: "OPENAI_API_KEY",
-			},
-		},
-		MCPServers: map[string]llmconfig.ServerConfig{},
-	}); err != nil {
-		t.Fatalf("save llm config: %v", err)
+func captureAppFileTranscriptionProviderRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+) (appFileTranscriptionProviderRequest, bool) {
+	if err := r.ParseMultipartForm(2 << 20); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return appFileTranscriptionProviderRequest{}, false
 	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return appFileTranscriptionProviderRequest{}, false
+	}
+	defer file.Close()
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return appFileTranscriptionProviderRequest{}, false
+	}
+	return appFileTranscriptionProviderRequest{
+		Path:          r.URL.Path,
+		Authorization: r.Header.Get("Authorization"),
+		Model:         r.FormValue("model"),
+		Language:      r.FormValue("language"),
+		FileSize:      len(fileBytes),
+	}, true
+}
+
+func saveAppFileTranscriptionConfig(t *testing.T, cfg config.Config, providerURL string) {
+	t.Helper()
+
+	saveAppTestLLMConfigs(t, cfg, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:        "openai-file",
+			Model:     "whisper-1",
+			Provider:  "openai",
+			BaseURL:   providerURL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+	}, map[string]llmconfig.ServerConfig{})
 
 	transcriptionStore, err := transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -94,104 +121,114 @@ func TestAppServesFileModeTranscriptionSessionRoutes(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write transcription profile: %v", err)
 	}
+}
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+func startAppFileTranscriptionSession(
+	t *testing.T,
+	serverURL string,
+	authCookie *http.Cookie,
+) httpapi.StartTranscriptionSessionResponse {
+	t.Helper()
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, app)
-	startRequest, err := http.NewRequest(
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStartTranscriptionSession,
+		serverURL+"/api"+httpapi.RouteStartTranscriptionSession,
 		strings.NewReader(`{"transcriptionProfileId":"profile-file","language":"en"}`),
 	)
 	if err != nil {
 		t.Fatalf("new start request: %v", err)
 	}
-	startRequest.Header.Set("Content-Type", "application/json")
-	startRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	startResponse, err := http.DefaultClient.Do(startRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("start transcription session: %v", err)
 	}
-	defer startResponse.Body.Close()
-	if startResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(startResponse.Body)
-		t.Fatalf("expected start 200, got %d with body %q", startResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected start 200, got %d with body %q", response.StatusCode, string(body))
 	}
 	var started httpapi.StartTranscriptionSessionResponse
-	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&started); err != nil {
 		t.Fatalf("decode start payload: %v", err)
 	}
 	if started.ResolvedTransportMode != "file" || started.ChunkMs != 0 {
 		t.Fatalf("unexpected start payload %#v", started)
 	}
+	return started
+}
 
-	appendRequest, err := http.NewRequest(
+func appendAppFileTranscriptionAudio(t *testing.T, serverURL string, authCookie *http.Cookie, sessionID string) {
+	t.Helper()
+
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteAppendTranscriptionAudio,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+		serverURL+"/api"+httpapi.RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+sessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
 	)
 	if err != nil {
 		t.Fatalf("new append request: %v", err)
 	}
-	appendRequest.Header.Set("Content-Type", "application/json")
-	appendRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	appendResponse, err := http.DefaultClient.Do(appendRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("append transcription audio: %v", err)
 	}
-	defer appendResponse.Body.Close()
-	if appendResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(appendResponse.Body)
-		t.Fatalf("expected append 200, got %d with body %q", appendResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected append 200, got %d with body %q", response.StatusCode, string(body))
 	}
 	var appendPayload httpapi.TranscriptionSessionDeltaResponse
-	if err := json.NewDecoder(appendResponse.Body).Decode(&appendPayload); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&appendPayload); err != nil {
 		t.Fatalf("decode append payload: %v", err)
 	}
 	if appendPayload.AppendText != "" || appendPayload.IsFinal {
 		t.Fatalf("unexpected append payload %#v", appendPayload)
 	}
+}
 
-	stopRequest, err := http.NewRequest(
+func stopAppFileTranscriptionSession(t *testing.T, serverURL string, authCookie *http.Cookie, sessionID string) {
+	t.Helper()
+
+	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteStopTranscriptionSession,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
+		serverURL+"/api"+httpapi.RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+sessionID+`"}`),
 	)
 	if err != nil {
 		t.Fatalf("new stop request: %v", err)
 	}
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(authCookie)
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
 
-	stopResponse, err := http.DefaultClient.Do(stopRequest)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatalf("stop transcription session: %v", err)
 	}
-	defer stopResponse.Body.Close()
-	if stopResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(stopResponse.Body)
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected stop 200, got %d with body %q", response.StatusCode, string(body))
 	}
 	var stopPayload httpapi.TranscriptionSessionDeltaResponse
-	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&stopPayload); err != nil {
 		t.Fatalf("decode stop payload: %v", err)
 	}
 	if !stopPayload.IsFinal || stopPayload.AppendText != "transcribed by go" || stopPayload.FullText != "transcribed by go" {
 		t.Fatalf("unexpected stop payload %#v", stopPayload)
 	}
+}
+
+func assertAppFileTranscriptionProviderRequest(
+	t *testing.T,
+	providerRequests <-chan appFileTranscriptionProviderRequest,
+) {
+	t.Helper()
 
 	select {
 	case captured := <-providerRequests:
