@@ -47,6 +47,13 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
+	assertGitStatusRepoMetadata(t, response, repoRoot)
+	assertGitStatusEntries(t, response.Entries)
+}
+
+func assertGitStatusRepoMetadata(t *testing.T, response StatusResponse, repoRoot string) {
+	t.Helper()
+
 	if !response.Repo.IsGitRepo {
 		t.Fatalf("expected git repo response, got %#v", response.Repo)
 	}
@@ -65,11 +72,15 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 	if response.Repo.HeadCommit == nil || *response.Repo.HeadCommit != expectedHeadCommit {
 		t.Fatalf("expected head commit %q, got %#v", expectedHeadCommit, response.Repo.HeadCommit)
 	}
+}
+
+func assertGitStatusEntries(t *testing.T, entries []StatusEntry) {
+	t.Helper()
 
 	var stagedTracked bool
 	var unstagedTracked bool
 	var untrackedNew bool
-	for _, entry := range response.Entries {
+	for _, entry := range entries {
 		switch {
 		case entry.Kind == "staged" && entry.Path == "tracked.txt":
 			stagedTracked = true
@@ -80,7 +91,7 @@ func TestServiceStatusParsesStagedUnstagedAndUntrackedEntries(t *testing.T) {
 		}
 	}
 	if !stagedTracked || !unstagedTracked || !untrackedNew {
-		t.Fatalf("unexpected status entries %#v", response.Entries)
+		t.Fatalf("unexpected status entries %#v", entries)
 	}
 }
 
@@ -467,34 +478,44 @@ func TestParseWorktreeListPorcelainMarksCurrentAndPrunable(t *testing.T) {
 	if len(worktrees) != 2 {
 		t.Fatalf("expected two worktrees, got %#v", worktrees)
 	}
+	assertPorcelainWorktreeMain(t, worktrees[0])
+	assertPorcelainWorktreeFeature(t, worktrees[1])
+}
 
-	if worktrees[0].Path != "/tmp/setta" || worktrees[0].DisplayName != "main" {
-		t.Fatalf("unexpected first worktree %#v", worktrees[0])
-	}
-	if worktrees[0].BranchName == nil || *worktrees[0].BranchName != "main" {
-		t.Fatalf("expected main branch, got %#v", worktrees[0].BranchName)
-	}
-	if worktrees[0].HeadCommit == nil || *worktrees[0].HeadCommit != "abc1234567890" {
-		t.Fatalf("expected first head commit, got %#v", worktrees[0].HeadCommit)
-	}
-	if worktrees[0].IsCurrent || worktrees[0].IsPrunable || worktrees[0].PrunableReason != nil {
-		t.Fatalf("unexpected first worktree flags %#v", worktrees[0])
-	}
+func assertPorcelainWorktreeMain(t *testing.T, worktree GitWorktreeEntry) {
+	t.Helper()
 
-	if worktrees[1].Path != "/tmp/setta.feature-x" || worktrees[1].DisplayName != "feature-x" {
-		t.Fatalf("unexpected second worktree %#v", worktrees[1])
+	if worktree.Path != "/tmp/setta" || worktree.DisplayName != "main" {
+		t.Fatalf("unexpected first worktree %#v", worktree)
 	}
-	if worktrees[1].BranchName != nil {
-		t.Fatalf("expected detached branch, got %#v", worktrees[1].BranchName)
+	if worktree.BranchName == nil || *worktree.BranchName != "main" {
+		t.Fatalf("expected main branch, got %#v", worktree.BranchName)
 	}
-	if worktrees[1].HeadCommit == nil || *worktrees[1].HeadCommit != "def0987654321" {
-		t.Fatalf("expected second head commit, got %#v", worktrees[1].HeadCommit)
+	if worktree.HeadCommit == nil || *worktree.HeadCommit != "abc1234567890" {
+		t.Fatalf("expected first head commit, got %#v", worktree.HeadCommit)
 	}
-	if !worktrees[1].IsCurrent || !worktrees[1].IsPrunable {
-		t.Fatalf("expected current prunable worktree, got %#v", worktrees[1])
+	if worktree.IsCurrent || worktree.IsPrunable || worktree.PrunableReason != nil {
+		t.Fatalf("unexpected first worktree flags %#v", worktree)
 	}
-	if worktrees[1].PrunableReason == nil || *worktrees[1].PrunableReason != "gitdir file points to non-existent location" {
-		t.Fatalf("unexpected prunable reason %#v", worktrees[1].PrunableReason)
+}
+
+func assertPorcelainWorktreeFeature(t *testing.T, worktree GitWorktreeEntry) {
+	t.Helper()
+
+	if worktree.Path != "/tmp/setta.feature-x" || worktree.DisplayName != "feature-x" {
+		t.Fatalf("unexpected second worktree %#v", worktree)
+	}
+	if worktree.BranchName != nil {
+		t.Fatalf("expected detached branch, got %#v", worktree.BranchName)
+	}
+	if worktree.HeadCommit == nil || *worktree.HeadCommit != "def0987654321" {
+		t.Fatalf("expected second head commit, got %#v", worktree.HeadCommit)
+	}
+	if !worktree.IsCurrent || !worktree.IsPrunable {
+		t.Fatalf("expected current prunable worktree, got %#v", worktree)
+	}
+	if worktree.PrunableReason == nil || *worktree.PrunableReason != "gitdir file points to non-existent location" {
+		t.Fatalf("unexpected prunable reason %#v", worktree.PrunableReason)
 	}
 }
 

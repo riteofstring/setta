@@ -32,9 +32,7 @@ func TestServiceLogReportsCapBoundaryAndHighOffsetBehavior(t *testing.T) {
 	if err != nil {
 		t.Fatalf("capped log first page: %v", err)
 	}
-	if len(first.Commits) != 4 || !first.HasMore || first.NextOffset == nil || *first.NextOffset != maxLogCount-1 || first.IsCapped {
-		t.Fatalf("unexpected capped first page %#v", first)
-	}
+	assertGitLogPage(t, first, gitLogPageExpectation{commits: 4, hasMore: true, nextOffset: intPtr(maxLogCount - 1)})
 
 	second, err := cappedService.Log(context.Background(), LogRequest{
 		Rev:      "HEAD",
@@ -45,9 +43,7 @@ func TestServiceLogReportsCapBoundaryAndHighOffsetBehavior(t *testing.T) {
 	if err != nil {
 		t.Fatalf("capped log second page: %v", err)
 	}
-	if len(second.Commits) != 1 || second.HasMore || second.NextOffset != nil || !second.IsCapped {
-		t.Fatalf("unexpected capped second page %#v", second)
-	}
+	assertGitLogPage(t, second, gitLogPageExpectation{commits: 1, isCapped: true})
 
 	beyond, err := cappedService.Log(context.Background(), LogRequest{
 		Rev:      "HEAD",
@@ -58,9 +54,7 @@ func TestServiceLogReportsCapBoundaryAndHighOffsetBehavior(t *testing.T) {
 	if err != nil {
 		t.Fatalf("capped log beyond page: %v", err)
 	}
-	if len(beyond.Commits) != 0 || beyond.HasMore || beyond.NextOffset != nil || !beyond.IsCapped {
-		t.Fatalf("unexpected capped beyond page %#v", beyond)
-	}
+	assertGitLogPage(t, beyond, gitLogPageExpectation{isCapped: true})
 
 	smallRepo := initGitReadTestRepo(t)
 	smallService, err := NewService(ServiceOptions{WorkspaceRoot: smallRepo})
@@ -77,9 +71,42 @@ func TestServiceLogReportsCapBoundaryAndHighOffsetBehavior(t *testing.T) {
 	if err != nil {
 		t.Fatalf("small log beyond page: %v", err)
 	}
-	if len(smallBeyond.Commits) != 0 || smallBeyond.HasMore || smallBeyond.NextOffset != nil || smallBeyond.IsCapped {
-		t.Fatalf("unexpected small-repo beyond page %#v", smallBeyond)
+	assertGitLogPage(t, smallBeyond, gitLogPageExpectation{})
+}
+
+type gitLogPageExpectation struct {
+	commits    int
+	hasMore    bool
+	nextOffset *int
+	isCapped   bool
+}
+
+func assertGitLogPage(t *testing.T, response LogResponse, want gitLogPageExpectation) {
+	t.Helper()
+
+	if len(response.Commits) != want.commits {
+		t.Fatalf("expected %d commits, got %#v", want.commits, response)
 	}
+	if response.HasMore != want.hasMore {
+		t.Fatalf("expected hasMore=%v, got %#v", want.hasMore, response)
+	}
+	if !equalOptionalInt(response.NextOffset, want.nextOffset) {
+		t.Fatalf("expected nextOffset %#v, got %#v in %#v", want.nextOffset, response.NextOffset, response)
+	}
+	if response.IsCapped != want.isCapped {
+		t.Fatalf("expected isCapped=%v, got %#v", want.isCapped, response)
+	}
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
+func equalOptionalInt(left *int, right *int) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
 }
 
 func TestServiceLogFallsBackWhenDecorateAtomIsUnexpanded(t *testing.T) {
@@ -536,19 +563,8 @@ func TestServiceCommitDetailsParsesTabPathsAndRenameNumstat(t *testing.T) {
 		t.Fatalf("tab commit details: %v", err)
 	}
 
-	var tabEntry *CommitChangedFile
-	for index := range tabDetails.Files {
-		if tabDetails.Files[index].Path == tabPath {
-			tabEntry = &tabDetails.Files[index]
-			break
-		}
-	}
-	if tabEntry == nil {
-		t.Fatalf("expected tab path in %#v", tabDetails.Files)
-	}
-	if tabEntry.Status != "A" || tabEntry.Additions == nil || *tabEntry.Additions != 1 || tabEntry.Deletions == nil || *tabEntry.Deletions != 0 {
-		t.Fatalf("unexpected tab path entry %#v", *tabEntry)
-	}
+	tabEntry := requireCommitChangedFile(t, tabDetails.Files, tabPath)
+	assertCommitChangedFileCounts(t, tabEntry, "A", 1, 0)
 	if tabDetails.IsTruncated {
 		t.Fatalf("expected non-truncated tab-path details, got %#v", tabDetails)
 	}
@@ -558,24 +574,36 @@ func TestServiceCommitDetailsParsesTabPathsAndRenameNumstat(t *testing.T) {
 		t.Fatalf("rename commit details: %v", err)
 	}
 
-	var renameEntry *CommitChangedFile
-	for index := range renameDetails.Files {
-		if renameDetails.Files[index].Path == "rename-dst.txt" {
-			renameEntry = &renameDetails.Files[index]
-			break
-		}
-	}
-	if renameEntry == nil {
-		t.Fatalf("expected rename entry in %#v", renameDetails.Files)
-	}
+	renameEntry := requireCommitChangedFile(t, renameDetails.Files, "rename-dst.txt")
 	if renameEntry.OldPath == nil || *renameEntry.OldPath != "rename-src.txt" || !strings.HasPrefix(renameEntry.Status, "R") {
 		t.Fatalf("unexpected rename entry %#v", *renameEntry)
 	}
-	if renameEntry.Additions == nil || *renameEntry.Additions != 0 || renameEntry.Deletions == nil || *renameEntry.Deletions != 0 {
-		t.Fatalf("expected pure rename numstat counts to stay zero, got %#v", *renameEntry)
-	}
+	assertCommitChangedFileCounts(t, renameEntry, renameEntry.Status, 0, 0)
 	if renameDetails.IsTruncated {
 		t.Fatalf("expected non-truncated rename details, got %#v", renameDetails)
+	}
+}
+
+func requireCommitChangedFile(t *testing.T, files []CommitChangedFile, path string) *CommitChangedFile {
+	t.Helper()
+
+	for index := range files {
+		if files[index].Path == path {
+			return &files[index]
+		}
+	}
+	t.Fatalf("expected path %q in %#v", path, files)
+	return nil
+}
+
+func assertCommitChangedFileCounts(t *testing.T, entry *CommitChangedFile, status string, additions int, deletions int) {
+	t.Helper()
+
+	if entry.Status != status {
+		t.Fatalf("expected status %q, got %#v", status, *entry)
+	}
+	if entry.Additions == nil || *entry.Additions != additions || entry.Deletions == nil || *entry.Deletions != deletions {
+		t.Fatalf("expected counts +%d -%d, got %#v", additions, deletions, *entry)
 	}
 }
 
