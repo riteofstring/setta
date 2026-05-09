@@ -227,6 +227,24 @@ func TestRegisterProjectRoutesPasteSectionsRemainsIDEOnlyInDeployment(t *testing
 func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
+	harness := newProjectChildMutationRouteHarness(t)
+
+	terminalID := createProjectRouteTerminalChild(t, harness)
+	createdSiblingID := createProjectRouteSiblingViaIncrementer(t, harness)
+	deleteProjectRouteSiblingViaDecrementer(t, harness, createdSiblingID)
+
+	payload := latestProjectChildMutationPayload(t, harness)
+	assertProjectRouteTerminalChildPersisted(t, payload, terminalID)
+	assertProjectRouteSiblingDeletionPersisted(t, payload, createdSiblingID)
+}
+
+type projectChildMutationRouteHarness struct {
+	handler http.Handler
+}
+
+func newProjectChildMutationRouteHarness(t *testing.T) projectChildMutationRouteHarness {
+	t.Helper()
+
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -244,16 +262,28 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
-		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
+	return projectChildMutationRouteHarness{handler: handler}
+}
 
-	createTerminalResponse := post(RouteCreateChildSections, `{"projectConfigId":"project-alpha","parentId":"code-section","implType":"Terminal","numChildren":1,"startIdx":0}`)
+func postProjectChildMutationRoute(
+	t *testing.T,
+	harness projectChildMutationRouteHarness,
+	route string,
+	body string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	harness.handler.ServeHTTP(response, request)
+	return response
+}
+
+func createProjectRouteTerminalChild(t *testing.T, harness projectChildMutationRouteHarness) string {
+	t.Helper()
+
+	createTerminalResponse := postProjectChildMutationRoute(t, harness, RouteCreateChildSections, `{"projectConfigId":"project-alpha","parentId":"code-section","implType":"Terminal","numChildren":1,"startIdx":0}`)
 	if createTerminalResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200 for %s, got %d with body %q", RouteCreateChildSections, createTerminalResponse.Code, createTerminalResponse.Body.String())
 	}
@@ -264,9 +294,13 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	if len(createTerminalPayload.SectionIDs) != 1 {
 		t.Fatalf("expected one created terminal id, got %#v", createTerminalPayload.SectionIDs)
 	}
-	terminalID := createTerminalPayload.SectionIDs[0]
+	return createTerminalPayload.SectionIDs[0]
+}
 
-	createSiblingResponse := post(RouteCreateChildSectionsViaIncrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","implType":"TextBlock","numChildren":1}`)
+func createProjectRouteSiblingViaIncrementer(t *testing.T, harness projectChildMutationRouteHarness) string {
+	t.Helper()
+
+	createSiblingResponse := postProjectChildMutationRoute(t, harness, RouteCreateChildSectionsViaIncrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","implType":"TextBlock","numChildren":1}`)
 	if createSiblingResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200 for %s, got %d with body %q", RouteCreateChildSectionsViaIncrementer, createSiblingResponse.Code, createSiblingResponse.Body.String())
 	}
@@ -277,9 +311,17 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	if len(createSiblingPayload.SectionIDs) != 1 {
 		t.Fatalf("expected one created incrementer child id, got %#v", createSiblingPayload.SectionIDs)
 	}
-	createdSiblingID := createSiblingPayload.SectionIDs[0]
+	return createSiblingPayload.SectionIDs[0]
+}
 
-	deleteSiblingResponse := post(RouteDeleteChildSectionsViaDecrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","numChildren":1}`)
+func deleteProjectRouteSiblingViaDecrementer(
+	t *testing.T,
+	harness projectChildMutationRouteHarness,
+	createdSiblingID string,
+) {
+	t.Helper()
+
+	deleteSiblingResponse := postProjectChildMutationRoute(t, harness, RouteDeleteChildSectionsViaDecrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","numChildren":1}`)
 	if deleteSiblingResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200 for %s, got %d with body %q", RouteDeleteChildSectionsViaDecrementer, deleteSiblingResponse.Code, deleteSiblingResponse.Body.String())
 	}
@@ -290,8 +332,15 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	if !reflect.DeepEqual(deleteSiblingPayload.SectionIDs, []string{createdSiblingID}) {
 		t.Fatalf("expected deleted child ids [%s], got %#v", createdSiblingID, deleteSiblingPayload.SectionIDs)
 	}
+}
 
-	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+func latestProjectChildMutationPayload(
+	t *testing.T,
+	harness projectChildMutationRouteHarness,
+) ProjectStateSingleConfigWithCompletedOpIDs {
+	t.Helper()
+
+	latestResponse := postProjectChildMutationRoute(t, harness, RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
 	if latestResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
 	}
@@ -300,6 +349,15 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode latest project payload: %v", err)
 	}
+	return payload
+}
+
+func assertProjectRouteTerminalChildPersisted(
+	t *testing.T,
+	payload ProjectStateSingleConfigWithCompletedOpIDs,
+	terminalID string,
+) {
+	t.Helper()
 
 	if _, ok := payload.ProjectState.Sections[terminalID]; !ok {
 		t.Fatalf("expected created terminal section %q to exist", terminalID)
@@ -316,6 +374,14 @@ func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing
 	if got := decodeProjectRouteStringArray(codePayload["children"]); !reflect.DeepEqual(got, []string{terminalID}) {
 		t.Fatalf("expected code children [%s], got %#v", terminalID, got)
 	}
+}
+
+func assertProjectRouteSiblingDeletionPersisted(
+	t *testing.T,
+	payload ProjectStateSingleConfigWithCompletedOpIDs,
+	createdSiblingID string,
+) {
+	t.Helper()
 
 	if _, ok := payload.ProjectState.Sections[createdSiblingID]; ok {
 		t.Fatalf("expected created incrementer child %q to be deleted", createdSiblingID)
