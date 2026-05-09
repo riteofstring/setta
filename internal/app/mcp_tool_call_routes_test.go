@@ -31,125 +31,39 @@ func TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	saveAppScopedMCPProject(t, cfg)
 	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
-
-	searchResponse, err := client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	fixture := newAppMCPToolCallRouteFixture(t, cfg)
+	searchPayload := callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"search_mcp_tools",
 			"arguments":{"query":"section size settings","limit":2}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post search_mcp_tools tool call route: %v", err)
-	}
-	defer searchResponse.Body.Close()
-
-	if searchResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(searchResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", searchResponse.StatusCode, string(body))
-	}
-
-	searchPayload := decodeAppToolCallRoutePayload(t, searchResponse.Body)
-	if searchPayload.IsError {
-		t.Fatalf("expected search_mcp_tools success, got %#v", searchPayload.StructuredContent)
-	}
+		}`, "search_mcp_tools")
 	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
 	searchEntries := mustStructuredListValue(t, searchResult["results"])
 	if len(searchEntries) == 0 || mustStructuredMapValue(t, searchEntries[0])["name"] != "set_section_sizes" {
 		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
 	}
 
-	projectsResponse, err := client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	projectsPayload := callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"getProjectConfigNamesAndIds",
 			"arguments":{}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post getProjectConfigNamesAndIds tool call route: %v", err)
-	}
-	defer projectsResponse.Body.Close()
-
-	if projectsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(projectsResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", projectsResponse.StatusCode, string(body))
-	}
-
-	projectsPayload := decodeAppToolCallRoutePayload(t, projectsResponse.Body)
-	if projectsPayload.IsError {
-		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsPayload.StructuredContent)
-	}
+		}`, "getProjectConfigNamesAndIds")
 	projectsResult := mustStructuredMapValue(t, projectsPayload.StructuredContent)
 	projectConfigs := mustStructuredListValue(t, projectsResult["projectConfigs"])
 	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
 	}
 
-	packagesResponse, err := client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	packagesPayload := callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"getInstalledPythonPackages",
 			"arguments":{}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post getInstalledPythonPackages tool call route: %v", err)
-	}
-	defer packagesResponse.Body.Close()
-
-	if packagesResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(packagesResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", packagesResponse.StatusCode, string(body))
-	}
-
-	packagesPayload := decodeAppToolCallRoutePayload(t, packagesResponse.Body)
-	if packagesPayload.IsError {
-		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesPayload.StructuredContent)
-	}
+		}`, "getInstalledPythonPackages")
 	packagesResult := mustStructuredMapValue(t, packagesPayload.StructuredContent)
 	packages := mustStringSliceValue(t, packagesResult["packages"])
 	assertInstalledPythonPackages(t, packages)
 
-	docsResponse, err := client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	docsPayload := callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"get_setta_docs",
 			"arguments":{}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post get_setta_docs tool call route: %v", err)
-	}
-	defer docsResponse.Body.Close()
-
-	if docsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(docsResponse.Body)
-		t.Fatalf("expected 200, got %d with body %q", docsResponse.StatusCode, string(body))
-	}
-
-	docsPayload := decodeAppToolCallRoutePayload(t, docsResponse.Body)
-	if docsPayload.IsError {
-		t.Fatalf("expected get_setta_docs success, got %#v", docsPayload.StructuredContent)
-	}
+		}`, "get_setta_docs")
 	docsResult := mustStructuredMapValue(t, docsPayload.StructuredContent)
 	docs := mustStructuredListValue(t, docsResult["docs"])
 	if len(docs) != 4 {
@@ -761,30 +675,8 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
-	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id before route structural create: %v", err)
-	}
-	beforeSectionIDs := map[string]struct{}{}
-	for sectionID := range beforeProject.Sections {
-		beforeSectionIDs[sectionID] = struct{}{}
-	}
-
-	payload := callAppMCPToolCallRoute(t, client, server.URL, `{
+	fixture := newAppMCPToolCallRouteFixture(t, cfg)
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_code_section_diagnostics_mute",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","mute":true},
 			"agenticContext":{
@@ -793,23 +685,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "scoped write")
-	if payload.IsError {
-		t.Fatalf("expected scoped write success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPDiagnosticsMuted(t, fixture.app)
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route scoped write: %v", err)
-	}
-	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
-	if err != nil {
-		t.Fatalf("ignore state after route scoped write: %v", err)
-	}
-	if !ignoreState.Muted {
-		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_code_obj_name",
 			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","name":"user-id@v2"},
 			"agenticContext":{
@@ -818,19 +696,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_code_obj_name")
-	if payload.IsError {
-		t.Fatalf("expected set_code_obj_name success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPCodeObjectName(t, fixture.app, "user-id@v2", "after route set_code_obj_name")
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_code_obj_name: %v", err)
-	}
-	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
-		t.Fatalf("expected code object name user-id@v2, got %q", got)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_param_name_and_value",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","codeObjId":"allowed-param","name":"user-id@v3","value":"combined"},
 			"agenticContext":{
@@ -839,26 +707,10 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_param_name_and_value")
-	if payload.IsError {
-		t.Fatalf("expected set_param_name_and_value success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPCodeObjectName(t, fixture.app, "user-id@v3", "after route set_param_name_and_value")
+	assertAppMCPParamValue(t, fixture.app, "combined", "after route set_param_name_and_value")
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_param_name_and_value: %v", err)
-	}
-	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v3" {
-		t.Fatalf("expected code object name user-id@v3, got %q", got)
-	}
-	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after route set_param_name_and_value: %v", err)
-	}
-	if got := paramPayload["value"]; got != "combined" {
-		t.Fatalf("expected combined param value, got %#v", got)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_code_section_diagnostic_code_suppression",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"reportFoo","suppress":true},
 			"agenticContext":{
@@ -867,23 +719,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "scoped suppression")
-	if payload.IsError {
-		t.Fatalf("expected scoped suppression success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPDiagnosticSuppression(t, fixture.app)
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route scoped suppression: %v", err)
-	}
-	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
-	if err != nil {
-		t.Fatalf("ignore state after route scoped suppression: %v", err)
-	}
-	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
-		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_section_name",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","name":"Allowed Renamed"},
 			"agenticContext":{
@@ -892,19 +730,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_section_name")
-	if payload.IsError {
-		t.Fatalf("expected set_section_name success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPSectionName(t, fixture.app, "Allowed Renamed")
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_section_name: %v", err)
-	}
-	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
-		t.Fatalf("expected renamed section name, got %q", got)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_param_entered_value",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","value":"updated"},
 			"agenticContext":{
@@ -913,23 +741,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_param_entered_value")
-	if payload.IsError {
-		t.Fatalf("expected set_param_entered_value success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPParamValue(t, fixture.app, "updated", "after route set_param_entered_value")
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_param_entered_value: %v", err)
-	}
-	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
-	if err != nil {
-		t.Fatalf("resolve allowed-param after route set_param_entered_value: %v", err)
-	}
-	if got := paramPayload["value"]; got != "updated" {
-		t.Fatalf("expected updated param value, got %#v", got)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_type_error_ignore",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
 			"agenticContext":{
@@ -938,23 +752,9 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_type_error_ignore")
-	if payload.IsError {
-		t.Fatalf("expected set_type_error_ignore success, got %#v", payload.StructuredContent)
-	}
+	assertAppMCPTypeErrorIgnored(t, fixture.app)
 
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_type_error_ignore: %v", err)
-	}
-	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
-	if err != nil {
-		t.Fatalf("type error ignore state after route set_type_error_ignore: %v", err)
-	}
-	if !typeErrorIgnoreState.Params["allowed-param"] {
-		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
-	}
-
-	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
+	callSuccessfulAppMCPToolCallRoute(t, fixture.client, fixture.serverURL, `{
 			"tool":"set_code_obj_display_name",
 			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
 			"agenticContext":{
@@ -963,53 +763,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"sectionId":"chat-section"
 			}
 		}`, "set_code_obj_display_name")
-	if payload.IsError {
-		t.Fatalf("expected set_code_obj_display_name success, got %#v", payload.StructuredContent)
-	}
-
-	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_code_obj_display_name: %v", err)
-	}
-	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
-		t.Fatalf("expected display name Height, got %q", got)
-	}
-}
-
-type appMCPToolCallRoutePayload struct {
-	StructuredContent any  `json:"structuredContent"`
-	IsError           bool `json:"isError"`
-}
-
-func callAppMCPToolCallRoute(
-	t *testing.T,
-	client *http.Client,
-	serverURL string,
-	requestBody string,
-	contextLabel string,
-) appMCPToolCallRoutePayload {
-	t.Helper()
-
-	response, err := client.Post(
-		serverURL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(requestBody),
-	)
-	if err != nil {
-		t.Fatalf("post %s tool call route: %v", contextLabel, err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var payload appMCPToolCallRoutePayload
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode %s tool call response: %v", contextLabel, err)
-	}
-	return payload
+	assertAppMCPCodeObjectDisplayName(t, fixture.app, "Height")
 }
 
 func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
