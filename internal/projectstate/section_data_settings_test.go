@@ -179,7 +179,14 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 		t.Fatalf("SetSocialURL returned error: %v", err)
 	}
 
-	spreadsheetPayload := projectPayload("spreadsheet-section", "spreadsheet-variant")
+	assertSectionDataMutationSpreadsheetPayload(t, projectPayload("spreadsheet-section", "spreadsheet-variant"))
+	assertSectionDataMutationTaskBoardPayload(t, projectPayload("task-board-section", "task-board-variant"))
+	assertSectionDataMutationImageAndSocialPayloads(t, projectPayload)
+}
+
+func assertSectionDataMutationSpreadsheetPayload(t *testing.T, spreadsheetPayload map[string]any) {
+	t.Helper()
+
 	if got := payloadRawStringField(spreadsheetPayload, "filePath"); got != "reports/quarterly.xlsx" {
 		t.Fatalf("expected trimmed spreadsheet filePath, got %q", got)
 	}
@@ -198,8 +205,11 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	if !payloadBoolField(spreadsheetPayload, "autoReloadOnExternalChange") {
 		t.Fatal("expected autoReloadOnExternalChange=true")
 	}
+}
 
-	taskBoardPayload := projectPayload("task-board-section", "task-board-variant")
+func assertSectionDataMutationTaskBoardPayload(t *testing.T, taskBoardPayload map[string]any) {
+	t.Helper()
+
 	if got := payloadRawStringField(taskBoardPayload, "viewMode"); got != string(TaskBoardViewModeKanban) {
 		t.Fatalf("expected final task board viewMode %q, got %q", TaskBoardViewModeKanban, got)
 	}
@@ -219,47 +229,40 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	if !ok || len(rawTasks) != 6 {
 		t.Fatalf("expected six task board tasks, got %#v", taskBoardPayload["tasks"])
 	}
-	secondTask, ok := rawTasks[1].(map[string]any)
-	if !ok {
-		t.Fatalf("expected second task board task object, got %#v", rawTasks[1])
-	}
+	assertSectionDataMutationTaskRecurrences(t, rawTasks)
+}
+
+func assertSectionDataMutationTaskRecurrences(t *testing.T, rawTasks []any) {
+	t.Helper()
+
+	secondTask := sectionDataMutationTaskObject(t, rawTasks, 1)
 	if secondTask["columnId"] != nil {
 		t.Fatalf("expected unknown task columnId to normalize to nil, got %#v", secondTask["columnId"])
 	}
 	if got := payloadRawStringField(secondTask, "recurrence"); got != "hourly" {
 		t.Fatalf("expected hourly recurrence, got %q", got)
 	}
-	thirdTask, ok := rawTasks[2].(map[string]any)
-	if !ok {
-		t.Fatalf("expected third task board task object, got %#v", rawTasks[2])
-	}
-	if got := payloadRawStringField(thirdTask, "recurrence"); got != "daily" {
+	if got := payloadRawStringField(sectionDataMutationTaskObject(t, rawTasks, 2), "recurrence"); got != "daily" {
 		t.Fatalf("expected daily recurrence, got %q", got)
 	}
-	fourthTask, ok := rawTasks[3].(map[string]any)
-	if !ok {
-		t.Fatalf("expected fourth task board task object, got %#v", rawTasks[3])
-	}
+
+	fourthTask := sectionDataMutationTaskObject(t, rawTasks, 3)
 	if got := payloadRawStringField(fourthTask, "recurrence"); got != "specified_days" {
 		t.Fatalf("expected specified_days recurrence, got %q", got)
 	}
 	if got := payloadStringArrayField(fourthTask, "recurrenceDays"); len(got) != 1 || got[0] != "monday" {
 		t.Fatalf("expected recurrenceDays [monday], got %#v", got)
 	}
-	fifthTask, ok := rawTasks[4].(map[string]any)
-	if !ok {
-		t.Fatalf("expected fifth task board task object, got %#v", rawTasks[4])
-	}
+
+	fifthTask := sectionDataMutationTaskObject(t, rawTasks, 4)
 	if got := payloadRawStringField(fifthTask, "recurrence"); got != "specified_months" {
 		t.Fatalf("expected specified_months recurrence, got %q", got)
 	}
 	if got := payloadStringArrayField(fifthTask, "recurrenceMonths"); len(got) != 2 || got[0] != "january" || got[1] != "march" {
 		t.Fatalf("expected recurrenceMonths [january march], got %#v", got)
 	}
-	sixthTask, ok := rawTasks[5].(map[string]any)
-	if !ok {
-		t.Fatalf("expected sixth task board task object, got %#v", rawTasks[5])
-	}
+
+	sixthTask := sectionDataMutationTaskObject(t, rawTasks, 5)
 	if got := payloadRawStringField(sixthTask, "recurrence"); got != "specified_years" {
 		t.Fatalf("expected specified_years recurrence, got %q", got)
 	}
@@ -273,6 +276,23 @@ func TestRuntimeSectionDataMutationsUpdateEffectivePayload(t *testing.T) {
 	if rawYears[0] != float64(2026) || rawYears[1] != float64(2028) {
 		t.Fatalf("expected recurrenceYears [2026 2028], got %#v", rawYears)
 	}
+}
+
+func sectionDataMutationTaskObject(t *testing.T, rawTasks []any, index int) map[string]any {
+	t.Helper()
+
+	taskObject, ok := rawTasks[index].(map[string]any)
+	if !ok {
+		t.Fatalf("expected task board task object at index %d, got %#v", index, rawTasks[index])
+	}
+	return taskObject
+}
+
+func assertSectionDataMutationImageAndSocialPayloads(
+	t *testing.T,
+	projectPayload func(sectionID string, variantID string) map[string]any,
+) {
+	t.Helper()
 
 	imagePayload := projectPayload("image-section", "image-variant")
 	if got := payloadRawStringField(imagePayload, "imagePath"); got != "/tmp/new-image.png" {

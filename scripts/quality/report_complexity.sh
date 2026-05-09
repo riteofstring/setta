@@ -14,7 +14,7 @@ Options:
   --frontend-test-min N
                      Only show frontend test hotspots with complexity >= N (default: 10).
   --go-min N         Only show Go hotspots with complexity >= N (default: 12).
-  --go-test-min N    Only show Go test hotspots with complexity >= N (default: 63).
+  --go-test-min N    Only show Go test hotspots with complexity >= N (default: 40).
   -h, --help         Show this help text.
 
 Notes:

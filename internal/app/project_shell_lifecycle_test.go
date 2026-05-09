@@ -353,6 +353,39 @@ func TestAppSetDefaultProjectRouteBroadcastsMetadataUpdate(t *testing.T) {
 func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
+	app, server, authCookie := newProjectShellLifecycleAppServer(t)
+	createdName := createProjectShellLifecycleConfig(t, server.URL, authCookie)
+	persistedStore := newProjectShellLifecyclePersistedStore(t, app)
+
+	currentDocument := app.ProjectStates().Main().Snapshot().Document
+	createdProjectID := assertProjectShellLifecycleCreatedProject(t, currentDocument, createdName)
+
+	mutateProjectShellLifecycleAlphaName(t, app)
+	saveProjectShellLifecycleConfig(t, server.URL, authCookie)
+	assertProjectShellLifecycleSavedAlpha(t, persistedStore)
+
+	saveAsProjectShellLifecycleConfig(t, server.URL, authCookie)
+	persistedDocument := loadProjectShellLifecycleDocument(t, persistedStore, "after save-as")
+	clonedProjectID := assertProjectShellLifecycleClonedProject(t, persistedDocument)
+
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         "delete-project-terminal",
+		ProjectID:  clonedProjectID,
+		AllowInput: false,
+	}); err != nil {
+		t.Fatalf("open terminal session: %v", err)
+	}
+	if _, ok := app.Terminals().Session("delete-project-terminal"); !ok {
+		t.Fatal("expected terminal session to exist before delete")
+	}
+
+	deleteProjectShellLifecycleConfig(t, server.URL, authCookie, clonedProjectID)
+	assertProjectShellLifecycleDelete(t, app, persistedStore, clonedProjectID, createdProjectID)
+}
+
+func newProjectShellLifecycleAppServer(t *testing.T) (*App, *httptest.Server, *http.Cookie) {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -377,54 +410,54 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	}
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
+	t.Cleanup(server.Close)
 	authCookie := newAppTestAuthCookie(t, app)
+	return app, server, authCookie
+}
 
-	createRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteCreateProjectConfig, strings.NewReader(`{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`))
-	if err != nil {
-		t.Fatalf("new create request: %v", err)
-	}
-	createRequest.Header.Set("Content-Type", "application/json")
-	createRequest.AddCookie(authCookie)
+func createProjectShellLifecycleConfig(t *testing.T, serverURL string, authCookie *http.Cookie) string {
+	t.Helper()
 
-	createResponse, err := http.DefaultClient.Do(createRequest)
-	if err != nil {
-		t.Fatalf("create project config: %v", err)
-	}
-	defer createResponse.Body.Close()
-	if createResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(createResponse.Body)
-		t.Fatalf("expected create 200, got %d with body %q", createResponse.StatusCode, string(body))
-	}
-
+	response := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteCreateProjectConfig, `{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`, "create")
+	defer response.Body.Close()
 	var createdName string
-	if err := json.NewDecoder(createResponse.Body).Decode(&createdName); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&createdName); err != nil {
 		t.Fatalf("decode create response: %v", err)
 	}
 	if createdName == "" {
 		t.Fatal("expected non-empty created name")
 	}
+	return createdName
+}
+
+func newProjectShellLifecyclePersistedStore(t *testing.T, app *App) *projectstate.Store {
+	t.Helper()
 
 	persistedStore, err := projectstate.NewStore(app.ProjectStates().Paths().Main, projectstate.StoreOptions{})
 	if err != nil {
 		t.Fatalf("open persisted project store: %v", err)
 	}
-	var persistedDocument projectstate.Document
-	currentDocument := app.ProjectStates().Main().Snapshot().Document
-	createdProjectID := ""
-	for projectID, project := range currentDocument.Projects {
+	return persistedStore
+}
+
+func assertProjectShellLifecycleCreatedProject(t *testing.T, document projectstate.Document, createdName string) string {
+	t.Helper()
+
+	for projectID, project := range document.Projects {
 		if project.Name == createdName {
-			createdProjectID = projectID
 			if len(project.ViewModes) != 1 {
 				t.Fatalf("expected created project to have one view mode, got %#v", project.ViewModes)
 			}
 			assertAppDefaultGeneratedPythonProjectScaffold(t, project)
+			return projectID
 		}
 	}
-	if createdProjectID == "" {
-		t.Fatalf("expected created project in %#v", currentDocument.Projects)
-	}
+	t.Fatalf("expected created project in %#v", document.Projects)
+	return ""
+}
+
+func mutateProjectShellLifecycleAlphaName(t *testing.T, app *App) {
+	t.Helper()
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		if err := document.SetProjectName("project-alpha", "Unsaved Alpha"); err != nil {
@@ -434,53 +467,34 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("mutate runtime before save: %v", err)
 	}
+}
 
-	saveRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
-	if err != nil {
-		t.Fatalf("new save request: %v", err)
-	}
-	saveRequest.Header.Set("Content-Type", "application/json")
-	saveRequest.AddCookie(authCookie)
+func saveProjectShellLifecycleConfig(t *testing.T, serverURL string, authCookie *http.Cookie) {
+	t.Helper()
 
-	saveResponse, err := http.DefaultClient.Do(saveRequest)
-	if err != nil {
-		t.Fatalf("save project: %v", err)
-	}
-	defer saveResponse.Body.Close()
-	if saveResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(saveResponse.Body)
-		t.Fatalf("expected save 200, got %d with body %q", saveResponse.StatusCode, string(body))
-	}
+	response := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteSaveProject, `{"projectConfigId":"project-alpha"}`, "save")
+	defer response.Body.Close()
+}
 
-	persistedDocument, err = persistedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document after save: %v", err)
-	}
+func assertProjectShellLifecycleSavedAlpha(t *testing.T, persistedStore *projectstate.Store) {
+	t.Helper()
+
+	persistedDocument := loadProjectShellLifecycleDocument(t, persistedStore, "after save")
 	if got := persistedDocument.Projects["project-alpha"].Name; got != "Unsaved Alpha" {
 		t.Fatalf("expected persisted Unsaved Alpha, got %q", got)
 	}
+}
 
-	saveAsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true}`))
-	if err != nil {
-		t.Fatalf("new save-as request: %v", err)
-	}
-	saveAsRequest.Header.Set("Content-Type", "application/json")
-	saveAsRequest.AddCookie(authCookie)
+func saveAsProjectShellLifecycleConfig(t *testing.T, serverURL string, authCookie *http.Cookie) {
+	t.Helper()
 
-	saveAsResponse, err := http.DefaultClient.Do(saveAsRequest)
-	if err != nil {
-		t.Fatalf("save as new project config: %v", err)
-	}
-	defer saveAsResponse.Body.Close()
-	if saveAsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(saveAsResponse.Body)
-		t.Fatalf("expected save-as 200, got %d with body %q", saveAsResponse.StatusCode, string(body))
-	}
+	response := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteSaveAsNewProjectConfig, `{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true}`, "save-as")
+	defer response.Body.Close()
+}
 
-	persistedDocument, err = persistedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document after save-as: %v", err)
-	}
+func assertProjectShellLifecycleClonedProject(t *testing.T, persistedDocument projectstate.Document) string {
+	t.Helper()
+
 	clonedProjectID := ""
 	for projectID, project := range persistedDocument.Projects {
 		if project.Name == "Cloned Alpha" {
@@ -500,49 +514,62 @@ func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	if clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID != nil {
 		t.Fatalf("expected saved window-space chat id cleared, got %#v", clonedProject.WindowSpaces["space-1"].WindowsByID["chat-window"].ChatID)
 	}
+	return clonedProjectID
+}
 
-	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
-		ID:         "delete-project-terminal",
-		ProjectID:  clonedProjectID,
-		AllowInput: false,
-	}); err != nil {
-		t.Fatalf("open terminal session: %v", err)
-	}
-	if _, ok := app.Terminals().Session("delete-project-terminal"); !ok {
-		t.Fatal("expected terminal session to exist before delete")
-	}
+func deleteProjectShellLifecycleConfig(t *testing.T, serverURL string, authCookie *http.Cookie, projectID string) {
+	t.Helper()
 
-	deleteRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteProjectConfigs, strings.NewReader(`{"ids":["`+clonedProjectID+`"]}`))
-	if err != nil {
-		t.Fatalf("new delete request: %v", err)
-	}
-	deleteRequest.Header.Set("Content-Type", "application/json")
-	deleteRequest.AddCookie(authCookie)
+	response := postProjectShellLifecycleRoute(t, serverURL, authCookie, httpapi.RouteDeleteProjectConfigs, `{"ids":["`+projectID+`"]}`, "delete")
+	defer response.Body.Close()
+}
 
-	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
-	if err != nil {
-		t.Fatalf("delete project configs: %v", err)
-	}
-	defer deleteResponse.Body.Close()
-	if deleteResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(deleteResponse.Body)
-		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
-	}
+func assertProjectShellLifecycleDelete(t *testing.T, app *App, persistedStore *projectstate.Store, clonedProjectID string, createdProjectID string) {
+	t.Helper()
 
 	if _, ok := app.Terminals().Session("delete-project-terminal"); ok {
 		t.Fatal("expected project delete to reclaim terminal session")
 	}
 
-	persistedDocument, err = persistedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document after delete: %v", err)
-	}
+	persistedDocument := loadProjectShellLifecycleDocument(t, persistedStore, "after delete")
 	if _, ok := persistedDocument.Projects[clonedProjectID]; ok {
 		t.Fatalf("expected deleted project removed from persisted document, got %#v", persistedDocument.Projects)
 	}
 	if _, ok := persistedDocument.Projects[createdProjectID]; !ok {
 		t.Fatalf("expected created project to remain after delete, got %#v", persistedDocument.Projects)
 	}
+}
+
+func postProjectShellLifecycleRoute(t *testing.T, serverURL string, authCookie *http.Cookie, route string, body string, label string) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+route, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("new %s request: %v", label, err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("%s project config: %v", label, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		t.Fatalf("expected %s 200, got %d with body %q", label, response.StatusCode, string(responseBody))
+	}
+	return response
+}
+
+func loadProjectShellLifecycleDocument(t *testing.T, persistedStore *projectstate.Store, label string) projectstate.Document {
+	t.Helper()
+
+	persistedDocument, err := persistedStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document %s: %v", label, err)
+	}
+	return persistedDocument
 }
 
 func TestAppCreateProjectConfigRouteIgnoresLSPInitializationFailure(t *testing.T) {

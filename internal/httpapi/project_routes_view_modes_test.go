@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
@@ -695,258 +696,189 @@ func TestRegisterProjectRoutesLayoutPresentationUsesDeploymentOverlayWhenLayoutC
 	for _, mode := range []config.Mode{config.ModeShare, config.ModeApp} {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Run("top_level_layout_and_viewport", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": viewModesRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				for _, requestSpec := range []struct {
-					route string
-					body  string
-				}{
-					{
-						route: RouteSetTopLevelSectionLayout,
-						body:  `{"projectConfigId":"project-alpha","topLevelSections":{"parent-section":{"x":0,"y":0,"zIndex":0},"standalone-section":{"x":460,"y":310,"zIndex":9},"moving-section":{"x":220,"y":120,"zIndex":2}}}`,
-					},
-					{
-						route: RouteSetViewport,
-						body:  `{"projectConfigId":"project-alpha","viewport":{"x":42,"y":24,"zoom":1.1}}`,
-					},
-				} {
-					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
-					request.Header.Set("Content-Type", "application/json")
-					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-					response := httptest.NewRecorder()
-					handler.ServeHTTP(response, request)
-					if response.Code != http.StatusOK {
-						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-					}
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				if got := overlayProject.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
-					t.Fatalf("expected overlay standalone-section layout {460 310 9}, got %#v", got)
-				}
-				if overlayProject.Viewport == nil || overlayProject.Viewport.X != 42 || overlayProject.Viewport.Y != 24 || overlayProject.Viewport.Zoom != 1.1 {
-					t.Fatalf("expected overlay viewport {42 24 1.1}, got %#v", overlayProject.Viewport)
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				if got := baseProject.TopLevelSections["standalone-section"]; got.X != 100 || got.Y != 50 || got.ZIndex != 1 {
-					t.Fatalf("expected base standalone-section layout unchanged, got %#v", got)
-				}
-				if baseProject.Viewport == nil || baseProject.Viewport.X != 5 || baseProject.Viewport.Y != 10 || baseProject.Viewport.Zoom != 0.8 {
-					t.Fatalf("expected base viewport unchanged, got %#v", baseProject.Viewport)
-				}
+				assertDeploymentOverlayTopLevelLayoutAndViewport(t, mode)
 			})
 
 			t.Run("auto_layout", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": viewModesRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay before auto layout: %v", err)
-				}
-				before := overlay.Snapshot().Document.Projects["project-alpha"]
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				request := httptest.NewRequest(
-					http.MethodPost,
-					"/api"+RouteAutoLayoutTopLevelSections,
-					strings.NewReader(`{"projectConfigId":"project-alpha"}`),
-				)
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusOK {
-					t.Fatalf("expected 200 for %s, got %d with body %q", RouteAutoLayoutTopLevelSections, response.Code, response.Body.String())
-				}
-
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				if autoLayoutRouteMinX(overlayProject.TopLevelSections) != autoLayoutRouteMinX(before.TopLevelSections) {
-					t.Fatalf("expected overlay auto layout to preserve min x %v, got %v", autoLayoutRouteMinX(before.TopLevelSections), autoLayoutRouteMinX(overlayProject.TopLevelSections))
-				}
-				if autoLayoutRouteMinY(overlayProject.TopLevelSections) != autoLayoutRouteMinY(before.TopLevelSections) {
-					t.Fatalf("expected overlay auto layout to preserve min y %v, got %v", autoLayoutRouteMinY(before.TopLevelSections), autoLayoutRouteMinY(overlayProject.TopLevelSections))
-				}
-				if overlayProject.TopLevelSections["standalone-section"] == before.TopLevelSections["standalone-section"] {
-					t.Fatal("expected overlay auto layout to rewrite at least one top-level section position")
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				if !reflect.DeepEqual(baseProject.TopLevelSections, before.TopLevelSections) {
-					t.Fatalf("expected base top-level sections unchanged, got %#v", baseProject.TopLevelSections)
-				}
+				assertDeploymentOverlayAutoLayout(t, mode)
 			})
 
 			t.Run("section_sizes", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": sectionSizeRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				request := httptest.NewRequest(
-					http.MethodPost,
-					"/api"+RouteSetSectionSizes,
-					strings.NewReader(`{"projectConfigId":"project-alpha","sectionSizes":{"code-section":{"width":600,"height":120}}}`),
-				)
-				request.Header.Set("Content-Type", "application/json")
-				request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-				response := httptest.NewRecorder()
-				handler.ServeHTTP(response, request)
-				if response.Code != http.StatusOK {
-					t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetSectionSizes, response.Code, response.Body.String())
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				overlayCodeVariantID := overlayProject.SectionVariantMap["code-section"]
-				overlayCodeImplID := overlayProject.SectionVariants[overlayCodeVariantID].ImplID
-				overlayCodePayload := decodeProjectRouteRawObject(t, overlayProject.SectionImpls[overlayCodeImplID].Payload)
-				overlayCodeSize := decodeProjectRouteRawObject(t, mustMarshalProjectRouteObject(t, overlayCodePayload["size"].(map[string]any)))
-				if got := overlayCodeSize["width"]; got != float64(600) {
-					t.Fatalf("expected overlay code-section width 600, got %#v", got)
-				}
-				overlayTerminalVariantID := overlayProject.SectionVariantMap["terminal-section"]
-				overlayTerminalImplID := overlayProject.SectionVariants[overlayTerminalVariantID].ImplID
-				overlayTerminalPayload := decodeProjectRouteRawObject(t, overlayProject.SectionImpls[overlayTerminalImplID].Payload)
-				overlayTerminalSize := decodeProjectRouteRawObject(t, mustMarshalProjectRouteObject(t, overlayTerminalPayload["size"].(map[string]any)))
-				if got := overlayTerminalSize["width"]; got != float64(600) {
-					t.Fatalf("expected overlay terminal-section width 600, got %#v", got)
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				baseCodeVariantID := baseProject.SectionVariantMap["code-section"]
-				baseCodeImplID := baseProject.SectionVariants[baseCodeVariantID].ImplID
-				baseCodePayload := decodeProjectRouteRawObject(t, baseProject.SectionImpls[baseCodeImplID].Payload)
-				baseCodeSize := decodeProjectRouteRawObject(t, mustMarshalProjectRouteObject(t, baseCodePayload["size"].(map[string]any)))
-				if got := baseCodeSize["width"]; got == float64(600) {
-					t.Fatalf("expected base code-section width unchanged, got %#v", got)
-				}
+				assertDeploymentOverlaySectionSizes(t, mode)
 			})
 
 			t.Run("minimize_and_locks", func(t *testing.T) {
-				deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
-					Mode: mode,
-					Document: projectstate.Document{
-						SchemaVersion:    projectstate.CurrentSchemaVersion,
-						DefaultProjectID: "project-alpha",
-						Projects: map[string]projectstate.Project{
-							"project-alpha": layoutPresentationRouteTestProject(t),
-						},
-					},
-					Policy: map[string]any{
-						"allowLayoutChanges": true,
-					},
-				})
-				if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-					t.Fatalf("create deployment session: %v", err)
-				}
-
-				handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
-				for _, requestSpec := range []struct {
-					route string
-					body  string
-				}{
-					{
-						route: RouteToggleMinimized,
-						body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section"}`,
-					},
-					{
-						route: RouteTogglePositionLocks,
-						body:  `{"projectConfigId":"project-alpha","sectionIds":["callable-section","plain-section"]}`,
-					},
-				} {
-					request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
-					request.Header.Set("Content-Type", "application/json")
-					request.Header.Set(modes.ShareSessionHeaderName, "share-a")
-					response := httptest.NewRecorder()
-					handler.ServeHTTP(response, request)
-					if response.Code != http.StatusOK {
-						t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
-					}
-				}
-
-				overlay, err := deploymentRuntime.Overlay("share-a")
-				if err != nil {
-					t.Fatalf("deployment overlay: %v", err)
-				}
-				overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
-				overlayCallableModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["callable-section"].SharedModifier)
-				if got := overlayCallableModifier["isMinimized"]; got != true {
-					t.Fatalf("expected overlay callable isMinimized=true, got %#v", got)
-				}
-				if got := overlayCallableModifier["positionAndSizeLocked"]; got != true {
-					t.Fatalf("expected overlay callable positionAndSizeLocked=true, got %#v", got)
-				}
-				overlayPlainModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["plain-section"].SharedModifier)
-				if got := overlayPlainModifier["positionAndSizeLocked"]; got != true {
-					t.Fatalf("expected overlay plain positionAndSizeLocked=true, got %#v", got)
-				}
-
-				baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
-				baseCallableModifier := decodeProjectRouteRawObject(t, baseProject.Sections["callable-section"].SharedModifier)
-				if got := baseCallableModifier["isMinimized"]; got == true {
-					t.Fatalf("expected base callable isMinimized unchanged, got %#v", got)
-				}
-				if got := baseCallableModifier["positionAndSizeLocked"]; got == true {
-					t.Fatalf("expected base callable positionAndSizeLocked unchanged, got %#v", got)
-				}
-				basePlainModifier := decodeProjectRouteRawObject(t, baseProject.Sections["plain-section"].SharedModifier)
-				if got := basePlainModifier["positionAndSizeLocked"]; got == true {
-					t.Fatalf("expected base plain positionAndSizeLocked unchanged, got %#v", got)
-				}
+				assertDeploymentOverlayMinimizeAndLocks(t, mode)
 			})
 		})
+	}
+}
+
+func newLayoutChangesAllowedDeploymentRuntime(t *testing.T, mode config.Mode, project projectstate.Project) *deployments.Runtime {
+	t.Helper()
+
+	deploymentRuntime := newHTTPTestDeploymentRuntimeWithOptions(t, httpTestDeploymentRuntimeOptions{
+		Mode: mode,
+		Document: projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				"project-alpha": project,
+			},
+		},
+		Policy: map[string]any{
+			"allowLayoutChanges": true,
+		},
+	})
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create deployment session: %v", err)
+	}
+	return deploymentRuntime
+}
+
+func postDeploymentLayoutRoute(t *testing.T, handler http.Handler, route string, body string) {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", route, response.Code, response.Body.String())
+	}
+}
+
+func assertDeploymentOverlayTopLevelLayoutAndViewport(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutChangesAllowedDeploymentRuntime(t, mode, viewModesRouteTestProject(t))
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	postDeploymentLayoutRoute(t, handler, RouteSetTopLevelSectionLayout, `{"projectConfigId":"project-alpha","topLevelSections":{"parent-section":{"x":0,"y":0,"zIndex":0},"standalone-section":{"x":460,"y":310,"zIndex":9},"moving-section":{"x":220,"y":120,"zIndex":2}}}`)
+	postDeploymentLayoutRoute(t, handler, RouteSetViewport, `{"projectConfigId":"project-alpha","viewport":{"x":42,"y":24,"zoom":1.1}}`)
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay: %v", err)
+	}
+	overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+	if got := overlayProject.TopLevelSections["standalone-section"]; got.X != 460 || got.Y != 310 || got.ZIndex != 9 {
+		t.Fatalf("expected overlay standalone-section layout {460 310 9}, got %#v", got)
+	}
+	if overlayProject.Viewport == nil || overlayProject.Viewport.X != 42 || overlayProject.Viewport.Y != 24 || overlayProject.Viewport.Zoom != 1.1 {
+		t.Fatalf("expected overlay viewport {42 24 1.1}, got %#v", overlayProject.Viewport)
+	}
+
+	baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+	if got := baseProject.TopLevelSections["standalone-section"]; got.X != 100 || got.Y != 50 || got.ZIndex != 1 {
+		t.Fatalf("expected base standalone-section layout unchanged, got %#v", got)
+	}
+	if baseProject.Viewport == nil || baseProject.Viewport.X != 5 || baseProject.Viewport.Y != 10 || baseProject.Viewport.Zoom != 0.8 {
+		t.Fatalf("expected base viewport unchanged, got %#v", baseProject.Viewport)
+	}
+}
+
+func assertDeploymentOverlayAutoLayout(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutChangesAllowedDeploymentRuntime(t, mode, viewModesRouteTestProject(t))
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay before auto layout: %v", err)
+	}
+	before := overlay.Snapshot().Document.Projects["project-alpha"]
+
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	postDeploymentLayoutRoute(t, handler, RouteAutoLayoutTopLevelSections, `{"projectConfigId":"project-alpha"}`)
+
+	overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+	if autoLayoutRouteMinX(overlayProject.TopLevelSections) != autoLayoutRouteMinX(before.TopLevelSections) {
+		t.Fatalf("expected overlay auto layout to preserve min x %v, got %v", autoLayoutRouteMinX(before.TopLevelSections), autoLayoutRouteMinX(overlayProject.TopLevelSections))
+	}
+	if autoLayoutRouteMinY(overlayProject.TopLevelSections) != autoLayoutRouteMinY(before.TopLevelSections) {
+		t.Fatalf("expected overlay auto layout to preserve min y %v, got %v", autoLayoutRouteMinY(before.TopLevelSections), autoLayoutRouteMinY(overlayProject.TopLevelSections))
+	}
+	if overlayProject.TopLevelSections["standalone-section"] == before.TopLevelSections["standalone-section"] {
+		t.Fatal("expected overlay auto layout to rewrite at least one top-level section position")
+	}
+
+	baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(baseProject.TopLevelSections, before.TopLevelSections) {
+		t.Fatalf("expected base top-level sections unchanged, got %#v", baseProject.TopLevelSections)
+	}
+}
+
+func assertDeploymentOverlaySectionSizes(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutChangesAllowedDeploymentRuntime(t, mode, sectionSizeRouteTestProject(t))
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	postDeploymentLayoutRoute(t, handler, RouteSetSectionSizes, `{"projectConfigId":"project-alpha","sectionSizes":{"code-section":{"width":600,"height":120}}}`)
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay: %v", err)
+	}
+	overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+	if got := projectRouteSectionWidth(t, overlayProject, "code-section"); got != float64(600) {
+		t.Fatalf("expected overlay code-section width 600, got %#v", got)
+	}
+	if got := projectRouteSectionWidth(t, overlayProject, "terminal-section"); got != float64(600) {
+		t.Fatalf("expected overlay terminal-section width 600, got %#v", got)
+	}
+
+	baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+	if got := projectRouteSectionWidth(t, baseProject, "code-section"); got == float64(600) {
+		t.Fatalf("expected base code-section width unchanged, got %#v", got)
+	}
+}
+
+func projectRouteSectionWidth(t *testing.T, project projectstate.Project, sectionID string) any {
+	t.Helper()
+
+	variantID := project.SectionVariantMap[sectionID]
+	implID := project.SectionVariants[variantID].ImplID
+	payload := decodeProjectRouteRawObject(t, project.SectionImpls[implID].Payload)
+	size := decodeProjectRouteRawObject(t, mustMarshalProjectRouteObject(t, payload["size"].(map[string]any)))
+	return size["width"]
+}
+
+func assertDeploymentOverlayMinimizeAndLocks(t *testing.T, mode config.Mode) {
+	t.Helper()
+
+	deploymentRuntime := newLayoutChangesAllowedDeploymentRuntime(t, mode, layoutPresentationRouteTestProject(t))
+	handler := newProjectRouteDeploymentTestHandler(t, mode, deploymentRuntime)
+	postDeploymentLayoutRoute(t, handler, RouteToggleMinimized, `{"projectConfigId":"project-alpha","sectionId":"callable-section"}`)
+	postDeploymentLayoutRoute(t, handler, RouteTogglePositionLocks, `{"projectConfigId":"project-alpha","sectionIds":["callable-section","plain-section"]}`)
+
+	overlay, err := deploymentRuntime.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("deployment overlay: %v", err)
+	}
+	overlayProject := overlay.Snapshot().Document.Projects["project-alpha"]
+	overlayCallableModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["callable-section"].SharedModifier)
+	if got := overlayCallableModifier["isMinimized"]; got != true {
+		t.Fatalf("expected overlay callable isMinimized=true, got %#v", got)
+	}
+	if got := overlayCallableModifier["positionAndSizeLocked"]; got != true {
+		t.Fatalf("expected overlay callable positionAndSizeLocked=true, got %#v", got)
+	}
+	overlayPlainModifier := decodeProjectRouteRawObject(t, overlayProject.Sections["plain-section"].SharedModifier)
+	if got := overlayPlainModifier["positionAndSizeLocked"]; got != true {
+		t.Fatalf("expected overlay plain positionAndSizeLocked=true, got %#v", got)
+	}
+
+	baseProject := deploymentRuntime.Base().Snapshot().Document.Projects["project-alpha"]
+	baseCallableModifier := decodeProjectRouteRawObject(t, baseProject.Sections["callable-section"].SharedModifier)
+	if got := baseCallableModifier["isMinimized"]; got == true {
+		t.Fatalf("expected base callable isMinimized unchanged, got %#v", got)
+	}
+	if got := baseCallableModifier["positionAndSizeLocked"]; got == true {
+		t.Fatalf("expected base callable positionAndSizeLocked unchanged, got %#v", got)
+	}
+	basePlainModifier := decodeProjectRouteRawObject(t, baseProject.Sections["plain-section"].SharedModifier)
+	if got := basePlainModifier["positionAndSizeLocked"]; got == true {
+		t.Fatalf("expected base plain positionAndSizeLocked unchanged, got %#v", got)
 	}
 }
 

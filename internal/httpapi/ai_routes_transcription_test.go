@@ -290,25 +290,36 @@ func TestRegisterAIRoutesReturnsTypedInvalidRequestForFileSampleRateChange(t *te
 	}
 }
 
-func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
-	t.Parallel()
+type aiRouteRealtimeHandshake struct {
+	Path          string
+	Query         string
+	Authorization string
+	OpenAIBeta    string
+}
 
-	type providerHandshake struct {
-		Path          string
-		Query         string
-		Authorization string
-		OpenAIBeta    string
+type aiRouteRealtimeProvider struct {
+	server    *httptest.Server
+	handshake chan aiRouteRealtimeHandshake
+	update    chan map[string]any
+	append    chan map[string]any
+	commit    chan map[string]any
+	closed    chan error
+	emitFinal chan struct{}
+}
+
+func newAIRouteRealtimeProvider(t *testing.T) *aiRouteRealtimeProvider {
+	t.Helper()
+
+	provider := &aiRouteRealtimeProvider{
+		handshake: make(chan aiRouteRealtimeHandshake, 1),
+		update:    make(chan map[string]any, 1),
+		append:    make(chan map[string]any, 1),
+		commit:    make(chan map[string]any, 1),
+		closed:    make(chan error, 1),
+		emitFinal: make(chan struct{}),
 	}
-
-	handshakes := make(chan providerHandshake, 1)
-	updates := make(chan map[string]any, 1)
-	appends := make(chan map[string]any, 1)
-	commits := make(chan map[string]any, 1)
-	closed := make(chan error, 1)
-	emitFinal := make(chan struct{})
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handshakes <- providerHandshake{
+	provider.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provider.handshake <- aiRouteRealtimeHandshake{
 			Path:          r.URL.Path,
 			Query:         r.URL.RawQuery,
 			Authorization: r.Header.Get("Authorization"),
@@ -324,7 +335,7 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 		if err != nil {
 			return
 		}
-		updates <- update
+		provider.update <- update
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"transcription_session.updated","event_id":"evt-ready"}`)); err != nil {
 			return
 		}
@@ -333,41 +344,49 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 		if err != nil {
 			return
 		}
-		appends <- appendPayload
+		provider.append <- appendPayload
 
 		commitPayload, err := readAIRouteRealtimeProviderMessage(context.Background(), conn)
 		if err != nil {
 			return
 		}
-		commits <- commitPayload
+		provider.commit <- commitPayload
 
-		// The route-level caller should see additive delta output during append and final completion on stop.
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hel"}`)); err != nil {
+		if err := writeAIRouteRealtimeTranscriptEvents(context.Background(), conn); err != nil {
 			return
 		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"lo"}`)); err != nil {
-			return
-		}
-		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello"}`)); err != nil {
-			return
-		}
-		<-emitFinal
+		<-provider.emitFinal
 		if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-4","item_id":"item-2","transcript":"world"}`)); err != nil {
 			return
 		}
 		_, _, err = conn.Read(context.Background())
-		closed <- err
+		provider.closed <- err
 	}))
-	defer server.Close()
+	t.Cleanup(provider.server.Close)
+	return provider
+}
 
-	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+func writeAIRouteRealtimeTranscriptEvents(ctx context.Context, conn *websocket.Conn) error {
+	// The route-level caller should see additive delta output during append and final completion on stop.
+	if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-1","item_id":"item-1","delta":"hel"}`)); err != nil {
+		return err
+	}
+	if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.delta","event_id":"evt-2","item_id":"item-1","delta":"lo"}`)); err != nil {
+		return err
+	}
+	return conn.Write(ctx, websocket.MessageText, []byte(`{"type":"conversation.item.input_audio_transcription.completed","event_id":"evt-3","item_id":"item-1","transcript":"hello"}`))
+}
+
+func configureAIRouteRealtimeTranscription(t *testing.T, fixture aiRouteFixture, providerURL string) {
+	t.Helper()
+
 	if err := fixture.llm.UpdateConfig(llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
 			"openai-realtime": {
 				ID:        "openai-realtime",
 				Model:     "gpt-4o-mini-transcribe",
 				Provider:  "openai",
-				BaseURL:   server.URL + "/v1",
+				BaseURL:   providerURL + "/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
@@ -390,8 +409,12 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write transcription profile: %v", err)
 	}
+}
 
-	handler := newAIRouteTestHandlerWithTranscription(
+func newAIRouteRealtimeTranscriptionHandler(t *testing.T, fixture aiRouteFixture) http.Handler {
+	t.Helper()
+
+	return newAIRouteTestHandlerWithTranscription(
 		t,
 		config.ModeIDE,
 		fixture.managed,
@@ -403,27 +426,93 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 		fixture.sessions,
 		fixture.follow,
 	)
+}
 
-	startRequest := httptest.NewRequest(
+func startAIRouteRealtimeTranscriptionSession(t *testing.T, handler http.Handler) StartTranscriptionSessionResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStartTranscriptionSession,
 		strings.NewReader(`{"transcriptionProfileId":"profile-realtime","language":"en"}`),
 	)
-	startRequest.Header.Set("Content-Type", "application/json")
-	startResponse := httptest.NewRecorder()
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
 
-	handler.ServeHTTP(startResponse, startRequest)
-
-	if startResponse.Code != http.StatusOK {
-		t.Fatalf("expected start 200, got %d with body %q", startResponse.Code, startResponse.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected start 200, got %d with body %q", response.Code, response.Body.String())
 	}
 	var started StartTranscriptionSessionResponse
-	if err := json.Unmarshal(startResponse.Body.Bytes(), &started); err != nil {
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
 		t.Fatalf("decode start response: %v", err)
 	}
 	if started.ResolvedTransportMode != transcriptionsessions.ResolvedTransportModeRealtime || started.ChunkMs != 1200 {
 		t.Fatalf("unexpected start payload %#v", started)
 	}
+	return started
+}
+
+func appendAIRouteRealtimeTranscriptionAudio(
+	t *testing.T,
+	handler http.Handler,
+	sessionID string,
+) TranscriptionSessionDeltaResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAppendTranscriptionAudio,
+		strings.NewReader(`{"sessionId":"`+sessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected append 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode append response: %v", err)
+	}
+	if payload.IsFinal || payload.AppendText != "hello" || payload.FullText != "hello" {
+		t.Fatalf("unexpected append payload %#v", payload)
+	}
+	return payload
+}
+
+func stopAIRouteRealtimeTranscriptionSession(
+	t *testing.T,
+	handler http.Handler,
+	sessionID string,
+) TranscriptionSessionDeltaResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopTranscriptionSession,
+		strings.NewReader(`{"sessionId":"`+sessionID+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected stop 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload TranscriptionSessionDeltaResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode stop response: %v", err)
+	}
+	if !payload.IsFinal || payload.AppendText != " world" || payload.FullText != "hello world" {
+		t.Fatalf("unexpected stop payload %#v", payload)
+	}
+	return payload
+}
+
+func assertAIRouteRealtimeHandshake(t *testing.T, handshakes <-chan aiRouteRealtimeHandshake) {
+	t.Helper()
 
 	select {
 	case captured := <-handshakes:
@@ -442,6 +531,10 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime provider handshake")
 	}
+}
+
+func assertAIRouteRealtimeUpdate(t *testing.T, updates <-chan map[string]any) {
+	t.Helper()
 
 	select {
 	case payload := <-updates:
@@ -461,27 +554,10 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime session update")
 	}
+}
 
-	appendRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteAppendTranscriptionAudio,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`","audioPcm16Base64":"`+base64.StdEncoding.EncodeToString([]byte{0x00, 0x00, 0x01, 0x00})+`","sampleRateHz":24000,"channels":1}`),
-	)
-	appendRequest.Header.Set("Content-Type", "application/json")
-	appendResponse := httptest.NewRecorder()
-
-	handler.ServeHTTP(appendResponse, appendRequest)
-
-	if appendResponse.Code != http.StatusOK {
-		t.Fatalf("expected append 200, got %d with body %q", appendResponse.Code, appendResponse.Body.String())
-	}
-	var appendPayload TranscriptionSessionDeltaResponse
-	if err := json.Unmarshal(appendResponse.Body.Bytes(), &appendPayload); err != nil {
-		t.Fatalf("decode append response: %v", err)
-	}
-	if appendPayload.IsFinal || appendPayload.AppendText != "hello" || appendPayload.FullText != "hello" {
-		t.Fatalf("unexpected append payload %#v", appendPayload)
-	}
+func assertAIRouteRealtimeAppend(t *testing.T, appends <-chan map[string]any) {
+	t.Helper()
 
 	select {
 	case payload := <-appends:
@@ -499,6 +575,10 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime append payload")
 	}
+}
+
+func assertAIRouteRealtimeCommit(t *testing.T, commits <-chan map[string]any) {
+	t.Helper()
 
 	select {
 	case payload := <-commits:
@@ -508,28 +588,10 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime commit payload")
 	}
+}
 
-	close(emitFinal)
-	stopRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteStopTranscriptionSession,
-		strings.NewReader(`{"sessionId":"`+started.SessionID+`"}`),
-	)
-	stopRequest.Header.Set("Content-Type", "application/json")
-	stopResponse := httptest.NewRecorder()
-
-	handler.ServeHTTP(stopResponse, stopRequest)
-
-	if stopResponse.Code != http.StatusOK {
-		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
-	}
-	var stopPayload TranscriptionSessionDeltaResponse
-	if err := json.Unmarshal(stopResponse.Body.Bytes(), &stopPayload); err != nil {
-		t.Fatalf("decode stop response: %v", err)
-	}
-	if !stopPayload.IsFinal || stopPayload.AppendText != " world" || stopPayload.FullText != "hello world" {
-		t.Fatalf("unexpected stop payload %#v", stopPayload)
-	}
+func assertAIRouteRealtimeClosed(t *testing.T, closed <-chan error) {
+	t.Helper()
 
 	select {
 	case err := <-closed:
@@ -539,6 +601,27 @@ func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for realtime websocket close")
 	}
+}
+
+func TestRegisterAIRoutesRunsRealtimeTranscriptionSession(t *testing.T) {
+	t.Parallel()
+
+	provider := newAIRouteRealtimeProvider(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	configureAIRouteRealtimeTranscription(t, fixture, provider.server.URL)
+
+	handler := newAIRouteRealtimeTranscriptionHandler(t, fixture)
+	started := startAIRouteRealtimeTranscriptionSession(t, handler)
+	assertAIRouteRealtimeHandshake(t, provider.handshake)
+	assertAIRouteRealtimeUpdate(t, provider.update)
+
+	appendAIRouteRealtimeTranscriptionAudio(t, handler, started.SessionID)
+	assertAIRouteRealtimeAppend(t, provider.append)
+	assertAIRouteRealtimeCommit(t, provider.commit)
+
+	close(provider.emitFinal)
+	stopAIRouteRealtimeTranscriptionSession(t, handler, started.SessionID)
+	assertAIRouteRealtimeClosed(t, provider.closed)
 }
 
 func TestRegisterAIRoutesReturnsTypedInvalidRequestForRealtimeStereoAudio(t *testing.T) {

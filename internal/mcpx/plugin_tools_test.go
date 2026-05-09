@@ -99,143 +99,7 @@ func TestServerPluginManagementTools(t *testing.T) {
 		}
 	})
 
-	t.Run("supports install rescan update rollback and uninstall", func(t *testing.T) {
-		projectRuntime := openScopedTestProjectRuntime(t)
-		roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
-			"pypi:setta-fixture-frontend==0.1.0": {
-				FixtureName: "frontend",
-				Version:     "0.1.0",
-			},
-			"pypi:setta-fixture-frontend==0.2.0": {
-				FixtureName: "frontend",
-				Version:     "0.2.0",
-			},
-		})
-
-		_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
-			WorkspaceRoot:   roots.workspaceRoot,
-			ProjectState:    projectRuntime,
-			LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
-			PluginMutations: service,
-		})
-		defer clientSession.Close()
-
-		installResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name: "install_plugin",
-			Arguments: map[string]any{
-				"sourceSpec": "pypi:setta-fixture-frontend==0.1.0",
-				"scope":      "workspace",
-				"installer":  "pip",
-			},
-		})
-		if err != nil {
-			t.Fatalf("call install_plugin: %v", err)
-		}
-		if installResult.IsError {
-			t.Fatalf("expected install_plugin success, got %#v", installResult.StructuredContent)
-		}
-		installed := mustStructuredMap(t, installResult.StructuredContent)
-		if installed["pluginId"] != "setta-fixture-frontend" {
-			t.Fatalf("expected setta-fixture-frontend plugin id, got %#v", installed["pluginId"])
-		}
-		if installed["sourceScopeLabel"] != "workspace" {
-			t.Fatalf("expected workspace source scope label, got %#v", installed["sourceScopeLabel"])
-		}
-		if installed["trustStatus"] != "unverified" {
-			t.Fatalf("expected unverified trust status, got %#v", installed["trustStatus"])
-		}
-
-		rescanResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name:      "rescan_plugins",
-			Arguments: map[string]any{},
-		})
-		if err != nil {
-			t.Fatalf("call rescan_plugins after install: %v", err)
-		}
-		if rescanResult.IsError {
-			t.Fatalf("expected rescan_plugins success, got %#v", rescanResult.StructuredContent)
-		}
-		rescanPayload := mustStructuredMap(t, rescanResult.StructuredContent)
-		if rescanPayload["installedPlugins"] != float64(1) {
-			t.Fatalf("expected one installed plugin, got %#v", rescanPayload["installedPlugins"])
-		}
-		if rescanPayload["activePlugins"] != float64(1) {
-			t.Fatalf("expected one active plugin, got %#v", rescanPayload["activePlugins"])
-		}
-
-		updateResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name: "update_plugin",
-			Arguments: map[string]any{
-				"pluginId": "setta-fixture-frontend",
-				"scope":    "workspace",
-				"to":       "0.2.0",
-			},
-		})
-		if err != nil {
-			t.Fatalf("call update_plugin: %v", err)
-		}
-		if updateResult.IsError {
-			t.Fatalf("expected update_plugin success, got %#v", updateResult.StructuredContent)
-		}
-		updated := mustStructuredMap(t, updateResult.StructuredContent)
-		if updated["fromVersion"] != "0.1.0" || updated["toVersion"] != "0.2.0" {
-			t.Fatalf("expected version update 0.1.0 -> 0.2.0, got %#v", updated)
-		}
-
-		rollbackResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name: "rollback_plugin",
-			Arguments: map[string]any{
-				"pluginId": "setta-fixture-frontend",
-				"scope":    "workspace",
-			},
-		})
-		if err != nil {
-			t.Fatalf("call rollback_plugin: %v", err)
-		}
-		if rollbackResult.IsError {
-			t.Fatalf("expected rollback_plugin success, got %#v", rollbackResult.StructuredContent)
-		}
-		rolledBack := mustStructuredMap(t, rollbackResult.StructuredContent)
-		if rolledBack["restoredVersion"] != "0.1.0" {
-			t.Fatalf("expected restored version 0.1.0, got %#v", rolledBack["restoredVersion"])
-		}
-
-		uninstallResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name: "uninstall_plugin",
-			Arguments: map[string]any{
-				"pluginId": "setta-fixture-frontend",
-				"scope":    "workspace",
-			},
-		})
-		if err != nil {
-			t.Fatalf("call uninstall_plugin: %v", err)
-		}
-		if uninstallResult.IsError {
-			t.Fatalf("expected uninstall_plugin success, got %#v", uninstallResult.StructuredContent)
-		}
-		uninstalled := mustStructuredMap(t, uninstallResult.StructuredContent)
-		if uninstalled["removedFromScope"] != "workspace" {
-			t.Fatalf("expected workspace removedFromScope, got %#v", uninstalled["removedFromScope"])
-		}
-
-		finalRescanResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
-			Name:      "rescan_plugins",
-			Arguments: map[string]any{},
-		})
-		if err != nil {
-			t.Fatalf("call rescan_plugins after uninstall: %v", err)
-		}
-		if finalRescanResult.IsError {
-			t.Fatalf("expected final rescan_plugins success, got %#v", finalRescanResult.StructuredContent)
-		}
-		finalRescan := mustStructuredMap(t, finalRescanResult.StructuredContent)
-		if finalRescan["installedPlugins"] != float64(0) {
-			t.Fatalf("expected zero installed plugins, got %#v", finalRescan["installedPlugins"])
-		}
-		if finalRescan["activePlugins"] != float64(0) {
-			t.Fatalf("expected zero active plugins, got %#v", finalRescan["activePlugins"])
-		}
-	})
+	t.Run("supports install rescan update rollback and uninstall", testServerPluginManagementInstallRescanUpdateRollbackAndUninstall)
 
 	t.Run("supports setta_files scope lifecycle", func(t *testing.T) {
 		projectRuntime := openScopedTestProjectRuntime(t)
@@ -396,6 +260,144 @@ func TestServerPluginManagementTools(t *testing.T) {
 			t.Fatalf("expected unavailable message, got %#v", payload["message"])
 		}
 	})
+}
+
+func testServerPluginManagementInstallRescanUpdateRollbackAndUninstall(t *testing.T) {
+	projectRuntime := openScopedTestProjectRuntime(t)
+	roots, service := newTestPluginMutationService(t, map[string]pluginFixtureSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+		"pypi:setta-fixture-frontend==0.2.0": {
+			FixtureName: "frontend",
+			Version:     "0.2.0",
+		},
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, roots.workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:   roots.workspaceRoot,
+		ProjectState:    projectRuntime,
+		LSPDiagnostics:  openScopedTestLSPDiagnosticsRegistry(),
+		PluginMutations: service,
+	})
+	defer clientSession.Close()
+
+	installResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "install_plugin",
+		Arguments: map[string]any{
+			"sourceSpec": "pypi:setta-fixture-frontend==0.1.0",
+			"scope":      "workspace",
+			"installer":  "pip",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call install_plugin: %v", err)
+	}
+	if installResult.IsError {
+		t.Fatalf("expected install_plugin success, got %#v", installResult.StructuredContent)
+	}
+	installed := mustStructuredMap(t, installResult.StructuredContent)
+	if installed["pluginId"] != "setta-fixture-frontend" {
+		t.Fatalf("expected setta-fixture-frontend plugin id, got %#v", installed["pluginId"])
+	}
+	if installed["sourceScopeLabel"] != "workspace" {
+		t.Fatalf("expected workspace source scope label, got %#v", installed["sourceScopeLabel"])
+	}
+	if installed["trustStatus"] != "unverified" {
+		t.Fatalf("expected unverified trust status, got %#v", installed["trustStatus"])
+	}
+
+	rescanResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "rescan_plugins",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call rescan_plugins after install: %v", err)
+	}
+	if rescanResult.IsError {
+		t.Fatalf("expected rescan_plugins success, got %#v", rescanResult.StructuredContent)
+	}
+	rescanPayload := mustStructuredMap(t, rescanResult.StructuredContent)
+	if rescanPayload["installedPlugins"] != float64(1) {
+		t.Fatalf("expected one installed plugin, got %#v", rescanPayload["installedPlugins"])
+	}
+	if rescanPayload["activePlugins"] != float64(1) {
+		t.Fatalf("expected one active plugin, got %#v", rescanPayload["activePlugins"])
+	}
+
+	updateResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-frontend",
+			"scope":    "workspace",
+			"to":       "0.2.0",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call update_plugin: %v", err)
+	}
+	if updateResult.IsError {
+		t.Fatalf("expected update_plugin success, got %#v", updateResult.StructuredContent)
+	}
+	updated := mustStructuredMap(t, updateResult.StructuredContent)
+	if updated["fromVersion"] != "0.1.0" || updated["toVersion"] != "0.2.0" {
+		t.Fatalf("expected version update 0.1.0 -> 0.2.0, got %#v", updated)
+	}
+
+	rollbackResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "rollback_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-frontend",
+			"scope":    "workspace",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call rollback_plugin: %v", err)
+	}
+	if rollbackResult.IsError {
+		t.Fatalf("expected rollback_plugin success, got %#v", rollbackResult.StructuredContent)
+	}
+	rolledBack := mustStructuredMap(t, rollbackResult.StructuredContent)
+	if rolledBack["restoredVersion"] != "0.1.0" {
+		t.Fatalf("expected restored version 0.1.0, got %#v", rolledBack["restoredVersion"])
+	}
+
+	uninstallResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "uninstall_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-frontend",
+			"scope":    "workspace",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call uninstall_plugin: %v", err)
+	}
+	if uninstallResult.IsError {
+		t.Fatalf("expected uninstall_plugin success, got %#v", uninstallResult.StructuredContent)
+	}
+	uninstalled := mustStructuredMap(t, uninstallResult.StructuredContent)
+	if uninstalled["removedFromScope"] != "workspace" {
+		t.Fatalf("expected workspace removedFromScope, got %#v", uninstalled["removedFromScope"])
+	}
+
+	finalRescanResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "rescan_plugins",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call rescan_plugins after uninstall: %v", err)
+	}
+	if finalRescanResult.IsError {
+		t.Fatalf("expected final rescan_plugins success, got %#v", finalRescanResult.StructuredContent)
+	}
+	finalRescan := mustStructuredMap(t, finalRescanResult.StructuredContent)
+	if finalRescan["installedPlugins"] != float64(0) {
+		t.Fatalf("expected zero installed plugins, got %#v", finalRescan["installedPlugins"])
+	}
+	if finalRescan["activePlugins"] != float64(0) {
+		t.Fatalf("expected zero active plugins, got %#v", finalRescan["activePlugins"])
+	}
 }
 
 type pluginFixtureSpec struct {

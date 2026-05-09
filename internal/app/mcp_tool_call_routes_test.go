@@ -784,10 +784,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		beforeSectionIDs[sectionID] = struct{}{}
 	}
 
-	response, err := client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload := callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_code_section_diagnostics_mute",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","mute":true},
 			"agenticContext":{
@@ -795,25 +792,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post scoped write tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var payload struct {
-		StructuredContent any  `json:"structuredContent"`
-		IsError           bool `json:"isError"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode tool call response: %v", err)
-	}
+		}`, "scoped write")
 	if payload.IsError {
 		t.Fatalf("expected scoped write success, got %#v", payload.StructuredContent)
 	}
@@ -830,10 +809,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_code_obj_name",
 			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","name":"user-id@v2"},
 			"agenticContext":{
@@ -841,21 +817,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_code_obj_name tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_code_obj_name tool call response: %v", err)
-	}
+		}`, "set_code_obj_name")
 	if payload.IsError {
 		t.Fatalf("expected set_code_obj_name success, got %#v", payload.StructuredContent)
 	}
@@ -868,10 +830,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected code object name user-id@v2, got %q", got)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_param_name_and_value",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","codeObjId":"allowed-param","name":"user-id@v3","value":"combined"},
 			"agenticContext":{
@@ -879,21 +838,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_param_name_and_value tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_param_name_and_value tool call response: %v", err)
-	}
+		}`, "set_param_name_and_value")
 	if payload.IsError {
 		t.Fatalf("expected set_param_name_and_value success, got %#v", payload.StructuredContent)
 	}
@@ -913,10 +858,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected combined param value, got %#v", got)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_code_section_diagnostic_code_suppression",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"reportFoo","suppress":true},
 			"agenticContext":{
@@ -924,21 +866,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post scoped suppression tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode scoped suppression tool call response: %v", err)
-	}
+		}`, "scoped suppression")
 	if payload.IsError {
 		t.Fatalf("expected scoped suppression success, got %#v", payload.StructuredContent)
 	}
@@ -955,10 +883,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_section_name",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","name":"Allowed Renamed"},
 			"agenticContext":{
@@ -966,21 +891,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_section_name tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_section_name tool call response: %v", err)
-	}
+		}`, "set_section_name")
 	if payload.IsError {
 		t.Fatalf("expected set_section_name success, got %#v", payload.StructuredContent)
 	}
@@ -993,10 +904,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected renamed section name, got %q", got)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_param_entered_value",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","value":"updated"},
 			"agenticContext":{
@@ -1004,21 +912,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_param_entered_value tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_param_entered_value tool call response: %v", err)
-	}
+		}`, "set_param_entered_value")
 	if payload.IsError {
 		t.Fatalf("expected set_param_entered_value success, got %#v", payload.StructuredContent)
 	}
@@ -1035,10 +929,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected updated param value, got %#v", got)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_type_error_ignore",
 			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
 			"agenticContext":{
@@ -1046,21 +937,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_type_error_ignore tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_type_error_ignore tool call response: %v", err)
-	}
+		}`, "set_type_error_ignore")
 	if payload.IsError {
 		t.Fatalf("expected set_type_error_ignore success, got %#v", payload.StructuredContent)
 	}
@@ -1077,10 +954,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
 	}
 
-	response, err = client.Post(
-		server.URL+httpapi.RouteMCPToolCall,
-		"application/json",
-		strings.NewReader(`{
+	payload = callAppMCPToolCallRoute(t, client, server.URL, `{
 			"tool":"set_code_obj_display_name",
 			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
 			"agenticContext":{
@@ -1088,21 +962,7 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 				"chatId":"chat-1",
 				"sectionId":"chat-section"
 			}
-		}`),
-	)
-	if err != nil {
-		t.Fatalf("post set_code_obj_display_name tool call route: %v", err)
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode set_code_obj_display_name tool call response: %v", err)
-	}
+		}`, "set_code_obj_display_name")
 	if payload.IsError {
 		t.Fatalf("expected set_code_obj_display_name success, got %#v", payload.StructuredContent)
 	}
@@ -1114,6 +974,42 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
 	}
+}
+
+type appMCPToolCallRoutePayload struct {
+	StructuredContent any  `json:"structuredContent"`
+	IsError           bool `json:"isError"`
+}
+
+func callAppMCPToolCallRoute(
+	t *testing.T,
+	client *http.Client,
+	serverURL string,
+	requestBody string,
+	contextLabel string,
+) appMCPToolCallRoutePayload {
+	t.Helper()
+
+	response, err := client.Post(
+		serverURL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(requestBody),
+	)
+	if err != nil {
+		t.Fatalf("post %s tool call route: %v", contextLabel, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload appMCPToolCallRoutePayload
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode %s tool call response: %v", contextLabel, err)
+	}
+	return payload
 }
 
 func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {

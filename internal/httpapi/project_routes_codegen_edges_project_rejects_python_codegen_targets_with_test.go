@@ -535,6 +535,20 @@ func TestRegisterProjectRoutesSetSectionEdgeOutputsReappliesChangedAccessorValue
 func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
+	projectRuntime := newGraphEdgeMutationRouteRuntime(t)
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	createdEdge := assertGraphEdgeMutationCreate(t, projectRuntime, handler)
+	updatedEdge := assertGraphEdgeMutationUpdate(t, projectRuntime, handler, createdEdge)
+	reconnectedEdge := assertGraphEdgeMutationReconnect(t, projectRuntime, handler, updatedEdge)
+	assertGraphEdgeMutationSet(t, projectRuntime, handler, reconnectedEdge)
+	assertGraphEdgeMutationDelete(t, projectRuntime, handler, reconnectedEdge.ID)
+	assertGraphEdgeMutationAgenticRoutes(t, projectRuntime, handler)
+}
+
+func newGraphEdgeMutationRouteRuntime(t *testing.T) *projectstate.Runtime {
+	t.Helper()
+
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -550,22 +564,27 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
+	return projectRuntime
+}
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := func(route string, body any) *httptest.ResponseRecorder {
-		t.Helper()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+route,
-			strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
-	}
+func postGraphEdgeMutationRoute(t *testing.T, handler http.Handler, route string, body any) *httptest.ResponseRecorder {
+	t.Helper()
 
-	createResponse := post(RouteCreateEdge, map[string]any{
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+route,
+		strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func assertGraphEdgeMutationCreate(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler) projectstate.Edge {
+	t.Helper()
+
+	createResponse := postGraphEdgeMutationRoute(t, handler, RouteCreateEdge, map[string]any{
 		"projectConfigId": "project-alpha",
 		"sourceSectionId": "source-section",
 		"sourceVariantId": "source-variant",
@@ -594,11 +613,16 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 	if got := targetAPayload["value"]; got != "state.Source_Call.result" {
 		t.Fatalf("expected created edge expression state.Source_Call.result, got %#v", got)
 	}
+	return createdEdge
+}
+
+func assertGraphEdgeMutationUpdate(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler, createdEdge projectstate.Edge) projectstate.Edge {
+	t.Helper()
 
 	label := "Primary"
 	createdEdge.Label = &label
 	createdEdge.Selected = true
-	updateResponse := post(RouteUpdateEdge, UpdateEdgeRequest{
+	updateResponse := postGraphEdgeMutationRoute(t, handler, RouteUpdateEdge, UpdateEdgeRequest{
 		ProjectID: "project-alpha",
 		Edge:      createdEdge,
 	})
@@ -606,7 +630,7 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 		t.Fatalf("expected 200 update-edge response, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
 	}
 
-	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
 	if len(project.Edges) != 1 {
 		t.Fatalf("expected one updated edge, got %#v", project.Edges)
 	}
@@ -614,8 +638,13 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 	if updatedEdge.Label == nil || *updatedEdge.Label != "Primary" || !updatedEdge.Selected {
 		t.Fatalf("expected updated edge label/selection to persist, got %#v", updatedEdge)
 	}
+	return updatedEdge
+}
 
-	reconnectResponse := post(RouteReconnectEdge, ReconnectEdgeRequest{
+func assertGraphEdgeMutationReconnect(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler, updatedEdge projectstate.Edge) projectstate.Edge {
+	t.Helper()
+
+	reconnectResponse := postGraphEdgeMutationRoute(t, handler, RouteReconnectEdge, ReconnectEdgeRequest{
 		ProjectID:       "project-alpha",
 		EdgeID:          updatedEdge.ID,
 		SourceSectionID: "source-section",
@@ -629,12 +658,12 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 		t.Fatalf("expected 200 reconnect-edge response, got %d with body %q", reconnectResponse.Code, reconnectResponse.Body.String())
 	}
 
-	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
 	reconnectedEdge := project.Edges[0]
 	if reconnectedEdge.TargetSectionID != "target-b" || reconnectedEdge.TargetPortID != "input-b" || reconnectedEdge.SourcePortID != "summary" {
 		t.Fatalf("expected reconnect to update endpoints, got %#v", reconnectedEdge)
 	}
-	targetAPayload, _, _, _, err = project.ResolveSectionCodeObject("target-a", "input-a")
+	targetAPayload, _, _, _, err := project.ResolveSectionCodeObject("target-a", "input-a")
 	if err != nil {
 		t.Fatalf("ResolveSectionCodeObject target-a/input-a after reconnect: %v", err)
 	}
@@ -648,10 +677,15 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 	if got := targetBPayload["value"]; got != "state.Source_Call" {
 		t.Fatalf("expected reconnect to write state.Source_Call, got %#v", got)
 	}
+	return reconnectedEdge
+}
+
+func assertGraphEdgeMutationSet(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler, reconnectedEdge projectstate.Edge) {
+	t.Helper()
 
 	reconnectedEdge.Hidden = true
 	reconnectedEdge.Selected = false
-	setResponse := post(RouteSetEdges, SetEdgesRequest{
+	setResponse := postGraphEdgeMutationRoute(t, handler, RouteSetEdges, SetEdgesRequest{
 		ProjectID: "project-alpha",
 		Edges:     []projectstate.Edge{reconnectedEdge},
 	})
@@ -659,32 +693,40 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 		t.Fatalf("expected 200 set-edges response, got %d with body %q", setResponse.Code, setResponse.Body.String())
 	}
 
-	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
 	if len(project.Edges) != 1 || !project.Edges[0].Hidden || project.Edges[0].Selected {
 		t.Fatalf("expected setEdges to persist hidden/selected flags, got %#v", project.Edges)
 	}
+}
 
-	deleteResponse := post(RouteDeleteEdges, DeleteEdgesRequest{
+func assertGraphEdgeMutationDelete(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler, edgeID string) {
+	t.Helper()
+
+	deleteResponse := postGraphEdgeMutationRoute(t, handler, RouteDeleteEdges, DeleteEdgesRequest{
 		ProjectID: "project-alpha",
-		EdgeIDs:   []string{reconnectedEdge.ID},
+		EdgeIDs:   []string{edgeID},
 	})
 	if deleteResponse.Code != http.StatusOK {
 		t.Fatalf("expected 200 delete-edges response, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
 	}
 
-	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
 	if len(project.Edges) != 0 {
 		t.Fatalf("expected deleteEdges to remove the edge, got %#v", project.Edges)
 	}
-	targetBPayload, _, _, _, err = project.ResolveSectionCodeObject("target-b", "input-b")
+	targetBPayload, _, _, _, err := project.ResolveSectionCodeObject("target-b", "input-b")
 	if err != nil {
 		t.Fatalf("ResolveSectionCodeObject target-b/input-b after delete: %v", err)
 	}
 	if got := targetBPayload["value"]; got != "" {
 		t.Fatalf("expected deleteEdges to clear target-b value, got %#v", got)
 	}
+}
 
-	createAgenticResponse := post(RouteCreateAgenticEdge, map[string]any{
+func assertGraphEdgeMutationAgenticRoutes(t *testing.T, projectRuntime *projectstate.Runtime, handler http.Handler) {
+	t.Helper()
+
+	createAgenticResponse := postGraphEdgeMutationRoute(t, handler, RouteCreateAgenticEdge, map[string]any{
 		"projectConfigId": "project-alpha",
 		"sourceSectionId": "chat-source",
 		"targetSectionId": "chat-target",
@@ -694,7 +736,7 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 		t.Fatalf("expected 200 create-agentic-edge response, got %d with body %q", createAgenticResponse.Code, createAgenticResponse.Body.String())
 	}
 
-	project = projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
 	if len(project.AgenticEdges) != 1 {
 		t.Fatalf("expected one created agentic edge, got %#v", project.AgenticEdges)
 	}
@@ -705,7 +747,7 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 
 	createdAgenticEdge.ContextMode = "inline_text"
 	createdAgenticEdge.Selected = true
-	updateAgenticResponse := post(RouteUpdateAgenticEdge, UpdateAgenticEdgeRequest{
+	updateAgenticResponse := postGraphEdgeMutationRoute(t, handler, RouteUpdateAgenticEdge, UpdateAgenticEdgeRequest{
 		ProjectID: "project-alpha",
 		Edge:      createdAgenticEdge,
 	})
@@ -720,7 +762,7 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 	}
 
 	updatedAgenticEdge.Hidden = true
-	setAgenticResponse := post(RouteSetAgenticEdges, SetAgenticEdgesRequest{
+	setAgenticResponse := postGraphEdgeMutationRoute(t, handler, RouteSetAgenticEdges, SetAgenticEdgesRequest{
 		ProjectID: "project-alpha",
 		Edges:     []projectstate.AgenticEdge{updatedAgenticEdge},
 	})
@@ -733,7 +775,7 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 		t.Fatalf("expected setAgenticEdges to persist hidden flag, got %#v", project.AgenticEdges)
 	}
 
-	deleteAgenticResponse := post(RouteDeleteAgenticEdges, DeleteAgenticEdgesRequest{
+	deleteAgenticResponse := postGraphEdgeMutationRoute(t, handler, RouteDeleteAgenticEdges, DeleteAgenticEdgesRequest{
 		ProjectID: "project-alpha",
 		EdgeIDs:   []string{updatedAgenticEdge.ID},
 	})
