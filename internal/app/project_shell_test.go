@@ -1053,19 +1053,38 @@ func TestAppSettingsProjectLoadRoutesRehydrateFromLiveSettingsSnapshot(t *testin
 }
 
 func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewCodeObjs(t *testing.T) {
-	cfg := testConfig(t)
-	cfg.Server.Mode = config.ModeIDE
-	prepareAppCurrentSession(t, cfg)
+	cfg := newSettingsProjectTestConfig(t)
 
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	if err := app.Shutdown(context.Background()); err != nil {
-		t.Fatalf("shutdown app: %v", err)
-	}
+	app := startSettingsProjectApp(t, cfg)
+	shutdownSettingsProjectApp(t, app, "initial app")
+	seedSettingsProjectDisplayNameBackfillFixture(t, cfg)
 
-	settingsStore, err := projectstate.NewStore(filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName), projectstate.StoreOptions{})
+	restarted := startSettingsProjectAppFixture(t, cfg)
+	t.Cleanup(func() {
+		restarted.close(t, "restarted app")
+	})
+
+	expectedDisplayNames := settingsProjectDisplayNameBackfillExpectedNames()
+	loadSettingsPayload := postSettingsProjectAPI[projectview.SingleConfig](t, restarted, httpapi.RouteLoadProjectConfig, `{"projectConfigName":"settings"}`)
+	assertSettingsProjectRouteCodeObjDisplayNames(t, loadSettingsPayload, expectedDisplayNames)
+	assertSettingsProjectRouteSectionAutoHeight(t, loadSettingsPayload, "gui")
+
+	latestStatePayload := postSettingsProjectAPI[httpapi.ProjectStateSingleConfigWithCompletedOpIDs](t, restarted, httpapi.RouteGetLatestProjectState, `{"projectConfigId":"settings"}`)
+	assertSettingsProjectRouteCodeObjDisplayNames(t, latestStatePayload.ProjectState, expectedDisplayNames)
+	assertSettingsProjectRouteSectionAutoHeight(t, latestStatePayload.ProjectState, "gui")
+
+	repairedProject := loadPersistedSettingsProject(t, restarted.app)
+	assertSettingsProjectPersistedCodeObjDisplayNames(t, repairedProject, expectedDisplayNames)
+	assertSettingsProjectPersistedSectionAutoHeight(t, repairedProject, "gui")
+}
+
+func seedSettingsProjectDisplayNameBackfillFixture(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	settingsStore, err := projectstate.NewStore(
+		filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.SettingsFileName),
+		projectstate.StoreOptions{},
+	)
 	if err != nil {
 		t.Fatalf("open persisted settings project store: %v", err)
 	}
@@ -1100,108 +1119,14 @@ func TestAppSettingsProjectLoadRoutesPreserveExistingDisplayNamesAndBackfillNewC
 	if err := settingsStore.Save(context.Background(), settingsDocument); err != nil {
 		t.Fatalf("save corrupted settings project document: %v", err)
 	}
+}
 
-	restartedApp, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("restart app: %v", err)
+func settingsProjectDisplayNameBackfillExpectedNames() map[string]string {
+	return map[string]string{
+		"gui":                "Custom GUI Label",
+		"languageServer":     "",
+		"renameRefactorMode": "Rename Refactor Mode",
 	}
-	t.Cleanup(func() {
-		if err := restartedApp.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown restarted app: %v", err)
-		}
-	})
-
-	server := httptest.NewServer(restartedApp.Handler())
-	defer server.Close()
-
-	authCookie := newAppTestAuthCookie(t, restartedApp)
-
-	loadSettingsRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadProjectConfig, strings.NewReader(`{"projectConfigName":"settings"}`))
-	if err != nil {
-		t.Fatalf("new settings load request: %v", err)
-	}
-	loadSettingsRequest.Header.Set("Content-Type", "application/json")
-	loadSettingsRequest.AddCookie(authCookie)
-
-	loadSettingsResponse, err := http.DefaultClient.Do(loadSettingsRequest)
-	if err != nil {
-		t.Fatalf("load settings project config after restart: %v", err)
-	}
-	defer loadSettingsResponse.Body.Close()
-	if loadSettingsResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(loadSettingsResponse.Body)
-		t.Fatalf("expected settings project config 200, got %d with body %q", loadSettingsResponse.StatusCode, string(body))
-	}
-
-	var loadSettingsPayload projectview.SingleConfig
-	if err := json.NewDecoder(loadSettingsResponse.Body).Decode(&loadSettingsPayload); err != nil {
-		t.Fatalf("decode settings load payload: %v", err)
-	}
-	assertSettingsProjectRouteCodeObjDisplayNames(
-		t,
-		loadSettingsPayload,
-		map[string]string{
-			"gui":                "Custom GUI Label",
-			"languageServer":     "",
-			"renameRefactorMode": "Rename Refactor Mode",
-		},
-	)
-	assertSettingsProjectRouteSectionAutoHeight(t, loadSettingsPayload, "gui")
-
-	latestStateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"settings"}`))
-	if err != nil {
-		t.Fatalf("new latest-state request: %v", err)
-	}
-	latestStateRequest.Header.Set("Content-Type", "application/json")
-	latestStateRequest.AddCookie(authCookie)
-
-	latestStateResponse, err := http.DefaultClient.Do(latestStateRequest)
-	if err != nil {
-		t.Fatalf("get latest project state after restart: %v", err)
-	}
-	defer latestStateResponse.Body.Close()
-	if latestStateResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(latestStateResponse.Body)
-		t.Fatalf("expected latest project state 200, got %d with body %q", latestStateResponse.StatusCode, string(body))
-	}
-
-	var latestStatePayload httpapi.ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.NewDecoder(latestStateResponse.Body).Decode(&latestStatePayload); err != nil {
-		t.Fatalf("decode latest-state payload: %v", err)
-	}
-	assertSettingsProjectRouteCodeObjDisplayNames(
-		t,
-		latestStatePayload.ProjectState,
-		map[string]string{
-			"gui":                "Custom GUI Label",
-			"languageServer":     "",
-			"renameRefactorMode": "Rename Refactor Mode",
-		},
-	)
-	assertSettingsProjectRouteSectionAutoHeight(t, latestStatePayload.ProjectState, "gui")
-
-	repairedStore, err := projectstate.NewStore(restartedApp.ProjectStates().Paths().Settings, projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("open repaired settings project store: %v", err)
-	}
-	repairedDocument, err := repairedStore.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load repaired settings project document: %v", err)
-	}
-	repairedProject, err := repairedDocument.ProjectByID(settingsstate.SettingsProjectID)
-	if err != nil {
-		t.Fatalf("repaired settings project by id: %v", err)
-	}
-	assertSettingsProjectPersistedCodeObjDisplayNames(
-		t,
-		repairedProject,
-		map[string]string{
-			"gui":                "Custom GUI Label",
-			"languageServer":     "",
-			"renameRefactorMode": "Rename Refactor Mode",
-		},
-	)
-	assertSettingsProjectPersistedSectionAutoHeight(t, repairedProject, "gui")
 }
 
 func TestAppSettingsProjectStartupRejectsMissingVisibleSectionLayoutInPersistedDocument(
