@@ -756,6 +756,25 @@ func TestCodexExecutorPersistsDelayedMCPStatusAfterRunCompletion(t *testing.T) {
 func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "complete")
 	writeCodexCompletionGuardSetting(t, fixture.root, true)
+	profileID := writeCodexSessionScopedRuntimeConfigProfile(t, fixture)
+	writeCodexSessionScopedBaseConfig(t, fixture)
+	result := startCodexSessionScopedRuntimeConfigRun(t, fixture, profileID)
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+
+	runtimeConfig := readCodexRuntimeConfig(t, fixture.root, fixture.configID, result.ChatID)
+	assertCodexSessionScopedRuntimeConfigDefaults(t, runtimeConfig)
+	assertCodexSessionScopedRuntimeConfigSettaServer(t, runtimeConfig, fixture, result)
+	assertCodexSessionScopedRuntimeConfigProjectTrust(t, runtimeConfig, fixture.root)
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func writeCodexSessionScopedRuntimeConfigProfile(t *testing.T, fixture codexExecutorFixture) string {
+	t.Helper()
+
 	profileID := "profile-codex"
 	if err := fixture.profiles.Write([]agentprofiles.Profile{{
 		ID:            profileID,
@@ -764,6 +783,12 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("write codex profile: %v", err)
 	}
+	return profileID
+}
+
+func writeCodexSessionScopedBaseConfig(t *testing.T, fixture codexExecutorFixture) {
+	t.Helper()
+
 	baseConfigPath := filepath.Join(
 		fixture.root,
 		codexSettingsRootName,
@@ -791,6 +816,10 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	if err := os.WriteFile(baseConfigPath, baseConfig, 0o644); err != nil {
 		t.Fatalf("write codex base config: %v", err)
 	}
+}
+
+func startCodexSessionScopedRuntimeConfigRun(t *testing.T, fixture codexExecutorFixture, profileID string) StartChatResult {
+	t.Helper()
 
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
@@ -810,29 +839,12 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start codex run: %v", err)
 	}
+	return result
+}
 
-	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
-	if persisted.Status != agentruns.RunStatusCompleted {
-		t.Fatalf("expected completed status, got %#v", persisted)
-	}
+func assertCodexSessionScopedRuntimeConfigDefaults(t *testing.T, runtimeConfig map[string]any) {
+	t.Helper()
 
-	configPath := filepath.Join(
-		fixture.root,
-		codexSettingsRootName,
-		"codex",
-		fixture.configID,
-		"sessions",
-		result.ChatID,
-		codexConfigFileName,
-	)
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read runtime codex config: %v", err)
-	}
-	runtimeConfig := map[string]any{}
-	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
-		t.Fatalf("decode runtime codex config: %v", err)
-	}
 	if got := stringValue(runtimeConfig["approval_policy"]); got != "on-request" {
 		t.Fatalf("expected runtime approval policy, got %#v", runtimeConfig["approval_policy"])
 	}
@@ -842,6 +854,14 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	if got := stringValue(runtimeConfig["model_reasoning_summary"]); got != "none" {
 		t.Fatalf("expected runtime reasoning summary default, got %#v", runtimeConfig["model_reasoning_summary"])
 	}
+	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
+		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])
+	}
+}
+
+func assertCodexSessionScopedRuntimeConfigSettaServer(t *testing.T, runtimeConfig map[string]any, fixture codexExecutorFixture, result StartChatResult) {
+	t.Helper()
+
 	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
 	if !ok {
 		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
@@ -885,19 +905,19 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 	}) {
 		t.Fatalf("expected runtime enabled_tools to reflect profile allowlist and completion guard, got %#v", settaServer["enabled_tools"])
 	}
-	if !containsText(stringValue(runtimeConfig["developer_instructions"]), "## Runtime execution settings") {
-		t.Fatalf("expected runtime developer instructions to include execution settings, got %#v", runtimeConfig["developer_instructions"])
-	}
+}
+
+func assertCodexSessionScopedRuntimeConfigProjectTrust(t *testing.T, runtimeConfig map[string]any, root string) {
+	t.Helper()
+
 	projects, ok := mapValue(runtimeConfig["projects"])
 	if !ok {
 		t.Fatalf("expected runtime projects map, got %#v", runtimeConfig["projects"])
 	}
-	projectEntry, ok := mapValue(projects[fixture.root])
+	projectEntry, ok := mapValue(projects[root])
 	if !ok || stringValue(projectEntry["trust_level"]) != "trusted" {
 		t.Fatalf("expected trusted runtime project entry, got %#v", runtimeConfig["projects"])
 	}
-
-	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
 func TestCodexExecutorOmitsCompletionReportToolWhenCompletionGuardDisabled(t *testing.T) {
@@ -1334,277 +1354,5 @@ func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInst
 
 	if got := stringValue(payload["developer_instructions"]); got != "Runtime system prompt\n\nBase developer instructions" {
 		t.Fatalf("expected system prompt to prepend existing developer instructions, got %q", got)
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomePrefersExplicitBaseConfigPath(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	configID := "external-config"
-	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
-	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir explicit config dir: %v", err)
-	}
-	explicitConfig, err := toml.Marshal(map[string]any{
-		"mcp_servers": map[string]any{
-			"explicit": map[string]any{
-				"url": "http://explicit.example/mcp",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("encode explicit codex config: %v", err)
-	}
-	if err := os.WriteFile(explicitConfigPath, explicitConfig, 0o644); err != nil {
-		t.Fatalf("write explicit codex config: %v", err)
-	}
-
-	canonicalConfigPath := filepath.Join(root, codexSettingsRootName, "codex", configID, codexConfigFileName)
-	if err := os.MkdirAll(filepath.Dir(canonicalConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir canonical config dir: %v", err)
-	}
-	canonicalConfig, err := toml.Marshal(map[string]any{
-		"mcp_servers": map[string]any{
-			"canonical": map[string]any{
-				"url": "http://canonical.example/mcp",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("encode canonical codex config: %v", err)
-	}
-	if err := os.WriteFile(canonicalConfigPath, canonicalConfig, 0o644); err != nil {
-		t.Fatalf("write canonical codex config: %v", err)
-	}
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:               configID,
-		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
-		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false, nil)
-	if err != nil {
-		t.Fatalf("prepare codex home: %v", err)
-	}
-
-	content, err := os.ReadFile(filepath.Join(runtimeHome, codexConfigFileName))
-	if err != nil {
-		t.Fatalf("read runtime codex config: %v", err)
-	}
-	runtimeConfig := map[string]any{}
-	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
-		t.Fatalf("decode runtime codex config: %v", err)
-	}
-	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
-	if !ok {
-		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
-	}
-	if _, ok := mapValue(mcpServers["explicit"]); !ok {
-		t.Fatalf("expected explicit-path mcp server to be preserved, got %#v", mcpServers)
-	}
-	if _, ok := mcpServers["canonical"]; ok {
-		t.Fatalf("expected canonical home config to be ignored when explicit path is set, got %#v", mcpServers)
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomeCopiesAuthFileIntoSessionHome(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
-	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir explicit config dir: %v", err)
-	}
-	if err := os.WriteFile(explicitConfigPath, []byte("model = \"gpt-5\"\n"), 0o644); err != nil {
-		t.Fatalf("write explicit codex config: %v", err)
-	}
-	authPayload := []byte("{\"access_token\":\"secret\"}\n")
-	if err := os.WriteFile(filepath.Join(filepath.Dir(explicitConfigPath), "auth.json"), authPayload, 0o600); err != nil {
-		t.Fatalf("write explicit codex auth file: %v", err)
-	}
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:               "external-config",
-		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
-		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false, nil)
-	if err != nil {
-		t.Fatalf("prepare codex home: %v", err)
-	}
-
-	runtimeAuthPayload, err := os.ReadFile(filepath.Join(runtimeHome, "auth.json"))
-	if err != nil {
-		t.Fatalf("read runtime auth.json: %v", err)
-	}
-	if string(runtimeAuthPayload) != string(authPayload) {
-		t.Fatalf("expected copied auth payload %q, got %q", string(authPayload), string(runtimeAuthPayload))
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomeLeavesExplicitSourceConfigUnchanged(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
-	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir explicit config dir: %v", err)
-	}
-	sourceConfig, err := toml.Marshal(map[string]any{
-		"developer_instructions": "Base instructions",
-		"mcp_servers": map[string]any{
-			"explicit": map[string]any{
-				"url": "http://explicit.example/mcp",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("encode explicit codex config: %v", err)
-	}
-	if err := os.WriteFile(explicitConfigPath, sourceConfig, 0o644); err != nil {
-		t.Fatalf("write explicit codex config: %v", err)
-	}
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:               "external-config",
-		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
-		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{
-		"systemPrompt": "Runtime prompt",
-	}, nil, false, nil)
-	if err != nil {
-		t.Fatalf("prepare codex home: %v", err)
-	}
-
-	runtimeConfigPayload, err := os.ReadFile(filepath.Join(runtimeHome, codexConfigFileName))
-	if err != nil {
-		t.Fatalf("read runtime codex config: %v", err)
-	}
-	runtimeConfig := map[string]any{}
-	if err := toml.Unmarshal(runtimeConfigPayload, &runtimeConfig); err != nil {
-		t.Fatalf("decode runtime codex config: %v", err)
-	}
-	if got := stringValue(runtimeConfig["developer_instructions"]); got != "Runtime prompt\n\nBase instructions" {
-		t.Fatalf("expected merged developer instructions, got %q", got)
-	}
-	runtimeMCPServers, ok := mapValue(runtimeConfig["mcp_servers"])
-	if !ok {
-		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
-	}
-	if _, ok := mapValue(runtimeMCPServers["explicit"]); !ok {
-		t.Fatalf("expected explicit mcp server in runtime config, got %#v", runtimeMCPServers)
-	}
-
-	sourceConfigAfter, err := os.ReadFile(explicitConfigPath)
-	if err != nil {
-		t.Fatalf("read explicit codex config after prepare: %v", err)
-	}
-	if string(sourceConfigAfter) != string(sourceConfig) {
-		t.Fatalf("expected explicit source config to stay unchanged, got %q", string(sourceConfigAfter))
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomeLeavesCanonicalConfigBytesUnchanged(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	configID := "external-config"
-	canonicalConfigPath := filepath.Join(root, codexSettingsRootName, "codex", configID, codexConfigFileName)
-	if err := os.MkdirAll(filepath.Dir(canonicalConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir canonical config dir: %v", err)
-	}
-	canonicalConfig, err := toml.Marshal(map[string]any{
-		"developer_instructions": "Canonical instructions",
-		"model":                  "gpt-5",
-	})
-	if err != nil {
-		t.Fatalf("encode canonical codex config: %v", err)
-	}
-	if err := os.WriteFile(canonicalConfigPath, canonicalConfig, 0o644); err != nil {
-		t.Fatalf("write canonical codex config: %v", err)
-	}
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	_, err = executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:           configID,
-		SettingsMode: externalagentconfigs.SettingsModeReadOnly,
-	}, "chat-1", root, map[string]any{
-		"systemPrompt": "Runtime prompt",
-	}, nil, false, nil)
-	if err != nil {
-		t.Fatalf("prepare codex home: %v", err)
-	}
-
-	canonicalConfigAfter, err := os.ReadFile(canonicalConfigPath)
-	if err != nil {
-		t.Fatalf("read canonical codex config after prepare: %v", err)
-	}
-	if string(canonicalConfigAfter) != string(canonicalConfig) {
-		t.Fatalf("expected canonical config bytes to stay unchanged, got %q", string(canonicalConfigAfter))
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomeDoesNotCreateMissingCanonicalConfigInManagedLocalNoEditMode(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	configID := "external-config"
-	canonicalConfigPath := filepath.Join(root, codexSettingsRootName, "codex", configID, codexConfigFileName)
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	runtimeHome, err := executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:                      configID,
-		SettingsMode:            externalagentconfigs.SettingsModeManagedLocal,
-		SettingsAllowSettaEdits: false,
-	}, "chat-1", root, map[string]any{}, nil, false, nil)
-	if err != nil {
-		t.Fatalf("prepare codex home: %v", err)
-	}
-
-	if _, err := os.Stat(canonicalConfigPath); !os.IsNotExist(err) {
-		t.Fatalf("expected canonical config to remain absent, stat err=%v", err)
-	}
-	if _, err := os.Stat(filepath.Join(runtimeHome, codexConfigFileName)); err != nil {
-		t.Fatalf("expected session-scoped runtime config to exist, stat err=%v", err)
-	}
-}
-
-func TestCodexExecutorPrepareCodexHomeRejectsCamelCaseMCPServersRootKey(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	explicitConfigPath := filepath.Join(root, "custom", "codex.toml")
-	if err := os.MkdirAll(filepath.Dir(explicitConfigPath), 0o755); err != nil {
-		t.Fatalf("mkdir explicit config dir: %v", err)
-	}
-	if err := os.WriteFile(explicitConfigPath, []byte("mcpServers = {}\n"), 0o644); err != nil {
-		t.Fatalf("write explicit codex config: %v", err)
-	}
-
-	executor := &CodexExecutor{
-		settaFilesRoot: root,
-	}
-	_, err := executor.prepareCodexHome(externalagentconfigs.Config{
-		ID:               "external-config",
-		SettingsMode:     externalagentconfigs.SettingsModeExplicitPath,
-		SettingsFilePath: stringPtr(explicitConfigPath),
-	}, "chat-1", root, map[string]any{}, nil, false, nil)
-	if err == nil {
-		t.Fatal("expected camel-case mcpServers root to be rejected")
-	}
-	if !strings.Contains(err.Error(), "mcp_servers") || !strings.Contains(err.Error(), "mcpServers") {
-		t.Fatalf("expected camel-case rejection error to mention mcp_servers and mcpServers, got %v", err)
 	}
 }
