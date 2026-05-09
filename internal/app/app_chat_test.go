@@ -19,6 +19,25 @@ import (
 )
 
 func TestAppServesChatSectionMutationRoutes(t *testing.T) {
+	harness := newAppChatRouteHarness(t)
+
+	postAppChatMutationRoutes(t, harness)
+	assertAppChatMutationPayload(t, harness.app)
+	latestPayload := fetchAppChatLatestProjectState(t, harness)
+	if len(latestPayload.CompletedOpIDs) != 1 || latestPayload.CompletedOpIDs[0] != "app-chat-op-1" {
+		t.Fatalf("expected completed op ids [app-chat-op-1], got %#v", latestPayload.CompletedOpIDs)
+	}
+}
+
+type appChatRouteHarness struct {
+	app        *App
+	serverURL  string
+	authCookie *http.Cookie
+}
+
+func newAppChatRouteHarness(t *testing.T) appChatRouteHarness {
+	t.Helper()
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -42,9 +61,17 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 	}
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	authCookie := newAppTestAuthCookie(t, app)
+	return appChatRouteHarness{
+		app:        app,
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
+	}
+}
+
+func postAppChatMutationRoutes(t *testing.T, harness appChatRouteHarness) {
+	t.Helper()
 
 	for _, requestSpec := range []struct {
 		route string
@@ -63,12 +90,12 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 			body:  `{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`,
 		},
 	} {
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request, err := http.NewRequest(http.MethodPost, harness.serverURL+"/api"+requestSpec.route, strings.NewReader(requestSpec.body))
 		if err != nil {
 			t.Fatalf("new request for %s: %v", requestSpec.route, err)
 		}
 		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
+		request.AddCookie(harness.authCookie)
 
 		response, err := http.DefaultClient.Do(request)
 		if err != nil {
@@ -79,6 +106,10 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 			t.Fatalf("expected 200 for %s, got %d", requestSpec.route, response.StatusCode)
 		}
 	}
+}
+
+func assertAppChatMutationPayload(t *testing.T, app *App) {
+	t.Helper()
 
 	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
 	payload, err := project.EffectiveSectionPayload("chat-section", "chat-variant")
@@ -100,13 +131,17 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 	if got := payload["waitingForResponse"]; got != true {
 		t.Fatalf("expected waitingForResponse=true, got %#v", got)
 	}
+}
 
-	latestRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+func fetchAppChatLatestProjectState(t *testing.T, harness appChatRouteHarness) httpapi.ProjectStateSingleConfigWithCompletedOpIDs {
+	t.Helper()
+
+	latestRequest, err := http.NewRequest(http.MethodPost, harness.serverURL+"/api"+httpapi.RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
 	if err != nil {
 		t.Fatalf("new latest state request: %v", err)
 	}
 	latestRequest.Header.Set("Content-Type", "application/json")
-	latestRequest.AddCookie(authCookie)
+	latestRequest.AddCookie(harness.authCookie)
 
 	latestResponse, err := http.DefaultClient.Do(latestRequest)
 	if err != nil {
@@ -122,9 +157,7 @@ func TestAppServesChatSectionMutationRoutes(t *testing.T) {
 	if err := json.NewDecoder(latestResponse.Body).Decode(&latestPayload); err != nil {
 		t.Fatalf("decode latest state payload: %v", err)
 	}
-	if len(latestPayload.CompletedOpIDs) != 1 || latestPayload.CompletedOpIDs[0] != "app-chat-op-1" {
-		t.Fatalf("expected completed op ids [app-chat-op-1], got %#v", latestPayload.CompletedOpIDs)
-	}
+	return latestPayload
 }
 
 func TestAppServesGetChatSectionChatIDRoute(t *testing.T) {
