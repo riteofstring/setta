@@ -263,7 +263,7 @@ packages:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, format: str, *args: object) -> None:
+        def log_message(self, _format: str, *_args: object) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), RegistryHandler)
@@ -474,7 +474,7 @@ echo "go $*" >> "{command_log}"
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 9 --lockfile ./uv.lock",
         "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
-        f"go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
+        "go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
         f"uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_go_module_release_age.py --days 9 --repo-root {sandbox_root}",
         "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
         "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",

@@ -1,16 +1,20 @@
 schema_version: 1
 
+# Generated-file exclusions are shared from quality.paths.yaml. Use per-language
+# generated_globs here only for deadcode-specific extras.
+
 go:
   deadcode_version: v0.44.0
   staticcheck_version: 2025.1.1
+  production_mains:
+    - ./cmd/setta
+    - ./cmd/setta-server
   staticcheck_packages:
     - ./...
   build_matrix:
     - goos: env
       goarch: env
       tags: []
-  generated_globs:
-    - "**/*_gen.go"
 
 python:
   lint_roots:
@@ -18,16 +22,19 @@ python:
     - backend/scripts
     - scripts
     - plugins
+  reachability_roots:
+    - backend/setta
+    - scripts
+  entrypoint_commands:
+    - ["-m", "setta", "--help"]
+    - ["-m", "setta", "version"]
   public_modules:
     - backend/setta/api/__init__.py
     - backend/setta/llm/chat_toolkit/__init__.py
-  generated_globs:
-    - backend/setta/types/generated/**
-    - backend/setta/sdk_contracts/generated.py
-    - backend/setta/api/listener_endpoint_client.py
-  vulture_min_confidence: 80
+  vulture_min_confidence: 60
 
 frontend:
+  # TypeScript/React app entrypoints for the Knip production graph.
   app_roots:
     - frontend/src/index.tsx
   lint_roots:
@@ -37,10 +44,3 @@ frontend:
     - frontend/plugin-sdk/app-subsystem
     - plugins/setta-json-render-app-gen/frontend
     - plugins/setta-watch-code/frontend
-  generated_globs:
-    - frontend/src/openapi/**/generated/**
-    - frontend/src/utils/generatedTypes.ts
-    - frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts
-    - frontend/plugin-sdk/app-subsystem/src/generated/**
-    - frontend/plugin-sdk/app-subsystem/src/openapi/**/generated/**
-    - plugins/*/frontend/src/generated/**

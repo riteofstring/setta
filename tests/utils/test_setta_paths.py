@@ -969,8 +969,8 @@ def test_resolve_go_paths_payload_rejects_non_object_json(
     monkeypatch.setattr(
         paths_module.subprocess,
         "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args=args[0],
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=_args[0],
             returncode=0,
             stdout="[]",
             stderr="",
@@ -1002,7 +1002,9 @@ def test_resolve_go_paths_payload_wraps_subprocess_oserror(
     )
     monkeypatch.setattr(paths_module, "resolve_go_cli_env", lambda _cwd: {})
 
-    def _raise_oserror(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def _raise_oserror(
+        *_args: object, **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         raise OSError("boom")
 
     monkeypatch.setattr(paths_module.subprocess, "run", _raise_oserror)

@@ -62,6 +62,78 @@ def _append_messages(chat: Chat, messages: list[object]) -> Chat:
     return chat.model_copy(update={"messages": [*chat.messages, *new_messages]})
 
 
+class _ChatHistoryRouter:
+    def __init__(self, llm_config: LLMConfig) -> None:
+        self.llm_config = llm_config
+        self.section_chat_ids: dict[ID, ID] = {}
+        self.chats: dict[ID, Chat] = {}
+
+    async def __call__(self, endpoint_name: str, payload: object) -> object:
+        if not isinstance(payload, dict):
+            raise TypeError("payload must be a dict")
+        handlers = {
+            ROUTER_ENDPOINT_GET_CHAT_SECTION_CHAT_ID: self._get_section_chat_id,
+            ROUTER_ENDPOINT_SET_CHAT_SECTION_CHAT_ID: self._set_section_chat_id,
+            ROUTER_ENDPOINT_CREATE_CHAT: self._create_chat,
+            ROUTER_ENDPOINT_GET_CHAT: self._get_chat,
+            ROUTER_ENDPOINT_APPEND_CHAT_MESSAGES: self._append_chat_messages,
+            ROUTER_ENDPOINT_SET_CHAT_SYSTEM_PROMPT: self._set_system_prompt,
+            ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA: self._get_all_metadata,
+            ROUTER_ENDPOINT_DELETE_CHAT: self._delete_chat,
+        }
+        handler = handlers.get(endpoint_name)
+        if handler is None:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+        return handler(payload)
+
+    def _get_section_chat_id(self, payload: dict[str, object]) -> str | None:
+        chat_id = self.section_chat_ids.get(payload["sectionId"])
+        return str(chat_id) if chat_id else None
+
+    def _set_section_chat_id(self, payload: dict[str, object]) -> None:
+        self.section_chat_ids[payload["sectionId"]] = payload["chatId"]
+
+    def _create_chat(self, payload: dict[str, object]) -> dict[str, object]:
+        chat_id = ID(f"chat-{len(self.chats) + 1}")
+        chat = _build_chat(
+            chat_id=chat_id,
+            llm_config=self.llm_config,
+            first_message=payload["firstMessage"],
+        )
+        self.chats[chat.id] = chat
+        return chat.model_dump(mode="json")
+
+    def _get_chat(self, payload: dict[str, object]) -> dict[str, object]:
+        return self.chats[payload["chatId"]].model_dump(mode="json")
+
+    def _append_chat_messages(self, payload: dict[str, object]) -> dict[str, object]:
+        chat = _append_messages(self.chats[payload["chatId"]], payload["messages"])
+        self.chats[chat.id] = chat
+        return chat.model_dump(mode="json")
+
+    def _set_system_prompt(self, payload: dict[str, object]) -> dict[str, object]:
+        chat = self.chats[payload["chatId"]].model_copy(
+            update={"systemPrompt": payload["systemPrompt"]}
+        )
+        self.chats[chat.id] = chat
+        return chat.model_dump(mode="json")
+
+    def _get_all_metadata(self, _payload: dict[str, object]) -> list[dict[str, object]]:
+        return [
+            ChatMetadata(
+                id=chat.id,
+                name=chat.name,
+                lastUpdated=chat.lastUpdated,
+                llmConfig=chat.llmConfig,
+                projectConfigId=chat.projectConfigId,
+            ).model_dump(mode="json")
+            for chat in self.chats.values()
+        ]
+
+    def _delete_chat(self, payload: dict[str, object]) -> None:
+        del self.chats[payload["chatId"]]
+
+
 class TestChatToolkitListenerClient:
     pytestmark = pytest.mark.asyncio
 
@@ -92,12 +164,17 @@ class TestChatToolkitListenerClient:
         )
 
         async def router_caller(endpoint_name: str, payload: object) -> object:
-            if endpoint_name == ROUTER_ENDPOINT_CREATE_CHAT:
-                return chat.model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA:
-                return [metadata.model_dump(mode="json")]
-            if endpoint_name == ROUTER_ENDPOINT_RUN_MCP_TOOLS:
-                return [tool_message.model_dump(mode="json")]
+            responses = {
+                ROUTER_ENDPOINT_CREATE_CHAT: chat.model_dump(mode="json"),
+                ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA: [
+                    metadata.model_dump(mode="json")
+                ],
+                ROUTER_ENDPOINT_RUN_MCP_TOOLS: [
+                    tool_message.model_dump(mode="json")
+                ],
+            }
+            if endpoint_name in responses:
+                return responses[endpoint_name]
             raise KeyError(f"Unknown endpoint {endpoint_name} payload={payload!r}")
 
         api = RouterEndpointAPI(router_caller)
@@ -125,57 +202,7 @@ class TestChatToolkitListenerClient:
         llm_config = _build_llm_config()
         engine_config_id = None
         section_id = ID("section-1")
-        section_chat_ids: dict[ID, ID] = {}
-        chats: dict[ID, Chat] = {}
-
-        async def router_caller(endpoint_name: str, payload: object) -> object:
-            if not isinstance(payload, dict):
-                raise TypeError("payload must be a dict")
-            if endpoint_name == ROUTER_ENDPOINT_GET_CHAT_SECTION_CHAT_ID:
-                chat_id = section_chat_ids.get(payload["sectionId"])
-                return str(chat_id) if chat_id else None
-            if endpoint_name == ROUTER_ENDPOINT_SET_CHAT_SECTION_CHAT_ID:
-                section_chat_ids[payload["sectionId"]] = payload["chatId"]
-                return None
-            if endpoint_name == ROUTER_ENDPOINT_CREATE_CHAT:
-                chat_id = ID(f"chat-{len(chats) + 1}")
-                chat = _build_chat(
-                    chat_id=chat_id,
-                    llm_config=llm_config,
-                    first_message=payload["firstMessage"],
-                )
-                chats[chat.id] = chat
-                return chat.model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_GET_CHAT:
-                return chats[payload["chatId"]].model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_APPEND_CHAT_MESSAGES:
-                chat = _append_messages(chats[payload["chatId"]], payload["messages"])
-                chats[chat.id] = chat
-                return chat.model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_SET_CHAT_SYSTEM_PROMPT:
-                chat = chats[payload["chatId"]].model_copy(
-                    update={"systemPrompt": payload["systemPrompt"]}
-                )
-                chats[chat.id] = chat
-                return chat.model_dump(mode="json")
-            if endpoint_name == ROUTER_ENDPOINT_GET_ALL_CHAT_METADATA:
-                metadata = [
-                    ChatMetadata(
-                        id=chat.id,
-                        name=chat.name,
-                        lastUpdated=chat.lastUpdated,
-                        llmConfig=chat.llmConfig,
-                        projectConfigId=chat.projectConfigId,
-                    ).model_dump(mode="json")
-                    for chat in chats.values()
-                ]
-                return metadata
-            if endpoint_name == "route_delete_chat":
-                del chats[payload["chatId"]]
-                return None
-            raise KeyError(f"Unknown endpoint {endpoint_name}")
-
-        api = RouterEndpointAPI(router_caller)
+        api = RouterEndpointAPI(_ChatHistoryRouter(llm_config))
         client = ChatHistoryClient(api)
 
         chat_id, created = await client.ensure_section_chat_id(
