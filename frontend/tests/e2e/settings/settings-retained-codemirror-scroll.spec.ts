@@ -226,6 +226,53 @@ test("retained passive text editor preview ink moves with its retained row durin
   expect(failures, failureDetails).toHaveLength(0);
 });
 
+test("retained active text editor wheel input scrolls the owning retained section at editor boundary", async ({
+  page,
+}) => {
+  await openSettings(page);
+  await resetGuiContentScrollToTop(page);
+  const row = await resolveVisibleGuiRow(page, SCROLL_TEXT_PREVIEW_LABEL);
+  if (!row.controlClientPoint || !row.controlClientRect) {
+    throw new Error(
+      `Missing ${SCROLL_TEXT_PREVIEW_LABEL} control geometry for active wheel test.`,
+    );
+  }
+
+  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await expect
+    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
+    .toContain(row.rowId);
+  const beforeY = await readRetainedRowClientY(page, SCROLL_TEXT_PREVIEW_LABEL);
+
+  await page.mouse.move(row.controlClientPoint.x, row.controlClientPoint.y);
+  for (let index = 0; index < 5; index += 1) {
+    await page.mouse.wheel(0, 48);
+    await waitForAnimationFrame(page);
+  }
+
+  const afterY = await readRetainedRowClientY(page, SCROLL_TEXT_PREVIEW_LABEL);
+  const editorState = await readActiveCodeMirrorWheelState(page);
+  const failureDetails = JSON.stringify(
+    {
+      afterY,
+      beforeY,
+      editorState,
+      row: {
+        controlClientPoint: row.controlClientPoint,
+        controlClientRect: row.controlClientRect,
+        rowId: row.rowId,
+        rowLabel: row.rowLabel,
+      },
+    },
+    null,
+    2,
+  );
+
+  expect(editorState.activeEditorId, failureDetails).toContain(row.rowId);
+  expect(editorState.verticalScrollRoom, failureDetails).toBeLessThanOrEqual(1);
+  expect(afterY, failureDetails).toBeLessThan(beforeY - 12);
+});
+
 test("retained rows move monotonically during one-direction section wheel input", async ({
   page,
 }, testInfo) => {
@@ -505,6 +552,68 @@ async function readViewportZoom(page: Page): Promise<number> {
     }
     return transform.zoom;
   });
+}
+
+async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
+  return await page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof Element)) {
+      return null;
+    }
+    return (
+      activeElement
+        .closest("[data-gpu-flow-control]")
+        ?.getAttribute("data-gpu-flow-control") ?? null
+    );
+  });
+}
+
+async function readActiveCodeMirrorWheelState(page: Page): Promise<{
+  readonly activeEditorId: string | null;
+  readonly verticalScrollRoom: number;
+}> {
+  return await page.evaluate(() => {
+    const activeElement = document.activeElement;
+    const activeEditorId =
+      activeElement instanceof Element
+        ? activeElement
+            .closest("[data-gpu-flow-control]")
+            ?.getAttribute("data-gpu-flow-control") ?? null
+        : null;
+    const scroller =
+      activeElement instanceof Element
+        ? activeElement.closest(".cm-editor")?.querySelector(".cm-scroller")
+        : null;
+    const verticalScrollRoom =
+      scroller instanceof HTMLElement
+        ? Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+        : 0;
+    return {
+      activeEditorId,
+      verticalScrollRoom,
+    };
+  });
+}
+
+async function readRetainedRowClientY(
+  page: Page,
+  label: string,
+): Promise<number> {
+  return await page.evaluate(
+    ({ label, surfaceId }) => {
+      const row = (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+      ).find(
+        (candidate): candidate is RetainedRowDebugEntry =>
+          candidate.surfaceId === surfaceId && candidate.rowLabel === label,
+      );
+      if (!row) {
+        throw new Error(`Missing retained row ${label}.`);
+      }
+      return row.clientRect.y;
+    },
+    { label, surfaceId: GUI_CONTENT_SURFACE_ID },
+  );
 }
 
 async function captureTextPreviewScrollFrame({

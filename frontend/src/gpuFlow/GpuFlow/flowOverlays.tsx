@@ -16,9 +16,9 @@ import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
 import { useGpuFlowNodeResizeOverlaySources } from "./nodeResizeOverlay";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
 import {
-  useGpuFlowRetainedTextLikePreviewSources,
-  type GpuRetainedTextLikePreviewRenderer,
-} from "./retainedTextLikePreviewSources";
+  useGpuFlowRetainedTextLikeRowSnapshotSources,
+  type GpuRetainedTextLikeRowSnapshotRenderer,
+} from "./retainedTextLikeRowSnapshotSources";
 import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 export type GpuFlowOverlaySources = {
@@ -27,19 +27,19 @@ export type GpuFlowOverlaySources = {
   readonly htmlSurfaceOverlays: readonly GpuHtmlSurfaceOverlayLayout[];
   readonly nodeDragPreviewSourceElement: ReactNode;
   readonly nodeResizeOverlaySourceElement: ReactNode;
-  readonly retainedTextLikePreviewSourceElement: ReactNode;
+  readonly retainedTextLikeRowSnapshotSourceElement: ReactNode;
   readonly selectionOverlaySourceElement: ReactNode;
 };
 
 export function useGpuFlowOverlaySources({
   edgeScene,
   layoutStore,
-  retainedTextLikePreviewElementByIdRef,
+  retainedTextLikeRowSnapshotElementByIdRef,
   nodeDomTransformSyncCacheRef,
   nodeElementByIdRef,
   nodes,
   primaryNodeId,
-  renderRetainedTextLikePreview,
+  renderRetainedTextLikeRowSnapshot,
   scene,
   surfaceRef,
   textureManagerRef,
@@ -48,15 +48,15 @@ export function useGpuFlowOverlaySources({
 }: {
   readonly edgeScene: GpuEdgeScene | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi | undefined;
-  readonly retainedTextLikePreviewElementByIdRef: MutableRefObject<
+  readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodes: readonly GpuFlowLayoutNode[] | undefined;
   readonly primaryNodeId: string | null;
-  readonly renderRetainedTextLikePreview:
-    | GpuRetainedTextLikePreviewRenderer
+  readonly renderRetainedTextLikeRowSnapshot:
+    | GpuRetainedTextLikeRowSnapshotRenderer
     | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -76,10 +76,10 @@ export function useGpuFlowOverlaySources({
   const { retainedContentNativeVisuals } = useGpuFlowRetainedContentSources({
     scene,
   });
-  const { retainedTextLikePreviewSourceElement } =
-    useGpuFlowRetainedTextLikePreviewSources({
-      elementBySourceIdRef: retainedTextLikePreviewElementByIdRef,
-      renderPreview: renderRetainedTextLikePreview,
+  const { retainedTextLikeRowSnapshotSourceElement } =
+    useGpuFlowRetainedTextLikeRowSnapshotSources({
+      elementBySourceIdRef: retainedTextLikeRowSnapshotElementByIdRef,
+      renderSnapshot: renderRetainedTextLikeRowSnapshot,
       scene,
       surfaceRef,
     });
@@ -134,7 +134,7 @@ export function useGpuFlowOverlaySources({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
-    retainedTextLikePreviewSourceElement,
+    retainedTextLikeRowSnapshotSourceElement,
     selectionOverlaySourceElement,
   };
 }

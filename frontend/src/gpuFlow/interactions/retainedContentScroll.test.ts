@@ -395,6 +395,96 @@ describe("GPU retained content scroll controller", () => {
     },
   );
 
+  it("hands off CodeMirror native wheel events to retained scrolling when the editor cannot scroll", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    const root = document.createElement("div");
+    root.setAttribute("data-gpu-flow-retained-content-native", "true");
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    const scroller = document.createElement("div");
+    scroller.className = "cm-scroller";
+    const content = document.createElement("div");
+    content.className = "cm-content";
+    scroller.append(content);
+    editor.append(scroller);
+    root.append(editor);
+    element.append(root);
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    content.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+
+    cleanup();
+  });
+
+  it("preserves CodeMirror native wheel events while the editor can scroll", () => {
+    const element = document.createElement("div");
+    const root = document.createElement("div");
+    root.setAttribute("data-gpu-flow-retained-content-native", "true");
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    const scroller = document.createElement("div");
+    scroller.className = "cm-scroller";
+    Object.defineProperties(scroller, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 300 },
+      scrollTop: { configurable: true, value: 40 },
+    });
+    const content = document.createElement("div");
+    content.className = "cm-content";
+    scroller.append(content);
+    editor.append(scroller);
+    root.append(editor);
+    element.append(root);
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    content.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(scrollOffsets.size).toBe(0);
+
+    cleanup();
+  });
+
   it("does not preserve plain GpuFlow portal buttons as native wheel targets", () => {
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");

@@ -10,6 +10,17 @@ import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import {
+  normalizeRetainedContentTexturePageBudget,
+  normalizeRetainedContentTexturePageLodScale,
+} from "./retainedContentTexturePageBudget";
+import {
+  EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
+  areRetainedContentTexturePageTextLikeSnapshotsReady,
+  resolveRetainedContentTexturePageTextLikeSnapshots,
+  uploadRetainedContentTexturePageTextLikeSnapshots,
+  type RetainedContentTexturePageTextLikeSnapshot,
+} from "./retainedContentTexturePageTextLikeSnapshots";
+import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
   type RetainedTexturePageDrawQuad,
@@ -48,6 +59,9 @@ export type RetainedContentTexturePageFrameSurface = {
   readonly rasterScene: GpuRetainedContentScene;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
+  readonly textLikeSnapshots?:
+    | readonly RetainedContentTexturePageTextLikeSnapshot[]
+    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -113,6 +127,7 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
+  readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 
@@ -122,11 +137,16 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
 > & {
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
+  readonly executedItemCount: number;
   readonly fallbackDrawQuadCount: number;
   readonly mergedDrawQuadCount: number;
   readonly missingPageCount: number;
   readonly needsFollowUpFrame: boolean;
   readonly postMaintenanceMissingPageCount: number;
+  readonly queuedWorkCount: number;
+  readonly queuedWorkCountBeforeUpload: number;
+  readonly remainingUploadableWorkCount: number;
+  readonly skippedItemCount: number;
   readonly staleFallbackDrawQuadCount: number;
   readonly targetDescriptorCount: number;
   readonly uncoveredRectCount: number;
@@ -188,7 +208,7 @@ export class RetainedContentTexturePageManager {
     ownerDocument: Document,
     options: RetainedContentTexturePageManagerOptions = {},
   ) {
-    this.budget = normalizeBudget({
+    this.budget = normalizeRetainedContentTexturePageBudget({
       ...DEFAULT_RETAINED_PAGE_BUDGET,
       ...options.budget,
     });
@@ -293,7 +313,7 @@ export class RetainedContentTexturePageManager {
     this.frameSurfaceById = new Map(
       surfaces.map((surface) => [surface.surfaceId, surface]),
     );
-    const nextTargetLodScale = normalizeLodScale({
+    const nextTargetLodScale = normalizeRetainedContentTexturePageLodScale({
       devicePixelRatio,
       viewportZoomBucket,
     });
@@ -316,6 +336,7 @@ export class RetainedContentTexturePageManager {
     darkMode = false,
     preparedFrame,
     switchAnimations,
+    textLikeSnapshotElementById = EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
     viewportInteractionActive = false,
   }: RetainedContentTexturePageMaintenanceInput): RetainedContentTexturePageMaintenanceResult {
     this.enqueueMissingPages(
@@ -323,6 +344,7 @@ export class RetainedContentTexturePageManager {
       preparedFrame.frame,
     );
     this.maintenanceUploadedDrawCommandCount = 0;
+    const queuedWorkCountBeforeUpload = this.workQueue.size;
     const palette = getGpuRetainedContentCanvasPalette(darkMode);
     const uploadResult = runRetainedTextureUploadScheduler({
       budget: this.budget,
@@ -333,6 +355,7 @@ export class RetainedContentTexturePageManager {
           item,
           palette,
           switchAnimations,
+          textLikeSnapshotElementById,
         }),
       queue: this.workQueue,
       viewportInteractionActive,
@@ -362,6 +385,7 @@ export class RetainedContentTexturePageManager {
       coverageCandidateCount: preparedFrame.coverageCandidateCount,
       diagnostics: uploadResult.diagnostics,
       evicted,
+      executedItemCount: uploadResult.executedItems.length,
       memory: this.cache.snapshot(),
       missingPageCount: preparedFrame.missingPageCount,
       needsFollowUpFrame:
@@ -369,10 +393,14 @@ export class RetainedContentTexturePageManager {
         committedRefinementChangedDrawableCoverage,
       postMaintenanceMissingPageCount:
         postMaintenancePageVisualResult.missingPageCount,
+      queuedWorkCount: this.workQueue.size,
+      queuedWorkCountBeforeUpload,
       rasterMs: uploadResult.rasterMs,
       drawQuadCount: preparedFrame.drawQuadCount,
       fallbackDrawQuadCount: preparedFrame.fallbackDrawQuadCount,
       mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
+      remainingUploadableWorkCount: uploadResult.remainingUploadableWorkCount,
+      skippedItemCount: uploadResult.skippedItems.length,
       staleFallbackDrawQuadCount: preparedFrame.staleFallbackDrawQuadCount,
       targetDescriptorCount: preparedFrame.targetDescriptors.length,
       uncoveredRectCount: preparedFrame.uncoveredRectCount,
@@ -636,6 +664,7 @@ export class RetainedContentTexturePageManager {
     item,
     palette,
     switchAnimations,
+    textLikeSnapshotElementById,
   }: {
     readonly frame: number;
     readonly item: RetainedTextureWorkItem;
@@ -643,6 +672,7 @@ export class RetainedContentTexturePageManager {
     readonly switchAnimations?:
       | GpuRetainedContentSwitchAnimationStore
       | undefined;
+    readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
   }) {
     const descriptors = this.resolveWorkItemDescriptors(item);
     const descriptor = descriptors[0];
@@ -663,8 +693,24 @@ export class RetainedContentTexturePageManager {
       shouldRefreshCommittedPage(item) ||
       !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
     ) {
+      if (
+        !areRetainedContentTexturePageTextLikeSnapshotsReady({
+          descriptor,
+          elementBySourceId: textLikeSnapshotElementById,
+          surface: this.frameSurfaceById.get(descriptor.surfaceId),
+        })
+      ) {
+        return {
+          complete: false,
+          rasterMs: 0,
+          uploadCount: 0,
+          uploadedBytes: 0,
+          uploadMs: 0,
+        };
+      }
       const upload = this.uploadPage({
         descriptor,
+        elementByTextLikeSnapshotSourceId: textLikeSnapshotElementById,
         frame,
         palette,
         switchAnimations,
@@ -737,11 +783,16 @@ export class RetainedContentTexturePageManager {
 
   private uploadPage({
     descriptor,
+    elementByTextLikeSnapshotSourceId,
     frame,
     palette,
     switchAnimations,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
+    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
+      string,
+      HTMLElement
+    >;
     readonly frame: number;
     readonly palette: GpuRetainedContentCanvasPalette;
     readonly switchAnimations?:
@@ -786,6 +837,16 @@ export class RetainedContentTexturePageManager {
         width: descriptor.pixelWidth,
       },
     );
+    uploadRetainedContentTexturePageTextLikeSnapshots({
+      descriptor,
+      elementBySourceId: elementByTextLikeSnapshotSourceId,
+      queue: this.device.queue,
+      resource,
+      snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
+        descriptor,
+        surface,
+      }),
+    });
     const uploadMs = performance.now() - uploadStartedAt;
     this.cache.commitPendingPage({
       frame,
@@ -869,33 +930,6 @@ export class RetainedContentTexturePageManager {
   }
 }
 
-function normalizeBudget(
-  budget: RetainedTextureUploadSchedulerBudget,
-): RetainedTextureUploadSchedulerBudget {
-  return {
-    maxFrameRasterMs: normalizeFiniteNonNegativeNumber(
-      "maxFrameRasterMs",
-      budget.maxFrameRasterMs,
-    ),
-    maxFrameUploadMs: normalizeFiniteNonNegativeNumber(
-      "maxFrameUploadMs",
-      budget.maxFrameUploadMs,
-    ),
-    maxFrameUploadedBytes: normalizeFiniteNonNegativeNumber(
-      "maxFrameUploadedBytes",
-      budget.maxFrameUploadedBytes,
-    ),
-    maxTextureMemoryBytes: normalizeFiniteNonNegativeNumber(
-      "maxTextureMemoryBytes",
-      budget.maxTextureMemoryBytes,
-    ),
-    maxUploads: normalizeFiniteNonNegativeInteger(
-      "maxUploads",
-      budget.maxUploads,
-    ),
-  };
-}
-
 function shouldRefreshCommittedPage(item: RetainedTextureWorkItem): boolean {
   return (
     item.kind === "animation-rect" ||
@@ -932,19 +966,6 @@ function didRetainedPageVisualCoverageChange({
   );
 }
 
-function normalizeLodScale({
-  devicePixelRatio,
-  viewportZoomBucket,
-}: {
-  readonly devicePixelRatio: number;
-  readonly viewportZoomBucket: number;
-}): number {
-  return (
-    normalizeFinitePositiveNumber("devicePixelRatio", devicePixelRatio) *
-    normalizeFinitePositiveNumber("viewportZoomBucket", viewportZoomBucket)
-  );
-}
-
 function rectsEqual(left: GpuRect, right: GpuRect): boolean {
   return (
     left.x === right.x &&
@@ -961,35 +982,4 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
     left.y < right.y + right.height &&
     left.y + left.height > right.y
   );
-}
-
-function normalizeFiniteNonNegativeNumber(name: string, value: number): number {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(
-      `Retained content texture page manager ${name} must be finite and non-negative.`,
-    );
-  }
-  return value;
-}
-
-function normalizeFinitePositiveNumber(name: string, value: number): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(
-      `Retained content texture page manager ${name} must be finite and positive.`,
-    );
-  }
-  return value;
-}
-
-function normalizeFiniteNonNegativeInteger(
-  name: string,
-  value: number,
-): number {
-  const normalized = normalizeFiniteNonNegativeNumber(name, value);
-  if (!Number.isInteger(normalized)) {
-    throw new Error(
-      `Retained content texture page manager ${name} must be an integer.`,
-    );
-  }
-  return normalized;
 }

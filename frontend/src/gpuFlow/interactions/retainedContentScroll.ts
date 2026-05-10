@@ -198,9 +198,85 @@ function getWheelFlowPoint(
 }
 
 function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {
-  return isGpuRetainedContentNativeTarget(event.target, [
+  if (!(event.target instanceof Element)) {
+    return false;
+  }
+  const target = event.target;
+  const nativeTarget = target.closest(
+    GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS.join(", "),
+  );
+  if (
+    nativeTarget &&
+    target.closest(".cm-editor") &&
+    !canNativeWheelTargetConsumeDelta(target, event)
+  ) {
+    return false;
+  }
+  return isGpuRetainedContentNativeTarget(target, [
     `.${NO_WHEEL_CLASS_NAME}`,
     '[data-gpu-flow-wheel-target="true"]',
     ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   ]);
+}
+
+function canNativeWheelTargetConsumeDelta(
+  target: Element,
+  event: Pick<WheelEvent, "deltaX" | "deltaY" | "shiftKey">,
+): boolean {
+  for (let element: Element | null = target; element; ) {
+    if (
+      element instanceof HTMLElement &&
+      canElementConsumeWheelDelta(element, event)
+    ) {
+      return true;
+    }
+    if (
+      element.matches(GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS.join(", "))
+    ) {
+      break;
+    }
+    element = element.parentElement;
+  }
+  return false;
+}
+
+function canElementConsumeWheelDelta(
+  element: HTMLElement,
+  event: Pick<WheelEvent, "deltaX" | "deltaY" | "shiftKey">,
+): boolean {
+  const deltaY = event.deltaY;
+  const deltaX =
+    event.deltaX !== 0 ? event.deltaX : event.shiftKey ? deltaY : 0;
+  return (
+    canElementConsumeAxisWheelDelta({
+      clientSize: element.clientHeight,
+      delta: deltaY,
+      scrollOffset: element.scrollTop,
+      scrollSize: element.scrollHeight,
+    }) ||
+    canElementConsumeAxisWheelDelta({
+      clientSize: element.clientWidth,
+      delta: deltaX,
+      scrollOffset: element.scrollLeft,
+      scrollSize: element.scrollWidth,
+    })
+  );
+}
+
+function canElementConsumeAxisWheelDelta({
+  clientSize,
+  delta,
+  scrollOffset,
+  scrollSize,
+}: {
+  readonly clientSize: number;
+  readonly delta: number;
+  readonly scrollOffset: number;
+  readonly scrollSize: number;
+}): boolean {
+  if (delta === 0 || scrollSize <= clientSize + 1) {
+    return false;
+  }
+  const maxScrollOffset = scrollSize - clientSize;
+  return delta < 0 ? scrollOffset > 0 : scrollOffset < maxScrollOffset - 1;
 }

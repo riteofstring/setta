@@ -1,22 +1,19 @@
 import {
-  getGpuRetainedTextLikePreviewPageFrameSurfacesFromSources,
-  getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces,
-  type GpuRetainedTextLikePreviewSource,
-} from "./GpuFlow/retainedTextLikePreviewSources";
+  getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces,
+  type GpuRetainedTextLikeRowSnapshotSource,
+} from "./GpuFlow/retainedTextLikeRowSnapshotSources";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "./GpuRetainedContentPageFrameSurfaces";
 import {
   getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
 } from "./GpuRetainedContentSurfaces";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
-import type { RetainedTextLikePreviewPageFrameSurface } from "./retainedTextLikePreviewPageManager";
 import type { GpuContentSurface } from "./scene";
 
 export type GpuRetainedContentFrameGeneration = {
   readonly contentPageSurfaces: readonly RetainedContentTexturePageFrameSurface[];
   readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
-  readonly textLikePreviewPageSurfaces: readonly RetainedTextLikePreviewPageFrameSurface[];
-  readonly textLikePreviewSources: readonly GpuRetainedTextLikePreviewSource[];
+  readonly textLikeRowSnapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
   readonly viewportZoomBucket: number;
 };
 
@@ -30,19 +27,16 @@ export function createGpuRetainedContentFrameGeneration({
   const sourceSurfaces = getGpuRetainedContentSourceSurfaces(contentSurfaces, {
     viewportZoomBucket,
   });
-  const textLikePreviewSources =
-    getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(sourceSurfaces);
+  const textLikeRowSnapshotSources =
+    getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces(sourceSurfaces);
   return {
     contentPageSurfaces:
       getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
         sourceSurfaces,
+        { textLikeRowSnapshotSources },
       ),
     sourceSurfaces,
-    textLikePreviewPageSurfaces:
-      getGpuRetainedTextLikePreviewPageFrameSurfacesFromSources(
-        textLikePreviewSources,
-      ),
-    textLikePreviewSources,
+    textLikeRowSnapshotSources,
     viewportZoomBucket,
   };
 }

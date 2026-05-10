@@ -6,18 +6,17 @@ import {
 
 import type { GpuRetainedContentDrawCommand } from "../retainedContentScene";
 import type {
-  RetainedTextLikePreviewPageFrameSurface,
-  RetainedTextLikePreviewPageMaintenanceResult,
-  RetainedTextLikePreviewPagePreparedFrame,
-} from "../retainedTextLikePreviewPageManager";
+  RetainedContentTexturePageMaintenanceResult,
+  RetainedContentTexturePagePreparedFrame,
+} from "../retainedContentTexturePageManager";
 import type { RetainedTexturePageDescriptor } from "../retainedTexturePages";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
-import type { GpuRetainedTextLikePreviewSource } from "./retainedTextLikePreviewSources";
+import type { GpuRetainedTextLikeRowSnapshotSource } from "./retainedTextLikeRowSnapshotSources";
 
 let lastRetainedContentVisualStateSignature: string | null = null;
-let lastRetainedTextLikePreviewSignature: string | null = null;
-let lastRetainedTextLikePreviewMaintenanceSignature: string | null = null;
+let lastRetainedTextLikeRowSnapshotSignature: string | null = null;
+let lastRetainedTextLikeRowSnapshotMaintenanceSignature: string | null = null;
 
 export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
   frame,
@@ -48,86 +47,57 @@ export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
   });
 }
 
-export function postGpuFlowRetainedTextLikePreviewChromeReproEvent({
+export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
   frame,
   preparedFrame,
-  previewSources,
-  previewSurfaces,
+  snapshotSources,
 }: {
   readonly frame: number;
-  readonly preparedFrame: RetainedTextLikePreviewPagePreparedFrame;
-  readonly previewSources: readonly GpuRetainedTextLikePreviewSource[];
-  readonly previewSurfaces: readonly RetainedTextLikePreviewPageFrameSurface[];
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
-  if (!isChromeReproActive() || preparedFrame.sourceCount === 0) {
+  if (!isChromeReproActive() || snapshotSources.length === 0) {
     return;
   }
   const state = {
-    baseDrawQuads: preparedFrame.baseDrawQuads.slice(0, 24).map((quad) => ({
-      desiredDescriptor: summarizeRetainedTexturePageDescriptor(
-        quad.desiredDescriptor,
-      ),
-      fallback: quad.fallback,
-      pageDescriptor: summarizeRetainedTexturePageDescriptor(
-        quad.page.descriptor,
-      ),
-      sampleRectCss: roundGpuFlowChromeReproRect(quad.sampleRectCss),
-      staleContent: quad.staleContent,
-    })),
     drawQuadCount: preparedFrame.drawQuadCount,
     missingPageCount: preparedFrame.missingPageCount,
-    omittedPreviewCount: preparedFrame.omittedPreviewCount,
-    previewSurfaces: previewSurfaces.slice(0, 24).map((surface) => ({
-      layoutTextureSourceRect: roundGpuFlowChromeReproRect(
-        surface.layout.textureSourceRect,
-      ),
-      sourceId: surface.sourceId,
-      sourceKeyLength: surface.sourceKey.length,
-      sourceWindowCss: roundGpuFlowChromeReproRect(surface.sourceWindowCss),
-      surfaceId: surface.surfaceId,
-      visibleSourceRectCss: roundGpuFlowChromeReproRect(
-        surface.visibleSourceRectCss,
-      ),
-      zIndex: surface.layout.zIndex ?? 0,
-    })),
-    sourceCount: preparedFrame.sourceCount,
+    snapshotCount: snapshotSources.length,
     targetDescriptors: preparedFrame.targetDescriptors
       .slice(0, 24)
       .map(summarizeRetainedTexturePageDescriptor),
     targetDescriptorCount: preparedFrame.targetDescriptors.length,
     textLikePassiveVisibility:
-      createGpuFlowRetainedTextLikePassiveVisibilityState({
+      createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
         preparedFrame,
-        previewSources,
+        snapshotSources,
       }),
   };
   const signature = JSON.stringify(state);
-  if (signature === lastRetainedTextLikePreviewSignature) {
+  if (signature === lastRetainedTextLikeRowSnapshotSignature) {
     return;
   }
-  lastRetainedTextLikePreviewSignature = signature;
-  postChromeReproEvent("gpu-flow-retained-text-like-preview-pages", {
+  lastRetainedTextLikeRowSnapshotSignature = signature;
+  postChromeReproEvent("gpu-flow-retained-text-like-row-snapshots", {
     frame,
     ...state,
   });
 }
 
-export function postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
+export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent({
   elementBySourceId,
   frame,
   maintenanceResult,
-  preparedFrame,
-  previewSources,
+  snapshotSources,
   viewportInteractionActive,
 }: {
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
-  readonly maintenanceResult: RetainedTextLikePreviewPageMaintenanceResult;
-  readonly preparedFrame: RetainedTextLikePreviewPagePreparedFrame;
-  readonly previewSources: readonly GpuRetainedTextLikePreviewSource[];
+  readonly maintenanceResult: RetainedContentTexturePageMaintenanceResult;
+  readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
   readonly viewportInteractionActive: boolean;
 }) {
-  if (!isChromeReproActive() || preparedFrame.sourceCount === 0) {
+  if (!isChromeReproActive() || snapshotSources.length === 0) {
     return;
   }
   const state = {
@@ -165,7 +135,6 @@ export function postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
     executedItemCount: maintenanceResult.executedItemCount,
     memory: maintenanceResult.memory,
     missingPageCount: maintenanceResult.missingPageCount,
-    omittedPreviewCount: maintenanceResult.omittedPreviewCount,
     postMaintenanceMissingPageCount:
       maintenanceResult.postMaintenanceMissingPageCount,
     queuedWorkCount: maintenanceResult.queuedWorkCount,
@@ -173,13 +142,13 @@ export function postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
     remainingUploadableWorkCount:
       maintenanceResult.remainingUploadableWorkCount,
     skippedItemCount: maintenanceResult.skippedItemCount,
-    sourceElements: previewSources.slice(0, 40).map((source) =>
-      summarizeGpuFlowRetainedTextLikePreviewSourceElement({
+    sourceElements: snapshotSources.slice(0, 40).map((source) =>
+      summarizeGpuFlowRetainedTextLikeRowSnapshotSourceElement({
         element: elementBySourceId.get(source.sourceId) ?? null,
         source,
       }),
     ),
-    sourceElementCount: previewSources.length,
+    sourceElementCount: snapshotSources.length,
     targetDescriptorCount: maintenanceResult.targetDescriptorCount,
     uploadedBytes: maintenanceResult.uploadedBytes,
     uploadCount: maintenanceResult.uploadCount,
@@ -187,83 +156,65 @@ export function postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
     viewportInteractionActive,
   };
   const signature = JSON.stringify(state);
-  if (signature === lastRetainedTextLikePreviewMaintenanceSignature) {
+  if (signature === lastRetainedTextLikeRowSnapshotMaintenanceSignature) {
     return;
   }
-  lastRetainedTextLikePreviewMaintenanceSignature = signature;
-  postChromeReproEvent("gpu-flow-retained-text-like-preview-maintenance", {
+  lastRetainedTextLikeRowSnapshotMaintenanceSignature = signature;
+  postChromeReproEvent("gpu-flow-retained-text-like-row-snapshot-maintenance", {
     frame,
     ...state,
   });
 }
 
-function createGpuFlowRetainedTextLikePassiveVisibilityState({
+function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
   preparedFrame,
-  previewSources,
+  snapshotSources,
 }: {
-  readonly preparedFrame: RetainedTextLikePreviewPagePreparedFrame;
-  readonly previewSources: readonly GpuRetainedTextLikePreviewSource[];
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
-  const committedRectsBySourceId = groupGpuFlowPreviewCoverageRectsBySourceId(
-    preparedFrame.committedPageRects.map((rect) => ({
-      sourceId: rect.sourceId,
-      sourceRectCss: rect.sourceRectCss,
+  const committedRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
+    preparedFrame.drawQuads.map((quad) => ({
+      sourceRectCss: quad.sampleRectCss,
+      surfaceId: quad.page.descriptor.surfaceId,
     })),
   );
-  const missingRectsBySourceId = groupGpuFlowPreviewCoverageRectsBySourceId(
+  const missingRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
     preparedFrame.refinementDescriptors.map((descriptor) => ({
-      sourceId: descriptor.surfaceId,
       sourceRectCss: descriptor.sourceRectCss,
+      surfaceId: descriptor.surfaceId,
     })),
   );
-  const rowCoverages = previewSources.flatMap((source) =>
-    source.previews.flatMap((preview) => {
-      const controlRect = {
-        height: preview.height,
-        width: preview.width,
-        x: preview.x,
-        y: preview.y,
-      };
-      const visibleRect = intersectGpuFlowChromeReproRects(
-        controlRect,
-        source.textureSourceRect,
-      );
-      if (!visibleRect) {
-        return [];
-      }
-      const availableCoverageRatio = estimateGpuFlowRectCoverageRatio(
-        visibleRect,
-        committedRectsBySourceId.get(source.sourceId) ?? [],
-      );
-      const missingCoverageRatio = estimateGpuFlowRectCoverageRatio(
-        visibleRect,
-        missingRectsBySourceId.get(source.sourceId) ?? [],
-      );
-      const passivePixelsReady = availableCoverageRatio >= 0.95;
-      return [
-        {
-          availableCoverageRatio: roundGpuFlowChromeReproRatio(
-            availableCoverageRatio,
-          ),
-          codeLength: preview.code.length,
-          defaultValueLength: preview.defaultValue.length,
-          disabled: preview.disabled,
-          error: preview.error,
-          language: preview.language ?? "plain",
-          linePolicy: preview.linePolicy,
-          missingCoverageRatio:
-            roundGpuFlowChromeReproRatio(missingCoverageRatio),
-          passivePixelsReady,
-          rect: roundGpuFlowChromeReproRect(controlRect),
-          rowId: preview.rowId,
-          sectionId: source.sectionId,
-          sourceId: source.sourceId,
-          visibleRect: roundGpuFlowChromeReproRect(visibleRect),
-          wrapLines: preview.wrapLines,
-        },
-      ];
-    }),
-  );
+  const rowCoverages = snapshotSources.map((source) => {
+    const availableCoverageRatio = estimateGpuFlowRectCoverageRatio(
+      source.targetRectCss,
+      committedRectsBySurfaceId.get(source.surfaceId) ?? [],
+    );
+    const missingCoverageRatio = estimateGpuFlowRectCoverageRatio(
+      source.targetRectCss,
+      missingRectsBySurfaceId.get(source.surfaceId) ?? [],
+    );
+    const passivePixelsReady = availableCoverageRatio >= 0.95;
+    return {
+      availableCoverageRatio: roundGpuFlowChromeReproRatio(
+        availableCoverageRatio,
+      ),
+      codeLength: source.code.length,
+      defaultValueLength: source.defaultValue.length,
+      disabled: source.disabled,
+      error: source.error,
+      language: source.language ?? "plain",
+      linePolicy: source.linePolicy,
+      missingCoverageRatio: roundGpuFlowChromeReproRatio(missingCoverageRatio),
+      passivePixelsReady,
+      rect: roundGpuFlowChromeReproRect(source.targetRectCss),
+      rowId: source.rowId,
+      sectionId: source.sectionId,
+      sourceId: source.sourceId,
+      surfaceId: source.surfaceId,
+      wrapLines: source.wrapLines,
+    };
+  });
   const problematicRows = rowCoverages.filter((row) => !row.passivePixelsReady);
   const readyRows = rowCoverages.filter((row) => row.passivePixelsReady);
   const partialRows = rowCoverages.filter(
@@ -273,7 +224,7 @@ function createGpuFlowRetainedTextLikePassiveVisibilityState({
     blankPassiveRowCount: rowCoverages.filter(
       (row) => row.availableCoverageRatio <= 0,
     ).length,
-    committedPageRectCount: preparedFrame.committedPageRects.length,
+    committedPageRectCount: preparedFrame.drawQuads.length,
     missingPageRectCount: preparedFrame.refinementDescriptors.length,
     missingPassiveRowCount: problematicRows.length,
     partialPassiveRowCount: partialRows.length,
@@ -283,21 +234,22 @@ function createGpuFlowRetainedTextLikePassiveVisibilityState({
       ...problematicRows,
       ...readyRows.slice(0, Math.max(0, 80 - problematicRows.length)),
     ].slice(0, 80),
-    sourceSummaries: previewSources.slice(0, 24).map((source) => ({
-      previewCount: source.previews.length,
+    sourceSummaries: snapshotSources.slice(0, 24).map((source) => ({
+      rect: roundGpuFlowChromeReproRect(source.targetRectCss),
+      rowId: source.rowId,
       sectionId: source.sectionId,
       sourceId: source.sourceId,
-      textureSourceRect: roundGpuFlowChromeReproRect(source.textureSourceRect),
+      surfaceId: source.surfaceId,
     })),
   };
 }
 
-function summarizeGpuFlowRetainedTextLikePreviewSourceElement({
+function summarizeGpuFlowRetainedTextLikeRowSnapshotSourceElement({
   element,
   source,
 }: {
   readonly element: HTMLElement | null;
-  readonly source: GpuRetainedTextLikePreviewSource;
+  readonly source: GpuRetainedTextLikeRowSnapshotSource;
 }) {
   if (!element) {
     return {
@@ -309,7 +261,7 @@ function summarizeGpuFlowRetainedTextLikePreviewSourceElement({
   }
   const rect = element.getBoundingClientRect();
   const sourceKey =
-    element.dataset.gpuFlowRetainedTextLikePreviewSourceKey ?? "";
+    element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ?? "";
   return {
     childElementCount: element.childElementCount,
     clientHeight: roundChromeReproMs(element.clientHeight),
@@ -332,17 +284,17 @@ function summarizeGpuFlowRetainedTextLikePreviewSourceElement({
   };
 }
 
-function groupGpuFlowPreviewCoverageRectsBySourceId(
+function groupGpuFlowCoverageRectsBySurfaceId(
   rects: readonly {
-    readonly sourceId: string;
     readonly sourceRectCss: GpuRect;
+    readonly surfaceId: string;
   }[],
 ): ReadonlyMap<string, readonly GpuRect[]> {
   const grouped = new Map<string, GpuRect[]>();
   for (const rect of rects) {
-    const sourceRects = grouped.get(rect.sourceId) ?? [];
+    const sourceRects = grouped.get(rect.surfaceId) ?? [];
     sourceRects.push(rect.sourceRectCss);
-    grouped.set(rect.sourceId, sourceRects);
+    grouped.set(rect.surfaceId, sourceRects);
   }
   return grouped;
 }

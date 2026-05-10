@@ -21,7 +21,6 @@ import {
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import type { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
 import type { GpuFlowScene } from "../scene";
 import {
   resolveGpuFlowEdgeDrawInputs,
@@ -48,8 +47,7 @@ export function syncGpuFlowNodeLayerSceneState({
   nodes,
   nodeTextureMemoryBudgetBytes,
   retainedContentPageManagerRef,
-  retainedTextLikePreviewElementByIdRef,
-  retainedTextLikePreviewPageManagerRef,
+  retainedTextLikeRowSnapshotElementByIdRef,
   scene,
   sourceInteractionProjector,
   surfaceRef,
@@ -83,10 +81,9 @@ export function syncGpuFlowNodeLayerSceneState({
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
-  readonly retainedTextLikePreviewElementByIdRef: MutableRefObject<
+  readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
-  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly scene: GpuFlowScene | undefined;
   readonly sourceInteractionProjector: HtmlSurfaceInteractionProjector;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -136,7 +133,7 @@ export function syncGpuFlowNodeLayerSceneState({
     })
   ) {
     visibleNodeIdsRef.current = new Set();
-    retainedTextLikePreviewElementByIdRef.current.clear();
+    retainedTextLikeRowSnapshotElementByIdRef.current.clear();
     clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
     transformOnlyPaintNodeIdsRef.current.clear();
     sourceInteractionProjector.destroy();
@@ -144,7 +141,6 @@ export function syncGpuFlowNodeLayerSceneState({
       textureManagerRef,
       htmlSurfaceRendererRef,
       retainedContentPageManagerRef,
-      retainedTextLikePreviewPageManagerRef,
     );
   }
   surfaceRef.current?.requestFrame("viewport");

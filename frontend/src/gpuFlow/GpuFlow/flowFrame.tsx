@@ -45,7 +45,6 @@ import { createGpuRetainedContentFrameGeneration } from "../retainedContentFrame
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
 import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -53,8 +52,8 @@ import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   postGpuFlowRetainedContentVisualStateChromeReproEvent,
-  postGpuFlowRetainedTextLikePreviewChromeReproEvent,
-  postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent,
+  postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
+  postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks } from "./flowSurface";
@@ -64,7 +63,6 @@ function resolveRenderableGpuFlowLayerFrameInput({
   nodeLayerRef,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
-  retainedTextLikePreviewPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
@@ -73,7 +71,6 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
-  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }): {
   readonly canvasSize: GpuCanvasSize;
@@ -82,7 +79,6 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly resources: {
     readonly htmlSurfaceRenderer: HtmlSurfaceRenderer;
     readonly retainedContentPageManager: RetainedContentTexturePageManager;
-    readonly retainedTextLikePreviewPageManager: RetainedTextLikePreviewPageManager;
     readonly textureManager: HtmlSurfaceTextureManager;
   };
 } | null {
@@ -102,7 +98,6 @@ function resolveRenderableGpuFlowLayerFrameInput({
     resources: ensureNodeLayerResources({
       htmlSurfaceRendererRef,
       retainedContentPageManagerRef,
-      retainedTextLikePreviewPageManagerRef,
       runtime,
       textureManagerRef,
     }),
@@ -112,13 +107,11 @@ function resolveRenderableGpuFlowLayerFrameInput({
 function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
-  retainedTextLikePreviewPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
-  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
@@ -135,16 +128,10 @@ function ensureNodeLayerResources({
         runtime.canvas.ownerDocument,
       );
   }
-  if (!retainedTextLikePreviewPageManagerRef.current) {
-    retainedTextLikePreviewPageManagerRef.current =
-      new RetainedTextLikePreviewPageManager(runtime.device);
-  }
 
   return {
     htmlSurfaceRenderer: htmlSurfaceRendererRef.current,
     retainedContentPageManager: retainedContentPageManagerRef.current,
-    retainedTextLikePreviewPageManager:
-      retainedTextLikePreviewPageManagerRef.current,
     textureManager: textureManagerRef.current,
   };
 }
@@ -168,7 +155,6 @@ export function destroyNodeLayerResources(
   textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>,
   htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>,
   retainedContentPageManagerRef?: MutableRefObject<RetainedContentTexturePageManager | null>,
-  retainedTextLikePreviewPageManagerRef?: MutableRefObject<RetainedTextLikePreviewPageManager | null>,
 ) {
   textureManagerRef.current?.destroy();
   textureManagerRef.current = null;
@@ -177,10 +163,6 @@ export function destroyNodeLayerResources(
   retainedContentPageManagerRef?.current?.destroy();
   if (retainedContentPageManagerRef) {
     retainedContentPageManagerRef.current = null;
-  }
-  retainedTextLikePreviewPageManagerRef?.current?.destroy();
-  if (retainedTextLikePreviewPageManagerRef) {
-    retainedTextLikePreviewPageManagerRef.current = null;
   }
 }
 
@@ -288,8 +270,7 @@ export function renderGpuFlowNodeLayerFrame({
   htmlSurfaceRendererRef,
   runtime,
   retainedContentPageManagerRef,
-  retainedTextLikePreviewElementByIdRef,
-  retainedTextLikePreviewPageManagerRef,
+  retainedTextLikeRowSnapshotElementByIdRef,
   retainedContentSwitchAnimations,
   surfaceRef,
   textureManagerRef,
@@ -312,10 +293,9 @@ export function renderGpuFlowNodeLayerFrame({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
-  readonly retainedTextLikePreviewElementByIdRef: MutableRefObject<
+  readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
-  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -329,7 +309,6 @@ export function renderGpuFlowNodeLayerFrame({
     nodeLayerRef,
     htmlSurfaceRendererRef,
     retainedContentPageManagerRef,
-    retainedTextLikePreviewPageManagerRef,
     runtime,
     textureManagerRef,
   });
@@ -365,18 +344,10 @@ export function renderGpuFlowNodeLayerFrame({
       surfaces: retainedFrameGeneration.contentPageSurfaces,
       viewportZoomBucket,
     });
-  const retainedTextLikePreviewPreparedFrame =
-    resources.retainedTextLikePreviewPageManager.prepareFrame({
-      baseDrawQuads: retainedPagePreparedFrame.drawQuads,
-      baseTargetDescriptors: retainedPagePreparedFrame.targetDescriptors,
-      frame,
-      surfaces: retainedFrameGeneration.textLikePreviewPageSurfaces,
-    });
-  postGpuFlowRetainedTextLikePreviewChromeReproEvent({
+  postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
     frame,
-    preparedFrame: retainedTextLikePreviewPreparedFrame,
-    previewSources: retainedFrameGeneration.textLikePreviewSources,
-    previewSurfaces: retainedFrameGeneration.textLikePreviewPageSurfaces,
+    preparedFrame: retainedPagePreparedFrame,
+    snapshotSources: retainedFrameGeneration.textLikeRowSnapshotSources,
   });
   markGpuFlowRetainedContentSwitchFreshnessDirty({
     frame,
@@ -410,10 +381,7 @@ export function renderGpuFlowNodeLayerFrame({
       layer.htmlSurfaceNativeVisuals,
       switchAnimationNativeVisuals,
     ),
-    htmlSurfacePageVisuals: [
-      ...retainedPagePreparedFrame.flatSurfaces,
-      ...retainedTextLikePreviewPreparedFrame.flatSurfaces,
-    ],
+    htmlSurfacePageVisuals: retainedPagePreparedFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
@@ -428,20 +396,15 @@ export function renderGpuFlowNodeLayerFrame({
       preparedFrame: retainedPagePreparedFrame,
       // Switch transitions are composited below as native visuals, so texture
       // pages must cache only the static scene state.
+      textLikeSnapshotElementById:
+        retainedTextLikeRowSnapshotElementByIdRef.current,
       viewportInteractionActive: deferResolutionUpdates,
     });
-  const retainedTextLikePreviewResult =
-    resources.retainedTextLikePreviewPageManager.runPostSubmitMaintenance({
-      elementBySourceId: retainedTextLikePreviewElementByIdRef.current,
-      preparedFrame: retainedTextLikePreviewPreparedFrame,
-      viewportInteractionActive: deferResolutionUpdates,
-    });
-  postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
-    elementBySourceId: retainedTextLikePreviewElementByIdRef.current,
+  postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent({
+    elementBySourceId: retainedTextLikeRowSnapshotElementByIdRef.current,
     frame,
-    maintenanceResult: retainedTextLikePreviewResult,
-    preparedFrame: retainedTextLikePreviewPreparedFrame,
-    previewSources: retainedFrameGeneration.textLikePreviewSources,
+    maintenanceResult: retainedPageResult,
+    snapshotSources: retainedFrameGeneration.textLikeRowSnapshotSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
@@ -477,7 +440,6 @@ export function renderGpuFlowNodeLayerFrame({
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: combineGpuFlowRetainedTexturePageMetrics({
       retainedPageResult,
-      retainedTextLikePreviewResult,
     }),
     viewport: layer.viewport,
     viewportFrame,
@@ -487,9 +449,7 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
-    retainedTexturePageFollowUpFrame:
-      retainedPageResult.needsFollowUpFrame ||
-      retainedTextLikePreviewResult.needsFollowUpFrame,
+    retainedTexturePageFollowUpFrame: retainedPageResult.needsFollowUpFrame,
     surfaceRef,
     switchAnimationFollowUpFrame: switchAnimationNeedsFollowUpFrame,
     transformOnlyPaintNodeIdsRef,

@@ -82,7 +82,6 @@ import {
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import type { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
 import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
 import { GpuFlowSceneContext } from "../sceneContext";
 import type { GpuViewportInput } from "../viewportMath";
@@ -125,7 +124,7 @@ import {
   type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
-import type { GpuRetainedTextLikePreviewRenderer } from "./retainedTextLikePreviewSources";
+import type { GpuRetainedTextLikeRowSnapshotRenderer } from "./retainedTextLikeRowSnapshotSources";
 import {
   getGpuFlowSelectionDragPrimaryNodeId,
   useGpuFlowSelectionDragLayer,
@@ -202,8 +201,8 @@ type GpuFlowProps = Pick<
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
-  renderRetainedTextLikePreview?:
-    | GpuRetainedTextLikePreviewRenderer
+  renderRetainedTextLikeRowSnapshot?:
+    | GpuRetainedTextLikeRowSnapshotRenderer
     | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
   viewport?: GpuViewportInput | undefined;
@@ -259,7 +258,7 @@ export function GpuFlow({
   retainedContentScroll,
   renderDomIsland,
   renderNode,
-  renderRetainedTextLikePreview,
+  renderRetainedTextLikeRowSnapshot,
   selection,
   selectionDrag,
   scene,
@@ -320,11 +319,9 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const retainedContentPageManagerRef =
     useRef<RetainedContentTexturePageManager | null>(null);
-  const retainedTextLikePreviewElementByIdRef = useRef(
+  const retainedTextLikeRowSnapshotElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );
-  const retainedTextLikePreviewPageManagerRef =
-    useRef<RetainedTextLikePreviewPageManager | null>(null);
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
@@ -348,17 +345,17 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
-    retainedTextLikePreviewSourceElement,
+    retainedTextLikeRowSnapshotSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
     edgeScene,
     layoutStore,
-    retainedTextLikePreviewElementByIdRef,
+    retainedTextLikeRowSnapshotElementByIdRef,
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
-    renderRetainedTextLikePreview,
+    renderRetainedTextLikeRowSnapshot,
     scene,
     surfaceRef,
     textureManagerRef,
@@ -471,8 +468,7 @@ export function GpuFlow({
       nodes,
       nodeTextureMemoryBudgetBytes,
       retainedContentPageManagerRef,
-      retainedTextLikePreviewElementByIdRef,
-      retainedTextLikePreviewPageManagerRef,
+      retainedTextLikeRowSnapshotElementByIdRef,
       scene,
       sourceInteractionProjector,
       surfaceRef,
@@ -682,12 +678,11 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
-      retainedTextLikePreviewElementByIdRef.current.clear();
+      retainedTextLikeRowSnapshotElementByIdRef.current.clear();
       destroyNodeLayerResources(
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
-        retainedTextLikePreviewPageManagerRef,
       );
     };
   }, [retainedContentSwitchAnimations]);
@@ -725,7 +720,6 @@ export function GpuFlow({
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
-        retainedTextLikePreviewPageManagerRef,
       );
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
@@ -921,8 +915,7 @@ export function GpuFlow({
         nodeLayerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
-        retainedTextLikePreviewElementByIdRef,
-        retainedTextLikePreviewPageManagerRef,
+        retainedTextLikeRowSnapshotElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
         surfaceRef,
@@ -978,7 +971,7 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
-            {retainedTextLikePreviewSourceElement}
+            {retainedTextLikeRowSnapshotSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}

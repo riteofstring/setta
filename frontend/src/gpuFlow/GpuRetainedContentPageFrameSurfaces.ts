@@ -1,3 +1,4 @@
+import type { GpuRetainedTextLikeRowSnapshotSource } from "./GpuFlow/retainedTextLikeRowSnapshotSources";
 import {
   getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
@@ -11,10 +12,14 @@ import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
+import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
+  readonly textLikeRowSnapshotSources?:
+    | readonly GpuRetainedTextLikeRowSnapshotSource[]
+    | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
 
@@ -32,12 +37,16 @@ export function getGpuRetainedContentTexturePageFrameSurfaces(
 
 export function getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
+  options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
-  return surfaces.map(toGpuRetainedContentTexturePageFrameSurface);
+  return surfaces.map((surface) =>
+    toGpuRetainedContentTexturePageFrameSurface(surface, options),
+  );
 }
 
 function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
+  options: GpuRetainedContentPageFrameSurfaceOptions,
 ): RetainedContentTexturePageFrameSurface {
   return {
     contentBoundsCss: {
@@ -69,8 +78,29 @@ function toGpuRetainedContentTexturePageFrameSurface(
       y: surface.textureWindow.cacheScrollOffset.y,
     },
     surfaceId: surface.id,
+    textLikeSnapshots: createTextLikeSnapshots({
+      sources: options.textLikeRowSnapshotSources ?? [],
+      surfaceId: surface.id,
+    }),
     visibleSourceRectCss: surface.textureWindow.sourceRect,
   };
+}
+
+function createTextLikeSnapshots({
+  sources,
+  surfaceId,
+}: {
+  readonly sources: readonly GpuRetainedTextLikeRowSnapshotSource[];
+  readonly surfaceId: string;
+}): readonly RetainedContentTexturePageTextLikeSnapshot[] {
+  return sources
+    .filter((source) => source.surfaceId === surfaceId)
+    .map((source) => ({
+      rectCss: source.targetRectCss,
+      rowId: source.rowId,
+      sourceId: source.sourceId,
+      sourceKey: source.sourceKey,
+    }));
 }
 
 function getContentVersion(signature: string): number {

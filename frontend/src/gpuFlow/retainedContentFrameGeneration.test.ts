@@ -6,7 +6,7 @@ import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuContentSurface } from "./scene";
 
 describe("createGpuRetainedContentFrameGeneration", () => {
-  it("derives base pages and text-like preview pages from the same retained source window", () => {
+  it("attaches text-like row snapshots to the owning retained content page surface", () => {
     const generation = createGpuRetainedContentFrameGeneration({
       contentSurfaces: [surface()],
       viewportZoomBucket: 1,
@@ -14,13 +14,14 @@ describe("createGpuRetainedContentFrameGeneration", () => {
 
     expect(generation.sourceSurfaces).toHaveLength(1);
     expect(generation.contentPageSurfaces).toHaveLength(1);
-    expect(generation.textLikePreviewPageSurfaces).toHaveLength(1);
-    expect(generation.contentPageSurfaces[0]?.sourceWindowCss).toEqual(
-      generation.textLikePreviewPageSurfaces[0]?.sourceWindowCss,
-    );
-    expect(generation.contentPageSurfaces[0]?.layout.textureSourceRect).toEqual(
-      generation.textLikePreviewPageSurfaces[0]?.layout.textureSourceRect,
-    );
+    expect(generation.textLikeRowSnapshotSources).toHaveLength(1);
+    expect(generation.contentPageSurfaces[0]?.textLikeSnapshots).toEqual([
+      expect.objectContaining({
+        rectCss: generation.textLikeRowSnapshotSources[0]?.targetRectCss,
+        rowId: "param-a",
+        sourceId: generation.textLikeRowSnapshotSources[0]?.sourceId,
+      }),
+    ]);
   });
 });
 

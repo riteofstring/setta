@@ -99,7 +99,7 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
-import { renderProjectGpuRetainedTextLikePreview } from "./projectGpuRetainedTextLikePreviewRenderer";
+import { renderProjectGpuRetainedTextLikeRowSnapshot } from "./projectGpuRetainedTextLikeRowSnapshotRenderer";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import {
   getProjectSurfaceClientDimensions,
@@ -632,7 +632,9 @@ function ProjectGpuFlowLayer({
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
-      renderRetainedTextLikePreview={renderProjectGpuRetainedTextLikePreview}
+      renderRetainedTextLikeRowSnapshot={
+        renderProjectGpuRetainedTextLikeRowSnapshot
+      }
       retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}

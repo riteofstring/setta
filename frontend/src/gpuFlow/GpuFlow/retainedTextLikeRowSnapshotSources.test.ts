@@ -5,62 +5,47 @@ import {
   type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
 import type { GpuFlowScene } from "../scene";
-import { getGpuRetainedTextLikePreviewSources } from "./retainedTextLikePreviewSources";
+import { getGpuRetainedTextLikeRowSnapshotSources } from "./retainedTextLikeRowSnapshotSources";
 
-describe("getGpuRetainedTextLikePreviewSources", () => {
-  it("derives visible passive editor previews from retained row geometry", () => {
-    const sources = getGpuRetainedTextLikePreviewSources(scene());
+describe("getGpuRetainedTextLikeRowSnapshotSources", () => {
+  it("derives row-owned passive editor snapshots from retained row geometry", () => {
+    const sources = getGpuRetainedTextLikeRowSnapshotSources(scene());
 
     expect(sources).toEqual([
       expect.objectContaining({
-        height: 48,
-        previews: [
-          {
-            code: "alpha",
-            defaultValue: "",
-            disabled: false,
-            error: false,
-            height: 24,
-            language: "python",
-            linePolicy: "single-line",
-            rowId: "param-a",
-            width: 80,
-            wrapLines: false,
-            x: 120,
-            y: 0,
-          },
-        ],
+        code: "alpha",
+        defaultValue: "",
+        disabled: false,
+        error: false,
+        language: "python",
+        linePolicy: "single-line",
+        rowId: "param-a",
         sectionId: "section-a",
-        sourceHeight: 48,
-        sourceId: "retained-text-like-preview-page:surface-a",
-        sourceWidth: 200,
+        sourceHeight: 24,
+        sourceId: "retained-text-like-row-snapshot:surface-a:param-a",
+        sourceWidth: 80,
         surfaceId: "surface-a",
-        textureSourceRect: {
-          height: 48,
-          width: 190,
-          x: 0,
+        targetRectCss: {
+          height: 24,
+          width: 80,
+          x: 120,
           y: 0,
         },
-        width: 190,
-        x: 10,
-        y: 20,
-        zIndex: 8,
+        wrapLines: false,
       }),
     ]);
   });
 
-  it("keeps the DOM source key stable while only the visible scroll slice changes", () => {
-    const firstSource = getGpuRetainedTextLikePreviewSources(
+  it("keeps row source keys independent from retained scroll offsets inside the same cache window", () => {
+    const firstSource = getGpuRetainedTextLikeRowSnapshotSources(
       scene({ rowCount: 20, scrollY: 7 }),
     )[0];
-    const nextSource = getGpuRetainedTextLikePreviewSources(
+    const nextSource = getGpuRetainedTextLikeRowSnapshotSources(
       scene({ rowCount: 20, scrollY: 15 }),
     )[0];
 
     expect(firstSource?.sourceKey).toBe(nextSource?.sourceKey);
-    expect(firstSource?.textureSourceRect.y).not.toBe(
-      nextSource?.textureSourceRect.y,
-    );
+    expect(firstSource?.targetRectCss).toEqual(nextSource?.targetRectCss);
   });
 });
 

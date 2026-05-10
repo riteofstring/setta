@@ -1,65 +1,33 @@
 import type { GpuFlowRetainedTexturePageFrameMetrics } from "../framePerformance";
 import type { RetainedContentTexturePageMaintenanceResult } from "../retainedContentTexturePageManager";
-import type { RetainedTextLikePreviewPageMaintenanceResult } from "../retainedTextLikePreviewPageManager";
 
 export function combineGpuFlowRetainedTexturePageMetrics({
   retainedPageResult,
-  retainedTextLikePreviewResult,
 }: {
   readonly retainedPageResult: RetainedContentTexturePageMaintenanceResult;
-  readonly retainedTextLikePreviewResult: RetainedTextLikePreviewPageMaintenanceResult;
 }): GpuFlowRetainedTexturePageFrameMetrics {
   return {
-    budgetExhausted:
-      retainedPageResult.budgetExhausted ||
-      retainedTextLikePreviewResult.budgetExhausted,
+    budgetExhausted: retainedPageResult.budgetExhausted,
     coverageCandidateCount: retainedPageResult.coverageCandidateCount,
-    diagnosticCount:
-      retainedPageResult.diagnostics.length +
-      retainedTextLikePreviewResult.diagnostics.length,
-    drawQuadCount:
-      retainedPageResult.drawQuadCount +
-      retainedTextLikePreviewResult.drawQuadCount,
-    evictedBytes:
-      retainedPageResult.evicted.evictedBytes +
-      retainedTextLikePreviewResult.evicted.evictedBytes,
-    evictedCount:
-      retainedPageResult.evicted.evictedKeys.length +
-      retainedTextLikePreviewResult.evicted.evictedKeys.length,
+    diagnosticCount: retainedPageResult.diagnostics.length,
+    drawQuadCount: retainedPageResult.drawQuadCount,
+    evictedBytes: retainedPageResult.evicted.evictedBytes,
+    evictedCount: retainedPageResult.evicted.evictedKeys.length,
     fallbackDrawQuadCount: retainedPageResult.fallbackDrawQuadCount,
-    memoryCommittedBytes:
-      retainedPageResult.memory.committedBytes +
-      retainedTextLikePreviewResult.memory.committedBytes,
-    memoryCommittedCount:
-      retainedPageResult.memory.committedCount +
-      retainedTextLikePreviewResult.memory.committedCount,
-    memoryRetiredBytes:
-      retainedPageResult.memory.retiredBytes +
-      retainedTextLikePreviewResult.memory.retiredBytes,
-    memoryRetiredCount:
-      retainedPageResult.memory.retiredCount +
-      retainedTextLikePreviewResult.memory.retiredCount,
-    memoryTotalBytes:
-      retainedPageResult.memory.totalBytes +
-      retainedTextLikePreviewResult.memory.totalBytes,
+    memoryCommittedBytes: retainedPageResult.memory.committedBytes,
+    memoryCommittedCount: retainedPageResult.memory.committedCount,
+    memoryRetiredBytes: retainedPageResult.memory.retiredBytes,
+    memoryRetiredCount: retainedPageResult.memory.retiredCount,
+    memoryTotalBytes: retainedPageResult.memory.totalBytes,
     mergedDrawQuadCount: retainedPageResult.mergedDrawQuadCount,
-    missingPageCount:
-      retainedPageResult.missingPageCount +
-      retainedTextLikePreviewResult.missingPageCount,
+    missingPageCount: retainedPageResult.missingPageCount,
     rasterMs: retainedPageResult.rasterMs,
     staleFallbackDrawQuadCount: retainedPageResult.staleFallbackDrawQuadCount,
-    targetDescriptorCount:
-      retainedPageResult.targetDescriptorCount +
-      retainedTextLikePreviewResult.targetDescriptorCount,
+    targetDescriptorCount: retainedPageResult.targetDescriptorCount,
     uncoveredRectCount: retainedPageResult.uncoveredRectCount,
-    uploadedBytes:
-      retainedPageResult.uploadedBytes +
-      retainedTextLikePreviewResult.uploadedBytes,
+    uploadedBytes: retainedPageResult.uploadedBytes,
     uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
-    uploadCount:
-      retainedPageResult.uploadCount +
-      retainedTextLikePreviewResult.uploadCount,
-    uploadMs:
-      retainedPageResult.uploadMs + retainedTextLikePreviewResult.uploadMs,
+    uploadCount: retainedPageResult.uploadCount,
+    uploadMs: retainedPageResult.uploadMs,
   };
 }
