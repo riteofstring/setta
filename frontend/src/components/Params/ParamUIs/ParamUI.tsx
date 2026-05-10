@@ -60,6 +60,7 @@ import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
 import { resolveTextLikeParamEditorPolicy } from "./textLikeEditorPolicy";
+import { dummyCodeClass, realCodeClass } from "./textLikeParamCodeMirrorVisual";
 import {
   DateParamInputConfigForParam,
   TextParamDateTimeInput,
@@ -705,8 +706,12 @@ function TextParamConfigured({
             onEscape();
           }
         }}
-        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+        dummyCodeClassName={dummyCodeClass(
+          Boolean(maybeErrorMessage),
+          true,
+          isDisabled,
+        )}
+        realCodeClassName={realCodeClass(Boolean(maybeErrorMessage))}
         language={configLanguage}
         singleLine={editorPolicy?.linePolicy === "single-line"}
         wrapLines={editorPolicy?.wrapLines}

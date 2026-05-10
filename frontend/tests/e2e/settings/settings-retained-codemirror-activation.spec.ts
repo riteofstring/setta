@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { ensureAppReady, setParamEnteredValueFromFrontend } from "../helpers";
 import {
+  analyzeCodeMirrorTextInkBounds,
   compareScreenshots,
   type Point,
   type Rect,
@@ -173,6 +174,76 @@ test("retained settings text editor activation preserves the passive visual fram
   expect(visualDelta.changedPixelRatio, failureDetails).toBeLessThan(0.08);
 });
 
+test("retained settings text editor activation keeps text ink aligned with the passive preview", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await centerGuiRowAtZoom(page, MAX_ZOOM_LABEL, 1.5);
+  await page.addStyleTag({
+    content: ".cm-cursor,.cm-cursorLayer{opacity:0!important}",
+  });
+  const row = await resolveVisibleGuiRow(page, MAX_ZOOM_LABEL);
+  if (!row.controlClientPoint || !row.controlClientRect) {
+    throw new Error(`Missing retained control geometry for ${MAX_ZOOM_LABEL}`);
+  }
+  const clip = await clampScreenshotClipToViewport(
+    page,
+    expandRect(row.controlClientRect, 12),
+  );
+  const searchRect = resolveValueInkSearchRect(row.controlClientRect);
+  await waitForStableScreenshotClip(page, clip);
+  const passiveFrame = await page.screenshot({
+    clip,
+    path: testInfo.outputPath("codemirror-passive-ink-frame.png"),
+  });
+  const passiveInk = await analyzeCodeMirrorTextInkBounds(page, {
+    clip,
+    screenshot: passiveFrame,
+    searchRect,
+  });
+
+  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await expect
+    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
+    .toContain(row.rowId);
+  await waitForAnimationFrame(page);
+  const activeFrame = await page.screenshot({
+    clip,
+    path: testInfo.outputPath("codemirror-active-ink-frame.png"),
+  });
+  const activeInk = await analyzeCodeMirrorTextInkBounds(page, {
+    clip,
+    screenshot: activeFrame,
+    searchRect,
+  });
+  const failureDetails = JSON.stringify(
+    {
+      activeInk,
+      clip,
+      passiveInk,
+      row: {
+        controlClientRect: row.controlClientRect,
+        rowId: row.rowId,
+        rowLabel: row.rowLabel,
+      },
+      searchRect,
+    },
+    null,
+    2,
+  );
+
+  expect(passiveInk, failureDetails).not.toBeNull();
+  expect(activeInk, failureDetails).not.toBeNull();
+  expect(
+    Math.abs((activeInk?.x ?? 0) - (passiveInk?.x ?? 0)),
+    failureDetails,
+  ).toBeLessThanOrEqual(1.5);
+  expect(
+    Math.abs((activeInk?.centerY ?? 0) - (passiveInk?.centerY ?? 0)),
+    failureDetails,
+  ).toBeLessThanOrEqual(1.5);
+});
+
 async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -223,6 +294,50 @@ async function readGuiSetting(page: Page, key: "maxZoom"): Promise<unknown> {
     const { useSettings } = await import("/src/state/definitions.ts");
     return (useSettings.getState().gui as Record<string, unknown>)[key];
   }, key);
+}
+
+async function centerGuiRowAtZoom(
+  page: Page,
+  label: string,
+  zoom: number,
+): Promise<void> {
+  await page.evaluate(
+    async ({ label, surfaceId, zoom }) => {
+      const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+      const row = rows.find(
+        (candidate): candidate is RetainedRowDebugEntry =>
+          candidate.surfaceId === surfaceId &&
+          candidate.rowLabel === label &&
+          candidate.controlClientPoint !== null,
+      );
+      const pane = document.querySelector(".setta-gpu-flow__pane");
+      const transform =
+        window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
+      if (!row || !pane || !transform || !row.controlClientPoint) {
+        throw new Error(`Missing retained row zoom target for ${label}.`);
+      }
+      const paneRect = pane.getBoundingClientRect();
+      const flowCenter = {
+        x:
+          (row.controlClientPoint.x - paneRect.left - transform.x) /
+          transform.zoom,
+        y:
+          (row.controlClientPoint.y - paneRect.top - transform.y) /
+          transform.zoom,
+      };
+      const { gpuFlowViewportStore } = await import(
+        "/src/gpuFlow/viewportStore.ts"
+      );
+      gpuFlowViewportStore.getState().setTransform({
+        x: paneRect.width * 0.68 - flowCenter.x * zoom,
+        y: paneRect.height * 0.46 - flowCenter.y * zoom,
+        zoom,
+      });
+    },
+    { label, surfaceId: GUI_CONTENT_SURFACE_ID, zoom },
+  );
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
@@ -375,6 +490,24 @@ async function clampScreenshotClipToViewport(
     );
     return { height, width, x, y };
   }, rect);
+}
+
+function expandRect(rect: Rect, padding: number): Rect {
+  return {
+    height: rect.height + padding * 2,
+    width: rect.width + padding * 2,
+    x: rect.x - padding,
+    y: rect.y - padding,
+  };
+}
+
+function resolveValueInkSearchRect(rect: Rect): Rect {
+  return {
+    height: rect.height,
+    width: Math.min(rect.width, 220),
+    x: rect.x,
+    y: rect.y,
+  };
 }
 
 async function restoreMaxZoom(

@@ -67,6 +67,168 @@ export type ScrollbarStats = {
   readonly visibleColumnCount: number;
 };
 
+export type TextInkBounds = Rect & {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly pixelCount: number;
+};
+
+export async function analyzeCodeMirrorTextInkBounds(
+  page: Page,
+  input: {
+    readonly clip: Rect;
+    readonly screenshot: Buffer;
+    readonly searchRect: Rect;
+  },
+): Promise<TextInkBounds | null> {
+  return await analyzeTextInkBounds(page, {
+    ...input,
+    pixelKind: "codemirror",
+  });
+}
+
+export async function analyzeRetainedLabelTextInkBounds(
+  page: Page,
+  input: {
+    readonly clip: Rect;
+    readonly screenshot: Buffer;
+    readonly searchRect: Rect;
+  },
+): Promise<TextInkBounds | null> {
+  return await analyzeTextInkBounds(page, { ...input, pixelKind: "label" });
+}
+
+async function analyzeTextInkBounds(
+  page: Page,
+  input: {
+    readonly clip: Rect;
+    readonly pixelKind: "codemirror" | "label";
+    readonly screenshot: Buffer;
+    readonly searchRect: Rect;
+  },
+): Promise<TextInkBounds | null> {
+  return await page.evaluate(
+    async ({ clip, pixelKind, screenshotDataUrl, searchRect }) => {
+      const image = await loadImage(screenshotDataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        throw new Error("Missing text ink analysis canvas context.");
+      }
+      ctx.drawImage(image, 0, 0);
+      const { data, height, width } = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      const left = Math.max(0, Math.floor(searchRect.x - clip.x));
+      const right = Math.min(
+        width,
+        Math.ceil(searchRect.x + searchRect.width - clip.x),
+      );
+      const top = Math.max(0, Math.floor(searchRect.y - clip.y));
+      const bottom = Math.min(
+        height,
+        Math.ceil(searchRect.y + searchRect.height - clip.y),
+      );
+      const candidateRows = new Map<number, number[]>();
+      for (let y = top; y < bottom; y += 1) {
+        for (let x = left; x < right; x += 1) {
+          const index = (y * width + x) * 4;
+          const r = data[index] ?? 0;
+          const g = data[index + 1] ?? 0;
+          const b = data[index + 2] ?? 0;
+          if (!isTextPixel(r, g, b, pixelKind)) {
+            continue;
+          }
+          const rowPixels = candidateRows.get(y);
+          if (rowPixels) {
+            rowPixels.push(x);
+          } else {
+            candidateRows.set(y, [x]);
+          }
+        }
+      }
+      let maxX = Number.NEGATIVE_INFINITY;
+      let maxY = Number.NEGATIVE_INFINITY;
+      let minX = Number.POSITIVE_INFINITY;
+      let minY = Number.POSITIVE_INFINITY;
+      let pixelCount = 0;
+      const horizontalRuleThreshold = Math.max(24, (right - left) * 0.25);
+      for (const [y, rowPixels] of candidateRows) {
+        if (rowPixels.length >= horizontalRuleThreshold) {
+          continue;
+        }
+        for (const x of rowPixels) {
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+          pixelCount += 1;
+        }
+      }
+      if (pixelCount === 0) {
+        return null;
+      }
+      const x = clip.x + minX;
+      const y = clip.y + minY;
+      const boundsWidth = maxX - minX + 1;
+      const boundsHeight = maxY - minY + 1;
+      return {
+        centerX: x + boundsWidth / 2,
+        centerY: y + boundsHeight / 2,
+        height: boundsHeight,
+        pixelCount,
+        width: boundsWidth,
+        x,
+        y,
+      };
+
+      async function loadImage(url: string): Promise<HTMLImageElement> {
+        const image = new Image();
+        const loaded = new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () =>
+            reject(new Error("Failed to decode text ink screenshot."));
+        });
+        image.src = url;
+        await loaded;
+        return image;
+      }
+
+      function isTextPixel(
+        r: number,
+        g: number,
+        b: number,
+        kind: "codemirror" | "label",
+      ): boolean {
+        const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if (luma < 70) {
+          return false;
+        }
+        if (kind === "label") {
+          const channelSpread = Math.max(r, g, b) - Math.min(r, g, b);
+          return luma > 105 && channelSpread < 55;
+        }
+        const coolText = b > 95 && g > 75 && b - r > 18;
+        const purpleText = r > 115 && b > 115 && b - g > 10;
+        return coolText || purpleText;
+      }
+    },
+    {
+      clip: input.clip,
+      pixelKind: input.pixelKind,
+      screenshotDataUrl: `data:image/png;base64,${input.screenshot.toString(
+        "base64",
+      )}`,
+      searchRect: input.searchRect,
+    },
+  );
+}
+
 export async function analyzeHoverBands(
   page: Page,
   input: {

@@ -48,16 +48,42 @@ describe("getGpuRetainedTextLikePreviewSources", () => {
       }),
     ]);
   });
+
+  it("keeps the DOM source key stable while only the visible scroll slice changes", () => {
+    const firstSource = getGpuRetainedTextLikePreviewSources(
+      scene({ rowCount: 20, scrollY: 7 }),
+    )[0];
+    const nextSource = getGpuRetainedTextLikePreviewSources(
+      scene({ rowCount: 20, scrollY: 15 }),
+    )[0];
+
+    expect(firstSource?.sourceKey).toBe(nextSource?.sourceKey);
+    expect(firstSource?.textureSourceRect.y).not.toBe(
+      nextSource?.textureSourceRect.y,
+    );
+  });
 });
 
-function scene(): GpuFlowScene {
+function scene({
+  rowCount = 2,
+  scrollY = 0,
+}: {
+  readonly rowCount?: number | undefined;
+  readonly scrollY?: number | undefined;
+} = {}): GpuFlowScene {
   const retainedScene = createGpuRetainedRowContentScene({
     controlWidth: 80,
     id: "surface-a",
     ownerSectionId: "section-a",
     rowHeight: 24,
-    rows: [row("param-a", "alpha"), row("param-b", "beta", true)],
-    scrollOffset: { x: 0, y: 0 },
+    rows: Array.from({ length: rowCount }, (_, index) =>
+      row(
+        `param-${String.fromCharCode(97 + index)}`,
+        index === 0 ? "alpha" : `value-${index}`,
+        index === 1,
+      ),
+    ),
+    scrollOffset: { x: 0, y: scrollY },
     viewportRect: { height: 48, width: 200, x: 0, y: 0 },
   });
   return {

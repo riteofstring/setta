@@ -1,11 +1,5 @@
 import { type MutableRefObject } from "react";
 
-import {
-  isChromeReproActive,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
-
 import type { GpuFlowRuntime } from "../gpuDevice";
 
 import {
@@ -35,10 +29,8 @@ import {
   createGpuFlowFramePerformanceEvent,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
-import { getGpuRetainedContentTexturePageFrameSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import {
   getGpuRetainedContentSourceRectForRows,
-  getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
 } from "../GpuRetainedContentSurfaces";
 import {
@@ -49,15 +41,21 @@ import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
-import type { GpuRetainedContentDrawCommand } from "../retainedContentScene";
+import { createGpuRetainedContentFrameGeneration } from "../retainedContentFrameGeneration";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
 import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
-import { normalizeGpuViewport, type GpuRect } from "../viewportMath";
+import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import {
+  postGpuFlowRetainedContentVisualStateChromeReproEvent,
+  postGpuFlowRetainedTextLikePreviewChromeReproEvent,
+} from "./flowRetainedFrameDiagnostics";
+import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks } from "./flowSurface";
 
 function resolveRenderableGpuFlowLayerFrameInput({
@@ -65,6 +63,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   nodeLayerRef,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
+  retainedTextLikePreviewPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
@@ -73,6 +72,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
+  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }): {
   readonly canvasSize: GpuCanvasSize;
@@ -81,6 +81,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly resources: {
     readonly htmlSurfaceRenderer: HtmlSurfaceRenderer;
     readonly retainedContentPageManager: RetainedContentTexturePageManager;
+    readonly retainedTextLikePreviewPageManager: RetainedTextLikePreviewPageManager;
     readonly textureManager: HtmlSurfaceTextureManager;
   };
 } | null {
@@ -100,6 +101,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
     resources: ensureNodeLayerResources({
       htmlSurfaceRendererRef,
       retainedContentPageManagerRef,
+      retainedTextLikePreviewPageManagerRef,
       runtime,
       textureManagerRef,
     }),
@@ -109,11 +111,13 @@ function resolveRenderableGpuFlowLayerFrameInput({
 function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
+  retainedTextLikePreviewPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
+  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
@@ -130,10 +134,16 @@ function ensureNodeLayerResources({
         runtime.canvas.ownerDocument,
       );
   }
+  if (!retainedTextLikePreviewPageManagerRef.current) {
+    retainedTextLikePreviewPageManagerRef.current =
+      new RetainedTextLikePreviewPageManager(runtime.device);
+  }
 
   return {
     htmlSurfaceRenderer: htmlSurfaceRendererRef.current,
     retainedContentPageManager: retainedContentPageManagerRef.current,
+    retainedTextLikePreviewPageManager:
+      retainedTextLikePreviewPageManagerRef.current,
     textureManager: textureManagerRef.current,
   };
 }
@@ -157,6 +167,7 @@ export function destroyNodeLayerResources(
   textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>,
   htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>,
   retainedContentPageManagerRef?: MutableRefObject<RetainedContentTexturePageManager | null>,
+  retainedTextLikePreviewPageManagerRef?: MutableRefObject<RetainedTextLikePreviewPageManager | null>,
 ) {
   textureManagerRef.current?.destroy();
   textureManagerRef.current = null;
@@ -165,6 +176,10 @@ export function destroyNodeLayerResources(
   retainedContentPageManagerRef?.current?.destroy();
   if (retainedContentPageManagerRef) {
     retainedContentPageManagerRef.current = null;
+  }
+  retainedTextLikePreviewPageManagerRef?.current?.destroy();
+  if (retainedTextLikePreviewPageManagerRef) {
+    retainedTextLikePreviewPageManagerRef.current = null;
   }
 }
 
@@ -272,6 +287,8 @@ export function renderGpuFlowNodeLayerFrame({
   htmlSurfaceRendererRef,
   runtime,
   retainedContentPageManagerRef,
+  retainedTextLikePreviewElementByIdRef,
+  retainedTextLikePreviewPageManagerRef,
   retainedContentSwitchAnimations,
   surfaceRef,
   textureManagerRef,
@@ -294,6 +311,10 @@ export function renderGpuFlowNodeLayerFrame({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
+  readonly retainedTextLikePreviewElementByIdRef: MutableRefObject<
+    Map<string, HTMLElement>
+  >;
+  readonly retainedTextLikePreviewPageManagerRef: MutableRefObject<RetainedTextLikePreviewPageManager | null>;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -307,6 +328,7 @@ export function renderGpuFlowNodeLayerFrame({
     nodeLayerRef,
     htmlSurfaceRendererRef,
     retainedContentPageManagerRef,
+    retainedTextLikePreviewPageManagerRef,
     runtime,
     textureManagerRef,
   });
@@ -331,28 +353,33 @@ export function renderGpuFlowNodeLayerFrame({
       viewportInteractionActive: deferResolutionUpdates,
       zoom: normalizeGpuViewport(layer.viewport).zoom,
     });
-  const retainedContentSourceSurfaces = getGpuRetainedContentSourceSurfaces(
-    layer.scene?.contentSurfaces,
-    {
-      viewportZoomBucket,
-    },
-  );
+  const retainedFrameGeneration = createGpuRetainedContentFrameGeneration({
+    contentSurfaces: layer.scene?.contentSurfaces,
+    viewportZoomBucket,
+  });
   const retainedPagePreparedFrame =
     resources.retainedContentPageManager.prepareFrame({
       devicePixelRatio: canvasSize.devicePixelRatio,
       frame,
-      surfaces: getGpuRetainedContentTexturePageFrameSurfaces(
-        layer.scene?.contentSurfaces,
-        {
-          viewportZoomBucket,
-        },
-      ),
+      surfaces: retainedFrameGeneration.contentPageSurfaces,
       viewportZoomBucket,
     });
+  const retainedTextLikePreviewPreparedFrame =
+    resources.retainedTextLikePreviewPageManager.prepareFrame({
+      baseDrawQuads: retainedPagePreparedFrame.drawQuads,
+      baseTargetDescriptors: retainedPagePreparedFrame.targetDescriptors,
+      frame,
+      surfaces: retainedFrameGeneration.textLikePreviewPageSurfaces,
+    });
+  postGpuFlowRetainedTextLikePreviewChromeReproEvent({
+    frame,
+    preparedFrame: retainedTextLikePreviewPreparedFrame,
+    previewSurfaces: retainedFrameGeneration.textLikePreviewPageSurfaces,
+  });
   markGpuFlowRetainedContentSwitchFreshnessDirty({
     frame,
     retainedContentPageManager: resources.retainedContentPageManager,
-    sourceSurfaces: retainedContentSourceSurfaces,
+    sourceSurfaces: retainedFrameGeneration.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
   const switchAnimationNativeVisuals =
@@ -381,7 +408,10 @@ export function renderGpuFlowNodeLayerFrame({
       layer.htmlSurfaceNativeVisuals,
       switchAnimationNativeVisuals,
     ),
-    htmlSurfacePageVisuals: retainedPagePreparedFrame.flatSurfaces,
+    htmlSurfacePageVisuals: [
+      ...retainedPagePreparedFrame.flatSurfaces,
+      ...retainedTextLikePreviewPreparedFrame.flatSurfaces,
+    ],
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
@@ -398,10 +428,16 @@ export function renderGpuFlowNodeLayerFrame({
       // pages must cache only the static scene state.
       viewportInteractionActive: deferResolutionUpdates,
     });
+  const retainedTextLikePreviewResult =
+    resources.retainedTextLikePreviewPageManager.runPostSubmitMaintenance({
+      elementBySourceId: retainedTextLikePreviewElementByIdRef.current,
+      preparedFrame: retainedTextLikePreviewPreparedFrame,
+      viewportInteractionActive: deferResolutionUpdates,
+    });
   settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
     nowMs: renderStartedAt,
     retainedContentPageManager: resources.retainedContentPageManager,
-    sourceSurfaces: retainedContentSourceSurfaces,
+    sourceSurfaces: retainedFrameGeneration.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
   const switchAnimationNeedsFollowUpFrame =
@@ -429,30 +465,10 @@ export function renderGpuFlowNodeLayerFrame({
     }),
     layerResult: combinedLayerResult,
     renderDurationMs: performance.now() - renderStartedAt,
-    retainedTexturePages: {
-      budgetExhausted: retainedPageResult.budgetExhausted,
-      coverageCandidateCount: retainedPageResult.coverageCandidateCount,
-      diagnosticCount: retainedPageResult.diagnostics.length,
-      drawQuadCount: retainedPageResult.drawQuadCount,
-      evictedBytes: retainedPageResult.evicted.evictedBytes,
-      evictedCount: retainedPageResult.evicted.evictedKeys.length,
-      fallbackDrawQuadCount: retainedPageResult.fallbackDrawQuadCount,
-      memoryCommittedBytes: retainedPageResult.memory.committedBytes,
-      memoryCommittedCount: retainedPageResult.memory.committedCount,
-      memoryRetiredBytes: retainedPageResult.memory.retiredBytes,
-      memoryRetiredCount: retainedPageResult.memory.retiredCount,
-      memoryTotalBytes: retainedPageResult.memory.totalBytes,
-      mergedDrawQuadCount: retainedPageResult.mergedDrawQuadCount,
-      missingPageCount: retainedPageResult.missingPageCount,
-      rasterMs: retainedPageResult.rasterMs,
-      staleFallbackDrawQuadCount: retainedPageResult.staleFallbackDrawQuadCount,
-      targetDescriptorCount: retainedPageResult.targetDescriptorCount,
-      uncoveredRectCount: retainedPageResult.uncoveredRectCount,
-      uploadedBytes: retainedPageResult.uploadedBytes,
-      uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
-      uploadCount: retainedPageResult.uploadCount,
-      uploadMs: retainedPageResult.uploadMs,
-    },
+    retainedTexturePages: combineGpuFlowRetainedTexturePageMetrics({
+      retainedPageResult,
+      retainedTextLikePreviewResult,
+    }),
     viewport: layer.viewport,
     viewportFrame,
   });
@@ -461,7 +477,9 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
-    retainedTexturePageFollowUpFrame: retainedPageResult.needsFollowUpFrame,
+    retainedTexturePageFollowUpFrame:
+      retainedPageResult.needsFollowUpFrame ||
+      retainedTextLikePreviewResult.needsFollowUpFrame,
     surfaceRef,
     switchAnimationFollowUpFrame: switchAnimationNeedsFollowUpFrame,
     transformOnlyPaintNodeIdsRef,
@@ -597,138 +615,6 @@ function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {
     canvas.closest(".dark") ??
       canvas.ownerDocument.documentElement.closest(".dark"),
   );
-}
-
-let lastRetainedContentVisualStateSignature: string | null = null;
-
-function postGpuFlowRetainedContentVisualStateChromeReproEvent({
-  frame,
-  scene,
-}: {
-  readonly frame: number;
-  readonly scene: GpuFlowScene | undefined;
-}) {
-  if (!isChromeReproActive() || !scene) {
-    return;
-  }
-  const surfaces = scene.contentSurfaces
-    .map(createGpuFlowRetainedContentSurfaceVisualState)
-    .filter(
-      (surface): surface is NonNullable<typeof surface> => surface !== null,
-    );
-  if (surfaces.length === 0) {
-    return;
-  }
-  const signature = JSON.stringify(surfaces);
-  if (signature === lastRetainedContentVisualStateSignature) {
-    return;
-  }
-  lastRetainedContentVisualStateSignature = signature;
-  postChromeReproEvent("gpu-flow-retained-content-visual-state", {
-    frame,
-    surfaces,
-  });
-}
-
-function createGpuFlowRetainedContentSurfaceVisualState(
-  surface: GpuContentSurface,
-): {
-  readonly contentRect: GpuRect;
-  readonly rect: GpuRect;
-  readonly scrollbars: readonly {
-    readonly axis: string;
-    readonly state: unknown;
-    readonly thumbRect: GpuRect;
-    readonly trackRect: GpuRect;
-  }[];
-  readonly scrollOffset: { readonly x: number; readonly y: number };
-  readonly surfaceId: string;
-  readonly switches: readonly {
-    readonly checked: boolean;
-    readonly displayValue: string;
-    readonly rect: GpuRect;
-    readonly rowId: string;
-  }[];
-  readonly viewportRect: GpuRect;
-  readonly zIndex: number;
-} | null {
-  const retainedScene = surface.retainedScene;
-  if (!retainedScene) {
-    return null;
-  }
-  const switches = retainedScene.drawCommands
-    .map(createGpuFlowRetainedContentSwitchVisualState)
-    .filter(
-      (command): command is NonNullable<typeof command> => command !== null,
-    );
-  const scrollbars = retainedScene.drawCommands
-    .map(createGpuFlowRetainedContentScrollbarVisualState)
-    .filter(
-      (command): command is NonNullable<typeof command> => command !== null,
-    );
-  if (switches.length === 0 && scrollbars.length === 0) {
-    return null;
-  }
-  return {
-    contentRect: roundGpuFlowChromeReproRect(retainedScene.contentRect),
-    rect: roundGpuFlowChromeReproRect(surface.rect),
-    scrollbars,
-    scrollOffset: {
-      x: roundChromeReproMs(retainedScene.scrollOffset.x),
-      y: roundChromeReproMs(retainedScene.scrollOffset.y),
-    },
-    surfaceId: surface.id,
-    switches,
-    viewportRect: roundGpuFlowChromeReproRect(retainedScene.viewportRect),
-    zIndex: surface.zIndex,
-  };
-}
-
-function createGpuFlowRetainedContentSwitchVisualState(
-  command: GpuRetainedContentDrawCommand,
-): {
-  readonly checked: boolean;
-  readonly displayValue: string;
-  readonly rect: GpuRect;
-  readonly rowId: string;
-} | null {
-  if (command.kind !== "row-control" || command.control.kind !== "switch") {
-    return null;
-  }
-  return {
-    checked: command.control.checked,
-    displayValue: command.control.displayValue,
-    rect: roundGpuFlowChromeReproRect(command.rect),
-    rowId: command.rowId,
-  };
-}
-
-function createGpuFlowRetainedContentScrollbarVisualState(
-  command: GpuRetainedContentDrawCommand,
-): {
-  readonly axis: string;
-  readonly state: unknown;
-  readonly thumbRect: GpuRect;
-  readonly trackRect: GpuRect;
-} | null {
-  if (command.kind !== "scrollbar") {
-    return null;
-  }
-  return {
-    axis: command.axis,
-    state: command.state ?? null,
-    thumbRect: roundGpuFlowChromeReproRect(command.thumbRect),
-    trackRect: roundGpuFlowChromeReproRect(command.trackRect),
-  };
-}
-
-function roundGpuFlowChromeReproRect(rect: GpuRect): GpuRect {
-  return {
-    height: roundChromeReproMs(rect.height),
-    width: roundChromeReproMs(rect.width),
-    x: roundChromeReproMs(rect.x),
-    y: roundChromeReproMs(rect.y),
-  };
 }
 
 function resolveActiveGpuFlowNodeId({

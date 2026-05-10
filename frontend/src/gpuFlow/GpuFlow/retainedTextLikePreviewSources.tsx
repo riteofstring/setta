@@ -1,26 +1,32 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   type MutableRefObject,
   type ReactNode,
 } from "react";
 
-import { getGpuRetainedContentSourceSurfaces } from "../GpuRetainedContentSurfaces";
-import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
-  clearGpuNodeDomTransformSyncCacheNode,
-  type GpuHtmlSurfaceOverlayLayout,
-  type GpuNodeDomTransformSyncCache,
-} from "../htmlSurfaces/frame";
+  isChromeReproActive,
+  postChromeReproEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
+
+import {
+  getGpuRetainedContentSourceSurfaces,
+  type GpuRetainedContentSourceSurface,
+} from "../GpuRetainedContentSurfaces";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
 } from "../htmlSurfaces/sourceLayer";
-import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import { createGpuRetainedContentRowControlRect } from "../retainedContentRowLayout";
 import { createGpuRetainedRowContentSceneWithScrollWindow } from "../retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "../retainedContentSceneSourceMetadata";
+import type { RetainedTextLikePreviewPageFrameSurface } from "../retainedTextLikePreviewPageManager";
 import type { GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
 
@@ -45,7 +51,9 @@ export type GpuRetainedTextLikePreviewSource = {
   readonly sectionId: string;
   readonly sourceHeight: number;
   readonly sourceId: string;
+  readonly sourceKey: string;
   readonly sourceWidth: number;
+  readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly textureSourceRect: GpuRect;
   readonly width: number;
@@ -62,24 +70,17 @@ const GPU_RETAINED_TEXT_LIKE_PREVIEW_SOURCE_CLASS_NAME =
   "setta-gpu-flow__retained-text-like-preview-source";
 
 export function useGpuFlowRetainedTextLikePreviewSources({
-  nodeDomTransformSyncCacheRef,
-  nodeElementByIdRef,
+  elementBySourceIdRef,
   renderPreview,
   scene,
   surfaceRef,
-  textureManagerRef,
-  transformOnlyPaintNodeIdsRef,
 }: {
-  readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
-  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly elementBySourceIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly renderPreview: GpuRetainedTextLikePreviewRenderer | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
-  readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }): {
   readonly retainedTextLikePreviewSourceElement: ReactNode;
-  readonly retainedTextLikePreviewSurfaces: readonly GpuHtmlSurfaceOverlayLayout[];
 } {
   const sources = useMemo(
     () =>
@@ -88,33 +89,32 @@ export function useGpuFlowRetainedTextLikePreviewSources({
         : EMPTY_TEXT_LIKE_PREVIEW_SOURCES,
     [renderPreview, scene],
   );
-  const retainedTextLikePreviewSurfaces = useMemo(
-    () => sources.map(toGpuRetainedTextLikePreviewSurfaceLayout),
-    [sources],
-  );
+  const chromeReproSourceSignatureRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isChromeReproActive()) {
+      return;
+    }
+    const state = sources.map(summarizeGpuRetainedTextLikePreviewSource);
+    const signature = JSON.stringify(state);
+    if (signature === chromeReproSourceSignatureRef.current) {
+      return;
+    }
+    chromeReproSourceSignatureRef.current = signature;
+    postChromeReproEvent("gpu-flow-retained-text-like-preview-sources", {
+      sources: state,
+    });
+  }, [sources]);
   const handlePreviewElementChange = useCallback(
     (sourceId: string, element: HTMLElement | null) => {
-      clearGpuNodeDomTransformSyncCacheNode(
-        nodeDomTransformSyncCacheRef.current,
-        sourceId,
-      );
       if (!element) {
-        nodeElementByIdRef.current.delete(sourceId);
-        transformOnlyPaintNodeIdsRef.current.delete(sourceId);
-        textureManagerRef.current?.destroySurfaceTexture(sourceId);
+        elementBySourceIdRef.current.delete(sourceId);
         return;
       }
-      nodeElementByIdRef.current.set(sourceId, element);
+      elementBySourceIdRef.current.set(sourceId, element);
       surfaceRef.current?.requestPaint();
       surfaceRef.current?.requestFrame("manual");
     },
-    [
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-    ],
+    [elementBySourceIdRef, surfaceRef],
   );
 
   return {
@@ -126,7 +126,6 @@ export function useGpuFlowRetainedTextLikePreviewSources({
           sources={sources}
         />
       ) : null,
-    retainedTextLikePreviewSurfaces,
   };
 }
 
@@ -136,13 +135,29 @@ const EMPTY_TEXT_LIKE_PREVIEW_SOURCES: readonly GpuRetainedTextLikePreviewSource
 export function getGpuRetainedTextLikePreviewSources(
   scene: GpuFlowScene | undefined,
 ): readonly GpuRetainedTextLikePreviewSource[] {
-  return getGpuRetainedContentSourceSurfaces(scene?.contentSurfaces).flatMap(
-    (surface) => getGpuRetainedTextLikePreviewSourcesForSurface(surface),
+  return getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(
+    getGpuRetainedContentSourceSurfaces(scene?.contentSurfaces),
+  );
+}
+
+export function getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(
+  surfaces: readonly GpuRetainedContentSourceSurface[],
+): readonly GpuRetainedTextLikePreviewSource[] {
+  return surfaces.flatMap((surface) =>
+    getGpuRetainedTextLikePreviewSourcesForSurface(surface),
+  );
+}
+
+export function getGpuRetainedTextLikePreviewPageFrameSurfacesFromSourceSurfaces(
+  surfaces: readonly GpuRetainedContentSourceSurface[],
+): readonly RetainedTextLikePreviewPageFrameSurface[] {
+  return getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(surfaces).map(
+    toGpuRetainedTextLikePreviewPageFrameSurface,
   );
 }
 
 function getGpuRetainedTextLikePreviewSourcesForSurface(
-  surface: ReturnType<typeof getGpuRetainedContentSourceSurfaces>[number],
+  surface: GpuRetainedContentSourceSurface,
 ): readonly GpuRetainedTextLikePreviewSource[] {
   const rasterScene = createGpuRetainedRowContentSceneWithScrollWindow({
     scene: surface.retainedScene,
@@ -197,44 +212,124 @@ function getGpuRetainedTextLikePreviewSourcesForSurface(
   if (previews.length === 0) {
     return [];
   }
+  const source = {
+    height: surface.rect.height,
+    previews,
+    sectionId: surface.ownerSectionId,
+    sourceHeight: surface.textureWindow.textureHeight,
+    sourceId: getGpuRetainedTextLikePreviewSourceId(surface.id),
+    sourceWidth: surface.textureWindow.textureWidth,
+    sourceWindowCss: {
+      height: surface.textureWindow.cacheViewportRect.height,
+      width: surface.textureWindow.cacheViewportRect.width,
+      x: surface.textureWindow.cacheScrollOffset.x,
+      y: surface.textureWindow.cacheScrollOffset.y,
+    },
+    surfaceId: surface.id,
+    textureSourceRect: surface.textureWindow.sourceRect,
+    width: surface.rect.width,
+    x: surface.rect.x,
+    y: surface.rect.y,
+    zIndex: surface.zIndex + 1,
+  };
   return [
     {
-      height: surface.rect.height,
-      previews,
-      sectionId: surface.ownerSectionId,
-      sourceHeight: surface.textureWindow.textureHeight,
-      sourceId: getGpuRetainedTextLikePreviewSourceId(surface.id),
-      sourceWidth: surface.textureWindow.textureWidth,
-      surfaceId: surface.id,
-      textureSourceRect: surface.textureWindow.sourceRect,
-      width: surface.rect.width,
-      x: surface.rect.x,
-      y: surface.rect.y,
-      zIndex: surface.zIndex + 1,
+      ...source,
+      sourceKey: createGpuRetainedTextLikePreviewSourceKey(source),
     },
   ];
 }
 
-function toGpuRetainedTextLikePreviewSurfaceLayout(
+function summarizeGpuRetainedTextLikePreviewSource(
   source: GpuRetainedTextLikePreviewSource,
-): GpuHtmlSurfaceOverlayLayout {
+): {
+  readonly previewCount: number;
+  readonly previews: readonly {
+    readonly code: string;
+    readonly defaultValue: string;
+    readonly disabled: boolean;
+    readonly error: boolean;
+    readonly linePolicy: string;
+    readonly rect: GpuRect;
+    readonly rowId: string;
+    readonly wrapLines: boolean;
+  }[];
+  readonly sectionId: string;
+  readonly sourceHeight: number;
+  readonly sourceId: string;
+  readonly sourceKeyLength: number;
+  readonly sourceWidth: number;
+  readonly sourceWindowCss: GpuRect;
+  readonly surfaceId: string;
+  readonly textureSourceRect: GpuRect;
+  readonly zIndex: number;
+} {
   return {
-    height: source.height,
-    layer: "page",
-    ownerNodeId: source.surfaceId,
-    surfaceId: source.sourceId,
-    textureContentKey: JSON.stringify({
-      height: source.sourceHeight,
-      previews: source.previews,
-      width: source.sourceWidth,
-    }),
-    textureCssHeight: source.sourceHeight,
-    textureCssWidth: source.sourceWidth,
-    textureSourceRect: source.textureSourceRect,
-    width: source.width,
-    x: source.x,
-    y: source.y,
+    previewCount: source.previews.length,
+    previews: source.previews.slice(0, 40).map((preview) => ({
+      code: preview.code,
+      defaultValue: preview.defaultValue,
+      disabled: preview.disabled,
+      error: preview.error,
+      linePolicy: preview.linePolicy,
+      rect: roundGpuRetainedTextLikePreviewRect({
+        height: preview.height,
+        width: preview.width,
+        x: preview.x,
+        y: preview.y,
+      }),
+      rowId: preview.rowId,
+      wrapLines: preview.wrapLines,
+    })),
+    sectionId: source.sectionId,
+    sourceHeight: roundChromeReproMs(source.sourceHeight),
+    sourceId: source.sourceId,
+    sourceKeyLength: source.sourceKey.length,
+    sourceWidth: roundChromeReproMs(source.sourceWidth),
+    sourceWindowCss: roundGpuRetainedTextLikePreviewRect(
+      source.sourceWindowCss,
+    ),
+    surfaceId: source.surfaceId,
+    textureSourceRect: roundGpuRetainedTextLikePreviewRect(
+      source.textureSourceRect,
+    ),
     zIndex: source.zIndex,
+  };
+}
+
+function roundGpuRetainedTextLikePreviewRect(rect: GpuRect): GpuRect {
+  return {
+    height: roundChromeReproMs(rect.height),
+    width: roundChromeReproMs(rect.width),
+    x: roundChromeReproMs(rect.x),
+    y: roundChromeReproMs(rect.y),
+  };
+}
+
+function toGpuRetainedTextLikePreviewPageFrameSurface(
+  source: GpuRetainedTextLikePreviewSource,
+): RetainedTextLikePreviewPageFrameSurface {
+  return {
+    contentBoundsCss: {
+      height: source.sourceHeight,
+      width: source.sourceWidth,
+      x: 0,
+      y: 0,
+    },
+    layout: {
+      height: source.height,
+      surfaceId: source.sourceId,
+      textureSourceRect: source.textureSourceRect,
+      width: source.width,
+      x: source.x,
+      y: source.y,
+      zIndex: source.zIndex,
+    },
+    sourceId: source.sourceId,
+    sourceKey: source.sourceKey,
+    sourceWindowCss: source.sourceWindowCss,
+    surfaceId: source.surfaceId,
+    visibleSourceRectCss: source.textureSourceRect,
   };
 }
 
@@ -276,10 +371,22 @@ function configureGpuRetainedTextLikePreviewSourceElement({
   source,
 }: HtmlSurfaceSourceElementConfig<GpuRetainedTextLikePreviewSource>) {
   host.dataset.gpuFlowRetainedTextLikePreviewPageSource = "true";
+  host.dataset.gpuFlowRetainedTextLikePreviewSourceKey = source.sourceKey;
   host.dataset.gpuFlowRetainedSurfaceId = source.surfaceId;
   host.style.height = `${source.sourceHeight}px`;
   host.style.overflow = "hidden";
   host.style.width = `${source.sourceWidth}px`;
+}
+
+function createGpuRetainedTextLikePreviewSourceKey(
+  source: Omit<GpuRetainedTextLikePreviewSource, "sourceKey">,
+): string {
+  return JSON.stringify({
+    previews: source.previews,
+    sourceHeight: source.sourceHeight,
+    sourceWidth: source.sourceWidth,
+    sourceWindowCss: source.sourceWindowCss,
+  });
 }
 
 function intersectGpuRetainedTextLikePreviewRects(

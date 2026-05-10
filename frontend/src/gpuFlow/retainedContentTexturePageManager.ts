@@ -12,6 +12,7 @@ import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSw
 import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
+  type RetainedTexturePageDrawQuad,
 } from "./retainedTexturePageGrid";
 import {
   createRetainedTexturePageFlatVisuals,
@@ -93,6 +94,7 @@ export type RetainedContentTexturePageFrameResult = {
 export type RetainedContentTexturePagePreparedFrame = {
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
+  readonly drawQuads: readonly RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[];
   readonly fallbackDrawQuadCount: number;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly frame: number;
@@ -549,6 +551,7 @@ export class RetainedContentTexturePageManager {
     readonly missingPageCount: number;
     readonly protectedPageKeys: readonly string[];
     readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
+    readonly drawQuads: readonly RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[];
     readonly drawQuadCount: number;
     readonly fallbackDrawQuadCount: number;
     readonly coverageCandidateCount: number;
@@ -557,6 +560,8 @@ export class RetainedContentTexturePageManager {
     readonly uncoveredRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
+    const drawQuads: RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[] =
+      [];
     const protectedPageKeys = new Set<string>();
     const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
     let drawQuadCount = 0;
@@ -580,6 +585,7 @@ export class RetainedContentTexturePageManager {
       mergedDrawQuadCount += coverage.mergedDrawQuadCount;
       staleFallbackDrawQuadCount += coverage.staleFallbackDrawQuadCount;
       uncoveredRectCount += coverage.uncoveredRectsCss.length;
+      drawQuads.push(...coverage.drawQuads);
       drawQuadCount += coverage.drawQuads.length;
       fallbackDrawQuadCount += coverage.drawQuads.filter(
         (drawQuad) => drawQuad.fallback,
@@ -598,6 +604,7 @@ export class RetainedContentTexturePageManager {
     return {
       coverageCandidateCount,
       drawQuadCount,
+      drawQuads,
       fallbackDrawQuadCount,
       flatSurfaces,
       mergedDrawQuadCount,

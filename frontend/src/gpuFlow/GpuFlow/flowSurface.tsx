@@ -78,6 +78,7 @@ import {
 } from "../portals/portalManager";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
 import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
 import { GpuFlowSceneContext } from "../sceneContext";
 import type { GpuViewportInput } from "../viewportMath";
@@ -311,6 +312,11 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const retainedContentPageManagerRef =
     useRef<RetainedContentTexturePageManager | null>(null);
+  const retainedTextLikePreviewElementByIdRef = useRef(
+    new Map<string, HTMLElement>(),
+  );
+  const retainedTextLikePreviewPageManagerRef =
+    useRef<RetainedTextLikePreviewPageManager | null>(null);
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
@@ -330,6 +336,7 @@ export function GpuFlow({
   } = useGpuFlowOverlaySources({
     edgeScene,
     layoutStore,
+    retainedTextLikePreviewElementByIdRef,
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     nodes,
@@ -394,7 +401,6 @@ export function GpuFlow({
     onReady,
     onResize,
   ]);
-
   useEffect(() => {
     const container = containerRef.current;
     viewportStore.getState().setDomNode(container);
@@ -404,14 +410,12 @@ export function GpuFlow({
       }
     };
   }, [viewportStore]);
-
   useEffect(() => {
     if (!viewport) {
       return;
     }
     viewportStore.getState().setTransform(viewport);
   }, [viewport, viewportStore]);
-
   useGpuFlowDebugGlobals({
     activeResizeNodeIdRef,
     containerRef,
@@ -420,7 +424,6 @@ export function GpuFlow({
     nodeLayerRef,
     viewportStore,
   });
-
   useEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
       if (state.transform !== previousState.transform) {
@@ -432,7 +435,6 @@ export function GpuFlow({
       }
     });
   }, [viewportStore]);
-
   useEffect(() => {
     validateGpuFlowEdgeInput({
       edgeInteraction,
@@ -465,6 +467,7 @@ export function GpuFlow({
       !scene?.contentSurfaces.length
     ) {
       visibleNodeIdsRef.current = new Set();
+      retainedTextLikePreviewElementByIdRef.current.clear();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
       sourceInteractionProjector.destroy();
@@ -472,6 +475,7 @@ export function GpuFlow({
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikePreviewPageManagerRef,
       );
     }
     surfaceRef.current?.requestFrame("viewport");
@@ -529,7 +533,6 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [sceneScroll, viewportStore]);
-
   useEffect(() => {
     if (panZoom === false) {
       return;
@@ -673,10 +676,12 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
+      retainedTextLikePreviewElementByIdRef.current.clear();
       destroyNodeLayerResources(
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikePreviewPageManagerRef,
       );
     };
   }, [retainedContentSwitchAnimations]);
@@ -714,6 +719,7 @@ export function GpuFlow({
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikePreviewPageManagerRef,
       );
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
@@ -909,6 +915,8 @@ export function GpuFlow({
         nodeLayerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikePreviewElementByIdRef,
+        retainedTextLikePreviewPageManagerRef,
         retainedContentSwitchAnimations,
         runtime,
         surfaceRef,

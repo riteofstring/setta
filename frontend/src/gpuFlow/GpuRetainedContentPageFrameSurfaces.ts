@@ -25,9 +25,15 @@ export function getGpuRetainedContentTexturePageFrameSurfaces(
   surfaces: readonly GpuContentSurface[] | undefined,
   options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
-  return getGpuRetainedContentSourceSurfaces(surfaces, options).map(
-    toGpuRetainedContentTexturePageFrameSurface,
+  return getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
+    getGpuRetainedContentSourceSurfaces(surfaces, options),
   );
+}
+
+export function getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
+  surfaces: readonly GpuRetainedContentSourceSurface[],
+): readonly RetainedContentTexturePageFrameSurface[] {
+  return surfaces.map(toGpuRetainedContentTexturePageFrameSurface);
 }
 
 function toGpuRetainedContentTexturePageFrameSurface(

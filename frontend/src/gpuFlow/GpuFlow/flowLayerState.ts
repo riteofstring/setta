@@ -1,11 +1,11 @@
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "../edges/edgeSources";
+import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 import type {
   GpuHtmlSurfaceOverlayLayout,
   GpuNodeLayout,
   GpuNodeUploadBudget,
 } from "../htmlSurfaces/frame";
-import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 import type {
   HtmlSurfaceSolidRoundedRectVisual,
   HtmlSurfaceVisualScene,

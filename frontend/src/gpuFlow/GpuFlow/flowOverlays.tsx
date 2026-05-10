@@ -34,6 +34,7 @@ export type GpuFlowOverlaySources = {
 export function useGpuFlowOverlaySources({
   edgeScene,
   layoutStore,
+  retainedTextLikePreviewElementByIdRef,
   nodeDomTransformSyncCacheRef,
   nodeElementByIdRef,
   nodes,
@@ -47,6 +48,9 @@ export function useGpuFlowOverlaySources({
 }: {
   readonly edgeScene: GpuEdgeScene | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi | undefined;
+  readonly retainedTextLikePreviewElementByIdRef: MutableRefObject<
+    Map<string, HTMLElement>
+  >;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodes: readonly GpuFlowLayoutNode[] | undefined;
@@ -72,18 +76,13 @@ export function useGpuFlowOverlaySources({
   const { retainedContentNativeVisuals } = useGpuFlowRetainedContentSources({
     scene,
   });
-  const {
-    retainedTextLikePreviewSourceElement,
-    retainedTextLikePreviewSurfaces,
-  } = useGpuFlowRetainedTextLikePreviewSources({
-    nodeDomTransformSyncCacheRef,
-    nodeElementByIdRef,
-    renderPreview: renderRetainedTextLikePreview,
-    scene,
-    surfaceRef,
-    textureManagerRef,
-    transformOnlyPaintNodeIdsRef,
-  });
+  const { retainedTextLikePreviewSourceElement } =
+    useGpuFlowRetainedTextLikePreviewSources({
+      elementBySourceIdRef: retainedTextLikePreviewElementByIdRef,
+      renderPreview: renderRetainedTextLikePreview,
+      scene,
+      surfaceRef,
+    });
   const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
     useGpuFlowNodeDragPreviewSources({
       layoutStore,
@@ -120,13 +119,11 @@ export function useGpuFlowOverlaySources({
       ...selectionOverlaySurfaces,
       ...nodeResizeOverlaySurfaces,
       ...nodeDragPreviewSurfaces,
-      ...retainedTextLikePreviewSurfaces,
     ],
     [
       edgeLabelSurfaces,
       nodeDragPreviewSurfaces,
       nodeResizeOverlaySurfaces,
-      retainedTextLikePreviewSurfaces,
       selectionOverlaySurfaces,
     ],
   );

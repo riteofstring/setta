@@ -1,6 +1,7 @@
 import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateIndexContext";
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
+import { TEXT_LIKE_PARAM_CODEMIRROR_CONTENT_CLASS } from "components/Params/ParamUIs/textLikeParamCodeMirrorVisual";
 import {
   resolveParamBackgroundClass,
   resolveParamBorderClass,
@@ -8,7 +9,12 @@ import {
 import { useHasSectionStyleTheme } from "components/Params/sectionStyleTheme";
 import type { GpuDomIsland } from "gpuFlow/scene";
 import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
+import {
+  isChromeReproActive,
+  postChromeReproEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
 import { buildParamDuplicateIndexIfPresent } from "state/actions/params/paramDuplicateIndex";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -66,8 +72,6 @@ const PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CLASS =
   "relative h-full min-w-0";
 const PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CONTENT_CLASS =
   "absolute grid min-w-0 px-1 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]";
-const PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CONTENT_CLASS =
-  "absolute grid min-w-0 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]";
 
 function ProjectGpuParamControlDomIsland({
   activation,
@@ -98,6 +102,13 @@ function ProjectGpuParamControlDomIsland({
   });
 
   useEffect(() => subscribeToGpuViewportReposition(), []);
+  useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
+    contentRect,
+    enabled: isTextLikeControl,
+    paramInfoId,
+    rootRef,
+    sectionId,
+  });
 
   return (
     <div
@@ -116,7 +127,7 @@ function ProjectGpuParamControlDomIsland({
       <div
         className={
           isTextLikeControl
-            ? PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CONTENT_CLASS
+            ? TEXT_LIKE_PARAM_CODEMIRROR_CONTENT_CLASS
             : PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CONTENT_CLASS
         }
         style={{
@@ -136,6 +147,126 @@ function ProjectGpuParamControlDomIsland({
       </div>
     </div>
   );
+}
+
+function useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
+  contentRect,
+  enabled,
+  paramInfoId,
+  rootRef,
+  sectionId,
+}: {
+  readonly contentRect: GpuDomIsland["contentRect"];
+  readonly enabled: boolean;
+  readonly paramInfoId: string;
+  readonly rootRef: MutableRefObject<HTMLDivElement | null>;
+  readonly sectionId: string;
+}) {
+  const lastSignatureRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!enabled || !isChromeReproActive()) {
+      return;
+    }
+    const animationFrameId = requestAnimationFrame(() => {
+      const root = rootRef.current;
+      if (!root) {
+        return;
+      }
+      const geometry = createProjectGpuRetainedCodeMirrorGeometrySnapshot(root);
+      const payload = {
+        contentRect: roundProjectGpuChromeReproRect(contentRect),
+        geometry,
+        paramInfoId,
+        sectionId,
+      };
+      const signature = JSON.stringify(payload);
+      if (signature === lastSignatureRef.current) {
+        return;
+      }
+      lastSignatureRef.current = signature;
+      postChromeReproEvent("gpu-flow-retained-codemirror-active-geometry", {
+        ...payload,
+      });
+    });
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [
+    contentRect.height,
+    contentRect.width,
+    contentRect.x,
+    contentRect.y,
+    enabled,
+    paramInfoId,
+    rootRef,
+    sectionId,
+  ]);
+}
+
+function createProjectGpuRetainedCodeMirrorGeometrySnapshot(root: HTMLElement) {
+  const contentHost =
+    root.firstElementChild instanceof HTMLElement
+      ? root.firstElementChild
+      : null;
+  const editor = root.querySelector<HTMLElement>(".cm-editor");
+  const scroller = root.querySelector<HTMLElement>(".cm-scroller");
+  const content = root.querySelector<HTMLElement>(".cm-content");
+  const line = root.querySelector<HTMLElement>(".cm-line");
+  const control = root.querySelector<HTMLElement>("[data-gpu-flow-control]");
+  return {
+    content: summarizeProjectGpuElementGeometry(content),
+    contentHost: summarizeProjectGpuElementGeometry(contentHost),
+    control: summarizeProjectGpuElementGeometry(control),
+    devicePixelRatio: window.devicePixelRatio,
+    editor: summarizeProjectGpuElementGeometry(editor),
+    line: summarizeProjectGpuElementGeometry(line),
+    root: summarizeProjectGpuElementGeometry(root),
+    scroller: summarizeProjectGpuElementGeometry(scroller),
+    text:
+      content?.textContent ?? line?.textContent ?? editor?.textContent ?? "",
+  };
+}
+
+function summarizeProjectGpuElementGeometry(element: HTMLElement | null) {
+  if (!element) {
+    return null;
+  }
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  return {
+    className: element.className,
+    rect: roundProjectGpuChromeReproRect({
+      height: rect.height,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    }),
+    style: {
+      alignItems: style.alignItems,
+      display: style.display,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      lineHeight: style.lineHeight,
+      paddingBottom: style.paddingBottom,
+      paddingLeft: style.paddingLeft,
+      paddingRight: style.paddingRight,
+      paddingTop: style.paddingTop,
+      transform: style.transform,
+    },
+    tagName: element.tagName.toLowerCase(),
+  };
+}
+
+function roundProjectGpuChromeReproRect(rect: {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}) {
+  return {
+    height: roundChromeReproMs(rect.height),
+    width: roundChromeReproMs(rect.width),
+    x: roundChromeReproMs(rect.x),
+    y: roundChromeReproMs(rect.y),
+  };
 }
 
 function useProjectGpuParamControlIsTextLike(

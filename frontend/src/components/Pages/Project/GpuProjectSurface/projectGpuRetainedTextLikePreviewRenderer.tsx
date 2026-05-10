@@ -1,7 +1,10 @@
+import {
+  TEXT_LIKE_PARAM_CODEMIRROR_CONTENT_CLASS,
+  dummyCodeClass,
+} from "components/Params/ParamUIs/textLikeParamCodeMirrorVisual";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import type { GpuRetainedTextLikePreviewSource } from "gpuFlow/GpuFlow/retainedTextLikePreviewSources";
-import { NO_PAN_CLASS_NAME } from "utils/constants";
 
 export function renderProjectGpuRetainedTextLikePreview(
   source: GpuRetainedTextLikePreviewSource,
@@ -27,15 +30,12 @@ function ProjectGpuRetainedTextLikePreview({
     >
       {source.previews.map((preview) => (
         <div
+          className={TEXT_LIKE_PARAM_CODEMIRROR_CONTENT_CLASS}
           key={preview.rowId}
           style={{
-            alignItems:
-              preview.linePolicy === "single-line" ? "center" : "flex-start",
-            display: "flex",
             height: preview.height,
             left: preview.x,
             overflow: "hidden",
-            position: "absolute",
             top: preview.y,
             width: preview.width,
           }}
@@ -43,7 +43,7 @@ function ProjectGpuRetainedTextLikePreview({
           <DummyCodeMirror
             divId={`gpu-retained-preview-${source.sourceId}-${preview.rowId}`}
             code={preview.code}
-            className={`${NO_PAN_CLASS_NAME} section-value w-full break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] ${preview.error ? "[&_*]:!text-red-500" : ""} ${preview.disabled ? "text-setta-400 dark:text-setta-500" : ""}`}
+            className={dummyCodeClass(preview.error, false, preview.disabled)}
             gpuFlowControl={undefined}
             language={preview.language}
             onFocus={undefined}
