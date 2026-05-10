@@ -25,7 +25,12 @@ export type TextureResolution = {
 
 export type TextureResolutionSnapshot = Pick<
   TextureResolution,
-  "pixelHeight" | "pixelWidth" | "resolutionScale" | "zoomBucket"
+  | "cssHeight"
+  | "cssWidth"
+  | "pixelHeight"
+  | "pixelWidth"
+  | "resolutionScale"
+  | "zoomBucket"
 >;
 
 export function chooseTextureResolution({
@@ -95,6 +100,8 @@ export function textureResolutionMatches(
   next: TextureResolutionSnapshot,
 ): boolean {
   return (
+    current.cssHeight === next.cssHeight &&
+    current.cssWidth === next.cssWidth &&
     current.pixelHeight === next.pixelHeight &&
     current.pixelWidth === next.pixelWidth &&
     current.resolutionScale === next.resolutionScale &&

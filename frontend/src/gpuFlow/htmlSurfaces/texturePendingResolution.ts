@@ -298,6 +298,8 @@ function resolutionSnapshot(
   record: PendingHtmlSurfaceTextureRecord,
 ): TextureResolutionSnapshot {
   return {
+    cssHeight: record.cssHeight,
+    cssWidth: record.cssWidth,
     pixelHeight: record.pixelHeight,
     pixelWidth: record.pixelWidth,
     resolutionScale: record.resolutionScale,

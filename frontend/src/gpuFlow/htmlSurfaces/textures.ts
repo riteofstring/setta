@@ -448,12 +448,6 @@ export class HtmlSurfaceTextureManager {
     existing.lastVisibleFrame = input.frame ?? existing.lastVisibleFrame;
     existing.priority = input.priority ?? existing.priority;
 
-    const dimensionChanged =
-      existing.cssHeight !== resolution.cssHeight ||
-      existing.cssWidth !== resolution.cssWidth;
-    existing.cssHeight = resolution.cssHeight;
-    existing.cssWidth = resolution.cssWidth;
-
     const resolutionChanged = !textureResolutionMatches(
       resolutionSnapshot(existing),
       resolution,
@@ -476,15 +470,6 @@ export class HtmlSurfaceTextureManager {
         priority: existing.priority,
         reason: "resolution",
         resolution: true,
-        surfaceId: input.surfaceId,
-      });
-    }
-    if (dimensionChanged) {
-      this.markSurfaceTextureDirty({
-        content: true,
-        frame: input.frame,
-        priority: existing.priority,
-        reason: "dimension",
         surfaceId: input.surfaceId,
       });
     }
@@ -1094,6 +1079,8 @@ function resolutionSnapshot(
   record: HtmlSurfaceTextureEntry,
 ): TextureResolutionSnapshot {
   return {
+    cssHeight: record.cssHeight,
+    cssWidth: record.cssWidth,
     pixelHeight: record.pixelHeight,
     pixelWidth: record.pixelWidth,
     resolutionScale: record.resolutionScale,

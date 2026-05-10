@@ -176,6 +176,69 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
     ]);
   });
 
+  it("keeps committed dimensions stable while a resized descriptor is pending", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 100,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    manager.registerSurfaceTexture({
+      cssHeight: 120,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 3,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+
+    expect(record).toMatchObject({
+      cssHeight: 100,
+      cssWidth: 100,
+      pixelHeight: 100,
+      pixelWidth: 100,
+    });
+    expect(manager.getSurfaceTextureLifecycleDiagnostics(["node-a"])).toEqual([
+      expect.objectContaining({
+        committed: expect.objectContaining({
+          cssHeight: 100,
+          cssWidth: 100,
+          pixelHeight: 100,
+          pixelWidth: 100,
+        }),
+        pending: null,
+        pendingResolution: expect.objectContaining({
+          cssHeight: 120,
+          cssWidth: 100,
+          pixelHeight: 120,
+          pixelWidth: 100,
+        }),
+      }),
+    ]);
+
+    manager.uploadDirtySurfaceTextures({ frame: 4, maxUploads: 1 });
+    expect(record).toMatchObject({
+      cssHeight: 120,
+      cssWidth: 100,
+      lastUploadFrame: 4,
+      pixelHeight: 120,
+      pixelWidth: 100,
+    });
+  });
+
   it("keeps content-dirty staged progress across repeated registrations", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
