@@ -836,6 +836,16 @@ describe("HtmlSurfaceTextureManager", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
+      workSummary: {
+        deferredSurfaceCount: 1,
+        initialDirtySurfaceCount: 1,
+        noUploadReason: "all-work-deferred",
+        paintUnavailableSurfaceCount: 0,
+        remainingDirtySurfaceCount: 1,
+        skippedSurfaceCount: 0,
+        uploadableRemainingDirtySurfaceCount: 0,
+        uploadedSurfaceCount: 0,
+      },
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
 
@@ -874,6 +884,13 @@ describe("HtmlSurfaceTextureManager", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
+      workSummary: {
+        initialDirtySurfaceCount: 1,
+        noUploadReason: "paint-unavailable",
+        paintUnavailableSurfaceCount: 1,
+        remainingDirtySurfaceCount: 1,
+        uploadedSurfaceCount: 0,
+      },
     });
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
     expect(manager.getSurfaceTexture("node-a")).toMatchObject({
@@ -958,6 +975,38 @@ describe("HtmlSurfaceTextureManager", () => {
     ]);
     expect(result.remainingDirtySurfaceIds).toEqual(["prefetch"]);
     expect(result.budgetExhausted).toBe(true);
+    expect(result.workSummary).toMatchObject({
+      initialDirtySurfaceCount: 3,
+      noUploadReason: null,
+      remainingDirtySurfaceCount: 1,
+      uploadableRemainingDirtySurfaceCount: 1,
+      uploadedSurfaceCount: 2,
+    });
+  });
+
+  it("reports no dirty work when upload is requested with an empty queue", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    const result = manager.uploadDirtySurfaceTextures({ frame: 1 });
+
+    expect(result).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      uploaded: [],
+      uploadedBytes: 0,
+      workSummary: {
+        deferredSurfaceCount: 0,
+        initialDirtySurfaceCount: 0,
+        noUploadReason: "no-dirty-surfaces",
+        paintUnavailableSurfaceCount: 0,
+        remainingDirtySurfaceCount: 0,
+        skippedSurfaceCount: 0,
+        uploadableRemainingDirtySurfaceCount: 0,
+        uploadedSurfaceCount: 0,
+      },
+    });
   });
 
   it("reports upload and skipped bytes when the byte budget leaves dirty surfaces queued", () => {

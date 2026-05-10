@@ -231,6 +231,16 @@ export function createFrameTextureManager() {
             (bytes, record) => bytes + record.textureBytes,
             0,
           ),
+          workSummary: {
+            deferredSurfaceCount: 0,
+            initialDirtySurfaceCount: uploaded.length,
+            noUploadReason: uploaded.length > 0 ? null : "no-dirty-surfaces",
+            paintUnavailableSurfaceCount: 0,
+            remainingDirtySurfaceCount: 0,
+            skippedSurfaceCount: 0,
+            uploadableRemainingDirtySurfaceCount: 0,
+            uploadedSurfaceCount: uploaded.length,
+          },
         };
       },
     ),

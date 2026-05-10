@@ -11,6 +11,26 @@ export type UploadDirtyHtmlSurfaceTexturesResult = {
   readonly skippedUploadBytes: number;
   readonly uploaded: readonly HtmlSurfaceTextureRecord[];
   readonly uploadedBytes: number;
+  readonly workSummary: HtmlSurfaceTextureUploadWorkSummary;
+};
+
+export type HtmlSurfaceTextureUploadNoWorkReason =
+  | "all-work-deferred"
+  | "budget-exhausted"
+  | "no-dirty-surfaces"
+  | "paint-unavailable"
+  | "skipped"
+  | null;
+
+export type HtmlSurfaceTextureUploadWorkSummary = {
+  readonly deferredSurfaceCount: number;
+  readonly initialDirtySurfaceCount: number;
+  readonly noUploadReason: HtmlSurfaceTextureUploadNoWorkReason;
+  readonly paintUnavailableSurfaceCount: number;
+  readonly remainingDirtySurfaceCount: number;
+  readonly skippedSurfaceCount: number;
+  readonly uploadableRemainingDirtySurfaceCount: number;
+  readonly uploadedSurfaceCount: number;
 };
 
 export type DirtyHtmlSurfaceUploadOutcome =

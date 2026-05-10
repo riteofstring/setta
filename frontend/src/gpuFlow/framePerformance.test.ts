@@ -63,6 +63,14 @@ describe("framePerformance", () => {
           surfaceId: "node-12",
         }),
       ],
+      textureUploadDeferredSurfaceCount: 1,
+      textureUploadInitialDirtySurfaceCount: 3,
+      textureUploadNoWorkReason: null,
+      textureUploadPaintUnavailableSurfaceCount: 0,
+      textureUploadRemainingDirtySurfaceCount: 2,
+      textureUploadSkippedSurfaceCount: 0,
+      textureUploadUploadableRemainingDirtySurfaceCount: 1,
+      textureUploadUploadedSurfaceCount: 1,
       uploadDiagnosticCount: 1,
       uploadDiagnostics: [
         expect.objectContaining({
@@ -190,6 +198,16 @@ function createLayerResult(
     },
     textureLifecycleDiagnostics: [createTextureLifecycleDiagnostic()],
     uploadDiagnostics: [createUploadDiagnostic()],
+    uploadWorkSummary: {
+      deferredSurfaceCount: 1,
+      initialDirtySurfaceCount: 3,
+      noUploadReason: null,
+      paintUnavailableSurfaceCount: 0,
+      remainingDirtySurfaceCount: 2,
+      skippedSurfaceCount: 0,
+      uploadableRemainingDirtySurfaceCount: 1,
+      uploadedSurfaceCount: 1,
+    },
     uploadedNodeIds: ["node-12"],
     visibleNodeIds: ["node-1", "node-2", "node-3", "node-4"],
     visualScene: {

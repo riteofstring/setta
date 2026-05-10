@@ -78,6 +78,14 @@ export type GpuFlowFramePerformanceEvent = {
   readonly textureMemoryVisibleCount: number;
   readonly textureLifecycleDiagnosticCount: number;
   readonly textureLifecycleDiagnostics: readonly GpuFlowFrameTextureLifecycleDiagnostic[];
+  readonly textureUploadDeferredSurfaceCount: number;
+  readonly textureUploadInitialDirtySurfaceCount: number;
+  readonly textureUploadNoWorkReason: string | null;
+  readonly textureUploadPaintUnavailableSurfaceCount: number;
+  readonly textureUploadRemainingDirtySurfaceCount: number;
+  readonly textureUploadSkippedSurfaceCount: number;
+  readonly textureUploadUploadableRemainingDirtySurfaceCount: number;
+  readonly textureUploadUploadedSurfaceCount: number;
   readonly uploadDiagnosticCount: number;
   readonly uploadDiagnostics: readonly GpuFlowFrameUploadDiagnostic[];
   readonly uploadedNodeCount: number;
@@ -109,6 +117,7 @@ export function createGpuFlowFramePerformanceEvent({
   const textureMemory = layerResult.textureMemory;
   const textureMemoryBeforeEviction = layerResult.textureMemoryBeforeEviction;
   const textureLifecycleDiagnostics = layerResult.textureLifecycleDiagnostics;
+  const uploadWorkSummary = layerResult.uploadWorkSummary;
   const uploadDiagnostics = layerResult.uploadDiagnostics;
   return {
     activeNodeId: layerResult.activeNodeId,
@@ -152,6 +161,18 @@ export function createGpuFlowFramePerformanceEvent({
         priority: diagnostic.priority,
         surfaceId: diagnostic.surfaceId,
       })),
+    textureUploadDeferredSurfaceCount: uploadWorkSummary.deferredSurfaceCount,
+    textureUploadInitialDirtySurfaceCount:
+      uploadWorkSummary.initialDirtySurfaceCount,
+    textureUploadNoWorkReason: uploadWorkSummary.noUploadReason,
+    textureUploadPaintUnavailableSurfaceCount:
+      uploadWorkSummary.paintUnavailableSurfaceCount,
+    textureUploadRemainingDirtySurfaceCount:
+      uploadWorkSummary.remainingDirtySurfaceCount,
+    textureUploadSkippedSurfaceCount: uploadWorkSummary.skippedSurfaceCount,
+    textureUploadUploadableRemainingDirtySurfaceCount:
+      uploadWorkSummary.uploadableRemainingDirtySurfaceCount,
+    textureUploadUploadedSurfaceCount: uploadWorkSummary.uploadedSurfaceCount,
     uploadDiagnosticCount: uploadDiagnostics.length,
     uploadDiagnostics: uploadDiagnostics.slice(0, 12).map((diagnostic) => ({
       cssHeight: diagnostic.cssHeight,

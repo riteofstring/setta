@@ -54,10 +54,15 @@ import {
   createHtmlSurfaceTextureUploadDiagnostic,
   type DirtyHtmlSurfaceUploadOutcome,
   type HtmlSurfaceTextureUploadDiagnostic,
+  type HtmlSurfaceTextureUploadNoWorkReason,
+  type HtmlSurfaceTextureUploadWorkSummary,
   type UploadDirtyHtmlSurfaceTexturesResult,
 } from "./textureUploadDiagnostics";
 type HtmlSurfaceTexturePriority = NodeTexturePriority;
-export type { HtmlSurfaceTextureUploadDiagnostic };
+export type {
+  HtmlSurfaceTextureUploadDiagnostic,
+  HtmlSurfaceTextureUploadWorkSummary,
+};
 type DirtyHtmlSurfaceTextureState = Omit<DirtyNodeState, "nodeId"> & {
   readonly dirtyTileBytes: number;
   readonly dirtyTileIds: readonly string[];
@@ -548,6 +553,7 @@ export class HtmlSurfaceTextureManager {
       this.paintDeferral.resolveDeferredSurfaceIds(
         normalizeSurfaceIdSet(deferSurfaceIds),
       );
+    const initialDirtySurfaceCount = this.dirtyQueue.orderedDirtyNodes().length;
     const uploadOptions = {
       deferPassiveUploads,
       deferResolutionOnly,
@@ -581,6 +587,15 @@ export class HtmlSurfaceTextureManager {
       remainingDirtySurfaces,
       this.records,
     );
+    const workSummary = createTextureUploadWorkSummary({
+      initialDirtySurfaceCount,
+      paintUnavailableSurfaceCount: paintUnavailableSurfaceIds.size,
+      remainingDirtySurfaceCount: remainingDirtySurfaces.length,
+      skippedSurfaceCount: skippedSurfaceIds.length,
+      uploadableRemainingDirtySurfaceCount:
+        uploadableRemainingDirtySurfaces.length,
+      uploadedSurfaceCount: uploaded.length,
+    });
 
     return {
       budgetExhausted: uploadableRemainingDirtySurfaces.length > 0,
@@ -590,6 +605,7 @@ export class HtmlSurfaceTextureManager {
       skippedUploadBytes,
       uploaded: uploaded.map((outcome) => outcome.record),
       uploadedBytes,
+      workSummary,
     };
   }
 
@@ -980,6 +996,81 @@ function estimateDirtySurfaceUploadBytes(
     );
   }
   return skippedBytes;
+}
+
+function createTextureUploadWorkSummary({
+  initialDirtySurfaceCount,
+  paintUnavailableSurfaceCount,
+  remainingDirtySurfaceCount,
+  skippedSurfaceCount,
+  uploadableRemainingDirtySurfaceCount,
+  uploadedSurfaceCount,
+}: Omit<
+  HtmlSurfaceTextureUploadWorkSummary,
+  "deferredSurfaceCount" | "noUploadReason"
+>): HtmlSurfaceTextureUploadWorkSummary {
+  const deferredSurfaceCount = Math.max(
+    0,
+    remainingDirtySurfaceCount -
+      uploadableRemainingDirtySurfaceCount -
+      paintUnavailableSurfaceCount,
+  );
+  const noUploadReason = resolveTextureUploadNoWorkReason({
+    deferredSurfaceCount,
+    initialDirtySurfaceCount,
+    paintUnavailableSurfaceCount,
+    skippedSurfaceCount,
+    uploadableRemainingDirtySurfaceCount,
+    uploadedSurfaceCount,
+  });
+
+  return {
+    deferredSurfaceCount,
+    initialDirtySurfaceCount,
+    noUploadReason,
+    paintUnavailableSurfaceCount,
+    remainingDirtySurfaceCount,
+    skippedSurfaceCount,
+    uploadableRemainingDirtySurfaceCount,
+    uploadedSurfaceCount,
+  };
+}
+
+function resolveTextureUploadNoWorkReason({
+  deferredSurfaceCount,
+  initialDirtySurfaceCount,
+  paintUnavailableSurfaceCount,
+  skippedSurfaceCount,
+  uploadableRemainingDirtySurfaceCount,
+  uploadedSurfaceCount,
+}: Pick<
+  HtmlSurfaceTextureUploadWorkSummary,
+  | "deferredSurfaceCount"
+  | "initialDirtySurfaceCount"
+  | "paintUnavailableSurfaceCount"
+  | "skippedSurfaceCount"
+  | "uploadableRemainingDirtySurfaceCount"
+  | "uploadedSurfaceCount"
+>): HtmlSurfaceTextureUploadNoWorkReason {
+  if (uploadedSurfaceCount > 0) {
+    return null;
+  }
+  if (initialDirtySurfaceCount === 0) {
+    return "no-dirty-surfaces";
+  }
+  if (paintUnavailableSurfaceCount > 0) {
+    return "paint-unavailable";
+  }
+  if (uploadableRemainingDirtySurfaceCount > 0) {
+    return "budget-exhausted";
+  }
+  if (deferredSurfaceCount > 0) {
+    return "all-work-deferred";
+  }
+  if (skippedSurfaceCount > 0) {
+    return "skipped";
+  }
+  return null;
 }
 
 function markExistingSurfaceTextureRecordDirty(

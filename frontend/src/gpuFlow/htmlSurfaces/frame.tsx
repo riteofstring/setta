@@ -17,6 +17,7 @@ import type {
   HtmlSurfaceTextureMemorySnapshot,
   HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureUploadDiagnostic,
+  HtmlSurfaceTextureUploadWorkSummary,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
@@ -250,6 +251,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
   readonly textureLifecycleDiagnostics: readonly HtmlSurfaceTextureLifecycleDiagnostic[];
   readonly uploadDiagnostics: readonly HtmlSurfaceTextureUploadDiagnostic[];
+  readonly uploadWorkSummary: HtmlSurfaceTextureUploadWorkSummary;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
   readonly visualScene: HtmlSurfaceVisualScene;
@@ -512,6 +514,7 @@ export function renderHtmlSurfaceFrame({
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
     textureLifecycleDiagnostics,
     uploadDiagnostics: uploadResult.diagnostics,
+    uploadWorkSummary: uploadResult.workSummary,
     uploadedNodeIds: uploadedSurfaceIds.filter((surfaceId) =>
       nodeSurfaceIds.has(surfaceId),
     ),
