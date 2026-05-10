@@ -200,7 +200,7 @@ export function createFrameTextureManager() {
             surfaceId: record.surfaceId,
           })),
     ),
-    markSurfaceTextureDirty: vi.fn(),
+    markSurfaceTextureDirty: vi.fn(() => true),
     markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
       ({ surfaceId }: { readonly surfaceId: string }) => {

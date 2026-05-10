@@ -983,7 +983,7 @@ describe("HTML surface frame helpers", () => {
       );
     }
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1009,7 +1009,7 @@ describe("HTML surface frame helpers", () => {
   it("marks a changed GPU node wrapper dirty", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1036,7 +1036,7 @@ describe("HTML surface frame helpers", () => {
     const child = document.createElement("input");
     nodeElement.append(child);
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1063,7 +1063,7 @@ describe("HTML surface frame helpers", () => {
   it("does not dirty transform-only node-wrapper paints", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1087,7 +1087,7 @@ describe("HTML surface frame helpers", () => {
       "true",
     );
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1108,7 +1108,7 @@ describe("HTML surface frame helpers", () => {
     const wrapper = document.createElement("div");
     wrapper.append(nodeElement);
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1133,7 +1133,7 @@ describe("HTML surface frame helpers", () => {
   it("does not dirty visible nodes when a paint event omits changed elements", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 
@@ -1155,7 +1155,7 @@ describe("HTML surface frame helpers", () => {
     canvas.dataset.gpuFlowSurface = "true";
     canvas.append(nodeElement);
     const manager = {
-      markSurfaceTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
 

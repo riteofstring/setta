@@ -533,13 +533,14 @@ function redrawGpuFlowRetainedContentSurfaceSource({
     return false;
   }
   const sourceRect = dirtySourceRect ?? drawEvent.sourceRect;
-  textureManagerRef.current?.markSurfaceTextureDirty({
-    content: true,
-    ...(deferTextureUploadUntilPaint ? { deferUploadUntilPaint: true } : {}),
-    reason: "content",
-    requestPaint: false,
-    ...(sourceRect ? { sourceRect } : {}),
-    surfaceId: sourceId,
-  });
-  return true;
+  return Boolean(
+    textureManagerRef.current?.markSurfaceTextureDirty({
+      content: true,
+      ...(deferTextureUploadUntilPaint ? { deferUploadUntilPaint: true } : {}),
+      reason: "content",
+      requestPaint: false,
+      ...(sourceRect ? { sourceRect } : {}),
+      surfaceId: sourceId,
+    }),
+  );
 }

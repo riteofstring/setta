@@ -122,7 +122,7 @@ export function createGpuNodeInteractionDirtyController({
 
     const deferRequestPaint =
       priority !== "interactive" && Boolean(deferPassiveDirty?.());
-    manager.markSurfaceTextureDirty({
+    const queued = manager.markSurfaceTextureDirty({
       content: true,
       frame: getFrame(),
       priority,
@@ -131,10 +131,10 @@ export function createGpuNodeInteractionDirtyController({
       ...(sourceRect ? { sourceRect } : {}),
       surfaceId: nodeId,
     });
-    if (scheduleFrame) {
+    if (queued && scheduleFrame) {
       requestFrame("texture-upload");
     }
-    return true;
+    return queued;
   }
 
   function beginInteractiveNode(

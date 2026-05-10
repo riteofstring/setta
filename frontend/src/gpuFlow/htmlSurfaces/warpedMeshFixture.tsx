@@ -168,7 +168,7 @@ export function HtmlSurfaceWarpedMeshFixture({
     ) => {
       dirtyMarksRef.current += 1;
       const frame = nextFixtureFrame(frameRef);
-      textureManagerRef.current?.markSurfaceTextureDirty({
+      const queued = textureManagerRef.current?.markSurfaceTextureDirty({
         content: true,
         frame,
         priority: "interactive",
@@ -176,7 +176,7 @@ export function HtmlSurfaceWarpedMeshFixture({
         ...(options.sourceRect ? { sourceRect: options.sourceRect } : {}),
         surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
       });
-      if (options.scheduleFrame !== false) {
+      if (queued && options.scheduleFrame !== false) {
         surfaceRef.current?.requestFrame("texture-upload");
       }
       emitMetrics();

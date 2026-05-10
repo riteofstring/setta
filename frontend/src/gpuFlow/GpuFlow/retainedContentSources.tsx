@@ -6,20 +6,20 @@ import {
   type ReactNode,
 } from "react";
 
+import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import {
   getGpuRetainedContentSurfaceLayouts,
   GpuRetainedContentSurfaceLayer,
   type GpuRetainedContentSurfaceDrawEvent,
 } from "../GpuRetainedContentSurfaces";
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCacheNode,
   type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
-import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
 
@@ -63,9 +63,7 @@ export function useGpuFlowRetainedContentSources({
     () =>
       new Map(
         retainedContentSurfaces.flatMap((surface): [string, string][] =>
-          surface.ownerNodeId
-            ? [[surface.surfaceId, surface.ownerNodeId]]
-            : [],
+          surface.ownerNodeId ? [[surface.surfaceId, surface.ownerNodeId]] : [],
         ),
       ),
     [retainedContentSurfaces],
@@ -100,7 +98,7 @@ export function useGpuFlowRetainedContentSources({
   );
   const handleRetainedContentSurfaceDraw = useCallback(
     (surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => {
-      textureManagerRef.current?.markSurfaceTextureDirty({
+      const queued = textureManagerRef.current?.markSurfaceTextureDirty({
         content: true,
         priority:
           event.reason === "animation" ||
@@ -113,7 +111,9 @@ export function useGpuFlowRetainedContentSources({
         ...(event.sourceRect ? { sourceRect: event.sourceRect } : {}),
         surfaceId,
       });
-      surfaceRef.current?.requestFrame("texture-upload");
+      if (queued) {
+        surfaceRef.current?.requestFrame("texture-upload");
+      }
     },
     [activeResizeNodeIdRef, surfaceRef, textureManagerRef],
   );

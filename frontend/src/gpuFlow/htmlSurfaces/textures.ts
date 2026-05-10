@@ -346,8 +346,7 @@ export class HtmlSurfaceTextureManager {
     );
   }
 
-  markSurfaceTextureDirty(input: MarkHtmlSurfaceTextureDirtyInput) {
-    this.paintDeferral.markDirty(input);
+  markSurfaceTextureDirty(input: MarkHtmlSurfaceTextureDirtyInput): boolean {
     const dirtyFlags = resolveDirtyFlags(input);
     const record = this.records.get(input.surfaceId);
     const shouldQueueDirtySurface = record
@@ -355,6 +354,7 @@ export class HtmlSurfaceTextureManager {
       : true;
 
     if (shouldQueueDirtySurface) {
+      this.paintDeferral.markDirty(input);
       this.dirtyQueue.markDirty({
         content: dirtyFlags.content,
         frame: input.frame,
@@ -368,6 +368,7 @@ export class HtmlSurfaceTextureManager {
     if (shouldQueueDirtySurface && input.requestPaint !== false) {
       this.canvas?.requestPaint();
     }
+    return shouldQueueDirtySurface;
   }
 
   markSurfacesPainted(surfaceIds: Iterable<string>) {

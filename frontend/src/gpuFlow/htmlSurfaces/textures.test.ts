@@ -253,6 +253,58 @@ describe("HtmlSurfaceTextureManager", () => {
     });
   });
 
+  it("does not request paint or retain paint deferral when no dirty tile is queued", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const canvas = createHtmlInCanvasCanvas();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      canvas,
+      maxTextureTileDimension2D: 128,
+    });
+
+    manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element: document.createElement("div"),
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    vi.mocked(canvas.requestPaint).mockClear();
+
+    const queued = manager.markSurfaceTextureDirty({
+      content: true,
+      deferUploadUntilPaint: true,
+      frame: 3,
+      reason: "content",
+      sourceRect: {
+        height: 10,
+        width: 10,
+        x: 500,
+        y: 500,
+      },
+      surfaceId: "node-a",
+    });
+
+    expect(queued).toBe(false);
+    expect(canvas.requestPaint).not.toHaveBeenCalled();
+    expect(manager.getDirtySurfaces()).toEqual([]);
+    expect(
+      manager.uploadDirtySurfaceTextures({ frame: 4 }).workSummary,
+    ).toEqual({
+      deferredSurfaceCount: 0,
+      initialDirtySurfaceCount: 0,
+      noUploadReason: "no-dirty-surfaces",
+      paintUnavailableSurfaceCount: 0,
+      remainingDirtySurfaceCount: 0,
+      skippedSurfaceCount: 0,
+      uploadableRemainingDirtySurfaceCount: 0,
+      uploadedSurfaceCount: 0,
+    });
+  });
+
   it("marks and uploads only tiled source rect owners after the initial upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

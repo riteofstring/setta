@@ -184,6 +184,61 @@ describe("GpuFlow retained content controllers", () => {
     expect(requestPaint).toHaveBeenCalledTimes(1);
   });
 
+  it("does not request retained hover paint when no dirty texture work is queued", () => {
+    const dirtySurfaces: Array<{
+      readonly sourceRect?: {
+        readonly height: number;
+        readonly width: number;
+        readonly x: number;
+        readonly y: number;
+      };
+      readonly surfaceId: string;
+    }> = [];
+    const requestPaint = vi.fn();
+    let host: HTMLDivElement | null = null;
+
+    act(() => {
+      root = createRoot(
+        document.body.appendChild(document.createElement("div")),
+      );
+      root.render(
+        <RetainedContentHoverHarness
+          markDirtyResult={false}
+          onDirtySurface={(surface) => {
+            dirtySurfaces.push(surface);
+          }}
+          onHostChange={(element) => {
+            host = element;
+          }}
+          onRequestPaint={requestPaint}
+        />,
+      );
+    });
+
+    if (!host) {
+      throw new Error("Expected retained content hover host to mount.");
+    }
+
+    act(() => {
+      host?.dispatchEvent(
+        createPointerEvent("pointermove", {
+          buttons: 0,
+          clientX: 20,
+          clientY: 14,
+          pointerId: 1,
+        }),
+      );
+    });
+
+    expect(dirtySurfaces).toEqual([
+      {
+        sourceRect: { height: 28, width: 160, x: 0, y: 0 },
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+    ]);
+    expect(requestPaint).not.toHaveBeenCalled();
+  });
+
   it("clears the previous retained row hover after the scene is refreshed", () => {
     const dirtySurfaces: Array<{
       readonly sourceRect?: {
@@ -419,6 +474,7 @@ function RetainedContentScrollHarness({
       readonly surfaceId: string;
     }) => {
       onDirtySurface(surfaceId);
+      return true;
     },
     markSurfacesPainted: vi.fn(),
   });
@@ -474,12 +530,14 @@ function RetainedContentScrollHarness({
 }
 
 function RetainedContentHoverHarness({
+  markDirtyResult = true,
   onDirtySurface,
   onHostChange,
   onRequestPaint,
   resetSceneAfterFirstDirty = false,
   rowCount = 1,
 }: {
+  readonly markDirtyResult?: boolean | undefined;
   readonly onDirtySurface: (surface: {
     readonly sourceRect?: {
       readonly height: number;
@@ -531,6 +589,7 @@ function RetainedContentHoverHarness({
           scene: retainedContentScene(1, rowCount),
         };
       }
+      return markDirtyResult;
     },
     markSurfacesPainted: vi.fn(),
   });
