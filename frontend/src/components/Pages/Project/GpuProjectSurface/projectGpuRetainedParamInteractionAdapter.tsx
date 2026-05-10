@@ -61,6 +61,7 @@ import {
   type ProjectGpuRetainedParamDragPreview,
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
+import { postProjectGpuRetainedParamActivationPreflightChromeReproEvent } from "./projectGpuRetainedParamActivationDiagnostics";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
 import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
@@ -412,6 +413,7 @@ function handleProjectRetainedContentPointerDown(
   }
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
+  postProjectGpuRetainedParamActivationPreflightChromeReproEvent(event);
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {

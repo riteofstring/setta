@@ -1,369 +1,196 @@
-# Retained Text-Like Row Rendering Refactor Plan
+# Retained Text Runtime Refactor Plan
 
 ## Goal
 
-Fix the settings canvas issues observed in the latest Chrome recording with a principled rendering refactor:
+Fix the remaining retained text-like row issues with a principled refactor:
 
-- Inactive text-like controls, including CodeMirror-backed fields, must be visible before click.
-- Panning, zooming, and section scrolling must stay smooth with large settings scenes.
-- Activation must only add editing behavior; it must not be the first moment text pixels appear.
-- The retained canvas runtime must have one owner for live scroll, zoom, activation, dirty state, and texture readiness.
+- Pan and zoom should stay smooth because they are mostly GPU transform work over already-retained content.
+- Visible text-like rows should not disappear, go transparent, or require a click before their content appears.
+- Active CodeMirror DOM islands should be an editing overlay, not a prerequisite for seeing the value.
 
-This plan intentionally does not preserve the existing whole-section passive CodeMirror preview pipeline. There is no backward compatibility path or transitional dual renderer.
+The settings-shell `TextAreaParam` data bug is separate. This plan assumes compact settings fields are no longer incorrectly modeled as multiline text areas.
 
-## Current Diagnosis
+## Constraints
 
-The latest recording showed that the slow and blank states are tied to retained text-like preview work, not raw GPU draw cost:
+- The first implementation step is writing tests that capture the current user-visible failures.
+- Tests must assert behavior, not private implementation details.
+- No backward compatibility shims, dual paths, legacy fallbacks, or transitional adapters.
+- Prefer deleting or replacing the old retained text path over layering another mode on top of it.
+- Performance work must baseline first, re-measure after, and record results under `perf/`.
 
-- Wheel bursts in settings produced 50-75 ms frame gaps.
-- CodeMirror activation clicks produced 90-125 ms gaps.
-- GPU frame durations were mostly low.
-- During the problematic clicks, retained preview pages were badly behind: one frame reported hundreds of missing preview pages and omitted previews.
-- The real CodeMirror editor mounts only after activation, so a row can appear blank until click if its passive preview page did not arrive.
+## Step 1: Behavior Tests First
 
-The current design has two expensive properties:
+Write tests before changing the retained text runtime. The tests should fail or expose the current issue on the existing implementation, then pass after the refactor.
 
-- Passive text-like rendering depends on hidden DOM/CodeMirror-like preview pages that are managed separately from retained row content.
-- Scroll and activation state cross React scene state, retained scene state, texture managers, and DOM islands, which makes stale overwrites and late texture readiness easy to introduce.
+### Disappearing Content Tests
 
-The principled fix is to make passive text-like content row-owned retained content, not whole-section hidden DOM preview content.
+Add browser-level coverage for a settings page scenario with many retained text-like rows.
 
-## Follow-Up Recording Findings
+Target behaviors:
 
-The instrumented recording from `recording-20260512-211812` confirms the passive text rendering diagnosis and adds one more required fix: active editor wheel ownership.
+- A visible text-like row with a non-empty value has nonblank pixels before it is clicked.
+- Clicking a text-like row does not create the first visible rendering of its value.
+- During activation, the passive retained content remains visible until the active DOM editor is visibly painted.
+- During deactivation, either the active editor or the passive retained texture remains visible; there is no blank handoff frame.
+- Scrolling a section to newly visible text-like rows produces visible text without requiring a click.
 
-Observed passive text findings:
+Suggested test shape:
 
-- The recording reached 226 visible passive text-like rows.
-- At worst, 193 of those rows had no ready passive pixels; all 193 were blank.
-- The clicked rows that appeared only after activation had zero passive coverage immediately before click. Examples include:
-  - `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__ListRoot__maxHeight`
-  - `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__ListRoot__maxWidth`
-  - `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__GlobalVariables__minWidth`
-- The passive preview maintenance queue reached 1,085 queued items and 1,092 missing preview pages.
-- `settings-section__sectionSizingPolicy` had repeated passive preview source-key mismatches, meaning the hidden preview DOM source was present but not current for the frame that wanted to upload from it.
-- While viewport interaction was active, queued preview work could remain non-uploadable even with more than 1,000 missing preview pages, so visible passive text stayed missing during interaction.
+- Use Playwright or the existing GPU-flow E2E harness.
+- Navigate to a deterministic settings view with rows such as `sectionSizingPolicy` and `callableSectionDefault`.
+- Use canvas pixel probes around the known control text bounds.
+- Assert nonblank/nontransparent pixels before click, after click, after blur, and after section scroll.
+- Avoid assertions about texture cache state, scheduler queue names, hidden DOM node counts, or component internals.
 
-Observed performance findings:
+### Pan/Zoom Performance Tests
 
-- The recording had 24 frame-gap events and 16 long tasks.
-- The largest frame gap was 241.6 ms after switching to All Settings.
-- CodeMirror activation clicks produced 91-125 ms frame gaps.
-- Wheel interactions produced 50-66 ms frame gaps.
-- Retained page uploads totaled about 2.7 GiB, with every retained page upload frame budget-exhausted in the summary.
+Add a reproducible pan/zoom benchmark around the same retained-content-heavy view.
 
-Observed section-scroll bug:
+Target behaviors:
 
-- After activating `settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__GlobalVariables__minWidth`, a 296-event wheel burst targeted the active CodeMirror DOM.
-- That wheel burst had `deltaY` around `+2312`, but `settings-section__sectionSizingPolicy:param-content:unpinned` stayed at scroll offset `1092`.
-- The section was not at a boundary: content height was `5072`, viewport height was `291`, so the max scroll offset was about `4781`.
-- Scroll movement resumed only when later wheel events targeted the canvas or the editor blurred.
+- Pan/zoom input does not produce visible blank text-like rows.
+- Visible text-like rows remain visible while transforms are changing.
+- Frame gaps and long tasks stay within an explicit budget captured from the current baseline and tightened after the fix.
+- Texture upload work is bounded during active pan/zoom.
 
-Conclusion: the large refactor still looks right, but it must also make wheel/event ownership explicit while an active editor overlay is mounted. Row-native passive rendering fixes the blank inactive state; single runtime event ownership fixes the active-editor scroll trap.
+Suggested test shape:
 
-## Ideas To Borrow From The Example Repos
+- Use a Chrome recording or automated CDP trace for a fixed wheel/pan script.
+- Record frame gaps, long tasks, visible blank row count, and upload bytes/count when available.
+- Store the before/after reports in `perf/` as append-only evidence.
+- Treat visual nonblank checks as the correctness gate and trace metrics as performance gates.
 
-The example repos under `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` point to several useful principles.
+### Active Editor Interaction Tests
 
-### `html-in-canvas-official`
+Add focused frontend tests around retained text activation semantics.
 
-Relevant ideas:
+Target behaviors:
 
-- Treat paint as the synchronization boundary. `drawElementImage` snapshots are reliable when used in the paint lifecycle; calling outside that lifecycle risks stale or missing frames.
-- `requestPaint()` is the explicit way to request a new paint even when children did not change.
-- Generated boxes and hit testing need a single transform contract between the drawn canvas location and the DOM location.
+- Activating a row mounts the editor at the same geometry as the retained text control.
+- Focus and typing work after activation.
+- The row value remains visible before the editor is ready.
+- Blurring or committing does not produce a blank visual handoff.
 
-How Setta should use this:
-
-- Any remaining DOM snapshot usage should be paint-driven and fail loudly if a current snapshot is unavailable.
-- Passive text-like rows should not silently fall back to blank quads while waiting for unrelated whole-section source pages.
-- Active editor DOM islands should have a single geometry contract derived from retained row state.
-
-### `html-in-canvas-cracks`
-
-Relevant ideas:
-
-- Use a fixed viewport canvas and feed live scroll state into rendering, instead of trying to mirror compositor scroll with a main-thread transform that lags.
-- Keep texture upload state explicit and dispose/recreate textures when the source size changes.
-
-How Setta should use this:
-
-- GPU flow should own live section scroll offsets and zoom/pan state during interaction.
-- Rendering should consume that live state directly, and React should provide structural descriptors rather than repeatedly overwriting live retained runtime state.
-- Texture readiness should be explicit per row or page, with stale visible content kept until replacement content is ready.
-
-### `html-in-canvas-dot-dev`
-
-Relevant ideas:
-
-- Pixel/readback assertions validate actual rendered output, not internal flags.
-- Nonblank canvas checks and screenshot comparisons are good regression tools for canvas-heavy UI.
-
-How Setta should use this:
-
-- New tests should assert visible text ink and smooth frame pacing from screenshots, canvas pixels, and browser performance timing.
-- Tests should not assert preview page counts, texture manager internals, or implementation-specific recorder fields.
-
-### `html-in-canvas-room` and `three-html-render`
-
-Relevant ideas:
-
-- Route wheel/scroll through one owner and request paint from that owner.
-- Stop event propagation where scene controls and embedded interactive elements would otherwise compete.
-- Repaint on element scroll rather than hoping unrelated lifecycle work catches up.
-
-How Setta should use this:
-
-- Section scrolling, pan/zoom gestures, and active editor input should have explicit ownership boundaries.
-- Active DOM islands should suppress scene gestures only while the active editor owns the interaction.
-- Scroll updates should mark the affected retained rows dirty through the runtime state owner.
+These tests can use component-level rendering where browser pixel checks are not required, but they should still assert observable DOM/visual behavior rather than internal state names.
 
 ## Target Architecture
 
-### 1. Row-Owned Passive Editor Snapshots
+### 1. Row-Owned Passive Texture Lifecycle
 
-Replace whole-section passive CodeMirror preview pages with row-owned browser-rendered snapshots for inactive text-like controls.
+Each retained text-like row should own a passive visual asset with a small lifecycle:
 
-The snapshot path should:
+- No passive visual exists yet.
+- A passive visual exists and matches the current row content/layout key.
+- A passive visual exists but is stale while a replacement is being prepared.
+- An active DOM editor is mounted over the row.
 
-- Render the passive text in row-scoped DOM using the same visual rules as the inactive CodeMirror/DummyCodeMirror path.
-- Let the browser own glyph layout, wrapping, line height, font fallback, syntax styling, and clipping.
-- Snapshot only the row/control-sized source region into retained row content texture segments.
-- Reuse the existing retained row texture/page infrastructure where possible, especially the segmented row content version model.
-- Keep the last good row texture visible until a new row texture is ready.
-- Fail loudly in development/test if a row is asked to snapshot before the matching row-scoped source DOM is mounted and current.
+The core invariant: a visible row should never drop its old passive visual until a replacement visual or active editor is visibly ready.
 
-This makes inactive text pixels part of the row's retained content lifecycle. Clicking a field should only mount the active editor DOM island and transfer focus/caret state.
+Stale visible text is acceptable during a short refresh window. Transparent or missing visible text is not.
 
-### 2. Single Runtime State Owner
+### 2. Explicit Paint Boundary
 
-Introduce one GPU-flow-owned runtime state layer for retained interactive state:
+Adopt the HTML-in-canvas style model:
 
-- Pan and zoom.
-- Section scroll offsets.
-- Active row/control id.
-- Hover/focus state needed by the retained scene.
-- Dirty row/content revisions.
-- Texture readiness and stale-visible row state.
+- Row content changes request a paint.
+- The hidden/source DOM for a row has a specific source key.
+- A source key is promoted only after the DOM source has painted and the canvas/GPU upload has succeeded.
+- If the source DOM is missing, stale, or not yet painted, the renderer keeps drawing the previous passive visual.
 
-React/project code should provide structural retained definitions and user intent callbacks. It should not own live scroll offsets or overwrite a newer runtime scene with stale React state.
+This removes the current ambiguity where React, hidden DOM, canvas copy, and texture upload can each be at different versions.
 
-### 3. Active Editor As An Overlay, Not A Renderer Dependency
+### 3. Priority Upload Scheduler
 
-Active CodeMirror remains a real DOM editor because editing needs browser selection, focus, keyboard input, IME, caret, and accessibility behavior.
+Texture work should be split by user-visible priority:
 
-The active editor should:
+1. Visible rows with no passive visual.
+2. Active editor handoff and deactivation replacement work.
+3. Visible rows with stale passive visuals.
+4. Visible refinement for sharper text.
+5. Offscreen and idle prefetch work.
 
-- Mount from the retained runtime's active row/control id.
-- Receive geometry from the same retained row layout used for passive rendering.
-- Preserve the passive row texture until the active editor is painted and focused.
-- Unmount back to passive retained text without changing the row's value pixels unless the value changed.
+During active pan/zoom, refinement and prefetch should not starve visible missing or handoff work. The pan/zoom frame should draw cached content first and schedule maintenance after.
 
-Activation should be visually close to a no-op except for caret/selection affordances.
+### 4. Active CodeMirror Overlay Contract
 
-### 4. Explicit Active Editor Event Ownership
+CodeMirror DOM islands should be an overlay for editing:
 
-Wheel and pointer events must have one owner while an active editor is mounted.
+- Passive retained content remains visible during activation.
+- The active editor becomes interactive only when it is geometrically aligned and visibly painted.
+- On blur, the active editor remains visible until the passive replacement is ready, or the old passive visual is still drawn behind it.
 
-The active editor should:
+Clicking should not be the event that makes an otherwise blank value visible.
 
-- consume text-editing events that genuinely belong to editing
-- let retained section scrolling own wheel events when the editor has no useful internal scroll work
-- hand wheel events from an internally scrollable editor back to the retained section when the editor is already at its internal scroll boundary
-- suppress canvas pan/zoom gestures only for events that the editor actually owns
-- report active-editor wheel handoff decisions in Chrome repro logs
+### 5. Pan/Zoom Runtime Ownership
 
-The retained runtime should process section scroll updates from these handed-off wheel events through the same path as canvas wheel events. There should not be a parallel DOM-scroller state for active editors.
+Pan, zoom, viewport, section scroll offsets, visible row windows, and dirty row scheduling should be owned by a retained runtime, not distributed across React render timing.
 
-### 5. Remove The Whole-Section Preview Pipeline
+The hot path for pan/zoom should be:
 
-After the row-owned snapshot path is in place, remove the old passive preview path rather than keeping it as a fallback:
+1. Coalesce input into one animation-frame update.
+2. Update transforms/uniforms.
+3. Draw existing retained visuals.
+4. Enqueue maintenance after the frame.
 
-- `retainedTextLikePreviewSources.tsx`
-- `retainedTextLikePreviewPageManager.ts`
-- project-level passive preview renderers and probes that only exist for that path
-- tests that assert preview-page implementation details
-
-Any remaining probes should describe user-visible outcomes: visible text ink, stale-visible replacement, frame gaps, long tasks, and activation visual delta.
+The hot path should not require CodeMirror initialization, hidden DOM creation, broad React state churn, or synchronous texture replacement.
 
 ## Implementation Plan
 
-### Step 1. Add Failing Observed-Behavior Tests
+1. **Write Behavior Tests**
+   - Add the disappearing-content browser tests.
+   - Add the pan/zoom benchmark and baseline report.
+   - Add active editor handoff tests.
+   - Capture the current failures before runtime changes.
 
-Add tests first and confirm they fail against the current implementation. These tests must assert observed behavior, not implementation details.
+2. **Replace Passive Texture Ownership**
+   - Introduce row-owned passive visual records keyed by content, layout, size, and DPR.
+   - Keep stale visuals drawable while replacements are prepared.
+   - Remove any path that clears visible row content before a replacement is ready.
 
-Candidate tests:
+3. **Replace Snapshot Promotion Semantics**
+   - Promote a row source only after painted source DOM and successful upload are both observed.
+   - Treat missing/stale source DOM as a reason to keep the previous passive visual.
+   - Delete source-key mismatch paths that produce blank visible output.
 
-1. `frontend/tests/e2e/settings-retained-codemirror-passive-visibility-regression.spec.ts`
-   - Open the settings canvas in the same mode used by the latest recording.
-   - Switch to the broad/all-settings view that contains many text-like controls.
-   - Apply the recorded-style zoom and section scroll sequence before clicking any text-like control.
-   - Capture screenshots of known visible text-like control value areas.
-   - Assert each visible value area contains text ink above a minimum threshold.
-   - Assert clicking the value area does not reveal substantially more ink than was already visible.
+4. **Replace Upload Scheduling**
+   - Implement priority lanes for visible missing rows, handoffs, stale visible rows, refinement, and idle work.
+   - Enforce that visible missing/handoff work runs before refinement.
+   - Bound upload work during active pan/zoom.
 
-2. `frontend/tests/e2e/settings-retained-codemirror-click-not-required.spec.ts`
-   - Navigate to a representative CodeMirror-backed settings row.
-   - Capture the value region before activation.
-   - Click/focus the row.
-   - Capture the value region after activation with caret blink controlled or hidden.
-   - Assert the pre-click and post-click screenshots are visually equivalent except for editor affordances.
+5. **Refactor Active Editor Handoff**
+   - Keep passive visuals during activation.
+   - Gate editor visibility/interactivity on actual editor readiness and geometry alignment.
+   - Keep either active editor or passive visual visible during deactivation.
 
-3. `frontend/tests/e2e/settings-retained-pan-zoom-smoothness-regression.spec.ts`
-   - Run a fixed wheel/pan/zoom gesture sequence over the settings canvas.
-   - In the browser, collect `requestAnimationFrame` gaps and `PerformanceObserver` long-task entries for the gesture window.
-   - Assert there are no long tasks over 50 ms during the gesture and no interaction frame gap over a calibrated threshold such as 40 ms.
-   - Save the timing samples and screenshot artifacts on failure.
+6. **Move Pan/Zoom and Scroll Runtime State Out of React Timing**
+   - Centralize viewport transform and section scroll ownership in the retained runtime.
+   - Make pan/zoom draw from existing retained visuals without waiting for React layout.
+   - Schedule text maintenance separately from interaction transforms.
 
-4. `frontend/tests/e2e/settings-retained-active-editor-wheel-scroll.spec.ts`
-   - Activate a representative CodeMirror-backed row inside a scrollable retained section.
-   - Wheel over the active editor while the section is not at either scroll boundary.
-   - Assert the retained section scroll position changes in the wheel direction.
-   - Repeat at the editor's own internal scroll boundary for multiline editors.
-   - Assert no canvas pan/zoom occurs when the intent is section scrolling.
+7. **Delete Superseded Retained Text Paths**
+   - Remove old blank-prone promotion/clearing paths.
+   - Remove diagnostic-only code that is no longer needed once behavior tests and perf reports cover the issues.
+   - Do not keep a compatibility branch for the old retained text behavior.
 
-5. Extend the existing screenshot-analysis helpers in `frontend/tests/e2e/settings-retained-visual-analysis.ts` only as needed.
-   - Reuse pixel-based ink detection and screenshot comparison.
-   - Add generic helpers such as `expectRegionHasTextInk` or `measureInteractionFrameGaps` if they describe observed browser output.
-
-These tests should fail now because the current path can present blank passive CodeMirror/text-like fields until activation, can produce large interaction frame gaps during preview-page churn, and can trap wheel scrolling inside an active CodeMirror overlay.
-
-### Step 2. Define The Passive Snapshot Descriptor
-
-Create a pure descriptor for retained passive text-like snapshots.
-
-The descriptor should include:
-
-- text value
-- language or plain-text mode
-- editor visual mode and CodeMirror/DummyCodeMirror props
-- row/control geometry
-- visible source rect
-- theme and density inputs
-- selection-free passive state
-- content revision key
-
-Reuse existing retained control descriptors and generated/shared types before adding new TypeScript types. If new frontend-only types are needed, keep them private to the retained text renderer and document why they cannot come from the Go-owned contract.
-
-### Step 3. Build Row-Scoped Passive Source DOM
-
-Move passive source rendering from whole-section hidden DOM pages to row-scoped source DOM.
-
-The source DOM should:
-
-- Reuse the same inactive CodeMirror/DummyCodeMirror visual component used today, or extract the shared DOM component needed to do that cleanly.
-- Render one row/control-sized source per visible or near-visible passive text-like row.
-- Use the retained row geometry as its source of size and clipping truth.
-- Keep source DOM mounted only for rows that need snapshots.
-- Publish source readiness keyed by row id, control id, content revision, width bucket, theme, and zoom bucket.
-
-The goal is not to duplicate CodeMirror layout in canvas. The goal is to narrow the browser-rendered snapshot source from whole sections to rows.
-
-### Step 4. Build The Row-Owned Snapshot Uploader
-
-Implement a retained text-like row snapshot uploader that copies browser-rendered passive values into row content textures.
-
-The uploader should:
-
-- Use the row-scoped source DOM as the source of text pixels.
-- Copy only the visible row/control source rect into the retained texture segment.
-- Produce row content texture segments keyed by row id, control id, content revision, width bucket, and zoom bucket.
-- Keep stale row content visible while new content is being snapshotted/uploaded.
-- Prioritize visible rows before offscreen rows.
-- Avoid invalidating unrelated rows when one row scrolls, activates, changes value, or changes width.
-
-This replaces the dependency on hidden whole-section preview DOM for inactive text-like controls without making canvas responsible for text layout.
-
-### Step 5. Centralize Retained Runtime State
-
-Move live retained interaction state into a GPU-flow-owned runtime object.
-
-The runtime should be responsible for:
-
-- accepting pan/zoom/scroll/activation events
-- updating live section scroll offsets immediately
-- computing dirty retained rows
-- scheduling row-owned snapshot uploads
-- exposing immutable draw snapshots to the renderer/compositor
-- emitting user intent callbacks to React/project code after runtime state is updated
-
-React should keep owning structural settings data and persisted values. It should not own transient scroll position, texture readiness, or active DOM island geometry after this refactor.
-
-### Step 6. Rework Active Editor Mounting
-
-Make active editor mounting consume the same runtime row geometry as passive rendering.
-
-Activation sequence:
-
-1. Runtime marks the row/control active.
-2. Passive row texture remains visible.
-3. DOM island mounts at the retained row geometry.
-4. Editor paint/focus completes.
-5. Runtime hides or visually suppresses the passive text pixels only where the active editor covers them.
-
-Deactivation sequence:
-
-1. Persist any value change through the existing owner path.
-2. Runtime increments the row content revision.
-3. Passive source DOM refreshes and uploads the row texture.
-4. Active DOM island unmounts after replacement passive content is ready or after value-equivalent stale content is still valid.
-
-### Step 7. Route Active Editor Wheel Events Through The Runtime
-
-Add an explicit active-editor event bridge owned by the retained runtime.
-
-The bridge should:
-
-- receive wheel events from active editor DOM islands
-- decide whether the editor can consume the wheel for internal scrolling
-- forward section-scroll wheel intent to the retained runtime when the editor cannot consume it
-- preserve browser editing behavior for selection, focus, keyboard, IME, and internal editor scroll
-- emit Chrome repro events for consume versus handoff decisions
-
-This should replace accidental behavior where whichever DOM element receives the wheel event controls whether the retained section scrolls.
-
-### Step 8. Delete The Old Passive Preview Path
-
-Remove the whole-section preview manager and source renderer once the new row-owned snapshot path passes the failing tests.
-
-Do not keep a fallback to the old preview path. If the new snapshot path cannot produce a row texture, the test/dev behavior should fail loudly with enough context to diagnose the missing source DOM or descriptor data.
-
-### Step 9. Verification
-
-Run targeted verification throughout the refactor:
-
-- `pnpm -C frontend exec vitest run <focused retained snapshot tests>`
-- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-codemirror-passive-visibility-regression.spec.ts`
-- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-codemirror-click-not-required.spec.ts`
-- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-pan-zoom-smoothness-regression.spec.ts`
-- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-active-editor-wheel-scroll.spec.ts`
-- `./scripts/record-chrome-repro.sh` for a before/after recording of the same settings gesture
-- `./scripts/quality/check.sh`
-
-Record before/after performance results in `perf/` as append-only reports because this is a performance-relevant refactor.
+8. **Re-measure and Close**
+   - Re-run the behavior tests.
+   - Re-run the Chrome pan/zoom recording.
+   - Write the after report in `perf/`.
+   - Compare before/after frame gaps, long tasks, visible blank rows, and upload work.
 
 ## Acceptance Criteria
 
-- The new failing tests fail on the current implementation before the refactor.
-- Inactive text-like/CodeMirror-backed fields are visibly populated before click after loading, panning, zooming, and section scrolling.
-- Clicking a text-like field does not reveal text that was previously missing.
-- The fixed gesture has no long task over the accepted threshold and no frame gap over the accepted threshold.
-- Wheeling over an active editor scrolls the owning retained section when the editor cannot consume the wheel.
-- Passive text rendering no longer depends on whole-section preview pages.
-- The old passive preview pipeline is removed.
-- Runtime scroll/zoom/activation state has one owner.
-- Chrome recording after the refactor no longer shows large missing-preview-page bursts because that concept no longer exists for passive text-like rows.
+- Visible text-like rows are nonblank before click.
+- Activation and deactivation never produce a blank visual handoff.
+- Section scroll does not expose blank text-like rows that require click-to-render.
+- Pan/zoom does not make existing retained text disappear.
+- Pan/zoom trace metrics improve or stay within the documented budget from the baseline.
+- Texture upload work during active pan/zoom is bounded and does not starve visible missing rows.
+- The old blank-prone retained text path is deleted, not kept as a compatibility fallback.
 
-## Risks And Mitigations
+## Ideas Borrowed From HTML-In-Canvas Examples
 
-- Passive source DOM can drift from active CodeMirror styling if it stops sharing the same visual component and CSS.
-  - Mitigation: keep passive source DOM and active editor CSS/props shared, and screenshot-compare passive output against active editor output.
-
-- Source DOM readiness bugs can still produce blank textures.
-  - Mitigation: key source DOM and snapshot descriptors strictly by row/control/content/size/theme/zoom, keep stale row textures visible, and fail loudly on source-key mismatch in development/test.
-
-- Texture memory can grow if row text content is cached too aggressively.
-  - Mitigation: keep row content page eviction explicit and tie cache keys to visible rows, content revision, width bucket, and zoom bucket.
-
-- Centralizing runtime state is a larger change than the text renderer alone.
-  - Mitigation: land it as part of the same refactor because otherwise stale React/runtime overwrites can keep reintroducing scroll and activation bugs.
+- Use explicit paint boundaries and source promotion instead of assuming DOM readiness.
+- Keep stable texture objects/references where possible so resize and transform work do not invalidate render state unnecessarily.
+- Align active DOM overlays with the rendered canvas geometry instead of relying on synthetic event translation.
+- Use pixel-level visual checks as correctness tests; internal counters are supporting diagnostics, not proof.

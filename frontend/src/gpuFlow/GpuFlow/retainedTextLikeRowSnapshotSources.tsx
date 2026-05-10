@@ -31,11 +31,16 @@ import type { GpuRect } from "../viewportMath";
 
 export type GpuRetainedTextLikeRowSnapshotSource = {
   readonly code: string;
+  readonly commitPolicy: "native-island";
   readonly defaultValue: string;
   readonly disabled: boolean;
+  readonly editorKind: "code" | "text" | "textarea";
   readonly error: boolean;
   readonly language: string | null;
   readonly linePolicy: "multiline-auto" | "multiline-fixed" | "single-line";
+  readonly maxVisibleLines: number;
+  readonly minVisibleLines: number;
+  readonly rendererFamily: string;
   readonly rowId: string;
   readonly sectionId: string;
   readonly sourceHeight: number;
@@ -171,11 +176,16 @@ function getGpuRetainedTextLikeRowSnapshotSourcesForSurface(
     }
     const source = {
       code: row.control.displayValue,
+      commitPolicy: row.control.commitPolicy,
       defaultValue: row.control.defaultDisplayValue,
       disabled: row.state.disabled,
+      editorKind: row.control.editorKind,
       error: row.state.error,
       language: row.control.policy.language,
       linePolicy: row.control.policy.linePolicy,
+      maxVisibleLines: row.control.policy.maxVisibleLines,
+      minVisibleLines: row.control.policy.minVisibleLines,
+      rendererFamily: row.control.rendererFamily,
       rowId: row.id,
       sectionId: surface.ownerSectionId,
       sourceHeight: controlRect.height,
@@ -201,10 +211,15 @@ function summarizeGpuRetainedTextLikeRowSnapshotSource(
   source: GpuRetainedTextLikeRowSnapshotSource,
 ): {
   readonly code: string;
+  readonly commitPolicy: string;
   readonly defaultValue: string;
   readonly disabled: boolean;
+  readonly editorKind: string;
   readonly error: boolean;
   readonly linePolicy: string;
+  readonly maxVisibleLines: number;
+  readonly minVisibleLines: number;
+  readonly rendererFamily: string;
   readonly rowId: string;
   readonly sectionId: string;
   readonly sourceHeight: number;
@@ -217,10 +232,15 @@ function summarizeGpuRetainedTextLikeRowSnapshotSource(
 } {
   return {
     code: source.code,
+    commitPolicy: source.commitPolicy,
     defaultValue: source.defaultValue,
     disabled: source.disabled,
+    editorKind: source.editorKind,
     error: source.error,
     linePolicy: source.linePolicy,
+    maxVisibleLines: source.maxVisibleLines,
+    minVisibleLines: source.minVisibleLines,
+    rendererFamily: source.rendererFamily,
     rowId: source.rowId,
     sectionId: source.sectionId,
     sourceHeight: roundChromeReproMs(source.sourceHeight),

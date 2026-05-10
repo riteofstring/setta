@@ -32,6 +32,10 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import {
+  createProjectGpuCanvasInkProbeAtClientPoint,
+  roundProjectGpuChromeReproRect,
+} from "./projectGpuChromeReproCanvasProbe";
 import { useProjectGpuDomIslandActivation } from "./projectGpuDomIslandActivation";
 import {
   PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
@@ -103,6 +107,7 @@ function ProjectGpuParamControlDomIsland({
 
   useEffect(() => subscribeToGpuViewportReposition(), []);
   useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
+    activation,
     contentRect,
     enabled: isTextLikeControl,
     paramInfoId,
@@ -150,12 +155,14 @@ function ProjectGpuParamControlDomIsland({
 }
 
 function useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
+  activation,
   contentRect,
   enabled,
   paramInfoId,
   rootRef,
   sectionId,
 }: {
+  readonly activation?: GpuDomIsland["activation"] | undefined;
   readonly contentRect: GpuDomIsland["contentRect"];
   readonly enabled: boolean;
   readonly paramInfoId: string;
@@ -174,6 +181,13 @@ function useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
       }
       const geometry = createProjectGpuRetainedCodeMirrorGeometrySnapshot(root);
       const payload = {
+        activation: summarizeProjectGpuDomIslandActivation(activation),
+        canvasProbeAtActivationPoint: activation
+          ? createProjectGpuCanvasInkProbeAtClientPoint({
+              clientPoint: activation.clientPoint,
+              target: root,
+            })
+          : null,
         contentRect: roundProjectGpuChromeReproRect(contentRect),
         geometry,
         paramInfoId,
@@ -190,6 +204,7 @@ function useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
     });
     return () => cancelAnimationFrame(animationFrameId);
   }, [
+    activation,
     contentRect.height,
     contentRect.width,
     contentRect.x,
@@ -199,6 +214,21 @@ function useProjectGpuRetainedCodeMirrorGeometryChromeRepro({
     rootRef,
     sectionId,
   ]);
+}
+
+function summarizeProjectGpuDomIslandActivation(
+  activation: GpuDomIsland["activation"] | undefined,
+) {
+  if (!activation) {
+    return null;
+  }
+  return {
+    clientPoint: {
+      x: roundChromeReproMs(activation.clientPoint.x),
+      y: roundChromeReproMs(activation.clientPoint.y),
+    },
+    kind: activation.kind,
+  };
 }
 
 function createProjectGpuRetainedCodeMirrorGeometrySnapshot(root: HTMLElement) {
@@ -252,20 +282,6 @@ function summarizeProjectGpuElementGeometry(element: HTMLElement | null) {
       transform: style.transform,
     },
     tagName: element.tagName.toLowerCase(),
-  };
-}
-
-function roundProjectGpuChromeReproRect(rect: {
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-}) {
-  return {
-    height: roundChromeReproMs(rect.height),
-    width: roundChromeReproMs(rect.width),
-    x: roundChromeReproMs(rect.x),
-    y: roundChromeReproMs(rect.y),
   };
 }
 

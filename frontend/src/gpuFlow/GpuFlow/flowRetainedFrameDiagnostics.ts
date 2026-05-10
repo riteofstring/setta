@@ -132,6 +132,9 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
         reason: diagnostic.reason,
       })),
     diagnosticCount: maintenanceResult.diagnostics.length,
+    diagnosticSummary: summarizeRetainedTextureUploadDiagnostics(
+      maintenanceResult.diagnostics,
+    ),
     executedItemCount: maintenanceResult.executedItemCount,
     memory: maintenanceResult.memory,
     missingPageCount: maintenanceResult.missingPageCount,
@@ -164,6 +167,79 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
     frame,
     ...state,
   });
+}
+
+function summarizeRetainedTextureUploadDiagnostics(
+  diagnostics: RetainedContentTexturePageMaintenanceResult["diagnostics"],
+) {
+  const summaries = new Map<
+    string,
+    {
+      count: number;
+      kind: string;
+      priority: string;
+      queue: string;
+      rasterMs: number;
+      reason: string;
+      sampleSurfaceIds: string[];
+      targetLod: number | null;
+      uploadedBytes: number;
+      uploadCount: number;
+      uploadMs: number;
+    }
+  >();
+  for (const diagnostic of diagnostics) {
+    const targetLod = diagnostic.item.targetLod ?? null;
+    const key = [
+      diagnostic.reason,
+      diagnostic.queue,
+      diagnostic.item.kind,
+      diagnostic.item.priority,
+      targetLod ?? "none",
+    ].join("|");
+    const existing = summaries.get(key) ?? {
+      count: 0,
+      kind: diagnostic.item.kind,
+      priority: diagnostic.item.priority,
+      queue: diagnostic.queue,
+      rasterMs: 0,
+      reason: diagnostic.reason,
+      sampleSurfaceIds: [],
+      targetLod,
+      uploadedBytes: 0,
+      uploadCount: 0,
+      uploadMs: 0,
+    };
+    existing.count += 1;
+    existing.rasterMs += diagnostic.estimate.rasterMs;
+    existing.uploadedBytes += diagnostic.estimate.uploadedBytes;
+    existing.uploadCount += diagnostic.estimate.uploadCount;
+    existing.uploadMs += diagnostic.estimate.uploadMs;
+    if (
+      existing.sampleSurfaceIds.length < 5 &&
+      !existing.sampleSurfaceIds.includes(diagnostic.item.surfaceId)
+    ) {
+      existing.sampleSurfaceIds.push(diagnostic.item.surfaceId);
+    }
+    summaries.set(key, existing);
+  }
+  return [...summaries.values()]
+    .map((summary) => ({
+      ...summary,
+      rasterMs: roundChromeReproMs(summary.rasterMs),
+      targetLod:
+        summary.targetLod === null
+          ? null
+          : roundChromeReproMs(summary.targetLod),
+      uploadMs: roundChromeReproMs(summary.uploadMs),
+    }))
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        right.uploadedBytes - left.uploadedBytes ||
+        left.kind.localeCompare(right.kind),
+    )
+    .slice(0, 32);
 }
 
 function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
@@ -202,12 +278,16 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
       codeLength: source.code.length,
       defaultValueLength: source.defaultValue.length,
       disabled: source.disabled,
+      editorKind: source.editorKind,
       error: source.error,
       language: source.language ?? "plain",
       linePolicy: source.linePolicy,
+      maxVisibleLines: source.maxVisibleLines,
+      minVisibleLines: source.minVisibleLines,
       missingCoverageRatio: roundGpuFlowChromeReproRatio(missingCoverageRatio),
       passivePixelsReady,
       rect: roundGpuFlowChromeReproRect(source.targetRectCss),
+      rendererFamily: source.rendererFamily,
       rowId: source.rowId,
       sectionId: source.sectionId,
       sourceId: source.sourceId,
@@ -235,10 +315,17 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
       ...readyRows.slice(0, Math.max(0, 80 - problematicRows.length)),
     ].slice(0, 80),
     sourceSummaries: snapshotSources.slice(0, 24).map((source) => ({
+      editorKind: source.editorKind,
+      linePolicy: source.linePolicy,
+      maxVisibleLines: source.maxVisibleLines,
+      minVisibleLines: source.minVisibleLines,
       rect: roundGpuFlowChromeReproRect(source.targetRectCss),
+      rendererFamily: source.rendererFamily,
       rowId: source.rowId,
       sectionId: source.sectionId,
       sourceId: source.sourceId,
+      sourceHeight: roundChromeReproMs(source.sourceHeight),
+      sourceWidth: roundChromeReproMs(source.sourceWidth),
       surfaceId: source.surfaceId,
     })),
   };
@@ -253,7 +340,11 @@ function summarizeGpuFlowRetainedTextLikeRowSnapshotSourceElement({
 }) {
   if (!element) {
     return {
+      editorKind: source.editorKind,
       hasElement: false,
+      linePolicy: source.linePolicy,
+      maxVisibleLines: source.maxVisibleLines,
+      minVisibleLines: source.minVisibleLines,
       sectionId: source.sectionId,
       sourceId: source.sourceId,
       sourceKeyMatches: false,
@@ -267,7 +358,11 @@ function summarizeGpuFlowRetainedTextLikeRowSnapshotSourceElement({
     clientHeight: roundChromeReproMs(element.clientHeight),
     clientWidth: roundChromeReproMs(element.clientWidth),
     datasetSourceKeyLength: sourceKey.length,
+    editorKind: source.editorKind,
     hasElement: true,
+    linePolicy: source.linePolicy,
+    maxVisibleLines: source.maxVisibleLines,
+    minVisibleLines: source.minVisibleLines,
     rect: roundGpuFlowChromeReproRect({
       height: rect.height,
       width: rect.width,
@@ -342,6 +437,8 @@ function createGpuFlowRetainedContentSurfaceVisualState(
     readonly displayValue: string;
     readonly editorKind: string;
     readonly linePolicy: string;
+    readonly maxVisibleLines: number;
+    readonly minVisibleLines: number;
     readonly nativeControlActive: boolean;
     readonly rect: GpuRect;
     readonly rowId: string;
@@ -411,6 +508,8 @@ function createGpuFlowRetainedContentTextLikeVisualState({
   readonly displayValue: string;
   readonly editorKind: string;
   readonly linePolicy: string;
+  readonly maxVisibleLines: number;
+  readonly minVisibleLines: number;
   readonly nativeControlActive: boolean;
   readonly rect: GpuRect;
   readonly rowId: string;
@@ -427,6 +526,8 @@ function createGpuFlowRetainedContentTextLikeVisualState({
     displayValue: command.control.displayValue,
     editorKind: command.control.editorKind,
     linePolicy: command.control.policy.linePolicy,
+    maxVisibleLines: command.control.policy.maxVisibleLines,
+    minVisibleLines: command.control.policy.minVisibleLines,
     nativeControlActive: row?.state.nativeControlActive ?? false,
     rect: roundGpuFlowChromeReproRect(command.rect),
     rowId: command.rowId,
