@@ -12,55 +12,29 @@ import type {
 
 export const PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER: GpuFlowFramePerformanceReporter =
   {
-    isEnabled: isProjectGpuFlowFramePerformanceEnabled,
+    isEnabled: isChromeReproActive,
     onFrame: postProjectGpuFlowFrameChromeReproEvent,
   };
 
 export function postProjectGpuFlowFrameChromeReproEvent(
   event: GpuFlowFramePerformanceEvent,
 ): void {
-  if (isChromeReproActive()) {
-    postChromeReproEvent("gpu-flow-frame", {
-      ...event,
-      durationMs: roundChromeReproMs(event.durationMs),
-      frameReasons: [...event.frameReasons],
-      retainedTexturePageRasterMs: roundChromeReproMs(
-        event.retainedTexturePageRasterMs,
-      ),
-      retainedTexturePageUploadMs: roundChromeReproMs(
-        event.retainedTexturePageUploadMs,
-      ),
-      uploadDiagnostics: event.uploadDiagnostics.map(
-        roundProjectGpuFlowUploadDiagnosticForChromeRepro,
-      ),
-      viewport: {
-        x: roundChromeReproMs(event.viewport.x),
-        y: roundChromeReproMs(event.viewport.y),
-        zoom: roundChromeReproMs(event.viewport.zoom),
-      },
-    });
+  if (!isChromeReproActive()) {
+    return;
   }
-  getGpuFlowPerformanceProbe()?.recordNodeLayerFrame(event);
-}
-
-function isProjectGpuFlowFramePerformanceEnabled(): boolean {
-  return isChromeReproActive() || Boolean(getGpuFlowPerformanceProbe());
-}
-
-function getGpuFlowPerformanceProbe():
-  | { readonly recordNodeLayerFrame?: (result: unknown) => void }
-  | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  const probe = (
-    window as Window & {
-      readonly __settaGpuFlowPerformanceProbe?: {
-        readonly recordNodeLayerFrame?: (result: unknown) => void;
-      };
-    }
-  ).__settaGpuFlowPerformanceProbe;
-  return typeof probe?.recordNodeLayerFrame === "function" ? probe : undefined;
+  postChromeReproEvent("gpu-flow-frame", {
+    ...event,
+    durationMs: roundChromeReproMs(event.durationMs),
+    frameReasons: [...event.frameReasons],
+    uploadDiagnostics: event.uploadDiagnostics.map(
+      roundProjectGpuFlowUploadDiagnosticForChromeRepro,
+    ),
+    viewport: {
+      x: roundChromeReproMs(event.viewport.x),
+      y: roundChromeReproMs(event.viewport.y),
+      zoom: roundChromeReproMs(event.viewport.zoom),
+    },
+  });
 }
 
 function roundProjectGpuFlowUploadDiagnosticForChromeRepro(

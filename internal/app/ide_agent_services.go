@@ -110,7 +110,6 @@ func initializeIDEAgentServices(
 		terminalService,
 		mcpClient,
 		attachmentService,
-		agentProfileStore,
 		appGenerationModes,
 		&services,
 	); err != nil {
@@ -266,7 +265,6 @@ func initializeIDEManagedAgentServices(
 	terminalService *terminals.Service,
 	mcpClient *mcpx.Client,
 	attachmentService *chatattachments.Service,
-	agentProfileStore *agentprofiles.Store,
 	appGenerationModes chatmodes.AppGenerationModeResolver,
 	services *ideAgentServices,
 ) error {
@@ -311,7 +309,6 @@ func initializeIDEManagedAgentServices(
 		Runs:               services.agentRunStore,
 		Engines:            services.engineStore,
 		LLM:                services.llmRuntime,
-		Profiles:           agentProfileStore,
 		Starter:            services.agentRunRuntime,
 		Live:               managedLiveRuntime,
 		Stopper:            services.agentRunRuntime,

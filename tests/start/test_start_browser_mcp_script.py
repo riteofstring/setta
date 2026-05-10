@@ -203,7 +203,7 @@ def test_start_browser_mcp_uses_source_checkout_cli_when_setta_not_on_path(
     capture_args_path = tmp_path / "go_args.bin"
 
     class _Handler(http.server.BaseHTTPRequestHandler):
-        def log_message(self, _format: str, *_args: object) -> None:
+        def log_message(self, format: str, *args: object) -> None:
             return None
 
         def do_GET(self) -> None:  # noqa: N802

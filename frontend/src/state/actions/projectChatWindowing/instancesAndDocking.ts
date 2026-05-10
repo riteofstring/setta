@@ -75,17 +75,17 @@ export type UndockProjectChatWindowFromCanvasSectionOptions = {
   nowMs?: number;
 };
 
-type NormalizeResult = {
+export type NormalizeResult = {
   state: ProjectChatWindowingState;
   changed: boolean;
 };
 
-type Point = {
+export type Point = {
   x: number;
   y: number;
 };
 
-type DefaultFloatingChatBoundsOptions = {
+export type DefaultFloatingChatBoundsOptions = {
   viewportWidthPx: number;
   viewportHeightPx: number;
   workspaceTopInsetPx: number;
@@ -97,7 +97,7 @@ type DefaultFloatingChatBoundsOptions = {
   minHeightPx?: number;
 };
 
-type DefaultDockedChatHeightOptions = {
+export type DefaultDockedChatHeightOptions = {
   viewportHeightPx: number;
   workspaceTopInsetPx: number;
   bottomInsetPx: number;
@@ -105,12 +105,12 @@ type DefaultDockedChatHeightOptions = {
   minHeightPx?: number;
 };
 
-type ResolvedProjectChatWindowIdentity = {
+export type ResolvedProjectChatWindowIdentity = {
   instanceId: string;
   nextInstanceNumber: number;
 };
 
-type ResolvedCreateProjectChatWindowInstanceOptions = {
+export type ResolvedCreateProjectChatWindowInstanceOptions = {
   instanceId?: string;
   placement: ChatWindowPlacement;
   mode: ChatWindowMode;
@@ -121,24 +121,24 @@ type ResolvedCreateProjectChatWindowInstanceOptions = {
   nowMs: number;
 };
 
-type ChatWindowBoundsFieldConfig = {
+export type ChatWindowBoundsFieldConfig = {
   key: keyof ChatWindowBounds;
   requirePositive: boolean;
 };
 
-const DEFAULT_FLOATING_CHAT_WIDTH_PX = 820;
+export const DEFAULT_FLOATING_CHAT_WIDTH_PX = 820;
 
-const DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
+export const DEFAULT_FLOATING_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 
-const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
+export const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
 
-const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
+export const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
 
-const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
+export const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 
-const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
+export const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
 
-const DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS = {
+export const DEFAULT_CREATE_PROJECT_CHAT_WINDOW_INSTANCE_OPTIONS = {
   placement: ChatWindowPlacementEnum.bottom_docked,
   mode: ChatWindowModeEnum.project_ai_mode,
   sectionIdOrNull: null,
@@ -192,18 +192,21 @@ export function shouldSyncActiveProjectChatId(
   );
 }
 
-function resolveFinitePositiveNumber(value: number, fallback: number): number {
+export function resolveFinitePositiveNumber(
+  value: number,
+  fallback: number,
+): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function resolveFiniteNonNegativeNumber(
+export function resolveFiniteNonNegativeNumber(
   value: number,
   fallback: number,
 ): number {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
-function clampProjectChatWindowDimension(
+export function clampProjectChatWindowDimension(
   value: number,
   min: number,
   max: number,
@@ -211,7 +214,7 @@ function clampProjectChatWindowDimension(
   return Math.min(Math.max(min, value), max);
 }
 
-function centerProjectChatWindowWithinAvailableSpace(
+export function centerProjectChatWindowWithinAvailableSpace(
   startInsetPx: number,
   availableSizePx: number,
   resolvedSizePx: number,
@@ -324,11 +327,11 @@ export function resolveDefaultDockedChatHeightPx({
   );
 }
 
-function resolveFloatingWorkspaceTopInsetPx(): number {
+export function resolveFloatingWorkspaceTopInsetPx(): number {
   return resolveProjectChatFloatingWorkspaceTopInsetPx();
 }
 
-function resolveFloatingBottomInsetPx(): number {
+export function resolveFloatingBottomInsetPx(): number {
   return resolveProjectChatFloatingBottomInsetPx();
 }
 
@@ -349,7 +352,7 @@ export function resolveDefaultFloatingChatBoundsFromRuntime(): ChatWindowBounds 
   });
 }
 
-function isFinitePoint(value: unknown): value is Point {
+export function isFinitePoint(value: unknown): value is Point {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -366,7 +369,7 @@ function isFinitePoint(value: unknown): value is Point {
   return true;
 }
 
-function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
+export function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
   return (
     point.x >= rect.left &&
     point.x <= rect.right &&
@@ -375,7 +378,7 @@ function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
   );
 }
 
-function resolveProjectChatCanvasSurfaceBootPosition(
+export function resolveProjectChatCanvasSurfaceBootPosition(
   instanceId: string,
   canvasRect: DOMRect,
 ): Position | null {
@@ -397,7 +400,7 @@ function resolveProjectChatCanvasSurfaceBootPosition(
   });
 }
 
-function resolveProjectChatCanvasPaneClickBootPosition(
+export function resolveProjectChatCanvasPaneClickBootPosition(
   candidate: unknown,
 ): Position | null {
   if (!isFinitePoint(candidate)) {
@@ -406,7 +409,7 @@ function resolveProjectChatCanvasPaneClickBootPosition(
   return candidate.x !== 0 || candidate.y !== 0 ? candidate : null;
 }
 
-function resolveProjectChatCanvasCursorBootPosition(
+export function resolveProjectChatCanvasCursorBootPosition(
   canvasRect: DOMRect,
 ): Position | null {
   const miscState = useMisc.getState();
@@ -453,7 +456,7 @@ export function resolveProjectChatCanvasBootPosition(
   });
 }
 
-function resolveProjectChatWindowSurfaceRect(
+export function resolveProjectChatWindowSurfaceRect(
   instanceId: string,
 ): DOMRect | null {
   if (typeof document === "undefined") {
@@ -491,7 +494,7 @@ export function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
   });
 }
 
-function normalizeProjectChatWindowingOrder(
+export function normalizeProjectChatWindowingOrder(
   state: ProjectChatWindowingState,
 ): NormalizeResult {
   const seen = new Set<string>();
@@ -528,7 +531,7 @@ function normalizeProjectChatWindowingOrder(
   };
 }
 
-function normalizeProjectChatWindowingLayering(
+export function normalizeProjectChatWindowingLayering(
   state: ProjectChatWindowingState,
 ): NormalizeResult {
   const seenZIndexes = new Set<number>();
@@ -594,7 +597,7 @@ export function normalizeProjectChatWindowingState(
   return normalizeProjectChatWindowingLayering(ordered).state;
 }
 
-function normalizeWorkspaceProjectChatWindowInstance(
+export function normalizeWorkspaceProjectChatWindowInstance(
   instance: ProjectChatWindowInstance,
 ): ProjectChatWindowInstance {
   if (
@@ -742,7 +745,7 @@ export function getExternalProjectChatWindowBindingForSectionInState(
   );
 }
 
-function getExternalProjectChatWindowInstanceForSectionInState(
+export function getExternalProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
   {
@@ -768,7 +771,7 @@ function getExternalProjectChatWindowInstanceForSectionInState(
   return null;
 }
 
-function getNextWindowInstanceId(state: ProjectChatWindowingState): {
+export function getNextWindowInstanceId(state: ProjectChatWindowingState): {
   instanceId: string;
   nextInstanceNumber: number;
 } {
@@ -797,7 +800,7 @@ export function getHighestWindowZIndex(
   return maxZIndex;
 }
 
-function resolveProjectChatWindowExplicitNextInstanceNumber(
+export function resolveProjectChatWindowExplicitNextInstanceNumber(
   normalized: ProjectChatWindowingState,
   explicitInstanceId: string,
 ): number {
@@ -811,7 +814,7 @@ function resolveProjectChatWindowExplicitNextInstanceNumber(
   );
 }
 
-function resolveProjectChatWindowInstanceIdentity(
+export function resolveProjectChatWindowInstanceIdentity(
   normalized: ProjectChatWindowingState,
   explicitInstanceId?: string,
 ): ResolvedProjectChatWindowIdentity {
@@ -827,7 +830,7 @@ function resolveProjectChatWindowInstanceIdentity(
   };
 }
 
-function resolveProjectChatWindowInitialBounds(
+export function resolveProjectChatWindowInitialBounds(
   placement: ChatWindowPlacement,
   bounds: ChatWindowBounds | null | undefined,
 ): ChatWindowBounds | null {
@@ -839,7 +842,7 @@ function resolveProjectChatWindowInitialBounds(
     : null;
 }
 
-function resolveCreateProjectChatWindowInstanceOptions(
+export function resolveCreateProjectChatWindowInstanceOptions(
   options: CreateProjectChatWindowInstanceOptions = {},
 ): ResolvedCreateProjectChatWindowInstanceOptions {
   return {
@@ -865,7 +868,7 @@ function resolveCreateProjectChatWindowInstanceOptions(
   };
 }
 
-function buildNextWindowInstances(
+export function buildNextWindowInstances(
   state: ProjectChatWindowingState,
   instanceId: string,
   updater: (instance: ProjectChatWindowInstance) => ProjectChatWindowInstance,

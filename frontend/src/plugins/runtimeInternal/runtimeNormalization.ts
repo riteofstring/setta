@@ -62,7 +62,7 @@ export const emitListenerEventsCapability = "emitListenerEvents";
 
 export const backendRouteCapability = "registerRouter";
 
-type PluginSectionProps = {
+export type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -72,7 +72,7 @@ type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-type PluginSectionRenderer = {
+export type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
@@ -120,16 +120,16 @@ export type PluginFrontendError = {
   message: string;
 };
 
-type PluginProjectStateSelector = SettaPluginProjectStateSelector;
+export type PluginProjectStateSelector = SettaPluginProjectStateSelector;
 
-type PluginRealtimeDependencyEvent = {
+export type PluginRealtimeDependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
   payload?: BaseDependencyValueUnion | null;
   binaryPayload?: ArrayBuffer;
   timestampMs?: number;
 };
 
-type PluginSectionRealtimeEmitOptions = {
+export type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
@@ -181,12 +181,12 @@ export type PluginRegistryAccumulator = {
   canvasControls: Record<string, RegisteredPluginCanvasControl[]>;
 };
 
-type LoadPluginFrontendResult = {
+export type LoadPluginFrontendResult = {
   error: PluginFrontendError | null;
   registryDelta: PluginRegistryAccumulator | null;
 };
 
-type WatchCodeCapabilities = NonNullable<
+export type WatchCodeCapabilities = NonNullable<
   PluginRuntimeResponse["featureCapabilities"]
 >["watchCode"];
 
@@ -194,14 +194,14 @@ export const styleHrefByPluginId = new Map<string, string>();
 
 export const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 
-const cleanupByPluginId = new Map<string, Set<() => void>>();
+export const cleanupByPluginId = new Map<string, Set<() => void>>();
 
 export const settingRevealHandlersByPluginId = new Map<
   string,
   Map<string, PluginSettingRevealHandler>
 >();
 
-const frontendSignatureByPluginId = new Map<string, string>();
+export const frontendSignatureByPluginId = new Map<string, string>();
 
 export function getRegisteredPluginCleanupIds(): string[] {
   return Array.from(cleanupByPluginId.keys());
@@ -275,7 +275,7 @@ export function shouldLoadPluginFrontendForFeatureSelection({
   );
 }
 
-function isUnavailableWatchCodeProviderFrontendCandidate(
+export function isUnavailableWatchCodeProviderFrontendCandidate(
   pluginId: string,
   watchCodeCapabilities?: WatchCodeCapabilities | null,
 ): boolean {
@@ -432,7 +432,7 @@ export function runPluginCleanup(pluginId: string): void {
   }
 }
 
-function runAllPluginCleanup(): void {
+export function runAllPluginCleanup(): void {
   if (cleanupByPluginId.size === 0) {
     return;
   }
@@ -452,7 +452,7 @@ export function clearPluginRuntimeSideEffects(): void {
   styleHrefByPluginId.clear();
 }
 
-function isSimpleProjectStateSelectorKind(
+export function isSimpleProjectStateSelectorKind(
   kind: string,
 ): kind is "projectConfig" | "activeSectionIds" | "singletonSections" {
   return (
@@ -462,7 +462,7 @@ function isSimpleProjectStateSelectorKind(
   );
 }
 
-function normalizeSectionProjectStateSelector(
+export function normalizeSectionProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
 ): Extract<PluginProjectStateSelector, { kind: "section" }> {
@@ -475,7 +475,7 @@ function normalizeSectionProjectStateSelector(
   };
 }
 
-function normalizeSectionsProjectStateSelector(
+export function normalizeSectionsProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
 ): Extract<PluginProjectStateSelector, { kind: "sections" }> {
@@ -497,7 +497,7 @@ function normalizeSectionsProjectStateSelector(
   };
 }
 
-function normalizePluginDataProjectStateSelector(
+export function normalizePluginDataProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
 ): Extract<PluginProjectStateSelector, { kind: "pluginData" }> {
@@ -510,7 +510,7 @@ function normalizePluginDataProjectStateSelector(
   };
 }
 
-function requireProjectStateSelectorKind(
+export function requireProjectStateSelectorKind(
   pluginId: string,
   selector: PluginProjectStateSelector,
 ): string {
@@ -553,7 +553,7 @@ export function normalizeProjectStateSelector(
   );
 }
 
-function getSectionImplForProjectState(
+export function getSectionImplForProjectState(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
 ): unknown {
@@ -598,7 +598,7 @@ export function getRawSelectedProjectState(
   }
 }
 
-type PluginDataProjectStateSubscriptionSelection = {
+export type PluginDataProjectStateSubscriptionSelection = {
   projectConfigId: string;
   value: unknown;
 };
@@ -706,7 +706,7 @@ export function toProjectStateSubscriptionValue(
   );
 }
 
-function toProjectStateSectionSnapshot(
+export function toProjectStateSectionSnapshot(
   sectionIds: string[],
   rawValue: unknown,
   previousRawValue?: unknown,
@@ -743,7 +743,7 @@ function toProjectStateSectionSnapshot(
   return snapshot;
 }
 
-function getReusableProjectStateSectionSnapshot(
+export function getReusableProjectStateSectionSnapshot(
   sectionId: string,
   value: unknown,
   index: number,
@@ -761,7 +761,7 @@ function getReusableProjectStateSectionSnapshot(
   return previousBySection[sectionId];
 }
 
-function cloneProjectStateSnapshot(rawValue: unknown): unknown {
+export function cloneProjectStateSnapshot(rawValue: unknown): unknown {
   if (rawValue === null || rawValue === undefined) {
     return rawValue;
   }
@@ -783,7 +783,7 @@ function cloneProjectStateSnapshot(rawValue: unknown): unknown {
   return structuredClone(rawValue);
 }
 
-function isScalarProjectStateValue(value: unknown): boolean {
+export function isScalarProjectStateValue(value: unknown): boolean {
   if (value === null) {
     return true;
   }
@@ -791,7 +791,7 @@ function isScalarProjectStateValue(value: unknown): boolean {
   return valueType !== "object" && valueType !== "function";
 }
 
-function isRecordProjectStateValue(
+export function isRecordProjectStateValue(
   value: unknown,
 ): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

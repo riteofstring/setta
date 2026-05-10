@@ -72,7 +72,7 @@ import {
   updatePendingChatDetails,
 } from "./appDefinitionsAndRollback";
 
-type StopChatResponseRequest = {
+export type StopChatResponseRequest = {
   chatId: string | null | undefined;
   isExternalEngine: boolean;
   pendingSurfaceId?: string | null;
@@ -81,7 +81,7 @@ type StopChatResponseRequest = {
   sectionId?: string;
 };
 
-type InternalChatStopFailureParams = {
+export type InternalChatStopFailureParams = {
   chatId: string;
   failureMessage: string;
   localSnapshot: StopChatResponseSnapshot;
@@ -89,13 +89,13 @@ type InternalChatStopFailureParams = {
   sectionId?: string;
 };
 
-const DEFAULT_STOP_CHAT_RESPONSE_LOCAL_OPTIONS = {
+export const DEFAULT_STOP_CHAT_RESPONSE_LOCAL_OPTIONS = {
   markInterruptedOptimistically: true,
   pendingSurfaceId: null,
   followProjectConfigId: null,
 } satisfies ResolvedStopChatResponseLocalOptions;
 
-function getStopChatSnapshotDetails(
+export function getStopChatSnapshotDetails(
   state: AIStateSnapshot,
   chatId: string | null | undefined,
   pendingSurfaceId: string | null | undefined,
@@ -109,7 +109,7 @@ function getStopChatSnapshotDetails(
   );
 }
 
-function getInterruptedAssistantMessageSnapshot(
+export function getInterruptedAssistantMessageSnapshot(
   state: AIStateSnapshot,
   chatId: string | null | undefined,
 ): Record<string, true> {
@@ -121,7 +121,7 @@ function getInterruptedAssistantMessageSnapshot(
   };
 }
 
-function getFollowToolArgumentSnapshot(
+export function getFollowToolArgumentSnapshot(
   chatId: string | null | undefined,
   followProjectConfigId: string | null,
 ): AIFollowIdsByType | null {
@@ -154,7 +154,10 @@ export function clearStopEligibleAssistantMessageId(chatId: string) {
   stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
 }
 
-function markInterruptedAssistantMessage(chatId: string, messageId: string) {
+export function markInterruptedAssistantMessage(
+  chatId: string,
+  messageId: string,
+) {
   useAIStore.setState((state) => {
     const existingByChat =
       state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
@@ -215,7 +218,7 @@ export function clearInterruptedAssistantMessages(
   });
 }
 
-function interruptedMessageMapEquals(
+export function interruptedMessageMapEquals(
   left: Record<string, true>,
   right: Record<string, true>,
 ): boolean {
@@ -232,7 +235,7 @@ function interruptedMessageMapEquals(
   return true;
 }
 
-function restoreInterruptedAssistantMessageSnapshot(
+export function restoreInterruptedAssistantMessageSnapshot(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
 ) {
@@ -260,7 +263,7 @@ function restoreInterruptedAssistantMessageSnapshot(
   });
 }
 
-function getStopChatResponseSnapshot(
+export function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
   pendingSurfaceId: string | null | undefined = null,
   followProjectConfigId: string | null = null,
@@ -288,7 +291,7 @@ function getStopChatResponseSnapshot(
   };
 }
 
-function restoreStoppedChatResponseLocally(
+export function restoreStoppedChatResponseLocally(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
   pendingSurfaceId: string | null | undefined = null,
@@ -305,7 +308,7 @@ function restoreStoppedChatResponseLocally(
   updatePendingChatDetails(restoreDetails, pendingSurfaceId);
 }
 
-function restoreStoppedChatFollowState(
+export function restoreStoppedChatFollowState(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
 ) {
@@ -319,7 +322,7 @@ function restoreStoppedChatFollowState(
   });
 }
 
-function resolveStopChatResponseLocalOptions(
+export function resolveStopChatResponseLocalOptions(
   options: StopChatResponseLocalOptions | undefined,
 ): ResolvedStopChatResponseLocalOptions {
   return {
@@ -328,7 +331,7 @@ function resolveStopChatResponseLocalOptions(
   };
 }
 
-function stopKnownChatResponseLocally({
+export function stopKnownChatResponseLocally({
   chatId,
   followProjectConfigId,
   markInterruptedOptimistically,
@@ -357,7 +360,7 @@ function stopKnownChatResponseLocally({
   }
 }
 
-function stopChatResponseLocally(
+export function stopChatResponseLocally(
   chatId: string | null | undefined,
   options?: StopChatResponseLocalOptions,
 ): StopChatResponseSnapshot {
@@ -390,7 +393,7 @@ function stopChatResponseLocally(
   return snapshot;
 }
 
-function applyConfirmedExternalStopInterruption(
+export function applyConfirmedExternalStopInterruption(
   chatId: string,
   snapshot: StopChatResponseSnapshot,
 ): void {
@@ -403,7 +406,7 @@ function applyConfirmedExternalStopInterruption(
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
 
-function shouldRestoreInterruptedSnapshotForStop({
+export function shouldRestoreInterruptedSnapshotForStop({
   alreadyStopped,
   localStoppedMessageId,
   stoppedMessageId,
@@ -415,7 +418,7 @@ function shouldRestoreInterruptedSnapshotForStop({
   return alreadyStopped || !stoppedMessageId || !localStoppedMessageId;
 }
 
-async function resolveLatestRunningExternalRunIdWithRefresh(
+export async function resolveLatestRunningExternalRunIdWithRefresh(
   chatId: string,
   projectConfigId: string | null,
 ): Promise<string | null> {
@@ -428,12 +431,12 @@ async function resolveLatestRunningExternalRunIdWithRefresh(
   return runId;
 }
 
-type ExternalChatRefreshState = {
+export type ExternalChatRefreshState = {
   hydrated: boolean;
   waitingForResponse: boolean;
 };
 
-async function refreshExternalChatState(
+export async function refreshExternalChatState(
   chatId: string,
   projectConfigId: string | null,
   sectionId?: string,
@@ -449,7 +452,7 @@ async function refreshExternalChatState(
   return { hydrated, waitingForResponse };
 }
 
-function finalizeExternalStopRefreshResult(
+export function finalizeExternalStopRefreshResult(
   chatId: string,
   failureMessage: string,
   localSnapshot: StopChatResponseSnapshot,
@@ -467,7 +470,7 @@ function finalizeExternalStopRefreshResult(
   return false;
 }
 
-async function stopExternalChatResponse({
+export async function stopExternalChatResponse({
   chatId,
   projectConfigId,
   sectionId,
@@ -533,7 +536,7 @@ async function stopExternalChatResponse({
   );
 }
 
-function reconcileStoppedLLMChatOutcome({
+export function reconcileStoppedLLMChatOutcome({
   chatId,
   localSnapshot,
   stopOutcome,
@@ -565,7 +568,7 @@ function reconcileStoppedLLMChatOutcome({
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
 
-async function finalizeInternalChatStopFailure({
+export async function finalizeInternalChatStopFailure({
   chatId,
   failureMessage,
   localSnapshot,
@@ -589,7 +592,7 @@ async function finalizeInternalChatStopFailure({
   return false;
 }
 
-async function stopInternalChatResponse({
+export async function stopInternalChatResponse({
   chatId,
   failureMessage,
   localSnapshot,
@@ -618,7 +621,7 @@ async function stopInternalChatResponse({
   });
 }
 
-async function stopChatResponse({
+export async function stopChatResponse({
   chatId,
   isExternalEngine,
   pendingSurfaceId = null,
@@ -752,7 +755,7 @@ export type ChatHydrationOutcome = {
   errorCode: ChatHydrationErrorCode | null;
 };
 
-function parseChatHydrationErrorCode(
+export function parseChatHydrationErrorCode(
   value: string | null,
 ): ChatHydrationErrorCode | null {
   if (value === "llm_disallowed") {
@@ -767,7 +770,7 @@ function parseChatHydrationErrorCode(
   return null;
 }
 
-function classifyChatHydrationOutcomeType(
+export function classifyChatHydrationOutcomeType(
   status: number | undefined,
 ): ChatHydrationOutcomeType {
   if (status === 403 || status === 404 || status === 409) {
@@ -776,7 +779,7 @@ function classifyChatHydrationOutcomeType(
   return "transient_failure";
 }
 
-function buildChatHydrationFailureOutcome(response: {
+export function buildChatHydrationFailureOutcome(response: {
   status: number | undefined;
   data: unknown;
 }): ChatHydrationOutcome {
@@ -797,7 +800,7 @@ function buildChatHydrationFailureOutcome(response: {
   };
 }
 
-type ChatHydrationProbeResult<TPayload> =
+export type ChatHydrationProbeResult<TPayload> =
   | {
       outcome: "success";
       status: number | undefined;

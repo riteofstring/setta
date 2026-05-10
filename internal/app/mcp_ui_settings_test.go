@@ -35,22 +35,57 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedStreama
 	saveAppScopedMCPProject(t, cfg)
 	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
 
-	app, _, session := startAppMCPTestServer(t, cfg)
-
-	setAuthenticatedMCPAgenticContextAllowUnscoped(t, session)
-	assertAppMCPUISettingSearchFindsWatchCodeFiles(t, session)
-	assertAppMCPUISettingReadProjectName(t, session)
-	assertAppMCPUISettingWritePersistsShowParamDisplayNames(t, app, session)
-}
-
-func assertAppMCPUISettingSearchFindsWatchCodeFiles(t *testing.T, session *sdkmcp.ClientSession) {
-	t.Helper()
-
-	searchResult := callAppMCPTool(t, session, "search_ui_settings", map[string]any{
-		"projectConfigId": "project-alpha",
-		"query":           "watch files",
-		"limit":           3,
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
 	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	searchResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_ui_settings",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"query":           "watch files",
+			"limit":           3,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_ui_settings: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected search_ui_settings success, got %#v", searchResult.StructuredContent)
+	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchPayload["results"])
 	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::files" {
@@ -59,33 +94,39 @@ func assertAppMCPUISettingSearchFindsWatchCodeFiles(t *testing.T, session *sdkmc
 	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
 		t.Fatalf("expected plugin-sourced watch-code UI setting, got %#v", searchResults[0])
 	}
-}
 
-func assertAppMCPUISettingReadProjectName(t *testing.T, session *sdkmcp.ClientSession) {
-	t.Helper()
-
-	getResult := callAppMCPTool(t, session, "get_ui_setting_value", map[string]any{
-		"projectConfigId": "project-alpha",
-		"settingId":       "core.project.name",
+	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.name",
+		},
 	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
 	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
 	if getPayload["value"] != "Alpha" {
 		t.Fatalf("expected project name Alpha, got %#v", getPayload["value"])
 	}
-}
 
-func assertAppMCPUISettingWritePersistsShowParamDisplayNames(
-	t *testing.T,
-	app *App,
-	session *sdkmcp.ClientSession,
-) {
-	t.Helper()
-
-	setResult := callAppMCPTool(t, session, "set_ui_setting_value", map[string]any{
-		"projectConfigId": "project-alpha",
-		"settingId":       "core.project.show_param_display_names",
-		"value":           true,
+	setResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.project.show_param_display_names",
+			"value":           true,
+		},
 	})
+	if err != nil {
+		t.Fatalf("call set_ui_setting_value: %v", err)
+	}
+	if setResult.IsError {
+		t.Fatalf("expected set_ui_setting_value success, got %#v", setResult.StructuredContent)
+	}
 	setPayload := mustStructuredMapValue(t, setResult.StructuredContent)
 	if _, ok := setPayload["error"]; ok {
 		t.Fatalf("did not expect structured set_ui_setting_value error, got %#v", setPayload)

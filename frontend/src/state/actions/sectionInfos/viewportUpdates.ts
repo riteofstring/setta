@@ -57,9 +57,9 @@ import {
   TopLevelSectionLayoutMap,
 } from "./codeObjectsAndLayout";
 
-type PendingViewportState = Viewport | null;
+export type PendingViewportState = Viewport | null;
 
-const pendingViewportRef: {
+export const pendingViewportRef: {
   opId: string | null;
   snapshot: PendingViewportState;
   hasQueuedSend: boolean;
@@ -69,7 +69,7 @@ const pendingViewportRef: {
   hasQueuedSend: false,
 };
 
-function applyViewportSnapshotToProjectState(
+export function applyViewportSnapshotToProjectState(
   state: ZustandProjectState,
   viewport: PendingViewportState,
 ) {
@@ -87,11 +87,11 @@ function applyViewportSnapshotToProjectState(
   activeViewMode.viewportInitialized = viewport !== null;
 }
 
-function applyPendingViewport(state: ZustandProjectState) {
+export function applyPendingViewport(state: ZustandProjectState) {
   applyViewportSnapshotToProjectState(state, pendingViewportRef.snapshot);
 }
 
-const pendingTopLevelLayoutRef: {
+export const pendingTopLevelLayoutRef: {
   opId: string | null;
   snapshot: TopLevelSectionLayoutMap | null;
   hasQueuedSend: boolean;
@@ -101,7 +101,7 @@ const pendingTopLevelLayoutRef: {
   hasQueuedSend: false,
 };
 
-function applyPendingTopLevelLayout(state: ZustandProjectState) {
+export function applyPendingTopLevelLayout(state: ZustandProjectState) {
   if (!pendingTopLevelLayoutRef.snapshot) {
     return;
   }
@@ -124,7 +124,7 @@ function applyPendingTopLevelLayout(state: ZustandProjectState) {
   }
 }
 
-const sendTopLevelLayoutToBackend = _.debounce(() => {
+export const sendTopLevelLayoutToBackend = _.debounce(() => {
   if (!pendingTopLevelLayoutRef.opId || !pendingTopLevelLayoutRef.snapshot) {
     return;
   }
@@ -163,7 +163,7 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-const sendViewportToBackend = _.debounce(() => {
+export const sendViewportToBackend = _.debounce(() => {
   if (!pendingViewportRef.opId) {
     return;
   }
@@ -307,7 +307,7 @@ export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
 }
 
-function getCurrProjectConfigViewport() {
+export function getCurrProjectConfigViewport() {
   return gpuFlowViewportStore.getState().fitViewOnInit
     ? null
     : getGpuViewport();
@@ -357,7 +357,7 @@ export async function ungroupActiveGroups() {
   );
 }
 
-function addPendingOp(apply: (x: ZustandProjectState) => void) {
+export function addPendingOp(apply: (x: ZustandProjectState) => void) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
     pending: [...state.pending, { apply, opId, acknowledged: false }],
@@ -365,7 +365,7 @@ function addPendingOp(apply: (x: ZustandProjectState) => void) {
   return opId;
 }
 
-function acknowledgePendingOp(opId: string) {
+export function acknowledgePendingOp(opId: string) {
   // Mark as acknowledged so stale optimistic ops don't override later backend syncs.
   usePendingOperations.setState((state) => {
     const index = state.pending.findIndex((opInfo) => opInfo.opId === opId);
@@ -381,13 +381,13 @@ function acknowledgePendingOp(opId: string) {
   });
 }
 
-function removePendingOp(opId: string) {
+export function removePendingOp(opId: string) {
   usePendingOperations.setState((state) => ({
     pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
   }));
 }
 
-function isPendingOpQueued(opId: string | null): boolean {
+export function isPendingOpQueued(opId: string | null): boolean {
   return (
     opId !== null &&
     usePendingOperations
@@ -396,13 +396,15 @@ function isPendingOpQueued(opId: string | null): boolean {
   );
 }
 
-function clearCompletedPendingOpId(ref: { opId: string | null }) {
+export function clearCompletedPendingOpId(ref: { opId: string | null }) {
   if (ref.opId && !isPendingOpQueued(ref.opId)) {
     ref.opId = null;
   }
 }
 
-function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
+export function removePendingOpAndGetReplayOps(
+  opId: string,
+): Array<PendingOperation> {
   const pendingBeforeRemoval = usePendingOperations.getState().pending;
   const failedOpIndex = pendingBeforeRemoval.findIndex(
     (opInfo) => opInfo.opId === opId,
@@ -419,7 +421,7 @@ function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
     .filter((opInfo) => remainingOpIds.has(opInfo.opId));
 }
 
-function rollbackOptimisticProjectStateUpdate(
+export function rollbackOptimisticProjectStateUpdate(
   opId: string,
   rollback?: (state: ZustandProjectState) => void,
 ) {
@@ -435,7 +437,7 @@ function rollbackOptimisticProjectStateUpdate(
   });
 }
 
-function applyOptimisticProjectStateUpdateIfProjectMatches(
+export function applyOptimisticProjectStateUpdateIfProjectMatches(
   state: ZustandProjectState,
   projectConfigId: string | undefined,
   update: (state: ZustandProjectState) => void,
@@ -449,7 +451,7 @@ function applyOptimisticProjectStateUpdateIfProjectMatches(
   update(state);
 }
 
-function isResponseDataAndStatus(
+export function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
   // Narrow unknown send results without relying on try/catch for control flow.
@@ -640,7 +642,7 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
   });
 }
 
-function shouldSkipViewportDispatch(
+export function shouldSkipViewportDispatch(
   viewport: PendingViewportState,
   currentProjectState: ZustandProjectState,
 ): boolean {
@@ -657,7 +659,10 @@ function shouldSkipViewportDispatch(
   );
 }
 
-function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
+export function dispatchViewportUpdate(
+  viewport: Viewport | null,
+  immediate = false,
+) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;

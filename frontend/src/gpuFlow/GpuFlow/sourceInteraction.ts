@@ -27,9 +27,6 @@ type ResolvedGpuFlowNodeSourceProjection = Pick<
   GpuNodeSourceProjection,
   "localX" | "localY" | "surfaceX" | "surfaceY"
 >;
-type GpuFlowNodeHitProjection = NonNullable<
-  ReturnType<typeof resolveTopmostGpuNodeHitAtClientPoint>
->;
 
 export function projectGpuFlowNodeSourceForPointerEvent({
   effectProjectors,
@@ -38,7 +35,6 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   nodeId,
   nodes,
   projector,
-  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -51,7 +47,6 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   readonly nodeId: string;
   readonly nodes: readonly GpuNodeLayout[];
   readonly projector: HtmlSurfaceInteractionProjector | null;
-  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -70,7 +65,6 @@ export function projectGpuFlowNodeSourceForPointerEvent({
     node,
     nodeId,
     nodes,
-    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
@@ -94,7 +88,6 @@ function resolveGpuFlowNodeSourceProjectionForPointerEvent({
   node,
   nodeId,
   nodes,
-  requireVisualSceneHitSurfaces = false,
   surfaceElement,
   viewport,
   visualScene,
@@ -109,7 +102,6 @@ function resolveGpuFlowNodeSourceProjectionForPointerEvent({
   };
   readonly nodeId: string;
   readonly nodes: readonly GpuNodeLayout[];
-  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -122,69 +114,30 @@ function resolveGpuFlowNodeSourceProjectionForPointerEvent({
     clientY: event.clientY,
     ...(effectProjectors ? { effectProjectors } : {}),
     nodes,
-    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
   });
-  const projection = resolveGpuFlowNodeSourceProjection({
-    node,
-    nodeId,
-    requireVisualSceneHitSurfaces,
-    surfaceX,
-    surfaceY,
-    viewport,
-    visualProjection,
-    visualScene,
-  });
-  if (!projection) {
-    return null;
+  if (visualProjection && visualProjection.node.nodeId !== nodeId) {
+    return;
   }
+  if (!visualProjection && hasVisualSceneSurfaceForNode(visualScene, nodeId)) {
+    return;
+  }
+  const projection =
+    visualProjection ??
+    resolveFlatGpuNodeSourceProjection({
+      node,
+      surfaceX,
+      surfaceY,
+      viewport,
+    });
   return {
     localX: projection.localX,
     localY: projection.localY,
     surfaceX,
     surfaceY,
   };
-}
-
-function resolveGpuFlowNodeSourceProjection({
-  node,
-  nodeId,
-  requireVisualSceneHitSurfaces,
-  surfaceX,
-  surfaceY,
-  viewport,
-  visualProjection,
-  visualScene,
-}: {
-  readonly node: GpuNodeLayout & {
-    readonly height: number;
-    readonly width: number;
-  };
-  readonly nodeId: string;
-  readonly requireVisualSceneHitSurfaces: boolean;
-  readonly surfaceX: number;
-  readonly surfaceY: number;
-  readonly viewport: GpuViewportInput;
-  readonly visualProjection: GpuFlowNodeHitProjection | null;
-  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
-}): Pick<GpuNodeSourceProjection, "localX" | "localY"> | null {
-  if (visualProjection) {
-    return visualProjection.node.nodeId === nodeId ? visualProjection : null;
-  }
-  if (requireVisualSceneHitSurfaces) {
-    return null;
-  }
-  if (hasVisualSceneSurfaceForNode(visualScene, nodeId)) {
-    return null;
-  }
-  return resolveFlatGpuNodeSourceProjection({
-    node,
-    surfaceX,
-    surfaceY,
-    viewport,
-  });
 }
 
 function hasVisualSceneSurfaceForNode(
@@ -196,9 +149,6 @@ function hasVisualSceneSurfaceForNode(
       (visualScene.flatSurfaces.some(
         (surface) => surface.surfaceId === nodeId,
       ) ||
-        visualScene.lateFlatSurfaces.some(
-          (surface) => surface.surfaceId === nodeId,
-        ) ||
         visualScene.tiledFlatSurfaces.some(
           (surface) => surface.surfaceId === nodeId,
         ) ||

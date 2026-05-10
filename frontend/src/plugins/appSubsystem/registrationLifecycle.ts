@@ -183,7 +183,7 @@ export function useAppSubsystemSupportedAppGenerationModes(): string[] {
   });
 }
 
-function hasAppSubsystemChatCapability(
+export function hasAppSubsystemChatCapability(
   capabilities: AppSubsystemCapabilities | null,
 ): boolean {
   return Boolean(
@@ -248,7 +248,7 @@ export function useAppSubsystemPreviewEnabled(): boolean {
   return useAppSubsystemFrontendStore((state) => state.previewEnabled);
 }
 
-function getAppSubsystemLoadedRegistration(): RegisteredAppSubsystemFrontendRegistration | null {
+export function getAppSubsystemLoadedRegistration(): RegisteredAppSubsystemFrontendRegistration | null {
   const state = useAppSubsystemFrontendStore.getState();
   if (state.status !== "loaded") {
     return null;
@@ -256,7 +256,7 @@ function getAppSubsystemLoadedRegistration(): RegisteredAppSubsystemFrontendRegi
   return state.registration;
 }
 
-function queuedAppSubsystemOperationQueueKey(): string | null {
+export function queuedAppSubsystemOperationQueueKey(): string | null {
   const state = useAppSubsystemFrontendStore.getState();
   if (
     state.status === "loading" &&
@@ -269,7 +269,7 @@ function queuedAppSubsystemOperationQueueKey(): string | null {
   return null;
 }
 
-async function waitForLoadedAppSubsystemRegistration(): Promise<RegisteredAppSubsystemFrontendRegistration | null> {
+export async function waitForLoadedAppSubsystemRegistration(): Promise<RegisteredAppSubsystemFrontendRegistration | null> {
   const loadedRegistration = getAppSubsystemLoadedRegistration();
   if (loadedRegistration) {
     return loadedRegistration;

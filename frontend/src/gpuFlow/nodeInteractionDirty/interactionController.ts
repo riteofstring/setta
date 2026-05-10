@@ -46,11 +46,11 @@ import {
   toElement,
 } from "./pointerHandoff";
 
-import { updateGpuPointerHoverCursor } from "./hoverCursor";
 import {
   findGpuNodeIdForEventTarget,
   isGpuNodePersistentFocusEventTarget,
 } from "./nodeTargetLookup";
+import { updateGpuPointerHoverCursor } from "./hoverCursor";
 
 export function createGpuNodeInteractionDirtyController({
   cancelAnimationFrame,
@@ -63,7 +63,6 @@ export function createGpuNodeInteractionDirtyController({
   projectPointerInteraction,
   requestAnimationFrame,
   requestFrame,
-  resolveCanvasCursor,
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
   textureManager,
@@ -122,7 +121,7 @@ export function createGpuNodeInteractionDirtyController({
 
     const deferRequestPaint =
       priority !== "interactive" && Boolean(deferPassiveDirty?.());
-    const queued = manager.markSurfaceTextureDirty({
+    manager.markSurfaceTextureDirty({
       content: true,
       frame: getFrame(),
       priority,
@@ -131,10 +130,10 @@ export function createGpuNodeInteractionDirtyController({
       ...(sourceRect ? { sourceRect } : {}),
       surfaceId: nodeId,
     });
-    if (queued && scheduleFrame) {
+    if (scheduleFrame) {
       requestFrame("texture-upload");
     }
-    return queued;
+    return true;
   }
 
   function beginInteractiveNode(
@@ -691,17 +690,6 @@ export function createGpuNodeInteractionDirtyController({
         capture: true,
         signal: abortController.signal,
       } satisfies AddEventListenerOptions;
-      const updateHoverCursorForPointerEvent = (event: PointerEvent) => {
-        const handoffTarget = updateGpuPointerHoverCursor({
-          elementByNodeId,
-          event,
-          resolveCanvasCursor,
-          resolvePointerHandoffTarget,
-          setHoverCursor,
-          surfaceElement: canvas,
-        });
-        updateResizeHandleHoverInteraction(event, handoffTarget);
-      };
 
       canvas.addEventListener(
         GPU_FLOW_NODE_DIRTY_EVENT,
@@ -834,7 +822,14 @@ export function createGpuNodeInteractionDirtyController({
         "pointermove",
         (event) => {
           markPointerInteractionDirty(event);
-          updateHoverCursorForPointerEvent(event);
+          const handoffTarget = updateGpuPointerHoverCursor({
+            elementByNodeId,
+            event,
+            resolvePointerHandoffTarget,
+            setHoverCursor,
+            surfaceElement: canvas,
+          });
+          updateResizeHandleHoverInteraction(event, handoffTarget);
         },
         listenerOptions,
       );
@@ -845,10 +840,7 @@ export function createGpuNodeInteractionDirtyController({
       );
       ownerDocument.addEventListener(
         "pointerup",
-        (event) => {
-          releasePointerHandoff(event);
-          updateHoverCursorForPointerEvent(event);
-        },
+        releasePointerHandoff,
         listenerOptions,
       );
       ownerDocument.addEventListener(

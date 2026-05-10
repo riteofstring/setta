@@ -3,7 +3,7 @@
 /**
  * JSON-friendly union that mirrors what Pinia Colada can hash.
  */
-type JsonValue =
+export type JsonValue =
   | null
   | string
   | number
@@ -14,7 +14,7 @@ type JsonValue =
 /**
  * Replacer that converts non-JSON values (bigint, Date, etc.) to safe substitutes.
  */
-const queryKeyJsonReplacer = (_key: string, value: unknown) => {
+export const queryKeyJsonReplacer = (_key: string, value: unknown) => {
   if (
     value === undefined ||
     typeof value === "function" ||
@@ -34,7 +34,7 @@ const queryKeyJsonReplacer = (_key: string, value: unknown) => {
 /**
  * Safely stringifies a value and parses it back into a JsonValue.
  */
-const stringifyToJsonValue = (input: unknown): JsonValue | undefined => {
+export const stringifyToJsonValue = (input: unknown): JsonValue | undefined => {
   try {
     const json = JSON.stringify(input, queryKeyJsonReplacer);
     if (json === undefined) {
@@ -86,7 +86,9 @@ const serializeSearchParams = (params: URLSearchParams): JsonValue => {
 /**
  * Normalizes any accepted value into a JSON-friendly shape for query keys.
  */
-const serializeQueryKeyValue = (value: unknown): JsonValue | undefined => {
+export const serializeQueryKeyValue = (
+  value: unknown,
+): JsonValue | undefined => {
   if (value === null) {
     return null;
   }

@@ -9,7 +9,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "check_quality_sandbox"
     frontend_dir = sandbox_root / "frontend" / "src"
-    frontend_e2e_dir = sandbox_root / "frontend" / "tests" / "e2e"
     sdk_package_dir = sandbox_root / "frontend" / "plugin-sdk" / "app-subsystem"
     sdk_frontend_dir = sdk_package_dir / "src"
     sdk_types_dir = sdk_package_dir / "types"
@@ -21,14 +20,11 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     plugin_vendor_types_dir = plugin_vendor_dir / "types"
     plugin_backend_dir = sandbox_root / "plugins" / "demo" / "backend"
     generated_python_dir = sandbox_root / "backend" / "setta" / "sdk_contracts"
-    python_tests_dir = sandbox_root / "tests"
-    go_tests_dir = sandbox_root / "internal" / "demo"
     scripts_dir = sandbox_root / "scripts"
     quality_scripts_dir = scripts_dir / "quality"
     bin_dir = sandbox_root / "bin"
 
     frontend_dir.mkdir(parents=True, exist_ok=True)
-    frontend_e2e_dir.mkdir(parents=True, exist_ok=True)
     sdk_frontend_dir.mkdir(parents=True, exist_ok=True)
     sdk_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -37,8 +33,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     plugin_vendor_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_backend_dir.mkdir(parents=True, exist_ok=True)
     generated_python_dir.mkdir(parents=True, exist_ok=True)
-    python_tests_dir.mkdir(parents=True, exist_ok=True)
-    go_tests_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
     quality_scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -88,9 +82,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     (sandbox_root / "activate.sh").chmod(0o755)
 
     (frontend_dir / "app.ts").write_text("export const app = true;\n", encoding="utf-8")
-    (frontend_e2e_dir / "app.spec.ts").write_text(
-        "export const e2eFixture = true;\n", encoding="utf-8"
-    )
     (sdk_frontend_dir / "index.ts").write_text(
         "export const sdk = true;\n", encoding="utf-8"
     )
@@ -141,14 +132,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     )
     (plugin_backend_dir / "main.py").write_text(
         "def main() -> None:\n    return None\n",
-        encoding="utf-8",
-    )
-    (python_tests_dir / "test_python_quality.py").write_text(
-        "def test_python_quality() -> None:\n    assert True\n",
-        encoding="utf-8",
-    )
-    (go_tests_dir / "main_test.go").write_text(
-        "package demo\n\nfunc TestDemo(t interface{}) {}\n",
         encoding="utf-8",
     )
     (generated_python_dir / "constants.py").write_text(
@@ -383,49 +366,6 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
     ]
 
 
-def test_check_quality_includes_python_tests_and_test_file_length_sources(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
-            "--files",
-            "tests/test_python_quality.py",
-            "frontend/tests/e2e/app.spec.ts",
-            "internal/demo/main_test.go",
-        ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert "Python quality checks (1 files)..." in result.stdout
-    assert "File length checks..." in result.stdout
-
-    ruff_calls = _split_calls(sandbox_root / "ruff_calls.txt")
-    assert ruff_calls == [
-        ["check", "tests/test_python_quality.py"],
-        [
-            "check",
-            "--select",
-            "C901",
-            "--output-format=concise",
-            "--config",
-            "lint.mccabe.max-complexity = 9",
-            "tests/test_python_quality.py",
-        ],
-    ]
-    assert not (sandbox_root / "pnpm_calls.txt").exists()
-    assert not (sandbox_root / "node_calls.txt").exists()
-    assert not (sandbox_root / "go_calls.txt").exists()
-
-
 def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
     sandbox_root = _build_check_quality_sandbox(tmp_path)
 
@@ -512,19 +452,7 @@ def test_report_file_lengths_reports_all_tracked_violations_without_failing(
 ) -> None:
     sandbox_root = _build_check_quality_sandbox(tmp_path)
     long_typescript = sandbox_root / "frontend" / "src" / "LongComponent.tsx"
-    long_python_test = sandbox_root / "tests" / "test_long_quality.py"
-    long_typescript_test = sandbox_root / "frontend" / "tests" / "e2e" / "long.spec.ts"
-    long_go_test = sandbox_root / "internal" / "demo" / "long_test.go"
     long_typescript.write_text("export const value = 1;\n" * 1001, encoding="utf-8")
-    long_python_test.write_text("# filler\n" * 1001, encoding="utf-8")
-    long_typescript_test.write_text(
-        "export const value = 1;\n" * 1801,
-        encoding="utf-8",
-    )
-    long_go_test.write_text(
-        "package main\n" + ("const value = 1\n" * 2000),
-        encoding="utf-8",
-    )
 
     subprocess.run(
         ["git", "init"],
@@ -553,17 +481,5 @@ def test_report_file_lengths_reports_all_tracked_violations_without_failing(
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert (
         "TypeScript frontend/src/LongComponent.tsx: 1001 lines (max 1000)"
-        in result.stdout
-    )
-    assert (
-        "Python test tests/test_long_quality.py: 1001 lines (max 1000)"
-        in result.stdout
-    )
-    assert (
-        "TypeScript test frontend/tests/e2e/long.spec.ts: 1801 lines (max 1800)"
-        in result.stdout
-    )
-    assert (
-        "Go test internal/demo/long_test.go: 2001 lines (max 2000)"
         in result.stdout
     )

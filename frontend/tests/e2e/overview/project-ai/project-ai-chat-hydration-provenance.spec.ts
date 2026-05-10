@@ -1,21 +1,90 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
+  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
   getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
 
-import {
-  bindVisibleProjectChatWindowToChatId,
-  buildGetLLMResponseResponse,
-  openProjectAIChatSurface,
-  selectProjectAIChatTab,
-  seedAIStore,
-} from "./project-ai-chat-hydration-provenance-helpers";
+async function seedAIStore(
+  page: Page,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  await page.addInitScript((nextState) => {
+    const key = "setta_ai_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = window.localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as {
+          state?: unknown;
+          version?: unknown;
+        };
+        payload = {
+          state:
+            parsed && typeof parsed.state === "object" && parsed.state !== null
+              ? (parsed.state as Record<string, unknown>)
+              : {},
+          version: typeof parsed?.version === "number" ? parsed.version : 0,
+        };
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, ...nextState };
+    window.localStorage.setItem(key, JSON.stringify(payload));
+  }, patch);
+}
+
+async function bindVisibleProjectChatWindowToChatId(
+  page: Page,
+  chatId: string,
+): Promise<void> {
+  await page.evaluate(async (nextChatId: string) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const {
+      ChatWindowPlacementEnum,
+      createProjectChatWindowInstance,
+      createProjectChatWindowingState,
+    } = await import("/src/utils/generatedTypes.ts");
+    useProjectState.setState((state) => {
+      const firstWindowId =
+        state.projectChatWindowing.order[0] ?? "project-chat-window-1";
+      const current =
+        state.projectChatWindowing.instancesById[firstWindowId] ?? null;
+      if (!current) {
+        state.projectChatWindowing = createProjectChatWindowingState({
+          order: [firstWindowId],
+          instancesById: {
+            [firstWindowId]: createProjectChatWindowInstance({
+              instanceId: firstWindowId,
+              placement: ChatWindowPlacementEnum.bottom_docked,
+              chatId: nextChatId,
+              isMinimized: false,
+            }),
+          },
+        });
+        return;
+      }
+      state.projectChatWindowing.instancesById[firstWindowId] = {
+        ...current,
+        chatId: nextChatId,
+        isMinimized: false,
+      };
+    });
+  }, chatId);
+}
+
+function buildGetLLMResponseResponse(chatId: string) {
+  return chatId;
+}
 
 test("project ai hydrates external threads via external provenance endpoint", async ({
   page,
@@ -39,13 +108,6 @@ test("project ai hydrates external threads via external provenance endpoint", as
       contentType: "application/json",
       body: JSON.stringify([
         {
-          id: "engine-config-llm",
-          name: "Primary LLM",
-          engineType: "setta_llm",
-          settaLlmConfigId: "primary",
-          externalAgentConfigId: null,
-        },
-        {
           id: "engine-config-external",
           name: "External Engine",
           engineType: "external_agent",
@@ -53,27 +115,6 @@ test("project ai hydrates external threads via external provenance endpoint", as
           settaLlmConfigId: null,
         },
       ]),
-    });
-  });
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {
-          primary: {
-            id: "primary",
-            model: "gpt-4o-mini",
-            provider: "openai",
-            api_key_env: null,
-            base_url: null,
-            other_params: {},
-            mcpServerIds: [],
-          },
-        },
-        default_config_id: "primary",
-        mcpServers: {},
-      }),
     });
   });
   await page.route("**/api/getExternalAgentChat", async (route) => {
@@ -166,7 +207,7 @@ test("project ai hydrates external threads via external provenance endpoint", as
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await openProjectAIChatSurface(page);
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -341,7 +382,7 @@ test("project ai resolves selected-thread provenance from project scope when cha
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await openProjectAIChatSurface(page);
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -509,7 +550,7 @@ test("project ai keeps selected threads usable when hydration reports terminal m
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await openProjectAIChatSurface(page);
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -696,9 +737,9 @@ test("project ai waits for authoritative provenance before hydrating a selected 
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await selectProjectAIChatTab(page);
-    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
     expect(llmHydrateCalls).toBe(0);
@@ -987,9 +1028,9 @@ test("project ai does not warn on ambiguous local provenance before authority is
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await selectProjectAIChatTab(page);
-    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
     expect(llmHydrateCalls).toBe(0);
@@ -1006,6 +1047,1880 @@ test("project ai does not warn on ambiguous local provenance before authority is
     await expect(
       overviewPane.getByTestId("project-chat-thread-blocked-banner"),
     ).toContainText("missing provenance metadata");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai waits for authoritative engine config metadata before hydrating a selected thread", async ({
+  page,
+}) => {
+  const selectedChatId = "pw-selected-unknown-engine-config-authority";
+  let llmHydrateCalls = 0;
+  let releaseEngineConfigs: (() => void) | null = null;
+  const engineConfigsReady = new Promise<void>((resolve) => {
+    releaseEngineConfigs = resolve;
+  });
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  await seedAIStore(page, {
+    activeChatId: selectedChatId,
+  });
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await engineConfigsReady;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-llm-authoritative",
+          name: "Authoritative LLM",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-selected-unknown-engine-config-authority",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-01T00:00:00Z",
+          finishedAt: "2026-06-01T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: selectedChatId,
+            engineConfigId: "engine-llm-authoritative",
+            messages: [
+              {
+                id: "selected-chat-engine-config-user-1",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Resume selected thread after engine config loads",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Selected unknown engine config authority thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === selectedChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "selected-engine-config-assistant",
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hydrated after engine config authority ready.",
+              },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
+
+    await page.waitForTimeout(600);
+    expect(llmHydrateCalls).toBe(0);
+
+    if (!releaseEngineConfigs) {
+      throw new Error("Expected delayed getEngineConfigs gate to initialize.");
+    }
+    releaseEngineConfigs();
+
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(
+          async ({ activeChatId }) => {
+            const { useAIStore } = await import("/src/state/definitions.ts");
+            const messages =
+              useAIStore.getState().chatDetails[activeChatId]?.messages;
+            return (
+              messages?.some((message) =>
+                message.content?.some(
+                  (entry) =>
+                    entry.type === "text" &&
+                    entry.text ===
+                      "Hydrated after engine config authority ready.",
+                ),
+              ) ?? false
+            );
+          },
+          { activeChatId: selectedChatId },
+        );
+      })
+      .toBe(true);
+  } finally {
+    releaseEngineConfigs?.();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai rehydrates after metadata revision changes clear a terminal hydration decision", async ({
+  page,
+}) => {
+  const chatId = "pw-hydration-metadata-refresh";
+  let externalHydrateCalls = 0;
+  let metadataRevisionAdvanced = false;
+
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-refresh-external",
+          name: "Refresh External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-refresh",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    const finishedAt = metadataRevisionAdvanced
+      ? "2026-06-10T00:00:05Z"
+      : "2026-06-10T00:00:01Z";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-hydration-metadata-refresh",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-10T00:00:00Z",
+          finishedAt,
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-refresh-external",
+            messages: [
+              {
+                id: "refresh-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Resume this thread" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Metadata refresh thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      externalHydrateCalls += 1;
+      if (!metadataRevisionAdvanced) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            detail: {
+              errorCode: "engine_config_missing",
+              message: "Chat engine config is no longer available.",
+            },
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "refresh-assistant-1",
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: "Recovered after metadata update.",
+                },
+              ],
+            },
+          ],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await ensureProjectChatThreadsPanelVisible(page);
+    const threadEntry = overviewPane
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Metadata refresh thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+
+    allowExpectedApiError(page, {
+      path: "/api/getExternalAgentChat",
+      method: "POST",
+      statuses: [409],
+      count: 4,
+    });
+    await threadEntry.click();
+
+    await expect.poll(() => externalHydrateCalls).toBeGreaterThan(0);
+    const hydrateCallsBeforeRefresh = externalHydrateCalls;
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("terminal hydration error");
+
+    metadataRevisionAdvanced = true;
+    await page.evaluate(async () => {
+      const { loadAgentRuns } = await import("/src/state/actions/ai.ts");
+      await loadAgentRuns();
+    });
+
+    await expect
+      .poll(() => externalHydrateCalls)
+      .toBeGreaterThan(hydrateCallsBeforeRefresh);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+    await expect(
+      overviewPane.getByText("Recovered after metadata update.").first(),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai keeps the selected sibling thread stable until the retrying thread is revisited", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const engineConfigsResponse = await page.request.get(
+    `${backendOrigin}/api/getEngineConfigs`,
+  );
+  expect(engineConfigsResponse.ok()).toBe(true);
+  const allEngineConfigs = (await engineConfigsResponse.json()) as Array<{
+    id: string;
+    engineType: string;
+  }>;
+  if (allEngineConfigs.length === 0) {
+    throw new Error(
+      "Expected at least one engine config for hydration retry test.",
+    );
+  }
+  const engineConfigs = [allEngineConfigs[0]];
+
+  const retryChatIdPrefix = "pw-hydration-retry-";
+  const siblingChatIdPrefix = "pw-hydration-sibling-";
+  let retryHydrateCalls = 0;
+  let siblingHydrateCalls = 0;
+  const failedRetryChatIds = new Set<string>();
+
+  const buildHydrationBody = (
+    endpoint: "llm" | "external",
+    text: string,
+  ): Record<string, unknown> => {
+    if (endpoint === "external") {
+      return {
+        messages: [
+          {
+            id: `assistant-${text}`,
+            role: "assistant",
+            content: [{ type: "text", text }],
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      };
+    }
+    return {
+      messages: [
+        {
+          id: `assistant-${text}`,
+          role: "assistant",
+          content: [{ type: "text", text }],
+        },
+      ],
+      waitingForResponse: false,
+      llmConfig: null,
+      contextUsage: null,
+    };
+  };
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    const runs = engineConfigs.flatMap((config, index) => {
+      const runType =
+        config.engineType === "external_agent" ? "external_agent" : "llm_chat";
+      const day = String(10 + index).padStart(2, "0");
+      return [
+        {
+          id: `run-retry-${config.id}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-02-${day}T00:00:00Z`,
+          finishedAt: `2026-02-${day}T00:00:01Z`,
+          events: [],
+          inputs: {
+            runType,
+            projectConfigId: projectContext.projectConfigId,
+            chatId: `${retryChatIdPrefix}${config.id}`,
+            engineConfigId: config.id,
+            messages: [
+              {
+                id: `retry-user-${config.id}`,
+                role: "user",
+                content: [{ type: "text", text: "Retry target" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Retry target thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: `run-sibling-${config.id}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-02-${day}T00:00:02Z`,
+          finishedAt: `2026-02-${day}T00:00:03Z`,
+          events: [],
+          inputs: {
+            runType,
+            projectConfigId: projectContext.projectConfigId,
+            chatId: `${siblingChatIdPrefix}${config.id}`,
+            engineConfigId: config.id,
+            messages: [
+              {
+                id: `sibling-user-${config.id}`,
+                role: "user",
+                content: [{ type: "text", text: "Sibling target" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Sibling thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ];
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(runs),
+    });
+  });
+
+  const handleHydrationRoute = async (
+    route: Route,
+    endpoint: "llm" | "external",
+  ) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    const chatId = payload?.chatId ?? "";
+    if (chatId.startsWith(retryChatIdPrefix)) {
+      retryHydrateCalls += 1;
+      if (!failedRetryChatIds.has(chatId)) {
+        failedRetryChatIds.add(chatId);
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          buildHydrationBody(endpoint, "Retry chat hydrated after returning."),
+        ),
+      });
+      return;
+    }
+    if (chatId.startsWith(siblingChatIdPrefix)) {
+      siblingHydrateCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(buildHydrationBody(endpoint, "Sibling hydrated.")),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildHydrationBody(endpoint, "Unused hydration.")),
+    });
+  };
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await handleHydrationRoute(route, "llm");
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await handleHydrationRoute(route, "external");
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    await expect(threadsPanel).toBeVisible();
+
+    const retryEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Retry target thread" })
+      .first();
+    const siblingEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Sibling thread" })
+      .first();
+    await expect(retryEntry).toBeVisible();
+    await expect(siblingEntry).toBeVisible();
+
+    await retryEntry.click();
+    await expect.poll(() => retryHydrateCalls).toBeGreaterThan(0);
+    const retryCallsBeforeSwitch = retryHydrateCalls;
+
+    const threadsPanelAfterRetry =
+      await ensureProjectChatThreadsPanelVisible(page);
+    const siblingEntryAfterRetry = threadsPanelAfterRetry
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Sibling thread" })
+      .first();
+    await siblingEntryAfterRetry.click();
+    await expect.poll(() => siblingHydrateCalls).toBeGreaterThan(0);
+
+    // The sibling selection should remain authoritative in the visible pane
+    // until the retrying thread is explicitly revisited.
+    await page.waitForTimeout(1300);
+    await expect(
+      overviewPane.getByText("Sibling hydrated.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByText("Retry chat hydrated after returning.").first(),
+    ).toHaveCount(0);
+
+    const threadsPanelAfterSibling =
+      await ensureProjectChatThreadsPanelVisible(page);
+    const retryEntryAfterSibling = threadsPanelAfterSibling
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Retry target thread" })
+      .first();
+    await retryEntryAfterSibling.click();
+    await expect
+      .poll(() => retryHydrateCalls)
+      .toBeGreaterThan(retryCallsBeforeSwitch);
+    await expect(
+      overviewPane.getByText("Retry chat hydrated after returning.").first(),
+    ).toBeVisible();
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai stops retrying hydration after terminal 404 failures", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const terminalChatId = "pw-hydration-terminal-404";
+  let terminalHydrateCalls = 0;
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-terminal-404",
+          name: "Terminal Retry Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-terminal-404",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-terminal-404",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-03-10T00:00:00Z",
+          finishedAt: "2026-03-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: terminalChatId,
+            engineConfigId: "engine-terminal-404",
+            messages: [
+              {
+                id: "terminal-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate missing chat" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Terminal hydration thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === terminalChatId) {
+      terminalHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Terminal hydration thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    allowExpectedApiError(page, {
+      path: "/api/getExternalAgentChat",
+      method: "POST",
+      statuses: [404],
+      count: 4,
+    });
+    await threadEntry.click();
+
+    await expect.poll(() => terminalHydrateCalls).toBeGreaterThan(0);
+    const initialTerminalHydrateCalls = terminalHydrateCalls;
+    await page.waitForTimeout(3200);
+    expect(terminalHydrateCalls).toBe(initialTerminalHydrateCalls);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai shows context unavailable when backend context telemetry is missing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const chatId = "pw-context-unavailable";
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-managed",
+          name: "Managed External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-managed",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-context-unavailable",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-10T00:00:00Z",
+          finishedAt: "2026-01-10T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-managed",
+            messages: [
+              {
+                id: "user-message-1",
+                role: "user",
+                content: [{ type: "text", text: "Check context telemetry" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Context unavailable thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId !== chatId) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-context-unavailable",
+            role: "assistant",
+            content: [
+              { type: "text", text: "No context telemetry available." },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "default-llm",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: null,
+          temporary: false,
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "default-llm",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: null,
+          temporary: false,
+        },
+        contextUsage: {
+          contextWindowTokens: 1000,
+          contextUsedTokens: 100,
+          estimated: false,
+        },
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Context unavailable thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await expect(overviewPane.getByLabel("context unavailable")).toHaveCount(0);
+    await threadEntry.click();
+
+    await expect(
+      overviewPane.getByText("No context telemetry available.").first(),
+    ).toBeVisible();
+    await expect(overviewPane.getByLabel("context unavailable")).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai shows context-left badge for external chats when backend telemetry is complete", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const chatId = "pw-context-complete";
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-managed",
+          name: "Managed External Engine",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-managed",
+          settaLlmConfigId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-context-complete",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-10T00:00:00Z",
+          finishedAt: "2026-01-10T00:00:02Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-managed",
+            messages: [
+              {
+                id: "user-message-1",
+                role: "user",
+                content: [{ type: "text", text: "Check context telemetry" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Context complete thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId !== chatId) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-context-complete",
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Context telemetry is complete.",
+              },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        contextUsage: {
+          contextWindowTokens: 258400,
+          contextUsedTokens: 4852,
+          estimated: false,
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "default-llm",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: null,
+          temporary: false,
+        },
+        contextUsage: {
+          contextWindowTokens: 1000,
+          contextUsedTokens: 100,
+          estimated: false,
+        },
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Context complete thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await expect(
+      overviewPane.getByText("Context telemetry is complete.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", {
+        name: /context(?: left)? [0-9]+%/i,
+      }),
+    ).toBeVisible();
+    await expect(overviewPane.getByLabel("context unavailable")).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai warns on stale selected chat ids without hard-blocking composer", async ({
+  page,
+}) => {
+  const staleChatId = "pw-stale-selected-chat";
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        default_config_id: "primary",
+        mcpServers: {},
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    llmHydrateCalls += 1;
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      }),
+    });
+  });
+
+  try {
+    await seedAIStore(page, {
+      activeChatId: staleChatId,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, staleChatId);
+
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("missing provenance metadata");
+    const input = overviewPane.locator("textarea").first();
+    await input.fill("Warn but keep composer usable.");
+    await expect(
+      overviewPane.locator('button[type="submit"]').first(),
+    ).toBeEnabled();
+    await page.waitForTimeout(300);
+    expect(llmHydrateCalls).toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai keeps composer usable when in-flight submitted chats warn about missing provenance", async ({
+  page,
+}) => {
+  const inFlightChatId = "pw-in-flight-missing-provenance";
+  let llmSubmitCalls = 0;
+  let llmHydrateCalls = 0;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        apiKeys: {
+          OPENAI_API_KEY: "pw-openai-key",
+        },
+        revision: 1,
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    llmSubmitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildGetLLMResponseResponse(inFlightChatId)),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === inFlightChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-in-flight-missing-provenance",
+            role: "assistant",
+            content: [{ type: "text", text: "Still processing response..." }],
+          },
+        ],
+        waitingForResponse: true,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const input = overviewPane.locator("textarea").first();
+    await expect(input).toBeVisible();
+
+    await input.fill("Trigger in-flight provenance gap.");
+    await input.press("Enter");
+
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThanOrEqual(1);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toContainText("missing provenance metadata");
+    await expect(
+      overviewPane.locator('button[type="submit"]').first(),
+    ).toBeEnabled();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai keeps composer usable when post-ready agent-runs refresh fails once after submit", async ({
+  page,
+}) => {
+  const chatId = "pw-post-ready-transient-refresh";
+  let llmSubmitCalls = 0;
+  let llmHydrateCalls = 0;
+  let agentRunsCalls = 0;
+  let reloadStarted = false;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          primary: {
+            id: "primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        apiKeys: {
+          OPENAI_API_KEY: "pw-openai-key",
+        },
+        revision: 1,
+      }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    if (!reloadStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
+    agentRunsCalls += 1;
+    if (agentRunsCalls === 2) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "transient metadata refresh failure" }),
+      });
+      return;
+    }
+    if (agentRunsCalls >= 3) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-post-ready-transient-refresh",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-07-20T00:00:00Z",
+            finishedAt: "2026-07-20T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId,
+              engineConfigId: "engine-config-llm",
+              messages: [
+                {
+                  id: "post-ready-user-1",
+                  role: "user",
+                  content: [{ type: "text", text: "Start a chat thread" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {
+              name: "Post-ready transient refresh",
+              nameSource: "llm",
+            },
+            toolCalls: [],
+            cost: null,
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    llmSubmitCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildGetLLMResponseResponse(chatId)),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `assistant-post-ready-${llmHydrateCalls}`,
+            role: "assistant",
+            content: [
+              { type: "text", text: "Hydrated after transient refresh." },
+            ],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    allowExpectedApiError(page, {
+      path: "/api/getAgentRuns",
+      statuses: [500],
+      count: 1,
+    });
+    reloadStarted = true;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    const input = overviewPane.locator("textarea").first();
+    const submitButton = overviewPane.locator('button[type="submit"]').first();
+    await expect(input).toBeVisible();
+
+    await input.fill("Trigger post-ready refresh failure.");
+    await expect(submitButton).toBeEnabled();
+    await input.press("Enter");
+
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => agentRunsCalls).toBeGreaterThanOrEqual(2);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+
+    await input.fill("Second message should still submit.");
+    await expect(submitButton).toBeEnabled();
+    await input.press("Enter");
+    await expect.poll(() => llmSubmitCalls).toBeGreaterThanOrEqual(2);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai retries transient metadata failures and hydrates after authority recovery", async ({
+  page,
+}) => {
+  const staleChatId = "pw-stale-selected-chat-non-authoritative";
+  let llmHydrateCalls = 0;
+  let agentRunsCalls = 0;
+  let reloadStarted = false;
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    if (!reloadStarted) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
+    agentRunsCalls += 1;
+    if (agentRunsCalls === 1) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "agent run load failed" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-stale-selected-chat",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-06-02T00:00:00Z",
+          finishedAt: "2026-06-02T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: staleChatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "stale-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate after retry" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Hydrate after authority retry",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === staleChatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-hydrated-stale",
+            role: "assistant",
+            content: [{ type: "text", text: "Hydrated stale selected chat." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    await seedAIStore(page, {
+      activeChatId: staleChatId,
+    });
+    allowExpectedApiError(page, {
+      path: "/api/getAgentRuns",
+      statuses: [500],
+      count: 1,
+    });
+    reloadStarted = true;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await bindVisibleProjectChatWindowToChatId(page, staleChatId);
+
+    await page.waitForTimeout(200);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => llmHydrateCalls).toBeGreaterThan(0);
+    expect(agentRunsCalls).toBeGreaterThanOrEqual(2);
+    await expect(
+      overviewPane.getByText("Hydrated stale selected chat.").first(),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai defers selected-thread hydration when engine config metadata is non-authoritative", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const chatId = "pw-hydrate-unknown-engine-cache";
+  let llmHydrateCalls = 0;
+  let engineConfigCalls = 0;
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    engineConfigCalls += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "engine config load failed" }),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-llm-cache-unknown",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-10T00:00:00Z",
+          finishedAt: "2026-04-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId,
+            engineConfigId: "engine-config-llm",
+            messages: [
+              {
+                id: "seed-user",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate me" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Hydrate despite cache miss",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === chatId) {
+      llmHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "assistant-hydrated",
+            role: "assistant",
+            content: [{ type: "text", text: "Hydrated with unknown cache." }],
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          mcpServerIds: [],
+        },
+        contextUsage: null,
+      }),
+    });
+  });
+
+  try {
+    allowExpectedApiError(page, {
+      path: "/api/getEngineConfigs",
+      statuses: [500],
+      count: 4,
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const overviewPane = await getVisibleProjectChatSurface(page);
+    await ensureProjectChatThreadsPanelVisible(page);
+    const threadEntry = overviewPane
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Hydrate despite cache miss" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    await threadEntry.click();
+
+    await page.waitForTimeout(700);
+    expect(llmHydrateCalls).toBe(0);
+    await expect.poll(() => engineConfigCalls).toBeGreaterThan(0);
+    await expect(
+      overviewPane.getByText("Hydrated with unknown cache.").first(),
+    ).toHaveCount(0);
+    await expect(
+      overviewPane.getByTestId("project-chat-thread-blocked-banner"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai thread history excludes runs from other projects", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-config-llm",
+          name: "Primary LLM Engine",
+          engineType: "setta_llm",
+          settaLlmConfigId: "primary",
+          externalAgentConfigId: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-project-local",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-10T00:00:00Z",
+          finishedAt: "2026-04-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: "chat-local",
+            engineConfigId: "engine-config-llm",
+            messages: [],
+          },
+          outputs: { name: "Local project thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+        {
+          id: "run-project-foreign",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-04-11T00:00:00Z",
+          finishedAt: "2026-04-11T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: "foreign-project-id",
+            chatId: "chat-foreign",
+            engineConfigId: "engine-config-llm",
+            messages: [],
+          },
+          outputs: { name: "Foreign project thread", nameSource: "llm" },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".setta-gpu-flow__pane");
+
+    const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
+    await expect(threadsPanel).toBeVisible();
+    await expect(threadsPanel.getByText("Local project thread")).toBeVisible();
+    await expect(threadsPanel.getByText("Foreign project thread")).toHaveCount(
+      0,
+    );
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

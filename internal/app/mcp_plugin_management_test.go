@@ -27,29 +27,54 @@ func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedStreamable
 	saveAppScopedMCPProject(t, cfg)
 	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
 
-	_, _, session := startAppMCPTestServer(t, cfg)
-
-	assertAppMCPPluginRescan(t, session)
-	assertAppMCPPluginManagementMissingHistoryErrors(t, session)
-	assertAppMCPPluginUninstall(t, session)
-	assertAppMCPPluginInstall(t, session, sourceSpec)
-}
-
-func assertAppMCPPluginRescan(t *testing.T, session *sdkmcp.ClientSession) {
-	t.Helper()
-
-	rescanResult := callAppMCPTool(t, session, "rescan_plugins", map[string]any{})
-	rescanPayload := mustStructuredMapValue(t, rescanResult.StructuredContent)
-	assertAppPluginManagementRescanInstalledPlugins(t, rescanPayload["installedPlugins"])
-}
-
-func assertAppMCPPluginManagementMissingHistoryErrors(t *testing.T, session *sdkmcp.ClientSession) {
-	t.Helper()
-
-	updateResult := callAppMCPToolAllowError(t, session, "update_plugin", map[string]any{
-		"pluginId": "setta-fixture-backend",
-		"scope":    "workspace",
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
 	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	rescanResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "rescan_plugins",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call rescan_plugins: %v", err)
+	}
+	if rescanResult.IsError {
+		t.Fatalf("expected rescan_plugins success, got %#v", rescanResult.StructuredContent)
+	}
+	rescanPayload := mustStructuredMapValue(t, rescanResult.StructuredContent)
+	if rescanPayload["installedPlugins"] != float64(1) {
+		t.Fatalf("expected one installed plugin, got %#v", rescanPayload["installedPlugins"])
+	}
+
+	updateResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-backend",
+			"scope":    "workspace",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call update_plugin: %v", err)
+	}
 	if !updateResult.IsError {
 		t.Fatal("expected update_plugin without metadata to fail")
 	}
@@ -58,10 +83,16 @@ func assertAppMCPPluginManagementMissingHistoryErrors(t *testing.T, session *sdk
 		t.Fatalf("expected invalid_arguments for update_plugin, got %#v", updatePayload["code"])
 	}
 
-	rollbackResult := callAppMCPToolAllowError(t, session, "rollback_plugin", map[string]any{
-		"pluginId": "setta-fixture-backend",
-		"scope":    "workspace",
+	rollbackResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "rollback_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-backend",
+			"scope":    "workspace",
+		},
 	})
+	if err != nil {
+		t.Fatalf("call rollback_plugin: %v", err)
+	}
 	if !rollbackResult.IsError {
 		t.Fatal("expected rollback_plugin without history to fail")
 	}
@@ -69,15 +100,20 @@ func assertAppMCPPluginManagementMissingHistoryErrors(t *testing.T, session *sdk
 	if rollbackPayload["code"] != "invalid_arguments" {
 		t.Fatalf("expected invalid_arguments for rollback_plugin, got %#v", rollbackPayload["code"])
 	}
-}
 
-func assertAppMCPPluginUninstall(t *testing.T, session *sdkmcp.ClientSession) {
-	t.Helper()
-
-	uninstallResult := callAppMCPTool(t, session, "uninstall_plugin", map[string]any{
-		"pluginId": "setta-fixture-backend",
-		"scope":    "workspace",
+	uninstallResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "uninstall_plugin",
+		Arguments: map[string]any{
+			"pluginId": "setta-fixture-backend",
+			"scope":    "workspace",
+		},
 	})
+	if err != nil {
+		t.Fatalf("call uninstall_plugin: %v", err)
+	}
+	if uninstallResult.IsError {
+		t.Fatalf("expected uninstall_plugin success, got %#v", uninstallResult.StructuredContent)
+	}
 	uninstallPayload := mustStructuredMapValue(t, uninstallResult.StructuredContent)
 	if uninstallPayload["pluginId"] != "setta-fixture-backend" {
 		t.Fatalf("expected setta-fixture-backend plugin id, got %#v", uninstallPayload["pluginId"])
@@ -85,15 +121,20 @@ func assertAppMCPPluginUninstall(t *testing.T, session *sdkmcp.ClientSession) {
 	if uninstallPayload["restartRequired"] != false {
 		t.Fatalf("expected restartRequired=false after IDE auto-refresh backend uninstall, got %#v", uninstallPayload["restartRequired"])
 	}
-}
 
-func assertAppMCPPluginInstall(t *testing.T, session *sdkmcp.ClientSession, sourceSpec string) {
-	t.Helper()
-
-	installResult := callAppMCPTool(t, session, "install_plugin", map[string]any{
-		"sourceSpec": sourceSpec,
-		"installer":  "pip",
+	installResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "install_plugin",
+		Arguments: map[string]any{
+			"sourceSpec": sourceSpec,
+			"installer":  "pip",
+		},
 	})
+	if err != nil {
+		t.Fatalf("call install_plugin: %v", err)
+	}
+	if installResult.IsError {
+		t.Fatalf("expected install_plugin success, got %#v", installResult.StructuredContent)
+	}
 	installPayload := mustStructuredMapValue(t, installResult.StructuredContent)
 	if installPayload["pluginId"] != "setta-fixture-backend" {
 		t.Fatalf("expected setta-fixture-backend plugin id, got %#v", installPayload["pluginId"])
@@ -145,7 +186,9 @@ func TestAppIDEMCPToolCallRouteSupportsPluginManagementTools(t *testing.T) {
 		t.Fatalf("expected rescan_plugins success, got %#v", rescanPayload.StructuredContent)
 	}
 	rescanResult := mustStructuredMapValue(t, rescanPayload.StructuredContent)
-	assertAppPluginManagementRescanInstalledPlugins(t, rescanResult["installedPlugins"])
+	if rescanResult["installedPlugins"] != float64(1) {
+		t.Fatalf("expected one installed plugin, got %#v", rescanResult["installedPlugins"])
+	}
 
 	rollbackResponse, err := client.Post(
 		server.URL+httpapi.RouteMCPToolCall,
@@ -292,15 +335,6 @@ func TestAppIDEMCPPluginInstallRefreshesBackendMCPTools(t *testing.T) {
 	}
 
 	assertPluginBackendToolPresence(t, session, false)
-}
-
-func assertAppPluginManagementRescanInstalledPlugins(t *testing.T, rawCount any) {
-	t.Helper()
-
-	count, ok := rawCount.(float64)
-	if !ok || count < 1 {
-		t.Fatalf("expected at least one installed plugin, got %#v", rawCount)
-	}
 }
 
 func assertPluginBackendToolPresence(t *testing.T, session *sdkmcp.ClientSession, wantPresent bool) {

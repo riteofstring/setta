@@ -14,7 +14,7 @@ import {
 
 import type { HtmlSurfaceMeshVisual } from "./visualScene";
 
-type HtmlSurfaceMeshPassOptions = {
+export type HtmlSurfaceMeshPassOptions = {
   readonly getCameraBindGroupLayout: () => GPUBindGroupLayout;
   readonly getTextureBindGroup: (
     surface: HtmlSurfaceMeshVisual,

@@ -2,7 +2,6 @@ import type {
   HTMLAttributes,
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
-  RefObject,
 } from "react";
 import { memo, useLayoutEffect, useRef } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
@@ -14,14 +13,11 @@ import {
 import { useGpuFlowLayoutStoreContext } from "../layoutStoreContext";
 import { useNodeId } from "../NodeIdContext";
 import {
-  hasGpuFlowScenePortDescriptor,
   measureGpuFlowPortElementLocalRect,
   registerGpuFlowPortDescriptor,
   unregisterGpuFlowPortDescriptor,
   updateGpuFlowPortDescriptorLocalRect,
 } from "../ports/portGeometry";
-import type { GpuFlowScene } from "../scene";
-import { useGpuFlowSceneContext } from "../sceneContext";
 import { gpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -71,7 +67,6 @@ function HandleComponent({
   isConnectableStart = true,
   isConnectableEnd = true,
   connectionStartSemanticType,
-  registerPortGeometry = true,
   id,
   isConnectionCandidateAllowed,
   isValidConnection,
@@ -85,27 +80,57 @@ function HandleComponent({
 }: HandleComponentProps) {
   const handleRef = useRef<HTMLDivElement>(null);
   const layoutStore = useGpuFlowLayoutStoreContext();
-  const sceneContext = useGpuFlowSceneContext();
   const nodeId = useNodeId();
   const handleId = id ?? null;
 
-  useGpuFlowHandlePortRegistration({
-    handleId,
-    handleRef,
-    isConnectable,
-    isConnectableEnd,
-    isConnectableStart,
+  useLayoutEffect(() => {
+    if (!nodeId || !handleId) {
+      return;
+    }
+    const element = handleRef.current;
+    if (!element) {
+      return;
+    }
+    const localRect = measureGpuFlowPortElementLocalRect(element);
+    if (!localRect) {
+      return;
+    }
+    const key = registerGpuFlowPortDescriptor({
+      element,
+      isConnectableEnd: isConnectable && isConnectableEnd,
+      isConnectableStart: isConnectable && isConnectableStart,
+      localRect,
+      nodeId,
+      portId: handleId,
+      side: position,
+      type,
+    });
+    if (typeof ResizeObserver === "undefined") {
+      return () => unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
+    }
+    const observer = new ResizeObserver(() => {
+      const nextLocalRect = measureGpuFlowPortElementLocalRect(element);
+      if (nextLocalRect) {
+        updateGpuFlowPortDescriptorLocalRect(key, nextLocalRect);
+      }
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
+    };
+  }, [
     nodeId,
-    position,
-    registerPortGeometry,
-    sceneContext,
+    handleId,
     type,
-  });
-  const onConnectExtended: NonNullable<HandleComponentProps["onConnect"]> = (
-    params: Connection,
-    context,
-  ) => {
-    onConnect?.(params, context);
+    position,
+    isConnectable,
+    isConnectableStart,
+    isConnectableEnd,
+  ]);
+
+  const onConnectExtended = (params: Connection) => {
+    onConnect?.(params);
   };
 
   const onPointerDown = (event: HandlePointerEvent) => {
@@ -119,7 +144,6 @@ function HandleComponent({
         handleId,
         layoutStore,
         nodeId,
-        ...(sceneContext ? { getScene: sceneContext.getScene } : {}),
         onConnect: onConnectExtended,
         isTarget: (connectionStartSemanticType ?? type) === "target",
         store: gpuFlowViewportStore,
@@ -162,113 +186,10 @@ function HandleComponent({
   );
 }
 
-function useGpuFlowHandlePortRegistration({
-  handleId,
-  handleRef,
-  isConnectable,
-  isConnectableEnd,
-  isConnectableStart,
-  nodeId,
-  position,
-  registerPortGeometry,
-  sceneContext,
-  type,
-}: {
-  readonly handleId: string | null;
-  readonly handleRef: RefObject<HTMLDivElement | null>;
-  readonly isConnectable: boolean;
-  readonly isConnectableEnd: boolean;
-  readonly isConnectableStart: boolean;
-  readonly nodeId: string | null;
-  readonly position: HandleComponentProps["position"];
-  readonly registerPortGeometry: boolean;
-  readonly sceneContext: ReturnType<typeof useGpuFlowSceneContext>;
-  readonly type: HandleComponentProps["type"];
-}): void {
-  const sceneOwnsPortGeometry = sceneOwnsHandlePortGeometry({
-    handleId,
-    nodeId,
-    scene: sceneContext?.getScene(),
-    type,
-  });
-  const shouldRegisterPortGeometry =
-    registerPortGeometry && !sceneOwnsPortGeometry;
-
-  useLayoutEffect(() => {
-    if (!nodeId || !handleId || !shouldRegisterPortGeometry) {
-      return;
-    }
-    const element = handleRef.current;
-    if (!element) {
-      return;
-    }
-    const localRect = measureGpuFlowPortElementLocalRect(element);
-    if (!localRect) {
-      return;
-    }
-    const key = registerGpuFlowPortDescriptor({
-      element,
-      isConnectableEnd: isConnectable && isConnectableEnd,
-      isConnectableStart: isConnectable && isConnectableStart,
-      localRect,
-      nodeId,
-      portId: handleId,
-      side: position,
-      type,
-    });
-    if (typeof ResizeObserver === "undefined") {
-      return () => unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
-    }
-    const observer = new ResizeObserver(() => {
-      const nextLocalRect = measureGpuFlowPortElementLocalRect(element);
-      if (nextLocalRect) {
-        updateGpuFlowPortDescriptorLocalRect(key, nextLocalRect);
-      }
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      unregisterGpuFlowPortDescriptor(nodeId, handleId, type);
-    };
-  }, [
-    nodeId,
-    handleId,
-    type,
-    position,
-    handleRef,
-    isConnectable,
-    isConnectableStart,
-    isConnectableEnd,
-    shouldRegisterPortGeometry,
-  ]);
-}
-
 function isMouseEvent(
   event: HandlePointerEvent,
 ): event is ReactMouseEvent<HTMLDivElement> {
   return "button" in event;
-}
-
-function sceneOwnsHandlePortGeometry({
-  handleId,
-  nodeId,
-  scene,
-  type,
-}: {
-  readonly handleId: string | null;
-  readonly nodeId: string | null;
-  readonly scene: GpuFlowScene | null | undefined;
-  readonly type: HandleComponentProps["type"];
-}): boolean {
-  if (!nodeId || !handleId || !scene) {
-    return false;
-  }
-  return hasGpuFlowScenePortDescriptor({
-    nodeId,
-    portId: handleId,
-    scene,
-    type,
-  });
 }
 
 export const Handle = memo(HandleComponent);

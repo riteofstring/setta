@@ -8,10 +8,7 @@ import { uploadBinary } from "openapi/http";
 
 import { addTemporaryNotification } from "state/actions/notifications";
 
-import {
-  registerRealtimeDependencySenders,
-  sendRealtimeDependencyValue,
-} from "state/actions/realtimeDependencySend";
+import { sendRealtimeDependencyValue } from "state/actions/realtimeDependencySend";
 
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 
@@ -42,9 +39,9 @@ import {
   wssReady,
 } from "./websocketConnection";
 
-const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
+export const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
 
-let lastRealtimeBinaryOversizeWarningAt = 0;
+export let lastRealtimeBinaryOversizeWarningAt = 0;
 
 export function buildExecutionContextMismatchStatuses(
   reveals: Array<UISettingRevealContent["reveals"][number]>,
@@ -99,7 +96,7 @@ export function sendRealtimeSectionBinary(
   });
 }
 
-function sendMessage(message: FrontendOutboundMessage) {
+export function sendMessage(message: FrontendOutboundMessage) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
@@ -129,12 +126,7 @@ export function sendBinaryMessage(
   }
 }
 
-registerRealtimeDependencySenders({
-  sendBinaryMessage,
-  sendMessage,
-});
-
-function maybeWarnRealtimeOversize(message: string) {
+export function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();
   if (
     now - lastRealtimeBinaryOversizeWarningAt <
@@ -146,7 +138,7 @@ function maybeWarnRealtimeOversize(message: string) {
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-async function uploadRealtimeBinaryPayload(
+export async function uploadRealtimeBinaryPayload(
   payload: ArrayBuffer,
   mimeType: string,
 ) {
@@ -165,7 +157,7 @@ async function uploadRealtimeBinaryPayload(
   return res.data;
 }
 
-async function sendRealtimeSectionBinaryViaUpload(
+export async function sendRealtimeSectionBinaryViaUpload(
   sectionId: string,
   payload: ArrayBuffer,
   mimeType: string,

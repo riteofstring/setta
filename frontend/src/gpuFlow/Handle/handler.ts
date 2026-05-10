@@ -7,7 +7,6 @@ import type {
   Connection,
   GpuFlowAutoPanInsetsInput,
   GpuFlowAutoPanInsetsPx,
-  GpuFlowConnectionContext,
   HandleConnectionCandidateFilter,
   HandleType,
 } from "../flowTypes";
@@ -19,7 +18,6 @@ import {
   makeGpuFlowPortKey,
   useGpuFlowPortRegistry,
 } from "../ports/portGeometry";
-import { getGpuPortAnchorHandleType, type GpuFlowScene } from "../scene";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -43,11 +41,12 @@ import {
 
 type HandlePointerEvent = ReactMouseEvent | ReactTouchEvent;
 type NativeHandlePointerEvent = MouseEvent | PointerEvent | TouchEvent;
-type GpuHandlePointerStartEvent = HandlePointerEvent | NativeHandlePointerEvent;
+export type GpuHandlePointerStartEvent =
+  | HandlePointerEvent
+  | NativeHandlePointerEvent;
 
 export function handlePointerDown({
   event,
-  getScene,
   handleId,
   layoutStore,
   nodeId,
@@ -62,22 +61,18 @@ export function handlePointerDown({
   autoPanInsetsPx,
 }: {
   event: GpuHandlePointerStartEvent;
-  getScene?: (() => GpuFlowScene | null | undefined) | undefined;
   handleId: string | null;
   layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
-  onConnect: (
-    connection: Connection,
-    context?: GpuFlowConnectionContext,
-  ) => void;
+  onConnect: (connection: Connection) => void;
   isTarget: boolean;
   store: GpuFlowViewportStoreApi;
-  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter | undefined;
+  isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection: ValidConnectionFunc;
-  edgeUpdaterType?: HandleType | undefined;
-  onReconnectEnd?: ((evt: MouseEvent | TouchEvent) => void) | undefined;
-  pointerUpSnapRadius?: number | undefined;
-  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput | undefined;
+  edgeUpdaterType?: HandleType;
+  onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
+  pointerUpSnapRadius?: number;
+  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
   const usePointerEvents = isNativePointerEvent(event);
@@ -87,11 +82,7 @@ export function handlePointerDown({
   let closestHandle: ConnectionHandle | null = null;
 
   const { x, y } = getEventPosition(event);
-  const clickedHandle = getClickedHandleForPointerStart({
-    doc,
-    edgeUpdaterType,
-    position: { x, y },
-  });
+  const clickedHandle = doc.elementFromPoint(x, y);
   const handleType = getHandleType(edgeUpdaterType, clickedHandle);
   const containerBounds = domNode?.getBoundingClientRect();
 
@@ -111,13 +102,7 @@ export function handlePointerDown({
   let handleDomNode: Element | null = null;
   let connectionGestureCleanedUp = false;
 
-  const getConnectionContext = (): GpuFlowConnectionContext => ({
-    scene: getGpuHandleConnectionScene(getScene),
-  });
-  const handlePositions = getConnectionHandlePositions({
-    layoutStore,
-    scene: getConnectionContext().scene,
-  });
+  const handlePositions = getConnectionHandlePositions(layoutStore);
 
   const handleLookup = getHandleLookup(
     handlePositions,
@@ -125,10 +110,7 @@ export function handlePointerDown({
   );
   const fromType: HandleType = isTarget ? "target" : "source";
   const validateHandle = (
-    handle: Pick<
-      ConnectionHandle,
-      "isConnectableEnd" | "portId" | "sectionId" | "type"
-    >,
+    handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
   ) =>
     isValidHandle({
       handle,
@@ -378,7 +360,7 @@ export function handlePointerDown({
       resolvedConnection &&
       resolvedIsValid
     ) {
-      onConnect?.(resolvedConnection, getConnectionContext());
+      onConnect?.(resolvedConnection);
     }
 
     if (edgeUpdaterType) {
@@ -403,37 +385,9 @@ export function handlePointerDown({
   doc.addEventListener("keydown", onKeyDown as EventListener, true);
 }
 
-function getGpuHandleConnectionScene(
-  getScene: (() => GpuFlowScene | null | undefined) | undefined,
-): GpuFlowScene | null | undefined {
-  return getScene ? getScene() : undefined;
-}
-
-function getClickedHandleForPointerStart({
-  doc,
-  edgeUpdaterType,
-  position,
-}: {
-  readonly doc: Document | ShadowRoot;
-  readonly edgeUpdaterType: HandleType | undefined;
-  readonly position: GpuPoint;
-}): Element | null {
-  if (edgeUpdaterType) {
-    return null;
-  }
-  return doc.elementFromPoint(position.x, position.y);
-}
-
-function getConnectionHandlePositions({
-  layoutStore,
-  scene,
-}: {
-  readonly layoutStore: GpuFlowLayoutStoreApi;
-  readonly scene: GpuFlowScene | null | undefined;
-}): ConnectionHandle[] {
-  if (scene) {
-    return getSceneConnectionHandlePositions(scene);
-  }
+function getConnectionHandlePositions(
+  layoutStore: GpuFlowLayoutStoreApi,
+): ConnectionHandle[] {
   const endpoints = buildGpuFlowPortEndpoints({
     layoutNodes: layoutStore.getState().getNodes(),
     ports: useGpuFlowPortRegistry.getState().descriptors,
@@ -445,64 +399,6 @@ function getConnectionHandlePositions({
     x: endpoint.x,
     y: endpoint.y,
   }));
-}
-
-function getSceneConnectionHandlePositions(
-  scene: GpuFlowScene | null | undefined,
-): ConnectionHandle[] {
-  if (!scene) {
-    return [];
-  }
-  return [
-    ...getSectionSceneConnectionHandlePositions(scene.sections),
-    ...getRetainedContentSceneConnectionHandlePositions(scene.contentSurfaces),
-  ];
-}
-
-function getSectionSceneConnectionHandlePositions(
-  sections: GpuFlowScene["sections"],
-): ConnectionHandle[] {
-  const handles: ConnectionHandle[] = [];
-  for (const section of sections) {
-    for (const anchor of section.portAnchors) {
-      const type = getGpuPortAnchorHandleType(anchor);
-      if (!type) {
-        continue;
-      }
-      handles.push({
-        isConnectableEnd: anchor.isConnectableEnd ?? true,
-        portId: anchor.id,
-        sectionId: section.sectionId,
-        type,
-        x: section.worldRect.x + anchor.localPosition.x,
-        y: section.worldRect.y + anchor.localPosition.y,
-      });
-    }
-  }
-  return handles;
-}
-
-function getRetainedContentSceneConnectionHandlePositions(
-  contentSurfaces: GpuFlowScene["contentSurfaces"],
-): ConnectionHandle[] {
-  const handles: ConnectionHandle[] = [];
-  for (const surface of contentSurfaces) {
-    const retainedScene = surface.retainedScene;
-    if (surface.renderer.kind !== "canvas-content" || !retainedScene) {
-      continue;
-    }
-    for (const anchor of retainedScene.portAnchors) {
-      handles.push({
-        isConnectableEnd: true,
-        portId: anchor.id,
-        sectionId: surface.ownerSectionId,
-        type: anchor.kind === "input" ? "target" : "source",
-        x: surface.rect.x + anchor.localPosition.x,
-        y: surface.rect.y + anchor.localPosition.y,
-      });
-    }
-  }
-  return handles;
 }
 
 function getEventPosition(

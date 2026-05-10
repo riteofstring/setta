@@ -1,7 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { setActiveSectionUIIds } from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -13,23 +11,18 @@ import { resetProjectStores } from "state/utils";
 import {
   createCodeSectionImpl,
   createCore,
-  createGroupSectionImpl,
   createProjectConfig,
   createSingleConfig,
   createVariant,
   type SingleConfig,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 
-import { getProjectGpuFlowScene } from "./projectGpuLayoutAdapter";
 import {
   canDragProjectNode,
-  handleProjectNodeDrag,
-  handleProjectNodeDragCancel,
-  handleProjectNodeDragFrame,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionDragStart,
@@ -37,34 +30,10 @@ import {
   handleProjectSelectionKeyboardNudge,
 } from "./projectGpuSelectionAdapter";
 
-const callOpenAPIMock = vi.fn(() => ({
-  hasResponse: true,
-  status: 200,
-}));
-
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: (request: unknown) => callOpenAPIMock(request),
-  };
-});
-
-vi.mock("openapi/http", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("openapi/http")>();
-  return {
-    ...actual,
-    moveSections: vi.fn((request: unknown) => request),
-    setCodeSectionAttachedTerminal: vi.fn((request: unknown) => request),
-  };
-});
-
 describe("GPU project selection adapter", () => {
   beforeEach(() => {
     resetProjectStores();
     resetGpuViewportState();
-    callOpenAPIMock.mockClear();
   });
 
   afterEach(() => {
@@ -120,7 +89,6 @@ describe("GPU project selection adapter", () => {
       tempZIndex: 1000,
       zIndex: 0,
     });
-    expect(layoutStore.getState().dragPreview).toBeNull();
     expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
       tempZIndex: 0,
       zIndex: 0,
@@ -236,648 +204,20 @@ describe("GPU project selection adapter", () => {
     });
   });
 
-  it("keeps Setta direct pane drag policy in the project adapter", () => {
+  it("keeps Setta locked-section policy in the project adapter", () => {
     loadProjectStateForSections([
       { id: "section-a" },
       { id: "section-b", positionAndSizeLocked: true },
-      { id: "section-c", parentId: "section-a" },
     ]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
 
     expect(canDragProjectNode("section-a")).toBe(true);
     expect(canDragProjectNode("section-b")).toBe(false);
-    expect(canDragProjectNode("section-c")).toBe(false);
-    expect(canDragProjectNode("section-c", scene)).toBe(false);
-  });
-
-  it("allows renderer-owned nested scene children to commit same-parent reorder on drag stop", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 500,
-        sectionWidth: 260,
-        topLevelHeight: 500,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    expect(canDragProjectNode("child-a")).toBe(false);
-    expect(canDragProjectNode("child-a", scene)).toBe(true);
-
-    handleProjectNodeDragStart(layoutStore, {
-      delta: { x: 0, y: 0 },
-      items: [
-        {
-          distance: { x: 0, y: 0 },
-          height: 150,
-          nodeId: "child-a",
-          position: { x: 0, y: 0 },
-          width: 250,
-        },
-      ],
-    });
-    handleProjectNodeDragStop(
-      layoutStore,
-      {
-        delta: { x: 0, y: 360 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 360 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(getSectionImplChildren("parent")).toEqual([
-      "child-b",
-      "child-c",
-      "child-a",
-    ]);
-    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
-    expect(useNodeInternals.getState().x.has("child-a")).toBe(false);
-    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("previews nested sibling displacement in the GPU layout store during drag", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 500,
-        sectionWidth: 260,
-        topLevelHeight: 500,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    handleProjectNodeDrag(
-      layoutStore,
-      {
-        delta: { x: 0, y: 360 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 360 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().dragPreview).toMatchObject({
-      draggedNodeIds: ["child-a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "child-a",
-        index: 2,
-        parentNodeId: "parent",
-      },
-    });
-    expect(getSectionImplChildren("parent")).toEqual([
-      "child-a",
-      "child-b",
-      "child-c",
-    ]);
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-
-    handleProjectNodeDrag(
-      layoutStore,
-      {
-        delta: { x: 0, y: 10 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 10 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
-      x: 0,
-      y: 316,
-    });
-    expect(layoutStore.getState().dragPreview).toMatchObject({
-      draggedNodeIds: ["child-a"],
-      dropMarker: null,
-    });
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-  });
-
-  it("previews selected nested sibling displacement as a scene-owned block", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c", "child-d"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 800,
-        sectionWidth: 260,
-        topLevelHeight: 800,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-      { id: "child-d", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 800, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-    layoutStore.getState().patchNodes(
-      [
-        { nodeId: "child-a", x: 0, y: 700 },
-        { nodeId: "child-b", x: 0, y: 858 },
-      ],
-      { phase: "change", reason: "drag" },
-    );
-
-    handleProjectNodeDrag(
-      layoutStore,
-      {
-        delta: { x: 0, y: 700 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-b",
-            position: { x: 0, y: 858 },
-            width: 250,
-          },
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 700 },
-            width: 250,
-          },
-        ],
-        nodeId: "child-a",
-      },
-      scene,
-    );
-
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 700,
-    });
-    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
-      x: 0,
-      y: 858,
-    });
-    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-d")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().dragPreview).toMatchObject({
-      draggedNodeIds: ["child-b", "child-a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "child-a",
-        index: 2,
-        parentNodeId: "parent",
-      },
-    });
-    expect(getSectionImplChildren("parent")).toEqual([
-      "child-a",
-      "child-b",
-      "child-c",
-      "child-d",
-    ]);
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-  });
-
-  it("reconciles nested drag previews with renderer-owned child clipping", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c", "child-d"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 320,
-        sectionWidth: 260,
-        topLevelHeight: 320,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-      { id: "child-d", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 320, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    expect(layoutStore.getState().getNode("child-d")).toBeNull();
-
-    handleProjectNodeDrag(
-      layoutStore,
-      {
-        delta: { x: 0, y: 700 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-b",
-            position: { x: 0, y: 858 },
-            width: 250,
-          },
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 700 },
-            width: 250,
-          },
-        ],
-        nodeId: "child-a",
-      },
-      scene,
-    );
-
-    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-d")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().dragPreview).toMatchObject({
-      draggedNodeIds: ["child-b", "child-a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "child-a",
-        index: 2,
-        parentNodeId: "parent",
-      },
-    });
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-  });
-
-  it("autoscrolls nested drag previews through renderer-owned child viewport offsets", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c", "child-d"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 320,
-        sectionWidth: 260,
-        topLevelHeight: 320,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-      { id: "child-d", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 320, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-    const change = {
-      delta: { x: 0, y: 260 },
-      items: [
-        {
-          distance: { x: 0, y: 0 },
-          height: 150,
-          nodeId: "child-a",
-          position: { x: 0, y: 260 },
-          width: 250,
-        },
-      ],
-      nodeId: "child-a",
-    };
-
-    expect(layoutStore.getState().getNode("child-d")).toBeNull();
-    layoutStore.getState().patchNodes(
-      [
-        {
-          nodeId: "child-a",
-          x: 0,
-          y: 260,
-        },
-      ],
-      { phase: "change", reason: "drag" },
-    );
-
-    for (let frame = 0; frame < 8; frame += 1) {
-      expect(handleProjectNodeDragFrame(layoutStore, change, scene)).toBe(true);
-    }
-
-    expect(layoutStore.getState().getNode("child-d")).toMatchObject({
-      x: 0,
-      y: 314,
-    });
-    expect(layoutStore.getState().getNode("child-b")).toBeNull();
-    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
-      x: 0,
-      y: -2,
-    });
-    expect(layoutStore.getState().dragPreview).toMatchObject({
-      draggedNodeIds: ["child-a"],
-      dropMarker: {
-        axis: "y",
-        parentNodeId: "parent",
-      },
-    });
-    expect(getSectionImplChildren("parent")).toEqual([
-      "child-a",
-      "child-b",
-      "child-c",
-      "child-d",
-    ]);
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-
-    handleProjectNodeDragCancel(layoutStore, change, scene);
-
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
-      x: 0,
-      y: 158,
-    });
-    expect(layoutStore.getState().getNode("child-d")).toBeNull();
-  });
-
-  it("restores scene layout without backend calls when nested drag does not reorder or is cancelled", () => {
-    loadProjectStateForSections([
-      { children: ["child-a", "child-b"], id: "parent", kind: "group" },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    layoutStore.getState().patchNodes(
-      [
-        {
-          nodeId: "child-a",
-          x: 0,
-          y: 12,
-        },
-      ],
-      { phase: "change", reason: "drag" },
-    );
-
-    handleProjectNodeDragStop(
-      layoutStore,
-      {
-        delta: { x: 0, y: 12 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 12 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().dragPreview).toBeNull();
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-
-    layoutStore.getState().patchNodes(
-      [
-        {
-          nodeId: "child-a",
-          x: 0,
-          y: 220,
-        },
-      ],
-      { phase: "change", reason: "drag" },
-    );
-    handleProjectNodeDragCancel(
-      layoutStore,
-      {
-        delta: { x: 0, y: 220 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 220 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
-    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
-      x: 0,
-      y: 0,
-    });
-    expect(layoutStore.getState().dragPreview).toBeNull();
-    expect(callOpenAPIMock).not.toHaveBeenCalled();
-  });
-
-  it("commits renderer-owned nested child reparenting from scene geometry on drag stop", () => {
-    loadProjectStateForSections([
-      { children: ["child-a"], id: "parent-a", kind: "group" },
-      { children: ["child-b"], id: "parent-b", kind: "group" },
-      { id: "child-a", parentId: "parent-a" },
-      { id: "child-b", parentId: "parent-b" },
-    ]);
-    loadNodeInternals([
-      node("parent-a", 0, 0, 260, 500, 0),
-      node("parent-b", 240, 120, 260, 500, 1),
-    ]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    handleProjectNodeDragStop(
-      layoutStore,
-      {
-        delta: { x: 240, y: 170 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 240, y: 170 },
-            width: 250,
-          },
-        ],
-      },
-      scene,
-    );
-
-    expect(getSectionImplChildren("parent-a")).toEqual([]);
-    expect(getSectionImplChildren("parent-b")).toEqual(["child-b", "child-a"]);
-    expect(useProjectState.getState().parentSectionMap["child-a"]).toBe(
-      "parent-b",
-    );
-    expect(layoutStore.getState().dragPreview).toBeNull();
-    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
-    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("commits selected nested siblings from renderer-owned scene geometry on drag stop", () => {
-    loadProjectStateForSections([
-      {
-        children: ["child-a", "child-b", "child-c", "child-d"],
-        id: "parent",
-        kind: "group",
-        sectionHeight: 800,
-        sectionWidth: 260,
-        topLevelHeight: 800,
-        topLevelWidth: 260,
-      },
-      { id: "child-a", parentId: "parent" },
-      { id: "child-b", parentId: "parent" },
-      { id: "child-c", parentId: "parent" },
-      { id: "child-d", parentId: "parent" },
-    ]);
-    loadNodeInternals([node("parent", 0, 0, 260, 800, 0)]);
-    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
-      darkMode: false,
-    });
-    const layoutStore = createGpuFlowLayoutStore({
-      nodes: getGpuFlowSceneDomSectionNodes(scene),
-    });
-
-    handleProjectNodeDragStop(
-      layoutStore,
-      {
-        delta: { x: 0, y: 700 },
-        items: [
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-b",
-            position: { x: 0, y: 858 },
-            width: 250,
-          },
-          {
-            distance: { x: 0, y: 0 },
-            height: 150,
-            nodeId: "child-a",
-            position: { x: 0, y: 700 },
-            width: 250,
-          },
-        ],
-        nodeId: "child-a",
-      },
-      scene,
-    );
-
-    expect(getSectionImplChildren("parent")).toEqual([
-      "child-c",
-      "child-d",
-      "child-a",
-      "child-b",
-    ]);
-    expect(layoutStore.getState().dragPreview).toBeNull();
-    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
-    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
   });
 });
 
 type MovementSectionInput = {
-  readonly children?: readonly string[] | undefined;
   readonly id: string;
-  readonly kind?: "code" | "group" | undefined;
-  readonly parentId?: string | null | undefined;
   readonly positionAndSizeLocked?: boolean | undefined;
-  readonly sectionHeight?: number | undefined;
-  readonly sectionWidth?: number | undefined;
-  readonly topLevelHeight?: number | undefined;
-  readonly topLevelWidth?: number | undefined;
 };
 
 type MovementNodeInput = {
@@ -918,129 +258,55 @@ function loadNodeInternals(nodes: readonly MovementNodeInput[]) {
   });
 }
 
-type MovementProjectStateRecords = {
-  parentSectionMap: SingleConfig["parentSectionMap"];
-  sectionImpls: SingleConfig["sectionImpls"];
-  sectionVariantMap: Record<string, string>;
-  sectionVariants: SingleConfig["sectionVariants"];
-  stateSections: SingleConfig["sections"];
-  topLevelSections: SingleConfig["projectConfig"]["topLevelSections"];
-};
-
-function createMovementProjectStateRecords(): MovementProjectStateRecords {
-  return {
-    parentSectionMap: {},
-    sectionImpls: {},
-    sectionVariantMap: {},
-    sectionVariants: {},
-    stateSections: {},
-    topLevelSections: {},
-  };
-}
-
-function movementTopLevelSection(
-  section: MovementSectionInput,
-  index: number,
-) {
-  return {
-    h: section.topLevelHeight ?? 160,
-    w: section.topLevelWidth ?? 200,
-    x: index * 240,
-    y: index * 120,
-    zIndex: index,
-  };
-}
-
-function movementSectionImpl(section: MovementSectionInput, implId: string) {
-  const size = getMovementSectionSize(section);
-  const sharedOptions = {
-    id: implId,
-    positionAndSizeLocked: section.positionAndSizeLocked ?? false,
-    ...(size ? { size } : {}),
-  };
-  if (section.kind === "group") {
-    return createGroupSectionImpl({
-      ...sharedOptions,
-      children: [...(section.children ?? [])],
-    });
-  }
-  return createCodeSectionImpl(sharedOptions);
-}
-
-function addMovementSectionRecord(
-  records: MovementProjectStateRecords,
-  section: MovementSectionInput,
-  index: number,
-) {
-  const variantId = `variant-${section.id}`;
-  const implId = `impl-${section.id}`;
-  const parentId = section.parentId ?? null;
-
-  records.sectionVariantMap[section.id] = variantId;
-  records.parentSectionMap[section.id] = parentId;
-  if (parentId === null) {
-    records.topLevelSections[section.id] = movementTopLevelSection(
-      section,
-      index,
-    );
-  }
-  records.stateSections[section.id] = createCore({
-    defaultVariant: variantId,
-    id: section.id,
-    variants: [variantId],
-  });
-  records.sectionVariants[variantId] = createVariant({
-    id: variantId,
-    impl: implId,
-    name: variantId,
-    nonPresetImpls: [implId],
-  });
-  records.sectionImpls[implId] = movementSectionImpl(section, implId);
-}
-
 function loadProjectStateForSections(
   sections: readonly MovementSectionInput[],
 ) {
-  const records = createMovementProjectStateRecords();
+  const sectionVariantMap: Record<string, string> = {};
+  const stateSections: SingleConfig["sections"] = {};
+  const sectionImpls: SingleConfig["sectionImpls"] = {};
+  const sectionVariants: SingleConfig["sectionVariants"] = {};
+  const parentSectionMap: SingleConfig["parentSectionMap"] = {};
+  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
+    {};
 
   for (const [index, section] of sections.entries()) {
-    addMovementSectionRecord(records, section, index);
+    const variantId = `variant-${section.id}`;
+    const implId = `impl-${section.id}`;
+    sectionVariantMap[section.id] = variantId;
+    parentSectionMap[section.id] = null;
+    topLevelSections[section.id] = {
+      h: 160,
+      w: 200,
+      x: index * 240,
+      y: index * 120,
+      zIndex: index,
+    };
+    stateSections[section.id] = createCore({ id: section.id });
+    sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      name: variantId,
+      nonPresetImpls: [implId],
+    });
+    sectionImpls[implId] = createCodeSectionImpl({
+      id: implId,
+      positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+    });
   }
 
   useProjectState.setState(
     createSingleConfig({
-      parentSectionMap: records.parentSectionMap,
+      parentSectionMap,
       projectConfig: createProjectConfig({
         id: NULL_PROJECT_CONFIG_ID,
-        sectionVariantMap: records.sectionVariantMap,
-        topLevelSections: records.topLevelSections,
+        sectionVariantMap,
+        topLevelSections,
       }),
-      sectionImpls: records.sectionImpls,
-      sections: records.stateSections,
-      sectionVariants: records.sectionVariants,
+      sectionImpls,
+      sections: stateSections,
+      sectionVariants,
     }),
   );
-}
-
-function getMovementSectionSize(section: MovementSectionInput): never | null {
-  if (
-    section.sectionHeight === undefined &&
-    section.sectionWidth === undefined
-  ) {
-    return null;
-  }
-  return {
-    height: section.sectionHeight ?? "auto",
-    width: section.sectionWidth ?? "auto",
-  } as never;
-}
-
-function getSectionImplChildren(sectionId: string): readonly string[] {
-  const impl = getCurrEffectiveSectionImpl(
-    useProjectState.getState(),
-    sectionId,
-  );
-  return impl && "children" in impl ? [...impl.children] : [];
 }
 
 function resetGpuViewportState() {

@@ -18,7 +18,7 @@ import {
   UNKNOWN_SLASH_COMMAND_FEEDBACK,
 } from "./shared";
 
-function resolveParsedSlashCommandSubmission(args: {
+export function resolveParsedSlashCommandSubmission(args: {
   parsed: ChatSlashCommand;
   submittedAttachments: ChatFileAttachment[];
 }): { message: string; attachments: ChatFileAttachment[] } | null {
@@ -31,13 +31,13 @@ function resolveParsedSlashCommandSubmission(args: {
   });
 }
 
-function normalizeSlashCommandResult(
+export function normalizeSlashCommandResult(
   result: ChatSlashCommandResult | void,
 ): NormalizedSlashCommandResult | undefined {
   return result && typeof result === "object" ? result : undefined;
 }
 
-function shouldRetryRegisteredSlashCommand(args: {
+export function shouldRetryRegisteredSlashCommand(args: {
   result: ChatSlashCommandResult | void;
   slashResult: NormalizedSlashCommandResult | undefined;
 }): boolean {
@@ -45,7 +45,7 @@ function shouldRetryRegisteredSlashCommand(args: {
   return result === false || slashResult?.handled === false;
 }
 
-function finalizeLocalSlashCommandResult(args: {
+export function finalizeLocalSlashCommandResult(args: {
   clearAttachments: () => void;
   clearInput: () => void;
   resetEscClearedDraft: () => void;
@@ -70,7 +70,7 @@ function finalizeLocalSlashCommandResult(args: {
   return slashResult?.retryLater === true ? "retry_later" : "handled_local";
 }
 
-function shouldIgnoreUnknownSlashCommandResult(args: {
+export function shouldIgnoreUnknownSlashCommandResult(args: {
   result: ChatSlashCommandResult;
   slashResult: NormalizedSlashCommandResult | undefined;
 }): boolean {
@@ -78,7 +78,7 @@ function shouldIgnoreUnknownSlashCommandResult(args: {
   return result === false || slashResult?.handled === false;
 }
 
-function finalizeUnknownSlashCommandResult(args: {
+export function finalizeUnknownSlashCommandResult(args: {
   clearAttachments: () => void;
   clearInput: () => void;
   resetEscClearedDraft: () => void;
@@ -275,7 +275,7 @@ export async function executeRegisteredSlashCommand(args: {
   });
 }
 
-function resolveRefreshedSlashCommandRequest(args: {
+export function resolveRefreshedSlashCommandRequest(args: {
   message: string;
   slashResult: NormalizedSlashCommandResult | undefined;
 }): { parsed: ChatSlashCommand; commandAvailable: boolean } | null {

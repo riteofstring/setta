@@ -1,4 +1,3 @@
-import { clearNodesSelectionBounds } from "gpuFlow/selectionBounds";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
@@ -158,8 +157,6 @@ export function applyActiveSectionChange(
     setActiveSectionIds(decision.nextActiveIds, options);
   }
 
-  clearSingleActivationSelectionBounds(intent, decision);
-
   if (decision.updateZIndex) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
@@ -168,17 +165,4 @@ export function applyActiveSectionChange(
   }
 
   return { ...decision, activeIdsChanged };
-}
-
-function clearSingleActivationSelectionBounds(
-  intent: ActiveSectionIntent,
-  decision: ActiveSectionPolicyResult,
-): void {
-  if (
-    intent.interaction !== "selection-rect" &&
-    decision.nextActiveIds.length <= 1 &&
-    gpuFlowViewportStore.getState().nodesSelectionBounds
-  ) {
-    clearNodesSelectionBounds();
-  }
 }

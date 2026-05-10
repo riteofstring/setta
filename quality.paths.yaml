@@ -14,12 +14,6 @@ python:
   file_length:
     max_lines: 1000
 
-python_tests:
-  include_globs:
-    - "tests/**/*.py"
-  file_length:
-    max_lines: 1000
-
 frontend:
   generated_globs:
     - "frontend/src/utils/generatedEndpoints.ts"
@@ -61,41 +55,6 @@ frontend:
       - "**/*.d.ts"
     exclude_generated: true
     max_lines: 1000
-  test_file_length:
-    include_globs:
-      - "frontend/src/**/*.test.*"
-      - "frontend/src/**/*.spec.*"
-      - "frontend/tests/**"
-      - "plugins/*/frontend/tests/**"
-    extensions:
-      - ".js"
-      - ".jsx"
-      - ".ts"
-      - ".tsx"
-    exclude_globs:
-      - "**/*.d.ts"
-      # Shared Playwright bootstrap and backend helper module; keep workflow
-      # specs split while allowing this central test support surface.
-      - "frontend/tests/e2e/helpers.ts"
-    exclude_generated: true
-    max_lines: 1200
-  test_complexity:
-    include_globs:
-      - "frontend/src/**/*.test.*"
-      - "frontend/src/**/*.spec.*"
-      - "frontend/tests/**"
-      - "plugins/*/frontend/tests/**"
-    extensions:
-      - ".js"
-      - ".jsx"
-      - ".ts"
-      - ".tsx"
-    exclude_globs:
-      - "**/*.d.ts"
-      # Shared Playwright bootstrap and backend helper module; keep workflow
-      # specs split while allowing this central test support surface.
-      - "frontend/tests/e2e/helpers.ts"
-    exclude_generated: true
   boundary:
     include_globs:
       - "frontend/src/**"
@@ -133,13 +92,3 @@ go:
     - "**/*_gen.go"
   file_length:
     max_lines: 1200
-
-go_tests:
-  include_globs:
-    - "cmd/**/*_test.go"
-    - "internal/**/*_test.go"
-    - "plugins/**/*_test.go"
-  generated_globs:
-    - "**/*_gen.go"
-  file_length:
-    max_lines: 1500

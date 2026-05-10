@@ -283,7 +283,7 @@ export function useActivityAccordionState({
   return [accordionValue, setAccordionValue] as const;
 }
 
-function useThinkingSummaryOverflow({
+export function useThinkingSummaryOverflow({
   shouldMeasureSummaryOverflow,
   activityHint,
   summaryHeadlineText,
@@ -329,7 +329,7 @@ function useThinkingSummaryOverflow({
   return { summaryPreviewRef, isSummaryTitleTruncated };
 }
 
-function ThinkingBoxSummaryLabel({
+export function ThinkingBoxSummaryLabel({
   summaryPreviewRef,
   shouldRenderPlainSummaryWithHint,
   collapsedSummaryWithHint,
@@ -372,7 +372,7 @@ function ThinkingBoxSummaryLabel({
   );
 }
 
-function ThinkingBoxStatus({
+export function ThinkingBoxStatus({
   thinkingRunState,
   durationLabel,
   timestampMs,
@@ -447,7 +447,7 @@ function ThinkingBoxStatus({
   );
 }
 
-function ThinkingBoxExpandedContent({
+export function ThinkingBoxExpandedContent({
   expandedContent,
   hasThinkingText,
   isStreaming,
@@ -476,7 +476,7 @@ function ThinkingBoxExpandedContent({
   );
 }
 
-function ThinkingBoxHeader({
+export function ThinkingBoxHeader({
   hasExpandableContent,
   thinkingRowRunState,
   railIcon,
@@ -573,7 +573,7 @@ function ThinkingBoxHeader({
   );
 }
 
-type ThinkingBoxBaseState = {
+export type ThinkingBoxBaseState = {
   summaryText: string;
   hasThinkingText: boolean;
   summaryHeadlineText: string;
@@ -582,7 +582,7 @@ type ThinkingBoxBaseState = {
   shouldMeasureSummaryOverflow: boolean;
 };
 
-function resolveThinkingSummaryHeadlineText(args: {
+export function resolveThinkingSummaryHeadlineText(args: {
   content: string;
   isStreaming: boolean;
   summary: string | null | undefined;
@@ -600,7 +600,7 @@ function resolveThinkingSummaryHeadlineText(args: {
   });
 }
 
-function resolveCollapsedSummaryWithHint(args: {
+export function resolveCollapsedSummaryWithHint(args: {
   activityHint?: string | null;
   hasThinkingText: boolean;
   summaryHeadlineText: string;
@@ -611,7 +611,7 @@ function resolveCollapsedSummaryWithHint(args: {
   return args.summaryHeadlineText;
 }
 
-function resolveThinkingBoxBaseState({
+export function resolveThinkingBoxBaseState({
   content,
   summary,
   isStreaming,
@@ -653,7 +653,7 @@ function resolveThinkingBoxBaseState({
   };
 }
 
-function resolveThinkingTriggerClassName(
+export function resolveThinkingTriggerClassName(
   hasExpandableContent: boolean,
 ): string {
   return `grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} max-w-full overflow-hidden text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180 ${
@@ -661,7 +661,7 @@ function resolveThinkingTriggerClassName(
   }`;
 }
 
-function resolveThinkingExpandableState({
+export function resolveThinkingExpandableState({
   content,
   summaryText,
   hasThinkingText,

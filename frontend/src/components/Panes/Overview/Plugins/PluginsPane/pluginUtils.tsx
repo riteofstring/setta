@@ -118,7 +118,7 @@ export function buildPluginActionThrownError(
   return `${actionLabel} failed: unexpected error.`;
 }
 
-function formatCapabilitiesForTable(capabilities: string[]): string {
+export function formatCapabilitiesForTable(capabilities: string[]): string {
   if (capabilities.length === 0) {
     return "none";
   }
@@ -148,7 +148,7 @@ export function formatCapabilitiesTooltip(capabilities: string[]): string {
   return formatted;
 }
 
-function formatBlockedCapabilitiesForTable(
+export function formatBlockedCapabilitiesForTable(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
   if (blockedCapabilities.length === 0) {

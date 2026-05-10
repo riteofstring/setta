@@ -9,7 +9,7 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
 import type { GpuNodeLayout } from "./htmlSurfaces/frame";
-import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
+import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
 import { createHtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
 
 describe("gpu active node pointer targeting", () => {
@@ -159,34 +159,6 @@ describe("gpu active node pointer targeting", () => {
     expect((projections[0] as { readonly localY: number }).localY).toBeCloseTo(
       20,
     );
-  });
-
-  it("does not synthesize flat pointer hits when scene-owned visuals are required", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const button = document.createElement("button");
-    button.dataset.gpuFlowControl = "node-action";
-    nodeElement.append(button);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(button, 20, 20, 80, 32);
-    const projections: unknown[] = [];
-
-    expect(
-      resolveGpuNodePointerHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        projectSourceForHitTesting: (projection) => {
-          projections.push(projection);
-        },
-        requireVisualSceneHitSurfaces: true,
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-        visualScene: createHtmlSurfaceVisualScene(),
-      }),
-    ).toBeNull();
-    expect(projections).toEqual([]);
   });
 
   it("does not project source DOM when a pointer hit has no interactive target", () => {
@@ -552,35 +524,6 @@ describe("gpu active node pointer targeting", () => {
     });
   });
 
-  it("does not synthesize flat wheel hits when scene-owned visuals are required", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const scroller = document.createElement("div");
-    scroller.style.overflowY = "auto";
-    setScrollMetrics(scroller, {
-      clientHeight: 120,
-      clientWidth: 180,
-      scrollHeight: 360,
-      scrollWidth: 180,
-    });
-    nodeElement.append(scroller);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(scroller, 24, 24, 180, 120);
-
-    expect(
-      resolveGpuNodeWheelHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        requireVisualSceneHitSurfaces: true,
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-        visualScene: createHtmlSurfaceVisualScene(),
-      }),
-    ).toBeNull();
-  });
-
   it("resolves scrollable overflow targets without a native wheel marker", () => {
     const surface = document.createElement("div");
     const nodeElement = createNodeElement("node-a");
@@ -765,7 +708,7 @@ function textureRecord(
   surfaceId: string,
   cssWidth: number,
   cssHeight: number,
-): CommittedHtmlSurfaceTextureSnapshot {
+): HtmlSurfaceTextureRecord {
   return {
     clampedByMaxTexture: false,
     cssHeight,

@@ -31,45 +31,32 @@ func TestAppSendsOnlyAllowlistedManagedToolDefinitionsToProvider(t *testing.T) {
 	// A narrowly allowlisted managed profile should only expose that one tool
 	// to the upstream provider, even when the app resolves tools through the
 	// internal MCP client.
-	cfg, listener, serverURL := newManagedAllowlistContractConfig(t)
-	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
-	providerRequests := make(chan map[string]any, 1)
-	provider := newManagedAllowlistContractProvider(providerRequests)
-	defer provider.Close()
-
-	saveManagedAllowlistContractConfig(t, cfg, provider.URL, serverURL, safeToolName)
-
-	app := newManagedAllowlistContractApp(t, cfg, listener)
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-	seedManagedStreamingContractProject(t, app)
-
-	authCookie := newAppTestAuthCookie(t, app)
-	chatID := sendManagedAllowlistContractChat(t, serverURL, authCookie)
-	hydrated := waitForManagedAllowlistContractHydration(t, serverURL, authCookie, chatID)
-	assertManagedAllowlistProviderTools(t, providerRequests, []string{safeToolName})
-
-	if appTestMessageText(hydrated.Messages[1]) != "Allowlist OK" {
-		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[1])
-	}
-}
-
-func newManagedAllowlistContractConfig(t *testing.T) (config.Config, net.Listener, string) {
-	t.Helper()
-
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
-	cleanupManagedStreamingContractWorkspace(t, cfg)
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			_ = os.RemoveAll(cfg.Paths.WorkspaceRoot)
+			if _, err := os.Stat(cfg.Paths.WorkspaceRoot); errors.Is(err, os.ErrNotExist) {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	})
 
-	listener := listenManagedStreamingContractTCP(t)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
-	return cfg, listener, "http://" + listener.Addr().String()
-}
+	serverURL := "http://" + listener.Addr().String()
 
-func newManagedAllowlistContractProvider(providerRequests chan<- map[string]any) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
+	providerRequests := make(chan map[string]any, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -89,31 +76,28 @@ func newManagedAllowlistContractProvider(providerRequests chan<- map[string]any)
 		flusher.Flush()
 		_, _ = io.WriteString(w, "data: [DONE]\n\n")
 	}))
-}
+	defer provider.Close()
 
-func saveManagedAllowlistContractConfig(t *testing.T, cfg config.Config, providerURL, serverURL, safeToolName string) {
-	t.Helper()
-
-	saveAppTestLLMConfigs(
-		t,
-		cfg,
-		map[string]llmconfig.Config{
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
 			"primary": {
 				ID:           "primary",
 				Model:        "gpt-4o-mini",
 				Provider:     "openai",
-				BaseURL:      providerURL + "/v1",
+				BaseURL:      provider.URL + "/v1",
 				APIKeyEnv:    "OPENAI_API_KEY",
 				MCPServerIDs: []string{mcpx.DefaultServerID},
 			},
 		},
-		map[string]llmconfig.ServerConfig{
+		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
 				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
-	)
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -138,23 +122,48 @@ func saveManagedAllowlistContractConfig(t *testing.T, cfg config.Config, provide
 			ToolAllowlist: []string{safeToolName},
 		},
 	})
-}
-
-func newManagedAllowlistContractApp(t *testing.T, cfg config.Config, listener net.Listener) *App {
-	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
 		t.Fatalf("new app: %v", err)
 	}
 	setAppCompletionGuardEnabled(t, app, false)
-	serveManagedStreamingContractApp(t, app, listener)
-	return app
-}
 
-func sendManagedAllowlistContractChat(t *testing.T, serverURL string, authCookie *http.Cookie) string {
-	t.Helper()
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
 
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	authCookie := newAppTestAuthCookie(t, app)
 	request, err := http.NewRequest(
 		http.MethodPost,
 		serverURL+"/api"+httpapi.RouteGetLLMResponse,
@@ -191,18 +200,12 @@ func sendManagedAllowlistContractChat(t *testing.T, serverURL string, authCookie
 	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
 		t.Fatalf("decode send chat id: %v", err)
 	}
-	return chatID
-}
 
-type managedAllowlistContractHydratePayload struct {
-	Messages           []map[string]any `json:"messages"`
-	WaitingForResponse bool             `json:"waitingForResponse"`
-}
-
-func waitForManagedAllowlistContractHydration(t *testing.T, serverURL string, authCookie *http.Cookie, chatID string) managedAllowlistContractHydratePayload {
-	t.Helper()
-
-	var hydrated managedAllowlistContractHydratePayload
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+	}
+	var hydrated hydratePayload
 	waitForAppCondition(t, 5*time.Second, func() bool {
 		hydrateRequest, err := http.NewRequest(
 			http.MethodPost,
@@ -229,11 +232,10 @@ func waitForManagedAllowlistContractHydration(t *testing.T, serverURL string, au
 		}
 		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
 	})
-	return hydrated
-}
 
-func assertManagedAllowlistProviderTools(t *testing.T, providerRequests <-chan map[string]any, want []string) {
-	t.Helper()
+	if appTestMessageText(hydrated.Messages[1]) != "Allowlist OK" {
+		t.Fatalf("unexpected hydrated assistant reply %#v", hydrated.Messages[1])
+	}
 
 	select {
 	case providerRequest := <-providerRequests:
@@ -242,6 +244,7 @@ func assertManagedAllowlistProviderTools(t *testing.T, providerRequests <-chan m
 			t.Fatalf("expected provider tools payload, got %#v", providerRequest["tools"])
 		}
 		got := appManagedToolNamesFromProviderPayload(rawTools)
+		want := []string{safeToolName}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("unexpected provider tool names %#v", got)
 		}
@@ -259,40 +262,6 @@ func TestAppStreamsManagedAnthropicThinkingToolAndTextDeltasOverFrontendWebsocke
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
 	t.Setenv("ANTHROPIC_API_KEY", "secret")
-	cleanupManagedStreamingContractWorkspace(t, cfg)
-
-	listener := listenManagedStreamingContractTCP(t)
-	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
-	serverURL := "http://" + listener.Addr().String()
-
-	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
-	provider := newManagedAnthropicStreamingContractProvider(t, safeToolName)
-	defer provider.Close()
-
-	saveManagedStreamingContractConfig(t, cfg, provider.URL, serverURL, safeToolName)
-
-	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	setAppCompletionGuardEnabled(t, app, false)
-	serveManagedStreamingContractApp(t, app, listener)
-
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-	seedManagedStreamingContractProject(t, app)
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn := dialManagedStreamingContractFrontend(t, serverURL, authCookie)
-	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-
-	chatID := sendManagedStreamingContractChat(t, serverURL, authCookie)
-	chunks := waitForManagedStreamingSequence(t, conn, chatID, 2)
-	assertManagedAnthropicStreamingContractChunks(t, chunks, safeToolName)
-}
-
-func cleanupManagedStreamingContractWorkspace(t *testing.T, cfg config.Config) {
-	t.Helper()
-
 	t.Cleanup(func() {
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
@@ -303,23 +272,17 @@ func cleanupManagedStreamingContractWorkspace(t *testing.T, cfg config.Config) {
 			time.Sleep(20 * time.Millisecond)
 		}
 	})
-}
-
-func listenManagedStreamingContractTCP(t *testing.T) net.Listener {
-	t.Helper()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	return listener
-}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+	serverURL := "http://" + listener.Addr().String()
 
-func newManagedAnthropicStreamingContractProvider(t *testing.T, safeToolName string) *httptest.Server {
-	t.Helper()
-
+	safeToolName := mcpx.BuildNamespacedToolName(mcpx.DefaultServerID, "getProjectConfigNamesAndIds")
 	requestCount := 0
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -331,66 +294,52 @@ func newManagedAnthropicStreamingContractProvider(t *testing.T, safeToolName str
 			http.Error(w, "missing flusher", http.StatusInternalServerError)
 			return
 		}
-		currentRequest := requestCount
-		requestCount++
-		switch currentRequest {
+		switch requestCount {
 		case 0:
-			writeManagedAnthropicToolStream(t, w, flusher, safeToolName)
+			_, _ = io.WriteString(w, "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-tool-1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-5-20250929\",\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-1\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":18,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"Plan\"}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" carefully\"}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool-call-1\",\"name\":\""+safeToolName+"\",\"input\":{}}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":18,\"output_tokens\":4,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+			flusher.Flush()
 		case 1:
-			writeManagedAnthropicFinalTextStream(t, w, flusher)
+			_, _ = io.WriteString(w, "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-tool-2\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-5-20250929\",\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-2\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":23,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Tool-backed final reply\"}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":23,\"output_tokens\":3,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+			flusher.Flush()
 		default:
 			http.Error(w, "unexpected request", http.StatusInternalServerError)
 			return
 		}
+		requestCount++
 	}))
-}
+	defer provider.Close()
 
-func writeManagedAnthropicToolStream(t *testing.T, w io.Writer, flusher http.Flusher, safeToolName string) {
-	t.Helper()
-
-	for _, chunk := range []string{
-		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-tool-1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-5-20250929\",\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-1\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":18,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n",
-		"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"Plan\"}}\n\n",
-		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" carefully\"}}\n\n",
-		"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
-		"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool-call-1\",\"name\":\"" + safeToolName + "\",\"input\":{}}}\n\n",
-		"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n",
-		"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":18,\"output_tokens\":4,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n",
-		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
-	} {
-		_, _ = io.WriteString(w, chunk)
-		flusher.Flush()
-	}
-}
-
-func writeManagedAnthropicFinalTextStream(t *testing.T, w io.Writer, flusher http.Flusher) {
-	t.Helper()
-
-	for _, chunk := range []string{
-		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-tool-2\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-sonnet-4-5-20250929\",\"stop_reason\":null,\"stop_sequence\":null,\"container\":{\"id\":\"container-2\",\"expires_at\":\"2026-03-12T00:00:00Z\"},\"usage\":{\"input_tokens\":23,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"inference_geo\":\"us\",\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}}}}\n\n",
-		"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
-		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Tool-backed final reply\"}}\n\n",
-		"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
-		"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":23,\"output_tokens\":3,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use\":{\"web_fetch_requests\":0,\"web_search_requests\":0}}}\n\n",
-		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
-	} {
-		_, _ = io.WriteString(w, chunk)
-		flusher.Flush()
-	}
-}
-
-func saveManagedStreamingContractConfig(t *testing.T, cfg config.Config, providerURL string, serverURL string, safeToolName string) {
-	t.Helper()
-
-	saveAppTestLLMConfigs(
-		t,
-		cfg,
-		map[string]llmconfig.Config{
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
 			"primary": {
 				ID:       "primary",
 				Model:    "claude-sonnet-4-5-20250929",
 				Provider: "anthropic",
-				BaseURL:  providerURL,
+				BaseURL:  provider.URL,
 				OtherParams: map[string]any{
 					"max_tokens": 4096,
 					"thinking": map[string]any{
@@ -402,13 +351,15 @@ func saveManagedStreamingContractConfig(t *testing.T, cfg config.Config, provide
 				MCPServerIDs: []string{mcpx.DefaultServerID},
 			},
 		},
-		map[string]llmconfig.ServerConfig{
+		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
 				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
-	)
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -433,10 +384,12 @@ func saveManagedStreamingContractConfig(t *testing.T, cfg config.Config, provide
 			ToolAllowlist: []string{safeToolName},
 		},
 	})
-}
 
-func serveManagedStreamingContractApp(t *testing.T, app *App, listener net.Listener) {
-	t.Helper()
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	setAppCompletionGuardEnabled(t, app, false)
 
 	server := &http.Server{Handler: app.Handler()}
 	serverErrors := make(chan error, 1)
@@ -458,10 +411,8 @@ func serveManagedStreamingContractApp(t *testing.T, app *App, listener net.Liste
 			t.Fatalf("serve app: %v", err)
 		}
 	})
-}
 
-func seedManagedStreamingContractProject(t *testing.T, app *App) {
-	t.Helper()
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
 
 	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -473,11 +424,8 @@ func seedManagedStreamingContractProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("seed app project: %v", err)
 	}
-}
 
-func dialManagedStreamingContractFrontend(t *testing.T, serverURL string, authCookie *http.Cookie) *websocket.Conn {
-	t.Helper()
-
+	authCookie := newAppTestAuthCookie(t, app)
 	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
@@ -486,14 +434,8 @@ func dialManagedStreamingContractFrontend(t *testing.T, serverURL string, authCo
 	if err != nil {
 		t.Fatalf("dial frontend websocket route: %v", err)
 	}
-	t.Cleanup(func() {
-		conn.CloseNow()
-	})
-	return conn
-}
-
-func sendManagedStreamingContractChat(t *testing.T, serverURL string, authCookie *http.Cookie) string {
-	t.Helper()
+	defer conn.CloseNow()
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
 	request, err := http.NewRequest(
 		http.MethodPost,
@@ -534,12 +476,8 @@ func sendManagedStreamingContractChat(t *testing.T, serverURL string, authCookie
 	if strings.TrimSpace(chatID) == "" {
 		t.Fatal("expected managed chat id")
 	}
-	return chatID
-}
 
-func assertManagedAnthropicStreamingContractChunks(t *testing.T, chunks []appRouteEnvelope, safeToolName string) {
-	t.Helper()
-
+	chunks := waitForManagedStreamingSequence(t, conn, chatID, 2)
 	gotTypes := managedStreamChunkTypes(t, chunks)
 	wantTypes := []string{
 		string(realtime.StreamingEventTypeMessageStart),
@@ -558,46 +496,32 @@ func assertManagedAnthropicStreamingContractChunks(t *testing.T, chunks []appRou
 		t.Fatalf("unexpected stream chunk types %#v", gotTypes)
 	}
 
-	assertManagedAnthropicThinkingDelta(t, chunks[1], realtime.MessageContentTypeThinkingDelta, "Plan")
-	assertManagedAnthropicThinkingDelta(t, chunks[2], "", " carefully")
-	assertManagedAnthropicToolDelta(t, chunks[3], safeToolName)
-	assertManagedAnthropicToolResult(t, chunks[6], safeToolName)
-	assertManagedAnthropicFinalTextDelta(t, chunks[8])
-}
-
-func assertManagedAnthropicThinkingDelta(t *testing.T, envelope appRouteEnvelope, expectedType any, expectedThinking string) {
-	t.Helper()
-
-	delta := managedStreamingChunkContent(t, envelope)
-	content, ok := delta["content"].([]any)
-	if !ok || len(content) != 1 {
-		t.Fatalf("expected thinking delta content, got %#v", delta)
+	firstThinkingDelta := managedStreamingChunkContent(t, chunks[1])
+	thinkingContent, ok := firstThinkingDelta["content"].([]any)
+	if !ok || len(thinkingContent) != 1 {
+		t.Fatalf("expected first thinking delta content, got %#v", firstThinkingDelta)
 	}
-	block, ok := content[0].(map[string]any)
-	if !ok {
-		t.Fatalf("unexpected thinking delta %#v", content[0])
+	thinkingBlock, ok := thinkingContent[0].(map[string]any)
+	if !ok || thinkingBlock["type"] != realtime.MessageContentTypeThinkingDelta || thinkingBlock["thinking"] != "Plan" {
+		t.Fatalf("unexpected first thinking delta %#v", thinkingContent[0])
 	}
-	if expectedType != "" && block["type"] != expectedType {
-		t.Fatalf("unexpected thinking delta type %#v", block)
-	}
-	if block["thinking"] != expectedThinking {
-		t.Fatalf("unexpected thinking delta %#v", block)
-	}
-}
 
-func assertManagedAnthropicToolDelta(t *testing.T, envelope appRouteEnvelope, safeToolName string) {
-	t.Helper()
+	secondThinkingDelta := managedStreamingChunkContent(t, chunks[2])
+	secondThinkingContent, ok := secondThinkingDelta["content"].([]any)
+	if !ok || len(secondThinkingContent) != 1 {
+		t.Fatalf("expected second thinking delta content, got %#v", secondThinkingDelta)
+	}
+	secondThinkingBlock, ok := secondThinkingContent[0].(map[string]any)
+	if !ok || secondThinkingBlock["thinking"] != " carefully" {
+		t.Fatalf("unexpected second thinking delta %#v", secondThinkingContent[0])
+	}
 
-	toolDelta := managedStreamingChunkContent(t, envelope)
+	toolDelta := managedStreamingChunkContent(t, chunks[3])
 	if toolDelta["tool_call_id"] != "tool-call-1" || toolDelta["tool_name"] != safeToolName {
 		t.Fatalf("unexpected tool delta %#v", toolDelta)
 	}
-}
 
-func assertManagedAnthropicToolResult(t *testing.T, envelope appRouteEnvelope, safeToolName string) {
-	t.Helper()
-
-	toolResult := managedStreamingChunkContent(t, envelope)
+	toolResult := managedStreamingChunkContent(t, chunks[6])
 	resultMessage, ok := toolResult["result"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected tool result message map, got %#v", toolResult["result"])
@@ -605,12 +529,8 @@ func assertManagedAnthropicToolResult(t *testing.T, envelope appRouteEnvelope, s
 	if resultMessage["role"] != "tool" || resultMessage["tool_name"] != safeToolName {
 		t.Fatalf("unexpected tool result message %#v", resultMessage)
 	}
-}
 
-func assertManagedAnthropicFinalTextDelta(t *testing.T, envelope appRouteEnvelope) {
-	t.Helper()
-
-	finalTextDelta := managedStreamingChunkContent(t, envelope)
+	finalTextDelta := managedStreamingChunkContent(t, chunks[8])
 	finalTextContent, ok := finalTextDelta["content"].([]any)
 	if !ok || len(finalTextContent) != 1 {
 		t.Fatalf("expected final text delta content, got %#v", finalTextDelta)

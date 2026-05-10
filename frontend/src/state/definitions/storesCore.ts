@@ -62,7 +62,7 @@ import {
   ZustandLocalStorage,
 } from "./storesLocalState";
 
-const createInMemoryStorage = () => {
+export const createInMemoryStorage = () => {
   const storage = new Map<string, string>();
   return {
     getItem: (name: string) => storage.get(name) ?? null,
@@ -104,7 +104,7 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
-type ZustandContextMenu = {
+export type ZustandContextMenu = {
   pane: { isOpen: boolean; x: number; y: number };
   selection: { isOpen: boolean; x: number; y: number; nodeIds: Array<string> };
   typeError: {
@@ -167,7 +167,7 @@ export const useProjectState = withProjectState(
   ),
 );
 
-type ShareSessionState = {
+export type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
@@ -191,7 +191,7 @@ export const useShareSession = withProjectState(
   ),
 );
 
-type ServerModeState = {
+export type ServerModeState = {
   mode: ServerModeValue;
   modeResolved: boolean;
   modeError: string | null;
@@ -216,7 +216,7 @@ export type PendingOperation = {
   acknowledged: boolean;
 };
 
-type ZustandPendingOperations = {
+export type ZustandPendingOperations = {
   pending: Array<PendingOperation>;
 };
 
@@ -226,7 +226,7 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
-type ActiveSectionUIState = {
+export type ActiveSectionUIState = {
   activeIds: Array<string>;
   selectionGeneration: number;
   backendGeneration: number;
@@ -261,7 +261,7 @@ export type ListenerCoverageRecord = {
   dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
 };
 
-type ListenerCoverageState = {
+export type ListenerCoverageState = {
   byProjectId: Record<string, ListenerCoverageRecord>;
 };
 
@@ -275,7 +275,7 @@ export const useListenerCoverage = withProjectState(
   ),
 );
 
-type ZustandRenameRefactors = {
+export type ZustandRenameRefactors = {
   byOpId: Record<string, RenameRefactorBroadcastContent>;
   queue: Array<string>;
   readyOpIds: Record<string, boolean>;
@@ -297,7 +297,7 @@ export const useHomePageSearch = createWithEqualityFn(
   })),
 );
 
-type ZustandWaitingForLSPResult = {
+export type ZustandWaitingForLSPResult = {
   textFields: Record<string, boolean>;
   parametersRequest: Record<string, boolean>;
 };
@@ -316,7 +316,7 @@ export const useWaitingForLSPResult = withProjectState(
   ),
 );
 
-type ZustandModalState = {
+export type ZustandModalState = {
   open: boolean;
   modalInfo: ModalInfoType | null;
 };
@@ -340,13 +340,13 @@ export const useNodeInternals = withProjectState(
   ),
 );
 
-type AtomicallyPublishedProjectStoreState = {
+export type AtomicallyPublishedProjectStoreState = {
   projectState: ZustandProjectState;
   nodeInternals: ZustandNodeInternalsState;
   activeSectionUI: ActiveSectionUIState;
 };
 
-let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
+export let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
   null;
 
 export function patchPublishedProjectStoreGetState<TState>(
@@ -370,29 +370,11 @@ export function patchPublishedProjectStoreGetState<TState>(
 export const readRawProjectState =
   useProjectState.getState.bind(useProjectState);
 
-const readRawActiveSectionUIState =
+export const readRawActiveSectionUIState =
   useActiveSectionUI.getState.bind(useActiveSectionUI);
 
 export const readRawNodeInternalsState =
   useNodeInternals.getState.bind(useNodeInternals);
-
-patchPublishedProjectStoreGetState(
-  useProjectState,
-  readRawProjectState,
-  (publication) => publication.projectState,
-);
-
-patchPublishedProjectStoreGetState(
-  useActiveSectionUI,
-  readRawActiveSectionUIState,
-  (publication) => publication.activeSectionUI,
-);
-
-patchPublishedProjectStoreGetState(
-  useNodeInternals,
-  readRawNodeInternalsState,
-  (publication) => publication.nodeInternals,
-);
 
 export function runWithAtomicallyPublishedProjectStores(
   nextState: {
@@ -422,7 +404,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = {
+export type ZustandNotificationState = {
   notifications: Array<AppNotification>;
 };
 
@@ -432,7 +414,7 @@ export const useNotifications = createWithEqualityFn(
   })),
 );
 
-type FileBrowserState = {
+export type FileBrowserState = {
   rootPath: string | null;
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
@@ -495,7 +477,7 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
   })),
 );
 
-type RunMode = "once" | "continuous";
+export type RunMode = "once" | "continuous";
 
 export type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
@@ -524,11 +506,13 @@ export type ProjectChatAuxView =
   | "slash_commands"
   | "ai_settings";
 
-function isPersistedRecord(value: unknown): value is Record<string, unknown> {
+export function isPersistedRecord(
+  value: unknown,
+): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeTrimmedPersistedString(value: unknown): string | null {
+export function normalizeTrimmedPersistedString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -536,7 +520,7 @@ function normalizeTrimmedPersistedString(value: unknown): string | null {
   return normalized ? normalized : null;
 }
 
-function normalizePersistedProjectChatSlashCommand(
+export function normalizePersistedProjectChatSlashCommand(
   value: unknown,
 ): ProjectChatCustomSlashCommand | null {
   if (!isPersistedRecord(value)) {
@@ -554,7 +538,7 @@ function normalizePersistedProjectChatSlashCommand(
   };
 }
 
-function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
+export function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   value: unknown,
 ): Record<string, Array<ProjectChatCustomSlashCommand>> {
   if (!isPersistedRecord(value)) {
@@ -584,7 +568,7 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
   return normalized;
 }
 
-function normalizePersistedProjectChatDraftMessageByProjectConfigId(
+export function normalizePersistedProjectChatDraftMessageByProjectConfigId(
   value: unknown,
 ): Record<string, string> {
   if (!isPersistedRecord(value)) {
@@ -604,50 +588,56 @@ function normalizePersistedProjectChatDraftMessageByProjectConfigId(
   return normalized;
 }
 
-function normalizePersistedStringArray(
+export function normalizePersistedStringArray(
   value: unknown,
   fallback: string[],
 ): string[] {
   return Array.isArray(value) ? value : fallback;
 }
 
-function normalizePersistedBoolean(value: unknown, fallback: boolean): boolean {
+export function normalizePersistedBoolean(
+  value: unknown,
+  fallback: boolean,
+): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function normalizePersistedNumber(value: unknown, fallback: number): number {
+export function normalizePersistedNumber(
+  value: unknown,
+  fallback: number,
+): number {
   return typeof value === "number" ? value : fallback;
 }
 
-function normalizePersistedObjectMap<T extends Record<string, unknown>>(
+export function normalizePersistedObjectMap<T extends Record<string, unknown>>(
   value: unknown,
   fallback: T,
 ): T {
   return isPersistedRecord(value) ? (value as T) : fallback;
 }
 
-function normalizePersistedHomeProjectGalleryViewMode(
+export function normalizePersistedHomeProjectGalleryViewMode(
   value: unknown,
   fallback: HomeProjectGalleryViewMode,
 ): HomeProjectGalleryViewMode {
   return value === "thumbnails" || value === "list" ? value : fallback;
 }
 
-function normalizePersistedChatSharedEdgeMode(
+export function normalizePersistedChatSharedEdgeMode(
   value: unknown,
   fallback: ChatSharedEdgeMode,
 ): ChatSharedEdgeMode {
   return value === "agentic" || value === "workflow" ? value : fallback;
 }
 
-function normalizePersistedOverviewTab(
+export function normalizePersistedOverviewTab(
   value: unknown,
   fallback: OverviewTabKey,
 ): OverviewTabKey {
   return isOverviewTabKey(value) ? value : fallback;
 }
 
-function normalizePersistedOverviewNotificationsPaneTab(
+export function normalizePersistedOverviewNotificationsPaneTab(
   value: unknown,
   fallback: OverviewNotificationsPaneTab,
 ): OverviewNotificationsPaneTab {
@@ -657,7 +647,7 @@ function normalizePersistedOverviewNotificationsPaneTab(
     : fallback;
 }
 
-function resolvePersistedColorMode(
+export function resolvePersistedColorMode(
   value: unknown,
   darkMode: boolean,
   hasPersistedValue: boolean,
@@ -668,7 +658,7 @@ function resolvePersistedColorMode(
   return value as ColorModePreference;
 }
 
-function normalizePersistedProjectChatThreadState(
+export function normalizePersistedProjectChatThreadState(
   merged: ZustandLocalStorage,
   defaults: ZustandLocalStorage,
 ): void {
@@ -776,7 +766,7 @@ export function normalizePersistedLocalStorageState(
   return merged;
 }
 
-type ZustandRunControl = {
+export type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
   continuousRunCustomRunId: string | null;
@@ -792,7 +782,7 @@ export const useRunControl = withProjectState(
   ),
 );
 
-type BackendLogSeverity = BackendLogEvent["severity"];
+export type BackendLogSeverity = BackendLogEvent["severity"];
 
 export type BackendLogEventsFilter = {
   projectConfigId: string | null;
@@ -806,7 +796,7 @@ export const DEFAULT_BACKEND_LOG_EVENTS_FILTER: BackendLogEventsFilter = {
   query: "",
 };
 
-type BackendLogEventsState = {
+export type BackendLogEventsState = {
   events: Array<BackendLogEvent>;
   filter: BackendLogEventsFilter;
   unreadHighSeverityCount: number;

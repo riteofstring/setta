@@ -212,38 +212,69 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent(t *testi
 	}
 	terminalID := result.SectionIDs[0]
 
-	assertParentPayloadAttachedTerminal(t, project, "code-parent", "code-parent-variant", terminalID, "code parent")
-	terminalSection := project.Sections[terminalID]
-	assertTerminalAttachedToParent(t, project, terminalSection, "code-parent")
-	assertAttachedTerminalPayloadSize(t, project, terminalID, 720.0, settings.TerminalDefaultHeight)
-
-	parentImpl := project.SectionImpls["code-parent-impl"]
-	assertCodeImplAttachedTerminal(t, parentImpl, terminalID)
-}
-
-func assertParentPayloadAttachedTerminal(t *testing.T, project Project, parentID string, variantID string, terminalID string, contextLabel string) {
-	t.Helper()
-
-	parentPayload, err := effectiveSectionPayload(project, parentID, variantID)
+	parentPayload, err := effectiveSectionPayload(project, "code-parent", "code-parent-variant")
 	if err != nil {
-		t.Fatalf("%s payload: %v", contextLabel, err)
+		t.Fatalf("code parent payload: %v", err)
 	}
 	if attached := payloadStringField(parentPayload, "attachedTerminalSectionId"); attached != terminalID {
 		t.Fatalf("expected attachedTerminalSectionId %q, got %q", terminalID, attached)
 	}
 	children := payloadStringArrayField(parentPayload, "children")
-	if !reflect.DeepEqual(children, []string{terminalID}) {
-		t.Fatalf("expected %s children [%q], got %#v", contextLabel, terminalID, children)
+	if len(children) != 1 || children[0] != terminalID {
+		t.Fatalf("expected code children [%q], got %#v", terminalID, children)
 	}
-	assertSectionHeightAtLeast(t, project, parentID, variantID, 238.2, contextLabel)
-}
+	size, ok := payloadObjectField(parentPayload, "size")
+	if !ok {
+		t.Fatalf("expected parent size payload, got %#v", parentPayload)
+	}
+	height, isAuto, present, err := payloadAutoLayoutSizeValue(size, "height")
+	if err != nil {
+		t.Fatalf("parse parent height: %v", err)
+	}
+	if !present || isAuto {
+		t.Fatalf("expected concrete parent height, got %#v", size)
+	}
+	if height < 238.2 {
+		t.Fatalf("expected parent height promoted to attached-terminal minimum, got %v", height)
+	}
 
-func assertAttachedTerminalPayloadSize(t *testing.T, project Project, terminalID string, wantWidth float64, wantHeight float64) {
-	t.Helper()
+	terminalSection := project.Sections[terminalID]
+	if terminalSection.ParentSectionID != "code-parent" {
+		t.Fatalf("expected terminal parent code-parent, got %#v", terminalSection)
+	}
+	terminalPayload, err := effectiveSectionPayload(project, terminalID, project.SectionVariantMap[terminalID])
+	if err != nil {
+		t.Fatalf("terminal payload: %v", err)
+	}
+	terminalSize, ok := payloadObjectField(terminalPayload, "size")
+	if !ok {
+		t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+	}
+	width, _, _, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+	if err != nil {
+		t.Fatalf("parse terminal width: %v", err)
+	}
+	if width != 720.0 {
+		t.Fatalf("expected terminal width 720, got %v", width)
+	}
+	terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
+	if err != nil {
+		t.Fatalf("parse terminal height: %v", err)
+	}
+	if !present || isAuto {
+		t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+	}
+	if terminalHeight != settings.TerminalDefaultHeight {
+		t.Fatalf("expected settings-backed terminal height %v, got %v", settings.TerminalDefaultHeight, terminalHeight)
+	}
 
-	variantID := project.SectionVariantMap[terminalID]
-	assertSectionFixedSizeValue(t, project, terminalID, variantID, "width", wantWidth, "attached terminal")
-	assertSectionFixedSizeValue(t, project, terminalID, variantID, "height", wantHeight, "attached terminal")
+	parentImpl := project.SectionImpls["code-parent-impl"]
+	if parentImpl.Code.AttachedTerminalSectionID != terminalID {
+		t.Fatalf("expected typed attached terminal id %q, got %#v", terminalID, parentImpl.Code)
+	}
+	if len(parentImpl.Code.Children) != 1 || parentImpl.Code.Children[0] != terminalID {
+		t.Fatalf("expected typed code children [%q], got %#v", terminalID, parentImpl.Code.Children)
+	}
 }
 
 func TestProjectCreateChildSectionsSupportsExpandedActiveTypes(t *testing.T) {
@@ -370,10 +401,61 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForGeneratedBaseCodePa
 			}
 			terminalID := result.SectionIDs[0]
 
-			assertParentPayloadAttachedTerminal(t, project, "generated-section", "generated-variant", terminalID, "generated parent")
+			parentPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
+			if err != nil {
+				t.Fatalf("generated parent payload: %v", err)
+			}
+			if attached := payloadStringField(parentPayload, "attachedTerminalSectionId"); attached != terminalID {
+				t.Fatalf("expected attachedTerminalSectionId %q, got %q", terminalID, attached)
+			}
+			if children := payloadStringArrayField(parentPayload, "children"); !reflect.DeepEqual(children, []string{terminalID}) {
+				t.Fatalf("expected generated children [%q], got %#v", terminalID, children)
+			}
+
+			size, ok := payloadObjectField(parentPayload, "size")
+			if !ok {
+				t.Fatalf("expected parent size payload, got %#v", parentPayload)
+			}
+			height, isAuto, present, err := payloadAutoLayoutSizeValue(size, "height")
+			if err != nil {
+				t.Fatalf("parse parent height: %v", err)
+			}
+			if !present || isAuto {
+				t.Fatalf("expected concrete parent height, got %#v", size)
+			}
+			if height < 238.2 {
+				t.Fatalf("expected parent height promoted to attached-terminal minimum, got %v", height)
+			}
+
 			terminalSection := project.Sections[terminalID]
-			assertTerminalAttachedToParent(t, project, terminalSection, "generated-section")
-			assertAttachedTerminalPayloadSize(t, project, terminalID, 640.0, settings.TerminalDefaultHeight)
+			if terminalSection.ParentSectionID != "generated-section" {
+				t.Fatalf("expected terminal parent generated-section, got %#v", terminalSection)
+			}
+			terminalPayload, err := effectiveSectionPayload(project, terminalID, project.SectionVariantMap[terminalID])
+			if err != nil {
+				t.Fatalf("terminal payload: %v", err)
+			}
+			terminalSize, ok := payloadObjectField(terminalPayload, "size")
+			if !ok {
+				t.Fatalf("expected terminal size payload, got %#v", terminalPayload)
+			}
+			width, _, _, err := payloadAutoLayoutSizeValue(terminalSize, "width")
+			if err != nil {
+				t.Fatalf("parse terminal width: %v", err)
+			}
+			if width != 640.0 {
+				t.Fatalf("expected terminal width 640, got %v", width)
+			}
+			terminalHeight, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "height")
+			if err != nil {
+				t.Fatalf("parse terminal height: %v", err)
+			}
+			if !present || isAuto {
+				t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
+			}
+			if terminalHeight != settings.TerminalDefaultHeight {
+				t.Fatalf("expected settings-backed terminal height %v, got %v", settings.TerminalDefaultHeight, terminalHeight)
+			}
 		})
 	}
 }
@@ -541,50 +623,37 @@ func TestProjectCreateChildSectionsSupportsSourceDirectOnlyTypes(t *testing.T) {
 	for _, tc := range testCases {
 		project := testIncrementerProject()
 
-		sectionID, payload, impl := createSourceDirectOnlyChild(t, &project, tc.name, tc.implType, tc.expectedName)
+		result, err := project.CreateChildSections(CreateChildSectionsInput{
+			ParentID:    "parent",
+			ImplType:    tc.implType,
+			NumChildren: 1,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s child section: %v", tc.name, err)
+		}
+		if len(result.SectionIDs) != 1 {
+			t.Fatalf("expected one created %s child id, got %#v", tc.name, result.SectionIDs)
+		}
+
+		sectionID := result.SectionIDs[0]
+		section := project.Sections[sectionID]
+		if section.ParentSectionID != "parent" {
+			t.Fatalf("expected created %s parent parent, got %#v", tc.name, section)
+		}
+		if section.Name != tc.expectedName {
+			t.Fatalf("expected created %s name %q, got %q", tc.name, tc.expectedName, section.Name)
+		}
+
+		payload, err := effectiveSectionPayload(project, sectionID, project.SectionVariantMap[sectionID])
+		if err != nil {
+			t.Fatalf("effective payload for %s: %v", tc.name, err)
+		}
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			t.Fatalf("resolve %s section: %v", tc.name, err)
+		}
 		tc.assert(t, project, sectionID, payload, impl)
 	}
-}
-
-func createSourceDirectOnlyChild(
-	t *testing.T,
-	project *Project,
-	name string,
-	implType string,
-	expectedName string,
-) (string, map[string]any, SectionImpl) {
-	t.Helper()
-
-	result, err := project.CreateChildSections(CreateChildSectionsInput{
-		ParentID:    "parent",
-		ImplType:    implType,
-		NumChildren: 1,
-	}, DefaultStructuralMutationSettings())
-	if err != nil {
-		t.Fatalf("create %s child section: %v", name, err)
-	}
-	if len(result.SectionIDs) != 1 {
-		t.Fatalf("expected one created %s child id, got %#v", name, result.SectionIDs)
-	}
-
-	sectionID := result.SectionIDs[0]
-	section := project.Sections[sectionID]
-	if section.ParentSectionID != "parent" {
-		t.Fatalf("expected created %s parent parent, got %#v", name, section)
-	}
-	if section.Name != expectedName {
-		t.Fatalf("expected created %s name %q, got %q", name, expectedName, section.Name)
-	}
-
-	payload, err := effectiveSectionPayload(*project, sectionID, project.SectionVariantMap[sectionID])
-	if err != nil {
-		t.Fatalf("effective payload for %s: %v", name, err)
-	}
-	_, _, impl, err := project.ResolveSection(sectionID)
-	if err != nil {
-		t.Fatalf("resolve %s section: %v", name, err)
-	}
-	return sectionID, payload, impl
 }
 
 func TestProjectCreateChildSectionsAppliesSettingsBackedTaskBoardDefaults(t *testing.T) {

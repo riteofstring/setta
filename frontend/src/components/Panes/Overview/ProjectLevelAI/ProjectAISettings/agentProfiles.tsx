@@ -71,7 +71,7 @@ import {
   buildAgentProfileDraft,
 } from "./promptTemplates";
 
-type ProjectAISettingsAccordionItem = {
+export type ProjectAISettingsAccordionItem = {
   value: ProjectAISettingsAccordionItemValue;
   title: string;
   description: string;
@@ -90,7 +90,7 @@ export type AgentProfileDraft = {
   memoryScope: string;
 };
 
-type AgentProfileDraftTextKey = Exclude<
+export type AgentProfileDraftTextKey = Exclude<
   keyof AgentProfileDraft,
   "enableBackgroundSummaryFill" | "enableLlmChatTitles"
 >;
@@ -106,10 +106,10 @@ export type PromptTemplateDraft = {
 
 export type PromptFormatValue = (typeof FormatEnum)[keyof typeof FormatEnum];
 
-const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
+export const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180";
 
-const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
+export const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
   "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500";
 
 export function ProjectAISettings() {
@@ -228,7 +228,7 @@ export function ProjectAISettings() {
   );
 }
 
-function ProjectAISettingsAccordion({
+export function ProjectAISettingsAccordion({
   items,
   openValues,
   onOpenValuesChange,
@@ -257,7 +257,7 @@ function ProjectAISettingsAccordion({
   );
 }
 
-function ShareModeNotice() {
+export function ShareModeNotice() {
   return (
     <div className="rounded-md border border-setta-200/70 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-300">
       LLM settings are unavailable in share mode.
@@ -265,7 +265,7 @@ function ShareModeNotice() {
   );
 }
 
-function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
+export function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
   const completionGuardEnabled = useSettings(
     (settings) => settings.backend.completionGuardEnabled,
   );
@@ -339,7 +339,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
+export function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
   const { agentProfiles } = useAIStore(
     (state) => ({ agentProfiles: state.agentProfiles }),
     shallow,

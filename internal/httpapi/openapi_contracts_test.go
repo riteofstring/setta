@@ -106,282 +106,405 @@ func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 }
 
 func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
-	document := buildMigratedRouteOpenAPIDocument(t)
-
-	assertOpenAPIOperationContracts(t, document, migratedRouteOperationContracts())
-	assertBinaryUploadOpenAPIContract(t, document)
-}
-
-type openAPIMethod string
-
-const (
-	openAPIGet  openAPIMethod = "get"
-	openAPIPost openAPIMethod = "post"
-)
-
-type openAPIRequestBodyExpectation int
-
-const (
-	openAPIRequestBodyAny openAPIRequestBodyExpectation = iota
-	openAPIRequestBodyPresent
-	openAPIRequestBodyOmitted
-)
-
-type openAPIParameterContract struct {
-	name     string
-	location string
-	required bool
-}
-
-type openAPIOperationContract struct {
-	route             string
-	method            openAPIMethod
-	operationID       string
-	modeRequirement   string
-	requestBody       openAPIRequestBodyExpectation
-	jsonResponseType  string
-	binaryContentType string
-	parameters        []openAPIParameterContract
-	parameterCount    *int
-}
-
-func buildMigratedRouteOpenAPIDocument(t *testing.T) *huma.OpenAPI {
-	t.Helper()
-
 	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		buildContributedRouteRegistrationsForTest,
 	)
 	if err != nil {
 		t.Fatalf("build frontend http openapi document: %v", err)
 	}
-	return document
-}
 
-func migratedRouteOperationContracts() []openAPIOperationContract {
-	return []openAPIOperationContract{
-		{route: RouteGetSettaHomeInfo, method: openAPIGet, operationID: "getSettaHomeInfo", modeRequirement: "ide"},
-		{route: RouteRevealPathInOSFileExplorer, method: openAPIPost, operationID: "revealPathInOsFileExplorer", modeRequirement: "ide"},
-		{route: RouteSaveSettings, method: openAPIPost, requestBody: openAPIRequestBodyPresent, jsonResponseType: "null"},
-		{route: RouteLoadSettings, method: openAPIPost, requestBody: openAPIRequestBodyOmitted},
-		{route: RouteSetLanguageServerSelection, method: openAPIPost, requestBody: openAPIRequestBodyPresent, jsonResponseType: "null"},
-		{route: RouteLLMConfig, method: openAPIGet, operationID: "getLlmConfig", modeRequirement: "ide"},
-		{route: RouteLLMAPIKeys, method: openAPIGet, operationID: "getLlmApiKeys"},
-		{route: RouteGetEngineConfigs, method: openAPIGet, operationID: "getEngineConfigs"},
-		{route: RouteGetAgentProfiles, method: openAPIGet, modeRequirement: "not-launcher"},
-		{route: RouteGetPromptTemplates, method: openAPIGet, modeRequirement: "not-launcher"},
-		{route: RouteGetExternalAgentHealth, method: openAPIGet, operationID: "getExternalAgentHealth", modeRequirement: "not-launcher"},
-		{route: RouteCreateTranscriptionProfile, method: openAPIPost, operationID: "createTranscriptionProfile", modeRequirement: "ide"},
-		{route: RouteLaunch, method: openAPIPost, operationID: "launchWorkspace"},
-		{route: RouteCreateWorkspaceLaunchIntent, method: openAPIPost, operationID: "createWorkspaceLaunchIntent"},
-		{route: RouteCreateFile, method: openAPIPost, operationID: "createFile", modeRequirement: "ide", jsonResponseType: "null"},
-		{route: RouteGetFileBrowserRoot, method: openAPIPost, operationID: "getFileBrowserRoot", requestBody: openAPIRequestBodyOmitted},
-		{route: RouteGetLatestLSPDiagnostics, method: openAPIPost, operationID: "getLatestLspDiagnostics", modeRequirement: "not-deployment-and-not-launcher"},
-		{route: RouteRestartLanguageServer, method: openAPIPost, operationID: "restartLanguageServer", requestBody: openAPIRequestBodyOmitted},
-		{route: RouteGetFileBrowserDownloadURL, method: openAPIPost, operationID: "getFileBrowserDownloadUrls", modeRequirement: "not-launcher"},
-		{route: RouteFileBrowserDownload, method: openAPIGet, operationID: "downloadFileBrowserEntry", binaryContentType: "application/octet-stream", parameterCount: openAPIIntPtr(1), parameters: []openAPIParameterContract{{name: "token", location: "path", required: true}}},
-		{route: RouteMCPServerRuntimeStatus, method: openAPIPost, modeRequirement: "full-ide"},
-		{route: testContributedProjectRoutePath, method: openAPIGet, operationID: testContributedProjectOperationID},
-		{route: testContributedDeploymentRoutePath, method: openAPIPost, operationID: testContributedDeploymentOperation},
-		{route: RouteGetGitStatus, method: openAPIPost, operationID: "getGitStatus", requestBody: openAPIRequestBodyOmitted},
-		{route: RouteGetListenerCoverage, method: openAPIPost, operationID: "getListenerCoverage", modeRequirement: "not-launcher"},
-		{route: RouteGetAgentRuns, method: openAPIGet, operationID: "getAgentRuns", modeRequirement: "ide"},
-		{route: RouteImportFilesToArtifacts, method: openAPIPost, operationID: "importFilesToArtifacts", modeRequirement: "full-ide"},
-		{route: RouteLoadCachedImageArtifacts, method: openAPIPost, operationID: "loadCachedImageArtifacts", modeRequirement: "not-launcher"},
-		{route: RouteUpdateArtifacts, method: openAPIPost, operationID: "updateArtifacts", modeRequirement: "not-launcher"},
-		{route: RouteRunDetached, method: openAPIPost, operationID: "runDetached", modeRequirement: "not-launcher"},
-		{route: RouteGetRunnerSummary, method: openAPIPost, operationID: "getRunnerSummary", modeRequirement: "ide"},
-		{route: RouteGetStateMachineRun, method: openAPIPost, operationID: "getStateMachineRun", modeRequirement: "not-launcher"},
-		{route: RoutePluginsRuntime, method: openAPIGet, operationID: "getPluginsRuntime"},
-		{route: RoutePluginsRestart, method: openAPIPost, operationID: "restartPlugins", modeRequirement: "ide"},
-		{route: RouteBinaryDownload, method: openAPIGet, operationID: "downloadBinary", modeRequirement: "not-launcher", binaryContentType: "application/octet-stream"},
-		{route: RouteGetAttachmentDownloadURL, method: openAPIPost, operationID: "getAttachmentDownloadUrl", modeRequirement: "not-launcher"},
-		{route: RouteGetAttachmentDownloadURLs, method: openAPIPost, operationID: "getAttachmentDownloadUrls"},
-		{route: RouteAttachmentDownload, method: openAPIGet, operationID: "downloadAttachment", binaryContentType: "application/octet-stream", parameters: []openAPIParameterContract{{name: "token", location: "path", required: true}}},
-		{route: RouteDeleteTerminals, method: openAPIPost, operationID: "deleteTerminals", modeRequirement: "not-launcher", jsonResponseType: "null"},
-		{route: RouteInterruptTerminalProcesses, method: openAPIPost, operationID: "interruptTerminalProcesses"},
-		{route: RouteRunCode, method: openAPIPost, operationID: "runCode", modeRequirement: "not-launcher"},
-		{route: RouteGetLLMResponse, method: openAPIPost, operationID: "getLlmResponse", modeRequirement: "not-launcher", jsonResponseType: "string"},
-		{route: RouteGetAIFollowSnapshot, method: openAPIPost, operationID: "getAIFollowSnapshot", modeRequirement: "not-launcher"},
-		{route: RouteStartTranscriptionSession, method: openAPIPost, operationID: "startTranscriptionSession", requestBody: openAPIRequestBodyPresent},
-		{route: RouteRespondExternalAgentApproval, method: openAPIPost, operationID: "respondExternalAgentApproval", jsonResponseType: "null"},
-		{route: RouteLoadAllProjectMetadata, method: openAPIPost, operationID: "loadAllProjectMetadata", modeRequirement: "ide", requestBody: openAPIRequestBodyOmitted},
-		{route: RouteLoadProjectConfig, method: openAPIPost, operationID: "loadProjectConfig"},
-		{route: RouteGetNotifications, method: openAPIPost, operationID: "getNotifications"},
-		{route: RouteGetLauncherStatus, method: openAPIGet, operationID: "getLauncherStatus", modeRequirement: "ide", parameters: []openAPIParameterContract{{name: "setta_home", location: "query", required: false}}},
-		{route: RouteGetLauncherRecentWorkspaces, method: openAPIGet, operationID: "getLauncherRecentWorkspaces", modeRequirement: "launcher", parameters: []openAPIParameterContract{{name: "setta_home", location: "query", required: false}}},
-		{route: RouteShareDeployments, method: openAPIGet, operationID: "listShareDeployments", modeRequirement: "ide"},
-		{route: RouteShareDeploymentState, method: openAPIGet, operationID: "getShareDeploymentState", modeRequirement: "share", parameterCount: openAPIIntPtr(2)},
+	getSettaHomeInfo := document.Paths[RouteGetSettaHomeInfo].Get
+	if getSettaHomeInfo == nil {
+		t.Fatalf("expected %s get operation", RouteGetSettaHomeInfo)
 	}
-}
-
-func assertOpenAPIOperationContracts(
-	t *testing.T,
-	document *huma.OpenAPI,
-	contracts []openAPIOperationContract,
-) {
-	t.Helper()
-
-	for _, contract := range contracts {
-		operation := requireOpenAPIOperation(t, document, contract.route, contract.method)
-		assertOpenAPIOperationContract(t, operation, contract)
+	if getSettaHomeInfo.OperationID != "getSettaHomeInfo" {
+		t.Fatalf("operation id = %q, want %q", getSettaHomeInfo.OperationID, "getSettaHomeInfo")
 	}
-}
-
-func requireOpenAPIOperation(
-	t *testing.T,
-	document *huma.OpenAPI,
-	route string,
-	method openAPIMethod,
-) *huma.Operation {
-	t.Helper()
-
-	path := document.Paths[route]
-	if path == nil {
-		t.Fatalf("expected %s path", route)
+	if got := getSettaHomeInfo.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("mode requirement = %#v, want %q", got, "ide")
 	}
-	operation := operationForMethod(path, method)
-	if operation == nil {
-		t.Fatalf("expected %s %s operation", route, method)
+
+	revealPathInOSFileExplorer := document.Paths[RouteRevealPathInOSFileExplorer].Post
+	if revealPathInOSFileExplorer == nil {
+		t.Fatalf("expected %s post operation", RouteRevealPathInOSFileExplorer)
 	}
-	return operation
-}
-
-func operationForMethod(path *huma.PathItem, method openAPIMethod) *huma.Operation {
-	switch method {
-	case openAPIGet:
-		return path.Get
-	case openAPIPost:
-		return path.Post
-	default:
-		return nil
+	if revealPathInOSFileExplorer.OperationID != "revealPathInOsFileExplorer" {
+		t.Fatalf(
+			"reveal path operation id = %q, want %q",
+			revealPathInOSFileExplorer.OperationID,
+			"revealPathInOsFileExplorer",
+		)
 	}
-}
-
-func assertOpenAPIOperationContract(
-	t *testing.T,
-	operation *huma.Operation,
-	contract openAPIOperationContract,
-) {
-	t.Helper()
-
-	if contract.operationID != "" && operation.OperationID != contract.operationID {
-		t.Fatalf("%s operation id = %q, want %q", contract.route, operation.OperationID, contract.operationID)
+	if got := revealPathInOSFileExplorer.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("reveal path mode requirement = %#v, want %q", got, "ide")
 	}
-	if contract.modeRequirement != "" {
-		assertOpenAPIModeRequirement(t, operation, contract.route, contract.modeRequirement)
+
+	saveSettings := document.Paths[RouteSaveSettings].Post
+	if saveSettings == nil {
+		t.Fatalf("expected %s post operation", RouteSaveSettings)
 	}
-	assertOpenAPIRequestBody(t, operation, contract.route, contract.requestBody)
-	if contract.jsonResponseType != "" {
-		assertOpenAPIJSONResponseType(t, operation, contract.route, contract.jsonResponseType)
+	if saveSettings.RequestBody == nil {
+		t.Fatalf("expected saveSettings request body to be documented")
 	}
-	if contract.binaryContentType != "" {
-		assertOpenAPIBinaryResponse(t, operation, contract.route, contract.binaryContentType)
+	saveSettingsSchema := saveSettings.Responses["200"].Content["application/json"].Schema
+	if saveSettingsSchema.Type != "null" {
+		t.Fatalf("saveSettings response schema type = %q, want %q", saveSettingsSchema.Type, "null")
 	}
-	if contract.parameterCount != nil && len(operation.Parameters) != *contract.parameterCount {
-		t.Fatalf("%s params = %#v, want %d params", contract.route, operation.Parameters, *contract.parameterCount)
+
+	loadSettings := document.Paths[RouteLoadSettings].Post
+	if loadSettings == nil {
+		t.Fatalf("expected %s post operation", RouteLoadSettings)
 	}
-	for _, parameter := range contract.parameters {
-		assertOpenAPIParameter(t, operation.Parameters, parameter.name, parameter.location, parameter.required)
+	if loadSettings.RequestBody != nil {
+		t.Fatalf("expected loadSettings request body to be omitted, got %#v", loadSettings.RequestBody)
 	}
-}
 
-func assertOpenAPIModeRequirement(
-	t *testing.T,
-	operation *huma.Operation,
-	route string,
-	want string,
-) {
-	t.Helper()
-
-	if got := operation.Extensions["x-setta-mode-requirement"]; got != want {
-		t.Fatalf("%s mode requirement = %#v, want %q", route, got, want)
+	setLanguageServerSelection := document.Paths[RouteSetLanguageServerSelection].Post
+	if setLanguageServerSelection == nil {
+		t.Fatalf("expected %s post operation", RouteSetLanguageServerSelection)
 	}
-}
-
-func assertOpenAPIRequestBody(
-	t *testing.T,
-	operation *huma.Operation,
-	route string,
-	expectation openAPIRequestBodyExpectation,
-) {
-	t.Helper()
-
-	switch expectation {
-	case openAPIRequestBodyAny:
-		return
-	case openAPIRequestBodyPresent:
-		if operation.RequestBody == nil {
-			t.Fatalf("expected %s request body to be documented", route)
-		}
-	case openAPIRequestBodyOmitted:
-		if operation.RequestBody != nil {
-			t.Fatalf("expected %s request body to be omitted, got %#v", route, operation.RequestBody)
-		}
+	if setLanguageServerSelection.RequestBody == nil {
+		t.Fatalf("expected setLanguageServerSelection request body to be documented")
 	}
-}
-
-func assertOpenAPIJSONResponseType(
-	t *testing.T,
-	operation *huma.Operation,
-	route string,
-	wantType string,
-) {
-	t.Helper()
-
-	content := requireOpenAPIResponseContent(t, operation, route, "application/json")
-	if content.Schema == nil || content.Schema.Type != wantType {
-		t.Fatalf("%s response schema = %#v, want json %s", route, content, wantType)
+	setLanguageServerSelectionSchema := setLanguageServerSelection.Responses["200"].Content["application/json"].Schema
+	if setLanguageServerSelectionSchema.Type != "null" {
+		t.Fatalf("setLanguageServerSelection response schema type = %q, want %q", setLanguageServerSelectionSchema.Type, "null")
 	}
-}
 
-func assertOpenAPIBinaryResponse(
-	t *testing.T,
-	operation *huma.Operation,
-	route string,
-	contentType string,
-) {
-	t.Helper()
-
-	content := requireOpenAPIResponseContent(t, operation, route, contentType)
-	if content.Schema == nil || content.Schema.Format != "binary" {
-		t.Fatalf("%s response schema = %#v, want binary %s", route, content.Schema, contentType)
+	getLlmConfig := document.Paths[RouteLLMConfig].Get
+	if getLlmConfig == nil {
+		t.Fatalf("expected %s get operation", RouteLLMConfig)
 	}
-}
-
-func requireOpenAPIResponseContent(
-	t *testing.T,
-	operation *huma.Operation,
-	route string,
-	contentType string,
-) *huma.MediaType {
-	t.Helper()
-
-	response := operation.Responses["200"]
-	if response == nil {
-		t.Fatalf("expected %s success response", route)
+	if getLlmConfig.OperationID != "getLlmConfig" {
+		t.Fatalf("llm config operation id = %q, want %q", getLlmConfig.OperationID, "getLlmConfig")
 	}
-	content := response.Content[contentType]
-	if content == nil {
-		t.Fatalf("expected %s response content %s, got %#v", route, contentType, response.Content)
+	if got := getLlmConfig.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("llm config mode requirement = %#v, want %q", got, "ide")
 	}
-	return content
-}
 
-func assertBinaryUploadOpenAPIContract(t *testing.T, document *huma.OpenAPI) {
-	t.Helper()
+	getLlmAPIKeys := document.Paths[RouteLLMAPIKeys].Get
+	if getLlmAPIKeys == nil {
+		t.Fatalf("expected %s get operation", RouteLLMAPIKeys)
+	}
+	if getLlmAPIKeys.OperationID != "getLlmApiKeys" {
+		t.Fatalf("llm api keys operation id = %q, want %q", getLlmAPIKeys.OperationID, "getLlmApiKeys")
+	}
 
-	binaryUpload := requireOpenAPIOperation(t, document, RouteBinaryUpload, openAPIPost)
+	getEngineConfigs := document.Paths[RouteGetEngineConfigs].Get
+	if getEngineConfigs == nil {
+		t.Fatalf("expected %s get operation", RouteGetEngineConfigs)
+	}
+	if getEngineConfigs.OperationID != "getEngineConfigs" {
+		t.Fatalf("engine configs operation id = %q, want %q", getEngineConfigs.OperationID, "getEngineConfigs")
+	}
+
+	getAgentProfiles := document.Paths[RouteGetAgentProfiles].Get
+	if getAgentProfiles == nil {
+		t.Fatalf("expected %s get operation", RouteGetAgentProfiles)
+	}
+	if got := getAgentProfiles.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("agent profiles mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getPromptTemplates := document.Paths[RouteGetPromptTemplates].Get
+	if getPromptTemplates == nil {
+		t.Fatalf("expected %s get operation", RouteGetPromptTemplates)
+	}
+	if got := getPromptTemplates.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("prompt templates mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getExternalAgentHealth := document.Paths[RouteGetExternalAgentHealth].Get
+	if getExternalAgentHealth == nil {
+		t.Fatalf("expected %s get operation", RouteGetExternalAgentHealth)
+	}
+	if getExternalAgentHealth.OperationID != "getExternalAgentHealth" {
+		t.Fatalf("external agent health operation id = %q, want %q", getExternalAgentHealth.OperationID, "getExternalAgentHealth")
+	}
+	if got := getExternalAgentHealth.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("external agent health mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	createTranscriptionProfile := document.Paths[RouteCreateTranscriptionProfile].Post
+	if createTranscriptionProfile == nil {
+		t.Fatalf("expected %s post operation", RouteCreateTranscriptionProfile)
+	}
+	if createTranscriptionProfile.OperationID != "createTranscriptionProfile" {
+		t.Fatalf("transcription profile create operation id = %q, want %q", createTranscriptionProfile.OperationID, "createTranscriptionProfile")
+	}
+	if got := createTranscriptionProfile.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("transcription profile create mode requirement = %#v, want %q", got, "ide")
+	}
+
+	workspaceLaunch := document.Paths[RouteLaunch].Post
+	if workspaceLaunch == nil {
+		t.Fatalf("expected %s post operation", RouteLaunch)
+	}
+	if workspaceLaunch.OperationID != "launchWorkspace" {
+		t.Fatalf("workspace launch operation id = %q, want %q", workspaceLaunch.OperationID, "launchWorkspace")
+	}
+
+	createWorkspaceLaunchIntent := document.Paths[RouteCreateWorkspaceLaunchIntent].Post
+	if createWorkspaceLaunchIntent == nil {
+		t.Fatalf("expected %s post operation", RouteCreateWorkspaceLaunchIntent)
+	}
+	if createWorkspaceLaunchIntent.OperationID != "createWorkspaceLaunchIntent" {
+		t.Fatalf(
+			"workspace launch intent operation id = %q, want %q",
+			createWorkspaceLaunchIntent.OperationID,
+			"createWorkspaceLaunchIntent",
+		)
+	}
+
+	createFile := document.Paths[RouteCreateFile].Post
+	if createFile == nil {
+		t.Fatalf("expected %s post operation", RouteCreateFile)
+	}
+	if createFile.OperationID != "createFile" {
+		t.Fatalf("create file operation id = %q, want %q", createFile.OperationID, "createFile")
+	}
+	if got := createFile.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("create file mode requirement = %#v, want %q", got, "ide")
+	}
+	createFileResponse := createFile.Responses["200"]
+	if createFileResponse == nil {
+		t.Fatalf("expected createFile success response")
+	}
+	createFileJSON := createFileResponse.Content["application/json"]
+	if createFileJSON == nil || createFileJSON.Schema == nil || createFileJSON.Schema.Type != "null" {
+		t.Fatalf("createFile response schema = %#v, want json null", createFileJSON)
+	}
+
+	getFileBrowserRoot := document.Paths[RouteGetFileBrowserRoot].Post
+	if getFileBrowserRoot == nil {
+		t.Fatalf("expected %s post operation", RouteGetFileBrowserRoot)
+	}
+	if getFileBrowserRoot.OperationID != "getFileBrowserRoot" {
+		t.Fatalf("file browser root operation id = %q, want %q", getFileBrowserRoot.OperationID, "getFileBrowserRoot")
+	}
+	if getFileBrowserRoot.RequestBody != nil {
+		t.Fatalf("expected getFileBrowserRoot request body to be omitted, got %#v", getFileBrowserRoot.RequestBody)
+	}
+
+	getLatestLspDiagnostics := document.Paths[RouteGetLatestLSPDiagnostics].Post
+	if getLatestLspDiagnostics == nil {
+		t.Fatalf("expected %s post operation", RouteGetLatestLSPDiagnostics)
+	}
+	if getLatestLspDiagnostics.OperationID != "getLatestLspDiagnostics" {
+		t.Fatalf("lsp diagnostics operation id = %q, want %q", getLatestLspDiagnostics.OperationID, "getLatestLspDiagnostics")
+	}
+	if got := getLatestLspDiagnostics.Extensions["x-setta-mode-requirement"]; got != "not-deployment-and-not-launcher" {
+		t.Fatalf("lsp diagnostics mode requirement = %#v, want %q", got, "not-deployment-and-not-launcher")
+	}
+
+	restartLanguageServer := document.Paths[RouteRestartLanguageServer].Post
+	if restartLanguageServer == nil {
+		t.Fatalf("expected %s post operation", RouteRestartLanguageServer)
+	}
+	if restartLanguageServer.OperationID != "restartLanguageServer" {
+		t.Fatalf("restart language server operation id = %q, want %q", restartLanguageServer.OperationID, "restartLanguageServer")
+	}
+	if restartLanguageServer.RequestBody != nil {
+		t.Fatalf("expected restartLanguageServer request body to be omitted, got %#v", restartLanguageServer.RequestBody)
+	}
+
+	getFileBrowserDownloadURLs := document.Paths[RouteGetFileBrowserDownloadURL].Post
+	if getFileBrowserDownloadURLs == nil {
+		t.Fatalf("expected %s post operation", RouteGetFileBrowserDownloadURL)
+	}
+	if getFileBrowserDownloadURLs.OperationID != "getFileBrowserDownloadUrls" {
+		t.Fatalf("download url operation id = %q, want %q", getFileBrowserDownloadURLs.OperationID, "getFileBrowserDownloadUrls")
+	}
+	if got := getFileBrowserDownloadURLs.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("download url mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	fileBrowserDownload := document.Paths[RouteFileBrowserDownload].Get
+	if fileBrowserDownload == nil {
+		t.Fatalf("expected %s get operation", RouteFileBrowserDownload)
+	}
+	if fileBrowserDownload.OperationID != "downloadFileBrowserEntry" {
+		t.Fatalf("file browser download operation id = %q, want %q", fileBrowserDownload.OperationID, "downloadFileBrowserEntry")
+	}
+	if len(fileBrowserDownload.Parameters) != 1 || fileBrowserDownload.Parameters[0].Name != "token" {
+		t.Fatalf("file browser download params = %#v, want token path param", fileBrowserDownload.Parameters)
+	}
+	fileBrowserDownloadResponse := fileBrowserDownload.Responses["200"]
+	if fileBrowserDownloadResponse == nil {
+		t.Fatalf("expected file browser download success response")
+	}
+	fileBrowserDownloadContent := fileBrowserDownloadResponse.Content["application/octet-stream"]
+	if fileBrowserDownloadContent == nil || fileBrowserDownloadContent.Schema == nil || fileBrowserDownloadContent.Schema.Format != "binary" {
+		t.Fatalf("file browser download response schema = %#v, want binary octet-stream", fileBrowserDownloadContent)
+	}
+
+	mcpStatus := document.Paths[RouteMCPServerRuntimeStatus].Post
+	if mcpStatus == nil {
+		t.Fatalf("expected %s post operation", RouteMCPServerRuntimeStatus)
+	}
+	if got := mcpStatus.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
+		t.Fatalf("mcp mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	contributedProject := document.Paths[testContributedProjectRoutePath].Get
+	if contributedProject == nil {
+		t.Fatalf("expected %s get operation", testContributedProjectRoutePath)
+	}
+	if contributedProject.OperationID != testContributedProjectOperationID {
+		t.Fatalf(
+			"contributed project operation id = %q, want %q",
+			contributedProject.OperationID,
+			testContributedProjectOperationID,
+		)
+	}
+
+	contributedDeployment := document.Paths[testContributedDeploymentRoutePath].Post
+	if contributedDeployment == nil {
+		t.Fatalf("expected %s post operation", testContributedDeploymentRoutePath)
+	}
+	if contributedDeployment.OperationID != testContributedDeploymentOperation {
+		t.Fatalf(
+			"contributed deployment operation id = %q, want %q",
+			contributedDeployment.OperationID,
+			testContributedDeploymentOperation,
+		)
+	}
+
+	getGitStatus := document.Paths[RouteGetGitStatus].Post
+	if getGitStatus == nil {
+		t.Fatalf("expected %s post operation", RouteGetGitStatus)
+	}
+	if getGitStatus.OperationID != "getGitStatus" {
+		t.Fatalf("get git status operation id = %q, want %q", getGitStatus.OperationID, "getGitStatus")
+	}
+	if getGitStatus.RequestBody != nil {
+		t.Fatalf("expected getGitStatus request body to be omitted, got %#v", getGitStatus.RequestBody)
+	}
+
+	getListenerCoverage := document.Paths[RouteGetListenerCoverage].Post
+	if getListenerCoverage == nil {
+		t.Fatalf("expected %s post operation", RouteGetListenerCoverage)
+	}
+	if getListenerCoverage.OperationID != "getListenerCoverage" {
+		t.Fatalf("get listener coverage operation id = %q, want %q", getListenerCoverage.OperationID, "getListenerCoverage")
+	}
+	if got := getListenerCoverage.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get listener coverage mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAgentRuns := document.Paths[RouteGetAgentRuns].Get
+	if getAgentRuns == nil {
+		t.Fatalf("expected %s get operation", RouteGetAgentRuns)
+	}
+	if getAgentRuns.OperationID != "getAgentRuns" {
+		t.Fatalf("get agent runs operation id = %q, want %q", getAgentRuns.OperationID, "getAgentRuns")
+	}
+	if got := getAgentRuns.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("get agent runs mode requirement = %#v, want %q", got, "ide")
+	}
+
+	importFilesToArtifacts := document.Paths[RouteImportFilesToArtifacts].Post
+	if importFilesToArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteImportFilesToArtifacts)
+	}
+	if importFilesToArtifacts.OperationID != "importFilesToArtifacts" {
+		t.Fatalf("import files to artifacts operation id = %q, want %q", importFilesToArtifacts.OperationID, "importFilesToArtifacts")
+	}
+	if got := importFilesToArtifacts.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
+		t.Fatalf("import files to artifacts mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	loadCachedImageArtifacts := document.Paths[RouteLoadCachedImageArtifacts].Post
+	if loadCachedImageArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteLoadCachedImageArtifacts)
+	}
+	if loadCachedImageArtifacts.OperationID != "loadCachedImageArtifacts" {
+		t.Fatalf("load cached image artifacts operation id = %q, want %q", loadCachedImageArtifacts.OperationID, "loadCachedImageArtifacts")
+	}
+	if got := loadCachedImageArtifacts.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("load cached image artifacts mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	updateArtifacts := document.Paths[RouteUpdateArtifacts].Post
+	if updateArtifacts == nil {
+		t.Fatalf("expected %s post operation", RouteUpdateArtifacts)
+	}
+	if updateArtifacts.OperationID != "updateArtifacts" {
+		t.Fatalf("update artifacts operation id = %q, want %q", updateArtifacts.OperationID, "updateArtifacts")
+	}
+	if got := updateArtifacts.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("update artifacts mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	runDetached := document.Paths[RouteRunDetached].Post
+	if runDetached == nil {
+		t.Fatalf("expected %s post operation", RouteRunDetached)
+	}
+	if runDetached.OperationID != "runDetached" {
+		t.Fatalf("run detached operation id = %q, want %q", runDetached.OperationID, "runDetached")
+	}
+	if got := runDetached.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("run detached mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getRunnerSummary := document.Paths[RouteGetRunnerSummary].Post
+	if getRunnerSummary == nil {
+		t.Fatalf("expected %s post operation", RouteGetRunnerSummary)
+	}
+	if getRunnerSummary.OperationID != "getRunnerSummary" {
+		t.Fatalf("get runner summary operation id = %q, want %q", getRunnerSummary.OperationID, "getRunnerSummary")
+	}
+	if got := getRunnerSummary.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("get runner summary mode requirement = %#v, want %q", got, "ide")
+	}
+
+	getStateMachineRun := document.Paths[RouteGetStateMachineRun].Post
+	if getStateMachineRun == nil {
+		t.Fatalf("expected %s post operation", RouteGetStateMachineRun)
+	}
+	if getStateMachineRun.OperationID != "getStateMachineRun" {
+		t.Fatalf("get state machine run operation id = %q, want %q", getStateMachineRun.OperationID, "getStateMachineRun")
+	}
+	if got := getStateMachineRun.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get state machine run mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	pluginsRuntime := document.Paths[RoutePluginsRuntime].Get
+	if pluginsRuntime == nil {
+		t.Fatalf("expected %s get operation", RoutePluginsRuntime)
+	}
+	if pluginsRuntime.OperationID != "getPluginsRuntime" {
+		t.Fatalf("plugins runtime operation id = %q, want %q", pluginsRuntime.OperationID, "getPluginsRuntime")
+	}
+
+	pluginsRestart := document.Paths[RoutePluginsRestart].Post
+	if pluginsRestart == nil {
+		t.Fatalf("expected %s post operation", RoutePluginsRestart)
+	}
+	if pluginsRestart.OperationID != "restartPlugins" {
+		t.Fatalf("plugins restart operation id = %q, want %q", pluginsRestart.OperationID, "restartPlugins")
+	}
+	if got := pluginsRestart.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("plugins restart mode requirement = %#v, want %q", got, "ide")
+	}
+
+	binaryUpload := document.Paths[RouteBinaryUpload].Post
+	if binaryUpload == nil {
+		t.Fatalf("expected %s post operation", RouteBinaryUpload)
+	}
 	if binaryUpload.OperationID != "uploadBinary" {
 		t.Fatalf("binary upload operation id = %q, want %q", binaryUpload.OperationID, "uploadBinary")
 	}
-	assertOpenAPIModeRequirement(t, binaryUpload, RouteBinaryUpload, "full-ide")
 	uploadBody := binaryUpload.RequestBody
 	if uploadBody == nil {
 		t.Fatalf("expected binary upload request body to be documented")
 	}
 	uploadContent := uploadBody.Content["multipart/form-data"]
-	if uploadContent == nil || uploadContent.Schema == nil {
-		t.Fatalf("expected binary upload multipart schema, got %#v", uploadBody.Content)
+	if uploadContent == nil {
+		t.Fatalf("expected binary upload multipart request content, got %#v", uploadBody.Content)
+	}
+	if uploadContent.Schema == nil {
+		t.Fatalf("expected binary upload schema, got %#v", uploadContent.Schema)
 	}
 	uploadSchema := uploadContent.Schema
 	if uploadSchema.Ref != "#/components/schemas/HttpapiBinaryUploadFormRequest" {
@@ -394,10 +517,230 @@ func assertBinaryUploadOpenAPIContract(t *testing.T, document *huma.OpenAPI) {
 	if got := uploadSchema.Properties["file"].Format; got != "binary" {
 		t.Fatalf("binary upload file schema format = %q, want %q", got, "binary")
 	}
-}
+	if got := binaryUpload.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
+		t.Fatalf("binary upload mode requirement = %#v, want %q", got, "full-ide")
+	}
 
-func openAPIIntPtr(value int) *int {
-	return &value
+	binaryDownload := document.Paths[RouteBinaryDownload].Get
+	if binaryDownload == nil {
+		t.Fatalf("expected %s get operation", RouteBinaryDownload)
+	}
+	if binaryDownload.OperationID != "downloadBinary" {
+		t.Fatalf("binary download operation id = %q, want %q", binaryDownload.OperationID, "downloadBinary")
+	}
+	downloadResponse := binaryDownload.Responses["200"]
+	if downloadResponse == nil {
+		t.Fatalf("expected binary download success response")
+	}
+	downloadContent := downloadResponse.Content["application/octet-stream"]
+	if downloadContent == nil {
+		t.Fatalf("expected binary download octet-stream response content, got %#v", downloadResponse.Content)
+	}
+	if downloadContent.Schema == nil || downloadContent.Schema.Format != "binary" {
+		t.Fatalf("binary download response schema = %#v, want binary format", downloadContent.Schema)
+	}
+	if got := binaryDownload.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("binary download mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAttachmentDownloadURL := document.Paths[RouteGetAttachmentDownloadURL].Post
+	if getAttachmentDownloadURL == nil {
+		t.Fatalf("expected %s post operation", RouteGetAttachmentDownloadURL)
+	}
+	if getAttachmentDownloadURL.OperationID != "getAttachmentDownloadUrl" {
+		t.Fatalf("attachment download url operation id = %q, want %q", getAttachmentDownloadURL.OperationID, "getAttachmentDownloadUrl")
+	}
+	if got := getAttachmentDownloadURL.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("attachment download url mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAttachmentDownloadURLs := document.Paths[RouteGetAttachmentDownloadURLs].Post
+	if getAttachmentDownloadURLs == nil {
+		t.Fatalf("expected %s post operation", RouteGetAttachmentDownloadURLs)
+	}
+	if getAttachmentDownloadURLs.OperationID != "getAttachmentDownloadUrls" {
+		t.Fatalf("attachment download urls operation id = %q, want %q", getAttachmentDownloadURLs.OperationID, "getAttachmentDownloadUrls")
+	}
+
+	attachmentDownload := document.Paths[RouteAttachmentDownload].Get
+	if attachmentDownload == nil {
+		t.Fatalf("expected %s get operation", RouteAttachmentDownload)
+	}
+	if attachmentDownload.OperationID != "downloadAttachment" {
+		t.Fatalf("attachment download operation id = %q, want %q", attachmentDownload.OperationID, "downloadAttachment")
+	}
+	assertOpenAPIParameter(t, attachmentDownload.Parameters, "token", "path", true)
+	attachmentDownloadResponse := attachmentDownload.Responses["200"]
+	if attachmentDownloadResponse == nil {
+		t.Fatalf("expected attachment download success response")
+	}
+	attachmentDownloadContent := attachmentDownloadResponse.Content["application/octet-stream"]
+	if attachmentDownloadContent == nil || attachmentDownloadContent.Schema == nil || attachmentDownloadContent.Schema.Format != "binary" {
+		t.Fatalf("attachment download response schema = %#v, want binary octet-stream", attachmentDownloadContent)
+	}
+
+	deleteTerminals := document.Paths[RouteDeleteTerminals].Post
+	if deleteTerminals == nil {
+		t.Fatalf("expected %s post operation", RouteDeleteTerminals)
+	}
+	if deleteTerminals.OperationID != "deleteTerminals" {
+		t.Fatalf("delete terminals operation id = %q, want %q", deleteTerminals.OperationID, "deleteTerminals")
+	}
+	if got := deleteTerminals.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("delete terminals mode requirement = %#v, want %q", got, "not-launcher")
+	}
+	deleteTerminalsJSON := deleteTerminals.Responses["200"].Content["application/json"]
+	if deleteTerminalsJSON == nil || deleteTerminalsJSON.Schema == nil || deleteTerminalsJSON.Schema.Type != "null" {
+		t.Fatalf("delete terminals response schema = %#v, want json null", deleteTerminalsJSON)
+	}
+
+	interruptTerminalProcesses := document.Paths[RouteInterruptTerminalProcesses].Post
+	if interruptTerminalProcesses == nil {
+		t.Fatalf("expected %s post operation", RouteInterruptTerminalProcesses)
+	}
+	if interruptTerminalProcesses.OperationID != "interruptTerminalProcesses" {
+		t.Fatalf("interrupt terminal processes operation id = %q, want %q", interruptTerminalProcesses.OperationID, "interruptTerminalProcesses")
+	}
+
+	runCode := document.Paths[RouteRunCode].Post
+	if runCode == nil {
+		t.Fatalf("expected %s post operation", RouteRunCode)
+	}
+	if runCode.OperationID != "runCode" {
+		t.Fatalf("run code operation id = %q, want %q", runCode.OperationID, "runCode")
+	}
+	if got := runCode.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("run code mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getLlmResponse := document.Paths[RouteGetLLMResponse].Post
+	if getLlmResponse == nil {
+		t.Fatalf("expected %s post operation", RouteGetLLMResponse)
+	}
+	if getLlmResponse.OperationID != "getLlmResponse" {
+		t.Fatalf("get llm response operation id = %q, want %q", getLlmResponse.OperationID, "getLlmResponse")
+	}
+	if got := getLlmResponse.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get llm response mode requirement = %#v, want %q", got, "not-launcher")
+	}
+	getLlmResponseJSON := getLlmResponse.Responses["200"].Content["application/json"]
+	if getLlmResponseJSON == nil || getLlmResponseJSON.Schema == nil || getLlmResponseJSON.Schema.Type != "string" {
+		t.Fatalf("get llm response schema = %#v, want json string", getLlmResponseJSON)
+	}
+
+	getAIFollowSnapshot := document.Paths[RouteGetAIFollowSnapshot].Post
+	if getAIFollowSnapshot == nil {
+		t.Fatalf("expected %s post operation", RouteGetAIFollowSnapshot)
+	}
+	if getAIFollowSnapshot.OperationID != "getAIFollowSnapshot" {
+		t.Fatalf("ai follow snapshot operation id = %q, want %q", getAIFollowSnapshot.OperationID, "getAIFollowSnapshot")
+	}
+	if got := getAIFollowSnapshot.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("ai follow snapshot mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	startTranscriptionSession := document.Paths[RouteStartTranscriptionSession].Post
+	if startTranscriptionSession == nil {
+		t.Fatalf("expected %s post operation", RouteStartTranscriptionSession)
+	}
+	if startTranscriptionSession.OperationID != "startTranscriptionSession" {
+		t.Fatalf("start transcription session operation id = %q, want %q", startTranscriptionSession.OperationID, "startTranscriptionSession")
+	}
+	if startTranscriptionSession.RequestBody == nil {
+		t.Fatalf("expected startTranscriptionSession request body to be documented")
+	}
+
+	respondExternalAgentApproval := document.Paths[RouteRespondExternalAgentApproval].Post
+	if respondExternalAgentApproval == nil {
+		t.Fatalf("expected %s post operation", RouteRespondExternalAgentApproval)
+	}
+	if respondExternalAgentApproval.OperationID != "respondExternalAgentApproval" {
+		t.Fatalf("respond external agent approval operation id = %q, want %q", respondExternalAgentApproval.OperationID, "respondExternalAgentApproval")
+	}
+	respondExternalAgentApprovalJSON := respondExternalAgentApproval.Responses["200"].Content["application/json"]
+	if respondExternalAgentApprovalJSON == nil || respondExternalAgentApprovalJSON.Schema == nil || respondExternalAgentApprovalJSON.Schema.Type != "null" {
+		t.Fatalf("respond external agent approval schema = %#v, want json null", respondExternalAgentApprovalJSON)
+	}
+
+	loadAllProjectMetadata := document.Paths[RouteLoadAllProjectMetadata].Post
+	if loadAllProjectMetadata == nil {
+		t.Fatalf("expected %s post operation", RouteLoadAllProjectMetadata)
+	}
+	if loadAllProjectMetadata.OperationID != "loadAllProjectMetadata" {
+		t.Fatalf("loadAllProjectMetadata operation id = %q, want %q", loadAllProjectMetadata.OperationID, "loadAllProjectMetadata")
+	}
+	if loadAllProjectMetadata.RequestBody != nil {
+		t.Fatalf("expected loadAllProjectMetadata request body to be omitted, got %#v", loadAllProjectMetadata.RequestBody)
+	}
+	if got := loadAllProjectMetadata.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("loadAllProjectMetadata mode requirement = %#v, want %q", got, "ide")
+	}
+
+	loadProjectConfig := document.Paths[RouteLoadProjectConfig].Post
+	if loadProjectConfig == nil {
+		t.Fatalf("expected %s post operation", RouteLoadProjectConfig)
+	}
+	if loadProjectConfig.OperationID != "loadProjectConfig" {
+		t.Fatalf("loadProjectConfig operation id = %q, want %q", loadProjectConfig.OperationID, "loadProjectConfig")
+	}
+
+	getNotifications := document.Paths[RouteGetNotifications].Post
+	if getNotifications == nil {
+		t.Fatalf("expected %s post operation", RouteGetNotifications)
+	}
+	if getNotifications.OperationID != "getNotifications" {
+		t.Fatalf("getNotifications operation id = %q, want %q", getNotifications.OperationID, "getNotifications")
+	}
+
+	getLauncherStatus := document.Paths[RouteGetLauncherStatus].Get
+	if getLauncherStatus == nil {
+		t.Fatalf("expected %s get operation", RouteGetLauncherStatus)
+	}
+	if getLauncherStatus.OperationID != "getLauncherStatus" {
+		t.Fatalf("launcher status operation id = %q, want %q", getLauncherStatus.OperationID, "getLauncherStatus")
+	}
+	if got := getLauncherStatus.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("launcher status mode requirement = %#v, want %q", got, "ide")
+	}
+	assertOpenAPIParameter(t, getLauncherStatus.Parameters, "setta_home", "query", false)
+
+	getLauncherRecentWorkspaces := document.Paths[RouteGetLauncherRecentWorkspaces].Get
+	if getLauncherRecentWorkspaces == nil {
+		t.Fatalf("expected %s get operation", RouteGetLauncherRecentWorkspaces)
+	}
+	if getLauncherRecentWorkspaces.OperationID != "getLauncherRecentWorkspaces" {
+		t.Fatalf("launcher recent workspaces operation id = %q, want %q", getLauncherRecentWorkspaces.OperationID, "getLauncherRecentWorkspaces")
+	}
+	if got := getLauncherRecentWorkspaces.Extensions["x-setta-mode-requirement"]; got != "launcher" {
+		t.Fatalf("launcher recent workspaces mode requirement = %#v, want %q", got, "launcher")
+	}
+	assertOpenAPIParameter(t, getLauncherRecentWorkspaces.Parameters, "setta_home", "query", false)
+
+	listShareDeployments := document.Paths[RouteShareDeployments].Get
+	if listShareDeployments == nil {
+		t.Fatalf("expected %s get operation", RouteShareDeployments)
+	}
+	if listShareDeployments.OperationID != "listShareDeployments" {
+		t.Fatalf("share deployments operation id = %q, want %q", listShareDeployments.OperationID, "listShareDeployments")
+	}
+	if got := listShareDeployments.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("share deployments mode requirement = %#v, want %q", got, "ide")
+	}
+
+	getShareDeploymentState := document.Paths[RouteShareDeploymentState].Get
+	if getShareDeploymentState == nil {
+		t.Fatalf("expected %s get operation", RouteShareDeploymentState)
+	}
+	if getShareDeploymentState.OperationID != "getShareDeploymentState" {
+		t.Fatalf("share deployment state operation id = %q, want %q", getShareDeploymentState.OperationID, "getShareDeploymentState")
+	}
+	if got := getShareDeploymentState.Extensions["x-setta-mode-requirement"]; got != "share" {
+		t.Fatalf("share deployment state mode requirement = %#v, want %q", got, "share")
+	}
+	if len(getShareDeploymentState.Parameters) != 2 {
+		t.Fatalf("share deployment state params = %#v, want deploymentName/version path params", getShareDeploymentState.Parameters)
+	}
+
 }
 
 func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {

@@ -32,60 +32,66 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFronte
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
-	post := newProjectRoutePost(handler)
+
+	layoutRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowingState,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"windowing-layout-op","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before","title":"Project AI"},"project-chat-window-2":{"instanceId":"project-chat-window-2","placement":"floating","mode":"section_mode","sectionIdOrNull":"section-a","title":"Section A"}},"order":["project-chat-window-2","project-chat-window-1"],"nextInstanceNumber":3}}`),
+	)
+	layoutRequest.Header.Set("Content-Type", "application/json")
+	layoutResponse := httptest.NewRecorder()
+	handler.ServeHTTP(layoutResponse, layoutRequest)
+	if layoutResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 layout response, got %d with body %q", layoutResponse.Code, layoutResponse.Body.String())
+	}
 
 	var layoutPayload projectstate.ProjectChatWindowingState
-	postProjectChatWindowingRoute(t, post, RouteSetProjectChatWindowingState, `{"projectConfigId":"project-alpha","frontendOpId":"windowing-layout-op","state":{"instancesById":{"project-chat-window-1":{"instanceId":"project-chat-window-1","placement":"floating","mode":"project_ai_mode","chatId":"chat-before","title":"Project AI"},"project-chat-window-2":{"instanceId":"project-chat-window-2","placement":"floating","mode":"section_mode","sectionIdOrNull":"section-a","title":"Section A"}},"order":["project-chat-window-2","project-chat-window-1"],"nextInstanceNumber":3}}`, "layout", &layoutPayload)
-	assertProjectChatWindowingLayoutPayload(t, layoutPayload)
+	if err := json.Unmarshal(layoutResponse.Body.Bytes(), &layoutPayload); err != nil {
+		t.Fatalf("decode layout response: %v", err)
+	}
+	if !reflect.DeepEqual(layoutPayload.Order, []string{"project-chat-window-2", "project-chat-window-1"}) {
+		t.Fatalf("expected layout order [project-chat-window-2 project-chat-window-1], got %#v", layoutPayload.Order)
+	}
+	if layoutPayload.InstancesByID["project-chat-window-2"].Title != nil {
+		t.Fatalf("expected section-bound project chat title to normalize away, got %#v", layoutPayload.InstancesByID["project-chat-window-2"].Title)
+	}
+
+	chatIDRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetProjectChatWindowChatID,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"windowing-chat-op","instanceId":"project-chat-window-1","chatId":"chat-after"}`),
+	)
+	chatIDRequest.Header.Set("Content-Type", "application/json")
+	chatIDResponse := httptest.NewRecorder()
+	handler.ServeHTTP(chatIDResponse, chatIDRequest)
+	if chatIDResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 chat-id response, got %d with body %q", chatIDResponse.Code, chatIDResponse.Body.String())
+	}
 
 	var chatIDPayload projectstate.ProjectChatWindowingState
-	postProjectChatWindowingRoute(t, post, RouteSetProjectChatWindowChatID, `{"projectConfigId":"project-alpha","frontendOpId":"windowing-chat-op","instanceId":"project-chat-window-1","chatId":"chat-after"}`, "chat-id", &chatIDPayload)
-	assertProjectChatWindowingChatID(t, chatIDPayload, "project-chat-window-1", "chat-after")
-
-	createdWindowSpace := createProjectChatWindowingWindowSpace(t, post)
-
-	assertProjectRoutePostOK(t, post, RouteSetWindowSpaceName, `{"projectConfigId":"project-alpha","frontendOpId":"window-space-rename-op","windowSpaceId":"`+createdWindowSpace.ID+`","name":"Renamed Layout"}`)
-	assertProjectRoutePostOK(t, post, RouteSetWindowSpaceSortOrder, `{"projectConfigId":"project-alpha","frontendOpId":"window-space-sort-op","orderedWindowSpaceIds":["`+createdWindowSpace.ID+`","space-a"]}`)
-	assertProjectRoutePostOK(t, post, RouteDeleteWindowSpace, `{"projectConfigId":"project-alpha","frontendOpId":"window-space-delete-op","windowSpaceId":"space-a"}`)
-
-	latestPayload := latestProjectRoutePayload(t, post)
-	assertProjectChatWindowingCompletedOps(t, latestPayload)
-	assertProjectChatWindowingLatestState(t, latestPayload, createdWindowSpace.ID)
-}
-
-func postProjectChatWindowingRoute(t *testing.T, post projectRoutePostFunc, route string, body string, label string, payload any) {
-	t.Helper()
-
-	response := assertProjectRoutePostOK(t, post, route, body)
-	if err := json.Unmarshal(response.Body.Bytes(), payload); err != nil {
-		t.Fatalf("decode %s response: %v", label, err)
+	if err := json.Unmarshal(chatIDResponse.Body.Bytes(), &chatIDPayload); err != nil {
+		t.Fatalf("decode chat-id response: %v", err)
 	}
-}
-
-func assertProjectChatWindowingLayoutPayload(t *testing.T, payload projectstate.ProjectChatWindowingState) {
-	t.Helper()
-
-	if !reflect.DeepEqual(payload.Order, []string{"project-chat-window-2", "project-chat-window-1"}) {
-		t.Fatalf("expected layout order [project-chat-window-2 project-chat-window-1], got %#v", payload.Order)
+	if chatIDPayload.InstancesByID["project-chat-window-1"].ChatID == nil || *chatIDPayload.InstancesByID["project-chat-window-1"].ChatID != "chat-after" {
+		t.Fatalf("expected chat-after binding, got %#v", chatIDPayload.InstancesByID["project-chat-window-1"].ChatID)
 	}
-	if payload.InstancesByID["project-chat-window-2"].Title != nil {
-		t.Fatalf("expected section-bound project chat title to normalize away, got %#v", payload.InstancesByID["project-chat-window-2"].Title)
+
+	createRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateWindowSpace,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"window-space-create-op","name":"Focused Layout","state":{"windowsById":{"project-chat-window-2":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"section_mode","normalizedBounds":{"x":0,"y":0,"width":1,"height":1}}},"order":["project-chat-window-2"]}}`),
+	)
+	createRequest.Header.Set("Content-Type", "application/json")
+	createResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 create response, got %d with body %q", createResponse.Code, createResponse.Body.String())
 	}
-}
-
-func assertProjectChatWindowingChatID(t *testing.T, payload projectstate.ProjectChatWindowingState, instanceID string, chatID string) {
-	t.Helper()
-
-	if payload.InstancesByID[instanceID].ChatID == nil || *payload.InstancesByID[instanceID].ChatID != chatID {
-		t.Fatalf("expected %s binding, got %#v", chatID, payload.InstancesByID[instanceID].ChatID)
-	}
-}
-
-func createProjectChatWindowingWindowSpace(t *testing.T, post projectRoutePostFunc) projectstate.WindowSpaceConfig {
-	t.Helper()
 
 	var createPayload WindowSpaceMutationResponse
-	postProjectChatWindowingRoute(t, post, RouteCreateWindowSpace, `{"projectConfigId":"project-alpha","frontendOpId":"window-space-create-op","name":"Focused Layout","state":{"windowsById":{"project-chat-window-2":{"surfaceKind":"section","sectionIdOrNull":"section-a","mode":"section_mode","normalizedBounds":{"x":0,"y":0,"width":1,"height":1}}},"order":["project-chat-window-2"]}}`, "create window space", &createPayload)
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createPayload); err != nil {
+		t.Fatalf("decode create window space response: %v", err)
+	}
 	if createPayload.WindowSpaceID == nil || *createPayload.WindowSpaceID == "" {
 		t.Fatal("expected created window space id")
 	}
@@ -99,12 +105,59 @@ func createProjectChatWindowingWindowSpace(t *testing.T, post projectRoutePostFu
 	if createdWindowSpace.Order == nil {
 		t.Fatal("expected created window space order slice to be non-nil")
 	}
-	return createdWindowSpace
-}
 
-func assertProjectChatWindowingCompletedOps(t *testing.T, latestPayload ProjectStateSingleConfigWithCompletedOpIDs) {
-	t.Helper()
+	renameRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWindowSpaceName,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"window-space-rename-op","windowSpaceId":"`+createdWindowSpace.ID+`","name":"Renamed Layout"}`),
+	)
+	renameRequest.Header.Set("Content-Type", "application/json")
+	renameResponse := httptest.NewRecorder()
+	handler.ServeHTTP(renameResponse, renameRequest)
+	if renameResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 rename response, got %d with body %q", renameResponse.Code, renameResponse.Body.String())
+	}
 
+	sortRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWindowSpaceSortOrder,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"window-space-sort-op","orderedWindowSpaceIds":["`+createdWindowSpace.ID+`","space-a"]}`),
+	)
+	sortRequest.Header.Set("Content-Type", "application/json")
+	sortResponse := httptest.NewRecorder()
+	handler.ServeHTTP(sortResponse, sortRequest)
+	if sortResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 sort response, got %d with body %q", sortResponse.Code, sortResponse.Body.String())
+	}
+
+	deleteRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteWindowSpace,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"window-space-delete-op","windowSpaceId":"space-a"}`),
+	)
+	deleteRequest.Header.Set("Content-Type", "application/json")
+	deleteResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deleteResponse, deleteRequest)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 delete response, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var latestPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
 	if !reflect.DeepEqual(latestPayload.CompletedOpIDs, []string{
 		"windowing-layout-op",
 		"windowing-chat-op",
@@ -115,21 +168,15 @@ func assertProjectChatWindowingCompletedOps(t *testing.T, latestPayload ProjectS
 	}) {
 		t.Fatalf("unexpected completed op ids %#v", latestPayload.CompletedOpIDs)
 	}
-}
-
-func assertProjectChatWindowingLatestState(t *testing.T, latestPayload ProjectStateSingleConfigWithCompletedOpIDs, createdWindowSpaceID string) {
-	t.Helper()
-
-	chatID := latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID
-	if chatID == nil || *chatID != "chat-after" {
-		t.Fatalf("expected persisted chat-after binding, got %#v", chatID)
+	if latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID == nil || *latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID != "chat-after" {
+		t.Fatalf("expected persisted chat-after binding, got %#v", latestPayload.ProjectState.ProjectChatWindowing.InstancesByID["project-chat-window-1"].ChatID)
 	}
 	if _, ok := latestPayload.ProjectState.ProjectConfig.WindowSpaces["space-a"]; ok {
 		t.Fatal("expected deleted window space space-a to be absent")
 	}
-	renamedWindowSpace, ok := latestPayload.ProjectState.ProjectConfig.WindowSpaces[createdWindowSpaceID]
+	renamedWindowSpace, ok := latestPayload.ProjectState.ProjectConfig.WindowSpaces[createdWindowSpace.ID]
 	if !ok {
-		t.Fatalf("expected created window space %q in latest state", createdWindowSpaceID)
+		t.Fatalf("expected created window space %q in latest state", createdWindowSpace.ID)
 	}
 	if renamedWindowSpace.Name != "Renamed Layout" {
 		t.Fatalf("expected renamed window space, got %q", renamedWindowSpace.Name)

@@ -30,20 +30,6 @@ func TestRegisterArtifactRoutesRoundTripCurrentCallerTypesAndUnsupportedUpdate(t
 	service, workspaceRoot, settaFilesRoot, binaryStore := newArtifactRouteService(t)
 	handler := newArtifactRouteTestHandler(t, config.ModeIDE, authService, service)
 
-	assertArtifactRoutesImportAndLoadCurrentCallerArtifacts(t, authService, handler, workspaceRoot, settaFilesRoot, binaryStore)
-	assertArtifactRoutesUpdateDeleteAndRejectCurrentCallerArtifacts(t, authService, handler, settaFilesRoot, binaryStore)
-}
-
-func assertArtifactRoutesImportAndLoadCurrentCallerArtifacts(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	workspaceRoot string,
-	settaFilesRoot string,
-	binaryStore *binarypayload.Store,
-) {
-	t.Helper()
-
 	workspaceFile := filepath.Join(workspaceRoot, "source.txt")
 	if err := os.WriteFile(workspaceFile, []byte("route import"), 0o644); err != nil {
 		t.Fatalf("write workspace file: %v", err)
@@ -71,19 +57,6 @@ func assertArtifactRoutesImportAndLoadCurrentCallerArtifacts(
 	if payload, err := os.ReadFile(importedPath); err != nil || string(payload) != "route import" {
 		t.Fatalf("expected imported artifact payload, got %q err=%v", string(payload), err)
 	}
-
-	assertArtifactRoutesLoadCurrentCallerImageArtifact(t, authService, handler, settaFilesRoot, binaryStore)
-	assertArtifactRoutesLoadCurrentCallerChartArtifact(t, authService, handler, settaFilesRoot)
-}
-
-func assertArtifactRoutesLoadCurrentCallerImageArtifact(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	settaFilesRoot string,
-	binaryStore *binarypayload.Store,
-) {
-	t.Helper()
 
 	imageID := "artifacts/route-preview.png"
 	imagePath := filepath.Join(settaFilesRoot, filepath.FromSlash(imageID))
@@ -114,15 +87,6 @@ func assertArtifactRoutesLoadCurrentCallerImageArtifact(
 	if string(imageBytes) != "route-image" {
 		t.Fatalf("expected route image bytes, got %q", string(imageBytes))
 	}
-}
-
-func assertArtifactRoutesLoadCurrentCallerChartArtifact(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	settaFilesRoot string,
-) {
-	t.Helper()
 
 	chartID := "artifacts/route-chart.csv"
 	chartPath := filepath.Join(settaFilesRoot, filepath.FromSlash(chartID))
@@ -149,28 +113,6 @@ func assertArtifactRoutesLoadCurrentCallerChartArtifact(
 	if got := chartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
 		t.Fatalf("expected parsed chart column x values, got %#v", got)
 	}
-}
-
-func assertArtifactRoutesUpdateDeleteAndRejectCurrentCallerArtifacts(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	settaFilesRoot string,
-	binaryStore *binarypayload.Store,
-) {
-	t.Helper()
-	filePath := assertArtifactRoutesUpdateCurrentCallerArtifacts(t, authService, handler, settaFilesRoot, binaryStore)
-	assertArtifactRoutesDeleteAndRejectCurrentCallerArtifacts(t, authService, handler, filePath)
-}
-
-func assertArtifactRoutesUpdateCurrentCallerArtifacts(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	settaFilesRoot string,
-	binaryStore *binarypayload.Store,
-) string {
-	t.Helper()
 
 	fileRef, err := binaryStore.StoreBytes([]byte("route upload"), "text/plain", false)
 	if err != nil {
@@ -194,21 +136,6 @@ func assertArtifactRoutesUpdateCurrentCallerArtifacts(
 	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "route upload" {
 		t.Fatalf("expected updated file artifact payload, got %q err=%v", string(payload), err)
 	}
-
-	assertArtifactRoutesUpdateImageArtifact(t, authService, handler, settaFilesRoot, binaryStore)
-	assertArtifactRoutesUpdateChartArtifact(t, authService, handler)
-	assertArtifactRoutesUpdateBrushAndTransformArtifacts(t, authService, handler)
-	return filePath
-}
-
-func assertArtifactRoutesUpdateImageArtifact(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	settaFilesRoot string,
-	binaryStore *binarypayload.Store,
-) {
-	t.Helper()
 
 	imageUpdateRef, err := binaryStore.StoreBytes([]byte("route-image-update"), "image/png", false)
 	if err != nil {
@@ -256,14 +183,6 @@ func assertArtifactRoutesUpdateImageArtifact(
 	if string(updatedImageBytes) != "route-image-update" {
 		t.Fatalf("expected updated image bytes, got %q", string(updatedImageBytes))
 	}
-}
-
-func assertArtifactRoutesUpdateChartArtifact(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-) {
-	t.Helper()
 
 	chartUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"ChartData","id":"artifacts/updated-chart.csv","value":{"x":[1,3],"label":["alpha",""]}}],"uploadScope":"generic"}`))
 	chartUpdateRequest.Header.Set("Content-Type", "application/json")
@@ -294,14 +213,6 @@ func assertArtifactRoutesUpdateChartArtifact(
 	if got := updatedChartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
 		t.Fatalf("expected updated chart x values, got %#v", got)
 	}
-}
-
-func assertArtifactRoutesUpdateBrushAndTransformArtifacts(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-) {
-	t.Helper()
 
 	brushUpdateRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"BrushStroke","id":"artifacts/stroke.json","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":[[1,2],"BREAK"],"globalCompositeOperation":"source-over"}},{"type":"DrawAreaLayerItemTransform","id":"artifacts/transform.json","value":{"transform":[1,0,0,1,3,4],"eraserStrokes":[]}}],"uploadScope":"generic"}`))
 	brushUpdateRequest.Header.Set("Content-Type", "application/json")
@@ -346,15 +257,6 @@ func assertArtifactRoutesUpdateBrushAndTransformArtifacts(
 	if len(transformPayload) != 1 || transformPayload[0] == nil || !strings.Contains(string(transformPayload[0].Value), `"transform":[1,0,0,1,3,4]`) {
 		t.Fatalf("expected cached transform payload, got %#v", transformPayload)
 	}
-}
-
-func assertArtifactRoutesDeleteAndRejectCurrentCallerArtifacts(
-	t *testing.T,
-	authService *auth.Service,
-	handler http.Handler,
-	filePath string,
-) {
-	t.Helper()
 
 	fileDeleteRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/notes.txt","type":"File"}]}`))
 	fileDeleteRequest.Header.Set("Content-Type", "application/json")
@@ -478,14 +380,6 @@ func TestRegisterArtifactRoutesShareModeUpdatesAndLoadsOverlay(t *testing.T) {
 	}
 
 	handler := newShareArtifactRouteHandler(t, service, deploymentRuntime)
-	assertArtifactRoutesShareModeUpdatesAndLoadsBrushOverlay(t, handler, deploymentRoot)
-	assertArtifactRoutesShareModeLoadsChartOverlay(t, handler, deploymentRoot)
-	assertArtifactRoutesShareModeUpdatesAndDeletesFileOverlay(t, handler, deploymentRoot, binaryStore)
-	assertArtifactRoutesShareModeLoadsEmptyTransformOverlay(t, handler)
-}
-
-func assertArtifactRoutesShareModeUpdatesAndLoadsBrushOverlay(t *testing.T, handler http.Handler, deploymentRoot string) {
-	t.Helper()
 
 	artifactPath := filepath.Join(deploymentRoot, "artifacts", "stroke.json")
 	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
@@ -525,10 +419,6 @@ func assertArtifactRoutesShareModeUpdatesAndLoadsBrushOverlay(t *testing.T, hand
 	if payload[0].ID != "artifacts/stroke.json" || !strings.Contains(string(payload[0].Value), "#000000") {
 		t.Fatalf("unexpected share overlay payload %#v", payload[0])
 	}
-}
-
-func assertArtifactRoutesShareModeLoadsChartOverlay(t *testing.T, handler http.Handler, deploymentRoot string) {
-	t.Helper()
 
 	chartPath := filepath.Join(deploymentRoot, "artifacts", "chart.csv")
 	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
@@ -558,15 +448,6 @@ func assertArtifactRoutesShareModeLoadsChartOverlay(t *testing.T, handler http.H
 	if got := chartPayload[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
 		t.Fatalf("expected parsed share chart column x values, got %#v", got)
 	}
-}
-
-func assertArtifactRoutesShareModeUpdatesAndDeletesFileOverlay(
-	t *testing.T,
-	handler http.Handler,
-	deploymentRoot string,
-	binaryStore *binarypayload.Store,
-) {
-	t.Helper()
 
 	fileRef, err := binaryStore.StoreBytes([]byte("share upload"), "text/plain", false)
 	if err != nil {
@@ -600,10 +481,6 @@ func assertArtifactRoutesShareModeUpdatesAndDeletesFileOverlay(
 	if payload, err := os.ReadFile(shareFilePath); err == nil && string(payload) != "" {
 		t.Fatalf("expected share file delete to stay overlay-only, disk payload was %q", string(payload))
 	}
-}
-
-func assertArtifactRoutesShareModeLoadsEmptyTransformOverlay(t *testing.T, handler http.Handler) {
-	t.Helper()
 
 	transformRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteLoadCachedDrawAreaLayerItemTransform, strings.NewReader(`{"paths":[]}`))
 	transformRequest.Header.Set("Content-Type", "application/json")

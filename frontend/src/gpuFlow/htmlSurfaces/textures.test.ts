@@ -1,33 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
 import { HtmlSurfaceTextureManager } from "./textures";
-import {
-  createGpuTextureMock,
-  createHtmlInCanvasCanvas,
-  installTextureUsage,
-  registerNode,
-} from "./textures.helpers.test";
-
-function requireCommittedSurfaceTexture(
-  manager: HtmlSurfaceTextureManager,
-  surfaceId: string,
-) {
-  const record = manager.getCommittedSurfaceTexture(surfaceId);
-  expect(record).toBeDefined();
-  return record!;
-}
-
-function emptyDirtyWorkCounts() {
-  return {
-    animation: 0,
-    content: 0,
-    geometry: 0,
-    hover: 0,
-    resolution: 0,
-    "source-window": 0,
-  };
-}
 
 describe("HtmlSurfaceTextureManager", () => {
   afterEach(() => {
@@ -83,7 +58,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 80_000,
     });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(record).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 2,
@@ -185,11 +160,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 300 * 200 * 4,
     });
-    expect(
-      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
-        (tile) => tile.lastUploadFrame === 2,
-      ),
-    ).toBe(true);
+    expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
   });
 
   it("uploads single-texture dirty source rects into the existing texture origin", () => {
@@ -270,65 +241,10 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 40 * 20 * 4,
     });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(record).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 4,
-    });
-  });
-
-  it("does not request paint or retain paint deferral when no dirty tile is queued", () => {
-    installTextureUsage();
-    const gpu = createGpuTextureMock();
-    const canvas = createHtmlInCanvasCanvas();
-    const manager = new HtmlSurfaceTextureManager(gpu.device, {
-      canvas,
-      maxTextureTileDimension2D: 128,
-    });
-
-    manager.registerSurfaceTexture({
-      cssHeight: 200,
-      cssWidth: 300,
-      devicePixelRatio: 1,
-      element: document.createElement("div"),
-      frame: 1,
-      surfaceId: "node-a",
-      zoom: 1,
-    });
-    manager.uploadDirtySurfaceTextures({ frame: 2 });
-    vi.mocked(canvas.requestPaint).mockClear();
-
-    const queued = manager.markSurfaceTextureDirty({
-      content: true,
-      deferUploadUntilPaint: true,
-      frame: 3,
-      reason: "content",
-      sourceRect: {
-        height: 10,
-        width: 10,
-        x: 500,
-        y: 500,
-      },
-      surfaceId: "node-a",
-    });
-
-    expect(queued).toBe(false);
-    expect(canvas.requestPaint).not.toHaveBeenCalled();
-    expect(manager.getDirtySurfaces()).toEqual([]);
-    expect(
-      manager.uploadDirtySurfaceTextures({ frame: 4 }).workSummary,
-    ).toEqual({
-      deferredSurfaceCount: 0,
-      initialDirtyWorkCounts: emptyDirtyWorkCounts(),
-      initialDirtySurfaceCount: 0,
-      noUploadReason: "no-dirty-surfaces",
-      paintUnavailableSurfaceCount: 0,
-      remainingDirtyWorkCounts: emptyDirtyWorkCounts(),
-      remainingDirtySurfaceCount: 0,
-      skippedSurfaceCount: 0,
-      uploadableRemainingDirtyWorkCounts: emptyDirtyWorkCounts(),
-      uploadableRemainingDirtySurfaceCount: 0,
-      uploadedSurfaceCount: 0,
     });
   });
 
@@ -366,7 +282,7 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(manager.getDirtySurfaces()).toMatchObject([
       {
-        dirtyTileBytes: 20 * 20 * 4,
+        dirtyTileBytes: 128 * 128 * 4,
         dirtyTileIds: ["large-node:1:0"],
         surfaceId: "large-node",
       },
@@ -383,41 +299,34 @@ describe("HtmlSurfaceTextureManager", () => {
             x: 130,
             y: 16,
           },
-          dirtyTileBytes: 20 * 20 * 4,
+          dirtyTileBytes: 128 * 128 * 4,
           dirtyTileCount: 1,
           reasons: ["paint"],
           surfaceId: "large-node",
-          uploadedBytes: 20 * 20 * 4,
+          uploadedBytes: 128 * 128 * 4,
         }),
       ],
       remainingDirtySurfaceIds: [],
       skippedUploadBytes: 0,
-      uploadedBytes: 20 * 20 * 4,
+      uploadedBytes: 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(7);
     expect(gpu.copyElementImageToTexture).toHaveBeenLastCalledWith(
       element,
-      130,
-      16,
-      20,
-      20,
-      20,
-      20,
-      {
-        origin: {
-          x: 2,
-          y: 16,
-        },
-        texture: record.tiles[1]?.texture,
-      },
+      128,
+      0,
+      128,
+      128,
+      128,
+      128,
+      { texture: record.tiles[1]?.texture },
     );
-    const committed = requireCommittedSurfaceTexture(manager, "large-node");
-    expect(committed.tiles[1]).toMatchObject({
+    expect(record.tiles[1]).toMatchObject({
       dirtyContent: false,
       lastUploadFrame: 4,
     });
     expect(
-      committed.tiles
+      record.tiles
         .filter((tile) => tile.tileId !== "large-node:1:0")
         .every((tile) => tile.lastUploadFrame === 2),
     ).toBe(true);
@@ -463,11 +372,7 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: 2 * 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(8);
-    const partiallyUploaded = requireCommittedSurfaceTexture(
-      manager,
-      "large-node",
-    );
-    expect(partiallyUploaded.tiles.slice(0, 2)).toMatchObject([
+    expect(record.tiles.slice(0, 2)).toMatchObject([
       {
         dirtyContent: false,
         lastUploadFrame: 4,
@@ -477,9 +382,7 @@ describe("HtmlSurfaceTextureManager", () => {
         lastUploadFrame: 4,
       },
     ]);
-    expect(
-      partiallyUploaded.tiles.slice(2).every((tile) => tile.dirtyContent),
-    ).toBe(true);
+    expect(record.tiles.slice(2).every((tile) => tile.dirtyContent)).toBe(true);
 
     const remaining = manager.uploadDirtySurfaceTextures({ frame: 5 });
 
@@ -490,11 +393,7 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(12);
-    expect(
-      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
-        (tile) => !tile.dirtyContent,
-      ),
-    ).toBe(true);
+    expect(record.tiles.every((tile) => !tile.dirtyContent)).toBe(true);
   });
 
   it("spends tiled first-visible uploads under the upload budget before exposing the record", () => {
@@ -526,12 +425,8 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: record.textureBytes - 2 * 128 * 128 * 4,
       uploadedBytes: 2 * 128 * 128 * 4,
     });
-    const partiallyUploaded = requireCommittedSurfaceTexture(
-      manager,
-      "large-node",
-    );
-    expect(partiallyUploaded.lastUploadFrame).toBe(-1);
-    expect(partiallyUploaded.tiles.slice(0, 2)).toMatchObject([
+    expect(record.lastUploadFrame).toBe(-1);
+    expect(record.tiles.slice(0, 2)).toMatchObject([
       {
         dirtyResolution: false,
         lastUploadFrame: 2,
@@ -541,9 +436,9 @@ describe("HtmlSurfaceTextureManager", () => {
         lastUploadFrame: 2,
       },
     ]);
-    expect(
-      partiallyUploaded.tiles.slice(2).every((tile) => tile.dirtyResolution),
-    ).toBe(true);
+    expect(record.tiles.slice(2).every((tile) => tile.dirtyResolution)).toBe(
+      true,
+    );
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
 
     const complete = manager.uploadDirtySurfaceTextures({
@@ -557,9 +452,8 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
     });
-    const committed = requireCommittedSurfaceTexture(manager, "large-node");
-    expect(committed.lastUploadFrame).toBe(3);
-    expect(committed.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
+    expect(record.lastUploadFrame).toBe(3);
+    expect(record.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
   });
 
@@ -659,8 +553,7 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(gpu.createTexture).toHaveBeenCalledTimes(2);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
-    const committed = requireCommittedSurfaceTexture(manager, "node-a");
-    expect(committed).toMatchObject({
+    expect(record).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 3,
@@ -674,7 +567,7 @@ describe("HtmlSurfaceTextureManager", () => {
       300,
       150,
       {
-        texture: committed.texture,
+        texture: record.texture,
       },
     );
   });
@@ -728,43 +621,12 @@ describe("HtmlSurfaceTextureManager", () => {
     ]);
 
     manager.uploadDirtySurfaceTextures({ frame: 4 });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(record).toMatchObject({
       lastUploadFrame: 4,
       pixelHeight: 150,
       pixelWidth: 300,
       resolutionScale: 3,
     });
-  });
-
-  it("keeps zoom resolution stable inside the bucket hysteresis band", () => {
-    installTextureUsage();
-    const gpu = createGpuTextureMock();
-    const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const element = document.createElement("div");
-
-    const record = manager.registerSurfaceTexture({
-      cssHeight: 50,
-      cssWidth: 100,
-      devicePixelRatio: 2,
-      element,
-      surfaceId: "node-a",
-      zoom: 1.4,
-    });
-    manager.uploadDirtySurfaceTextures({ frame: 1 });
-
-    manager.registerSurfaceTexture({
-      cssHeight: 50,
-      cssWidth: 100,
-      devicePixelRatio: 2,
-      element,
-      frame: 2,
-      surfaceId: "node-a",
-      zoom: 1.55,
-    });
-
-    expect(record.zoomBucket).toBe(1.5);
-    expect(manager.getDirtySurfaces()).toEqual([]);
-    expect(gpu.createTexture).toHaveBeenCalledTimes(1);
   });
 
   it("keeps queued resolution-only uploads out of active viewport frames", () => {
@@ -921,10 +783,9 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 128 * 72 * 4 + 72 * 72 * 4,
     });
-    const committed = requireCommittedSurfaceTexture(manager, "node-a");
-    expect(committed.texture).not.toBe(oldTexture);
+    expect(record.texture).not.toBe(oldTexture);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
-    expect(committed).toMatchObject({
+    expect(record).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 5,
@@ -939,98 +800,6 @@ describe("HtmlSurfaceTextureManager", () => {
       },
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(5);
-  });
-
-  it("keeps the committed source rect while a source-window upload is pending", () => {
-    installTextureUsage();
-    const gpu = createGpuTextureMock();
-    const manager = new HtmlSurfaceTextureManager(gpu.device, {
-      maxTextureTileDimension2D: 128,
-    });
-    const element = document.createElement("div");
-    const initialSourceRect = { height: 100, width: 100, x: 0, y: 0 };
-    const nextSourceRect = { height: 100, width: 100, x: 0, y: 128 };
-
-    manager.registerSurfaceTexture({
-      cssHeight: 200,
-      cssWidth: 300,
-      devicePixelRatio: 1,
-      element,
-      frame: 1,
-      surfaceId: "node-a",
-      textureSourceRect: initialSourceRect,
-      zoom: 1,
-    });
-    manager.uploadDirtySurfaceTextures({ frame: 2 });
-
-    manager.registerSurfaceTexture({
-      cssHeight: 200,
-      cssWidth: 300,
-      devicePixelRatio: 1,
-      element,
-      frame: 3,
-      surfaceId: "node-a",
-      textureSourceRect: nextSourceRect,
-      zoom: 1,
-    });
-
-    const partial = manager.uploadDirtySurfaceTextures({
-      frame: 4,
-      maxUploads: 1,
-    });
-
-    expect(partial.budgetExhausted).toBe(true);
-    expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
-    ).toEqual(initialSourceRect);
-
-    const complete = manager.uploadDirtySurfaceTextures({ frame: 5 });
-
-    expect(complete.budgetExhausted).toBe(false);
-    expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
-    ).toEqual(nextSourceRect);
-  });
-
-  it("retargets a source rect without upload when the texture content key is unchanged", () => {
-    installTextureUsage();
-    const gpu = createGpuTextureMock();
-    const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const element = document.createElement("div");
-    const initialSourceRect = { height: 100, width: 100, x: 0, y: 0 };
-    const nextSourceRect = { height: 100, width: 100, x: 0, y: 24 };
-
-    manager.registerSurfaceTexture({
-      cssHeight: 200,
-      cssWidth: 300,
-      devicePixelRatio: 1,
-      element,
-      frame: 1,
-      surfaceId: "node-a",
-      textureContentKey: "cache-a",
-      textureSourceRect: initialSourceRect,
-      zoom: 1,
-    });
-    manager.uploadDirtySurfaceTextures({ frame: 2 });
-    gpu.copyElementImageToTexture.mockClear();
-
-    manager.registerSurfaceTexture({
-      cssHeight: 200,
-      cssWidth: 300,
-      devicePixelRatio: 1,
-      element,
-      frame: 3,
-      surfaceId: "node-a",
-      textureContentKey: "cache-a",
-      textureSourceRect: nextSourceRect,
-      zoom: 1,
-    });
-
-    expect(manager.getDirtySurfaces()).toEqual([]);
-    expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
-    expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
-    ).toEqual(nextSourceRect);
   });
 
   it("defers existing passive content uploads during active viewport frames", () => {
@@ -1056,16 +825,6 @@ describe("HtmlSurfaceTextureManager", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
-      workSummary: {
-        deferredSurfaceCount: 1,
-        initialDirtySurfaceCount: 1,
-        noUploadReason: "all-work-deferred",
-        paintUnavailableSurfaceCount: 0,
-        remainingDirtySurfaceCount: 1,
-        skippedSurfaceCount: 0,
-        uploadableRemainingDirtySurfaceCount: 0,
-        uploadedSurfaceCount: 0,
-      },
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
 
@@ -1104,16 +863,9 @@ describe("HtmlSurfaceTextureManager", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
-      workSummary: {
-        initialDirtySurfaceCount: 1,
-        noUploadReason: "paint-unavailable",
-        paintUnavailableSurfaceCount: 1,
-        remainingDirtySurfaceCount: 1,
-        uploadedSurfaceCount: 0,
-      },
     });
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: true,
       dirtyResolution: true,
       lastUploadFrame: -1,
@@ -1124,7 +876,7 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
       "node-a",
     ]);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 3,
@@ -1195,38 +947,6 @@ describe("HtmlSurfaceTextureManager", () => {
     ]);
     expect(result.remainingDirtySurfaceIds).toEqual(["prefetch"]);
     expect(result.budgetExhausted).toBe(true);
-    expect(result.workSummary).toMatchObject({
-      initialDirtySurfaceCount: 3,
-      noUploadReason: null,
-      remainingDirtySurfaceCount: 1,
-      uploadableRemainingDirtySurfaceCount: 1,
-      uploadedSurfaceCount: 2,
-    });
-  });
-
-  it("reports no dirty work when upload is requested with an empty queue", () => {
-    installTextureUsage();
-    const gpu = createGpuTextureMock();
-    const manager = new HtmlSurfaceTextureManager(gpu.device);
-
-    const result = manager.uploadDirtySurfaceTextures({ frame: 1 });
-
-    expect(result).toMatchObject({
-      budgetExhausted: false,
-      remainingDirtySurfaceIds: [],
-      uploaded: [],
-      uploadedBytes: 0,
-      workSummary: {
-        deferredSurfaceCount: 0,
-        initialDirtySurfaceCount: 0,
-        noUploadReason: "no-dirty-surfaces",
-        paintUnavailableSurfaceCount: 0,
-        remainingDirtySurfaceCount: 0,
-        skippedSurfaceCount: 0,
-        uploadableRemainingDirtySurfaceCount: 0,
-        uploadedSurfaceCount: 0,
-      },
-    });
   });
 
   it("reports upload and skipped bytes when the byte budget leaves dirty surfaces queued", () => {
@@ -1375,7 +1095,7 @@ describe("HtmlSurfaceTextureManager", () => {
       allocatedBytes: 800,
       textureCount: 2,
     });
-    expect(manager.getCommittedSurfaceTexture("oldest")).toBeUndefined();
+    expect(manager.getSurfaceTexture("oldest")).toBeUndefined();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
@@ -1417,13 +1137,11 @@ describe("HtmlSurfaceTextureManager", () => {
       "interactive",
       "visible",
     ]);
-    expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
-    expect(manager.getCommittedSurfaceTexture("visible")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("explicit")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("interactive")).toBeDefined();
-    expect(
-      manager.getCommittedSurfaceTexture("dirty-interactive"),
-    ).toBeDefined();
+    expect(manager.getSurfaceTexture("candidate")).toBeUndefined();
+    expect(manager.getSurfaceTexture("visible")).toBeDefined();
+    expect(manager.getSurfaceTexture("explicit")).toBeDefined();
+    expect(manager.getSurfaceTexture("interactive")).toBeDefined();
+    expect(manager.getSurfaceTexture("dirty-interactive")).toBeDefined();
   });
 
   it("destroys individual and retained surface textures", () => {
@@ -1436,10 +1154,85 @@ describe("HtmlSurfaceTextureManager", () => {
 
     manager.destroySurfaceTexture("node-a");
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
+    expect(manager.getSurfaceTexture("node-a")).toBeUndefined();
 
     manager.destroy();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
     expect(manager.getDirtySurfaces()).toEqual([]);
   });
 });
+
+function createHtmlInCanvasCanvas(): HtmlInCanvasCanvas {
+  const canvas = document.createElement("canvas") as HtmlInCanvasCanvas;
+  canvas.layoutSubtree = true;
+  canvas.onpaint = null;
+  canvas.requestPaint = vi.fn();
+  return canvas;
+}
+
+function createGpuTextureMock() {
+  const textures: Array<GPUTexture & { destroy: ReturnType<typeof vi.fn> }> =
+    [];
+  const copyElementImageToTexture = vi.fn();
+  const createTexture = vi.fn((descriptor: GPUTextureDescriptor) => {
+    const texture = {
+      createView: vi.fn(() => ({}) as GPUTextureView),
+      destroy: vi.fn(),
+      descriptor,
+    } as unknown as GPUTexture & { destroy: ReturnType<typeof vi.fn> };
+    textures.push(texture);
+    return texture;
+  });
+  const createSampler = vi.fn(() => ({}) as GPUSampler);
+  const device = {
+    createSampler,
+    createTexture,
+    destroy: vi.fn(),
+    limits: {
+      maxTextureDimension2D: 4096,
+    },
+    queue: {
+      copyElementImageToTexture,
+    },
+  } as unknown as GPUDevice;
+
+  return {
+    copyElementImageToTexture,
+    createSampler,
+    createTexture,
+    device,
+    textures,
+  };
+}
+
+function installTextureUsage() {
+  vi.stubGlobal("GPUTextureUsage", {
+    COPY_DST: 2,
+    RENDER_ATTACHMENT: 4,
+    TEXTURE_BINDING: 1,
+  });
+}
+
+function registerNode(
+  manager: HtmlSurfaceTextureManager,
+  surfaceId: string,
+  priority: "interactive" | "visible" | "prefetch",
+  overrides: Partial<{
+    readonly cssHeight: number;
+    readonly cssWidth: number;
+    readonly devicePixelRatio: number;
+    readonly frame: number;
+    readonly zoom: number;
+  }> = {},
+) {
+  manager.registerSurfaceTexture({
+    cssHeight: overrides.cssHeight ?? 10,
+    cssWidth: overrides.cssWidth ?? 10,
+    devicePixelRatio: overrides.devicePixelRatio ?? 1,
+    element: document.createElement("div"),
+    ...(overrides.frame === undefined ? {} : { frame: overrides.frame }),
+    priority,
+    surfaceId,
+    zoom: overrides.zoom ?? 1,
+  });
+}

@@ -1,551 +1,701 @@
 # HTML-in-Canvas Architecture
 
-This document describes the project-level HTML-in-canvas architecture used by
-the Setta project surface. It complements
-`docs/reference/webgpu-pan-zoom-html-in-canvas.md`, which focuses on the lower
-level WebGPU HTML surface renderer. This page connects that renderer to project
-sections, retained parameter content, drag and drop, resizing, and parameter
-input behavior.
+This document describes the Setta project canvas as it exists today. It focuses
+on the application-level architecture: how top-level sections become HTML
+textures in a WebGPU canvas, how pan and zoom stay cheap, how section content is
+rendered and resized, and how section and parameter drag-and-drop interacts with
+the canvas.
 
-The main entrypoint is
-`frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuSurface.tsx`.
-The reusable canvas runtime lives under `frontend/src/gpuFlow/`.
+For lower-level WebGPU renderer details, see
+`docs/reference/webgpu-pan-zoom-html-in-canvas.md`. For the dnd-kit wrapper
+itself, see `docs/reference/dnd-kit.md`.
 
-## High-Level Model
+## Core Model
 
-The project surface is a WebGPU canvas backed by several source surfaces:
+The project canvas is not a pure canvas application. Section content remains
+real React DOM, but the visible project surface is drawn by WebGPU from cached
+HTML textures.
 
-- DOM section sources: real React section DOM rendered into hidden source hosts
-  under the `<canvas layoutsubtree>` element, then uploaded as HTML textures and
-  composed by WebGPU.
-- Retained parameter content sources: lightweight 2D canvas sources drawn from a
-  retained parameter scene, then uploaded and composed with the same WebGPU
-  surface pipeline.
-- DOM islands: temporary real DOM children of the `layoutsubtree` canvas,
-  positioned over retained-content rects for native controls that should not be
-  emulated on canvas, such as text inputs, textareas, dropzones, password
-  fields, date/time inputs, and parameter name editing.
+The main layers are:
 
-The source DOM remains authoritative for browser-native behavior where we need
-it. The visible project surface is normally the WebGPU canvas. Interaction code
-projects pointer, wheel, focus, and keyboard activity back into the relevant
-source surface or retained scene instead of making each section a visible DOM
-node in the main layout.
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuSurface.tsx`
+  wires the renderer to project state, settings, section movement, resizing,
+  selection, edge interaction, and pane events.
+- `frontend/src/gpuFlow/GpuFlow/flowSurface.tsx` owns the reusable GPU flow
+  runtime: source DOM mounting, frame scheduling, interaction controllers, edge
+  labels, portals, and texture/renderer resources.
+- `frontend/src/gpuFlow/GpuSurface.tsx` owns the `<canvas layoutsubtree>` and
+  WebGPU/html-in-canvas lifecycle.
+- `frontend/src/gpuFlow/htmlSurfaces/` owns source DOM hosts, DOM-to-texture
+  uploads, texture dirtiness, visibility, hit testing, and WebGPU scene
+  rendering.
+- `frontend/src/components/Section/Container/` owns the section shell and
+  content renderers mounted inside each source host.
+- `frontend/src/forks/dnd-kit/` owns structural drag-and-drop for sections and
+  params.
+- `frontend/src/components/Params/` owns param rows, param DnD wiring, and
+  param value/name inputs.
 
-The project has two important geometry layers:
+The important distinction is:
 
-- Project state and view layout describe the canonical persisted section
-  structure, dimensions, positions, and ordering.
-- The GPU flow scene and layout store describe the currently rendered frame and
-  in-progress interaction previews. They can be patched during drag, resize, or
-  scroll before the backend commit finishes.
+- Source DOM is authoritative for content, browser focus, native controls,
+  text selection, CodeMirror, xterm, iframe surfaces, and accessibility.
+- WebGPU is authoritative for visible composition, canvas viewport transforms,
+  grid, edges, z order, and cached surface presentation.
 
-## Module Map
+The source DOM and the visible WebGPU scene intentionally share one coordinate
+contract. Flow coordinates describe project space. Screen coordinates describe
+CSS pixels inside the canvas container. The viewport tuple is `[x, y, zoom]`:
 
-The project integration is centered on these modules:
-
-- `projectGpuSurface.tsx` wires project state, settings, selection, edge scenes,
-  pan/zoom, section drag, section resize, retained parameter interactions, and
-  keyboard handling into `GpuFlow`.
-- `projectGpuLayoutAdapter.ts` builds a `GpuFlowScene` from project view layout,
-  nested section structure, section sizes, scroll offsets, and parameter content
-  surfaces.
-- `projectGpuNodeRenderer.tsx` renders section scene nodes with
-  `SectionContainer`.
-- `projectGpuParamContentAdapter.ts` creates retained parameter content surfaces
-  and native DOM islands for active parameter controls.
-- `projectGpuRetainedParamInteractionAdapter.tsx` handles retained parameter
-  click, drag, popup, and native-island activation behavior.
-- `projectGpuPortalAdapter.ts` declares the project-specific portal roots used
-  by CodeMirror tooltips, retained-native companion overlays, validation UI, and
-  other DOM overlays that must stay coordinated with the GPU surface.
-- `projectNodeResize.ts` adapts generic GPU node resizing to Setta section size
-  persistence and scene previews.
-- `projectGpuSelectionAdapter.ts` adapts generic node dragging and selection to
-  top-level movement and nested section reorder/reparent behavior.
-
-The reusable canvas runtime is centered on these modules:
-
-- `GpuFlow/flowSurface.tsx` owns the runtime composition, frame scheduling,
-  controller attachment, source layers, overlays, and renderer callbacks.
-- `GpuSurface.tsx` creates the `<canvas layoutsubtree>` element, initializes the
-  WebGPU runtime, listens to paint and resize events, and coalesces frame
-  requests.
-- `htmlSurfaces/sourceLayer.tsx` creates the direct child source hosts used for
-  HTML texture uploads.
-- `htmlSurfaces/frame.tsx` resolves visible surfaces, syncs DOM transforms,
-  registers and uploads dirty textures, builds the visual scene, renders, and
-  evicts old textures.
-- `portals/portalManager.tsx` partitions portal roots into source-local,
-  viewport, and future flow-anchored coordinate spaces.
-- `portals/floatingPosition.ts` wraps Floating UI for canvas-aware floating
-  placement from real DOM references or virtual retained-content rects.
-- `viewportReposition.ts` bridges GPU viewport transforms to DOM overlay
-  repositioning for libraries that listen to scroll and resize.
-- `interactions/panZoom.ts`, `interactions/nodeDrag.ts`,
-  `interactions/nodeResize.ts`, and `interactions/retainedContentInteraction.ts`
-  implement the main pointer and wheel interaction controllers.
-
-## Support Library Boundaries
-
-The HTML-in-canvas architecture intentionally uses small support libraries
-without handing off ownership of the project surface. Setta still owns the GPU
-scene graph, layout, retained parameter renderer, texture lifecycle, dirty
-tracking, hit records, and interaction controllers.
-
-Adopted runtime support libraries have narrow jobs:
-
-- `@floating-ui/dom` owns placement math for custom DOM overlays that are not
-  already fully handled by a component primitive. The wrapper in
-  `gpuFlow/portals/floatingPosition.ts` supports offset, flip, shift, size
-  constraints, real element references, virtual point/rect references, fixed
-  positioning, and rescheduling on GPU viewport transforms. Current consumers
-  include context menu placement and shared combobox lists opened from
-  canvas-aware portal roots; combobox callers set `repositionOnCanvasTransform`,
-  which maps to the wrapper's GPU viewport transform rescheduling.
-- Radix primitives continue to own their normal browser behavior for popovers,
-  dialogs, dropdowns, sliders, and switches. When a Radix popup is opened from
-  the GPU surface and must track the camera, the caller uses a canvas-aware
-  portal root and `subscribeToGpuViewportReposition()` so Radix can recompute
-  placement after pan or zoom.
-- Downshift continues to own shared combobox input, listbox, selection, and
-  keyboard semantics. GPU integration only changes where the list is portaled
-  and how its floating position is refreshed during pan and zoom.
-- dnd-kit remains a DOM drag library behind
-  `frontend/src/forks/dnd-kit/adapter`. It is appropriate for DOM-only
-  sortables such as view-mode rows, task-board lists, draw layer ordering, and
-  non-retained parameter lists. The adapter normalizes DOM drag transforms by
-  the GPU viewport zoom where those surfaces live under the project viewport.
-
-Libraries must not become owners of the core project surface:
-
-- Do not use dnd-kit for retained parameter drag/drop, section drag, or section
-  resize in the GPU surface. Those flows use the GPU interaction controllers and
-  project adapters described below.
-- Do not reintroduce React Flow or XYFlow as the project-surface viewport,
-  node, edge, or drag owner.
-- Do not add a general canvas scene framework such as PixiJS, Konva, or Fabric
-  for retained parameter rendering or WebGPU composition.
-- Do not add a spatial index, matrix library, graph layout engine, or typed
-  WebGPU abstraction to the runtime without measurement or a concrete feature
-  that proves the local owner code is the wrong tool.
-
-Test-only support libraries document and protect invariants:
-
-- `fast-check` is used in focused Vitest property tests for viewport math,
-  retained visible row ranges, retained hit clipping and stacking, and
-  parameter-tree behavior. It is not runtime geometry ownership.
-- `@axe-core/playwright` is used through scoped E2E helpers for DOM islands,
-  canvas-aware listboxes and popovers, and focus handoff. It verifies accessible
-  DOM behavior around the retained canvas, but the runtime still uses the
-  standard owner components and GPU portal lifecycle.
-
-## Portal and Floating Overlay Model
-
-There are three portal coordinate spaces:
-
-- `source-local`: portal roots mounted inside the `layoutsubtree` canvas, used
-  for source-owned DOM such as CodeMirror tooltips that need to live with the
-  source subtree.
-- `viewport`: portal roots mounted as siblings of the canvas and positioned in
-  viewport CSS pixels, used for retained-native companion overlays such as
-  CodeMirror tooltips and validation UI that should not be uploaded as a
-  texture.
-- `flow-anchored`: reserved for graph-positioned DOM. The current runtime
-  rejects this space unless the UI is represented as a renderer overlay or HTML
-  surface descriptor, so callers cannot accidentally create visible DOM that
-  bypasses the texture and hit-test model.
-
-`GpuFlow` renders source-local portal roots inside `GpuSurface` and viewport
-portal roots outside the canvas. All portal roots include the standard no-pan
-and no-drag classes, so overlay interactions do not leak into canvas gestures.
-
-Floating DOM overlays follow this rule: the component primitive owns behavior,
-while `gpuFlow/portals/floatingPosition.ts` owns canvas-aware placement. For
-example, a retained native dropdown keeps Downshift ownership of combobox
-semantics, portals its list into the configured popover root, and sets
-`repositionOnCanvasTransform`, which maps to GPU viewport transform
-rescheduling so the list is repositioned after pan or zoom. Retained validation
-bubbles and Radix popovers use the same portal-root pattern; primitive-owned
-Radix overlays subscribe to GPU viewport repositioning so their own placement
-logic reruns when the camera changes.
-
-## Frame Pipeline
-
-`GpuProjectSurface` builds an effective `GpuFlowScene` from the active project
-view. `GpuFlow` renders one `GpuSurface` canvas and mounts source content into
-source layers associated with that canvas.
-
-For section DOM content, `HtmlSurfaceSourceLayer` creates hidden source hosts as
-direct children of the canvas. React portals render the actual section content
-into those hosts. The direct-child shape matters because the browser's
-`layoutsubtree` paint and `drawElementImage` path can only upload content that
-is part of the canvas' layout subtree.
-
-For each frame, `renderHtmlSurfaceFrame()` does the following:
-
-1. Computes visible section and overlay quads from the scene, viewport, clip
-   rects, active interactions, and upload budget.
-2. Syncs source DOM transforms for visible or interactive sources.
-3. Registers texture records for visible HTML and retained canvas sources.
-4. Uploads dirty textures with priority for active or interactive surfaces.
-5. Builds the WebGPU visual scene, including flat and tiled surfaces plus edge,
-   grid, overlay, and retained-content visuals.
-6. Renders the scene with cached textures.
-7. Evicts unused texture records when memory limits require it.
-
-Retained parameter surfaces are included as overlay-like content surfaces. They
-are drawn to ordinary 2D canvases first, then uploaded to WebGPU textures. This
-keeps parameter rows cheap to update and hit test without rendering each row as
-visible DOM.
-
-## Pan and Zoom
-
-Pan and zoom are viewport transforms, not DOM layout changes. The viewport store
-tracks the tuple:
-
-```text
-[viewport.x, viewport.y, viewport.zoom]
+```ts
+screenX = viewport.x + flowX * viewport.zoom;
+screenY = viewport.y + flowY * viewport.zoom;
+flowX = (screenX - viewport.x) / viewport.zoom;
+flowY = (screenY - viewport.y) / viewport.zoom;
 ```
 
-Flow coordinates convert to screen coordinates with:
+## DOM Shape
 
-```text
-screenX = viewport.x + flowX * viewport.zoom
-screenY = viewport.y + flowY * viewport.zoom
-```
+`GpuSurface` renders a canvas with `layoutsubtree=""`. `HtmlSurfaceSourceLayer`
+then creates a direct-child source host for each source/layout node. React
+renders into those hosts through portals.
 
-Screen coordinates convert back to flow coordinates with:
-
-```text
-flowX = (screenX - viewport.x) / viewport.zoom
-flowY = (screenY - viewport.y) / viewport.zoom
-```
-
-The pan/zoom controller attaches to the GPU surface and supports the project
-settings exposed by `getProjectPanZoomOptions()`:
-
-- Pointer-drag panning when pan-on-drag is enabled and selection gestures are
-  not active.
-- Wheel panning when pan-on-scroll is enabled.
-- Wheel zooming, pinch/ctrl-wheel zooming, and double-click zooming when the
-  corresponding settings allow them.
-- Activation key guards for pan and zoom modes.
-- Pointer-pan start cleanup, such as closing open context menus.
-
-Zooming at a point preserves the flow coordinate under the pointer. The
-controller computes the pointer's flow-space coordinate before the zoom, clamps
-the new zoom to the viewport's min/max range, then adjusts `viewport.x` and
-`viewport.y` so the same flow point remains under the same screen point.
-
-Pure pan and zoom frames are designed to be cheap. They update camera uniforms
-and redraw already-uploaded textures. They do not request HTML paints, force
-React renders, or upload every source again. While a viewport interaction is
-active, passive texture resolution work is deferred. At the end of a wheel,
-pinch, or pointer-pan burst, the surface requests a texture-upload frame so any
-deferred resolution or dirty source work can catch up.
-
-The source DOM still needs correct projected interaction. Source transforms and
-hit projection map browser events back into source-local coordinates, while
-native interactive targets can be temporarily projected or represented by DOM
-islands when the user needs real browser input behavior.
-
-## Section Content Rendering
-
-Section scene construction starts in `projectGpuLayoutAdapter.ts`. The adapter
-reads the active view layout, project section records, measured section sizes,
-scroll offsets, and nested child order. It creates `GpuSectionSceneNode` records
-for top-level sections and recursively appends child section nodes.
-
-Each section scene node includes:
-
-- `worldRect`, the resolved flow-space position and size.
-- `bodyRect`, the content body area inside the section chrome.
-- `childViewportRect`, the area where child sections are laid out.
-- `clipRect`, used for nested scroll and visibility clipping.
-- `layoutMode`, such as free, vertical, horizontal, or kanban-style ordered
-  child layout.
-- `scrollOffset`, when nested content is scrollable.
-- `resizePolicy`, used by the resize controller.
-- `portAnchors`, used by the edge scene.
-
-The scene layout pass in `sceneLayout.ts` resolves parent/child geometry,
-ordered child placement, nested clipping, and scroll offsets. Once the scene is
-resolved, `getGpuFlowSceneDomSectionNodes()` selects the section nodes whose
-renderer is `dom-section` and whose rects intersect their clips. Those nodes
-become HTML source surfaces.
-
-`renderProjectGpuNode()` renders each DOM section source as:
+The simplified runtime shape is:
 
 ```tsx
-<SectionContainer sectionId={node.nodeId} isTopLevel={...} />
+<div className="setta-gpu-flow">
+  <canvas className="setta-gpu-flow__canvas" layoutsubtree="">
+    <span data-gpu-flow-html-source-anchor="true" />
+    <div
+      className="setta-gpu-flow__html-source setta-gpu-flow__node"
+      data-gpu-flow-html-source="true"
+      data-gpu-flow-source-id={sectionId}
+      data-gpu-flow-node="true"
+      data-id={sectionId}
+    >
+      <SectionContainer sectionId={sectionId} isTopLevel={true} />
+    </div>
+    <div id="setta-codemirror-tooltips" />
+    <div id="setta-popover-portals" />
+    <div data-gpu-flow-edge-label-source="true">...</div>
+  </canvas>
+  <div className="setta-gpu-flow__selection-layer" />
+</div>
 ```
 
-`SectionContainer` applies project visibility rules and forwards to
-`SectionContainerCore`. The core section renderer owns the section shell,
-header, toolbar/chrome, edge handles, highlighting, active state, externalized
-state, minimized state, and the body component selected by `AreaSwitch`.
+The source host must be a direct canvas child because Chromium's
+html-in-canvas APIs capture direct child elements. The hidden anchor is only a
+React insertion point. The real source host is inserted beside the anchor by
+`HtmlSurfaceSourceLayer`.
 
-Under the GPU project surface, `SectionContainer` passes `renderParamRows={false}`
-for parameter-owning section bodies. This is intentional. The section DOM still
-renders the section chrome and body-specific UI, but parameter rows are rendered
-by retained parameter content surfaces. That split keeps large parameter lists
-cheap to draw, scroll, select, and drag while preserving native DOM only for the
-inputs that need it.
+Passive source hosts are positioned at `left: 0`, `top: 0`, with a stable
+`translate(0px, 0px) scale(1)` transform and `pointer-events: none`. They are
+still real DOM and can be painted into textures, but they do not normally
+receive browser events directly.
 
-## Retained Parameter Content Rendering
+## Render Lifecycle
 
-Parameter rendering starts in `projectGpuParamContentAdapter.ts`. For each
-section with visible parameters, the adapter creates one or more retained
-content surfaces. Pinned and unpinned parameter lists are separate surfaces so
-their scroll, clipping, and z-order behavior can match the section body layout.
+The top-level render flow is:
 
-The adapter computes:
+1. Project state owns section positions and measured dimensions in the existing
+   node internals store.
+2. `useProjectGpuLayoutAdapter()` mirrors node internals into
+   `gpuFlowLayoutStore` as `GpuFlowLayoutNode` records.
+3. `GpuProjectSurface` passes those layouts to `GpuFlow`.
+4. `GpuFlow` renders one `HtmlSurfaceNodeLayer` source host per layout and uses
+   `renderProjectGpuNode()` to render `SectionContainer` into each host.
+5. `GpuSurface` initializes WebGPU and the html-in-canvas canvas, attaches a
+   resize observer, handles `paint` events, and schedules frames.
+6. Each frame calls `renderHtmlSurfaceFrame()`.
+7. The frame collects visible node quads from the viewport, syncs source host
+   sizes and passive/interacting DOM state, registers visible textures, uploads
+   dirty texture work within budget, builds a visual scene, renders WebGPU, and
+   evicts unprotected textures when necessary.
 
-- Row metrics, including row height, nested gutter, label/control gap, top
-  inset, right inset, and control width.
-- Filtered rows from search and visibility state.
-- Tree-view nesting from parent/child parameter relationships.
-- Selected, hovered, focused, active, dragged, error, and edge-input state.
-- Local viewport and clip rects for the parameter list inside the section body.
-- Clamped retained-content scroll offsets.
+`renderHtmlSurfaceFrame()` returns diagnostics such as visible nodes, drawn
+nodes, missing textures, uploaded nodes, remaining dirty nodes, evicted bytes,
+and the current `HtmlSurfaceVisualScene`. `GpuFlow` stores that visual scene so
+later pointer and resize hit testing can target the same geometry that was
+actually drawn.
 
-The row adapter converts each parameter to a retained row descriptor and control
-descriptor. `createGpuRetainedRowContentScene()` then builds a retained scene
-with draw commands and hit records. Only the visible row range, plus overscan,
-needs to be drawn and hit tested.
+Top-level section source DOM remains mounted even when a node is outside the
+visible viewport. Culling affects texture registration, drawing, and
+interaction eligibility. It does not unmount the React section tree.
 
-`GpuRetainedContentSurfaces` draws retained scenes to 2D canvas source elements.
-Those canvases are registered as content surfaces and uploaded to WebGPU like
-HTML source surfaces. The retained scene also produces hit records for rows,
-labels, controls, ports, popups, scrollbars, drop markers, and drag previews.
+## Pan And Zoom
+
+Pan/zoom state lives in `frontend/src/gpuFlow/viewportStore.ts`. The store holds:
+
+- `transform`: the `[x, y, zoom]` tuple.
+- `width`, `height`, `minZoom`, `maxZoom`, and `defaultZoom`.
+- input key state such as pan, zoom, selection, and move activation keys.
+- interaction flags such as `pointerPanning`, `wheelZooming`, `panScrolling`,
+  `nodeDragging`, `nodeResizing`, and `viewportInteractionActive`.
+- connection, selection rectangle, and selected-node bounds state.
+- the current GPU flow DOM node for screen-relative coordinate conversion.
+
+`frontend/src/gpuFlow/viewportActions.ts` exposes the app-facing API:
+`setViewport`, `panBy`, `zoomAtScreenPoint`, `zoomBy`, `zoomTo`, `setCenter`,
+`fitView`, `screenToFlowPosition`, `flowToScreenPosition`, `getViewport`,
+`getZoom`, `resetZoom`, and `updateMapPosition`.
+
+`GpuProjectSurface` mirrors GUI settings into the viewport store:
+
+- min/max/default zoom.
+- pan-on-drag, pan-on-scroll, scroll mode, and scroll speed.
+- zoom-on-scroll, zoom-on-pinch, and zoom-on-double-click.
+- selection mode and snap grid.
+
+The pan/zoom controller is
+`frontend/src/gpuFlow/interactions/panZoom.ts`.
+
+### Pointer Pan
+
+Pointer panning starts only when the configured pan gesture is allowed. The
+controller rejects:
+
+- disabled pan-on-drag.
+- ctrl/meta modified pointer events.
+- selection mode gestures.
+- targets inside `NO_PAN_CLASS_NAME`.
+- primary-button node events unless the pan activation key is pressed.
+
+On pointer down, it sets `paneDragging` and `pointerPanning`, captures the
+pointer, and tracks client deltas. Each move adds the screen delta directly to
+viewport `x` and `y` via `panGpuViewport()`. If the transform changes, the
+controller requests a `viewport` frame.
+
+Pointer pan never asks React to rerender section contents and never asks the
+browser to repaint source DOM. The frame just redraws the WebGPU scene with the
+new camera.
+
+### Wheel Pan And Wheel Zoom
+
+Wheel events are handled only when scrolling is prevented by canvas settings and
+the target should not preserve native scrolling. The controller preserves native
+wheel behavior for `NO_WHEEL_CLASS_NAME` and, when appropriate,
+`NO_PAN_CLASS_NAME`.
+
+Wheel zoom chooses a point relative to the GPU flow element and calls
+`zoomGpuViewportAt()`. The math keeps that screen point stable while changing
+zoom. macOS ctrl-wheel pinch uses the pinch path. Regular wheel zoom uses a
+delta-mode scale factor.
+
+Wheel pan uses normalized `deltaX`/`deltaY`, applies the configured scroll mode
+(`free`, `horizontal`, or `vertical`), and applies `panOnScrollSpeed`.
+
+Wheel zoom bursts set `wheelZooming` for 180 ms after the last wheel event.
+Wheel pan bursts set `panScrolling` for 150 ms. When the burst ends, the
+controller requests a `texture-upload` frame so deferred passive uploads and
+resolution upgrades can resume.
+
+### Viewport Frames
+
+`GpuFlow` subscribes to the viewport store. When `transform` changes:
+
+1. `nodeLayerRef.current.viewport` is updated.
+2. `GpuSurface.requestFrame("viewport")` is called.
+3. `renderGpuFlowNodeLayerFrame()` calls `renderHtmlSurfaceFrame()`.
+4. `HtmlSurfaceRenderer.render()` redraws the grid, edges, and HTML surfaces
+   using the new camera uniform.
+
+During viewport frames, `deferResolutionUpdates` is true. Passive texture
+resolution upgrades and passive uploads are deferred while panning or zooming is
+active. Active/interactive surfaces can still upload first.
+
+The invariant is that pure pan/zoom must be transform-only from the DOM
+perspective. It must not call `requestPaint()`, force React renders, rewrite
+every source DOM transform, or upload unchanged textures.
+
+### Transitions
+
+Viewport actions support short explicit transitions for operations such as reset
+zoom and map-position updates. A transition sets `viewportAnimating` and drives
+frame-by-frame interpolation. Direct user interactions such as node dragging,
+node resizing, pane dragging, wheel zooming, pan scrolling, or marquee
+selection cancel active transitions.
+
+`GpuProjectSurface` also cancels viewport transitions when section DnD sorting
+or moving-free mode starts.
+
+## Section Contents
+
+Top-level sections are rendered by:
+
+```tsx
+function renderProjectGpuNode(node: GpuNodeLayout) {
+  return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
+}
+```
+
+The section rendering stack is:
+
+- `SectionContainer` resolves view-mode visibility, effective section impl,
+  section type, code/terminal grouping, codegen visibility, and active state.
+- `ContainerSwitch` chooses the top-level wrapper or nested-section wrapper.
+- `TopLevelContainer` registers top-level sections with dnd-kit.
+- `DndSlotAndDndWatcher` applies structural DnD highlighting and drag
+  listeners.
+- `SectionContainerCore` renders the section shell, style theme, active
+  outline, scope highlights, data/agentic/chat/workflow edge handles, and click
+  activation.
+- `SectionContainerCoreResizable` renders chrome plus the section body.
+- `AreaSwitch` selects the section body renderer from `SECTION_AREA_RENDERERS`.
+
+`SECTION_AREA_RENDERERS` maps section types to their content components:
+Callable, Dict, Image, Chart, Draw, Social, TextBlock, Prompt, MetaControl,
+GlobalVariables, Code, generated Python code/metadata, Terminal, IFrame, Chat,
+Browser, Plugin, TaskBoard, Spreadsheet, and state-machine nodes.
+
+Nested sections are normal DOM inside their parent section's source DOM:
+
+- `MaybeManyNestedSections` and `ManyNestedSections` render child lists.
+- `DNDSortable` wraps nested child lists for structural sorting.
+- `SortableSectionContainer` renders each nested child through
+  `SectionContainer` with `isTopLevel={false}`.
+
+Groups are section containers whose primary content is their nested section
+list. Code sections may render an attached terminal as a joined code-terminal
+group.
+
+Chat sections can be externalized into project chat windows. When a non-chat
+section has an externalized chat-window binding, `CanvasSectionBody` renders a
+`SectionWindowPlaceholder` in the section body instead of the original body.
+
+## Texture Dirtiness And DOM Interaction
+
+`GpuSurface` listens for html-in-canvas `paint` events. When the browser reports
+changed elements, `markHtmlSurfaceFramePaintDirty()` resolves the owning surface
+or tile and marks that texture dirty.
+
+`createGpuNodeInteractionDirtyController()` also listens for user interaction
+that implies a source texture is stale, including:
+
+- custom GPU-flow dirty events.
+- `beforeinput`, `input`, and `change`.
+- `scroll`.
+- `focusin` and `focusout`.
+- pointer interaction with interactive targets.
+- document selection changes.
+- CSS transition and animation lifecycle events.
+
+Interactive targets include native form controls, contenteditable elements,
+ARIA control roles, CodeMirror content, xterm surfaces, Setta comboboxes,
+`data-gpu-flow-control`, and `data-gpu-flow-interactive="true"`.
+
+When a pointer or wheel event needs native DOM behavior, the system does not
+make every source node visible and interactive. Instead it projects the single
+target source under the browser pointer:
+
+1. `resolveTopmostGpuNodeHitAtClientPoint()` maps the client point through the
+   current visual scene.
+2. `activeNodeTargeting.ts` finds the interactive or wheel target at the
+   resulting source-local coordinate.
+3. `HtmlSurfaceInteractionProjector.alignSourceToClientPoint()` sets the source
+   host transform to `translate(surfaceX - localX, surfaceY - localY)` and
+   turns `pointer-events` on.
+4. The browser dispatches native events to the real DOM target.
+5. When the interaction ends, the projector restores passive transform and
+   `pointer-events: none`.
+
+This is why section controls, CodeMirror editors, dropdowns, sliders, resize
+handles, and param rows can behave as real DOM while the user sees the WebGPU
+canvas.
 
 ## Section Resizing
 
-Section resizing is owned by the GPU interaction layer, not by DOM resize
-handles inside the section chrome. `SectionResizeFrame` marks the section as
-GPU-owned for resize behavior, and the actual handles are represented by the
-GPU resize overlay.
+Top-level section resizing is GPU-flow owned. Nested section resizing still uses
+the existing DOM `CustomResizable` path because nested sections live inside a
+parent section DOM layout.
 
-The resize flow is:
+The top-level resize pieces are:
 
-1. `projectNodeResize.ts` derives a resize policy from the section scene node,
-   section type, min/max dimensions, current project mode, snap settings, and
-   interaction guards.
-2. `GpuFlow` attaches `attachGpuFlowNodeResizeController()`, which delegates to
-   the generic `attachGpuNodeResizeController()`.
-3. Pointer down hit testing resolves resize handle targets from flow-space hit
-   rects. The active hit rect can be right, bottom, or bottom-right, depending
-   on the node policy.
-4. Pointer movement is converted from screen delta to flow delta by dividing by
-   `viewport.zoom`.
-5. The controller applies direction, min/max bounds, optional aspect ratio, and
-   optional snap grid rules.
-6. During resize, the GPU layout store is patched so the canvas can show the
-   new size immediately.
-7. The project adapter resolves a preview scene with
-   `resolveProjectGpuResizePreviewScene()` so nested layout, clips, ports, and
-   retained parameter surfaces stay consistent during the drag.
-8. On commit, `updateNodeDimensionsFromGpuResize()` and
-   `persistSectionSizeChange()` persist the new size through the normal project
-   paths.
-9. On cancel, the adapter restores the previous scene and layout store state.
+- `SectionResizeFrame` renders passive resize handles into the section DOM.
+  Handles carry `data-resize-section-id` and `data-resize-direction`.
+- `GpuFlow` attaches `attachGpuNodeResizeController()`.
+- `resolveGpuFlowNodeResizeTarget()` maps the pointer event through the
+  rendered visual scene and projected source DOM to find the resize handle.
+- `projectNodeResize.ts` supplies Setta-specific resize policy and persistence.
 
-The resize overlay is itself a canvas source layer. It draws the visible resize
-affordances and uploads them like the other overlay surfaces. The pointer hit
-rects are intentionally larger than the drawn affordances so resize is usable
-without increasing visual noise.
+The lifecycle is:
 
-## Section Drag and Drop
+1. The resize controller listens for pointer down in capture phase.
+2. It resolves a target handle and the current numeric node layout.
+3. It asks `getProjectNodeResizePolicy()` whether resizing is allowed and which
+   directions are enabled.
+4. On start, it sets `nodeResizing`, captures the pointer, patches the layout
+   store with phase `start`, calls project resize start hooks, and requests a
+   `resize` frame.
+5. On each pointer move, it schedules one resize animation frame.
+6. The resize frame converts screen delta to flow delta by dividing by current
+   zoom, applies direction-specific sizing, aspect ratio rules, min/max bounds,
+   and optional snap grid, then patches the layout store with phase `change`.
+7. On pointer up, it flushes the last frame, patches phase `commit`, calls
+   project resize stop hooks, clears `nodeResizing`, and requests a
+   `texture-upload` frame.
+8. On cancel, blur, lost pointer capture, or Escape, it restores the start
+   layout with phase `cancel`.
 
-Section drag uses the generic GPU node drag controller with a project adapter.
-The controller handles pointer capture, drag thresholding, selected-node drag,
-flow-space coordinate conversion, optional snap, auto-pan near viewport edges,
-layout-store previews, and final commit or cancel.
+Project-specific resize behavior includes:
 
-There are two section movement modes.
+- Resize is disabled when layout editing is unavailable, the section is locked,
+  the pan or zoom activation key is pressed, DnD modes are active, follow
+  transitions are active, section move activation is active, marquee selection
+  is active, or multi-selection is active.
+- Min/max and resizable axes come from `getSectionMinMaxDims()` and
+  `sectionResizePolicy`.
+- Snap grid uses GUI settings when snap-to-grid is enabled.
+- Aspect ratio uses section impl fields such as `aspectRatio`,
+  `aspectRatioExtraHeight`, and `aspectRatioExtraWidth`.
+- The GPU layout stores outer dimensions. Persistence converts to inner section
+  dimensions with `toTopLevelSectionInnerDimension()` and
+  `toTopLevelSectionOuterDimension()`.
+- Resize start may promote an auto-size axis to a concrete size so drag math is
+  stable.
+- Resize stop detects double-click resize behavior, clamps changed sizes,
+  persists through `persistSectionSizeChange()`, updates measured node
+  dimensions with `updateNodeDimensionsFromGpuResize()`, and schedules
+  `debounced_route_set_top_level_section_layout()`.
 
-Top-level sections are free-positioned. During drag, their layout records are
-patched in the GPU layout store. On stop, the adapter persists the new positions
-with `updateNodePositions()` and updates z-order with `setZIndices()` when
-needed.
+While a resize is active, the active node is retained in the visible set and its
+texture priority is `interactive`.
 
-Nested sections are ordered children of a parent section. They are not committed
-as raw x/y positions. During drag, `previewProjectNestedNodeDrag()` resolves a
-child move plan with `resolveGpuSectionSceneChildMultiMovePlan()`. The preview
-can reparent or reorder the dragged section group, patch the scene layout store,
-draw drag bounds, draw a drop marker, and auto-scroll the nested viewport. On
-stop, the project adapter commits the structural move through
-`moveSectionsWithBackend()` with `sectionIds`, `newParentId`, `newIndex`, and
-`positionsById: null`.
+## Section Drag And Drop
 
-Nested drag target resolution is scene-aware. The drop parent is selected from
-ordered child drop rects under the dragged center point, preferring deeper and
-higher-priority candidates. The move planner rejects invalid targets such as
-the same parent/index no-op, descendant-parent moves, and targets that cannot
-accept ordered children.
+There are two different section movement systems:
 
-Drag is disabled by project mode and interaction guards such as pan activation,
-follow mode, locked sections, and incompatible selection state.
+- GPU node drag moves top-level sections freely on the canvas.
+- dnd-kit structural drag-and-drop reorders and reparents sections.
 
-## Parameter Drag and Drop
+They share the same section DOM and selection state, but they commit different
+project changes.
 
-Parameter drag and drop in the HTML-in-canvas surface uses retained-content
-interaction, not the older dnd-kit DOM row path. The relevant entrypoint is
-`projectGpuRetainedParamInteractionAdapter.tsx`, with move planning in
-`projectGpuParamDragAdapter.ts`.
+### Free Canvas Movement
 
-The retained interaction controller hit tests the retained parameter scene. It
-preserves native DOM island targets, tracks click-versus-drag thresholds, emits
-drag start/move/frame/end/cancel callbacks, and keeps pointer activity in
-flow-local retained-content coordinates.
+Free canvas movement is handled by
+`frontend/src/gpuFlow/interactions/nodeDrag.ts` and wired in
+`GpuProjectSurface` through `getProjectNodeDragOptions()`.
 
-A parameter drag can start when the project is in parameter selection mode, the
-user can edit structure, and the pointer starts on a row or label hit. Ranged
-controls use the same controller but branch into slider/rotary drag behavior
-instead of structural parameter movement.
+This is the normal pointer drag path for moving top-level sections around the
+canvas. It is not the structural dnd-kit path.
 
-The parameter drag session records:
+The controller:
 
-- The source section and retained surface key, such as pinned or unpinned.
-- The active parameter and current selected parameter set.
-- Parent relationships and visible children by parent.
-- Whether the active parameter is an edge input or otherwise not movable.
-- Whether a parameter filter is active, which blocks structural moves because
-  visible row order no longer represents the full canonical order.
+- starts from a pointer down on a GPU flow node.
+- ignores disabled gestures, non-primary buttons, locked sections, and targets
+  inside `NO_DRAG_CLASS_NAME`.
+- waits for a small movement threshold.
+- converts the initial and current pointer locations from screen coordinates to
+  flow coordinates.
+- expands the drag to selected nodes when the active section is selected.
+- computes each dragged node's pointer distance from its origin.
+- patches `gpuFlowLayoutStore` live while dragging.
+- optionally snap-aligns on stop.
+- auto-pans near viewport edges.
+- requests `viewport` frames while positions change.
 
-Multi-select moves are constrained to a coherent structure. If the active row is
-not selected, the drag selects and moves only that row. If multiple selected
-rows cannot be moved together because they span incompatible parents, the
-adapter falls back to the active row and reports the issue through the project
-notification path.
+Project callbacks then integrate with project state:
 
-Drop targets are resolved inside the same section and retained surface. A drop
-can land before or after a row based on the pointer position relative to the row
-midpoint. It can also target an empty nested parent control when the pointer is
-over a valid empty parent area. The planner rejects drops onto the dragged row,
-drops into descendants of the moved set, and no-op drops.
+- `handleProjectNodeDragStart()` raises temporary z-index in the GPU layout and
+  marks `mouseDownDraggingSection`.
+- `handleProjectNodeDrag()` does not persist during the drag; GPU flow owns live
+  layout while the gesture is active.
+- `handleProjectNodeDragStop()` writes final positions through
+  `updateNodePositions()` and raises durable z-index with `setZIndices()`.
 
-When hidden rows exist, the adapter resolves the full insertion index from the
-visible insertion point so hidden children keep their relative canonical order.
-During drag, the retained scene draws a drop marker and drag preview. During
-drag frames, retained-content auto-scroll can update the source surface scroll
-offset and recompute the preview. On drop, the adapter commits through
-`moveParamsWithBackend()`.
+Free canvas movement keeps the section top-level. It does not reparent into a
+group or reorder inside a nested list.
+
+### Structural Section DnD
+
+Structural section DnD is handled by `SectionDndContext` and the dnd-kit
+adapter in `frontend/src/forks/dnd-kit/`.
+
+It is enabled by explicit DnD modes:
+
+- sorting mode reorders children within a parent.
+- moving-free mode reparents sections or drops them onto the top-level canvas.
+
+The modes are toggled by shortcut actions in
+`state/actions/keyActivations/shortcutEventLoop.ts`. `GpuProjectSurface`
+disables viewport gestures while either mode is active and cancels active
+viewport transitions.
+
+The key state stores are:
+
+- `useDndState`: active/over ids, mode flags, drag selection, placeholder size,
+  drag rects, behavior drop type, and pending deactivation.
+- `useDndChildren`: a temporary parent-to-children tree used while dragging.
+
+Top-level sections are registered by `TopLevelContainer` with both
+`useDraggable()` and `useDroppable()`. Nested sections are registered by
+`SortableSectionContainer` inside `DNDSortable`.
+
+The lifecycle is:
+
+1. `onDragStart()` resolves the active section, current drag selection, active
+   rect, and placeholder size. In sorting or moving-free mode it replaces the
+   dragged section set with a temp section id (`-TempDND`) in `useDndChildren`.
+2. `useDropType` processes collisions during drag. It resolves over ids,
+   `pastHalfway`, trigger distance, behavior drop type, and temp placeholder
+   moves.
+3. `DndSlot` and `useHighlightDroppable()` render valid/invalid drop feedback.
+4. `useMoveSection` handles drag end.
+5. Sorting uses `planSortingMove()` to compute a new child index.
+6. Moving-free uses `planFreeMove()` to compute either a new parent/index or
+   top-level `positionsById`.
+7. `moveSectionsWithBackend()` applies the optimistic move and sends the
+   backend update.
+8. `manualDndChildrenReset()` clears the temporary tree.
+
+Drop rules reject invalid structural moves, including frozen targets, invalid
+parent targets, GlobalVariables moves, descendant drops for selected section
+sets, and code-section attach constraints. Code-section drops are only valid for
+the single-terminal attach case expected by the terminal/code-section behavior.
+
+dnd-kit produces transforms in screen pixels. Because the section DOM is inside
+a zoomed source texture, `adapter/zoom.ts` divides DnD transforms by the current
+GPU-flow zoom before applying CSS transforms. Without this, drag overlays and
+placeholder movement would be visually too large or too small at non-1x zoom.
+
+### Selection Drag Handle
+
+The selected-node rectangle is rendered outside the canvas as a viewport overlay
+by `selectionDragLayer.tsx`. In moving-free mode, `GpuProjectSurface` exposes
+that overlay element to dnd-kit through `selectionDragHandle.ts`. This allows a
+multi-section selection to be structurally moved from the selection rectangle
+instead of from an individual section body.
+
+## Parameter Rendering
+
+Params are part of section content. They are real DOM inside the section source
+host, so they are captured into the section texture like any other section
+content.
+
+The render path is:
+
+1. Param-capable section body renders a `ParamDndList`.
+2. `ParamDndList` builds duplicate-name indexes and, when param DnD is enabled,
+   builds a visible param tree.
+3. `GetParamSwitch` applies param filtering while preserving ancestor paths
+   needed to display matching nested params.
+4. `ParamSwitch` renders either a temporary placeholder row or a real param row.
+5. `ParamContainer` lays out the row, nested children, tooltip data, resize
+   handle, error icon, and value input.
+6. `ParamInput` reads and writes the param value.
+7. `ParamUI` selects the concrete control implementation by `CodeObjType`.
+
+Param rows use `NO_DRAG_CLASS_NAME` and `NO_PAN_CLASS_NAME`, plus
+`data-gpu-flow-control` and `data-gpu-flow-interactive="true"`. Those markers
+prevent canvas pan/node-drag from stealing input gestures and allow GPU-flow
+source projection to find row-level interactive targets.
+
+## Parameter Drag And Drop
+
+Param drag-and-drop is separate from section DnD. It uses its own nested
+`DragDropProvider` in `forks/dnd-kit/ParamDndContext.tsx`, mounted around the
+params UI.
+
+Param DnD is enabled only when:
+
+- param selection mode is active (`useMisc().isSelectingParams`).
+- structure editing is allowed by share capabilities.
+- the section supports params: Callable, Dict, or GlobalVariables.
+- the active param list has no filter text.
+- the row is not an edge-input param filtered out of the draggable list.
+
+Param lists are separated by `listKey`:
+
+- `pinned`
+- `unpinned`
+
+Param DnD ids include the list key:
+
+```ts
+getParamDndItemId(paramId, listKey)
+```
+
+Temporary placeholders append `::TempParamDND`. Collision tracking filters by
+`listKey`, so pinned and unpinned rows do not mix during a drag.
+
+The param DnD state stores are:
+
+- `useParamDndState`: active param, section id, list key, root id, dragging ids,
+  parent map, visible children map, active rect, placeholder size, and pending
+  reset state.
+- `useParamDndChildren`: temporary parent-to-children and child-to-parent maps
+  while dragging.
+
+The lifecycle is:
+
+1. `ParamSwitch` registers each real row with `useSortable()` and data
+   `{ type: "param", sectionId, listKey, paramId, hasNested, onlyChildId }`.
+2. `useParamDndSensors()` activates only for `type: "param"` sources and uses a
+   small pointer distance threshold.
+3. `handleParamDragStart()` validates the drag, resolves the active param id,
+   builds the root id and parent map, and resolves the drag selection.
+4. If the active param is not selected, it becomes the only selected param.
+5. If multiple params are selected, only root selections are dragged. A
+   selection spanning multiple parents collapses to the active param and shows a
+   notification.
+6. The visible param tree is built from shown top-level ids and required paths.
+7. The dragged rows are measured, replaced by one temp placeholder, and state is
+   recorded in `useParamDndState`.
+8. `handleParamDragMove()` and `handleParamDragOver()` schedule one drag-over
+   update per animation frame.
+9. `resolveParamDragOverResolution()` filters collisions by list key, resolves
+   the over param, `pastHalfway`, and horizontal trigger distance.
+10. `resolveParamDragParent()` keeps a drop with the hovered param's parent by
+    default. When trigger distance is crossed, it treats the hovered param as
+    the new parent, which is the indent/reparent gesture.
+11. `maybeMovePlaceholder()` updates `useParamDndChildren` so React displays the
+    temp placeholder at the prospective location.
+12. On drop, `resolveParamDragDropTarget()` finds the temp placeholder's parent
+    and visible index.
+13. `resolveParamDragInsertion()` maps that visible index back into the full
+    child list with `resolveFullIndexForVisibleInsertion()`, so hidden params
+    keep their relative order.
+14. `moveParamsWithBackend()` applies the optimistic move and sends the
+    OpenAPI `moveParams` request.
+15. Reset is deferred until dnd-kit reports idle, avoiding a visual snap during
+    the drop animation.
+
+Safeguards block dropping into descendants of the dragged selection, no-op moves
+within the same parent, moves without a valid old/new parent, and moves whose
+visible insertion cannot be mapped back into the full child list.
 
 ## Parameter Inputs
 
-Parameter inputs are split by control behavior. The row adapter maps each
-parameter to a `GpuRetainedContentControlDescriptor` with a commit policy:
+Param values are rendered by `ParamInput` and `ParamUI`.
 
-- `immediate`: clicks, keyboard actions, or popup selections can commit directly
-  from the retained canvas interaction path.
-- `preview-commit`: drag or keyboard changes update the UI optimistically during
-  interaction and commit once the interaction ends.
-- `native-island`: the control needs real browser DOM input behavior, so a DOM
-  island is mounted as a positioned child of the `layoutsubtree` canvas.
+`ParamInput` resolves:
 
-Immediate controls include controls such as switches, buttons, dropdown option
-selection, and some color/date sub-controls. The retained scene exposes hit
-records for the relevant subparts. Project-specific adapters translate those
-hits into Setta parameter value changes.
+- the effective childless code object implementation.
+- the current code object variant.
+- the current section variant.
+- tool-argument preview values, when present.
+- whether the param is a password param.
+- whether local preview state can be synchronized optimistically.
 
-Preview-commit controls include ranged controls such as sliders and rotaries.
-Pointer drag, keyboard, and wheel updates can preview values with backend
-updates skipped during the active drag. The final pointer-up or cancel path
-commits or restores through the same parameter value update helper.
+The displayed value comes from:
 
-Native-island controls are used for text-like editing, code/textarea editing,
-password entry, dropzone interactions, date/time input fields, and parameter
-name editing. `projectGpuParamDomIslandGeometry.ts` computes the island's
-flow-space geometry and clips it to the retained content surface. The DOM island
-layer positions the island in screen space with the current viewport transform
-and scale. The native island renderer mounts the normal `ParamInput` or
-`ParamNameInput`, marks it as retained native content, focuses it, and can replay
-the original pointer activation so the browser interaction feels direct.
+```ts
+previewValue ?? baseValue
+```
 
-Any popup, tooltip, validation bubble, or combobox list opened from a native
-island must use a known portal root instead of falling into an incidental DOM
-parent. Project-specific retained roots are declared by
-`projectGpuPortalAdapter.ts`; shared popover and combobox paths use the standard
-Setta popover portal root. Custom-positioned overlays should use
-`autoUpdateGpuFloatingPosition()` rather than local viewport-edge math.
-Primitive-owned overlays such as Radix popovers must subscribe to GPU viewport
-repositioning when their anchor moves because of pan or zoom.
+`useLocalPendingValue()` keeps local edits responsive while waiting for global
+project state to catch up. If the pending value equals the global value, the
+pending state clears.
 
-`ParamInput` owns the same input semantics used outside the GPU surface:
+When an input changes:
 
-- Local pending value while editing.
-- Preview state for optimistic or realtime-dependent values.
-- Debounced backend updates for standard entered values.
-- Realtime literal emits when the parameter configuration requires them.
-- Specialized behavior for password reveal, dropzone file state, date/time
-  values, and disabled/error states.
+1. `ParamInput.onChange()` stringifies the value.
+2. The local pending value updates immediately.
+3. Non-password preview state is updated locally when a code object variant is
+   available.
+4. `shouldEmitRealtimeValue()` decides whether to emit a realtime section-param
+   literal.
+5. Unless the input passed `{ skipBackendUpdate: true }`, the backend write is
+   queued.
+6. Standard params use `setParamEnteredValue` with
+   `dispatchOptimisticProjectStateUpdate()`.
+7. Password params use the same backend endpoint but do not optimistically write
+   the secret into normal param state.
 
-All standard value commits flow through `commitParamInputValueChange()`, which
-routes to the OpenAPI project update path and applies the appropriate optimistic
-project-state update. The HTML-in-canvas layer decides how the user interacts
-with the control; it does not create a parallel value model.
+Standard value writes are debounced by 50 ms. Password writes are also debounced
+by 50 ms. This keeps high-frequency controls such as sliders responsive without
+issuing a request for every pointer move.
 
-## Hit Testing and Dirty Tracking
+Dropzone params have two modes:
 
-Section hits use the GPU layout and HTML surface hit scene. Retained parameter
-hits use retained scene hit records. Native DOM island targets are preserved so
-browser focus, text selection, file/dropzone behavior, and form input events can
-work normally.
+- Stateful dropzones update the param value, often using
+  `{ skipBackendUpdate: true }` around upload workflows that need explicit
+  commit/rollback behavior.
+- Stateless dropzones publish dependency events directly with literal metadata
+  and binary payload events instead of writing persistent param value state.
 
-Dirty tracking separates transform-only frames from content changes. Paint
-events from the `layoutsubtree` canvas, retained canvas draws, custom dirty
-events, input/change/focus activity, selection changes, animations, transitions,
-and interactive pointer activity can mark a source texture dirty. A later frame
-uploads only the dirty surfaces that are visible, forced active, or otherwise
-high priority.
+`ParamUI` chooses the concrete input renderer:
 
-Pure pan and zoom should remain transform-only. If a change makes panning or
-zooming request HTML paints, re-render React section trees, or upload every
-texture, it is a regression in the HTML-in-canvas architecture.
+- Text-like params use `TextInputCodeMirror`.
+- Date and time params use the date/time text input stack.
+- Slider params use configured slider bounds from param UI config.
+- Rotary params use configured min/max/step.
+- Switch params use a boolean switch.
+- Color picker params use configured color choices.
+- Dropdown params use configured choices.
+- Password params use `PasswordInput` plus optional reveal behavior.
+- Dropzone params use `DropzoneInput`.
 
-## Verification Surface
+Inputs are disabled when:
 
-The architecture is protected by both model-level and browser-level tests:
+- param selection mode is active.
+- the section is frozen.
+- share capabilities do not allow param editing.
+- deployment mode is active for code params.
 
-- Property tests cover finite viewport coordinate conversion, zoom-at-point
-  invariants, fit-view bounds, retained visible row ranges, retained hit
-  clipping and precedence, and parameter insertion rules.
-- Focused unit tests cover portal partitioning, Floating UI virtual references,
-  combobox portal placement, retained scene diagnostics, and retained hit-test
-  diagnostics.
-- Browser tests under `frontend/tests/e2e/gpu-flow/` exercise realistic user
-  paths: pan and zoom, canvas-aware combobox placement, context menu edge
-  placement, retained native text/password/date/time/dropzone islands, scoped
-  axe checks, retained scroll, retained popup use, retained drag/drop, and
-  transform-only pan/zoom performance probes.
+Most input wrappers include `NO_DRAG_CLASS_NAME` and `NO_PAN_CLASS_NAME` so
+typing, sliders, dropdowns, color pickers, and file drops are handled by the
+source DOM rather than by canvas movement.
 
-When adding a support library or moving a UI path into this architecture, add
-coverage at the owner layer. Runtime behavior needs production-path unit tests
-and, for user-visible canvas/UI changes, Playwright or CDP verification that
-uses real pointer, wheel, keyboard, focus, and text input events.
+### Parameter Name Inputs
 
-## Extension Rules
+Editable param names are handled separately by `ParamNameInput`.
 
-When extending this surface, prefer the existing owner path:
+The name input uses `TextInputCodeMirror` and chooses between core `name` and
+`displayName` depending on project display-name settings and whether the param
+is a kwarg/core-name-editable param.
 
-- Add section body behavior through `SectionContainer` and the section owner
-  code. Let the GPU scene describe geometry, clipping, and interaction policy.
-- Add section layout, resize, or drag behavior through the scene and project GPU
-  adapters, then persist through the project backend route that owns the
-  canonical state.
-- Add parameter controls by extending the owner-defined parameter adapter,
-  retained draw commands, hit records, and project commit adapter. Use a native
-  DOM island only when browser-native input behavior is required.
-- Keep generated or backend-owned contracts authoritative when a change touches
-  cross-language project data.
-- Do not add a second parameter row DOM rendering path for the GPU surface.
-- Do not use dnd-kit for retained parameter drag/drop in this surface; that path
-  exists for other DOM-based drag surfaces and legacy integration points.
-- Use known portal roots plus the shared Floating UI wrapper for canvas-aware
-  custom overlays instead of writing local popup positioning.
-- Preserve direct canvas child source hosts and avoid wrapping source content in
-  extra DOM that breaks `layoutsubtree` upload eligibility.
-- Preserve transform-only pan/zoom behavior and defer passive texture work while
-  viewport interaction is active.
+It validates locally before committing:
+
+- empty-name rules depend on kwarg/dict-root context.
+- Python identifier rules apply when Python codegen is enabled and the section
+  is not a Dict.
+- Dict params skip path checks.
+- duplicate sibling names are rejected from the duplicate index.
+- backend validation errors are shown when present.
+
+Name writes are debounced by 200 ms and sent through `setCodeObjName`.
+Display-name writes are debounced by 200 ms and sent through
+`setCodeObjDisplayName`. Core name writes use optimistic update with rollback.
+
+Validation bubbles are positioned inside the section's resize frame. The
+position math accounts for the fact that the section can be visually scaled by
+the GPU viewport while the source DOM still has its own local dimensions.
+
+## Portals And Overlays
+
+Some DOM surfaces cannot render correctly if they escape the canvas subtree.
+`GpuProjectSurface` supplies portal descriptors from
+`projectGpuPortalAdapter.ts`, and `GpuFlow` partitions them into:
+
+- source-local portals rendered inside the canvas/source subtree.
+- viewport portals rendered beside the canvas but in the same GPU flow root.
+
+CodeMirror tooltips and Setta popovers are kept inside the canvas element so
+html-in-canvas can capture and project them consistently.
+
+Selection overlays are different. The marquee rectangle and selected-node drag
+layer are rendered as siblings above the canvas and use the same viewport math
+to align with the WebGPU scene.
+
+## Performance Constraints
+
+The architecture depends on a few hard invariants:
+
+- Source DOM is mounted for native behavior, but visible movement is WebGPU
+  camera movement.
+- Pure pan/zoom must not repaint source DOM or upload unchanged textures.
+- Source projection must be limited to the active interaction target.
+- Texture uploads must be budgeted and prioritized.
+- Non-active texture resolution upgrades should be deferred during viewport
+  interaction.
+- Section and param DnD transforms must be zoom-aware.
+- Param and section controls must keep `NO_PAN_CLASS_NAME`/`NO_DRAG_CLASS_NAME`
+  coverage when new controls are added.
+- Top-level resize must convert screen deltas through the current zoom before
+  applying section size policy.
+- Visible-index DnD operations must map back to full owner data structures so
+  filtered or hidden children keep their order.
+
+These invariants keep large project canvases responsive while preserving the
+behavior users expect from real DOM controls.

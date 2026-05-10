@@ -18,36 +18,6 @@ import (
 func TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState(t *testing.T) {
 	t.Parallel()
 
-	fixture := newOpenWorkspaceCreateFixture(t)
-	result, err := fixture.service.OpenWorkspace(OpenWorkspaceInput{
-		WorkspaceRoot:   fixture.workspaceRoot,
-		CreateIfMissing: true,
-	})
-	if err != nil {
-		t.Fatalf("open workspace: %v", err)
-	}
-
-	assertOpenWorkspaceCreateLaunchInput(t, fixture)
-	if _, err := os.Stat(fixture.workspaceRoot); err != nil {
-		t.Fatalf("expected created workspace root to exist: %v", err)
-	}
-	assertOpenWorkspaceCreateResult(t, result, fixture)
-	assertOpenWorkspaceCreatePersistence(t, fixture)
-}
-
-type openWorkspaceCreateFixture struct {
-	service               *OpenWorkspaceService
-	home                  *HomeService
-	sessionLauncher       *capturingIDELauncher
-	workspaceRoot         string
-	resolvedWorkspaceRoot string
-	resolvedSettaHome     string
-	metadataPath          string
-}
-
-func newOpenWorkspaceCreateFixture(t *testing.T) openWorkspaceCreateFixture {
-	t.Helper()
-
 	baseRoot := t.TempDir()
 	allowedRoot := filepath.Join(baseRoot, "allowed")
 	defaultSettaHome := filepath.Join(baseRoot, ".setta")
@@ -140,57 +110,46 @@ func newOpenWorkspaceCreateFixture(t *testing.T) openWorkspaceCreateFixture {
 	if err != nil {
 		t.Fatalf("new open workspace service: %v", err)
 	}
-	return openWorkspaceCreateFixture{
-		service:               service,
-		home:                  serviceHome,
-		sessionLauncher:       sessionLauncher,
-		workspaceRoot:         workspaceRoot,
-		resolvedWorkspaceRoot: resolvedWorkspaceRoot,
-		resolvedSettaHome:     resolvedSettaHome,
-		metadataPath:          metadataPath,
+
+	result, err := service.OpenWorkspace(OpenWorkspaceInput{
+		WorkspaceRoot:   workspaceRoot,
+		CreateIfMissing: true,
+	})
+	if err != nil {
+		t.Fatalf("open workspace: %v", err)
 	}
-}
 
-func assertOpenWorkspaceCreateLaunchInput(t *testing.T, fixture openWorkspaceCreateFixture) {
-	t.Helper()
-
-	if fixture.sessionLauncher.input == nil {
+	if sessionLauncher.input == nil {
 		t.Fatal("expected launcher input to be captured")
 	}
-	if fixture.sessionLauncher.input.SettaHome != fixture.resolvedSettaHome {
-		t.Fatalf("expected default setta home %q, got %q", fixture.resolvedSettaHome, fixture.sessionLauncher.input.SettaHome)
+	if sessionLauncher.input.SettaHome != resolvedSettaHome {
+		t.Fatalf("expected default setta home %q, got %q", resolvedSettaHome, sessionLauncher.input.SettaHome)
 	}
-	if fixture.sessionLauncher.input.SettaFilesLocation == nil || *fixture.sessionLauncher.input.SettaFilesLocation != "auto" {
-		t.Fatalf("expected omitted setta files location to normalize to auto, got %#v", fixture.sessionLauncher.input.SettaFilesLocation)
+	if sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
+		t.Fatalf("expected omitted setta files location to normalize to auto, got %#v", sessionLauncher.input.SettaFilesLocation)
 	}
-}
-
-func assertOpenWorkspaceCreateResult(t *testing.T, result OpenWorkspaceResult, fixture openWorkspaceCreateFixture) {
-	t.Helper()
-
+	if _, err := os.Stat(workspaceRoot); err != nil {
+		t.Fatalf("expected created workspace root to exist: %v", err)
+	}
 	if result.BootstrapURLFragment != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok" {
 		t.Fatalf("unexpected bootstrap URL fragment %q", result.BootstrapURLFragment)
 	}
-	if result.WorkspaceRoot != fixture.resolvedWorkspaceRoot || result.SettaFilesLocation != "local" || result.SettaHome != fixture.resolvedSettaHome || result.SessionID != "session-1" || !result.StartedNew {
+	if result.WorkspaceRoot != resolvedWorkspaceRoot || result.SettaFilesLocation != "local" || result.SettaHome != resolvedSettaHome || result.SessionID != "session-1" || !result.StartedNew {
 		t.Fatalf("unexpected open workspace result %#v", result)
 	}
 	if result.Profile != nil {
 		t.Fatalf("expected nil profile, got %#v", result.Profile)
 	}
-}
 
-func assertOpenWorkspaceCreatePersistence(t *testing.T, fixture openWorkspaceCreateFixture) {
-	t.Helper()
-
-	recentWorkspaces, err := fixture.home.LoadRecentWorkspaces(fixture.resolvedSettaHome)
+	recentWorkspaces, err := serviceHome.LoadRecentWorkspaces(resolvedSettaHome)
 	if err != nil {
 		t.Fatalf("load recent workspaces: %v", err)
 	}
-	if len(recentWorkspaces) != 1 || recentWorkspaces[0].WorkspaceRoot != fixture.resolvedWorkspaceRoot {
+	if len(recentWorkspaces) != 1 || recentWorkspaces[0].WorkspaceRoot != resolvedWorkspaceRoot {
 		t.Fatalf("unexpected recent workspaces %#v", recentWorkspaces)
 	}
 
-	metadataBytes, err := os.ReadFile(fixture.metadataPath)
+	metadataBytes, err := os.ReadFile(metadataPath)
 	if err != nil {
 		t.Fatalf("read launcher metadata: %v", err)
 	}
@@ -198,8 +157,8 @@ func assertOpenWorkspaceCreatePersistence(t *testing.T, fixture openWorkspaceCre
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		t.Fatalf("decode launcher metadata: %v", err)
 	}
-	if metadata.LastUsedWorkspace == nil || *metadata.LastUsedWorkspace != fixture.resolvedWorkspaceRoot {
-		t.Fatalf("expected launcher metadata last used workspace %q, got %#v", fixture.resolvedWorkspaceRoot, metadata.LastUsedWorkspace)
+	if metadata.LastUsedWorkspace == nil || *metadata.LastUsedWorkspace != resolvedWorkspaceRoot {
+		t.Fatalf("expected launcher metadata last used workspace %q, got %#v", resolvedWorkspaceRoot, metadata.LastUsedWorkspace)
 	}
 }
 

@@ -78,7 +78,7 @@ export type PluginListEntryCardRuntimeState = {
   } | null;
 };
 
-type PluginsPaneRuntimeSummary = {
+export type PluginsPaneRuntimeSummary = {
   status: string;
   statusMessage: string | null;
   restartCapability: PluginRestartCapability | null;
@@ -93,7 +93,7 @@ export const DEFAULT_PLUGIN_SERVER_MODE: PluginServerMode = "ide";
 
 export const PYTHON_LANGUAGE_ID = "python";
 
-const PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID = "__python_lsp_none__";
+export const PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID = "__python_lsp_none__";
 
 export const cachedFormattedCapabilitiesText = new WeakMap<string[], string>();
 
@@ -109,7 +109,7 @@ export const cachedBlockedCapabilitiesTooltipText = new WeakMap<
   string
 >();
 
-function buildPythonLanguageServerOptions(
+export function buildPythonLanguageServerOptions(
   selectionStatus: LanguageServerSelectionStatus | null,
 ): Array<{ id: string; name: string }> {
   const options = [
@@ -417,7 +417,7 @@ export function PluginsPaneActionStatusNotice({
   );
 }
 
-function getLanguageServerSelectionNoticeClassName(
+export function getLanguageServerSelectionNoticeClassName(
   selectionStatus: LanguageServerSelectionStatus | null,
 ): string {
   if (
@@ -433,7 +433,7 @@ function getLanguageServerSelectionNoticeClassName(
   return "border-setta-200 bg-setta-50/70 text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
 }
 
-function normalizePythonLanguageServerSelectionValue(
+export function normalizePythonLanguageServerSelectionValue(
   nextValue: string | null,
 ): string | null {
   return nextValue === PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID ||

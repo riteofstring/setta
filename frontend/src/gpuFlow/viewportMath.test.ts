@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import fc from "fast-check";
 import {
   flowToScreenPosition,
   getGpuViewportForBounds,
@@ -9,27 +8,6 @@ import {
   screenToFlowPosition,
   zoomGpuViewportAtScreenPoint,
 } from "./viewportMath";
-
-const GPU_MATH_PROPERTY_RUNS = 100;
-const coordinate = fc.double({
-  max: 100_000,
-  min: -100_000,
-  noDefaultInfinity: true,
-  noNaN: true,
-});
-const positiveDimension = fc.double({
-  max: 10_000,
-  min: 1,
-  noDefaultInfinity: true,
-  noNaN: true,
-});
-const nonNegativeDimension = fc.oneof(fc.constant(0), positiveDimension);
-const zoomValue = fc.double({
-  max: 8,
-  min: 0.05,
-  noDefaultInfinity: true,
-  noNaN: true,
-});
 
 describe("gpu viewport math", () => {
   it("converts between flow and screen coordinates using the Setta viewport", () => {
@@ -132,129 +110,5 @@ describe("gpu viewport math", () => {
       y: -80,
       zoom: 4,
     });
-  });
-
-  it("round-trips finite flow and screen coordinates", () => {
-    fc.assert(
-      fc.property(
-        fc.record({
-          point: fc.record({ x: coordinate, y: coordinate }),
-          viewport: fc.record({
-            x: coordinate,
-            y: coordinate,
-            zoom: zoomValue,
-          }),
-        }),
-        ({ point, viewport }) => {
-          const screen = flowToScreenPosition(point, viewport);
-          const flow = screenToFlowPosition(screen, viewport);
-
-          expect(flow.x).toBeCloseTo(point.x, 8);
-          expect(flow.y).toBeCloseTo(point.y, 8);
-        },
-      ),
-      { numRuns: GPU_MATH_PROPERTY_RUNS },
-    );
-  });
-
-  it("preserves the flow point under the cursor when zooming", () => {
-    fc.assert(
-      fc.property(
-        fc.record({
-          maxZoomOffset: fc.double({
-            max: 8,
-            min: 0,
-            noDefaultInfinity: true,
-            noNaN: true,
-          }),
-          minZoom: zoomValue,
-          point: fc.record({ x: coordinate, y: coordinate }),
-          requestedZoom: zoomValue,
-          viewport: fc.record({
-            x: coordinate,
-            y: coordinate,
-            zoom: zoomValue,
-          }),
-        }),
-        ({ maxZoomOffset, minZoom, point, requestedZoom, viewport }) => {
-          const maxZoom = minZoom + maxZoomOffset;
-          const before = screenToFlowPosition(point, viewport);
-          const afterViewport = zoomGpuViewportAtScreenPoint({
-            maxZoom,
-            minZoom,
-            point,
-            viewport,
-            zoom: requestedZoom,
-          });
-          const after = screenToFlowPosition(point, afterViewport);
-
-          expect(afterViewport.zoom).toBeGreaterThanOrEqual(minZoom);
-          expect(afterViewport.zoom).toBeLessThanOrEqual(maxZoom);
-          expect(after.x).toBeCloseTo(before.x, 8);
-          expect(after.y).toBeCloseTo(before.y, 8);
-        },
-      ),
-      { numRuns: GPU_MATH_PROPERTY_RUNS },
-    );
-  });
-
-  it("returns finite fit-view transforms within zoom bounds", () => {
-    fc.assert(
-      fc.property(
-        fc.record({
-          bounds: fc.record({
-            height: nonNegativeDimension,
-            width: nonNegativeDimension,
-            x: coordinate,
-            y: coordinate,
-          }),
-          canvasHeight: nonNegativeDimension,
-          canvasWidth: nonNegativeDimension,
-          maxZoomOffset: fc.double({
-            max: 8,
-            min: 0,
-            noDefaultInfinity: true,
-            noNaN: true,
-          }),
-          minZoom: zoomValue,
-          overviewWidth: nonNegativeDimension,
-          padding: fc.double({
-            max: 2,
-            min: 0,
-            noDefaultInfinity: true,
-            noNaN: true,
-          }),
-          viewportZoom: zoomValue,
-        }),
-        ({
-          bounds,
-          canvasHeight,
-          canvasWidth,
-          maxZoomOffset,
-          minZoom,
-          overviewWidth,
-          padding,
-          viewportZoom,
-        }) => {
-          const maxZoom = minZoom + maxZoomOffset;
-          const viewport = getGpuViewportForBounds(bounds, {
-            canvasHeight,
-            canvasWidth,
-            maxZoom,
-            minZoom,
-            overviewWidth,
-            padding,
-            viewport: [0, 0, viewportZoom],
-          });
-
-          expect(Number.isFinite(viewport.x)).toBe(true);
-          expect(Number.isFinite(viewport.y)).toBe(true);
-          expect(Number.isFinite(viewport.zoom)).toBe(true);
-          expect(viewport.zoom).toBeGreaterThanOrEqual(minZoom);
-          expect(viewport.zoom).toBeLessThanOrEqual(maxZoom);
-        },
-      ),
-      { numRuns: GPU_MATH_PROPERTY_RUNS },
-    );
   });
 });

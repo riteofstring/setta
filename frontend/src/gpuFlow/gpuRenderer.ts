@@ -151,8 +151,9 @@ export function measureGpuCanvasClientSize(
   canvas: HTMLCanvasElement,
   devicePixelRatio = getDevicePixelRatio(),
 ): GpuCanvasSize {
-  const cssWidth = Math.max(0, canvas.clientWidth);
-  const cssHeight = Math.max(0, canvas.clientHeight);
+  const rect = canvas.getBoundingClientRect();
+  const cssWidth = Math.max(0, rect.width || canvas.clientWidth);
+  const cssHeight = Math.max(0, rect.height || canvas.clientHeight);
   return sizeFromCssPixels(cssWidth, cssHeight, devicePixelRatio);
 }
 

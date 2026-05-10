@@ -50,6 +50,7 @@ export {
   getSectionShouldRender,
   getSectionType,
   getSectionViewModeVisibility,
+  manualDndChildrenReset,
   processProjectStateUpdateFromBackend,
   resetAllSectionsToDefaultVersions,
   resetSectionsToDefaultVersions,
@@ -58,6 +59,7 @@ export {
 } from "./sectionInfos/codeObjectsAndLayout";
 
 export {
+  applyProjectParamUpdate,
   getNextPendingOperations,
   receiveProjectParamUpdate,
 } from "./sectionInfos/projectParamUpdates";

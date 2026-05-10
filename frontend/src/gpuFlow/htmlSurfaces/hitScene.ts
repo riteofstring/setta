@@ -24,14 +24,14 @@ export type HtmlSurfaceFlatHitSurface = FlowRect &
     readonly kind: "flat";
   };
 
-type HtmlSurfaceTiledFlatHitSurface = HtmlSurfaceHitSurfaceBase & {
+export type HtmlSurfaceTiledFlatHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly kind: "tiled-flat";
   readonly rect: FlowRect;
   readonly sourceHeight: number;
   readonly sourceWidth: number;
 };
 
-type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
+export type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly bounds: FlowRect;
   readonly indices: Uint32Array;
   readonly kind: "mesh";
@@ -40,7 +40,7 @@ type HtmlSurfaceMeshHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly vertices: readonly SurfaceVertex[];
 };
 
-type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
+export type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly bounds: FlowRect;
   readonly effectId: string;
   readonly kind: "effect";
@@ -49,7 +49,7 @@ type HtmlSurfaceEffectHitSurface = HtmlSurfaceHitSurfaceBase & {
   readonly sourceWidth: number;
 };
 
-type HtmlSurfaceHitSurface =
+export type HtmlSurfaceHitSurface =
   | HtmlSurfaceFlatHitSurface
   | HtmlSurfaceTiledFlatHitSurface
   | HtmlSurfaceMeshHitSurface
@@ -74,7 +74,7 @@ export type HtmlSurfaceHitProjection = {
   readonly zIndex: number;
 };
 
-type HtmlSurfaceEffectHitProjectorInput = {
+export type HtmlSurfaceEffectHitProjectorInput = {
   readonly surface: HtmlSurfaceEffectHitSurface;
   readonly surfaceX: number;
   readonly surfaceY: number;
@@ -123,26 +123,19 @@ export function createHtmlSurfaceHitSceneFromVisualScene(
   scene: HtmlSurfaceVisualScene,
 ): HtmlSurfaceHitScene {
   let stackOrder = 0;
-  const flatSurfaces = scene.flatSurfaces.map((surface) =>
-    toFlatHitSurface(surface, stackOrder++),
-  );
-  const tiledFlatSurfaces = scene.tiledFlatSurfaces.map((surface) =>
-    toTiledFlatHitSurface(surface, stackOrder++),
-  );
-  const meshSurfaces = scene.meshSurfaces.map((surface) =>
-    toMeshHitSurface(surface, stackOrder++),
-  );
-  const effectSurfaces = scene.effectSurfaces.map((surface) =>
-    toEffectHitSurface(surface, stackOrder++),
-  );
-  const lateFlatSurfaces = scene.lateFlatSurfaces.map((surface) =>
-    toFlatHitSurface(surface, stackOrder++),
-  );
   return createHtmlSurfaceHitScene({
-    effectSurfaces,
-    flatSurfaces: [...flatSurfaces, ...lateFlatSurfaces],
-    meshSurfaces,
-    tiledFlatSurfaces,
+    flatSurfaces: scene.flatSurfaces.map((surface) =>
+      toFlatHitSurface(surface, stackOrder++),
+    ),
+    tiledFlatSurfaces: scene.tiledFlatSurfaces.map((surface) =>
+      toTiledFlatHitSurface(surface, stackOrder++),
+    ),
+    meshSurfaces: scene.meshSurfaces.map((surface) =>
+      toMeshHitSurface(surface, stackOrder++),
+    ),
+    effectSurfaces: scene.effectSurfaces.map((surface) =>
+      toEffectHitSurface(surface, stackOrder++),
+    ),
   });
 }
 

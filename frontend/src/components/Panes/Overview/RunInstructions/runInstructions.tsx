@@ -110,18 +110,18 @@ export type RunnableCodeBlock = {
   depth: number;
 };
 
-type RunnableCodeBlockListingContext = {
+export type RunnableCodeBlockListingContext = {
   state: ZustandProjectState;
   viewMode: ViewMode;
   isEditingViewMode: boolean;
   outputList: Array<RunnableCodeBlock>;
 };
 
-type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
+export type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 
-type RunSnapshotModeChoice = RunSnapshotMode | "default";
+export type RunSnapshotModeChoice = RunSnapshotMode | "default";
 
-type RunInstructionsAccordionItem = {
+export type RunInstructionsAccordionItem = {
   value: RunInstructionsAccordionItemValue;
   title: string;
   triggerTestId: string;
@@ -134,12 +134,12 @@ export const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
 
 export const TOGGLE_THUMB_CLASSES =
-  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-transform duration-[50ms] will-change-transform data-[state='checked']:translate-x-4 flex";
+  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
 export const TOGGLE_LABEL_CLASSES =
   "text-[10px] text-setta-500 dark:text-setta-400";
 
-const PANEL_CARD_CLASSES =
+export const PANEL_CARD_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 p-2 text-xs dark:bg-setta-900/40";
 
 export const PANEL_ROW_CLASSES =
@@ -148,49 +148,49 @@ export const PANEL_ROW_CLASSES =
 export const PANEL_SELECT_CLASSES =
   "min-w-0 rounded border border-setta-200 bg-white/70 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
 
-const PANEL_COMPACT_SELECT_CLASSES =
+export const PANEL_COMPACT_SELECT_CLASSES =
   "min-w-0 rounded border border-setta-200 bg-white/70 px-1.5 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
 
-const PANEL_ICON_BUTTON_CLASSES =
+export const PANEL_ICON_BUTTON_CLASSES =
   "inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100";
 
-const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
+export const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
   "inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400";
 
-const RUN_INSTRUCTIONS_INLINE_INSET_CLASS = "pl-[0.375rem] pr-[0.75rem]";
+export const RUN_INSTRUCTIONS_INLINE_INSET_CLASS = "pl-[0.375rem] pr-[0.75rem]";
 
-const CUSTOM_RUN_ROW_CLASSES =
+export const CUSTOM_RUN_ROW_CLASSES =
   "mx-[2px] flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md bg-setta-100/30 px-2 py-0.5 text-xs dark:bg-setta-900/40";
 
 export const CUSTOM_RUN_EMPTY_STATE_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1 text-xs text-setta-600 dark:bg-setta-900/40 dark:text-setta-300";
 
-const WORKFLOW_CONTROL_ROW_CLASSES =
+export const WORKFLOW_CONTROL_ROW_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1.5 text-xs dark:bg-setta-900/40";
 
-const WORKFLOW_CONTROL_BUTTON_CLASSES =
+export const WORKFLOW_CONTROL_BUTTON_CLASSES =
   "inline-flex h-6 items-center rounded px-2 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-45";
 
-const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
+export const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
 
-const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
+export const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
 
-const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
+export const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
 
-type WorkflowControlAction = "start" | "stop" | "reset";
+export type WorkflowControlAction = "start" | "stop" | "reset";
 
-type WorkflowControlPresentation = ReturnType<
+export type WorkflowControlPresentation = ReturnType<
   typeof getStateMachineNodePresentation
 >;
 
-type WorkflowControlActionConfig = {
+export type WorkflowControlActionConfig = {
   action: WorkflowControlAction;
   label: string;
   className: string;
   isUnavailable: (machineRun: WorkflowControlPresentation) => boolean;
 };
 
-const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
+export const WORKFLOW_CONTROL_ACTIONS: WorkflowControlActionConfig[] = [
   {
     action: "start",
     label: "Start",
@@ -224,7 +224,7 @@ export const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   ...RunSnapshotModeUIConfig.options,
 ];
 
-const RUN_INSTRUCTIONS_CODEGEN_POLICY_STYLES: RunInstructionsCodegenPolicyStyles =
+export const RUN_INSTRUCTIONS_CODEGEN_POLICY_STYLES: RunInstructionsCodegenPolicyStyles =
   {
     toggleRoot: TOGGLE_ROOT_CLASSES,
     toggleThumb: TOGGLE_THUMB_CLASSES,
@@ -698,7 +698,7 @@ export function AddCodeBlockRow({
   );
 }
 
-function useRunnableCodeBlockListing() {
+export function useRunnableCodeBlockListing() {
   return useProjectState((x) => {
     const outputList: Array<RunnableCodeBlock> = [];
     const viewMode = getActiveViewModeConfig(x);
@@ -722,7 +722,7 @@ function useRunnableCodeBlockListing() {
   }, _.isEqual);
 }
 
-function useSectionOptions(): RunInstructionsSectionOption[] {
+export function useSectionOptions(): RunInstructionsSectionOption[] {
   return useProjectState((x) => {
     const outputList: Array<RunInstructionsSectionOption> = [];
     for (const [sectionId, section] of Object.entries(x.sections)) {
@@ -738,11 +738,11 @@ function useSectionOptions(): RunInstructionsSectionOption[] {
   }, _.isEqual);
 }
 
-function useCodeObjOptions(): RunInstructionsCodeObjOption[] {
+export function useCodeObjOptions(): RunInstructionsCodeObjOption[] {
   return useProjectState(getRunInstructionsCodeObjOptions, _.isEqual);
 }
 
-function getRunnableCodeBlockListingHelper(
+export function getRunnableCodeBlockListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
   depth: number,
@@ -778,7 +778,7 @@ function getRunnableCodeBlockListingHelper(
   }
 }
 
-function getWorkflowControlActivityLabel(
+export function getWorkflowControlActivityLabel(
   machineRun: WorkflowControlPresentation,
 ): string | null {
   return (
@@ -786,7 +786,7 @@ function getWorkflowControlActivityLabel(
   );
 }
 
-function getWorkflowControlActivityToneClasses(
+export function getWorkflowControlActivityToneClasses(
   machineRun: WorkflowControlPresentation,
 ): string {
   return machineRun.failureSummaryLabel
@@ -794,7 +794,7 @@ function getWorkflowControlActivityToneClasses(
     : "text-setta-500 dark:text-setta-300";
 }
 
-async function runWorkflowControlAction(
+export async function runWorkflowControlAction(
   workflow: RunInstructionsStateMachineControl,
   action: WorkflowControlAction,
 ): Promise<void> {
@@ -860,7 +860,7 @@ export function useRunSnapshotModeState(projectConfigId: string) {
   };
 }
 
-function useSelectionAvailabilityReset(
+export function useSelectionAvailabilityReset(
   pendingId: string,
   setPendingId: React.Dispatch<React.SetStateAction<string>>,
   availableIds: readonly string[],
@@ -873,7 +873,7 @@ function useSelectionAvailabilityReset(
   }, [availableIds, pendingId, setPendingId]);
 }
 
-function buildRunInstructionsAccordionItems({
+export function buildRunInstructionsAccordionItems({
   projectConfigId,
   isDeploymentMode,
   pythonCodegenEnabled,

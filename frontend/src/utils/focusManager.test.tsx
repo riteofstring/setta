@@ -277,6 +277,7 @@ describe("focusManager", () => {
       "section-2",
       {
         overviewWidth: 24,
+        uiEditorWidth: 48,
       },
     );
   });

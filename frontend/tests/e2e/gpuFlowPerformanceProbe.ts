@@ -12,12 +12,8 @@ export type GpuFlowQueueCall = {
   readonly height?: number | undefined;
   readonly index: number;
   readonly method: GpuFlowQueueMethodName;
-  readonly sourceHeight?: number | undefined;
   readonly sourceInteractive?: boolean | undefined;
   readonly sourceNodeId?: string | undefined;
-  readonly sourceWidth?: number | undefined;
-  readonly sourceX?: number | undefined;
-  readonly sourceY?: number | undefined;
   readonly timestampMs: number;
   readonly width?: number | undefined;
 };
@@ -53,7 +49,6 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly skippedNodeCount: number;
-  readonly solidRoundedRectSurfaceCount: number;
   readonly textureAllocatedBytes: number;
   readonly textureCount: number;
   readonly textureLargestBytes: number;
@@ -193,7 +188,6 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
   return [
     getGpuQueueMethod.toString(),
     recordCopyElementImageToTextureCall.toString(),
-    isCopyElementImageToTextureSourceRectCall.toString(),
     recordWriteBufferCall.toString(),
     recordSourceMutation.toString(),
     startSourceMutationObserver.toString(),
@@ -206,7 +200,6 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     objectValue.toString(),
     numberValue.toString(),
     arrayLength.toString(),
-    numberOrArrayLength.toString(),
     stringArray.toString(),
     `(${installGpuFlowPerformanceProbeInPage.toString()})();`,
   ].join("\n");
@@ -326,7 +319,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 3) {
+  if (existing?.version === 1) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -480,7 +473,7 @@ function installGpuFlowPerformanceProbeInPage() {
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 3,
+    version: 1,
   };
   win[probeKey] = api;
   api.installQueueWrappers();
@@ -501,68 +494,18 @@ function recordCopyElementImageToTextureCall(
   args: readonly unknown[],
 ) {
   const sourceElement = args[0] instanceof Element ? args[0] : null;
-  const sourceRectCall = isCopyElementImageToTextureSourceRectCall(args);
-  const sourceNode = sourceElement?.closest(
-    [
-      '[data-gpu-flow-node="true"]',
-      '[data-gpu-flow-html-source="true"]',
-      '[data-gpu-flow-surface="true"]',
-    ].join(","),
-  );
+  const sourceNode = sourceElement?.closest('[data-gpu-flow-node="true"]');
   state.queueCalls.push({
-    height: sourceRectCall
-      ? args[6]
-      : typeof args[2] === "number"
-        ? args[2]
-        : undefined,
+    height: typeof args[2] === "number" ? args[2] : undefined,
     index: state.queueCalls.length,
     method: "copyElementImageToTexture",
-    ...(sourceRectCall
-      ? {
-          sourceHeight: args[4],
-          sourceWidth: args[3],
-          sourceX: args[1],
-          sourceY: args[2],
-        }
-      : {}),
     sourceInteractive: sourceNode
       ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true"
       : undefined,
-    sourceNodeId:
-      sourceNode?.getAttribute("data-id") ??
-      sourceNode?.getAttribute("data-gpu-flow-source-id") ??
-      sourceNode?.getAttribute("data-html-surface-id") ??
-      undefined,
+    sourceNodeId: sourceNode?.getAttribute("data-id") ?? undefined,
     timestampMs: performance.now(),
-    width: sourceRectCall
-      ? args[5]
-      : typeof args[1] === "number"
-        ? args[1]
-        : undefined,
+    width: typeof args[1] === "number" ? args[1] : undefined,
   });
-}
-
-function isCopyElementImageToTextureSourceRectCall(
-  args: readonly unknown[],
-): args is readonly [
-  Element,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  ...unknown[],
-] {
-  return (
-    args[0] instanceof Element &&
-    typeof args[1] === "number" &&
-    typeof args[2] === "number" &&
-    typeof args[3] === "number" &&
-    typeof args[4] === "number" &&
-    typeof args[5] === "number" &&
-    typeof args[6] === "number"
-  );
 }
 
 function recordWriteBufferCall(
@@ -697,73 +640,27 @@ function toNodeLayerFrameSummary(
       ? (result as Record<string, unknown>)
       : {};
   const textureMemory = objectValue(value.textureMemory);
-  const uploadDiagnostics = Array.isArray(value.uploadDiagnostics)
-    ? value.uploadDiagnostics
-    : [];
   return {
     activeNodeId:
       typeof value.activeNodeId === "string" ? value.activeNodeId : null,
     budgetExhausted: value.budgetExhausted === true,
-    drawnEdgeCount: numberOrArrayLength(
-      value.drawnEdgeCount,
-      value.drawnEdgeIds,
-    ),
-    drawnNodeCount: numberOrArrayLength(
-      value.drawnNodeCount,
-      value.drawnNodeIds,
-    ),
+    drawnEdgeCount: arrayLength(value.drawnEdgeIds),
+    drawnNodeCount: arrayLength(value.drawnNodeIds),
     edgeVertexCount:
       typeof value.edgeVertexCount === "number" ? value.edgeVertexCount : 0,
     evictedTextureBytes: numberValue(value.evictedTextureBytes),
     evictedTextureNodeIds: stringArray(value.evictedTextureNodeIds),
-    missingElementNodeCount: numberOrArrayLength(
-      value.missingElementNodeCount,
-      value.missingElementNodeIds,
-    ),
-    missingTextureNodeCount: numberOrArrayLength(
-      value.missingTextureNodeCount,
-      value.missingTextureNodeIds,
-    ),
-    remainingDirtyNodeCount: numberOrArrayLength(
-      value.remainingDirtyNodeCount,
-      value.remainingDirtyNodeIds,
-    ),
-    skippedNodeCount: numberOrArrayLength(
-      value.skippedNodeCount,
-      value.skippedNodeIds,
-    ),
-    solidRoundedRectSurfaceCount: numberValue(
-      value.solidRoundedRectSurfaceCount,
-    ),
-    textureAllocatedBytes:
-      numberValue(value.textureMemoryAllocatedBytes) ||
-      numberValue(textureMemory.allocatedBytes),
-    textureCount:
-      numberValue(value.textureMemoryCount) ||
-      numberValue(textureMemory.textureCount),
-    textureLargestBytes:
-      numberValue(value.textureMemoryLargestBytes) ||
-      numberValue(textureMemory.largestTextureBytes),
-    textureVisibleBytes:
-      numberValue(value.textureMemoryVisibleBytes) ||
-      numberValue(textureMemory.visibleBytes),
+    missingElementNodeCount: arrayLength(value.missingElementNodeIds),
+    missingTextureNodeCount: arrayLength(value.missingTextureNodeIds),
+    remainingDirtyNodeCount: arrayLength(value.remainingDirtyNodeIds),
+    skippedNodeCount: arrayLength(value.skippedNodeIds),
+    textureAllocatedBytes: numberValue(textureMemory.allocatedBytes),
+    textureCount: numberValue(textureMemory.textureCount),
+    textureLargestBytes: numberValue(textureMemory.largestTextureBytes),
+    textureVisibleBytes: numberValue(textureMemory.visibleBytes),
     timestampMs: performance.now(),
-    uploadedNodeIds:
-      stringArray(value.uploadedNodeIds).length > 0
-        ? stringArray(value.uploadedNodeIds)
-        : uploadDiagnostics
-            .map((diagnostic) =>
-              diagnostic && typeof diagnostic === "object"
-                ? (diagnostic as { surfaceId?: unknown }).surfaceId
-                : null,
-            )
-            .filter(
-              (surfaceId): surfaceId is string => typeof surfaceId === "string",
-            ),
-    visibleNodeCount: numberOrArrayLength(
-      value.visibleNodeCount,
-      value.visibleNodeIds,
-    ),
+    uploadedNodeIds: stringArray(value.uploadedNodeIds),
+    visibleNodeCount: arrayLength(value.visibleNodeIds),
   };
 }
 
@@ -779,10 +676,6 @@ function numberValue(value: unknown): number {
 
 function arrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
-}
-
-function numberOrArrayLength(count: unknown, values: unknown): number {
-  return typeof count === "number" ? count : arrayLength(values);
 }
 
 function stringArray(value: unknown): readonly string[] {

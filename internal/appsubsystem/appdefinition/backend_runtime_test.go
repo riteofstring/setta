@@ -1036,6 +1036,16 @@ func backendRuntimeTestProject(name string) projectstate.Project {
 	}
 }
 
+func mustMarshalBackendRuntimeTestDefinition(t *testing.T, definition AppDefinition) projectstate.RawJSON {
+	t.Helper()
+
+	encoded, err := json.Marshal(definition)
+	if err != nil {
+		t.Fatalf("marshal app definition: %v", err)
+	}
+	return projectstate.RawJSON(encoded)
+}
+
 func mustDecodeBackendRuntimeTestDefinition(t *testing.T, raw projectstate.RawJSON) AppDefinition {
 	t.Helper()
 

@@ -64,7 +64,7 @@ import { ToggleTextBlockDisplayModeButton } from "../ToggleTextBlockDisplayModeB
 
 import { TextBlockCardTitle, getTitleStyles } from "./textBlockTitle";
 
-type SectionHeaderProps = {
+export type SectionHeaderProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
@@ -87,14 +87,14 @@ export type TitleStyleOptions = Pick<
   isActiveSection: boolean;
 };
 
-type SectionHeaderFrameProps = {
+export type SectionHeaderFrameProps = {
   headerRef: React.RefObject<HTMLElement | null>;
   headerProps?: SectionHeaderProps["headerProps"];
   hasSectionStyleTheme: boolean;
   children: React.ReactNode;
 };
 
-type SectionHeaderLeadingProps = Pick<
+export type SectionHeaderLeadingProps = Pick<
   SectionHeaderProps,
   | "sectionId"
   | "isInOtherProjectConfigs"
@@ -104,7 +104,7 @@ type SectionHeaderLeadingProps = Pick<
   tagColor: string | null;
 };
 
-type SectionHeaderTrailingProps = Pick<
+export type SectionHeaderTrailingProps = Pick<
   SectionHeaderProps,
   | "sectionId"
   | "sectionTypeName"
@@ -117,7 +117,7 @@ type SectionHeaderTrailingProps = Pick<
   projectConfigId: string;
 };
 
-const sectionHeaderBaseClassName =
+export const sectionHeaderBaseClassName =
   "section-title mx-2 flex flex-row items-center";
 
 export const editingTitleBaseClassName =
@@ -139,7 +139,7 @@ export const fixedTitleSectionTypes = new Set<SectionType>([
   SectionTypeEnum.GenPythonMetadata,
 ]);
 
-function _SectionHeader({
+export function _SectionHeader({
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
@@ -191,7 +191,7 @@ function _SectionHeader({
 
 export const SectionHeader = React.memo(_SectionHeader);
 
-function useSectionHeaderTagColor(sectionId: string) {
+export function useSectionHeaderTagColor(sectionId: string) {
   return useProjectState((x) => {
     if (!x.sections[sectionId]) {
       return null;
@@ -200,7 +200,7 @@ function useSectionHeaderTagColor(sectionId: string) {
   });
 }
 
-function SectionHeaderFrame({
+export function SectionHeaderFrame({
   headerRef,
   headerProps,
   hasSectionStyleTheme,
@@ -221,13 +221,13 @@ function SectionHeaderFrame({
   );
 }
 
-function getSectionHeaderClassName(className: string | undefined) {
+export function getSectionHeaderClassName(className: string | undefined) {
   return className
     ? `${sectionHeaderBaseClassName} ${className}`
     : sectionHeaderBaseClassName;
 }
 
-function getSectionHeaderStyle({
+export function getSectionHeaderStyle({
   hasSectionStyleTheme,
   style,
 }: {
@@ -243,7 +243,7 @@ function getSectionHeaderStyle({
   };
 }
 
-function SectionHeaderLeading({
+export function SectionHeaderLeading({
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
@@ -269,7 +269,11 @@ function SectionHeaderLeading({
   );
 }
 
-function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
+export function SectionTagColorIndicator({
+  tagColor,
+}: {
+  tagColor: string | null;
+}) {
   if (!tagColor) {
     return null;
   }
@@ -283,7 +287,7 @@ function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
   );
 }
 
-function SectionHeaderTrailing({
+export function SectionHeaderTrailing({
   projectConfigId,
   sectionId,
   sectionTypeName,
@@ -322,7 +326,7 @@ function SectionHeaderTrailing({
   );
 }
 
-function useTrackMeasuredHeaderHeight({
+export function useTrackMeasuredHeaderHeight({
   headerRef,
   heightKey,
   trackMeasuredHeight,
@@ -366,7 +370,7 @@ function useTrackMeasuredHeaderHeight({
   }, [headerRef, heightKey, trackMeasuredHeight]);
 }
 
-function SectionHeaderDiagnostics({
+export function SectionHeaderDiagnostics({
   sectionId,
   sectionTypeName,
 }: {
@@ -397,7 +401,7 @@ function SectionHeaderDiagnostics({
   );
 }
 
-function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
+export function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
   const {
     codeSectionDiagnostics,
     codeDiagnosticsLabel,
@@ -434,7 +438,7 @@ function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
   );
 }
 
-function DiagnosticsMuteButton({
+export function DiagnosticsMuteButton({
   sectionId,
   codeDiagnosticsMuted,
 }: {
@@ -463,7 +467,7 @@ function DiagnosticsMuteButton({
   );
 }
 
-function useCodeDiagnosticsState(sectionId: string) {
+export function useCodeDiagnosticsState(sectionId: string) {
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? [];
@@ -502,7 +506,7 @@ function useCodeDiagnosticsState(sectionId: string) {
   };
 }
 
-function SectionTypeControls({
+export function SectionTypeControls({
   sectionId,
   sectionTypeName,
   isRoot,
@@ -555,7 +559,7 @@ function SectionTypeControls({
   );
 }
 
-function ChatFollowButton({
+export function ChatFollowButton({
   projectConfigId,
   sectionId,
   sectionTypeName,
@@ -608,7 +612,7 @@ function ChatFollowButton({
   );
 }
 
-function SectionContainerControls({
+export function SectionContainerControls({
   sectionId,
   showSectionContainerControls,
   isUserView,
@@ -645,7 +649,7 @@ function SectionContainerControls({
   );
 }
 
-function getCodeDiagnosticsLabel({
+export function getCodeDiagnosticsLabel({
   codeDiagnosticsMuted,
   diagnosticsCount,
   suppressedCodesCount,
@@ -666,7 +670,7 @@ function getCodeDiagnosticsLabel({
   return "Diagnostics";
 }
 
-function getInlineSuppressionHint(
+export function getInlineSuppressionHint(
   language: CodeLanguageEnum | null | undefined,
 ) {
   if (language === CodeLanguageEnum.python) {
@@ -675,7 +679,7 @@ function getInlineSuppressionHint(
   return null;
 }
 
-function getFollowButtonClassName(isFollowSelected: boolean) {
+export function getFollowButtonClassName(isFollowSelected: boolean) {
   const baseClassName =
     "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
   if (isFollowSelected) {
@@ -684,7 +688,7 @@ function getFollowButtonClassName(isFollowSelected: boolean) {
   return `${baseClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
 }
 
-function DiagnosticsPopover({
+export function DiagnosticsPopover({
   diagnostics,
   label,
   title,
@@ -833,7 +837,7 @@ function DiagnosticsPopover({
   );
 }
 
-function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
+export function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {
@@ -854,7 +858,7 @@ function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600/40 dark:bg-slate-700/30 dark:text-slate-200";
 }
 
-function getSeverityMeta(severity: number | null | undefined) {
+export function getSeverityMeta(severity: number | null | undefined) {
   if (severity === 1) {
     return {
       label: "Error",
@@ -883,7 +887,7 @@ function getSeverityMeta(severity: number | null | undefined) {
   };
 }
 
-function MaybeCardTitle({
+export function MaybeCardTitle({
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,

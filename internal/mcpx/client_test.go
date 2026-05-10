@@ -410,27 +410,6 @@ func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
 
 	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
 	status = client.RuntimeStatuses()[0]
-	assertRuntimeStatusFailureMetadata(t, status)
-
-	client.markRetrying("github")
-	status = client.RuntimeStatuses()[0]
-	if status.State != RuntimeStateRetrying {
-		t.Fatalf("expected retrying state, got %q", status.State)
-	}
-
-	client.markConnected("github", 5)
-	status = client.RuntimeStatuses()[0]
-	assertRuntimeStatusConnectedMetadata(t, status)
-
-	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
-	client.markDisabled("github")
-	status = client.RuntimeStatuses()[0]
-	assertRuntimeStatusDisabledMetadata(t, status)
-}
-
-func assertRuntimeStatusFailureMetadata(t *testing.T, status ServerRuntimeStatus) {
-	t.Helper()
-
 	if status.State != RuntimeStateError {
 		t.Fatalf("expected error state, got %q", status.State)
 	}
@@ -443,11 +422,15 @@ func assertRuntimeStatusFailureMetadata(t *testing.T, status ServerRuntimeStatus
 	if status.ConsecutiveFailures != 1 {
 		t.Fatalf("expected one failure, got %d", status.ConsecutiveFailures)
 	}
-}
 
-func assertRuntimeStatusConnectedMetadata(t *testing.T, status ServerRuntimeStatus) {
-	t.Helper()
+	client.markRetrying("github")
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateRetrying {
+		t.Fatalf("expected retrying state, got %q", status.State)
+	}
 
+	client.markConnected("github", 5)
+	status = client.RuntimeStatuses()[0]
 	if status.State != RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", status.State)
 	}
@@ -466,11 +449,10 @@ func assertRuntimeStatusConnectedMetadata(t *testing.T, status ServerRuntimeStat
 	if status.ConsecutiveFailures != 0 {
 		t.Fatalf("expected failures reset on connect, got %d", status.ConsecutiveFailures)
 	}
-}
 
-func assertRuntimeStatusDisabledMetadata(t *testing.T, status ServerRuntimeStatus) {
-	t.Helper()
-
+	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
+	client.markDisabled("github")
+	status = client.RuntimeStatuses()[0]
 	if status.State != RuntimeStateDisabled {
 		t.Fatalf("expected disabled state, got %q", status.State)
 	}

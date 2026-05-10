@@ -34,7 +34,6 @@ describe("framePerformance", () => {
       evictedTextureNodeCount: 1,
       frame: 7,
       frameReasons: ["paint", "texture-upload"],
-      interactionDiagnostics: null,
       remainingDirtyNodeCount: 2,
       textureMemoryAllocatedBytes: 4096,
       textureMemoryBeforeEvictionAllocatedBytes: 8192,
@@ -43,58 +42,6 @@ describe("framePerformance", () => {
       textureMemoryLargestBytes: 2048,
       textureMemoryVisibleBytes: 3072,
       textureMemoryVisibleCount: 3,
-      textureLifecycleDiagnosticCount: 1,
-      textureLifecycleDiagnostics: [
-        expect.objectContaining({
-          committed: expect.objectContaining({
-            cssHeight: 50,
-            cssWidth: 100,
-            pixelHeight: 100,
-            pixelWidth: 200,
-          }),
-          pending: expect.objectContaining({
-            pixelHeight: 150,
-            pixelWidth: 300,
-          }),
-          pendingResolution: expect.objectContaining({
-            pixelHeight: 150,
-            pixelWidth: 300,
-          }),
-          surfaceId: "node-12",
-        }),
-      ],
-      textureUploadDeferredSurfaceCount: 1,
-      textureUploadInitialDirtyWorkCounts: {
-        animation: 1,
-        content: 1,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      textureUploadInitialDirtySurfaceCount: 3,
-      textureUploadNoWorkReason: null,
-      textureUploadPaintUnavailableSurfaceCount: 0,
-      textureUploadRemainingDirtyWorkCounts: {
-        animation: 0,
-        content: 1,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      textureUploadRemainingDirtySurfaceCount: 2,
-      textureUploadSkippedSurfaceCount: 0,
-      textureUploadUploadableRemainingDirtyWorkCounts: {
-        animation: 0,
-        content: 0,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      textureUploadUploadableRemainingDirtySurfaceCount: 1,
-      textureUploadUploadedSurfaceCount: 1,
       uploadDiagnosticCount: 1,
       uploadDiagnostics: [
         expect.objectContaining({
@@ -106,7 +53,6 @@ describe("framePerformance", () => {
           reasons: ["animation"],
           surfaceId: "node-12",
           uploadedBytes: 512,
-          workKinds: ["animation"],
         }),
       ],
       uploadedNodeCount: 1,
@@ -116,9 +62,6 @@ describe("framePerformance", () => {
     expect(event.frameReasons).not.toBe(input.frameReasons);
     expect(event.uploadDiagnostics[0]?.reasons).not.toBe(
       input.layerResult.uploadDiagnostics[0]?.reasons,
-    );
-    expect(event.textureLifecycleDiagnostics[0]?.committed).not.toBe(
-      input.layerResult.textureLifecycleDiagnostics[0]?.committed,
     );
   });
 
@@ -134,47 +77,6 @@ describe("framePerformance", () => {
       deferResolutionUpdates: false,
       frame: 2,
       frameReasons: ["paint"],
-      interactionDiagnostics: {
-        activeDomIsland: null,
-        activeMode: "retained-content",
-        activeResizeNodeId: null,
-        activeRetainedHit: {
-          flowPoint: { x: 10, y: 20 },
-          hitId: "control:param-0",
-          hitKind: "control",
-          localPoint: { x: 1, y: 2 },
-          ownerSectionId: "section-a",
-          rowControlKind: "switch",
-          rowId: "param-0",
-          rowLabel: "Enabled",
-          rowState: null,
-          screenPoint: { x: 100, y: 120 },
-          subpartKind: null,
-          surfaceId: "section-a:param-content:unpinned",
-          zIndex: 1,
-        },
-        hoveredRetainedHit: null,
-        lastPointer: null,
-        nodeInteractionActiveNodeId: null,
-        pointerCapture: { active: true, pointerId: 2 },
-        viewport: {
-          connectionStartHandlePresent: false,
-          multiSelectionActive: false,
-          nodeDragging: false,
-          nodeResizing: false,
-          nodesSelectionBounds: null,
-          panScrolling: false,
-          paneDragging: false,
-          pointerPanning: false,
-          selectionKeyPressed: false,
-          transform: { x: 0, y: 0, zoom: 1 },
-          userSelectionActive: false,
-          userSelectionRect: null,
-          viewportAnimating: false,
-          viewportInteractionActive: true,
-          wheelZooming: false,
-        },
-      },
       layerResult,
       renderDurationMs: 1,
       viewport: [0, 0, 1],
@@ -183,71 +85,7 @@ describe("framePerformance", () => {
 
     expect(event.uploadDiagnosticCount).toBe(14);
     expect(event.uploadDiagnostics).toHaveLength(12);
-    expect(event.interactionDiagnostics?.activeRetainedHit?.rowLabel).toBe(
-      "Enabled",
-    );
     expect(event.uploadDiagnostics.at(-1)?.surfaceId).toBe("node-11");
-  });
-
-  it("reports retained page coverage and lifetime diagnostics", () => {
-    const event = createGpuFlowFramePerformanceEvent({
-      deferResolutionUpdates: false,
-      frame: 9,
-      frameReasons: ["paint"],
-      layerResult: createLayerResult(),
-      renderDurationMs: 2,
-      retainedTexturePages: {
-        budgetExhausted: true,
-        coverageCandidateCount: 4,
-        diagnosticCount: 2,
-        drawQuadCount: 6,
-        evictedBytes: 128,
-        evictedCount: 1,
-        fallbackDrawQuadCount: 3,
-        memoryCommittedBytes: 4096,
-        memoryCommittedCount: 4,
-        memoryRetiredBytes: 1024,
-        memoryRetiredCount: 1,
-        memoryTotalBytes: 5120,
-        missingPageCount: 2,
-        rasterMs: 1.5,
-        mergedDrawQuadCount: 1,
-        staleFallbackDrawQuadCount: 2,
-        targetDescriptorCount: 8,
-        uncoveredRectCount: 0,
-        uploadedBytes: 2048,
-        uploadedDrawCommandCount: 12,
-        uploadCount: 2,
-        uploadMs: 0.75,
-      },
-      viewport: [0, 0, 1],
-      viewportFrame: false,
-    });
-
-    expect(event).toMatchObject({
-      retainedTexturePageBudgetExhausted: true,
-      retainedTexturePageCoverageCandidateCount: 4,
-      retainedTexturePageDiagnosticCount: 2,
-      retainedTexturePageDrawQuadCount: 6,
-      retainedTexturePageEvictedBytes: 128,
-      retainedTexturePageEvictedCount: 1,
-      retainedTexturePageFallbackDrawQuadCount: 3,
-      retainedTexturePageMemoryCommittedBytes: 4096,
-      retainedTexturePageMemoryCommittedCount: 4,
-      retainedTexturePageMemoryRetiredBytes: 1024,
-      retainedTexturePageMemoryRetiredCount: 1,
-      retainedTexturePageMemoryTotalBytes: 5120,
-      retainedTexturePageMergedDrawQuadCount: 1,
-      retainedTexturePageMissingPageCount: 2,
-      retainedTexturePageRasterMs: 1.5,
-      retainedTexturePageStaleFallbackDrawQuadCount: 2,
-      retainedTexturePageTargetDescriptorCount: 8,
-      retainedTexturePageUncoveredRectCount: 0,
-      retainedTexturePageUploadedBytes: 2048,
-      retainedTexturePageUploadedDrawCommandCount: 12,
-      retainedTexturePageUploadCount: 2,
-      retainedTexturePageUploadMs: 0.75,
-    });
   });
 });
 
@@ -282,103 +120,16 @@ function createLayerResult(
       visibleBytes: 3072,
       visibleTextureCount: 3,
     },
-    textureLifecycleDiagnostics: [createTextureLifecycleDiagnostic()],
     uploadDiagnostics: [createUploadDiagnostic()],
-    uploadWorkSummary: {
-      deferredSurfaceCount: 1,
-      initialDirtyWorkCounts: {
-        animation: 1,
-        content: 1,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      initialDirtySurfaceCount: 3,
-      noUploadReason: null,
-      paintUnavailableSurfaceCount: 0,
-      remainingDirtyWorkCounts: {
-        animation: 0,
-        content: 1,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      remainingDirtySurfaceCount: 2,
-      skippedSurfaceCount: 0,
-      uploadableRemainingDirtyWorkCounts: {
-        animation: 0,
-        content: 0,
-        geometry: 0,
-        hover: 0,
-        resolution: 1,
-        "source-window": 0,
-      },
-      uploadableRemainingDirtySurfaceCount: 1,
-      uploadedSurfaceCount: 1,
-    },
     uploadedNodeIds: ["node-12"],
     visibleNodeIds: ["node-1", "node-2", "node-3", "node-4"],
     visualScene: {
       effectSurfaces: [],
       flatSurfaces: [],
-      lateFlatSurfaces: [],
       meshSurfaces: [],
-      solidRoundedRectSurfaces: [],
       tiledFlatSurfaces: [],
     },
     ...overrides,
-  };
-}
-
-function createTextureLifecycleDiagnostic(): RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number] {
-  return {
-    committed: {
-      clampedByMaxTexture: false,
-      cssHeight: 50,
-      cssWidth: 100,
-      dirtyContent: false,
-      dirtyResolution: false,
-      lastUploadFrame: 4,
-      pixelHeight: 100,
-      pixelWidth: 200,
-      requestedScale: 2,
-      resolutionScale: 2,
-      textureBytes: 80_000,
-      textureLayoutKind: "single",
-      tileCount: 1,
-      zoomBucket: 1,
-    },
-    pending: {
-      clampedByMaxTexture: false,
-      cssHeight: 50,
-      cssWidth: 100,
-      dirtyContent: true,
-      dirtyResolution: true,
-      lastUploadFrame: 5,
-      pixelHeight: 150,
-      pixelWidth: 300,
-      requestedScale: 3,
-      resolutionScale: 3,
-      textureBytes: 180_000,
-      textureLayoutKind: "single",
-      tileCount: 1,
-      zoomBucket: 1.5,
-    },
-    pendingResolution: {
-      clampedByMaxTexture: false,
-      cssHeight: 50,
-      cssWidth: 100,
-      maxTextureDimension2D: 4096,
-      pixelHeight: 150,
-      pixelWidth: 300,
-      requestedScale: 3,
-      resolutionScale: 3,
-      zoomBucket: 1.5,
-    },
-    priority: "visible",
-    surfaceId: "node-12",
   };
 }
 
@@ -407,6 +158,5 @@ function createUploadDiagnostic(): RenderHtmlSurfaceFrameResult["uploadDiagnosti
     uploadedBytes: 512,
     uploadedTextureCount: 1,
     uploadedTileCount: 1,
-    workKinds: ["animation"],
   };
 }
