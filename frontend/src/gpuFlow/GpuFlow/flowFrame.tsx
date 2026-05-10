@@ -28,6 +28,7 @@ import {
   createGpuFlowFramePerformanceEvent,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
+import { getGpuRetainedContentTexturePageFrameSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
@@ -36,7 +37,6 @@ import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
-import { getGpuRetainedContentTexturePageFrameSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import { chooseStableZoomBucket } from "../textureResolution";
 import { normalizeGpuViewport } from "../viewportMath";
@@ -277,23 +277,21 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
-  const retainedPageResult = resources.retainedContentPageManager.renderFrame({
-    darkMode: isGpuFlowFrameDarkMode(runtime.canvas),
-    devicePixelRatio: canvasSize.devicePixelRatio,
-    frame,
-    surfaces: getGpuRetainedContentTexturePageFrameSurfaces(
-      layer.scene?.contentSurfaces,
-      {
-        viewportZoomBucket: chooseStableZoomBucket(
-          normalizeGpuViewport(layer.viewport).zoom,
-        ),
-      },
-    ),
-    viewportInteractionActive: deferResolutionUpdates,
-    viewportZoomBucket: chooseStableZoomBucket(
-      normalizeGpuViewport(layer.viewport).zoom,
-    ),
-  });
+  const viewportZoomBucket = chooseStableZoomBucket(
+    normalizeGpuViewport(layer.viewport).zoom,
+  );
+  const retainedPagePreparedFrame =
+    resources.retainedContentPageManager.prepareFrame({
+      devicePixelRatio: canvasSize.devicePixelRatio,
+      frame,
+      surfaces: getGpuRetainedContentTexturePageFrameSurfaces(
+        layer.scene?.contentSurfaces,
+        {
+          viewportZoomBucket,
+        },
+      ),
+      viewportZoomBucket,
+    });
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -310,7 +308,7 @@ export function renderGpuFlowNodeLayerFrame({
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
     htmlSurfaceNativeVisuals: layer.htmlSurfaceNativeVisuals,
-    htmlSurfacePageVisuals: retainedPageResult.flatSurfaces,
+    htmlSurfacePageVisuals: retainedPagePreparedFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
@@ -319,6 +317,12 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
+  const retainedPageResult =
+    resources.retainedContentPageManager.runPostSubmitMaintenance({
+      darkMode: isGpuFlowFrameDarkMode(runtime.canvas),
+      preparedFrame: retainedPagePreparedFrame,
+      viewportInteractionActive: deferResolutionUpdates,
+    });
   const combinedLayerResult = {
     ...layerResult,
     budgetExhausted:
@@ -342,14 +346,20 @@ export function renderGpuFlowNodeLayerFrame({
     retainedTexturePages: {
       budgetExhausted: retainedPageResult.budgetExhausted,
       diagnosticCount: retainedPageResult.diagnostics.length,
+      drawQuadCount: retainedPageResult.drawQuadCount,
       evictedBytes: retainedPageResult.evicted.evictedBytes,
       evictedCount: retainedPageResult.evicted.evictedKeys.length,
+      fallbackDrawQuadCount: retainedPageResult.fallbackDrawQuadCount,
       memoryCommittedBytes: retainedPageResult.memory.committedBytes,
       memoryCommittedCount: retainedPageResult.memory.committedCount,
+      memoryRetiredBytes: retainedPageResult.memory.retiredBytes,
+      memoryRetiredCount: retainedPageResult.memory.retiredCount,
       memoryTotalBytes: retainedPageResult.memory.totalBytes,
       missingPageCount: retainedPageResult.missingPageCount,
       rasterMs: retainedPageResult.rasterMs,
+      uncoveredRectCount: retainedPageResult.uncoveredRectCount,
       uploadedBytes: retainedPageResult.uploadedBytes,
+      uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
       uploadCount: retainedPageResult.uploadCount,
       uploadMs: retainedPageResult.uploadMs,
     },

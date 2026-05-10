@@ -1,6 +1,4 @@
-import type {
-  CommittedHtmlSurfaceTextureSnapshot,
-} from "./htmlSurfaces/textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
 import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";

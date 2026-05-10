@@ -3,8 +3,36 @@ import { describe, expect, it } from "vitest";
 import {
   createRetainedTexturePageDescriptors,
   createRetainedTexturePageDrawQuads,
+  resolveRetainedTexturePageCoverage,
 } from "./retainedTexturePageGrid";
-import { RetainedTexturePageCache } from "./retainedTexturePages";
+import {
+  RetainedTexturePageCache,
+  retainedTexturePageLodLevel,
+  retainedTexturePageScaleKey,
+  type RetainedTexturePageDescriptor,
+} from "./retainedTexturePages";
+
+const SOURCE_WINDOW = { height: 256, width: 256, x: 0, y: 0 };
+
+function page(
+  overrides: Partial<RetainedTexturePageDescriptor> = {},
+): RetainedTexturePageDescriptor {
+  const lodScale = overrides.lodScale ?? 1;
+  return {
+    contentVersion: 1,
+    lodLevel: retainedTexturePageLodLevel(lodScale),
+    lodScale,
+    pixelHeight: 128,
+    pixelWidth: 128,
+    scaleKey: retainedTexturePageScaleKey(lodScale),
+    sourceRectCss: { height: 128, width: 128, x: 0, y: 0 },
+    sourceWindowCss: SOURCE_WINDOW,
+    surfaceId: "surface",
+    tileColumn: 0,
+    tileRow: 0,
+    ...overrides,
+  };
+}
 
 describe("createRetainedTexturePageDescriptors", () => {
   it("creates stable page descriptors covering the visible CSS source rect", () => {
@@ -13,6 +41,7 @@ describe("createRetainedTexturePageDescriptors", () => {
       contentVersion: 2,
       lodScale: 2,
       maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
       surfaceId: "surface",
       visibleSourceRectCss: { height: 80, width: 96, x: 48, y: 56 },
     });
@@ -75,6 +104,7 @@ describe("createRetainedTexturePageDescriptors", () => {
         contentVersion: 1,
         lodScale: 2,
         maxPagePixelSize: 128,
+        sourceWindowCss: SOURCE_WINDOW,
         surfaceId: "surface",
         visibleSourceRectCss: { height: 40, width: 40, x: 140, y: 140 },
       }),
@@ -96,6 +126,7 @@ describe("createRetainedTexturePageDescriptors", () => {
         contentVersion: 1,
         lodScale: 1,
         maxPagePixelSize: 64,
+        sourceWindowCss: SOURCE_WINDOW,
         surfaceId: "surface",
         visibleSourceRectCss: { height: 10, width: 10, x: 150, y: 150 },
       }),
@@ -107,16 +138,14 @@ describe("createRetainedTexturePageDrawQuads", () => {
   it("uses lower LOD committed pages as fallback for desired high LOD pages", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
-      descriptor: {
-        contentVersion: 1,
+      descriptor: page({
         lodScale: 1,
+        lodLevel: retainedTexturePageLodLevel(1),
         pixelHeight: 256,
         pixelWidth: 256,
+        scaleKey: retainedTexturePageScaleKey(1),
         sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
-        surfaceId: "surface",
-        tileColumn: 0,
-        tileRow: 0,
-      },
+      }),
       resource: "fallback",
     });
     const desiredPages = createRetainedTexturePageDescriptors({
@@ -124,6 +153,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
       contentVersion: 1,
       lodScale: 4,
       maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
       surfaceId: "surface",
       visibleSourceRectCss: { height: 32, width: 32, x: 64, y: 64 },
     });
@@ -151,6 +181,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
       contentVersion: 1,
       lodScale: 2,
       maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
       surfaceId: "surface",
       visibleSourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
     });
@@ -161,5 +192,94 @@ describe("createRetainedTexturePageDrawQuads", () => {
         desiredPages,
       }),
     ).toEqual([]);
+  });
+
+  it("covers one target page from multiple committed fallback pages", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        sourceRectCss: { height: 64, width: 32, x: 0, y: 0 },
+        tileColumn: 0,
+      }),
+      resource: "left",
+    });
+    cache.commitPage({
+      descriptor: page({
+        sourceRectCss: { height: 64, width: 32, x: 32, y: 0 },
+        tileColumn: 1,
+      }),
+      resource: "right",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 64, width: 64, x: 0, y: 0 },
+      contentVersion: 1,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+        usedFrame: 8,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            page: expect.objectContaining({
+              lastUsedFrame: 8,
+              resource: "left",
+            }),
+            sampleRectCss: { height: 64, width: 32, x: 0, y: 0 },
+          }),
+          expect.objectContaining({
+            page: expect.objectContaining({
+              lastUsedFrame: 8,
+              resource: "right",
+            }),
+            sampleRectCss: { height: 64, width: 32, x: 32, y: 0 },
+          }),
+        ],
+        refinementDescriptors: desiredPages,
+        uncoveredRectsCss: [],
+      }),
+    );
+  });
+
+  it("does not use committed pages from a different source window as fallback", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        sourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
+        sourceWindowCss: { height: 256, width: 256, x: 0, y: 128 },
+      }),
+      resource: "stale-window",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 64, width: 64, x: 0, y: 0 },
+      contentVersion: 1,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [],
+        refinementDescriptors: desiredPages,
+        uncoveredRectsCss: [{ height: 64, width: 64, x: 0, y: 0 }],
+      }),
+    );
   });
 });

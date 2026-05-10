@@ -1,5 +1,8 @@
 import {
   RetainedTexturePageCache,
+  retainedTexturePageKey,
+  retainedTexturePageLodLevel,
+  retainedTexturePageScaleKey,
   type CommittedRetainedTexturePage,
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
@@ -12,6 +15,7 @@ export type RetainedTexturePageGridInput = {
   readonly contentVersion: number;
   readonly lodScale: number;
   readonly maxPagePixelSize: number;
+  readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly visibleSourceRectCss: GpuRect;
 };
@@ -22,11 +26,20 @@ export type RetainedTexturePageDrawQuad<TResource = unknown> = {
   readonly sampleRectCss: GpuRect;
 };
 
+export type RetainedTexturePageCoverage<TResource = unknown> = {
+  readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];
+  readonly protectedPageKeys: readonly string[];
+  readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
+  readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
+  readonly uncoveredRectsCss: readonly GpuRect[];
+};
+
 export function createRetainedTexturePageDescriptors({
   contentBoundsCss,
   contentVersion,
   lodScale,
   maxPagePixelSize,
+  sourceWindowCss,
   surfaceId,
   visibleSourceRectCss,
 }: RetainedTexturePageGridInput): readonly RetainedTexturePageDescriptor[] {
@@ -50,6 +63,12 @@ export function createRetainedTexturePageDescriptors({
     "lodScale",
     lodScale,
   );
+  const normalizedSourceWindow = normalizeRect(
+    "sourceWindowCss",
+    sourceWindowCss,
+  );
+  const lodLevel = retainedTexturePageLodLevel(normalizedLodScale);
+  const scaleKey = retainedTexturePageScaleKey(normalizedLodScale);
   const normalizedMaxPagePixelSize = normalizeFinitePositiveInteger(
     "maxPagePixelSize",
     maxPagePixelSize,
@@ -90,13 +109,16 @@ export function createRetainedTexturePageDescriptors({
       }
       descriptors.push({
         contentVersion,
+        lodLevel,
         lodScale: normalizedLodScale,
         pixelHeight: Math.max(
           1,
           Math.ceil(pageRect.height * normalizedLodScale),
         ),
         pixelWidth: Math.max(1, Math.ceil(pageRect.width * normalizedLodScale)),
+        scaleKey,
         sourceRectCss: pageRect,
+        sourceWindowCss: normalizedSourceWindow,
         surfaceId,
         tileColumn: column,
         tileRow: row,
@@ -115,25 +137,184 @@ export function createRetainedTexturePageDrawQuads<TResource>({
   readonly desiredPages: readonly RetainedTexturePageDescriptor[];
   readonly usedFrame?: number | undefined;
 }): readonly RetainedTexturePageDrawQuad<TResource>[] {
+  return resolveRetainedTexturePageCoverage({
+    cache,
+    desiredPages,
+    usedFrame,
+  }).drawQuads;
+}
+
+export function resolveRetainedTexturePageCoverage<TResource>({
+  cache,
+  desiredPages,
+  usedFrame,
+}: {
+  readonly cache: RetainedTexturePageCache<TResource>;
+  readonly desiredPages: readonly RetainedTexturePageDescriptor[];
+  readonly usedFrame?: number | undefined;
+}): RetainedTexturePageCoverage<TResource> {
   const quads: RetainedTexturePageDrawQuad<TResource>[] = [];
+  const protectedPageKeys = new Set<string>();
+  const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
+  const uncoveredRectsCss: GpuRect[] = [];
   for (const desiredDescriptor of desiredPages) {
-    const page = cache.getBestCommittedPage({
-      contentVersion: desiredDescriptor.contentVersion,
-      sourceRectCss: desiredDescriptor.sourceRectCss,
-      surfaceId: desiredDescriptor.surfaceId,
-      targetLodScale: desiredDescriptor.lodScale,
-      ...(usedFrame === undefined ? {} : { usedFrame }),
+    const exactDrawQuad = resolveExactPageDrawQuad({
+      cache,
+      desiredDescriptor,
+      usedFrame,
     });
-    if (!page) {
+    if (exactDrawQuad) {
+      protectedPageKeys.add(exactDrawQuad.page.key);
+      quads.push(exactDrawQuad);
       continue;
     }
-    quads.push({
+
+    refinementDescriptors.push(desiredDescriptor);
+    const fallbackCoverage = resolveFallbackPageDrawQuads({
+      cache,
       desiredDescriptor,
-      page,
-      sampleRectCss: desiredDescriptor.sourceRectCss,
+      usedFrame,
     });
+    for (const pageKey of fallbackCoverage.protectedPageKeys) {
+      protectedPageKeys.add(pageKey);
+    }
+    quads.push(...fallbackCoverage.drawQuads);
+    uncoveredRectsCss.push(...fallbackCoverage.uncoveredRectsCss);
   }
-  return quads;
+  return {
+    drawQuads: quads,
+    protectedPageKeys: [...protectedPageKeys],
+    refinementDescriptors,
+    targetDescriptors: desiredPages,
+    uncoveredRectsCss,
+  };
+}
+
+function resolveExactPageDrawQuad<TResource>({
+  cache,
+  desiredDescriptor,
+  usedFrame,
+}: {
+  readonly cache: RetainedTexturePageCache<TResource>;
+  readonly desiredDescriptor: RetainedTexturePageDescriptor;
+  readonly usedFrame?: number | undefined;
+}): RetainedTexturePageDrawQuad<TResource> | null {
+  const exactPage = cache.getCommittedPage(
+    retainedTexturePageKey(desiredDescriptor),
+  );
+  if (!exactPage) {
+    return null;
+  }
+  return {
+    desiredDescriptor,
+    page: markPageUsed({ cache, page: exactPage, usedFrame }),
+    sampleRectCss: desiredDescriptor.sourceRectCss,
+  };
+}
+
+function resolveFallbackPageDrawQuads<TResource>({
+  cache,
+  desiredDescriptor,
+  usedFrame,
+}: {
+  readonly cache: RetainedTexturePageCache<TResource>;
+  readonly desiredDescriptor: RetainedTexturePageDescriptor;
+  readonly usedFrame?: number | undefined;
+}): Omit<
+  RetainedTexturePageCoverage<TResource>,
+  "refinementDescriptors" | "targetDescriptors"
+> {
+  const drawQuads: RetainedTexturePageDrawQuad<TResource>[] = [];
+  const protectedPageKeys = new Set<string>();
+  let uncoveredRects: readonly GpuRect[] = [desiredDescriptor.sourceRectCss];
+  const candidates = cache.getCommittedPagesForCoverage({
+    contentVersion: desiredDescriptor.contentVersion,
+    sourceRectCss: desiredDescriptor.sourceRectCss,
+    sourceWindowCss: desiredDescriptor.sourceWindowCss,
+    surfaceId: desiredDescriptor.surfaceId,
+    targetLodScale: desiredDescriptor.lodScale,
+  });
+  for (const candidate of candidates) {
+    const result = coverRectsWithPage({
+      cache,
+      candidate,
+      desiredDescriptor,
+      uncoveredRects,
+      usedFrame,
+    });
+    drawQuads.push(...result.drawQuads);
+    if (result.usedPageKey) {
+      protectedPageKeys.add(result.usedPageKey);
+    }
+    uncoveredRects = result.uncoveredRectsCss;
+    if (uncoveredRects.length === 0) {
+      break;
+    }
+  }
+  return {
+    drawQuads,
+    protectedPageKeys: [...protectedPageKeys],
+    uncoveredRectsCss: uncoveredRects,
+  };
+}
+
+function coverRectsWithPage<TResource>({
+  cache,
+  candidate,
+  desiredDescriptor,
+  uncoveredRects,
+  usedFrame,
+}: {
+  readonly cache: RetainedTexturePageCache<TResource>;
+  readonly candidate: CommittedRetainedTexturePage<TResource>;
+  readonly desiredDescriptor: RetainedTexturePageDescriptor;
+  readonly uncoveredRects: readonly GpuRect[];
+  readonly usedFrame?: number | undefined;
+}): {
+  readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];
+  readonly uncoveredRectsCss: readonly GpuRect[];
+  readonly usedPageKey: string | null;
+} {
+  const drawQuads: RetainedTexturePageDrawQuad<TResource>[] = [];
+  const nextUncoveredRects: GpuRect[] = [];
+  let usedPage: CommittedRetainedTexturePage<TResource> | null = null;
+  for (const uncoveredRect of uncoveredRects) {
+    const sampleRect = intersectRects(
+      uncoveredRect,
+      candidate.descriptor.sourceRectCss,
+    );
+    if (!sampleRect) {
+      nextUncoveredRects.push(uncoveredRect);
+      continue;
+    }
+    usedPage =
+      usedPage ?? markPageUsed({ cache, page: candidate, usedFrame });
+    drawQuads.push({
+      desiredDescriptor,
+      page: usedPage,
+      sampleRectCss: sampleRect,
+    });
+    nextUncoveredRects.push(...subtractRect(uncoveredRect, sampleRect));
+  }
+  return {
+    drawQuads,
+    uncoveredRectsCss: nextUncoveredRects,
+    usedPageKey: usedPage?.key ?? null,
+  };
+}
+
+function markPageUsed<TResource>({
+  cache,
+  page,
+  usedFrame,
+}: {
+  readonly cache: RetainedTexturePageCache<TResource>;
+  readonly page: CommittedRetainedTexturePage<TResource>;
+  readonly usedFrame?: number | undefined;
+}): CommittedRetainedTexturePage<TResource> {
+  return usedFrame === undefined
+    ? page
+    : cache.markCommittedPageUsed(page.key, usedFrame) ?? page;
 }
 
 function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
@@ -148,6 +329,43 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
     Math.min(left.y + left.height, right.y + right.height) - y,
   );
   return width > 0 && height > 0 ? { height, width, x, y } : null;
+}
+
+function subtractRect(rect: GpuRect, cutout: GpuRect): readonly GpuRect[] {
+  const intersection = intersectRects(rect, cutout);
+  if (!intersection) {
+    return [rect];
+  }
+  const rectRight = rect.x + rect.width;
+  const rectBottom = rect.y + rect.height;
+  const cutoutRight = intersection.x + intersection.width;
+  const cutoutBottom = intersection.y + intersection.height;
+  return [
+    {
+      height: intersection.y - rect.y,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    },
+    {
+      height: rectBottom - cutoutBottom,
+      width: rect.width,
+      x: rect.x,
+      y: cutoutBottom,
+    },
+    {
+      height: intersection.height,
+      width: intersection.x - rect.x,
+      x: rect.x,
+      y: intersection.y,
+    },
+    {
+      height: intersection.height,
+      width: rectRight - cutoutRight,
+      x: cutoutRight,
+      y: intersection.y,
+    },
+  ].filter((fragment) => fragment.width > 0 && fragment.height > 0);
 }
 
 function normalizeRect(name: string, rect: GpuRect): GpuRect {

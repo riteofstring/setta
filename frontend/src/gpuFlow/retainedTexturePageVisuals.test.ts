@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
 import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
 import {
+  retainedTexturePageLodLevel,
+  retainedTexturePageScaleKey,
   type CommittedRetainedTexturePage,
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
@@ -116,10 +118,13 @@ function createCommittedPage(
 ): CommittedRetainedTexturePage<HtmlSurfaceTextureResources> {
   const descriptor: RetainedTexturePageDescriptor = {
     contentVersion: 1,
+    lodLevel: retainedTexturePageLodLevel(2),
     lodScale: 2,
     pixelHeight: 200,
     pixelWidth: 200,
+    scaleKey: retainedTexturePageScaleKey(2),
     sourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
+    sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     tileColumn: 0,
     tileRow: 0,

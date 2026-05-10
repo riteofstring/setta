@@ -575,11 +575,14 @@ function filterVisualSceneBySurfaceIds(
     flatSurfaces: scene.flatSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),
+    lateFlatSurfaces: scene.lateFlatSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
     meshSurfaces: scene.meshSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),
-    solidRoundedRectSurfaces: scene.solidRoundedRectSurfaces.filter(
-      (surface) => surfaceIds.has(surface.surfaceId),
+    solidRoundedRectSurfaces: scene.solidRoundedRectSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
     ),
     tiledFlatSurfaces: scene.tiledFlatSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
@@ -590,6 +593,7 @@ function filterVisualSceneBySurfaceIds(
 function hasVisualSceneHitSurfaces(scene: HtmlSurfaceVisualScene): boolean {
   return (
     scene.flatSurfaces.length > 0 ||
+    scene.lateFlatSurfaces.length > 0 ||
     scene.tiledFlatSurfaces.length > 0 ||
     scene.meshSurfaces.length > 0 ||
     scene.effectSurfaces.length > 0

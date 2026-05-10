@@ -21,14 +21,20 @@ export type GpuFlowFramePerformanceInput = {
 export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly budgetExhausted: boolean;
   readonly diagnosticCount: number;
+  readonly drawQuadCount: number;
   readonly evictedBytes: number;
   readonly evictedCount: number;
+  readonly fallbackDrawQuadCount: number;
   readonly memoryCommittedBytes: number;
   readonly memoryCommittedCount: number;
+  readonly memoryRetiredBytes: number;
+  readonly memoryRetiredCount: number;
   readonly memoryTotalBytes: number;
   readonly missingPageCount: number;
   readonly rasterMs: number;
+  readonly uncoveredRectCount: number;
   readonly uploadedBytes: number;
+  readonly uploadedDrawCommandCount: number;
   readonly uploadCount: number;
   readonly uploadMs: number;
 };
@@ -89,14 +95,20 @@ export type GpuFlowFramePerformanceEvent = {
   readonly remainingDirtyNodeCount: number;
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageDiagnosticCount: number;
+  readonly retainedTexturePageDrawQuadCount: number;
   readonly retainedTexturePageEvictedBytes: number;
   readonly retainedTexturePageEvictedCount: number;
+  readonly retainedTexturePageFallbackDrawQuadCount: number;
   readonly retainedTexturePageMemoryCommittedBytes: number;
   readonly retainedTexturePageMemoryCommittedCount: number;
+  readonly retainedTexturePageMemoryRetiredBytes: number;
+  readonly retainedTexturePageMemoryRetiredCount: number;
   readonly retainedTexturePageMemoryTotalBytes: number;
   readonly retainedTexturePageMissingPageCount: number;
   readonly retainedTexturePageRasterMs: number;
+  readonly retainedTexturePageUncoveredRectCount: number;
   readonly retainedTexturePageUploadedBytes: number;
+  readonly retainedTexturePageUploadedDrawCommandCount: number;
   readonly retainedTexturePageUploadCount: number;
   readonly retainedTexturePageUploadMs: number;
   readonly skippedNodeCount: number;
@@ -232,14 +244,20 @@ function createRetainedTexturePagePerformanceFields(
   GpuFlowFramePerformanceEvent,
   | "retainedTexturePageBudgetExhausted"
   | "retainedTexturePageDiagnosticCount"
+  | "retainedTexturePageDrawQuadCount"
   | "retainedTexturePageEvictedBytes"
   | "retainedTexturePageEvictedCount"
+  | "retainedTexturePageFallbackDrawQuadCount"
   | "retainedTexturePageMemoryCommittedBytes"
   | "retainedTexturePageMemoryCommittedCount"
+  | "retainedTexturePageMemoryRetiredBytes"
+  | "retainedTexturePageMemoryRetiredCount"
   | "retainedTexturePageMemoryTotalBytes"
   | "retainedTexturePageMissingPageCount"
   | "retainedTexturePageRasterMs"
+  | "retainedTexturePageUncoveredRectCount"
   | "retainedTexturePageUploadedBytes"
+  | "retainedTexturePageUploadedDrawCommandCount"
   | "retainedTexturePageUploadCount"
   | "retainedTexturePageUploadMs"
 > {
@@ -247,33 +265,48 @@ function createRetainedTexturePagePerformanceFields(
     return {
       retainedTexturePageBudgetExhausted: false,
       retainedTexturePageDiagnosticCount: 0,
+      retainedTexturePageDrawQuadCount: 0,
       retainedTexturePageEvictedBytes: 0,
       retainedTexturePageEvictedCount: 0,
+      retainedTexturePageFallbackDrawQuadCount: 0,
       retainedTexturePageMemoryCommittedBytes: 0,
       retainedTexturePageMemoryCommittedCount: 0,
+      retainedTexturePageMemoryRetiredBytes: 0,
+      retainedTexturePageMemoryRetiredCount: 0,
       retainedTexturePageMemoryTotalBytes: 0,
       retainedTexturePageMissingPageCount: 0,
       retainedTexturePageRasterMs: 0,
+      retainedTexturePageUncoveredRectCount: 0,
       retainedTexturePageUploadedBytes: 0,
+      retainedTexturePageUploadedDrawCommandCount: 0,
       retainedTexturePageUploadCount: 0,
       retainedTexturePageUploadMs: 0,
     };
   }
   return {
     retainedTexturePageBudgetExhausted: retainedTexturePages.budgetExhausted,
-    retainedTexturePageDiagnosticCount:
-      retainedTexturePages.diagnosticCount,
+    retainedTexturePageDiagnosticCount: retainedTexturePages.diagnosticCount,
+    retainedTexturePageDrawQuadCount: retainedTexturePages.drawQuadCount,
     retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
     retainedTexturePageEvictedCount: retainedTexturePages.evictedCount,
+    retainedTexturePageFallbackDrawQuadCount:
+      retainedTexturePages.fallbackDrawQuadCount,
     retainedTexturePageMemoryCommittedBytes:
       retainedTexturePages.memoryCommittedBytes,
     retainedTexturePageMemoryCommittedCount:
       retainedTexturePages.memoryCommittedCount,
+    retainedTexturePageMemoryRetiredBytes:
+      retainedTexturePages.memoryRetiredBytes,
+    retainedTexturePageMemoryRetiredCount:
+      retainedTexturePages.memoryRetiredCount,
     retainedTexturePageMemoryTotalBytes: retainedTexturePages.memoryTotalBytes,
-    retainedTexturePageMissingPageCount:
-      retainedTexturePages.missingPageCount,
+    retainedTexturePageMissingPageCount: retainedTexturePages.missingPageCount,
     retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
+    retainedTexturePageUncoveredRectCount:
+      retainedTexturePages.uncoveredRectCount,
     retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,
+    retainedTexturePageUploadedDrawCommandCount:
+      retainedTexturePages.uploadedDrawCommandCount,
     retainedTexturePageUploadCount: retainedTexturePages.uploadCount,
     retainedTexturePageUploadMs: retainedTexturePages.uploadMs,
   };

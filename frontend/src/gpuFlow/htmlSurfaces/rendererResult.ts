@@ -9,6 +9,7 @@ export function createHtmlSurfaceRenderResult({
   edgeBufferData,
   effectSurfaces,
   flatSurfaces,
+  lateFlatSurfaces,
   meshSurfaces,
   scene,
   solidRoundedRectSurfaces,
@@ -17,6 +18,7 @@ export function createHtmlSurfaceRenderResult({
   readonly edgeBufferData: GpuEdgeLineListBufferData;
   readonly effectSurfaces: HtmlSurfaceVisualScene["effectSurfaces"];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly lateFlatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
   readonly scene: HtmlSurfaceVisualScene;
   readonly solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"];
@@ -30,6 +32,7 @@ export function createHtmlSurfaceRenderResult({
       ...meshSurfaces.map((surface) => surface.surfaceId),
       ...effectSurfaces.map((surface) => surface.surfaceId),
       ...solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
+      ...lateFlatSurfaces.map((surface) => surface.surfaceId),
     ],
     edgeVertexCount: edgeBufferData.vertexCount,
     vertexCount,

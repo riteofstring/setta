@@ -188,6 +188,59 @@ describe("framePerformance", () => {
     );
     expect(event.uploadDiagnostics.at(-1)?.surfaceId).toBe("node-11");
   });
+
+  it("reports retained page coverage and lifetime diagnostics", () => {
+    const event = createGpuFlowFramePerformanceEvent({
+      deferResolutionUpdates: false,
+      frame: 9,
+      frameReasons: ["paint"],
+      layerResult: createLayerResult(),
+      renderDurationMs: 2,
+      retainedTexturePages: {
+        budgetExhausted: true,
+        diagnosticCount: 2,
+        drawQuadCount: 6,
+        evictedBytes: 128,
+        evictedCount: 1,
+        fallbackDrawQuadCount: 3,
+        memoryCommittedBytes: 4096,
+        memoryCommittedCount: 4,
+        memoryRetiredBytes: 1024,
+        memoryRetiredCount: 1,
+        memoryTotalBytes: 5120,
+        missingPageCount: 2,
+        rasterMs: 1.5,
+        uncoveredRectCount: 0,
+        uploadedBytes: 2048,
+        uploadedDrawCommandCount: 12,
+        uploadCount: 2,
+        uploadMs: 0.75,
+      },
+      viewport: [0, 0, 1],
+      viewportFrame: false,
+    });
+
+    expect(event).toMatchObject({
+      retainedTexturePageBudgetExhausted: true,
+      retainedTexturePageDiagnosticCount: 2,
+      retainedTexturePageDrawQuadCount: 6,
+      retainedTexturePageEvictedBytes: 128,
+      retainedTexturePageEvictedCount: 1,
+      retainedTexturePageFallbackDrawQuadCount: 3,
+      retainedTexturePageMemoryCommittedBytes: 4096,
+      retainedTexturePageMemoryCommittedCount: 4,
+      retainedTexturePageMemoryRetiredBytes: 1024,
+      retainedTexturePageMemoryRetiredCount: 1,
+      retainedTexturePageMemoryTotalBytes: 5120,
+      retainedTexturePageMissingPageCount: 2,
+      retainedTexturePageRasterMs: 1.5,
+      retainedTexturePageUncoveredRectCount: 0,
+      retainedTexturePageUploadedBytes: 2048,
+      retainedTexturePageUploadedDrawCommandCount: 12,
+      retainedTexturePageUploadCount: 2,
+      retainedTexturePageUploadMs: 0.75,
+    });
+  });
 });
 
 function createLayerResult(
@@ -262,6 +315,7 @@ function createLayerResult(
     visualScene: {
       effectSurfaces: [],
       flatSurfaces: [],
+      lateFlatSurfaces: [],
       meshSurfaces: [],
       solidRoundedRectSurfaces: [],
       tiledFlatSurfaces: [],

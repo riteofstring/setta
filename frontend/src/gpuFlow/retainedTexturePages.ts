@@ -2,10 +2,13 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageDescriptor = {
   readonly contentVersion: number;
+  readonly lodLevel: number;
   readonly lodScale: number;
   readonly pixelHeight: number;
   readonly pixelWidth: number;
+  readonly scaleKey: string;
   readonly sourceRectCss: GpuRect;
+  readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly tileColumn: number;
   readonly tileRow: number;
@@ -27,23 +30,35 @@ export type CommittedRetainedTexturePage<TResource = unknown> = {
   readonly resource: TResource;
 };
 
+export type RetiredRetainedTexturePage<TResource = unknown> = {
+  readonly byteSize: number;
+  readonly descriptor: RetainedTexturePageDescriptor;
+  readonly key: string;
+  readonly resource: TResource;
+  readonly retiredFrame: number;
+};
+
 export type RetainedTexturePageCacheSnapshot = {
   readonly committedBytes: number;
   readonly committedCount: number;
   readonly pendingBytes: number;
   readonly pendingCount: number;
+  readonly retiredBytes: number;
+  readonly retiredCount: number;
   readonly totalBytes: number;
 };
 
 export type RetainedTexturePageLookup = {
   readonly contentVersion: number;
   readonly sourceRectCss: GpuRect;
+  readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly targetLodScale: number;
   readonly usedFrame?: number | undefined;
 };
 
 export type RetainedTexturePageEvictionOptions = {
+  readonly frame?: number | undefined;
   readonly maxBytes: number;
   readonly protectedPageKeys?:
     | ReadonlySet<string>
@@ -57,6 +72,15 @@ export type RetainedTexturePageEvictionResult = {
   readonly remainingBytes: number;
 };
 
+export type RetainedTexturePageRetirementResult = {
+  readonly destroyedBytes: number;
+  readonly destroyedCount: number;
+};
+
+export type RetainedTexturePageRetirementOptions = {
+  readonly retiredFrameThrough?: number | undefined;
+};
+
 export type RetainedTexturePageCacheOptions<TResource> = {
   readonly destroyResource?: ((resource: TResource) => void) | undefined;
 };
@@ -68,6 +92,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
   >();
   private readonly destroyResource: ((resource: TResource) => void) | undefined;
   private readonly pendingPages = new Map<string, PendingRetainedTexturePage>();
+  private retiredPages: RetiredRetainedTexturePage<TResource>[] = [];
 
   constructor(options: RetainedTexturePageCacheOptions<TResource> = {}) {
     this.destroyResource = options.destroyResource;
@@ -77,8 +102,12 @@ export class RetainedTexturePageCache<TResource = unknown> {
     for (const page of this.committedPages.values()) {
       this.destroyResource?.(page.resource);
     }
+    for (const page of this.retiredPages) {
+      this.destroyResource?.(page.resource);
+    }
     this.committedPages.clear();
     this.pendingPages.clear();
+    this.retiredPages = [];
   }
 
   commitPage({
@@ -94,7 +123,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     const key = retainedTexturePageKey(normalizedDescriptor);
     const existing = this.committedPages.get(key);
     if (existing) {
-      this.destroyResource?.(existing.resource);
+      this.retireCommittedPage(existing, frame);
     }
     this.pendingPages.delete(key);
     const page: CommittedRetainedTexturePage<TResource> = {
@@ -130,6 +159,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   evictToBudget({
+    frame = 0,
     maxBytes,
     protectedPageKeys,
   }: RetainedTexturePageEvictionOptions): RetainedTexturePageEvictionResult {
@@ -146,7 +176,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
         break;
       }
       this.committedPages.delete(page.key);
-      this.destroyResource?.(page.resource);
+      this.retireCommittedPage(page, frame);
       evictedBytes += page.byteSize;
       evictedKeys.push(page.key);
       remainingBytes -= page.byteSize;
@@ -162,30 +192,68 @@ export class RetainedTexturePageCache<TResource = unknown> {
   getBestCommittedPage({
     contentVersion,
     sourceRectCss,
+    sourceWindowCss,
     surfaceId,
     targetLodScale,
     usedFrame,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
-    const candidates = [...this.committedPages.values()]
-      .filter(
-        (page) =>
-          page.descriptor.surfaceId === surfaceId &&
-          page.descriptor.contentVersion === contentVersion &&
-          page.descriptor.lodScale <= targetLodScale &&
-          rectContains(page.descriptor.sourceRectCss, lookupRect),
-      )
-      .sort(compareFallbackPages);
+    const candidates = this.getCommittedPagesForCoverage({
+      contentVersion,
+      sourceRectCss: lookupRect,
+      sourceWindowCss,
+      surfaceId,
+      targetLodScale,
+    }).filter((page) =>
+      rectContains(page.descriptor.sourceRectCss, lookupRect),
+    );
     const page = candidates[0];
     if (!page) {
       return null;
     }
-    if (usedFrame !== undefined) {
-      const updatedPage = { ...page, lastUsedFrame: usedFrame };
-      this.committedPages.set(page.key, updatedPage);
-      return updatedPage;
+    return usedFrame === undefined
+      ? page
+      : this.markCommittedPageUsed(page.key, usedFrame);
+  }
+
+  getCommittedPagesForCoverage({
+    contentVersion,
+    sourceRectCss,
+    sourceWindowCss,
+    surfaceId,
+    targetLodScale,
+  }: Omit<
+    RetainedTexturePageLookup,
+    "usedFrame"
+  >): readonly CommittedRetainedTexturePage<TResource>[] {
+    const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
+    const lookupSourceWindow = normalizeRect(
+      "sourceWindowCss",
+      sourceWindowCss,
+    );
+    return [...this.committedPages.values()]
+      .filter(
+        (page) =>
+          page.descriptor.surfaceId === surfaceId &&
+          page.descriptor.contentVersion === contentVersion &&
+          rectsEqual(page.descriptor.sourceWindowCss, lookupSourceWindow) &&
+          page.descriptor.lodScale <= targetLodScale &&
+          rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
+      )
+      .sort(compareFallbackPages);
+  }
+
+  markCommittedPageUsed(
+    key: string,
+    usedFrame: number,
+  ): CommittedRetainedTexturePage<TResource> | null {
+    const page = this.committedPages.get(key);
+    if (!page) {
+      return null;
     }
-    return page;
+    const updatedPage = { ...page, lastUsedFrame: usedFrame };
+    this.committedPages.set(key, updatedPage);
+    return updatedPage;
   }
 
   getCommittedPage(
@@ -198,15 +266,39 @@ export class RetainedTexturePageCache<TResource = unknown> {
     return this.pendingPages.get(key);
   }
 
+  destroyRetiredPages({
+    retiredFrameThrough = Number.POSITIVE_INFINITY,
+  }: RetainedTexturePageRetirementOptions = {}): RetainedTexturePageRetirementResult {
+    const normalizedRetiredFrameThrough =
+      normalizeRetiredFrameThrough(retiredFrameThrough);
+    const retainedPages: RetiredRetainedTexturePage<TResource>[] = [];
+    let destroyedBytes = 0;
+    let destroyedCount = 0;
+    for (const page of this.retiredPages) {
+      if (page.retiredFrame > normalizedRetiredFrameThrough) {
+        retainedPages.push(page);
+        continue;
+      }
+      this.destroyResource?.(page.resource);
+      destroyedBytes += page.byteSize;
+      destroyedCount += 1;
+    }
+    this.retiredPages = retainedPages;
+    return { destroyedBytes, destroyedCount };
+  }
+
   snapshot(): RetainedTexturePageCacheSnapshot {
     const committedBytes = sumBytes(this.committedPages.values());
     const pendingBytes = sumBytes(this.pendingPages.values());
+    const retiredBytes = sumBytes(this.retiredPages);
     return {
       committedBytes,
       committedCount: this.committedPages.size,
       pendingBytes,
       pendingCount: this.pendingPages.size,
-      totalBytes: committedBytes + pendingBytes,
+      retiredBytes,
+      retiredCount: this.retiredPages.length,
+      totalBytes: committedBytes + pendingBytes + retiredBytes,
     };
   }
 
@@ -236,6 +328,19 @@ export class RetainedTexturePageCache<TResource = unknown> {
       .filter((page) => !protectedKeys.has(page.key))
       .sort(compareEvictablePages);
   }
+
+  private retireCommittedPage(
+    page: CommittedRetainedTexturePage<TResource>,
+    retiredFrame: number,
+  ) {
+    this.retiredPages.push({
+      byteSize: page.byteSize,
+      descriptor: page.descriptor,
+      key: page.key,
+      resource: page.resource,
+      retiredFrame,
+    });
+  }
 }
 
 export function retainedTexturePageKey(
@@ -249,7 +354,12 @@ export function retainedTexturePageKey(
     normalized.sourceRectCss.y,
     normalized.sourceRectCss.width,
     normalized.sourceRectCss.height,
-    normalized.lodScale,
+    normalized.sourceWindowCss.x,
+    normalized.sourceWindowCss.y,
+    normalized.sourceWindowCss.width,
+    normalized.sourceWindowCss.height,
+    normalized.scaleKey,
+    normalized.lodLevel,
     normalized.pixelWidth,
     normalized.pixelHeight,
     normalized.tileColumn,
@@ -264,6 +374,16 @@ export function estimatePageByteSize({
   return pixelHeight * pixelWidth * 4;
 }
 
+export function retainedTexturePageLodLevel(lodScale: number): number {
+  return Math.round(
+    Math.log2(normalizeFinitePositiveNumber("lodScale", lodScale)) * 1024,
+  );
+}
+
+export function retainedTexturePageScaleKey(lodScale: number): string {
+  return `scale=${normalizeFinitePositiveNumber("lodScale", lodScale)}`;
+}
+
 function normalizePageDescriptor(
   descriptor: RetainedTexturePageDescriptor,
 ): RetainedTexturePageDescriptor {
@@ -276,6 +396,20 @@ function normalizePageDescriptor(
     "lodScale",
     descriptor.lodScale,
   );
+  const lodLevel = normalizeFiniteInteger("lodLevel", descriptor.lodLevel);
+  const expectedLodLevel = retainedTexturePageLodLevel(lodScale);
+  if (lodLevel !== expectedLodLevel) {
+    throw new Error(
+      `Retained texture page lodLevel ${lodLevel} does not match lodScale ${lodScale}.`,
+    );
+  }
+  const scaleKey = normalizeScaleKey(descriptor.scaleKey);
+  const expectedScaleKey = retainedTexturePageScaleKey(lodScale);
+  if (scaleKey !== expectedScaleKey) {
+    throw new Error(
+      `Retained texture page scaleKey "${scaleKey}" does not match lodScale ${lodScale}.`,
+    );
+  }
   const pixelWidth = normalizeFinitePositiveInteger(
     "pixelWidth",
     descriptor.pixelWidth,
@@ -294,10 +428,16 @@ function normalizePageDescriptor(
   );
   return {
     contentVersion,
+    lodLevel,
     lodScale,
     pixelHeight,
     pixelWidth,
+    scaleKey,
     sourceRectCss: normalizeRect("sourceRectCss", descriptor.sourceRectCss),
+    sourceWindowCss: normalizeRect(
+      "sourceWindowCss",
+      descriptor.sourceWindowCss,
+    ),
     surfaceId,
     tileColumn,
     tileRow,
@@ -309,7 +449,7 @@ function compareFallbackPages(
   right: CommittedRetainedTexturePage,
 ): number {
   return (
-    right.descriptor.lodScale - left.descriptor.lodScale ||
+    right.descriptor.lodLevel - left.descriptor.lodLevel ||
     rectArea(left.descriptor.sourceRectCss) -
       rectArea(right.descriptor.sourceRectCss) ||
     right.lastUsedFrame - left.lastUsedFrame
@@ -322,6 +462,24 @@ function rectContains(container: GpuRect, rect: GpuRect): boolean {
     container.y <= rect.y &&
     container.x + container.width >= rect.x + rect.width &&
     container.y + container.height >= rect.y + rect.height
+  );
+}
+
+function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
+function rectsEqual(left: GpuRect, right: GpuRect): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
   );
 }
 
@@ -352,6 +510,13 @@ function normalizeSurfaceId(surfaceId: string): string {
   return surfaceId;
 }
 
+function normalizeScaleKey(scaleKey: string): string {
+  if (!scaleKey) {
+    throw new Error("Retained texture page requires scaleKey.");
+  }
+  return scaleKey;
+}
+
 function normalizeFiniteNumber(name: string, value: number): number {
   if (!Number.isFinite(value)) {
     throw new Error(`Retained texture page ${name} must be finite.`);
@@ -375,6 +540,14 @@ function normalizeFinitePositiveInteger(name: string, value: number): number {
   return normalized;
 }
 
+function normalizeFiniteInteger(name: string, value: number): number {
+  const normalized = normalizeFiniteNumber(name, value);
+  if (!Number.isInteger(normalized)) {
+    throw new Error(`Retained texture page ${name} must be an integer.`);
+  }
+  return normalized;
+}
+
 function normalizeFiniteNonNegativeInteger(
   name: string,
   value: number,
@@ -388,12 +561,24 @@ function normalizeFiniteNonNegativeInteger(
   return normalized;
 }
 
+function normalizeRetiredFrameThrough(value: number): number {
+  if (value === Number.POSITIVE_INFINITY) {
+    return value;
+  }
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(
+      "Retained texture page retiredFrameThrough must be finite, non-negative, or positive infinity.",
+    );
+  }
+  return value;
+}
+
 function compareEvictablePages<TResource>(
   left: CommittedRetainedTexturePage<TResource>,
   right: CommittedRetainedTexturePage<TResource>,
 ): number {
   return (
-    right.descriptor.lodScale - left.descriptor.lodScale ||
+    right.descriptor.lodLevel - left.descriptor.lodLevel ||
     left.lastUsedFrame - right.lastUsedFrame ||
     right.byteSize - left.byteSize ||
     left.key.localeCompare(right.key)

@@ -88,6 +88,7 @@ export type HtmlSurfaceVisual =
 export type HtmlSurfaceVisualScene = {
   readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly lateFlatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
   readonly solidRoundedRectSurfaces: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
@@ -96,6 +97,7 @@ export type HtmlSurfaceVisualScene = {
 export function createHtmlSurfaceVisualScene({
   effectSurfaces = [],
   flatSurfaces = [],
+  lateFlatSurfaces = [],
   meshSurfaces = [],
   solidRoundedRectSurfaces = [],
   tiledFlatSurfaces = [],
@@ -103,6 +105,7 @@ export function createHtmlSurfaceVisualScene({
   return {
     effectSurfaces,
     flatSurfaces,
+    lateFlatSurfaces,
     meshSurfaces,
     solidRoundedRectSurfaces,
     tiledFlatSurfaces,

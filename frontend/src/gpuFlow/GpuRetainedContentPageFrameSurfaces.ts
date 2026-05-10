@@ -1,12 +1,12 @@
 import {
+  getGpuRetainedContentSourceSurfaces,
+  type GpuRetainedContentSourceSurface,
+} from "./GpuRetainedContentSurfaces";
+import {
   createGpuRetainedRowContentSceneWithScrollWindow,
   type GpuRetainedContentScene,
 } from "./retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
-import {
-  getGpuRetainedContentSourceSurfaces,
-  type GpuRetainedContentSourceSurface,
-} from "./GpuRetainedContentSurfaces";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
 import type { GpuContentSurface } from "./scene";
 
@@ -51,6 +51,12 @@ function toGpuRetainedContentTexturePageFrameSurface(
       scrollOffset: surface.textureWindow.cacheScrollOffset,
       viewportRect: surface.textureWindow.cacheViewportRect,
     }),
+    sourceWindowCss: {
+      height: surface.textureWindow.cacheViewportRect.height,
+      width: surface.textureWindow.cacheViewportRect.width,
+      x: surface.textureWindow.cacheScrollOffset.x,
+      y: surface.textureWindow.cacheScrollOffset.y,
+    },
     surfaceId: surface.id,
     visibleSourceRectCss: surface.textureWindow.sourceRect,
   };

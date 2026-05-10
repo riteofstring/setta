@@ -1,8 +1,10 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
 
+import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type GpuFlowRetainedRowDebugEntry,
+  type GpuFlowVisualSurfaceDebugEntry,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
@@ -14,6 +16,7 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import {
   flowToScreenPosition,
   type GpuPoint,
+  type GpuRect,
   type GpuViewportInput,
 } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -32,6 +35,7 @@ type GpuFlowSurfaceClipBounds = {
 
 type GpuFlowDebugNodeLayer = {
   readonly scene: GpuFlowScene | undefined;
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 };
 
 export function useGpuFlowDebugGlobals<
@@ -70,14 +74,26 @@ export function useGpuFlowDebugGlobals<
         scene: nodeLayerRef.current.scene,
         viewport: viewportStore.getState().transform,
       });
+    const getVisualSurfaces = () =>
+      createGpuFlowVisualSurfacesDebugSnapshot({
+        container: containerRef.current,
+        viewport: viewportStore.getState().transform,
+        visualScene: nodeLayerRef.current.visualScene,
+      });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
+    window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
     return () => {
       if (window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ === getSnapshot) {
         delete window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__;
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ === getRetainedRows) {
         delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__;
+      }
+      if (
+        window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ === getVisualSurfaces
+      ) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__;
       }
     };
   }, [
@@ -88,6 +104,113 @@ export function useGpuFlowDebugGlobals<
     nodeLayerRef,
     viewportStore,
   ]);
+}
+
+export function createGpuFlowVisualSurfacesDebugSnapshot({
+  container,
+  viewport,
+  visualScene,
+}: {
+  readonly container: HTMLElement | null;
+  readonly viewport: GpuViewportInput;
+  readonly visualScene: HtmlSurfaceVisualScene | undefined;
+}): readonly GpuFlowVisualSurfaceDebugEntry[] {
+  if (!container || !visualScene) {
+    return [];
+  }
+  const context = {
+    containerRect: container.getBoundingClientRect(),
+    viewport,
+  };
+  return [
+    ...visualScene.flatSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({ context, kind: "flat", surface }),
+    ),
+    ...visualScene.tiledFlatSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({
+        context,
+        flowRect: surface.rect,
+        kind: "tiled-flat",
+        surface,
+      }),
+    ),
+    ...visualScene.meshSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({
+        context,
+        flowRect: surface.bounds,
+        kind: "mesh",
+        surface,
+      }),
+    ),
+    ...visualScene.effectSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({
+        context,
+        flowRect: surface.bounds,
+        kind: "effect",
+        surface,
+      }),
+    ),
+    ...visualScene.solidRoundedRectSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({
+        context,
+        flowRect: surface.rect,
+        kind: "solid-rounded-rect",
+        surface,
+      }),
+    ),
+    ...visualScene.lateFlatSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({ context, kind: "late-flat", surface }),
+    ),
+  ];
+}
+
+function toVisualSurfaceDebugEntry({
+  context,
+  flowRect,
+  kind,
+  surface,
+}: {
+  readonly context: GpuFlowRetainedRowDebugContext;
+  readonly flowRect?: GpuRect | undefined;
+  readonly kind: string;
+  readonly surface: {
+    readonly height?: number | undefined;
+    readonly surfaceId: string;
+    readonly width?: number | undefined;
+    readonly x?: number | undefined;
+    readonly y?: number | undefined;
+    readonly zIndex: number;
+  };
+}): GpuFlowVisualSurfaceDebugEntry {
+  const rect = flowRect ?? {
+    height: surface.height ?? 0,
+    width: surface.width ?? 0,
+    x: surface.x ?? 0,
+    y: surface.y ?? 0,
+  };
+  const topLeft = flowToClientPosition({
+    context,
+    point: { x: rect.x, y: rect.y },
+  });
+  const bottomRight = flowToClientPosition({
+    context,
+    point: {
+      x: rect.x + rect.width,
+      y: rect.y + rect.height,
+    },
+  });
+  return {
+    clientRect: {
+      height: bottomRight.y - topLeft.y,
+      width: bottomRight.x - topLeft.x,
+      x: topLeft.x,
+      y: topLeft.y,
+    },
+    flowRect: rect,
+    kind,
+    surfaceId: surface.surfaceId,
+    zIndex: surface.zIndex,
+  };
 }
 
 export function createGpuFlowRetainedRowsDebugSnapshot({
@@ -193,6 +316,17 @@ function createGpuFlowRetainedRowDebugEntry({
         })
       : null,
     controlKind: row.control?.kind ?? row.controlKind,
+    labelClientPoint: flowToClientPosition({
+      context,
+      point: {
+        x:
+          surface.rect.x +
+          row.projectedRect.x +
+          Math.max(0, row.depth) * 14 +
+          32,
+        y: surface.rect.y + row.projectedRect.y + row.projectedRect.height / 2,
+      },
+    }),
     ownerSectionId: surface.ownerSectionId,
     rowId: row.id,
     rowLabel: row.label,
