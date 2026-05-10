@@ -12,19 +12,9 @@ import { createGpuFlowViewportStore } from "../viewportStore";
 import { attachGpuPanZoomController } from "./panZoom";
 import { attachGpuRetainedContentScrollController } from "./retainedContentScroll";
 
-const chromeReproMock = vi.hoisted(() => ({
-  isChromeReproActive: vi.fn(() => false),
-  postChromeReproEvent: vi.fn(),
-  roundChromeReproMs: (value: number) => Math.round(value * 1000) / 1000,
-}));
-
-vi.mock("state/actions/chromeRepro", () => chromeReproMock);
-
 describe("GPU retained content scroll controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
-    chromeReproMock.isChromeReproActive.mockReturnValue(false);
-    chromeReproMock.postChromeReproEvent.mockClear();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
@@ -490,117 +480,6 @@ describe("GPU retained content scroll controller", () => {
     content.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
-    expect(scrollOffsets.size).toBe(0);
-
-    cleanup();
-  });
-
-  it("logs CodeMirror wheel handoff decisions for Chrome repro recordings", () => {
-    chromeReproMock.isChromeReproActive.mockReturnValue(true);
-    const animationFrames = installAnimationFrameStub();
-    const element = document.createElement("div");
-    const root = document.createElement("div");
-    root.setAttribute("data-gpu-flow-retained-content-native", "true");
-    const editor = document.createElement("div");
-    editor.className = "cm-editor";
-    editor.setAttribute("data-gpu-flow-control", "control-a");
-    const scroller = document.createElement("div");
-    scroller.className = "cm-scroller";
-    const content = document.createElement("div");
-    content.className = "cm-content";
-    scroller.append(content);
-    editor.append(scroller);
-    root.append(editor);
-    element.append(root);
-    document.body.append(element);
-    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
-    const cleanup = attachGpuRetainedContentScrollController({
-      element,
-      getScene: () => retainedContentScene(),
-      getScrollOffsets: () => scrollOffsets,
-      onScrollOffsetsChange: (nextOffsets) => {
-        scrollOffsets = nextOffsets;
-      },
-    });
-
-    content.dispatchEvent(
-      new WheelEvent("wheel", {
-        bubbles: true,
-        cancelable: true,
-        clientX: 20,
-        clientY: 20,
-        deltaY: 36,
-      }),
-    );
-
-    animationFrames.flush();
-    expect(chromeReproMock.postChromeReproEvent).toHaveBeenCalledWith(
-      "gpu-flow-retained-active-editor-wheel-ownership",
-      expect.objectContaining({
-        activeControlId: "control-a",
-        decision: "retained-section-handoff",
-        deltaY: 36,
-        nativeTargetKind: '[data-gpu-flow-retained-content-native="true"]',
-      }),
-    );
-
-    cleanup();
-  });
-
-  it("logs CodeMirror wheel consume decisions for Chrome repro recordings", () => {
-    chromeReproMock.isChromeReproActive.mockReturnValue(true);
-    const element = document.createElement("div");
-    const root = document.createElement("div");
-    root.setAttribute("data-gpu-flow-retained-content-native", "true");
-    const editor = document.createElement("div");
-    editor.className = "cm-editor";
-    editor.setAttribute("data-gpu-flow-control", "control-a");
-    const scroller = document.createElement("div");
-    scroller.className = "cm-scroller";
-    Object.defineProperties(scroller, {
-      clientHeight: { configurable: true, value: 100 },
-      scrollHeight: { configurable: true, value: 300 },
-      scrollTop: { configurable: true, value: 40 },
-    });
-    const content = document.createElement("div");
-    content.className = "cm-content";
-    scroller.append(content);
-    editor.append(scroller);
-    root.append(editor);
-    element.append(root);
-    document.body.append(element);
-    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
-    const cleanup = attachGpuRetainedContentScrollController({
-      element,
-      getScene: () => retainedContentScene(),
-      getScrollOffsets: () => scrollOffsets,
-      onScrollOffsetsChange: (nextOffsets) => {
-        scrollOffsets = nextOffsets;
-      },
-    });
-
-    content.dispatchEvent(
-      new WheelEvent("wheel", {
-        bubbles: true,
-        cancelable: true,
-        clientX: 20,
-        clientY: 20,
-        deltaY: 36,
-      }),
-    );
-
-    expect(chromeReproMock.postChromeReproEvent).toHaveBeenCalledWith(
-      "gpu-flow-retained-active-editor-wheel-ownership",
-      expect.objectContaining({
-        activeControlId: "control-a",
-        decision: "editor-consume",
-        editorScroll: expect.objectContaining({
-          clientHeight: 100,
-          scrollHeight: 300,
-          scrollTop: 40,
-        }),
-      }),
-    );
     expect(scrollOffsets.size).toBe(0);
 
     cleanup();

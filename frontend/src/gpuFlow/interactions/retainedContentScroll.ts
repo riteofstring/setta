@@ -1,8 +1,3 @@
-import {
-  isChromeReproActive,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
@@ -210,84 +205,18 @@ function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {
   const nativeTarget = target.closest(
     GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS.join(", "),
   );
-  const editor = target.closest(".cm-editor");
-  if (nativeTarget && editor) {
-    const editorCanConsumeWheel = canNativeWheelTargetConsumeDelta(
-      target,
-      event,
-    );
-    postRetainedActiveEditorWheelOwnershipChromeReproEvent({
-      decision: editorCanConsumeWheel
-        ? "editor-consume"
-        : "retained-section-handoff",
-      editor,
-      event,
-      nativeTarget,
-      target,
-    });
-    return editorCanConsumeWheel;
+  if (
+    nativeTarget &&
+    target.closest(".cm-editor") &&
+    !canNativeWheelTargetConsumeDelta(target, event)
+  ) {
+    return false;
   }
   return isGpuRetainedContentNativeTarget(target, [
     `.${NO_WHEEL_CLASS_NAME}`,
     '[data-gpu-flow-wheel-target="true"]',
     ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   ]);
-}
-
-type RetainedActiveEditorWheelOwnershipDecision =
-  | "editor-consume"
-  | "retained-section-handoff";
-
-function postRetainedActiveEditorWheelOwnershipChromeReproEvent({
-  decision,
-  editor,
-  event,
-  nativeTarget,
-  target,
-}: {
-  readonly decision: RetainedActiveEditorWheelOwnershipDecision;
-  readonly editor: Element;
-  readonly event: WheelEvent;
-  readonly nativeTarget: Element;
-  readonly target: Element;
-}) {
-  if (!isChromeReproActive()) {
-    return;
-  }
-  const scroller = editor.querySelector(".cm-scroller");
-  postChromeReproEvent("gpu-flow-retained-active-editor-wheel-ownership", {
-    activeControlId:
-      editor
-        .closest("[data-gpu-flow-control]")
-        ?.getAttribute("data-gpu-flow-control") ?? null,
-    decision,
-    deltaMode: event.deltaMode,
-    deltaX: roundChromeReproMs(event.deltaX),
-    deltaY: roundChromeReproMs(event.deltaY),
-    editorScroll:
-      scroller instanceof HTMLElement
-        ? {
-            clientHeight: roundChromeReproMs(scroller.clientHeight),
-            clientWidth: roundChromeReproMs(scroller.clientWidth),
-            scrollHeight: roundChromeReproMs(scroller.scrollHeight),
-            scrollLeft: roundChromeReproMs(scroller.scrollLeft),
-            scrollTop: roundChromeReproMs(scroller.scrollTop),
-            scrollWidth: roundChromeReproMs(scroller.scrollWidth),
-          }
-        : null,
-    nativeTargetKind: resolveNativeTargetKind(nativeTarget),
-    shiftKey: event.shiftKey,
-    targetTagName: target.tagName.toLowerCase(),
-  });
-}
-
-function resolveNativeTargetKind(element: Element): string {
-  for (const selector of GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS) {
-    if (element.matches(selector)) {
-      return selector;
-    }
-  }
-  return "unknown";
 }
 
 function canNativeWheelTargetConsumeDelta(
