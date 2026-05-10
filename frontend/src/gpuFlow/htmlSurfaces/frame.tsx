@@ -12,6 +12,7 @@ import type {
 } from "./renderer";
 
 import type {
+  HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
   HtmlSurfaceTextureRecord,
@@ -190,6 +191,7 @@ export type GpuNodeUploadBudget = Pick<
 type GpuNodeTextureController = Pick<
   HtmlSurfaceTextureManager,
   | "getSurfaceTexture"
+  | "getSurfaceTextureLifecycleDiagnostics"
   | "evictSurfaceTextures"
   | "markSurfaceTextureDirty"
   | "registerSurfaceTexture"
@@ -246,6 +248,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly skippedNodeIds: readonly string[];
   readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
+  readonly textureLifecycleDiagnostics: readonly HtmlSurfaceTextureLifecycleDiagnostic[];
   readonly uploadDiagnostics: readonly HtmlSurfaceTextureUploadDiagnostic[];
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
@@ -482,6 +485,8 @@ export function renderHtmlSurfaceFrame({
   const uploadedSurfaceIds = uploadResult.uploaded.map(
     (record) => record.surfaceId,
   );
+  const textureLifecycleDiagnostics =
+    textureManager.getSurfaceTextureLifecycleDiagnostics(visibleSurfaceIds);
 
   return {
     activeNodeId: activeNodeId ?? null,
@@ -505,6 +510,7 @@ export function renderHtmlSurfaceFrame({
     ),
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
+    textureLifecycleDiagnostics,
     uploadDiagnostics: uploadResult.diagnostics,
     uploadedNodeIds: uploadedSurfaceIds.filter((surfaceId) =>
       nodeSurfaceIds.has(surfaceId),

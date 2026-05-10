@@ -43,6 +43,26 @@ describe("framePerformance", () => {
       textureMemoryLargestBytes: 2048,
       textureMemoryVisibleBytes: 3072,
       textureMemoryVisibleCount: 3,
+      textureLifecycleDiagnosticCount: 1,
+      textureLifecycleDiagnostics: [
+        expect.objectContaining({
+          committed: expect.objectContaining({
+            cssHeight: 50,
+            cssWidth: 100,
+            pixelHeight: 100,
+            pixelWidth: 200,
+          }),
+          pending: expect.objectContaining({
+            pixelHeight: 150,
+            pixelWidth: 300,
+          }),
+          pendingResolution: expect.objectContaining({
+            pixelHeight: 150,
+            pixelWidth: 300,
+          }),
+          surfaceId: "node-12",
+        }),
+      ],
       uploadDiagnosticCount: 1,
       uploadDiagnostics: [
         expect.objectContaining({
@@ -63,6 +83,9 @@ describe("framePerformance", () => {
     expect(event.frameReasons).not.toBe(input.frameReasons);
     expect(event.uploadDiagnostics[0]?.reasons).not.toBe(
       input.layerResult.uploadDiagnostics[0]?.reasons,
+    );
+    expect(event.textureLifecycleDiagnostics[0]?.committed).not.toBe(
+      input.layerResult.textureLifecycleDiagnostics[0]?.committed,
     );
   });
 
@@ -165,6 +188,7 @@ function createLayerResult(
       visibleBytes: 3072,
       visibleTextureCount: 3,
     },
+    textureLifecycleDiagnostics: [createTextureLifecycleDiagnostic()],
     uploadDiagnostics: [createUploadDiagnostic()],
     uploadedNodeIds: ["node-12"],
     visibleNodeIds: ["node-1", "node-2", "node-3", "node-4"],
@@ -176,6 +200,56 @@ function createLayerResult(
       tiledFlatSurfaces: [],
     },
     ...overrides,
+  };
+}
+
+function createTextureLifecycleDiagnostic(): RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number] {
+  return {
+    committed: {
+      clampedByMaxTexture: false,
+      cssHeight: 50,
+      cssWidth: 100,
+      dirtyContent: false,
+      dirtyResolution: false,
+      lastUploadFrame: 4,
+      pixelHeight: 100,
+      pixelWidth: 200,
+      requestedScale: 2,
+      resolutionScale: 2,
+      textureBytes: 80_000,
+      textureLayoutKind: "single",
+      tileCount: 1,
+      zoomBucket: 1,
+    },
+    pending: {
+      clampedByMaxTexture: false,
+      cssHeight: 50,
+      cssWidth: 100,
+      dirtyContent: true,
+      dirtyResolution: true,
+      lastUploadFrame: 5,
+      pixelHeight: 150,
+      pixelWidth: 300,
+      requestedScale: 3,
+      resolutionScale: 3,
+      textureBytes: 180_000,
+      textureLayoutKind: "single",
+      tileCount: 1,
+      zoomBucket: 1.5,
+    },
+    pendingResolution: {
+      clampedByMaxTexture: false,
+      cssHeight: 50,
+      cssWidth: 100,
+      maxTextureDimension2D: 4096,
+      pixelHeight: 150,
+      pixelWidth: 300,
+      requestedScale: 3,
+      resolutionScale: 3,
+      zoomBucket: 1.5,
+    },
+    priority: "visible",
+    surfaceId: "node-12",
   };
 }
 

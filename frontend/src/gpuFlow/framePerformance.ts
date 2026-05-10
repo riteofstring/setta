@@ -40,6 +40,14 @@ export type GpuFlowFrameUploadDiagnostic = {
   readonly uploadedTileCount: number;
 };
 
+export type GpuFlowFrameTextureLifecycleDiagnostic = {
+  readonly committed: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["committed"];
+  readonly pending: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["pending"];
+  readonly pendingResolution: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["pendingResolution"];
+  readonly priority: string;
+  readonly surfaceId: string;
+};
+
 export type GpuFlowFramePerformanceEvent = {
   readonly activeNodeId: string | null;
   readonly activeNodePresent: boolean;
@@ -68,6 +76,8 @@ export type GpuFlowFramePerformanceEvent = {
   readonly textureMemoryLargestBytes: number;
   readonly textureMemoryVisibleBytes: number;
   readonly textureMemoryVisibleCount: number;
+  readonly textureLifecycleDiagnosticCount: number;
+  readonly textureLifecycleDiagnostics: readonly GpuFlowFrameTextureLifecycleDiagnostic[];
   readonly uploadDiagnosticCount: number;
   readonly uploadDiagnostics: readonly GpuFlowFrameUploadDiagnostic[];
   readonly uploadedNodeCount: number;
@@ -98,6 +108,7 @@ export function createGpuFlowFramePerformanceEvent({
   const normalizedViewport = normalizeGpuViewport(viewport);
   const textureMemory = layerResult.textureMemory;
   const textureMemoryBeforeEviction = layerResult.textureMemoryBeforeEviction;
+  const textureLifecycleDiagnostics = layerResult.textureLifecycleDiagnostics;
   const uploadDiagnostics = layerResult.uploadDiagnostics;
   return {
     activeNodeId: layerResult.activeNodeId,
@@ -129,6 +140,18 @@ export function createGpuFlowFramePerformanceEvent({
     textureMemoryLargestBytes: textureMemory.largestTextureBytes,
     textureMemoryVisibleBytes: textureMemory.visibleBytes,
     textureMemoryVisibleCount: textureMemory.visibleTextureCount,
+    textureLifecycleDiagnosticCount: textureLifecycleDiagnostics.length,
+    textureLifecycleDiagnostics: textureLifecycleDiagnostics
+      .slice(0, 12)
+      .map((diagnostic) => ({
+        committed: { ...diagnostic.committed },
+        pending: diagnostic.pending ? { ...diagnostic.pending } : null,
+        pendingResolution: diagnostic.pendingResolution
+          ? { ...diagnostic.pendingResolution }
+          : null,
+        priority: diagnostic.priority,
+        surfaceId: diagnostic.surfaceId,
+      })),
     uploadDiagnosticCount: uploadDiagnostics.length,
     uploadDiagnostics: uploadDiagnostics.slice(0, 12).map((diagnostic) => ({
       cssHeight: diagnostic.cssHeight,

@@ -4,6 +4,7 @@ import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import { type GpuHtmlSurfaceOverlayLayout, type GpuNodeLayout } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
+  HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
@@ -167,6 +168,38 @@ export function createFrameTextureManager() {
       };
     }),
     getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    getSurfaceTextureLifecycleDiagnostics: vi.fn(
+      (
+        surfaceIds?: Iterable<string>,
+      ): HtmlSurfaceTextureLifecycleDiagnostic[] =>
+        Array.from(surfaceIds ?? records.keys())
+          .map((surfaceId) => records.get(surfaceId))
+          .filter((record): record is HtmlSurfaceTextureRecord =>
+            Boolean(record),
+          )
+          .map((record) => ({
+            committed: {
+              clampedByMaxTexture: record.clampedByMaxTexture ?? false,
+              cssHeight: record.cssHeight ?? 0,
+              cssWidth: record.cssWidth ?? 0,
+              dirtyContent: record.dirtyContent ?? false,
+              dirtyResolution: record.dirtyResolution ?? false,
+              lastUploadFrame: record.lastUploadFrame,
+              pixelHeight: record.pixelHeight ?? 0,
+              pixelWidth: record.pixelWidth ?? 0,
+              requestedScale: record.requestedScale ?? 1,
+              resolutionScale: record.resolutionScale ?? 1,
+              textureBytes: record.textureBytes,
+              textureLayoutKind: record.textureLayout.kind,
+              tileCount: record.textureLayout.tileCount,
+              zoomBucket: record.zoomBucket ?? 1,
+            },
+            pending: null,
+            pendingResolution: null,
+            priority: record.priority ?? "visible",
+            surfaceId: record.surfaceId,
+          })),
+    ),
     markSurfaceTextureDirty: vi.fn(),
     markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
