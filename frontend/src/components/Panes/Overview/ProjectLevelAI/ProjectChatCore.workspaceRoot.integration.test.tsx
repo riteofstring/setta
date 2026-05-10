@@ -1,0 +1,223 @@
+/* @vitest-environment jsdom */
+
+import "testUtils/reactRefreshPreamble";
+
+import { StrictMode, act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const openAPI = vi.hoisted(() => ({
+  getFileBrowserRoot: vi.fn(),
+  getWorkspacePythonSignal: vi.fn(),
+}));
+
+vi.mock("components/Chat/ChatInput", () => ({
+  ChatInput: () => <div data-testid="mock-chat-input" />,
+  resolveSlashCommandRequest: vi.fn(),
+}));
+
+vi.mock("components/Chat/ChatMessages", () => ({
+  ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
+}));
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getFileBrowserRoot: openAPI.getFileBrowserRoot,
+    getWorkspacePythonSignal: openAPI.getWorkspacePythonSignal,
+  };
+});
+
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
+  };
+});
+
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
+import { ProjectChatCore } from "./ProjectChatCore";
+
+function buildWorkspacePythonSignalResponse(
+  folderPath: string,
+  hasPython: boolean,
+) {
+  return {
+    data: {
+      folderPath,
+      hasPython,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
+
+describe("ProjectChatCore workspace root scans", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  async function renderProjectChatCore({
+    strictMode = false,
+  }: {
+    strictMode?: boolean;
+  } = {}) {
+    const content = (
+      <ProjectChatCore
+        surfaceId="surface-a"
+        chatId={null}
+        draftMessage=""
+        setDraftMessage={vi.fn()}
+        placeholderText="Type a message..."
+        conversationFilterText=""
+        hydrationAuthority={{
+          status: "ready",
+          hydrationRunType: null,
+          blockedErrorCode: null,
+        }}
+        hydrationMetadataRevision="revision-root-scan"
+        thinking={false}
+        engineConfigId="engine-a"
+        engineType={EngineTypeEnum.setta_llm}
+        hasLLMConfig={true}
+        externalEngineAvailable={false}
+        noLLMConfigsAvailable={false}
+        transcriptionProfileId={null}
+        dictationMode="auto"
+        providerDictationAvailable={false}
+        providerDictationLikelySupported={false}
+        setChatId={vi.fn()}
+      />
+    );
+
+    await act(async () => {
+      root.render(strictMode ? <StrictMode>{content}</StrictMode> : content);
+    });
+  }
+
+  beforeEach(() => {
+    resetProjectStores();
+    vi.useFakeTimers();
+    openAPI.getFileBrowserRoot.mockReset();
+    openAPI.getWorkspacePythonSignal.mockReset();
+
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({ id: "project-1" });
+    });
+    useLocalStorage.setState({
+      appGenerationMode: "json_render",
+      customProjectChatSlashCommandsByProjectConfigId: {},
+      projectChatDraftMessageByProjectConfigId: {},
+    });
+    useAIStore.setState({
+      chatDetails: {},
+      pendingChatDetailsBySurfaceId: {},
+      interruptedAssistantMessageIdsByChatId: {},
+      agentRuns: [],
+      agentRunsInitialLoadComplete: true,
+      agentRunsAuthorityState: "ready",
+      pendingProjectChatPrompt: null,
+    });
+
+    openAPI.getFileBrowserRoot.mockResolvedValue({
+      data: {
+        rootPath: "/workspace",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      },
+      status: 200,
+      hasResponse: true,
+    });
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    resetProjectStores();
+  });
+
+  it("does not start a second workspace root scan while the first scan is still in flight", async () => {
+    let resolveFolderScan:
+      | ((value: {
+          data: {
+            folderPath: string;
+            hasPython: boolean;
+          };
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+
+    openAPI.getWorkspacePythonSignal.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFolderScan = resolve;
+        }),
+    );
+
+    await renderProjectChatCore();
+
+    await vi.waitFor(() => {
+      expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6200);
+    });
+
+    expect(openAPI.getWorkspacePythonSignal).toHaveBeenCalledTimes(1);
+
+    if (!resolveFolderScan) {
+      throw new Error(
+        "Expected the initial workspace root scan to be pending.",
+      );
+    }
+    resolveFolderScan({
+      ...buildWorkspacePythonSignalResponse("/workspace", false),
+    });
+  });
+
+  it("does not schedule repeated workspace root fetches after the initial resolution", async () => {
+    openAPI.getWorkspacePythonSignal.mockResolvedValue(
+      buildWorkspacePythonSignalResponse("/workspace", false),
+    );
+
+    await renderProjectChatCore({ strictMode: true });
+
+    await vi.waitFor(() => {
+      expect(openAPI.getFileBrowserRoot).toHaveBeenCalled();
+    });
+    const initialRootFetchCount = openAPI.getFileBrowserRoot.mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
+    });
+
+    expect(openAPI.getFileBrowserRoot.mock.calls.length).toBe(
+      initialRootFetchCount,
+    );
+  });
+});
