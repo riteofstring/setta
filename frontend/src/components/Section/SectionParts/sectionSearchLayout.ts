@@ -1,1 +1,0 @@
-export const PROJECT_SECTION_SEARCH_HEIGHT_PX = 26;
