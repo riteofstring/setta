@@ -78,6 +78,16 @@ export class RetainedTextureWorkQueue {
     }
   }
 
+  complete(item: RetainedTextureWorkItem): boolean {
+    const key = workItemCoalescingKey(item);
+    const current = this.items.get(key);
+    if (!current || current.sequence !== item.sequence) {
+      return false;
+    }
+    this.items.delete(key);
+    return true;
+  }
+
   cancelLodRefinement(
     predicate: (item: RetainedTextureWorkItem) => boolean = () => true,
   ): number {
