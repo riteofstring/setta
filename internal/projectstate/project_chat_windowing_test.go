@@ -79,17 +79,24 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 		t.Fatalf("normalize project: %v", err)
 	}
 
-	if normalized.ProjectChatWindowing == nil {
+	assertNormalizedProjectChatWindowing(t, normalized.ProjectChatWindowing)
+	assertNormalizedWindowSpaces(t, normalized.WindowSpaces)
+}
+
+func assertNormalizedProjectChatWindowing(t *testing.T, windowing *ProjectChatWindowingState) {
+	t.Helper()
+
+	if windowing == nil {
 		t.Fatal("expected project chat windowing to be preserved")
 	}
-	if got := normalized.ProjectChatWindowing.NextInstanceNumber; got != 1 {
+	if got := windowing.NextInstanceNumber; got != 1 {
 		t.Fatalf("expected default next instance number 1, got %d", got)
 	}
-	if got := normalized.ProjectChatWindowing.Order; !reflect.DeepEqual(got, []string{"instance-c", "instance-b", "instance-a"}) {
+	if got := windowing.Order; !reflect.DeepEqual(got, []string{"instance-c", "instance-b", "instance-a"}) {
 		t.Fatalf("expected normalized chat window order, got %#v", got)
 	}
 
-	projectAI := normalized.ProjectChatWindowing.InstancesByID["instance-a"]
+	projectAI := windowing.InstancesByID["instance-a"]
 	if projectAI.Placement != ChatWindowPlacementBottomDocked {
 		t.Fatalf("expected default placement bottom_docked, got %q", projectAI.Placement)
 	}
@@ -103,7 +110,7 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 		t.Fatalf("expected default chat bounds 820x520, got %#v", projectAI.Bounds)
 	}
 
-	sectionWindow := normalized.ProjectChatWindowing.InstancesByID["instance-b"]
+	sectionWindow := windowing.InstancesByID["instance-b"]
 	if sectionWindow.SectionIDOrNull == nil || *sectionWindow.SectionIDOrNull != "section-a" {
 		t.Fatalf("expected trimmed section binding section-a, got %#v", sectionWindow.SectionIDOrNull)
 	}
@@ -114,7 +121,7 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 		t.Fatalf("expected section window chat id to be cleared, got %#v", sectionWindow.ChatID)
 	}
 
-	gitGraphWindow := normalized.ProjectChatWindowing.InstancesByID["instance-c"]
+	gitGraphWindow := windowing.InstancesByID["instance-c"]
 	if gitGraphWindow.SectionIDOrNull != nil {
 		t.Fatalf("expected git graph section binding to be cleared, got %#v", gitGraphWindow.SectionIDOrNull)
 	}
@@ -124,14 +131,18 @@ func TestProjectNormalizedNormalizesChatWindowingAndWindowSpaces(t *testing.T) {
 	if gitGraphWindow.Placement != ChatWindowPlacementFloating {
 		t.Fatalf("expected git graph placement to remain floating, got %q", gitGraphWindow.Placement)
 	}
-	if _, ok := normalized.ProjectChatWindowing.InstancesByID["instance-d"]; ok {
+	if _, ok := windowing.InstancesByID["instance-d"]; ok {
 		t.Fatal("expected missing section instance to be dropped")
 	}
+}
 
-	if got := len(normalized.WindowSpaces); got != 1 {
+func assertNormalizedWindowSpaces(t *testing.T, windowSpaces map[string]WindowSpaceConfig) {
+	t.Helper()
+
+	if got := len(windowSpaces); got != 1 {
 		t.Fatalf("expected one normalized window space, got %d", got)
 	}
-	space := normalized.WindowSpaces["space-a"]
+	space := windowSpaces["space-a"]
 	if space.ID != "space-a" {
 		t.Fatalf("expected normalized window space id space-a, got %q", space.ID)
 	}

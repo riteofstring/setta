@@ -35,12 +35,7 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	if err != nil {
 		t.Fatalf("link first-party app subsystem plugin: %v", err)
 	}
-	if !linkResult.RestartRequired {
-		t.Fatalf("expected linked app subsystem plugin to require refresh, got %#v", linkResult)
-	}
-	if len(linkResult.Components) != 2 || linkResult.Components[0] != "backend" || linkResult.Components[1] != "frontend" {
-		t.Fatalf("expected backend/frontend link result components, got %#v", linkResult.Components)
-	}
+	assertLinkedAppSubsystemPluginResult(t, linkResult)
 	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
 
 	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
@@ -53,11 +48,36 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	if err != nil {
 		t.Fatalf("load runtime after link: %v", err)
 	}
+	assertLinkedAppSubsystemRuntime(t, runtimeResponse)
+}
+
+func assertLinkedAppSubsystemPluginResult(t *testing.T, linkResult PluginInstallResponse) {
+	t.Helper()
+
+	if !linkResult.RestartRequired {
+		t.Fatalf("expected linked app subsystem plugin to require refresh, got %#v", linkResult)
+	}
+	if len(linkResult.Components) != 2 || linkResult.Components[0] != "backend" || linkResult.Components[1] != "frontend" {
+		t.Fatalf("expected backend/frontend link result components, got %#v", linkResult.Components)
+	}
+}
+
+func assertLinkedAppSubsystemRuntime(t *testing.T, runtimeResponse PluginRuntimeResponse) {
+	t.Helper()
+
 	if len(runtimeResponse.List.Plugins) != 1 || len(runtimeResponse.Status.Plugins) != 1 {
 		t.Fatalf("expected one linked app subsystem plugin, got list=%#v status=%#v", runtimeResponse.List.Plugins, runtimeResponse.Status.Plugins)
 	}
+	assertLinkedAppSubsystemRuntimeListEntry(t, runtimeResponse.List.Plugins[0])
+	assertLinkedAppSubsystemRuntimeStatusEntry(t, runtimeResponse.Status.Plugins[0])
+	if runtimeResponse.FeatureCapabilities == nil || runtimeResponse.FeatureCapabilities.AppSubsystem.PluginID != firstpartyplugin.AppSubsystemPluginID {
+		t.Fatalf("expected linked app subsystem provider capabilities, got %#v", runtimeResponse.FeatureCapabilities)
+	}
+}
 
-	listEntry := runtimeResponse.List.Plugins[0]
+func assertLinkedAppSubsystemRuntimeListEntry(t *testing.T, listEntry PluginListEntry) {
+	t.Helper()
+
 	if listEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || listEntry.SourceScope != PluginScopeWorkspace {
 		t.Fatalf("expected linked workspace app subsystem plugin list entry, got %#v", listEntry)
 	}
@@ -70,16 +90,16 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	if listEntry.Frontend.StyleURL == nil || !strings.Contains(*listEntry.Frontend.StyleURL, "/plugins/setta-json-render-app-gen/frontend/dist/index.css?v=") {
 		t.Fatalf("expected linked app subsystem frontend style URL, got %#v", listEntry.Frontend.StyleURL)
 	}
+}
 
-	statusEntry := runtimeResponse.Status.Plugins[0]
+func assertLinkedAppSubsystemRuntimeStatusEntry(t *testing.T, statusEntry PluginStatusEntry) {
+	t.Helper()
+
 	if statusEntry.PluginID != firstpartyplugin.AppSubsystemPluginID || statusEntry.State != PluginRuntimeStateActive {
 		t.Fatalf("expected active linked app subsystem plugin status entry, got %#v", statusEntry)
 	}
 	if len(statusEntry.Components) != 2 || statusEntry.Components[0] != "backend" || statusEntry.Components[1] != "frontend" {
 		t.Fatalf("expected backend/frontend linked app subsystem status components, got %#v", statusEntry.Components)
-	}
-	if runtimeResponse.FeatureCapabilities == nil || runtimeResponse.FeatureCapabilities.AppSubsystem.PluginID != firstpartyplugin.AppSubsystemPluginID {
-		t.Fatalf("expected linked app subsystem provider capabilities, got %#v", runtimeResponse.FeatureCapabilities)
 	}
 }
 

@@ -8,6 +8,32 @@ import (
 func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t *testing.T) {
 	t.Parallel()
 
+	project := presetDrawLayerTestProject(t)
+	layers := []any{
+		map[string]any{
+			"name":         "Layer 1",
+			"visible":      false,
+			"layerOpacity": 0.5,
+			"elements": []any{
+				map[string]any{
+					"dataPath":    "foo",
+					"transformId": "bar",
+				},
+			},
+		},
+	}
+
+	if err := project.setCurrentSectionField("draw-section", "layers", layers); err != nil {
+		t.Fatalf("set preset draw layers: %v", err)
+	}
+	assertPresetDrawLayersAvoidSharedAndImplPayload(t, project)
+	assertStoredDrawLayer(t, project)
+	assertEffectiveDrawLayer(t, project)
+}
+
+func presetDrawLayerTestProject(t *testing.T) Project {
+	t.Helper()
+
 	project, err := Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
@@ -46,24 +72,11 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if err != nil {
 		t.Fatalf("normalize preset draw project: %v", err)
 	}
+	return project
+}
 
-	layers := []any{
-		map[string]any{
-			"name":         "Layer 1",
-			"visible":      false,
-			"layerOpacity": 0.5,
-			"elements": []any{
-				map[string]any{
-					"dataPath":    "foo",
-					"transformId": "bar",
-				},
-			},
-		},
-	}
-
-	if err := project.setCurrentSectionField("draw-section", "layers", layers); err != nil {
-		t.Fatalf("set preset draw layers: %v", err)
-	}
+func assertPresetDrawLayersAvoidSharedAndImplPayload(t *testing.T, project Project) {
+	t.Helper()
 
 	sharedModifier, err := rawObjectFromProjectPayload(project.Sections["draw-section"].SharedModifier)
 	if err != nil {
@@ -72,7 +85,6 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if _, ok := sharedModifier["layers"]; ok {
 		t.Fatalf("expected preset draw layers to avoid sharedModifier, got %#v", sharedModifier["layers"])
 	}
-
 	implPayload, err := rawObjectFromProjectPayload(project.SectionImpls["draw-impl"].Payload)
 	if err != nil {
 		t.Fatalf("decode draw impl payload: %v", err)
@@ -81,6 +93,10 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok || len(rawImplLayers) != 0 {
 		t.Fatalf("expected preset impl payload layers to stay empty, got %#v", implPayload["layers"])
 	}
+}
+
+func assertStoredDrawLayer(t *testing.T, project Project) {
+	t.Helper()
 
 	modifier, err := rawObjectFromProjectPayload(project.SectionVariants["draw-variant"].Modifier)
 	if err != nil {
@@ -94,15 +110,11 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok {
 		t.Fatalf("expected stored draw layer object, got %#v", storedLayers[0])
 	}
-	if storedLayer["name"] != "Layer 1" {
-		t.Fatalf("expected stored layer name Layer 1, got %#v", storedLayer["name"])
-	}
-	if storedLayer["visible"] != false {
-		t.Fatalf("expected stored layer visible=false, got %#v", storedLayer["visible"])
-	}
-	if storedLayer["layerOpacity"] != 0.5 {
-		t.Fatalf("expected stored layer opacity 0.5, got %#v", storedLayer["layerOpacity"])
-	}
+	assertDrawLayerFields(t, storedLayer, "stored")
+}
+
+func assertEffectiveDrawLayer(t *testing.T, project Project) {
+	t.Helper()
 
 	effectivePayload, err := effectiveSectionPayload(project, "draw-section", "draw-variant")
 	if err != nil {
@@ -116,14 +128,20 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	if !ok {
 		t.Fatalf("expected effective draw layer object, got %#v", effectiveLayers[0])
 	}
-	if effectiveLayer["name"] != "Layer 1" {
-		t.Fatalf("expected effective layer name Layer 1, got %#v", effectiveLayer["name"])
+	assertDrawLayerFields(t, effectiveLayer, "effective")
+}
+
+func assertDrawLayerFields(t *testing.T, layer map[string]any, contextLabel string) {
+	t.Helper()
+
+	if layer["name"] != "Layer 1" {
+		t.Fatalf("expected %s layer name Layer 1, got %#v", contextLabel, layer["name"])
 	}
-	if effectiveLayer["visible"] != false {
-		t.Fatalf("expected effective layer visible=false, got %#v", effectiveLayer["visible"])
+	if layer["visible"] != false {
+		t.Fatalf("expected %s layer visible=false, got %#v", contextLabel, layer["visible"])
 	}
-	if effectiveLayer["layerOpacity"] != 0.5 {
-		t.Fatalf("expected effective layer opacity 0.5, got %#v", effectiveLayer["layerOpacity"])
+	if layer["layerOpacity"] != 0.5 {
+		t.Fatalf("expected %s layer opacity 0.5, got %#v", contextLabel, layer["layerOpacity"])
 	}
 }
 
@@ -412,6 +430,16 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 		t.Fatalf("normalize project: %v", err)
 	}
 
+	assertLegacyCallableSectionImplDefaults(t, project)
+	assertLegacyDictSectionImplDefaults(t, project)
+	assertLegacyGeneratedSectionImplDefaults(t, project)
+	assertLegacyGroupSectionImplDefaults(t, project)
+	assertLegacyIFrameSectionImplDefaults(t, project)
+}
+
+func assertLegacyCallableSectionImplDefaults(t *testing.T, project Project) {
+	t.Helper()
+
 	callablePayload, err := effectiveSectionPayload(project, "callable-section", "callable-variant")
 	if err != nil {
 		t.Fatalf("effective callable payload: %v", err)
@@ -434,6 +462,22 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	if edgeOutputs, ok := callablePayload["edgeOutputPorts"].([]any); !ok || len(edgeOutputs) != 0 {
 		t.Fatalf("expected callable edgeOutputPorts empty array, got %#v", callablePayload["edgeOutputPorts"])
 	}
+	assertLegacyCallableIgnoreState(t, callablePayload)
+	if value, ok := callablePayload["columnWidth"]; !ok || value != nil {
+		t.Fatalf("expected callable columnWidth explicit null, got %#v", callablePayload["columnWidth"])
+	}
+	if value, ok := callablePayload["callable"]; !ok || value != nil {
+		t.Fatalf("expected callable root explicit null, got %#v", callablePayload["callable"])
+	}
+	if got := callablePayload["hideParams"]; got != false {
+		t.Fatalf("expected callable hideParams false, got %#v", got)
+	}
+	assertLegacyPayloadSize(t, callablePayload, "callable", 250.0, 150.0)
+}
+
+func assertLegacyCallableIgnoreState(t *testing.T, callablePayload map[string]any) {
+	t.Helper()
+
 	ignoreState, ok := callablePayload["ignoreTypeErrors"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected callable ignoreTypeErrors object, got %#v", callablePayload["ignoreTypeErrors"])
@@ -444,22 +488,10 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	if params, ok := ignoreState["params"].(map[string]any); !ok || len(params) != 0 {
 		t.Fatalf("expected callable ignoreTypeErrors.params empty object, got %#v", ignoreState["params"])
 	}
-	if value, ok := callablePayload["columnWidth"]; !ok || value != nil {
-		t.Fatalf("expected callable columnWidth explicit null, got %#v", callablePayload["columnWidth"])
-	}
-	if value, ok := callablePayload["callable"]; !ok || value != nil {
-		t.Fatalf("expected callable root explicit null, got %#v", callablePayload["callable"])
-	}
-	if got := callablePayload["hideParams"]; got != false {
-		t.Fatalf("expected callable hideParams false, got %#v", got)
-	}
-	callableSize, ok := callablePayload["size"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected callable size object, got %#v", callablePayload["size"])
-	}
-	if callableSize["width"] != 250.0 || callableSize["height"] != 150.0 {
-		t.Fatalf("expected callable default size {250 150}, got %#v", callableSize)
-	}
+}
+
+func assertLegacyDictSectionImplDefaults(t *testing.T, project Project) {
+	t.Helper()
 
 	dictPayload, err := effectiveSectionPayload(project, "dict-section", "dict-variant")
 	if err != nil {
@@ -477,39 +509,33 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	if got := dictPayload["jsonSourceMissing"]; got != false {
 		t.Fatalf("expected dict jsonSourceMissing false, got %#v", got)
 	}
-	if children, ok := dictPayload["children"].([]any); !ok || len(children) != 0 {
-		t.Fatalf("expected dict children empty array, got %#v", dictPayload["children"])
-	}
+	assertLegacyEmptyChildren(t, dictPayload, "dict")
+}
+
+func assertLegacyGeneratedSectionImplDefaults(t *testing.T, project Project) {
+	t.Helper()
 
 	generatedPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
 	if err != nil {
 		t.Fatalf("effective generated payload: %v", err)
 	}
-	size, ok := generatedPayload["size"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected generated size object, got %#v", generatedPayload["size"])
-	}
-	if size["width"] != 500.0 || size["height"] != 150.0 {
-		t.Fatalf("expected generated default size {500 150}, got %#v", size)
-	}
-	if children, ok := generatedPayload["children"].([]any); !ok || len(children) != 0 {
-		t.Fatalf("expected generated children empty array, got %#v", generatedPayload["children"])
-	}
+	assertLegacyPayloadSize(t, generatedPayload, "generated", 500.0, 150.0)
+	assertLegacyEmptyChildren(t, generatedPayload, "generated")
+}
+
+func assertLegacyGroupSectionImplDefaults(t *testing.T, project Project) {
+	t.Helper()
 
 	groupPayload, err := effectiveSectionPayload(project, "group-section", "group-variant")
 	if err != nil {
 		t.Fatalf("effective group payload: %v", err)
 	}
-	groupSize, ok := groupPayload["size"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected group size object, got %#v", groupPayload["size"])
-	}
-	if groupSize["width"] != 250.0 || groupSize["height"] != 150.0 {
-		t.Fatalf("expected group default size {250 150}, got %#v", groupSize)
-	}
-	if children, ok := groupPayload["children"].([]any); !ok || len(children) != 0 {
-		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])
-	}
+	assertLegacyPayloadSize(t, groupPayload, "group", 250.0, 150.0)
+	assertLegacyEmptyChildren(t, groupPayload, "group")
+}
+
+func assertLegacyIFrameSectionImplDefaults(t *testing.T, project Project) {
+	t.Helper()
 
 	iframePayload, err := effectiveSectionPayload(project, "iframe-section", "iframe-variant")
 	if err != nil {
@@ -517,6 +543,26 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	}
 	if got := payloadStringField(iframePayload, "code"); got != "" {
 		t.Fatalf("expected iframe code empty string, got %q", got)
+	}
+}
+
+func assertLegacyPayloadSize(t *testing.T, payload map[string]any, label string, width float64, height float64) {
+	t.Helper()
+
+	size, ok := payload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s size object, got %#v", label, payload["size"])
+	}
+	if size["width"] != width || size["height"] != height {
+		t.Fatalf("expected %s default size {%v %v}, got %#v", label, width, height, size)
+	}
+}
+
+func assertLegacyEmptyChildren(t *testing.T, payload map[string]any, label string) {
+	t.Helper()
+
+	if children, ok := payload["children"].([]any); !ok || len(children) != 0 {
+		t.Fatalf("expected %s children empty array, got %#v", label, payload["children"])
 	}
 }
 

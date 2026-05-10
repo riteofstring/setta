@@ -24,6 +24,25 @@ import (
 func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *testing.T) {
 	t.Parallel()
 
+	harness := newShareArtifactRouteHarness(t)
+	artifactPath := harness.updateBrushStrokeOverlay(t)
+
+	harness.assertShareSessionLoadsOverlay(t, "share-a", artifactPath)
+	harness.assertShareSessionMissesOverlay(t, "share-b", artifactPath)
+	harness.assertOverlayStaysInMemory(t, artifactPath)
+	harness.assertBroadcastScopedToShareA(t)
+}
+
+type shareArtifactRouteHarness struct {
+	cfg       config.Config
+	serverURL string
+	connA     *websocket.Conn
+	connB     *websocket.Conn
+}
+
+func newShareArtifactRouteHarness(t *testing.T) shareArtifactRouteHarness {
+	t.Helper()
+
 	cfg := testDeploymentConfig(t, config.ModeShare)
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -43,44 +62,47 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 	}
 
 	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	connA, _, err := websocket.Dial(
+	return shareArtifactRouteHarness{
+		cfg:       cfg,
+		serverURL: server.URL,
+		connA:     dialShareArtifactFrontend(t, server.URL, "share-a", 2),
+		connB:     dialShareArtifactFrontend(t, server.URL, "share-b", 3),
+	}
+}
+
+func dialShareArtifactFrontend(t *testing.T, serverURL, sessionID string, maxIdentityReads int) *websocket.Conn {
+	t.Helper()
+
+	conn, _, err := websocket.Dial(
 		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend,
+		"ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend,
 		&websocket.DialOptions{
 			HTTPHeader: http.Header{
-				modes.ShareSessionHeaderName: []string{"share-a"},
+				modes.ShareSessionHeaderName: []string{sessionID},
 			},
 		},
 	)
 	if err != nil {
-		t.Fatalf("dial share-a websocket: %v", err)
+		t.Fatalf("dial %s websocket: %v", sessionID, err)
 	}
-	defer connA.CloseNow()
-	_ = readAppRouteEnvelopeUntilType(t, connA, realtime.MessageTypeFrontendIdentity, 2)
+	t.Cleanup(func() {
+		_ = conn.CloseNow()
+	})
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, maxIdentityReads)
+	return conn
+}
 
-	connB, _, err := websocket.Dial(
-		context.Background(),
-		"ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend,
-		&websocket.DialOptions{
-			HTTPHeader: http.Header{
-				modes.ShareSessionHeaderName: []string{"share-b"},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("dial share-b websocket: %v", err)
-	}
-	defer connB.CloseNow()
-	_ = readAppRouteEnvelopeUntilType(t, connB, realtime.MessageTypeFrontendIdentity, 3)
+func (h shareArtifactRouteHarness) updateBrushStrokeOverlay(t *testing.T) string {
+	t.Helper()
 
-	artifactPath := filepath.Join(cfg.Paths.DeploymentRoot, "artifacts", "stroke.json")
+	artifactPath := filepath.Join(h.cfg.Paths.DeploymentRoot, "artifacts", "stroke.json")
 	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
 		t.Fatalf("mkdir artifact parent: %v", err)
 	}
 
-	updateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"BrushStroke","id":"`+artifactPath+`","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}],"uploadScope":"generic"}`))
+	updateRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteUpdateArtifacts, strings.NewReader(`{"artifacts":[{"type":"BrushStroke","id":"`+artifactPath+`","value":{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}}],"uploadScope":"generic"}`))
 	if err != nil {
 		t.Fatalf("new update request: %v", err)
 	}
@@ -96,22 +118,27 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 		body, _ := io.ReadAll(updateResponse.Body)
 		t.Fatalf("expected update 200, got %d with body %q", updateResponse.StatusCode, string(body))
 	}
+	return artifactPath
+}
 
-	loadARequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["`+artifactPath+`"]}`))
+func (h shareArtifactRouteHarness) assertShareSessionLoadsOverlay(t *testing.T, sessionID, artifactPath string) {
+	t.Helper()
+
+	loadARequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["`+artifactPath+`"]}`))
 	if err != nil {
-		t.Fatalf("new share-a load request: %v", err)
+		t.Fatalf("new %s load request: %v", sessionID, err)
 	}
 	loadARequest.Header.Set("Content-Type", "application/json")
-	loadARequest.Header.Set(modes.ShareSessionHeaderName, "share-a")
+	loadARequest.Header.Set(modes.ShareSessionHeaderName, sessionID)
 
 	loadAResponse, err := http.DefaultClient.Do(loadARequest)
 	if err != nil {
-		t.Fatalf("share-a load request: %v", err)
+		t.Fatalf("%s load request: %v", sessionID, err)
 	}
 	defer loadAResponse.Body.Close()
 	if loadAResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(loadAResponse.Body)
-		t.Fatalf("expected share-a load 200, got %d with body %q", loadAResponse.StatusCode, string(body))
+		t.Fatalf("expected %s load 200, got %d with body %q", sessionID, loadAResponse.StatusCode, string(body))
 	}
 
 	var loadAPayload []*struct {
@@ -127,22 +154,26 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 	if loadAPayload[0].ID != "artifacts/stroke.json" || !strings.Contains(string(loadAPayload[0].Value), "#000000") {
 		t.Fatalf("unexpected share-a load payload %#v", loadAPayload[0])
 	}
+}
 
-	loadBRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["`+artifactPath+`"]}`))
+func (h shareArtifactRouteHarness) assertShareSessionMissesOverlay(t *testing.T, sessionID, artifactPath string) {
+	t.Helper()
+
+	loadBRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteLoadCachedBrushStrokes, strings.NewReader(`{"paths":["`+artifactPath+`"]}`))
 	if err != nil {
-		t.Fatalf("new share-b load request: %v", err)
+		t.Fatalf("new %s load request: %v", sessionID, err)
 	}
 	loadBRequest.Header.Set("Content-Type", "application/json")
-	loadBRequest.Header.Set(modes.ShareSessionHeaderName, "share-b")
+	loadBRequest.Header.Set(modes.ShareSessionHeaderName, sessionID)
 
 	loadBResponse, err := http.DefaultClient.Do(loadBRequest)
 	if err != nil {
-		t.Fatalf("share-b load request: %v", err)
+		t.Fatalf("%s load request: %v", sessionID, err)
 	}
 	defer loadBResponse.Body.Close()
 	if loadBResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(loadBResponse.Body)
-		t.Fatalf("expected share-b load 200, got %d with body %q", loadBResponse.StatusCode, string(body))
+		t.Fatalf("expected %s load 200, got %d with body %q", sessionID, loadBResponse.StatusCode, string(body))
 	}
 
 	var loadBPayload []*struct {
@@ -154,12 +185,20 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 	if len(loadBPayload) != 1 || loadBPayload[0] != nil {
 		t.Fatalf("expected share-b to miss overlay payload, got %#v", loadBPayload)
 	}
+}
+
+func (h shareArtifactRouteHarness) assertOverlayStaysInMemory(t *testing.T, artifactPath string) {
+	t.Helper()
 
 	if _, err := os.Stat(artifactPath); !os.IsNotExist(err) {
 		t.Fatalf("expected share update to stay in memory, stat err=%v", err)
 	}
+}
 
-	envelope := readAppRouteEnvelopeUntilType(t, connA, realtime.MessageTypeUpdateArtifacts, 4)
+func (h shareArtifactRouteHarness) assertBroadcastScopedToShareA(t *testing.T) {
+	t.Helper()
+
+	envelope := readAppRouteEnvelopeUntilType(t, h.connA, realtime.MessageTypeUpdateArtifacts, 4)
 	var broadcast realtime.UpdateArtifactsContent
 	if err := json.Unmarshal(envelope.Content, &broadcast); err != nil {
 		t.Fatalf("decode update artifacts broadcast: %v", err)
@@ -175,5 +214,5 @@ func TestAppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates(t *te
 		t.Fatalf("expected normalized broadcast id, got %#v", artifact)
 	}
 
-	assertNoAppRouteEnvelopeOfType(t, connB, realtime.MessageTypeUpdateArtifacts, 300*time.Millisecond)
+	assertNoAppRouteEnvelopeOfType(t, h.connB, realtime.MessageTypeUpdateArtifacts, 300*time.Millisecond)
 }

@@ -10,8 +10,79 @@ import {
   getGpuFlowCompatibilityFixturePlan,
 } from "./gpuFlowCompatibilityFixture";
 
+type GpuFlowCompatibilityFixturePlan = ReturnType<
+  typeof getGpuFlowCompatibilityFixturePlan
+>;
+
 function sorted<T extends string>(values: readonly T[]): T[] {
   return [...values].sort();
+}
+
+function sortedUnique<T extends string>(values: readonly T[]): T[] {
+  return sorted(Array.from(new Set(values)));
+}
+
+function scenarioById(
+  plan: GpuFlowCompatibilityFixturePlan,
+  scenarioId: string,
+) {
+  const scenario = plan.verificationScenarios.find(
+    (candidate) => candidate.scenarioId === scenarioId,
+  );
+  if (!scenario) {
+    throw new Error(`Expected scenario ${scenarioId}.`);
+  }
+  return scenario;
+}
+
+function expectedSectionFixtureIdsForNativeInteraction(
+  plan: GpuFlowCompatibilityFixturePlan,
+  nativeInteraction: string,
+) {
+  return sorted(
+    plan.sectionFixtures
+      .filter((fixture) => fixture.nativeInteractions.includes(nativeInteraction))
+      .map((fixture) => fixture.fixtureId),
+  );
+}
+
+function expectedParamFixtureIdsForSurface(
+  plan: GpuFlowCompatibilityFixturePlan,
+  surface: string,
+) {
+  return sorted(
+    plan.paramFixtures
+      .filter((fixture) => fixture.surfaces.includes(surface))
+      .map((fixture) => fixture.fixtureId),
+  );
+}
+
+function scenarioForNativeInteraction(
+  plan: GpuFlowCompatibilityFixturePlan,
+  nativeInteraction: string,
+) {
+  const scenario = plan.verificationScenarios.find((candidate) =>
+    candidate.nativeInteractions.includes(nativeInteraction),
+  );
+  if (!scenario) {
+    throw new Error(`Expected scenario for ${nativeInteraction}.`);
+  }
+  return scenario;
+}
+
+function scenarioForParamSurface(
+  plan: GpuFlowCompatibilityFixturePlan,
+  surface: string,
+) {
+  const scenario = plan.verificationScenarios.find(
+    (candidate) =>
+      candidate.paramSurfaces.length === 1 &&
+      candidate.paramSurfaces.includes(surface),
+  );
+  if (!scenario) {
+    throw new Error(`Expected scenario for ${surface}.`);
+  }
+  return scenario;
 }
 
 describe("gpuFlowCompatibilityFixture", () => {
@@ -65,58 +136,34 @@ describe("gpuFlowCompatibilityFixture", () => {
     const allParamFixtureIds = sorted(
       plan.paramFixtures.map((fixture) => fixture.fixtureId),
     );
-    const allNativeInteractions = sorted(
+    const allNativeInteractions = sortedUnique(
       plan.sectionFixtures.flatMap((fixture) => fixture.nativeInteractions),
-    ).filter((value, index, values) => values.indexOf(value) === index);
-    const allParamSurfaces = sorted(
-      plan.paramFixtures.flatMap((fixture) => fixture.surfaces),
-    ).filter((value, index, values) => values.indexOf(value) === index);
-
-    const displayScenario = plan.verificationScenarios.find(
-      (scenario) => scenario.scenarioId === "sections:display-all-zooms",
     );
-    expect(sorted(displayScenario?.sectionFixtureIds ?? [])).toEqual(
+    const allParamSurfaces = sortedUnique(
+      plan.paramFixtures.flatMap((fixture) => fixture.surfaces),
+    );
+
+    const displayScenario = scenarioById(plan, "sections:display-all-zooms");
+    expect(sorted(displayScenario.sectionFixtureIds)).toEqual(
       allSectionFixtureIds,
     );
-    expect(displayScenario?.zoomLevels).toEqual(
-      GPU_FLOW_COMPATIBILITY_ZOOM_LEVELS,
-    );
+    expect(displayScenario.zoomLevels).toEqual(GPU_FLOW_COMPATIBILITY_ZOOM_LEVELS);
 
-    const paramScenario = plan.verificationScenarios.find(
-      (scenario) => scenario.scenarioId === "params:first-interactions",
-    );
-    expect(sorted(paramScenario?.paramFixtureIds ?? [])).toEqual(
-      allParamFixtureIds,
-    );
-    expect(paramScenario?.paramSurfaces).toEqual(allParamSurfaces);
+    const paramScenario = scenarioById(plan, "params:first-interactions");
+    expect(sorted(paramScenario.paramFixtureIds)).toEqual(allParamFixtureIds);
+    expect(paramScenario.paramSurfaces).toEqual(allParamSurfaces);
 
     for (const nativeInteraction of allNativeInteractions) {
-      const scenario = plan.verificationScenarios.find((candidate) =>
-        candidate.nativeInteractions.includes(nativeInteraction),
-      );
-      expect(sorted(scenario?.sectionFixtureIds ?? [])).toEqual(
-        sorted(
-          plan.sectionFixtures
-            .filter((fixture) =>
-              fixture.nativeInteractions.includes(nativeInteraction),
-            )
-            .map((fixture) => fixture.fixtureId),
-        ),
+      expect(
+        sorted(scenarioForNativeInteraction(plan, nativeInteraction).sectionFixtureIds),
+      ).toEqual(
+        expectedSectionFixtureIdsForNativeInteraction(plan, nativeInteraction),
       );
     }
 
     for (const surface of allParamSurfaces) {
-      const scenario = plan.verificationScenarios.find(
-        (candidate) =>
-          candidate.paramSurfaces.length === 1 &&
-          candidate.paramSurfaces.includes(surface),
-      );
-      expect(sorted(scenario?.paramFixtureIds ?? [])).toEqual(
-        sorted(
-          plan.paramFixtures
-            .filter((fixture) => fixture.surfaces.includes(surface))
-            .map((fixture) => fixture.fixtureId),
-        ),
+      expect(sorted(scenarioForParamSurface(plan, surface).paramFixtureIds)).toEqual(
+        expectedParamFixtureIdsForSurface(plan, surface),
       );
     }
   });

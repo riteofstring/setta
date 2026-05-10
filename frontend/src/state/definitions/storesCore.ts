@@ -376,6 +376,24 @@ export const readRawActiveSectionUIState =
 export const readRawNodeInternalsState =
   useNodeInternals.getState.bind(useNodeInternals);
 
+patchPublishedProjectStoreGetState(
+  useProjectState,
+  readRawProjectState,
+  (publication) => publication.projectState,
+);
+
+patchPublishedProjectStoreGetState(
+  useActiveSectionUI,
+  readRawActiveSectionUIState,
+  (publication) => publication.activeSectionUI,
+);
+
+patchPublishedProjectStoreGetState(
+  useNodeInternals,
+  readRawNodeInternalsState,
+  (publication) => publication.nodeInternals,
+);
+
 export function runWithAtomicallyPublishedProjectStores(
   nextState: {
     projectState: ZustandProjectState;

@@ -24,100 +24,11 @@ func TestAppIDEModeManagesMetadataOnlyLauncherInstallOverHTTP(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 
-	app, err := New(cfg, observability.NewLogger(0, io.Discard))
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := app.Shutdown(context.Background()); err != nil {
-			t.Fatalf("shutdown app: %v", err)
-		}
-	})
+	harness := startAppLauncherManagementHarness(t, cfg)
+	setupPayload := postAppSetupLauncher(t, harness, `{"settaHome":"`+cfg.Paths.SettaHome+`"}`)
+	assertMetadataOnlyLauncherSetup(t, cfg, setupPayload)
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
-
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	setupRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteSetupLauncher,
-		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new setup launcher request: %v", err)
-	}
-	setupRequest.Header.Set("Content-Type", "application/json")
-	setupRequest.AddCookie(&http.Cookie{Name: cookieName, Value: token})
-
-	setupResponse, err := http.DefaultClient.Do(setupRequest)
-	if err != nil {
-		t.Fatalf("post setup launcher: %v", err)
-	}
-	defer setupResponse.Body.Close()
-	if setupResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(setupResponse.Body)
-		t.Fatalf("expected setup launcher 200, got %d with body %q", setupResponse.StatusCode, string(body))
-	}
-
-	var setupPayload struct {
-		Ok               bool              `json:"ok"`
-		Installed        *bool             `json:"installed"`
-		SettaHome        *string           `json:"settaHome"`
-		ManagedArtifacts map[string]string `json:"managedArtifacts"`
-	}
-	if err := json.NewDecoder(setupResponse.Body).Decode(&setupPayload); err != nil {
-		t.Fatalf("decode setup launcher response: %v", err)
-	}
-	if !setupPayload.Ok || setupPayload.Installed == nil || !*setupPayload.Installed {
-		t.Fatalf("unexpected setup launcher payload %#v", setupPayload)
-	}
-	expectedSettaHome, err := launcher.ResolveScopedSettaHome(cfg.Paths.SettaHome, cfg.Paths.SettaHome)
-	if err != nil {
-		t.Fatalf("resolve expected setta home: %v", err)
-	}
-	if setupPayload.SettaHome == nil || *setupPayload.SettaHome != expectedSettaHome {
-		t.Fatalf("expected setup setta home %q, got %#v", expectedSettaHome, setupPayload.SettaHome)
-	}
-	if len(setupPayload.ManagedArtifacts) != 0 {
-		t.Fatalf("expected metadata-only launcher install, got managed artifacts %#v", setupPayload.ManagedArtifacts)
-	}
-
-	removeRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteRemoveLauncher,
-		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new remove launcher request: %v", err)
-	}
-	removeRequest.Header.Set("Content-Type", "application/json")
-	removeRequest.AddCookie(&http.Cookie{Name: cookieName, Value: token})
-
-	removeResponse, err := http.DefaultClient.Do(removeRequest)
-	if err != nil {
-		t.Fatalf("post remove launcher: %v", err)
-	}
-	defer removeResponse.Body.Close()
-	if removeResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(removeResponse.Body)
-		t.Fatalf("expected remove launcher 200, got %d with body %q", removeResponse.StatusCode, string(body))
-	}
-
-	var removePayload struct {
-		Ok        bool  `json:"ok"`
-		Installed *bool `json:"installed"`
-	}
-	if err := json.NewDecoder(removeResponse.Body).Decode(&removePayload); err != nil {
-		t.Fatalf("decode remove launcher response: %v", err)
-	}
+	removePayload := postAppRemoveLauncher(t, harness, `{"settaHome":"`+cfg.Paths.SettaHome+`"}`)
 	if !removePayload.Ok || removePayload.Installed == nil || *removePayload.Installed {
 		t.Fatalf("unexpected remove launcher payload %#v", removePayload)
 	}
@@ -194,6 +105,40 @@ func TestAppIDEModeRepairsLauncherTargetOverHTTP(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 
+	writeMissingAppLauncherTargetMetadata(t, cfg)
+	harness := startAppLauncherManagementHarness(t, cfg)
+	repairPayload := postAppRepairLauncher(t, harness, `{"settaHome":"`+cfg.Paths.SettaHome+`"}`)
+	assertAppLauncherRepairPayload(t, repairPayload)
+}
+
+type appLauncherManagementHarness struct {
+	serverURL  string
+	authCookie *http.Cookie
+}
+
+type appLauncherSetupPayload struct {
+	Ok               bool              `json:"ok"`
+	Installed        *bool             `json:"installed"`
+	SettaHome        *string           `json:"settaHome"`
+	ManagedArtifacts map[string]string `json:"managedArtifacts"`
+}
+
+type appLauncherRemovePayload struct {
+	Ok        bool  `json:"ok"`
+	Installed *bool `json:"installed"`
+}
+
+type appLauncherRepairPayload struct {
+	Ok            bool     `json:"ok"`
+	Installed     *bool    `json:"installed"`
+	TargetCommand []string `json:"targetCommand"`
+	TargetValid   *bool    `json:"targetValid"`
+	TargetError   *string  `json:"targetError"`
+}
+
+func startAppLauncherManagementHarness(t *testing.T, cfg config.Config) appLauncherManagementHarness {
+	t.Helper()
+
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
 		t.Fatalf("new app: %v", err)
@@ -203,6 +148,93 @@ func TestAppIDEModeRepairsLauncherTargetOverHTTP(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
+
+	server := httptest.NewServer(app.Handler())
+	t.Cleanup(server.Close)
+	return appLauncherManagementHarness{
+		serverURL:  server.URL,
+		authCookie: newAppTestAuthCookie(t, app),
+	}
+}
+
+func postAppSetupLauncher(t *testing.T, harness appLauncherManagementHarness, body string) appLauncherSetupPayload {
+	t.Helper()
+
+	response := postAppLauncherManagementRoute(t, harness, httpapi.RouteSetupLauncher, body, "setup launcher")
+	defer response.Body.Close()
+	var payload appLauncherSetupPayload
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode setup launcher response: %v", err)
+	}
+	return payload
+}
+
+func postAppRemoveLauncher(t *testing.T, harness appLauncherManagementHarness, body string) appLauncherRemovePayload {
+	t.Helper()
+
+	response := postAppLauncherManagementRoute(t, harness, httpapi.RouteRemoveLauncher, body, "remove launcher")
+	defer response.Body.Close()
+	var payload appLauncherRemovePayload
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode remove launcher response: %v", err)
+	}
+	return payload
+}
+
+func postAppRepairLauncher(t *testing.T, harness appLauncherManagementHarness, body string) appLauncherRepairPayload {
+	t.Helper()
+
+	response := postAppLauncherManagementRoute(t, harness, httpapi.RouteRepairLauncher, body, "repair launcher")
+	defer response.Body.Close()
+	var payload appLauncherRepairPayload
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode repair launcher response: %v", err)
+	}
+	return payload
+}
+
+func postAppLauncherManagementRoute(t *testing.T, harness appLauncherManagementHarness, route string, body string, label string) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, harness.serverURL+"/api"+route, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("new %s request: %v", label, err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(harness.authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post %s: %v", label, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		t.Fatalf("expected %s 200, got %d with body %q", label, response.StatusCode, string(body))
+	}
+	return response
+}
+
+func assertMetadataOnlyLauncherSetup(t *testing.T, cfg config.Config, payload appLauncherSetupPayload) {
+	t.Helper()
+
+	if !payload.Ok || payload.Installed == nil || !*payload.Installed {
+		t.Fatalf("unexpected setup launcher payload %#v", payload)
+	}
+	expectedSettaHome, err := launcher.ResolveScopedSettaHome(cfg.Paths.SettaHome, cfg.Paths.SettaHome)
+	if err != nil {
+		t.Fatalf("resolve expected setta home: %v", err)
+	}
+	if payload.SettaHome == nil || *payload.SettaHome != expectedSettaHome {
+		t.Fatalf("expected setup setta home %q, got %#v", expectedSettaHome, payload.SettaHome)
+	}
+	if len(payload.ManagedArtifacts) != 0 {
+		t.Fatalf("expected metadata-only launcher install, got managed artifacts %#v", payload.ManagedArtifacts)
+	}
+}
+
+func writeMissingAppLauncherTargetMetadata(t *testing.T, cfg config.Config) {
+	t.Helper()
 
 	missingTarget := filepath.Join(t.TempDir(), "missing-setta")
 	metadata, err := launcher.BuildLauncherInstallMetadata(launcher.LauncherInstallMetadataInput{
@@ -223,50 +255,11 @@ func TestAppIDEModeRepairsLauncherTargetOverHTTP(t *testing.T) {
 	if _, err := launcher.WriteLauncherInstallMetadata(cfg.Paths.SettaHome, metadata); err != nil {
 		t.Fatalf("write repair metadata: %v", err)
 	}
+}
 
-	server := httptest.NewServer(app.Handler())
-	defer server.Close()
+func assertAppLauncherRepairPayload(t *testing.T, repairPayload appLauncherRepairPayload) {
+	t.Helper()
 
-	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
-	if err != nil {
-		t.Fatalf("mint auth cookie: %v", err)
-	}
-	cookieName, err := app.Auth().CookieName("abc123")
-	if err != nil {
-		t.Fatalf("cookie name: %v", err)
-	}
-
-	repairRequest, err := http.NewRequest(
-		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteRepairLauncher,
-		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`"}`),
-	)
-	if err != nil {
-		t.Fatalf("new repair launcher request: %v", err)
-	}
-	repairRequest.Header.Set("Content-Type", "application/json")
-	repairRequest.AddCookie(&http.Cookie{Name: cookieName, Value: token})
-
-	repairResponse, err := http.DefaultClient.Do(repairRequest)
-	if err != nil {
-		t.Fatalf("post repair launcher: %v", err)
-	}
-	defer repairResponse.Body.Close()
-	if repairResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(repairResponse.Body)
-		t.Fatalf("expected repair launcher 200, got %d with body %q", repairResponse.StatusCode, string(body))
-	}
-
-	var repairPayload struct {
-		Ok            bool     `json:"ok"`
-		Installed     *bool    `json:"installed"`
-		TargetCommand []string `json:"targetCommand"`
-		TargetValid   *bool    `json:"targetValid"`
-		TargetError   *string  `json:"targetError"`
-	}
-	if err := json.NewDecoder(repairResponse.Body).Decode(&repairPayload); err != nil {
-		t.Fatalf("decode repair launcher response: %v", err)
-	}
 	if !repairPayload.Ok || repairPayload.Installed == nil || !*repairPayload.Installed {
 		t.Fatalf("unexpected repair launcher payload %#v", repairPayload)
 	}

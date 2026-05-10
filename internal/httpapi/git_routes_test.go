@@ -55,6 +55,17 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 
 	handler := newGitRouteTestHandler(t, config.ModeIDE, repoRoot)
 
+	statusPayload := getGitRouteStatus(t, handler)
+	assertGitRouteRepoMetadata(t, repoRoot, statusPayload)
+	assertGitRouteStatusEntries(t, statusPayload)
+
+	diffPayload := getGitRouteDiff(t, handler, `{"path":"tracked.txt","mode":"unstaged"}`)
+	assertGitRouteTrackedDiff(t, diffPayload)
+}
+
+func getGitRouteStatus(t *testing.T, handler http.Handler) gitread.StatusResponse {
+	t.Helper()
+
 	statusRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitStatus, strings.NewReader("null"))
 	statusRequest.Header.Set("Content-Type", "application/json")
 	statusResponse := httptest.NewRecorder()
@@ -67,6 +78,12 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	if err := json.Unmarshal(statusResponse.Body.Bytes(), &statusPayload); err != nil {
 		t.Fatalf("decode status payload: %v", err)
 	}
+	return statusPayload
+}
+
+func assertGitRouteRepoMetadata(t *testing.T, repoRoot string, statusPayload gitread.StatusResponse) {
+	t.Helper()
+
 	expectedRepoRoot, err := filepath.EvalSymlinks(repoRoot)
 	if err != nil {
 		expectedRepoRoot = filepath.Clean(repoRoot)
@@ -82,6 +99,10 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	if statusPayload.Repo.HeadCommit == nil || *statusPayload.Repo.HeadCommit != expectedHeadCommit {
 		t.Fatalf("expected head commit %q, got %#v", expectedHeadCommit, statusPayload.Repo.HeadCommit)
 	}
+}
+
+func assertGitRouteStatusEntries(t *testing.T, statusPayload gitread.StatusResponse) {
+	t.Helper()
 
 	var stagedTracked bool
 	var unstagedTracked bool
@@ -99,8 +120,12 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	if !stagedTracked || !unstagedTracked || !untrackedNew {
 		t.Fatalf("unexpected status entries %#v", statusPayload.Entries)
 	}
+}
 
-	diffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(`{"path":"tracked.txt","mode":"unstaged"}`))
+func getGitRouteDiff(t *testing.T, handler http.Handler, body string) gitread.DiffResponse {
+	t.Helper()
+
+	diffRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetGitDiff, strings.NewReader(body))
 	diffRequest.Header.Set("Content-Type", "application/json")
 	diffResponse := httptest.NewRecorder()
 	handler.ServeHTTP(diffResponse, diffRequest)
@@ -112,6 +137,12 @@ func TestRegisterGitRoutesReturnsStatusAndDiff(t *testing.T) {
 	if err := json.Unmarshal(diffResponse.Body.Bytes(), &diffPayload); err != nil {
 		t.Fatalf("decode diff payload: %v", err)
 	}
+	return diffPayload
+}
+
+func assertGitRouteTrackedDiff(t *testing.T, diffPayload gitread.DiffResponse) {
+	t.Helper()
+
 	if !strings.Contains(diffPayload.Diff, "-two") || !strings.Contains(diffPayload.Diff, "+three") {
 		t.Fatalf("unexpected diff payload %q", diffPayload.Diff)
 	}

@@ -125,6 +125,16 @@ def build_frontend_reports(
         root_prefix="frontend",
         bucket="prod-dead",
     )
+    knip_test_findings = normalize_knip_findings(
+        knip_full_payload,
+        generated_globs,
+        scope="test",
+        issue_label="knip full graph",
+        root_prefix="frontend",
+        bucket="test-dead",
+        root_scope="test",
+        only_test_paths=True,
+    )
     knip_full_report = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": generated_at,
@@ -142,6 +152,23 @@ def build_frontend_reports(
     }
     knip_full_path = output_dir / "frontend-all.json"
     write_json(knip_full_path, knip_full_report)
+    knip_test_report = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": generated_at,
+        "language": "frontend",
+        "lane": "reachability",
+        "tool": "knip",
+        "scope": "test",
+        "commands": [command_display(knip_full_command)],
+        "warnings": warnings,
+        "limitations": [
+            "Frontend test reachability is advisory and filters Knip's full graph to known test paths.",
+            "Playwright fixtures, test.step helpers, route names, and file-level setup require manual review before deleting candidates.",
+        ],
+        "findings": knip_test_findings,
+    }
+    knip_test_path = output_dir / "frontend-test.json"
+    write_json(knip_test_path, knip_test_report)
 
     package_reports, package_findings = build_frontend_package_reports(
         output_dir=output_dir,
@@ -195,11 +222,12 @@ def build_frontend_reports(
         scope_support=frontend_scope_support,
     )
     findings = dedupe_findings(
-        reachability_findings + package_findings + eslint_findings
+        reachability_findings + knip_test_findings + package_findings + eslint_findings
     )
     limitations = (
         list(knip_prod_report["limitations"])
         + list(knip_full_report["limitations"])
+        + list(knip_test_report["limitations"])
         + [
             "Frontend package reachability uses per-package Knip directory runs for configured SDK and plugin package roots."
         ]
@@ -208,6 +236,7 @@ def build_frontend_reports(
     report_paths = [
         {"language": "frontend", "path": relative_path(knip_prod_path)},
         {"language": "frontend", "path": relative_path(knip_full_path)},
+        {"language": "frontend", "path": relative_path(knip_test_path)},
         *package_reports,
         {"language": "frontend", "path": relative_path(eslint_path)},
     ]
@@ -218,6 +247,7 @@ def build_frontend_reports(
         "report_paths": report_paths,
         "tool_status": {
             "reachability": "ok",
+            "test_reachability": "ok",
             "lint_unused": "ok",
             "app_roots": app_roots,
             "lint_roots": lint_roots,
@@ -315,16 +345,14 @@ def normalize_knip_findings(
     issue_label: str,
     root_prefix: str,
     bucket: str,
+    root_scope: str | None = None,
+    only_test_paths: bool = False,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
 
     for file_path in payload.get("files", []):
         path = normalize_tool_path(f"{root_prefix}/{file_path}")
-        if (
-            not path
-            or matches_any_glob(path, generated_globs)
-            or is_frontend_test_path(path)
-        ):
+        if not should_keep_knip_path(path, generated_globs, only_test_paths):
             continue
         findings.append(
             {
@@ -333,6 +361,7 @@ def normalize_knip_findings(
                 "bucket": bucket,
                 "tool": "knip",
                 "confidence": "medium",
+                "root_scope": root_scope,
                 "scope": scope,
                 "path": path,
                 "line": None,
@@ -345,11 +374,7 @@ def normalize_knip_findings(
 
     for issue in payload.get("issues", []):
         file_path = normalize_tool_path(f"{root_prefix}/{issue.get('file', '')}")
-        if (
-            not file_path
-            or matches_any_glob(file_path, generated_globs)
-            or is_frontend_test_path(file_path)
-        ):
+        if not should_keep_knip_path(file_path, generated_globs, only_test_paths):
             continue
         for issue_type, items in issue.items():
             if issue_type == "file" or not isinstance(items, list):
@@ -364,6 +389,7 @@ def normalize_knip_findings(
                         "bucket": bucket,
                         "tool": "knip",
                         "confidence": "medium",
+                        "root_scope": root_scope,
                         "scope": scope,
                         "path": file_path,
                         "line": item.get("line"),
@@ -376,6 +402,16 @@ def normalize_knip_findings(
                     }
                 )
     return dedupe_findings(findings)
+
+
+def should_keep_knip_path(
+    path: str,
+    generated_globs: list[str],
+    only_test_paths: bool,
+) -> bool:
+    if not path or matches_any_glob(path, generated_globs):
+        return False
+    return only_test_paths == is_frontend_test_path(path)
 
 
 def aggregate_frontend_findings(

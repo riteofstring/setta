@@ -285,12 +285,23 @@ def build_go_reports(
         package_patterns=staticcheck_packages,
     )
     report_paths.append({"language": "go", "path": relative_path(staticcheck_path)})
+    staticcheck_test_findings, staticcheck_test_path = write_go_staticcheck_test_report(
+        output_dir=output_dir,
+        generated_at=generated_at,
+        staticcheck_version=staticcheck_version,
+        generated_globs=generated_globs,
+        package_patterns=staticcheck_packages,
+    )
+    report_paths.append(
+        {"language": "go", "path": relative_path(staticcheck_test_path)}
+    )
 
     go_findings = aggregate_go_findings(
         prod_findings=findings_by_scope["prod"],
         test_findings=findings_by_scope["test"],
         tooling_findings=findings_by_scope["tooling"],
         staticcheck_findings=staticcheck_findings,
+        staticcheck_test_findings=staticcheck_test_findings,
     )
 
     if not tooling_mains:
@@ -306,6 +317,7 @@ def build_go_reports(
         "tool_status": {
             "reachability": "ok",
             "lint_unused": "ok",
+            "test_lint_unused": "ok",
             "production_mains": sorted(production_mains),
             "production_root_sources": production_root_sources,
             "tooling_mains": tooling_mains,
@@ -460,6 +472,56 @@ def write_go_staticcheck_report(
             "commands": [command_display(staticcheck_cmd)],
             "warnings": [],
             "limitations": [],
+            "findings": staticcheck_findings,
+        },
+    )
+    return staticcheck_findings, path
+
+
+def write_go_staticcheck_test_report(
+    output_dir: Path,
+    generated_at: str,
+    staticcheck_version: str,
+    generated_globs: list[str],
+    package_patterns: list[str],
+) -> tuple[list[dict[str, Any]], Path]:
+    staticcheck_cmd = [
+        str(ROOT_DIR / "scripts" / "go.sh"),
+        "run",
+        f"honnef.co/go/tools/cmd/staticcheck@{staticcheck_version}",
+        "-checks=U1000",
+        "-tests=true",
+        "-f",
+        "json",
+        "-fail=none",
+    ]
+    staticcheck_cmd.extend(package_patterns)
+    staticcheck_completed = run_command(staticcheck_cmd)
+    staticcheck_findings = [
+        finding
+        for finding in normalize_staticcheck_findings(
+            output=staticcheck_completed.stdout,
+            generated_globs=generated_globs,
+            root_scope="test",
+            bucket="test-unused",
+        )
+        if str(finding.get("path", "")).endswith("_test.go")
+    ]
+    path = output_dir / "go-u1000-test.json"
+    write_json(
+        path,
+        {
+            "schema_version": SCHEMA_VERSION,
+            "generated_at": generated_at,
+            "language": "go",
+            "lane": "lint-unused",
+            "tool": "staticcheck",
+            "scope": "test",
+            "commands": [command_display(staticcheck_cmd)],
+            "warnings": [],
+            "limitations": [
+                "Go test lint-unused is advisory and filtered to _test.go findings from staticcheck U1000 with tests enabled."
+            ],
             "findings": staticcheck_findings,
         },
     )
@@ -648,6 +710,8 @@ def normalize_staticcheck_findings(
     *,
     output: str,
     generated_globs: list[str],
+    root_scope: str | None = None,
+    bucket: str = "lint-unused",
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for line in output.splitlines():
@@ -663,9 +727,10 @@ def normalize_staticcheck_findings(
             {
                 "language": "go",
                 "lane": "lint-unused",
-                "bucket": "lint-unused",
+                "bucket": bucket,
                 "tool": "staticcheck",
                 "confidence": "high",
+                "root_scope": root_scope,
                 "path": path,
                 "line": int(record.get("location", {}).get("line", 0)),
                 "column": int(record.get("location", {}).get("column", 0)),
@@ -695,6 +760,7 @@ def aggregate_go_findings(
     test_findings: list[dict[str, Any]],
     tooling_findings: list[dict[str, Any]],
     staticcheck_findings: list[dict[str, Any]],
+    staticcheck_test_findings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     aggregated: list[dict[str, Any]] = []
     test_keys = {finding_identity(finding) for finding in test_findings}
@@ -739,6 +805,7 @@ def aggregate_go_findings(
         )
 
     aggregated.extend(staticcheck_findings)
+    aggregated.extend(staticcheck_test_findings)
     return dedupe_findings(aggregated)
 
 

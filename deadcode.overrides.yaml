@@ -6,6 +6,9 @@ schema_version: 1
 go:
   deadcode_version: v0.44.0
   staticcheck_version: 2025.1.1
+  production_mains:
+    - ./cmd/setta
+    - ./cmd/setta-server
   staticcheck_packages:
     - ./...
   build_matrix:
@@ -19,15 +22,23 @@ python:
     - backend/scripts
     - scripts
     - plugins
+  test_lint_roots:
+    - tests
   reachability_roots:
     - backend/setta
     - scripts
+  test_reachability_roots:
+    - tests
+  entrypoint_commands:
+    - ["-m", "setta", "--help"]
+    - ["-m", "setta", "version"]
   public_modules:
     - backend/setta/api/__init__.py
     - backend/setta/llm/chat_toolkit/__init__.py
-  vulture_min_confidence: 80
+  vulture_min_confidence: 60
 
 frontend:
+  # TypeScript/React app entrypoints for the Knip production graph.
   app_roots:
     - frontend/src/index.tsx
   lint_roots:

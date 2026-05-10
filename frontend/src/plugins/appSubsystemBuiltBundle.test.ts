@@ -203,6 +203,90 @@ function buildPluginRuntimeResponse(
   };
 }
 
+function fixtureProjectHost() {
+  return createAppSubsystemFrontendHost({
+    getProjectContext: () => ({
+      defaultProjectConfigId: "project-config",
+      projectMetadata: [{ id: "project-config", name: "Fixture Project" }],
+      projectConfig: {
+        id: "project-config",
+        name: "Fixture Project",
+        entryCodeBlockId: null,
+      },
+    }),
+  });
+}
+
+function mountedAppSubsystemRegistration() {
+  const registration = getAppSubsystemFrontendRuntimeState().registration;
+  if (!registration) {
+    throw new Error("Expected app subsystem registration.");
+  }
+  return registration;
+}
+
+type MountedAppSubsystemRegistration = ReturnType<
+  typeof mountedAppSubsystemRegistration
+>;
+
+function expectLoadedAppSubsystemRegistration(
+  registration: MountedAppSubsystemRegistration,
+  pluginId: string,
+) {
+  expect(registration.pluginId).toBe(pluginId);
+  expect(registration.overviewTab).toMatchObject({
+    moreMenuLabel: "Acme App",
+  });
+  expect(registration.chat?.slashCommands).toEqual([
+    expect.objectContaining({
+      command: "/app-json",
+      appGenerationMode: "json_render",
+    }),
+  ]);
+  expect(registration.controller?.getPreviewEnabled?.()).toBe(true);
+}
+
+function mountOverviewTab(
+  registration: MountedAppSubsystemRegistration,
+  host: ReturnType<typeof fixtureProjectHost>,
+) {
+  const mountTarget = document.createElement("div");
+  registration.overviewTab?.renderer.mount(mountTarget, {}, host);
+  return mountTarget;
+}
+
+function mountAppDeploymentModal(
+  registration: MountedAppSubsystemRegistration,
+  host: ReturnType<typeof fixtureProjectHost>,
+) {
+  const modalTarget = document.createElement("div");
+  registration.appDeploymentModal?.renderer.mount(
+    modalTarget,
+    { open: true },
+    host,
+  );
+  return modalTarget;
+}
+
+function updateAppDeploymentModalClosed(
+  registration: MountedAppSubsystemRegistration,
+  modalTarget: HTMLElement,
+  host: ReturnType<typeof fixtureProjectHost>,
+) {
+  registration.appDeploymentModal?.renderer.update?.(
+    modalTarget,
+    { open: false },
+    host,
+  );
+}
+
+function unmountAppDeploymentModal(
+  registration: MountedAppSubsystemRegistration,
+  modalTarget: HTMLElement,
+) {
+  registration.appDeploymentModal?.renderer.unmount?.(modalTarget);
+}
+
 describe("app subsystem built plugin bundle", () => {
   beforeEach(() => {
     resetPluginRuntimeStateForTests();
@@ -248,55 +332,23 @@ describe("app subsystem built plugin bundle", () => {
       usePluginRuntimeStore.getState().frontendErrorsByPluginId[pluginId],
     ).toBeUndefined();
 
-    const registration = getAppSubsystemFrontendRuntimeState().registration;
-    expect(registration?.pluginId).toBe(pluginId);
-    expect(registration?.overviewTab).toMatchObject({
-      moreMenuLabel: "Acme App",
-    });
-    expect(registration?.chat?.slashCommands).toEqual([
-      expect.objectContaining({
-        command: "/app-json",
-        appGenerationMode: "json_render",
-      }),
-    ]);
-    expect(registration?.controller?.getPreviewEnabled?.()).toBe(true);
-
-    const host = createAppSubsystemFrontendHost({
-      getProjectContext: () => ({
-        defaultProjectConfigId: "project-config",
-        projectMetadata: [{ id: "project-config", name: "Fixture Project" }],
-        projectConfig: {
-          id: "project-config",
-          name: "Fixture Project",
-          entryCodeBlockId: null,
-        },
-      }),
-    });
-    const mountTarget = document.createElement("div");
-    const modalTarget = document.createElement("div");
-
-    registration?.overviewTab?.renderer.mount(mountTarget, {}, host);
+    const registration = mountedAppSubsystemRegistration();
+    expectLoadedAppSubsystemRegistration(registration, pluginId);
+    const host = fixtureProjectHost();
+    const mountTarget = mountOverviewTab(registration, host);
     expect(mountTarget.textContent).toBe("overview-tab:Fixture Project:static");
 
-    registration?.appDeploymentModal?.renderer.mount(
-      modalTarget,
-      { open: true },
-      host,
-    );
+    const modalTarget = mountAppDeploymentModal(registration, host);
     expect(modalTarget.textContent).toBe(
       "app-deployment-modal:Fixture Project:open",
     );
 
-    registration?.appDeploymentModal?.renderer.update?.(
-      modalTarget,
-      { open: false },
-      host,
-    );
+    updateAppDeploymentModalClosed(registration, modalTarget, host);
     expect(modalTarget.textContent).toBe(
       "app-deployment-modal:Fixture Project:closed",
     );
 
-    registration?.appDeploymentModal?.renderer.unmount?.(modalTarget);
+    unmountAppDeploymentModal(registration, modalTarget);
     expect(modalTarget.textContent).toBe("");
     expect(modalTarget.dataset.acmeAppSubsystemUnmounted).toBe(
       "app-deployment-modal",

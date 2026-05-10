@@ -22,6 +22,24 @@ import (
 func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t *testing.T) {
 	t.Parallel()
 
+	harness := newProjectChatMutationRouteHarness(t)
+
+	assertProjectChatSectionSettingsCases(t, harness)
+	setProjectChatSectionState(t, harness)
+	setProjectChatSectionChatID(t, harness, "chat-1")
+
+	payload := latestProjectChatMutationPayload(t, harness)
+	assertProjectChatSectionMutationPayload(t, payload)
+	assertProjectChatCompletedOpIDsClear(t, harness)
+}
+
+type projectChatMutationRouteHarness struct {
+	handler http.Handler
+}
+
+func newProjectChatMutationRouteHarness(t *testing.T) projectChatMutationRouteHarness {
+	t.Helper()
+
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -39,30 +57,44 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 	})
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	return projectChatMutationRouteHarness{handler: handler}
+}
 
-	post := func(route string, body string) *httptest.ResponseRecorder {
-		t.Helper()
+func postProjectChatMutationRoute(
+	t *testing.T,
+	harness projectChatMutationRouteHarness,
+	route string,
+	body string,
+) *httptest.ResponseRecorder {
+	t.Helper()
 
-		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		return response
+	request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	harness.handler.ServeHTTP(response, request)
+	return response
+}
+
+func latestProjectChatMutationPayload(
+	t *testing.T,
+	harness projectChatMutationRouteHarness,
+) ProjectStateSingleConfigWithCompletedOpIDs {
+	t.Helper()
+
+	latestResponse := postProjectChatMutationRoute(t, harness, RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
 	}
-	latestChatPayload := func() ProjectStateSingleConfigWithCompletedOpIDs {
-		t.Helper()
 
-		latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
-		if latestResponse.Code != http.StatusOK {
-			t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-		}
-
-		var payload ProjectStateSingleConfigWithCompletedOpIDs
-		if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode latest project payload: %v", err)
-		}
-		return payload
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
 	}
+	return payload
+}
+
+func assertProjectChatSectionSettingsCases(t *testing.T, harness projectChatMutationRouteHarness) {
+	t.Helper()
 
 	for _, settingsCase := range []struct {
 		permissionMode string
@@ -81,7 +113,9 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 			dictationMode:  "provider",
 		},
 	} {
-		response := post(
+		response := postProjectChatMutationRoute(
+			t,
+			harness,
 			RouteSetChatSectionSettings,
 			`{"projectConfigId":"project-alpha","sectionId":"chat-section","managed":true,"engineConfigId":"engine-config-1","transcriptionProfileId":"transcription-profile-1","agentProfileId":"agent-profile-1","thinking":true,"permissionMode":"`+settingsCase.permissionMode+`","searchEnabled":true,"dictationMode":"`+settingsCase.dictationMode+`"}`,
 		)
@@ -89,7 +123,7 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 			t.Fatalf("expected 200 for settings %s/%s, got %d with body %q", settingsCase.permissionMode, settingsCase.dictationMode, response.Code, response.Body.String())
 		}
 
-		payload := latestChatPayload()
+		payload := latestProjectChatMutationPayload(t, harness)
 		chatSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["chat-section"].SharedModifier)
 		if got := chatSharedModifier["permissionMode"]; got != settingsCase.permissionMode {
 			t.Fatalf("expected permissionMode %s, got %#v", settingsCase.permissionMode, got)
@@ -98,20 +132,34 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 			t.Fatalf("expected dictationMode %s, got %#v", settingsCase.dictationMode, got)
 		}
 	}
+}
 
-	response := post(
+func setProjectChatSectionState(t *testing.T, harness projectChatMutationRouteHarness) {
+	t.Helper()
+
+	response := postProjectChatMutationRoute(
+		t,
+		harness,
 		RouteSetChatSectionState,
 		`{"projectConfigId":"project-alpha","sectionId":"chat-section","frontendOpId":"chat-op-1","state":{"messages":[{"id":"message-1","type":"user","content":"hello"}],"inputText":"Draft input","waitingForResponse":true,"toolCallArguments":{"tool-call-1":"{\"query\":\"hello\"}"},"activeBranchId":"branch-1","branches":{"branch-1":{"messages":[{"id":"message-1","type":"user"}],"createdAt":42,"parentBranchId":"root-branch","branchFromMessageId":"message-1"}}}}`,
 	)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionState, response.Code, response.Body.String())
 	}
-	response = post(RouteSetChatSectionChatID, `{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"chat-1"}`)
+}
+
+func setProjectChatSectionChatID(t *testing.T, harness projectChatMutationRouteHarness, chatID string) {
+	t.Helper()
+
+	response := postProjectChatMutationRoute(t, harness, RouteSetChatSectionChatID, `{"projectConfigId":"project-alpha","sectionId":"chat-section","chatId":"`+chatID+`"}`)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200 for %s, got %d with body %q", RouteSetChatSectionChatID, response.Code, response.Body.String())
 	}
+}
 
-	payload := latestChatPayload()
+func assertProjectChatSectionMutationPayload(t *testing.T, payload ProjectStateSingleConfigWithCompletedOpIDs) {
+	t.Helper()
+
 	if !reflect.DeepEqual(payload.CompletedOpIDs, []string{"chat-op-1"}) {
 		t.Fatalf("expected completed frontend op ids [chat-op-1], got %#v", payload.CompletedOpIDs)
 	}
@@ -149,8 +197,12 @@ func TestRegisterProjectRoutesChatSectionMutationsPersistAndTrackFrontendOpIDs(t
 	if !ok || branchValue["createdAt"] != float64(42) {
 		t.Fatalf("expected branch-1 createdAt 42, got %#v", branches["branch-1"])
 	}
+}
 
-	payload = latestChatPayload()
+func assertProjectChatCompletedOpIDsClear(t *testing.T, harness projectChatMutationRouteHarness) {
+	t.Helper()
+
+	payload := latestProjectChatMutationPayload(t, harness)
 	if len(payload.CompletedOpIDs) != 0 {
 		t.Fatalf("expected completed frontend op ids to clear, got %#v", payload.CompletedOpIDs)
 	}
