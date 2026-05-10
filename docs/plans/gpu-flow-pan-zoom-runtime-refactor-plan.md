@@ -116,7 +116,9 @@ React does not:
 - recompute retained content scene ownership for every wheel event
 - receive every intermediate transform as component state
 
-The runtime consumes the latest React-authored scene snapshot plus live viewport state.
+The runtime consumes the latest React-authored scene input plus live viewport
+state. The scene input should reuse the existing `GpuFlowScene` model rather
+than creating a second parallel scene contract.
 
 ### 4. Imperative DOM Island And Editor Overlay Manager
 
@@ -155,7 +157,10 @@ The runtime publishes viewport snapshots to public state only for:
 - end-of-gesture settling
 - low-frequency observation during long interactions
 
-The publication cadence should be bounded, for example at most once per animation frame after drawing, and possibly lower for noncritical UI. Consumers that need exact per-frame geometry should be moved into the runtime, not kept as store subscribers.
+The publication cadence should be bounded and lower than the exact runtime draw
+cadence during active gestures unless measurement proves a higher observer
+cadence is harmless. Consumers that need exact per-frame geometry should be
+moved into the runtime, not kept as store subscribers.
 
 ### 7. Bounded Diagnostics
 
@@ -327,11 +332,27 @@ The table above is a starting point, not a complete inventory. The actual Step 2
 change should include all `useGpuFlowViewportStore`, `viewportStore.subscribe`,
 and direct transform-mutation call sites relevant to GPU-flow pan/zoom.
 
+Audit scope must explicitly include:
+
+- portal repositioning and viewport-driven Floating UI/Radix/Downshift updates
+- edge labels, selection overlays, resize overlays, and drag previews
+- retained scrollbars, text-like row snapshots, source interaction projection,
+  and hit testing
+- node drag, node resize, selection drag, retained-content scroll, and edge
+  reconnect
+- programmatic viewport actions, transitions, `fitView`, `resetZoom`,
+  `screenToFlowPosition`, and `flowToScreenPosition`
+
+This is inventory scope, not permission to migrate every subsystem in the first
+runtime milestone.
+
 Introduce a concrete runtime boundary for GPU-flow:
 
 - `GpuFlowRuntime` owns live viewport, frame scheduler, input accumulator, overlay registry, and retained maintenance scheduler.
-- React-authored `GpuFlowSceneSnapshot` contains nodes, edges, retained surfaces, DOM islands, overlays, hit-test descriptors, and static settings.
-- Runtime state and scene snapshots are separate types.
+- React-authored `GpuFlowRuntimeSceneInput` contains or wraps the existing
+  `GpuFlowScene` data: nodes, edges, retained surfaces, DOM islands, overlays,
+  hit-test descriptors, and static settings.
+- Runtime state and scene input are separate types.
 
 Delete any path that treats React state as the live per-frame viewport owner.
 
@@ -377,7 +398,32 @@ Move these responsibilities into the overlay manager:
 - retained native island alignment
 - overlay parking/hiding
 
+The overlay manager must not move, wrap, or reparent direct canvas-child source
+hosts in a way that breaks `layoutsubtree` upload eligibility or retained source
+paint/readback behavior. It owns viewport-positioned DOM islands and
+portal/overlay alignment, not the source host contract.
+
 Keep React responsible for the overlay contents and lifecycle, but not for per-frame transform application.
+
+### 5a. Define Runtime/Public Viewport Command Handoff
+
+External viewport commands must enter the runtime instead of mutating the public
+store while a runtime-owned gesture is active.
+
+Required command handling:
+
+- `fitView`, `resetZoom`, zoom buttons, minimap navigation, persisted restore,
+  and viewport transitions enqueue runtime commands.
+- A command that changes the live viewport interrupts an active wheel/pan
+  gesture only when it is a direct user command with higher priority than the
+  gesture, such as a zoom button or minimap drag.
+- Programmatic restore and persistence commands should apply when idle or become
+  the initial runtime viewport before interaction starts.
+- The public store receives committed observer snapshots from runtime commands
+  by the same bounded publication path used for wheel/pan gestures.
+- Screen/flow conversion helpers must read the runtime live viewport when they
+  are part of active interaction or hit testing, and committed snapshots only
+  when used by non-hot UI observation.
 
 ### 6. Decouple Retained Maintenance From Viewport Frames
 
@@ -460,6 +506,8 @@ Deletion checks:
   to follow viewport transforms.
 - The runtime has one live viewport owner. There is no branch that keeps the old
   direct wheel/pan store path alive beside the runtime path.
+- Programmatic viewport commands enter the runtime command path instead of
+  bypassing it through direct public store mutation during active interaction.
 - Retained maintenance work is not triggered merely because a viewport-only
   frame occurred.
 
@@ -470,21 +518,23 @@ Deletion checks:
 3. Introduce runtime/scene snapshot types and migration target.
 4. Move wheel/pan input into runtime aggregation.
 5. Draw viewport frames from runtime live viewport.
-6. Replace DOM island and active-editor per-frame React transform updates.
-7. Prevent viewport-only frames from running retained maintenance; only expand to a dirty-source paint scheduler if measurements still require it.
-8. Move minimap/controls/debug observation to committed snapshots.
-9. Delete superseded direct-store and React-transform paths.
-10. Re-run tests, append after report, and tighten budgets if the measured headroom supports it.
+6. Define runtime/public viewport command handoff for programmatic viewport actions.
+7. Replace DOM island and active-editor per-frame React transform updates.
+8. Prevent viewport-only frames from running retained maintenance; only expand to a dirty-source paint scheduler if measurements still require it.
+9. Move minimap/controls/debug observation to committed snapshots.
+10. Delete superseded direct-store and React-transform paths.
+11. Re-run tests, append after report, and tighten budgets if the measured headroom supports it.
 
 ## Initial Design Defaults
 
 Use these defaults for Step 2 unless implementation evidence proves one is
 wrong:
 
-- Publish committed viewport snapshots once per RAF after the runtime draw
-  during active gestures. Publish a final end-of-gesture snapshot for
-  persistence and settling work. Lower the observer cadence only if measurement
-  shows observer publication is still material.
+- Publish exact runtime geometry every frame only inside the runtime. Publish
+  committed viewport snapshots to public state at a bounded low cadence during
+  active gestures, for example no more than every 100 ms for noncritical
+  observers unless measurement proves a higher cadence is harmless. Publish a
+  final exact end-of-gesture snapshot for persistence and settling work.
 - Start with one transformed overlay root per runtime overlay layer plus local
   positioning inside it. Add per-overlay matrix writes only for overlays that
   need independent parking, clipping, pointer-events, or z behavior.
