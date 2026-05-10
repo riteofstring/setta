@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createGpuRetainedRowContentScene,
@@ -183,9 +184,12 @@ describe("GPU retained content scroll controller", () => {
     cleanup();
   });
 
-  it.each(
-    ["panScrolling", "pointerPanning", "paneDragging", "wheelZooming"] as const,
-  )(
+  it.each([
+    "panScrolling",
+    "pointerPanning",
+    "paneDragging",
+    "wheelZooming",
+  ] as const)(
     "skips retained wheel handling while viewport %s is active",
     (flag) => {
       const element = document.createElement("div");
@@ -574,6 +578,7 @@ function textLikeControlDescriptor(
     displayValue,
     editorKind: "text",
     kind: "text-like",
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
     commitPolicy: "native-island",
   };

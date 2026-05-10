@@ -47,6 +47,7 @@ type UploadHtmlSurfaceTextureSnapshotInput = Pick<
   | "pixelHeight"
   | "pixelWidth"
   | "texture"
+  | "textureBytes"
   | "textureLayout"
   | "tiles"
 > & {

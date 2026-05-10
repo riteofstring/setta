@@ -287,31 +287,57 @@ function applyGpuRetainedContentRowHoverStateToCommand({
 function toGpuRetainedContentRowHoverHtmlSurfaceColor(
   color: string,
 ): HtmlSurfaceColor {
+  const parsedColor =
+    parseHexGpuRetainedContentRowHoverColor(color) ??
+    parseRgbaGpuRetainedContentRowHoverColor(color);
+  if (!parsedColor) {
+    throw new Error(`Unsupported retained row hover color "${color}".`);
+  }
+  return parsedColor;
+}
+
+function parseHexGpuRetainedContentRowHoverColor(
+  color: string,
+): HtmlSurfaceColor | null {
   const hex =
     /^#(?<red>[0-9a-f]{2})(?<green>[0-9a-f]{2})(?<blue>[0-9a-f]{2})$/iu.exec(
       color.trim(),
     );
-  if (hex?.groups) {
-    return {
-      a: 1,
-      b: Number.parseInt(hex.groups.blue, 16) / 255,
-      g: Number.parseInt(hex.groups.green, 16) / 255,
-      r: Number.parseInt(hex.groups.red, 16) / 255,
-    };
+  if (!hex?.groups) {
+    return null;
   }
+  const { blue, green, red } = hex.groups;
+  if (!blue || !green || !red) {
+    return null;
+  }
+  return {
+    a: 1,
+    b: Number.parseInt(blue, 16) / 255,
+    g: Number.parseInt(green, 16) / 255,
+    r: Number.parseInt(red, 16) / 255,
+  };
+}
+
+function parseRgbaGpuRetainedContentRowHoverColor(
+  color: string,
+): HtmlSurfaceColor | null {
   const rgba =
     /^rgba\(\s*(?<red>\d+(?:\.\d+)?)\s*,\s*(?<green>\d+(?:\.\d+)?)\s*,\s*(?<blue>\d+(?:\.\d+)?)\s*,\s*(?<alpha>\d+(?:\.\d+)?)\s*\)$/iu.exec(
       color.trim(),
     );
-  if (rgba?.groups) {
-    return {
-      a: Number(rgba.groups.alpha),
-      b: Number(rgba.groups.blue) / 255,
-      g: Number(rgba.groups.green) / 255,
-      r: Number(rgba.groups.red) / 255,
-    };
+  if (!rgba?.groups) {
+    return null;
   }
-  throw new Error(`Unsupported retained row hover color "${color}".`);
+  const { alpha, blue, green, red } = rgba.groups;
+  if (!alpha || !blue || !green || !red) {
+    return null;
+  }
+  return {
+    a: Number(alpha),
+    b: Number(blue) / 255,
+    g: Number(green) / 255,
+    r: Number(red) / 255,
+  };
 }
 
 function intersectGpuRetainedContentRects(

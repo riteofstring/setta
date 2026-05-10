@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { getGpuRetainedContentScrollbarVisuals } from "./GpuRetainedContentScrollbarVisuals";
 import {
   getGpuRetainedContentSourceRectForRows,
@@ -10,9 +11,7 @@ import type { GpuContentSurface } from "./scene";
 
 describe("GpuRetainedContentSurfaces", () => {
   it("maps retained content scene geometry to page source windows", () => {
-    const source = getGpuRetainedContentSourceSurfaces([
-      retainedSurface(),
-    ])[0];
+    const source = getGpuRetainedContentSourceSurfaces([retainedSurface()])[0];
 
     expect(source).toMatchObject({
       id: "dict-a:param-content:unpinned",
@@ -216,6 +215,7 @@ function textLikeControlDescriptor() {
     displayValue: "",
     editorKind: "text" as const,
     kind: "text-like" as const,
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
   };
 }

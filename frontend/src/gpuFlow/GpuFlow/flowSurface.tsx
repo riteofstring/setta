@@ -119,6 +119,7 @@ import {
   type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
+import type { GpuRetainedTextLikePreviewRenderer } from "./retainedTextLikePreviewSources";
 import {
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
@@ -193,6 +194,9 @@ type GpuFlowProps = Pick<
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
+  renderRetainedTextLikePreview?:
+    | GpuRetainedTextLikePreviewRenderer
+    | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
   viewport?: GpuViewportInput | undefined;
   viewportStore?: GpuFlowViewportStoreApi | undefined;
@@ -246,6 +250,7 @@ export function GpuFlow({
   retainedContentScroll,
   renderDomIsland,
   renderNode,
+  renderRetainedTextLikePreview,
   selection,
   selectionDrag,
   scene,
@@ -320,6 +325,7 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
+    retainedTextLikePreviewSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
     edgeScene,
@@ -328,6 +334,7 @@ export function GpuFlow({
     nodeElementByIdRef,
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
+    renderRetainedTextLikePreview,
     scene,
     surfaceRef,
     textureManagerRef,
@@ -957,6 +964,7 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
+            {retainedTextLikePreviewSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}

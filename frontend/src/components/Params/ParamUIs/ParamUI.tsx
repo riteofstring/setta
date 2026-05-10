@@ -59,6 +59,7 @@ import {
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
+import { resolveTextLikeParamEditorPolicy } from "./textLikeEditorPolicy";
 import {
   DateParamInputConfigForParam,
   TextParamDateTimeInput,
@@ -266,6 +267,7 @@ function renderTextLikeParam({
       onEscape={onEscape}
       maybeErrorMessage={maybeErrorMessage}
       isDisabled={isDisabled}
+      codeObjType={paramUiState.codeObjType}
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
@@ -630,7 +632,7 @@ export function ParamUI({
     paramUiState,
     showPasswordReveal,
     passwordPlaceholder,
-    waitingForResult,
+    waitingForResult: Boolean(waitingForResult),
   } satisfies ParamUIRenderContext;
 
   const textLikeParam = renderTextLikeParam(renderContext);
@@ -656,6 +658,7 @@ function TextParamConfigured({
   onEscape,
   maybeErrorMessage,
   isDisabled,
+  codeObjType,
   configLanguage,
   waitingForResult,
   isSelectingParams,
@@ -671,6 +674,7 @@ function TextParamConfigured({
   onEscape: () => void;
   maybeErrorMessage: string | undefined;
   isDisabled: boolean;
+  codeObjType: CodeObjType;
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
@@ -681,6 +685,10 @@ function TextParamConfigured({
     tooltipParentDivId === undefined
       ? CODEMIRROR_TOOLTIP_PARENT_ID
       : tooltipParentDivId;
+  const editorPolicy = resolveTextLikeParamEditorPolicy({
+    codeObjType,
+    configLanguage,
+  });
   return (
     <>
       <TextInputCodeMirror
@@ -691,6 +699,7 @@ function TextParamConfigured({
         defaultVal={defaultVal}
         onChange={onChange}
         onBlur={onBlur}
+        onMouseDown={undefined}
         onEscape={(completionResult) => {
           if (!completionResult) {
             onEscape();
@@ -699,9 +708,15 @@ function TextParamConfigured({
         dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
+        singleLine={editorPolicy?.linePolicy === "single-line"}
+        wrapLines={editorPolicy?.wrapLines}
+        keyComboActions={undefined}
+        onTab={undefined}
+        color={undefined}
         isDisabled={isDisabled}
         focusActiveSectionOnMouseDown={focusActiveSectionOnTextInput}
         tooltipParentDivId={resolvedTooltipParentDivId}
+        completionsFn={undefined}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

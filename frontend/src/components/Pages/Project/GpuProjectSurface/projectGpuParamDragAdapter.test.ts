@@ -1,6 +1,7 @@
 import type { GpuRetainedContentInteractionHit } from "gpuFlow/interactions/retainedContentInteraction";
 import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
 import type { ZustandProjectState } from "state/definitions";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import {
   CodeObjTypeEnum,
   ParamNameTypeEnum,
@@ -348,6 +349,7 @@ function retainedTextControl(rendererFamily = "text-like") {
     displayValue: "",
     editorKind: "text" as const,
     kind: "text-like" as const,
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily,
   };
 }

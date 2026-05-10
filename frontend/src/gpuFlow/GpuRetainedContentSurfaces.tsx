@@ -63,7 +63,7 @@ export function getGpuRetainedContentSourceRectForRows({
     }
     const clippedRowRect = intersectGpuRetainedContentRects(
       {
-        height: sourceInput.rowHeight,
+        height: rowMetric.height,
         width: sourceInput.rowVisualBounds.width,
         x:
           sourceSurface.textureWindow.cacheViewportRect.x -

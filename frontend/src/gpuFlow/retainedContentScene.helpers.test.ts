@@ -1,3 +1,4 @@
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import type { GpuRetainedContentRowInput } from "./retainedContentScene";
 
 export function row(
@@ -13,6 +14,7 @@ export function row(
             displayValue: id,
             editorKind: "text" as const,
             kind: "text-like" as const,
+            policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
             rendererFamily: "text-like",
             commitPolicy: "native-island" as const,
           },

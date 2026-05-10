@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HandlePosition } from "../flowTypes";
 import { createGpuFlowLayoutStore } from "../layoutStore";
@@ -600,6 +601,7 @@ function sceneWithRetainedTargetHandle(): GpuFlowScene {
                 displayValue: "",
                 editorKind: "text",
                 kind: "text-like",
+                policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
                 rendererFamily: "text",
                 commitPolicy: "native-island",
               },

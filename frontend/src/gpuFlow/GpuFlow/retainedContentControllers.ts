@@ -59,6 +59,10 @@ import {
   type GpuRetainedContentSurfaceWithScene,
 } from "./retainedContentControllerSurfaceUpdates";
 
+function getRetainedContentNativeVisuals(scene: GpuFlowScene | undefined) {
+  return getGpuRetainedContentScrollbarVisuals(scene?.contentSurfaces);
+}
+
 export type GpuFlowRetainedContentConnectionOptions =
   | false
   | Omit<

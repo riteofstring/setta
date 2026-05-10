@@ -1,10 +1,9 @@
 import { GpuFlow } from "gpuFlow/GpuFlow";
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 import type { GpuFlowScene } from "gpuFlow/scene";
-
-import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
@@ -100,6 +99,7 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
+import { renderProjectGpuRetainedTextLikePreview } from "./projectGpuRetainedTextLikePreviewRenderer";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import {
   getProjectSurfaceClientDimensions,
@@ -634,6 +634,7 @@ function ProjectGpuFlowLayer({
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
+      renderRetainedTextLikePreview={renderProjectGpuRetainedTextLikePreview}
       retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}

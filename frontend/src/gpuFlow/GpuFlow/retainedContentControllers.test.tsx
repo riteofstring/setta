@@ -2,6 +2,7 @@
 
 import { act, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
@@ -149,8 +150,8 @@ describe("GpuFlow retained content controllers", () => {
     const dirtySurfaces: DirtySurfaceRecord[] = [];
     const requestedFrames: string[] = [];
     let host: HTMLDivElement | null = null;
-    let readNativeVisuals = (): readonly HtmlSurfaceSolidRoundedRectVisual[] =>
-      [];
+    let readNativeVisuals =
+      (): readonly HtmlSurfaceSolidRoundedRectVisual[] => [];
 
     act(() => {
       root = createRoot(
@@ -203,8 +204,8 @@ describe("GpuFlow retained content controllers", () => {
     const dirtySurfaces: DirtySurfaceRecord[] = [];
     const requestedFrames: string[] = [];
     let host: HTMLDivElement | null = null;
-    let readNativeVisuals = (): readonly HtmlSurfaceSolidRoundedRectVisual[] =>
-      [];
+    let readNativeVisuals =
+      (): readonly HtmlSurfaceSolidRoundedRectVisual[] => [];
 
     act(() => {
       root = createRoot(
@@ -369,11 +370,11 @@ function RetainedContentScrollHarness({
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
   const retainedContentPageManagerRef =
     useRef<GpuFlowRetainedContentPageManager | null>({
-    markSurfaceContentDirty: ({ surfaceId }) => {
-      onDirtySurface(surfaceId);
-      return true;
-    },
-  });
+      markSurfaceContentDirty: ({ surfaceId }) => {
+        onDirtySurface(surfaceId);
+        return true;
+      },
+    });
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
@@ -426,9 +427,7 @@ function RetainedContentHoverHarness({
   readonly onDirtySurface: (surface: DirtySurfaceRecord) => void;
   readonly onHostChange: (element: HTMLDivElement | null) => void;
   readonly onReadNativeVisuals?:
-    | ((
-        read: () => readonly HtmlSurfaceSolidRoundedRectVisual[],
-      ) => void)
+    | ((read: () => readonly HtmlSurfaceSolidRoundedRectVisual[]) => void)
     | undefined;
   readonly onRequestFrame?: ((reason: string) => void) | undefined;
   readonly onRequestPaint?: (() => void) | undefined;
@@ -489,24 +488,21 @@ function RetainedContentHoverHarness({
   });
   const retainedContentPageManagerRef =
     useRef<GpuFlowRetainedContentPageManager | null>({
-    markSurfaceContentDirty: ({
-      sourceRect,
-      surfaceId,
-    }) => {
-      onDirtySurface({
-        ...(sourceRect ? { sourceRect } : {}),
-        surfaceId,
-      });
-      dirtySurfaceCountRef.current += 1;
-      if (resetSceneAfterFirstDirty && dirtySurfaceCountRef.current === 1) {
-        nodeLayerRef.current = {
-          ...nodeLayerRef.current,
-          scene: retainedContentScene(1, rowCount),
-        };
-      }
-      return markDirtyResult;
-    },
-  });
+      markSurfaceContentDirty: ({ sourceRect, surfaceId }) => {
+        onDirtySurface({
+          ...(sourceRect ? { sourceRect } : {}),
+          surfaceId,
+        });
+        dirtySurfaceCountRef.current += 1;
+        if (resetSceneAfterFirstDirty && dirtySurfaceCountRef.current === 1) {
+          nodeLayerRef.current = {
+            ...nodeLayerRef.current,
+            scene: retainedContentScene(1, rowCount),
+          };
+        }
+        return markDirtyResult;
+      },
+    });
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
@@ -658,6 +654,7 @@ function textLikeControlDescriptor(): GpuRetainedContentControlDescriptor {
     displayValue: "Value 0",
     editorKind: "text",
     kind: "text-like",
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
   };
 }

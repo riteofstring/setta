@@ -1,8 +1,9 @@
+import { resolveTextLikeParamEditorPolicy } from "components/Params/ParamUIs/textLikeEditorPolicy";
 import type { GpuRetainedContentControlDescriptor } from "gpuFlow/retainedContentScene";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
 
 export function createProjectGpuTextLikeControlDescriptorIfSupported({
   codeObjImpl,
+  configLanguage,
   controlKind,
 }: {
   readonly codeObjImpl: {
@@ -10,10 +11,14 @@ export function createProjectGpuTextLikeControlDescriptorIfSupported({
     readonly type: string;
     readonly value?: unknown;
   };
+  readonly configLanguage: string;
   readonly controlKind: string;
 }): GpuRetainedContentControlDescriptor | null {
-  const editorKind = getProjectGpuTextLikeEditorKind(codeObjImpl.type);
-  if (!editorKind) {
+  const policy = resolveTextLikeParamEditorPolicy({
+    codeObjType: codeObjImpl.type,
+    configLanguage,
+  });
+  if (!policy) {
     return null;
   }
   return {
@@ -21,26 +26,12 @@ export function createProjectGpuTextLikeControlDescriptorIfSupported({
       codeObjImpl.defaultVal,
     ),
     displayValue: toProjectGpuTextLikeDisplayValue(codeObjImpl.value),
-    editorKind,
+    editorKind: policy.editorKind,
     kind: "text-like",
+    policy,
     rendererFamily: controlKind,
     commitPolicy: "native-island",
   };
-}
-
-function getProjectGpuTextLikeEditorKind(
-  codeObjType: string,
-): "code" | "text" | "textarea" | null {
-  if (codeObjType === CodeObjTypeEnum.CodeParam) {
-    return "code";
-  }
-  if (codeObjType === CodeObjTypeEnum.TextParam) {
-    return "text";
-  }
-  if (codeObjType === CodeObjTypeEnum.TextAreaParam) {
-    return "textarea";
-  }
-  return null;
 }
 
 function toProjectGpuTextLikeDisplayValue(value: unknown): string {

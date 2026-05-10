@@ -101,7 +101,7 @@ function createContentSegments(
     contentVersion: getRowContentVersion(rowMetric.input),
     id: rowMetric.input.id,
     rectCss: createRowContentSegmentRect({
-      rowHeight: sourceInput.rowHeight,
+      rowHeight: rowMetric.height,
       rowVisualBounds: sourceInput.rowVisualBounds,
       y: rowMetric.y,
     }),
@@ -164,6 +164,7 @@ function createRowContentSignature(
     control: row.control,
     controlKind: row.controlKind,
     depth: row.depth,
+    height: row.height,
     id: row.id,
     label: row.label,
     labelAppearance: row.labelAppearance,

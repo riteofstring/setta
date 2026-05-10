@@ -44,6 +44,15 @@ export type GpuRetainedContentControlCommitPolicy =
   | "native-island"
   | "preview-commit";
 
+export type GpuRetainedContentTextLikeEditorPolicy = {
+  readonly editorKind: "code" | "text" | "textarea";
+  readonly language: string | null;
+  readonly linePolicy: "multiline-auto" | "multiline-fixed" | "single-line";
+  readonly maxVisibleLines: number;
+  readonly minVisibleLines: number;
+  readonly wrapLines: boolean;
+};
+
 export type GpuRetainedContentColorChoice = {
   readonly color: string;
   readonly description: string;
@@ -71,6 +80,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly displayValue: string;
       readonly editorKind: "code" | "text" | "textarea";
       readonly kind: "text-like";
+      readonly policy: GpuRetainedContentTextLikeEditorPolicy;
       readonly rendererFamily: string;
       readonly commitPolicy: "native-island";
     }
@@ -172,6 +182,7 @@ export type GpuRetainedContentRowInput = {
   readonly control?: GpuRetainedContentControlDescriptor | null | undefined;
   readonly controlKind: string | null;
   readonly depth: number;
+  readonly height?: number | undefined;
   readonly id: string;
   readonly label: string;
   readonly labelAppearance?:
@@ -208,6 +219,7 @@ export type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentRowMetric = {
+  readonly height: number;
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly y: number;

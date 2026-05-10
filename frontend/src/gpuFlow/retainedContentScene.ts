@@ -62,7 +62,9 @@ export type {
   GpuRetainedContentRowInput,
   GpuRetainedContentRowMetric,
   GpuRetainedContentRowState,
+  GpuRetainedContentRowVisualBounds,
   GpuRetainedContentScene,
+  GpuRetainedContentTextLikeEditorPolicy,
   GpuRetainedContentVisibleRowRange,
 } from "./retainedContentSceneTypes";
 
@@ -118,7 +120,6 @@ function createGpuRetainedContentSceneSourceInput(
     layout: {
       contentRect: {
         height: getGpuRetainedRowContentHeightFromMetrics({
-          rowHeight: input.rowHeight,
           rowMetrics,
         }),
         width: input.viewportRect.width,
@@ -171,7 +172,7 @@ function createGpuRetainedRowContentSceneFromSourceInput({
         dragging: draggingRowIds.has(rowMetric.input.id),
         index: rowMetric.index,
         input: rowMetric.input,
-        rowHeight: sourceInput.rowHeight,
+        rowHeight: rowMetric.height,
         rowVisualBounds: sourceInput.rowVisualBounds,
         rowY: rowMetric.y,
         scrollOffset,
@@ -287,17 +288,15 @@ export function createGpuRetainedRowContentSceneWithScrollWindow({
 }
 
 function getGpuRetainedRowContentHeightFromMetrics({
-  rowHeight,
   rowMetrics,
 }: {
-  readonly rowHeight: number;
   readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
 }): number {
   const lastMetric = rowMetrics.at(-1);
   if (!lastMetric) {
     return 0;
   }
-  return lastMetric.y + rowHeight;
+  return lastMetric.y + lastMetric.height;
 }
 
 function normalizeGpuRetainedContentRowVisualBounds({
@@ -324,7 +323,9 @@ export function getGpuRetainedRowContentHeight({
   assertFinitePositive("retained content row height", rowHeight);
   let height = 0;
   for (const row of rows) {
-    height += getGpuRetainedContentRowVerticalGapBefore(row) + rowHeight;
+    height +=
+      getGpuRetainedContentRowVerticalGapBefore(row) +
+      getGpuRetainedContentRowHeight(row, rowHeight);
   }
   return height;
 }
@@ -377,17 +378,7 @@ function resolveGpuRetainedContentVisibleRowRangeFromMetrics({
   readonly scrollOffsetY: number;
   readonly viewportHeight: number;
 }): GpuRetainedContentVisibleRowRange {
-  if (
-    !(hasVerticalGaps ?? rowMetrics.some((row) => row.input.verticalGapBefore))
-  ) {
-    return resolveGpuRetainedContentVisibleRowRange({
-      overscanRows,
-      rowCount: rowMetrics.length,
-      rowHeight,
-      scrollOffsetY,
-      viewportHeight,
-    });
-  }
+  void hasVerticalGaps;
   assertFiniteNonNegative("retained row overscan", overscanRows);
   assertFinitePositive("retained row height", rowHeight);
   assertFiniteNonNegative("retained content scroll y", scrollOffsetY);
@@ -396,7 +387,6 @@ function resolveGpuRetainedContentVisibleRowRangeFromMetrics({
   const visibleTop = Math.max(0, scrollOffsetY - overscanPx);
   const visibleBottom = scrollOffsetY + viewportHeight + overscanPx;
   const startIndex = findFirstGpuRetainedContentRowEndingAfter({
-    rowHeight,
     rowMetrics,
     y: visibleTop,
   });
@@ -424,10 +414,20 @@ function createGpuRetainedContentRowMetrics({
   let y = 0;
   for (const [index, row] of rows.entries()) {
     y += getGpuRetainedContentRowVerticalGapBefore(row);
-    metrics.push({ index, input: row, y });
-    y += rowHeight;
+    const height = getGpuRetainedContentRowHeight(row, rowHeight);
+    metrics.push({ height, index, input: row, y });
+    y += height;
   }
   return metrics;
+}
+
+function getGpuRetainedContentRowHeight(
+  row: GpuRetainedContentRowInput,
+  defaultRowHeight: number,
+): number {
+  const height = row.height ?? defaultRowHeight;
+  assertFinitePositive("retained content row height", height);
+  return height;
 }
 
 function getGpuRetainedContentRowVerticalGapBefore(
@@ -439,11 +439,9 @@ function getGpuRetainedContentRowVerticalGapBefore(
 }
 
 function findFirstGpuRetainedContentRowEndingAfter({
-  rowHeight,
   rowMetrics,
   y,
 }: {
-  readonly rowHeight: number;
   readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
   readonly y: number;
 }): number {
@@ -455,7 +453,7 @@ function findFirstGpuRetainedContentRowEndingAfter({
     if (!rowMetric) {
       throw new Error(`Missing retained row metric at index ${mid}.`);
     }
-    if (rowMetric.y + rowHeight < y) {
+    if (rowMetric.y + rowMetric.height <= y) {
       lower = mid + 1;
     } else {
       upper = mid;
@@ -481,7 +479,7 @@ function findFirstGpuRetainedContentRowStartingAfter({
     if (!rowMetric) {
       throw new Error(`Missing retained row metric at index ${mid}.`);
     }
-    if (rowMetric.y <= y) {
+    if (rowMetric.y < y) {
       lower = mid + 1;
     } else {
       upper = mid;

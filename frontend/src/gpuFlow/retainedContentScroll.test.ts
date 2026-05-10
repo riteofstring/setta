@@ -1,3 +1,4 @@
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import {
@@ -390,6 +391,7 @@ function retainedSurface({
         displayValue: `Value ${index}`,
         editorKind: "text",
         kind: "text-like",
+        policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
         rendererFamily: "text-like",
         commitPolicy: "native-island",
       },

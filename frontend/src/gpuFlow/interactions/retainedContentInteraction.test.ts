@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -823,6 +824,7 @@ function textLikeControlDescriptor(
     displayValue,
     editorKind: "text",
     kind: "text-like",
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
     commitPolicy: "native-island",
   };

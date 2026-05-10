@@ -15,6 +15,10 @@ import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
 import { useGpuFlowNodeResizeOverlaySources } from "./nodeResizeOverlay";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
+import {
+  useGpuFlowRetainedTextLikePreviewSources,
+  type GpuRetainedTextLikePreviewRenderer,
+} from "./retainedTextLikePreviewSources";
 import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 export type GpuFlowOverlaySources = {
@@ -23,6 +27,7 @@ export type GpuFlowOverlaySources = {
   readonly htmlSurfaceOverlays: readonly GpuHtmlSurfaceOverlayLayout[];
   readonly nodeDragPreviewSourceElement: ReactNode;
   readonly nodeResizeOverlaySourceElement: ReactNode;
+  readonly retainedTextLikePreviewSourceElement: ReactNode;
   readonly selectionOverlaySourceElement: ReactNode;
 };
 
@@ -33,6 +38,7 @@ export function useGpuFlowOverlaySources({
   nodeElementByIdRef,
   nodes,
   primaryNodeId,
+  renderRetainedTextLikePreview,
   scene,
   surfaceRef,
   textureManagerRef,
@@ -45,6 +51,9 @@ export function useGpuFlowOverlaySources({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodes: readonly GpuFlowLayoutNode[] | undefined;
   readonly primaryNodeId: string | null;
+  readonly renderRetainedTextLikePreview:
+    | GpuRetainedTextLikePreviewRenderer
+    | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -62,6 +71,18 @@ export function useGpuFlowOverlaySources({
     });
   const { retainedContentNativeVisuals } = useGpuFlowRetainedContentSources({
     scene,
+  });
+  const {
+    retainedTextLikePreviewSourceElement,
+    retainedTextLikePreviewSurfaces,
+  } = useGpuFlowRetainedTextLikePreviewSources({
+    nodeDomTransformSyncCacheRef,
+    nodeElementByIdRef,
+    renderPreview: renderRetainedTextLikePreview,
+    scene,
+    surfaceRef,
+    textureManagerRef,
+    transformOnlyPaintNodeIdsRef,
   });
   const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
     useGpuFlowNodeDragPreviewSources({
@@ -99,11 +120,13 @@ export function useGpuFlowOverlaySources({
       ...selectionOverlaySurfaces,
       ...nodeResizeOverlaySurfaces,
       ...nodeDragPreviewSurfaces,
+      ...retainedTextLikePreviewSurfaces,
     ],
     [
       edgeLabelSurfaces,
       nodeDragPreviewSurfaces,
       nodeResizeOverlaySurfaces,
+      retainedTextLikePreviewSurfaces,
       selectionOverlaySurfaces,
     ],
   );
@@ -114,6 +137,7 @@ export function useGpuFlowOverlaySources({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
+    retainedTextLikePreviewSourceElement,
     selectionOverlaySourceElement,
   };
 }

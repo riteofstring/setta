@@ -15,6 +15,7 @@ import {
 } from "openapi/http";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import {
   createCore,
   createProjectConfig,
@@ -188,6 +189,7 @@ function createRetainedPortSurface({
             displayValue: "",
             editorKind: "text",
             kind: "text-like",
+            policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
             rendererFamily: "text",
             commitPolicy: "native-island",
           },

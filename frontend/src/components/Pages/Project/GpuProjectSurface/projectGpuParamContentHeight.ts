@@ -33,6 +33,7 @@ export function getProjectGpuParamFixedContentHeightForSection({
   });
   return resolveProjectGpuParamFixedContentHeight({
     ...edgeStripPortCounts,
+    pinnedContentHeight: pinnedStats.contentHeight,
     pinnedRowCount: pinnedStats.rowCount,
     pinnedRowVerticalGapHeight: pinnedStats.verticalGapHeight,
   });
@@ -68,10 +69,12 @@ export function getProjectGpuParamAutoContentHeightForSection({
       });
   return resolveProjectGpuParamAutoContentHeight({
     ...edgeStripPortCounts,
+    pinnedContentHeight: pinnedStats.contentHeight,
     pinnedRowCount: pinnedStats.rowCount,
     reserveEmptyContentHeight:
       !sectionImpl.isMinimized &&
       !("hideParams" in sectionImpl && Boolean(sectionImpl.hideParams)),
+    unpinnedContentHeight: unpinnedStats?.contentHeight ?? 0,
     unpinnedRowCount: unpinnedStats?.rowCount ?? 0,
   });
 }

@@ -7,10 +7,12 @@ import {
 } from "./visualScene";
 
 export function createGpuNodeVisualScene({
+  htmlSurfaceLateVisuals,
   htmlSurfaceNativeVisuals,
   htmlSurfacePageVisuals,
   visualSurfaces,
 }: {
+  readonly htmlSurfaceLateVisuals: readonly HtmlSurfaceFlatVisual[] | undefined;
   readonly htmlSurfaceNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
@@ -19,7 +21,10 @@ export function createGpuNodeVisualScene({
 }): HtmlSurfaceVisualScene {
   return createHtmlSurfaceVisualScene({
     flatSurfaces: visualSurfaces.flatSurfaces,
-    lateFlatSurfaces: htmlSurfacePageVisuals ?? [],
+    lateFlatSurfaces: [
+      ...(htmlSurfacePageVisuals ?? []),
+      ...(htmlSurfaceLateVisuals ?? []),
+    ],
     tiledFlatSurfaces: visualSurfaces.tiledFlatSurfaces,
     solidRoundedRectSurfaces: htmlSurfaceNativeVisuals ?? [],
   });
