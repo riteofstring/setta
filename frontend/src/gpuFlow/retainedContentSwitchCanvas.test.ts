@@ -64,6 +64,33 @@ describe("retained content switch canvas", () => {
 
     expect(ctx.moveTo).toHaveBeenNthCalledWith(2, 301, 9);
   });
+
+  it("draws the switch track from animation target instead of thumb progress", () => {
+    const turningOn = createCanvasContextRecorder();
+    const turningOff = createCanvasContextRecorder();
+
+    drawGpuRetainedContentSwitchControl({
+      animationProgress: 0.25,
+      animationTargetChecked: true,
+      control: switchControl({ checked: false }),
+      ctx: turningOn,
+      palette: getGpuRetainedContentCanvasPalette(true),
+      rect: { height: 24, width: 273, x: 270, y: 0 },
+      state: undefined,
+    });
+    drawGpuRetainedContentSwitchControl({
+      animationProgress: 0.75,
+      animationTargetChecked: false,
+      control: switchControl({ checked: true }),
+      ctx: turningOff,
+      palette: getGpuRetainedContentCanvasPalette(true),
+      rect: { height: 24, width: 273, x: 270, y: 0 },
+      state: undefined,
+    });
+
+    expect(turningOn.fillStyles[0]).toBe("#1d4ed8");
+    expect(turningOff.fillStyles[0]).toBe("hsl(219, 25%, 34%)");
+  });
 });
 
 function switchControl(

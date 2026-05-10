@@ -104,6 +104,158 @@ describe("retained content switch animation store", () => {
     expect(store.hasActiveSurface("surface-a", 10)).toBe(false);
   });
 
+  it("reverses from the current visual progress during rapid toggles", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.syncSurface(surface({ checked: true }), 20);
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 70,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.25);
+
+    store.syncSurface(surface({ checked: false }), 120);
+
+    expect(
+      store.resolveProgress({
+        checked: false,
+        nowMs: 120,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.5);
+    expect(
+      store.resolveProgress({
+        checked: false,
+        nowMs: 220,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.25);
+    expect(
+      store.resolveProgress({
+        checked: false,
+        nowMs: 320,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0);
+  });
+
+  it("uses elapsed transition progress for reversal even before a draw resolves it", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.syncSurface(surface({ checked: true }), 20);
+    store.syncSurface(surface({ checked: false }), 120);
+
+    expect(
+      store.resolveProgress({
+        checked: false,
+        nowMs: 120,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.5);
+  });
+
+  it("starts a transition from resolveProgress when drawing before surface sync", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 20,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0);
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 120,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.5);
+  });
+
+  it("keeps an interaction-seeded transition while the scene still has the old checked value", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+
+    expect(
+      store.resolveProgress({
+        checked: false,
+        nowMs: 60,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.2);
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 120,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.5);
+  });
+
+  it("reports the target checked state separately from delayed scene checked state", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 60,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.2,
+      targetChecked: true,
+    });
+  });
+
   it("returns the active switch source rect clipped to retained content bounds", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       prefersReducedMotion: () => false,

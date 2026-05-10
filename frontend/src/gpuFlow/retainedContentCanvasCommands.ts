@@ -326,18 +326,16 @@ function drawGpuRetainedContentInputControl({
       });
       return true;
     case "switch":
-      drawGpuRetainedContentSwitchControl({
-        animationProgress: switchAnimations?.resolveProgress({
-          checked: control.checked,
-          ...(nowMs !== undefined ? { nowMs } : {}),
-          rowId,
-          surfaceId,
-        }),
+      drawGpuRetainedContentSwitchInputControl({
         control,
         ctx,
+        nowMs,
         palette,
         rect,
+        rowId,
         state,
+        surfaceId,
+        switchAnimations,
       });
       return true;
     case "slider":
@@ -359,6 +357,46 @@ function drawGpuRetainedContentInputControl({
     default:
       return false;
   }
+}
+
+function drawGpuRetainedContentSwitchInputControl({
+  control,
+  ctx,
+  nowMs,
+  palette,
+  rect,
+  rowId,
+  state,
+  surfaceId,
+  switchAnimations,
+}: {
+  readonly control: Extract<GpuRetainedContentControlDescriptor, { kind: "switch" }>;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly nowMs: number | undefined;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly rect: GpuRect;
+  readonly rowId: string;
+  readonly state: GpuRetainedContentRowState | undefined;
+  readonly surfaceId: string;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
+}) {
+  const visualState = switchAnimations?.resolveVisualState({
+    checked: control.checked,
+    ...(nowMs !== undefined ? { nowMs } : {}),
+    rowId,
+    surfaceId,
+  });
+  drawGpuRetainedContentSwitchControl({
+    animationProgress: visualState?.progress,
+    animationTargetChecked: visualState?.targetChecked,
+    control,
+    ctx,
+    palette,
+    rect,
+    state,
+  });
 }
 
 function drawGpuRetainedContentPickerControl({

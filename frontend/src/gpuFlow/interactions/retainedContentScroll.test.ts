@@ -145,8 +145,7 @@ describe("GPU retained content scroll controller", () => {
     cleanup();
   });
 
-  it("keeps retained wheel ownership while a viewport pan-scroll burst is cooling down", () => {
-    const animationFrames = installAnimationFrameStub();
+  it("skips retained wheel handling while viewport pan-scroll is active", () => {
     const element = document.createElement("div");
     document.body.append(element);
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
@@ -176,21 +175,17 @@ describe("GPU retained content scroll controller", () => {
     });
     element.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(true);
+    expect(event.defaultPrevented).toBe(false);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
     expect(requestFrame).not.toHaveBeenCalled();
-    animationFrames.flush();
-    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
-      x: 0,
-      y: 36,
-    });
-    expect(onScrollOffsetsChange).toHaveBeenCalledTimes(1);
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(scrollOffsets.size).toBe(0);
 
     cleanup();
   });
 
-  it.each(["pointerPanning", "paneDragging", "wheelZooming"] as const)(
+  it.each(
+    ["panScrolling", "pointerPanning", "paneDragging", "wheelZooming"] as const,
+  )(
     "skips retained wheel handling while viewport %s is active",
     (flag) => {
       const element = document.createElement("div");
@@ -312,7 +307,7 @@ describe("GPU retained content scroll controller", () => {
     cleanupScroll();
   });
 
-  it("does not let a viewport wheel pan burst steal wheel events over retained content", () => {
+  it("lets an active viewport wheel pan burst keep wheel events over retained content", () => {
     vi.useFakeTimers();
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
@@ -352,14 +347,12 @@ describe("GPU retained content scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
-    expect(store.getState().transform).toEqual([0, 0, 1]);
+    expect(store.getState().transform).toEqual([0, -18, 1]);
+    expect(store.getState().panScrolling).toBe(true);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
     animationFrames.flush();
-    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
-      x: 0,
-      y: 36,
-    });
-    expect(onScrollOffsetsChange).toHaveBeenCalledTimes(1);
+    expect(scrollOffsets.size).toBe(0);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 
     cleanupPan();
     cleanupScroll();
@@ -499,6 +492,7 @@ const preservedWheelTargetCases: readonly [
 ];
 
 const viewportWheelFlags = {
+  panScrolling: { panScrolling: true },
   paneDragging: { paneDragging: true },
   pointerPanning: { pointerPanning: true },
   wheelZooming: { wheelZooming: true },

@@ -28,6 +28,7 @@ import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import {
   applyGpuRetainedContentRowHoverTargetToScene,
   areGpuRetainedContentRowHoverTargetsEqual,
+  getGpuRetainedContentRowHoverVisuals,
   type GpuRetainedContentRowHoverTarget,
 } from "../retainedContentRowHover";
 import { applyGpuRetainedContentScrollOffsetToScene } from "../retainedContentScroll";
@@ -197,8 +198,6 @@ export function useGpuFlowRetainedContentControllers({
         activeTarget: null,
         hoveredTarget: null,
       };
-    const getRetainedContentNativeVisuals = (scene: GpuFlowScene) =>
-      getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces);
     const setRetainedContentScrollbarVisualState = (
       nextState: GpuRetainedContentScrollbarVisualState,
     ) => {
@@ -213,7 +212,11 @@ export function useGpuFlowRetainedContentControllers({
       retainedContentScrollbarVisualState = nextState;
       applyGpuFlowRetainedContentScrollbarVisualState({
         nodeLayerRef,
-        getNativeVisuals: getRetainedContentNativeVisuals,
+        getNativeVisuals: (scene) =>
+          getGpuFlowRetainedContentNativeVisuals({
+            rowHoverTarget: retainedContentRowHoverTargetRef.current,
+            scene,
+          }),
         surfaceRef,
         visualState: retainedContentScrollbarVisualState,
       });
@@ -263,18 +266,12 @@ export function useGpuFlowRetainedContentControllers({
           overlays: nodeLayerRef.current.edgeLabelSurfaces,
           scene: update.scene,
         }),
-        htmlSurfaceNativeVisuals: getRetainedContentNativeVisuals(update.scene),
+        htmlSurfaceNativeVisuals: getGpuFlowRetainedContentNativeVisuals({
+          rowHoverTarget: nextTarget,
+          scene: update.scene,
+        }),
         scene: update.scene,
       };
-      redrawGpuFlowRetainedContentSurfaceSources({
-        dirtySourceRectsBySurfaceId: update.dirtySourceRectsBySurfaceId,
-        nodeElementByIdRef,
-        retainedContentPageManagerRef,
-        surfaceRef,
-        surfaces: update.surfaces,
-        switchAnimations: retainedContentSwitchAnimations,
-        textureManagerRef,
-      });
       surfaceRef.current?.requestFrame("manual");
     };
     const commitRetainedContentScrollbarScrollResult = (result: {
@@ -348,6 +345,10 @@ export function useGpuFlowRetainedContentControllers({
             });
             return;
           }
+          beginGpuFlowRetainedContentSwitchClickAnimation({
+            event,
+            switchAnimations: retainedContentSwitchAnimations,
+          });
           retainedContentInteraction?.onHitClick?.(event);
         },
         onHitDragCancel: (event) => {
@@ -549,7 +550,11 @@ export function useGpuFlowRetainedContentControllers({
           retainedContentPageManagerRef,
           result,
           surfaceRef,
-          getNativeVisuals: getRetainedContentNativeVisuals,
+          getNativeVisuals: (scene) =>
+            getGpuFlowRetainedContentNativeVisuals({
+              rowHoverTarget: retainedContentRowHoverTargetRef.current,
+              scene,
+            }),
           switchAnimations: retainedContentSwitchAnimations,
           textureManagerRef,
           viewportStore,
@@ -705,6 +710,46 @@ function isGpuFlowRetainedContentInteractionOptionsDisabled(
   }
   const disabled = options.disabled;
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
+}
+
+function getGpuFlowRetainedContentNativeVisuals({
+  rowHoverTarget,
+  scene,
+}: {
+  readonly rowHoverTarget: GpuRetainedContentRowHoverTarget | null;
+  readonly scene: GpuFlowScene;
+}) {
+  return [
+    ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces),
+    ...getGpuRetainedContentRowHoverVisuals({
+      scene,
+      target: rowHoverTarget,
+    }),
+  ];
+}
+
+function beginGpuFlowRetainedContentSwitchClickAnimation({
+  event,
+  switchAnimations,
+}: {
+  readonly event: GpuRetainedContentInteractionHit;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
+}) {
+  if (event.hit.kind !== "control") {
+    return;
+  }
+  const row = event.retainedScene.rows.find(
+    (candidate) => candidate.id === event.hit.ownerRowId,
+  );
+  if (row?.control?.kind !== "switch") {
+    return;
+  }
+  switchAnimations.beginTransition({
+    fromChecked: row.control.checked,
+    rowId: row.id,
+    surfaceId: event.surfaceId,
+    toChecked: !row.control.checked,
+  });
 }
 
 function shouldHandleGpuFlowRetainedContentDragMoveHit(

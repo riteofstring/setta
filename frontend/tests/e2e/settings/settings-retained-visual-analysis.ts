@@ -12,6 +12,7 @@ export type Rect = Point & {
 
 export type RetainedRowDebugEntry = {
   readonly clientRect: Rect;
+  readonly controlClientRect: Rect | null;
   readonly controlClientPoint: Point | null;
   readonly controlKind: string | null;
   readonly labelClientPoint: Point;
@@ -53,6 +54,8 @@ export type SwitchThumbStats = {
   readonly name: string;
   readonly progress: number | null;
   readonly thumbCenterX: number | null;
+  readonly trackBlueRatio: number | null;
+  readonly trackChecked: boolean | null;
   readonly trackLeft: number | null;
   readonly trackRight: number | null;
 };
@@ -380,10 +383,21 @@ export async function analyzeSwitchThumbMotion(
           if (totalWeight < 6) {
             return missing(frame.name);
           }
+          const trackSample = classifySwitchTrack({
+            data,
+            height,
+            trackBottom,
+            trackLeft,
+            trackRight,
+            trackTop,
+            width,
+          });
           return {
             name: frame.name,
             progress: null,
             thumbCenterX: weightedX / totalWeight,
+            trackBlueRatio: trackSample.blueRatio,
+            trackChecked: trackSample.checked,
             trackLeft,
             trackRight,
           };
@@ -428,8 +442,60 @@ export async function analyzeSwitchThumbMotion(
           name,
           progress: null,
           thumbCenterX: null,
+          trackBlueRatio: null,
+          trackChecked: null,
           trackLeft: null,
           trackRight: null,
+        };
+      }
+
+      function classifySwitchTrack({
+        data,
+        height,
+        trackBottom,
+        trackLeft,
+        trackRight,
+        trackTop,
+        width,
+      }: {
+        readonly data: Uint8ClampedArray;
+        readonly height: number;
+        readonly trackBottom: number;
+        readonly trackLeft: number;
+        readonly trackRight: number;
+        readonly trackTop: number;
+        readonly width: number;
+      }): { readonly blueRatio: number; readonly checked: boolean } {
+        let blue = 0;
+        let sampled = 0;
+        for (
+          let y = Math.max(0, trackTop + 1);
+          y <= Math.min(height - 1, trackBottom - 1);
+          y += 1
+        ) {
+          for (
+            let x = Math.max(0, trackLeft + 1);
+            x <= Math.min(width - 1, trackRight - 1);
+            x += 1
+          ) {
+            const index = (y * width + x) * 4;
+            const r = data[index] ?? 0;
+            const g = data[index + 1] ?? 0;
+            const b = data[index + 2] ?? 0;
+            const luma = luminance(r, g, b);
+            if (luma <= 18 || b <= 35 || g <= 20 || b - r <= 10) {
+              continue;
+            }
+            sampled += 1;
+            if (r < 90 && g > 45 && g < 140 && b > 120 && b - r > 70) {
+              blue += 1;
+            }
+          }
+        }
+        const blueRatio = sampled === 0 ? 0 : blue / sampled;
+        return {
+          blueRatio,
+          checked: blueRatio > 0.32,
         };
       }
 

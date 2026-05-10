@@ -288,6 +288,24 @@ function createGpuFlowRetainedRowDebugEntry({
       y: surface.rect.y + row.projectedRect.y + row.projectedRect.height,
     },
   });
+  const controlClientTopLeft = controlHit
+    ? flowToClientPosition({
+        context,
+        point: {
+          x: surface.rect.x + controlHit.rect.x,
+          y: surface.rect.y + controlHit.rect.y,
+        },
+      })
+    : null;
+  const controlClientBottomRight = controlHit
+    ? flowToClientPosition({
+        context,
+        point: {
+          x: surface.rect.x + controlHit.rect.x + controlHit.rect.width,
+          y: surface.rect.y + controlHit.rect.y + controlHit.rect.height,
+        },
+      })
+    : null;
   return {
     canvasCssSize: {
       height: Math.max(1, clipBounds.bottom - clipBounds.y),
@@ -306,6 +324,15 @@ function createGpuFlowRetainedRowDebugEntry({
       x: rowTopLeft.x,
       y: rowTopLeft.y,
     },
+    controlClientRect:
+      controlClientTopLeft && controlClientBottomRight
+        ? {
+            height: controlClientBottomRight.y - controlClientTopLeft.y,
+            width: controlClientBottomRight.x - controlClientTopLeft.x,
+            x: controlClientTopLeft.x,
+            y: controlClientTopLeft.y,
+          }
+        : null,
     controlClientPoint: controlHit
       ? flowToClientPosition({
           context,

@@ -7,7 +7,6 @@ import {
   analyzeSwitchThumbMotion,
   analyzeVerticalScrollbar,
   compareScreenshots,
-  locateCheckedSwitchBounds,
   type HoverBandStats,
   type Point,
   type Rect,
@@ -23,6 +22,9 @@ const GUI_SECTION_ID = "settings-section__gui";
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const LEFT_PANE_SHIFT_LABEL = "Left Side Pane Shifts Map";
 const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
+const SWITCH_ANIMATION_SETTING_KEY = "leftSidePaneShiftsMap";
+const SWITCH_ANIMATION_CLIP_HEIGHT = 88;
+const SWITCH_ANIMATION_CLIP_WIDTH = 240;
 const GUI_SCROLL_LABEL_ORDER = [
   "Default Zoom Level",
   "Grid Color",
@@ -57,6 +59,8 @@ type ScrollFrame = {
     readonly y: number;
   }[];
 };
+
+type GuiSettingKey = "leftSidePaneShiftsMap" | "panOnScroll";
 
 test("rapid row hover shows exactly one retained row highlight", async ({
   page,
@@ -184,26 +188,37 @@ test("retained switch click animates the thumb monotonically", async ({
       `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
     );
   }
-  const rowClip = await clampScreenshotClipToViewport(page, {
-    height: 40,
-    width: row.clientRect.width,
-    x: row.clientRect.x,
-    y: row.controlClientPoint.y - 20,
-  });
-  await waitForStableScreenshotClip(page, rowClip);
-  const rowBefore = await screenshotClip({
-    name: "visual-switch-row-before.png",
-    page,
-    rect: rowClip,
-    testInfo,
-  });
-  const switchBounds = await locateCheckedSwitchBounds(page, rowBefore);
-  const clip = await clampScreenshotClipToViewport(page, {
-    height: switchBounds.height,
-    width: switchBounds.width,
-    x: rowClip.x + switchBounds.x,
-    y: rowClip.y + switchBounds.y,
-  });
+  let initialChecked = Boolean(
+    await readGuiSetting(page, SWITCH_ANIMATION_SETTING_KEY),
+  );
+  let controlRect = row.controlClientRect;
+  if (!controlRect) {
+    throw new Error(`Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`);
+  }
+  let clickPoint = row.controlClientPoint;
+  if (initialChecked) {
+    await page.mouse.click(clickPoint.x, clickPoint.y);
+    await page.waitForTimeout(320);
+    const uncheckedRow = await bringVisibleGuiRowControlIntoView(
+      page,
+      SWITCH_ANIMATION_LABEL,
+    );
+    if (!uncheckedRow.controlClientPoint) {
+      throw new Error(
+        `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
+      );
+    }
+    clickPoint = uncheckedRow.controlClientPoint;
+    controlRect = uncheckedRow.controlClientRect;
+    if (!controlRect) {
+      throw new Error(
+        `Missing unchecked switch control rect for ${SWITCH_ANIMATION_LABEL}`,
+      );
+    }
+    initialChecked = false;
+  }
+  const clip = await resolveSwitchClipFromControlRect(page, controlRect);
+  await waitForStableScreenshotClip(page, clip);
   const before = await captureSwitchFrame({
     name: "visual-switch-before.png",
     page,
@@ -211,7 +226,7 @@ test("retained switch click animates the thumb monotonically", async ({
     testInfo,
   });
 
-  await page.mouse.click(clip.x + clip.width / 2, clip.y + clip.height / 2);
+  await page.mouse.click(clickPoint.x, clickPoint.y);
   const samples: SwitchFrame[] = [];
   let elapsedMs = 0;
   for (const targetMs of [8, 16, 24, 32, 48, 64, 96, 140]) {
@@ -234,43 +249,11 @@ test("retained switch click animates the thumb monotonically", async ({
     testInfo,
   });
 
-  const frames = [before, ...samples, settled];
-  const thumbStats = await analyzeSwitchThumbMotion(page, frames);
-  const detectedStats = thumbStats.filter(
-    (stats): stats is SwitchThumbStats & { readonly progress: number } =>
-      stats.progress !== null,
-  );
-  const backtracks = [];
-  let maxProgress = Number.NEGATIVE_INFINITY;
-  for (const stats of detectedStats) {
-    if (stats.progress < maxProgress - 0.08) {
-      backtracks.push({
-        name: stats.name,
-        previousMaxProgress: maxProgress,
-        progress: stats.progress,
-      });
-    }
-    maxProgress = Math.max(maxProgress, stats.progress);
-  }
-  const distinctPositions = new Set(
-    detectedStats.map((stats) =>
-      stats.thumbCenterX === null
-        ? "missing"
-        : String(Math.round(stats.thumbCenterX)),
-    ),
-  );
-  const intermediateSamples = detectedStats.filter(
-    (stats) => stats.progress > 0.12 && stats.progress < 0.88,
-  );
-  const failureDetails = JSON.stringify(
-    { backtracks, distinctPositions: [...distinctPositions], thumbStats },
-    null,
-    2,
-  );
-  expect(detectedStats.length, failureDetails).toBe(frames.length);
-  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(4);
-  expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
-  expect(backtracks, failureDetails).toHaveLength(0);
+  await assertSwitchTransitionFrames({
+    frames: [before, ...samples, settled],
+    initialChecked,
+    page,
+  });
 });
 
 test("retained section scroll position survives viewport pan and zoom", async ({
@@ -840,6 +823,16 @@ async function readViewportZoom(page: Page): Promise<number> {
   });
 }
 
+async function readGuiSetting(
+  page: Page,
+  key: GuiSettingKey,
+): Promise<unknown> {
+  return await page.evaluate(async (settingKey) => {
+    const { useSettings } = await import("/src/state/definitions.ts");
+    return (useSettings.getState().gui as Record<string, unknown>)[settingKey];
+  }, key);
+}
+
 async function panViewport(page: Page): Promise<void> {
   const canvas = page.locator(".setta-gpu-flow__canvas").first();
   const box = await canvas.boundingBox();
@@ -907,6 +900,77 @@ async function captureSwitchFrame({
     name,
     screenshot,
   };
+}
+
+async function assertSwitchTransitionFrames({
+  frames,
+  initialChecked,
+  page,
+}: {
+  readonly frames: readonly SwitchFrame[];
+  readonly initialChecked: boolean;
+  readonly page: Page;
+}): Promise<void> {
+  const thumbStats = await analyzeSwitchThumbMotion(page, frames);
+  const detectedStats = thumbStats.filter(
+    (stats): stats is SwitchThumbStats & { readonly progress: number } =>
+      stats.progress !== null,
+  );
+  const backtracks = [];
+  let maxProgress = Number.NEGATIVE_INFINITY;
+  for (const stats of detectedStats) {
+    if (stats.progress < maxProgress - 0.08) {
+      backtracks.push({
+        name: stats.name,
+        previousMaxProgress: maxProgress,
+        progress: stats.progress,
+      });
+    }
+    maxProgress = Math.max(maxProgress, stats.progress);
+  }
+  const distinctPositions = new Set(
+    detectedStats.map((stats) =>
+      stats.thumbCenterX === null
+        ? "missing"
+        : String(Math.round(stats.thumbCenterX)),
+    ),
+  );
+  const intermediateSamples = detectedStats.filter(
+    (stats) => stats.progress > 0.12 && stats.progress < 0.88,
+  );
+  const missingTrackStates = detectedStats.filter(
+    (stats) => stats.trackChecked === null,
+  );
+  const contradictoryTrackStates = detectedStats.filter((stats) => {
+    if (stats.trackChecked === null) {
+      return true;
+    }
+    if (stats.progress <= 0.02) {
+      return stats.trackChecked !== initialChecked;
+    }
+    if (stats.progress >= 0.6) {
+      return stats.trackChecked !== !initialChecked;
+    }
+    return false;
+  });
+  const failureDetails = JSON.stringify(
+    {
+      backtracks,
+      contradictoryTrackStates,
+      distinctPositions: [...distinctPositions],
+      initialChecked,
+      missingTrackStates,
+      thumbStats,
+    },
+    null,
+    2,
+  );
+  expect(detectedStats.length, failureDetails).toBe(frames.length);
+  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(4);
+  expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
+  expect(backtracks, failureDetails).toHaveLength(0);
+  expect(missingTrackStates, failureDetails).toHaveLength(0);
+  expect(contradictoryTrackStates, failureDetails).toHaveLength(0);
 }
 
 async function captureScrollContentFrame({
@@ -1062,6 +1126,26 @@ function clampScreenshotClip(rect: Rect): Rect {
     x: Math.max(0, Math.floor(rect.x)),
     y: Math.max(0, Math.floor(rect.y)),
   };
+}
+
+async function resolveSwitchClipFromControlRect(
+  page: Page,
+  rect: Rect,
+): Promise<Rect> {
+  const height = Math.min(
+    SWITCH_ANIMATION_CLIP_HEIGHT,
+    Math.max(1, rect.height),
+  );
+  const width = Math.min(
+    SWITCH_ANIMATION_CLIP_WIDTH,
+    Math.max(1, rect.width),
+  );
+  return await clampScreenshotClipToViewport(page, {
+    height,
+    width,
+    x: rect.x,
+    y: rect.y + rect.height / 2 - height / 2,
+  });
 }
 
 async function clampScreenshotClipToViewport(

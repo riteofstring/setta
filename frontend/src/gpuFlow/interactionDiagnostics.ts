@@ -118,6 +118,7 @@ export type GpuFlowRetainedRowDebugEntry = {
   readonly canvasCssSize: { readonly height: number; readonly width: number };
   readonly canvasSamplePoint: GpuPoint;
   readonly clientRect: GpuRect;
+  readonly controlClientRect: GpuRect | null;
   readonly controlClientPoint: GpuPoint | null;
   readonly controlKind: string | null;
   readonly labelClientPoint: GpuPoint;

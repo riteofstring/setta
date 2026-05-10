@@ -22,6 +22,7 @@ const SWITCH_ROW_TEXT_THUMB_INSET = 3;
 
 export function drawGpuRetainedContentSwitchControl({
   animationProgress,
+  animationTargetChecked,
   control,
   ctx,
   palette,
@@ -29,6 +30,7 @@ export function drawGpuRetainedContentSwitchControl({
   state,
 }: {
   readonly animationProgress?: number | undefined;
+  readonly animationTargetChecked?: boolean | undefined;
   readonly control: GpuRetainedContentSwitchControl;
   readonly ctx: CanvasRenderingContext2D;
   readonly palette: GpuRetainedContentCanvasPalette;
@@ -40,18 +42,19 @@ export function drawGpuRetainedContentSwitchControl({
     palette.textLikeVisualStyle === "row-text"
       ? getGpuRetainedContentRowTextSwitchTrackRect(rect)
       : getGpuRetainedContentSwitchTrackRect(rect);
+  const checkedProgress = normalizeGpuRetainedContentSwitchAnimationProgress(
+    animationProgress,
+    control.checked,
+  );
   ctx.fillStyle = getGpuRetainedContentSwitchTrackColor({
-    checked: control.checked,
+    checked: animationTargetChecked ?? control.checked,
     disabled,
     palette,
   });
   fillRoundRect(ctx, trackRect, trackRect.height / 2);
 
   const thumbRect = getGpuRetainedContentSwitchThumbRect({
-    checkedProgress: normalizeGpuRetainedContentSwitchAnimationProgress(
-      animationProgress,
-      control.checked,
-    ),
+    checkedProgress,
     trackRect,
     thumbInset:
       palette.textLikeVisualStyle === "row-text"

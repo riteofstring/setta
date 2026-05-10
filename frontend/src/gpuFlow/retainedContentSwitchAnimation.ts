@@ -20,7 +20,9 @@ type GpuRetainedContentSwitchAnimationSurface = {
 
 type GpuRetainedContentSwitchTransition = {
   readonly durationMs: number;
+  readonly fromChecked: boolean;
   readonly fromProgress: number;
+  readonly pendingSceneMatch: boolean;
   readonly rowId: string;
   readonly startedAtMs: number;
   readonly surfaceId: string;
@@ -33,7 +35,19 @@ type GpuRetainedContentSwitchAnimationStoreOptions = {
   readonly prefersReducedMotion?: (() => boolean) | undefined;
 };
 
+export type GpuRetainedContentSwitchVisualState = {
+  readonly progress: number;
+  readonly targetChecked: boolean;
+};
+
 export type GpuRetainedContentSwitchAnimationStore = {
+  beginTransition(input: {
+    readonly fromChecked: boolean;
+    readonly nowMs?: number | undefined;
+    readonly rowId: string;
+    readonly surfaceId: string;
+    readonly toChecked: boolean;
+  }): void;
   clear(): void;
   clearSurface(surfaceId: string): void;
   getActiveSurfaceSourceRect(
@@ -46,6 +60,12 @@ export type GpuRetainedContentSwitchAnimationStore = {
     readonly rowId: string;
     readonly surfaceId: string;
   }): number;
+  resolveVisualState(input: {
+    readonly checked: boolean;
+    readonly nowMs?: number | undefined;
+    readonly rowId: string;
+    readonly surfaceId: string;
+  }): GpuRetainedContentSwitchVisualState;
   syncSurface(
     surface: GpuRetainedContentSwitchAnimationSurface,
     nowMs?: number | undefined,
@@ -82,6 +102,43 @@ export function createGpuRetainedContentSwitchAnimationStore({
   };
 
   return {
+    beginTransition({
+      fromChecked,
+      nowMs = getGpuRetainedContentSwitchNowMs(),
+      rowId,
+      surfaceId,
+      toChecked,
+    }) {
+      const key = createSwitchAnimationKey(surfaceId, rowId);
+      if (fromChecked === toChecked) {
+        checkedByKey.set(key, toChecked);
+        progressByKey.set(key, toChecked ? 1 : 0);
+        transitions.delete(key);
+        return;
+      }
+      setGpuRetainedContentSwitchTransition({
+        durationMs,
+        fromChecked,
+        fromProgress: resolveGpuRetainedContentStoredSwitchProgress({
+          checked: fromChecked,
+          key,
+          nowMs,
+          progressByKey,
+          transitions,
+        }),
+        key,
+        nowMs,
+        pendingSceneMatch: true,
+        progressByKey,
+        reduceMotion: prefersReducedMotion(),
+        rowId,
+        surfaceId,
+        toChecked,
+        transitions,
+      });
+      checkedByKey.set(key, toChecked);
+      addSurfaceKey(surfaceKeys, surfaceId, key);
+    },
     clear() {
       checkedByKey.clear();
       progressByKey.clear();
@@ -144,18 +201,39 @@ export function createGpuRetainedContentSwitchAnimationStore({
       rowId,
       surfaceId,
     }) {
+      return this.resolveVisualState({
+        checked,
+        nowMs,
+        rowId,
+        surfaceId,
+      }).progress;
+    },
+    resolveVisualState({
+      checked,
+      nowMs = getGpuRetainedContentSwitchNowMs(),
+      rowId,
+      surfaceId,
+    }) {
       const key = createSwitchAnimationKey(surfaceId, rowId);
-      const transition = transitions.get(key);
+      const transition = ensureGpuRetainedContentSwitchTransitionForChecked({
+        checked,
+        checkedByKey,
+        durationMs,
+        key,
+        nowMs,
+        prefersReducedMotion,
+        progressByKey,
+        rowId,
+        surfaceId,
+        transitions,
+      });
       if (!transition) {
         const resolvedProgress = checked ? 1 : 0;
         progressByKey.set(key, resolvedProgress);
-        return resolvedProgress;
-      }
-      if (transition.toChecked !== checked) {
-        transitions.delete(key);
-        const resolvedProgress = checked ? 1 : 0;
-        progressByKey.set(key, resolvedProgress);
-        return resolvedProgress;
+        return {
+          progress: resolvedProgress,
+          targetChecked: checked,
+        };
       }
       const progress = clampUnit(
         (nowMs - transition.startedAtMs) / transition.durationMs,
@@ -163,13 +241,19 @@ export function createGpuRetainedContentSwitchAnimationStore({
       if (progress >= 1) {
         transitions.delete(key);
         progressByKey.set(key, transition.toProgress);
-        return transition.toProgress;
+        return {
+          progress: transition.toProgress,
+          targetChecked: transition.toChecked,
+        };
       }
       const resolvedProgress =
         transition.fromProgress +
         (transition.toProgress - transition.fromProgress) * progress;
       progressByKey.set(key, resolvedProgress);
-      return resolvedProgress;
+      return {
+        progress: resolvedProgress,
+        targetChecked: transition.toChecked,
+      };
     },
     syncSurface(surface, nowMs = getGpuRetainedContentSwitchNowMs()) {
       const nextKeys = new Set<string>();
@@ -204,6 +288,130 @@ export function createGpuRetainedContentSwitchAnimationStore({
   };
 }
 
+function ensureGpuRetainedContentSwitchTransitionForChecked({
+  checked,
+  checkedByKey,
+  durationMs,
+  key,
+  nowMs,
+  prefersReducedMotion,
+  progressByKey,
+  rowId,
+  surfaceId,
+  transitions,
+}: {
+  readonly checked: boolean;
+  readonly checkedByKey: Map<string, boolean>;
+  readonly durationMs: number;
+  readonly key: string;
+  readonly nowMs: number;
+  readonly prefersReducedMotion: () => boolean;
+  readonly progressByKey: Map<string, number>;
+  readonly rowId: string;
+  readonly surfaceId: string;
+  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
+}): GpuRetainedContentSwitchTransition | undefined {
+  const transition = transitions.get(key);
+  const reusableTransition = resolveReusableSwitchTransition({
+    checked,
+    key,
+    transition,
+    transitions,
+  });
+  if (reusableTransition) {
+    return reusableTransition;
+  }
+  const previousChecked = checkedByKey.get(key);
+  if (shouldKeepSwitchWithoutTransition({ checked, previousChecked, transition })) {
+    return undefined;
+  }
+  const fromChecked = transition?.toChecked ?? previousChecked ?? checked;
+  setGpuRetainedContentSwitchTransition({
+    durationMs,
+    fromChecked,
+    fromProgress: resolveGpuRetainedContentStoredSwitchProgress({
+      checked: fromChecked,
+      key,
+      nowMs,
+      progressByKey,
+      transitions,
+    }),
+    key,
+    nowMs,
+    pendingSceneMatch: false,
+    progressByKey,
+    reduceMotion: prefersReducedMotion(),
+    rowId,
+    surfaceId,
+    toChecked: checked,
+    transitions,
+  });
+  checkedByKey.set(key, checked);
+  return transitions.get(key);
+}
+
+function resolveReusableSwitchTransition({
+  checked,
+  key,
+  transition,
+  transitions,
+}: {
+  readonly checked: boolean;
+  readonly key: string;
+  readonly transition: GpuRetainedContentSwitchTransition | undefined;
+  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
+}): GpuRetainedContentSwitchTransition | undefined {
+  if (!transition) {
+    return undefined;
+  }
+  if (transition.toChecked === checked) {
+    return resolveSceneMatchedSwitchTransition({
+      key,
+      transition,
+      transitions,
+    });
+  }
+  if (transition.pendingSceneMatch && transition.fromChecked === checked) {
+    return transition;
+  }
+  return undefined;
+}
+
+function resolveSceneMatchedSwitchTransition({
+  key,
+  transition,
+  transitions,
+}: {
+  readonly key: string;
+  readonly transition: GpuRetainedContentSwitchTransition;
+  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
+}): GpuRetainedContentSwitchTransition {
+  if (!transition.pendingSceneMatch) {
+    return transition;
+  }
+  const matchedTransition = {
+    ...transition,
+    pendingSceneMatch: false,
+  };
+  transitions.set(key, matchedTransition);
+  return matchedTransition;
+}
+
+function shouldKeepSwitchWithoutTransition({
+  checked,
+  previousChecked,
+  transition,
+}: {
+  readonly checked: boolean;
+  readonly previousChecked: boolean | undefined;
+  readonly transition: GpuRetainedContentSwitchTransition | undefined;
+}): boolean {
+  if (transition) {
+    return false;
+  }
+  return previousChecked === checked || previousChecked === undefined;
+}
+
 function syncGpuRetainedContentSwitchCommand({
   checkedByKey,
   command,
@@ -235,15 +443,25 @@ function syncGpuRetainedContentSwitchCommand({
     previousChecked !== undefined &&
     previousChecked !== command.control.checked
   ) {
-    setGpuRetainedContentSwitchTransition({
-      command,
-      durationMs,
+    const fromProgress = resolveGpuRetainedContentStoredSwitchProgress({
+      checked: previousChecked,
       key,
       nowMs,
       progressByKey,
-      previousChecked,
+      transitions,
+    });
+    setGpuRetainedContentSwitchTransition({
+      durationMs,
+      fromChecked: previousChecked,
+      fromProgress,
+      key,
+      nowMs,
+      pendingSceneMatch: false,
+      progressByKey,
       reduceMotion,
+      rowId: command.rowId,
       surfaceId,
+      toChecked: command.control.checked,
       transitions,
     });
   }
@@ -251,40 +469,77 @@ function syncGpuRetainedContentSwitchCommand({
 }
 
 function setGpuRetainedContentSwitchTransition({
-  command,
   durationMs,
+  fromChecked,
+  fromProgress,
   key,
   nowMs,
+  pendingSceneMatch,
   progressByKey,
-  previousChecked,
   reduceMotion,
+  rowId,
   surfaceId,
+  toChecked,
   transitions,
 }: {
-  readonly command: GpuRetainedContentSwitchCommand;
   readonly durationMs: number;
+  readonly fromChecked: boolean;
+  readonly fromProgress: number;
   readonly key: string;
   readonly nowMs: number;
+  readonly pendingSceneMatch: boolean;
   readonly progressByKey: Map<string, number>;
-  readonly previousChecked: boolean;
   readonly reduceMotion: boolean;
+  readonly rowId: string;
   readonly surfaceId: string;
+  readonly toChecked: boolean;
   readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
 }) {
   if (reduceMotion) {
     transitions.delete(key);
-    progressByKey.set(key, command.control.checked ? 1 : 0);
+    progressByKey.set(key, toChecked ? 1 : 0);
     return;
   }
   transitions.set(key, {
     durationMs,
-    fromProgress: progressByKey.get(key) ?? (previousChecked ? 1 : 0),
-    rowId: command.rowId,
+    fromChecked,
+    fromProgress,
+    pendingSceneMatch,
+    rowId,
     startedAtMs: nowMs,
     surfaceId,
-    toChecked: command.control.checked,
-    toProgress: command.control.checked ? 1 : 0,
+    toChecked,
+    toProgress: toChecked ? 1 : 0,
   });
+}
+
+function resolveGpuRetainedContentStoredSwitchProgress({
+  checked,
+  key,
+  nowMs,
+  progressByKey,
+  transitions,
+}: {
+  readonly checked: boolean;
+  readonly key: string;
+  readonly nowMs: number;
+  readonly progressByKey: Map<string, number>;
+  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
+}): number {
+  const transition = transitions.get(key);
+  if (!transition) {
+    return progressByKey.get(key) ?? (checked ? 1 : 0);
+  }
+  const progress = clampUnit(
+    (nowMs - transition.startedAtMs) / transition.durationMs,
+  );
+  const resolvedProgress =
+    progress >= 1
+      ? transition.toProgress
+      : transition.fromProgress +
+        (transition.toProgress - transition.fromProgress) * progress;
+  progressByKey.set(key, resolvedProgress);
+  return resolvedProgress;
 }
 
 function removeMissingGpuRetainedContentSwitchKeys({
@@ -304,6 +559,19 @@ function removeMissingGpuRetainedContentSwitchKeys({
       clearKey(previousKey);
     }
   }
+}
+
+function addSurfaceKey(
+  surfaceKeys: Map<string, Set<string>>,
+  surfaceId: string,
+  key: string,
+) {
+  const keys = surfaceKeys.get(surfaceId);
+  if (keys) {
+    keys.add(key);
+    return;
+  }
+  surfaceKeys.set(surfaceId, new Set([key]));
 }
 
 function getGpuRetainedContentSwitchCommands(
