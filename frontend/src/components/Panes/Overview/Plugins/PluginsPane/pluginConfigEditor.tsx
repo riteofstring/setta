@@ -75,7 +75,7 @@ export function PluginListEntryCardBadges({
   );
 }
 
-export function PluginListEntryCardActions({
+function PluginListEntryCardActions({
   pluginId,
   pluginToggleLabel,
   pluginActionDisabled,
@@ -143,7 +143,7 @@ export function PluginListEntryCardActions({
   );
 }
 
-export function PluginListEntryCardView({
+function PluginListEntryCardView({
   plugin,
   pluginActionDisabled,
   packageManagerManaged,
@@ -531,7 +531,7 @@ export function PluginConfigEditor({
   );
 }
 
-export function PluginConfigTopLevelField({
+function PluginConfigTopLevelField({
   field,
   config,
   disabled,
@@ -564,7 +564,7 @@ export function PluginConfigTopLevelField({
   );
 }
 
-export function PluginConfigFieldDescription({
+function PluginConfigFieldDescription({
   descriptionText,
 }: {
   descriptionText: string | null;
@@ -579,7 +579,7 @@ export function PluginConfigFieldDescription({
   );
 }
 
-export function buildPluginConfigEnumInput({
+function buildPluginConfigEnumInput({
   fieldKey,
   value,
   disabled,
@@ -628,7 +628,7 @@ export function buildPluginConfigEnumInput({
   );
 }
 
-export function buildPluginConfigBooleanInput({
+function buildPluginConfigBooleanInput({
   fieldKey,
   value,
   disabled,
@@ -654,7 +654,7 @@ export function buildPluginConfigBooleanInput({
   );
 }
 
-export function buildPluginConfigNumberInput({
+function buildPluginConfigNumberInput({
   fieldKey,
   value,
   disabled,
@@ -694,7 +694,7 @@ export function buildPluginConfigNumberInput({
   );
 }
 
-export function buildPluginConfigStringInput({
+function buildPluginConfigStringInput({
   field,
   value,
   disabled,
@@ -739,7 +739,7 @@ export function buildPluginConfigStringInput({
   );
 }
 
-export function buildPluginConfigFieldInput({
+function buildPluginConfigFieldInput({
   field,
   value,
   disabled,
@@ -789,14 +789,12 @@ export function buildPluginConfigFieldInput({
   return null;
 }
 
-export type SettingsEditorStatus = {
+type SettingsEditorStatus = {
   type: "error" | "success";
   message: string;
 };
 
-export function resolveSchemaType(
-  schema: Record<string, unknown>,
-): string | null {
+function resolveSchemaType(schema: Record<string, unknown>): string | null {
   const rawType = schema.type;
   if (typeof rawType === "string") {
     return rawType;
@@ -812,7 +810,7 @@ export function resolveSchemaType(
   return null;
 }
 
-export function getSchemaEnumValues(
+function getSchemaEnumValues(
   schema: Record<string, unknown>,
 ): Array<string | number | boolean> | null {
   const rawEnum = schema.enum;
@@ -835,9 +833,7 @@ export function getSchemaEnumValues(
   return values;
 }
 
-export function getSchemaUiHint(
-  schema: Record<string, unknown>,
-): string | null {
+function getSchemaUiHint(schema: Record<string, unknown>): string | null {
   const rawUiHint = schema["x-setta-ui"];
   if (typeof rawUiHint !== "string") {
     return null;
@@ -849,7 +845,7 @@ export function getSchemaUiHint(
   return trimmed;
 }
 
-export function isSupportedTopLevelPluginConfigField(
+function isSupportedTopLevelPluginConfigField(
   schema: Record<string, unknown>,
 ): boolean {
   if (getSchemaEnumValues(schema)) {
@@ -864,7 +860,7 @@ export function isSupportedTopLevelPluginConfigField(
   );
 }
 
-export function getTopLevelPluginConfigFields(
+function getTopLevelPluginConfigFields(
   schemaJson: Record<string, unknown> | null,
 ): PluginConfigFieldDefinition[] {
   if (!isPlainObject(schemaJson)) {
@@ -898,7 +894,7 @@ export function getTopLevelPluginConfigFields(
   return fields;
 }
 
-export function setTopLevelPluginConfigValue(
+function setTopLevelPluginConfigValue(
   config: Record<string, unknown>,
   fieldKey: string,
   nextValue: unknown,

@@ -1,22 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
-    cast,
     Literal,
     Sequence,
-    TYPE_CHECKING,
+    cast,
     get_args,
     get_origin,
 )
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from setta.sessions.registry import SessionMetadata
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerForceRefreshEvent,
@@ -36,6 +35,8 @@ from setta.sdk_contracts.generated import (
 from setta.sdk_contracts.generated import (
     ListenerRegisterAckStatus as SDKListenerRegisterAckStatus,
 )
+from setta.sessions.registry import SessionMetadata
+from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
 from setta.types.generated.go_shared_types import (
     CodeObjType,
     CodeObjValueRepresentationMode,
@@ -50,7 +51,6 @@ from setta.types.generated.go_shared_types import (
     SectionRepresentationMode,
     SectionType,
 )
-from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
 from setta.types.id import ID
 from setta.types.protocol import (
     BaseDependencyKeyUnion,
@@ -60,8 +60,8 @@ from setta.types.protocol import (
 )
 
 if TYPE_CHECKING:
-    from setta.api.listener_endpoint_client import RouterEndpointAPI
     from setta.api.listener import SettaListener
+    from setta.api.listener_endpoint_client import RouterEndpointAPI
 
 logger = logging.getLogger("setta.api.listener")
 _MISSING = object()

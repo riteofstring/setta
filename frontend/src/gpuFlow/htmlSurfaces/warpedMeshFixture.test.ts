@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import type { HtmlSurfaceTextureRecord } from "./textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 import {
   HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
   HTML_SURFACE_WARPED_MESH_FIXTURE_RECT,
@@ -92,7 +92,7 @@ describe("warped HTML mesh surface fixture", () => {
   });
 });
 
-function textureRecord(surfaceId: string): HtmlSurfaceTextureRecord {
+function textureRecord(surfaceId: string): CommittedHtmlSurfaceTextureSnapshot {
   return {
     cssHeight: HTML_SURFACE_WARPED_MESH_FIXTURE_RECT.height,
     cssWidth: HTML_SURFACE_WARPED_MESH_FIXTURE_RECT.width,
@@ -102,7 +102,7 @@ function textureRecord(surfaceId: string): HtmlSurfaceTextureRecord {
     texture: {},
     textureBytes: 0,
     textureView: {},
-  } as HtmlSurfaceTextureRecord;
+  } as CommittedHtmlSurfaceTextureSnapshot;
 }
 
 function setElementRect(

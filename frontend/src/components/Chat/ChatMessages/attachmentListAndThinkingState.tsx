@@ -283,7 +283,7 @@ export function useActivityAccordionState({
   return [accordionValue, setAccordionValue] as const;
 }
 
-export function useThinkingSummaryOverflow({
+function useThinkingSummaryOverflow({
   shouldMeasureSummaryOverflow,
   activityHint,
   summaryHeadlineText,
@@ -329,7 +329,7 @@ export function useThinkingSummaryOverflow({
   return { summaryPreviewRef, isSummaryTitleTruncated };
 }
 
-export function ThinkingBoxSummaryLabel({
+function ThinkingBoxSummaryLabel({
   summaryPreviewRef,
   shouldRenderPlainSummaryWithHint,
   collapsedSummaryWithHint,
@@ -372,7 +372,7 @@ export function ThinkingBoxSummaryLabel({
   );
 }
 
-export function ThinkingBoxStatus({
+function ThinkingBoxStatus({
   thinkingRunState,
   durationLabel,
   timestampMs,
@@ -447,7 +447,7 @@ export function ThinkingBoxStatus({
   );
 }
 
-export function ThinkingBoxExpandedContent({
+function ThinkingBoxExpandedContent({
   expandedContent,
   hasThinkingText,
   isStreaming,
@@ -476,7 +476,7 @@ export function ThinkingBoxExpandedContent({
   );
 }
 
-export function ThinkingBoxHeader({
+function ThinkingBoxHeader({
   hasExpandableContent,
   thinkingRowRunState,
   railIcon,
@@ -573,7 +573,7 @@ export function ThinkingBoxHeader({
   );
 }
 
-export type ThinkingBoxBaseState = {
+type ThinkingBoxBaseState = {
   summaryText: string;
   hasThinkingText: boolean;
   summaryHeadlineText: string;
@@ -582,7 +582,7 @@ export type ThinkingBoxBaseState = {
   shouldMeasureSummaryOverflow: boolean;
 };
 
-export function resolveThinkingSummaryHeadlineText(args: {
+function resolveThinkingSummaryHeadlineText(args: {
   content: string;
   isStreaming: boolean;
   summary: string | null | undefined;
@@ -600,7 +600,7 @@ export function resolveThinkingSummaryHeadlineText(args: {
   });
 }
 
-export function resolveCollapsedSummaryWithHint(args: {
+function resolveCollapsedSummaryWithHint(args: {
   activityHint?: string | null;
   hasThinkingText: boolean;
   summaryHeadlineText: string;
@@ -611,7 +611,7 @@ export function resolveCollapsedSummaryWithHint(args: {
   return args.summaryHeadlineText;
 }
 
-export function resolveThinkingBoxBaseState({
+function resolveThinkingBoxBaseState({
   content,
   summary,
   isStreaming,
@@ -653,7 +653,7 @@ export function resolveThinkingBoxBaseState({
   };
 }
 
-export function resolveThinkingTriggerClassName(
+function resolveThinkingTriggerClassName(
   hasExpandableContent: boolean,
 ): string {
   return `grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} ${ACTIVITY_CHILD_TRIGGER_CLASS} max-w-full overflow-hidden text-left transition-colors [&[data-state=open]_.chat-accordion-chevron]:rotate-180 ${
@@ -661,7 +661,7 @@ export function resolveThinkingTriggerClassName(
   }`;
 }
 
-export function resolveThinkingExpandableState({
+function resolveThinkingExpandableState({
   content,
   summaryText,
   hasThinkingText,

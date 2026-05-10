@@ -124,7 +124,8 @@ function goToSearchResult(
     `ParamContainer-${sectionId}-${paramInfoId}`,
   );
   if (!element) {
-    console.error("goToSearchResult element not found");
+    // Retained GPU param rows are scene-owned. GpuProjectSurface observes the
+    // focused search target and reveals those rows from retained geometry.
     return;
   }
   const shouldDelay = scrollParamIntoView(element);

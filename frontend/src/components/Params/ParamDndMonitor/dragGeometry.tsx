@@ -78,7 +78,7 @@ export function measureParamActiveRect(
   return getDroppableRect(manager, dndId) ?? fallbackRect ?? null;
 }
 
-export function getDroppableRect(
+function getDroppableRect(
   manager: DragDropManager | null,
   droppableId: string,
 ) {

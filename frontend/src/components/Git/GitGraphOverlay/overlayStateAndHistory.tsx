@@ -70,7 +70,7 @@ import {
 
 import { ColumnResizeHandle, GitCommitRow } from "./commitRowsAndCells";
 
-export function getGitGraphOverlayStateSlice(
+function getGitGraphOverlayStateSlice(
   graphState: GitGraphOverlayState | null,
 ): GitGraphOverlayStateSlice {
   if (!graphState) {
@@ -96,7 +96,7 @@ export function getGitGraphOverlayStateSlice(
   };
 }
 
-export function useGitGraphOverlayComputedData({
+function useGitGraphOverlayComputedData({
   rows,
   commits,
   filterText,
@@ -192,7 +192,7 @@ export function useGitGraphOverlayComputedData({
   };
 }
 
-export function buildGitGraphFallbackColumnWidths({
+function buildGitGraphFallbackColumnWidths({
   graphColWidthPx,
   authorColWidthPx,
   dateColWidthPx,
@@ -211,7 +211,7 @@ export function buildGitGraphFallbackColumnWidths({
   };
 }
 
-export function useGitGraphOverlayModel(): GitGraphOverlayModel | null {
+function useGitGraphOverlayModel(): GitGraphOverlayModel | null {
   const graphState = useGitStore((x) => x.graph);
   const {
     darkMode,
@@ -322,7 +322,7 @@ export function GitGraphOverlay({
   );
 }
 
-export function GitGraphOverlayView({
+function GitGraphOverlayView({
   embedded,
   showCloseButton,
   extraHeaderActions,
@@ -413,7 +413,7 @@ export function GitGraphOverlayView({
   );
 }
 
-export function GitGraphOverlayHeader({
+function GitGraphOverlayHeader({
   repoRoot,
   headBranch,
   filterText,
@@ -476,7 +476,7 @@ export function GitGraphOverlayHeader({
   );
 }
 
-export function GitGraphOverlaySidebar({ children }: { children: ReactNode }) {
+function GitGraphOverlaySidebar({ children }: { children: ReactNode }) {
   return (
     <aside
       data-testid="git-graph-left-sidebar"
@@ -488,7 +488,7 @@ export function GitGraphOverlaySidebar({ children }: { children: ReactNode }) {
   );
 }
 
-export function GitGraphHistoryPane({
+function GitGraphHistoryPane({
   graphState,
   filteredRows,
   listRef,
@@ -647,7 +647,7 @@ export function GitGraphHistoryPane({
   );
 }
 
-export function GitGraphLoadMoreStatus({
+function GitGraphLoadMoreStatus({
   graphState,
   isFilterActive,
   loadedCommitCount,
@@ -694,7 +694,7 @@ export function GitGraphLoadMoreStatus({
   return <span className="opacity-0">.</span>;
 }
 
-export function GitGraphPaneSplitter({
+function GitGraphPaneSplitter({
   onPointerDown,
 }: {
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -712,7 +712,7 @@ export function GitGraphPaneSplitter({
   );
 }
 
-export function GitGraphDiffPane({
+function GitGraphDiffPane({
   graphState,
   selectedCommit,
 }: {
@@ -747,7 +747,7 @@ export function GitGraphDiffPane({
   );
 }
 
-export function GitGraphDiffPaneHeader({
+function GitGraphDiffPaneHeader({
   selectedCommit,
   selectedCommitFilePath,
 }: {
@@ -795,7 +795,7 @@ export function GitGraphDiffPaneHeader({
   );
 }
 
-export function GitGraphSelectedCommitDecorations({
+function GitGraphSelectedCommitDecorations({
   decorations,
 }: {
   decorations: readonly string[];
@@ -818,7 +818,7 @@ export function GitGraphSelectedCommitDecorations({
   );
 }
 
-export function GitGraphDiffPaneWarnings({
+function GitGraphDiffPaneWarnings({
   graphState,
   selectedCommit,
 }: {
@@ -853,7 +853,7 @@ export function GitGraphDiffPaneWarnings({
   );
 }
 
-export function GitGraphDiffPaneBody({
+function GitGraphDiffPaneBody({
   graphState,
   selectedCommit,
 }: {

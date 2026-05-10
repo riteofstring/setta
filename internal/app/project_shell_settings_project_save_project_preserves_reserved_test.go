@@ -1006,19 +1006,6 @@ func assertSettingsProjectPersistedSectionAutoHeight(
 	}
 }
 
-func settingsProjectPersistedViewModeLayoutContainsSection(
-	project projectstate.Project,
-	viewModeID string,
-	sectionID string,
-) bool {
-	viewMode, ok := project.ViewModes[viewModeID]
-	if !ok {
-		return false
-	}
-	_, ok = viewMode.TopLevelSections[sectionID]
-	return ok
-}
-
 func settingsPayloadSectionImplByID(
 	t *testing.T,
 	payload projectview.SingleConfig,

@@ -54,6 +54,7 @@ type ConfiguredSliderInputProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape?: () => void;
   isDisabled?: boolean;
   wrapperDivClass: string;
@@ -69,6 +70,7 @@ export function ConfiguredSliderInput({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
   wrapperDivClass,
@@ -88,6 +90,7 @@ export function ConfiguredSliderInput({
     <SliderInput
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       min={min}
       max={max}
@@ -108,6 +111,7 @@ type ConfiguredRotaryInputProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape?: () => void;
   isDisabled?: boolean;
 };
@@ -117,6 +121,7 @@ export function ConfiguredRotaryInput({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
 }: ConfiguredRotaryInputProps) {
@@ -130,6 +135,7 @@ export function ConfiguredRotaryInput({
     <RotaryInput
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       min={min}
       max={max}
@@ -144,6 +150,7 @@ type ConfiguredColorPickerInputProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape?: () => void;
   isDisabled?: boolean;
   wrapperClassName: string;
@@ -155,6 +162,7 @@ export function ConfiguredColorPickerInput({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
   wrapperClassName,
@@ -171,6 +179,7 @@ export function ConfiguredColorPickerInput({
       colorChoices={colorChoices}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       wrapperClassName={wrapperClassName}
       colorPickerChoicesClasses={colorPickerChoicesClasses}

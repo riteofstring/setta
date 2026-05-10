@@ -33,7 +33,7 @@ import {
   resolveTimeParamDateTimeView,
 } from "./dateTimeParamInputs";
 
-export function resolveDateParamDateTimeView({
+function resolveDateParamDateTimeView({
   value,
   dateControlMode,
   dateSelectionMode,
@@ -82,7 +82,7 @@ export function resolveDateParamDateTimeView({
   );
 }
 
-export function resolveDefaultDateParamDateTimeView(
+function resolveDefaultDateParamDateTimeView(
   value: string,
   dateDisplayFormat: DateDisplayFormat,
 ): EditableTextParamDateTimeView {
@@ -95,7 +95,7 @@ export function resolveDefaultDateParamDateTimeView(
   );
 }
 
-export function resolveTextParamDateTimeView({
+function resolveTextParamDateTimeView({
   value,
   uiType,
   timeControlMode,
@@ -135,7 +135,7 @@ export function resolveTextParamDateTimeView({
   return resolveDefaultDateParamDateTimeView(value, dateDisplayFormat);
 }
 
-export function resolveEditableDateTimeChange({
+function resolveEditableDateTimeChange({
   mode,
   rawValue,
   dateDisplayFormat,
@@ -157,7 +157,7 @@ export function resolveEditableDateTimeChange({
   if (mode === "formatted-date") {
     const nextIso = normalizeDateToIso(rawValue, dateDisplayFormat);
     return {
-      nextCommittedValue: nextIso === "" ? undefined : nextIso,
+      ...(nextIso === "" ? {} : { nextCommittedValue: nextIso }),
       nextLocalDateInputValue: rawValue,
     };
   }
@@ -166,7 +166,7 @@ export function resolveEditableDateTimeChange({
   };
 }
 
-export function resolveFormattedDateBlur({
+function resolveFormattedDateBlur({
   localDateInputValue,
   committedValue,
   dateDisplayFormat,
@@ -179,8 +179,9 @@ export function resolveFormattedDateBlur({
   const fallbackIso = normalizeDateToIso(committedValue, dateDisplayFormat);
   const resolvedIso = nextIso !== "" ? nextIso : fallbackIso;
   return {
-    nextCommittedValue:
-      nextIso !== "" && nextIso !== fallbackIso ? nextIso : undefined,
+    ...(nextIso !== "" && nextIso !== fallbackIso
+      ? { nextCommittedValue: nextIso }
+      : {}),
     nextLocalDateInputValue: formatDateForDisplay(
       resolvedIso,
       dateDisplayFormat,
@@ -188,7 +189,7 @@ export function resolveFormattedDateBlur({
   };
 }
 
-export function EditableTextParamDateTimeInput({
+function EditableTextParamDateTimeInput({
   value,
   onChange,
   onEscape,
@@ -224,6 +225,7 @@ export function EditableTextParamDateTimeInput({
     <>
       <div className={classes.wrapper}>
         <input
+          aria-label={getEditableDateTimeInputLabel(view.mode)}
           type={view.inputType}
           className={classes.input}
           value={renderedInputValue}
@@ -268,6 +270,18 @@ export function EditableTextParamDateTimeInput({
   );
 }
 
+function getEditableDateTimeInputLabel(
+  mode: EditableTextParamDateTimeMode,
+): string {
+  if (mode === "time") {
+    return "Time input";
+  }
+  if (mode === "datetime-local") {
+    return "Date and time input";
+  }
+  return "Date input";
+}
+
 export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
   const classes = resolveTextParamDateTimeClasses(props);
   const displayOptions = resolveTextParamDateTimeDisplayOptions(props);
@@ -299,7 +313,7 @@ export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
           <DateCalendarInput
             value={props.value}
             onChange={props.onChange}
-            onEscape={props.onEscape}
+            {...(props.onEscape ? { onEscape: props.onEscape } : {})}
             isDisabled={props.isDisabled}
             selectionMode={view.selectionMode}
             weekStart={props.dateCalendarWeekStart}
@@ -317,7 +331,7 @@ export function TextParamDateTimeInput(props: TextParamDateTimeInputProps) {
     <EditableTextParamDateTimeInput
       value={props.value}
       onChange={props.onChange}
-      onEscape={props.onEscape}
+      {...(props.onEscape ? { onEscape: props.onEscape } : {})}
       isDisabled={props.isDisabled}
       dateDisplayFormat={props.dateDisplayFormat}
       classes={classes}

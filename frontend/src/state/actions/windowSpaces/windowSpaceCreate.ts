@@ -59,7 +59,7 @@ import {
   snapshotFloatingWindowsForWindowSpace,
 } from "./windowSpaceRestore";
 
-export function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
+function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
   windowSpace: WindowSpaceConfig,
   remappedInstanceIdByOriginalId: Record<string, string>,
   restoredWindowing: ProjectChatWindowingState,
@@ -84,13 +84,13 @@ export function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
   return visibleInstanceIds;
 }
 
-export type RestoredProjectChatThreadBinding = {
+type RestoredProjectChatThreadBinding = {
   instanceId: string;
   chatId: string | null;
   sectionIdOrNull: string | null;
 };
 
-export function getBlockedWindowSpaceRestoreMessage(
+function getBlockedWindowSpaceRestoreMessage(
   threadBindings: Array<RestoredProjectChatThreadBinding>,
 ): string | null {
   if (threadBindings.length === 0) {
@@ -106,7 +106,7 @@ export function getBlockedWindowSpaceRestoreMessage(
   return "Cannot restore this window space because deployment policy disallows restoring saved chat threads.";
 }
 
-export function resolveProjectChatThreadBindingChatId(
+function resolveProjectChatThreadBindingChatId(
   instance: ProjectChatWindowInstance | undefined,
 ): string | null {
   if (
@@ -119,7 +119,7 @@ export function resolveProjectChatThreadBindingChatId(
   return resolveProjectChatWindowChatId(instance);
 }
 
-export function buildWorkspaceRestoreLayoutState(
+function buildWorkspaceRestoreLayoutState(
   currentWindowing: ProjectChatWindowingState,
   restoredWindowing: ProjectChatWindowingState,
 ): {
@@ -167,13 +167,13 @@ export function buildWorkspaceRestoreLayoutState(
   };
 }
 
-export async function settleWorkspaceRestoreLayoutWrites(): Promise<void> {
+async function settleWorkspaceRestoreLayoutWrites(): Promise<void> {
   await flushPendingProjectChatWindowingWrites();
   // Let optimistic rollback handlers update the store before phase 2 inspects it.
   await Promise.resolve();
 }
 
-export function isRestoredProjectChatThreadBindingTarget(
+function isRestoredProjectChatThreadBindingTarget(
   instance: ProjectChatWindowInstance | undefined,
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
@@ -185,7 +185,7 @@ export function isRestoredProjectChatThreadBindingTarget(
   );
 }
 
-export function hasRestoredProjectChatThreadBinding(
+function hasRestoredProjectChatThreadBinding(
   instance: ProjectChatWindowInstance | undefined,
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
@@ -195,13 +195,11 @@ export function hasRestoredProjectChatThreadBinding(
   );
 }
 
-export function isActiveWindowSpaceProjectConfig(
-  projectConfigId: string,
-): boolean {
+function isActiveWindowSpaceProjectConfig(projectConfigId: string): boolean {
   return useProjectState.getState().projectConfig.id === projectConfigId;
 }
 
-export function getCurrentProjectChatWindowingForProjectConfig(
+function getCurrentProjectChatWindowingForProjectConfig(
   projectConfigId: string,
 ): ProjectChatWindowingState {
   return (
@@ -210,7 +208,7 @@ export function getCurrentProjectChatWindowingForProjectConfig(
   );
 }
 
-export function shouldRestoreProjectChatThreadBinding(
+function shouldRestoreProjectChatThreadBinding(
   instance: ProjectChatWindowInstance | undefined,
   threadBinding: RestoredProjectChatThreadBinding,
 ): boolean {
@@ -223,13 +221,13 @@ export function shouldRestoreProjectChatThreadBinding(
   );
 }
 
-export type RestoreProjectChatThreadBindingResult =
+type RestoreProjectChatThreadBindingResult =
   | "restored"
   | "skipped"
   | "aborted"
   | "failed";
 
-export async function restoreSingleWorkspaceProjectChatThreadBinding(
+async function restoreSingleWorkspaceProjectChatThreadBinding(
   projectConfigId: string,
   threadBinding: RestoredProjectChatThreadBinding,
 ): Promise<RestoreProjectChatThreadBindingResult> {
@@ -256,7 +254,7 @@ export async function restoreSingleWorkspaceProjectChatThreadBinding(
     : "failed";
 }
 
-export async function restoreWorkspaceProjectChatThreadBindings(
+async function restoreWorkspaceProjectChatThreadBindings(
   projectConfigId: string,
   threadBindings: Array<RestoredProjectChatThreadBinding>,
 ): Promise<void> {
@@ -311,7 +309,7 @@ export async function restoreWorkspaceProjectChatThreadBindings(
   }
 }
 
-export function getWindowSpaceOrThrow(
+function getWindowSpaceOrThrow(
   state: Pick<ZustandProjectState, "projectConfig">,
   windowSpaceId: string,
 ): WindowSpaceConfig {
@@ -324,13 +322,13 @@ export function getWindowSpaceOrThrow(
   return windowSpace;
 }
 
-export type PreparedWorkspaceRestore = {
+type PreparedWorkspaceRestore = {
   remappedRestoredFloatingWindowing: ProjectChatWindowingState;
   remappedInstanceIdByOriginalId: Record<string, string>;
   supersededFloatingInstanceIds: Set<string>;
 };
 
-export function prepareWorkspaceRestore(
+function prepareWorkspaceRestore(
   windowSpace: WindowSpaceConfig,
   state: WindowSpaceSnapshotState,
 ): PreparedWorkspaceRestore {
@@ -366,7 +364,7 @@ export function prepareWorkspaceRestore(
   };
 }
 
-export function collectPreservedWorkspaceWindowing(
+function collectPreservedWorkspaceWindowing(
   currentWindowing: ProjectChatWindowingState,
   supersededFloatingInstanceIds: Set<string>,
   remappedRestoredFloatingWindowing: ProjectChatWindowingState,
@@ -382,7 +380,7 @@ export function collectPreservedWorkspaceWindowing(
   );
 }
 
-export function buildNextWorkspaceRestoreWindowing(
+function buildNextWorkspaceRestoreWindowing(
   currentWindowing: ProjectChatWindowingState,
   remappedRestoredFloatingWindowing: ProjectChatWindowingState,
   preservedWorkspaceWindowing: {
@@ -410,7 +408,7 @@ export function buildNextWorkspaceRestoreWindowing(
   );
 }
 
-export function buildNextGitPaneVisibleInstanceIds(
+function buildNextGitPaneVisibleInstanceIds(
   projectConfigId: string,
   nextWindowing: ProjectChatWindowingState,
   restoredInstanceIds: Set<string>,
@@ -510,7 +508,7 @@ export async function restoreWindowSpaceInWorkspace(
   }
 }
 
-export type WindowSpaceSaveContext = {
+type WindowSpaceSaveContext = {
   projectConfigId: string;
   projectConfigSnapshot: WindowSpaceSnapshotState["projectConfig"];
   sectionSnapshot: WindowSpaceSnapshotState["sections"];
@@ -518,11 +516,11 @@ export type WindowSpaceSaveContext = {
   sectionVariantSnapshot: WindowSpaceSnapshotState["sectionVariants"];
 };
 
-export type SyncProjectChatWindowingResponse = NonNullable<
+type SyncProjectChatWindowingResponse = NonNullable<
   Awaited<ReturnType<typeof syncProjectChatWindowingState>>
 >;
 
-export function buildRouteErrorSuffix(
+function buildRouteErrorSuffix(
   status: number | null | undefined,
   detail: string | null,
 ): string {
@@ -531,7 +529,7 @@ export function buildRouteErrorSuffix(
   return `${statusSuffix}${detailSuffix}`;
 }
 
-export function buildWindowSpaceSaveContext(
+function buildWindowSpaceSaveContext(
   state: WindowSpaceSnapshotState,
   projectConfigId: string,
 ): WindowSpaceSaveContext | null {
@@ -548,7 +546,7 @@ export function buildWindowSpaceSaveContext(
   };
 }
 
-export function notifyWindowSpaceSyncFailure(
+function notifyWindowSpaceSyncFailure(
   projectConfigId: string,
   syncResponse: Awaited<ReturnType<typeof syncProjectChatWindowingState>>,
 ): void {
@@ -567,7 +565,7 @@ export function notifyWindowSpaceSyncFailure(
   );
 }
 
-export function resolveSyncedWindowingForWindowSpaceSave(
+function resolveSyncedWindowingForWindowSpaceSave(
   projectConfigId: string,
   syncResponse: SyncProjectChatWindowingResponse,
 ): ProjectChatWindowingState {
@@ -579,7 +577,7 @@ export function resolveSyncedWindowingForWindowSpaceSave(
         syncResponse.data;
 }
 
-export async function buildAuthoritativeWindowSpaceSnapshot(
+async function buildAuthoritativeWindowSpaceSnapshot(
   context: WindowSpaceSaveContext,
 ): Promise<WindowSpaceState | null> {
   const syncResponse = await syncProjectChatWindowingState();
@@ -603,7 +601,7 @@ export async function buildAuthoritativeWindowSpaceSnapshot(
     : authoritativeSnapshot;
 }
 
-export function notifyWindowSpaceSaveFailure(
+function notifyWindowSpaceSaveFailure(
   projectConfigId: string,
   response: CreateWindowSpaceRouteResponse,
 ): void {
@@ -622,7 +620,7 @@ export function notifyWindowSpaceSaveFailure(
   );
 }
 
-export async function saveWindowSpaceSnapshot(
+async function saveWindowSpaceSnapshot(
   projectConfigId: string,
   authoritativeSnapshot: WindowSpaceState,
 ): Promise<string | null> {

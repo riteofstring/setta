@@ -28,7 +28,7 @@ export type HtmlInCanvas2DContext = CanvasRenderingContext2D & {
 
 // Chromium's html-in-canvas WebGPU upload API is experimental and is not in
 // TypeScript's DOM lib yet.
-export type CopyElementImageToTexture = {
+type CopyElementImageToTexture = {
   (source: Element, destination: GPUImageCopyTextureTagged): void;
   (
     source: Element,
@@ -61,6 +61,26 @@ export type GpuQueueWithElementUpload = GPUQueue & {
 };
 
 declare global {
+  type GPUCopyExternalImageSource =
+    | HTMLCanvasElement
+    | ImageBitmap
+    | OffscreenCanvas;
+  type GPUExtent3DStrict =
+    | readonly [
+        GPUIntegerCoordinate,
+        GPUIntegerCoordinate,
+        GPUIntegerCoordinate?,
+      ]
+    | {
+        readonly depthOrArrayLayers?: GPUIntegerCoordinate | undefined;
+        readonly height: GPUIntegerCoordinate;
+        readonly width: GPUIntegerCoordinate;
+      };
+  interface GPUImageCopyExternalImage {
+    readonly flipY?: boolean | undefined;
+    readonly origin?: GPUOrigin2D | undefined;
+    readonly source: GPUCopyExternalImageSource;
+  }
   type GPUCanvasAlphaMode = "opaque" | "premultiplied";
   type GPUAddressMode = "clamp-to-edge" | "mirror-repeat" | "repeat";
   type GPUFilterMode = "linear" | "nearest";
@@ -158,7 +178,17 @@ declare global {
     z?: number;
   }
 
+  interface GPUOrigin2D {
+    x?: number;
+    y?: number;
+  }
+
   interface GPUQueue {
+    copyExternalImageToTexture(
+      source: GPUImageCopyExternalImage,
+      destination: GPUImageCopyTextureTagged,
+      copySize: GPUExtent3DStrict,
+    ): void;
     submit(commandBuffers: readonly GPUCommandBuffer[]): void;
     writeBuffer(
       buffer: GPUBuffer,

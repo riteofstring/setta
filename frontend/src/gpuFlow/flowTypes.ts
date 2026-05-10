@@ -1,11 +1,12 @@
 import type { CSSProperties } from "react";
+import type { GpuFlowScene } from "./scene";
 
-export interface Dimensions {
+interface Dimensions {
   width: number;
   height: number;
 }
 
-export interface Position {
+interface Position {
   x: number;
   y: number;
 }
@@ -55,6 +56,10 @@ export type Connection = {
   targetHandle: string | null;
 };
 
+export type GpuFlowConnectionContext = {
+  readonly scene?: GpuFlowScene | null | undefined;
+};
+
 export type HandleConnectionCandidate = {
   sectionId: string;
   handleId: string | null;
@@ -99,9 +104,13 @@ export type HandleProps = {
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
   connectionStartSemanticType?: HandleType;
+  registerPortGeometry?: boolean;
   isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
-  onConnect?: (connection: Connection) => void;
+  onConnect?: (
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
   pointerUpSnapRadius?: number;
   autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 };

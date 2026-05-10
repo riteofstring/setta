@@ -4,8 +4,9 @@ import {
 } from "./sourceRects";
 
 import { resolveHtmlSurfaceDirectPaintSourceRectHint } from "./paintSourceRectHints";
+import { HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE } from "./sourceDom";
 
-export type HtmlSurfacePaintInvalidationInput = {
+type HtmlSurfacePaintInvalidationInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
   readonly sourceIdAttribute: string;
@@ -17,23 +18,28 @@ export type HtmlSurfacePaintInvalidationInput = {
     | undefined;
 };
 
-export type HtmlSurfacePaintInvalidationResult = {
+type HtmlSurfacePaintInvalidationResult = {
   readonly dirtySurfaceInvalidations: readonly HtmlSurfacePaintSourceInvalidation[];
   readonly dirtySurfaceIds: readonly string[];
+  readonly paintedSurfaceIds: readonly string[];
   readonly transformOnlyPaintSurfaceIds: readonly string[];
 };
 
-export type HtmlSurfacePaintSourceInvalidation = {
+type HtmlSurfacePaintSourceInvalidation = {
   readonly sourceRect?: HtmlSurfacePaintSourceRect | undefined;
   readonly surfaceId: string;
 };
 
-export type HtmlSurfacePaintSourceRect = HtmlSurfaceSourceRect;
+type HtmlSurfacePaintSourceRect = HtmlSurfaceSourceRect;
 
 type ChangedSourceResolution =
   | {
       readonly kind: "content";
       readonly sourceRect?: HtmlSurfacePaintSourceRect | undefined;
+      readonly surfaceId: string;
+    }
+  | {
+      readonly kind: "paint-only";
       readonly surfaceId: string;
     }
   | {
@@ -51,6 +57,7 @@ export function resolveHtmlSurfacePaintInvalidation({
 }: HtmlSurfacePaintInvalidationInput): HtmlSurfacePaintInvalidationResult {
   const dirtySurfaceInvalidations: HtmlSurfacePaintSourceInvalidation[] = [];
   const dirtySurfaceIds = new Set<string>();
+  const paintedSurfaceIds = new Set<string>();
   const transformOnlyPaintSurfaceIds = new Set<string>();
   const transformOnlyIds = normalizeSurfaceIdSet(transformOnlySourceIds);
 
@@ -58,6 +65,7 @@ export function resolveHtmlSurfacePaintInvalidation({
     return {
       dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
+      paintedSurfaceIds: [],
       transformOnlyPaintSurfaceIds: [],
     };
   }
@@ -74,6 +82,10 @@ export function resolveHtmlSurfacePaintInvalidation({
     if (!resolution) {
       continue;
     }
+    paintedSurfaceIds.add(resolution.surfaceId);
+    if (resolution.kind === "paint-only") {
+      continue;
+    }
     if (resolution.kind === "transform-only") {
       transformOnlyPaintSurfaceIds.add(resolution.surfaceId);
       continue;
@@ -88,6 +100,7 @@ export function resolveHtmlSurfacePaintInvalidation({
   return {
     dirtySurfaceInvalidations,
     dirtySurfaceIds: [...dirtySurfaceIds],
+    paintedSurfaceIds: [...paintedSurfaceIds],
     transformOnlyPaintSurfaceIds: [...transformOnlyPaintSurfaceIds],
   };
 }
@@ -107,31 +120,15 @@ function resolveChangedSource({
   readonly surfaceSelector: string | undefined;
   readonly transformOnlyIds: ReadonlySet<string>;
 }): ChangedSourceResolution | null {
-  const nearestSourceElement =
-    changedElement.closest<HTMLElement>(sourceSelector);
-  const nearestSourceId =
-    nearestSourceElement?.getAttribute(sourceIdAttribute) ?? null;
-  if (
-    nearestSourceId &&
-    sourceElementBySurfaceId.get(nearestSourceId) === nearestSourceElement
-  ) {
-    if (
-      changedElement === nearestSourceElement &&
-      transformOnlyIds.has(nearestSourceId)
-    ) {
-      return {
-        kind: "transform-only",
-        surfaceId: nearestSourceId,
-      };
-    }
-    return {
-      kind: "content",
-      sourceRect: resolveChangedElementSourceRect({
-        changedElement,
-        sourceElement: nearestSourceElement,
-      }),
-      surfaceId: nearestSourceId,
-    };
+  const nearestResolution = resolveNearestChangedSource({
+    changedElement,
+    sourceElementBySurfaceId,
+    sourceIdAttribute,
+    sourceSelector,
+    transformOnlyIds,
+  });
+  if (nearestResolution !== undefined) {
+    return nearestResolution;
   }
 
   const containedSourceId = findSingleContainedSourceId({
@@ -149,20 +146,88 @@ function resolveChangedSource({
     : null;
 }
 
-function resolveChangedElementSourceRect({
+function resolveNearestChangedSource({
   changedElement,
-  sourceElement,
+  sourceElementBySurfaceId,
+  sourceIdAttribute,
+  sourceSelector,
+  transformOnlyIds,
 }: {
   readonly changedElement: Element;
-  readonly sourceElement: HTMLElement;
-}): HtmlSurfacePaintSourceRect | undefined {
-  if (changedElement === sourceElement) {
-    return resolveHtmlSurfaceDirectPaintSourceRectHint(sourceElement);
+  readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
+  readonly sourceIdAttribute: string;
+  readonly sourceSelector: string;
+  readonly transformOnlyIds: ReadonlySet<string>;
+}): ChangedSourceResolution | null | undefined {
+  const nearestSourceElement =
+    changedElement.closest<HTMLElement>(sourceSelector);
+  if (!nearestSourceElement) {
+    return undefined;
   }
-  return resolveElementSourceRect({
-    sourceElement,
-    target: changedElement,
-  });
+  const nearestSourceId = nearestSourceElement.getAttribute(sourceIdAttribute);
+  if (!nearestSourceId) {
+    return undefined;
+  }
+  if (sourceElementBySurfaceId.get(nearestSourceId) !== nearestSourceElement) {
+    return undefined;
+  }
+  if (changedElement === nearestSourceElement) {
+    return resolveDirectSourcePaint({
+      sourceElement: nearestSourceElement,
+      sourceId: nearestSourceId,
+      transformOnlyIds,
+    });
+  }
+  return {
+    kind: "content",
+    sourceRect: resolveElementSourceRect({
+      sourceElement: nearestSourceElement,
+      target: changedElement,
+    }),
+    surfaceId: nearestSourceId,
+  };
+}
+
+function resolveDirectSourcePaint({
+  sourceElement,
+  sourceId,
+  transformOnlyIds,
+}: {
+  readonly sourceElement: HTMLElement;
+  readonly sourceId: string;
+  readonly transformOnlyIds: ReadonlySet<string>;
+}): ChangedSourceResolution | null {
+  if (transformOnlyIds.has(sourceId)) {
+    return {
+      kind: "transform-only",
+      surfaceId: sourceId,
+    };
+  }
+  const sourceRect = resolveHtmlSurfaceDirectPaintSourceRectHint(sourceElement);
+  if (sourceRect) {
+    return {
+      kind: "content",
+      sourceRect,
+      surfaceId: sourceId,
+    };
+  }
+  if (isExplicitDirtyHtmlSurfaceSource(sourceElement)) {
+    return {
+      kind: "paint-only",
+      surfaceId: sourceId,
+    };
+  }
+  return {
+    kind: "content",
+    surfaceId: sourceId,
+  };
+}
+
+function isExplicitDirtyHtmlSurfaceSource(sourceElement: HTMLElement): boolean {
+  return (
+    sourceElement.getAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE) ===
+    "true"
+  );
 }
 
 function findSingleContainedSourceId({

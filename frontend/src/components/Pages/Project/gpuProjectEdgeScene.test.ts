@@ -20,8 +20,8 @@ vi.mock("state/actions/stateMachineEdges", () => {
   };
 });
 
-import { HandlePosition } from "gpuFlow/flowTypes";
-import type { GpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
+import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import type { GpuFlowScene } from "gpuFlow/scene";
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
@@ -396,6 +396,185 @@ describe("gpuProjectEdgeScene", () => {
       },
     });
   });
+
+  it("uses retained param anchors for data-edge target positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: retainedParamAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 420, y: 129 },
+      },
+    });
+  });
+
+  it("uses retained param anchors before edge-strip input fallback anchors", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: retainedParamAnchorWithEdgeStripFallbackScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 420, y: 129 },
+      },
+    });
+  });
+
+  it("uses section scene anchors for edge-strip output positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: edgeStripOutputAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 221, y: 160 },
+        target: { x: 420, y: 160 },
+      },
+    });
+  });
+
+  it("uses section scene anchors for edge-strip input positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: edgeStripInputAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 220, y: 140 },
+        target: { x: 419, y: 175 },
+      },
+    });
+  });
+
+  it("uses section scene anchors for minimized data-edge positions", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        projectConfig: createProjectConfig({
+          edges: [createDataEdge({ id: "data-edge" })],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+        }),
+        scene: minimizedDataEdgeAnchorScene(),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "data:data-edge",
+      family: "data",
+      geometry: {
+        source: { x: 221, y: 140 },
+        target: { x: 419, y: 160 },
+      },
+    });
+  });
+
+  it("uses side-aware section scene anchors for link connection-line starts", () => {
+    const workflowSourceScene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        connectionState: {
+          connectionPosition: { x: 450, y: 220 },
+          connectionStartHandle: {
+            handleId: "workflow-source",
+            sectionId: "source",
+            type: "source",
+          },
+          connectionStatus: null,
+          transform: [0, 0, 1],
+        },
+        scene: linkHandleAnchorScene(),
+      }),
+    );
+    const workflowReverseScene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        connectionState: {
+          connectionPosition: { x: 450, y: 220 },
+          connectionStartHandle: {
+            handleId: "workflow-reverse-start",
+            sectionId: "source",
+            type: "source",
+          },
+          connectionStatus: null,
+          transform: [0, 0, 1],
+        },
+        scene: linkHandleAnchorScene(),
+      }),
+    );
+
+    expect(
+      workflowSourceScene.entries.find(
+        (entry) => entry.family === "connection",
+      ),
+    ).toMatchObject({
+      geometry: {
+        source: { x: 239, y: 140 },
+        sourceSide: "right",
+      },
+    });
+    expect(
+      workflowReverseScene.entries.find(
+        (entry) => entry.family === "connection",
+      ),
+    ).toMatchObject({
+      geometry: {
+        source: { x: 81, y: 140 },
+        sourceSide: "left",
+      },
+    });
+  });
 });
 
 function createBuildInput(
@@ -408,29 +587,6 @@ function createBuildInput(
       connectionStatus: null,
       transform: [0, 0, 1],
     },
-    portDescriptors: {
-      "source:out:source": {
-        localRect: { height: 0, width: 0, x: 120, y: 40 },
-        nodeId: "source",
-        portId: "out",
-        side: HandlePosition.Right,
-        type: "source",
-      },
-      "source:workflow-source:source": {
-        localRect: { height: 0, width: 0, x: 120, y: 40 },
-        nodeId: "source",
-        portId: "workflow-source",
-        side: HandlePosition.Right,
-        type: "source",
-      },
-      "target:in:target": {
-        localRect: { height: 0, width: 0, x: 0, y: 45 },
-        nodeId: "target",
-        portId: "in",
-        side: HandlePosition.Left,
-        type: "target",
-      },
-    } satisfies Record<string, GpuFlowPortDescriptor>,
     layoutNodes: [
       {
         height: 80,
@@ -457,6 +613,7 @@ function createBuildInput(
         target: "target-variant",
       },
     }),
+    scene: defaultProjectEdgeScene(),
     scopeViolationEdges: [],
     sectionImpls: {
       "source-impl": createChatSectionImpl({
@@ -516,5 +673,269 @@ function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
     targetSectionId: "target",
     zIndex: 0,
     ...options,
+  };
+}
+
+function defaultProjectEdgeScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      defaultSourceSectionSceneNode(),
+      defaultTargetSectionSceneNode(),
+    ],
+  };
+}
+
+function defaultSourceSectionSceneNode(): GpuFlowScene["sections"][number] {
+  return sectionSceneNode({
+    portAnchors: [
+      {
+        id: "out",
+        kind: "output",
+        localPosition: { x: 120, y: 40 },
+        side: "right",
+      },
+      {
+        id: "workflow-source",
+        kind: "output",
+        localPosition: { x: 120, y: 40 },
+        side: "right",
+      },
+    ],
+    sectionId: "source",
+    worldRect: { height: 80, width: 120, x: 100, y: 100 },
+  });
+}
+
+function defaultTargetSectionSceneNode(): GpuFlowScene["sections"][number] {
+  return sectionSceneNode({
+    portAnchors: [
+      {
+        id: "in",
+        kind: "input",
+        localPosition: { x: 0, y: 45 },
+        side: "left",
+      },
+    ],
+    sectionId: "target",
+    worldRect: { height: 90, width: 160, x: 420, y: 115 },
+  });
+}
+
+function retainedParamAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [
+      {
+        clipRect: { height: 80, width: 160, x: 420, y: 115 },
+        id: "target:param-content:unpinned",
+        ownerSectionId: "target",
+        rect: { height: 80, width: 160, x: 420, y: 115 },
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "target:param-content:unpinned",
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: "target:param-content:unpinned",
+          ownerSectionId: "target",
+          rowHeight: 28,
+          rows: [
+            {
+              controlKind: "text-like",
+              depth: 0,
+              id: "in",
+              label: "Input",
+              ports: [{ id: "in", kind: "input", side: "left" }],
+            },
+          ],
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+        zIndex: 1,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [defaultSourceSectionSceneNode()],
+  };
+}
+
+function edgeStripOutputAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "out",
+            kind: "output",
+            localPosition: { x: 121, y: 60 },
+          },
+        ],
+        sectionId: "source",
+        worldRect: { height: 80, width: 120, x: 100, y: 100 },
+      }),
+      defaultTargetSectionSceneNode(),
+    ],
+  };
+}
+
+function edgeStripInputAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      defaultSourceSectionSceneNode(),
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 60 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function retainedParamAnchorWithEdgeStripFallbackScene(): GpuFlowScene {
+  const retainedScene = retainedParamAnchorScene();
+  return {
+    ...retainedScene,
+    sections: [
+      ...retainedScene.sections,
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 60 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function minimizedDataEdgeAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "out",
+            kind: "output",
+            localPosition: { x: 121, y: 40 },
+          },
+        ],
+        sectionId: "source",
+        worldRect: { height: 80, width: 120, x: 100, y: 100 },
+      }),
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "in",
+            kind: "input",
+            localPosition: { x: -1, y: 45 },
+          },
+        ],
+        sectionId: "target",
+        worldRect: { height: 90, width: 160, x: 420, y: 115 },
+      }),
+    ],
+  };
+}
+
+function linkHandleAnchorScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [
+      sectionSceneNode({
+        portAnchors: [
+          {
+            id: "workflow-source",
+            isConnectableStart: false,
+            kind: "output",
+            localPosition: { x: 139, y: 40 },
+            side: "right",
+          },
+          {
+            connectionStartSemanticType: "target",
+            id: "workflow-reverse-start",
+            isConnectableEnd: false,
+            isConnectableStart: false,
+            kind: "output",
+            localPosition: { x: -19, y: 40 },
+            side: "left",
+          },
+        ],
+        sectionId: "source",
+        worldRect: { height: 80, width: 120, x: 100, y: 100 },
+      }),
+    ],
+  };
+}
+
+function sectionSceneNode({
+  portAnchors,
+  sectionId,
+  worldRect,
+}: Pick<GpuFlowScene["sections"][number], "portAnchors" | "sectionId"> & {
+  readonly worldRect: GpuFlowScene["sections"][number]["worldRect"];
+}): GpuFlowScene["sections"][number] {
+  return {
+    bodyRect: worldRect,
+    childLayout: { gap: { x: 0, y: 0 } },
+    childSectionIds: [],
+    childViewportRect: null,
+    chromeRect: worldRect,
+    clipRect: worldRect,
+    contentRenderer: { kind: "dom-section", surfaceId: sectionId },
+    dirty: [],
+    height: worldRect.height,
+    interactionLayer: "content",
+    layoutMode: "none",
+    localRect: worldRect,
+    nodeId: sectionId,
+    parentSectionId: null,
+    portAnchors,
+    resizePolicy: {
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      directions: [],
+      locked: false,
+      maxHeight: Number.POSITIVE_INFINITY,
+      maxWidth: Number.POSITIVE_INFINITY,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset: { x: 0, y: 0 },
+    sectionId,
+    width: worldRect.width,
+    worldRect,
+    x: worldRect.x,
+    y: worldRect.y,
+    zIndex: 0,
   };
 }

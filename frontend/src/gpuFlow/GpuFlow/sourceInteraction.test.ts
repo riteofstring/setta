@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
-import type { HtmlSurfaceTextureRecord } from "../htmlSurfaces/textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
 import { createHtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
 import { projectGpuFlowNodeSourceForPointerEvent } from "./sourceInteraction";
@@ -148,6 +148,35 @@ describe("GPU flow source interaction projection", () => {
     });
   });
 
+  it("does not synthesize flat projection when scene-owned visuals are required", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const alignSourceToClientPoint = vi.fn();
+    setRect(surface, 0, 0, 600, 400);
+
+    projectGpuFlowNodeSourceForPointerEvent({
+      event: new MouseEvent("pointermove", {
+        clientX: 50,
+        clientY: 20,
+      }) as PointerEvent,
+      nodeElementById: new Map([["node-a", source]]),
+      nodeId: "node-a",
+      nodes: [node("node-a", 0, 0, 100, 100, 1)],
+      projector: {
+        alignSourceToClientPoint,
+        clearSource: vi.fn(),
+        destroy: vi.fn(),
+        getProjectedSourceId: vi.fn(() => null),
+      } satisfies HtmlSurfaceInteractionProjector,
+      requireVisualSceneHitSurfaces: true,
+      surfaceElement: surface,
+      viewport: [0, 0, 1],
+      visualScene: createHtmlSurfaceVisualScene(),
+    });
+
+    expect(alignSourceToClientPoint).not.toHaveBeenCalled();
+  });
+
   it("fails loudly for effect-backed active sources without a hit projector", () => {
     const surface = document.createElement("div");
     const source = document.createElement("div");
@@ -214,7 +243,7 @@ function textureRecord(
   surfaceId: string,
   cssWidth: number,
   cssHeight: number,
-): HtmlSurfaceTextureRecord {
+): CommittedHtmlSurfaceTextureSnapshot {
   return {
     clampedByMaxTexture: false,
     cssHeight,

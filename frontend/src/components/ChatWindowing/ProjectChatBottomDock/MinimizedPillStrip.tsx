@@ -25,7 +25,7 @@ import {
   buildPillBaseClass,
 } from "./shared";
 
-export type MinimizedPillStripProps = {
+type MinimizedPillStripProps = {
   pills: ResolvedWindowPill[];
   visiblePills: ResolvedWindowPill[];
   pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;

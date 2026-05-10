@@ -3,11 +3,13 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import {
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
 } from "./sourceDom";
 
 export {
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
   HTML_SURFACE_SOURCE_SELECTOR,
@@ -20,7 +22,7 @@ export type HtmlSurfaceSourceElementConfig<TSource> = {
   readonly sourceId: string;
 };
 
-export type HtmlSurfaceSourceLayerProps<TSource> = {
+type HtmlSurfaceSourceLayerProps<TSource> = {
   readonly configureSourceElement?:
     | ((config: HtmlSurfaceSourceElementConfig<TSource>) => void)
     | undefined;
@@ -144,13 +146,13 @@ function HtmlSurfaceSourceChild<TSource>({
   );
 }
 
-export function createHtmlSurfaceSourceElement(
+function createHtmlSurfaceSourceElement(
   ownerDocument: Document,
 ): HTMLDivElement {
   return ownerDocument.createElement("div");
 }
 
-export function insertHtmlSurfaceSourceAfterAnchor(
+function insertHtmlSurfaceSourceAfterAnchor(
   anchor: HTMLElement,
   host: HTMLElement,
 ) {
@@ -161,7 +163,7 @@ export function insertHtmlSurfaceSourceAfterAnchor(
   parent.insertBefore(host, anchor.nextSibling);
 }
 
-export function configureHtmlSurfaceSourceElement({
+function configureHtmlSurfaceSourceElement({
   className = HTML_SURFACE_SOURCE_CLASS_NAME,
   host,
   preservedClassNames,
@@ -177,13 +179,14 @@ export function configureHtmlSurfaceSourceElement({
     host.classList,
     preservedClassNames,
   );
+  host.setAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE, "true");
   host.dataset.gpuFlowHtmlSource = "true";
   host.setAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE, sourceId);
   setHtmlSurfaceSourceBaseStyle(host);
   clearHtmlSurfaceSourceVisibility(host);
 }
 
-export function mergeHtmlSurfaceSourceClassName(
+function mergeHtmlSurfaceSourceClassName(
   baseClassName: string,
   currentClassList: DOMTokenList,
   preservedClassNames: readonly string[] | undefined = undefined,
@@ -200,7 +203,7 @@ export function mergeHtmlSurfaceSourceClassName(
   return [...classes].join(" ");
 }
 
-export function setHtmlSurfaceSourceBaseStyle(element: HTMLElement) {
+function setHtmlSurfaceSourceBaseStyle(element: HTMLElement) {
   setStyleValue(element, "contain", "layout paint style");
   setStyleValue(element, "left", "0px");
   setStyleValue(element, "pointerEvents", "none");

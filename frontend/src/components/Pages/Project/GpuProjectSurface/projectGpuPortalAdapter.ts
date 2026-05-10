@@ -1,20 +1,30 @@
 import type { GpuFlowPortalDescriptor } from "gpuFlow/portals/portalManager";
 
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
+
+export const PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID =
+  "setta-gpu-retained-codemirror-tooltips";
+export const PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID =
+  "setta-gpu-retained-param-validation";
 
 const PROJECT_GPU_PORTALS = [
   {
     className: "setta-codemirror-tooltips",
     coordinateSpace: "source-local",
     id: CODEMIRROR_TOOLTIP_PARENT_ID,
+    retainedContentNative: true,
   },
   {
-    className: "setta-popover-portals",
+    className: "setta-codemirror-tooltips setta-retained-codemirror-tooltips",
     coordinateSpace: "viewport",
-    id: SETTA_POPOVER_PORTAL_PARENT_ID,
+    id: PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+    retainedContentNative: true,
+  },
+  {
+    className: "setta-retained-param-validation",
+    coordinateSpace: "viewport",
+    id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+    retainedContentNative: true,
   },
 ] as const satisfies readonly GpuFlowPortalDescriptor[];
 

@@ -158,16 +158,6 @@ vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
   ),
 }));
 
-vi.mock("components/Section/Container/ManyNestedSections", () => ({
-  MaybeManyNestedSections: () => (
-    <div data-testid="mock-many-nested-sections" />
-  ),
-}));
-
-vi.mock("forks/dnd-kit/SectionDndContext", () => ({
-  SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
-
 function MockUnifiedChatSurface({
   dataTestId,
   projectChatId,
@@ -423,6 +413,36 @@ export function createTextSectionFixture({
     implId,
     impl: {
       type: SectionTypeEnum.TextBlock,
+    } satisfies MockSectionImpl,
+  };
+}
+
+export function createGroupSectionFixture({
+  sectionId,
+  sectionName,
+  children = [],
+}: {
+  sectionId: string;
+  sectionName: string;
+  children?: string[];
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: {
+      type: SectionTypeEnum.Group,
+      children,
     } satisfies MockSectionImpl,
   };
 }

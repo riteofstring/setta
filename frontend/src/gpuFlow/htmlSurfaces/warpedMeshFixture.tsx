@@ -36,8 +36,8 @@ import {
 import type { HtmlSurfaceDirtyRect } from "./textureDirtyTiles";
 import {
   createHtmlSurfaceTextureManager,
+  type CommittedHtmlSurfaceTextureSnapshot,
   type HtmlSurfaceTextureManager,
-  type HtmlSurfaceTextureRecord,
 } from "./textures";
 import { DEFAULT_HTML_SURFACE_TEXTURE_UPLOAD_BUDGET_BYTES } from "./textureTiles";
 import {
@@ -62,13 +62,13 @@ export const HTML_SURFACE_WARPED_MESH_FIXTURE_RECT: FlowRect = {
   y: 48,
 };
 
-export type HtmlSurfaceWarpedMeshFixtureSource = {
+type HtmlSurfaceWarpedMeshFixtureSource = {
   readonly height: number;
   readonly surfaceId: string;
   readonly width: number;
 };
 
-export type HtmlSurfaceWarpedMeshFixtureMetrics = {
+type HtmlSurfaceWarpedMeshFixtureMetrics = {
   readonly dirtyMarks: number;
   readonly lastHit: HtmlSurfaceHitProjection | null;
   readonly paintEvents: number;
@@ -81,7 +81,7 @@ export type HtmlSurfaceWarpedMeshFixtureMetrics = {
   readonly textureUploads: number;
 };
 
-export type HtmlSurfaceWarpedMeshFixtureProps = {
+type HtmlSurfaceWarpedMeshFixtureProps = {
   readonly className?: string | undefined;
   readonly onMetrics?:
     | ((metrics: HtmlSurfaceWarpedMeshFixtureMetrics) => void)
@@ -168,7 +168,7 @@ export function HtmlSurfaceWarpedMeshFixture({
     ) => {
       dirtyMarksRef.current += 1;
       const frame = nextFixtureFrame(frameRef);
-      textureManagerRef.current?.markSurfaceTextureDirty({
+      const queued = textureManagerRef.current?.markSurfaceTextureDirty({
         content: true,
         frame,
         priority: "interactive",
@@ -176,7 +176,7 @@ export function HtmlSurfaceWarpedMeshFixture({
         ...(options.sourceRect ? { sourceRect: options.sourceRect } : {}),
         surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
       });
-      if (options.scheduleFrame !== false) {
+      if (queued && options.scheduleFrame !== false) {
         surfaceRef.current?.requestFrame("texture-upload");
       }
       emitMetrics();
@@ -261,7 +261,7 @@ export function HtmlSurfaceWarpedMeshFixture({
           runtime,
           sourceElement: () => sourceElementRef.current,
           texture: () =>
-            textureManagerRef.current?.getSurfaceTexture(
+            textureManagerRef.current?.getCommittedSurfaceTexture(
               HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
             ) ?? null,
           transformOnlyPaintRef,
@@ -438,7 +438,7 @@ function renderWarpedMeshFixtureFrame({
     maxDurationMs: 4,
     maxUploads: 2,
   });
-  const texture = textureManager.getSurfaceTexture(
+  const texture = textureManager.getCommittedSurfaceTexture(
     HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
   );
   if (!texture || texture.lastUploadFrame < 0) {
@@ -467,7 +467,7 @@ function renderWarpedMeshFixtureFrame({
 export function createHtmlSurfaceWarpedMeshFixtureScene({
   texture,
 }: {
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
 }): HtmlSurfaceVisualScene {
   return createHtmlSurfaceVisualScene({
     meshSurfaces: [
@@ -492,7 +492,7 @@ export function createHtmlSurfaceWarpedMeshVisual({
   readonly rect: FlowRect;
   readonly rows?: number | undefined;
   readonly surfaceId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly warpPx?: number | undefined;
 }): HtmlSurfaceMeshVisual {
   const vertices = createWarpedMeshVertices({ columns, rect, rows, warpPx });
@@ -516,7 +516,7 @@ export function resolveHtmlSurfaceWarpedMeshFixtureHit({
   readonly clientX: number;
   readonly clientY: number;
   readonly surfaceElement: HTMLElement;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
 }): HtmlSurfaceHitProjection | null {
   const scene = createHtmlSurfaceWarpedMeshFixtureScene({ texture });
   return resolveHtmlSurfaceHitAtClientPoint({
@@ -691,7 +691,7 @@ function attachWarpedMeshFixturePointerProjection({
   readonly projector: HtmlSurfaceInteractionProjector;
   readonly runtime: GpuFlowRuntime;
   readonly sourceElement: () => HTMLElement | null;
-  readonly texture: () => HtmlSurfaceTextureRecord | null;
+  readonly texture: () => CommittedHtmlSurfaceTextureSnapshot | null;
   readonly transformOnlyPaintRef: { current: boolean };
   readonly updateLastHit: (hit: HtmlSurfaceHitProjection | null) => void;
 }) {

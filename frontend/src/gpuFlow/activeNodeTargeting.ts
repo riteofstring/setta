@@ -56,6 +56,7 @@ type ResolveGpuNodePointerHandoffTargetInput = {
   readonly projectSourceForHitTesting?:
     | ((projection: GpuNodeSourceProjection) => void)
     | undefined;
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -110,6 +111,7 @@ export function resolveGpuNodePointerHandoffTarget({
   elementByNodeId,
   nodes,
   projectSourceForHitTesting,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -119,6 +121,7 @@ export function resolveGpuNodePointerHandoffTarget({
     clientY,
     effectProjectors,
     nodes,
+    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
@@ -167,6 +170,7 @@ export function resolveGpuNodeWheelHandoffTarget({
   elementByNodeId,
   nodes,
   projectSourceForHitTesting,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -176,6 +180,7 @@ export function resolveGpuNodeWheelHandoffTarget({
     clientY,
     effectProjectors,
     nodes,
+    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
@@ -466,6 +471,7 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
   clientY,
   effectProjectors,
   nodes,
+  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -476,6 +482,7 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
     | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
     | undefined;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -490,7 +497,15 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
   nodes.forEach((node) => {
     nodeById.set(node.nodeId, node);
   });
-  const scene = resolveGpuNodeHitScene({ nodeById, nodes, visualScene });
+  const scene = resolveGpuNodeHitScene({
+    nodeById,
+    nodes,
+    requireVisualSceneHitSurfaces,
+    visualScene,
+  });
+  if (!scene) {
+    return null;
+  }
   const hit = resolveHtmlSurfaceHitAtClientPoint({
     clientX,
     clientY,
@@ -518,12 +533,14 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
 function resolveGpuNodeHitScene({
   nodeById,
   nodes,
+  requireVisualSceneHitSurfaces = false,
   visualScene,
 }: {
   readonly nodeById: ReadonlyMap<string, GpuNodeLayout>;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly visualScene: HtmlSurfaceVisualScene | undefined;
-}): HtmlSurfaceHitScene {
+}): HtmlSurfaceHitScene | null {
   if (visualScene) {
     const nodeVisualScene = filterVisualSceneBySurfaceIds(
       visualScene,
@@ -532,6 +549,9 @@ function resolveGpuNodeHitScene({
     if (hasVisualSceneHitSurfaces(nodeVisualScene)) {
       return createHtmlSurfaceHitSceneFromVisualScene(nodeVisualScene);
     }
+  }
+  if (requireVisualSceneHitSurfaces) {
+    return null;
   }
 
   const flatSurfaces: HtmlSurfaceFlatHitSurface[] = [];
@@ -555,7 +575,13 @@ function filterVisualSceneBySurfaceIds(
     flatSurfaces: scene.flatSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),
+    lateFlatSurfaces: scene.lateFlatSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
     meshSurfaces: scene.meshSurfaces.filter((surface) =>
+      surfaceIds.has(surface.surfaceId),
+    ),
+    solidRoundedRectSurfaces: scene.solidRoundedRectSurfaces.filter((surface) =>
       surfaceIds.has(surface.surfaceId),
     ),
     tiledFlatSurfaces: scene.tiledFlatSurfaces.filter((surface) =>
@@ -567,6 +593,7 @@ function filterVisualSceneBySurfaceIds(
 function hasVisualSceneHitSurfaces(scene: HtmlSurfaceVisualScene): boolean {
   return (
     scene.flatSurfaces.length > 0 ||
+    scene.lateFlatSurfaces.length > 0 ||
     scene.tiledFlatSurfaces.length > 0 ||
     scene.meshSurfaces.length > 0 ||
     scene.effectSurfaces.length > 0

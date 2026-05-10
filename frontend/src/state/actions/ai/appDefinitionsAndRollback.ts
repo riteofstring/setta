@@ -67,7 +67,7 @@ import {
   handleAgenticScopeViolation,
 } from "./streamingChunksAndTools";
 
-export function resolveAppDefinitionToolName(
+function resolveAppDefinitionToolName(
   toolMessage: ToolChatMessage,
 ): string | null {
   const toolName =
@@ -78,7 +78,7 @@ export function resolveAppDefinitionToolName(
   return toolName;
 }
 
-export function maybeClearFailedStreamAppDefinition(
+function maybeClearFailedStreamAppDefinition(
   toolMessage: ToolChatMessage,
 ): void {
   if (
@@ -91,7 +91,7 @@ export function maybeClearFailedStreamAppDefinition(
   }
 }
 
-export function applyAppDefinitionStructuredContent(
+function applyAppDefinitionStructuredContent(
   structured: Record<string, unknown>,
 ): void {
   if (!applyAppDefinitionStructuredContentToStore(structured)) {
@@ -121,7 +121,7 @@ export function maybeApplyAppDefinitionToolResult(
   }
 }
 
-export function handleToolResult(
+function handleToolResult(
   chatId: string,
   chunk: ToolResultEvent,
   projectConfigId: string,
@@ -175,7 +175,7 @@ export function handleMessageFinalized(
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
 }
 
-export function handleToolArgumentPreviewDelta(
+function handleToolArgumentPreviewDelta(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
   projectConfigId: string,
@@ -230,7 +230,7 @@ export function applyStreamingChunkToChatDetails(
   );
 }
 
-export function ensureToolCallPlaceholder(
+function ensureToolCallPlaceholder(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
 ) {
@@ -357,7 +357,7 @@ export function applyToolArgumentPreviewDeltaToPreviewStore(
   });
 }
 
-export function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectState {
+function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectState {
   return {
     previewCodeBySectionId: {},
     previewParamValueBySectionAndParamId: {},
@@ -365,7 +365,7 @@ export function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProj
   };
 }
 
-export function applyPreviewDelta(
+function applyPreviewDelta(
   existing: ToolArgumentPreviewEntry | undefined,
   previewDelta: string,
   toolCallId: string,
@@ -475,7 +475,7 @@ export function updatePendingChatDetails(
   });
 }
 
-export function mergeChatDetails(
+function mergeChatDetails(
   existingDetails: ChatDetails,
   pendingDetails: ChatDetails,
   preserveWaitingForResponse: boolean,

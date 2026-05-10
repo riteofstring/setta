@@ -42,13 +42,13 @@ from .listener_models import (
     _CONTROL_LISTENER_MESSAGE_MODELS,
     _LISTENER_ACK_STATUS_ACCEPTED,
     _LISTENER_ACK_STATUS_REJECTED,
-    _hosts_are_equivalent,
-    _normalize_listener_message_type,
-    _validate_generated_listener_message,
     ListenerDependencyEventContent,
     ListenerForceRefreshEvent,
     ListenerRealtimeEventContent,
     ListenerSessionSecret,
+    _hosts_are_equivalent,
+    _normalize_listener_message_type,
+    _validate_generated_listener_message,
 )
 
 if TYPE_CHECKING:

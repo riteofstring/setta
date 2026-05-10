@@ -31,10 +31,13 @@ type SectionContainerCoreProps = {
   sectionId: string;
   isTopLevel: boolean;
   isUserView: boolean;
+  fillSurface?: boolean;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  renderParamRows: boolean;
+  scenePortGeometry?: boolean;
 };
 
 type SectionContainerSnapshot = {
@@ -64,7 +67,7 @@ const EDGE_HANDLE_COMPONENTS = {
   "state-machine": StateMachineEdgeHandles,
 } satisfies Record<
   Exclude<SectionEdgeHandleMode, "none">,
-  React.ComponentType<{ isUserView: boolean }>
+  React.ComponentType<{ isUserView: boolean; scenePortGeometry?: boolean }>
 >;
 
 function getSectionContainerSnapshot(
@@ -207,25 +210,35 @@ function getSectionEdgeHandleMode({
 function SectionEdgeHandles({
   isUserView,
   mode,
+  scenePortGeometry,
 }: {
   isUserView: boolean;
   mode: SectionEdgeHandleMode;
+  scenePortGeometry: boolean;
 }) {
   if (mode === "none") {
     return null;
   }
   const EdgeHandles = EDGE_HANDLE_COMPONENTS[mode];
-  return <EdgeHandles isUserView={isUserView} />;
+  return (
+    <EdgeHandles
+      isUserView={isUserView}
+      scenePortGeometry={scenePortGeometry}
+    />
+  );
 }
 
 function _SectionContainerCore({
   sectionId,
   isTopLevel,
   isUserView,
+  fillSurface,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  renderParamRows,
+  scenePortGeometry,
 }: SectionContainerCoreProps) {
   const {
     sectionTypeName,
@@ -280,6 +293,10 @@ function _SectionContainerCore({
     (state) => state.viewportInteractionActive,
   );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
+  const surfaceFillsNode = resolveOptionalSectionSurfaceFlag(
+    fillSurface,
+    isTopLevel,
+  );
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -293,7 +310,7 @@ function _SectionContainerCore({
     omitAgenticHandleScopeClass,
     aiHighlightClassName,
     scopeHighlightClassName,
-    ...getTopLevelSectionShellSizeClassName(isTopLevel),
+    ...getTopLevelSectionShellSizeClassName(surfaceFillsNode),
   });
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
@@ -315,22 +332,57 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
+      <SectionEdgeHandles
+        isUserView={isUserView}
+        mode={edgeHandleMode}
+        scenePortGeometry={scenePortGeometry === true}
+      />
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        renderParamRows={renderParamRows}
+        scenePortGeometry={scenePortGeometry === true}
       />
     </section>
   );
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView && p.isTopLevel === n.isTopLevel,
+  areSectionContainerCorePropsEqual,
 );
+
+function areSectionContainerCorePropsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    prev.isUserView === next.isUserView &&
+    prev.isTopLevel === next.isTopLevel &&
+    prev.renderParamRows === next.renderParamRows &&
+    (prev.scenePortGeometry ?? false) === (next.scenePortGeometry ?? false) &&
+    sectionContainerCoreSurfaceOptionsEqual(prev, next)
+  );
+}
+
+function sectionContainerCoreSurfaceOptionsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    resolveOptionalSectionSurfaceFlag(prev.fillSurface, prev.isTopLevel) ===
+    resolveOptionalSectionSurfaceFlag(next.fillSurface, next.isTopLevel)
+  );
+}
+
+function resolveOptionalSectionSurfaceFlag(
+  value: boolean | undefined,
+  fallback: boolean,
+): boolean {
+  return value ?? fallback;
+}

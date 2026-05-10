@@ -1,4 +1,3 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
@@ -76,10 +75,6 @@ export function getOnSectionClick(sectionId: string) {
     }
     applyActiveSectionChange({ interaction: "section-click", sectionId });
   };
-}
-
-export function useHasTempNested(sectionId: string) {
-  return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
 }
 
 export function useAiSectionHighlight(

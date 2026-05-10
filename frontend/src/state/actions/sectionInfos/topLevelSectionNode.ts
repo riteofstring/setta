@@ -9,7 +9,7 @@ const DEFAULT_TOP_LEVEL_SECTION_WIDTH = 250;
 const DEFAULT_TOP_LEVEL_SECTION_HEIGHT = 150;
 // SectionSize records the inner resize surface; GpuFlow lays out the outer
 // section shell, whose border adds one CSS pixel on each side.
-export const TOP_LEVEL_SECTION_SHELL_CHROME_PX = 2;
+const TOP_LEVEL_SECTION_SHELL_CHROME_PX = 2;
 
 function getPositiveFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -42,13 +42,11 @@ export function toTopLevelSectionOuterDimension(
   return sectionSizeDimension + TOP_LEVEL_SECTION_SHELL_CHROME_PX;
 }
 
-export function toTopLevelSectionInnerDimension(
-  nodeDimension: number,
-): number {
+export function toTopLevelSectionInnerDimension(nodeDimension: number): number {
   return Math.max(nodeDimension - TOP_LEVEL_SECTION_SHELL_CHROME_PX, 0);
 }
 
-export function getSectionNodeStyle(
+function getSectionNodeStyle(
   sectionImpl: BaseSectionImplUnion | null,
   darkMode: boolean,
 ) {

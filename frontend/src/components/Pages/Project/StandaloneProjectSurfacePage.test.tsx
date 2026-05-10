@@ -15,6 +15,7 @@ import {
   NavigateButton,
   click,
   createChatSectionFixture,
+  createGroupSectionFixture,
   createTextSectionFixture,
   getStandaloneProjectSurfaceMocks,
   resetStandaloneProjectSurfaceMocks,
@@ -468,6 +469,56 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(
       host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
     ).toBeNull();
+  });
+
+  it("does not mount standalone nested section DOM for group section routes", async () => {
+    const groupSection = createGroupSectionFixture({
+      sectionId: "section-group",
+      sectionName: "group_section",
+      children: ["child-a", "child-b"],
+    });
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {},
+        windowSpaceIdsBySlug: {},
+        sectionVariantMap: {
+          [groupSection.sectionId]: groupSection.variantId,
+        },
+        sectionIdsByPathSlug: {
+          group_section: [groupSection.sectionId],
+        },
+      },
+      sections: {
+        [groupSection.sectionId]: groupSection.core,
+      },
+      sectionVariants: {
+        [groupSection.variantId]: groupSection.variant,
+      },
+      sectionImpls: {
+        [groupSection.implId]: groupSection.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/section/group_section"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/section/:sectionSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    const surface = host.querySelector(
+      '[data-testid="mock-section-window-surface"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-has-body-override")).toBe("false");
   });
 
   it("fails closed for standalone window spaces with managed section-mode chat windows when deployment policy disallows managed chat", async () => {

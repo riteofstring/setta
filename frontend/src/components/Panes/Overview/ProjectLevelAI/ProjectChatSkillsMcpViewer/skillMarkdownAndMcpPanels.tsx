@@ -204,7 +204,7 @@ export function resolveCanSaveSelectedSkill(args: {
   );
 }
 
-export function PathGroupHeader({
+function PathGroupHeader({
   title,
   path,
   onCopyPath,
@@ -251,18 +251,18 @@ export function PathGroupHeader({
   );
 }
 
-export type SkillListItemProps = {
+type SkillListItemProps = {
   onSelectSkill: (skillId: string) => void;
   selectedSkillId: string | null;
   skill: SkillEntry;
   status: SkillStatusEntry;
 };
 
-export type SkillStatusBadgesProps = {
+type SkillStatusBadgesProps = {
   status: SkillStatusEntry;
 };
 
-export function SkillApplicabilityBadge({ status }: SkillStatusBadgesProps) {
+function SkillApplicabilityBadge({ status }: SkillStatusBadgesProps) {
   if (!status?.isApplicable) {
     return null;
   }
@@ -276,7 +276,7 @@ export function SkillApplicabilityBadge({ status }: SkillStatusBadgesProps) {
   );
 }
 
-export function SkillActivityBadge({ status }: SkillStatusBadgesProps) {
+function SkillActivityBadge({ status }: SkillStatusBadgesProps) {
   if (status?.activityState === "active") {
     return (
       <span
@@ -304,7 +304,7 @@ export function SkillActivityBadge({ status }: SkillStatusBadgesProps) {
   return null;
 }
 
-export function SkillStatusBadges({ status }: SkillStatusBadgesProps) {
+function SkillStatusBadges({ status }: SkillStatusBadgesProps) {
   if (!status?.isApplicable && !status?.activityState) {
     return null;
   }
@@ -316,7 +316,7 @@ export function SkillStatusBadges({ status }: SkillStatusBadgesProps) {
   );
 }
 
-export function SkillListItem({
+function SkillListItem({
   onSelectSkill,
   selectedSkillId,
   skill,
@@ -353,7 +353,7 @@ export function SkillListItem({
   );
 }
 
-export type McpSectionProps = {
+type McpSectionProps = {
   mcpServerGroups: McpServerGroup[];
   mcpRuntimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   mcpRuntimeStatusError: string | null;
@@ -464,7 +464,7 @@ export function McpSection({
   );
 }
 
-export type SkillGroupsPanelProps = {
+type SkillGroupsPanelProps = {
   groupedSkills: SkillGroup[];
   isSkillMarkdownViewerOpen: boolean;
   onCopyPath: (path: string | null) => void;
@@ -566,7 +566,7 @@ export function SkillGroupsPanel({
   );
 }
 
-export type SkillMarkdownViewerPanelProps = {
+type SkillMarkdownViewerPanelProps = {
   canSaveSelectedSkill: boolean;
   codeMirrorTheme: CodeMirrorTheme;
   editableMarkdownViewerExtensions: CodeMirrorExtensions;
@@ -588,7 +588,7 @@ export type SkillMarkdownViewerPanelProps = {
   skillPreviewTruncationNotice: string | null;
 };
 
-export type SkillMarkdownToolbarProps = {
+type SkillMarkdownToolbarProps = {
   canSaveSelectedSkill: boolean;
   isRawMarkdownView: boolean;
   onSaveSelectedCustomSkill: () => void;
@@ -596,7 +596,7 @@ export type SkillMarkdownToolbarProps = {
   saveSelectedSkillButtonTitle: string;
 };
 
-export function SkillMarkdownToolbar({
+function SkillMarkdownToolbar({
   canSaveSelectedSkill,
   isRawMarkdownView,
   onSaveSelectedCustomSkill,
@@ -650,7 +650,7 @@ export function SkillMarkdownToolbar({
   );
 }
 
-export type SkillMarkdownBodyProps = {
+type SkillMarkdownBodyProps = {
   codeMirrorTheme: CodeMirrorTheme;
   editableMarkdownViewerExtensions: CodeMirrorExtensions;
   isRawMarkdownView: boolean;
@@ -663,7 +663,7 @@ export type SkillMarkdownBodyProps = {
   skillPreviewContent: string;
 };
 
-export function SkillMarkdownBody({
+function SkillMarkdownBody({
   codeMirrorTheme,
   editableMarkdownViewerExtensions,
   isRawMarkdownView,
@@ -717,7 +717,7 @@ export function SkillMarkdownBody({
   );
 }
 
-export type SkillMarkdownViewerContentProps = {
+type SkillMarkdownViewerContentProps = {
   canSaveSelectedSkill: boolean;
   codeMirrorTheme: CodeMirrorTheme;
   editableMarkdownViewerExtensions: CodeMirrorExtensions;
@@ -738,7 +738,7 @@ export type SkillMarkdownViewerContentProps = {
   skillPreviewTruncationNotice: string | null;
 };
 
-export function SkillMarkdownViewerContent({
+function SkillMarkdownViewerContent({
   canSaveSelectedSkill,
   codeMirrorTheme,
   editableMarkdownViewerExtensions,

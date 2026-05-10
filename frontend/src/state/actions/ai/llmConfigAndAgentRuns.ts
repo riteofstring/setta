@@ -81,16 +81,16 @@ import {
   UpdateTranscriptionProfileBody,
 } from "./apiKeysAndHealth";
 
-export let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
+let llmApiKeysSaveQueue: Promise<void> = Promise.resolve();
 
-export let agentRunsLoadPromise: Promise<void> | null = null;
+let agentRunsLoadPromise: Promise<void> | null = null;
 
-export let agentRunsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let agentRunsRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
-export let agentRunsTransientFailureCount = 0;
+let agentRunsTransientFailureCount = 0;
 
 // eslint-disable-next-line complexity
-export async function persistLLMApiKeysMutation(
+async function persistLLMApiKeysMutation(
   mutation: APIKeysMutation,
 ): Promise<boolean> {
   const MAX_RETRIES = 3;
@@ -202,7 +202,7 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
   });
 }
 
-export function clearScheduledAgentRunsRetry(): void {
+function clearScheduledAgentRunsRetry(): void {
   if (!agentRunsRetryTimer) {
     return;
   }
@@ -210,7 +210,7 @@ export function clearScheduledAgentRunsRetry(): void {
   agentRunsRetryTimer = null;
 }
 
-export function scheduleAgentRunsRetry(transientFailureCount: number): void {
+function scheduleAgentRunsRetry(transientFailureCount: number): void {
   if (agentRunsRetryTimer) {
     return;
   }
@@ -298,7 +298,7 @@ export function receiveAgentRunUpdate(payload: AgentRun) {
   });
 }
 
-export function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
+function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
   useAIStore.setState((state) => ({
@@ -401,7 +401,7 @@ export function receiveExternalAgentConfigsUpdate(
   void loadExternalAgentHealth(true);
 }
 
-export function receiveExternalAgentHealthUpdate(
+function receiveExternalAgentHealthUpdate(
   payload: Array<ExternalAgentHealthStatus>,
 ) {
   useAIStore.setState({
@@ -476,14 +476,11 @@ export function receiveTranscriptionProfilesUpdate(
   });
 }
 
-export type HasId = {
+type HasId = {
   id: string;
 };
 
-export function upsertById<T extends HasId>(
-  items: Array<T>,
-  entry: T,
-): Array<T> {
+function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
   const index = items.findIndex((item) => item.id === entry.id);
   if (index === -1) {
     return [...items, entry];
@@ -493,10 +490,7 @@ export function upsertById<T extends HasId>(
   return next;
 }
 
-export function removeById<T extends HasId>(
-  items: Array<T>,
-  id: string,
-): Array<T> {
+function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
   return items.filter((item) => item.id !== id);
 }
 
@@ -910,7 +904,7 @@ export function getChatAppGenerationDetailsForTarget(
   );
 }
 
-export function normalizePendingChatSurfaceId(
+function normalizePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string | null {
   if (typeof surfaceId !== "string") {

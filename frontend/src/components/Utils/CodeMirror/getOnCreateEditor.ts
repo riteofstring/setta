@@ -1,11 +1,17 @@
 import { Completion, CompletionSource } from "@codemirror/autocomplete";
+import type { EditorView } from "@codemirror/view";
+import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 import { getZoom } from "gpuFlow/viewportActions";
+
+type GpuFlowPaintableCanvas = HTMLCanvasElement & {
+  readonly requestPaint?: () => void;
+};
 
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
   // This is a hacky solution to that problem.
   if (!value && defaultVal) {
-    const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
+    const divs = document.querySelectorAll<HTMLElement>(`#${divId} .cm-cursor`);
     divs.forEach((div) => {
       div.style.height = `${14 * getZoom()}px`;
     });
@@ -33,7 +39,34 @@ export function getOnCreateEditor({
 
     fixPlaceholderCursor(divId, value, defaultVal);
     setRealIsInitialized(true);
+    requestGpuFlowCodeMirrorActivationPaint(view);
   };
+}
+
+export function requestGpuFlowCodeMirrorActivationPaint(
+  view: Pick<EditorView, "dom">,
+) {
+  scheduleGpuFlowCodeMirrorActivationPaint(() => {
+    dispatchGpuFlowNodeDirtyEvent(view.dom, {
+      priority: "interactive",
+      reason: "focus",
+    });
+    getGpuFlowPaintableCanvas(view.dom)?.requestPaint?.();
+  });
+}
+
+function scheduleGpuFlowCodeMirrorActivationPaint(callback: () => void) {
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(callback);
+    return;
+  }
+  callback();
+}
+
+function getGpuFlowPaintableCanvas(
+  element: Element,
+): GpuFlowPaintableCanvas | null {
+  return element.closest<GpuFlowPaintableCanvas>("canvas[layoutsubtree]");
 }
 
 function getFromTo(options, before, context) {
