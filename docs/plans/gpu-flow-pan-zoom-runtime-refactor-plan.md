@@ -175,6 +175,8 @@ Diagnostics are supporting evidence, not the acceptance criteria.
 - Do not keep dual viewport ownership.
 - Do not add legacy shims or old-field aliases.
 - Do not tune texture upload budgets as the primary fix.
+- Do not broaden retained paint scheduling before the viewport runtime baseline
+  proves retained maintenance is still blocking the hot path.
 - Do not replace behavior tests with queue-name, store-shape, or internal-counter assertions.
 - Do not add a new framework or third-party renderer dependency unless a later design note proves it is necessary.
 
@@ -201,6 +203,24 @@ Scenario:
    - at least 120 wheel events or an equivalent 2-3 second burst
    - dense trackpad-like deltas rather than one large mouse-wheel jump
 7. Repeat with scroll-pan, using the settings `panOnScroll` path if needed.
+
+Test driver constraints:
+
+- Prefer real Playwright input for the primary measured path:
+  `page.keyboard.down(...)`, `page.mouse.move(...)`, and `page.mouse.wheel(...)`
+  over the canvas target. Use synthetic `WheelEvent` dispatch only for helper
+  probes that are not used to assert native scroll prevention.
+- Run a short warmup gesture after All Settings has settled, then start the
+  measured burst after at least one quiet animation frame.
+- Exclude only a bounded warmup window from the measurement, for example the
+  first 300 ms or first 10 sampled frames, whichever is smaller. Report both
+  raw and warmup-excluded frame distributions.
+- Keep the local acceptance budget strict. If CI needs a separate quarantine or
+  observation threshold later, document that separately and do not silently
+  loosen the local target.
+- The failure output must include the event spacing used by the driver so a
+  later pass cannot accidentally turn the dense trackpad-like burst into a slow
+  mouse-wheel sequence.
 
 Observed assertions:
 
@@ -289,7 +309,23 @@ The report must include:
 
 ## Implementation Plan
 
-### 2. Define The Runtime Boundary
+### 2. Audit Viewport Consumers And Define The Runtime Boundary
+
+Before implementation, audit every current viewport-store transform consumer and
+decide whether it belongs in the runtime or on committed observer snapshots.
+
+Required audit shape:
+
+| Consumer | Current trigger | Purpose | Runtime owner or committed snapshot | Delete/replace path |
+| --- | --- | --- | --- | --- |
+| `flowSurface` viewport subscription | public store transform | canvas frame driver | runtime | replace with runtime RAF frame request |
+| DOM island layer | public store transform -> React state | overlay positioning | runtime overlay manager | delete transform-through-React path |
+| minimap and controls | public store transform | observation/control UI | committed snapshot | bounded post-frame publication |
+| debug and Chrome repro surfaces | public store transform / frame events | diagnostics | sampled committed snapshot | low-volume pan/zoom profile |
+
+The table above is a starting point, not a complete inventory. The actual Step 2
+change should include all `useGpuFlowViewportStore`, `viewportStore.subscribe`,
+and direct transform-mutation call sites relevant to GPU-flow pan/zoom.
 
 Introduce a concrete runtime boundary for GPU-flow:
 
@@ -343,9 +379,26 @@ Move these responsibilities into the overlay manager:
 
 Keep React responsible for the overlay contents and lifecycle, but not for per-frame transform application.
 
-### 6. Refactor Retained Content Paint Scheduling
+### 6. Decouple Retained Maintenance From Viewport Frames
 
-Replace frame-time retained-content maintenance with an explicit dirty-source paint scheduler.
+First-pass requirement:
+
+- Viewport-only frames draw from already committed visuals.
+- Viewport-only frames do not prepare retained source DOM merely because the
+  viewport moved.
+- Visible missing content and active-editor handoff work may run during active
+  pan/zoom only under a strict, measured budget.
+- Refinement and prefetch work wait until the interaction is idle.
+- Stale committed visuals remain drawable until replacement is ready.
+
+Do not start a broad retained paint scheduler refactor in the first runtime
+pass unless the Step 1 baseline and the post-runtime measurement both show
+retained maintenance still blocks viewport frames.
+
+Conditional follow-up, if measurements require it:
+
+Replace frame-time retained-content maintenance with an explicit dirty-source
+paint scheduler.
 
 Required behavior:
 
@@ -360,7 +413,7 @@ This should preserve the retained text-like row guarantees from `docs/plans/reta
 
 ### 7. Move Minimap, Controls, And Debug Observation Off The Hot Path
 
-Audit all `useGpuFlowViewportStore` and viewport-store subscribers.
+Use the Step 2 audit to migrate every remaining observer.
 
 For each consumer:
 
@@ -397,24 +450,52 @@ Acceptance targets:
 - texture upload count remains bounded during active interaction
 - Chrome repro diagnostic volume is low enough not to dominate the capture
 
+Deletion checks:
+
+- No active wheel, trackpad pan, or pointer pan hot path synchronously mutates
+  public viewport state before the runtime RAF consumes pending input.
+- `flowSurface` does not subscribe to public viewport store changes solely to
+  request viewport frames.
+- DOM islands and active editor overlays do not use React state updates solely
+  to follow viewport transforms.
+- The runtime has one live viewport owner. There is no branch that keeps the old
+  direct wheel/pan store path alive beside the runtime path.
+- Retained maintenance work is not triggered merely because a viewport-only
+  frame occurred.
+
 ## Suggested Execution Order
 
 1. Add failing pan/zoom performance tests and baseline report.
-2. Introduce runtime/scene snapshot types and migration target.
-3. Move wheel/pan input into runtime aggregation.
-4. Draw viewport frames from runtime live viewport.
-5. Replace DOM island and active-editor per-frame React transform updates.
-6. Refactor retained paint scheduling around dirty-source paint passes.
-7. Move minimap/controls/debug observation to committed snapshots.
-8. Delete superseded direct-store and React-transform paths.
-9. Re-run tests, append after report, and tighten budgets if the measured headroom supports it.
+2. Audit viewport consumers and classify each as runtime-owned or committed-snapshot observation.
+3. Introduce runtime/scene snapshot types and migration target.
+4. Move wheel/pan input into runtime aggregation.
+5. Draw viewport frames from runtime live viewport.
+6. Replace DOM island and active-editor per-frame React transform updates.
+7. Prevent viewport-only frames from running retained maintenance; only expand to a dirty-source paint scheduler if measurements still require it.
+8. Move minimap/controls/debug observation to committed snapshots.
+9. Delete superseded direct-store and React-transform paths.
+10. Re-run tests, append after report, and tighten budgets if the measured headroom supports it.
 
-## Open Design Questions
+## Initial Design Defaults
 
-- Should committed viewport snapshots publish once per RAF after draw, or at a lower cadence during long gestures?
-- Should active editor overlays use one transformed root plus local positioning, or one transform per registered overlay?
-- Should retained content source DOM be hosted directly under the canvas `layoutsubtree` where available, or should the current hidden-source host remain with an equivalent explicit paint boundary?
-- Should Chrome repro expose a low-volume pan/zoom profile mode separate from full retained diagnostics?
+Use these defaults for Step 2 unless implementation evidence proves one is
+wrong:
 
-These should be resolved during Step 2 before implementation starts.
+- Publish committed viewport snapshots once per RAF after the runtime draw
+  during active gestures. Publish a final end-of-gesture snapshot for
+  persistence and settling work. Lower the observer cadence only if measurement
+  shows observer publication is still material.
+- Start with one transformed overlay root per runtime overlay layer plus local
+  positioning inside it. Add per-overlay matrix writes only for overlays that
+  need independent parking, clipping, pointer-events, or z behavior.
+- Keep retained content source DOM in the current hidden-source host for the
+  first runtime pass, but give it an explicit paint boundary. Move source DOM
+  under a canvas `layoutsubtree` only if the hidden host blocks alignment,
+  paint-readiness, or measured frame cadence.
+- Add a low-volume Chrome repro pan/zoom profile separate from full retained
+  diagnostics. The pan/zoom profile records frame intervals, event timing,
+  viewport samples, long tasks, and nonblank checks without serializing broad
+  retained descriptors per frame.
 
+Questions that remain after these defaults should be answered with measurement,
+not by preserving both old and new runtime paths.
