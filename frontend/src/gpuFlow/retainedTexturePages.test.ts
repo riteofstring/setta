@@ -169,6 +169,29 @@ describe("RetainedTexturePageCache", () => {
     ).toEqual(expect.objectContaining({ resource: "low" }));
   });
 
+  it("falls back to higher LOD pages when zoomed out target pages are missing", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        lodScale: 2,
+        pixelHeight: 256,
+        pixelWidth: 256,
+        sourceRectCss: { height: 128, width: 128, x: 64, y: 64 },
+      }),
+      resource: "sharp",
+    });
+
+    expect(
+      cache.getBestCommittedPage({
+        contentVersion: 1,
+        sourceRectCss: { height: 64, width: 64, x: 96, y: 96 },
+        sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
+        surfaceId: "surface",
+        targetLodScale: 0.5,
+      }),
+    ).toEqual(expect.objectContaining({ resource: "sharp" }));
+  });
+
   it("does not use pending pages as renderer fallback", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.stagePendingPage({

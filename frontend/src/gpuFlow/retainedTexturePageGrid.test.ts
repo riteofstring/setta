@@ -175,6 +175,84 @@ describe("createRetainedTexturePageDrawQuads", () => {
     ]);
   });
 
+  it("uses higher LOD committed pages as fallback for desired low LOD pages", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    const highLodPages = [
+      {
+        sourceRectCss: { height: 128, width: 128, x: 0, y: 0 },
+        tileColumn: 0,
+        tileRow: 0,
+        resource: "top-left",
+      },
+      {
+        sourceRectCss: { height: 128, width: 128, x: 128, y: 0 },
+        tileColumn: 1,
+        tileRow: 0,
+        resource: "top-right",
+      },
+      {
+        sourceRectCss: { height: 128, width: 128, x: 0, y: 128 },
+        tileColumn: 0,
+        tileRow: 1,
+        resource: "bottom-left",
+      },
+      {
+        sourceRectCss: { height: 128, width: 128, x: 128, y: 128 },
+        tileColumn: 1,
+        tileRow: 1,
+        resource: "bottom-right",
+      },
+    ] as const;
+    for (const highLodPage of highLodPages) {
+      cache.commitPage({
+        descriptor: page({
+          lodScale: 1,
+          pixelHeight: 128,
+          pixelWidth: 128,
+          sourceRectCss: highLodPage.sourceRectCss,
+          tileColumn: highLodPage.tileColumn,
+          tileRow: highLodPage.tileRow,
+        }),
+        resource: highLodPage.resource,
+      });
+    }
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
+      contentVersion: 1,
+      lodScale: 0.5,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 128, width: 128, x: 64, y: 64 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+        usedFrame: 10,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            page: expect.objectContaining({ resource: "top-left" }),
+          }),
+          expect.objectContaining({
+            page: expect.objectContaining({ resource: "top-right" }),
+          }),
+          expect.objectContaining({
+            page: expect.objectContaining({ resource: "bottom-left" }),
+          }),
+          expect.objectContaining({
+            page: expect.objectContaining({ resource: "bottom-right" }),
+          }),
+        ],
+        uncoveredRectsCss: [],
+      }),
+    );
+  });
+
   it("omits desired pages without a committed fallback", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 128, width: 128, x: 0, y: 0 },

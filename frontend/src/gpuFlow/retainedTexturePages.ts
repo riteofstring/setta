@@ -237,10 +237,11 @@ export class RetainedTexturePageCache<TResource = unknown> {
           page.descriptor.surfaceId === surfaceId &&
           page.descriptor.contentVersion === contentVersion &&
           rectsEqual(page.descriptor.sourceWindowCss, lookupSourceWindow) &&
-          page.descriptor.lodScale <= targetLodScale &&
           rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
       )
-      .sort(compareFallbackPages);
+      .sort((left, right) =>
+        compareFallbackPagesForTarget(left, right, targetLodScale),
+      );
   }
 
   markCommittedPageUsed(
@@ -444,11 +445,15 @@ function normalizePageDescriptor(
   };
 }
 
-function compareFallbackPages(
+function compareFallbackPagesForTarget(
   left: CommittedRetainedTexturePage,
   right: CommittedRetainedTexturePage,
+  targetLodScale: number,
 ): number {
+  const targetLodLevel = retainedTexturePageLodLevel(targetLodScale);
   return (
+    Math.abs(left.descriptor.lodLevel - targetLodLevel) -
+      Math.abs(right.descriptor.lodLevel - targetLodLevel) ||
     right.descriptor.lodLevel - left.descriptor.lodLevel ||
     rectArea(left.descriptor.sourceRectCss) -
       rectArea(right.descriptor.sourceRectCss) ||

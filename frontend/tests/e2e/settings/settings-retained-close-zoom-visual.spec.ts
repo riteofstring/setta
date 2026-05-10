@@ -193,6 +193,65 @@ test("settings close zoom paints retained section content", async ({
   expect(screenStats.luminanceRange, failureDetails).toBeGreaterThan(28);
 });
 
+test("settings zoomed-out retained section content stays visible before hover", async ({
+  page,
+}, testInfo) => {
+  await installGpuFrameProbe(page);
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+  await openAllSettings(page);
+  await waitForRetainedContentDrawn(page);
+
+  const zoomTarget = await resolveCloseZoomTarget(page);
+  await performZoomOut(page, zoomTarget.screenPoint);
+  await expect.poll(() => readViewportZoom(page)).toBeLessThan(0.51);
+
+  const visibilityState = await readRetainedContentVisibilityState(
+    page,
+    zoomTarget,
+  );
+  const patch = await resolveScreenPointRetainedContentPatch(page, zoomTarget);
+  const contentScreenshot = await page.screenshot({
+    clip: patch.screenClip,
+    path: testInfo.outputPath("settings-zoomed-out-retained-content.png"),
+  });
+  await attachScreenshot(
+    testInfo,
+    "settings-zoomed-out-retained-content.png",
+    contentScreenshot,
+  );
+  const screenStats = await analyzeScreenshotContent(page, contentScreenshot);
+  const retainedFrameSamples = await readGpuFrameProbe(page);
+  const zoomedOutFrameSamples = retainedFrameSamples.filter(
+    (sample) => sample.viewportZoom < 0.51,
+  );
+  const retainedContentDrawn = zoomedOutFrameSamples.some(
+    (sample) => sample.retainedTexturePageDrawQuadCount > 0,
+  );
+  const visualSurfaceState = await readVisualSurfaceState(
+    page,
+    patch.screenClip,
+  );
+  const failureDetails = JSON.stringify(
+    {
+      patch,
+      retainedFrameSamples,
+      screenStats,
+      visibilityState,
+      visualSurfaceState,
+      zoomTarget,
+      zoomedOutFrameSamples,
+    },
+    null,
+    2,
+  );
+
+  expect(retainedContentDrawn, failureDetails).toBe(true);
+  expect(screenStats.contrastPixelRatio, failureDetails).toBeGreaterThan(0.004);
+  expect(screenStats.luminanceRange, failureDetails).toBeGreaterThan(20);
+});
+
 async function installGpuFrameProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const retainedFrameSamples: RetainedTextureFrameSample[] = [];
@@ -323,6 +382,23 @@ async function openAllSettings(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(50);
+}
+
+async function waitForRetainedContentDrawn(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const samples = await readGpuFrameProbe(page);
+        return samples.some(
+          (sample) =>
+            sample.retainedTexturePageDrawQuadCount > 0 &&
+            sample.retainedTexturePageMissingPageCount === 0 &&
+            !sample.retainedTexturePageBudgetExhausted,
+        );
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 }
 
 async function resolveCloseZoomTarget(
@@ -489,6 +565,28 @@ async function performCloseZoom(
     await page.keyboard.up(modifier);
   }
   await expect.poll(() => readViewportZoom(page)).toBeGreaterThan(4);
+}
+
+async function performZoomOut(
+  page: Page,
+  point: { readonly x: number; readonly y: number },
+): Promise<void> {
+  const modifier = "Control";
+  await page.mouse.move(point.x, point.y);
+  await page.keyboard.down(modifier);
+  try {
+    for (let index = 0; index < 160; index += 1) {
+      await page.mouse.wheel(0, 5);
+      if (index % 12 === 0) {
+        await page.waitForTimeout(8);
+      }
+      if (index % 4 === 0 && (await readViewportZoom(page)) < 0.51) {
+        break;
+      }
+    }
+  } finally {
+    await page.keyboard.up(modifier);
+  }
 }
 
 async function readViewportZoom(page: Page): Promise<number> {
@@ -800,6 +898,100 @@ async function resolveZoomedRetainedContentPatch(
     },
     { suffix: SETTINGS_PARAM_CONTENT_SUFFIX, target: zoomTarget },
   );
+}
+
+async function resolveScreenPointRetainedContentPatch(
+  page: Page,
+  zoomTarget: RetainedContentZoomTarget,
+): Promise<RetainedContentPatch> {
+  return await page.evaluate((target) => {
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const zoom = snapshot?.viewport.transform.zoom;
+    if (!zoom) {
+      throw new Error("Missing GPU flow zoom.");
+    }
+    const bounds = resolveUnoccludedFlowBounds();
+    const clipWidth = Math.min(280, bounds.width);
+    const clipHeight = Math.min(140, bounds.height);
+    const x = clamp(
+      target.screenPoint.x - clipWidth * 0.5,
+      bounds.x,
+      Math.max(bounds.x, bounds.right - clipWidth),
+    );
+    const y = clamp(
+      target.screenPoint.y - clipHeight * 0.5,
+      bounds.y,
+      Math.max(bounds.y, bounds.bottom - clipHeight),
+    );
+    return {
+      row: {
+        rowId: target.rowId,
+        rowLabel: target.rowLabel,
+        surfaceId: target.surfaceId,
+      },
+      screenClip: {
+        height: Math.max(1, Math.min(clipHeight, bounds.bottom - y)),
+        width: Math.max(1, Math.min(clipWidth, bounds.right - x)),
+        x,
+        y,
+      },
+      zoom,
+    };
+
+    function clamp(value: number, min: number, max: number) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function resolveUnoccludedFlowBounds(): Bounds {
+      const canvas = document.querySelector<HTMLElement>(
+        ".setta-gpu-flow__canvas",
+      );
+      const rect = canvas?.getBoundingClientRect();
+      const canvasBounds = rect
+        ? {
+            bottom: rect.bottom,
+            height: rect.height,
+            right: rect.right,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y,
+          }
+        : {
+            bottom: window.innerHeight,
+            height: window.innerHeight,
+            right: window.innerWidth,
+            width: window.innerWidth,
+            x: 0,
+            y: 0,
+          };
+      const occludingLeftEdge = Array.from(
+        document.querySelectorAll<HTMLElement>(".setta-gpu-flow__panel"),
+      ).reduce((leftEdge, panel) => {
+        const panelRect = panel.getBoundingClientRect();
+        if (
+          panelRect.width <= 0 ||
+          panelRect.height <= 0 ||
+          panelRect.right <= canvasBounds.x ||
+          panelRect.left >=
+            canvasBounds.x + (canvasBounds.right - canvasBounds.x) * 0.5 ||
+          panelRect.bottom <= canvasBounds.y ||
+          panelRect.top >= canvasBounds.bottom
+        ) {
+          return leftEdge;
+        }
+        return Math.max(leftEdge, panelRect.right);
+      }, canvasBounds.x);
+      const x = Math.min(canvasBounds.right - 1, occludingLeftEdge);
+      return {
+        bottom: canvasBounds.bottom,
+        height: Math.max(1, canvasBounds.bottom - canvasBounds.y),
+        right: canvasBounds.right,
+        width: Math.max(1, canvasBounds.right - x),
+        x,
+        y: canvasBounds.y,
+      };
+    }
+  }, zoomTarget);
 }
 
 async function analyzeScreenshotContent(
