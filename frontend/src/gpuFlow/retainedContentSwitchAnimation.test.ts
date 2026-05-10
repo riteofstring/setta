@@ -7,10 +7,38 @@ import {
 } from "./retainedContentScene";
 import {
   createGpuRetainedContentSwitchAnimationStore,
+  DEFAULT_SWITCH_TRANSITION_DURATION_MS,
   type GpuRetainedContentSwitchAnimationStore,
 } from "./retainedContentSwitchAnimation";
 
 describe("retained content switch animation store", () => {
+  it("uses the fast default retained switch transition duration", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.syncSurface(surface({ checked: true }), 10);
+
+    expect(DEFAULT_SWITCH_TRANSITION_DURATION_MS).toBe(50);
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 35,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(0.5);
+    expect(
+      store.resolveProgress({
+        checked: true,
+        nowMs: 60,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toBe(1);
+  });
+
   it("starts a thumb transition when a retained switch checked value changes", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       durationMs: 180,

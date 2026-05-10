@@ -52,7 +52,7 @@ export type GpuRetainedContentSwitchAnimationStore = {
   ): void;
 };
 
-const DEFAULT_SWITCH_TRANSITION_DURATION_MS = 180;
+export const DEFAULT_SWITCH_TRANSITION_DURATION_MS = 50;
 const SWITCH_ANIMATION_KEY_SEPARATOR = "\u0000";
 
 export function createGpuRetainedContentSwitchAnimationStore({

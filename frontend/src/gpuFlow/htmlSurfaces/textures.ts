@@ -947,7 +947,9 @@ function markExistingSurfaceTextureRecordDirty(
     dirtyFlags,
     input.sourceRect,
   );
-  if (record.pendingTextureRecord) {
+  if (record.pendingTextureRecord && dirtyFlags.content) {
+    // Pending resolution textures already start resolution-dirty. Repeated
+    // registration during zoom must not restart partially uploaded tiles.
     markTextureRecordDirty(
       record.pendingTextureRecord,
       dirtyFlags,

@@ -691,6 +691,17 @@ export function createGpuNodeInteractionDirtyController({
         capture: true,
         signal: abortController.signal,
       } satisfies AddEventListenerOptions;
+      const updateHoverCursorForPointerEvent = (event: PointerEvent) => {
+        const handoffTarget = updateGpuPointerHoverCursor({
+          elementByNodeId,
+          event,
+          resolveCanvasCursor,
+          resolvePointerHandoffTarget,
+          setHoverCursor,
+          surfaceElement: canvas,
+        });
+        updateResizeHandleHoverInteraction(event, handoffTarget);
+      };
 
       canvas.addEventListener(
         GPU_FLOW_NODE_DIRTY_EVENT,
@@ -823,15 +834,7 @@ export function createGpuNodeInteractionDirtyController({
         "pointermove",
         (event) => {
           markPointerInteractionDirty(event);
-          const handoffTarget = updateGpuPointerHoverCursor({
-            elementByNodeId,
-            event,
-            resolveCanvasCursor,
-            resolvePointerHandoffTarget,
-            setHoverCursor,
-            surfaceElement: canvas,
-          });
-          updateResizeHandleHoverInteraction(event, handoffTarget);
+          updateHoverCursorForPointerEvent(event);
         },
         listenerOptions,
       );
@@ -842,7 +845,10 @@ export function createGpuNodeInteractionDirtyController({
       );
       ownerDocument.addEventListener(
         "pointerup",
-        releasePointerHandoff,
+        (event) => {
+          releasePointerHandoff(event);
+          updateHoverCursorForPointerEvent(event);
+        },
         listenerOptions,
       );
       ownerDocument.addEventListener(
