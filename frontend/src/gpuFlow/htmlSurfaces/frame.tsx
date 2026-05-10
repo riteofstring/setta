@@ -12,10 +12,10 @@ import type {
 } from "./renderer";
 
 import type {
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
-  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureUploadDiagnostic,
   HtmlSurfaceTextureUploadWorkSummary,
   UploadDirtyHtmlSurfaceTexturesOptions,
@@ -111,7 +111,7 @@ export type GpuHtmlSurfaceOverlayLayout = {
 };
 
 type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
 };
 
 type HtmlSurfaceNodeLayerProps = {
@@ -191,7 +191,7 @@ export type GpuNodeUploadBudget = Pick<
 
 type GpuNodeTextureController = Pick<
   HtmlSurfaceTextureManager,
-  | "getSurfaceTexture"
+  | "getCommittedSurfaceTexture"
   | "getSurfaceTextureLifecycleDiagnostics"
   | "evictSurfaceTextures"
   | "markSurfaceTextureDirty"
@@ -744,13 +744,13 @@ function toGpuHtmlSurfaceOverlayNodeLayouts(
 export function buildTexturedGpuNodeQuads(
   quads: readonly GpuVisibleNodeQuad[],
   textureSource:
-    | Pick<HtmlSurfaceTextureManager, "getSurfaceTexture">
-    | ((nodeId: string) => HtmlSurfaceTextureRecord | undefined),
+    | Pick<HtmlSurfaceTextureManager, "getCommittedSurfaceTexture">
+    | ((nodeId: string) => CommittedHtmlSurfaceTextureSnapshot | undefined),
 ): BuildTexturedGpuNodeQuadsResult {
   const getTexture =
     typeof textureSource === "function"
       ? textureSource
-      : textureSource.getSurfaceTexture.bind(textureSource);
+      : textureSource.getCommittedSurfaceTexture.bind(textureSource);
   const texturedQuads: GpuTexturedNodeQuad[] = [];
   const missingTextureNodeIds: string[] = [];
 

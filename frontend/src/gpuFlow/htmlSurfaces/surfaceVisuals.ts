@@ -1,5 +1,5 @@
 import type { GpuRect } from "../viewportMath";
-import type { HtmlSurfaceTextureRecord } from "./textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceTiledFlatVisual,
@@ -8,7 +8,7 @@ import type {
 export type HtmlSurfaceVisualQuad = {
   readonly height: number;
   readonly nodeId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly textureSourceRect?: GpuRect | undefined;
   readonly width: number;
   readonly x: number;
@@ -82,7 +82,7 @@ function toHtmlSurfaceTextureCoordinates({
   texture,
 }: {
   readonly sourceRect: GpuRect;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
 }) {
   return {
     u0: clamp01(sourceRect.x / texture.cssWidth),

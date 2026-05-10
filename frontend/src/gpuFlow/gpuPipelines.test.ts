@@ -21,7 +21,7 @@ import {
   HTML_SURFACE_RIPPLE_EFFECT_ID,
   HTML_SURFACE_RIPPLE_PROJECTOR_ID,
 } from "./htmlSurfaces/shaderEffects";
-import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
 import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceEffectVisual,
@@ -90,11 +90,10 @@ describe("html surface renderer", () => {
         ]),
       ),
     ).toEqual([
-      10, 15, 0, 0, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8, 0, 8, 20,
-      4, 0, 0.25, 0.5, 0.75, 1, 10, 35, 0, 20, 8, 20, 4, 0, 0.25, 0.5,
-      0.75, 1, 10, 35, 0, 20, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8,
-      0, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 35, 8, 20, 8, 20, 4, 0,
-      0.25, 0.5, 0.75, 1,
+      10, 15, 0, 0, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8, 0, 8, 20, 4, 0,
+      0.25, 0.5, 0.75, 1, 10, 35, 0, 20, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 10,
+      35, 0, 20, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1, 18, 15, 8, 0, 8, 20, 4, 0,
+      0.25, 0.5, 0.75, 1, 18, 35, 8, 20, 8, 20, 4, 0, 0.25, 0.5, 0.75, 1,
     ]);
   });
 
@@ -1142,14 +1141,14 @@ function surfaceScene(flatSurfaces: readonly HtmlSurfaceFlatVisual[]) {
   return createHtmlSurfaceVisualScene({ flatSurfaces });
 }
 
-function textureRecord(surfaceId: string): HtmlSurfaceTextureRecord {
+function textureRecord(surfaceId: string): CommittedHtmlSurfaceTextureSnapshot {
   return {
     sampler: {},
     surfaceId,
     texture: {},
     textureBytes: 0,
     textureView: {},
-  } as HtmlSurfaceTextureRecord;
+  } as CommittedHtmlSurfaceTextureSnapshot;
 }
 
 function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {

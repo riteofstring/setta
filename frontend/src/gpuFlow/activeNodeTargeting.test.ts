@@ -9,7 +9,7 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
 import type { GpuNodeLayout } from "./htmlSurfaces/frame";
-import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
 import { createHtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
 
 describe("gpu active node pointer targeting", () => {
@@ -765,7 +765,7 @@ function textureRecord(
   surfaceId: string,
   cssWidth: number,
   cssHeight: number,
-): HtmlSurfaceTextureRecord {
+): CommittedHtmlSurfaceTextureSnapshot {
   return {
     clampedByMaxTexture: false,
     cssHeight,

@@ -1,5 +1,5 @@
 import type {
-  HtmlSurfaceTextureRecord,
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
 
@@ -34,7 +34,7 @@ export type HtmlSurfaceColor = {
 export type HtmlSurfaceFlatVisual = FlowRect & {
   readonly kind: "flat";
   readonly surfaceId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly textureCoordinates?: HtmlSurfaceTextureCoordinates | undefined;
   readonly zIndex: number;
 };
@@ -52,7 +52,7 @@ export type HtmlSurfaceTiledFlatVisual = {
   readonly kind: "tiled-flat";
   readonly rect: FlowRect;
   readonly surfaceId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly textureSourceRect?: FlowRect | undefined;
   readonly tiles: readonly HtmlSurfaceTextureTileRecord[];
   readonly zIndex: number;
@@ -63,7 +63,7 @@ export type HtmlSurfaceMeshVisual = {
   readonly indices: Uint32Array;
   readonly kind: "mesh";
   readonly surfaceId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly vertices: readonly SurfaceVertex[];
   readonly zIndex: number;
 };
@@ -74,7 +74,7 @@ export type HtmlSurfaceEffectVisual = {
   readonly kind: "effect";
   readonly projectorId: string;
   readonly surfaceId: string;
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
   readonly zIndex: number;
 };
 

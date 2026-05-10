@@ -1,6 +1,6 @@
 import type {
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLayout,
-  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
 import {
@@ -92,7 +92,7 @@ function dirtyTextureTiles(
 }
 
 type DirtyTextureRecord = Pick<
-  HtmlSurfaceTextureRecord,
+  CommittedHtmlSurfaceTextureSnapshot,
   | "dirtyContent"
   | "dirtyResolution"
   | "lastUploadFrame"
@@ -102,7 +102,7 @@ type DirtyTextureRecord = Pick<
 > &
   Partial<
     Pick<
-      HtmlSurfaceTextureRecord,
+      CommittedHtmlSurfaceTextureSnapshot,
       "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
     >
   >;
@@ -140,7 +140,7 @@ function estimateDirtyTextureTileBytes(
 type DirtyTextureRecordWithUploadDimensions = DirtyTextureRecord &
   Required<
     Pick<
-      HtmlSurfaceTextureRecord,
+      CommittedHtmlSurfaceTextureSnapshot,
       "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
     >
   >;

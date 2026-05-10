@@ -945,7 +945,7 @@ describe("HtmlSurfaceTextureManager", () => {
       },
     });
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
-    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: true,
       dirtyResolution: true,
       lastUploadFrame: -1,
@@ -956,7 +956,7 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
       "node-a",
     ]);
-    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 3,
@@ -1207,7 +1207,7 @@ describe("HtmlSurfaceTextureManager", () => {
       allocatedBytes: 800,
       textureCount: 2,
     });
-    expect(manager.getSurfaceTexture("oldest")).toBeUndefined();
+    expect(manager.getCommittedSurfaceTexture("oldest")).toBeUndefined();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
@@ -1249,11 +1249,11 @@ describe("HtmlSurfaceTextureManager", () => {
       "interactive",
       "visible",
     ]);
-    expect(manager.getSurfaceTexture("candidate")).toBeUndefined();
-    expect(manager.getSurfaceTexture("visible")).toBeDefined();
-    expect(manager.getSurfaceTexture("explicit")).toBeDefined();
-    expect(manager.getSurfaceTexture("interactive")).toBeDefined();
-    expect(manager.getSurfaceTexture("dirty-interactive")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
+    expect(manager.getCommittedSurfaceTexture("visible")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("explicit")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("interactive")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("dirty-interactive")).toBeDefined();
   });
 
   it("destroys individual and retained surface textures", () => {
@@ -1266,7 +1266,7 @@ describe("HtmlSurfaceTextureManager", () => {
 
     manager.destroySurfaceTexture("node-a");
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getSurfaceTexture("node-a")).toBeUndefined();
+    expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
 
     manager.destroy();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);

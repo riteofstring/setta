@@ -1,8 +1,8 @@
 import type { GpuQueueWithElementUpload } from "../htmlInCanvasTypes";
 import type { TextureResolution } from "../textureResolution";
 import type {
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLayout,
-  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
 import {
@@ -11,7 +11,7 @@ import {
 } from "./textureSourceRectUpload";
 
 export type HtmlSurfaceTextureResources = Pick<
-  HtmlSurfaceTextureRecord,
+  CommittedHtmlSurfaceTextureSnapshot,
   "sampler" | "texture" | "textureView"
 >;
 
@@ -37,8 +37,8 @@ type CreateSurfaceTextureLayoutResourcesInput = {
   readonly surfaceId: string;
 };
 
-type UploadHtmlSurfaceTextureRecordInput = Pick<
-  HtmlSurfaceTextureRecord,
+type UploadHtmlSurfaceTextureSnapshotInput = Pick<
+  CommittedHtmlSurfaceTextureSnapshot,
   | "cssHeight"
   | "cssWidth"
   | "dirtyContent"
@@ -111,9 +111,9 @@ export function createSurfaceTextureLayoutResources({
   });
 }
 
-export function uploadHtmlSurfaceTextureRecord(
+export function uploadHtmlSurfaceTextureSnapshot(
   queue: GpuQueueWithElementUpload,
-  record: UploadHtmlSurfaceTextureRecordInput,
+  record: UploadHtmlSurfaceTextureSnapshotInput,
   budget?: HtmlSurfaceTextureUploadBudget | undefined,
   dirtySourceRect?: HtmlSurfaceTextureSourceRect | undefined,
 ): HtmlSurfaceTextureUploadResult {
@@ -169,7 +169,7 @@ function uploadHtmlSurfaceTextureTile({
 }: {
   readonly dirtySourceRect: HtmlSurfaceTextureSourceRect | undefined;
   readonly queue: GpuQueueWithElementUpload;
-  readonly record: UploadHtmlSurfaceTextureRecordInput;
+  readonly record: UploadHtmlSurfaceTextureSnapshotInput;
   readonly tile: HtmlSurfaceTextureTileRecord;
 }): UploadedTextureTile | null {
   if (record.textureLayout.kind === "single") {
@@ -203,7 +203,7 @@ function uploadSingleHtmlSurfaceTextureTile({
 }: {
   readonly dirtySourceRect: HtmlSurfaceTextureSourceRect | undefined;
   readonly queue: GpuQueueWithElementUpload;
-  readonly record: UploadHtmlSurfaceTextureRecordInput;
+  readonly record: UploadHtmlSurfaceTextureSnapshotInput;
   readonly tile: HtmlSurfaceTextureTileRecord;
 }): UploadedTextureTile {
   if (canUploadSingleTextureSourceRect(record, dirtySourceRect)) {
@@ -255,7 +255,7 @@ function uploadTiledHtmlSurfaceTextureSourceRect({
 }: {
   readonly dirtySourceRect: HtmlSurfaceTextureSourceRect;
   readonly queue: GpuQueueWithElementUpload;
-  readonly record: UploadHtmlSurfaceTextureRecordInput;
+  readonly record: UploadHtmlSurfaceTextureSnapshotInput;
   readonly tile: HtmlSurfaceTextureTileRecord;
 }): UploadedTextureTile | null {
   const region = resolveTiledTextureSourceRectUploadRegion(
@@ -293,7 +293,7 @@ function uploadFullTiledHtmlSurfaceTextureTile({
   tile,
 }: {
   readonly queue: GpuQueueWithElementUpload;
-  readonly record: UploadHtmlSurfaceTextureRecordInput;
+  readonly record: UploadHtmlSurfaceTextureSnapshotInput;
   readonly tile: HtmlSurfaceTextureTileRecord;
 }): void {
   queue.copyElementImageToTexture?.(
@@ -311,7 +311,7 @@ function uploadFullTiledHtmlSurfaceTextureTile({
 }
 
 function canUploadSingleTextureSourceRect(
-  record: UploadHtmlSurfaceTextureRecordInput,
+  record: UploadHtmlSurfaceTextureSnapshotInput,
   dirtySourceRect: HtmlSurfaceTextureSourceRect | undefined,
 ): dirtySourceRect is HtmlSurfaceTextureSourceRect {
   return (
@@ -324,7 +324,7 @@ function canUploadSingleTextureSourceRect(
 }
 
 function canUploadTiledTextureSourceRect(
-  record: UploadHtmlSurfaceTextureRecordInput,
+  record: UploadHtmlSurfaceTextureSnapshotInput,
   dirtySourceRect: HtmlSurfaceTextureSourceRect | undefined,
 ): dirtySourceRect is HtmlSurfaceTextureSourceRect {
   return (
@@ -619,7 +619,7 @@ function dirtyTextureTiles({
   dirtyResolution,
   tiles,
 }: Pick<
-  UploadHtmlSurfaceTextureRecordInput,
+  UploadHtmlSurfaceTextureSnapshotInput,
   "dirtyContent" | "dirtyResolution" | "tiles"
 >): readonly HtmlSurfaceTextureTileRecord[] {
   if (!dirtyContent && !dirtyResolution) {

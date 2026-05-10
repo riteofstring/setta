@@ -4,8 +4,8 @@ import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import { type GpuHtmlSurfaceOverlayLayout, type GpuNodeLayout } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLifecycleDiagnostic,
-  HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
@@ -114,8 +114,8 @@ export class ThrowOnMapIteration<K, V> extends Map<K, V> {
 
 export function textureRecord(
   nodeId: string,
-  overrides: Partial<HtmlSurfaceTextureRecord> = {},
-): HtmlSurfaceTextureRecord {
+  overrides: Partial<CommittedHtmlSurfaceTextureSnapshot> = {},
+): CommittedHtmlSurfaceTextureSnapshot {
   return {
     lastUploadFrame: 0,
     sampler: {},
@@ -126,7 +126,7 @@ export function textureRecord(
     textureView: {},
     tiles: [],
     ...overrides,
-  } as HtmlSurfaceTextureRecord;
+  } as CommittedHtmlSurfaceTextureSnapshot;
 }
 
 export function canvasSize() {
@@ -140,7 +140,7 @@ export function canvasSize() {
 }
 
 export function createFrameTextureManager() {
-  const records = new Map<string, HtmlSurfaceTextureRecord>();
+  const records = new Map<string, CommittedHtmlSurfaceTextureSnapshot>();
   type EvictSurfaceTexturesInput = {
     readonly budgetBytes?: number | undefined;
     readonly protectedSurfaceIds?:
@@ -167,14 +167,14 @@ export function createFrameTextureManager() {
         reason: "html-surface-frame",
       };
     }),
-    getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    getCommittedSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
     getSurfaceTextureLifecycleDiagnostics: vi.fn(
       (
         surfaceIds?: Iterable<string>,
       ): HtmlSurfaceTextureLifecycleDiagnostic[] =>
         Array.from(surfaceIds ?? records.keys())
           .map((surfaceId) => records.get(surfaceId))
-          .filter((record): record is HtmlSurfaceTextureRecord =>
+          .filter((record): record is CommittedHtmlSurfaceTextureSnapshot =>
             Boolean(record),
           )
           .map((record) => ({
@@ -204,7 +204,9 @@ export function createFrameTextureManager() {
     markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
       ({ surfaceId }: { readonly surfaceId: string }) => {
-        const record = textureRecord(surfaceId) as HtmlSurfaceTextureRecord & {
+        const record = textureRecord(
+          surfaceId,
+        ) as CommittedHtmlSurfaceTextureSnapshot & {
           lastUploadFrame: number;
         };
         record.lastUploadFrame = -1;
@@ -215,7 +217,7 @@ export function createFrameTextureManager() {
     uploadDirtySurfaceTextures: vi.fn(
       ({ frame }: UploadDirtyHtmlSurfaceTexturesOptions) => {
         const uploaded = Array.from(records.values()) as Array<
-          HtmlSurfaceTextureRecord & { lastUploadFrame: number }
+          CommittedHtmlSurfaceTextureSnapshot & { lastUploadFrame: number }
         >;
         uploaded.forEach((record) => {
           record.lastUploadFrame = frame;

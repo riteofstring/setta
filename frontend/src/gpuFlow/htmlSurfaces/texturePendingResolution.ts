@@ -5,11 +5,11 @@ import type {
 } from "../textureResolution";
 import { textureResolutionMatches } from "../textureResolution";
 import type {
-  HtmlSurfaceTextureRecord,
+  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
 import {
-  uploadHtmlSurfaceTextureRecord,
+  uploadHtmlSurfaceTextureSnapshot,
   type HtmlSurfaceTextureUploadBudget,
   type SurfaceTextureLayoutResources,
 } from "./textureTiles";
@@ -18,9 +18,9 @@ type Mutable<T> = {
   -readonly [Key in keyof T]: T[Key];
 };
 
-export type PendingHtmlSurfaceTextureRecord = Mutable<
+export type PendingHtmlSurfaceTextureSnapshot = Mutable<
   Pick<
-    HtmlSurfaceTextureRecord,
+    CommittedHtmlSurfaceTextureSnapshot,
     | "clampedByMaxTexture"
     | "cssHeight"
     | "cssWidth"
@@ -45,7 +45,7 @@ export type PendingHtmlSurfaceTextureRecord = Mutable<
 
 type PendingResolutionTextureEntry = Mutable<
   Pick<
-    HtmlSurfaceTextureRecord,
+    CommittedHtmlSurfaceTextureSnapshot,
     | "clampedByMaxTexture"
     | "cssHeight"
     | "cssWidth"
@@ -69,7 +69,7 @@ type PendingResolutionTextureEntry = Mutable<
 > & {
   element: Element;
   pendingResolution: TextureResolution | null;
-  pendingTextureRecord: PendingHtmlSurfaceTextureRecord | null;
+  pendingTextureRecord: PendingHtmlSurfaceTextureSnapshot | null;
 };
 
 type TextureUploadBudgetOptions = Pick<
@@ -111,7 +111,7 @@ export function uploadPendingResolutionRecord({
     destroyTextureTiles,
     record,
   });
-  const upload = uploadHtmlSurfaceTextureRecord(
+  const upload = uploadHtmlSurfaceTextureSnapshot(
     queue,
     {
       ...pendingRecord,
@@ -155,7 +155,7 @@ export function createTextureUploadBudget(
 }
 
 export function pendingTextureResolutionMatches(
-  pendingRecord: PendingHtmlSurfaceTextureRecord,
+  pendingRecord: PendingHtmlSurfaceTextureSnapshot,
   resolution: TextureResolutionSnapshot,
 ): boolean {
   return textureResolutionMatches(
@@ -181,7 +181,7 @@ function ensurePendingResolutionRecord({
     tiles: readonly HtmlSurfaceTextureTileRecord[],
   ) => void;
   readonly record: PendingResolutionTextureEntry;
-}): PendingHtmlSurfaceTextureRecord {
+}): PendingHtmlSurfaceTextureSnapshot {
   const resolution = record.pendingResolution;
   if (!resolution) {
     throw new Error(
@@ -205,7 +205,7 @@ function ensurePendingResolutionRecord({
       lastUploadFrame: -1,
     },
   );
-  const pendingRecord: PendingHtmlSurfaceTextureRecord = {
+  const pendingRecord: PendingHtmlSurfaceTextureSnapshot = {
     ...layoutResources.primaryResources,
     clampedByMaxTexture: resolution.clampedByMaxTexture,
     cssHeight: resolution.cssHeight,
@@ -234,7 +234,7 @@ function updatePendingUploadedTiles({
   uploadedTileIds,
 }: {
   readonly frame: number;
-  readonly pendingRecord: PendingHtmlSurfaceTextureRecord;
+  readonly pendingRecord: PendingHtmlSurfaceTextureSnapshot;
   readonly uploadedTileIds: readonly string[];
 }) {
   const uploadedIds = new Set(uploadedTileIds);
@@ -267,7 +267,7 @@ function commitPendingResolutionRecord({
     tiles: readonly HtmlSurfaceTextureTileRecord[],
   ) => void;
   readonly frame: number;
-  readonly pendingRecord: PendingHtmlSurfaceTextureRecord;
+  readonly pendingRecord: PendingHtmlSurfaceTextureSnapshot;
   readonly record: PendingResolutionTextureEntry;
 }) {
   const previousTiles = record.tiles;
@@ -295,7 +295,7 @@ function commitPendingResolutionRecord({
 }
 
 function resolutionSnapshot(
-  record: PendingHtmlSurfaceTextureRecord,
+  record: PendingHtmlSurfaceTextureSnapshot,
 ): TextureResolutionSnapshot {
   return {
     cssHeight: record.cssHeight,

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
-import type { HtmlSurfaceTextureRecord } from "../htmlSurfaces/textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
 import { createHtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
 import { projectGpuFlowNodeSourceForPointerEvent } from "./sourceInteraction";
@@ -243,7 +243,7 @@ function textureRecord(
   surfaceId: string,
   cssWidth: number,
   cssHeight: number,
-): HtmlSurfaceTextureRecord {
+): CommittedHtmlSurfaceTextureSnapshot {
   return {
     clampedByMaxTexture: false,
     cssHeight,

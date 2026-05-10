@@ -1,5 +1,5 @@
 import type { DirtyNodeMark, DirtyNodeState } from "../dirtyTracking";
-import type { HtmlSurfaceTextureRecord } from "./textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 
 export function compareSurfaceIds(left: string, right: string): number {
   return left.localeCompare(right);
@@ -88,7 +88,9 @@ export function shouldDeferDirtySurfaceUpload(
     DirtyNodeState,
     "dirtyContent" | "dirtyResolution" | "priority"
   > & { readonly nodeId?: string | undefined },
-  record: Pick<HtmlSurfaceTextureRecord, "lastUploadFrame"> | undefined,
+  record:
+    | Pick<CommittedHtmlSurfaceTextureSnapshot, "lastUploadFrame">
+    | undefined,
   {
     deferSurfaceIds,
     deferPassiveUploads,

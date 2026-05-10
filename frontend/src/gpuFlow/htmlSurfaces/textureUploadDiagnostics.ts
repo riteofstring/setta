@@ -1,6 +1,6 @@
 import type { DirtyNodeState } from "../dirtyTracking";
 
-import type { HtmlSurfaceTextureRecord } from "./textures";
+import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 import type { HtmlSurfaceTextureUploadResult } from "./textureTiles";
 
 export type UploadDirtyHtmlSurfaceTexturesResult = {
@@ -9,7 +9,7 @@ export type UploadDirtyHtmlSurfaceTexturesResult = {
   readonly remainingDirtySurfaceIds: readonly string[];
   readonly skippedSurfaceIds: readonly string[];
   readonly skippedUploadBytes: number;
-  readonly uploaded: readonly HtmlSurfaceTextureRecord[];
+  readonly uploaded: readonly CommittedHtmlSurfaceTextureSnapshot[];
   readonly uploadedBytes: number;
   readonly workSummary: HtmlSurfaceTextureUploadWorkSummary;
 };
@@ -38,7 +38,7 @@ export type DirtyHtmlSurfaceUploadOutcome =
       readonly dirtyTileBytes: number;
       readonly dirtyTileCount: number;
       readonly durationMs: number;
-      readonly record: HtmlSurfaceTextureRecord;
+      readonly record: CommittedHtmlSurfaceTextureSnapshot;
       readonly upload: HtmlSurfaceTextureUploadResult;
     }
   | "deferred"
@@ -85,7 +85,7 @@ export function createHtmlSurfaceTextureUploadDiagnostic({
   readonly dirtyTileBytes: number;
   readonly dirtyTileCount: number;
   readonly durationMs: number;
-  readonly record: HtmlSurfaceTextureRecord;
+  readonly record: CommittedHtmlSurfaceTextureSnapshot;
   readonly upload: HtmlSurfaceTextureUploadResult;
 }): HtmlSurfaceTextureUploadDiagnostic {
   return {
