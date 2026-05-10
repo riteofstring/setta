@@ -131,6 +131,15 @@ def analyze_recording(
     upload_summaries = [summarize_frame_uploads(frame) for frame in frames]
     total_uploaded_bytes = sum(summary["uploadedBytes"] for summary in upload_summaries)
     upload_frame_count = sum(1 for summary in upload_summaries if summary["uploadedBytes"] > 0)
+    retained_upload_summaries = [
+        summarize_frame_retained_page_uploads(frame) for frame in frames
+    ]
+    retained_uploaded_bytes = sum(
+        summary["uploadedBytes"] for summary in retained_upload_summaries
+    )
+    retained_upload_frame_count = sum(
+        1 for summary in retained_upload_summaries if summary["uploadedBytes"] > 0
+    )
     upload_diagnostics = [
         diagnostic
         for frame in frames
@@ -154,6 +163,11 @@ def analyze_recording(
     memory_summary = summarize_texture_memory(frames)
     viewport_spans = find_viewport_interaction_spans(frame_events)
     after_settle = summarize_after_settle_windows(
+        frame_events,
+        after_settle_window_ms=after_settle_window_ms,
+        viewport_spans=viewport_spans,
+    )
+    retained_after_settle = summarize_retained_after_settle_windows(
         frame_events,
         after_settle_window_ms=after_settle_window_ms,
         viewport_spans=viewport_spans,
@@ -207,6 +221,71 @@ def analyze_recording(
                 else 0.0
             ),
             "remainingDirtyWorkTotals": remaining_dirty_work_totals,
+            "retainedTexturePages": {
+                "budgetExhaustedFrameCount": sum(
+                    1
+                    for frame in frames
+                    if frame.get("retainedTexturePageBudgetExhausted")
+                ),
+                "frameCount": retained_upload_frame_count,
+                "maxMemoryCommittedBytes": max(
+                    [
+                        int(
+                            to_number(
+                                frame.get("retainedTexturePageMemoryCommittedBytes")
+                            )
+                            or 0
+                        )
+                        for frame in frames
+                    ],
+                    default=0,
+                ),
+                "maxMemoryCommittedMiB": mib(
+                    max(
+                        [
+                            int(
+                                to_number(
+                                    frame.get(
+                                        "retainedTexturePageMemoryCommittedBytes"
+                                    )
+                                )
+                                or 0
+                            )
+                            for frame in frames
+                        ],
+                        default=0,
+                    )
+                ),
+                "maxMissingPageCount": max(
+                    [
+                        int(
+                            to_number(frame.get("retainedTexturePageMissingPageCount"))
+                            or 0
+                        )
+                        for frame in frames
+                    ],
+                    default=0,
+                ),
+                "rasterMs": summarize_values(
+                    [
+                        summary["rasterMs"]
+                        for summary in retained_upload_summaries
+                        if summary["rasterMs"] > 0
+                    ]
+                ),
+                "totalUploadedBytes": retained_uploaded_bytes,
+                "totalUploadedMiB": mib(retained_uploaded_bytes),
+                "uploadCount": sum(
+                    summary["uploadCount"] for summary in retained_upload_summaries
+                ),
+                "uploadMs": summarize_values(
+                    [
+                        summary["uploadMs"]
+                        for summary in retained_upload_summaries
+                        if summary["uploadMs"] > 0
+                    ]
+                ),
+            },
             "topDurationFrames": top_duration_frames,
             "topUploadFrames": top_upload_frames,
             "topUploadedSurfaces": top_surfaces,
@@ -219,6 +298,7 @@ def analyze_recording(
                 "totalUploadedMiB": mib(total_uploaded_bytes),
             },
             "uploadsAfterSettleWindows": after_settle,
+            "retainedUploadsAfterSettleWindows": retained_after_settle,
             "viewportFrameCount": sum(1 for frame in frames if frame.get("viewportFrame")),
             "viewportInteractionSpans": viewport_spans,
             "zoom": {
@@ -244,6 +324,17 @@ def summarize_frame_uploads(frame: dict[str, Any]) -> dict[str, float]:
             for diagnostic in diagnostics
             if isinstance(diagnostic, dict)
         ),
+    }
+
+
+def summarize_frame_retained_page_uploads(frame: dict[str, Any]) -> dict[str, float]:
+    return {
+        "rasterMs": to_number(frame.get("retainedTexturePageRasterMs")) or 0.0,
+        "uploadedBytes": int(
+            to_number(frame.get("retainedTexturePageUploadedBytes")) or 0
+        ),
+        "uploadCount": int(to_number(frame.get("retainedTexturePageUploadCount")) or 0),
+        "uploadMs": to_number(frame.get("retainedTexturePageUploadMs")) or 0.0,
     }
 
 
@@ -481,6 +572,47 @@ def summarize_after_settle_windows(
     return summaries
 
 
+def summarize_retained_after_settle_windows(
+    frame_events: list[dict[str, Any]],
+    *,
+    after_settle_window_ms: float,
+    viewport_spans: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    summaries = []
+    for span in viewport_spans:
+        start = to_number(span.get("endTimestampMs"))
+        if start is None:
+            continue
+        end = start + after_settle_window_ms
+        frames = [
+            event.get("payload", {})
+            for event in frame_events
+            if (timestamp := to_number(event.get("timestampMs"))) is not None
+            and timestamp > start
+            and timestamp <= end
+        ]
+        upload_summaries = [
+            summarize_frame_retained_page_uploads(frame) for frame in frames
+        ]
+        uploaded_bytes = sum(summary["uploadedBytes"] for summary in upload_summaries)
+        summaries.append(
+            {
+                "frameCount": len(frames),
+                "startTimestampMs": start,
+                "uploadedBytes": uploaded_bytes,
+                "uploadedMiB": mib(uploaded_bytes),
+                "uploadCount": sum(
+                    summary["uploadCount"] for summary in upload_summaries
+                ),
+                "uploadFrameCount": sum(
+                    1 for summary in upload_summaries if summary["uploadedBytes"] > 0
+                ),
+                "windowMs": after_settle_window_ms,
+            }
+        )
+    return summaries
+
+
 def summarize_top_frames(
     frames: list[dict[str, Any]],
     *,
@@ -599,6 +731,7 @@ def render_markdown_report(report: dict[str, Any]) -> str:
     summary = report["summary"]
     upload = summary["upload"]
     memory = summary["memory"]
+    retained = summary["retainedTexturePages"]
     duration = summary["durationMs"]
     longtasks = summary["longtaskDurationMs"]
     lines = [
@@ -628,6 +761,23 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         f"- Upload diagnostics: {upload['diagnosticCount']}",
         f"- Upload reasons: `{json.dumps(upload['reasonCounts'], sort_keys=True)}`",
         "",
+        "## Retained Page Upload Summary",
+        "",
+        f"- Uploaded bytes: {retained['totalUploadedBytes']} ({retained['totalUploadedMiB']} MiB)",
+        f"- Upload count: {retained['uploadCount']}",
+        f"- Upload frames: {retained['frameCount']}",
+        f"- Budget-exhausted frames: {retained['budgetExhaustedFrameCount']}",
+        f"- Max missing page count: {retained['maxMissingPageCount']}",
+        f"- Max committed memory: {retained['maxMemoryCommittedBytes']} ({retained['maxMemoryCommittedMiB']} MiB)",
+        "",
+        "### Retained Page Raster Ms",
+        "",
+        render_stat_bullets(retained["rasterMs"]),
+        "",
+        "### Retained Page Upload Ms",
+        "",
+        render_stat_bullets(retained["uploadMs"]),
+        "",
         "### Upload Diagnostic Groups",
         "",
         render_group_table(upload["diagnosticGroups"]),
@@ -656,6 +806,10 @@ def render_markdown_report(report: dict[str, Any]) -> str:
         "## Uploads After Settle Windows",
         "",
         render_after_settle_windows(summary["uploadsAfterSettleWindows"]),
+        "",
+        "## Retained Uploads After Settle Windows",
+        "",
+        render_after_settle_windows(summary["retainedUploadsAfterSettleWindows"]),
         "",
         "## Top Uploaded Surfaces",
         "",

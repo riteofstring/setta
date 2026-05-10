@@ -64,8 +64,10 @@ export type RetainedContentTexturePageFrameResult = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly memory: RetainedTexturePageCacheSnapshot;
   readonly missingPageCount: number;
+  readonly rasterMs: number;
   readonly uploadedBytes: number;
   readonly uploadCount: number;
+  readonly uploadMs: number;
 };
 
 export type RetainedContentTexturePageManagerOptions = {
@@ -145,15 +147,17 @@ export class RetainedContentTexturePageManager {
     if (!surface) {
       return false;
     }
-    this.workQueue.enqueue({
-      contentVersion: surface.contentVersion,
-      createdFrame: frame,
+    const descriptors = this.resolvePageDescriptorsForSurfaceRect({
+      sourceRect: sourceRect ?? surface.visibleSourceRectCss,
+      surface,
+    });
+    this.enqueueDescriptorWork({
+      descriptors,
+      frame,
       kind: "content-rect",
       priority,
-      sourceRect: sourceRect ?? surface.visibleSourceRectCss,
-      surfaceId,
     });
-    return true;
+    return descriptors.length > 0;
   }
 
   renderFrame({
@@ -202,8 +206,10 @@ export class RetainedContentTexturePageManager {
       flatSurfaces: pageVisualResult.flatSurfaces,
       memory: this.cache.snapshot(),
       missingPageCount: pageVisualResult.missingPageCount,
+      rasterMs: uploadResult.rasterMs,
       uploadedBytes: uploadResult.uploadedBytes,
       uploadCount: uploadResult.uploadCount,
+      uploadMs: uploadResult.uploadMs,
     };
   }
 
@@ -230,15 +236,39 @@ export class RetainedContentTexturePageManager {
       if (this.cache.getCommittedPage(retainedTexturePageKey(descriptor))) {
         continue;
       }
+      this.enqueueDescriptorWork({
+        descriptors: [descriptor],
+        frame,
+        kind: "lod-refinement",
+        priority: "visible",
+        targetLod: descriptor.lodScale,
+      });
+    }
+  }
+
+  private enqueueDescriptorWork({
+    descriptors,
+    frame,
+    kind,
+    priority,
+    targetLod,
+  }: {
+    readonly descriptors: readonly RetainedTexturePageDescriptor[];
+    readonly frame: number;
+    readonly kind: RetainedTextureWorkItem["kind"];
+    readonly priority: NodeTexturePriority;
+    readonly targetLod?: number | undefined;
+  }) {
+    for (const descriptor of descriptors) {
       this.workQueue.enqueue({
         contentVersion: descriptor.contentVersion,
         createdFrame: frame,
-        kind: "lod-refinement",
-        priority: "visible",
+        kind,
+        priority,
         sourceRect: descriptor.sourceRectCss,
         sourceWindow: descriptor.sourceRectCss,
         surfaceId: descriptor.surfaceId,
-        targetLod: descriptor.lodScale,
+        ...(targetLod === undefined ? {} : { targetLod }),
       });
     }
   }
@@ -295,15 +325,12 @@ export class RetainedContentTexturePageManager {
     readonly uploadedBytes: number;
     readonly uploadCount: number;
   } {
-    const descriptors = this.resolveWorkItemDescriptors(item);
+    const descriptor = this.resolveWorkItemDescriptors(item)[0];
     return {
       rasterMs: 0,
       uploadMs: 0,
-      uploadedBytes: descriptors.reduce(
-        (total, descriptor) => total + estimatePageByteSize(descriptor),
-        0,
-      ),
-      uploadCount: descriptors.length,
+      uploadedBytes: descriptor ? estimatePageByteSize(descriptor) : 0,
+      uploadCount: descriptor ? 1 : 0,
     };
   }
 
@@ -321,30 +348,46 @@ export class RetainedContentTexturePageManager {
       | undefined;
   }) {
     const descriptors = this.resolveWorkItemDescriptors(item);
+    const descriptor = descriptors[0];
+    if (!descriptor) {
+      return {
+        complete: true,
+        rasterMs: 0,
+        uploadCount: 0,
+        uploadedBytes: 0,
+        uploadMs: 0,
+      };
+    }
     let rasterMs = 0;
     let uploadMs = 0;
     let uploadedBytes = 0;
     let uploadCount = 0;
-    for (const descriptor of descriptors) {
-      if (
-        !shouldRefreshCommittedPage(item) &&
-        this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
-      ) {
-        continue;
-      }
+    if (
+      shouldRefreshCommittedPage(item) ||
+      !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
+    ) {
       const upload = this.uploadPage({
         descriptor,
         frame,
         palette,
         switchAnimations,
       });
-      rasterMs += upload.rasterMs;
-      uploadMs += upload.uploadMs;
-      uploadedBytes += upload.uploadedBytes;
-      uploadCount += 1;
+      rasterMs = upload.rasterMs;
+      uploadMs = upload.uploadMs;
+      uploadedBytes = upload.uploadedBytes;
+      uploadCount = 1;
+    }
+    if (shouldRefreshCommittedPage(item) && descriptors.length > 1) {
+      this.enqueueDescriptorWork({
+        descriptors: descriptors.slice(1),
+        frame,
+        kind: item.kind,
+        priority: item.priority,
+        ...(item.targetLod === undefined ? {} : { targetLod: item.targetLod }),
+      });
     }
     return {
-      complete: true,
+      complete: shouldRefreshCommittedPage(item) || descriptors.length <= 1,
       rasterMs,
       uploadCount,
       uploadedBytes,
@@ -360,18 +403,34 @@ export class RetainedContentTexturePageManager {
       return [];
     }
     const visibleSourceRectCss = item.sourceRect ?? surface.visibleSourceRectCss;
-    return createRetainedTexturePageDescriptors({
-      contentBoundsCss: surface.contentBoundsCss,
-      contentVersion: surface.contentVersion,
+    return this.resolvePageDescriptorsForSurfaceRect({
       lodScale: item.targetLod ?? this.targetLodScale,
-      maxPagePixelSize: this.maxPagePixelSize,
-      surfaceId: surface.surfaceId,
-      visibleSourceRectCss,
+      sourceRect: visibleSourceRectCss,
+      surface,
     }).filter(
       (descriptor) =>
         shouldRefreshCommittedPage(item) ||
         !this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
     );
+  }
+
+  private resolvePageDescriptorsForSurfaceRect({
+    lodScale = this.targetLodScale,
+    sourceRect,
+    surface,
+  }: {
+    readonly lodScale?: number | undefined;
+    readonly sourceRect: GpuRect;
+    readonly surface: RetainedContentTexturePageFrameSurface;
+  }): readonly RetainedTexturePageDescriptor[] {
+    return createRetainedTexturePageDescriptors({
+      contentBoundsCss: surface.contentBoundsCss,
+      contentVersion: surface.contentVersion,
+      lodScale,
+      maxPagePixelSize: this.maxPagePixelSize,
+      surfaceId: surface.surfaceId,
+      visibleSourceRectCss: sourceRect,
+    });
   }
 
   private uploadPage({

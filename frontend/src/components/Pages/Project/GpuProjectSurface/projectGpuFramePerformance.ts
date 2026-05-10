@@ -24,6 +24,12 @@ export function postProjectGpuFlowFrameChromeReproEvent(
       ...event,
       durationMs: roundChromeReproMs(event.durationMs),
       frameReasons: [...event.frameReasons],
+      retainedTexturePageRasterMs: roundChromeReproMs(
+        event.retainedTexturePageRasterMs,
+      ),
+      retainedTexturePageUploadMs: roundChromeReproMs(
+        event.retainedTexturePageUploadMs,
+      ),
       uploadDiagnostics: event.uploadDiagnostics.map(
         roundProjectGpuFlowUploadDiagnosticForChromeRepro,
       ),

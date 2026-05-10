@@ -11,8 +11,26 @@ export type GpuFlowFramePerformanceInput = {
   readonly interactionDiagnostics?: GpuFlowInteractionDiagnostics | undefined;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly renderDurationMs: number;
+  readonly retainedTexturePages?:
+    | GpuFlowRetainedTexturePageFrameMetrics
+    | undefined;
   readonly viewport: GpuViewportInput;
   readonly viewportFrame: boolean;
+};
+
+export type GpuFlowRetainedTexturePageFrameMetrics = {
+  readonly budgetExhausted: boolean;
+  readonly diagnosticCount: number;
+  readonly evictedBytes: number;
+  readonly evictedCount: number;
+  readonly memoryCommittedBytes: number;
+  readonly memoryCommittedCount: number;
+  readonly memoryTotalBytes: number;
+  readonly missingPageCount: number;
+  readonly rasterMs: number;
+  readonly uploadedBytes: number;
+  readonly uploadCount: number;
+  readonly uploadMs: number;
 };
 
 export type GpuFlowFrameUploadDiagnostic = {
@@ -69,6 +87,18 @@ export type GpuFlowFramePerformanceEvent = {
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
+  readonly retainedTexturePageBudgetExhausted: boolean;
+  readonly retainedTexturePageDiagnosticCount: number;
+  readonly retainedTexturePageEvictedBytes: number;
+  readonly retainedTexturePageEvictedCount: number;
+  readonly retainedTexturePageMemoryCommittedBytes: number;
+  readonly retainedTexturePageMemoryCommittedCount: number;
+  readonly retainedTexturePageMemoryTotalBytes: number;
+  readonly retainedTexturePageMissingPageCount: number;
+  readonly retainedTexturePageRasterMs: number;
+  readonly retainedTexturePageUploadedBytes: number;
+  readonly retainedTexturePageUploadCount: number;
+  readonly retainedTexturePageUploadMs: number;
   readonly skippedNodeCount: number;
   readonly solidRoundedRectSurfaceCount: number;
   readonly textureMemoryAllocatedBytes: number;
@@ -115,6 +145,7 @@ export function createGpuFlowFramePerformanceEvent({
   interactionDiagnostics,
   layerResult,
   renderDurationMs,
+  retainedTexturePages,
   viewport,
   viewportFrame,
 }: GpuFlowFramePerformanceInput): GpuFlowFramePerformanceEvent {
@@ -124,6 +155,8 @@ export function createGpuFlowFramePerformanceEvent({
   const textureLifecycleDiagnostics = layerResult.textureLifecycleDiagnostics;
   const uploadWorkSummary = layerResult.uploadWorkSummary;
   const uploadDiagnostics = layerResult.uploadDiagnostics;
+  const retainedTexturePageFields =
+    createRetainedTexturePagePerformanceFields(retainedTexturePages);
   return {
     activeNodeId: layerResult.activeNodeId,
     activeNodePresent: layerResult.activeNodeId !== null,
@@ -143,6 +176,7 @@ export function createGpuFlowFramePerformanceEvent({
     missingElementNodeCount: layerResult.missingElementNodeIds.length,
     missingTextureNodeCount: layerResult.missingTextureNodeIds.length,
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,
+    ...retainedTexturePageFields,
     skippedNodeCount: layerResult.skippedNodeIds.length,
     solidRoundedRectSurfaceCount:
       layerResult.visualScene.solidRoundedRectSurfaces.length,
@@ -155,17 +189,9 @@ export function createGpuFlowFramePerformanceEvent({
     textureMemoryVisibleBytes: textureMemory.visibleBytes,
     textureMemoryVisibleCount: textureMemory.visibleTextureCount,
     textureLifecycleDiagnosticCount: textureLifecycleDiagnostics.length,
-    textureLifecycleDiagnostics: textureLifecycleDiagnostics
-      .slice(0, 12)
-      .map((diagnostic) => ({
-        committed: { ...diagnostic.committed },
-        pending: diagnostic.pending ? { ...diagnostic.pending } : null,
-        pendingResolution: diagnostic.pendingResolution
-          ? { ...diagnostic.pendingResolution }
-          : null,
-        priority: diagnostic.priority,
-        surfaceId: diagnostic.surfaceId,
-      })),
+    textureLifecycleDiagnostics: createTextureLifecycleDiagnostics(
+      textureLifecycleDiagnostics,
+    ),
     textureUploadDeferredSurfaceCount: uploadWorkSummary.deferredSurfaceCount,
     textureUploadInitialDirtyWorkCounts: {
       ...uploadWorkSummary.initialDirtyWorkCounts,
@@ -188,34 +214,7 @@ export function createGpuFlowFramePerformanceEvent({
       uploadWorkSummary.uploadableRemainingDirtySurfaceCount,
     textureUploadUploadedSurfaceCount: uploadWorkSummary.uploadedSurfaceCount,
     uploadDiagnosticCount: uploadDiagnostics.length,
-    uploadDiagnostics: uploadDiagnostics.slice(0, 12).map((diagnostic) => ({
-      cssHeight: diagnostic.cssHeight,
-      cssWidth: diagnostic.cssWidth,
-      dirtyContent: diagnostic.dirtyContent,
-      dirtyResolution: diagnostic.dirtyResolution,
-      dirtySourceRect: diagnostic.dirtySourceRect
-        ? {
-            height: diagnostic.dirtySourceRect.height,
-            width: diagnostic.dirtySourceRect.width,
-            x: diagnostic.dirtySourceRect.x,
-            y: diagnostic.dirtySourceRect.y,
-          }
-        : null,
-      dirtyTileBytes: diagnostic.dirtyTileBytes,
-      dirtyTileCount: diagnostic.dirtyTileCount,
-      durationMs: diagnostic.durationMs,
-      pixelHeight: diagnostic.pixelHeight,
-      pixelWidth: diagnostic.pixelWidth,
-      priority: diagnostic.priority,
-      reasons: [...diagnostic.reasons],
-      surfaceId: diagnostic.surfaceId,
-      textureBytes: diagnostic.textureBytes,
-      textureLayoutKind: diagnostic.textureLayoutKind,
-      uploadedBytes: diagnostic.uploadedBytes,
-      uploadedTextureCount: diagnostic.uploadedTextureCount,
-      uploadedTileCount: diagnostic.uploadedTileCount,
-      workKinds: [...diagnostic.workKinds],
-    })),
+    uploadDiagnostics: createUploadDiagnostics(uploadDiagnostics),
     uploadedNodeCount: layerResult.uploadedNodeIds.length,
     viewport: {
       x: normalizedViewport.x,
@@ -225,4 +224,104 @@ export function createGpuFlowFramePerformanceEvent({
     viewportFrame,
     visibleNodeCount: layerResult.visibleNodeIds.length,
   };
+}
+
+function createRetainedTexturePagePerformanceFields(
+  retainedTexturePages: GpuFlowRetainedTexturePageFrameMetrics | undefined,
+): Pick<
+  GpuFlowFramePerformanceEvent,
+  | "retainedTexturePageBudgetExhausted"
+  | "retainedTexturePageDiagnosticCount"
+  | "retainedTexturePageEvictedBytes"
+  | "retainedTexturePageEvictedCount"
+  | "retainedTexturePageMemoryCommittedBytes"
+  | "retainedTexturePageMemoryCommittedCount"
+  | "retainedTexturePageMemoryTotalBytes"
+  | "retainedTexturePageMissingPageCount"
+  | "retainedTexturePageRasterMs"
+  | "retainedTexturePageUploadedBytes"
+  | "retainedTexturePageUploadCount"
+  | "retainedTexturePageUploadMs"
+> {
+  if (!retainedTexturePages) {
+    return {
+      retainedTexturePageBudgetExhausted: false,
+      retainedTexturePageDiagnosticCount: 0,
+      retainedTexturePageEvictedBytes: 0,
+      retainedTexturePageEvictedCount: 0,
+      retainedTexturePageMemoryCommittedBytes: 0,
+      retainedTexturePageMemoryCommittedCount: 0,
+      retainedTexturePageMemoryTotalBytes: 0,
+      retainedTexturePageMissingPageCount: 0,
+      retainedTexturePageRasterMs: 0,
+      retainedTexturePageUploadedBytes: 0,
+      retainedTexturePageUploadCount: 0,
+      retainedTexturePageUploadMs: 0,
+    };
+  }
+  return {
+    retainedTexturePageBudgetExhausted: retainedTexturePages.budgetExhausted,
+    retainedTexturePageDiagnosticCount:
+      retainedTexturePages.diagnosticCount,
+    retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
+    retainedTexturePageEvictedCount: retainedTexturePages.evictedCount,
+    retainedTexturePageMemoryCommittedBytes:
+      retainedTexturePages.memoryCommittedBytes,
+    retainedTexturePageMemoryCommittedCount:
+      retainedTexturePages.memoryCommittedCount,
+    retainedTexturePageMemoryTotalBytes: retainedTexturePages.memoryTotalBytes,
+    retainedTexturePageMissingPageCount:
+      retainedTexturePages.missingPageCount,
+    retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
+    retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,
+    retainedTexturePageUploadCount: retainedTexturePages.uploadCount,
+    retainedTexturePageUploadMs: retainedTexturePages.uploadMs,
+  };
+}
+
+function createTextureLifecycleDiagnostics(
+  diagnostics: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"],
+): readonly GpuFlowFrameTextureLifecycleDiagnostic[] {
+  return diagnostics.slice(0, 12).map((diagnostic) => ({
+    committed: { ...diagnostic.committed },
+    pending: diagnostic.pending ? { ...diagnostic.pending } : null,
+    pendingResolution: diagnostic.pendingResolution
+      ? { ...diagnostic.pendingResolution }
+      : null,
+    priority: diagnostic.priority,
+    surfaceId: diagnostic.surfaceId,
+  }));
+}
+
+function createUploadDiagnostics(
+  diagnostics: RenderHtmlSurfaceFrameResult["uploadDiagnostics"],
+): readonly GpuFlowFrameUploadDiagnostic[] {
+  return diagnostics.slice(0, 12).map((diagnostic) => ({
+    cssHeight: diagnostic.cssHeight,
+    cssWidth: diagnostic.cssWidth,
+    dirtyContent: diagnostic.dirtyContent,
+    dirtyResolution: diagnostic.dirtyResolution,
+    dirtySourceRect: diagnostic.dirtySourceRect
+      ? {
+          height: diagnostic.dirtySourceRect.height,
+          width: diagnostic.dirtySourceRect.width,
+          x: diagnostic.dirtySourceRect.x,
+          y: diagnostic.dirtySourceRect.y,
+        }
+      : null,
+    dirtyTileBytes: diagnostic.dirtyTileBytes,
+    dirtyTileCount: diagnostic.dirtyTileCount,
+    durationMs: diagnostic.durationMs,
+    pixelHeight: diagnostic.pixelHeight,
+    pixelWidth: diagnostic.pixelWidth,
+    priority: diagnostic.priority,
+    reasons: [...diagnostic.reasons],
+    surfaceId: diagnostic.surfaceId,
+    textureBytes: diagnostic.textureBytes,
+    textureLayoutKind: diagnostic.textureLayoutKind,
+    uploadedBytes: diagnostic.uploadedBytes,
+    uploadedTextureCount: diagnostic.uploadedTextureCount,
+    uploadedTileCount: diagnostic.uploadedTileCount,
+    workKinds: [...diagnostic.workKinds],
+  }));
 }

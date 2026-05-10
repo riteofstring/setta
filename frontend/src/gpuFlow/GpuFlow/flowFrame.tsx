@@ -24,7 +24,10 @@ import {
   type GpuNodeInteractionState,
 } from "../nodeInteractionDirty";
 
-import { createGpuFlowFramePerformanceEvent } from "../framePerformance";
+import {
+  createGpuFlowFramePerformanceEvent,
+  type GpuFlowRetainedTexturePageFrameMetrics,
+} from "../framePerformance";
 import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
@@ -336,6 +339,20 @@ export function renderGpuFlowNodeLayerFrame({
     }),
     layerResult: combinedLayerResult,
     renderDurationMs: performance.now() - renderStartedAt,
+    retainedTexturePages: {
+      budgetExhausted: retainedPageResult.budgetExhausted,
+      diagnosticCount: retainedPageResult.diagnostics.length,
+      evictedBytes: retainedPageResult.evicted.evictedBytes,
+      evictedCount: retainedPageResult.evicted.evictedKeys.length,
+      memoryCommittedBytes: retainedPageResult.memory.committedBytes,
+      memoryCommittedCount: retainedPageResult.memory.committedCount,
+      memoryTotalBytes: retainedPageResult.memory.totalBytes,
+      missingPageCount: retainedPageResult.missingPageCount,
+      rasterMs: retainedPageResult.rasterMs,
+      uploadedBytes: retainedPageResult.uploadedBytes,
+      uploadCount: retainedPageResult.uploadCount,
+      uploadMs: retainedPageResult.uploadMs,
+    },
     viewport: layer.viewport,
     viewportFrame,
   });
@@ -379,6 +396,7 @@ function reportGpuFlowNodeLayerFramePerformance({
   interactionDiagnostics,
   layerResult,
   renderDurationMs,
+  retainedTexturePages,
   viewport,
   viewportFrame,
 }: {
@@ -391,6 +409,7 @@ function reportGpuFlowNodeLayerFramePerformance({
   >;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly renderDurationMs: number;
+  readonly retainedTexturePages: GpuFlowRetainedTexturePageFrameMetrics;
   readonly viewport: GpuFlowNodeLayerState["viewport"];
   readonly viewportFrame: boolean;
 }) {
@@ -410,6 +429,7 @@ function reportGpuFlowNodeLayerFramePerformance({
       interactionDiagnostics,
       layerResult,
       renderDurationMs,
+      retainedTexturePages,
       viewport,
       viewportFrame,
     }),
