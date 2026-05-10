@@ -240,11 +240,14 @@ export function createFrameTextureManager() {
           ),
           workSummary: {
             deferredSurfaceCount: 0,
+            initialDirtyWorkCounts: createEmptyDirtyWorkCounts(),
             initialDirtySurfaceCount: uploaded.length,
             noUploadReason,
             paintUnavailableSurfaceCount: 0,
+            remainingDirtyWorkCounts: createEmptyDirtyWorkCounts(),
             remainingDirtySurfaceCount: 0,
             skippedSurfaceCount: 0,
+            uploadableRemainingDirtyWorkCounts: createEmptyDirtyWorkCounts(),
             uploadableRemainingDirtySurfaceCount: 0,
             uploadedSurfaceCount: uploaded.length,
           },
@@ -262,6 +265,17 @@ const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {
   visibleBytes: 0,
   visibleTextureCount: 0,
 };
+
+function createEmptyDirtyWorkCounts(): HtmlSurfaceTextureUploadWorkSummary["initialDirtyWorkCounts"] {
+  return {
+    animation: 0,
+    content: 0,
+    geometry: 0,
+    hover: 0,
+    resolution: 0,
+    "source-window": 0,
+  };
+}
 
 export function createFrameRenderer() {
   return {

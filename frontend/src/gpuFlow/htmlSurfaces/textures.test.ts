@@ -18,6 +18,17 @@ function requireCommittedSurfaceTexture(
   return record!;
 }
 
+function emptyDirtyWorkCounts() {
+  return {
+    animation: 0,
+    content: 0,
+    geometry: 0,
+    hover: 0,
+    resolution: 0,
+    "source-window": 0,
+  };
+}
+
 describe("HtmlSurfaceTextureManager", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -308,11 +319,14 @@ describe("HtmlSurfaceTextureManager", () => {
       manager.uploadDirtySurfaceTextures({ frame: 4 }).workSummary,
     ).toEqual({
       deferredSurfaceCount: 0,
+      initialDirtyWorkCounts: emptyDirtyWorkCounts(),
       initialDirtySurfaceCount: 0,
       noUploadReason: "no-dirty-surfaces",
       paintUnavailableSurfaceCount: 0,
+      remainingDirtyWorkCounts: emptyDirtyWorkCounts(),
       remainingDirtySurfaceCount: 0,
       skippedSurfaceCount: 0,
+      uploadableRemainingDirtyWorkCounts: emptyDirtyWorkCounts(),
       uploadableRemainingDirtySurfaceCount: 0,
       uploadedSurfaceCount: 0,
     });

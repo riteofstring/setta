@@ -1,4 +1,4 @@
-import type { DirtyNodeState } from "../dirtyTracking";
+import type { DirtyNodeState, DirtyNodeWorkKind } from "../dirtyTracking";
 
 import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 import type { HtmlSurfaceTextureUploadResult } from "./textureTiles";
@@ -24,14 +24,22 @@ export type HtmlSurfaceTextureUploadNoWorkReason =
 
 export type HtmlSurfaceTextureUploadWorkSummary = {
   readonly deferredSurfaceCount: number;
+  readonly initialDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly initialDirtySurfaceCount: number;
   readonly noUploadReason: HtmlSurfaceTextureUploadNoWorkReason;
   readonly paintUnavailableSurfaceCount: number;
+  readonly remainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly remainingDirtySurfaceCount: number;
   readonly skippedSurfaceCount: number;
+  readonly uploadableRemainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly uploadableRemainingDirtySurfaceCount: number;
   readonly uploadedSurfaceCount: number;
 };
+
+export type HtmlSurfaceTextureDirtyWorkCounts = Record<
+  DirtyNodeWorkKind,
+  number
+>;
 
 export type DirtyHtmlSurfaceUploadOutcome =
   | {
@@ -71,7 +79,20 @@ export type HtmlSurfaceTextureUploadDiagnostic = {
   readonly uploadedBytes: number;
   readonly uploadedTextureCount: number;
   readonly uploadedTileCount: number;
+  readonly workKinds: readonly DirtyNodeWorkKind[];
 };
+
+export function createHtmlSurfaceTextureDirtyWorkCounts(
+  dirtySurfaces: readonly Pick<DirtyNodeState, "workKinds">[],
+): HtmlSurfaceTextureDirtyWorkCounts {
+  const counts = createEmptyHtmlSurfaceTextureDirtyWorkCounts();
+  for (const dirtySurface of dirtySurfaces) {
+    for (const workKind of dirtySurface.workKinds) {
+      counts[workKind] += 1;
+    }
+  }
+  return counts;
+}
 
 export function createHtmlSurfaceTextureUploadDiagnostic({
   dirtySurface,
@@ -109,5 +130,17 @@ export function createHtmlSurfaceTextureUploadDiagnostic({
     uploadedBytes: upload.uploadedBytes,
     uploadedTextureCount: upload.uploadedTextureCount,
     uploadedTileCount: upload.uploadedTileIds.length,
+    workKinds: dirtySurface.workKinds,
+  };
+}
+
+function createEmptyHtmlSurfaceTextureDirtyWorkCounts(): HtmlSurfaceTextureDirtyWorkCounts {
+  return {
+    animation: 0,
+    content: 0,
+    geometry: 0,
+    hover: 0,
+    resolution: 0,
+    "source-window": 0,
   };
 }

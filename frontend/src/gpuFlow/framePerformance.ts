@@ -1,5 +1,6 @@
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
+import type { HtmlSurfaceTextureDirtyWorkCounts } from "./htmlSurfaces/textureUploadDiagnostics";
 import type { GpuFlowInteractionDiagnostics } from "./interactionDiagnostics";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
@@ -38,6 +39,7 @@ export type GpuFlowFrameUploadDiagnostic = {
   readonly uploadedBytes: number;
   readonly uploadedTextureCount: number;
   readonly uploadedTileCount: number;
+  readonly workKinds: readonly string[];
 };
 
 export type GpuFlowFrameTextureLifecycleDiagnostic = {
@@ -79,11 +81,14 @@ export type GpuFlowFramePerformanceEvent = {
   readonly textureLifecycleDiagnosticCount: number;
   readonly textureLifecycleDiagnostics: readonly GpuFlowFrameTextureLifecycleDiagnostic[];
   readonly textureUploadDeferredSurfaceCount: number;
+  readonly textureUploadInitialDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly textureUploadInitialDirtySurfaceCount: number;
   readonly textureUploadNoWorkReason: string | null;
   readonly textureUploadPaintUnavailableSurfaceCount: number;
+  readonly textureUploadRemainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly textureUploadRemainingDirtySurfaceCount: number;
   readonly textureUploadSkippedSurfaceCount: number;
+  readonly textureUploadUploadableRemainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
   readonly textureUploadUploadableRemainingDirtySurfaceCount: number;
   readonly textureUploadUploadedSurfaceCount: number;
   readonly uploadDiagnosticCount: number;
@@ -162,14 +167,23 @@ export function createGpuFlowFramePerformanceEvent({
         surfaceId: diagnostic.surfaceId,
       })),
     textureUploadDeferredSurfaceCount: uploadWorkSummary.deferredSurfaceCount,
+    textureUploadInitialDirtyWorkCounts: {
+      ...uploadWorkSummary.initialDirtyWorkCounts,
+    },
     textureUploadInitialDirtySurfaceCount:
       uploadWorkSummary.initialDirtySurfaceCount,
     textureUploadNoWorkReason: uploadWorkSummary.noUploadReason,
     textureUploadPaintUnavailableSurfaceCount:
       uploadWorkSummary.paintUnavailableSurfaceCount,
+    textureUploadRemainingDirtyWorkCounts: {
+      ...uploadWorkSummary.remainingDirtyWorkCounts,
+    },
     textureUploadRemainingDirtySurfaceCount:
       uploadWorkSummary.remainingDirtySurfaceCount,
     textureUploadSkippedSurfaceCount: uploadWorkSummary.skippedSurfaceCount,
+    textureUploadUploadableRemainingDirtyWorkCounts: {
+      ...uploadWorkSummary.uploadableRemainingDirtyWorkCounts,
+    },
     textureUploadUploadableRemainingDirtySurfaceCount:
       uploadWorkSummary.uploadableRemainingDirtySurfaceCount,
     textureUploadUploadedSurfaceCount: uploadWorkSummary.uploadedSurfaceCount,
@@ -200,6 +214,7 @@ export function createGpuFlowFramePerformanceEvent({
       uploadedBytes: diagnostic.uploadedBytes,
       uploadedTextureCount: diagnostic.uploadedTextureCount,
       uploadedTileCount: diagnostic.uploadedTileCount,
+      workKinds: [...diagnostic.workKinds],
     })),
     uploadedNodeCount: layerResult.uploadedNodeIds.length,
     viewport: {

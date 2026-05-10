@@ -51,6 +51,7 @@ import {
   type SurfaceTextureLayoutResources,
 } from "./textureTiles";
 import {
+  createHtmlSurfaceTextureDirtyWorkCounts,
   createHtmlSurfaceTextureUploadDiagnostic,
   type DirtyHtmlSurfaceUploadOutcome,
   type HtmlSurfaceTextureUploadDiagnostic,
@@ -613,7 +614,7 @@ export class HtmlSurfaceTextureManager {
       this.paintDeferral.resolveDeferredSurfaceIds(
         normalizeSurfaceIdSet(deferSurfaceIds),
       );
-    const initialDirtySurfaceCount = this.dirtyQueue.orderedDirtyNodes().length;
+    const initialDirtySurfaces = this.dirtyQueue.orderedDirtyNodes();
     const uploadOptions = {
       deferPassiveUploads,
       deferResolutionOnly,
@@ -648,12 +649,11 @@ export class HtmlSurfaceTextureManager {
       this.records,
     );
     const workSummary = createTextureUploadWorkSummary({
-      initialDirtySurfaceCount,
+      initialDirtySurfaces,
       paintUnavailableSurfaceCount: paintUnavailableSurfaceIds.size,
-      remainingDirtySurfaceCount: remainingDirtySurfaces.length,
+      remainingDirtySurfaces,
       skippedSurfaceCount: skippedSurfaceIds.length,
-      uploadableRemainingDirtySurfaceCount:
-        uploadableRemainingDirtySurfaces.length,
+      uploadableRemainingDirtySurfaces,
       uploadedSurfaceCount: uploaded.length,
     });
 
@@ -1069,16 +1069,24 @@ function toSurfaceTextureMemoryRecord(handle: HtmlSurfaceTextureHandle) {
 }
 
 function createTextureUploadWorkSummary({
-  initialDirtySurfaceCount,
+  initialDirtySurfaces,
   paintUnavailableSurfaceCount,
-  remainingDirtySurfaceCount,
+  remainingDirtySurfaces,
   skippedSurfaceCount,
-  uploadableRemainingDirtySurfaceCount,
+  uploadableRemainingDirtySurfaces,
   uploadedSurfaceCount,
-}: Omit<
-  HtmlSurfaceTextureUploadWorkSummary,
-  "deferredSurfaceCount" | "noUploadReason"
->): HtmlSurfaceTextureUploadWorkSummary {
+}: {
+  readonly initialDirtySurfaces: readonly DirtyNodeState[];
+  readonly paintUnavailableSurfaceCount: number;
+  readonly remainingDirtySurfaces: readonly DirtyNodeState[];
+  readonly skippedSurfaceCount: number;
+  readonly uploadableRemainingDirtySurfaces: readonly DirtyNodeState[];
+  readonly uploadedSurfaceCount: number;
+}): HtmlSurfaceTextureUploadWorkSummary {
+  const initialDirtySurfaceCount = initialDirtySurfaces.length;
+  const remainingDirtySurfaceCount = remainingDirtySurfaces.length;
+  const uploadableRemainingDirtySurfaceCount =
+    uploadableRemainingDirtySurfaces.length;
   const deferredSurfaceCount = Math.max(
     0,
     remainingDirtySurfaceCount -
@@ -1096,11 +1104,19 @@ function createTextureUploadWorkSummary({
 
   return {
     deferredSurfaceCount,
+    initialDirtyWorkCounts:
+      createHtmlSurfaceTextureDirtyWorkCounts(initialDirtySurfaces),
     initialDirtySurfaceCount,
     noUploadReason,
     paintUnavailableSurfaceCount,
+    remainingDirtyWorkCounts: createHtmlSurfaceTextureDirtyWorkCounts(
+      remainingDirtySurfaces,
+    ),
     remainingDirtySurfaceCount,
     skippedSurfaceCount,
+    uploadableRemainingDirtyWorkCounts: createHtmlSurfaceTextureDirtyWorkCounts(
+      uploadableRemainingDirtySurfaces,
+    ),
     uploadableRemainingDirtySurfaceCount,
     uploadedSurfaceCount,
   };
