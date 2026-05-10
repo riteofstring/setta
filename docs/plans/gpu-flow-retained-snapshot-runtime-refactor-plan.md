@@ -80,10 +80,26 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 
 ## Execution Guardrails
 - Do not start with another broad instrumentation pass. Add the behavior-level failing test first, baseline it, and only add diagnostics that directly explain that failing test.
+- Tests must assert observed behavior, not implementation details. Use frame cadence, long tasks, visual nonblank/text-band ratios, visible movement, page-scroll leakage, editor/control usability, and screenshot/canvas evidence as pass/fail signals.
+- Do not make retained page counts, upload counts, target descriptor counts, internal queue names, render counts, store mutation counts, or diagnostic event shapes into acceptance gates. Keep those as debugging context only.
 - Keep the first implementation slice narrow: remove the scroll-time scene commit/redraw path from retained section input frames before introducing larger scheduler abstractions.
 - Do not layer a compatibility path over the current retained scroll flow. The refactor should delete obsolete scroll writers as soon as the replacement path is covered.
 - Keep each milestone reviewable: behavior test/baseline, runtime scroll ownership, transform-only frame composition, scheduled snapshot work, stable committed coverage, then cleanup.
 - If a new test file is added, name it for the user-visible behavior it protects. Do not reference non-existent "existing" specs.
+- After any runtime or rendering change, run the full GPU-flow-related suite listed in this plan. If a subset is used during an inner loop, the full suite is still required before finishing unless the deviation and risk are documented in the final perf report.
+
+## Performance Budgets
+- Treat frame interval as the source of truth for interactive FPS. Do not rely on average FPS alone; average FPS can hide stalls.
+- Measure pan, zoom, retained section scroll, and the combined "section scroll then immediate pan/zoom" regression as separate gesture windows.
+- Target sustained interactive budget for each measured gesture on a 120Hz-capable local/performance environment:
+  - p95 frame interval `<= 8.5ms`, equivalent to maintaining about 120 FPS at p95;
+  - p99 frame interval `<= 16.7ms`, so isolated missed frames are rare and visible hitching is bounded;
+  - slow-frame ratio for intervals `> 16.7ms` must stay below the accepted threshold for the specific test;
+  - max frame gap and long-task ceilings must be explicit in the test and perf report, with any harness-driven relaxation documented.
+- If a Playwright/CI/browser environment is capped below 120Hz, document the detected frame cadence cap and enforce "no dropped frames relative to that cap" in CI, while still recording the 120Hz local/performance result before accepting the refactor.
+- Existing weaker guards must be tightened or superseded for this refactor. For example, prior p95 budgets such as `<= 34ms` or `< 28ms` are not acceptable as final performance targets for pan, zoom, or retained section scroll.
+- Retained section scrolling must get the same p95 frame-interval treatment as pan and zoom. A single loose worst-frame-only assertion is not enough for this refactor.
+- The perf report must include the measured p50, p95, max frame interval, derived p95 FPS, slow-frame ratio, long-task count/max duration, and movement/nonblank results for pan, zoom, retained section scroll, and scroll-then-pan/zoom.
 
 ## Implementation Plan
 1. Add failing behavior-level tests
@@ -99,6 +115,7 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
   - `PerformanceObserver` long tasks;
   - screenshot luminance/text-band/nonblank ratios for the retained section clip;
   - visible movement after section scroll and after viewport pan/zoom.
+- Assert performance budgets separately for viewport pan, viewport zoom, retained section scroll, and the combined scroll-then-pan/zoom scenario. Do not allow a passing aggregate to hide one slow gesture class.
 - Do not assert implementation details such as retained page counts, upload counts, target descriptors, or internal fallback-quad metrics.
 - Strengthen the retained-scroll visual assertions in `settings-retained-scroll-performance.spec.ts` and the related scroll/pan/zoom assertion in `settings-retained-visual-regressions.spec.ts` where they already cover adjacent behavior.
 - Keep thresholds tolerant of CI noise but strict enough to fail the current regression: p95 frame interval budget, max frame-gap budget, long-task budget, minimum retained-section nonblank ratio, and minimum text-band ratio relative to the pre-gesture capture.
@@ -158,16 +175,22 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 
 10. Verify and profile
 - Run the new failing tests until they pass.
-- Run retained settings Playwright coverage:
-  - native section scroll;
-  - section scroll followed by viewport pan/zoom;
-  - retained close zoom visual tests;
-  - retained interaction stability tests;
-  - retained text-like row rendering tests.
-- Run focused Vitest for changed GPU-flow modules.
+- Run the full retained/GPU-flow settings Playwright coverage:
+  - `frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-visual-regressions.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-pan-zoom-performance.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-close-zoom-visual.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-interaction-stability.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-codemirror-activation.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-codemirror-scroll.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-pan-ownership.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-switch-zoom-flash.spec.ts`;
+  - `frontend/tests/e2e/settings/settings-retained-text-like-row-rendering.spec.ts`;
+  - the new scroll-then-pan/zoom regression spec, if added as a separate file.
+- Run all GPU-flow Vitest coverage under `frontend/src/gpuFlow` and focused adjacent project-surface tests touched by the change. Do not limit verification to changed files before finishing the refactor.
 - Run `./scripts/quality/check.sh`.
 - Use Chrome DevTools visual verification for the settings workflow.
-- Append before/after results under `perf/`.
+- Append before/after results under `perf/`, including the exact test commands, pass/fail results, pan/zoom/scroll FPS metrics from the Performance Budgets section, any narrowed verification scope, and the reason any full-suite item could not be run.
 
 ## Candidate File Areas
 - `frontend/src/gpuFlow/GpuFlow/flowSurface.tsx`
@@ -189,9 +212,12 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 - The new regression test fails before the refactor and passes after it.
 - Retained section content stays visibly nonblank through native section scroll followed immediately by viewport pan/zoom.
 - Active input frames meet the agreed p95 frame cadence budget on the settings scenario.
+- Viewport pan, viewport zoom, retained section scroll, and scroll-then-pan/zoom each meet the Performance Budgets section as separate measured gesture windows.
 - No long tasks over the accepted budget occur during the measured interaction, aside from explicitly documented browser/test harness noise.
 - Visual movement is observable for both section scroll and viewport pan/zoom.
+- Regression protection is based on observed behavior rather than implementation counters or diagnostic event shapes.
 - The implementation has one retained scroll ownership model and no backward-compatibility scroll path.
+- The full retained/GPU-flow settings Playwright suite and GPU-flow Vitest suite listed above pass, or any unavailable item is explicitly documented with risk in the perf report.
 - Chrome visual verification is completed for the settings workflow.
 - Before/after performance notes are appended under `perf/`.
 
