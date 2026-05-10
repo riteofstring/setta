@@ -33,6 +33,7 @@ import {
   RetainedTextureWorkQueue,
   type RetainedTextureWorkItem,
 } from "./retainedTextureWorkQueue";
+import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
@@ -73,6 +74,13 @@ export type RetainedContentTexturePageManagerOptions = {
   readonly maxPagePixelSize?: number | undefined;
   readonly scratchCanvas?: HTMLCanvasElement | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
+};
+
+export type RetainedContentTexturePageInvalidation = {
+  readonly frame: number;
+  readonly priority?: NodeTexturePriority | undefined;
+  readonly sourceRect?: GpuRect | undefined;
+  readonly surfaceId: string;
 };
 
 const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
@@ -125,6 +133,27 @@ export class RetainedContentTexturePageManager {
     this.cache.clear();
     this.workQueue.clear();
     this.frameSurfaceById.clear();
+  }
+
+  markSurfaceContentDirty({
+    frame,
+    priority = "visible",
+    sourceRect,
+    surfaceId,
+  }: RetainedContentTexturePageInvalidation): boolean {
+    const surface = this.frameSurfaceById.get(surfaceId);
+    if (!surface) {
+      return false;
+    }
+    this.workQueue.enqueue({
+      contentVersion: surface.contentVersion,
+      createdFrame: frame,
+      kind: "content-rect",
+      priority,
+      sourceRect: sourceRect ?? surface.visibleSourceRectCss,
+      surfaceId,
+    });
+    return true;
   }
 
   renderFrame({
@@ -297,7 +326,10 @@ export class RetainedContentTexturePageManager {
     let uploadedBytes = 0;
     let uploadCount = 0;
     for (const descriptor of descriptors) {
-      if (this.cache.getCommittedPage(retainedTexturePageKey(descriptor))) {
+      if (
+        !shouldRefreshCommittedPage(item) &&
+        this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
+      ) {
         continue;
       }
       const upload = this.uploadPage({
@@ -337,6 +369,7 @@ export class RetainedContentTexturePageManager {
       visibleSourceRectCss,
     }).filter(
       (descriptor) =>
+        shouldRefreshCommittedPage(item) ||
         !this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
     );
   }
@@ -450,6 +483,15 @@ function normalizeBudget(
       budget.maxUploads,
     ),
   };
+}
+
+function shouldRefreshCommittedPage(item: RetainedTextureWorkItem): boolean {
+  return (
+    item.kind === "animation-rect" ||
+    item.kind === "content-rect" ||
+    item.kind === "full-content" ||
+    item.kind === "hover-rect"
+  );
 }
 
 function normalizeLodScale({

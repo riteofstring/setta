@@ -99,6 +99,44 @@ describe("RetainedContentTexturePageManager", () => {
       "surface-a:1:0:0:100:100:1:100:100:0:0",
     ]);
   });
+
+  it("queues bounded content invalidation without deleting committed fallback", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface();
+
+    fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const queued = fixture.manager.markSurfaceContentDirty({
+      frame: 2,
+      sourceRect: { height: 20, width: 20, x: 0, y: 0 },
+      surfaceId: "surface-a",
+    });
+    const result = fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      viewportInteractionActive: true,
+      viewportZoomBucket: 1,
+    });
+
+    expect(queued).toBe(true);
+    expect(result.uploadCount).toBe(1);
+    expect(result.flatSurfaces).toHaveLength(1);
+    expect(result.flatSurfaces[0]?.surfaceId).toBe(
+      "surface-a:1:0:0:100:100:1:100:100:0:0",
+    );
+  });
 });
 
 function createManagerFixture({
