@@ -13,7 +13,10 @@ import {
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
-import type { GpuRetainedContentRuntimeState } from "gpuFlow/retainedContentRuntimeState";
+import {
+  getGpuRetainedContentRuntimeScrollOffsets,
+  type GpuRetainedContentRuntimeState,
+} from "gpuFlow/retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
   getGpuFlowSceneDomSectionNodes,
@@ -209,6 +212,9 @@ export function useProjectGpuLayoutAdapter({
         activeParamCanvasControl,
         activeParamCanvasPopup,
         activeParamDomIsland,
+        contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+          retainedContentRuntime.retainedContentRuntimeState,
+        ),
         paramEditPolicy: {
           canEditParams,
           canEditStructure,
@@ -283,6 +289,9 @@ export function useProjectGpuLayoutAdapter({
           activeParamCanvasControl,
           activeParamCanvasPopup,
           activeParamDomIsland,
+          contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+            retainedContentRuntime.retainedContentRuntimeState,
+          ),
           paramEditPolicy: {
             canEditParams,
             canEditStructure,

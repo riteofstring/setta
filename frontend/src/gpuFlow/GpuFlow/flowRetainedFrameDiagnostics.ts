@@ -9,7 +9,6 @@ import type {
   RetainedContentTexturePageMaintenanceResult,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
-import type { RetainedTextLikeRowTextureFrameResult } from "../retainedTextLikeRowTextureManager";
 import type { RetainedTexturePageDescriptor } from "../retainedTexturePages";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
@@ -51,12 +50,10 @@ export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
 export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
   frame,
   preparedFrame,
-  rowTextureFrame,
   snapshotSources,
 }: {
   readonly frame: number;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly rowTextureFrame: RetainedTextLikeRowTextureFrameResult;
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
   if (!isChromeReproActive() || snapshotSources.length === 0) {
@@ -66,7 +63,6 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
     drawQuadCount: preparedFrame.drawQuadCount,
     missingPageCount: preparedFrame.missingPageCount,
     snapshotCount: snapshotSources.length,
-    rowTexture: summarizeRetainedTextLikeRowTextureFrame(rowTextureFrame),
     targetDescriptors: preparedFrame.targetDescriptors
       .slice(0, 24)
       .map(summarizeRetainedTexturePageDescriptor),
@@ -74,7 +70,6 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
     textLikePassiveVisibility:
       createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
         preparedFrame,
-        rowTextureFrame,
         snapshotSources,
       }),
   };
@@ -93,14 +88,12 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
   elementBySourceId,
   frame,
   maintenanceResult,
-  rowTextureFrame,
   snapshotSources,
   viewportInteractionActive,
 }: {
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
   readonly maintenanceResult: RetainedContentTexturePageMaintenanceResult;
-  readonly rowTextureFrame: RetainedTextLikeRowTextureFrameResult;
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
   readonly viewportInteractionActive: boolean;
 }) {
@@ -148,25 +141,6 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
     queuedWorkCountBeforeUpload: maintenanceResult.queuedWorkCountBeforeUpload,
     remainingUploadableWorkCount:
       maintenanceResult.remainingUploadableWorkCount,
-    rowTexture: summarizeRetainedTextLikeRowTextureFrame(rowTextureFrame),
-    rowTextureDiagnostics: rowTextureFrame.uploadDiagnostics
-      .slice(0, 16)
-      .map((diagnostic) => ({
-        dirtyContent: diagnostic.dirtyContent,
-        dirtyResolution: diagnostic.dirtyResolution,
-        dirtyTileBytes: diagnostic.dirtyTileBytes,
-        dirtyTileCount: diagnostic.dirtyTileCount,
-        durationMs: roundChromeReproMs(diagnostic.durationMs),
-        pixelHeight: diagnostic.pixelHeight,
-        pixelWidth: diagnostic.pixelWidth,
-        priority: diagnostic.priority,
-        reasons: diagnostic.reasons,
-        surfaceId: diagnostic.surfaceId,
-        textureBytes: diagnostic.textureBytes,
-        uploadedBytes: diagnostic.uploadedBytes,
-        uploadedTextureCount: diagnostic.uploadedTextureCount,
-        uploadedTileCount: diagnostic.uploadedTileCount,
-      })),
     skippedItemCount: maintenanceResult.skippedItemCount,
     sourceElements: snapshotSources.slice(0, 40).map((source) =>
       summarizeGpuFlowRetainedTextLikeRowSnapshotSourceElement({
@@ -192,103 +166,55 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
   });
 }
 
-function summarizeRetainedTextLikeRowTextureFrame(
-  frame: RetainedTextLikeRowTextureFrameResult,
-) {
-  return {
-    budgetExhausted: frame.budgetExhausted,
-    clippedTextureCount: frame.clippedTextureCount,
-    diagnosticCount: frame.diagnosticCount,
-    evictedBytes: frame.evictedBytes,
-    evictedCount: frame.evictedCount,
-    flatSurfaceCount: frame.flatSurfaces.length,
-    memory: {
-      allocatedBytes: frame.memory.allocatedBytes,
-      largestTextureBytes: frame.memory.largestTextureBytes,
-      textureCount: frame.memory.textureCount,
-      visibleBytes: frame.memory.visibleBytes,
-      visibleTextureCount: frame.memory.visibleTextureCount,
-    },
-    missingElementCount: frame.missingElementCount,
-    missingSurfaceCount: frame.missingSurfaceCount,
-    missingTextureCount: frame.missingTextureCount,
-    readyTextureCount: frame.readyTextureCount,
-    registeredSourceCount: frame.registeredSourceCount,
-    sourceCount: frame.sourceCount,
-    staleElementCount: frame.staleElementCount,
-    staleTextureCount: frame.staleTextureCount,
-    uploadedBytes: frame.uploadedBytes,
-    uploadCount: frame.uploadCount,
-    uploadWorkSummary: {
-      initialDirtySurfaceCount:
-        frame.uploadWorkSummary.initialDirtySurfaceCount,
-      noUploadReason: frame.uploadWorkSummary.noUploadReason,
-      paintUnavailableSurfaceCount:
-        frame.uploadWorkSummary.paintUnavailableSurfaceCount,
-      remainingDirtySurfaceCount:
-        frame.uploadWorkSummary.remainingDirtySurfaceCount,
-      uploadableRemainingDirtySurfaceCount:
-        frame.uploadWorkSummary.uploadableRemainingDirtySurfaceCount,
-    },
-    visibleSourceCount: frame.visibleSourceCount,
-  };
-}
-
 function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
   preparedFrame,
-  rowTextureFrame,
   snapshotSources,
 }: {
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly rowTextureFrame: RetainedTextLikeRowTextureFrameResult;
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
+  const committedRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
+    preparedFrame.drawQuads.map((quad) => ({
+      sourceRectCss: quad.sampleRectCss,
+      surfaceId: quad.page.descriptor.surfaceId,
+    })),
+  );
   const missingRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
     preparedFrame.refinementDescriptors.map((descriptor) => ({
       sourceRectCss: descriptor.sourceRectCss,
       surfaceId: descriptor.surfaceId,
     })),
   );
-  const visualBySourceId = new Map(
-    rowTextureFrame.flatSurfaces.map((visual) => [visual.surfaceId, visual]),
-  );
-  const visibleSourceIds = new Set(rowTextureFrame.visibleSourceIds);
-  const rowCoverages = snapshotSources
-    .filter((source) => visibleSourceIds.has(source.sourceId))
-    .map((source) => {
-      const visual = visualBySourceId.get(source.sourceId);
-      const availableCoverageRatio = visual ? 1 : 0;
-      const missingCoverageRatio = estimateGpuFlowRectCoverageRatio(
-        source.targetRectCss,
-        missingRectsBySurfaceId.get(source.surfaceId) ?? [],
-      );
-      const passivePixelsReady = Boolean(visual);
-      return {
-        availableCoverageRatio: roundGpuFlowChromeReproRatio(
-          availableCoverageRatio,
-        ),
-        codeLength: source.code.length,
-        defaultValueLength: source.defaultValue.length,
-        disabled: source.disabled,
-        error: source.error,
-        language: source.language ?? "plain",
-        linePolicy: source.linePolicy,
-        missingCoverageRatio: roundGpuFlowChromeReproRatio(
-          missingCoverageRatio,
-        ),
-        passivePixelsReady,
-        rect: roundGpuFlowChromeReproRect(source.targetRectCss),
-        rowId: source.rowId,
-        sectionId: source.sectionId,
-        sourceId: source.sourceId,
-        surfaceId: source.surfaceId,
-        textureContentCurrent:
-          visual?.texture.textureContentKey === undefined
-            ? false
-            : visual.texture.textureContentKey === source.sourceKey,
-        wrapLines: source.wrapLines,
-      };
-    });
+  const rowCoverages = snapshotSources.map((source) => {
+    const availableCoverageRatio = estimateGpuFlowRectCoverageRatio(
+      source.targetRectCss,
+      committedRectsBySurfaceId.get(source.surfaceId) ?? [],
+    );
+    const missingCoverageRatio = estimateGpuFlowRectCoverageRatio(
+      source.targetRectCss,
+      missingRectsBySurfaceId.get(source.surfaceId) ?? [],
+    );
+    const passivePixelsReady = availableCoverageRatio >= 0.95;
+    return {
+      availableCoverageRatio: roundGpuFlowChromeReproRatio(
+        availableCoverageRatio,
+      ),
+      codeLength: source.code.length,
+      defaultValueLength: source.defaultValue.length,
+      disabled: source.disabled,
+      error: source.error,
+      language: source.language ?? "plain",
+      linePolicy: source.linePolicy,
+      missingCoverageRatio: roundGpuFlowChromeReproRatio(missingCoverageRatio),
+      passivePixelsReady,
+      rect: roundGpuFlowChromeReproRect(source.targetRectCss),
+      rowId: source.rowId,
+      sectionId: source.sectionId,
+      sourceId: source.sourceId,
+      surfaceId: source.surfaceId,
+      wrapLines: source.wrapLines,
+    };
+  });
   const problematicRows = rowCoverages.filter((row) => !row.passivePixelsReady);
   const readyRows = rowCoverages.filter((row) => row.passivePixelsReady);
   const partialRows = rowCoverages.filter(
@@ -304,14 +230,6 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
     partialPassiveRowCount: partialRows.length,
     passiveRowCount: rowCoverages.length,
     readyPassiveRowCount: readyRows.length,
-    rowTextureClippedTextureCount: rowTextureFrame.clippedTextureCount,
-    rowTextureMissingElementCount: rowTextureFrame.missingElementCount,
-    rowTextureMissingSurfaceCount: rowTextureFrame.missingSurfaceCount,
-    rowTextureMissingTextureCount: rowTextureFrame.missingTextureCount,
-    rowTextureReadyTextureCount: rowTextureFrame.readyTextureCount,
-    rowTextureStaleElementCount: rowTextureFrame.staleElementCount,
-    rowTextureStaleTextureCount: rowTextureFrame.staleTextureCount,
-    rowTextureVisibleSourceCount: rowTextureFrame.visibleSourceCount,
     rowSamples: [
       ...problematicRows,
       ...readyRows.slice(0, Math.max(0, 80 - problematicRows.length)),

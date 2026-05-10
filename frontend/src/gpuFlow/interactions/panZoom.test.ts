@@ -124,7 +124,6 @@ describe("GPU pan/zoom controller", () => {
       deltaY: -100,
     });
     element.dispatchEvent(event);
-    flushWheelViewportFrame();
 
     const [x, y, zoom] = store.getState().transform;
     expect(event.defaultPrevented).toBe(true);
@@ -164,7 +163,6 @@ describe("GPU pan/zoom controller", () => {
         deltaY: 20,
       }),
     );
-    flushWheelViewportFrame();
 
     expect(store.getState().transform).toEqual([-5, -10, 1]);
     expect(store.getState().panScrolling).toBe(true);
@@ -204,7 +202,6 @@ describe("GPU pan/zoom controller", () => {
         deltaY: -20,
       }),
     );
-    flushWheelViewportFrame();
 
     const [x, y, zoom] = store.getState().transform;
     expect(zoom).toBeGreaterThan(1);
@@ -245,7 +242,6 @@ describe("GPU pan/zoom controller", () => {
         deltaY: -100,
       }),
     );
-    flushWheelViewportFrame();
 
     const [x, y, zoom] = store.getState().transform;
     expect(zoom).toBeGreaterThan(1);
@@ -535,10 +531,6 @@ function wheelLike(
     shiftKey: false,
     ...options,
   };
-}
-
-function flushWheelViewportFrame() {
-  vi.advanceTimersByTime(16);
 }
 
 function dispatchPointer(

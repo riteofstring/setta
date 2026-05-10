@@ -12,10 +12,14 @@ import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
+import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
+  readonly textLikeRowSnapshotSources?:
+    | readonly GpuRetainedTextLikeRowSnapshotSource[]
+    | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
 
@@ -24,23 +28,25 @@ let nextContentVersion = 1;
 
 export function getGpuRetainedContentTexturePageFrameSurfaces(
   surfaces: readonly GpuContentSurface[] | undefined,
-  _options: GpuRetainedContentPageFrameSurfaceOptions = {},
+  options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
   return getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
-    getGpuRetainedContentSourceSurfaces(surfaces, _options),
+    getGpuRetainedContentSourceSurfaces(surfaces, options),
   );
 }
 
 export function getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
+  options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
   return surfaces.map((surface) =>
-    toGpuRetainedContentTexturePageFrameSurface(surface),
+    toGpuRetainedContentTexturePageFrameSurface(surface, options),
   );
 }
 
 function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
+  options: GpuRetainedContentPageFrameSurfaceOptions,
 ): RetainedContentTexturePageFrameSurface {
   return {
     contentBoundsCss: {
@@ -72,8 +78,29 @@ function toGpuRetainedContentTexturePageFrameSurface(
       y: surface.textureWindow.cacheScrollOffset.y,
     },
     surfaceId: surface.id,
+    textLikeSnapshots: createTextLikeSnapshots({
+      sources: options.textLikeRowSnapshotSources ?? [],
+      surfaceId: surface.id,
+    }),
     visibleSourceRectCss: surface.textureWindow.sourceRect,
   };
+}
+
+function createTextLikeSnapshots({
+  sources,
+  surfaceId,
+}: {
+  readonly sources: readonly GpuRetainedTextLikeRowSnapshotSource[];
+  readonly surfaceId: string;
+}): readonly RetainedContentTexturePageTextLikeSnapshot[] {
+  return sources
+    .filter((source) => source.surfaceId === surfaceId)
+    .map((source) => ({
+      rectCss: source.targetRectCss,
+      rowId: source.rowId,
+      sourceId: source.sourceId,
+      sourceKey: source.sourceKey,
+    }));
 }
 
 function getContentVersion(signature: string): number {

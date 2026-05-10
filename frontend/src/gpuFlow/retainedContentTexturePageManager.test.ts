@@ -470,7 +470,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(nextPreparedFrame.missingPageCount).toBe(0);
   });
 
-  it("uploads retained content pages without waiting for row text source elements", () => {
+  it("uploads current row-owned text-like snapshots into retained content pages", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -479,17 +479,41 @@ describe("RetainedContentTexturePageManager", () => {
       },
       maxPagePixelSize: 100,
     });
+    const snapshotElement = createTextLikeSnapshotElement("snapshot-key");
+    const surface = createFrameSurface({
+      textLikeSnapshots: [
+        {
+          rectCss: { height: 20, width: 40, x: 10, y: 12 },
+          rowId: "row-a",
+          sourceId: "snapshot-a",
+          sourceKey: "snapshot-key",
+        },
+      ],
+    });
 
     const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
-      surfaces: [createFrameSurface()],
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
     expect(result.uploadCount).toBe(1);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
-    expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
+    expect(fixture.queue.copyElementImageToTexture).toHaveBeenCalledWith(
+      snapshotElement,
+      0,
+      0,
+      40,
+      20,
+      40,
+      20,
+      {
+        origin: { x: 10, y: 12, z: 0 },
+        texture: fixture.textures[0],
+      },
+    );
   });
 });
 
@@ -500,6 +524,7 @@ function renderFrame(
     devicePixelRatio,
     frame,
     surfaces,
+    textLikeSnapshotElementById,
     viewportInteractionActive = false,
     viewportZoomBucket,
   }: {
@@ -507,6 +532,9 @@ function renderFrame(
     readonly devicePixelRatio: number;
     readonly frame: number;
     readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
+    readonly textLikeSnapshotElementById?:
+      | ReadonlyMap<string, HTMLElement>
+      | undefined;
     readonly viewportInteractionActive?: boolean | undefined;
     readonly viewportZoomBucket: number;
   },
@@ -522,7 +550,14 @@ function renderFrame(
     preparedFrame,
     viewportInteractionActive,
   };
-  const maintenance = manager.runPostSubmitMaintenance(maintenanceInput);
+  const maintenance = manager.runPostSubmitMaintenance(
+    textLikeSnapshotElementById === undefined
+      ? maintenanceInput
+      : {
+          ...maintenanceInput,
+          textLikeSnapshotElementById,
+        },
+  );
   return {
     ...maintenance,
     flatSurfaces: preparedFrame.flatSurfaces,
@@ -573,6 +608,14 @@ function createManagerFixture({
     textureUsage: 1,
   });
   return { manager, queue, textures };
+}
+
+function createTextLikeSnapshotElement(sourceKey: string): HTMLElement {
+  return {
+    dataset: {
+      gpuFlowRetainedTextLikeRowSnapshotSourceKey: sourceKey,
+    },
+  } as unknown as HTMLElement;
 }
 
 function createDeferred<T>() {

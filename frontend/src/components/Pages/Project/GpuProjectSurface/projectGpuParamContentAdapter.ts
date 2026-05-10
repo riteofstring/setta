@@ -12,6 +12,10 @@ import {
   type GpuRetainedContentRow,
   type GpuRetainedContentRowInput,
 } from "gpuFlow/retainedContentScene";
+import {
+  clampGpuRetainedContentScrollOffset,
+  type GpuRetainedContentScrollOffsetMap,
+} from "gpuFlow/retainedContentScroll";
 import type {
   GpuContentSurface,
   GpuDomIsland,
@@ -149,6 +153,7 @@ export function createProjectGpuParamContentSurfaces({
   activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
+  contentScrollOffsets,
   editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   hoveredParamTarget,
   passwordRevealStates,
@@ -161,6 +166,7 @@ export function createProjectGpuParamContentSurfaces({
   readonly activeParamCanvasControl?: OptionalParamTarget;
   readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
   readonly activeParamDomIsland?: OptionalParamDomIsland;
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly hoveredParamTarget?: OptionalParamTarget;
   readonly passwordRevealStates?: PasswordRevealStates | undefined;
@@ -175,6 +181,7 @@ export function createProjectGpuParamContentSurfaces({
       activeParamCanvasControl,
       activeParamCanvasPopup,
       activeParamDomIsland,
+      contentScrollOffsets,
       editPolicy,
       hoveredParamTarget,
       passwordRevealStates,
@@ -431,6 +438,7 @@ function createProjectGpuParamContentSurfacesForSection({
   activeParamCanvasControl,
   activeParamCanvasPopup,
   activeParamDomIsland,
+  contentScrollOffsets,
   editPolicy,
   hoveredParamTarget,
   passwordRevealStates,
@@ -443,6 +451,7 @@ function createProjectGpuParamContentSurfacesForSection({
   readonly activeParamCanvasControl?: OptionalParamTarget;
   readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
   readonly activeParamDomIsland?: OptionalParamDomIsland;
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hoveredParamTarget?: OptionalParamTarget;
   readonly passwordRevealStates?: PasswordRevealStates | undefined;
@@ -479,6 +488,7 @@ function createProjectGpuParamContentSurfacesForSection({
   });
   return createProjectGpuParamListContentSurfaces({
     activeParamCanvasPopup,
+    contentScrollOffsets,
     listRows,
     retainedParamDragPreview,
     section,
@@ -660,6 +670,7 @@ function resolveProjectGpuRetainedParamRowDisabled({
 
 function createProjectGpuParamListContentSurfaces({
   activeParamCanvasPopup,
+  contentScrollOffsets,
   listRows,
   retainedParamDragPreview,
   section,
@@ -669,6 +680,7 @@ function createProjectGpuParamListContentSurfaces({
     | ProjectGpuActiveParamCanvasPopup
     | null
     | undefined;
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly listRows: readonly ProjectGpuParamListRows[];
   readonly retainedParamDragPreview?:
     | ProjectGpuRetainedParamDragPreview
@@ -732,6 +744,14 @@ function createProjectGpuParamListContentSurfaces({
       x: 0,
       y: 0,
     };
+    const scrollOffset = clampGpuRetainedContentScrollOffset({
+      contentRect: {
+        height: contentHeight,
+        width: localRect.width,
+      },
+      scrollOffset: contentScrollOffsets?.get(surfaceId) ?? { x: 0, y: 0 },
+      viewportRect,
+    });
     const clipRect = createProjectGpuParamContentSurfaceClipRect({
       rect,
       sectionClipRect: section.clipRect,
@@ -764,7 +784,7 @@ function createProjectGpuParamListContentSurfaces({
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
         rowVisualBounds: { width: localRect.width, x: 0 },
         rows: list.rows,
-        scrollOffset: { x: 0, y: 0 },
+        scrollOffset,
         viewportRect,
       }),
       renderer: { kind: "canvas-content", surfaceId },
