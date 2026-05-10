@@ -8,6 +8,29 @@ import {
 import type { RetainedTextureUploadSchedulerBudget } from "./retainedTextureUploadScheduler";
 
 describe("RetainedContentTexturePageManager", () => {
+  it("keeps the current LOD bucket stable while the viewport is moving", () => {
+    const fixture = createManagerFixture();
+
+    expect(
+      fixture.manager.resolveFrameViewportZoomBucket({
+        viewportInteractionActive: false,
+        zoom: 0.6,
+      }),
+    ).toBe(0.75);
+    expect(
+      fixture.manager.resolveFrameViewportZoomBucket({
+        viewportInteractionActive: true,
+        zoom: 3,
+      }),
+    ).toBe(0.75);
+    expect(
+      fixture.manager.resolveFrameViewportZoomBucket({
+        viewportInteractionActive: false,
+        zoom: 3,
+      }),
+    ).toBe(3);
+  });
+
   it("uploads visible pages within the configured upload budget", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -62,6 +85,28 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
   });
 
+  it("requests a follow-up frame for committed coverage without reporting budget pressure", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+
+    const result = fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [createFrameSurface()],
+      viewportZoomBucket: 1,
+    });
+
+    expect(result.uploadCount).toBe(1);
+    expect(result.budgetExhausted).toBe(false);
+    expect(result.needsFollowUpFrame).toBe(true);
+  });
+
   it("draws lower-LOD committed pages while sharper pages are pending", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -88,13 +133,11 @@ describe("RetainedContentTexturePageManager", () => {
     });
 
     expect(zoomFrame.uploadCount).toBe(0);
-    expect(zoomFrame.flatSurfaces).toHaveLength(4);
+    expect(zoomFrame.flatSurfaces).toHaveLength(2);
     expect(zoomFrame.missingPageCount).toBe(4);
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
       "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
       "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
     ]);
@@ -136,6 +179,113 @@ describe("RetainedContentTexturePageManager", () => {
     expect(result.flatSurfaces[0]?.surfaceId).toBe(
       "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
     );
+  });
+
+  it("draws stale content pages while replacement content pages are pending", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface({ contentVersion: 1 });
+    const replacementSurface = createFrameSurface({ contentVersion: 2 });
+
+    fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const replacementFrame = fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [replacementSurface],
+      viewportInteractionActive: true,
+      viewportZoomBucket: 1,
+    });
+
+    expect(replacementFrame.uploadCount).toBe(0);
+    expect(replacementFrame.flatSurfaces).toHaveLength(1);
+    expect(replacementFrame.flatSurfaces[0]?.surfaceId).toBe(
+      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
+    );
+    expect(replacementFrame.missingPageCount).toBe(1);
+    expect(replacementFrame.uncoveredRectCount).toBe(0);
+  });
+
+  it("keeps unchanged row-segment pages exact when a neighboring row changes", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 24,
+    });
+    const surface = createFrameSurface({
+      contentBoundsCss: { height: 48, width: 24, x: 0, y: 0 },
+      contentSegments: [
+        {
+          contentVersion: 101,
+          id: "row-a",
+          rectCss: { height: 24, width: 24, x: 0, y: 0 },
+        },
+        {
+          contentVersion: 202,
+          id: "row-b",
+          rectCss: { height: 24, width: 24, x: 0, y: 24 },
+        },
+      ],
+      layout: {
+        height: 48,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 48, width: 24, x: 0, y: 0 },
+        width: 24,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 48, width: 24, x: 0, y: 0 },
+      visibleSourceRectCss: { height: 48, width: 24, x: 0, y: 0 },
+    });
+    const changedSurface = createFrameSurface({
+      ...surface,
+      contentSegments: [
+        {
+          contentVersion: 303,
+          id: "row-a",
+          rectCss: { height: 24, width: 24, x: 0, y: 0 },
+        },
+        {
+          contentVersion: 202,
+          id: "row-b",
+          rectCss: { height: 24, width: 24, x: 0, y: 24 },
+        },
+      ],
+    });
+
+    fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const replacementFrame = fixture.manager.renderFrame({
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [changedSurface],
+      viewportInteractionActive: true,
+      viewportZoomBucket: 1,
+    });
+
+    expect(replacementFrame.uploadCount).toBe(0);
+    expect(replacementFrame.drawQuadCount).toBe(2);
+    expect(replacementFrame.fallbackDrawQuadCount).toBe(1);
+    expect(replacementFrame.staleFallbackDrawQuadCount).toBe(1);
+    expect(replacementFrame.missingPageCount).toBe(1);
+    expect(replacementFrame.uncoveredRectCount).toBe(0);
   });
 
   it("retires replaced page resources until submitted GPU work completes", async () => {
@@ -206,7 +356,8 @@ describe("RetainedContentTexturePageManager", () => {
     expect(preparedFrame.flatSurfaces).toHaveLength(0);
     expect(preparedFrame.missingPageCount).toBe(1);
     expect(maintenance.uploadCount).toBe(1);
-    expect(maintenance.budgetExhausted).toBe(true);
+    expect(maintenance.budgetExhausted).toBe(false);
+    expect(maintenance.needsFollowUpFrame).toBe(true);
 
     const nextPreparedFrame = fixture.manager.prepareFrame({
       devicePixelRatio: 1,
@@ -291,7 +442,9 @@ function createScratchCanvas(): HTMLCanvasElement {
   } as unknown as HTMLCanvasElement;
 }
 
-function createFrameSurface(): RetainedContentTexturePageFrameSurface {
+function createFrameSurface(
+  overrides: Partial<RetainedContentTexturePageFrameSurface> = {},
+): RetainedContentTexturePageFrameSurface {
   return {
     contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
     contentVersion: 1,
@@ -307,6 +460,7 @@ function createFrameSurface(): RetainedContentTexturePageFrameSurface {
     sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     visibleSourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
+    ...overrides,
   };
 }
 

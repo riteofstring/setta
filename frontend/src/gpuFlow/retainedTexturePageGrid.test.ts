@@ -175,6 +175,131 @@ describe("createRetainedTexturePageDrawQuads", () => {
     ]);
   });
 
+  it("uses stale content pages as fallback while current content pages are pending", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        contentVersion: 1,
+        lodScale: 1,
+        lodLevel: retainedTexturePageLodLevel(1),
+        pixelHeight: 256,
+        pixelWidth: 256,
+        scaleKey: retainedTexturePageScaleKey(1),
+        sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
+      }),
+      resource: "previous-content",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
+      contentVersion: 2,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 64, x: 64, y: 64 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+        usedFrame: 12,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            page: expect.objectContaining({
+              lastUsedFrame: 12,
+              resource: "previous-content",
+            }),
+            sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
+          }),
+        ],
+        refinementDescriptors: desiredPages,
+        uncoveredRectsCss: [],
+      }),
+    );
+  });
+
+  it("uses committed pages from the same source-window origin as fallback", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
+        sourceWindowCss: { height: 512, width: 256, x: 0, y: 0 },
+      }),
+      resource: "larger-window",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
+      contentVersion: 1,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 64, x: 64, y: 64 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            page: expect.objectContaining({ resource: "larger-window" }),
+            sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
+          }),
+        ],
+        uncoveredRectsCss: [],
+      }),
+    );
+  });
+
+  it("merges adjacent fallback quads that sample the same committed page", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        lodScale: 1,
+        pixelHeight: 64,
+        pixelWidth: 256,
+        sourceRectCss: { height: 64, width: 256, x: 0, y: 0 },
+      }),
+      resource: "wide-page",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 64, width: 256, x: 0, y: 0 },
+      contentVersion: 1,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: SOURCE_WINDOW,
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 128, x: 0, y: 0 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            fallback: true,
+            page: expect.objectContaining({ resource: "wide-page" }),
+            sampleRectCss: { height: 64, width: 128, x: 0, y: 0 },
+          }),
+        ],
+        mergedDrawQuadCount: 1,
+        uncoveredRectsCss: [],
+      }),
+    );
+  });
+
   it("uses higher LOD committed pages as fallback for desired low LOD pages", () => {
     const cache = new RetainedTexturePageCache<string>();
     const highLodPages = [

@@ -185,7 +185,7 @@ function createGpuRetainedContentRowDrawCommands({
         labelRect,
       }),
       kind: "row-background",
-      rect: row.projectedRect,
+      rect: row.visualProjectedRect,
       rowId: row.id,
       state: row.state,
     },

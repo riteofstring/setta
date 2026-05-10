@@ -49,6 +49,8 @@ export type RetainedTexturePageCacheSnapshot = {
 };
 
 export type RetainedTexturePageLookup = {
+  readonly allowCompatibleSourceWindow?: boolean | undefined;
+  readonly allowStaleContent?: boolean | undefined;
   readonly contentVersion: number;
   readonly sourceRectCss: GpuRect;
   readonly sourceWindowCss: GpuRect;
@@ -85,7 +87,17 @@ export type RetainedTexturePageCacheOptions<TResource> = {
   readonly destroyResource?: ((resource: TResource) => void) | undefined;
 };
 
+const EMPTY_PAGE_KEY_SET = new Set<string>();
+
 export class RetainedTexturePageCache<TResource = unknown> {
+  private readonly committedPageKeysBySurfaceWindow = new Map<
+    string,
+    Map<string, Set<string>>
+  >();
+  private readonly committedPageKeysBySurfaceWindowOrigin = new Map<
+    string,
+    Map<string, Set<string>>
+  >();
   private readonly committedPages = new Map<
     string,
     CommittedRetainedTexturePage<TResource>
@@ -106,6 +118,8 @@ export class RetainedTexturePageCache<TResource = unknown> {
       this.destroyResource?.(page.resource);
     }
     this.committedPages.clear();
+    this.committedPageKeysBySurfaceWindow.clear();
+    this.committedPageKeysBySurfaceWindowOrigin.clear();
     this.pendingPages.clear();
     this.retiredPages = [];
   }
@@ -135,6 +149,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       resource,
     };
     this.committedPages.set(key, page);
+    this.indexCommittedPage(page);
     return page;
   }
 
@@ -176,6 +191,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
         break;
       }
       this.committedPages.delete(page.key);
+      this.unindexCommittedPage(page);
       this.retireCommittedPage(page, frame);
       evictedBytes += page.byteSize;
       evictedKeys.push(page.key);
@@ -217,6 +233,8 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   getCommittedPagesForCoverage({
+    allowCompatibleSourceWindow = false,
+    allowStaleContent = false,
     contentVersion,
     sourceRectCss,
     sourceWindowCss,
@@ -231,16 +249,24 @@ export class RetainedTexturePageCache<TResource = unknown> {
       "sourceWindowCss",
       sourceWindowCss,
     );
-    return [...this.committedPages.values()]
+    return this.getCommittedPagesForLookup({
+      allowCompatibleSourceWindow,
+      lookupSourceWindow,
+      surfaceId,
+    })
       .filter(
         (page) =>
-          page.descriptor.surfaceId === surfaceId &&
-          page.descriptor.contentVersion === contentVersion &&
-          rectsEqual(page.descriptor.sourceWindowCss, lookupSourceWindow) &&
+          (allowStaleContent ||
+            page.descriptor.contentVersion === contentVersion) &&
           rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
       )
       .sort((left, right) =>
-        compareFallbackPagesForTarget(left, right, targetLodScale),
+        compareFallbackPagesForTarget({
+          contentVersion,
+          left,
+          right,
+          targetLodScale,
+        }),
       );
   }
 
@@ -330,6 +356,70 @@ export class RetainedTexturePageCache<TResource = unknown> {
       .sort(compareEvictablePages);
   }
 
+  private getCommittedPagesForLookup({
+    allowCompatibleSourceWindow,
+    lookupSourceWindow,
+    surfaceId,
+  }: {
+    readonly allowCompatibleSourceWindow: boolean;
+    readonly lookupSourceWindow: GpuRect;
+    readonly surfaceId: string;
+  }): readonly CommittedRetainedTexturePage<TResource>[] {
+    const keys = allowCompatibleSourceWindow
+      ? this.getIndexedPageKeys({
+          indexes: this.committedPageKeysBySurfaceWindowOrigin,
+          key: sourceWindowOriginKey(lookupSourceWindow),
+          surfaceId,
+        })
+      : this.getIndexedPageKeys({
+          indexes: this.committedPageKeysBySurfaceWindow,
+          key: rectKey(lookupSourceWindow),
+          surfaceId,
+        });
+    return [...keys].flatMap((key) => {
+      const page = this.committedPages.get(key);
+      return page ? [page] : [];
+    });
+  }
+
+  private getIndexedPageKeys({
+    indexes,
+    key,
+    surfaceId,
+  }: {
+    readonly indexes: ReadonlyMap<string, ReadonlyMap<string, Set<string>>>;
+    readonly key: string;
+    readonly surfaceId: string;
+  }): ReadonlySet<string> {
+    return indexes.get(surfaceId)?.get(key) ?? EMPTY_PAGE_KEY_SET;
+  }
+
+  private indexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
+    addNestedCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurfaceWindow,
+      key: rectKey(page.descriptor.sourceWindowCss),
+      page,
+    });
+    addNestedCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurfaceWindowOrigin,
+      key: sourceWindowOriginKey(page.descriptor.sourceWindowCss),
+      page,
+    });
+  }
+
+  private unindexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
+    removeNestedCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurfaceWindow,
+      key: rectKey(page.descriptor.sourceWindowCss),
+      page,
+    });
+    removeNestedCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurfaceWindowOrigin,
+      key: sourceWindowOriginKey(page.descriptor.sourceWindowCss),
+      page,
+    });
+  }
+
   private retireCommittedPage(
     page: CommittedRetainedTexturePage<TResource>,
     retiredFrame: number,
@@ -366,6 +456,98 @@ export function retainedTexturePageKey(
     normalized.tileColumn,
     normalized.tileRow,
   ].join(":");
+}
+
+function addNestedCommittedPageIndexKey<TResource>({
+  indexes,
+  key,
+  page,
+}: {
+  readonly indexes: Map<string, Map<string, Set<string>>>;
+  readonly key: string;
+  readonly page: CommittedRetainedTexturePage<TResource>;
+}) {
+  const surfaceIndexes =
+    indexes.get(page.descriptor.surfaceId) ??
+    createNestedCommittedPageIndex(indexes, page.descriptor.surfaceId);
+  addCommittedPageIndexKey({
+    indexes: surfaceIndexes,
+    key,
+    pageKey: page.key,
+  });
+}
+
+function removeNestedCommittedPageIndexKey<TResource>({
+  indexes,
+  key,
+  page,
+}: {
+  readonly indexes: Map<string, Map<string, Set<string>>>;
+  readonly key: string;
+  readonly page: CommittedRetainedTexturePage<TResource>;
+}) {
+  const surfaceIndexes = indexes.get(page.descriptor.surfaceId);
+  if (!surfaceIndexes) {
+    return;
+  }
+  removeCommittedPageIndexKey({
+    indexes: surfaceIndexes,
+    key,
+    pageKey: page.key,
+  });
+  if (surfaceIndexes.size === 0) {
+    indexes.delete(page.descriptor.surfaceId);
+  }
+}
+
+function addCommittedPageIndexKey({
+  indexes,
+  key,
+  pageKey,
+}: {
+  readonly indexes: Map<string, Set<string>>;
+  readonly key: string;
+  readonly pageKey: string;
+}) {
+  const pageKeys = indexes.get(key) ?? createCommittedPageIndex(indexes, key);
+  pageKeys.add(pageKey);
+}
+
+function removeCommittedPageIndexKey({
+  indexes,
+  key,
+  pageKey,
+}: {
+  readonly indexes: Map<string, Set<string>>;
+  readonly key: string;
+  readonly pageKey: string;
+}) {
+  const pageKeys = indexes.get(key);
+  if (!pageKeys) {
+    return;
+  }
+  pageKeys.delete(pageKey);
+  if (pageKeys.size === 0) {
+    indexes.delete(key);
+  }
+}
+
+function createNestedCommittedPageIndex(
+  indexes: Map<string, Map<string, Set<string>>>,
+  key: string,
+): Map<string, Set<string>> {
+  const nested = new Map<string, Set<string>>();
+  indexes.set(key, nested);
+  return nested;
+}
+
+function createCommittedPageIndex(
+  indexes: Map<string, Set<string>>,
+  key: string,
+): Set<string> {
+  const pageKeys = new Set<string>();
+  indexes.set(key, pageKeys);
+  return pageKeys;
 }
 
 export function estimatePageByteSize({
@@ -445,13 +627,21 @@ function normalizePageDescriptor(
   };
 }
 
-function compareFallbackPagesForTarget(
-  left: CommittedRetainedTexturePage,
-  right: CommittedRetainedTexturePage,
-  targetLodScale: number,
-): number {
+function compareFallbackPagesForTarget({
+  contentVersion,
+  left,
+  right,
+  targetLodScale,
+}: {
+  readonly contentVersion: number;
+  readonly left: CommittedRetainedTexturePage;
+  readonly right: CommittedRetainedTexturePage;
+  readonly targetLodScale: number;
+}): number {
   const targetLodLevel = retainedTexturePageLodLevel(targetLodScale);
   return (
+    staleContentRank(left, contentVersion) -
+      staleContentRank(right, contentVersion) ||
     Math.abs(left.descriptor.lodLevel - targetLodLevel) -
       Math.abs(right.descriptor.lodLevel - targetLodLevel) ||
     right.descriptor.lodLevel - left.descriptor.lodLevel ||
@@ -459,6 +649,13 @@ function compareFallbackPagesForTarget(
       rectArea(right.descriptor.sourceRectCss) ||
     right.lastUsedFrame - left.lastUsedFrame
   );
+}
+
+function staleContentRank(
+  page: CommittedRetainedTexturePage,
+  contentVersion: number,
+): number {
+  return page.descriptor.contentVersion === contentVersion ? 0 : 1;
 }
 
 function rectContains(container: GpuRect, rect: GpuRect): boolean {
@@ -479,13 +676,12 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
   );
 }
 
-function rectsEqual(left: GpuRect, right: GpuRect): boolean {
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height
-  );
+function rectKey(rect: GpuRect): string {
+  return [rect.x, rect.y, rect.width, rect.height].join(":");
+}
+
+function sourceWindowOriginKey(rect: GpuRect): string {
+  return [rect.x, rect.y].join(":");
 }
 
 function rectArea(rect: GpuRect): number {

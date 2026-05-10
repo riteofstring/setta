@@ -7,8 +7,12 @@ import {
   type GpuRetainedContentScene,
 } from "./retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
-import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
+import type {
+  RetainedContentTexturePageContentSegment,
+  RetainedContentTexturePageFrameSurface,
+} from "./retainedContentTexturePageManager";
 import type { GpuContentSurface } from "./scene";
+import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
   readonly viewportZoomBucket?: number | undefined;
@@ -36,7 +40,8 @@ function toGpuRetainedContentTexturePageFrameSurface(
       x: 0,
       y: 0,
     },
-    contentVersion: getContentVersion(surface.retainedScene),
+    contentSegments: createContentSegments(surface.retainedScene),
+    contentVersion: getBaseContentVersion(surface.retainedScene),
     layout: {
       height: surface.rect.height,
       surfaceId: surface.id,
@@ -62,8 +67,7 @@ function toGpuRetainedContentTexturePageFrameSurface(
   };
 }
 
-function getContentVersion(scene: GpuRetainedContentScene): number {
-  const signature = createContentSignature(scene);
+function getContentVersion(signature: string): number {
   const existingVersion = contentVersions.get(signature);
   if (existingVersion !== undefined) {
     return existingVersion;
@@ -74,7 +78,57 @@ function getContentVersion(scene: GpuRetainedContentScene): number {
   return version;
 }
 
-function createContentSignature(scene: GpuRetainedContentScene): string {
+function getBaseContentVersion(scene: GpuRetainedContentScene): number {
+  return getContentVersion(createBaseContentSignature(scene));
+}
+
+function getRowContentVersion(row: GpuRetainedContentSceneSourceRow): number {
+  return getContentVersion(createRowContentSignature(row));
+}
+
+type GpuRetainedContentSceneSourceRow = NonNullable<
+  ReturnType<typeof getGpuRetainedContentSceneSourceInput>
+>["rows"][number];
+
+function createContentSegments(
+  scene: GpuRetainedContentScene,
+): readonly RetainedContentTexturePageContentSegment[] {
+  const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
+  if (!sourceInput) {
+    return [];
+  }
+  return sourceInput.layout.rowMetrics.map((rowMetric) => ({
+    contentVersion: getRowContentVersion(rowMetric.input),
+    id: rowMetric.input.id,
+    rectCss: createRowContentSegmentRect({
+      rowHeight: sourceInput.rowHeight,
+      rowVisualBounds: sourceInput.rowVisualBounds,
+      y: rowMetric.y,
+    }),
+  }));
+}
+
+function createRowContentSegmentRect({
+  rowHeight,
+  rowVisualBounds,
+  y,
+}: {
+  readonly rowHeight: number;
+  readonly rowVisualBounds: {
+    readonly width: number;
+    readonly x: number;
+  };
+  readonly y: number;
+}): GpuRect {
+  return {
+    height: rowHeight,
+    width: rowVisualBounds.width,
+    x: rowVisualBounds.x,
+    y,
+  };
+}
+
+function createBaseContentSignature(scene: GpuRetainedContentScene): string {
   const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
   if (!sourceInput) {
     return JSON.stringify({
@@ -97,17 +151,24 @@ function createContentSignature(scene: GpuRetainedContentScene): string {
     ownerSectionId: sourceInput.ownerSectionId,
     portHitSize: sourceInput.portHitSize,
     rowHeight: sourceInput.rowHeight,
-    rows: sourceInput.rows.map((row) => ({
-      control: row.control,
-      controlKind: row.controlKind,
-      depth: row.depth,
-      id: row.id,
-      label: row.label,
-      labelAppearance: row.labelAppearance,
-      ports: row.ports,
-      status: row.status,
-      verticalGapBefore: row.verticalGapBefore,
-    })),
+    rowOrder: sourceInput.layout.rowOrder,
+    rowVisualBounds: sourceInput.rowVisualBounds,
     viewportWidth: sourceInput.viewportRect.width,
+  });
+}
+
+function createRowContentSignature(
+  row: GpuRetainedContentSceneSourceRow,
+): string {
+  return JSON.stringify({
+    control: row.control,
+    controlKind: row.controlKind,
+    depth: row.depth,
+    id: row.id,
+    label: row.label,
+    labelAppearance: row.labelAppearance,
+    ports: row.ports,
+    status: row.status,
+    verticalGapBefore: row.verticalGapBefore,
   });
 }

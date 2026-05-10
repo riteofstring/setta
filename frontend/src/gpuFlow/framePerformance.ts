@@ -20,6 +20,7 @@ export type GpuFlowFramePerformanceInput = {
 
 export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly budgetExhausted: boolean;
+  readonly coverageCandidateCount: number;
   readonly diagnosticCount: number;
   readonly drawQuadCount: number;
   readonly evictedBytes: number;
@@ -30,8 +31,11 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly memoryRetiredBytes: number;
   readonly memoryRetiredCount: number;
   readonly memoryTotalBytes: number;
+  readonly mergedDrawQuadCount: number;
   readonly missingPageCount: number;
   readonly rasterMs: number;
+  readonly staleFallbackDrawQuadCount: number;
+  readonly targetDescriptorCount: number;
   readonly uncoveredRectCount: number;
   readonly uploadedBytes: number;
   readonly uploadedDrawCommandCount: number;
@@ -94,6 +98,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly retainedTexturePageBudgetExhausted: boolean;
+  readonly retainedTexturePageCoverageCandidateCount: number;
   readonly retainedTexturePageDiagnosticCount: number;
   readonly retainedTexturePageDrawQuadCount: number;
   readonly retainedTexturePageEvictedBytes: number;
@@ -104,8 +109,11 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageMemoryRetiredBytes: number;
   readonly retainedTexturePageMemoryRetiredCount: number;
   readonly retainedTexturePageMemoryTotalBytes: number;
+  readonly retainedTexturePageMergedDrawQuadCount: number;
   readonly retainedTexturePageMissingPageCount: number;
   readonly retainedTexturePageRasterMs: number;
+  readonly retainedTexturePageStaleFallbackDrawQuadCount: number;
+  readonly retainedTexturePageTargetDescriptorCount: number;
   readonly retainedTexturePageUncoveredRectCount: number;
   readonly retainedTexturePageUploadedBytes: number;
   readonly retainedTexturePageUploadedDrawCommandCount: number;
@@ -243,6 +251,7 @@ function createRetainedTexturePagePerformanceFields(
 ): Pick<
   GpuFlowFramePerformanceEvent,
   | "retainedTexturePageBudgetExhausted"
+  | "retainedTexturePageCoverageCandidateCount"
   | "retainedTexturePageDiagnosticCount"
   | "retainedTexturePageDrawQuadCount"
   | "retainedTexturePageEvictedBytes"
@@ -253,8 +262,11 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageMemoryRetiredBytes"
   | "retainedTexturePageMemoryRetiredCount"
   | "retainedTexturePageMemoryTotalBytes"
+  | "retainedTexturePageMergedDrawQuadCount"
   | "retainedTexturePageMissingPageCount"
   | "retainedTexturePageRasterMs"
+  | "retainedTexturePageStaleFallbackDrawQuadCount"
+  | "retainedTexturePageTargetDescriptorCount"
   | "retainedTexturePageUncoveredRectCount"
   | "retainedTexturePageUploadedBytes"
   | "retainedTexturePageUploadedDrawCommandCount"
@@ -264,6 +276,7 @@ function createRetainedTexturePagePerformanceFields(
   if (!retainedTexturePages) {
     return {
       retainedTexturePageBudgetExhausted: false,
+      retainedTexturePageCoverageCandidateCount: 0,
       retainedTexturePageDiagnosticCount: 0,
       retainedTexturePageDrawQuadCount: 0,
       retainedTexturePageEvictedBytes: 0,
@@ -274,8 +287,11 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageMemoryRetiredBytes: 0,
       retainedTexturePageMemoryRetiredCount: 0,
       retainedTexturePageMemoryTotalBytes: 0,
+      retainedTexturePageMergedDrawQuadCount: 0,
       retainedTexturePageMissingPageCount: 0,
       retainedTexturePageRasterMs: 0,
+      retainedTexturePageStaleFallbackDrawQuadCount: 0,
+      retainedTexturePageTargetDescriptorCount: 0,
       retainedTexturePageUncoveredRectCount: 0,
       retainedTexturePageUploadedBytes: 0,
       retainedTexturePageUploadedDrawCommandCount: 0,
@@ -285,6 +301,8 @@ function createRetainedTexturePagePerformanceFields(
   }
   return {
     retainedTexturePageBudgetExhausted: retainedTexturePages.budgetExhausted,
+    retainedTexturePageCoverageCandidateCount:
+      retainedTexturePages.coverageCandidateCount,
     retainedTexturePageDiagnosticCount: retainedTexturePages.diagnosticCount,
     retainedTexturePageDrawQuadCount: retainedTexturePages.drawQuadCount,
     retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
@@ -300,8 +318,14 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageMemoryRetiredCount:
       retainedTexturePages.memoryRetiredCount,
     retainedTexturePageMemoryTotalBytes: retainedTexturePages.memoryTotalBytes,
+    retainedTexturePageMergedDrawQuadCount:
+      retainedTexturePages.mergedDrawQuadCount,
     retainedTexturePageMissingPageCount: retainedTexturePages.missingPageCount,
     retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
+    retainedTexturePageStaleFallbackDrawQuadCount:
+      retainedTexturePages.staleFallbackDrawQuadCount,
+    retainedTexturePageTargetDescriptorCount:
+      retainedTexturePages.targetDescriptorCount,
     retainedTexturePageUncoveredRectCount:
       retainedTexturePages.uncoveredRectCount,
     retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,

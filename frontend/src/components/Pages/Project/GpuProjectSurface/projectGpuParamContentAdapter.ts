@@ -778,6 +778,7 @@ function createProjectGpuParamListContentSurfaces({
         labelControlGap: PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+        rowVisualBounds: { width: localRect.width, x: 0 },
         rows: list.rows,
         scrollOffset,
         viewportRect,

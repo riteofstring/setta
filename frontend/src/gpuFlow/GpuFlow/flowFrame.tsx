@@ -38,7 +38,6 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import { chooseStableZoomBucket } from "../textureResolution";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
@@ -206,11 +205,16 @@ function completeGpuNodeInteractionFrame(
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
-function requestRemainingTextureUploadFrame(
-  surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
-  layerResult: RenderHtmlSurfaceFrameResult,
-) {
-  if (layerResult.budgetExhausted) {
+function requestRemainingTextureUploadFrame({
+  layerResult,
+  retainedTexturePageFollowUpFrame,
+  surfaceRef,
+}: {
+  readonly layerResult: RenderHtmlSurfaceFrameResult;
+  readonly retainedTexturePageFollowUpFrame: boolean;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+}) {
+  if (layerResult.budgetExhausted || retainedTexturePageFollowUpFrame) {
     surfaceRef.current?.requestFrame("texture-upload");
   }
 }
@@ -277,9 +281,11 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
-  const viewportZoomBucket = chooseStableZoomBucket(
-    normalizeGpuViewport(layer.viewport).zoom,
-  );
+  const viewportZoomBucket =
+    resources.retainedContentPageManager.resolveFrameViewportZoomBucket({
+      viewportInteractionActive: deferResolutionUpdates,
+      zoom: normalizeGpuViewport(layer.viewport).zoom,
+    });
   const retainedPagePreparedFrame =
     resources.retainedContentPageManager.prepareFrame({
       devicePixelRatio: canvasSize.devicePixelRatio,
@@ -325,8 +331,7 @@ export function renderGpuFlowNodeLayerFrame({
     });
   const combinedLayerResult = {
     ...layerResult,
-    budgetExhausted:
-      layerResult.budgetExhausted || retainedPageResult.budgetExhausted,
+    budgetExhausted: layerResult.budgetExhausted,
   };
   reportGpuFlowNodeLayerFramePerformance({
     callbacksRef,
@@ -345,6 +350,7 @@ export function renderGpuFlowNodeLayerFrame({
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: {
       budgetExhausted: retainedPageResult.budgetExhausted,
+      coverageCandidateCount: retainedPageResult.coverageCandidateCount,
       diagnosticCount: retainedPageResult.diagnostics.length,
       drawQuadCount: retainedPageResult.drawQuadCount,
       evictedBytes: retainedPageResult.evicted.evictedBytes,
@@ -355,8 +361,11 @@ export function renderGpuFlowNodeLayerFrame({
       memoryRetiredBytes: retainedPageResult.memory.retiredBytes,
       memoryRetiredCount: retainedPageResult.memory.retiredCount,
       memoryTotalBytes: retainedPageResult.memory.totalBytes,
+      mergedDrawQuadCount: retainedPageResult.mergedDrawQuadCount,
       missingPageCount: retainedPageResult.missingPageCount,
       rasterMs: retainedPageResult.rasterMs,
+      staleFallbackDrawQuadCount: retainedPageResult.staleFallbackDrawQuadCount,
+      targetDescriptorCount: retainedPageResult.targetDescriptorCount,
       uncoveredRectCount: retainedPageResult.uncoveredRectCount,
       uploadedBytes: retainedPageResult.uploadedBytes,
       uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
@@ -371,6 +380,7 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
+    retainedTexturePageFollowUpFrame: retainedPageResult.needsFollowUpFrame,
     surfaceRef,
     transformOnlyPaintNodeIdsRef,
     viewportFrame,
@@ -451,6 +461,7 @@ function updateGpuFlowNodeLayerFrameState({
   layerResult,
   nodeInteractionRef,
   nodeLayerRef,
+  retainedTexturePageFollowUpFrame,
   surfaceRef,
   transformOnlyPaintNodeIdsRef,
   viewportFrame,
@@ -460,6 +471,7 @@ function updateGpuFlowNodeLayerFrameState({
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+  readonly retainedTexturePageFollowUpFrame: boolean;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly viewportFrame: boolean;
@@ -477,7 +489,11 @@ function updateGpuFlowNodeLayerFrameState({
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
-  requestRemainingTextureUploadFrame(surfaceRef, layerResult);
+  requestRemainingTextureUploadFrame({
+    layerResult,
+    retainedTexturePageFollowUpFrame,
+    surfaceRef,
+  });
 }
 
 function markTransformOnlyPaintNodesForViewportFrame({

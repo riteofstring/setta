@@ -26,6 +26,11 @@ export type GpuRetainedContentLabelAppearance = {
   readonly tone: "accent" | "default" | "muted";
 };
 
+export type GpuRetainedContentRowVisualBounds = {
+  readonly width: number;
+  readonly x: number;
+};
+
 export type GpuRetainedContentRowPortInput = {
   readonly id: string;
   readonly kind: "input" | "output";
@@ -190,6 +195,8 @@ export type GpuRetainedContentRow = {
   readonly projectedRect: GpuRect;
   readonly state: GpuRetainedContentRowState;
   readonly status: GpuRetainedContentRowStatus | null;
+  readonly visualContentRect: GpuRect;
+  readonly visualProjectedRect: GpuRect;
 };
 
 export type GpuRetainedContentVisibleRowRange = {
@@ -331,6 +338,10 @@ export type CreateGpuRetainedRowContentSceneInput = {
   readonly ownerSectionId: string;
   readonly overscanRows?: number | undefined;
   readonly portHitSize?: number | undefined;
+  readonly rowVisualBounds?:
+    | GpuRetainedContentRowVisualBounds
+    | null
+    | undefined;
   readonly rowHeight: number;
   readonly rows: readonly GpuRetainedContentRowInput[];
   readonly scrollOffset: GpuPoint;

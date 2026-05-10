@@ -64,10 +64,11 @@ export function getGpuRetainedContentSourceRectForRows({
     const clippedRowRect = intersectGpuRetainedContentRects(
       {
         height: sourceInput.rowHeight,
-        width: sourceSurface.textureWindow.cacheViewportRect.width,
+        width: sourceInput.rowVisualBounds.width,
         x:
           sourceSurface.textureWindow.cacheViewportRect.x -
-          sourceSurface.textureWindow.cacheScrollOffset.x,
+          sourceSurface.textureWindow.cacheScrollOffset.x +
+          sourceInput.rowVisualBounds.x,
         y:
           sourceSurface.textureWindow.cacheViewportRect.y +
           rowMetric.y -
@@ -171,6 +172,10 @@ function resolveGpuRetainedContentTextureWindow({
     x: sourceClipOffset.x,
     y: sourceClipOffset.y + scrollY - cacheTop,
   };
+  const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
+  const rowVisualRight = sourceInput
+    ? sourceInput.rowVisualBounds.x + sourceInput.rowVisualBounds.width
+    : scene.viewportRect.width;
   const textureHeight = Math.max(
     sourceRect.y + sourceRect.height,
     Math.min(contentHeight - cacheTop + sourceClipOffset.y, cacheHeight),
@@ -178,6 +183,7 @@ function resolveGpuRetainedContentTextureWindow({
   const textureWidth = Math.max(
     sourceRect.x + sourceRect.width,
     scene.viewportRect.width,
+    rowVisualRight,
   );
   return {
     cacheScrollOffset: {

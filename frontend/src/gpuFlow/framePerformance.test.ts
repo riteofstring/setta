@@ -198,6 +198,7 @@ describe("framePerformance", () => {
       renderDurationMs: 2,
       retainedTexturePages: {
         budgetExhausted: true,
+        coverageCandidateCount: 4,
         diagnosticCount: 2,
         drawQuadCount: 6,
         evictedBytes: 128,
@@ -210,6 +211,9 @@ describe("framePerformance", () => {
         memoryTotalBytes: 5120,
         missingPageCount: 2,
         rasterMs: 1.5,
+        mergedDrawQuadCount: 1,
+        staleFallbackDrawQuadCount: 2,
+        targetDescriptorCount: 8,
         uncoveredRectCount: 0,
         uploadedBytes: 2048,
         uploadedDrawCommandCount: 12,
@@ -222,6 +226,7 @@ describe("framePerformance", () => {
 
     expect(event).toMatchObject({
       retainedTexturePageBudgetExhausted: true,
+      retainedTexturePageCoverageCandidateCount: 4,
       retainedTexturePageDiagnosticCount: 2,
       retainedTexturePageDrawQuadCount: 6,
       retainedTexturePageEvictedBytes: 128,
@@ -232,8 +237,11 @@ describe("framePerformance", () => {
       retainedTexturePageMemoryRetiredBytes: 1024,
       retainedTexturePageMemoryRetiredCount: 1,
       retainedTexturePageMemoryTotalBytes: 5120,
+      retainedTexturePageMergedDrawQuadCount: 1,
       retainedTexturePageMissingPageCount: 2,
       retainedTexturePageRasterMs: 1.5,
+      retainedTexturePageStaleFallbackDrawQuadCount: 2,
+      retainedTexturePageTargetDescriptorCount: 8,
       retainedTexturePageUncoveredRectCount: 0,
       retainedTexturePageUploadedBytes: 2048,
       retainedTexturePageUploadedDrawCommandCount: 12,

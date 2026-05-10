@@ -34,16 +34,26 @@ import {
   RetainedTextureWorkQueue,
   type RetainedTextureWorkItem,
 } from "./retainedTextureWorkQueue";
+import { chooseStableZoomBucket } from "./textureResolution";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
   readonly contentBoundsCss: GpuRect;
+  readonly contentSegments?:
+    | readonly RetainedContentTexturePageContentSegment[]
+    | undefined;
   readonly contentVersion: number;
   readonly layout: RetainedTexturePageSurfaceLayout;
   readonly rasterScene: GpuRetainedContentScene;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly visibleSourceRectCss: GpuRect;
+};
+
+export type RetainedContentTexturePageContentSegment = {
+  readonly contentVersion: number;
+  readonly id: string;
+  readonly rectCss: GpuRect;
 };
 
 export type RetainedContentTexturePageFrameInput = {
@@ -60,6 +70,7 @@ export type RetainedContentTexturePageFrameInput = {
 
 export type RetainedContentTexturePageFrameResult = {
   readonly budgetExhausted: boolean;
+  readonly coverageCandidateCount: number;
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
   readonly drawQuadCount: number;
   readonly evicted: RetainedTexturePageEvictionResult;
@@ -67,7 +78,11 @@ export type RetainedContentTexturePageFrameResult = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly memory: RetainedTexturePageCacheSnapshot;
   readonly missingPageCount: number;
+  readonly needsFollowUpFrame: boolean;
+  readonly mergedDrawQuadCount: number;
   readonly rasterMs: number;
+  readonly staleFallbackDrawQuadCount: number;
+  readonly targetDescriptorCount: number;
   readonly uncoveredRectCount: number;
   readonly uploadedBytes: number;
   readonly uploadedDrawCommandCount: number;
@@ -76,13 +91,16 @@ export type RetainedContentTexturePageFrameResult = {
 };
 
 export type RetainedContentTexturePagePreparedFrame = {
+  readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly fallbackDrawQuadCount: number;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly frame: number;
   readonly missingPageCount: number;
+  readonly mergedDrawQuadCount: number;
   readonly protectedPageKeys: readonly string[];
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
+  readonly staleFallbackDrawQuadCount: number;
   readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly uncoveredRectCount: number;
 };
@@ -100,10 +118,15 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
   RetainedContentTexturePageFrameResult,
   "flatSurfaces" | "missingPageCount"
 > & {
+  readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly fallbackDrawQuadCount: number;
+  readonly mergedDrawQuadCount: number;
   readonly missingPageCount: number;
+  readonly needsFollowUpFrame: boolean;
   readonly postMaintenanceMissingPageCount: number;
+  readonly staleFallbackDrawQuadCount: number;
+  readonly targetDescriptorCount: number;
   readonly uncoveredRectCount: number;
 };
 
@@ -141,13 +164,16 @@ export class RetainedContentTexturePageManager {
   private readonly scratchCanvas: HTMLCanvasElement;
   private readonly textureUsage: GPUTextureUsageFlags;
   private readonly workQueue = new RetainedTextureWorkQueue();
+  private readonly pageContentVersions = new Map<string, number>();
   private maintenanceUploadedDrawCommandCount = 0;
+  private nextPageContentVersion = 1;
   private retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
   private retiredResourceDrainScheduled = false;
   private frameSurfaceById = new Map<
     string,
     RetainedContentTexturePageFrameSurface
   >();
+  private viewportZoomBucket: number | null = null;
   private targetLodScale = 1;
 
   constructor(
@@ -175,8 +201,32 @@ export class RetainedContentTexturePageManager {
     this.cache.clear();
     this.workQueue.clear();
     this.frameSurfaceById.clear();
+    this.pageContentVersions.clear();
+    this.nextPageContentVersion = 1;
+    this.viewportZoomBucket = null;
+    this.targetLodScale = 1;
     this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
     this.retiredResourceDrainScheduled = false;
+  }
+
+  resolveFrameViewportZoomBucket({
+    viewportInteractionActive = false,
+    zoom,
+  }: {
+    readonly viewportInteractionActive?: boolean | undefined;
+    readonly zoom: number;
+  }): number {
+    if (this.viewportZoomBucket === null) {
+      this.viewportZoomBucket = chooseStableZoomBucket(zoom);
+      return this.viewportZoomBucket;
+    }
+    if (viewportInteractionActive) {
+      return this.viewportZoomBucket;
+    }
+    this.viewportZoomBucket = chooseStableZoomBucket(zoom, {
+      currentZoomBucket: this.viewportZoomBucket,
+    });
+    return this.viewportZoomBucket;
   }
 
   markSurfaceContentDirty({
@@ -242,10 +292,16 @@ export class RetainedContentTexturePageManager {
     this.frameSurfaceById = new Map(
       surfaces.map((surface) => [surface.surfaceId, surface]),
     );
-    this.targetLodScale = normalizeLodScale({
+    const nextTargetLodScale = normalizeLodScale({
       devicePixelRatio,
       viewportZoomBucket,
     });
+    if (nextTargetLodScale !== this.targetLodScale) {
+      this.workQueue.cancelLodRefinement(
+        (item) => item.targetLod !== nextTargetLodScale,
+      );
+      this.targetLodScale = nextTargetLodScale;
+    }
 
     const desiredPages = this.resolveDesiredPages(surfaces);
     return {
@@ -293,19 +349,31 @@ export class RetainedContentTexturePageManager {
       ],
     });
     this.scheduleRetiredResourceDrain(preparedFrame.frame);
+    const committedRefinementChangedDrawableCoverage =
+      uploadResult.uploadCount > 0 &&
+      didRetainedPageVisualCoverageChange({
+        after: postMaintenancePageVisualResult,
+        before: preparedFrame,
+      });
 
     return {
-      budgetExhausted:
-        uploadResult.budgetExhausted || uploadResult.uploadCount > 0,
+      budgetExhausted: uploadResult.budgetExhausted,
+      coverageCandidateCount: preparedFrame.coverageCandidateCount,
       diagnostics: uploadResult.diagnostics,
       evicted,
       memory: this.cache.snapshot(),
       missingPageCount: preparedFrame.missingPageCount,
+      needsFollowUpFrame:
+        uploadResult.budgetExhausted ||
+        committedRefinementChangedDrawableCoverage,
       postMaintenanceMissingPageCount:
         postMaintenancePageVisualResult.missingPageCount,
       rasterMs: uploadResult.rasterMs,
       drawQuadCount: preparedFrame.drawQuadCount,
       fallbackDrawQuadCount: preparedFrame.fallbackDrawQuadCount,
+      mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
+      staleFallbackDrawQuadCount: preparedFrame.staleFallbackDrawQuadCount,
+      targetDescriptorCount: preparedFrame.targetDescriptors.length,
       uncoveredRectCount: preparedFrame.uncoveredRectCount,
       uploadedBytes: uploadResult.uploadedBytes,
       uploadedDrawCommandCount: this.maintenanceUploadedDrawCommandCount,
@@ -318,16 +386,112 @@ export class RetainedContentTexturePageManager {
     surfaces: readonly RetainedContentTexturePageFrameSurface[],
   ): readonly RetainedTexturePageDescriptor[] {
     return surfaces.flatMap((surface) =>
-      createRetainedTexturePageDescriptors({
+      this.resolveDescriptorContentVersions({
+        descriptors: createRetainedTexturePageDescriptors({
+          contentBoundsCss: surface.contentBoundsCss,
+          contentVersion: surface.contentVersion,
+          lodScale: this.targetLodScale,
+          maxPagePixelSize: this.maxPagePixelSize,
+          sourceWindowCss: surface.sourceWindowCss,
+          surfaceId: surface.surfaceId,
+          visibleSourceRectCss: surface.visibleSourceRectCss,
+        }),
+        surface,
+      }),
+    );
+  }
+
+  private resolveDescriptorContentVersions({
+    descriptors,
+    surface,
+  }: {
+    readonly descriptors: readonly RetainedTexturePageDescriptor[];
+    readonly surface: RetainedContentTexturePageFrameSurface;
+  }): readonly RetainedTexturePageDescriptor[] {
+    const segments = surface.contentSegments ?? [];
+    if (segments.length === 0) {
+      return descriptors;
+    }
+    return descriptors.map((descriptor) => ({
+      ...descriptor,
+      contentVersion: this.resolvePageContentVersion({
+        descriptor,
+        segments,
+        surfaceContentVersion: surface.contentVersion,
+      }),
+    }));
+  }
+
+  private resolvePageContentVersion({
+    descriptor,
+    segments,
+    surfaceContentVersion,
+  }: {
+    readonly descriptor: RetainedTexturePageDescriptor;
+    readonly segments: readonly RetainedContentTexturePageContentSegment[];
+    readonly surfaceContentVersion: number;
+  }): number {
+    const intersectingSegments = segments
+      .filter((segment) =>
+        rectsIntersect(segment.rectCss, descriptor.sourceRectCss),
+      )
+      .map((segment) => ({
+        contentVersion: segment.contentVersion,
+        id: segment.id,
+        rectCss: segment.rectCss,
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    if (intersectingSegments.length === 0) {
+      return surfaceContentVersion;
+    }
+    return this.resolvePageContentVersionId({
+      intersectingSegments,
+      sourceRectCss: descriptor.sourceRectCss,
+      surfaceContentVersion,
+    });
+  }
+
+  private resolvePageContentVersionId(input: {
+    readonly intersectingSegments: readonly {
+      readonly contentVersion: number;
+      readonly id: string;
+      readonly rectCss: GpuRect;
+    }[];
+    readonly sourceRectCss: GpuRect;
+    readonly surfaceContentVersion: number;
+  }): number {
+    const signature = JSON.stringify(input);
+    const existing = this.pageContentVersions.get(signature);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const version = this.nextPageContentVersion;
+    this.nextPageContentVersion += 1;
+    this.pageContentVersions.set(signature, version);
+    return version;
+  }
+
+  private createPageDescriptors({
+    lodScale = this.targetLodScale,
+    sourceRect,
+    surface,
+  }: {
+    readonly lodScale?: number | undefined;
+    readonly sourceRect: GpuRect;
+    readonly surface: RetainedContentTexturePageFrameSurface;
+  }): readonly RetainedTexturePageDescriptor[] {
+    return this.resolveDescriptorContentVersions({
+      descriptors: createRetainedTexturePageDescriptors({
         contentBoundsCss: surface.contentBoundsCss,
         contentVersion: surface.contentVersion,
-        lodScale: this.targetLodScale,
+        lodScale,
         maxPagePixelSize: this.maxPagePixelSize,
         sourceWindowCss: surface.sourceWindowCss,
         surfaceId: surface.surfaceId,
-        visibleSourceRectCss: surface.visibleSourceRectCss,
+        visibleSourceRectCss: sourceRect,
       }),
-    );
+      surface,
+    });
   }
 
   private enqueueMissingPages(
@@ -388,6 +552,9 @@ export class RetainedContentTexturePageManager {
     readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
     readonly drawQuadCount: number;
     readonly fallbackDrawQuadCount: number;
+    readonly coverageCandidateCount: number;
+    readonly mergedDrawQuadCount: number;
+    readonly staleFallbackDrawQuadCount: number;
     readonly uncoveredRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
@@ -395,7 +562,10 @@ export class RetainedContentTexturePageManager {
     const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
     let drawQuadCount = 0;
     let fallbackDrawQuadCount = 0;
+    let coverageCandidateCount = 0;
+    let mergedDrawQuadCount = 0;
     let missingPageCount = 0;
+    let staleFallbackDrawQuadCount = 0;
     let uncoveredRectCount = 0;
     for (const surface of this.frameSurfaceById.values()) {
       const surfaceDesiredPages = desiredPages.filter(
@@ -406,13 +576,14 @@ export class RetainedContentTexturePageManager {
         desiredPages: surfaceDesiredPages,
         usedFrame: frame,
       });
+      coverageCandidateCount += coverage.coverageCandidateCount;
       missingPageCount += coverage.refinementDescriptors.length;
+      mergedDrawQuadCount += coverage.mergedDrawQuadCount;
+      staleFallbackDrawQuadCount += coverage.staleFallbackDrawQuadCount;
       uncoveredRectCount += coverage.uncoveredRectsCss.length;
       drawQuadCount += coverage.drawQuads.length;
       fallbackDrawQuadCount += coverage.drawQuads.filter(
-        (drawQuad) =>
-          drawQuad.page.key !==
-          retainedTexturePageKey(drawQuad.desiredDescriptor),
+        (drawQuad) => drawQuad.fallback,
       ).length;
       refinementDescriptors.push(...coverage.refinementDescriptors);
       for (const pageKey of coverage.protectedPageKeys) {
@@ -426,12 +597,15 @@ export class RetainedContentTexturePageManager {
       );
     }
     return {
+      coverageCandidateCount,
       drawQuadCount,
       fallbackDrawQuadCount,
       flatSurfaces,
+      mergedDrawQuadCount,
       missingPageCount,
       protectedPageKeys: [...protectedPageKeys],
       refinementDescriptors,
+      staleFallbackDrawQuadCount,
       uncoveredRectCount,
     };
   }
@@ -516,7 +690,7 @@ export class RetainedContentTexturePageManager {
     item: RetainedTextureWorkItem,
   ): readonly RetainedTexturePageDescriptor[] {
     const surface = this.frameSurfaceById.get(item.surfaceId);
-    if (!surface || item.contentVersion !== surface.contentVersion) {
+    if (!surface) {
       return [];
     }
     if (
@@ -533,8 +707,9 @@ export class RetainedContentTexturePageManager {
       surface,
     }).filter(
       (descriptor) =>
-        shouldRefreshCommittedPage(item) ||
-        !this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
+        descriptor.contentVersion === item.contentVersion &&
+        (shouldRefreshCommittedPage(item) ||
+          !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))),
     );
   }
 
@@ -547,14 +722,10 @@ export class RetainedContentTexturePageManager {
     readonly sourceRect: GpuRect;
     readonly surface: RetainedContentTexturePageFrameSurface;
   }): readonly RetainedTexturePageDescriptor[] {
-    return createRetainedTexturePageDescriptors({
-      contentBoundsCss: surface.contentBoundsCss,
-      contentVersion: surface.contentVersion,
+    return this.createPageDescriptors({
       lodScale,
-      maxPagePixelSize: this.maxPagePixelSize,
-      sourceWindowCss: surface.sourceWindowCss,
-      surfaceId: surface.surfaceId,
-      visibleSourceRectCss: sourceRect,
+      sourceRect,
+      surface,
     });
   }
 
@@ -681,7 +852,9 @@ export class RetainedContentTexturePageManager {
       retiredCount > 0 &&
       this.retiredResourceDrainRequestedFrame > retiredFrameThrough
     ) {
-      this.scheduleRetiredResourceDrain(this.retiredResourceDrainRequestedFrame);
+      this.scheduleRetiredResourceDrain(
+        this.retiredResourceDrainRequestedFrame,
+      );
       return;
     }
     if (retiredCount === 0) {
@@ -726,6 +899,33 @@ function shouldRefreshCommittedPage(item: RetainedTextureWorkItem): boolean {
   );
 }
 
+function didRetainedPageVisualCoverageChange({
+  after,
+  before,
+}: {
+  readonly after: Pick<
+    RetainedContentTexturePagePreparedFrame,
+    | "drawQuadCount"
+    | "fallbackDrawQuadCount"
+    | "missingPageCount"
+    | "uncoveredRectCount"
+  >;
+  readonly before: Pick<
+    RetainedContentTexturePagePreparedFrame,
+    | "drawQuadCount"
+    | "fallbackDrawQuadCount"
+    | "missingPageCount"
+    | "uncoveredRectCount"
+  >;
+}): boolean {
+  return (
+    after.drawQuadCount !== before.drawQuadCount ||
+    after.fallbackDrawQuadCount !== before.fallbackDrawQuadCount ||
+    after.missingPageCount !== before.missingPageCount ||
+    after.uncoveredRectCount !== before.uncoveredRectCount
+  );
+}
+
 function normalizeLodScale({
   devicePixelRatio,
   viewportZoomBucket,
@@ -745,6 +945,15 @@ function rectsEqual(left: GpuRect, right: GpuRect): boolean {
     left.y === right.y &&
     left.width === right.width &&
     left.height === right.height
+  );
+}
+
+function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
   );
 }
 

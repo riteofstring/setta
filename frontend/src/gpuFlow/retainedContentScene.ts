@@ -36,6 +36,7 @@ import type {
   GpuRetainedContentRowInput,
   GpuRetainedContentRowMetric,
   GpuRetainedContentRowState,
+  GpuRetainedContentRowVisualBounds,
   GpuRetainedContentScene,
   GpuRetainedContentVisibleRowRange,
 } from "./retainedContentSceneTypes";
@@ -98,6 +99,10 @@ function createGpuRetainedContentSceneSourceInput(
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
   const portHitSize = input.portHitSize ?? DEFAULT_PORT_HIT_SIZE;
   const overscanRows = input.overscanRows ?? DEFAULT_OVERSCAN_ROWS;
+  const rowVisualBounds = normalizeGpuRetainedContentRowVisualBounds({
+    bounds: input.rowVisualBounds,
+    viewportRect: input.viewportRect,
+  });
   const rowMetrics = createGpuRetainedContentRowMetrics({
     rowHeight: input.rowHeight,
     rows: input.rows,
@@ -128,6 +133,7 @@ function createGpuRetainedContentSceneSourceInput(
     ownerSectionId: input.ownerSectionId,
     portHitSize,
     rowHeight: input.rowHeight,
+    rowVisualBounds,
     rows: input.rows,
     viewportRect: input.viewportRect,
   };
@@ -166,6 +172,7 @@ function createGpuRetainedRowContentSceneFromSourceInput({
         index: rowMetric.index,
         input: rowMetric.input,
         rowHeight: sourceInput.rowHeight,
+        rowVisualBounds: sourceInput.rowVisualBounds,
         rowY: rowMetric.y,
         scrollOffset,
         viewportRect: sourceInput.viewportRect,
@@ -291,6 +298,20 @@ function getGpuRetainedRowContentHeightFromMetrics({
     return 0;
   }
   return lastMetric.y + rowHeight;
+}
+
+function normalizeGpuRetainedContentRowVisualBounds({
+  bounds,
+  viewportRect,
+}: {
+  readonly bounds: GpuRetainedContentRowVisualBounds | null | undefined;
+  readonly viewportRect: GpuRect;
+}): GpuRetainedContentRowVisualBounds {
+  const x = bounds?.x ?? 0;
+  const width = bounds?.width ?? viewportRect.width;
+  assertFiniteNonNegative("retained content row visual x", x);
+  assertFinitePositive("retained content row visual width", width);
+  return { width, x };
 }
 
 export function getGpuRetainedRowContentHeight({
@@ -474,6 +495,7 @@ function createGpuRetainedContentRow({
   index,
   input,
   rowHeight,
+  rowVisualBounds,
   rowY,
   scrollOffset,
   viewportRect,
@@ -482,6 +504,7 @@ function createGpuRetainedContentRow({
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly rowHeight: number;
+  readonly rowVisualBounds: GpuRetainedContentRowVisualBounds;
   readonly rowY: number;
   readonly scrollOffset: GpuPoint;
   readonly viewportRect: GpuRect;
@@ -490,6 +513,12 @@ function createGpuRetainedContentRow({
     height: rowHeight,
     width: viewportRect.width,
     x: 0,
+    y: rowY,
+  };
+  const visualContentRect = {
+    height: rowHeight,
+    width: rowVisualBounds.width,
+    x: rowVisualBounds.x,
     y: rowY,
   };
   const status = input.status ?? null;
@@ -510,6 +539,12 @@ function createGpuRetainedContentRow({
     },
     state: createGpuRetainedContentRowState(input.state, dragging, status),
     status,
+    visualContentRect,
+    visualProjectedRect: {
+      ...visualContentRect,
+      x: viewportRect.x + visualContentRect.x - scrollOffset.x,
+      y: viewportRect.y + visualContentRect.y - scrollOffset.y,
+    },
   };
 }
 
@@ -596,7 +631,7 @@ function createGpuRetainedContentHitRecords({
       id: `row:${row.id}`,
       kind: "row",
       ownerRowId: row.id,
-      rect: row.projectedRect,
+      rect: row.visualProjectedRect,
     });
     hitRecords.push({
       id: `label:${row.id}`,
