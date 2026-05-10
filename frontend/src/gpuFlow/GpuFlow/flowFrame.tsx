@@ -126,7 +126,8 @@ function hasRenderableGpuFlowLayer(layer: GpuFlowNodeLayerState): boolean {
       layer.edges ||
       layer.grid ||
       layer.edgeLabelSurfaces?.length ||
-      layer.htmlSurfaceNativeVisuals?.length,
+      layer.htmlSurfaceNativeVisuals?.length ||
+      layer.scene?.contentSurfaces.length,
   );
 }
 

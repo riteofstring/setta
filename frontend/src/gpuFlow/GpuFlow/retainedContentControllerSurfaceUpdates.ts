@@ -6,7 +6,6 @@ import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScro
 import {
   getGpuRetainedContentSourceIdsForSurface,
   getGpuRetainedContentSourceRectForRows,
-  getGpuRetainedContentSurfaceLayouts,
   redrawGpuRetainedContentSourceElement,
 } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
@@ -106,37 +105,11 @@ export function getGpuFlowRetainedContentRowHoverSurfaceIds(
 
 export function mergeGpuFlowRetainedContentSurfaceLayouts({
   overlays,
-  scene,
 }: {
   readonly overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined;
   readonly scene: GpuFlowScene;
 }): readonly GpuHtmlSurfaceOverlayLayout[] {
-  const retainedLayouts = getGpuRetainedContentSurfaceLayouts(
-    scene.contentSurfaces,
-  );
-  if (retainedLayouts.length === 0) {
-    return overlays ?? [];
-  }
-  const retainedLayoutById = new Map(
-    retainedLayouts.map((layout) => [layout.surfaceId, layout]),
-  );
-  const seenRetainedSurfaceIds = new Set<string>();
-  const nextOverlays: GpuHtmlSurfaceOverlayLayout[] = [];
-  for (const overlay of overlays ?? []) {
-    const retainedLayout = retainedLayoutById.get(overlay.surfaceId);
-    if (!retainedLayout) {
-      nextOverlays.push(overlay);
-      continue;
-    }
-    seenRetainedSurfaceIds.add(overlay.surfaceId);
-    nextOverlays.push(retainedLayout);
-  }
-  for (const retainedLayout of retainedLayouts) {
-    if (!seenRetainedSurfaceIds.has(retainedLayout.surfaceId)) {
-      nextOverlays.push(retainedLayout);
-    }
-  }
-  return nextOverlays;
+  return overlays ?? [];
 }
 
 export function redrawGpuFlowRetainedContentSurfaceSources({

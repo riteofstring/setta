@@ -79,7 +79,6 @@ export function useGpuFlowOverlaySources({
   const {
     retainedContentNativeVisuals,
     retainedContentSourceElement,
-    retainedContentSurfaces,
   } = useGpuFlowRetainedContentSources({
     activeResizeNodeIdRef,
     nodeDomTransformSyncCacheRef,
@@ -123,7 +122,6 @@ export function useGpuFlowOverlaySources({
 
   const htmlSurfaceOverlays = useMemo(
     () => [
-      ...retainedContentSurfaces,
       ...edgeLabelSurfaces,
       ...selectionOverlaySurfaces,
       ...nodeResizeOverlaySurfaces,
@@ -133,7 +131,6 @@ export function useGpuFlowOverlaySources({
       edgeLabelSurfaces,
       nodeDragPreviewSurfaces,
       nodeResizeOverlaySurfaces,
-      retainedContentSurfaces,
       selectionOverlaySurfaces,
     ],
   );

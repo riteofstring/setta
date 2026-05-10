@@ -55,8 +55,7 @@ describe("GpuFlow", () => {
     expect(sourcePortalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
     expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
-    expect(retainedContentSourceIndex).toBeGreaterThan(canvasOpenIndex);
-    expect(retainedContentSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(retainedContentSourceIndex).toBe(-1);
     expect(viewportPortalIndex).toBeGreaterThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
     expect(markup).toContain('data-gpu-flow-portal-space="viewport"');

@@ -487,7 +487,8 @@ export function GpuFlow({
       !nextEdges &&
       !grid &&
       htmlSurfaceOverlays.length === 0 &&
-      htmlSurfaceNativeVisuals.length === 0
+      htmlSurfaceNativeVisuals.length === 0 &&
+      !scene?.contentSurfaces.length
     ) {
       visibleNodeIdsRef.current = new Set();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
