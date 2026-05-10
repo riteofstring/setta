@@ -70,6 +70,7 @@ type ParamUIProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onTextInputBlur?: () => void;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
@@ -240,6 +241,7 @@ function renderTextLikeParam({
   paramInfoId,
   value,
   onChange,
+  onTextInputBlur,
   onEscape,
   maybeErrorMessage,
   focusActiveSectionOnTextInput,
@@ -260,6 +262,7 @@ function renderTextLikeParam({
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
+      onBlur={onTextInputBlur}
       onEscape={onEscape}
       maybeErrorMessage={maybeErrorMessage}
       isDisabled={isDisabled}
@@ -570,6 +573,7 @@ export function ParamUI({
   paramInfoId,
   value,
   onChange,
+  onTextInputBlur,
   onDropzoneStateless,
   onRevealPassword,
   isPasswordRevealPending,
@@ -613,6 +617,7 @@ export function ParamUI({
     paramInfoId,
     value,
     onChange,
+    onTextInputBlur,
     onDropzoneStateless,
     onRevealPassword,
     isPasswordRevealPending,
@@ -647,6 +652,7 @@ function TextParamConfigured({
   value,
   defaultVal,
   onChange,
+  onBlur,
   onEscape,
   maybeErrorMessage,
   isDisabled,
@@ -661,6 +667,7 @@ function TextParamConfigured({
   value: string;
   defaultVal: string;
   onChange: ParamValueChange;
+  onBlur?: () => void;
   onEscape: () => void;
   maybeErrorMessage: string | undefined;
   isDisabled: boolean;
@@ -683,6 +690,7 @@ function TextParamConfigured({
         value={value}
         defaultVal={defaultVal}
         onChange={onChange}
+        onBlur={onBlur}
         onEscape={(completionResult) => {
           if (!completionResult) {
             onEscape();

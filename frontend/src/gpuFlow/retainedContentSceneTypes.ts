@@ -15,6 +15,8 @@ export type GpuRetainedContentRowState = {
   readonly error: boolean;
   readonly focused: boolean;
   readonly hovered: boolean;
+  readonly nativeControlActive: boolean;
+  readonly nativeLabelActive: boolean;
   readonly searchFocused: boolean;
   readonly searchMatched: boolean;
   readonly selected: boolean;

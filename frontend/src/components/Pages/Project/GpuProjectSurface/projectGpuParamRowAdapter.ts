@@ -90,6 +90,11 @@ type ProjectGpuRetainedParamTargetLike = {
   readonly surfaceId: string;
 };
 
+type ProjectGpuRetainedParamDomIslandTargetLike =
+  ProjectGpuRetainedParamTargetLike & {
+    readonly hitRecordId: string;
+  };
+
 type ProjectGpuParamTreeRowLike = {
   readonly depth: number;
   readonly id: string;
@@ -99,6 +104,7 @@ type ProjectGpuParamTreeRowLike = {
 export function createProjectGpuParamRowInput({
   activeParamCanvasControl,
   activeParamCanvasPopup,
+  activeParamDomIsland,
   codeObjImpl,
   disabled,
   draggingParamIds,
@@ -121,6 +127,10 @@ export function createProjectGpuParamRowInput({
     | undefined;
   readonly activeParamCanvasPopup?:
     | ProjectGpuRetainedParamCanvasPopupLike
+    | null
+    | undefined;
+  readonly activeParamDomIsland?:
+    | ProjectGpuRetainedParamDomIslandTargetLike
     | null
     | undefined;
   readonly codeObjImpl: {
@@ -194,6 +204,7 @@ export function createProjectGpuParamRowInput({
       : [],
     state: createProjectGpuParamRowState({
       activeParamCanvasControl,
+      activeParamDomIsland,
       disabled,
       draggingParamIds,
       hoveredParamTarget,
@@ -871,6 +882,7 @@ function isProjectGpuSwitchValueChecked(value: string): boolean {
 
 function createProjectGpuParamRowState({
   activeParamCanvasControl,
+  activeParamDomIsland,
   disabled,
   draggingParamIds,
   hoveredParamTarget,
@@ -883,6 +895,10 @@ function createProjectGpuParamRowState({
 }: {
   readonly activeParamCanvasControl?:
     | ProjectGpuRetainedParamTargetLike
+    | null
+    | undefined;
+  readonly activeParamDomIsland?:
+    | ProjectGpuRetainedParamDomIslandTargetLike
     | null
     | undefined;
   readonly disabled?: boolean | undefined;
@@ -916,36 +932,26 @@ function createProjectGpuParamRowState({
       hoveredParamTarget,
       rowTarget,
     ),
-    searchFocused: isProjectGpuParamSearchFocused({
-      projectSearch,
-      rowId,
-      sectionId,
-    }),
-    searchMatched: isProjectGpuParamSearchMatched({
-      projectSearch,
-      rowId,
-      sectionId,
-    }),
+    ...getProjectGpuParamNativeRowState(activeParamDomIsland, rowTarget),
+    ...getProjectGpuParamSearchState({ projectSearch, rowId, sectionId }),
     selected: selectedParamIds.has(rowId),
   };
 }
 
-function isProjectGpuParamSearchFocused({
-  projectSearch,
-  rowId,
-  sectionId,
-}: {
-  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
-  readonly rowId: string;
-  readonly sectionId: string;
-}): boolean {
-  const focused = projectSearch?.focused;
-  return Boolean(
-    focused && focused.sectionId === sectionId && focused.paramInfoId === rowId,
-  );
+function getProjectGpuParamNativeRowState(
+  target: ProjectGpuRetainedParamDomIslandTargetLike | null | undefined,
+  row: ProjectGpuRetainedParamTargetLike,
+) {
+  if (!target || !isProjectGpuRetainedParamTargetForRow(target, row)) {
+    return { nativeControlActive: false, nativeLabelActive: false };
+  }
+  return {
+    nativeControlActive: target.hitRecordId.startsWith("control:"),
+    nativeLabelActive: target.hitRecordId.startsWith("label:"),
+  };
 }
 
-function isProjectGpuParamSearchMatched({
+function getProjectGpuParamSearchState({
   projectSearch,
   rowId,
   sectionId,
@@ -953,11 +959,19 @@ function isProjectGpuParamSearchMatched({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly rowId: string;
   readonly sectionId: string;
-}): boolean {
-  return (
-    projectSearch?.lookup.has(createProjectSearchLookupKey(sectionId, rowId)) ??
-    false
-  );
+}) {
+  const focused = projectSearch?.focused;
+  return {
+    searchFocused: Boolean(
+      focused &&
+        focused.sectionId === sectionId &&
+        focused.paramInfoId === rowId,
+    ),
+    searchMatched:
+      projectSearch?.lookup.has(
+        createProjectSearchLookupKey(sectionId, rowId),
+      ) ?? false,
+  };
 }
 
 function isProjectGpuRetainedParamTargetForRow(

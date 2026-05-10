@@ -11,21 +11,16 @@ import {
   resolveGpuNodePointerHandoffTarget,
   resolveGpuNodeWheelHandoffTarget,
 } from "../activeNodeTargeting";
-
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
-
 import type { GpuEdgeScene } from "../edges/edgeSources";
-
-import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
-
-import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
-
-import type { GpuFlowLayoutStoreApi } from "../layoutStore";
-
-import { GpuFlowSceneContext } from "../sceneContext";
-
-import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
-
+import type { GpuFlowFramePerformanceReporter } from "../framePerformance";
+import { type GpuEdgePaletteInput, type GpuGridInput } from "../gpuPipelines";
+import { type GpuCanvasSize, type GpuFrameReason } from "../gpuRenderer";
+import {
+  GpuSurface,
+  type GpuSurfaceHandle,
+  type GpuSurfaceProps,
+} from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCache,
   clearGpuNodeDomTransformSyncCacheNode,
@@ -36,83 +31,60 @@ import {
   type GpuNodeUploadBudget,
   type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
-
-import { type GpuEdgePaletteInput, type GpuGridInput } from "../gpuPipelines";
-
-import { type GpuCanvasSize, type GpuFrameReason } from "../gpuRenderer";
-
-import {
-  GpuSurface,
-  type GpuSurfaceHandle,
-  type GpuSurfaceProps,
-} from "../GpuSurface";
-
 import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
-
 import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
-
 import { createHtmlSurfaceShaderEffectProjectors } from "../htmlSurfaces/shaderEffects";
-
-import type { GpuFlowFramePerformanceReporter } from "../framePerformance";
-import { createGpuFlowInteractionDiagnosticsState } from "../interactionDiagnostics";
-
-import {
-  attachGpuEdgeInteractionController,
-  type GpuEdgeInteractionControllerOptions,
-} from "../interactions/edges";
-
-import {
-  attachGpuEdgeReconnectController,
-  type GpuEdgeReconnectOptions,
-} from "../interactions/edgeReconnect";
-
-import {
-  attachGpuNodeDragController,
-  type GpuNodeDragControllerOptions,
-} from "../interactions/nodeDrag";
-
-import {
-  attachGpuPanZoomController,
-  type GpuPanZoomControllerOptions,
-} from "../interactions/panZoom";
-
-import {
-  attachGpuSectionSceneScrollController,
-  type GpuSectionSceneScrollControllerOptions,
-} from "../interactions/sceneScroll";
-
-import {
-  attachGpuSelectionController,
-  type GpuSelectionControllerOptions,
-} from "../interactions/selection";
-
-import {
-  createGpuNodeInteractionDirtyController,
-  type GpuNodeInteractionDirtyController,
-} from "../nodeInteractionDirty";
-
 import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
 } from "../htmlSurfaces/textures";
-
-import type { GpuViewportInput } from "../viewportMath";
-
+import { createGpuFlowInteractionDiagnosticsState } from "../interactionDiagnostics";
+import {
+  attachGpuEdgeReconnectController,
+  type GpuEdgeReconnectOptions,
+} from "../interactions/edgeReconnect";
+import {
+  attachGpuEdgeInteractionController,
+  type GpuEdgeInteractionControllerOptions,
+} from "../interactions/edges";
+import {
+  attachGpuNodeDragController,
+  type GpuNodeDragControllerOptions,
+} from "../interactions/nodeDrag";
+import {
+  attachGpuPanZoomController,
+  type GpuPanZoomControllerOptions,
+} from "../interactions/panZoom";
+import {
+  attachGpuSectionSceneScrollController,
+  type GpuSectionSceneScrollControllerOptions,
+} from "../interactions/sceneScroll";
+import {
+  attachGpuSelectionController,
+  type GpuSelectionControllerOptions,
+} from "../interactions/selection";
+import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
+import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
+import {
+  createGpuNodeInteractionDirtyController,
+  type GpuNodeInteractionDirtyController,
+} from "../nodeInteractionDirty";
+import {
+  assertGpuFlowPortalGroupsRenderable,
+  GpuFlowPortalLayer,
+  partitionGpuFlowPortals,
+  type GpuFlowPortalDescriptor,
+} from "../portals/portalManager";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
+import { GpuFlowSceneContext } from "../sceneContext";
+import type { GpuViewportInput } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
-
-import {
-  destroyNodeInteractionResources,
-  destroyNodeLayerResources,
-  nextFrame,
-  renderGpuFlowNodeLayerFrame,
-  syncGpuFlowNodeInteractionState,
-} from "./flowFrame";
-
 import {
   GpuFlowDomIslandLayer,
   type GpuFlowDomIslandRenderer,
@@ -122,14 +94,22 @@ import {
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
 import { resolveGpuFlowCanvasCursor } from "./flowCanvasCursor";
+import {
+  destroyNodeInteractionResources,
+  destroyNodeLayerResources,
+  nextFrame,
+  renderGpuFlowNodeLayerFrame,
+  syncGpuFlowNodeInteractionState,
+} from "./flowFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   attachGpuFlowNodeResizeController,
   type GpuFlowNodeResizeOptions,
 } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
-
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
+import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
   useGpuFlowRetainedContentControllers,
   type GpuFlowRetainedContentConnectionOptions,
@@ -139,24 +119,14 @@ import {
   type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
-
-import {
-  clearGpuFlowNodeElement,
-  projectGpuFlowNodeSourceForPointerEvent,
-} from "./sourceInteraction";
-
-import {
-  assertGpuFlowPortalGroupsRenderable,
-  GpuFlowPortalLayer,
-  partitionGpuFlowPortals,
-  type GpuFlowPortalDescriptor,
-} from "../portals/portalManager";
-import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
-import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
 } from "./selectionDragLayer";
+import {
+  clearGpuFlowNodeElement,
+  projectGpuFlowNodeSourceForPointerEvent,
+} from "./sourceInteraction";
 
 type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -334,7 +304,8 @@ export function GpuFlow({
     createGpuNodeDomTransformSyncCache(),
   );
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
-  const retainedContentPageManagerRef = useRef<RetainedContentTexturePageManager | null>(null);
+  const retainedContentPageManagerRef =
+    useRef<RetainedContentTexturePageManager | null>(null);
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
@@ -490,7 +461,11 @@ export function GpuFlow({
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
       sourceInteractionProjector.destroy();
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
+      destroyNodeLayerResources(
+        textureManagerRef,
+        htmlSurfaceRendererRef,
+        retainedContentPageManagerRef,
+      );
     }
     surfaceRef.current?.requestFrame("viewport");
   }, [
@@ -691,7 +666,11 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
+      destroyNodeLayerResources(
+        textureManagerRef,
+        htmlSurfaceRendererRef,
+        retainedContentPageManagerRef,
+      );
     };
   }, [retainedContentSwitchAnimations]);
 
@@ -724,7 +703,11 @@ export function GpuFlow({
   const handleReady = useCallback<NonNullable<GpuSurfaceProps["onReady"]>>(
     (runtime) => {
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
+      destroyNodeLayerResources(
+        textureManagerRef,
+        htmlSurfaceRendererRef,
+        retainedContentPageManagerRef,
+      );
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
         htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
@@ -974,12 +957,12 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
-            <GpuFlowDomIslandLayer
-              renderDomIsland={renderDomIsland}
-              scene={scene}
-              viewportStore={viewportStore}
-            />
           </GpuSurface>
+          <GpuFlowDomIslandLayer
+            renderDomIsland={renderDomIsland}
+            scene={scene}
+            viewportStore={viewportStore}
+          />
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
         </div>
       </GpuFlowSceneContext.Provider>

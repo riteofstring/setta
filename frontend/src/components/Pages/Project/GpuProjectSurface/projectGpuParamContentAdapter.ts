@@ -623,6 +623,7 @@ function createProjectGpuParamRows({
         activeParamCanvasControl:
           retainedInteractionState.activeParamCanvasControl,
         activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
+        activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
         codeObjImpl,
         disabled: resolveProjectGpuRetainedParamRowDisabled({
           codeObjType: codeObjImpl.type,

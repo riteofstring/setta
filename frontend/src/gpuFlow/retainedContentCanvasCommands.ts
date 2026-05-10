@@ -75,6 +75,9 @@ export function drawGpuRetainedContentCommand({
     return;
   }
   if (command.kind === "row-label") {
+    if (rowState?.nativeLabelActive) {
+      return;
+    }
     drawGpuRetainedContentLabel({
       appearance: command.appearance,
       ctx,
@@ -370,7 +373,10 @@ function drawGpuRetainedContentSwitchInputControl({
   surfaceId,
   switchAnimations,
 }: {
-  readonly control: Extract<GpuRetainedContentControlDescriptor, { kind: "switch" }>;
+  readonly control: Extract<
+    GpuRetainedContentControlDescriptor,
+    { kind: "switch" }
+  >;
   readonly ctx: CanvasRenderingContext2D;
   readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;

@@ -174,30 +174,56 @@ async function waitForAnimationFrame(page: Page) {
 }
 
 async function getRetainedParamResizeGeometry({
-  retainedSource,
+  page,
+  sectionId,
   sectionNode,
 }: {
-  readonly retainedSource: Locator;
+  readonly page: Page;
+  readonly sectionId: string;
   readonly sectionNode: Locator;
 }) {
-  const [sectionBox, sourceBox, canvasBox] = await Promise.all([
+  const [sectionBox, retainedBox] = await Promise.all([
     sectionNode.boundingBox(),
-    retainedSource.boundingBox(),
-    retainedSource
-      .locator('[data-gpu-flow-retained-content-canvas="true"]')
-      .boundingBox(),
+    readRetainedParamSurfaceBox(page, sectionId),
   ]);
-  if (!sectionBox || !sourceBox || !canvasBox) {
+  if (!sectionBox || !retainedBox) {
     throw new Error("Missing section or retained content geometry.");
   }
   return {
-    retainedCanvasHeight: canvasBox.height,
-    retainedCanvasWidth: canvasBox.width,
-    retainedHeight: sourceBox.height,
-    retainedWidth: sourceBox.width,
+    retainedHeight: retainedBox.height,
+    retainedWidth: retainedBox.width,
     sectionHeight: sectionBox.height,
     sectionWidth: sectionBox.width,
   };
+}
+
+async function readRetainedParamSurfaceBox(
+  page: Page,
+  sectionId: string,
+): Promise<{
+  readonly height: number;
+  readonly width: number;
+} | null> {
+  return await page.evaluate((surfaceId) => {
+    const rows = (
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+    ).filter((row) => row.surfaceId === surfaceId);
+    if (rows.length === 0) {
+      return null;
+    }
+    const left = Math.min(...rows.map((row) => row.clientRect.x));
+    const top = Math.min(...rows.map((row) => row.clientRect.y));
+    const right = Math.max(
+      ...rows.map((row) => row.clientRect.x + row.clientRect.width),
+    );
+    const bottom = Math.max(
+      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
+    );
+    return {
+      height: bottom - top,
+      width: right - left,
+    };
+  }, `${sectionId}:param-content:unpinned`);
 }
 
 async function resolveSectionResizeStartPoint(page: Page, sectionId: string) {
@@ -379,21 +405,18 @@ isolatedSizingTest(
       });
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
-      const retainedSource = page.getByTestId(
-        `gpu-retained-content-source-${sectionId}:param-content:unpinned`,
-      );
       await expect(sectionNode).toBeVisible();
-      await expect(retainedSource).toHaveCount(1);
       await expect
-        .poll(async () => {
-          const box = await retainedSource.boundingBox();
-          return box?.width ?? 0;
-        })
+        .poll(
+          async () =>
+            (await readRetainedParamSurfaceBox(page, sectionId))?.width ?? 0,
+        )
         .toBeGreaterThan(360);
 
       await setActiveSections(page, [sectionId]);
       const before = await getRetainedParamResizeGeometry({
-        retainedSource,
+        page,
+        sectionId,
         sectionNode,
       });
       const startPoint = await resolveSectionResizeStartPoint(page, sectionId);
@@ -405,7 +428,8 @@ isolatedSizingTest(
       await page.mouse.move(startX - 80, startY);
       await waitForAnimationFrame(page);
       const shrinkDuringDrag = await getRetainedParamResizeGeometry({
-        retainedSource,
+        page,
+        sectionId,
         sectionNode,
       });
 
@@ -417,11 +441,6 @@ isolatedSizingTest(
       );
       expect(
         Math.abs(
-          shrinkDuringDrag.retainedCanvasWidth - shrinkDuringDrag.retainedWidth,
-        ),
-      ).toBeLessThan(2);
-      expect(
-        Math.abs(
           shrinkDuringDrag.sectionWidth - shrinkDuringDrag.retainedWidth,
         ),
       ).toBeLessThan(8);
@@ -430,7 +449,8 @@ isolatedSizingTest(
       await waitForAnimationFrame(page);
       await waitForAnimationFrame(page);
       const growDuringDrag = await getRetainedParamResizeGeometry({
-        retainedSource,
+        page,
+        sectionId,
         sectionNode,
       });
 
@@ -447,13 +467,15 @@ isolatedSizingTest(
       await page.mouse.up();
       await waitForAnimationFrame(page);
       const firstAfterRelease = await getRetainedParamResizeGeometry({
-        retainedSource,
+        page,
+        sectionId,
         sectionNode,
       });
       await waitForAnimationFrame(page);
       await waitForAnimationFrame(page);
       const settledAfterRelease = await getRetainedParamResizeGeometry({
-        retainedSource,
+        page,
+        sectionId,
         sectionNode,
       });
 

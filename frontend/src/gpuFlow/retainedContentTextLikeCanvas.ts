@@ -53,6 +53,9 @@ export function drawGpuRetainedContentTextLikeControl({
     palette,
   });
   const textLayout = getTextLikeControlTextLayout({ outer, palette, rect });
+  if (state?.nativeControlActive) {
+    return;
+  }
   const text = getTextLikeControlText(control);
   if (control.editorKind === "text") {
     drawSingleLineTextLikePreview({

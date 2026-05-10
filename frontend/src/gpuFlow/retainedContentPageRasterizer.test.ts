@@ -51,6 +51,8 @@ function rowBackgroundCommand(
       error: false,
       focused: false,
       hovered: false,
+      nativeControlActive: false,
+      nativeLabelActive: false,
       searchFocused: false,
       searchMatched: false,
       selected: false,

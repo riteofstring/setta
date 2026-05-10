@@ -66,7 +66,13 @@ function scheduleGpuFlowCodeMirrorActivationPaint(callback: () => void) {
 function getGpuFlowPaintableCanvas(
   element: Element,
 ): GpuFlowPaintableCanvas | null {
-  return element.closest<GpuFlowPaintableCanvas>("canvas[layoutsubtree]");
+  return (
+    element.closest<GpuFlowPaintableCanvas>("canvas[layoutsubtree]") ??
+    element
+      .closest(".setta-gpu-flow")
+      ?.querySelector<GpuFlowPaintableCanvas>("canvas[layoutsubtree]") ??
+    null
+  );
 }
 
 function getFromTo(options, before, context) {

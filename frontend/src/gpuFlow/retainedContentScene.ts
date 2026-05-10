@@ -565,6 +565,14 @@ function createGpuRetainedContentRowState(
       Boolean(status) || getGpuRetainedContentRowStateFlag(inputState, "error"),
     focused: getGpuRetainedContentRowStateFlag(inputState, "focused"),
     hovered: getGpuRetainedContentRowStateFlag(inputState, "hovered"),
+    nativeControlActive: getGpuRetainedContentRowStateFlag(
+      inputState,
+      "nativeControlActive",
+    ),
+    nativeLabelActive: getGpuRetainedContentRowStateFlag(
+      inputState,
+      "nativeLabelActive",
+    ),
     searchFocused: getGpuRetainedContentRowStateFlag(
       inputState,
       "searchFocused",

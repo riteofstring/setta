@@ -16,6 +16,7 @@ const GPU_FLOW_DOM_ISLAND_CLASS_NAME = [
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
 ].join(" ");
+const GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME = "setta-gpu-flow__dom-island-layer";
 
 export function GpuFlowDomIslandLayer({
   renderDomIsland,
@@ -47,7 +48,10 @@ export function GpuFlowDomIslandLayer({
 
   const normalizedViewport = normalizeGpuViewport(viewport);
   return (
-    <>
+    <div
+      className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
+      data-gpu-flow-dom-island-layer="viewport"
+    >
       {domIslands.map((island) => (
         <div
           className={GPU_FLOW_DOM_ISLAND_CLASS_NAME}
@@ -60,7 +64,7 @@ export function GpuFlowDomIslandLayer({
           {renderDomIsland(island)}
         </div>
       ))}
-    </>
+    </div>
   );
 }
 
