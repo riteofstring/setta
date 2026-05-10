@@ -25,6 +25,8 @@ const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
 const SWITCH_ANIMATION_SETTING_KEY = "leftSidePaneShiftsMap";
 const SWITCH_ANIMATION_CLIP_HEIGHT = 88;
 const SWITCH_ANIMATION_CLIP_WIDTH = 240;
+const SWITCH_RENDERED_TRACK_CENTER_OFFSET_X = 31;
+const SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y = 14;
 const GUI_SCROLL_LABEL_ORDER = [
   "Default Zoom Level",
   "Grid Color",
@@ -195,7 +197,7 @@ test("retained switch click animates the thumb monotonically", async ({
   if (!controlRect) {
     throw new Error(`Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`);
   }
-  let clickPoint = row.controlClientPoint;
+  let clickPoint = resolveRenderedSwitchClickPoint(controlRect);
   if (initialChecked) {
     await page.mouse.click(clickPoint.x, clickPoint.y);
     await page.waitForTimeout(320);
@@ -208,13 +210,13 @@ test("retained switch click animates the thumb monotonically", async ({
         `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
       );
     }
-    clickPoint = uncheckedRow.controlClientPoint;
     controlRect = uncheckedRow.controlClientRect;
     if (!controlRect) {
       throw new Error(
         `Missing unchecked switch control rect for ${SWITCH_ANIMATION_LABEL}`,
       );
     }
+    clickPoint = resolveRenderedSwitchClickPoint(controlRect);
     initialChecked = false;
   }
   const clip = await resolveSwitchClipFromControlRect(page, controlRect);
@@ -226,15 +228,22 @@ test("retained switch click animates the thumb monotonically", async ({
     testInfo,
   });
 
-  await page.mouse.click(clickPoint.x, clickPoint.y);
-  const samples: SwitchFrame[] = [];
-  let elapsedMs = 0;
-  for (const targetMs of [8, 16, 24, 32, 48, 64, 96, 140]) {
-    await page.waitForTimeout(targetMs - elapsedMs);
-    elapsedMs = targetMs;
+  await page.mouse.move(clickPoint.x, clickPoint.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  const samples: SwitchFrame[] = [
+    await captureSwitchFrame({
+      name: "visual-switch-immediate.png",
+      page,
+      rect: clip,
+      testInfo,
+    }),
+  ];
+  for (let frameIndex = 0; frameIndex < 14; frameIndex += 1) {
+    await waitForAnimationFrame(page);
     samples.push(
       await captureSwitchFrame({
-        name: `visual-switch-${targetMs}ms.png`,
+        name: `visual-switch-raf-${frameIndex}.png`,
         page,
         rect: clip,
         testInfo,
@@ -884,6 +893,12 @@ async function waitForViewportIdle(page: Page): Promise<void> {
     .toBe(true);
 }
 
+async function waitForAnimationFrame(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+}
+
 async function captureSwitchFrame({
   name,
   page,
@@ -1146,6 +1161,13 @@ async function resolveSwitchClipFromControlRect(
     x: rect.x,
     y: rect.y + rect.height / 2 - height / 2,
   });
+}
+
+function resolveRenderedSwitchClickPoint(rect: Rect): Point {
+  return {
+    x: rect.x + Math.min(rect.width / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_X),
+    y: rect.y + Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y),
+  };
 }
 
 async function clampScreenshotClipToViewport(

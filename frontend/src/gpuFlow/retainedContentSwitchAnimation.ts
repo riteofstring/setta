@@ -314,9 +314,7 @@ function ensureGpuRetainedContentSwitchTransitionForChecked({
   const transition = transitions.get(key);
   const reusableTransition = resolveReusableSwitchTransition({
     checked,
-    key,
     transition,
-    transitions,
   });
   if (reusableTransition) {
     return reusableTransition;
@@ -352,49 +350,21 @@ function ensureGpuRetainedContentSwitchTransitionForChecked({
 
 function resolveReusableSwitchTransition({
   checked,
-  key,
   transition,
-  transitions,
 }: {
   readonly checked: boolean;
-  readonly key: string;
   readonly transition: GpuRetainedContentSwitchTransition | undefined;
-  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
 }): GpuRetainedContentSwitchTransition | undefined {
   if (!transition) {
     return undefined;
   }
   if (transition.toChecked === checked) {
-    return resolveSceneMatchedSwitchTransition({
-      key,
-      transition,
-      transitions,
-    });
+    return transition;
   }
   if (transition.pendingSceneMatch && transition.fromChecked === checked) {
     return transition;
   }
   return undefined;
-}
-
-function resolveSceneMatchedSwitchTransition({
-  key,
-  transition,
-  transitions,
-}: {
-  readonly key: string;
-  readonly transition: GpuRetainedContentSwitchTransition;
-  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
-}): GpuRetainedContentSwitchTransition {
-  if (!transition.pendingSceneMatch) {
-    return transition;
-  }
-  const matchedTransition = {
-    ...transition,
-    pendingSceneMatch: false,
-  };
-  transitions.set(key, matchedTransition);
-  return matchedTransition;
 }
 
 function shouldKeepSwitchWithoutTransition({
@@ -435,6 +405,13 @@ function syncGpuRetainedContentSwitchCommand({
 }) {
   const key = createSwitchAnimationKey(surfaceId, command.rowId);
   nextKeys.add(key);
+  const transition = transitions.get(key);
+  if (
+    transition?.pendingSceneMatch &&
+    transition.fromChecked === command.control.checked
+  ) {
+    return;
+  }
   const previousChecked = checkedByKey.get(key);
   if (previousChecked === undefined && !progressByKey.has(key)) {
     progressByKey.set(key, command.control.checked ? 1 : 0);

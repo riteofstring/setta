@@ -228,6 +228,93 @@ describe("retained content switch animation store", () => {
     ).toBe(0.5);
   });
 
+  it("keeps an interaction-seeded transition when surface sync sees the old scene before redraw", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+
+    store.syncSurface(surface({ checked: false }), 40);
+
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 60,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.2,
+      targetChecked: true,
+    });
+
+    store.syncSurface(surface({ checked: true }), 80);
+
+    expect(
+      store.resolveVisualState({
+        checked: true,
+        nowMs: 120,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.5,
+      targetChecked: true,
+    });
+  });
+
+  it("keeps an interaction-seeded transition when an old scene frame returns after the target scene matched", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+
+    store.syncSurface(surface({ checked: true }), 30);
+    expect(
+      store.resolveVisualState({
+        checked: true,
+        nowMs: 40,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.1,
+      targetChecked: true,
+    });
+
+    store.syncSurface(surface({ checked: false }), 60);
+
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 80,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.3,
+      targetChecked: true,
+    });
+  });
+
   it("reports the target checked state separately from delayed scene checked state", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       durationMs: 200,
