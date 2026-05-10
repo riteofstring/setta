@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { GpuFrameReason } from "../gpuRenderer";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
@@ -103,8 +104,7 @@ describe("GpuFlow retained content controllers", () => {
     expect(click.defaultPrevented).toBe(true);
   });
 
-  it("keeps unrelated retained surfaces clean when one section scrolls", () => {
-    const animationFrames = installAnimationFrameStub();
+  it("does not install the old manual wheel-delta retained scroll owner", () => {
     const dirtySurfaceIds: string[] = [];
     let host: HTMLDivElement | null = null;
 
@@ -139,12 +139,9 @@ describe("GpuFlow retained content controllers", () => {
     act(() => {
       host?.dispatchEvent(wheel);
     });
-    act(() => {
-      animationFrames.flush();
-    });
 
-    expect(wheel.defaultPrevented).toBe(true);
-    expect(dirtySurfaceIds).toEqual(["dict-a:param-content:unpinned"]);
+    expect(wheel.defaultPrevented).toBe(false);
+    expect(dirtySurfaceIds).toEqual([]);
   });
 
   it("updates retained row hover as a native visual without dirtying page content", () => {
@@ -434,7 +431,7 @@ function RetainedContentHoverHarness({
   readonly onReadNativeVisuals?:
     | ((read: () => readonly HtmlSurfaceSolidRoundedRectVisual[]) => void)
     | undefined;
-  readonly onRequestFrame?: ((reason: string) => void) | undefined;
+  readonly onRequestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly onRequestPaint?: (() => void) | undefined;
   readonly resetSceneAfterFirstDirty?: boolean | undefined;
   readonly rowCount?: number | undefined;
@@ -484,8 +481,8 @@ function RetainedContentHoverHarness({
   });
   const surfaceRef = useRef({
     getRuntime: () => null,
-    requestFrame: (reason: string) => {
-      onRequestFrame?.(reason);
+    requestFrame: (reason?: GpuFrameReason) => {
+      onRequestFrame?.(reason ?? "manual");
     },
     requestPaint: () => {
       onRequestPaint?.();
@@ -746,27 +743,4 @@ function createCanvasContextStub(): CanvasRenderingContext2D {
     strokeRect: vi.fn(),
     translate: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
-}
-
-function installAnimationFrameStub() {
-  let nextId = 1;
-  const callbacks = new Map<number, FrameRequestCallback>();
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    const id = nextId;
-    nextId += 1;
-    callbacks.set(id, callback);
-    return id;
-  });
-  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
-    callbacks.delete(id);
-  });
-  return {
-    flush() {
-      const pending = [...callbacks.entries()];
-      callbacks.clear();
-      for (const [id, callback] of pending) {
-        callback(id);
-      }
-    },
-  };
 }

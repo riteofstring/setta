@@ -146,6 +146,31 @@ export function syncGpuFlowNodeLayerSceneState({
   surfaceRef.current?.requestFrame("viewport");
 }
 
+export function syncGpuFlowNodeLayerRetainedContentRuntimeState({
+  activeRetainedContentRuntimeState,
+  nodeLayerRef,
+}: {
+  readonly activeRetainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+}): boolean {
+  const scene = nodeLayerRef.current.scene;
+  const nextScene = applyGpuRetainedContentRuntimeStateToScene({
+    scene,
+    state: activeRetainedContentRuntimeState,
+  });
+  if (nextScene === scene) {
+    return false;
+  }
+  nodeLayerRef.current = {
+    ...nodeLayerRef.current,
+    htmlSurfaceNativeVisuals: nextScene
+      ? getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces)
+      : nodeLayerRef.current.htmlSurfaceNativeVisuals,
+    scene: nextScene,
+  };
+  return true;
+}
+
 function isGpuFlowNodeLayerEmpty({
   grid,
   htmlSurfaceOverlays,

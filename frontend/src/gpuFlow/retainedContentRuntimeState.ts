@@ -8,6 +8,8 @@ import type { GpuContentSurface, GpuFlowScene } from "./scene";
 import type { GpuPoint } from "./viewportMath";
 
 export type GpuRetainedContentRuntimeState = {
+  readonly nativeScrollSources: Map<string, HTMLElement>;
+  readonly scrollDirtySurfaceIds: Set<string>;
   readonly scrollOffsets: Map<string, GpuPoint>;
   readonly scrollResetKeys: Map<string, string | null>;
   readonly scrollRevisions: Map<string, number>;
@@ -15,6 +17,8 @@ export type GpuRetainedContentRuntimeState = {
 
 export function createGpuRetainedContentRuntimeState(): GpuRetainedContentRuntimeState {
   return {
+    nativeScrollSources: new Map(),
+    scrollDirtySurfaceIds: new Set(),
     scrollOffsets: new Map(),
     scrollResetKeys: new Map(),
     scrollRevisions: new Map(),
@@ -72,6 +76,7 @@ export function replaceGpuRetainedContentRuntimeScrollOffsets({
   for (const surfaceId of [...state.scrollOffsets.keys()]) {
     if (!scrollOffsets.has(surfaceId)) {
       state.scrollOffsets.delete(surfaceId);
+      state.scrollDirtySurfaceIds.add(surfaceId);
       state.scrollRevisions.set(
         surfaceId,
         (state.scrollRevisions.get(surfaceId) ?? 0) + 1,
@@ -108,11 +113,88 @@ export function setGpuRetainedContentRuntimeScrollOffset({
     return false;
   }
   state.scrollOffsets.set(surfaceId, { x: scrollOffset.x, y: scrollOffset.y });
+  state.scrollDirtySurfaceIds.add(surfaceId);
   state.scrollRevisions.set(
     surfaceId,
     (state.scrollRevisions.get(surfaceId) ?? 0) + 1,
   );
   return true;
+}
+
+export function consumeGpuRetainedContentRuntimeScrollDirtySurfaceIds(
+  state: GpuRetainedContentRuntimeState,
+): readonly string[] {
+  const surfaceIds = [...state.scrollDirtySurfaceIds];
+  state.scrollDirtySurfaceIds.clear();
+  return surfaceIds;
+}
+
+export function markGpuRetainedContentRuntimeScrollDirtySurface({
+  state,
+  surfaceId,
+}: {
+  readonly state: GpuRetainedContentRuntimeState;
+  readonly surfaceId: string;
+}) {
+  state.scrollDirtySurfaceIds.add(surfaceId);
+}
+
+export function registerGpuRetainedContentNativeScrollSource({
+  element,
+  state,
+  surfaceId,
+}: {
+  readonly element: HTMLElement;
+  readonly state: GpuRetainedContentRuntimeState;
+  readonly surfaceId: string;
+}): () => void {
+  state.nativeScrollSources.set(surfaceId, element);
+  return () => {
+    if (state.nativeScrollSources.get(surfaceId) === element) {
+      state.nativeScrollSources.delete(surfaceId);
+    }
+  };
+}
+
+export function setGpuRetainedContentNativeScrollSourceOffset({
+  scrollOffset,
+  state,
+  surfaceId,
+}: {
+  readonly scrollOffset: GpuPoint;
+  readonly state: GpuRetainedContentRuntimeState;
+  readonly surfaceId: string;
+}): boolean {
+  const source = state.nativeScrollSources.get(surfaceId);
+  if (!source) {
+    return setGpuRetainedContentRuntimeScrollOffset({
+      scrollOffset,
+      state,
+      surfaceId,
+    });
+  }
+  const previousLeft = source.scrollLeft;
+  const previousTop = source.scrollTop;
+  source.scrollLeft = Math.max(0, scrollOffset.x);
+  source.scrollTop = Math.max(0, scrollOffset.y);
+  const resolvedScrollOffset = {
+    x: source.scrollLeft,
+    y: source.scrollTop,
+  };
+  const currentRuntimeOffset = state.scrollOffsets.get(surfaceId);
+  if (
+    source.scrollLeft === previousLeft &&
+    source.scrollTop === previousTop &&
+    currentRuntimeOffset?.x === resolvedScrollOffset.x &&
+    currentRuntimeOffset?.y === resolvedScrollOffset.y
+  ) {
+    return false;
+  }
+  return setGpuRetainedContentRuntimeScrollOffset({
+    scrollOffset: resolvedScrollOffset,
+    state,
+    surfaceId,
+  });
 }
 
 export function applyGpuRetainedContentRuntimeStateToScene({
@@ -123,6 +205,8 @@ export function applyGpuRetainedContentRuntimeStateToScene({
   readonly state: GpuRetainedContentRuntimeState;
 }): GpuFlowScene | undefined {
   if (!scene) {
+    state.nativeScrollSources.clear();
+    state.scrollDirtySurfaceIds.clear();
     state.scrollOffsets.clear();
     state.scrollResetKeys.clear();
     state.scrollRevisions.clear();
@@ -185,6 +269,7 @@ function syncGpuRetainedContentSurfaceResetKey({
     return;
   }
   state.scrollOffsets.delete(surface.id);
+  state.scrollDirtySurfaceIds.add(surface.id);
   state.scrollRevisions.set(
     surface.id,
     (state.scrollRevisions.get(surface.id) ?? 0) + 1,
@@ -201,6 +286,12 @@ function pruneGpuRetainedContentRuntimeState({
   for (const surfaceId of state.scrollOffsets.keys()) {
     if (!retainedSurfaceIds.has(surfaceId)) {
       state.scrollOffsets.delete(surfaceId);
+      state.scrollDirtySurfaceIds.delete(surfaceId);
+    }
+  }
+  for (const surfaceId of state.nativeScrollSources.keys()) {
+    if (!retainedSurfaceIds.has(surfaceId)) {
+      state.nativeScrollSources.delete(surfaceId);
     }
   }
   for (const surfaceId of state.scrollResetKeys.keys()) {
