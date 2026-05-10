@@ -68,9 +68,6 @@ export type GpuFlowFrameTextureLifecycleDiagnostic = {
   readonly surfaceId: string;
 };
 
-export type GpuFlowFrameRetainedContentOcclusionDiagnostic =
-  RenderHtmlSurfaceFrameResult["retainedContentOcclusionDiagnostics"][number];
-
 export type GpuFlowFramePerformanceEvent = {
   readonly activeNodeId: string | null;
   readonly activeNodePresent: boolean;
@@ -90,13 +87,6 @@ export type GpuFlowFramePerformanceEvent = {
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
-  readonly renderBatchCount: number;
-  readonly renderCommandCount: number;
-  readonly renderCommandCountsByLayer: RenderHtmlSurfaceFrameResult["renderCommandCountsByLayer"];
-  readonly renderCommandCountsByPipeline: RenderHtmlSurfaceFrameResult["renderCommandCountsByPipeline"];
-  readonly renderCommandCountsByRole: RenderHtmlSurfaceFrameResult["renderCommandCountsByRole"];
-  readonly retainedContentOcclusionRiskCount: number;
-  readonly retainedContentOcclusionRisks: readonly GpuFlowFrameRetainedContentOcclusionDiagnostic[];
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageDiagnosticCount: number;
   readonly retainedTexturePageEvictedBytes: number;
@@ -186,17 +176,6 @@ export function createGpuFlowFramePerformanceEvent({
     missingElementNodeCount: layerResult.missingElementNodeIds.length,
     missingTextureNodeCount: layerResult.missingTextureNodeIds.length,
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,
-    renderBatchCount: layerResult.renderBatchCount,
-    renderCommandCount: layerResult.renderCommandCount,
-    renderCommandCountsByLayer: { ...layerResult.renderCommandCountsByLayer },
-    renderCommandCountsByPipeline: {
-      ...layerResult.renderCommandCountsByPipeline,
-    },
-    renderCommandCountsByRole: { ...layerResult.renderCommandCountsByRole },
-    retainedContentOcclusionRiskCount:
-      layerResult.retainedContentOcclusionDiagnostics.length,
-    retainedContentOcclusionRisks:
-      layerResult.retainedContentOcclusionDiagnostics.slice(0, 12),
     ...retainedTexturePageFields,
     skippedNodeCount: layerResult.skippedNodeIds.length,
     solidRoundedRectSurfaceCount:
@@ -282,7 +261,8 @@ function createRetainedTexturePagePerformanceFields(
   }
   return {
     retainedTexturePageBudgetExhausted: retainedTexturePages.budgetExhausted,
-    retainedTexturePageDiagnosticCount: retainedTexturePages.diagnosticCount,
+    retainedTexturePageDiagnosticCount:
+      retainedTexturePages.diagnosticCount,
     retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
     retainedTexturePageEvictedCount: retainedTexturePages.evictedCount,
     retainedTexturePageMemoryCommittedBytes:
@@ -290,7 +270,8 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageMemoryCommittedCount:
       retainedTexturePages.memoryCommittedCount,
     retainedTexturePageMemoryTotalBytes: retainedTexturePages.memoryTotalBytes,
-    retainedTexturePageMissingPageCount: retainedTexturePages.missingPageCount,
+    retainedTexturePageMissingPageCount:
+      retainedTexturePages.missingPageCount,
     retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
     retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,
     retainedTexturePageUploadCount: retainedTexturePages.uploadCount,

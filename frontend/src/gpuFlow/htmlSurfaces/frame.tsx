@@ -21,14 +21,17 @@ import type {
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
-import { createGpuNodeVisualScene } from "./frameVisualScene";
 import {
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceSolidRoundedRectVisual,
   type HtmlSurfaceVisualScene,
 } from "./visualScene";
+import { createGpuNodeVisualScene } from "./frameVisualScene";
 
-import { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
+import {
+  buildHtmlSurfaceVisuals,
+  type HtmlSurfaceVisualBuildResult,
+} from "./surfaceVisuals";
 
 export { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
 
@@ -36,10 +39,6 @@ import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
-import {
-  createHtmlSurfaceFrameRenderDiagnostics,
-  type HtmlSurfaceFrameRenderDiagnostics,
-} from "./frameRenderDiagnostics";
 import { resolveHtmlSurfacePaintInvalidation } from "./paintInvalidation";
 
 import {
@@ -254,12 +253,6 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
-  readonly renderBatchCount: number;
-  readonly renderCommandCount: number;
-  readonly renderCommandCountsByLayer: HtmlSurfaceFrameRenderDiagnostics["renderCommandCountsByLayer"];
-  readonly renderCommandCountsByPipeline: HtmlSurfaceFrameRenderDiagnostics["renderCommandCountsByPipeline"];
-  readonly renderCommandCountsByRole: HtmlSurfaceFrameRenderDiagnostics["renderCommandCountsByRole"];
-  readonly retainedContentOcclusionDiagnostics: HtmlSurfaceFrameRenderDiagnostics["retainedContentOcclusionDiagnostics"];
   readonly skippedNodeIds: readonly string[];
   readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
@@ -474,15 +467,14 @@ export function renderHtmlSurfaceFrame({
     overlayTextureResult.texturedQuads.filter(
       (quad) => quad.texture.lastUploadFrame >= 0,
     );
-  const htmlSurfaceVisuals = buildHtmlSurfaceVisuals(uploadedTexturedQuads);
-  const htmlSurfaceOverlayVisuals = buildHtmlSurfaceVisuals(
-    uploadedOverlayTexturedQuads,
+  const visualSurfaces = mergeHtmlSurfaceVisuals(
+    buildHtmlSurfaceVisuals(uploadedTexturedQuads),
+    buildHtmlSurfaceVisuals(uploadedOverlayTexturedQuads),
   );
   const visualScene = createGpuNodeVisualScene({
     htmlSurfaceNativeVisuals,
-    htmlSurfaceOverlayVisuals,
     htmlSurfacePageVisuals,
-    htmlSurfaceVisuals,
+    visualSurfaces,
   });
   const renderResult = renderer.render({
     canvasSize,
@@ -506,8 +498,6 @@ export function renderHtmlSurfaceFrame({
   );
   const textureLifecycleDiagnostics =
     textureManager.getSurfaceTextureLifecycleDiagnostics(visibleSurfaceIds);
-  const renderDiagnostics =
-    createHtmlSurfaceFrameRenderDiagnostics(visualScene);
 
   return {
     activeNodeId: activeNodeId ?? null,
@@ -526,9 +516,6 @@ export function renderHtmlSurfaceFrame({
     remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds.filter(
       (surfaceId) => nodeSurfaceIds.has(surfaceId),
     ),
-    renderBatchCount: renderResult.renderBatchCount,
-    renderCommandCount: renderResult.renderCommandCount,
-    ...renderDiagnostics,
     skippedNodeIds: uploadResult.skippedSurfaceIds.filter((surfaceId) =>
       nodeSurfaceIds.has(surfaceId),
     ),
@@ -804,6 +791,19 @@ export function buildTexturedGpuNodeQuads(
   }
 
   return { missingTextureNodeIds, texturedQuads };
+}
+
+function mergeHtmlSurfaceVisuals(
+  base: HtmlSurfaceVisualBuildResult,
+  overlays: HtmlSurfaceVisualBuildResult,
+): HtmlSurfaceVisualBuildResult {
+  return {
+    flatSurfaces: [...base.flatSurfaces, ...overlays.flatSurfaces],
+    tiledFlatSurfaces: [
+      ...base.tiledFlatSurfaces,
+      ...overlays.tiledFlatSurfaces,
+    ],
+  };
 }
 
 export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {

@@ -5,7 +5,6 @@ import {
   type GpuFlowFramePerformanceInput,
 } from "./framePerformance";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
-import { createHtmlSurfaceVisualScene } from "./htmlSurfaces/visualScene";
 
 describe("framePerformance", () => {
   it("creates compact frame diagnostics without project instrumentation", () => {
@@ -37,9 +36,6 @@ describe("framePerformance", () => {
       frameReasons: ["paint", "texture-upload"],
       interactionDiagnostics: null,
       remainingDirtyNodeCount: 2,
-      renderBatchCount: 2,
-      renderCommandCount: 3,
-      retainedContentOcclusionRiskCount: 0,
       textureMemoryAllocatedBytes: 4096,
       textureMemoryBeforeEvictionAllocatedBytes: 8192,
       textureMemoryBeforeEvictionCount: 5,
@@ -210,12 +206,6 @@ function createLayerResult(
     missingElementNodeIds: ["node-7"],
     missingTextureNodeIds: ["node-8"],
     remainingDirtyNodeIds: ["node-9", "node-10"],
-    renderBatchCount: 2,
-    renderCommandCount: 3,
-    renderCommandCountsByLayer: { "section-shell": 2 },
-    renderCommandCountsByPipeline: { flat: 2 },
-    renderCommandCountsByRole: { "section-shell": 2 },
-    retainedContentOcclusionDiagnostics: [],
     skippedNodeIds: ["node-11"],
     textureMemory: {
       allocatedBytes: 4096,
@@ -269,7 +259,13 @@ function createLayerResult(
     },
     uploadedNodeIds: ["node-12"],
     visibleNodeIds: ["node-1", "node-2", "node-3", "node-4"],
-    visualScene: createHtmlSurfaceVisualScene(),
+    visualScene: {
+      effectSurfaces: [],
+      flatSurfaces: [],
+      meshSurfaces: [],
+      solidRoundedRectSurfaces: [],
+      tiledFlatSurfaces: [],
+    },
     ...overrides,
   };
 }

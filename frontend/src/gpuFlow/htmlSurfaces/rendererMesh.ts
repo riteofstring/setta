@@ -101,31 +101,6 @@ export class HtmlSurfaceMeshPass {
     readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
     readonly pass: GPURenderPassEncoder;
   }) {
-    this.drawRange({
-      cameraBindGroup,
-      count: meshSurfaces.length,
-      meshSurfaceDraw,
-      meshSurfaces,
-      pass,
-      start: 0,
-    });
-  }
-
-  drawRange({
-    cameraBindGroup,
-    count,
-    meshSurfaceDraw,
-    meshSurfaces,
-    pass,
-    start,
-  }: {
-    readonly cameraBindGroup: GPUBindGroup;
-    readonly count: number;
-    readonly meshSurfaceDraw: MeshSurfaceDrawResources | null;
-    readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
-    readonly pass: GPURenderPassEncoder;
-    readonly start: number;
-  }) {
     if (!meshSurfaceDraw) {
       return;
     }
@@ -133,15 +108,14 @@ export class HtmlSurfaceMeshPass {
     pass.setPipeline(meshSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, meshSurfaceDraw.vertexBuffer);
-    for (let index = start; index < start + count; index += 1) {
-      const surface = meshSurfaces[index];
+    meshSurfaces.forEach((surface, index) => {
       const range = vertexCache.ranges[index];
-      if (!surface || !range || range.vertexCount === 0) {
-        continue;
+      if (!range || range.vertexCount === 0) {
+        return;
       }
       pass.setBindGroup(1, this.getTextureBindGroup(surface));
       pass.draw(range.vertexCount, 1, range.firstVertex, 0);
-    }
+    });
   }
 
   getVertexCount(meshSurfaces: readonly HtmlSurfaceMeshVisual[]): number {

@@ -1,32 +1,37 @@
 import type { GpuEdgeLineListBufferData } from "../edges/edgeGpuBuffers";
 import type { RenderHtmlSurfaceSceneResult } from "../gpuPipelines/pipelineTypes";
-import type { HtmlSurfaceVisualScene } from "./visualScene";
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceVisualScene,
+} from "./visualScene";
 
 export function createHtmlSurfaceRenderResult({
   edgeBufferData,
-  renderBatchCount,
-  renderCommandCount,
+  effectSurfaces,
+  flatSurfaces,
+  meshSurfaces,
   scene,
+  solidRoundedRectSurfaces,
   vertexCount,
 }: {
   readonly edgeBufferData: GpuEdgeLineListBufferData;
-  readonly renderBatchCount: number;
-  readonly renderCommandCount: number;
+  readonly effectSurfaces: HtmlSurfaceVisualScene["effectSurfaces"];
+  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
   readonly scene: HtmlSurfaceVisualScene;
+  readonly solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"];
   readonly vertexCount: number;
 }): RenderHtmlSurfaceSceneResult {
   return {
     drawnEdgeIds: edgeBufferData.ranges.map((range) => range.edgeId),
-    drawnSurfaceIds: uniqueSurfaceIds(
-      scene.displayList.commands.map((command) => command.ownerSurfaceId),
-    ),
+    drawnSurfaceIds: [
+      ...flatSurfaces.map((surface) => surface.surfaceId),
+      ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
+      ...meshSurfaces.map((surface) => surface.surfaceId),
+      ...effectSurfaces.map((surface) => surface.surfaceId),
+      ...solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
+    ],
     edgeVertexCount: edgeBufferData.vertexCount,
-    renderBatchCount,
-    renderCommandCount,
     vertexCount,
   };
-}
-
-function uniqueSurfaceIds(surfaceIds: readonly string[]): readonly string[] {
-  return [...new Set(surfaceIds)];
 }

@@ -89,35 +89,18 @@ export class HtmlSurfaceSolidRoundedRectPass {
     readonly solidRoundedRectSurfaceDraw: SolidRoundedRectDrawResources | null;
     readonly solidRoundedRectSurfaces: readonly HtmlSurfaceSolidRoundedRectVisual[];
   }) {
-    this.drawRange({
-      cameraBindGroup,
-      count: solidRoundedRectSurfaces.length,
-      pass,
-      solidRoundedRectSurfaceDraw,
-      start: 0,
-    });
-  }
-
-  drawRange({
-    cameraBindGroup,
-    count,
-    pass,
-    solidRoundedRectSurfaceDraw,
-    start,
-  }: {
-    readonly cameraBindGroup: GPUBindGroup;
-    readonly count: number;
-    readonly pass: GPURenderPassEncoder;
-    readonly solidRoundedRectSurfaceDraw: SolidRoundedRectDrawResources | null;
-    readonly start: number;
-  }) {
     if (!solidRoundedRectSurfaceDraw) {
       return;
     }
     pass.setPipeline(solidRoundedRectSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, solidRoundedRectSurfaceDraw.vertexBuffer);
-    pass.draw(count * VERTICES_PER_QUAD, 1, start * VERTICES_PER_QUAD, 0);
+    pass.draw(
+      solidRoundedRectSurfaces.length * VERTICES_PER_QUAD,
+      1,
+      0,
+      0,
+    );
   }
 
   getVertexCount(

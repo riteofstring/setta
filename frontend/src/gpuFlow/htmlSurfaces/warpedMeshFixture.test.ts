@@ -101,9 +101,7 @@ function textureRecord(surfaceId: string): CommittedHtmlSurfaceTextureSnapshot {
     surfaceId,
     texture: {},
     textureBytes: 0,
-    textureLayout: { kind: "single", tileCount: 1 },
     textureView: {},
-    tiles: [],
   } as CommittedHtmlSurfaceTextureSnapshot;
 }
 

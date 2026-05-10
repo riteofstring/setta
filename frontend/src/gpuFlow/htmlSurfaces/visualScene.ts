@@ -1,8 +1,3 @@
-import {
-  createHtmlSurfaceDisplayList,
-  type HtmlSurfaceDisplayListVisualGroup,
-  type HtmlSurfaceRenderDisplayList,
-} from "./displayList";
 import type {
   CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureTileRecord,
@@ -91,7 +86,6 @@ export type HtmlSurfaceVisual =
   | HtmlSurfaceEffectVisual;
 
 export type HtmlSurfaceVisualScene = {
-  readonly displayList: HtmlSurfaceRenderDisplayList;
   readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
@@ -100,39 +94,13 @@ export type HtmlSurfaceVisualScene = {
 };
 
 export function createHtmlSurfaceVisualScene({
-  displayList,
-  displayListGroups,
   effectSurfaces = [],
   flatSurfaces = [],
   meshSurfaces = [],
   solidRoundedRectSurfaces = [],
   tiledFlatSurfaces = [],
-}: Partial<Omit<HtmlSurfaceVisualScene, "displayList">> & {
-  readonly displayList?: HtmlSurfaceRenderDisplayList | undefined;
-  readonly displayListGroups?:
-    | readonly HtmlSurfaceDisplayListVisualGroup[]
-    | undefined;
-} = {}): HtmlSurfaceVisualScene {
+}: Partial<HtmlSurfaceVisualScene> = {}): HtmlSurfaceVisualScene {
   return {
-    displayList:
-      displayList ??
-      createHtmlSurfaceDisplayList(
-        displayListGroups ?? [
-          {
-            effectSurfaces,
-            flatSurfaces,
-            meshSurfaces,
-            renderLayer: "section-shell",
-            role: "section-shell",
-            tiledFlatSurfaces,
-          },
-          {
-            renderLayer: "section-overlay",
-            role: "section-overlay",
-            solidRoundedRectSurfaces,
-          },
-        ],
-      ),
     effectSurfaces,
     flatSurfaces,
     meshSurfaces,
