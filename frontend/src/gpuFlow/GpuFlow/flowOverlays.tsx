@@ -17,7 +17,7 @@ import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualSc
 import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
-import { chooseZoomBucket } from "../textureResolution";
+import { chooseStableZoomBucket } from "../textureResolution";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
@@ -158,7 +158,10 @@ function useGpuFlowRetainedContentViewportZoomBucket(
 
   useEffect(() => {
     const syncZoomBucket = () => {
-      setZoomBucket(getGpuFlowRetainedContentViewportZoomBucket(viewportStore));
+      const zoom = getGpuFlowRetainedContentViewportZoom(viewportStore);
+      setZoomBucket((currentZoomBucket) =>
+        chooseStableZoomBucket(zoom, { currentZoomBucket }),
+      );
     };
     syncZoomBucket();
     return viewportStore.subscribe((state, previousState) => {
@@ -175,7 +178,13 @@ function useGpuFlowRetainedContentViewportZoomBucket(
 function getGpuFlowRetainedContentViewportZoomBucket(
   viewportStore: GpuFlowViewportStoreApi,
 ): number {
-  return chooseZoomBucket(
-    normalizeGpuViewport(viewportStore.getState().transform).zoom,
+  return chooseStableZoomBucket(
+    getGpuFlowRetainedContentViewportZoom(viewportStore),
   );
+}
+
+function getGpuFlowRetainedContentViewportZoom(
+  viewportStore: GpuFlowViewportStoreApi,
+): number {
+  return normalizeGpuViewport(viewportStore.getState().transform).zoom;
 }

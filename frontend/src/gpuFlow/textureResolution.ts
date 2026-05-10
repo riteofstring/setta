@@ -2,12 +2,15 @@ const TEXTURE_RESOLUTION_BUCKETS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4] as const;
 
 type TextureResolutionInput = {
   readonly buckets?: readonly number[] | undefined;
+  readonly currentZoomBucket?: number | undefined;
   readonly cssHeight: number;
   readonly cssWidth: number;
   readonly devicePixelRatio: number;
   readonly maxTextureDimension2D: number;
   readonly zoom: number;
 };
+
+const TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS = 0.08;
 
 export type TextureResolution = {
   readonly clampedByMaxTexture: boolean;
@@ -35,6 +38,7 @@ export type TextureResolutionSnapshot = Pick<
 
 export function chooseTextureResolution({
   buckets = TEXTURE_RESOLUTION_BUCKETS,
+  currentZoomBucket,
   cssHeight,
   cssWidth,
   devicePixelRatio,
@@ -48,7 +52,10 @@ export function chooseTextureResolution({
   assertFinitePositive("maxTextureDimension2D", maxTextureDimension2D);
 
   const normalizedBuckets = validateResolutionBuckets(buckets);
-  const zoomBucket = chooseZoomBucket(zoom, normalizedBuckets);
+  const zoomBucket = chooseStableZoomBucket(zoom, {
+    buckets: normalizedBuckets,
+    currentZoomBucket,
+  });
   const requestedScale = devicePixelRatio * zoomBucket;
   const resolutionScale = clampResolutionScale({
     cssHeight,
@@ -93,6 +100,41 @@ export function chooseZoomBucket(
     throw new Error("Setta GPU flow texture resolution requires buckets.");
   }
   return normalizedBuckets.find((bucket) => bucket >= zoom) ?? largestBucket;
+}
+
+export function chooseStableZoomBucket(
+  zoom: number,
+  {
+    buckets = TEXTURE_RESOLUTION_BUCKETS,
+    currentZoomBucket,
+  }: {
+    readonly buckets?: readonly number[] | undefined;
+    readonly currentZoomBucket?: number | undefined;
+  } = {},
+): number {
+  const normalizedBuckets = validateResolutionBuckets(buckets);
+  const targetBucket = chooseZoomBucket(zoom, normalizedBuckets);
+  if (currentZoomBucket === undefined) {
+    return targetBucket;
+  }
+  const currentIndex = normalizedBuckets.indexOf(currentZoomBucket);
+  const targetIndex = normalizedBuckets.indexOf(targetBucket);
+  if (currentIndex < 0 || targetIndex < 0 || currentIndex === targetIndex) {
+    return targetBucket;
+  }
+  if (targetIndex > currentIndex) {
+    return zoom >
+      currentZoomBucket * (1 + TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
+      ? targetBucket
+      : currentZoomBucket;
+  }
+  const previousBucket = normalizedBuckets[currentIndex - 1];
+  if (previousBucket === undefined) {
+    return currentZoomBucket;
+  }
+  return zoom < previousBucket * (1 - TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
+    ? targetBucket
+    : currentZoomBucket;
 }
 
 export function textureResolutionMatches(

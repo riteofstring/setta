@@ -384,14 +384,16 @@ export class HtmlSurfaceTextureManager {
   registerSurfaceTexture(
     input: RegisterHtmlSurfaceTextureInput,
   ): CommittedHtmlSurfaceTextureSnapshot {
+    const existing = this.records.get(input.surfaceId);
     const resolution = chooseTextureResolution({
       cssHeight: input.cssHeight,
       cssWidth: input.cssWidth,
+      currentZoomBucket:
+        existing?.pendingResolution?.zoomBucket ?? existing?.zoomBucket,
       devicePixelRatio: input.devicePixelRatio,
       maxTextureDimension2D: this.maxTextureDimension2D,
       zoom: input.zoom,
     });
-    const existing = this.records.get(input.surfaceId);
     if (!existing) {
       return this.registerNewSurfaceTexture(input, resolution);
     }

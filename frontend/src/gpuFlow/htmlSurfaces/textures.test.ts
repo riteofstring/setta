@@ -692,6 +692,37 @@ describe("HtmlSurfaceTextureManager", () => {
     });
   });
 
+  it("keeps zoom resolution stable inside the bucket hysteresis band", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      surfaceId: "node-a",
+      zoom: 1.4,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+
+    manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 2,
+      surfaceId: "node-a",
+      zoom: 1.55,
+    });
+
+    expect(record.zoomBucket).toBe(1.5);
+    expect(manager.getDirtySurfaces()).toEqual([]);
+    expect(gpu.createTexture).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps queued resolution-only uploads out of active viewport frames", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
