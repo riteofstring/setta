@@ -84,6 +84,39 @@ describe("DirtyNodeQueue", () => {
     expect(state.workKinds).toEqual(["hover", "animation", "source-window"]);
   });
 
+  it("preserves an existing source rect when later marks have no rect", () => {
+    const queue = new DirtyNodeQueue();
+
+    queue.markDirty({
+      nodeId: "node-a",
+      reason: "paint",
+      sourceRect: { height: 20, width: 30, x: 10, y: 15 },
+    });
+    const state = queue.markDirty({
+      nodeId: "node-a",
+      reason: "content",
+    });
+
+    expect(state.sourceRect).toEqual({ height: 20, width: 30, x: 10, y: 15 });
+  });
+
+  it("coalesces repeated source rect dirtiness by union", () => {
+    const queue = new DirtyNodeQueue();
+
+    queue.markDirty({
+      nodeId: "node-a",
+      reason: "paint",
+      sourceRect: { height: 20, width: 30, x: 10, y: 15 },
+    });
+    const state = queue.markDirty({
+      nodeId: "node-a",
+      reason: "animation",
+      sourceRect: { height: 5, width: 50, x: 30, y: 5 },
+    });
+
+    expect(state.sourceRect).toEqual({ height: 30, width: 70, x: 10, y: 5 });
+  });
+
   it("allows explicit priority demotion without clearing dirtiness", () => {
     const queue = new DirtyNodeQueue();
 

@@ -61,6 +61,20 @@ const PRIORITY_RANK: Record<NodeTexturePriority, number> = {
   visible: 1,
   prefetch: 2,
 };
+const DIRTY_REASON_WORK_KIND: Record<DirtyNodeReason, DirtyNodeWorkKind> = {
+  animation: "animation",
+  content: "content",
+  dimension: "geometry",
+  "first-visible": "content",
+  focus: "content",
+  input: "content",
+  paint: "content",
+  pointer: "hover",
+  resolution: "resolution",
+  scroll: "source-window",
+  selection: "content",
+  theme: "content",
+};
 
 export class DirtyNodeQueue {
   private readonly states = new Map<string, MutableDirtyNodeState>();
@@ -206,8 +220,11 @@ function resolveDirtyNodeSourceRect(
   current: DirtyNodeSourceRect | undefined,
   next: DirtyNodeSourceRect | undefined,
 ): DirtyNodeSourceRect | undefined {
-  if (!current || !next) {
+  if (!current) {
     return next;
+  }
+  if (!next) {
+    return current;
   }
   const left = Math.min(current.x, next.x);
   const top = Math.min(current.y, next.y);
@@ -251,26 +268,7 @@ function resolveDirtyNodeWorkKinds(
 }
 
 function workKindForDirtyReason(reason: DirtyNodeReason): DirtyNodeWorkKind {
-  switch (reason) {
-    case "animation":
-      return "animation";
-    case "dimension":
-      return "geometry";
-    case "pointer":
-      return "hover";
-    case "resolution":
-      return "resolution";
-    case "scroll":
-      return "source-window";
-    case "content":
-    case "first-visible":
-    case "focus":
-    case "input":
-    case "paint":
-    case "selection":
-    case "theme":
-      return "content";
-  }
+  return DIRTY_REASON_WORK_KIND[reason];
 }
 
 function toPublicDirtyNodeState(state: MutableDirtyNodeState): DirtyNodeState {
