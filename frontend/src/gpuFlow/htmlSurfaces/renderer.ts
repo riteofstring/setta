@@ -19,27 +19,26 @@ import {
   RenderHtmlSurfaceSceneBaseInput,
   RenderHtmlSurfaceSceneResult,
 } from "../gpuPipelines/pipelineTypes";
+import {
+  alignToFourBytes,
+  areFloat32ArraysEqual,
+  encodeGpuEdgePaletteUniform,
+  encodeGpuGridUniform,
+} from "../gpuPipelines/bufferAndShaders";
+import { HtmlSurfaceEffectPass } from "./rendererEffect";
 import { destroyGpuBuffers } from "./rendererBuffers";
 import { encodeHtmlSurfaceCameraUniform } from "./rendererCamera";
-import {
-  createHtmlSurfaceDisplayDrawPlan,
-  drawHtmlSurfaceDisplayPlan,
-  type PreparedEffectSurfaceDraw,
-  type PreparedFlatSurfaceDraw,
-  type PreparedMeshSurfaceDraw,
-  type PreparedSolidRoundedRectSurfaceDraw,
-} from "./rendererDisplayList";
-import { HtmlSurfaceEffectPass } from "./rendererEffect";
 import { HtmlSurfaceFlatPass } from "./rendererFlat";
 import { HtmlSurfaceMeshPass } from "./rendererMesh";
+import { createHtmlSurfaceRenderResult } from "./rendererResult";
+import { HtmlSurfaceSolidRoundedRectPass } from "./rendererSolidRoundedRect";
 import {
   createHtmlSurfaceEdgePipeline,
   createHtmlSurfaceGridPipeline,
 } from "./rendererPipelineFactories";
-import { createHtmlSurfaceRenderResult } from "./rendererResult";
-import { HtmlSurfaceSolidRoundedRectPass } from "./rendererSolidRoundedRect";
 import {
   HtmlSurfaceTiledFlatPass,
+  createTiledFlatSurfaceDrawTiles,
   type TiledFlatSurfaceDrawTile,
 } from "./rendererTiledFlat";
 import type {
@@ -51,6 +50,18 @@ export type RenderHtmlSurfacesInput = RenderHtmlSurfaceSceneBaseInput & {
 };
 export type RenderHtmlSurfacesResult = RenderHtmlSurfaceSceneResult;
 export { encodeHtmlSurfaceCameraUniform } from "./rendererCamera";
+type PreparedMeshSurfaceDraw = {
+  readonly draw: ReturnType<HtmlSurfaceMeshPass["prepare"]>;
+  readonly pass: HtmlSurfaceMeshPass;
+};
+type PreparedEffectSurfaceDraw = {
+  readonly draw: ReturnType<HtmlSurfaceEffectPass["prepare"]>;
+  readonly pass: HtmlSurfaceEffectPass;
+};
+type PreparedFlatSurfaceDraw = ReturnType<HtmlSurfaceFlatPass["prepare"]>;
+type PreparedSolidRoundedRectSurfaceDraw = ReturnType<
+  HtmlSurfaceSolidRoundedRectPass["prepare"]
+>;
 
 export class HtmlSurfaceRenderer {
   private readonly runtime: HtmlSurfaceRenderRuntime;
@@ -143,14 +154,13 @@ export class HtmlSurfaceRenderer {
     scene,
     viewport,
   }: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult {
-    const displayDrawPlan = createHtmlSurfaceDisplayDrawPlan(scene.displayList);
-    const {
-      effectSurfaces,
-      flatSurfaces,
-      meshSurfaces,
-      solidRoundedRectSurfaces,
-      tiledFlatSurfaceTiles,
-    } = displayDrawPlan;
+    const flatSurfaces = scene.flatSurfaces;
+    const tiledFlatSurfaceTiles = createTiledFlatSurfaceDrawTiles(
+      scene.tiledFlatSurfaces,
+    );
+    const meshSurfaces = scene.meshSurfaces;
+    const effectSurfaces = scene.effectSurfaces;
+    const solidRoundedRectSurfaces = scene.solidRoundedRectSurfaces;
     const edgeBufferData = this.resolveEdgeBufferData(edges);
     const gridDraw = this.prepareGridDraw(grid);
     const edgeDraw = this.prepareEdgeDraw(edgeBufferData);
@@ -166,9 +176,8 @@ export class HtmlSurfaceRenderer {
     );
     const meshSurfaceDraw = this.prepareMeshSurfaceDraw(meshSurfaces);
     const effectSurfaceDraw = this.prepareEffectSurfaceDraw(effectSurfaces);
-    const solidRoundedRectSurfaceDraw = this.prepareSolidRoundedRectSurfaceDraw(
-      solidRoundedRectSurfaces,
-    );
+    const solidRoundedRectSurfaceDraw =
+      this.prepareSolidRoundedRectSurfaceDraw(solidRoundedRectSurfaces);
     this.writeSceneBuffers({
       cameraUniform,
       edgeBufferData,
@@ -208,29 +217,36 @@ export class HtmlSurfaceRenderer {
 
     this.drawGrid(pass, cameraBindGroup, gridDraw);
     this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
-    drawHtmlSurfaceDisplayPlan({
-      cameraBindGroup,
-      displayDrawPlan,
-      flatSurfacePass: this.flatSurfacePass,
-      getTiledFlatSurfacePass: () => this.ensureTiledFlatSurfacePass(),
+    this.drawFlatSurfaces(pass, cameraBindGroup, flatSurfaceDraw, flatSurfaces);
+    this.drawTiledFlatSurfaces(
       pass,
-      resources: {
-        effectSurfaceDraw,
-        flatSurfaceDraw,
-        meshSurfaceDraw,
-        solidRoundedRectSurfaceDraw,
-        tiledFlatSurfaceDraw,
-      },
-      solidRoundedRectSurfacePass: this.solidRoundedRectSurfacePass,
-    });
+      cameraBindGroup,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    );
+    this.drawMeshSurfaces(pass, cameraBindGroup, meshSurfaceDraw, meshSurfaces);
+    this.drawEffectSurfaces(
+      pass,
+      cameraBindGroup,
+      effectSurfaceDraw,
+      effectSurfaces,
+    );
+    this.drawSolidRoundedRectSurfaces(
+      pass,
+      cameraBindGroup,
+      solidRoundedRectSurfaceDraw,
+      solidRoundedRectSurfaces,
+    );
     pass.end();
 
     this.runtime.device.queue.submit([commandEncoder.finish()]);
     return createHtmlSurfaceRenderResult({
       edgeBufferData,
-      renderBatchCount: displayDrawPlan.batches.length,
-      renderCommandCount: scene.displayList.commands.length,
+      effectSurfaces,
+      flatSurfaces,
+      meshSurfaces,
       scene,
+      solidRoundedRectSurfaces,
       vertexCount: this.getRenderVertexCount({
         effectSurfaceDraw,
         effectSurfaces,
@@ -800,6 +816,82 @@ export class HtmlSurfaceRenderer {
     pass.draw(edgeBufferData.vertexCount, 1, 0, 0);
   }
 
+  private drawFlatSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    flatSurfaceDraw: PreparedFlatSurfaceDraw,
+    flatSurfaces: readonly HtmlSurfaceFlatVisual[],
+  ) {
+    this.flatSurfacePass?.draw({
+      cameraBindGroup,
+      flatSurfaceDraw,
+      flatSurfaces,
+      pass,
+    });
+  }
+
+  private drawTiledFlatSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    tiledFlatSurfaceDraw: PreparedFlatSurfaceDraw,
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ) {
+    this.ensureTiledFlatSurfacePass().draw({
+      cameraBindGroup,
+      pass,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    });
+  }
+
+  private drawMeshSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    meshSurfaceDraw: PreparedMeshSurfaceDraw | null,
+    meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"],
+  ) {
+    if (!meshSurfaceDraw) {
+      return;
+    }
+    meshSurfaceDraw.pass.draw({
+      cameraBindGroup,
+      meshSurfaceDraw: meshSurfaceDraw.draw,
+      meshSurfaces,
+      pass,
+    });
+  }
+
+  private drawEffectSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    effectSurfaceDraw: PreparedEffectSurfaceDraw | null,
+    effectSurfaces: HtmlSurfaceVisualScene["effectSurfaces"],
+  ) {
+    if (!effectSurfaceDraw) {
+      return;
+    }
+    effectSurfaceDraw.pass.draw({
+      cameraBindGroup,
+      effectSurfaceDraw: effectSurfaceDraw.draw,
+      effectSurfaces,
+      pass,
+    });
+  }
+
+  private drawSolidRoundedRectSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    solidRoundedRectSurfaceDraw: PreparedSolidRoundedRectSurfaceDraw,
+    solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"],
+  ) {
+    this.solidRoundedRectSurfacePass?.draw({
+      cameraBindGroup,
+      pass,
+      solidRoundedRectSurfaceDraw,
+      solidRoundedRectSurfaces,
+    });
+  }
+
   private getFlatSurfaceVertexCount(
     flatSurfaces: readonly HtmlSurfaceFlatVisual[],
   ): number {
@@ -809,9 +901,7 @@ export class HtmlSurfaceRenderer {
   private getTiledFlatSurfaceVertexCount(
     tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
   ): number {
-    return (
-      this.tiledFlatSurfacePass?.getVertexCount(tiledFlatSurfaceTiles) ?? 0
-    );
+    return this.tiledFlatSurfacePass?.getVertexCount(tiledFlatSurfaceTiles) ?? 0;
   }
 
   private getMeshSurfaceVertexCount(
