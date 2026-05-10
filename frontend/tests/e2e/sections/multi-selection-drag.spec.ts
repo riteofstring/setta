@@ -53,10 +53,10 @@ test("ui-only selection drag grouping includes the full selected set in browser 
       .toEqual([firstSectionId, secondSectionId]);
 
     const firstNode = page
-      .locator(`.react-flow__node[data-id="${firstSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${firstSectionId}"]`)
       .first();
     const secondNode = page
-      .locator(`.react-flow__node[data-id="${secondSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${secondSectionId}"]`)
       .first();
 
     await expect(firstNode).toBeVisible();
@@ -194,35 +194,52 @@ async function simulateGroupedDragStep(
 ): Promise<string[]> {
   return await page.evaluate(
     async ({ deltaByAxis, sectionId }) => {
-      const [{ getDragItems }, { useNodeInternals }, { updateNodePositions }] =
-        await Promise.all([
-          import("/src/forks/xyflow/core/hooks/utils.ts"),
-          import("/src/state/definitions.ts"),
-          import("/src/state/actions/nodeInternals.ts"),
-        ]);
+      const [
+        { getGpuNodeDragItems },
+        { getActiveSectionUIIds },
+        { useNodeInternals },
+        { updateNodePositions },
+      ] = await Promise.all([
+        import("/src/gpuFlow/interactions/nodeDrag.ts"),
+        import("/src/state/activeSectionUI.ts"),
+        import("/src/state/definitions.ts"),
+        import("/src/state/actions/nodeInternals.ts"),
+      ]);
       const nodeInternals = useNodeInternals.getState().x;
       const draggedNode = nodeInternals.get(sectionId);
       if (!draggedNode) {
         throw new Error(`Missing node internals for ${sectionId}.`);
       }
-      const dragItems = getDragItems(
-        nodeInternals,
-        {
+      const dragItems = getGpuNodeDragItems({
+        nodeId: sectionId,
+        nodes: Array.from(nodeInternals.values()).map((node) => ({
+          height: node.height,
+          nodeId: node.id,
+          tempZIndex: node.tempZIndex,
+          width: node.width,
+          x: node.position.x,
+          y: node.position.y,
+          zIndex: node.zIndex,
+        })),
+        pointerPosition: {
           x: draggedNode.position.x + 12,
           y: draggedNode.position.y + 12,
         },
-        sectionId,
-      );
+        selectedNodeIds: getActiveSectionUIIds(),
+      });
       updateNodePositions(
         dragItems.map((item) => ({
-          ...item,
+          distance: item.distance,
+          height: item.height,
+          id: item.nodeId,
           position: {
             x: item.position.x + deltaByAxis.x,
             y: item.position.y + deltaByAxis.y,
           },
+          width: item.width,
         })),
       );
-      return dragItems.map((item) => item.id);
+      return dragItems.map((item) => item.nodeId);
     },
     {
       sectionId: draggedSectionId,

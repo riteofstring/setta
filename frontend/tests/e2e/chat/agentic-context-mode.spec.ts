@@ -87,10 +87,10 @@ test.describe.serial("agentic context mode", () => {
         "reference_only",
       );
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
 
       const chatNode = page.locator(
-        `.react-flow__node[data-id="${chatSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${chatSectionId}"]`,
       );
       await expect(chatNode).toBeVisible();
       await chatNode.click();
@@ -121,10 +121,10 @@ test.describe.serial("agentic context mode", () => {
       );
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
 
       const chatNodeAfter = page.locator(
-        `.react-flow__node[data-id="${chatSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${chatSectionId}"]`,
       );
       await expect(chatNodeAfter).toBeVisible();
       await chatNodeAfter.click();

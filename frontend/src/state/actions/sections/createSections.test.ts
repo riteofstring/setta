@@ -1,5 +1,7 @@
-import { useReactFlow } from "forks/xyflow/core/store";
-import { useProjectState } from "state/definitions";
+import type { Node } from "gpuFlow/flowTypes";
+import { gpuFlowLayoutStore } from "gpuFlow/layoutStore";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCodeSectionImpl,
@@ -67,14 +69,16 @@ describe("createTopLevelSection", () => {
       });
       state.singletonSections = createSingletonSections();
     });
-    useReactFlow.setState({
-      transform: [0, 0, 1],
-      width: 1200,
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 800,
+      width: 1200,
     });
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetProjectStores();
   });
   it("returns the created section id after a successful top-level section creation", async () => {
@@ -113,6 +117,79 @@ describe("createTopLevelSection", () => {
     });
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
+  it("uses renderer layout nodes for smart-placement top-level section snapshots", async () => {
+    const { createTopLevelSection: createTopLevelSectionRequest } =
+      await import("openapi/http");
+    vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
+      status: 200,
+      data: {
+        sectionId: "section-created",
+        metaControlParamId: null,
+        panTo: null,
+      },
+      hasResponse: true,
+    });
+    useProjectState.setState((state) => {
+      state.sections["section-live"] = createCore({
+        id: "section-live",
+        variants: ["variant-live"],
+        defaultVariant: "variant-live",
+      });
+      state.sections["section-durable"] = createCore({
+        id: "section-durable",
+        variants: ["variant-durable"],
+        defaultVariant: "variant-durable",
+      });
+      state.projectConfig.topLevelSections = {
+        "section-live": { x: 1, y: 2, zIndex: 1, w: 120, h: 80 },
+        "section-durable": { x: 40, y: 50, zIndex: 2, w: null, h: null },
+      };
+    });
+    useNodeInternals.setState({
+      x: new Map<string, Node>([
+        [
+          "section-live",
+          {
+            height: 444,
+            id: "section-live",
+            position: { x: 999, y: 888 },
+            tempZIndex: 9,
+            width: 333,
+            zIndex: 9,
+          },
+        ],
+      ]),
+    });
+    gpuFlowLayoutStore.getState().replaceNodes(
+      [
+        {
+          height: 180,
+          nodeId: "section-live",
+          tempZIndex: 6,
+          width: 240,
+          x: 10,
+          y: 20,
+          zIndex: 5,
+        },
+      ],
+      { reason: "project-sync" },
+    );
+
+    await createTopLevelSectionAction({
+      implType: SectionTypeEnum.Group,
+      implOverrides: null,
+      position: null,
+    });
+
+    expect(createTopLevelSectionRequest).toHaveBeenCalledWith({
+      body: expect.objectContaining({
+        topLevelSections: {
+          "section-live": { x: 10, y: 20, zIndex: 5, w: 240, h: 180 },
+          "section-durable": { x: 40, y: 50, zIndex: 2, w: null, h: null },
+        },
+      }),
+    });
+  });
   it("returns null when top-level section creation fails", async () => {
     const { createTopLevelSection: createTopLevelSectionRequest } =
       await import("openapi/http");
@@ -135,10 +212,10 @@ describe("createTopLevelSection", () => {
   it("falls back to a visible explicit position when viewport bounds are unavailable for an empty project", async () => {
     const { createTopLevelSection: createTopLevelSectionRequest } =
       await import("openapi/http");
-    useReactFlow.setState({
-      transform: [80, -40, 2],
-      width: 0,
+    gpuFlowViewportStore.getState().setTransform([80, -40, 2]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 0,
+      width: 0,
     });
     vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 200,

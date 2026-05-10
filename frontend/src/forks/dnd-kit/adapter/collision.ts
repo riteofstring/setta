@@ -5,10 +5,9 @@ import {
 } from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getZoom } from "gpuFlow/viewportActions";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useDndChildren } from "../dndChildren";
 import { isTempSection, useDndState } from "../dndState";
 import { isTempParam } from "../paramDndState";
 import { resolveOverCollision } from "./collisionCompare";
@@ -17,6 +16,8 @@ import type { ClientRect, SettaCollision } from "./types";
 type CollisionMode = "section" | "param";
 
 type ParentByChildMap = Record<string, string | null>;
+
+const EMPTY_PARENT_BY_CHILD: ParentByChildMap = {};
 
 type CollisionTrackerState = {
   prevCollisionId: Draggable["id"] | null;
@@ -323,7 +324,7 @@ export function createCollisionTracker({
 
 export const defaultCollisionTracker = createCollisionTracker({
   mode: "section",
-  getParentByChild: () => useDndChildren.getState().y,
+  getParentByChild: () => EMPTY_PARENT_BY_CHILD,
 });
 
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
@@ -537,7 +538,7 @@ function getTriggerDistCondition({
     return false;
   }
 
-  const zoom = useReactFlow.getState().transform[2];
+  const zoom = getZoom();
   const threshold = mode === "param" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;

@@ -15,13 +15,13 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
-  calculateBoundedWidthWithMinRemainingWidth,
-  getDefaultColumnWidth,
-} from "state/hooks/columnWidthUtils";
+  calculateBoundedParamColumnRawWidth,
+  PARAM_COLUMN_CENTER_OFFSET_PX,
+} from "state/hooks/paramColumnWidthUtils";
+import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-const CENTER_OFFSET = 18;
-const MIN_PARAM_VALUE_COLUMN_WIDTH = 100;
+
 type UseParamColumnWidthArgs = {
   sectionId: string;
   outerRef: RefObject<HTMLDivElement>;
@@ -38,7 +38,7 @@ export function useParamColumnWidth({
       if (!outerRef.current) {
         return;
       }
-      const columnWidth = rawWidth - CENTER_OFFSET;
+      const columnWidth = rawWidth - PARAM_COLUMN_CENTER_OFFSET_PX;
       outerRef.current.style.setProperty(
         "--param-column-width",
         `${columnWidth}px`,
@@ -48,7 +48,7 @@ export function useParamColumnWidth({
   );
   const persistWidth = useCallback(
     (rawWidth: number) => {
-      const columnWidth = rawWidth - CENTER_OFFSET;
+      const columnWidth = rawWidth - PARAM_COLUMN_CENTER_OFFSET_PX;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -74,12 +74,11 @@ export function useParamColumnWidth({
   );
   const getBoundedWidth = useCallback(
     (rawWidth: number, containerWidth: number) =>
-      calculateBoundedWidthWithMinRemainingWidth(
+      calculateBoundedParamColumnRawWidth({
         rawWidth,
         containerWidth,
-        maxNestedDepthRef.current,
-        MIN_PARAM_VALUE_COLUMN_WIDTH,
-      ),
+        maxNestedDepth: maxNestedDepthRef.current,
+      }),
     [maxNestedDepthRef],
   );
   const { handleResizeStart, setNewWidth, widthRef } = useColumnWidthDrag({
@@ -123,7 +122,7 @@ export function useParamColumnWidth({
         }
         let rawWidth = getDefaultColumnWidth(containerWidth);
         if (columnWidth !== null && columnWidth !== undefined) {
-          rawWidth = columnWidth + CENTER_OFFSET;
+          rawWidth = columnWidth + PARAM_COLUMN_CENTER_OFFSET_PX;
         }
         setNewWidth(containerWidth, rawWidth);
       },

@@ -345,7 +345,10 @@ function TextPreviewContent({
 
 function SpreadsheetPreview({ item }: { item: FolderContentItem }) {
   return (
-    <div className="h-full min-h-0 w-full">
+    <div
+      className="h-full min-h-0 w-full"
+      data-gpu-flow-control="browser-spreadsheet-preview"
+    >
       <Suspense
         fallback={
           <div className="flex h-full w-full items-center justify-center text-xs text-setta-500 dark:text-setta-400">
@@ -394,6 +397,7 @@ function PdfPreview({
       src={fileUrl}
       title={item.name}
       className="h-full w-full rounded-md border border-setta-200/60 bg-white dark:border-setta-700 dark:bg-setta-900"
+      data-gpu-flow-control="browser-pdf-preview"
     />
   );
 }
@@ -424,13 +428,21 @@ function MediaPreview({
   }
   if (previewKind === "audio") {
     return (
-      <audio controls className="w-full">
+      <audio
+        controls
+        className="w-full"
+        data-gpu-flow-control="browser-audio-preview"
+      >
         <source src={fileUrl} />
       </audio>
     );
   }
   return (
-    <video controls className="h-full w-full rounded-md bg-black/80">
+    <video
+      controls
+      className="h-full w-full rounded-md bg-black/80"
+      data-gpu-flow-control="browser-video-preview"
+    >
       <source src={fileUrl} />
     </video>
   );
@@ -460,6 +472,7 @@ function ImagePreview({
         src={fileUrl}
         alt={item.name}
         className="h-full w-full object-contain"
+        data-gpu-flow-control="browser-image-preview"
         loading="lazy"
       />
     </div>

@@ -5,6 +5,7 @@ import os
 import socketserver
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 
@@ -33,6 +34,7 @@ def _build_browser_mcp_sandbox(tmp_path: Path) -> Path:
 
     for rel_path in (
         "scripts/start-browser-mcp.sh",
+        "scripts/resolve-chrome-for-testing-149.sh",
         "scripts/bootstrap-url.sh",
         "scripts/lib/setta_cli_command.sh",
     ):
@@ -96,6 +98,65 @@ exit 1
     assert "-n" in open_args
     assert "-a" in open_args
     assert "--remote-debugging-port=9555" in open_args
+    assert "--use-mock-keychain" in open_args
+
+
+def test_start_browser_mcp_resolves_shared_chrome_for_testing_by_default(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = _build_browser_mcp_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    browser_args_path = tmp_path / "browser_args.bin"
+    browser_bin = stub_dir / "chrome-for-testing"
+
+    _write_executable(
+        browser_bin,
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\0' "$@" > "{browser_args_path}"
+""",
+    )
+    _write_executable(
+        sandbox_root / "scripts" / "resolve-chrome-for-testing-149.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "{browser_bin}"
+""",
+    )
+    _write_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+    env.pop("CHROME_BIN", None)
+    env["DEBUG_PORT"] = "9566"
+    env["BOOTSTRAP_ENABLED"] = "0"
+    env["DEVTOOLS_OPEN_WITH_CHROME"] = "0"
+    env["MCP_BASE_DIR"] = str(tmp_path / "mcp")
+    env["OSTYPE"] = "linux-gnu"
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "scripts" / "start-browser-mcp.sh"), "--devtools"],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    deadline = time.time() + 5
+    while not browser_args_path.exists() and time.time() < deadline:
+        time.sleep(0.05)
+    browser_args = _read_nul_separated_args(browser_args_path)
+    assert "--remote-debugging-port=9566" in browser_args
+    assert any(arg.startswith("--user-data-dir=") for arg in browser_args)
 
 
 def test_bootstrap_url_uses_source_checkout_cli_when_setta_not_on_path(
@@ -142,7 +203,7 @@ def test_start_browser_mcp_uses_source_checkout_cli_when_setta_not_on_path(
     capture_args_path = tmp_path / "go_args.bin"
 
     class _Handler(http.server.BaseHTTPRequestHandler):
-        def log_message(self, format: str, *args: object) -> None:
+        def log_message(self, _format: str, *_args: object) -> None:
             return None
 
         def do_GET(self) -> None:  # noqa: N802

@@ -23,7 +23,7 @@ export function resolveProjectChatFloatingWorkspaceTopInsetPx(): number {
   if (typeof document === "undefined") {
     return PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
   }
-  const pane = document.querySelector(".react-flow__pane");
+  const pane = document.querySelector(".setta-gpu-flow__pane");
   if (!(pane instanceof HTMLElement)) {
     return PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
   }

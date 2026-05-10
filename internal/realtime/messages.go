@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
@@ -42,6 +43,7 @@ const (
 	MessageTypePromptTemplatesUpdated       = "PromptTemplatesUpdated"
 	MessageTypeTranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
 	MessageTypeUpdateFrontendProjectState   = "UpdateFrontendProjectState"
+	MessageTypeUpdateFrontendProjectParam   = "UpdateFrontendProjectParam"
 	MessageTypeUpdateSettings               = "UpdateSettings"
 	MessageTypeUpdatePluginRuntime          = "UpdatePluginRuntime"
 	MessageTypeReturnRenameRefactorResults  = "ReturnRenameRefactorResults"
@@ -74,6 +76,7 @@ func (WebsocketMessageType) StringEnumValues() []string {
 		MessageTypePromptTemplatesUpdated,
 		MessageTypeTranscriptionProfilesUpdated,
 		MessageTypeUpdateFrontendProjectState,
+		MessageTypeUpdateFrontendProjectParam,
 		MessageTypeUpdateSettings,
 		MessageTypeUpdatePluginRuntime,
 		MessageTypeReturnRenameRefactorResults,
@@ -424,6 +427,24 @@ type ProjectStateUpdateMessage struct {
 	Content     ProjectStateUpdateContent `json:"content"`
 }
 
+type ProjectParamUpdateContent struct {
+	ProjectConfigID  string              `json:"projectConfigId"`
+	SectionID        string              `json:"sectionId"`
+	SectionVariantID string              `json:"sectionVariantId"`
+	ParamInfoID      string              `json:"paramInfoId"`
+	CodeObj          projectview.Core    `json:"codeObj"`
+	CodeObjVariant   projectview.Variant `json:"codeObjVariant"`
+	CodeObjImpl      json.RawMessage     `json:"codeObjImpl" ts_type:"BaseCodeObjImplUnion" shared_schema_ref:"BaseCodeObjImpl"`
+	CompletedOpIDs   []string            `json:"completedOpIds"`
+	PendingOpIDs     []string            `json:"pendingOpIds"`
+}
+
+type ProjectParamUpdateMessage struct {
+	ID          *string                   `json:"id"`
+	MessageType WebsocketMessageType      `json:"messageType"`
+	Content     ProjectParamUpdateContent `json:"content"`
+}
+
 type SettingsUpdateMessage struct {
 	MessageType WebsocketMessageType   `json:"messageType"`
 	Content     settingsstate.Document `json:"content"`
@@ -675,6 +696,13 @@ func NewAgentRunUpdatedMessage(content agentruns.Run) AgentRunUpdatedMessage {
 func NewProjectStateUpdateMessage(content ProjectStateUpdateContent) ProjectStateUpdateMessage {
 	return ProjectStateUpdateMessage{
 		MessageType: MessageTypeUpdateFrontendProjectState,
+		Content:     content,
+	}
+}
+
+func NewProjectParamUpdateMessage(content ProjectParamUpdateContent) ProjectParamUpdateMessage {
+	return ProjectParamUpdateMessage{
+		MessageType: MessageTypeUpdateFrontendProjectParam,
 		Content:     content,
 	}
 }

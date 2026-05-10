@@ -8,6 +8,7 @@ import {
   type SettingsstateFrontendSettingsState as SettingsState,
 } from "openapi/http";
 import { useEffect, useState } from "react";
+import { createChromeReproPerfTimer } from "state/actions/chromeRepro";
 import { useSettings } from "state/definitions";
 const SETTINGS_RETRY_DELAY_MS = 500;
 type LoadSettingsOptions = {
@@ -52,5 +53,10 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
   return settingsLoaded;
 }
 export function updateSettings(newSettings: SettingsState) {
+  const timer = createChromeReproPerfTimer("settings-update", {
+    settingsGroupCount: Object.keys(newSettings).length,
+  });
   useSettings.setState(newSettings);
+  timer.mark("set-settings-store");
+  timer.finish();
 }

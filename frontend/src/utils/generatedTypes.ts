@@ -205,6 +205,12 @@ export type BrushStrokeWithTransform = gt.BrushStrokeWithTransform;
 
 export type ButtonParamCodeObjImpl = gt.ButtonParamCodeObjImpl;
 
+export function createButtonParamCodeObjImpl(
+  options: CreateOptions<ButtonParamCodeObjImpl> = {} as CreateOptions<ButtonParamCodeObjImpl>,
+): ButtonParamCodeObjImpl {
+  return options as ButtonParamCodeObjImpl;
+}
+
 type CallableSectionImpl = gt.CallableSectionImpl;
 
 export function createCallableSectionImpl(
@@ -670,6 +676,12 @@ export function createCurrentAddressUpdateMessage(
 
 export type DateParamCodeObjImpl = gt.DateParamCodeObjImpl;
 
+export function createDateParamCodeObjImpl(
+  options: CreateOptions<DateParamCodeObjImpl> = {} as CreateOptions<DateParamCodeObjImpl>,
+): DateParamCodeObjImpl {
+  return options as DateParamCodeObjImpl;
+}
+
 export type DependencyEvent = gt.DependencyEvent;
 
 export type DictSectionImpl = gt.DictSectionImpl;
@@ -799,7 +811,19 @@ export type DrawAreaTransform = gt.DrawAreaTransform;
 
 export type DropdownParamCodeObjImpl = gt.DropdownParamCodeObjImpl;
 
+export function createDropdownParamCodeObjImpl(
+  options: CreateOptions<DropdownParamCodeObjImpl> = {} as CreateOptions<DropdownParamCodeObjImpl>,
+): DropdownParamCodeObjImpl {
+  return options as DropdownParamCodeObjImpl;
+}
+
 export type DropzoneParamCodeObjImpl = gt.DropzoneParamCodeObjImpl;
+
+export function createDropzoneParamCodeObjImpl(
+  options: CreateOptions<DropzoneParamCodeObjImpl> = {} as CreateOptions<DropzoneParamCodeObjImpl>,
+): DropzoneParamCodeObjImpl {
+  return options as DropzoneParamCodeObjImpl;
+}
 
 export type Edge = gt.Edge;
 
@@ -875,7 +899,7 @@ type GenPythonMetadataSectionImpl = gt.GenPythonMetadataSectionImpl;
 
 type GlobalVariablesSectionImpl = gt.GlobalVariablesSectionImpl;
 
-type GroupSectionImpl = gt.GroupSectionImpl;
+export type GroupSectionImpl = gt.GroupSectionImpl;
 
 export function createGroupSectionImpl(
   options: Partial<GroupSectionImpl> = {},
@@ -1014,7 +1038,7 @@ export function createLineChartSettings(
   };
 }
 
-type ListRootSectionImpl = gt.ListRootSectionImpl;
+export type ListRootSectionImpl = gt.ListRootSectionImpl;
 
 export function createListRootSectionImpl(
   options: Partial<ListRootSectionImpl> = {},
@@ -1296,7 +1320,7 @@ function createNormalizedFloatingWindowBounds(
   };
 }
 
-type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
+export type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
 
 export function createPasswordParamCodeObjImpl(
   options: CreateOptions<PasswordParamCodeObjImpl> = {} as CreateOptions<PasswordParamCodeObjImpl>,
@@ -1707,6 +1731,8 @@ export function createProjectConfigDiagnostics(
 
 export type ProjectConfigMetadata = gt.ProjectConfigMetadata;
 
+export type ProjectParamUpdateContent = gt.ProjectParamUpdateContent;
+
 type ProjectRunCapabilities = gt.ProjectRunCapabilities;
 
 export function createProjectRunCapabilities(
@@ -1723,43 +1749,6 @@ export function createProjectRunCapabilities(
 }
 
 export type PromptSectionImpl = gt.PromptSectionImpl;
-
-export function createPromptSectionImpl(
-  options: Partial<PromptSectionImpl> = {},
-): PromptSectionImpl {
-  const defaults = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    format: "Jinja",
-    id: "",
-    inputs: {},
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    missingVariables: [],
-    name: "",
-    positionAndSizeLocked: false,
-    promptTemplateId: null,
-    renderError: null,
-    renderedText: "",
-    size: {
-      height: 150,
-      width: 300,
-    },
-    styleColor: null,
-    tagColor: null,
-    template: "",
-    type: "Prompt",
-  };
-  return {
-    ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
-    size: createSectionSize(
-      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
-    ) as unknown as NonNullable<(typeof options)["size"]>,
-  };
-}
 
 export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
 
@@ -2616,7 +2605,7 @@ function createSettingsChatWindowing(
   options: Partial<SettingsChatWindowing> = {},
 ): SettingsChatWindowing {
   const defaults = {
-    autoCreateInitialChat: true,
+    autoCreateInitialChat: false,
     restorePriorStateOnUnmaximize: true,
     shortcuts: {
       canvasToggle: "Shift + Esc",
@@ -2831,7 +2820,7 @@ export function createSettingsState(
       showDefaultConfigOnLoad: true,
     },
     chatWindowing: {
-      autoCreateInitialChat: true,
+      autoCreateInitialChat: false,
       restorePriorStateOnUnmaximize: true,
       shortcuts: {
         canvasToggle: "Shift + Esc",
@@ -3251,7 +3240,46 @@ export function createSettingsState(
   };
 }
 
+type ShownParamIDDetails = gt.ShownParamIDDetails;
+
+function createShownParamIDDetails(
+  options: Partial<ShownParamIDDetails> = {},
+): ShownParamIDDetails {
+  const defaults = {
+    requiredParamIdsToPaths: {},
+    topLevelParamIds: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ShownParamIDDetails>(defaults, options),
+  };
+}
+
 export type ShownParamIDs = gt.ShownParamIDs;
+
+export function createShownParamIDs(
+  options: Partial<ShownParamIDs> = {},
+): ShownParamIDs {
+  const defaults = {
+    pinned: {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+    unpinned: {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<ShownParamIDs>(defaults, options),
+    pinned: createShownParamIDDetails(
+      (options["pinned"] ?? defaults["pinned"]) as Partial<ShownParamIDDetails>,
+    ) as unknown as NonNullable<(typeof options)["pinned"]>,
+    unpinned: createShownParamIDDetails(
+      (options["unpinned"] ??
+        defaults["unpinned"]) as Partial<ShownParamIDDetails>,
+    ) as unknown as NonNullable<(typeof options)["unpinned"]>,
+  };
+}
 
 export type SingleConfig = gt.SingleConfig;
 
@@ -3397,6 +3425,60 @@ export function createSpreadsheetSectionImpl(
   };
 }
 
+type StateMachineGateSectionImpl = gt.StateMachineGateSectionImpl;
+
+export function createStateMachineGateSectionImpl(
+  options: Partial<StateMachineGateSectionImpl> = {},
+): StateMachineGateSectionImpl {
+  const defaults = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    gateType: "AND",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    label: "",
+    machineGroupId: "",
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 120,
+      width: 240,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "StateMachineGate",
+    ui: {
+      showDetails: false,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineGateSectionImpl>(defaults, options),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
+    ui: createStateMachineGateUIState(
+      (options["ui"] ?? defaults["ui"]) as Partial<StateMachineGateUIState>,
+    ) as unknown as NonNullable<(typeof options)["ui"]>,
+  };
+}
+
+type StateMachineGateUIState = gt.StateMachineGateUIState;
+
+function createStateMachineGateUIState(
+  options: Partial<StateMachineGateUIState> = {},
+): StateMachineGateUIState {
+  const defaults = {
+    showDetails: false,
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineGateUIState>(defaults, options),
+  };
+}
+
 type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
 
 export function createStateMachineStartSectionImpl(
@@ -3433,6 +3515,12 @@ export function createStateMachineStartSectionImpl(
 }
 
 type SwitchParamCodeObjImpl = gt.SwitchParamCodeObjImpl;
+
+export function createSwitchParamCodeObjImpl(
+  options: CreateOptions<SwitchParamCodeObjImpl> = {} as CreateOptions<SwitchParamCodeObjImpl>,
+): SwitchParamCodeObjImpl {
+  return options as SwitchParamCodeObjImpl;
+}
 
 export type TaskBoardColumn = gt.TaskBoardColumn;
 
@@ -4125,16 +4213,11 @@ export const NotificationTypeEnum = {
 export type NotificationType = gt.NotificationType;
 export type OverviewTabName = gt.OverviewTabName;
 
-export const PanOnScrollModeEnum = {
-  free: "free",
-  vertical: "vertical",
-  horizontal: "horizontal",
-} as const;
-
 export const ParamNameTypeEnum = {
   CODE: "CODE",
   TEXT: "TEXT",
 } as const;
+export type ParamUIRendererFamily = gt.ParamUIRendererFamily;
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -4232,11 +4315,6 @@ export const SectionTypeEnum = {
   Spreadsheet: "Spreadsheet",
 } as const;
 export type SectionType = gt.SectionType;
-
-export const SelectionModeEnum = {
-  partial: "partial",
-  full: "full",
-} as const;
 
 export const SettingsModeEnum = {
   read_only: "read_only",
@@ -4351,6 +4429,7 @@ export const WebsocketMessageTypeEnum = {
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateFrontendProjectParam: "UpdateFrontendProjectParam",
   UpdateSettings: "UpdateSettings",
   UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
@@ -4886,6 +4965,51 @@ export const OverviewTabUIConfig = {
     ViewModes: "View Modes",
   },
 } as const satisfies gt.OverviewTabUIConfigValue;
+
+export const ParamUIRendererConfig = {
+  dateTimeParamTypes: ["DateParam", "TimeParam"],
+  rendererFamiliesByType: {
+    ButtonParam: "button",
+    CodeParam: "text-like",
+    ColorPickerParam: "color-picker",
+    DateParam: "date-time",
+    DropdownParam: "dropdown",
+    DropzoneParam: "dropzone",
+    PasswordParam: "password",
+    RotaryParam: "rotary",
+    SliderParam: "slider",
+    SwitchParam: "switch",
+    TextAreaParam: "text-like",
+    TextParam: "text-like",
+    TimeParam: "date-time",
+  },
+  rendererTypes: [
+    "CodeParam",
+    "TextParam",
+    "TextAreaParam",
+    "DateParam",
+    "TimeParam",
+    "ButtonParam",
+    "SliderParam",
+    "RotaryParam",
+    "SwitchParam",
+    "ColorPickerParam",
+    "DropdownParam",
+    "PasswordParam",
+    "DropzoneParam",
+  ],
+  specializedRendererFamilies: {
+    ButtonParam: "button",
+    ColorPickerParam: "color-picker",
+    DropdownParam: "dropdown",
+    DropzoneParam: "dropzone",
+    PasswordParam: "password",
+    RotaryParam: "rotary",
+    SliderParam: "slider",
+    SwitchParam: "switch",
+  },
+  textLikeParamTypes: ["CodeParam", "TextParam", "TextAreaParam"],
+} satisfies gt.ParamUIRendererConfigValue;
 
 export const ProjectChatUIConfig = {
   agenticEdgeContextModeOptions: [

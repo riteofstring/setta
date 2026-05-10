@@ -149,7 +149,7 @@ func newStdioBridgeTestServer(
 		}, struct{}{}, nil
 	})
 
-	handler := sdkmcp.NewSSEHandler(func(*http.Request) *sdkmcp.Server {
+	handler := sdkmcp.NewStreamableHTTPHandler(func(*http.Request) *sdkmcp.Server {
 		return server
 	}, nil)
 

@@ -1,4 +1,4 @@
-import type { Connection } from "forks/xyflow/core/types";
+import type { Connection } from "gpuFlow/flowTypes";
 import { useLocalStorage } from "state/definitions";
 import {
   createAgenticEdgeFromConnection,

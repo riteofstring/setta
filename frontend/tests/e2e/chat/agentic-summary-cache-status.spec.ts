@@ -45,7 +45,7 @@ test.describe.serial("agentic summary cache status", () => {
       }
 
       const chatNode = page.locator(
-        `.react-flow__node[data-id="${chatSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${chatSectionId}"]`,
       );
       await expect(chatNode).toBeVisible();
       await chatNode.click();
@@ -58,7 +58,9 @@ test.describe.serial("agentic summary cache status", () => {
         .locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
       await expect(summaryCachePanel).toContainText("Cached: 0/8");
       await expect(summaryCachePanel).toContainText("Missing: 8");
-      await expect(summaryCachePanel).toContainText("Deferred due to cap (6): 2");
+      await expect(summaryCachePanel).toContainText(
+        "Deferred due to cap (6): 2",
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

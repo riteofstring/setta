@@ -75,24 +75,7 @@ func TestServiceCRUDRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create chat: %v", err)
 	}
-	if created.ID == "" {
-		t.Fatal("expected created chat id")
-	}
-	if created.Name != "Hello listener history" {
-		t.Fatalf("unexpected chat name %q", created.Name)
-	}
-	if created.LLMConfig.ID != scriptableLLMConfigID || !created.LLMConfig.Temporary {
-		t.Fatalf("expected scriptable llm config, got %#v", created.LLMConfig)
-	}
-	if created.ProjectConfigID != nil {
-		t.Fatalf("expected nil project config id, got %#v", created.ProjectConfigID)
-	}
-	if len(created.Messages) != 1 {
-		t.Fatalf("expected one created message, got %#v", created.Messages)
-	}
-	if created.SystemPrompt != nil {
-		t.Fatalf("expected nil system prompt, got %#v", created.SystemPrompt)
-	}
+	assertCreatedScriptableChat(t, created, "Hello listener history")
 
 	loaded, err := fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
 	if err != nil {
@@ -118,12 +101,8 @@ func TestServiceCRUDRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("append messages: %v", err)
 	}
-	if len(appended.Messages) != 2 {
-		t.Fatalf("expected two messages after append, got %#v", appended.Messages)
-	}
-	if !appended.LastUpdated.Equal(currentTime) {
-		t.Fatalf("expected append to update lastUpdated to %v, got %v", currentTime, appended.LastUpdated)
-	}
+	assertScriptableChatMessageCount(t, appended, 2, "after append")
+	assertScriptableChatLastUpdated(t, appended, currentTime, "after append")
 
 	currentTime = currentTime.Add(time.Minute)
 	unchanged, err := fixture.service.AppendMessages(AppendMessagesRequest{
@@ -141,12 +120,8 @@ func TestServiceCRUDRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("append duplicate message: %v", err)
 	}
-	if len(unchanged.Messages) != 2 {
-		t.Fatalf("expected duplicate append to keep two messages, got %#v", unchanged.Messages)
-	}
-	if !unchanged.LastUpdated.Equal(appended.LastUpdated) {
-		t.Fatalf("expected duplicate append to preserve lastUpdated %v, got %v", appended.LastUpdated, unchanged.LastUpdated)
-	}
+	assertScriptableChatMessageCount(t, unchanged, 2, "after duplicate append")
+	assertScriptableChatLastUpdated(t, unchanged, appended.LastUpdated, "after duplicate append")
 
 	currentTime = currentTime.Add(time.Minute)
 	withPrompt, err := fixture.service.SetSystemPrompt(SetSystemPromptRequest{
@@ -159,23 +134,13 @@ func TestServiceCRUDRoundTrip(t *testing.T) {
 	if withPrompt.SystemPrompt == nil || *withPrompt.SystemPrompt != "System prompt" {
 		t.Fatalf("expected system prompt to round-trip, got %#v", withPrompt.SystemPrompt)
 	}
-	if !withPrompt.LastUpdated.Equal(appended.LastUpdated) {
-		t.Fatalf("expected system prompt write to preserve lastUpdated %v, got %v", appended.LastUpdated, withPrompt.LastUpdated)
-	}
+	assertScriptableChatLastUpdated(t, withPrompt, appended.LastUpdated, "after system prompt write")
 
 	metadata, err := fixture.service.GetAllMetadata(GetAllMetadataRequest{})
 	if err != nil {
 		t.Fatalf("get all metadata: %v", err)
 	}
-	if len(metadata) != 1 {
-		t.Fatalf("expected one chat metadata entry, got %#v", metadata)
-	}
-	if metadata[0].ID != created.ID {
-		t.Fatalf("expected metadata id %q, got %q", created.ID, metadata[0].ID)
-	}
-	if metadata[0].ProjectConfigID != nil {
-		t.Fatalf("expected metadata to keep nil project config id, got %#v", metadata[0].ProjectConfigID)
-	}
+	assertSingleScriptableChatMetadata(t, metadata, created.ID)
 
 	if err := fixture.service.DeleteChat(DeleteChatRequest{ChatID: created.ID}); err != nil {
 		t.Fatalf("delete chat: %v", err)
@@ -183,6 +148,57 @@ func TestServiceCRUDRoundTrip(t *testing.T) {
 	_, err = fixture.service.GetChat(GetChatRequest{ChatID: created.ID})
 	if !errors.Is(err, ErrChatNotFound) {
 		t.Fatalf("expected deleted chat lookup to return ErrChatNotFound, got %v", err)
+	}
+}
+
+func assertCreatedScriptableChat(t *testing.T, chat Chat, wantName string) {
+	t.Helper()
+
+	if chat.ID == "" {
+		t.Fatal("expected created chat id")
+	}
+	if chat.Name != wantName {
+		t.Fatalf("unexpected chat name %q", chat.Name)
+	}
+	if chat.LLMConfig.ID != scriptableLLMConfigID || !chat.LLMConfig.Temporary {
+		t.Fatalf("expected scriptable llm config, got %#v", chat.LLMConfig)
+	}
+	if chat.ProjectConfigID != nil {
+		t.Fatalf("expected nil project config id, got %#v", chat.ProjectConfigID)
+	}
+	assertScriptableChatMessageCount(t, chat, 1, "after create")
+	if chat.SystemPrompt != nil {
+		t.Fatalf("expected nil system prompt, got %#v", chat.SystemPrompt)
+	}
+}
+
+func assertScriptableChatMessageCount(t *testing.T, chat Chat, want int, contextLabel string) {
+	t.Helper()
+
+	if len(chat.Messages) != want {
+		t.Fatalf("expected %d messages %s, got %#v", want, contextLabel, chat.Messages)
+	}
+}
+
+func assertScriptableChatLastUpdated(t *testing.T, chat Chat, want time.Time, contextLabel string) {
+	t.Helper()
+
+	if !chat.LastUpdated.Equal(want) {
+		t.Fatalf("expected lastUpdated %s to be %v, got %v", contextLabel, want, chat.LastUpdated)
+	}
+}
+
+func assertSingleScriptableChatMetadata(t *testing.T, metadata []ChatMetadata, wantID string) {
+	t.Helper()
+
+	if len(metadata) != 1 {
+		t.Fatalf("expected one chat metadata entry, got %#v", metadata)
+	}
+	if metadata[0].ID != wantID {
+		t.Fatalf("expected metadata id %q, got %q", wantID, metadata[0].ID)
+	}
+	if metadata[0].ProjectConfigID != nil {
+		t.Fatalf("expected metadata to keep nil project config id, got %#v", metadata[0].ProjectConfigID)
 	}
 }
 
@@ -842,7 +858,7 @@ func newServiceFixture(t *testing.T) serviceFixture {
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: llmconfig.TransportSSE,
+				Transport: llmconfig.TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:9999/mcp",
 			},
 		},

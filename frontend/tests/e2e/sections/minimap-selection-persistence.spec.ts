@@ -19,7 +19,7 @@ test("minimap keeps selected styling after node geometry rerenders", async ({
     );
 
     const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
 

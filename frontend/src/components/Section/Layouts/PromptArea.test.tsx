@@ -11,6 +11,11 @@ import {
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
+import {
   FormatEnum,
   SectionTypeEnum,
   createCore,
@@ -36,6 +41,19 @@ function syncStoreInitialState(store: {
 let lastCodeMirrorProps: Record<string, unknown> | null = null;
 let host: HTMLDivElement;
 let root: Root;
+
+function renderPromptAreaMarkup(sectionId: string) {
+  const markup = renderToStaticMarkup(<PromptArea sectionId={sectionId} />);
+  const container = document.createElement("div");
+  container.innerHTML = markup;
+  return { container, markup };
+}
+
+function expectGpuGuardedElement(element: Element | null) {
+  expect(element).not.toBeNull();
+  expect(element?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
+  expect(element?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
+}
 
 vi.mock("@uiw/react-codemirror", async () => {
   const React = await import("react");
@@ -199,6 +217,31 @@ describe("PromptArea", () => {
     expect(Array.isArray(props?.extensions)).toBe(true);
   });
 
+  it("marks template editor and mode controls as stable GPU flow interactive regions", () => {
+    const sectionId = seedPromptSection({
+      template: "Hi {{ name }}",
+      renderedText: "Hi Ada",
+    });
+
+    const { container } = renderPromptAreaMarkup(sectionId);
+
+    const templateEditor = container.querySelector(
+      `[data-gpu-flow-control="prompt:template-editor:${sectionId}"]`,
+    );
+    expectGpuGuardedElement(templateEditor);
+    expect(templateEditor?.getAttribute("data-section-main-editor")).toBe(
+      "true",
+    );
+
+    for (const mode of ["template", "preview"] as const) {
+      expectGpuGuardedElement(
+        container.querySelector(
+          `[data-gpu-flow-control="prompt:mode:${sectionId}:${mode}"]`,
+        ),
+      );
+    }
+  });
+
   it("shows linked prompt templates as read-only source text", () => {
     useAIStore.setState({
       promptTemplates: [
@@ -268,5 +311,12 @@ describe("PromptArea", () => {
 
     expect(host.textContent).toContain("Missing variables: name");
     expect(host.textContent).toContain("No prompt rendered yet.");
+
+    const preview = host.querySelector(
+      `[data-gpu-flow-control="prompt:preview:${sectionId}"]`,
+    );
+    expectGpuGuardedElement(preview);
+    expect(preview?.classList.contains(NO_WHEEL_CLASS_NAME)).toBe(true);
+    expect(preview?.getAttribute("data-gpu-flow-wheel-target")).toBe("true");
   });
 });

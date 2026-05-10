@@ -1,10 +1,8 @@
-import { zoomIdentity } from "d3-zoom";
-import { useReactFlow } from "forks/xyflow/core/store";
-import {
-  getD3Transition,
-  getSectionBounds,
-  getViewportForBounds,
-} from "forks/xyflow/core/utils/graph";
+import { getSectionBounds } from "gpuFlow/flowGeometry";
+import { setViewport } from "gpuFlow/viewportActions";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { getGpuViewportForBounds } from "gpuFlow/viewportMath";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getHighestAncestor } from "state/actions/sectionInfos";
@@ -13,10 +11,16 @@ import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
 } from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import {
+  useAIFollow,
+  useLocalStorage,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
+const AI_FOLLOW_VIEWPORT_TRANSITION_DURATION_MS = 500;
 
 function collectAIFollowTopLevelIds(
   toolArgumentSectionIds: Array<string>,
@@ -69,10 +73,8 @@ export function useAIFollowViewport(): void {
       }),
       _.isEqual,
     );
-  const { d3Zoom, d3Selection, width, height } = useReactFlow(
+  const { width, height } = useGpuFlowViewportStore(
     (state) => ({
-      d3Zoom: state.d3Zoom,
-      d3Selection: state.d3Selection,
       width: state.width,
       height: state.height,
     }),
@@ -166,32 +168,29 @@ export function useAIFollowViewport(): void {
       return;
     }
 
-    if (!d3Zoom || !d3Selection) {
-      return;
-    }
     if (width === 0 || height === 0) {
       return;
     }
 
-    const { x, y, zoom } = getViewportForBounds(
-      bounds,
-      width,
-      height,
-      0,
-      1,
-      0.1,
-      true,
-    );
+    const viewportState = gpuFlowViewportStore.getState();
+    const maxZoom = Math.min(viewportState.maxZoom, 1);
+    const minZoom = Math.min(viewportState.minZoom, maxZoom);
+    const { x, y, zoom } = getGpuViewportForBounds(bounds, {
+      canvasHeight: height,
+      canvasWidth: width,
+      keepCurrentZoomIfPossible: true,
+      maxZoom,
+      minZoom,
+      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+      padding: 0.1,
+      viewport: viewportState.transform,
+    });
 
-    // const duration = useSettings.getState().gui.transitionDuration;
-    const duration = 500;
-    const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
     const transitionId = followTransitionId.current + 1;
     followTransitionId.current = transitionId;
     useAIFollow.setState((state) => {
       state.isFollowTransitioning = true;
     });
-    const transition = getD3Transition(d3Selection, duration);
     const clearTransitionLock = () => {
       if (followTransitionId.current !== transitionId) {
         return;
@@ -200,18 +199,35 @@ export function useAIFollowViewport(): void {
         state.isFollowTransitioning = false;
       });
     };
-    transition.on("end", clearTransitionLock);
-    transition.on("interrupt", clearTransitionLock);
-    d3Zoom.transform(transition, nextTransform);
-  }, [
-    d3Selection,
-    d3Zoom,
-    height,
-    mode,
-    projectConfigId,
-    sectionIdsKey,
-    width,
-  ]);
+    const unsubscribe = gpuFlowViewportStore.subscribe(
+      (state, previousState) => {
+        if (followTransitionId.current !== transitionId) {
+          unsubscribe();
+          return;
+        }
+        if (!state.viewportAnimating && previousState.viewportAnimating) {
+          unsubscribe();
+          clearTransitionLock();
+        }
+      },
+    );
+    const transitionStarted = setViewport(
+      { x, y, zoom },
+      { duration: AI_FOLLOW_VIEWPORT_TRANSITION_DURATION_MS },
+    );
+    if (
+      !transitionStarted ||
+      !gpuFlowViewportStore.getState().viewportAnimating
+    ) {
+      unsubscribe();
+      clearTransitionLock();
+      return;
+    }
+    return () => {
+      unsubscribe();
+      clearTransitionLock();
+    };
+  }, [height, mode, projectConfigId, sectionIdsKey, width]);
 }
 
 export function useAIFollowZIndexBoost(): void {

@@ -34,11 +34,16 @@ Options:
   --allow-clean-failures N
                          Tolerate up to N consecutive clean Codex failures that
                          leave HEAD unchanged and the worktree clean.
-                         Default: 10
+                         Default: 1000
   --progress-log-interval-seconds N
                          Print at most one status progress line every N seconds.
                          Default: 120
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
+  --extra-prompt TEXT    Additional instructions appended to the generated loop
+                         prompt.
+  --extra-prompt-file PATH
+                         File containing additional instructions appended to
+                         the generated loop prompt.
   --help                 Show this help text
 EOF
 }
@@ -54,7 +59,7 @@ yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 retry_sleep_seconds="15"
-allow_clean_failures="10"
+allow_clean_failures="1000"
 progress_log_interval_seconds="120"
 complete_exit_code="42"
 plan_relpath=""
@@ -65,6 +70,8 @@ loop_root_dir="${SOURCE_ROOT_DIR}"
 execution_mode="in-place"
 managed_worktree_dir=""
 managed_worktree_branch=""
+extra_prompt=""
+extra_prompt_files=()
 codex_extra_args=()
 default_codex_extra_args=(
   --config
@@ -96,12 +103,44 @@ shell_join() {
   printf '%s\n' "${result}"
 }
 
+append_extra_prompt_section() {
+  local target_prompt_file="$1"
+  local extra_prompt_file=""
+  local printed_any="0"
+
+  if [[ -z "${extra_prompt}" && "${#extra_prompt_files[@]}" -eq 0 ]]; then
+    return
+  fi
+
+  {
+    printf '\nAdditional Loop Instructions\n'
+    printf 'These instructions were supplied by the dedicated loop wrapper or command line. Apply them with the generated base prompt; if they conflict, prefer the instruction that is more specific to the selected plan.\n\n'
+    if [[ -n "${extra_prompt}" ]]; then
+      printf '%s\n' "${extra_prompt}"
+      printed_any="1"
+    fi
+    for extra_prompt_file in "${extra_prompt_files[@]}"; do
+      if [[ "${printed_any}" == "1" ]]; then
+        printf '\n'
+      fi
+      cat "${extra_prompt_file}"
+      printf '\n'
+      printed_any="1"
+    done
+  } >> "${target_prompt_file}"
+}
+
 resolve_path_without_creating() {
   local candidate="$1"
   local suffix=""
 
   if [[ "${candidate}" != /* ]]; then
     candidate="${PWD}/${candidate}"
+  fi
+
+  if [[ -e "${candidate}" && ! -d "${candidate}" ]]; then
+    suffix="/$(basename "${candidate}")"
+    candidate="$(dirname "${candidate}")"
   fi
 
   while [[ ! -e "${candidate}" ]]; do
@@ -246,6 +285,19 @@ while [[ $# -gt 0 ]]; do
       yolo_mode="0"
       shift
       ;;
+    --extra-prompt)
+      require_value "$1" "${2:-}"
+      if [[ -n "${extra_prompt}" ]]; then
+        extra_prompt+=$'\n\n'
+      fi
+      extra_prompt+="$2"
+      shift 2
+      ;;
+    --extra-prompt-file)
+      require_value "$1" "${2:-}"
+      extra_prompt_files+=("$2")
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -304,6 +356,14 @@ if [[ ! -f "${SOURCE_ROOT_DIR}/${plan_relpath}" ]]; then
   echo "Plan file not found: ${SOURCE_ROOT_DIR}/${plan_relpath}" >&2
   exit 1
 fi
+for extra_prompt_file_index in "${!extra_prompt_files[@]}"; do
+  extra_prompt_file="$(resolve_path_without_creating "${extra_prompt_files[${extra_prompt_file_index}]}")"
+  if [[ ! -f "${extra_prompt_file}" ]]; then
+    echo "--extra-prompt-file must point to a readable file: ${extra_prompt_file}" >&2
+    exit 1
+  fi
+  extra_prompt_files[${extra_prompt_file_index}]="${extra_prompt_file}"
+done
 
 if [[ -z "${output_dir}" ]]; then
   timestamp="$(date '+%Y%m%d-%H%M%S')"
@@ -414,13 +474,18 @@ Execution rules for every iteration:
 - If Go-owned contracts, generator inputs, Python SDK contracts, or frontend generation inputs change, regenerate affected outputs before cleanup.
 - Run focused verification for the behavior you changed.
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
+- Before ending the iteration, stop every long-running process you started, including app sessions,
+  browser sessions, browser MCP helpers, dev servers, watchers, and recorders. Do not stop a
+  pre-existing developer-started session that you only reused; record that it was reused instead.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.
 - If you make no repo changes, leave the repo clean and advance ${checklist_file} and/or ${audit_file} meaningfully for the next audited step.
+- If an attempt fails or leaves invalid worktree state, the outer loop may reset the repo to HEAD and retry from the most recent clean commit.
 - Do not ask for follow-up.
 
 If a fresh audit shows the plan is complete under these rules, make no repo changes, leave the worktree clean, explain that the stop reason is complete, and end your final response with this exact line:
   ${stop_sentinel}
 EOF
+append_extra_prompt_section "${prompt_file}"
 
 if [[ ! -f "${status_file}" ]]; then
   printf 'pending\n' > "${status_file}"
@@ -439,7 +504,8 @@ pre_iteration_command="$(
     --sentinel "${stop_sentinel}" \
     --progress-file "${checklist_file}" \
     --progress-file "${audit_file}" \
-    --allow-clean-failures "${allow_clean_failures}"
+    --allow-clean-failures "${allow_clean_failures}" \
+    --reset-failed-attempts
 )"
 
 post_iteration_command="$(
@@ -463,6 +529,7 @@ loop_args=(
   --watchdog-interval-seconds "30"
   --continue-on-inactivity-timeout
   --continue-on-codex-failure
+  --continue-on-post-iteration-failure
   --retry-sleep-seconds "${retry_sleep_seconds}"
   --pre-iteration-command "${pre_iteration_command}"
   --post-iteration-command "${post_iteration_command}"
@@ -504,6 +571,7 @@ echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Retry sleep: ${retry_sleep_seconds}s"
 echo "Allowed consecutive clean Codex failures: ${allow_clean_failures}"
+echo "Failed attempt recovery: reset to HEAD and retry"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"

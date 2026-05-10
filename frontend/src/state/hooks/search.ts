@@ -1,7 +1,4 @@
-import {
-  screenToFlowPosition,
-  setCenter,
-} from "forks/xyflow/core/hooks/useViewportHelper";
+import { screenToFlowPosition, setCenter } from "gpuFlow/viewportActions";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
@@ -12,6 +9,7 @@ import {
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
+  useLocalStorage,
   useProjectSearch,
   useProjectState,
   useSettings,
@@ -126,7 +124,8 @@ function goToSearchResult(
     `ParamContainer-${sectionId}-${paramInfoId}`,
   );
   if (!element) {
-    console.error("goToSearchResult element not found");
+    // Retained GPU param rows are scene-owned. GpuProjectSurface observes the
+    // focused search target and reveals those rows from retained geometry.
     return;
   }
   const shouldDelay = scrollParamIntoView(element);
@@ -137,7 +136,10 @@ function goToSearchResult(
       y: _y + height / 2,
     });
     const zoom = useSettings.getState().gui.defaultZoomLevel;
-    setCenter(x, y, { zoom });
+    setCenter(x, y, {
+      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+      zoom,
+    });
   };
 
   if (shouldDelay) {

@@ -50,7 +50,7 @@ for (const candidatePath of existingCandidates) {
   const match = source.match(getCoordsPattern);
   if (match === null || match.groups === undefined) {
     throw new Error(
-      `xterm reactFlowZoom patch failed: did not find a supported getCoordsRelativeToElement snippet (${candidatePath})`,
+      `xterm settaGpuFlowZoom patch failed: did not find a supported getCoordsRelativeToElement snippet (${candidatePath})`,
     );
   }
 
@@ -63,7 +63,7 @@ for (const candidatePath of existingCandidates) {
 
   if (replacementCount !== 1) {
     throw new Error(
-      `xterm reactFlowZoom patch failed: expected 1 replacement, got ${replacementCount} (${candidatePath})`,
+      `xterm settaGpuFlowZoom patch failed: expected 1 replacement, got ${replacementCount} (${candidatePath})`,
     );
   }
 
@@ -72,7 +72,5 @@ for (const candidatePath of existingCandidates) {
   }
 
   fs.writeFileSync(candidatePath, patched, "utf8");
-  console.log(
-    `patched xterm mouse coords for react flow zoom: ${candidatePath}`,
-  );
+  console.log(`patched xterm mouse coords for GPU flow zoom: ${candidatePath}`);
 }

@@ -2,7 +2,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { postChromeReproEvent } from "./chromeRepro";
+import {
+  createChromeReproPerfTimer,
+  postChromeReproEvent,
+  postChromeReproPerfEvent,
+} from "./chromeRepro";
 
 declare global {
   interface Window {
@@ -43,6 +47,59 @@ describe("chromeRepro", () => {
           changed: true,
           projectConfigId: "project-1",
         },
+      }),
+      "*",
+    );
+  });
+
+  it("posts perf-prefixed recorder messages", () => {
+    window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
+    const postSpy = vi.spyOn(window, "postMessage");
+
+    postChromeReproPerfEvent("websocket-message", {
+      durationMs: 12,
+    });
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "perf-websocket-message",
+        payload: {
+          durationMs: 12,
+        },
+      }),
+      "*",
+    );
+  });
+
+  it("records timer phases for perf events", () => {
+    window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
+    const postSpy = vi.spyOn(window, "postMessage");
+    vi.spyOn(performance, "now")
+      .mockReturnValueOnce(10)
+      .mockReturnValueOnce(15.25)
+      .mockReturnValueOnce(22.5);
+
+    const timer = createChromeReproPerfTimer("project-state-update", {
+      messageType: "UpdateFrontendProjectState",
+    });
+    timer.mark("parse");
+    timer.finish({ changed: true });
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "perf-project-state-update",
+        payload: expect.objectContaining({
+          changed: true,
+          durationMs: 12.5,
+          messageType: "UpdateFrontendProjectState",
+          phases: [
+            {
+              durationMs: 5.3,
+              label: "parse",
+              sinceStartMs: 5.3,
+            },
+          ],
+        }),
       }),
       "*",
     );

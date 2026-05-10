@@ -11,6 +11,7 @@ import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -37,6 +38,7 @@ import {
   TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  type CodeObjType,
 } from "utils/generatedTypes";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
@@ -49,6 +51,11 @@ import {
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
+import { resolveParamUIDisabled } from "./paramUIDisabled";
+import {
+  SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  TEXT_LIKE_PARAM_TYPES,
+} from "./paramUIRendererMetadata";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
@@ -66,11 +73,13 @@ type ParamUIProps = {
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
+  focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
+  tooltipParentDivId?: string | null | undefined;
 };
 
 type ParamUIState = {
-  codeObjType: CodeObjTypeEnum;
+  codeObjType: CodeObjType;
   passwordHasSecret: boolean;
   configLanguage: string;
   defaultVal: string;
@@ -100,7 +109,6 @@ type ParamUIRenderContext = ParamUIProps & {
   waitingForResult: boolean;
 };
 type ParamUIRenderer = (context: ParamUIRenderContext) => JSX.Element | null;
-
 function createBaseParamUIState({
   codeObjType,
   defaultVal,
@@ -198,32 +206,9 @@ function useParamUIState(
   }, _.isEqual);
 }
 
-function isTextLikeParamType(codeObjType: CodeObjTypeEnum): boolean {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
-  );
-}
-
-function resolveParamUIDisabled({
-  isSelectingParams,
-  disabledOrFrozen,
-  canEditParams,
-  isDeploymentMode,
-  isCodeParam,
-}: {
-  isSelectingParams: boolean;
-  disabledOrFrozen: boolean;
-  canEditParams: boolean;
-  isDeploymentMode: boolean;
-  isCodeParam: boolean;
-}): boolean {
-  return (
-    isSelectingParams ||
-    disabledOrFrozen ||
-    !canEditParams ||
-    (isDeploymentMode && isCodeParam)
+function isTextLikeParamType(codeObjType: CodeObjType): boolean {
+  return (TEXT_LIKE_PARAM_TYPES as readonly CodeObjType[]).includes(
+    codeObjType,
   );
 }
 
@@ -257,6 +242,8 @@ function renderTextLikeParam({
   onChange,
   onEscape,
   maybeErrorMessage,
+  focusActiveSectionOnTextInput,
+  tooltipParentDivId,
   isDisabled,
   isSelectingParams,
   paramUiState,
@@ -279,6 +266,8 @@ function renderTextLikeParam({
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
+      focusActiveSectionOnTextInput={focusActiveSectionOnTextInput ?? true}
+      tooltipParentDivId={tooltipParentDivId}
     />
   );
 }
@@ -350,7 +339,8 @@ function renderSliderParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -370,7 +360,8 @@ function renderRotaryParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -408,7 +399,8 @@ function renderColorPickerParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -484,7 +476,7 @@ function renderDropzoneParam({
 }
 
 const SPECIALIZED_PARAM_RENDERERS: Partial<
-  Record<CodeObjTypeEnum, ParamUIRenderer>
+  Record<CodeObjType, ParamUIRenderer>
 > = {
   [CodeObjTypeEnum.SliderParam]: renderSliderParam,
   [CodeObjTypeEnum.RotaryParam]: renderRotaryParam,
@@ -493,7 +485,10 @@ const SPECIALIZED_PARAM_RENDERERS: Partial<
   [CodeObjTypeEnum.DropdownParam]: renderDropdownParam,
   [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
   [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
-};
+} satisfies Record<
+  keyof typeof SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  ParamUIRenderer
+>;
 
 function renderSpecializedParam(context: ParamUIRenderContext) {
   const renderParam =
@@ -578,7 +573,9 @@ export function ParamUI({
   onDropzoneStateless,
   onRevealPassword,
   isPasswordRevealPending,
+  focusActiveSectionOnTextInput,
   maybeErrorMessage,
+  tooltipParentDivId,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -619,7 +616,9 @@ export function ParamUI({
     onDropzoneStateless,
     onRevealPassword,
     isPasswordRevealPending,
+    focusActiveSectionOnTextInput,
     maybeErrorMessage,
+    tooltipParentDivId,
     isDisabled,
     isSelectingParams,
     onEscape,
@@ -654,6 +653,8 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  focusActiveSectionOnTextInput,
+  tooltipParentDivId,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -666,7 +667,13 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
+  focusActiveSectionOnTextInput: boolean;
+  tooltipParentDivId: string | null | undefined;
 }) {
+  const resolvedTooltipParentDivId =
+    tooltipParentDivId === undefined
+      ? CODEMIRROR_TOOLTIP_PARENT_ID
+      : tooltipParentDivId;
   return (
     <>
       <TextInputCodeMirror
@@ -685,7 +692,8 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        focusActiveSectionOnMouseDown={focusActiveSectionOnTextInput}
+        tooltipParentDivId={resolvedTooltipParentDivId}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -756,6 +764,7 @@ function SliderParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
 }) {
@@ -765,9 +774,10 @@ function SliderParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
       sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
       sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
       sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -783,6 +793,7 @@ function RotaryParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
 }: {
@@ -790,6 +801,7 @@ function RotaryParamConfigured({
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape: () => void;
   isDisabled: boolean;
 }) {
@@ -799,6 +811,7 @@ function RotaryParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -865,8 +878,17 @@ function ColorPickerParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
+  onEscape: () => void;
+  isDisabled: boolean;
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -874,8 +896,9 @@ function ColorPickerParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
-      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+      wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
     />
@@ -895,7 +918,7 @@ function DropdownParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+      outerDivClasses={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex justify-self-start self-center [&_search]:my-auto`}
       isDisabled={isDisabled}
     />
   );
@@ -913,9 +936,9 @@ function PasswordParamConfigured({
   placeholder,
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
-  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
-  const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
+  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex min-w-0 items-center gap-2`;
   return (
     <>
       <div className={wrapperClassName}>

@@ -78,7 +78,7 @@ test("chat streaming stays visible during resize", async ({ page }) => {
       },
     });
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const node = page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
     await expect(node).toBeVisible();
     await expect(node.getByText("Streaming", { exact: false })).toBeVisible({
       timeout: 10000,
@@ -218,7 +218,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       },
     });
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const node = page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
     await expect(
       node.getByRole("heading", { name: "Core Purpose" }),
     ).toBeVisible({
@@ -297,7 +297,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
       },
     });
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const node = page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
     const reasoningCard = node
       .locator('[data-chat-assistant-reasoning-card="true"]')
       .first();
@@ -308,7 +308,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
 
     const sizing = await page.evaluate((targetSectionId) => {
       const root = document.querySelector(
-        `.react-flow__node[data-id="${targetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${targetSectionId}"]`,
       );
       if (!root) {
         return null;
@@ -368,7 +368,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
         async () =>
           await page.evaluate((targetSectionId) => {
             const root = document.querySelector(
-              `.react-flow__node[data-id="${targetSectionId}"]`,
+              `.setta-gpu-flow__node[data-id="${targetSectionId}"]`,
             );
             if (!root) {
               return Number.POSITIVE_INFINITY;
@@ -392,7 +392,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
 
     const resizedSizing = await page.evaluate((targetSectionId) => {
       const root = document.querySelector(
-        `.react-flow__node[data-id="${targetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${targetSectionId}"]`,
       );
       if (!root) {
         return null;
@@ -470,7 +470,7 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       },
     });
 
-    const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const node = page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
     const activityTrigger = node.locator(
       '[data-chat-assistant-activity-trigger="true"]',
     );
@@ -621,7 +621,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,

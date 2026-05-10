@@ -10,6 +10,32 @@ import (
 func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	t.Parallel()
 
+	runtime := newChatSectionMutationRuntime(t)
+
+	assertChatSectionSettingsCasesUpdatePayload(t, runtime)
+	seedChatSectionStatePayload(t, runtime)
+
+	chatID := "chat-1"
+	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", &chatID); err != nil {
+		t.Fatalf("SetChatSectionChatID returned error: %v", err)
+	}
+
+	payload := chatSectionMutationPayload(t, runtime)
+	assertChatSectionSettingsPayload(t, payload)
+	assertChatSectionStatePayload(t, payload)
+
+	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", nil); err != nil {
+		t.Fatalf("clearing chat id returned error: %v", err)
+	}
+	payload = chatSectionMutationPayload(t, runtime)
+	if value, ok := payload["chatId"]; !ok || value != nil {
+		t.Fatalf("expected chatId to persist as null after clear, got %#v", payload["chatId"])
+	}
+}
+
+func newChatSectionMutationRuntime(t *testing.T) *Runtime {
+	t.Helper()
+
 	runtime, err := OpenOverlayRuntime(Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -25,21 +51,26 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
+	return runtime
+}
+
+func chatSectionMutationPayload(t *testing.T, runtime *Runtime) map[string]any {
+	t.Helper()
+
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "chat-section", "chat-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload chat-section: %v", err)
+	}
+	return payload
+}
+
+func assertChatSectionSettingsCasesUpdatePayload(t *testing.T, runtime *Runtime) {
+	t.Helper()
 
 	engineConfigID := "engine-config-1"
 	transcriptionProfileID := "transcription-profile-1"
 	agentProfileID := "agent-profile-1"
-
-	chatPayload := func() map[string]any {
-		t.Helper()
-
-		project := runtime.Snapshot().Document.Projects["project-alpha"]
-		payload, err := effectiveSectionPayload(project, "chat-section", "chat-variant")
-		if err != nil {
-			t.Fatalf("effectiveSectionPayload chat-section: %v", err)
-		}
-		return payload
-	}
 
 	for _, settingsCase := range []struct {
 		permissionMode ChatPermissionMode
@@ -61,7 +92,7 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("SetChatSectionSettings(%s,%s) returned error: %v", settingsCase.permissionMode, settingsCase.dictationMode, err)
 		}
-		payload := chatPayload()
+		payload := chatSectionMutationPayload(t, runtime)
 		if got := payloadRawStringField(payload, "permissionMode"); got != string(settingsCase.permissionMode) {
 			t.Fatalf("expected permissionMode %q, got %q", settingsCase.permissionMode, got)
 		}
@@ -69,6 +100,10 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 			t.Fatalf("expected dictationMode %q, got %q", settingsCase.dictationMode, got)
 		}
 	}
+}
+
+func seedChatSectionStatePayload(t *testing.T, runtime *Runtime) {
+	t.Helper()
 
 	activeBranchID := "branch-1"
 	parentBranchID := "branch-root"
@@ -96,46 +131,30 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SetChatSectionState returned error: %v", err)
 	}
+}
 
-	chatID := "chat-1"
-	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", &chatID); err != nil {
-		t.Fatalf("SetChatSectionChatID returned error: %v", err)
-	}
+func assertChatSectionSettingsPayload(t *testing.T, payload map[string]any) {
+	t.Helper()
 
-	payload := chatPayload()
-	if got := payloadRawStringField(payload, "engineConfigId"); got != "engine-config-1" {
-		t.Fatalf("expected engineConfigId engine-config-1, got %q", got)
-	}
-	if got := payloadRawStringField(payload, "transcriptionProfileId"); got != "transcription-profile-1" {
-		t.Fatalf("expected transcriptionProfileId transcription-profile-1, got %q", got)
-	}
-	if got := payloadRawStringField(payload, "agentProfileId"); got != "agent-profile-1" {
-		t.Fatalf("expected agentProfileId agent-profile-1, got %q", got)
-	}
-	if !payloadBoolField(payload, "managed") {
-		t.Fatal("expected managed=true")
-	}
-	if !payloadBoolField(payload, "thinking") {
-		t.Fatal("expected thinking=true")
-	}
-	if !payloadBoolField(payload, "searchEnabled") {
-		t.Fatal("expected searchEnabled=true")
-	}
-	if got := payloadRawStringField(payload, "permissionMode"); got != "config_toml_custom" {
-		t.Fatalf("expected final permissionMode config_toml_custom, got %q", got)
-	}
-	if got := payloadRawStringField(payload, "dictationMode"); got != "provider" {
-		t.Fatalf("expected final dictationMode provider, got %q", got)
-	}
-	if got := payloadRawStringField(payload, "inputText"); got != "Draft input" {
-		t.Fatalf("expected inputText Draft input, got %q", got)
-	}
-	if !payloadBoolField(payload, "waitingForResponse") {
-		t.Fatal("expected waitingForResponse=true")
-	}
-	if got := payloadRawStringField(payload, "chatId"); got != "chat-1" {
-		t.Fatalf("expected chatId chat-1, got %q", got)
-	}
+	assertPayloadStringFields(t, payload, map[string]string{
+		"engineConfigId":         "engine-config-1",
+		"transcriptionProfileId": "transcription-profile-1",
+		"agentProfileId":         "agent-profile-1",
+		"permissionMode":         "config_toml_custom",
+		"dictationMode":          "provider",
+		"chatId":                 "chat-1",
+	})
+	assertPayloadBoolFields(t, payload, []string{"managed", "thinking", "searchEnabled"})
+}
+
+func assertChatSectionStatePayload(t *testing.T, payload map[string]any) {
+	t.Helper()
+
+	assertPayloadStringFields(t, payload, map[string]string{
+		"inputText":      "Draft input",
+		"activeBranchId": "branch-1",
+	})
+	assertPayloadBoolFields(t, payload, []string{"waitingForResponse"})
 
 	messages, ok := payload["messages"].([]any)
 	if !ok || len(messages) != 1 {
@@ -149,9 +168,6 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	toolCallArguments, ok := payload["toolCallArguments"].(map[string]any)
 	if !ok || toolCallArguments["tool-call-1"] != "{\"query\":\"hello\"}" {
 		t.Fatalf("expected stored toolCallArguments, got %#v", payload["toolCallArguments"])
-	}
-	if got := payloadRawStringField(payload, "activeBranchId"); got != "branch-1" {
-		t.Fatalf("expected activeBranchId branch-1, got %q", got)
 	}
 
 	branches, ok := payload["branches"].(map[string]any)
@@ -171,13 +187,25 @@ func TestRuntimeChatSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	if branchValue["branchFromMessageId"] != "message-1" {
 		t.Fatalf("expected branchFromMessageId message-1, got %#v", branchValue["branchFromMessageId"])
 	}
+}
 
-	if _, err := runtime.SetChatSectionChatID(context.Background(), "project-alpha", "chat-section", nil); err != nil {
-		t.Fatalf("clearing chat id returned error: %v", err)
+func assertPayloadStringFields(t *testing.T, payload map[string]any, expected map[string]string) {
+	t.Helper()
+
+	for field, expectedValue := range expected {
+		if got := payloadRawStringField(payload, field); got != expectedValue {
+			t.Fatalf("expected %s %q, got %q", field, expectedValue, got)
+		}
 	}
-	payload = chatPayload()
-	if value, ok := payload["chatId"]; !ok || value != nil {
-		t.Fatalf("expected chatId to persist as null after clear, got %#v", payload["chatId"])
+}
+
+func assertPayloadBoolFields(t *testing.T, payload map[string]any, fields []string) {
+	t.Helper()
+
+	for _, field := range fields {
+		if !payloadBoolField(payload, field) {
+			t.Fatalf("expected %s=true", field)
+		}
 	}
 }
 

@@ -188,7 +188,7 @@ param lists.
 
 ## Viewport and zoom
 
-- `adapter/zoom.ts` scales transforms by the ReactFlow zoom factor.
+- `adapter/zoom.ts` scales transforms by the Setta GPU-flow zoom factor.
 - `ZoomPane` disables pan/zoom while dragging (`isSorting` or `isMovingFree`).
 
 ## Other usage

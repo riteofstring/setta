@@ -77,6 +77,17 @@ func TestStateMachineConnectionContractsStayAligned(t *testing.T) {
 func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T) {
 	t.Parallel()
 
+	runtime := newStateMachineMutationRuntime(t)
+	createStateMachineMutationEdges(t, runtime)
+	assertStateMachineGateSettingMutations(t, runtime)
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	assertStateMachinePersistedEdges(t, project)
+	assertStateMachineGatePayload(t, stateMachineGatePayload(t, runtime))
+}
+
+func newStateMachineMutationRuntime(t *testing.T) *Runtime {
+	t.Helper()
+
 	runtime, err := OpenOverlayRuntime(Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -92,8 +103,12 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
+	return runtime
+}
 
-	// Build the workflow graph through the public runtime mutations.
+func createStateMachineMutationEdges(t *testing.T, runtime *Runtime) {
+	t.Helper()
+
 	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
 		ID:              "edge-start-gate",
 		MachineGroupID:  "workflow-a",
@@ -104,6 +119,13 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 	}, nil); err != nil {
 		t.Fatalf("CreateStateMachineEdge start->gate returned error: %v", err)
 	}
+	updatedGateToChat := createStateMachineGateToChatEdge(t, runtime)
+	updateStateMachineGateToChatEdge(t, runtime, &updatedGateToChat)
+	replaceStateMachineMutationEdges(t, runtime, updatedGateToChat)
+}
+
+func createStateMachineGateToChatEdge(t *testing.T, runtime *Runtime) StateMachineEdge {
+	t.Helper()
 
 	promptSectionID := "prompt-section"
 	if _, err := runtime.CreateStateMachineEdge(context.Background(), "project-alpha", StateMachineEdge{
@@ -123,26 +145,31 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 	}, nil); err != nil {
 		t.Fatalf("CreateStateMachineEdge gate->chat returned error: %v", err)
 	}
+	return stateMachineTestEdgeByID(t, runtime.Snapshot().Document.Projects["project-alpha"].StateMachineEdges, "edge-gate-chat")
+}
 
-	updatedGateToChat := stateMachineTestEdgeByID(t, runtime.Snapshot().Document.Projects["project-alpha"].StateMachineEdges, "edge-gate-chat")
-	updatedGateToChat.Hidden = true
-	updatedGateToChat.Selected = true
-	updatedGateToChat.ZIndex = 11
-	updatedGateToChat.SourceActivationCountCondition = &StateMachineSourceActivationCountCondition{
+func updateStateMachineGateToChatEdge(t *testing.T, runtime *Runtime, edge *StateMachineEdge) {
+	t.Helper()
+
+	edge.Hidden = true
+	edge.Selected = true
+	edge.ZIndex = 11
+	edge.SourceActivationCountCondition = &StateMachineSourceActivationCountCondition{
 		Operator: StateMachineCountOperatorGTE,
 		Value:    2,
 	}
-	updatedGateToChat.TargetAction.SearchEnabled = stateMachineBoolPointer(true)
-
-	if _, err := runtime.UpdateStateMachineEdge(context.Background(), "project-alpha", updatedGateToChat, nil); err != nil {
+	edge.TargetAction.SearchEnabled = stateMachineBoolPointer(true)
+	if _, err := runtime.UpdateStateMachineEdge(context.Background(), "project-alpha", *edge, nil); err != nil {
 		t.Fatalf("UpdateStateMachineEdge returned error: %v", err)
 	}
+}
+
+func replaceStateMachineMutationEdges(t *testing.T, runtime *Runtime, updatedGateToChat StateMachineEdge) {
+	t.Helper()
 
 	if _, err := runtime.DeleteStateMachineEdges(context.Background(), "project-alpha", []string{"edge-start-gate"}); err != nil {
 		t.Fatalf("DeleteStateMachineEdges returned error: %v", err)
 	}
-
-	// Replace the edge set to cover the bulk mutation path and Chat-source filtering.
 	if _, err := runtime.SetStateMachineEdges(context.Background(), "project-alpha", []StateMachineEdge{
 		updatedGateToChat,
 		{
@@ -159,18 +186,11 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 	}, nil); err != nil {
 		t.Fatalf("SetStateMachineEdges returned error: %v", err)
 	}
+}
 
-	// Then update the gate section settings that the frontend pane edits directly.
-	gateSectionPayload := func() map[string]any {
-		t.Helper()
+func assertStateMachineGateSettingMutations(t *testing.T, runtime *Runtime) {
+	t.Helper()
 
-		project := runtime.Snapshot().Document.Projects["project-alpha"]
-		payload, err := effectiveSectionPayload(project, "gate-section", "gate-variant")
-		if err != nil {
-			t.Fatalf("effectiveSectionPayload gate-section: %v", err)
-		}
-		return payload
-	}
 	for _, gateType := range []StateMachineGateType{
 		StateMachineGateTypeAND,
 		StateMachineGateTypeOR,
@@ -183,12 +203,26 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 		}); err != nil {
 			t.Fatalf("SetStateMachineSectionSettings(%s) returned error: %v", gateType, err)
 		}
-		if got := payloadRawStringField(gateSectionPayload(), "gateType"); got != string(gateType) {
+		if got := payloadRawStringField(stateMachineGatePayload(t, runtime), "gateType"); got != string(gateType) {
 			t.Fatalf("expected gate type %q, got %q", gateType, got)
 		}
 	}
+}
+
+func stateMachineGatePayload(t *testing.T, runtime *Runtime) map[string]any {
+	t.Helper()
 
 	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	payload, err := effectiveSectionPayload(project, "gate-section", "gate-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload gate-section: %v", err)
+	}
+	return payload
+}
+
+func assertStateMachinePersistedEdges(t *testing.T, project Project) {
+	t.Helper()
+
 	if len(project.StateMachineEdges) != 2 {
 		t.Fatalf("expected 2 persisted state machine edges, got %d", len(project.StateMachineEdges))
 	}
@@ -225,8 +259,11 @@ func TestRuntimeStateMachineMutationsPersistEdgesAndSectionSettings(t *testing.T
 	if chatToEnd.SourceFilter == nil || chatToEnd.SourceFilter.Type != StateMachineSourceFilterTypeRunCompleted {
 		t.Fatalf("expected chat->end source filter run_completed, got %#v", chatToEnd.SourceFilter)
 	}
+}
 
-	gatePayload := gateSectionPayload()
+func assertStateMachineGatePayload(t *testing.T, gatePayload map[string]any) {
+	t.Helper()
+
 	if got := payloadRawStringField(gatePayload, "machineGroupId"); got != "workflow-a" {
 		t.Fatalf("expected gate machineGroupId workflow-a, got %q", got)
 	}

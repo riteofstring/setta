@@ -1,4 +1,3 @@
-import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,7 +5,9 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
   getSectionType,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { SIZE_MODE } from "state/actions/sections/sectionResizePolicy";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
@@ -53,6 +54,14 @@ type SectionMinDimensions = {
   metaControlSizeMode: SizeMode | null;
   minHeight: number;
   minWidth: number;
+};
+
+type ResolveSectionMinMaxDimsInput = {
+  sectionId: string;
+  projectState: ZustandProjectState;
+  sizingPolicy: SectionSizingPolicy;
+  resizeEvent: string | undefined;
+  measuredHeights: SectionMeasuredHeights;
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
@@ -219,7 +228,7 @@ function hasPinnedNonEdgeParams(
     return false;
   }
   const edgeInputSet = new Set(edgeInputParams);
-  return shown.pinned.topLevelParamIds.some(
+  return (shown.pinned?.topLevelParamIds ?? []).some(
     (paramId) => !edgeInputSet.has(paramId),
   );
 }
@@ -274,7 +283,17 @@ function getRequiredParamsMinHeight({
   sectionId: string;
   sizingPolicy: SectionSizingPolicy;
 }) {
-  if (isMinimized || hideParams || !isBaseSectionWithParamsImpl(impl)) {
+  const paramsImpl = impl as EffectiveSectionImpl & {
+    edgeInputParams?: string[] | null;
+    hideUnpinnedParams?: boolean;
+  };
+  if (
+    isMinimized ||
+    hideParams ||
+    !isBaseSectionWithParamsImpl(
+      impl as unknown as Parameters<typeof isBaseSectionWithParamsImpl>[0],
+    )
+  ) {
     return 0;
   }
 
@@ -290,8 +309,11 @@ function getRequiredParamsMinHeight({
     fixedTopHeight +
     measuredHeights.paramsFixedHeight +
     getResolvedUnpinnedMinHeight({
-      hasPinnedParams: hasPinnedNonEdgeParams(shown, impl.edgeInputParams),
-      hideUnpinnedParams: impl.hideUnpinnedParams,
+      hasPinnedParams: hasPinnedNonEdgeParams(
+        shown,
+        paramsImpl.edgeInputParams ?? [],
+      ),
+      hideUnpinnedParams: Boolean(paramsImpl.hideUnpinnedParams),
       sizingPolicy,
     })
   );
@@ -393,6 +415,92 @@ function getSectionMinDimensions({
   });
 }
 
+export function resolveSectionMinMaxDims({
+  sectionId,
+  projectState,
+  sizingPolicy,
+  resizeEvent,
+  measuredHeights,
+}: ResolveSectionMinMaxDimsInput) {
+  const isTwitter = getIsTwitterSection(sectionId, projectState);
+  const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+  const sectionType = impl.type as SectionType;
+  const hideSearch = impl.hideSearch;
+  const hideParams = impl.hideParams;
+  const isMinimized = impl.isMinimized;
+  const policyMaxHeight = getMaxSectionHeight({
+    sectionType,
+    isMinimized,
+    sizingPolicy,
+  });
+  const isAutoHeight = impl.size.height === "auto";
+  const isResizing = resizeEvent === "start";
+  const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
+
+  const maxWidth = getMaxSectionWidth({
+    sectionType,
+    sizingPolicy,
+  });
+  const { minHeight, minWidth, metaControlSizeMode } = getSectionMinDimensions({
+    hideParams,
+    hideSearch,
+    impl,
+    isMinimized,
+    measuredHeights,
+    projectState,
+    sectionId,
+    sectionType,
+    sizingPolicy,
+  });
+
+  const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
+  const maxHeight =
+    isAutoHeight && !isResizing
+      ? Math.max(minHeight, cappedAutoMaxHeight)
+      : Math.max(minHeight, policyMaxHeight);
+
+  const sizeMode = getSizeMode({
+    sectionType,
+    hideParams,
+    isTwitter,
+    metaControlSizeMode,
+  });
+
+  return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
+}
+
+function getTemporaryMeasuredHeight(key: string): number {
+  const height = useTemporaryMiscState.getState()[key];
+  return typeof height === "number" ? height : 0;
+}
+
+export function getSectionMinMaxDims(
+  sectionId: string,
+  resizeEventOverride?: string | undefined,
+) {
+  return resolveSectionMinMaxDims({
+    sectionId,
+    projectState: useProjectState.getState(),
+    sizingPolicy: useSettings.getState().sectionSizingPolicy,
+    resizeEvent:
+      resizeEventOverride ?? useResizeEvent.getState().resizeEvent[sectionId],
+    measuredHeights: {
+      kwargsControlsHeight: getTemporaryMeasuredHeight(
+        getKwargsControlsHeightKey(sectionId),
+      ),
+      paramsFixedHeight: getTemporaryMeasuredHeight(
+        getParamsFixedHeightKey(sectionId),
+      ),
+      sectionHeaderHeight: getTemporaryMeasuredHeight(
+        getSectionHeaderHeightKey(sectionId),
+      ),
+      sectionSearchHeight: getTemporaryMeasuredHeight(
+        getSectionSearchHeightKey(sectionId),
+      ),
+    },
+  });
+}
+
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
@@ -412,59 +520,22 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getParamsFixedHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
-  return useProjectState((x) => {
-    const isTwitter = getIsTwitterSection(sectionId, x);
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const sectionType = impl.type;
-    const hideSearch = impl.hideSearch;
-    const hideParams = impl.hideParams;
-    const isMinimized = impl.isMinimized;
-    const policyMaxHeight = getMaxSectionHeight({
-      sectionType,
-      isMinimized,
-      sizingPolicy,
-    });
-    const isAutoHeight = impl.size.height === "auto";
-    const isResizing = resizeEvent === "start";
-    const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
-
-    const maxWidth = getMaxSectionWidth({
-      sectionType,
-      sizingPolicy,
-    });
-    const { minHeight, minWidth, metaControlSizeMode } =
-      getSectionMinDimensions({
-        hideParams,
-        hideSearch,
-        impl,
-        isMinimized,
+  return useProjectState(
+    (projectState) =>
+      resolveSectionMinMaxDims({
+        sectionId,
+        projectState,
+        sizingPolicy,
+        resizeEvent,
         measuredHeights: {
           kwargsControlsHeight,
           paramsFixedHeight,
           sectionHeaderHeight,
           sectionSearchHeight,
         },
-        projectState: x,
-        sectionId,
-        sectionType,
-        sizingPolicy,
-      });
-
-    const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
-    const maxHeight =
-      isAutoHeight && !isResizing
-        ? Math.max(minHeight, cappedAutoMaxHeight)
-        : Math.max(minHeight, policyMaxHeight);
-
-    const sizeMode = getSizeMode({
-      sectionType,
-      hideParams,
-      isTwitter,
-      metaControlSizeMode,
-    });
-
-    return { minHeight, maxHeight, minWidth, maxWidth, sizeMode };
-  }, _.isEqual);
+      }),
+    _.isEqual,
+  );
 }
 
 type UseIsScrollableOptions = {
@@ -535,15 +606,15 @@ async function setSectionToHaveAspectRatioAndMinSize(
   sectionId: string,
   imgSize: { width: number; height: number },
 ) {
-  const sectionType = getSectionType(sectionId);
   const projectState = useProjectState.getState();
+  const sectionType = getSectionType(projectState, sectionId) as SectionType;
   const sizingPolicy = useSettings.getState().sectionSizingPolicy;
   const minHeight = getMinSectionHeight({ sectionType, sizingPolicy });
   const minWidth = getMinSectionWidth({
     sectionType,
     sizingPolicy,
   });
-  const currSize = projectState.sections[sectionId].size;
+  const currSize = getCurrEffectiveSectionImpl(projectState, sectionId).size;
 
   let adjustedSize = adjustAspectRatio(
     currSize.height,
@@ -565,6 +636,7 @@ async function setSectionToHaveAspectRatioAndMinSize(
       sectionId,
       aspectRatio: imgSize.width / imgSize.height,
       aspectRatioExtraHeight: extraHeight,
+      aspectRatioExtraWidth: 0,
       size: adjustedSize,
       state,
     });
@@ -649,6 +721,7 @@ export function useYouTubeSectionSize(sectionId: string) {
         sectionId,
         aspectRatio: 16 / 9,
         aspectRatioExtraHeight: extraHeight,
+        aspectRatioExtraWidth: 0,
         size: defaultSize,
         state,
       });
@@ -679,8 +752,8 @@ export function useTwitterSectionSize(sectionId) {
       setAspectRatioInfo({
         sectionId,
         aspectRatio: null,
-        aspectRatioExtraHeight: null,
-        aspectRatioExtraWidth: null,
+        aspectRatioExtraHeight: 0,
+        aspectRatioExtraWidth: 0,
         size: { height: "auto" },
         state,
       });
@@ -693,13 +766,21 @@ function setAspectRatioInfo({
   size,
   aspectRatio,
   aspectRatioExtraHeight,
-  aspectRatioExtraWidth,
+  aspectRatioExtraWidth = 0,
   state,
+}: {
+  sectionId: string;
+  size?: Partial<SectionSize> | null | undefined;
+  aspectRatio: number | null;
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth?: number | undefined;
+  state: ZustandProjectState;
 }) {
-  const s = state.sections[sectionId];
-  s.aspectRatio = aspectRatio;
-  s.aspectRatioExtraHeight = aspectRatioExtraHeight;
-  s.aspectRatioExtraWidth = aspectRatioExtraWidth;
+  setCurrEffectiveSectionImplValue(state, sectionId, {
+    aspectRatio,
+    aspectRatioExtraHeight,
+    aspectRatioExtraWidth,
+  } as unknown as Parameters<typeof setCurrEffectiveSectionImplValue>[2]);
   if (size) {
     setSectionSize(sectionId, size, state);
   }

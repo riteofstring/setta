@@ -14,9 +14,21 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
+} from "utils/constants";
+import {
   type DropdownParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
+
+function joinGpuControlClassNames(...classNames: Array<string | undefined>) {
+  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, ...classNames]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function DropdownInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -168,7 +180,7 @@ export function DropdownInput({
   ];
   return (
     <IdNameCombobox
-      outerDivClasses={outerDivClasses}
+      outerDivClasses={joinGpuControlClassNames(outerDivClasses)}
       allItems={allItems}
       value={value ? value : null}
       onSelectedItemChange={onChange}
@@ -182,6 +194,8 @@ export function DropdownInput({
       groupHeaderThemeClassName={comboboxGroupHeaderThemeClassName}
       itemThemeClassName={comboboxItemThemeClassName}
       itemHighlightedThemeClassName={comboboxItemHighlightedThemeClassName}
+      listPortalContainerId={SETTA_POPOVER_PORTAL_PARENT_ID}
+      repositionListOnCanvasTransform={true}
     />
   );
 }

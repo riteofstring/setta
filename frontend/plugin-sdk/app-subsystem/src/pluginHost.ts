@@ -124,9 +124,7 @@ function hasRequiredFunctions(
   return keys.every((key) => isFunction(value[key]));
 }
 
-function hasSettaPluginHostMetadata(
-  value: Record<string, unknown>,
-): boolean {
+function hasSettaPluginHostMetadata(value: Record<string, unknown>): boolean {
   return (
     value.apiVersion === SETTA_PLUGIN_FRONTEND_HOST_API_VERSION &&
     typeof value.pluginId === "string" &&

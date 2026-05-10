@@ -13,13 +13,17 @@ async function setViewportTransform(
   transform: { x: number; y: number; zoom: number },
 ): Promise<void> {
   await page.evaluate(async ({ x, y, zoom }) => {
-    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
-    useReactFlow.setState({
-      transform: [x, y, zoom],
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore.ts"
+    );
+    const viewportStore = gpuFlowViewportStore.getState();
+    viewportStore.setTransform({ x, y, zoom });
+    viewportStore.setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
     });
-    window.reactFlowZoom = zoom;
+    window.settaGpuFlowZoom = zoom;
   }, transform);
 }
 
@@ -29,9 +33,8 @@ async function getViewportTransform(page: Page): Promise<{
   zoom: number;
 }> {
   return await page.evaluate(async () => {
-    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
-    const [x, y, zoom] = useReactFlow.getState().transform;
-    return { x, y, zoom };
+    const { getViewport } = await import("/src/gpuFlow/viewportActions.ts");
+    return getViewport();
   });
 }
 
@@ -62,12 +65,11 @@ test("stale backend project sync does not clobber a newer local viewport", async
       throw new Error("Expected callable section to be created.");
     }
 
-    const staleState =
-      await postBackend<ProjectStateBackendUpdate>(
-        page,
-        "/getLatestProjectState",
-        { projectConfigId: projectContext.projectConfigId },
-      );
+    const staleState = await postBackend<ProjectStateBackendUpdate>(
+      page,
+      "/getLatestProjectState",
+      { projectConfigId: projectContext.projectConfigId },
+    );
     if (!staleState) {
       throw new Error("Missing latest project state payload.");
     }

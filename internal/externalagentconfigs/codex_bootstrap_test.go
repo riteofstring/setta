@@ -30,10 +30,9 @@ auth_token = "token-value"
 transport = "stdio"
 url = "http://127.0.0.1:9000/mcp"
 
-[mcp_servers.conflict-sse-command]
+[mcp_servers.unsupported-sse]
 transport = "sse"
-command = "node"
-args = ["server.js"]
+url = "http://127.0.0.1:9000/mcp"
 
 [mcp_servers]
 invalid-shape = "not-an-object"
@@ -118,7 +117,7 @@ Authorization = "Bearer same-token"
 	for _, serverID := range []string{
 		"unsupported-auth",
 		"conflict-stdio-url",
-		"conflict-sse-command",
+		"unsupported-sse",
 		"invalid-shape",
 		"bad__id",
 		"foo",
@@ -259,7 +258,7 @@ func TestParseCodexMCPServerEntryBuildsHTTPPayload(t *testing.T) {
 	t.Parallel()
 
 	payload, err := parseCodexMCPServerEntry(map[string]any{
-		"transport": "SSE",
+		"transport": "STREAMABLE_HTTP",
 		"url":       "http://127.0.0.1:7000/mcp",
 		"http_headers": map[string]any{
 			"Authorization": "Bearer token",
@@ -270,7 +269,7 @@ func TestParseCodexMCPServerEntryBuildsHTTPPayload(t *testing.T) {
 	}
 
 	expected := map[string]any{
-		"transport": "sse",
+		"transport": "streamable_http",
 		"url":       "http://127.0.0.1:7000/mcp",
 		"http_headers": map[string]string{
 			"Authorization": "Bearer token",

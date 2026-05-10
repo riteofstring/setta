@@ -184,7 +184,7 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -329,7 +329,7 @@ test("browser type filters hide files by category", async ({ page }) => {
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -398,7 +398,7 @@ test("browser search scope menu stays anchored while panning the canvas", async 
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -422,9 +422,9 @@ test("browser search scope menu stays anchored while panning the canvas", async 
       const beforeDx = beforeDialogBox.x - beforeTriggerBox.x;
       const beforeDy = beforeDialogBox.y - beforeTriggerBox.y;
 
-      const reactFlow = page.locator(".react-flow");
-      await expect(reactFlow).toBeVisible();
-      await reactFlow.evaluate((el) => {
+      const gpuFlow = page.locator(".setta-gpu-flow-root");
+      await expect(gpuFlow).toBeVisible();
+      await gpuFlow.evaluate((el) => {
         el.scrollLeft = el.scrollLeft + 240;
         el.scrollTop = el.scrollTop + 160;
       });
@@ -597,7 +597,7 @@ test("browser opens image files in image sections on double click", async ({
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -618,7 +618,7 @@ test("browser opens image files in image sections on double click", async ({
         expectedImageBrowserPath,
       );
       const imageSectionNode = page.locator(
-        `.react-flow__node[data-id="${imageSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${imageSectionId}"]`,
       );
       await expect(imageSectionNode).toBeVisible();
       await expect(imageSectionNode.locator("img").first()).toBeVisible({

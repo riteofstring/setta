@@ -228,7 +228,7 @@ func parseCodexMCPServerEntry(rawEntry any, serverID string) (map[string]any, er
 	switch fields.transport {
 	case "stdio":
 		return buildCodexStdioServerPayload(fields)
-	case "sse", "streamable_http":
+	case "streamable_http":
 		return buildCodexHTTPServerPayload(fields)
 	default:
 		return nil, fmt.Errorf("server %q has unsupported transport %q", serverID, fields.transport)

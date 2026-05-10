@@ -154,96 +154,7 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if payload.DeploymentVersion != "v1" {
 		t.Fatalf("expected app deployment version v1, got %q", payload.DeploymentVersion)
 	}
-
-	manifest, err := deployments.LoadManifest(payload.DeploymentRoot)
-	if err != nil {
-		t.Fatalf("load app manifest: %v", err)
-	}
-	if manifest.DeploymentType != deployments.TypeApp {
-		t.Fatalf("expected app deployment type, got %q", manifest.DeploymentType)
-	}
-	if manifest.Listener == nil || !manifest.Listener.Enabled {
-		t.Fatalf("expected enabled app listener config, got %#v", manifest.Listener)
-	}
-	if manifest.Listener.Entrypoint != "listener/app.py" {
-		t.Fatalf("expected app listener entrypoint listener/app.py, got %q", manifest.Listener.Entrypoint)
-	}
-	listenerContent, err := os.ReadFile(filepath.Join(payload.DeploymentRoot, "listener", "app.py"))
-	if err != nil {
-		t.Fatalf("read copied app listener entrypoint: %v", err)
-	}
-	if string(listenerContent) != "print('listener')\n" {
-		t.Fatalf("unexpected copied app listener content %q", string(listenerContent))
-	}
-
-	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
-	if err != nil {
-		t.Fatalf("load app policy: %v", err)
-	}
-	if policy.AllowRun {
-		t.Fatalf("expected app policy allowRun override false, got %#v", policy)
-	}
-
-	store, err := projectstate.NewStore(filepath.Join(payload.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("open published app store: %v", err)
-	}
-	document, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load published app document: %v", err)
-	}
-	storedDefinition := storedDocumentAppDefinition(t, document)
-	if storedDefinition == nil {
-		t.Fatal("expected published app definition")
-	}
-	if storedDefinition.AppSpecPath != appSpecPath {
-		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
-	}
-
-	publishedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(payload.DeploymentRoot, appSpecPath)
-	if err != nil {
-		t.Fatalf("read published app spec: %v", err)
-	}
-	encodedPublished, err := json.Marshal(publishedSpec)
-	if err != nil {
-		t.Fatalf("marshal published app spec: %v", err)
-	}
-	encodedExpected, err := json.Marshal(appSpecPayload)
-	if err != nil {
-		t.Fatalf("marshal expected app spec: %v", err)
-	}
-	if string(encodedPublished) != string(encodedExpected) {
-		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
-	}
-	if _, err := os.Stat(filepath.Join(
-		payload.DeploymentRoot,
-		".setta_plugins",
-		ProviderPluginID,
-		"setta.plugin.json",
-	)); err != nil {
-		t.Fatalf("expected published deployment to package provider plugin, got %v", err)
-	}
-	var pluginsState plugins.PluginsStateFile
-	pluginsStatePayload, err := os.ReadFile(
-		filepath.Join(payload.DeploymentRoot, "plugins_state.json"),
-	)
-	if err != nil {
-		t.Fatalf("read published deployment plugins state: %v", err)
-	}
-	if err := json.Unmarshal(pluginsStatePayload, &pluginsState); err != nil {
-		t.Fatalf("decode published deployment plugins state: %v", err)
-	}
-	if len(pluginsState.EnabledPluginIDs) != 1 ||
-		pluginsState.EnabledPluginIDs[0] != ProviderPluginID {
-		t.Fatalf("expected published deployment plugins state to enable %q, got %#v", ProviderPluginID, pluginsState)
-	}
-	workspaceConfig, ok := pluginsState.PluginConfigByID["workspace:"+ProviderPluginID].(map[string]any)
-	if !ok || workspaceConfig["theme"] != "ocean" {
-		t.Fatalf("expected published deployment workspace-scoped provider config, got %#v", pluginsState.PluginConfigByID)
-	}
-	if _, ok := pluginsState.PluginConfigByID["global:"+ProviderPluginID]; ok {
-		t.Fatalf("expected published deployment to omit global-scoped provider config, got %#v", pluginsState.PluginConfigByID)
-	}
+	assertPublishedAppDeploymentContents(t, payload, appSpecPath, appSpecPayload)
 
 	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
 	secondResponse := httptest.NewRecorder()
@@ -265,6 +176,129 @@ func TestRegisterAppDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
 	if secondPayload.DeploymentVersion != "v2" {
 		t.Fatalf("expected second app deployment version v2, got %q", secondPayload.DeploymentVersion)
 	}
+	assertAppDeploymentVersionRoutes(t, handler)
+}
+
+func assertPublishedAppDeploymentContents(
+	t *testing.T,
+	payload httpapi.DeploymentMetadataResponse,
+	appSpecPath string,
+	appSpecPayload map[string]any,
+) {
+	t.Helper()
+
+	manifest, err := deployments.LoadManifest(payload.DeploymentRoot)
+	if err != nil {
+		t.Fatalf("load app manifest: %v", err)
+	}
+	if manifest.DeploymentType != deployments.TypeApp {
+		t.Fatalf("expected app deployment type, got %q", manifest.DeploymentType)
+	}
+	if manifest.Listener == nil || !manifest.Listener.Enabled {
+		t.Fatalf("expected enabled app listener config, got %#v", manifest.Listener)
+	}
+	if manifest.Listener.Entrypoint != "listener/app.py" {
+		t.Fatalf("expected app listener entrypoint listener/app.py, got %q", manifest.Listener.Entrypoint)
+	}
+	listenerContent, err := os.ReadFile(filepath.Join(payload.DeploymentRoot, "listener", "app.py"))
+	if err != nil {
+		t.Fatalf("read copied app listener entrypoint: %v", err)
+	}
+	if string(listenerContent) != "print('listener')\n" {
+		t.Fatalf("unexpected copied app listener content %q", string(listenerContent))
+	}
+	assertPublishedAppPolicyAndDocument(t, payload.DeploymentRoot, appSpecPath)
+	assertPublishedAppSpec(t, payload.DeploymentRoot, appSpecPath, appSpecPayload)
+	assertPublishedAppPluginState(t, payload.DeploymentRoot)
+}
+
+func assertPublishedAppPolicyAndDocument(t *testing.T, deploymentRoot string, appSpecPath string) {
+	t.Helper()
+
+	policy, err := deployments.LoadPolicy(deploymentRoot)
+	if err != nil {
+		t.Fatalf("load app policy: %v", err)
+	}
+	if policy.AllowRun {
+		t.Fatalf("expected app policy allowRun override false, got %#v", policy)
+	}
+
+	store, err := projectstate.NewStore(filepath.Join(deploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open published app store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load published app document: %v", err)
+	}
+	storedDefinition := storedDocumentAppDefinition(t, document)
+	if storedDefinition == nil {
+		t.Fatal("expected published app definition")
+	}
+	if storedDefinition.AppSpecPath != appSpecPath {
+		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, storedDefinition.AppSpecPath)
+	}
+}
+
+func assertPublishedAppSpec(
+	t *testing.T,
+	deploymentRoot string,
+	appSpecPath string,
+	appSpecPayload map[string]any,
+) {
+	t.Helper()
+
+	publishedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(deploymentRoot, appSpecPath)
+	if err != nil {
+		t.Fatalf("read published app spec: %v", err)
+	}
+	encodedPublished, err := json.Marshal(publishedSpec)
+	if err != nil {
+		t.Fatalf("marshal published app spec: %v", err)
+	}
+	encodedExpected, err := json.Marshal(appSpecPayload)
+	if err != nil {
+		t.Fatalf("marshal expected app spec: %v", err)
+	}
+	if string(encodedPublished) != string(encodedExpected) {
+		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
+	}
+}
+
+func assertPublishedAppPluginState(t *testing.T, deploymentRoot string) {
+	t.Helper()
+
+	if _, err := os.Stat(filepath.Join(
+		deploymentRoot,
+		".setta_plugins",
+		ProviderPluginID,
+		"setta.plugin.json",
+	)); err != nil {
+		t.Fatalf("expected published deployment to package provider plugin, got %v", err)
+	}
+	var pluginsState plugins.PluginsStateFile
+	pluginsStatePayload, err := os.ReadFile(filepath.Join(deploymentRoot, "plugins_state.json"))
+	if err != nil {
+		t.Fatalf("read published deployment plugins state: %v", err)
+	}
+	if err := json.Unmarshal(pluginsStatePayload, &pluginsState); err != nil {
+		t.Fatalf("decode published deployment plugins state: %v", err)
+	}
+	if len(pluginsState.EnabledPluginIDs) != 1 ||
+		pluginsState.EnabledPluginIDs[0] != ProviderPluginID {
+		t.Fatalf("expected published deployment plugins state to enable %q, got %#v", ProviderPluginID, pluginsState)
+	}
+	workspaceConfig, ok := pluginsState.PluginConfigByID["workspace:"+ProviderPluginID].(map[string]any)
+	if !ok || workspaceConfig["theme"] != "ocean" {
+		t.Fatalf("expected published deployment workspace-scoped provider config, got %#v", pluginsState.PluginConfigByID)
+	}
+	if _, ok := pluginsState.PluginConfigByID["global:"+ProviderPluginID]; ok {
+		t.Fatalf("expected published deployment to omit global-scoped provider config, got %#v", pluginsState.PluginConfigByID)
+	}
+}
+
+func assertAppDeploymentVersionRoutes(t *testing.T, handler http.Handler) {
+	t.Helper()
 
 	versionsResponse := httptest.NewRecorder()
 	versionsRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/versions", nil)

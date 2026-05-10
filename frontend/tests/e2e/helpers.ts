@@ -23,7 +23,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -118,10 +118,18 @@ type ProjectStateSectionImpl = { size: ProjectStateSectionSize; type: string };
 type ProjectStateSectionCore = {
   sharedModifier?: { size?: ProjectStateSectionSize };
 };
+type ProjectStateTopLevelSectionLayout = {
+  h?: number | null;
+  w?: number | null;
+  x: number;
+  y: number;
+  zIndex?: number | null;
+};
 type ProjectStateViewport = { x: number; y: number; zoom: number };
 export type SingleConfigResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
+    topLevelSections?: Record<string, ProjectStateTopLevelSectionLayout>;
     viewport?: ProjectStateViewport | null;
   };
   sectionVariants: Record<string, ProjectStateVariant>;
@@ -728,7 +736,9 @@ export async function setChatSectionState(
       getLatestProjectState,
       setChatSectionState: setChatSectionStateRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -882,10 +892,14 @@ export async function loadProjectConfig(
 export async function createCallableSection(
   page: Page,
   projectConfigId: string,
+  options: {
+    position?: { x: number; y: number } | null;
+  } = {},
 ): Promise<string> {
   const response = await createTopLevelSectionFromFrontend(page, {
     projectConfigId,
     implType: "Callable",
+    position: options.position ?? null,
   });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
@@ -905,8 +919,8 @@ export async function applyProjectMutationsFromFrontend(
       "/tests/e2e/browserAppSubsystemSdk.ts"
     );
     const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
-      await import("/src/state/actions/sectionInfos");
-    const openAPI = await import("/src/openapi/http");
+      await import("/src/state/actions/sectionInfos.ts");
+    const openAPI = await import("/src/openapi/http/index.ts");
     const { getLatestProjectState } = openAPI;
 
     if (getCurrProjectConfigId() !== input.projectConfigId) {
@@ -1423,7 +1437,9 @@ export async function setChatSectionChatId(
       getLatestProjectState,
       setChatSectionChatId: setChatSectionChatIdRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -1493,8 +1509,8 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
 } | null> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const bounds = await page.evaluate(async () => {
-      const pane = document.querySelector(".react-flow__pane");
-      const viewport = document.querySelector(".react-flow__viewport");
+      const pane = document.querySelector(".setta-gpu-flow__pane");
+      const viewport = document.querySelector(".setta-gpu-flow__canvas");
       if (
         !(pane instanceof HTMLElement) ||
         !(viewport instanceof HTMLElement)
@@ -1507,10 +1523,10 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       }
       const gutter = 16;
       const transform = window.getComputedStyle(viewport).transform;
-      if (!transform || transform === "none") {
-        return null;
-      }
-      const matrix = new DOMMatrixReadOnly(transform);
+      const matrix =
+        !transform || transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(transform);
       const scale = matrix.a || 1;
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
@@ -1637,7 +1653,9 @@ async function refreshProjectStateFromBackend(
   // Prefer browser-side frontend actions or pre-navigation seeding instead.
   await page.evaluate(async (targetProjectConfigId) => {
     const { getLatestProjectState } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const { processProjectStateUpdateFromBackend } = await import(
       "/src/state/actions/sectionInfos.ts"
     );
@@ -1949,8 +1967,10 @@ async function buildReadinessDebugLines(
 
       return {
         title: document.title,
-        hasReadySelector: Boolean(document.querySelector(".react-flow__pane")),
-        hasViewport: Boolean(document.querySelector(".react-flow__viewport")),
+        hasReadySelector: Boolean(
+          document.querySelector(".setta-gpu-flow__pane"),
+        ),
+        hasViewport: Boolean(document.querySelector(".setta-gpu-flow__canvas")),
         hasSpinner: Boolean(document.querySelector(".animate-spin")),
         appShellText: collectText(".app-shell"),
         bodyText,

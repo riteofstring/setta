@@ -10,8 +10,8 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const HOME_URL = new URL("/home", BASE_URL).toString();
-const READY_SELECTOR = ".react-flow__pane";
-const CANVAS_SELECTOR = ".react-flow";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
+const CANVAS_SELECTOR = ".setta-gpu-flow-root";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -29,12 +29,14 @@ test("new config opens with initial section in view", async ({ page }) => {
   const projectState = await loadProjectConfig(page);
   const generatedSectionId = projectState.singletonSections.GenPythonCode;
   if (!generatedSectionId) {
-    throw new Error("Expected new project to include generated python section.");
+    throw new Error(
+      "Expected new project to include generated python section.",
+    );
   }
 
   const canvas = page.locator(CANVAS_SELECTOR);
   const section = canvas
-    .locator(`.react-flow__node[data-id="${generatedSectionId}"]`)
+    .locator(`.setta-gpu-flow__node[data-id="${generatedSectionId}"]`)
     .first();
   await expect(section).toBeVisible();
 
