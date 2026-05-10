@@ -104,7 +104,7 @@ describe("retained content switch animation store", () => {
     expect(store.hasActiveSurface("surface-a", 10)).toBe(false);
   });
 
-  it("returns the active switch source rect clipped to the retained source canvas", () => {
+  it("returns the active switch source rect clipped to retained content bounds", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       prefersReducedMotion: () => false,
     });
