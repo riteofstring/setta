@@ -168,6 +168,7 @@ function createRowContentSignature(
     label: row.label,
     labelAppearance: row.labelAppearance,
     ports: row.ports,
+    state: row.state,
     status: row.status,
     verticalGapBefore: row.verticalGapBefore,
   });

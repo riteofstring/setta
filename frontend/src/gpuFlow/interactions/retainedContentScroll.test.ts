@@ -145,7 +145,8 @@ describe("GPU retained content scroll controller", () => {
     cleanup();
   });
 
-  it("skips retained wheel handling while viewport wheel pan owns the burst", () => {
+  it("keeps retained wheel ownership while a viewport pan-scroll burst is cooling down", () => {
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
@@ -175,10 +176,16 @@ describe("GPU retained content scroll controller", () => {
     });
     element.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
     expect(requestFrame).not.toHaveBeenCalled();
-    expect(scrollOffsets.size).toBe(0);
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+    expect(onScrollOffsetsChange).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     cleanup();
   });
@@ -305,8 +312,9 @@ describe("GPU retained content scroll controller", () => {
     cleanupScroll();
   });
 
-  it("lets viewport wheel pan continue over retained content during an active burst", () => {
+  it("does not let a viewport wheel pan burst steal wheel events over retained content", () => {
     vi.useFakeTimers();
+    const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
     const store = createGpuFlowViewportStore({
@@ -344,9 +352,14 @@ describe("GPU retained content scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
-    expect(store.getState().transform).toEqual([0, -18, 1]);
-    expect(scrollOffsets.size).toBe(0);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+    expect(onScrollOffsetsChange).toHaveBeenCalledTimes(1);
 
     cleanupPan();
     cleanupScroll();

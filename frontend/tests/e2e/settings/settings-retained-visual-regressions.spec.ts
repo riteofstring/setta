@@ -1,6 +1,20 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { ensureAppReady } from "../helpers";
+import {
+  analyzeHoverBands,
+  analyzeHoverContrast,
+  analyzeSwitchThumbMotion,
+  analyzeVerticalScrollbar,
+  compareScreenshots,
+  locateCheckedSwitchBounds,
+  type HoverBandStats,
+  type Point,
+  type Rect,
+  type RetainedRowDebugEntry,
+  type SwitchFrame,
+  type SwitchThumbStats,
+} from "./settings-retained-visual-analysis";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -8,6 +22,24 @@ const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GUI_SECTION_ID = "settings-section__gui";
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const LEFT_PANE_SHIFT_LABEL = "Left Side Pane Shifts Map";
+const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
+const GUI_SCROLL_LABEL_ORDER = [
+  "Default Zoom Level",
+  "Grid Color",
+  "Grid Color Dark Mode",
+  "Grid Pattern",
+  "Grid Pattern Size",
+  "Left Side Pane Shifts Map",
+  "Max Zoom",
+  "Min Zoom",
+  "Pan On Drag",
+  "Pan On Scroll",
+  "Pan On Scroll Mode",
+  "Pan On Scroll Speed",
+  "Section Tag Color Choices",
+  "Selection Mode",
+  "Show Grid Lines",
+] as const;
 
 test.use({
   userAgent:
@@ -16,47 +48,14 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
-type Point = {
-  readonly x: number;
-  readonly y: number;
-};
-
-type Rect = Point & {
-  readonly height: number;
-  readonly width: number;
-};
-
-type RetainedRowDebugEntry = {
-  readonly clientRect: Rect;
-  readonly controlClientPoint: Point | null;
-  readonly controlKind: string | null;
-  readonly labelClientPoint: Point;
-  readonly rowId: string;
-  readonly rowLabel: string;
-  readonly surfaceId: string;
-};
-
-type RowBand = {
-  readonly label: string;
-  readonly rect: Rect;
-};
-
-type HoverBandStats = {
-  readonly changedPixelRatio: number;
-  readonly label: string;
-  readonly meanDelta: number;
-};
-
-type SwitchFrame = {
+type ScrollFrame = {
+  readonly marker: number;
   readonly name: string;
   readonly screenshot: Buffer;
-};
-
-type ScrollbarStats = {
-  readonly duplicateColumnCount: number;
-  readonly maxColumnCoverage: number;
-  readonly primaryColumnCoverage: number;
-  readonly visibleColumnCount: number;
+  readonly visibleRows: readonly {
+    readonly label: string;
+    readonly y: number;
+  }[];
 };
 
 test("rapid row hover shows exactly one retained row highlight", async ({
@@ -123,19 +122,87 @@ test("rapid row hover shows exactly one retained row highlight", async ({
   expect(violations, failureDetails).toHaveLength(0);
 });
 
-test("retained switch click shows a visible intermediate animation frame", async ({
+test("retained row hover highlight remains subtle and readable in dark mode", async ({
   page,
 }, testInfo) => {
   await openSettings(page);
-  const row = await resolveVisibleGuiRow(page, LEFT_PANE_SHIFT_LABEL);
+  const row = await resolveVisibleGuiRow(page, "Max Zoom");
+  await moveAwayFromRetainedRows(page);
+  const clip = rowsToClip([row]);
+  await waitForStableScreenshotClip(page, clip);
+  const before = await screenshotClip({
+    name: "visual-hover-contrast-before.png",
+    page,
+    rect: clip,
+    testInfo,
+  });
+
+  await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y);
+  await page.waitForTimeout(120);
+  const after = await screenshotClip({
+    name: "visual-hover-contrast-after.png",
+    page,
+    rect: clip,
+    testInfo,
+  });
+  const afterRow = await resolveVisibleGuiRow(page, "Max Zoom");
+
+  const stats = await analyzeHoverContrast(page, {
+    after,
+    before,
+    clip,
+    row: {
+      label: row.rowLabel,
+      rect: row.clientRect,
+    },
+  });
+  const failureDetails = JSON.stringify(
+    { afterRow, clip, row, stats },
+    null,
+    2,
+  );
+  expect(stats.changedPixelRatio, failureDetails).toBeGreaterThan(0.08);
+  expect(stats.meanDelta, failureDetails).toBeGreaterThan(2.5);
+  expect(Math.abs(stats.backgroundLumaDelta), failureDetails).toBeLessThan(10);
+  expect(stats.afterContrast, failureDetails).toBeGreaterThanOrEqual(
+    stats.beforeContrast * 0.95,
+  );
+});
+
+test("retained switch click animates the thumb monotonically", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
+  await performCloseZoom(page, zoomTarget.labelClientPoint);
+  const row = await bringVisibleGuiRowControlIntoView(
+    page,
+    SWITCH_ANIMATION_LABEL,
+  );
   if (!row.controlClientPoint) {
-    throw new Error(`Missing switch control point for ${LEFT_PANE_SHIFT_LABEL}`);
+    throw new Error(
+      `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
+    );
   }
-  const clip = clampScreenshotClip({
+  const rowClip = await clampScreenshotClipToViewport(page, {
     height: 40,
-    width: Math.min(180, row.clientRect.width * 0.5),
-    x: row.clientRect.x + row.clientRect.width * 0.45,
+    width: row.clientRect.width,
+    x: row.clientRect.x,
     y: row.controlClientPoint.y - 20,
+  });
+  await waitForStableScreenshotClip(page, rowClip);
+  const rowBefore = await screenshotClip({
+    name: "visual-switch-row-before.png",
+    page,
+    rect: rowClip,
+    testInfo,
+  });
+  const switchBounds = await locateCheckedSwitchBounds(page, rowBefore);
+  const clip = await clampScreenshotClipToViewport(page, {
+    height: switchBounds.height,
+    width: switchBounds.width,
+    x: rowClip.x + switchBounds.x,
+    y: rowClip.y + switchBounds.y,
   });
   const before = await captureSwitchFrame({
     name: "visual-switch-before.png",
@@ -144,13 +211,15 @@ test("retained switch click shows a visible intermediate animation frame", async
     testInfo,
   });
 
-  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await page.mouse.click(clip.x + clip.width / 2, clip.y + clip.height / 2);
   const samples: SwitchFrame[] = [];
-  for (const delay of [12, 24, 36, 60]) {
-    await page.waitForTimeout(delay);
+  let elapsedMs = 0;
+  for (const targetMs of [8, 16, 24, 32, 48, 64, 96, 140]) {
+    await page.waitForTimeout(targetMs - elapsedMs);
+    elapsedMs = targetMs;
     samples.push(
       await captureSwitchFrame({
-        name: `visual-switch-${delay}ms.png`,
+        name: `visual-switch-${targetMs}ms.png`,
         page,
         rect: clip,
         testInfo,
@@ -165,39 +234,43 @@ test("retained switch click shows a visible intermediate animation frame", async
     testInfo,
   });
 
-  const beforeToSettled = await compareScreenshots(
-    page,
-    before.screenshot,
-    settled.screenshot,
+  const frames = [before, ...samples, settled];
+  const thumbStats = await analyzeSwitchThumbMotion(page, frames);
+  const detectedStats = thumbStats.filter(
+    (stats): stats is SwitchThumbStats & { readonly progress: number } =>
+      stats.progress !== null,
   );
-  const sampleDeltas = [];
-  for (const sample of samples) {
-    sampleDeltas.push({
-      fromBefore: await compareScreenshots(
-        page,
-        before.screenshot,
-        sample.screenshot,
-      ),
-      fromSettled: await compareScreenshots(
-        page,
-        sample.screenshot,
-        settled.screenshot,
-      ),
-      name: sample.name,
-    });
+  const backtracks = [];
+  let maxProgress = Number.NEGATIVE_INFINITY;
+  for (const stats of detectedStats) {
+    if (stats.progress < maxProgress - 0.08) {
+      backtracks.push({
+        name: stats.name,
+        previousMaxProgress: maxProgress,
+        progress: stats.progress,
+      });
+    }
+    maxProgress = Math.max(maxProgress, stats.progress);
   }
-  const intermediateSamples = sampleDeltas.filter(
-    (sample) =>
-      sample.fromBefore.meanDelta > beforeToSettled.meanDelta * 0.25 &&
-      sample.fromSettled.meanDelta > beforeToSettled.meanDelta * 0.25,
+  const distinctPositions = new Set(
+    detectedStats.map((stats) =>
+      stats.thumbCenterX === null
+        ? "missing"
+        : String(Math.round(stats.thumbCenterX)),
+    ),
+  );
+  const intermediateSamples = detectedStats.filter(
+    (stats) => stats.progress > 0.12 && stats.progress < 0.88,
   );
   const failureDetails = JSON.stringify(
-    { beforeToSettled, intermediateSamples, sampleDeltas },
+    { backtracks, distinctPositions: [...distinctPositions], thumbStats },
     null,
     2,
   );
-  expect(beforeToSettled.meanDelta, failureDetails).toBeGreaterThan(0.5);
+  expect(detectedStats.length, failureDetails).toBe(frames.length);
+  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(4);
   expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
+  expect(backtracks, failureDetails).toHaveLength(0);
 });
 
 test("retained section scroll position survives viewport pan and zoom", async ({
@@ -250,6 +323,186 @@ test("retained section scroll position survives viewport pan and zoom", async ({
   );
   expect(similarity.meanDelta, failureDetails).toBeLessThan(14);
   expect(similarity.changedPixelRatio, failureDetails).toBeLessThan(0.4);
+});
+
+test("retained section wheel scrolling moves visibly in one direction", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await resetGuiContentScrollToTop(page);
+  const row = await resolveVisibleGuiRow(page, "Grid Pattern Size");
+  await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y);
+  const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
+  const contentClip = clampScreenshotClip({
+    height: surfaceClip.height,
+    width: Math.max(160, surfaceClip.width - 36),
+    x: surfaceClip.x,
+    y: surfaceClip.y,
+  });
+  await waitForStableScreenshotClip(page, contentClip);
+  const frames: ScrollFrame[] = [
+    await captureScrollContentFrame({
+      name: "initial",
+      page,
+      rect: contentClip,
+      testInfo,
+    }),
+  ];
+  for (let index = 0; index < 8; index += 1) {
+    await page.mouse.wheel(0, 48);
+    await page.waitForTimeout(18);
+    frames.push(
+      await captureScrollContentFrame({
+        name: `wheel-${index}`,
+        page,
+        rect: contentClip,
+        testInfo,
+      }),
+    );
+  }
+
+  const deltas = frames.slice(1).map((frame, index) => ({
+    delta: frame.marker - (frames[index]?.marker ?? frame.marker),
+    from: frames[index]?.name ?? "missing",
+    to: frame.name,
+  }));
+  const activeDeltas = deltas.filter((delta) => Math.abs(delta.delta) > 2);
+  const forwardTravel =
+    (frames[frames.length - 1]?.marker ?? 0) - (frames[0]?.marker ?? 0);
+  const reversals = activeDeltas.filter((delta) => delta.delta < -2);
+  const frameDetails = frames.map((frame) => ({
+    marker: frame.marker,
+    name: frame.name,
+    visibleRows: frame.visibleRows,
+  }));
+  const failureDetails = JSON.stringify(
+    {
+      activeDeltas,
+      contentClip,
+      deltas,
+      frames: frameDetails,
+      forwardTravel,
+      reversals,
+      surfaceClip,
+    },
+    null,
+    2,
+  );
+  expect(activeDeltas.length, failureDetails).toBeGreaterThanOrEqual(4);
+  expect(forwardTravel, failureDetails).toBeGreaterThan(30);
+  expect(reversals, failureDetails).toHaveLength(0);
+});
+
+test("retained gui hover switch and scroll stay visually coherent", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await resetGuiContentScrollToTop(page);
+  const hoverRow = await resolveVisibleGuiRow(page, "Max Zoom");
+  const switchRow = await resolveVisibleGuiRow(page, LEFT_PANE_SHIFT_LABEL);
+  if (!switchRow.controlClientPoint) {
+    throw new Error(
+      `Missing switch control point for ${LEFT_PANE_SHIFT_LABEL}`,
+    );
+  }
+  const hoverClip = rowsToClip([hoverRow]);
+  await waitForStableScreenshotClip(page, hoverClip);
+  const beforeHover = await screenshotClip({
+    name: "visual-bundle-before-hover.png",
+    page,
+    rect: hoverClip,
+    testInfo,
+  });
+
+  await page.mouse.move(
+    hoverRow.labelClientPoint.x,
+    hoverRow.labelClientPoint.y,
+  );
+  await page.waitForTimeout(80);
+  const afterHover = await screenshotClip({
+    name: "visual-bundle-after-hover.png",
+    page,
+    rect: hoverClip,
+    testInfo,
+  });
+  const hoverStats = await analyzeHoverBands(page, {
+    after: afterHover,
+    before: beforeHover,
+    clip: hoverClip,
+    rows: [{ label: hoverRow.rowLabel, rect: hoverRow.clientRect }],
+  });
+
+  const switchClip = rowsToClip([switchRow]);
+  const beforeSwitch = await screenshotClip({
+    name: "visual-bundle-before-switch.png",
+    page,
+    rect: switchClip,
+    testInfo,
+  });
+  await page.mouse.click(
+    switchRow.controlClientPoint.x,
+    switchRow.controlClientPoint.y,
+  );
+  await page.waitForTimeout(180);
+  const afterSwitch = await screenshotClip({
+    name: "visual-bundle-after-switch.png",
+    page,
+    rect: switchClip,
+    testInfo,
+  });
+  const switchDelta = await compareScreenshots(page, beforeSwitch, afterSwitch);
+
+  const scrollRow = await resolveVisibleGuiRow(page, "Grid Pattern Size");
+  await page.mouse.move(
+    scrollRow.labelClientPoint.x,
+    scrollRow.labelClientPoint.y,
+  );
+  const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
+  const contentClip = clampScreenshotClip({
+    height: surfaceClip.height,
+    width: Math.max(160, surfaceClip.width - 36),
+    x: surfaceClip.x,
+    y: surfaceClip.y,
+  });
+  const firstScrollFrame = await captureScrollContentFrame({
+    name: "bundle-scroll-initial",
+    page,
+    rect: contentClip,
+    testInfo,
+  });
+  for (let index = 0; index < 4; index += 1) {
+    await page.mouse.wheel(0, 48);
+    await page.waitForTimeout(18);
+  }
+  const finalScrollFrame = await captureScrollContentFrame({
+    name: "bundle-scroll-final",
+    page,
+    rect: contentClip,
+    testInfo,
+  });
+  const forwardTravel = finalScrollFrame.marker - firstScrollFrame.marker;
+  const failureDetails = JSON.stringify(
+    {
+      finalScrollFrame: {
+        marker: finalScrollFrame.marker,
+        visibleRows: finalScrollFrame.visibleRows,
+      },
+      firstScrollFrame: {
+        marker: firstScrollFrame.marker,
+        visibleRows: firstScrollFrame.visibleRows,
+      },
+      forwardTravel,
+      hoverStats,
+      switchDelta,
+    },
+    null,
+    2,
+  );
+  expect(hoverStats[0]?.changedPixelRatio ?? 0, failureDetails).toBeGreaterThan(
+    0.08,
+  );
+  expect(switchDelta.meanDelta, failureDetails).toBeGreaterThan(0.4);
+  expect(forwardTravel, failureDetails).toBeGreaterThan(20);
 });
 
 test("retained scrollbar renders as one coherent vertical control", async ({
@@ -426,15 +679,13 @@ async function dragGuiScrollbarDown(page: Page): Promise<void> {
   await expect
     .poll(async () => {
       const rows = await page.evaluate((surfaceId) => {
-        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
-          .filter(
-            (row): row is RetainedRowDebugEntry =>
-              row.surfaceId === surfaceId &&
-              row.rowLabel === "Section Tag Color Choices" &&
-              row.clientRect.y > 0 &&
-              row.clientRect.y < window.innerHeight,
-          )
-          .length;
+        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+          (row): row is RetainedRowDebugEntry =>
+            row.surfaceId === surfaceId &&
+            row.rowLabel === "Section Tag Color Choices" &&
+            row.clientRect.y > 0 &&
+            row.clientRect.y < window.innerHeight,
+        ).length;
       }, GUI_CONTENT_SURFACE_ID);
       return rows;
     })
@@ -457,17 +708,37 @@ async function wheelGuiContentDown(page: Page): Promise<void> {
   await expect
     .poll(async () => {
       const rows = await page.evaluate((surfaceId) => {
-        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
-          .filter(
-            (candidate): candidate is RetainedRowDebugEntry =>
-              candidate.surfaceId === surfaceId &&
-              candidate.rowLabel === "Section Tag Color Choices" &&
-              candidate.clientRect.y > 0 &&
-              candidate.clientRect.y < window.innerHeight,
-          )
-          .length;
+        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+          (candidate): candidate is RetainedRowDebugEntry =>
+            candidate.surfaceId === surfaceId &&
+            candidate.rowLabel === "Section Tag Color Choices" &&
+            candidate.clientRect.y > 0 &&
+            candidate.clientRect.y < window.innerHeight,
+        ).length;
       }, GUI_CONTENT_SURFACE_ID);
       return rows;
+    })
+    .toBeGreaterThan(0);
+}
+
+async function resetGuiContentScrollToTop(page: Page): Promise<void> {
+  const row = await resolveVisibleGuiRow(page, "Pan On Scroll Mode");
+  await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y);
+  for (let index = 0; index < 12; index += 1) {
+    await page.mouse.wheel(0, -96);
+    await page.waitForTimeout(12);
+  }
+  await expect
+    .poll(async () => {
+      return await page.evaluate((surfaceId) => {
+        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+          (candidate): candidate is RetainedRowDebugEntry =>
+            candidate.surfaceId === surfaceId &&
+            candidate.rowLabel === "Grid Pattern Size" &&
+            candidate.clientRect.y > 0 &&
+            candidate.clientRect.y < window.innerHeight,
+        ).length;
+      }, GUI_CONTENT_SURFACE_ID);
     })
     .toBeGreaterThan(0);
 }
@@ -489,6 +760,73 @@ async function performCloseZoom(page: Page, point: Point): Promise<void> {
     await page.keyboard.up("Control");
   }
   await expect.poll(() => readViewportZoom(page)).toBeGreaterThan(3.4);
+}
+
+async function bringVisibleGuiRowControlIntoView(
+  page: Page,
+  label: string,
+): Promise<RetainedRowDebugEntry> {
+  let row = await resolveVisibleGuiRow(page, label);
+  if (!row.controlClientPoint) {
+    return row;
+  }
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const viewport = await page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    }));
+    if (
+      row.controlClientPoint.x > 96 &&
+      row.controlClientPoint.x < viewport.width - 96 &&
+      row.controlClientPoint.y > 96 &&
+      row.controlClientPoint.y < viewport.height - 96
+    ) {
+      return row;
+    }
+    const beforeDistance = Math.abs(
+      row.controlClientPoint.x - viewport.width / 2,
+    );
+    const primaryDx =
+      row.controlClientPoint.x > viewport.width - 96 ? -320 : 320;
+    await panViewportBy(page, primaryDx, 0);
+    let nextRow = await resolveVisibleGuiRow(page, label);
+    if (nextRow.controlClientPoint) {
+      const afterDistance = Math.abs(
+        nextRow.controlClientPoint.x - viewport.width / 2,
+      );
+      if (afterDistance <= beforeDistance) {
+        row = nextRow;
+        continue;
+      }
+    }
+    await panViewportBy(page, -primaryDx * 2, 0);
+    nextRow = await resolveVisibleGuiRow(page, label);
+    if (nextRow.controlClientPoint) {
+      row = nextRow;
+    }
+  }
+  return row;
+}
+
+async function panViewportBy(
+  page: Page,
+  dx: number,
+  dy: number,
+): Promise<void> {
+  const canvas = page.locator(".setta-gpu-flow__canvas").first();
+  const box = await canvas.boundingBox();
+  if (!box) {
+    throw new Error("Missing GPU flow canvas bounds.");
+  }
+  const start = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + dx, start.y + dy, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(100);
 }
 
 async function readViewportZoom(page: Page): Promise<number> {
@@ -571,6 +909,93 @@ async function captureSwitchFrame({
   };
 }
 
+async function captureScrollContentFrame({
+  name,
+  page,
+  rect,
+  testInfo,
+}: {
+  readonly name: string;
+  readonly page: Page;
+  readonly rect: Rect;
+  readonly testInfo: TestInfo;
+}): Promise<ScrollFrame> {
+  const screenshot = await screenshotClip({
+    name: `visual-scroll-monotonic-${name}.png`,
+    page,
+    rect,
+    testInfo,
+  });
+  const marker = await readVisibleGuiContentScrollMarker(page);
+  return {
+    marker: marker.marker,
+    name,
+    screenshot,
+    visibleRows: marker.visibleRows,
+  };
+}
+
+async function readVisibleGuiContentScrollMarker(page: Page): Promise<{
+  readonly marker: number;
+  readonly visibleRows: readonly {
+    readonly label: string;
+    readonly y: number;
+  }[];
+}> {
+  return await page.evaluate(
+    ({ labelOrder, surfaceId }) => {
+      const orderByLabel = new Map(
+        labelOrder.map((label, index) => [label, index]),
+      );
+      const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+        .filter(
+          (row): row is RetainedRowDebugEntry =>
+            row.surfaceId === surfaceId &&
+            orderByLabel.has(row.rowLabel) &&
+            row.clientRect.width > 16 &&
+            row.clientRect.height > 8 &&
+            row.clientRect.y < window.innerHeight &&
+            row.clientRect.y + row.clientRect.height > 0,
+        )
+        .sort((left, right) => left.clientRect.y - right.clientRect.y);
+      if (rows.length < 3) {
+        throw new Error(
+          `Missing enough visible GUI rows for scroll marker: ${JSON.stringify(
+            rows.map((row) => row.rowLabel),
+          )}`,
+        );
+      }
+      const rowHeight = median(rows.map((row) => row.clientRect.height));
+      const markers = rows.map((row) => {
+        const order = orderByLabel.get(row.rowLabel);
+        if (order === undefined) {
+          throw new Error(`Missing retained row order for ${row.rowLabel}.`);
+        }
+        return order * rowHeight - row.clientRect.y;
+      });
+      return {
+        marker: median(markers),
+        visibleRows: rows.map((row) => ({
+          label: row.rowLabel,
+          y: row.clientRect.y,
+        })),
+      };
+
+      function median(values: readonly number[]): number {
+        if (values.length === 0) {
+          return 0;
+        }
+        const sorted = [...values].sort((left, right) => left - right);
+        return sorted[Math.floor(sorted.length / 2)] ?? 0;
+      }
+    },
+    {
+      labelOrder: GUI_SCROLL_LABEL_ORDER,
+      surfaceId: GUI_CONTENT_SURFACE_ID,
+    },
+  );
+}
+
 async function screenshotClip({
   name,
   page,
@@ -613,246 +1038,6 @@ async function waitForStableScreenshotClip(
     .toBeLessThan(1);
 }
 
-async function analyzeHoverBands(
-  page: Page,
-  input: {
-    readonly after: Buffer;
-    readonly before: Buffer;
-    readonly clip: Rect;
-    readonly rows: readonly RowBand[];
-  },
-): Promise<readonly HoverBandStats[]> {
-  return await page.evaluate(
-    async ({ afterDataUrl, beforeDataUrl, clip, rows }) => {
-      const [beforeImage, afterImage] = await Promise.all([
-        loadImage(beforeDataUrl),
-        loadImage(afterDataUrl),
-      ]);
-      const width = Math.min(beforeImage.naturalWidth, afterImage.naturalWidth);
-      const height = Math.min(
-        beforeImage.naturalHeight,
-        afterImage.naturalHeight,
-      );
-      const beforePixels = imagePixels(beforeImage, width, height);
-      const afterPixels = imagePixels(afterImage, width, height);
-      return rows.map((row) => {
-        const top = Math.max(0, Math.floor(row.rect.y - clip.y));
-        const bottom = Math.min(
-          height,
-          Math.ceil(row.rect.y + row.rect.height - clip.y),
-        );
-        const left = Math.max(0, Math.floor(row.rect.x - clip.x));
-        const right = Math.min(
-          width,
-          Math.ceil(row.rect.x + row.rect.width - clip.x),
-        );
-        let changed = 0;
-        let total = 0;
-        let deltaTotal = 0;
-        for (let y = top; y < bottom; y += 1) {
-          for (let x = left; x < right; x += 1) {
-            const index = (y * width + x) * 4;
-            const delta =
-              Math.abs((afterPixels[index] ?? 0) - (beforePixels[index] ?? 0)) +
-              Math.abs(
-                (afterPixels[index + 1] ?? 0) -
-                  (beforePixels[index + 1] ?? 0),
-              ) +
-              Math.abs(
-                (afterPixels[index + 2] ?? 0) -
-                  (beforePixels[index + 2] ?? 0),
-              );
-            total += 1;
-            deltaTotal += delta / 3;
-            if (delta >= 18) {
-              changed += 1;
-            }
-          }
-        }
-        return {
-          changedPixelRatio: total === 0 ? 0 : changed / total,
-          label: row.label,
-          meanDelta: total === 0 ? 0 : deltaTotal / total,
-        };
-      });
-
-      async function loadImage(url: string): Promise<HTMLImageElement> {
-        const image = new Image();
-        const loaded = new Promise<void>((resolve, reject) => {
-          image.onload = () => resolve();
-          image.onerror = () =>
-            reject(new Error("Failed to decode hover screenshot."));
-        });
-        image.src = url;
-        await loaded;
-        return image;
-      }
-
-      function imagePixels(
-        image: HTMLImageElement,
-        imageWidth: number,
-        imageHeight: number,
-      ): Uint8ClampedArray {
-        const canvas = document.createElement("canvas");
-        canvas.width = imageWidth;
-        canvas.height = imageHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) {
-          throw new Error("Missing hover analysis canvas context.");
-        }
-        ctx.drawImage(image, 0, 0, imageWidth, imageHeight);
-        return ctx.getImageData(0, 0, imageWidth, imageHeight).data;
-      }
-    },
-    {
-      afterDataUrl: `data:image/png;base64,${input.after.toString("base64")}`,
-      beforeDataUrl: `data:image/png;base64,${input.before.toString(
-        "base64",
-      )}`,
-      clip: input.clip,
-      rows: input.rows,
-    },
-  );
-}
-
-async function compareScreenshots(
-  page: Page,
-  before: Buffer,
-  after: Buffer,
-): Promise<{
-  readonly changedPixelRatio: number;
-  readonly meanDelta: number;
-}> {
-  return await page.evaluate(
-    async ({ afterDataUrl, beforeDataUrl }) => {
-      const [beforeImage, afterImage] = await Promise.all([
-        loadImageForCompare(beforeDataUrl),
-        loadImageForCompare(afterDataUrl),
-      ]);
-      const width = Math.min(beforeImage.naturalWidth, afterImage.naturalWidth);
-      const height = Math.min(
-        beforeImage.naturalHeight,
-        afterImage.naturalHeight,
-      );
-      const beforePixels = imagePixels(beforeImage, width, height);
-      const afterPixels = imagePixels(afterImage, width, height);
-      let changed = 0;
-      let deltaTotal = 0;
-      const total = width * height;
-      for (let index = 0; index < total * 4; index += 4) {
-        const delta =
-          Math.abs((afterPixels[index] ?? 0) - (beforePixels[index] ?? 0)) +
-          Math.abs(
-            (afterPixels[index + 1] ?? 0) - (beforePixels[index + 1] ?? 0),
-          ) +
-          Math.abs(
-            (afterPixels[index + 2] ?? 0) - (beforePixels[index + 2] ?? 0),
-          );
-        deltaTotal += delta / 3;
-        if (delta >= 24) {
-          changed += 1;
-        }
-      }
-      return {
-        changedPixelRatio: total === 0 ? 1 : changed / total,
-        meanDelta: total === 0 ? 255 : deltaTotal / total,
-      };
-
-      async function loadImageForCompare(
-        url: string,
-      ): Promise<HTMLImageElement> {
-        const image = new Image();
-        const loaded = new Promise<void>((resolve, reject) => {
-          image.onload = () => resolve();
-          image.onerror = () =>
-            reject(new Error("Failed to decode comparison screenshot."));
-        });
-        image.src = url;
-        await loaded;
-        return image;
-      }
-
-      function imagePixels(
-        image: HTMLImageElement,
-        imageWidth: number,
-        imageHeight: number,
-      ): Uint8ClampedArray {
-        const canvas = document.createElement("canvas");
-        canvas.width = imageWidth;
-        canvas.height = imageHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) {
-          throw new Error("Missing comparison analysis canvas context.");
-        }
-        ctx.drawImage(image, 0, 0, imageWidth, imageHeight);
-        return ctx.getImageData(0, 0, imageWidth, imageHeight).data;
-      }
-    },
-    {
-      afterDataUrl: `data:image/png;base64,${after.toString("base64")}`,
-      beforeDataUrl: `data:image/png;base64,${before.toString("base64")}`,
-    },
-  );
-}
-
-async function analyzeVerticalScrollbar(
-  page: Page,
-  screenshot: Buffer,
-): Promise<ScrollbarStats> {
-  return await page.evaluate(async (dataUrl) => {
-    const image = new Image();
-    const loaded = new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () =>
-        reject(new Error("Failed to decode scrollbar screenshot."));
-    });
-    image.src = dataUrl;
-    await loaded;
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) {
-      throw new Error("Missing scrollbar analysis canvas context.");
-    }
-    ctx.drawImage(image, 0, 0);
-    const { data, height, width } = ctx.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    );
-    const columnCoverage = Array.from({ length: width }, (_, x) => {
-      let visible = 0;
-      for (let y = 0; y < height; y += 1) {
-        const index = (y * width + x) * 4;
-        const r = data[index] ?? 0;
-        const g = data[index + 1] ?? 0;
-        const b = data[index + 2] ?? 0;
-        const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        if (b > 40 && luminance > 20 && Math.abs(b - r) > 8) {
-          visible += 1;
-        }
-      }
-      return visible / Math.max(1, height);
-    });
-    const visibleColumns = columnCoverage.filter((coverage) => coverage > 0.25);
-    const duplicateColumnCount = columnCoverage.filter(
-      (coverage) => coverage > 0.72,
-    ).length;
-    const sorted = [...columnCoverage].sort((left, right) => right - left);
-    return {
-      duplicateColumnCount,
-      maxColumnCoverage: sorted[0] ?? 0,
-      primaryColumnCoverage: sorted.slice(0, 8).reduce(
-        (total, coverage) => total + coverage,
-        0,
-      ) / 8,
-      visibleColumnCount: visibleColumns.length,
-    };
-  }, `data:image/png;base64,${screenshot.toString("base64")}`);
-}
-
 function rowsToClip(rows: readonly RetainedRowDebugEntry[]): Rect {
   const left = Math.max(0, Math.min(...rows.map((row) => row.clientRect.x)));
   const top = Math.max(0, Math.min(...rows.map((row) => row.clientRect.y)));
@@ -877,4 +1062,29 @@ function clampScreenshotClip(rect: Rect): Rect {
     x: Math.max(0, Math.floor(rect.x)),
     y: Math.max(0, Math.floor(rect.y)),
   };
+}
+
+async function clampScreenshotClipToViewport(
+  page: Page,
+  rect: Rect,
+): Promise<Rect> {
+  return await page.evaluate((input) => {
+    const width = Math.min(
+      Math.max(1, Math.floor(input.width)),
+      Math.max(1, window.innerWidth - 1),
+    );
+    const height = Math.min(
+      Math.max(1, Math.floor(input.height)),
+      Math.max(1, window.innerHeight - 1),
+    );
+    const x = Math.min(
+      Math.max(0, Math.floor(input.x)),
+      Math.max(0, window.innerWidth - width),
+    );
+    const y = Math.min(
+      Math.max(0, Math.floor(input.y)),
+      Math.max(0, window.innerHeight - height),
+    );
+    return { height, width, x, y };
+  }, rect);
 }

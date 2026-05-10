@@ -15,7 +15,6 @@ import {
   GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   isGpuRetainedContentNativeTarget,
 } from "./retainedContentInteraction";
-import { isGpuViewportWheelGestureActive } from "./wheelOwnership";
 
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
@@ -105,7 +104,7 @@ class GpuRetainedContentScrollController {
       event.defaultPrevented ||
       event.ctrlKey ||
       Boolean(this.options.disabled?.(event)) ||
-      isGpuViewportWheelGestureActive(this.store) ||
+      isBlockingViewportInteractionActive(this.store) ||
       shouldPreserveNativeWheelTarget(event)
     );
   }
@@ -203,4 +202,11 @@ function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {
     '[data-gpu-flow-wheel-target="true"]',
     ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   ]);
+}
+
+function isBlockingViewportInteractionActive(
+  store: GpuFlowViewportStoreApi,
+): boolean {
+  const state = store.getState();
+  return state.pointerPanning || state.paneDragging || state.wheelZooming;
 }

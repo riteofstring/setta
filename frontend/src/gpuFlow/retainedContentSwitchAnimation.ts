@@ -52,7 +52,7 @@ export type GpuRetainedContentSwitchAnimationStore = {
   ): void;
 };
 
-export const DEFAULT_SWITCH_TRANSITION_DURATION_MS = 50;
+export const DEFAULT_SWITCH_TRANSITION_DURATION_MS = 140;
 const SWITCH_ANIMATION_KEY_SEPARATOR = "\u0000";
 
 export function createGpuRetainedContentSwitchAnimationStore({
@@ -60,11 +60,13 @@ export function createGpuRetainedContentSwitchAnimationStore({
   prefersReducedMotion = prefersGpuRetainedContentReducedMotion,
 }: GpuRetainedContentSwitchAnimationStoreOptions = {}): GpuRetainedContentSwitchAnimationStore {
   const checkedByKey = new Map<string, boolean>();
+  const progressByKey = new Map<string, number>();
   const surfaceKeys = new Map<string, Set<string>>();
   const transitions = new Map<string, GpuRetainedContentSwitchTransition>();
 
   const clearKey = (key: string) => {
     checkedByKey.delete(key);
+    progressByKey.delete(key);
     transitions.delete(key);
   };
 
@@ -79,21 +81,10 @@ export function createGpuRetainedContentSwitchAnimationStore({
     surfaceKeys.delete(surfaceId);
   };
 
-  const pruneCompletedTransition = (key: string, nowMs: number): boolean => {
-    const transition = transitions.get(key);
-    if (!transition) {
-      return false;
-    }
-    if (nowMs - transition.startedAtMs < transition.durationMs) {
-      return true;
-    }
-    transitions.delete(key);
-    return false;
-  };
-
   return {
     clear() {
       checkedByKey.clear();
+      progressByKey.clear();
       surfaceKeys.clear();
       transitions.clear();
     },
@@ -126,15 +117,26 @@ export function createGpuRetainedContentSwitchAnimationStore({
       return sourceRect;
     },
     hasActiveSurface(surfaceId, nowMs = getGpuRetainedContentSwitchNowMs()) {
+      void nowMs;
       const keys = surfaceKeys.get(surfaceId);
       if (!keys) {
         return false;
       }
-      let active = false;
       for (const key of keys) {
-        active = pruneCompletedTransition(key, nowMs) || active;
+        if (transitions.has(key)) {
+          return true;
+        }
+        const checked = checkedByKey.get(key);
+        const progress = progressByKey.get(key);
+        if (
+          checked !== undefined &&
+          progress !== undefined &&
+          Math.abs(progress - (checked ? 1 : 0)) > 0.001
+        ) {
+          return true;
+        }
       }
-      return active;
+      return false;
     },
     resolveProgress({
       checked,
@@ -145,23 +147,29 @@ export function createGpuRetainedContentSwitchAnimationStore({
       const key = createSwitchAnimationKey(surfaceId, rowId);
       const transition = transitions.get(key);
       if (!transition) {
-        return checked ? 1 : 0;
+        const resolvedProgress = checked ? 1 : 0;
+        progressByKey.set(key, resolvedProgress);
+        return resolvedProgress;
       }
       if (transition.toChecked !== checked) {
         transitions.delete(key);
-        return checked ? 1 : 0;
+        const resolvedProgress = checked ? 1 : 0;
+        progressByKey.set(key, resolvedProgress);
+        return resolvedProgress;
       }
       const progress = clampUnit(
         (nowMs - transition.startedAtMs) / transition.durationMs,
       );
       if (progress >= 1) {
         transitions.delete(key);
+        progressByKey.set(key, transition.toProgress);
         return transition.toProgress;
       }
-      return (
+      const resolvedProgress =
         transition.fromProgress +
-        (transition.toProgress - transition.fromProgress) * progress
-      );
+        (transition.toProgress - transition.fromProgress) * progress;
+      progressByKey.set(key, resolvedProgress);
+      return resolvedProgress;
     },
     syncSurface(surface, nowMs = getGpuRetainedContentSwitchNowMs()) {
       const nextKeys = new Set<string>();
@@ -175,6 +183,7 @@ export function createGpuRetainedContentSwitchAnimationStore({
           durationMs,
           nextKeys,
           nowMs,
+          progressByKey,
           reduceMotion,
           surfaceId: surface.id,
           transitions,
@@ -201,6 +210,7 @@ function syncGpuRetainedContentSwitchCommand({
   durationMs,
   nextKeys,
   nowMs,
+  progressByKey,
   reduceMotion,
   surfaceId,
   transitions,
@@ -210,6 +220,7 @@ function syncGpuRetainedContentSwitchCommand({
   readonly durationMs: number;
   readonly nextKeys: Set<string>;
   readonly nowMs: number;
+  readonly progressByKey: Map<string, number>;
   readonly reduceMotion: boolean;
   readonly surfaceId: string;
   readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
@@ -217,6 +228,9 @@ function syncGpuRetainedContentSwitchCommand({
   const key = createSwitchAnimationKey(surfaceId, command.rowId);
   nextKeys.add(key);
   const previousChecked = checkedByKey.get(key);
+  if (previousChecked === undefined && !progressByKey.has(key)) {
+    progressByKey.set(key, command.control.checked ? 1 : 0);
+  }
   if (
     previousChecked !== undefined &&
     previousChecked !== command.control.checked
@@ -226,6 +240,7 @@ function syncGpuRetainedContentSwitchCommand({
       durationMs,
       key,
       nowMs,
+      progressByKey,
       previousChecked,
       reduceMotion,
       surfaceId,
@@ -240,6 +255,7 @@ function setGpuRetainedContentSwitchTransition({
   durationMs,
   key,
   nowMs,
+  progressByKey,
   previousChecked,
   reduceMotion,
   surfaceId,
@@ -249,6 +265,7 @@ function setGpuRetainedContentSwitchTransition({
   readonly durationMs: number;
   readonly key: string;
   readonly nowMs: number;
+  readonly progressByKey: Map<string, number>;
   readonly previousChecked: boolean;
   readonly reduceMotion: boolean;
   readonly surfaceId: string;
@@ -256,11 +273,12 @@ function setGpuRetainedContentSwitchTransition({
 }) {
   if (reduceMotion) {
     transitions.delete(key);
+    progressByKey.set(key, command.control.checked ? 1 : 0);
     return;
   }
   transitions.set(key, {
     durationMs,
-    fromProgress: previousChecked ? 1 : 0,
+    fromProgress: progressByKey.get(key) ?? (previousChecked ? 1 : 0),
     rowId: command.rowId,
     startedAtMs: nowMs,
     surfaceId,

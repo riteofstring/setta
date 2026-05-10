@@ -12,7 +12,7 @@ import {
 } from "./retainedContentSwitchAnimation";
 
 describe("retained content switch animation store", () => {
-  it("uses the fast default retained switch transition duration", () => {
+  it("uses the default retained switch transition duration", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       prefersReducedMotion: () => false,
     });
@@ -20,11 +20,11 @@ describe("retained content switch animation store", () => {
     store.syncSurface(surface({ checked: false }), 0);
     store.syncSurface(surface({ checked: true }), 10);
 
-    expect(DEFAULT_SWITCH_TRANSITION_DURATION_MS).toBe(50);
+    expect(DEFAULT_SWITCH_TRANSITION_DURATION_MS).toBe(140);
     expect(
       store.resolveProgress({
         checked: true,
-        nowMs: 35,
+        nowMs: 80,
         rowId: "switch-param",
         surfaceId: "surface-a",
       }),
@@ -32,7 +32,7 @@ describe("retained content switch animation store", () => {
     expect(
       store.resolveProgress({
         checked: true,
-        nowMs: 60,
+        nowMs: 150,
         rowId: "switch-param",
         surfaceId: "surface-a",
       }),
