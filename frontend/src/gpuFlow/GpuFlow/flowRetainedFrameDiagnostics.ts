@@ -21,11 +21,13 @@ let lastRetainedTextLikeRowSnapshotMaintenanceSignature: string | null = null;
 export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
   frame,
   scene,
+  viewportInteractionActive,
 }: {
   readonly frame: number;
   readonly scene: GpuFlowScene | undefined;
+  readonly viewportInteractionActive: boolean;
 }) {
-  if (!isChromeReproActive() || !scene) {
+  if (!isChromeReproActive() || !scene || viewportInteractionActive) {
     return;
   }
   const surfaces = scene.contentSurfaces
@@ -51,12 +53,18 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
   frame,
   preparedFrame,
   snapshotSources,
+  viewportInteractionActive,
 }: {
   readonly frame: number;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
+  readonly viewportInteractionActive: boolean;
 }) {
-  if (!isChromeReproActive() || snapshotSources.length === 0) {
+  if (
+    !isChromeReproActive() ||
+    snapshotSources.length === 0 ||
+    viewportInteractionActive
+  ) {
     return;
   }
   const state = {
@@ -97,7 +105,11 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
   readonly viewportInteractionActive: boolean;
 }) {
-  if (!isChromeReproActive() || snapshotSources.length === 0) {
+  if (
+    !isChromeReproActive() ||
+    snapshotSources.length === 0 ||
+    viewportInteractionActive
+  ) {
     return;
   }
   const state = {

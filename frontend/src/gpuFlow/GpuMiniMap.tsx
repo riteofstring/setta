@@ -34,7 +34,7 @@ import {
   getGpuNodesBounds,
   isMeasuredGpuNodeBoundsInput,
 } from "./nodeBounds";
-import { setCenter } from "./viewportActions";
+import { setCenter, setViewport } from "./viewportActions";
 import {
   getVisibleFlowRect,
   type GpuPoint,
@@ -393,11 +393,14 @@ function useGpuMiniMapInteractions({
         viewScaleRef.current *
         Math.max(zoom, Math.log(zoom)) *
         (inversePan ? -1 : 1);
-      state.setTransform({
-        x: state.transform[0] - movementX * moveScale,
-        y: state.transform[1] - movementY * moveScale,
-        zoom,
-      });
+      setViewport(
+        {
+          x: state.transform[0] - movementX * moveScale,
+          y: state.transform[1] - movementY * moveScale,
+          zoom,
+        },
+        { store: viewportStore },
+      );
     };
   }, [inversePan, pannable, viewportStore, viewScaleRef]);
 

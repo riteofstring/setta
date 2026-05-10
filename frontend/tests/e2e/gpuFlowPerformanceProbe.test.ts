@@ -259,6 +259,30 @@ describe("GPU flow performance probe helpers", () => {
       visibleNodeCount: 2,
     });
   });
+
+  it("can disable source mutation recording for narrow frame probes", async () => {
+    window.eval(createGpuFlowPerformanceProbeInitScript());
+    const api = getInstalledProbeApi();
+    expect(api).toBeDefined();
+    const nodeElement = document.createElement("div");
+    nodeElement.dataset.gpuFlowNode = "true";
+    document.body.append(nodeElement);
+
+    api?.setSourceMutationRecording(false);
+    nodeElement.style.transform = "translate(10px, 20px)";
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(api?.snapshot().sourceMutations).toEqual([]);
+
+    api?.setSourceMutationRecording(true);
+    nodeElement.style.transform = "translate(20px, 30px)";
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(api?.snapshot().sourceMutations).toEqual([
+      expect.objectContaining({
+        attributeName: "style",
+        transformChanged: true,
+      }),
+    ]);
+  });
 });
 
 function nodeLayerFrame(
@@ -292,6 +316,7 @@ function nodeLayerFrame(
 function getInstalledProbeApi():
   | {
       recordNodeLayerFrame(result: unknown): void;
+      setSourceMutationRecording(enabled: boolean): void;
       snapshot(): GpuFlowPerformanceSnapshot;
       uninstall(): void;
     }
@@ -302,6 +327,7 @@ function getInstalledProbeApi():
         string,
         {
           recordNodeLayerFrame(result: unknown): void;
+          setSourceMutationRecording(enabled: boolean): void;
           snapshot(): GpuFlowPerformanceSnapshot;
           uninstall(): void;
         }

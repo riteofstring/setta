@@ -8,6 +8,7 @@ import {
 } from "../retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
+import { createGpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { attachGpuPanZoomController } from "./panZoom";
 import { attachGpuRetainedContentScrollController } from "./retainedContentScroll";
@@ -286,6 +287,7 @@ describe("GPU retained content scroll controller", () => {
       ["dict-a:param-content:unpinned", { x: 100, y: 0 }],
     ]);
     const onScrollOffsetsChange = vi.fn();
+    const viewportRuntime = createGpuFlowViewportRuntime({ store });
     const cleanupScroll = attachGpuRetainedContentScrollController({
       element,
       getScene: () => retainedContentScene({ contentWidth: 260 }),
@@ -299,6 +301,7 @@ describe("GPU retained content scroll controller", () => {
       panOnScroll: true,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     const event = new WheelEvent("wheel", {
@@ -318,6 +321,7 @@ describe("GPU retained content scroll controller", () => {
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 
     cleanupPan();
+    viewportRuntime.destroy();
     cleanupScroll();
   });
 
@@ -330,6 +334,10 @@ describe("GPU retained content scroll controller", () => {
       transform: [0, 0, 1],
     });
     store.getState().setViewportInteractionFlags({ panScrolling: true });
+    const viewportRuntime = createGpuFlowViewportRuntime({
+      requestFrame: vi.fn(),
+      store,
+    });
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
     const onScrollOffsetsChange = vi.fn(
       (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
@@ -349,6 +357,7 @@ describe("GPU retained content scroll controller", () => {
       panOnScroll: true,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     const event = new WheelEvent("wheel", {
@@ -361,6 +370,7 @@ describe("GPU retained content scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([0, -18, 1]);
     expect(store.getState().panScrolling).toBe(true);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
@@ -369,6 +379,7 @@ describe("GPU retained content scroll controller", () => {
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 
     cleanupPan();
+    viewportRuntime.destroy();
     cleanupScroll();
   });
 

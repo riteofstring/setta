@@ -56,7 +56,10 @@ import {
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
-import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks } from "./flowSurface";
+import {
+  EMPTY_GPU_NODE_LAYOUTS,
+  type GpuFlowCallbacks,
+} from "./flowSurfaceTypes";
 
 function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -322,6 +325,7 @@ export function renderGpuFlowNodeLayerFrame({
   postGpuFlowRetainedContentVisualStateChromeReproEvent({
     frame,
     scene: layer.scene,
+    viewportInteractionActive: deferResolutionUpdates,
   });
   syncGpuFlowRetainedContentSwitchAnimationSurfaces({
     nowMs: renderStartedAt,
@@ -348,6 +352,7 @@ export function renderGpuFlowNodeLayerFrame({
     frame,
     preparedFrame: retainedPagePreparedFrame,
     snapshotSources: retainedFrameGeneration.textLikeRowSnapshotSources,
+    viewportInteractionActive: deferResolutionUpdates,
   });
   markGpuFlowRetainedContentSwitchFreshnessDirty({
     frame,

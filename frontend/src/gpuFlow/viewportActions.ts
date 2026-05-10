@@ -18,6 +18,7 @@ import {
   type GpuRect,
   type GpuViewport,
 } from "./viewportMath";
+import { getRegisteredGpuFlowViewportRuntime } from "./viewportRuntimeRegistry";
 import {
   getGpuViewportStorePointRelativeToDomNode,
   gpuFlowViewportStore,
@@ -59,6 +60,7 @@ type GpuFitViewOptions = SetGpuViewportOptions & {
 };
 
 type GpuViewportTransition = {
+  completionHandle: ReturnType<typeof setTimeout> | null;
   readonly durationMs: number;
   readonly from: GpuViewport;
   frameId: number | null;
@@ -82,7 +84,7 @@ function setGpuViewport(
   options: SetGpuViewportOptions = {},
 ): boolean {
   const store = resolveViewportStore(options.store);
-  const current = normalizeGpuViewport(store.getState().transform);
+  const current = getLiveGpuViewportForStore(store);
   return applyGpuViewport({
     options,
     store,
@@ -102,7 +104,7 @@ export function panGpuViewport(
   return applyGpuViewport({
     options,
     store,
-    viewport: panGpuViewportBy(store.getState().transform, delta),
+    viewport: panGpuViewportBy(getLiveGpuViewportForStore(store), delta),
   });
 }
 
@@ -123,7 +125,7 @@ export function zoomGpuViewportAt(
         getViewportCenterPoint(state.width, state.height, {
           overviewWidth: options.overviewWidth,
         }),
-      viewport: state.transform,
+      viewport: getLiveGpuViewportForStore(store),
       zoom,
     }),
   });
@@ -147,7 +149,7 @@ export function zoomGpuViewportByFactor(
         getViewportCenterPoint(state.width, state.height, {
           overviewWidth: options.overviewWidth,
         }),
-      viewport: state.transform,
+      viewport: getLiveGpuViewportForStore(store),
     }),
   });
 }
@@ -199,7 +201,7 @@ function fitGpuViewport(options: GpuFitViewOptions): boolean {
       minZoom,
       overviewWidth: options.overviewWidth,
       padding: options.padding,
-      viewport: state.transform,
+      viewport: getLiveGpuViewportForStore(store),
     }),
   });
 }
@@ -214,7 +216,7 @@ function screenToGpuFlowPosition(
     : getGpuViewportStorePointRelativeToDomNode(point, store);
   const flowPoint = screenPointToFlowPosition(
     relativePoint,
-    store.getState().transform,
+    getLiveGpuViewportForStore(store),
   );
   return options.snapToGrid
     ? snapGpuFlowPosition(flowPoint, options.snapGrid)
@@ -226,13 +228,11 @@ function flowToGpuScreenPosition(
   options: GpuViewportActionOptions = {},
 ): GpuPoint {
   const store = resolveViewportStore(options.store);
-  return flowPointToScreenPosition(point, store.getState().transform);
+  return flowPointToScreenPosition(point, getLiveGpuViewportForStore(store));
 }
 
 function getGpuViewport(options: GpuViewportActionOptions = {}): GpuViewport {
-  return normalizeGpuViewport(
-    resolveViewportStore(options.store).getState().transform,
-  );
+  return getLiveGpuViewportForStore(resolveViewportStore(options.store));
 }
 
 function requestGpuInitialFitView(
@@ -300,8 +300,10 @@ function updateGpuMapPosition(
 function cancelGpuViewportTransition(
   options: GpuViewportActionOptions = {},
 ): boolean {
-  return cancelGpuViewportTransitionForStore(
-    resolveViewportStore(options.store),
+  const store = resolveViewportStore(options.store);
+  return (
+    getRegisteredGpuFlowViewportRuntime(store)?.cancelViewportTransition() ??
+    cancelGpuViewportTransitionForStore(store)
   );
 }
 
@@ -329,6 +331,15 @@ function resolveViewportStore(
   return store ?? gpuFlowViewportStore;
 }
 
+function getLiveGpuViewportForStore(
+  store: GpuFlowViewportStoreApi,
+): GpuViewport {
+  return (
+    getRegisteredGpuFlowViewportRuntime(store)?.getViewport() ??
+    normalizeGpuViewport(store.getState().transform)
+  );
+}
+
 function getViewportCenterPoint(
   width: number,
   height: number,
@@ -354,6 +365,10 @@ function applyGpuViewport({
   readonly viewport: GpuViewport;
 }): boolean {
   const durationMs = normalizeGpuViewportTransitionDuration(options.duration);
+  const runtime = getRegisteredGpuFlowViewportRuntime(store);
+  if (runtime) {
+    return runtime.applyViewportCommand(viewport, { durationMs });
+  }
   if (durationMs === 0) {
     cancelGpuViewportTransitionForStore(store);
     return store.getState().setTransform(viewport);
@@ -382,6 +397,7 @@ function startGpuViewportTransition({
   }
 
   const transition: GpuViewportTransition = {
+    completionHandle: null,
     durationMs,
     frameId: null,
     from,
@@ -409,7 +425,20 @@ function startGpuViewportTransition({
     }
   });
   scheduleGpuViewportTransitionFrame(transition);
+  scheduleGpuViewportTransitionCompletion(transition);
   return true;
+}
+
+function scheduleGpuViewportTransitionCompletion(
+  transition: GpuViewportTransition,
+) {
+  transition.completionHandle = setTimeout(() => {
+    if (activeGpuViewportTransitions.get(transition.store) !== transition) {
+      return;
+    }
+    transition.completionHandle = null;
+    finishGpuViewportTransition(transition);
+  }, transition.durationMs + 50);
 }
 
 function scheduleGpuViewportTransitionFrame(transition: GpuViewportTransition) {
@@ -450,7 +479,11 @@ function finishGpuViewportTransition(transition: GpuViewportTransition) {
     return;
   }
   activeGpuViewportTransitions.delete(transition.store);
-  transition.frameId = null;
+  clearGpuViewportTransitionCompletion(transition);
+  if (transition.frameId !== null) {
+    cancelGpuAnimationFrame(transition.frameId);
+    transition.frameId = null;
+  }
   transition.unsubscribe?.();
   transition.unsubscribe = null;
   transition.store
@@ -468,6 +501,7 @@ function cancelGpuViewportTransitionForStore(
     return false;
   }
   activeGpuViewportTransitions.delete(store);
+  clearGpuViewportTransitionCompletion(transition);
   if (transition.frameId !== null) {
     cancelGpuAnimationFrame(transition.frameId);
     transition.frameId = null;
@@ -476,6 +510,16 @@ function cancelGpuViewportTransitionForStore(
   transition.unsubscribe = null;
   store.getState().setViewportInteractionFlags({ viewportAnimating: false });
   return true;
+}
+
+function clearGpuViewportTransitionCompletion(
+  transition: GpuViewportTransition,
+) {
+  if (transition.completionHandle === null) {
+    return;
+  }
+  clearTimeout(transition.completionHandle);
+  transition.completionHandle = null;
 }
 
 function normalizeGpuViewportTransitionDuration(

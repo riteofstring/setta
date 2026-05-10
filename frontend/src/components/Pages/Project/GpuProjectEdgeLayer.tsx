@@ -4,6 +4,7 @@ import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionEvent,
 } from "gpuFlow/interactions/edges";
+import { setViewport } from "gpuFlow/viewportActions";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createGpuFlowViewportStore,
@@ -64,7 +65,14 @@ export function GpuProjectEdgeLayer({
   };
 
   useEffect(() => {
-    viewportStore.getState().setTransform(viewport);
+    setViewport(
+      {
+        x: viewport[0],
+        y: viewport[1],
+        zoom: viewport[2],
+      },
+      { store: viewportStore },
+    );
   }, [viewport, viewportStore]);
 
   useEffect(() => {

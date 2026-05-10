@@ -18,7 +18,9 @@ import {
   type GpuPoint,
   type GpuRect,
   type GpuViewportInput,
+  type GpuViewportTuple,
 } from "../viewportMath";
+import { getRegisteredGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 type GpuFlowRetainedRowDebugContext = {
@@ -43,6 +45,7 @@ export function useGpuFlowDebugGlobals<
 >({
   activeResizeNodeIdRef,
   containerRef,
+  getViewport,
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
@@ -50,6 +53,7 @@ export function useGpuFlowDebugGlobals<
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly containerRef: RefObject<HTMLElement | null>;
+  readonly getViewport: () => GpuViewportTuple;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<TNodeLayer>;
@@ -59,6 +63,9 @@ export function useGpuFlowDebugGlobals<
     if (typeof window === "undefined") {
       return;
     }
+    const getLiveViewport = () =>
+      getRegisteredGpuFlowViewportRuntime(viewportStore)?.getViewportTuple() ??
+      getViewport();
     const getSnapshot = () =>
       createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
@@ -66,18 +73,21 @@ export function useGpuFlowDebugGlobals<
         nodeInteractionActiveNodeId:
           nodeInteractionRef.current?.getActiveNodeId() ?? null,
         ownerDocument: containerRef.current?.ownerDocument ?? window.document,
-        viewportState: viewportStore.getState(),
+        viewportState: {
+          ...viewportStore.getState(),
+          transform: getLiveViewport(),
+        },
       });
     const getRetainedRows = () =>
       createGpuFlowRetainedRowsDebugSnapshot({
         container: containerRef.current,
         scene: nodeLayerRef.current.scene,
-        viewport: viewportStore.getState().transform,
+        viewport: getLiveViewport(),
       });
     const getVisualSurfaces = () =>
       createGpuFlowVisualSurfacesDebugSnapshot({
         container: containerRef.current,
-        viewport: viewportStore.getState().transform,
+        viewport: getLiveViewport(),
         visualScene: nodeLayerRef.current.visualScene,
       });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
@@ -99,6 +109,7 @@ export function useGpuFlowDebugGlobals<
   }, [
     activeResizeNodeIdRef,
     containerRef,
+    getViewport,
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,

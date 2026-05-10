@@ -71,6 +71,7 @@ export const GpuSurface = forwardRef<GpuSurfaceHandle, GpuSurfaceProps>(
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const runtimeRef = useRef<GpuFlowRuntime | null>(null);
     const schedulerRef = useRef<GpuFrameScheduler | null>(null);
+    const pendingFrameReasonsRef = useRef<Set<GpuFrameReason>>(new Set());
     const callbacksRef = useRef<GpuSurfaceCallbacks>({
       onFrame: undefined,
       onPaint: undefined,
@@ -84,7 +85,12 @@ export const GpuSurface = forwardRef<GpuSurfaceHandle, GpuSurfaceProps>(
         return runtimeRef.current;
       },
       requestFrame(reason?: GpuFrameReason) {
-        schedulerRef.current?.requestFrame(reason);
+        const scheduler = schedulerRef.current;
+        if (scheduler) {
+          scheduler.requestFrame(reason);
+          return;
+        }
+        pendingFrameReasonsRef.current.add(reason ?? "manual");
       },
       requestPaint() {
         const runtime = runtimeRef.current;
@@ -124,6 +130,11 @@ export const GpuSurface = forwardRef<GpuSurfaceHandle, GpuSurfaceProps>(
             },
           });
           schedulerRef.current = scheduler;
+          const pendingFrameReasons = [...pendingFrameReasonsRef.current];
+          pendingFrameReasonsRef.current.clear();
+          for (const reason of pendingFrameReasons) {
+            scheduler.requestFrame(reason);
+          }
           const initialSize = measureGpuCanvasClientSize(canvas);
           applyGpuCanvasSize(canvas, initialSize);
           callbacksRef.current.onResize?.(nextRuntime, initialSize);

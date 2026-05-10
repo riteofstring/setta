@@ -23,6 +23,7 @@ import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("gpu viewport actions", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -286,6 +287,26 @@ describe("gpu viewport actions", () => {
     expect(store.getState().transform).toEqual([100, 60, 2]);
     expect(store.getState().viewportAnimating).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
+  });
+
+  it("settles duration-based viewport changes if frame completion is interrupted", () => {
+    vi.useFakeTimers();
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+
+    expect(
+      setViewport({ x: 100, y: 60, zoom: 2 }, { duration: 100, store }),
+    ).toBe(true);
+    expect(store.getState().viewportAnimating).toBe(true);
+
+    vi.advanceTimersByTime(150);
+
+    expect(store.getState().transform).toEqual([100, 60, 2]);
+    expect(store.getState().viewportAnimating).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(animation.pendingFrameCount()).toBe(0);
   });
 
   it("cancels an animated viewport transition when an immediate viewport action takes ownership", () => {

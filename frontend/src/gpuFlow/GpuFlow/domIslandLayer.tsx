@@ -1,12 +1,22 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type { GpuDomIsland, GpuFlowScene } from "../scene";
 import {
   flowToScreenPosition,
+  getVisibleFlowRect,
   normalizeGpuViewport,
   type GpuViewportInput,
+  type GpuViewportTuple,
 } from "../viewportMath";
+import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
@@ -22,31 +32,114 @@ export function GpuFlowDomIslandLayer({
   renderDomIsland,
   scene,
   viewportStore,
+  viewportRuntime,
 }: {
   readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
+  readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
-  const [viewport, setViewport] = useState<GpuViewportInput>(
-    () => viewportStore.getState().transform,
-  );
-
-  useEffect(
-    () =>
-      viewportStore.subscribe((state, previousState) => {
-        if (state.transform !== previousState.transform) {
-          setViewport(state.transform);
-        }
-      }),
-    [viewportStore],
-  );
-
+  const elementByIdRef = useRef(new Map<string, HTMLElement>());
   const domIslands = scene?.domIslands ?? [];
+  const domIslandsRef = useRef(domIslands);
+  domIslandsRef.current = domIslands;
+  const domIslandById = useMemo(
+    () => new Map(domIslands.map((island) => [island.id, island])),
+    [domIslands],
+  );
+
+  const setDomIslandElement = useCallback(
+    (islandId: string, element: HTMLElement | null) => {
+      if (!element) {
+        elementByIdRef.current.delete(islandId);
+        return;
+      }
+      elementByIdRef.current.set(islandId, element);
+      const island = domIslandById.get(islandId);
+      if (island) {
+        syncGpuFlowDomIslandElementStyle({
+          element,
+          island,
+          viewport: getLiveGpuFlowDomIslandViewport({
+            viewportRuntime,
+          }),
+        });
+      }
+    },
+    [domIslandById, viewportRuntime, viewportStore],
+  );
+
+  useLayoutEffect(() => {
+    return viewportRuntime.registerOverlayManager({
+      applyViewport(viewport) {
+        syncGpuFlowDomIslandLayerStyles({
+          elementById: elementByIdRef.current,
+          islands: domIslandsRef.current,
+          viewport,
+        });
+      },
+    });
+  }, [viewportRuntime]);
+
+  useLayoutEffect(() => {
+    return viewportStore.subscribe((state, previousState) => {
+      if (state.transform === previousState.transform) {
+        return;
+      }
+      syncGpuFlowDomIslandLayerStyles({
+        elementById: elementByIdRef.current,
+        islands: domIslandsRef.current,
+        viewport: state.transform,
+      });
+    });
+  }, [viewportStore]);
+
+  useLayoutEffect(() => {
+    if (domIslands.length === 0) {
+      return;
+    }
+    let animationFrameId: number | null = null;
+    let disposed = false;
+    const sync = () => {
+      syncGpuFlowDomIslandLayerStyles({
+        elementById: elementByIdRef.current,
+        islands: domIslandsRef.current,
+        viewport: getLiveGpuFlowDomIslandViewport({
+          viewportRuntime,
+        }),
+      });
+      if (!disposed) {
+        animationFrameId = requestAnimationFrame(sync);
+      }
+    };
+    sync();
+    return () => {
+      disposed = true;
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [domIslands.length, viewportRuntime, viewportStore]);
+
+  useLayoutEffect(() => {
+    syncGpuFlowDomIslandLayerStyles({
+      elementById: elementByIdRef.current,
+      islands: domIslands,
+      viewport: getLiveGpuFlowDomIslandViewport({
+        viewportRuntime,
+      }),
+    });
+  }, [domIslands, viewportRuntime, viewportStore]);
+
   if (!renderDomIsland || domIslands.length === 0) {
     return null;
   }
 
-  const normalizedViewport = normalizeGpuViewport(viewport);
+  const normalizedViewport = normalizeGpuViewport(
+    getLiveGpuFlowDomIslandViewport({
+      viewportRuntime,
+    }),
+  );
   return (
     <div
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
@@ -59,6 +152,7 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-id={island.id}
           data-gpu-flow-dom-island-kind={island.kind}
           key={island.id}
+          ref={(element) => setDomIslandElement(island.id, element)}
           style={getGpuFlowDomIslandStyle(island, normalizedViewport)}
         >
           {renderDomIsland(island)}
@@ -66,6 +160,14 @@ export function GpuFlowDomIslandLayer({
       ))}
     </div>
   );
+}
+
+function getLiveGpuFlowDomIslandViewport({
+  viewportRuntime,
+}: {
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+}): GpuViewportTuple {
+  return viewportRuntime.getViewportTuple();
 }
 
 export function syncGpuFlowDomIslandElementStyle({
@@ -84,8 +186,10 @@ export function syncGpuFlowDomIslandElementStyle({
   element.style.display = "";
   element.style.height = `${style.height}px`;
   element.style.left = `${style.left}px`;
+  element.style.pointerEvents = "auto";
   element.style.top = `${style.top}px`;
   element.style.transform = String(style.transform ?? "");
+  element.style.transformOrigin = String(style.transformOrigin ?? "");
   element.style.width = `${style.width}px`;
   element.style.zIndex = String(style.zIndex ?? "");
 }
@@ -104,7 +208,53 @@ function getGpuFlowDomIslandStyle(
     left: position.x,
     top: position.y,
     transform: `scale(${viewport.zoom})`,
+    transformOrigin: "top left",
     width: island.rect.width,
     zIndex: island.zIndex,
   };
+}
+
+function syncGpuFlowDomIslandLayerStyles({
+  elementById,
+  islands,
+  viewport,
+}: {
+  readonly elementById: ReadonlyMap<string, HTMLElement>;
+  readonly islands: readonly GpuDomIsland[];
+  readonly viewport: GpuViewportInput;
+}) {
+  const visibleFlowRect = getVisibleFlowRect({
+    canvasHeight: window.innerHeight,
+    canvasWidth: window.innerWidth,
+    marginCssPx: 128,
+    viewport,
+  });
+  for (const island of islands) {
+    const element = elementById.get(island.id);
+    if (!element) {
+      continue;
+    }
+    if (!rectsIntersect(visibleFlowRect, island.rect)) {
+      hideGpuFlowDomIslandElement(element);
+      element.style.pointerEvents = "none";
+      continue;
+    }
+    syncGpuFlowDomIslandElementStyle({
+      element,
+      island,
+      viewport,
+    });
+  }
+}
+
+function rectsIntersect(
+  left: GpuDomIsland["rect"],
+  right: GpuDomIsland["rect"],
+): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
 }

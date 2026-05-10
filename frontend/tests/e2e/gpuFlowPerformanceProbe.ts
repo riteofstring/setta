@@ -60,6 +60,11 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly textureVisibleBytes: number;
   readonly timestampMs: number;
   readonly uploadedNodeIds: readonly string[];
+  readonly viewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
   readonly visibleNodeCount: number;
 };
 
@@ -152,6 +157,25 @@ export async function ensureGpuFlowPerformanceQueueWrappers(
   }, GPU_FLOW_PERFORMANCE_PROBE_KEY);
 }
 
+export async function setGpuFlowPerformanceSourceMutationRecording(
+  page: Page,
+  enabled: boolean,
+): Promise<void> {
+  await page.evaluate(
+    ({ enabled, probeKey }) => {
+      const api = (
+        window as Window &
+          Record<string, { setSourceMutationRecording(enabled: boolean): void }>
+      )[probeKey];
+      if (!api) {
+        throw new Error("Setta GPU flow performance probe is not installed.");
+      }
+      api.setSourceMutationRecording(enabled);
+    },
+    { enabled, probeKey: GPU_FLOW_PERFORMANCE_PROBE_KEY },
+  );
+}
+
 export async function readGpuFlowPerformanceSnapshot(
   page: Page,
 ): Promise<GpuFlowPerformanceSnapshot> {
@@ -203,6 +227,7 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
+    viewportValue.toString(),
     objectValue.toString(),
     numberValue.toString(),
     arrayLength.toString(),
@@ -326,7 +351,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 3) {
+  if (existing?.version === 4) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -354,6 +379,7 @@ function installGpuFlowPerformanceProbeInPage() {
     queueCalls: [] as GpuFlowQueueCall[],
     queueWrappersInstalled: false,
     requestPaintCalls: [] as GpuFlowRequestPaintCall[],
+    sourceMutationRecording: true,
     sourceMutationObserver: null as MutationObserver | null,
     sourceMutations: [] as GpuFlowSourceMutation[],
   };
@@ -446,6 +472,14 @@ function installGpuFlowPerformanceProbeInPage() {
       state.requestPaintCalls = [];
       state.sourceMutations = [];
     },
+    setSourceMutationRecording(enabled: boolean) {
+      state.sourceMutationRecording = enabled;
+      if (enabled) {
+        startSourceMutationObserver(state);
+        return;
+      }
+      stopSourceMutationObserver(state);
+    },
     snapshot(): GpuFlowPerformanceSnapshot {
       return {
         frameCount: state.frameCount,
@@ -480,7 +514,7 @@ function installGpuFlowPerformanceProbeInPage() {
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 3,
+    version: 4,
   };
   win[probeKey] = api;
   api.installQueueWrappers();
@@ -609,10 +643,14 @@ function recordSourceMutation(
 }
 
 function startSourceMutationObserver(state: {
+  sourceMutationRecording: boolean;
   sourceMutationObserver: MutationObserver | null;
   sourceMutations: GpuFlowSourceMutation[];
 }) {
-  if (typeof MutationObserver !== "function") {
+  if (
+    !state.sourceMutationRecording ||
+    typeof MutationObserver !== "function"
+  ) {
     return;
   }
   const start = () => {
@@ -760,10 +798,24 @@ function toNodeLayerFrameSummary(
             .filter(
               (surfaceId): surfaceId is string => typeof surfaceId === "string",
             ),
+    viewport: viewportValue(value.viewport),
     visibleNodeCount: numberOrArrayLength(
       value.visibleNodeCount,
       value.visibleNodeIds,
     ),
+  };
+}
+
+function viewportValue(value: unknown): {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+} {
+  const viewport = objectValue(value);
+  return {
+    x: numberValue(viewport.x),
+    y: numberValue(viewport.y),
+    zoom: numberValue(viewport.zoom) || 1,
   };
 }
 
