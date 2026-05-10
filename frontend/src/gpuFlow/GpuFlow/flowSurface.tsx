@@ -742,7 +742,7 @@ export function GpuFlow({
         elementByNodeId: () => nodeElementByIdRef.current,
         getFrame: () => nextFrame(frameRef),
         onStateChange: (state) => {
-          syncGpuFlowNodeInteractionState({
+          const deactivatedNodeIds = syncGpuFlowNodeInteractionState({
             nodeElementByIdRef,
             previousActiveNodeIdRef: activeInteractionNodeIdRef,
             state,
@@ -750,7 +750,22 @@ export function GpuFlow({
           if (!state.activeNodeId) {
             sourceInteractionProjector.clearSource();
           }
-          surfaceRef.current?.requestFrame("texture-upload");
+          let queued = false;
+          for (const nodeId of deactivatedNodeIds) {
+            queued =
+              Boolean(
+                textureManagerRef.current?.markSurfaceTextureDirty({
+                  content: true,
+                  frame: nextFrame(frameRef),
+                  priority: "visible",
+                  reason: "content",
+                  surfaceId: nodeId,
+                }),
+              ) || queued;
+          }
+          if (queued) {
+            surfaceRef.current?.requestFrame("texture-upload");
+          }
         },
         projectPointerInteraction: (nodeId, event) => {
           projectGpuFlowNodeSourceForPointerEvent({

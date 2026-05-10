@@ -143,13 +143,15 @@ export function syncGpuFlowNodeInteractionState({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly previousActiveNodeIdRef: MutableRefObject<string | null>;
   readonly state: GpuNodeInteractionState;
-}) {
+}): readonly string[] {
   const previousActiveNodeId = previousActiveNodeIdRef.current;
+  const deactivatedNodeIds: string[] = [];
   if (previousActiveNodeId && previousActiveNodeId !== state.activeNodeId) {
     const previousElement =
       nodeElementByIdRef.current.get(previousActiveNodeId);
     if (previousElement) {
       setGpuFlowNodeInteractionElementState(previousElement, false);
+      deactivatedNodeIds.push(previousActiveNodeId);
     }
   }
   if (state.activeNodeId) {
@@ -159,6 +161,7 @@ export function syncGpuFlowNodeInteractionState({
     }
   }
   previousActiveNodeIdRef.current = state.activeNodeId;
+  return deactivatedNodeIds;
 }
 
 function setGpuFlowNodeInteractionElementState(
