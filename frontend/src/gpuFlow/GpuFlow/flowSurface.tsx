@@ -7,7 +7,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-
 import {
   resolveGpuNodePointerHandoffTarget,
   resolveGpuNodeWheelHandoffTarget,
@@ -524,6 +523,7 @@ export function GpuFlow({
     retainedContentConnection,
     retainedContentInteraction,
     retainedContentKeyboard,
+    retainedContentPageManagerRef,
     retainedContentScroll,
     retainedContentSwitchAnimations,
     scenePortConnection,

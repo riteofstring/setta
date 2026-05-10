@@ -6,12 +6,12 @@ import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScro
 import {
   getGpuRetainedContentSourceIdsForSurface,
   getGpuRetainedContentSourceRectForRows,
-  redrawGpuRetainedContentSourceElement,
 } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuHtmlSurfaceOverlayLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import {
   applyGpuRetainedContentRowHoverStateToScene,
   type GpuRetainedContentRowHoverTarget,
@@ -34,6 +34,10 @@ export type GpuFlowRetainedContentTextureManager = Pick<
   HtmlSurfaceTextureManager,
   "markSurfaceTextureDirty"
 >;
+export type GpuFlowRetainedContentPageManager = Pick<
+  RetainedContentTexturePageManager,
+  "markSurfaceContentDirty"
+>;
 
 export type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
@@ -43,6 +47,7 @@ export function applyGpuFlowRetainedContentRowHoverState({
   nodeElementByIdRef,
   nodeLayerRef,
   previousTarget,
+  retainedContentPageManagerRef,
   recentDirtyRowIdsBySurfaceId,
   surfaceRef,
   surfaceIds,
@@ -53,6 +58,7 @@ export function applyGpuFlowRetainedContentRowHoverState({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowRetainedContentNodeLayerState>;
   readonly previousTarget: GpuRetainedContentRowHoverTarget | null;
+  readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly recentDirtyRowIdsBySurfaceId?:
     | ReadonlyMap<string, ReadonlySet<string>>
     | undefined;
@@ -81,6 +87,7 @@ export function applyGpuFlowRetainedContentRowHoverState({
     changedRowIdsBySurfaceId: update?.changedRowIdsBySurfaceId,
     nodeElementByIdRef,
     previousTarget,
+    retainedContentPageManagerRef,
     recentDirtyRowIdsBySurfaceId,
     scene: nextScene,
     surfaceRef,
@@ -116,6 +123,7 @@ export function redrawGpuFlowRetainedContentSurfaceSources({
   deferTextureUploadUntilPaint = false,
   dirtySourceRectsBySurfaceId,
   nodeElementByIdRef,
+  retainedContentPageManagerRef,
   surfaceRef,
   surfaces,
   switchAnimations,
@@ -126,6 +134,7 @@ export function redrawGpuFlowRetainedContentSurfaceSources({
     | ReadonlyMap<string, GpuRect>
     | undefined;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
@@ -138,6 +147,7 @@ export function redrawGpuFlowRetainedContentSurfaceSources({
         deferTextureUploadUntilPaint,
         dirtySourceRectsBySurfaceId,
         nodeElementByIdRef,
+        retainedContentPageManagerRef,
         surface,
         switchAnimations,
         textureManagerRef,
@@ -184,6 +194,7 @@ function redrawGpuFlowRetainedContentRowHoverSurfaces({
   changedRowIdsBySurfaceId,
   nodeElementByIdRef,
   previousTarget,
+  retainedContentPageManagerRef,
   recentDirtyRowIdsBySurfaceId,
   scene,
   surfaceRef,
@@ -197,6 +208,7 @@ function redrawGpuFlowRetainedContentRowHoverSurfaces({
     | undefined;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly previousTarget: GpuRetainedContentRowHoverTarget | null;
+  readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly recentDirtyRowIdsBySurfaceId?:
     | ReadonlyMap<string, ReadonlySet<string>>
     | undefined;
@@ -243,6 +255,7 @@ function redrawGpuFlowRetainedContentRowHoverSurfaces({
     deferTextureUploadUntilPaint: true,
     dirtySourceRectsBySurfaceId,
     nodeElementByIdRef,
+    retainedContentPageManagerRef,
     surfaceRef,
     surfaces: dirtySurfacesToRedraw,
     switchAnimations,
@@ -443,6 +456,7 @@ function redrawGpuFlowRetainedContentSurfaceSourceIds({
   deferTextureUploadUntilPaint,
   dirtySourceRectsBySurfaceId,
   nodeElementByIdRef,
+  retainedContentPageManagerRef,
   surface,
   switchAnimations,
   textureManagerRef,
@@ -452,6 +466,7 @@ function redrawGpuFlowRetainedContentSurfaceSourceIds({
     | ReadonlyMap<string, GpuRect>
     | undefined;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly surface: GpuRetainedContentSurfaceWithScene;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<GpuFlowRetainedContentTextureManager | null>;
@@ -463,6 +478,7 @@ function redrawGpuFlowRetainedContentSurfaceSourceIds({
         deferTextureUploadUntilPaint,
         dirtySourceRect: dirtySourceRectsBySurfaceId?.get(sourceId),
         nodeElementByIdRef,
+        retainedContentPageManagerRef,
         sourceId,
         surface,
         switchAnimations,
@@ -479,6 +495,7 @@ function redrawGpuFlowRetainedContentSurfaceSource({
   deferTextureUploadUntilPaint,
   dirtySourceRect,
   nodeElementByIdRef,
+  retainedContentPageManagerRef,
   sourceId,
   surface,
   switchAnimations,
@@ -487,32 +504,22 @@ function redrawGpuFlowRetainedContentSurfaceSource({
   readonly deferTextureUploadUntilPaint: boolean;
   readonly dirtySourceRect: GpuRect | undefined;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly sourceId: string;
   readonly surface: GpuRetainedContentSurfaceWithScene;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<GpuFlowRetainedContentTextureManager | null>;
 }): boolean {
-  const sourceElement = nodeElementByIdRef.current.get(sourceId);
-  if (!sourceElement) {
-    return false;
-  }
-  const drawEvent = redrawGpuRetainedContentSourceElement({
-    element: sourceElement,
-    sourceId,
-    surface,
-    switchAnimations,
-  });
-  if (!drawEvent) {
-    return false;
-  }
-  const sourceRect = dirtySourceRect ?? drawEvent.sourceRect;
+  void deferTextureUploadUntilPaint;
+  void nodeElementByIdRef;
+  void surface;
+  void switchAnimations;
+  void textureManagerRef;
   return Boolean(
-    textureManagerRef.current?.markSurfaceTextureDirty({
-      content: true,
-      ...(deferTextureUploadUntilPaint ? { deferUploadUntilPaint: true } : {}),
-      reason: "content",
-      requestPaint: false,
-      ...(sourceRect ? { sourceRect } : {}),
+    retainedContentPageManagerRef.current?.markSurfaceContentDirty({
+      frame: 0,
+      priority: "visible",
+      ...(dirtySourceRect ? { sourceRect: dirtySourceRect } : {}),
       surfaceId: sourceId,
     }),
   );

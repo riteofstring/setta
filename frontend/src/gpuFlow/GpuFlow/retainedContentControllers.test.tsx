@@ -12,6 +12,7 @@ import {
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
+import type { GpuFlowRetainedContentPageManager } from "./retainedContentControllerSurfaceUpdates";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
 
 let root: Root | null = null;
@@ -137,7 +138,7 @@ describe("GpuFlow retained content controllers", () => {
         readonly width: number;
         readonly x: number;
         readonly y: number;
-      };
+      } | undefined;
       readonly surfaceId: string;
     }> = [];
     const requestPaint = vi.fn();
@@ -191,7 +192,7 @@ describe("GpuFlow retained content controllers", () => {
         readonly width: number;
         readonly x: number;
         readonly y: number;
-      };
+      } | undefined;
       readonly surfaceId: string;
     }> = [];
     const requestPaint = vi.fn();
@@ -406,6 +407,10 @@ function RetainedContentInteractionHarness({
     requestFrame: vi.fn(),
     requestPaint: vi.fn(),
   });
+  const retainedContentPageManagerRef =
+    useRef<GpuFlowRetainedContentPageManager | null>({
+      markSurfaceContentDirty: vi.fn(() => true),
+    });
   const textureManagerRef = useRef(null);
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
   const switchAnimations = useMemo(
@@ -426,6 +431,7 @@ function RetainedContentInteractionHarness({
       },
     },
     retainedContentKeyboard: false,
+    retainedContentPageManagerRef,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
@@ -492,6 +498,13 @@ function RetainedContentScrollHarness({
     },
   });
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
+  const retainedContentPageManagerRef =
+    useRef<GpuFlowRetainedContentPageManager | null>({
+    markSurfaceContentDirty: ({ surfaceId }) => {
+      onDirtySurface(surfaceId);
+      return true;
+    },
+  });
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
@@ -506,6 +519,7 @@ function RetainedContentScrollHarness({
     retainedContentConnection: false,
     retainedContentInteraction: false,
     retainedContentKeyboard: false,
+    retainedContentPageManagerRef,
     retainedContentScroll: {
       getScrollOffsets: () => scrollOffsetsRef.current,
       onScrollOffsetsChange: (scrollOffsets) => {
@@ -570,12 +584,14 @@ function RetainedContentHoverHarness({
       sourceRect,
       surfaceId,
     }: {
-      readonly sourceRect?: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      };
+      readonly sourceRect?:
+        | {
+            readonly height: number;
+            readonly width: number;
+            readonly x: number;
+            readonly y: number;
+          }
+        | undefined;
       readonly surfaceId: string;
     }) => {
       onDirtySurface({
@@ -600,6 +616,26 @@ function RetainedContentHoverHarness({
       onRequestPaint?.();
     },
   });
+  const retainedContentPageManagerRef =
+    useRef<GpuFlowRetainedContentPageManager | null>({
+    markSurfaceContentDirty: ({
+      sourceRect,
+      surfaceId,
+    }) => {
+      onDirtySurface({
+        ...(sourceRect ? { sourceRect } : {}),
+        surfaceId,
+      });
+      dirtySurfaceCountRef.current += 1;
+      if (resetSceneAfterFirstDirty && dirtySurfaceCountRef.current === 1) {
+        nodeLayerRef.current = {
+          ...nodeLayerRef.current,
+          scene: retainedContentScene(1, rowCount),
+        };
+      }
+      return markDirtyResult;
+    },
+  });
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
@@ -614,6 +650,7 @@ function RetainedContentHoverHarness({
     retainedContentConnection: false,
     retainedContentInteraction: {},
     retainedContentKeyboard: false,
+    retainedContentPageManagerRef,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
