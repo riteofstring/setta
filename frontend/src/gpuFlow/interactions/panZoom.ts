@@ -283,21 +283,6 @@ class GpuPanZoomController {
   }
 
   private readonly onWheel = (event: WheelEvent) => {
-    const pinchZoom = isPinchZoomWheelEvent({
-      event,
-      isMacOS: this.isMacOS,
-      zoomOnPinch: this.options.zoomOnPinch,
-    });
-    if (
-      shouldPreserveRetainedNativeScrollSourceWheel({
-        event,
-        pinchZoom,
-        store: this.store,
-        zoomActivationKeyPressed: this.options.zoomActivationKeyPressed,
-      })
-    ) {
-      return;
-    }
     if (
       !shouldHandleGpuWheelEvent({
         event,
@@ -315,6 +300,11 @@ class GpuPanZoomController {
     event.preventDefault();
     event.stopImmediatePropagation();
 
+    const pinchZoom = isPinchZoomWheelEvent({
+      event,
+      isMacOS: this.isMacOS,
+      zoomOnPinch: this.options.zoomOnPinch,
+    });
     const zoomRequested =
       pinchZoom ||
       Boolean(this.options.zoomActivationKeyPressed) ||
@@ -594,29 +584,4 @@ function isEventTargetWrappedWithClass(
     return false;
   }
   return target.closest(`.${className}`) !== null;
-}
-
-function shouldPreserveRetainedNativeScrollSourceWheel({
-  event,
-  pinchZoom,
-  store,
-  zoomActivationKeyPressed,
-}: {
-  readonly event: WheelEvent;
-  readonly pinchZoom: boolean;
-  readonly store: GpuFlowViewportStoreApi;
-  readonly zoomActivationKeyPressed?: boolean | undefined;
-}): boolean {
-  const target = event.target;
-  if (
-    !(target instanceof Element) ||
-    !target.closest('[data-gpu-flow-retained-scroll-source="true"]')
-  ) {
-    return false;
-  }
-  const state = store.getState();
-  if (state.panScrolling || state.wheelZooming) {
-    return false;
-  }
-  return !zoomActivationKeyPressed && !pinchZoom;
 }

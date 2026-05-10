@@ -234,86 +234,6 @@ describe("GPU pan/zoom controller", () => {
     viewportRuntime.destroy();
   });
 
-  it("preserves retained native scroll sources from plain wheel zoom and pan", () => {
-    vi.useFakeTimers();
-    const element = createSurfaceElement();
-    const source = createRetainedScrollSourceElement();
-    element.append(source);
-    const store = createGpuFlowViewportStore({
-      transform: [0, 0, 1],
-    });
-    const requestFrame = vi.fn();
-    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
-    const detach = attachGpuPanZoomController({
-      element,
-      isMacOS: false,
-      panOnScroll: true,
-      requestFrame,
-      store,
-      viewportRuntime,
-      zoomOnScroll: true,
-    });
-
-    const event = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      deltaY: 20,
-    });
-    source.dispatchEvent(event);
-
-    expect(event.defaultPrevented).toBe(false);
-    viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([0, 0, 1]);
-    expect(store.getState().panScrolling).toBe(false);
-    expect(store.getState().wheelZooming).toBe(false);
-    expect(requestFrame).not.toHaveBeenCalled();
-    detach();
-    viewportRuntime.destroy();
-  });
-
-  it("lets an active viewport wheel pan continue over retained native scroll sources", () => {
-    vi.useFakeTimers();
-    const element = createSurfaceElement();
-    const source = createRetainedScrollSourceElement();
-    element.append(source);
-    const store = createGpuFlowViewportStore({
-      transform: [0, 0, 1],
-    });
-    const requestFrame = vi.fn();
-    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
-    const detach = attachGpuPanZoomController({
-      element,
-      isMacOS: false,
-      panOnScroll: true,
-      requestFrame,
-      store,
-      viewportRuntime,
-      zoomOnScroll: false,
-    });
-
-    element.dispatchEvent(
-      new WheelEvent("wheel", {
-        bubbles: true,
-        cancelable: true,
-        deltaY: 20,
-      }),
-    );
-    expect(store.getState().panScrolling).toBe(true);
-
-    const retainedEvent = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      deltaY: 20,
-    });
-    source.dispatchEvent(retainedEvent);
-
-    expect(retainedEvent.defaultPrevented).toBe(true);
-    viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([0, -20, 1]);
-    detach();
-    viewportRuntime.destroy();
-  });
-
   it("lets pinch zoom win over pan-on-scroll", () => {
     vi.useFakeTimers();
     const element = createSurfaceElement();
@@ -683,12 +603,6 @@ function createSurfaceElement(): HTMLElement {
     }) as DOMRect;
   document.body.append(element);
   return element;
-}
-
-function createRetainedScrollSourceElement(): HTMLElement {
-  const source = document.createElement("div");
-  source.setAttribute("data-gpu-flow-retained-scroll-source", "true");
-  return source;
 }
 
 function dispatchWheelFromClass(className: string): WheelEvent {

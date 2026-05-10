@@ -61,33 +61,6 @@
   pointer-events: none;
 }
 
-/* The layer stays transparent so canvas hit testing remains intact; each
-   retained source opts in only across its scrollable viewport. */
-.setta-gpu-flow__retained-scroll-source-layer {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.setta-gpu-flow__retained-scroll-source {
-  position: absolute;
-  box-sizing: border-box;
-  overflow: auto;
-  overscroll-behavior: contain;
-  pointer-events: auto;
-  scrollbar-width: none;
-  transform-origin: left top;
-}
-
-.setta-gpu-flow__retained-scroll-source::-webkit-scrollbar {
-  display: none;
-}
-
-.setta-gpu-flow__retained-scroll-spacer {
-  pointer-events: none;
-}
-
 .setta-gpu-flow__dom-island {
   position: absolute;
   box-sizing: border-box;

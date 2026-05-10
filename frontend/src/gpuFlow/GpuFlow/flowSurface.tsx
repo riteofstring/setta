@@ -71,10 +71,7 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
-import {
-  syncGpuFlowNodeLayerRetainedContentRuntimeState,
-  syncGpuFlowNodeLayerSceneState,
-} from "./flowSceneStateSync";
+import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
   type GpuFlowCallbacks,
@@ -84,7 +81,6 @@ import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
-import { GpuFlowRetainedScrollSourceLayer } from "./retainedContentScrollSourceLayer";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
 import {
   getGpuFlowSelectionDragPrimaryNodeId,
@@ -800,10 +796,6 @@ export function GpuFlow({
         ...nodeLayerRef.current,
         viewport: viewportRuntime.getViewportTuple(),
       };
-      syncGpuFlowNodeLayerRetainedContentRuntimeState({
-        activeRetainedContentRuntimeState,
-        nodeLayerRef,
-      });
       const viewportFrame =
         event.reasons.includes("viewport") || runtimeFrame.viewportFrame;
       renderGpuFlowNodeLayerFrame({
@@ -880,22 +872,9 @@ export function GpuFlow({
             {nodeDragPreviewSourceElement}
             {retainedTextLikeRowSnapshotSourceElement}
           </GpuSurface>
-          <GpuFlowRetainedScrollSourceLayerHost
-            activeRetainedContentRuntimeState={
-              activeRetainedContentRuntimeState
-            }
-            requestFrame={() => {
-              surfaceRef.current?.requestFrame("viewport");
-            }}
-            retainedContentScroll={retainedContentScroll}
-            retainedContentSnapshotScene={retainedContentSnapshotScene}
-            viewportRuntime={viewportRuntime}
-            viewportStore={viewportStore}
-          />
           <GpuFlowDomIslandLayer
-            getScene={() => nodeLayerRef.current.scene}
             renderDomIsland={renderDomIsland}
-            scene={retainedContentSnapshotScene}
+            scene={scene}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />
@@ -903,35 +882,5 @@ export function GpuFlow({
         </div>
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
-  );
-}
-
-function GpuFlowRetainedScrollSourceLayerHost({
-  activeRetainedContentRuntimeState,
-  requestFrame,
-  retainedContentScroll,
-  retainedContentSnapshotScene,
-  viewportRuntime,
-  viewportStore,
-}: {
-  readonly activeRetainedContentRuntimeState: GpuRetainedContentRuntimeState;
-  readonly requestFrame: () => void;
-  readonly retainedContentScroll: GpuFlowProps["retainedContentScroll"];
-  readonly retainedContentSnapshotScene: GpuFlowScene | undefined;
-  readonly viewportRuntime: GpuFlowViewportRuntime;
-  readonly viewportStore: NonNullable<GpuFlowProps["viewportStore"]>;
-}) {
-  if (retainedContentScroll === false || !retainedContentScroll) {
-    return null;
-  }
-  return (
-    <GpuFlowRetainedScrollSourceLayer
-      onScrollOffsetsCommit={retainedContentScroll.onScrollOffsetsCommit}
-      requestFrame={requestFrame}
-      runtimeState={activeRetainedContentRuntimeState}
-      scene={retainedContentSnapshotScene}
-      viewportRuntime={viewportRuntime}
-      viewportStore={viewportStore}
-    />
   );
 }

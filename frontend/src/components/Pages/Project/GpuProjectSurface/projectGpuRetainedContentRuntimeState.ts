@@ -2,7 +2,6 @@ import {
   createGpuRetainedContentRuntimeState,
   getGpuRetainedContentRuntimeScrollOffsets,
   replaceGpuRetainedContentRuntimeScrollOffsets,
-  setGpuRetainedContentNativeScrollSourceOffset,
   type GpuRetainedContentRuntimeState,
 } from "gpuFlow/retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
@@ -27,25 +26,11 @@ export function useProjectGpuRetainedContentRuntimeAdapter(): ProjectGpuRetained
   );
   const setContentScrollOffsets = useCallback(
     (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
-      let changed = false;
-      for (const [surfaceId, scrollOffset] of scrollOffsets) {
-        changed =
-          setGpuRetainedContentNativeScrollSourceOffset({
-            scrollOffset,
-            state: retainedContentRuntimeState,
-            surfaceId,
-          }) || changed;
-      }
-      const hasNativeSources =
-        retainedContentRuntimeState.nativeScrollSources.size > 0;
-      if (!hasNativeSources) {
-        changed =
-          replaceGpuRetainedContentRuntimeScrollOffsets({
-            scrollOffsets,
-            state: retainedContentRuntimeState,
-          }) || changed;
-      }
-      if (changed && !hasNativeSources) {
+      const changed = replaceGpuRetainedContentRuntimeScrollOffsets({
+        scrollOffsets,
+        state: retainedContentRuntimeState,
+      });
+      if (changed) {
         setContentScrollCommandRevision((revision) => revision + 1);
       }
     },
