@@ -100,6 +100,7 @@ import {
 import type { GpuViewportInput } from "../viewportMath";
 
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -334,6 +335,7 @@ export function GpuFlow({
     createGpuNodeDomTransformSyncCache(),
   );
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
+  const retainedContentPageManagerRef = useRef<RetainedContentTexturePageManager | null>(null);
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
@@ -491,7 +493,7 @@ export function GpuFlow({
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
       sourceInteractionProjector.destroy();
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
     }
     surfaceRef.current?.requestFrame("viewport");
   }, [
@@ -691,7 +693,7 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
     };
   }, [retainedContentSwitchAnimations]);
 
@@ -724,7 +726,7 @@ export function GpuFlow({
   const handleReady = useCallback<NonNullable<GpuSurfaceProps["onReady"]>>(
     (runtime) => {
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
-      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef, retainedContentPageManagerRef);
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
         htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
@@ -918,6 +920,7 @@ export function GpuFlow({
         nodeInteractionRef,
         nodeLayerRef,
         htmlSurfaceRendererRef,
+        retainedContentPageManagerRef,
         runtime,
         surfaceRef,
         textureManagerRef,

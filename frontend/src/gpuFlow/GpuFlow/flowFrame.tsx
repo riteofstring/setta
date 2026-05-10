@@ -33,6 +33,10 @@ import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
+import { getGpuRetainedContentTexturePageFrameSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
+import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import { chooseStableZoomBucket } from "../textureResolution";
+import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
@@ -42,6 +46,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
+  retainedContentPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
@@ -49,6 +54,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
+  readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }): {
   readonly canvasSize: GpuCanvasSize;
@@ -56,6 +62,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   readonly nodes: readonly GpuNodeLayout[];
   readonly resources: {
     readonly htmlSurfaceRenderer: HtmlSurfaceRenderer;
+    readonly retainedContentPageManager: RetainedContentTexturePageManager;
     readonly textureManager: HtmlSurfaceTextureManager;
   };
 } | null {
@@ -74,6 +81,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
     nodes: layer.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
     resources: ensureNodeLayerResources({
       htmlSurfaceRendererRef,
+      retainedContentPageManagerRef,
       runtime,
       textureManagerRef,
     }),
@@ -82,10 +90,12 @@ function resolveRenderableGpuFlowLayerFrameInput({
 
 function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
+  retainedContentPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
+  readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
@@ -95,9 +105,17 @@ function ensureNodeLayerResources({
   if (!htmlSurfaceRendererRef.current) {
     htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
   }
+  if (!retainedContentPageManagerRef.current) {
+    retainedContentPageManagerRef.current =
+      new RetainedContentTexturePageManager(
+        runtime.device,
+        runtime.canvas.ownerDocument,
+      );
+  }
 
   return {
     htmlSurfaceRenderer: htmlSurfaceRendererRef.current,
+    retainedContentPageManager: retainedContentPageManagerRef.current,
     textureManager: textureManagerRef.current,
   };
 }
@@ -119,11 +137,16 @@ function hasRenderableGpuFlowCanvasSize(canvasSize: GpuCanvasSize): boolean {
 export function destroyNodeLayerResources(
   textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>,
   htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>,
+  retainedContentPageManagerRef?: MutableRefObject<RetainedContentTexturePageManager | null>,
 ) {
   textureManagerRef.current?.destroy();
   textureManagerRef.current = null;
   htmlSurfaceRendererRef.current?.destroy();
   htmlSurfaceRendererRef.current = null;
+  retainedContentPageManagerRef?.current?.destroy();
+  if (retainedContentPageManagerRef) {
+    retainedContentPageManagerRef.current = null;
+  }
 }
 
 export function destroyNodeInteractionResources(
@@ -207,6 +230,7 @@ export function renderGpuFlowNodeLayerFrame({
   nodeLayerRef,
   htmlSurfaceRendererRef,
   runtime,
+  retainedContentPageManagerRef,
   surfaceRef,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
@@ -227,6 +251,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
+  readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
@@ -238,6 +263,7 @@ export function renderGpuFlowNodeLayerFrame({
     canvasSizeRef,
     nodeLayerRef,
     htmlSurfaceRendererRef,
+    retainedContentPageManagerRef,
     runtime,
     textureManagerRef,
   });
@@ -247,6 +273,23 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
+  const retainedPageResult = resources.retainedContentPageManager.renderFrame({
+    darkMode: isGpuFlowFrameDarkMode(runtime.canvas),
+    devicePixelRatio: canvasSize.devicePixelRatio,
+    frame,
+    surfaces: getGpuRetainedContentTexturePageFrameSurfaces(
+      layer.scene?.contentSurfaces,
+      {
+        viewportZoomBucket: chooseStableZoomBucket(
+          normalizeGpuViewport(layer.viewport).zoom,
+        ),
+      },
+    ),
+    viewportInteractionActive: deferResolutionUpdates,
+    viewportZoomBucket: chooseStableZoomBucket(
+      normalizeGpuViewport(layer.viewport).zoom,
+    ),
+  });
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -263,6 +306,7 @@ export function renderGpuFlowNodeLayerFrame({
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
     htmlSurfaceNativeVisuals: layer.htmlSurfaceNativeVisuals,
+    htmlSurfacePageVisuals: retainedPageResult.flatSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
@@ -271,6 +315,11 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
+  const combinedLayerResult = {
+    ...layerResult,
+    budgetExhausted:
+      layerResult.budgetExhausted || retainedPageResult.budgetExhausted,
+  };
   reportGpuFlowNodeLayerFramePerformance({
     callbacksRef,
     deferResolutionUpdates,
@@ -284,14 +333,14 @@ export function renderGpuFlowNodeLayerFrame({
       ownerDocument: runtime.canvas.ownerDocument,
       viewportState: viewportStore.getState(),
     }),
-    layerResult,
+    layerResult: combinedLayerResult,
     renderDurationMs: performance.now() - renderStartedAt,
     viewport: layer.viewport,
     viewportFrame,
   });
   updateGpuFlowNodeLayerFrameState({
     callbacksRef,
-    layerResult,
+    layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
     surfaceRef,
@@ -299,6 +348,13 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
+}
+
+function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {
+  return Boolean(
+    canvas.closest(".dark") ??
+      canvas.ownerDocument.documentElement.closest(".dark"),
+  );
 }
 
 function resolveActiveGpuFlowNodeId({

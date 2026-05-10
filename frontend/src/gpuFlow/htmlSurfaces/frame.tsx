@@ -22,10 +22,11 @@ import type {
 } from "./textures";
 
 import {
-  createHtmlSurfaceVisualScene,
+  type HtmlSurfaceFlatVisual,
   type HtmlSurfaceSolidRoundedRectVisual,
   type HtmlSurfaceVisualScene,
 } from "./visualScene";
+import { createGpuNodeVisualScene } from "./frameVisualScene";
 
 import {
   buildHtmlSurfaceVisuals,
@@ -226,6 +227,9 @@ type RenderHtmlSurfaceFrameInput = {
   readonly htmlSurfaceNativeVisuals?:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
+  readonly htmlSurfacePageVisuals?:
+    | readonly HtmlSurfaceFlatVisual[]
+    | undefined;
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
@@ -375,6 +379,7 @@ export function renderHtmlSurfaceFrame({
   frame,
   grid,
   htmlSurfaceNativeVisuals,
+  htmlSurfacePageVisuals,
   htmlSurfaceOverlays,
   marginCssPx,
   nodes,
@@ -466,9 +471,10 @@ export function renderHtmlSurfaceFrame({
     buildHtmlSurfaceVisuals(uploadedTexturedQuads),
     buildHtmlSurfaceVisuals(uploadedOverlayTexturedQuads),
   );
-  const visualScene = createHtmlSurfaceVisualScene({
-    ...visualSurfaces,
-    solidRoundedRectSurfaces: htmlSurfaceNativeVisuals ?? [],
+  const visualScene = createGpuNodeVisualScene({
+    htmlSurfaceNativeVisuals,
+    htmlSurfacePageVisuals,
+    visualSurfaces,
   });
   const renderResult = renderer.render({
     canvasSize,

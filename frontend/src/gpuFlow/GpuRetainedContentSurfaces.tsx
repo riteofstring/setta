@@ -1,5 +1,4 @@
 import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
-
 import {
   cancelGpuAnimationFrame,
   requestGpuAnimationFrame,
@@ -33,21 +32,17 @@ export type GpuRetainedContentSurfaceDrawEvent = {
   readonly reason: "animation" | "content";
   readonly sourceRect?: GpuRect | undefined;
 };
-
 export type GpuRetainedContentSurface = GpuContentSurface & {
   readonly retainedScene: GpuRetainedContentScene;
 };
-
 type GpuRetainedContentRenderableSource = {
   readonly sourceId: string;
   readonly surface: GpuRetainedContentSourceSurface;
 };
-
 export type GpuRetainedContentSourceSurface = GpuRetainedContentSurface & {
   readonly sourceClipOffset: GpuPoint;
   readonly textureWindow: GpuRetainedContentTextureWindow;
 };
-
 type GpuRetainedContentTextureWindow = {
   readonly cacheScrollOffset: GpuPoint;
   readonly cacheViewportRect: GpuRect;
@@ -58,7 +53,6 @@ type GpuRetainedContentTextureWindow = {
   readonly textureWidth: number;
   readonly viewportZoomBucket: number;
 };
-
 type GpuRetainedContentCanvasCacheKey = {
   readonly cacheScrollX: number;
   readonly cacheScrollY: number;
@@ -70,7 +64,6 @@ type GpuRetainedContentCanvasCacheKey = {
   readonly textureScale: number;
   readonly textureWidth: number;
 };
-
 type GpuRetainedContentSurfaceLayerProps = {
   readonly onSurfaceDraw?:
     | ((surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => void)
@@ -84,7 +77,6 @@ type GpuRetainedContentSurfaceLayerProps = {
     | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
-
 const GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__retained-content-source";
 const gpuRetainedContentCanvasCacheKeys = new WeakMap<
@@ -124,7 +116,6 @@ export function GpuRetainedContentSurfaceLayer({
     </>
   );
 }
-
 export function getGpuRetainedContentSurfaceLayouts(
   surfaces: readonly GpuContentSurface[] | undefined,
 ): readonly GpuHtmlSurfaceOverlayLayout[] {
@@ -132,7 +123,6 @@ export function getGpuRetainedContentSurfaceLayouts(
     toGpuRetainedContentSurfaceLayout,
   );
 }
-
 export function getGpuRetainedContentSourceIdsForSurface(
   surface: GpuContentSurface,
 ): readonly string[] {
@@ -140,7 +130,6 @@ export function getGpuRetainedContentSourceIdsForSurface(
     (source) => source.id,
   );
 }
-
 export function getGpuRetainedContentSourceRectForRows({
   rowIds,
   surface,
@@ -289,13 +278,11 @@ function GpuRetainedContentCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-
   useLayoutEffect(() => {
     return () => {
       switchAnimations?.clearSurface(surface.id);
     };
   }, [surface.id, switchAnimations]);
-
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -306,7 +293,6 @@ function GpuRetainedContentCanvas({
       onSurfaceElementChange?.(sourceId, null);
     };
   }, [onSurfaceElementChange, sourceId]);
-
   useLayoutEffect(() => {
     const cancelPendingAnimationFrame = () => {
       const frameId = animationFrameRef.current;
@@ -883,21 +869,30 @@ function isGpuRetainedContentCanvasCacheKeyEqual(
   left: GpuRetainedContentCanvasCacheKey | undefined,
   right: GpuRetainedContentCanvasCacheKey,
 ): boolean {
-  return Boolean(
-    left &&
-      left.cacheScrollX === right.cacheScrollX &&
-      left.cacheScrollY === right.cacheScrollY &&
-      left.darkMode === right.darkMode &&
-      left.sourceClipX === right.sourceClipX &&
-      left.sourceClipY === right.sourceClipY &&
-      areGpuRetainedContentCacheValuesEqual(
-        left.sourceInput,
-        right.sourceInput,
-      ) &&
-      left.textureHeight === right.textureHeight &&
-      left.textureScale === right.textureScale &&
-      left.textureWidth === right.textureWidth,
+  if (!left || !isGpuRetainedContentCanvasCacheScalarKeyEqual(left, right)) {
+    return false;
+  }
+  return areGpuRetainedContentCacheValuesEqual(
+    left.sourceInput,
+    right.sourceInput,
   );
+}
+
+function isGpuRetainedContentCanvasCacheScalarKeyEqual(
+  left: GpuRetainedContentCanvasCacheKey,
+  right: GpuRetainedContentCanvasCacheKey,
+): boolean {
+  const keys = [
+    "cacheScrollX",
+    "cacheScrollY",
+    "darkMode",
+    "sourceClipX",
+    "sourceClipY",
+    "textureHeight",
+    "textureScale",
+    "textureWidth",
+  ] as const;
+  return keys.every((key) => left[key] === right[key]);
 }
 
 function areGpuRetainedContentCacheValuesEqual(
