@@ -20,7 +20,18 @@ The settings-shell `TextAreaParam` data bug is separate. This plan assumes compa
 
 ## Step 1: Behavior Tests First
 
-Write tests before changing the retained text runtime. The tests should fail or expose the current issue on the existing implementation, then pass after the refactor.
+This step is a hard gate. Do not change the retained text runtime, scheduler, promotion semantics, or active-editor handoff code until the current user-visible failures are captured by tests and a baseline report.
+
+The Step 1 output must include:
+
+- Browser-level disappearing-content tests that fail or expose the current blank-row behavior on the existing implementation.
+- A pan/zoom or wheel benchmark baseline recorded under `perf/`.
+- Active editor handoff coverage that observes the visual handoff, not only focus or DOM state.
+- A short note in the plan or perf report naming the failing command, affected rows, and observed pixel/trace evidence.
+
+Diagnostics may be added only to make the failing tests and baseline measurable. Diagnostic counters, queue names, hidden source counts, or source-key matches are not acceptance criteria by themselves.
+
+If a proposed test passes on the current implementation, it does not satisfy this gate unless it is paired with another test or recording that reproduces the 2026-05-13 blank-row failure. Tighten the scenario before moving to Step 2.
 
 ### Disappearing Content Tests
 
@@ -42,6 +53,14 @@ Suggested test shape:
 - Assert nonblank/nontransparent pixels before click, after click, after blur, and after section scroll.
 - Avoid assertions about texture cache state, scheduler queue names, hidden DOM node counts, or component internals.
 
+Required failing scenarios:
+
+- At least one visible single-line text row in `sectionSizingPolicy`, such as `sectionSizingPolicy.metaControlByType.TextParam.minHeight`, must be checked before click.
+- At least one compact structured scalar row in `callableSectionDefault`, such as `columnWidth`, `edgeInputParams`, or `edgeOutputPorts`, must be checked before click and after activation.
+- The test must run against a retained-content-heavy settings view, preferably All Settings, so the failure includes scheduler and many-row pressure.
+- The assertion must be based on canvas pixels in or tightly around the row value/control bounds. A present source DOM element, matched source key, mounted CodeMirror editor, or non-empty debug row record is not enough.
+- Clicking a blank row may be used as part of the test, but the test must prove that the click was not the first visible rendering path.
+
 ### Pan/Zoom Performance Tests
 
 Add a reproducible pan/zoom benchmark around the same retained-content-heavy view.
@@ -60,6 +79,13 @@ Suggested test shape:
 - Store the before/after reports in `perf/` as append-only evidence.
 - Treat visual nonblank checks as the correctness gate and trace metrics as performance gates.
 
+Baseline requirements:
+
+- Capture the current baseline before any runtime refactor.
+- Report frame gaps, long tasks, upload count/bytes, skipped or queued work counts when available, and visible blank-row count.
+- Name the command or script used to capture the baseline so the after report can repeat it.
+- Do not accept a benchmark that only proves smooth scrolling while visible text remains blank.
+
 ### Active Editor Interaction Tests
 
 Add focused frontend tests around retained text activation semantics.
@@ -72,6 +98,25 @@ Target behaviors:
 - Blurring or committing does not produce a blank visual handoff.
 
 These tests can use component-level rendering where browser pixel checks are not required, but they should still assert observable DOM/visual behavior rather than internal state names.
+
+Required handoff checks:
+
+- Before activation, the passive value must be visibly nonblank.
+- During activation, the old passive visual must remain visible until the active editor has painted at the aligned geometry.
+- During deactivation, either the active editor or a passive visual must remain visible in the row bounds.
+- Focus and typing are necessary but not sufficient; they do not prove the visual handoff is correct.
+
+### Step 1 Exit Criteria
+
+Step 1 is complete only when all of the following are true:
+
+- The disappearing-content test or Chrome recording reproduces the current blank-row failure on the existing implementation.
+- The failing evidence includes at least one canvas pixel probe over a specific retained text-like row value/control area.
+- The pan/zoom baseline exists under `perf/` with command, scenario, frame/long-task metrics, upload pressure, and blank-row count.
+- The active editor handoff test covers passive-before-click and activation/deactivation visibility.
+- The next runtime change can be judged by making these tests pass and by comparing the after report against the baseline.
+
+Do not proceed to Step 2 with only source DOM readiness tests, queue diagnostics, source-key equality checks, or aggregate retained page counters.
 
 ## Target Architecture
 
