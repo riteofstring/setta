@@ -1,4 +1,3 @@
-import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
   createGpuFlowContentSurfacesFromSections,
   type GpuFlowScene,
@@ -32,7 +31,6 @@ export type ProjectGpuResizePreviewSceneInput = {
 
 export type ProjectGpuFlowSceneOptions = {
   readonly darkMode: boolean;
-  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly activeParamCanvasPopup?:
     | ProjectGpuActiveParamCanvasPopup
     | null
@@ -92,7 +90,6 @@ export function createProjectGpuFlowSceneFromLayoutScene(
     activeParamCanvasControl: options.activeParamCanvasControl,
     activeParamCanvasPopup: options.activeParamCanvasPopup,
     activeParamDomIsland: options.activeParamDomIsland,
-    contentScrollOffsets: options.contentScrollOffsets,
     editPolicy: paramEditPolicy,
     hoveredParamTarget: options.hoveredParamTarget,
     passwordRevealStates: options.passwordRevealStates,

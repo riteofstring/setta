@@ -1,4 +1,9 @@
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
+import {
+  applyGpuRetainedContentRuntimeStateToScene,
+  createGpuRetainedContentRuntimeState,
+  setGpuRetainedContentRuntimeScrollOffset,
+} from "gpuFlow/retainedContentRuntimeState";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import {
   addParamToProjectState,
@@ -723,7 +728,7 @@ describe("project GPU layout adapter retained controls", () => {
     expect(stalePaletteDomIslandScene.domIslands).toEqual([]);
   });
 
-  it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {
+  it("keeps retained content scroll offsets runtime-owned for dict param surfaces", () => {
     const paramIds = Array.from({ length: 8 }, (_, index) => `param-${index}`);
     const projectState = projectStateWithSections({
       sections: [
@@ -773,23 +778,43 @@ describe("project GPU layout adapter retained controls", () => {
       },
     });
 
-    const scene = getProjectGpuFlowScene(projectState, {
-      contentScrollOffsets: new Map([
-        ["dict-a:param-content:unpinned", { x: 0, y: 56 }],
-      ]),
+    const structuralScene = getProjectGpuFlowScene(projectState, {
       darkMode: false,
       revision: 3,
     });
 
-    const paramSurface = scene.contentSurfaces.find(
+    const structuralParamSurface = structuralScene.contentSurfaces.find(
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
 
-    expect(paramSurface?.retainedScene).toMatchObject({
+    expect(structuralParamSurface?.retainedScene).toMatchObject({
+      scrollOffset: { x: 0, y: 0 },
+      visibleRange: { endIndex: 1, rowCount: 8, startIndex: 0 },
+    });
+    expect(structuralParamSurface?.retainedScene?.rows[0]).toMatchObject({
+      id: "param-0",
+      projectedRect: { y: 0 },
+    });
+
+    const runtimeState = createGpuRetainedContentRuntimeState();
+    setGpuRetainedContentRuntimeScrollOffset({
+      scrollOffset: { x: 0, y: 56 },
+      state: runtimeState,
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+    const runtimeScene = applyGpuRetainedContentRuntimeStateToScene({
+      scene: structuralScene,
+      state: runtimeState,
+    });
+    const runtimeParamSurface = runtimeScene?.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(runtimeParamSurface?.retainedScene).toMatchObject({
       scrollOffset: { x: 0, y: 56 },
       visibleRange: { endIndex: 2, rowCount: 8, startIndex: 0 },
     });
-    expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
+    expect(runtimeParamSurface?.retainedScene?.rows[0]).toMatchObject({
       id: "param-0",
       projectedRect: { y: -56 },
     });

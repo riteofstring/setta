@@ -33,7 +33,6 @@ export function createGpuRetainedContentFrameGeneration({
     contentPageSurfaces:
       getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
         sourceSurfaces,
-        { textLikeRowSnapshotSources },
       ),
     sourceSurfaces,
     textLikeRowSnapshotSources,

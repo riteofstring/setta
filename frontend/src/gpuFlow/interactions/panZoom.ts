@@ -51,6 +51,17 @@ type ActivePointerPan = {
   lastClientY: number;
 };
 
+type PendingWheelViewportUpdate =
+  | {
+      readonly kind: "pan";
+      readonly delta: GpuPoint;
+    }
+  | {
+      readonly kind: "zoom";
+      readonly point: GpuPoint;
+      readonly wheelZoomDelta: number;
+    };
+
 type ResolvedGpuPanZoomControllerOptions = {
   readonly panActivationKeyPressed: boolean | undefined;
   readonly onPointerPanStart: (() => void) | undefined;
@@ -238,6 +249,8 @@ class GpuPanZoomController {
   private readonly isMacOS: boolean;
   private readonly options: ResolvedGpuPanZoomControllerOptions;
   private panScrollTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pendingWheelViewportFrame: number | null = null;
+  private pendingWheelViewportUpdate: PendingWheelViewportUpdate | null = null;
   private readonly store: GpuFlowViewportStoreApi;
   private wheelZoomTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -267,6 +280,8 @@ class GpuPanZoomController {
     this.endPointerPan();
     this.clearWheelZoomTimeout();
     this.clearPanScrollTimeout();
+    this.cancelPendingWheelViewportFrame();
+    this.pendingWheelViewportUpdate = null;
   }
 
   private readonly onWheel = (event: WheelEvent) => {
@@ -299,12 +314,12 @@ class GpuPanZoomController {
 
     if (zoomRequested) {
       this.startWheelZoomBurst();
-      this.zoomFromWheel(event);
+      this.queueZoomFromWheel(event);
       this.scheduleWheelZoomBurstEnd();
       return;
     }
 
-    this.panFromWheel(event);
+    this.queuePanFromWheel(event);
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
@@ -367,41 +382,98 @@ class GpuPanZoomController {
     }
   };
 
-  private panFromWheel(event: WheelEvent) {
+  private queuePanFromWheel(event: WheelEvent) {
     const { deltaX, deltaY } = resolveGpuPanOnScrollDelta({
       event,
       isMacOS: this.isMacOS,
       panOnScrollMode: this.options.panOnScrollMode,
     });
-    const changed = panGpuViewport(
-      {
-        x: -deltaX * this.options.panOnScrollSpeed,
-        y: -deltaY * this.options.panOnScrollSpeed,
-      },
-      { store: this.store },
-    );
-    if (changed) {
-      this.requestViewportFrame();
+    const delta = {
+      x: -deltaX * this.options.panOnScrollSpeed,
+      y: -deltaY * this.options.panOnScrollSpeed,
+    };
+    if (
+      this.pendingWheelViewportUpdate &&
+      this.pendingWheelViewportUpdate.kind !== "pan"
+    ) {
+      this.flushPendingWheelViewportUpdate();
     }
+    const current = this.pendingWheelViewportUpdate;
+    this.pendingWheelViewportUpdate =
+      current?.kind === "pan"
+        ? {
+            kind: "pan",
+            delta: {
+              x: current.delta.x + delta.x,
+              y: current.delta.y + delta.y,
+            },
+          }
+        : { kind: "pan", delta };
+    this.schedulePendingWheelViewportFlush();
     this.startPanScrollBurst();
     this.schedulePanScrollBurstEnd();
   }
 
-  private zoomFromWheel(event: WheelEvent) {
-    const currentZoom = this.store.getState().getViewport().zoom;
+  private queueZoomFromWheel(event: WheelEvent) {
     const factor = event.ctrlKey && this.isMacOS ? 10 : 1;
-    const wheelZoomDelta = getGpuWheelZoomDelta(event, factor);
     const point = getEventPointRelativeToElement(event, this.element);
-    const changed = zoomGpuViewportAt(
-      currentZoom * Math.pow(2, wheelZoomDelta),
-      {
-        point,
-        store: this.store,
-      },
-    );
+    const wheelZoomDelta = getGpuWheelZoomDelta(event, factor);
+    if (
+      this.pendingWheelViewportUpdate &&
+      this.pendingWheelViewportUpdate.kind !== "zoom"
+    ) {
+      this.flushPendingWheelViewportUpdate();
+    }
+    const current = this.pendingWheelViewportUpdate;
+    this.pendingWheelViewportUpdate =
+      current?.kind === "zoom"
+        ? {
+            kind: "zoom",
+            point,
+            wheelZoomDelta: current.wheelZoomDelta + wheelZoomDelta,
+          }
+        : { kind: "zoom", point, wheelZoomDelta };
+    this.schedulePendingWheelViewportFlush();
+  }
+
+  private schedulePendingWheelViewportFlush() {
+    if (this.pendingWheelViewportFrame !== null) {
+      return;
+    }
+    this.pendingWheelViewportFrame = globalThis.requestAnimationFrame(() => {
+      this.pendingWheelViewportFrame = null;
+      this.flushPendingWheelViewportUpdate();
+    });
+  }
+
+  private flushPendingWheelViewportUpdate() {
+    const update = this.pendingWheelViewportUpdate;
+    if (!update) {
+      return;
+    }
+    this.pendingWheelViewportUpdate = null;
+    const changed =
+      update.kind === "zoom"
+        ? zoomGpuViewportAt(
+            this.store.getState().getViewport().zoom *
+              Math.pow(2, update.wheelZoomDelta),
+            {
+              point: update.point,
+              store: this.store,
+            },
+          )
+        : panGpuViewport(update.delta, { store: this.store });
     if (changed) {
       this.requestViewportFrame();
     }
+  }
+
+  private cancelPendingWheelViewportFrame() {
+    if (this.pendingWheelViewportFrame === null) {
+      return;
+    }
+    globalThis.cancelAnimationFrame(this.pendingWheelViewportFrame);
+    this.pendingWheelViewportFrame = null;
   }
 
   private shouldStartPointerPan(event: PointerEvent): boolean {
@@ -440,6 +512,8 @@ class GpuPanZoomController {
   private scheduleWheelZoomBurstEnd() {
     this.clearWheelZoomTimeout();
     this.wheelZoomTimeout = setTimeout(() => {
+      this.cancelPendingWheelViewportFrame();
+      this.flushPendingWheelViewportUpdate();
       this.store
         .getState()
         .setViewportInteractionFlags({ wheelZooming: false });
@@ -456,6 +530,8 @@ class GpuPanZoomController {
   private schedulePanScrollBurstEnd() {
     this.clearPanScrollTimeout();
     this.panScrollTimeout = setTimeout(() => {
+      this.cancelPendingWheelViewportFrame();
+      this.flushPendingWheelViewportUpdate();
       this.store
         .getState()
         .setViewportInteractionFlags({ panScrolling: false });

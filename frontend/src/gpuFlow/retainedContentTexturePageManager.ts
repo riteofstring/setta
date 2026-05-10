@@ -14,13 +14,6 @@ import {
   normalizeRetainedContentTexturePageLodScale,
 } from "./retainedContentTexturePageBudget";
 import {
-  EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
-  areRetainedContentTexturePageTextLikeSnapshotsReady,
-  resolveRetainedContentTexturePageTextLikeSnapshots,
-  uploadRetainedContentTexturePageTextLikeSnapshots,
-  type RetainedContentTexturePageTextLikeSnapshot,
-} from "./retainedContentTexturePageTextLikeSnapshots";
-import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
   type RetainedTexturePageDrawQuad,
@@ -59,9 +52,6 @@ export type RetainedContentTexturePageFrameSurface = {
   readonly rasterScene: GpuRetainedContentScene;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?:
-    | readonly RetainedContentTexturePageTextLikeSnapshot[]
-    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -127,7 +117,6 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 
@@ -336,7 +325,6 @@ export class RetainedContentTexturePageManager {
     darkMode = false,
     preparedFrame,
     switchAnimations,
-    textLikeSnapshotElementById = EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
     viewportInteractionActive = false,
   }: RetainedContentTexturePageMaintenanceInput): RetainedContentTexturePageMaintenanceResult {
     this.enqueueMissingPages(
@@ -355,7 +343,6 @@ export class RetainedContentTexturePageManager {
           item,
           palette,
           switchAnimations,
-          textLikeSnapshotElementById,
         }),
       queue: this.workQueue,
       viewportInteractionActive,
@@ -664,7 +651,6 @@ export class RetainedContentTexturePageManager {
     item,
     palette,
     switchAnimations,
-    textLikeSnapshotElementById,
   }: {
     readonly frame: number;
     readonly item: RetainedTextureWorkItem;
@@ -672,7 +658,6 @@ export class RetainedContentTexturePageManager {
     readonly switchAnimations?:
       | GpuRetainedContentSwitchAnimationStore
       | undefined;
-    readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
   }) {
     const descriptors = this.resolveWorkItemDescriptors(item);
     const descriptor = descriptors[0];
@@ -693,24 +678,8 @@ export class RetainedContentTexturePageManager {
       shouldRefreshCommittedPage(item) ||
       !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
     ) {
-      if (
-        !areRetainedContentTexturePageTextLikeSnapshotsReady({
-          descriptor,
-          elementBySourceId: textLikeSnapshotElementById,
-          surface: this.frameSurfaceById.get(descriptor.surfaceId),
-        })
-      ) {
-        return {
-          complete: false,
-          rasterMs: 0,
-          uploadCount: 0,
-          uploadedBytes: 0,
-          uploadMs: 0,
-        };
-      }
       const upload = this.uploadPage({
         descriptor,
-        elementByTextLikeSnapshotSourceId: textLikeSnapshotElementById,
         frame,
         palette,
         switchAnimations,
@@ -783,16 +752,11 @@ export class RetainedContentTexturePageManager {
 
   private uploadPage({
     descriptor,
-    elementByTextLikeSnapshotSourceId,
     frame,
     palette,
     switchAnimations,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
-      string,
-      HTMLElement
-    >;
     readonly frame: number;
     readonly palette: GpuRetainedContentCanvasPalette;
     readonly switchAnimations?:
@@ -837,16 +801,6 @@ export class RetainedContentTexturePageManager {
         width: descriptor.pixelWidth,
       },
     );
-    uploadRetainedContentTexturePageTextLikeSnapshots({
-      descriptor,
-      elementBySourceId: elementByTextLikeSnapshotSourceId,
-      queue: this.device.queue,
-      resource,
-      snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
-        descriptor,
-        surface,
-      }),
-    });
     const uploadMs = performance.now() - uploadStartedAt;
     this.cache.commitPendingPage({
       frame,

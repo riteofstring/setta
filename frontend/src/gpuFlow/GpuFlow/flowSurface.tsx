@@ -82,6 +82,7 @@ import {
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { RetainedTextLikeRowTextureManager } from "../retainedTextLikeRowTextureManager";
 import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
 import { GpuFlowSceneContext } from "../sceneContext";
 import type { GpuViewportInput } from "../viewportMath";
@@ -319,6 +320,8 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const retainedContentPageManagerRef =
     useRef<RetainedContentTexturePageManager | null>(null);
+  const retainedTextLikeRowTextureManagerRef =
+    useRef<RetainedTextLikeRowTextureManager | null>(null);
   const retainedTextLikeRowSnapshotElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );
@@ -468,6 +471,7 @@ export function GpuFlow({
       nodes,
       nodeTextureMemoryBudgetBytes,
       retainedContentPageManagerRef,
+      retainedTextLikeRowTextureManagerRef,
       retainedTextLikeRowSnapshotElementByIdRef,
       scene,
       sourceInteractionProjector,
@@ -683,6 +687,7 @@ export function GpuFlow({
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikeRowTextureManagerRef,
       );
     };
   }, [retainedContentSwitchAnimations]);
@@ -720,6 +725,7 @@ export function GpuFlow({
         textureManagerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikeRowTextureManagerRef,
       );
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
@@ -915,6 +921,7 @@ export function GpuFlow({
         nodeLayerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedTextLikeRowTextureManagerRef,
         retainedTextLikeRowSnapshotElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,

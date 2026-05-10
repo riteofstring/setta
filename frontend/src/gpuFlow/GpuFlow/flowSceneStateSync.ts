@@ -21,6 +21,7 @@ import {
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { RetainedTextLikeRowTextureManager } from "../retainedTextLikeRowTextureManager";
 import type { GpuFlowScene } from "../scene";
 import {
   resolveGpuFlowEdgeDrawInputs,
@@ -47,6 +48,7 @@ export function syncGpuFlowNodeLayerSceneState({
   nodes,
   nodeTextureMemoryBudgetBytes,
   retainedContentPageManagerRef,
+  retainedTextLikeRowTextureManagerRef,
   retainedTextLikeRowSnapshotElementByIdRef,
   scene,
   sourceInteractionProjector,
@@ -81,6 +83,7 @@ export function syncGpuFlowNodeLayerSceneState({
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
+  readonly retainedTextLikeRowTextureManagerRef: MutableRefObject<RetainedTextLikeRowTextureManager | null>;
   readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
@@ -141,6 +144,7 @@ export function syncGpuFlowNodeLayerSceneState({
       textureManagerRef,
       htmlSurfaceRendererRef,
       retainedContentPageManagerRef,
+      retainedTextLikeRowTextureManagerRef,
     );
   }
   surfaceRef.current?.requestFrame("viewport");

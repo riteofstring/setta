@@ -67,8 +67,10 @@ type ScreenshotContentStats = {
 
 type FrameSamplerResult = {
   readonly intervalCount: number;
+  readonly longTaskCount: number;
   readonly p95IntervalMs: number;
   readonly slowIntervalRatio: number;
+  readonly worstLongTaskMs: number;
   readonly worstIntervalMs: number;
 };
 
@@ -806,8 +808,21 @@ async function startFrameSampler(page: Page): Promise<void> {
   await page.evaluate(() => {
     const sampler = {
       intervals: [] as number[],
+      longTasks: [] as number[],
+      observer: null as PerformanceObserver | null,
       running: true,
     };
+    if (
+      "PerformanceObserver" in window &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+    ) {
+      sampler.observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          sampler.longTasks.push(entry.duration);
+        }
+      });
+      sampler.observer.observe({ type: "longtask" });
+    }
     let lastTimestamp: number | null = null;
     const sample = (timestamp: number) => {
       if (!sampler.running) {
@@ -834,6 +849,8 @@ async function stopFrameSampler(page: Page): Promise<FrameSamplerResult> {
       window as Window & {
         __SETTA_RETAINED_STABILITY_FRAME_SAMPLER__?: {
           intervals: number[];
+          longTasks: number[];
+          observer: PerformanceObserver | null;
           running: boolean;
         };
       }
@@ -842,16 +859,22 @@ async function stopFrameSampler(page: Page): Promise<FrameSamplerResult> {
       throw new Error("Missing retained stability frame sampler.");
     }
     sampler.running = false;
+    sampler.observer?.disconnect();
     const intervals = [...sampler.intervals].sort(
+      (left, right) => left - right,
+    );
+    const longTasks = [...sampler.longTasks].sort(
       (left, right) => left - right,
     );
     const p95Index = Math.floor(Math.max(0, intervals.length - 1) * 0.95);
     const slowIntervals = intervals.filter((interval) => interval > 33.4);
     return {
       intervalCount: intervals.length,
+      longTaskCount: longTasks.length,
       p95IntervalMs: intervals[p95Index] ?? 0,
       slowIntervalRatio:
         intervals.length === 0 ? 0 : slowIntervals.length / intervals.length,
+      worstLongTaskMs: longTasks.at(-1) ?? 0,
       worstIntervalMs: intervals.at(-1) ?? 0,
     };
   });
