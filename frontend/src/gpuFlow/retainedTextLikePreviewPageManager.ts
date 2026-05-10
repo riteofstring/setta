@@ -46,6 +46,7 @@ export type RetainedTextLikePreviewPageFrameInput = {
 
 export type RetainedTextLikePreviewPagePreparedFrame = {
   readonly baseDrawQuads: readonly RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[];
+  readonly committedPageRects: readonly RetainedTextLikePreviewPageCommittedRect[];
   readonly drawQuadCount: number;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly frame: number;
@@ -55,6 +56,15 @@ export type RetainedTextLikePreviewPagePreparedFrame = {
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly sourceCount: number;
   readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
+};
+
+export type RetainedTextLikePreviewPageCommittedRect = {
+  readonly contentVersion: number;
+  readonly lodScale: number;
+  readonly sourceId: string;
+  readonly sourceRectCss: GpuRect;
+  readonly tileColumn: number;
+  readonly tileRow: number;
 };
 
 export type RetainedTextLikePreviewPageMaintenanceInput = {
@@ -68,11 +78,16 @@ export type RetainedTextLikePreviewPageMaintenanceResult = {
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
   readonly drawQuadCount: number;
   readonly evicted: RetainedTexturePageEvictionResult;
+  readonly executedItemCount: number;
   readonly memory: RetainedTexturePageCacheSnapshot;
   readonly missingPageCount: number;
   readonly needsFollowUpFrame: boolean;
   readonly omittedPreviewCount: number;
   readonly postMaintenanceMissingPageCount: number;
+  readonly queuedWorkCount: number;
+  readonly queuedWorkCountBeforeUpload: number;
+  readonly remainingUploadableWorkCount: number;
+  readonly skippedItemCount: number;
   readonly sourceCount: number;
   readonly targetDescriptorCount: number;
   readonly uploadedBytes: number;
@@ -191,6 +206,7 @@ export class RetainedTextLikePreviewPageManager {
       preparedFrame.refinementDescriptors,
       preparedFrame.frame,
     );
+    const queuedWorkCountBeforeUpload = this.workQueue.size;
     const uploadResult = runRetainedTextureUploadScheduler({
       budget: this.budget,
       estimateWorkItem: (item) => this.estimateWorkItem(item),
@@ -229,12 +245,17 @@ export class RetainedTextLikePreviewPageManager {
       diagnostics: uploadResult.diagnostics,
       drawQuadCount: preparedFrame.drawQuadCount,
       evicted,
+      executedItemCount: uploadResult.executedItems.length,
       memory: this.cache.snapshot(),
       missingPageCount: preparedFrame.missingPageCount,
       needsFollowUpFrame:
         uploadResult.budgetExhausted || committedPreviewChangedDrawableCoverage,
       omittedPreviewCount: preparedFrame.omittedPreviewCount,
       postMaintenanceMissingPageCount: postMaintenanceVisuals.missingPageCount,
+      queuedWorkCount: this.workQueue.size,
+      queuedWorkCountBeforeUpload,
+      remainingUploadableWorkCount: uploadResult.remainingUploadableWorkCount,
+      skippedItemCount: uploadResult.skippedItems.length,
       sourceCount: preparedFrame.sourceCount,
       targetDescriptorCount: preparedFrame.targetDescriptors.length,
       uploadedBytes: uploadResult.uploadedBytes,
@@ -256,6 +277,7 @@ export class RetainedTextLikePreviewPageManager {
     "baseDrawQuads" | "frame" | "sourceCount" | "targetDescriptors"
   > {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
+    const committedPageRects: RetainedTextLikePreviewPageCommittedRect[] = [];
     const protectedPageKeys = new Set<string>();
     const drawQuadsBySourceId = new Map<
       string,
@@ -284,6 +306,14 @@ export class RetainedTextLikePreviewPageManager {
       const usedPage =
         this.cache.markCommittedPageUsed(page.key, frame) ?? page;
       protectedPageKeys.add(usedPage.key);
+      committedPageRects.push({
+        contentVersion: usedPage.descriptor.contentVersion,
+        lodScale: usedPage.descriptor.lodScale,
+        sourceId: surface.sourceId,
+        sourceRectCss: usedPage.descriptor.sourceRectCss,
+        tileColumn: usedPage.descriptor.tileColumn,
+        tileRow: usedPage.descriptor.tileRow,
+      });
       const drawQuads = drawQuadsBySourceId.get(surface.sourceId) ?? [];
       drawQuads.push({
         desiredDescriptor: toPreviewDescriptor(
@@ -316,6 +346,7 @@ export class RetainedTextLikePreviewPageManager {
         !this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
     );
     return {
+      committedPageRects,
       drawQuadCount: [...drawQuadsBySourceId.values()].reduce(
         (count, drawQuads) => count + drawQuads.length,
         0,

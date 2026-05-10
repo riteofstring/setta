@@ -54,6 +54,7 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   postGpuFlowRetainedContentVisualStateChromeReproEvent,
   postGpuFlowRetainedTextLikePreviewChromeReproEvent,
+  postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks } from "./flowSurface";
@@ -374,6 +375,7 @@ export function renderGpuFlowNodeLayerFrame({
   postGpuFlowRetainedTextLikePreviewChromeReproEvent({
     frame,
     preparedFrame: retainedTextLikePreviewPreparedFrame,
+    previewSources: retainedFrameGeneration.textLikePreviewSources,
     previewSurfaces: retainedFrameGeneration.textLikePreviewPageSurfaces,
   });
   markGpuFlowRetainedContentSwitchFreshnessDirty({
@@ -434,6 +436,14 @@ export function renderGpuFlowNodeLayerFrame({
       preparedFrame: retainedTextLikePreviewPreparedFrame,
       viewportInteractionActive: deferResolutionUpdates,
     });
+  postGpuFlowRetainedTextLikePreviewMaintenanceChromeReproEvent({
+    elementBySourceId: retainedTextLikePreviewElementByIdRef.current,
+    frame,
+    maintenanceResult: retainedTextLikePreviewResult,
+    preparedFrame: retainedTextLikePreviewPreparedFrame,
+    previewSources: retainedFrameGeneration.textLikePreviewSources,
+    viewportInteractionActive: deferResolutionUpdates,
+  });
   settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
     nowMs: renderStartedAt,
     retainedContentPageManager: resources.retainedContentPageManager,

@@ -6,6 +6,11 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { textFieldCompletion } from "openapi/http";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import {
+  nowChromeReproPerformanceMs,
+  postChromeReproEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
@@ -56,6 +61,17 @@ export function TextInputCodeMirror({
       setActivationEvent(null);
       setRealIsInitialized(false);
     }, 0);
+    postTextInputCodeMirrorActivationChromeReproEvent({
+      defaultValueLength: (defaultVal ?? "").length,
+      gpuFlowControl,
+      isKeyName,
+      language,
+      paramInfoId,
+      phase: "blur",
+      realIsInitialized,
+      sectionId,
+      valueLength: (value ?? "").length,
+    });
     onBlur?.();
   }
   // Has to be onMouseDownCapture to avoid section outline flashing
@@ -66,6 +82,18 @@ export function TextInputCodeMirror({
       return;
     }
     if (event.button === 0) {
+      postTextInputCodeMirrorActivationChromeReproEvent({
+        defaultValueLength: (defaultVal ?? "").length,
+        event: summarizeCodeMirrorActivationMouseEvent(event),
+        gpuFlowControl,
+        isKeyName,
+        language,
+        paramInfoId,
+        phase: "request",
+        realIsInitialized,
+        sectionId,
+        valueLength: (value ?? "").length,
+      });
       setActivationEvent(event);
       if (focusActiveSectionOnMouseDown) {
         applyActiveSectionChange({ interaction: "input-focus", sectionId });
@@ -79,6 +107,17 @@ export function TextInputCodeMirror({
       return;
     }
     if (!activationEvent) {
+      postTextInputCodeMirrorActivationChromeReproEvent({
+        defaultValueLength: (defaultVal ?? "").length,
+        gpuFlowControl,
+        isKeyName,
+        language,
+        paramInfoId,
+        phase: "tab-focus-request",
+        realIsInitialized,
+        sectionId,
+        valueLength: (value ?? "").length,
+      });
       setActivationEvent("tab");
     }
   }
@@ -127,6 +166,65 @@ export function TextInputCodeMirror({
       )}
     </>
   );
+}
+
+function postTextInputCodeMirrorActivationChromeReproEvent({
+  defaultValueLength,
+  event,
+  gpuFlowControl,
+  isKeyName,
+  language,
+  paramInfoId,
+  phase,
+  realIsInitialized,
+  sectionId,
+  valueLength,
+}: {
+  readonly defaultValueLength: number;
+  readonly event?:
+    | {
+        readonly button: number;
+        readonly clientX: number;
+        readonly clientY: number;
+        readonly type: string;
+      }
+    | undefined;
+  readonly gpuFlowControl: string;
+  readonly isKeyName: boolean;
+  readonly language: string | null | undefined;
+  readonly paramInfoId: string | null | undefined;
+  readonly phase: string;
+  readonly realIsInitialized: boolean;
+  readonly sectionId: string;
+  readonly valueLength: number;
+}) {
+  postChromeReproEvent("gpu-flow-codemirror-activation", {
+    defaultValueLength,
+    event: event ?? null,
+    gpuFlowControl,
+    isKeyName,
+    language: language ?? "plain",
+    paramInfoId: paramInfoId ?? "",
+    performanceMs: roundChromeReproMs(nowChromeReproPerformanceMs()),
+    phase,
+    realIsInitialized,
+    sectionId,
+    valueLength,
+  });
+}
+
+function summarizeCodeMirrorActivationMouseEvent(event: {
+  readonly button: number;
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly type: string;
+}) {
+  return {
+    button: event.button,
+    clientX: roundChromeReproMs(event.clientX),
+    clientY: roundChromeReproMs(event.clientY),
+    type: event.type,
+  };
 }
 
 function getTextInputCodeMirrorGpuFlowControl({

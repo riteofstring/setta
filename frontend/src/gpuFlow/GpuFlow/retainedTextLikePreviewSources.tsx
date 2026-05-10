@@ -151,9 +151,15 @@ export function getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(
 export function getGpuRetainedTextLikePreviewPageFrameSurfacesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
 ): readonly RetainedTextLikePreviewPageFrameSurface[] {
-  return getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(surfaces).map(
-    toGpuRetainedTextLikePreviewPageFrameSurface,
+  return getGpuRetainedTextLikePreviewPageFrameSurfacesFromSources(
+    getGpuRetainedTextLikePreviewSourcesFromSourceSurfaces(surfaces),
   );
+}
+
+export function getGpuRetainedTextLikePreviewPageFrameSurfacesFromSources(
+  sources: readonly GpuRetainedTextLikePreviewSource[],
+): readonly RetainedTextLikePreviewPageFrameSurface[] {
+  return sources.map(toGpuRetainedTextLikePreviewPageFrameSurface);
 }
 
 function getGpuRetainedTextLikePreviewSourcesForSurface(

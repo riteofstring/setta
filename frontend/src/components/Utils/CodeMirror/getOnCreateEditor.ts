@@ -2,6 +2,11 @@ import { Completion, CompletionSource } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
 import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 import { getZoom } from "gpuFlow/viewportActions";
+import {
+  nowChromeReproPerformanceMs,
+  postChromeReproEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
 
 type GpuFlowPaintableCanvas = HTMLCanvasElement & {
   readonly requestPaint?: () => void;
@@ -39,20 +44,96 @@ export function getOnCreateEditor({
 
     fixPlaceholderCursor(divId, value, defaultVal);
     setRealIsInitialized(true);
-    requestGpuFlowCodeMirrorActivationPaint(view);
+    postGpuFlowCodeMirrorActivationChromeReproEvent({
+      defaultValueLength: (defaultVal ?? "").length,
+      divId,
+      event: summarizeGpuFlowCodeMirrorInitialEvent(initialEvent),
+      hasContentDOM: Boolean(view.contentDOM),
+      phase: "editor-created",
+      valueLength: (value ?? "").length,
+    });
+    requestGpuFlowCodeMirrorActivationPaint(view, {
+      defaultValueLength: (defaultVal ?? "").length,
+      divId,
+      event: summarizeGpuFlowCodeMirrorInitialEvent(initialEvent),
+      valueLength: (value ?? "").length,
+    });
   };
 }
 
 export function requestGpuFlowCodeMirrorActivationPaint(
   view: Pick<EditorView, "dom">,
+  chromeReproContext?: GpuFlowCodeMirrorActivationPaintChromeReproContext,
 ) {
+  const scheduledAtMs = nowChromeReproPerformanceMs();
   scheduleGpuFlowCodeMirrorActivationPaint(() => {
     dispatchGpuFlowNodeDirtyEvent(view.dom, {
       priority: "interactive",
       reason: "focus",
     });
     getGpuFlowPaintableCanvas(view.dom)?.requestPaint?.();
+    postGpuFlowCodeMirrorActivationChromeReproEvent({
+      defaultValueLength: chromeReproContext?.defaultValueLength ?? 0,
+      divId: chromeReproContext?.divId ?? view.dom.id,
+      event: chromeReproContext?.event ?? null,
+      paintRequestDelayMs: roundChromeReproMs(
+        nowChromeReproPerformanceMs() - scheduledAtMs,
+      ),
+      phase: "paint-requested",
+      valueLength: chromeReproContext?.valueLength ?? 0,
+    });
   });
+}
+
+type GpuFlowCodeMirrorActivationPaintChromeReproContext = {
+  readonly defaultValueLength: number;
+  readonly divId: string;
+  readonly event: ReturnType<typeof summarizeGpuFlowCodeMirrorInitialEvent>;
+  readonly valueLength: number;
+};
+
+function postGpuFlowCodeMirrorActivationChromeReproEvent({
+  defaultValueLength,
+  divId,
+  event,
+  hasContentDOM,
+  paintRequestDelayMs,
+  phase,
+  valueLength,
+}: {
+  readonly defaultValueLength: number;
+  readonly divId: string;
+  readonly event: ReturnType<
+    typeof summarizeGpuFlowCodeMirrorInitialEvent
+  > | null;
+  readonly hasContentDOM?: boolean | undefined;
+  readonly paintRequestDelayMs?: number | undefined;
+  readonly phase: string;
+  readonly valueLength: number;
+}) {
+  postChromeReproEvent("gpu-flow-codemirror-activation", {
+    defaultValueLength,
+    divId,
+    event,
+    hasContentDOM: hasContentDOM ?? null,
+    paintRequestDelayMs: paintRequestDelayMs ?? null,
+    performanceMs: roundChromeReproMs(nowChromeReproPerformanceMs()),
+    phase,
+    valueLength,
+  });
+}
+
+function summarizeGpuFlowCodeMirrorInitialEvent(
+  initialEvent: "tab" | { readonly clientX: number; readonly clientY: number },
+) {
+  if (initialEvent === "tab") {
+    return { kind: "tab" as const };
+  }
+  return {
+    clientX: roundChromeReproMs(initialEvent.clientX),
+    clientY: roundChromeReproMs(initialEvent.clientY),
+    kind: "pointer" as const,
+  };
 }
 
 function scheduleGpuFlowCodeMirrorActivationPaint(callback: () => void) {
