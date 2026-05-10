@@ -19,7 +19,7 @@ The latest Chrome recording points away from pan input handling and toward retai
 - `gpu-flow-frame` is not cheap during the regression: frames reach `14-36ms`.
 - The bad frames correlate with retained texture/page work: `texture-upload`, hundreds of missing pages, hundreds of stale/fallback draw quads, and target descriptor counts up to about `1078`.
 - Section disappearance correlates with retained coverage being unavailable: retained text-like row snapshot logs report many blank/missing passive rows while retained page logs report large missing-page counts.
-- The existing native-scroll runtime E2E captures screenshot statistics but does not assert strong nonblank thresholds. Existing pan/zoom visual tests cover earlier classes of disappearing content, but not this exact "native section scroll, then viewport pan/zoom" path.
+- Existing retained-scroll and pan/zoom E2E coverage captures adjacent behavior, but not this exact "native section scroll, then immediate viewport pan/zoom" path with strong nonblank thresholds. The current repo has `settings-retained-scroll-performance.spec.ts`, `settings-retained-visual-regressions.spec.ts`, and `settings-retained-pan-zoom-performance.spec.ts`; it does not currently have a `settings-retained-native-scroll-runtime.spec.ts` file.
 
 ## Ideas To Borrow From The Example Repos
 The examples under `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` reinforce the same architecture.
@@ -78,9 +78,16 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 - One runtime scroll source exists for each retained section. There is no fallback wheel-delta scroll path.
 - React scene changes describe content/layout changes only; live scroll offsets stay in runtime state.
 
+## Execution Guardrails
+- Do not start with another broad instrumentation pass. Add the behavior-level failing test first, baseline it, and only add diagnostics that directly explain that failing test.
+- Keep the first implementation slice narrow: remove the scroll-time scene commit/redraw path from retained section input frames before introducing larger scheduler abstractions.
+- Do not layer a compatibility path over the current retained scroll flow. The refactor should delete obsolete scroll writers as soon as the replacement path is covered.
+- Keep each milestone reviewable: behavior test/baseline, runtime scroll ownership, transform-only frame composition, scheduled snapshot work, stable committed coverage, then cleanup.
+- If a new test file is added, name it for the user-visible behavior it protects. Do not reference non-existent "existing" specs.
+
 ## Implementation Plan
 1. Add failing behavior-level tests
-- Add a Playwright test for the exact regression:
+- Add a Playwright test for the exact regression. Prefer extending `frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts` unless the helper setup becomes too large; if it does, add a focused new file such as `frontend/tests/e2e/settings/settings-retained-scroll-pan-zoom-regression.spec.ts`.
   - open Settings;
   - switch to All Settings;
   - place a scrollable retained settings section in the viewport;
@@ -93,7 +100,7 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
   - screenshot luminance/text-band/nonblank ratios for the retained section clip;
   - visible movement after section scroll and after viewport pan/zoom.
 - Do not assert implementation details such as retained page counts, upload counts, target descriptors, or internal fallback-quad metrics.
-- Strengthen `settings-retained-native-scroll-runtime.spec.ts` so its existing screenshot stats become assertions.
+- Strengthen the retained-scroll visual assertions in `settings-retained-scroll-performance.spec.ts` and the related scroll/pan/zoom assertion in `settings-retained-visual-regressions.spec.ts` where they already cover adjacent behavior.
 - Keep thresholds tolerant of CI noise but strict enough to fail the current regression: p95 frame interval budget, max frame-gap budget, long-task budget, minimum retained-section nonblank ratio, and minimum text-band ratio relative to the pre-gesture capture.
 - Keep setup helpers allowed to locate the target section, but keep pass/fail assertions focused on observed behavior.
 
@@ -110,12 +117,14 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
   - committed snapshot/page cache;
   - frame composer inputs.
 - Move live retained scroll offsets out of scene mutation paths.
+- First concrete deletion target: remove `applyGpuFlowRetainedContentScrollResult` and `applyGpuFlowRetainedContentRuntimeScrollOffsetChanges` as live-input redraw mechanisms, replacing their frame-time responsibilities with runtime scroll state sampling plus scheduled snapshot invalidation.
 - Remove scroll-time scene commit logic and old wheel-delta retained scroll behavior rather than preserving compatibility branches.
 
 4. Make input frames transform-only
 - Update pan/zoom and retained native-scroll handling so input only mutates runtime transform state and requests a visual frame.
 - Ensure the visual frame path samples a consistent runtime snapshot once per frame.
 - Defer retained page selection, rasterization, upload, text-like row snapshot maintenance, and broad cache pruning until after the input frame.
+- Assert in focused unit coverage that retained scroll input requests a viewport/visual frame without requesting immediate `texture-upload` work.
 
 5. Refactor retained page scheduling
 - Replace per-frame broad page-target enumeration with a scheduler that builds work from the current sampled viewport/scroll windows.
@@ -140,6 +149,7 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 - Keep diagnostics useful for debugging, but separate them from behavior-level test assertions.
 - Log scheduler backlog by surface, visible coverage freshness, committed/stale/blank draw coverage, and active input phase.
 - Use these logs to verify the scheduler is doing the expected work without making E2E tests depend on those internals.
+- Do not add another diagnostic-only commit unless the failing behavior test cannot distinguish between scheduler starvation, blank committed coverage, and overlay drift.
 
 9. Delete obsolete paths
 - Remove old retained wheel-scroll handlers, scroll scene commits, compatibility adapters, and duplicate scroll state writers.
@@ -170,7 +180,9 @@ Replace the current retained-section runtime with a retained snapshot runtime ma
 - `frontend/src/gpuFlow/retainedTexturePageGrid.ts`
 - `frontend/src/gpuFlow/retainedTextureUploadScheduler.ts`
 - `frontend/src/gpuFlow/retainedContentTexturePageTextLikeSnapshots.ts`
-- `frontend/tests/e2e/settings/settings-retained-native-scroll-runtime.spec.ts`
+- `frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts`
+- `frontend/tests/e2e/settings/settings-retained-visual-regressions.spec.ts`
+- `frontend/tests/e2e/settings/settings-retained-scroll-pan-zoom-regression.spec.ts` if a focused new regression spec is cleaner than extending the existing scroll performance file.
 - `frontend/tests/e2e/settings/settings-retained-pan-zoom-performance.spec.ts`
 
 ## Acceptance Criteria
