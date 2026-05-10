@@ -54,6 +54,12 @@ export type GpuRetainedContentSwitchAnimationStore = {
   getActiveSurfaceSourceRect(
     surface: GpuRetainedContentSwitchAnimationSurface,
   ): GpuRect | undefined;
+  getFreshnessProtectedSurfaceSourceRect(
+    surface: GpuRetainedContentSwitchAnimationSurface,
+  ): GpuRect | undefined;
+  getFreshnessProtectedSurfaceRowIds(
+    surface: GpuRetainedContentSwitchAnimationSurface,
+  ): readonly string[];
   hasActiveSurface(surfaceId: string, nowMs?: number | undefined): boolean;
   hasActiveSwitch(input: {
     readonly nowMs?: number | undefined;
@@ -72,10 +78,11 @@ export type GpuRetainedContentSwitchAnimationStore = {
     readonly rowId: string;
     readonly surfaceId: string;
   }): GpuRetainedContentSwitchVisualState;
-  settleCompletedSurfaceTransitions(
-    surfaceId: string,
-    nowMs?: number | undefined,
-  ): void;
+  settleCompletedSurfaceTransitions(input: {
+    readonly isRowFresh?: ((rowId: string) => boolean) | undefined;
+    readonly nowMs?: number | undefined;
+    readonly surface: GpuRetainedContentSwitchAnimationSurface;
+  }): void;
   syncSurface(
     surface: GpuRetainedContentSwitchAnimationSurface,
     nowMs?: number | undefined,
@@ -158,31 +165,35 @@ export function createGpuRetainedContentSwitchAnimationStore({
     },
     clearSurface,
     getActiveSurfaceSourceRect(surface) {
-      const keys = surfaceKeys.get(surface.id);
-      if (!keys) {
-        return undefined;
-      }
-      let sourceRect: GpuRect | undefined;
-      for (const command of getGpuRetainedContentSwitchCommands(
-        surface.retainedScene,
-      )) {
-        if (
-          !transitions.has(createSwitchAnimationKey(surface.id, command.rowId))
-        ) {
-          continue;
-        }
-        const commandSourceRect = toSwitchAnimationSourceRect(
-          command.rect,
-          surface,
-        );
-        if (!commandSourceRect) {
-          continue;
-        }
-        sourceRect = sourceRect
-          ? unionGpuRects(sourceRect, commandSourceRect)
-          : commandSourceRect;
-      }
-      return sourceRect;
+      return getGpuRetainedContentSwitchTransitionSourceRect({
+        isIncluded: ({ transition }) => Boolean(transition),
+        surface,
+        transitions,
+      });
+    },
+    getFreshnessProtectedSurfaceSourceRect(surface) {
+      return getGpuRetainedContentSwitchTransitionSourceRect({
+        isIncluded: ({ command, transition }) =>
+          Boolean(
+            transition &&
+              !transition.pendingSceneMatch &&
+              transition.toChecked === command.control.checked,
+          ),
+        surface,
+        transitions,
+      });
+    },
+    getFreshnessProtectedSurfaceRowIds(surface) {
+      return getGpuRetainedContentSwitchTransitionRowIds({
+        isIncluded: ({ command, transition }) =>
+          Boolean(
+            transition &&
+              !transition.pendingSceneMatch &&
+              transition.toChecked === command.control.checked,
+          ),
+        surface,
+        transitions,
+      });
     },
     hasActiveSurface(surfaceId, nowMs = getGpuRetainedContentSwitchNowMs()) {
       const keys = surfaceKeys.get(surfaceId);
@@ -261,12 +272,6 @@ export function createGpuRetainedContentSwitchAnimationStore({
         (nowMs - transition.startedAtMs) / transition.durationMs,
       );
       if (progress >= 1) {
-        if (
-          !transition.pendingSceneMatch &&
-          !transition.protectFromCheckedUntilComplete
-        ) {
-          transitions.delete(key);
-        }
         progressByKey.set(key, transition.toProgress);
         return {
           progress: transition.toProgress,
@@ -282,21 +287,36 @@ export function createGpuRetainedContentSwitchAnimationStore({
         targetChecked: transition.toChecked,
       };
     },
-    settleCompletedSurfaceTransitions(
-      surfaceId,
+    settleCompletedSurfaceTransitions({
+      isRowFresh,
       nowMs = getGpuRetainedContentSwitchNowMs(),
-    ) {
-      const keys = surfaceKeys.get(surfaceId);
+      surface,
+    }) {
+      const keys = surfaceKeys.get(surface.id);
       if (!keys) {
         return;
       }
+      const commandByRowId = new Map(
+        getGpuRetainedContentSwitchCommands(surface.retainedScene).map(
+          (command) => [command.rowId, command],
+        ),
+      );
       for (const key of keys) {
         const transition = transitions.get(key);
         if (
           !transition ||
           transition.pendingSceneMatch ||
-          !transition.protectFromCheckedUntilComplete ||
           !isGpuRetainedContentSwitchTransitionComplete(transition, nowMs)
+        ) {
+          continue;
+        }
+        if (
+          isRowFresh &&
+          !isGpuRetainedContentSwitchTransitionSourceFresh({
+            command: commandByRowId.get(transition.rowId),
+            isRowFresh,
+            transition,
+          })
         ) {
           continue;
         }
@@ -661,6 +681,24 @@ function isGpuRetainedContentSwitchTransitionComplete(
   return (nowMs - transition.startedAtMs) / transition.durationMs >= 1;
 }
 
+function isGpuRetainedContentSwitchTransitionSourceFresh({
+  command,
+  isRowFresh,
+  transition,
+}: {
+  readonly command: GpuRetainedContentSwitchCommand | undefined;
+  readonly isRowFresh: (rowId: string) => boolean;
+  readonly transition: GpuRetainedContentSwitchTransition;
+}): boolean {
+  if (!command) {
+    return true;
+  }
+  if (command.control.checked !== transition.toChecked) {
+    return false;
+  }
+  return isRowFresh(transition.rowId);
+}
+
 function removeMissingGpuRetainedContentSwitchKeys({
   clearKey,
   nextKeys,
@@ -700,6 +738,68 @@ function getGpuRetainedContentSwitchCommands(
     (command): command is GpuRetainedContentSwitchCommand =>
       command.kind === "row-control" && command.control.kind === "switch",
   );
+}
+
+function getGpuRetainedContentSwitchTransitionSourceRect({
+  isIncluded,
+  surface,
+  transitions,
+}: {
+  readonly isIncluded: (input: {
+    readonly command: GpuRetainedContentSwitchCommand;
+    readonly transition: GpuRetainedContentSwitchTransition | undefined;
+  }) => boolean;
+  readonly surface: GpuRetainedContentSwitchAnimationSurface;
+  readonly transitions: ReadonlyMap<string, GpuRetainedContentSwitchTransition>;
+}): GpuRect | undefined {
+  let sourceRect: GpuRect | undefined;
+  for (const command of getGpuRetainedContentSwitchCommands(
+    surface.retainedScene,
+  )) {
+    const transition = transitions.get(
+      createSwitchAnimationKey(surface.id, command.rowId),
+    );
+    if (!isIncluded({ command, transition })) {
+      continue;
+    }
+    const commandSourceRect = toSwitchAnimationSourceRect(
+      command.rect,
+      surface,
+    );
+    if (!commandSourceRect) {
+      continue;
+    }
+    sourceRect = sourceRect
+      ? unionGpuRects(sourceRect, commandSourceRect)
+      : commandSourceRect;
+  }
+  return sourceRect;
+}
+
+function getGpuRetainedContentSwitchTransitionRowIds({
+  isIncluded,
+  surface,
+  transitions,
+}: {
+  readonly isIncluded: (input: {
+    readonly command: GpuRetainedContentSwitchCommand;
+    readonly transition: GpuRetainedContentSwitchTransition | undefined;
+  }) => boolean;
+  readonly surface: GpuRetainedContentSwitchAnimationSurface;
+  readonly transitions: ReadonlyMap<string, GpuRetainedContentSwitchTransition>;
+}): readonly string[] {
+  const rowIds: string[] = [];
+  for (const command of getGpuRetainedContentSwitchCommands(
+    surface.retainedScene,
+  )) {
+    const transition = transitions.get(
+      createSwitchAnimationKey(surface.id, command.rowId),
+    );
+    if (isIncluded({ command, transition })) {
+      rowIds.push(command.rowId);
+    }
+  }
+  return rowIds;
 }
 
 function createSwitchAnimationKey(surfaceId: string, rowId: string): string {

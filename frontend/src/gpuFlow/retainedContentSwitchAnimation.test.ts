@@ -82,6 +82,12 @@ describe("retained content switch animation store", () => {
         surfaceId: "surface-a",
       }),
     ).toBe(1);
+    expect(store.hasActiveSurface("surface-a", 190)).toBe(true);
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 190,
+      surface: surface({ checked: true }),
+    });
     expect(store.hasActiveSurface("surface-a", 190)).toBe(false);
   });
 
@@ -358,7 +364,11 @@ describe("retained content switch animation store", () => {
     });
     expect(store.hasActiveSurface("surface-a", 280)).toBe(true);
 
-    store.settleCompletedSurfaceTransitions("surface-a", 280);
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 280,
+      surface: surface({ checked: true }),
+    });
     expect(store.hasActiveSurface("surface-a", 280)).toBe(false);
   });
 
@@ -412,6 +422,51 @@ describe("retained content switch animation store", () => {
       x: 108,
       y: 0,
     });
+  });
+
+  it("keeps completed target visuals active until the target source rect is fresh", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+    const initialSurface = surface({ checked: false });
+    const targetSurface = surface({ checked: true });
+
+    store.syncSurface(initialSurface, 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+    store.syncSurface(targetSurface, 80);
+
+    expect(store.getFreshnessProtectedSurfaceSourceRect(initialSurface)).toBe(
+      undefined,
+    );
+    expect(store.getFreshnessProtectedSurfaceSourceRect(targetSurface)).toEqual(
+      {
+        height: 24,
+        width: 112,
+        x: 108,
+        y: 0,
+      },
+    );
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => false,
+      nowMs: 240,
+      surface: targetSurface,
+    });
+    expect(store.hasActiveSurface("surface-a", 240)).toBe(true);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 260,
+      surface: targetSurface,
+    });
+    expect(store.hasActiveSurface("surface-a", 260)).toBe(false);
   });
 });
 

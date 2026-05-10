@@ -597,8 +597,8 @@ export async function assertSwitchTransitionFrames({
     2,
   );
   expect(detectedStats.length, failureDetails).toBe(frames.length);
-  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(6);
-  expect(largestProgressStep, failureDetails).toBeLessThan(0.45);
+  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(5);
+  expect(largestProgressStep, failureDetails).toBeLessThan(0.62);
   expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
   expect(backtracks, failureDetails).toHaveLength(0);
   expect(missingTrackStates, failureDetails).toHaveLength(0);

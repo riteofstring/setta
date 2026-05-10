@@ -112,11 +112,29 @@ describe("getGpuRetainedContentSwitchAnimationVisuals", () => {
       `${SURFACE_ID}:switch-animation:${ROW_ID}:track`,
       `${SURFACE_ID}:switch-animation:${ROW_ID}:thumb`,
     ]);
-    store.settleCompletedSurfaceTransitions(SURFACE_ID, 100);
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => false,
+      nowMs: 100,
+      surface: retainedSurface(true),
+    });
     expect(
       getGpuRetainedContentSwitchAnimationVisuals({
         darkMode: true,
         nowMs: 116,
+        scene: flowScene(true),
+        switchAnimations: store,
+      }),
+    ).toHaveLength(2);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 116,
+      surface: retainedSurface(true),
+    });
+    expect(
+      getGpuRetainedContentSwitchAnimationVisuals({
+        darkMode: true,
+        nowMs: 132,
         scene: flowScene(true),
         switchAnimations: store,
       }),

@@ -145,6 +145,11 @@ export type RetainedContentTexturePageInvalidation = {
   readonly surfaceId: string;
 };
 
+export type RetainedContentTexturePageFreshnessQuery = {
+  readonly sourceRect: GpuRect;
+  readonly surfaceId: string;
+};
+
 const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxFrameRasterMs: 4,
   maxFrameUploadMs: 4,
@@ -252,32 +257,26 @@ export class RetainedContentTexturePageManager {
     return descriptors.length > 0;
   }
 
-  renderFrame({
-    darkMode = false,
-    devicePixelRatio,
-    frame,
-    surfaces,
-    switchAnimations,
-    viewportInteractionActive = false,
-    viewportZoomBucket,
-  }: RetainedContentTexturePageFrameInput): RetainedContentTexturePageFrameResult {
-    const preparedFrame = this.prepareFrame({
-      devicePixelRatio,
-      frame,
-      surfaces,
-      viewportZoomBucket,
+  hasFreshSurfaceContentForRect({
+    sourceRect,
+    surfaceId,
+  }: RetainedContentTexturePageFreshnessQuery): boolean {
+    const surface = this.frameSurfaceById.get(surfaceId);
+    if (!surface) {
+      return false;
+    }
+    const descriptors = this.resolvePageDescriptorsForSurfaceRect({
+      sourceRect,
+      surface,
     });
-    const maintenance = this.runPostSubmitMaintenance({
-      darkMode,
-      preparedFrame,
-      switchAnimations,
-      viewportInteractionActive,
-    });
-    return {
-      ...maintenance,
-      flatSurfaces: preparedFrame.flatSurfaces,
-      missingPageCount: preparedFrame.missingPageCount,
-    };
+    return (
+      descriptors.length > 0 &&
+      descriptors.every((descriptor) =>
+        Boolean(
+          this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
+        ),
+      )
+    );
   }
 
   prepareFrame({

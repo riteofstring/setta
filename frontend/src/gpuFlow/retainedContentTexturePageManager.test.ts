@@ -42,7 +42,7 @@ describe("RetainedContentTexturePageManager", () => {
     });
     const surface = createFrameSurface();
 
-    const firstFrame = fixture.manager.renderFrame({
+    const firstFrame = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
@@ -55,7 +55,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(firstFrame.missingPageCount).toBe(4);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
 
-    const secondFrame = fixture.manager.renderFrame({
+    const secondFrame = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
@@ -70,7 +70,7 @@ describe("RetainedContentTexturePageManager", () => {
 
   it("pauses LOD uploads during viewport interaction", () => {
     const fixture = createManagerFixture({ maxPagePixelSize: 50 });
-    const result = fixture.manager.renderFrame({
+    const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [createFrameSurface()],
@@ -95,7 +95,7 @@ describe("RetainedContentTexturePageManager", () => {
       maxPagePixelSize: 100,
     });
 
-    const result = fixture.manager.renderFrame({
+    const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [createFrameSurface()],
@@ -118,13 +118,13 @@ describe("RetainedContentTexturePageManager", () => {
     });
     const surface = createFrameSurface();
 
-    fixture.manager.renderFrame({
+    renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
       viewportZoomBucket: 1,
     });
-    const zoomFrame = fixture.manager.renderFrame({
+    const zoomFrame = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
@@ -154,7 +154,7 @@ describe("RetainedContentTexturePageManager", () => {
     });
     const surface = createFrameSurface();
 
-    fixture.manager.renderFrame({
+    renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
@@ -165,7 +165,7 @@ describe("RetainedContentTexturePageManager", () => {
       sourceRect: { height: 20, width: 20, x: 0, y: 0 },
       surfaceId: "surface-a",
     });
-    const result = fixture.manager.renderFrame({
+    const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
@@ -193,13 +193,13 @@ describe("RetainedContentTexturePageManager", () => {
     const surface = createFrameSurface({ contentVersion: 1 });
     const replacementSurface = createFrameSurface({ contentVersion: 2 });
 
-    fixture.manager.renderFrame({
+    renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
       viewportZoomBucket: 1,
     });
-    const replacementFrame = fixture.manager.renderFrame({
+    const replacementFrame = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [replacementSurface],
@@ -266,13 +266,13 @@ describe("RetainedContentTexturePageManager", () => {
       ],
     });
 
-    fixture.manager.renderFrame({
+    renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
       viewportZoomBucket: 1,
     });
-    const replacementFrame = fixture.manager.renderFrame({
+    const replacementFrame = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [changedSurface],
@@ -288,6 +288,107 @@ describe("RetainedContentTexturePageManager", () => {
     expect(replacementFrame.uncoveredRectCount).toBe(0);
   });
 
+  it("reports row content as stale until the current row page is committed", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 24,
+    });
+    const rowRect = { height: 24, width: 24, x: 0, y: 0 };
+    const surface = createFrameSurface({
+      contentBoundsCss: { height: 48, width: 24, x: 0, y: 0 },
+      contentSegments: [
+        {
+          contentVersion: 101,
+          id: "row-a",
+          rectCss: rowRect,
+        },
+        {
+          contentVersion: 202,
+          id: "row-b",
+          rectCss: { height: 24, width: 24, x: 0, y: 24 },
+        },
+      ],
+      layout: {
+        height: 48,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 48, width: 24, x: 0, y: 0 },
+        width: 24,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 48, width: 24, x: 0, y: 0 },
+      visibleSourceRectCss: { height: 48, width: 24, x: 0, y: 0 },
+    });
+    const changedSurface = createFrameSurface({
+      ...surface,
+      contentSegments: [
+        {
+          contentVersion: 303,
+          id: "row-a",
+          rectCss: rowRect,
+        },
+        {
+          contentVersion: 202,
+          id: "row-b",
+          rectCss: { height: 24, width: 24, x: 0, y: 24 },
+        },
+      ],
+    });
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    expect(
+      fixture.manager.hasFreshSurfaceContentForRect({
+        sourceRect: rowRect,
+        surfaceId: "surface-a",
+      }),
+    ).toBe(true);
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [changedSurface],
+      viewportInteractionActive: true,
+      viewportZoomBucket: 1,
+    });
+    expect(
+      fixture.manager.hasFreshSurfaceContentForRect({
+        sourceRect: rowRect,
+        surfaceId: "surface-a",
+      }),
+    ).toBe(false);
+
+    fixture.manager.markSurfaceContentDirty({
+      frame: 3,
+      priority: "interactive",
+      sourceRect: rowRect,
+      surfaceId: "surface-a",
+    });
+    const refreshedFrame = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [changedSurface],
+      viewportInteractionActive: true,
+      viewportZoomBucket: 1,
+    });
+
+    expect(refreshedFrame.uploadCount).toBe(1);
+    expect(
+      fixture.manager.hasFreshSurfaceContentForRect({
+        sourceRect: rowRect,
+        surfaceId: "surface-a",
+      }),
+    ).toBe(true);
+  });
+
   it("retires replaced page resources until submitted GPU work completes", async () => {
     const submittedWork = createDeferred<void>();
     const fixture = createManagerFixture({
@@ -301,7 +402,7 @@ describe("RetainedContentTexturePageManager", () => {
     });
     const surface = createFrameSurface();
 
-    fixture.manager.renderFrame({
+    renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
@@ -312,7 +413,7 @@ describe("RetainedContentTexturePageManager", () => {
       sourceRect: { height: 20, width: 20, x: 0, y: 0 },
       surfaceId: "surface-a",
     });
-    const result = fixture.manager.renderFrame({
+    const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
@@ -369,6 +470,42 @@ describe("RetainedContentTexturePageManager", () => {
     expect(nextPreparedFrame.missingPageCount).toBe(0);
   });
 });
+
+function renderFrame(
+  manager: RetainedContentTexturePageManager,
+  {
+    darkMode = false,
+    devicePixelRatio,
+    frame,
+    surfaces,
+    viewportInteractionActive = false,
+    viewportZoomBucket,
+  }: {
+    readonly darkMode?: boolean | undefined;
+    readonly devicePixelRatio: number;
+    readonly frame: number;
+    readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
+    readonly viewportInteractionActive?: boolean | undefined;
+    readonly viewportZoomBucket: number;
+  },
+) {
+  const preparedFrame = manager.prepareFrame({
+    devicePixelRatio,
+    frame,
+    surfaces,
+    viewportZoomBucket,
+  });
+  const maintenance = manager.runPostSubmitMaintenance({
+    darkMode,
+    preparedFrame,
+    viewportInteractionActive,
+  });
+  return {
+    ...maintenance,
+    flatSurfaces: preparedFrame.flatSurfaces,
+    missingPageCount: preparedFrame.missingPageCount,
+  };
+}
 
 function createManagerFixture({
   budget,

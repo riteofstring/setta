@@ -37,6 +37,11 @@ import {
 } from "../framePerformance";
 import { getGpuRetainedContentTexturePageFrameSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import {
+  getGpuRetainedContentSourceRectForRows,
+  getGpuRetainedContentSourceSurfaces,
+  type GpuRetainedContentSourceSurface,
+} from "../GpuRetainedContentSurfaces";
+import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
 } from "../htmlSurfaces/textures";
@@ -326,6 +331,12 @@ export function renderGpuFlowNodeLayerFrame({
       viewportInteractionActive: deferResolutionUpdates,
       zoom: normalizeGpuViewport(layer.viewport).zoom,
     });
+  const retainedContentSourceSurfaces = getGpuRetainedContentSourceSurfaces(
+    layer.scene?.contentSurfaces,
+    {
+      viewportZoomBucket,
+    },
+  );
   const retainedPagePreparedFrame =
     resources.retainedContentPageManager.prepareFrame({
       devicePixelRatio: canvasSize.devicePixelRatio,
@@ -338,6 +349,12 @@ export function renderGpuFlowNodeLayerFrame({
       ),
       viewportZoomBucket,
     });
+  markGpuFlowRetainedContentSwitchFreshnessDirty({
+    frame,
+    retainedContentPageManager: resources.retainedContentPageManager,
+    sourceSurfaces: retainedContentSourceSurfaces,
+    switchAnimations: retainedContentSwitchAnimations,
+  });
   const switchAnimationNativeVisuals =
     getGpuRetainedContentSwitchAnimationVisuals({
       darkMode,
@@ -383,9 +400,8 @@ export function renderGpuFlowNodeLayerFrame({
     });
   settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
     nowMs: renderStartedAt,
-    retainedPagesMissing:
-      retainedPageResult.postMaintenanceMissingPageCount > 0,
-    scene: layer.scene,
+    retainedContentPageManager: resources.retainedContentPageManager,
+    sourceSurfaces: retainedContentSourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
   const switchAnimationNeedsFollowUpFrame =
@@ -499,25 +515,70 @@ function hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
   return hasActiveSurface;
 }
 
+function markGpuFlowRetainedContentSwitchFreshnessDirty({
+  frame,
+  retainedContentPageManager,
+  sourceSurfaces,
+  switchAnimations,
+}: {
+  readonly frame: number;
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
+}) {
+  for (const surface of sourceSurfaces) {
+    const sourceRect = getGpuRetainedContentSourceRectForRows({
+      rowIds: switchAnimations.getFreshnessProtectedSurfaceRowIds(surface),
+      surface,
+    });
+    if (!sourceRect) {
+      continue;
+    }
+    if (
+      retainedContentPageManager.hasFreshSurfaceContentForRect({
+        sourceRect,
+        surfaceId: surface.id,
+      })
+    ) {
+      continue;
+    }
+    retainedContentPageManager.markSurfaceContentDirty({
+      frame,
+      priority: "interactive",
+      sourceRect,
+      surfaceId: surface.id,
+    });
+  }
+}
+
 function settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
   nowMs,
-  retainedPagesMissing,
-  scene,
+  retainedContentPageManager,
+  sourceSurfaces,
   switchAnimations,
 }: {
   readonly nowMs: number;
-  readonly retainedPagesMissing: boolean;
-  readonly scene: GpuFlowScene | undefined;
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
 }) {
-  if (!scene || retainedPagesMissing) {
-    return;
-  }
-  for (const surface of scene.contentSurfaces) {
-    if (!isGpuFlowRetainedContentSwitchAnimationSurface(surface)) {
-      continue;
-    }
-    switchAnimations.settleCompletedSurfaceTransitions(surface.id, nowMs);
+  for (const surface of sourceSurfaces) {
+    switchAnimations.settleCompletedSurfaceTransitions({
+      isRowFresh: (rowId) => {
+        const sourceRect = getGpuRetainedContentSourceRectForRows({
+          rowIds: [rowId],
+          surface,
+        });
+        return sourceRect
+          ? retainedContentPageManager.hasFreshSurfaceContentForRect({
+              sourceRect,
+              surfaceId: surface.id,
+            })
+          : true;
+      },
+      nowMs,
+      surface,
+    });
   }
 }
 
