@@ -804,45 +804,6 @@ func mustEnableAppSavedPythonCodegen(t *testing.T, cfg config.Config) {
 	}
 }
 
-func mustSetAppScopedMCPProjectWatchCodeFiles(t *testing.T, cfg config.Config, files []string) {
-	t.Helper()
-
-	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, nil, files, nil)
-}
-
-func mustSetAppScopedMCPProjectWatchCodeState(
-	t *testing.T,
-	cfg config.Config,
-	folders []projectstate.WatchCodeFolder,
-	files []string,
-	baseline map[string][]string,
-) {
-	t.Helper()
-
-	installAppWatchCodeProviderFixture(t, cfg)
-	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		t.Fatalf("resolve project paths: %v", err)
-	}
-	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("open project store: %v", err)
-	}
-	document, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load scoped MCP project: %v", err)
-	}
-	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
-		Files:          append([]string(nil), files...),
-		BaselineByPath: cloneAppStringSliceMap(baseline),
-		Registry:       map[string]projectstate.WatchCodeRegistryEntry{},
-	})
-	if err := store.Save(context.Background(), document); err != nil {
-		t.Fatalf("save scoped MCP watch code project: %v", err)
-	}
-}
-
 func mustAddAppScopedMCPMetaControlSections(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -924,17 +885,6 @@ func saveAppAgentProfiles(t *testing.T, cfg config.Config, profiles []agentprofi
 	if err := store.Write(profiles); err != nil {
 		t.Fatalf("write agent profiles: %v", err)
 	}
-}
-
-func cloneAppStringSliceMap(values map[string][]string) map[string][]string {
-	if len(values) == 0 {
-		return map[string][]string{}
-	}
-	cloned := make(map[string][]string, len(values))
-	for key, current := range values {
-		cloned[key] = append([]string(nil), current...)
-	}
-	return cloned
 }
 
 func mustSeedAppChildSection(t *testing.T, runtime *projectstate.Runtime, parentID string) string {
