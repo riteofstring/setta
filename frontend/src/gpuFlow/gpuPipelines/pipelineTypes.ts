@@ -40,6 +40,8 @@ export type RenderHtmlSurfaceSceneResult = {
   readonly drawnEdgeIds: readonly string[];
   readonly drawnSurfaceIds: readonly string[];
   readonly edgeVertexCount: number;
+  readonly renderBatchCount: number;
+  readonly renderCommandCount: number;
   readonly vertexCount: number;
 };
 

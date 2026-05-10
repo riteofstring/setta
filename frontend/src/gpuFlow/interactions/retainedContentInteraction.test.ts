@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
+  type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
@@ -60,6 +61,50 @@ describe("GPU retained content interaction controller", () => {
       }),
     );
     expect(requestFrame).toHaveBeenCalledWith("manual");
+
+    cleanup();
+  });
+
+  it("emits retained switch clicks after zoom transforms", () => {
+    const element = createHostElement();
+    const store = createGpuFlowViewportStore({ transform: [-420, -36, 4] });
+    const onHitClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedSwitchContentScene(),
+      onHitClick,
+      store,
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+
+    const clickEvent = onHitClick.mock.calls[0]?.[0];
+    expect(clickEvent).toMatchObject({
+      hit: {
+        id: "control:switch-param",
+        kind: "control",
+        ownerRowId: "switch-param",
+      },
+      ownerSectionId: "dict-a",
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+    expect(clickEvent?.retainedScene.rows[0]?.control).toMatchObject({
+      kind: "switch",
+    });
 
     cleanup();
   });
@@ -777,7 +822,7 @@ function createHostElement(): HTMLElement {
 
 function retainedContentScene(): GpuFlowScene {
   return {
-    contentSurfaces: [retainedSurface()],
+    contentSurfaces: [retainedSurfaceWithRows(textLikeRows())],
     domIslands: [],
     edges: [],
     revision: 1,
@@ -785,7 +830,29 @@ function retainedContentScene(): GpuFlowScene {
   };
 }
 
-function retainedSurface(): GpuContentSurface {
+function retainedSwitchContentScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [
+      retainedSurfaceWithRows([
+        {
+          control: switchControlDescriptor(),
+          controlKind: "switch",
+          depth: 0,
+          id: "switch-param",
+          label: "Switch Param",
+        },
+      ]),
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function retainedSurfaceWithRows(
+  rows: readonly GpuRetainedContentRowInput[],
+): GpuContentSurface {
   const rect = { height: 80, width: 160, x: 0, y: 0 };
   return {
     clipRect: rect,
@@ -801,18 +868,22 @@ function retainedSurface(): GpuContentSurface {
       id: "dict-a:param-content:unpinned",
       ownerSectionId: "dict-a",
       rowHeight: 28,
-      rows: Array.from({ length: 4 }, (_, index) => ({
-        control: textLikeControlDescriptor(`Value ${index}`),
-        controlKind: "text-like",
-        depth: 0,
-        id: `param-${index}`,
-        label: `Param ${index}`,
-      })),
+      rows,
       scrollOffset: { x: 0, y: 0 },
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 1,
   };
+}
+
+function textLikeRows(): readonly GpuRetainedContentRowInput[] {
+  return Array.from({ length: 4 }, (_, index) => ({
+    control: textLikeControlDescriptor(`Value ${index}`),
+    controlKind: "text-like",
+    depth: 0,
+    id: `param-${index}`,
+    label: `Param ${index}`,
+  }));
 }
 
 function textLikeControlDescriptor(
@@ -825,6 +896,17 @@ function textLikeControlDescriptor(
     kind: "text-like",
     rendererFamily: "text-like",
     commitPolicy: "native-island",
+  };
+}
+
+function switchControlDescriptor(): GpuRetainedContentControlDescriptor {
+  return {
+    checked: false,
+    commitPolicy: "immediate",
+    defaultDisplayValue: "false",
+    displayValue: "false",
+    kind: "switch",
+    rendererFamily: "switch",
   };
 }
 

@@ -119,16 +119,45 @@ export class HtmlSurfaceEffectPass {
     readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
     readonly pass: GPURenderPassEncoder;
   }) {
+    this.drawRange({
+      cameraBindGroup,
+      count: effectSurfaces.length,
+      effectSurfaceDraw,
+      effectSurfaces,
+      pass,
+      start: 0,
+    });
+  }
+
+  drawRange({
+    cameraBindGroup,
+    count,
+    effectSurfaceDraw,
+    effectSurfaces,
+    pass,
+    start,
+  }: {
+    readonly cameraBindGroup: GPUBindGroup;
+    readonly count: number;
+    readonly effectSurfaceDraw: EffectSurfaceDrawResources | null;
+    readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
+    readonly pass: GPURenderPassEncoder;
+    readonly start: number;
+  }) {
     if (!effectSurfaceDraw) {
       return;
     }
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, effectSurfaceDraw.vertexBuffer);
-    effectSurfaces.forEach((surface, index) => {
+    for (let index = start; index < start + count; index += 1) {
+      const surface = effectSurfaces[index];
+      if (!surface) {
+        continue;
+      }
       pass.setPipeline(this.ensurePipeline(surface.effectId));
       pass.setBindGroup(1, this.getTextureBindGroup(surface));
       pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
-    });
+    }
   }
 
   getVertexCount(effectSurfaces: readonly HtmlSurfaceEffectVisual[]): number {

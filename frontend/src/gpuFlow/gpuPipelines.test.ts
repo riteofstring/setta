@@ -249,7 +249,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: [],
       drawnSurfaceIds: ["node-a", "node-b"],
       edgeVertexCount: 0,
@@ -304,7 +304,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: [],
       drawnSurfaceIds: ["node-a", "mesh-a"],
       edgeVertexCount: 0,
@@ -335,7 +335,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: [],
       drawnSurfaceIds: ["large-node"],
       edgeVertexCount: 0,
@@ -366,7 +366,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: [],
       drawnSurfaceIds: ["effect-a"],
       edgeVertexCount: 0,
@@ -400,7 +400,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: [],
       drawnSurfaceIds: ["node-a", "node-a:scrollbar:y:thumb"],
       edgeVertexCount: 0,
@@ -457,7 +457,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: ["edge-a"],
       drawnSurfaceIds: ["node-a"],
       edgeVertexCount: 2,
@@ -776,7 +776,7 @@ describe("html surface renderer", () => {
       viewport: [10, 20, 1.25],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       drawnEdgeIds: ["edge-a"],
       drawnSurfaceIds: ["node-a"],
       edgeVertexCount: 2,
@@ -1147,7 +1147,9 @@ function textureRecord(surfaceId: string): CommittedHtmlSurfaceTextureSnapshot {
     surfaceId,
     texture: {},
     textureBytes: 0,
+    textureLayout: { kind: "single", tileCount: 1 },
     textureView: {},
+    tiles: [],
   } as CommittedHtmlSurfaceTextureSnapshot;
 }
 

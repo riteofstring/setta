@@ -178,28 +178,7 @@ export function createFrameTextureManager() {
           .filter((record): record is CommittedHtmlSurfaceTextureSnapshot =>
             Boolean(record),
           )
-          .map((record) => ({
-            committed: {
-              clampedByMaxTexture: record.clampedByMaxTexture ?? false,
-              cssHeight: record.cssHeight ?? 0,
-              cssWidth: record.cssWidth ?? 0,
-              dirtyContent: record.dirtyContent ?? false,
-              dirtyResolution: record.dirtyResolution ?? false,
-              lastUploadFrame: record.lastUploadFrame,
-              pixelHeight: record.pixelHeight ?? 0,
-              pixelWidth: record.pixelWidth ?? 0,
-              requestedScale: record.requestedScale ?? 1,
-              resolutionScale: record.resolutionScale ?? 1,
-              textureBytes: record.textureBytes,
-              textureLayoutKind: record.textureLayout.kind,
-              tileCount: record.textureLayout.tileCount,
-              zoomBucket: record.zoomBucket ?? 1,
-            },
-            pending: null,
-            pendingResolution: null,
-            priority: record.priority ?? "visible",
-            surfaceId: record.surfaceId,
-          })),
+          .map(createTextureLifecycleDiagnosticFromRecord),
     ),
     markSurfaceTextureDirty: vi.fn(() => true),
     markSurfacesPainted: vi.fn(),
@@ -258,6 +237,40 @@ export function createFrameTextureManager() {
   return manager;
 }
 
+function createTextureLifecycleDiagnosticFromRecord(
+  record: CommittedHtmlSurfaceTextureSnapshot,
+): HtmlSurfaceTextureLifecycleDiagnostic {
+  return {
+    committed: {
+      clampedByMaxTexture: valueOrDefault(record.clampedByMaxTexture, false),
+      cssHeight: valueOrDefault(record.cssHeight, 0),
+      cssWidth: valueOrDefault(record.cssWidth, 0),
+      dirtyContent: valueOrDefault(record.dirtyContent, false),
+      dirtyResolution: valueOrDefault(record.dirtyResolution, false),
+      lastUploadFrame: record.lastUploadFrame,
+      pixelHeight: valueOrDefault(record.pixelHeight, 0),
+      pixelWidth: valueOrDefault(record.pixelWidth, 0),
+      requestedScale: valueOrDefault(record.requestedScale, 1),
+      resolutionScale: valueOrDefault(record.resolutionScale, 1),
+      textureBytes: record.textureBytes,
+      textureLayoutKind: record.textureLayout.kind,
+      tileCount: record.textureLayout.tileCount,
+      zoomBucket: valueOrDefault(record.zoomBucket, 1),
+    },
+    pending: null,
+    pendingResolution: null,
+    priority: valueOrDefault(record.priority, "visible"),
+    surfaceId: record.surfaceId,
+  };
+}
+
+function valueOrDefault<Value>(
+  value: Value | null | undefined,
+  fallback: Value,
+): Value {
+  return value ?? fallback;
+}
+
 const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {
   allocatedBytes: 0,
   largestTextureBytes: 0,
@@ -282,11 +295,13 @@ export function createFrameRenderer() {
     render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
       drawnSurfaceIds: [
-        ...scene.flatSurfaces.map((surface) => surface.surfaceId),
-        ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
-        ...scene.solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
+        ...new Set(
+          scene.displayList.commands.map((command) => command.ownerSurfaceId),
+        ),
       ],
       edgeVertexCount: (edges?.length ?? 0) * 2,
+      renderBatchCount: scene.displayList.batches.length,
+      renderCommandCount: scene.displayList.commands.length,
       vertexCount:
         (scene.flatSurfaces.length +
           scene.tiledFlatSurfaces.length +

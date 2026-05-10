@@ -110,16 +110,45 @@ export class HtmlSurfaceTiledFlatPass {
     readonly tiledFlatSurfaceDraw: FlatSurfaceDrawResources | null;
     readonly tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
   }) {
+    this.drawRange({
+      cameraBindGroup,
+      count: tiledFlatSurfaceTiles.length,
+      pass,
+      start: 0,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    });
+  }
+
+  drawRange({
+    cameraBindGroup,
+    count,
+    pass,
+    start,
+    tiledFlatSurfaceDraw,
+    tiledFlatSurfaceTiles,
+  }: {
+    readonly cameraBindGroup: GPUBindGroup;
+    readonly count: number;
+    readonly pass: GPURenderPassEncoder;
+    readonly start: number;
+    readonly tiledFlatSurfaceDraw: FlatSurfaceDrawResources | null;
+    readonly tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
+  }) {
     if (!tiledFlatSurfaceDraw) {
       return;
     }
     pass.setPipeline(tiledFlatSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, tiledFlatSurfaceDraw.vertexBuffer);
-    tiledFlatSurfaceTiles.forEach((tile, index) => {
+    for (let index = start; index < start + count; index += 1) {
+      const tile = tiledFlatSurfaceTiles[index];
+      if (!tile) {
+        continue;
+      }
       pass.setBindGroup(1, this.getTextureBindGroup(tile));
       pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
-    });
+    }
   }
 
   getVertexCount(
