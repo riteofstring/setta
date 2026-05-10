@@ -349,10 +349,8 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
-    retainedContentSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
-    activeResizeNodeIdRef,
     edgeScene,
     layoutStore,
     nodeDomTransformSyncCacheRef,
@@ -361,7 +359,6 @@ export function GpuFlow({
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
     scene,
     surfaceRef,
-    switchAnimations: retainedContentSwitchAnimations,
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
     viewportStore,
@@ -970,7 +967,6 @@ export function GpuFlow({
             ref={surfaceRef}
           >
             {nodeLayerElement}
-            {retainedContentSourceElement}
             {children}
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
