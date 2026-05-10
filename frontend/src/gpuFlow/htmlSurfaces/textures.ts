@@ -122,6 +122,7 @@ export type CommittedHtmlSurfaceTextureSnapshot = {
   readonly texture: GPUTexture;
   readonly textureView: GPUTextureView;
   readonly textureLayout: HtmlSurfaceTextureLayout;
+  readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly tiles: readonly HtmlSurfaceTextureTileRecord[];
   readonly zoomBucket: number;
 };
@@ -134,6 +135,7 @@ type RegisterHtmlSurfaceTextureInput = {
   readonly frame?: number | undefined;
   readonly priority?: HtmlSurfaceTexturePriority | undefined;
   readonly surfaceId: string;
+  readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly zoom: number;
 };
 type MarkHtmlSurfaceTextureDirtyInput = Pick<
@@ -188,6 +190,7 @@ export type HtmlSurfaceTextureSnapshotDiagnostic = {
   readonly resolutionScale: number;
   readonly textureBytes: number;
   readonly textureLayoutKind: HtmlSurfaceTextureLayout["kind"];
+  readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly tileCount: number;
   readonly zoomBucket: number;
 };
@@ -246,6 +249,7 @@ type HtmlSurfaceTextureEntry = Mutable<CommittedHtmlSurfaceTextureSnapshot> & {
   element: Element;
   pendingResolution: TextureResolution | null;
   pendingTextureRecord: PendingHtmlSurfaceTextureSnapshot | null;
+  pendingTextureSourceRect?: HtmlSurfaceDirtyRect | null | undefined;
 };
 const DEFAULT_HTML_SURFACE_TEXTURE_FORMAT = "rgba8unorm";
 
@@ -429,6 +433,9 @@ export class HtmlSurfaceTextureManager {
       surfaceId: input.surfaceId,
       textureBytes: layoutResources.textureBytes,
       textureLayout: layoutResources.textureLayout,
+      ...(input.textureSourceRect
+        ? { textureSourceRect: input.textureSourceRect }
+        : {}),
       tiles: layoutResources.tiles,
       zoomBucket: resolution.zoomBucket,
     };
@@ -460,6 +467,14 @@ export class HtmlSurfaceTextureManager {
       resolutionSnapshot(existing),
       resolution,
     );
+    const targetTextureSourceRect =
+      existing.pendingTextureSourceRect === undefined
+        ? existing.textureSourceRect
+        : existing.pendingTextureSourceRect ?? undefined;
+    const textureSourceRectChanged = !textureSourceRectsEqual(
+      targetTextureSourceRect,
+      input.textureSourceRect,
+    );
     if (resolutionChanged && !input.deferResolution) {
       if (
         existing.pendingTextureRecord &&
@@ -472,12 +487,22 @@ export class HtmlSurfaceTextureManager {
         existing.pendingTextureRecord = null;
       }
       existing.pendingResolution = resolution;
+      existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
       existing.dirtyResolution = true;
       this.markSurfaceTextureDirty({
         frame: input.frame,
         priority: existing.priority,
         reason: "resolution",
         resolution: true,
+        surfaceId: input.surfaceId,
+      });
+    } else if (textureSourceRectChanged) {
+      existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
+      this.markSurfaceTextureDirty({
+        content: true,
+        frame: input.frame,
+        priority: existing.priority,
+        reason: "scroll",
         surfaceId: input.surfaceId,
       });
     }
@@ -747,6 +772,7 @@ export class HtmlSurfaceTextureManager {
       return "deferred";
     }
     if (upload.complete) {
+      commitPendingTextureSourceRect(record);
       this.dirtyQueue.clear(record.surfaceId);
     }
     return {
@@ -1076,6 +1102,29 @@ function resolveTextureUploadNoWorkReason({
   return null;
 }
 
+function commitPendingTextureSourceRect(record: HtmlSurfaceTextureEntry) {
+  if (record.pendingTextureSourceRect === undefined) {
+    return;
+  }
+  record.textureSourceRect = record.pendingTextureSourceRect ?? undefined;
+  record.pendingTextureSourceRect = undefined;
+}
+
+function textureSourceRectsEqual(
+  left: HtmlSurfaceDirtyRect | undefined,
+  right: HtmlSurfaceDirtyRect | undefined,
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return (
+    left.height === right.height &&
+    left.width === right.width &&
+    left.x === right.x &&
+    left.y === right.y
+  );
+}
+
 function markExistingSurfaceTextureRecordDirty(
   record: HtmlSurfaceTextureEntry,
   dirtyFlags: { readonly content: boolean; readonly resolution: boolean },
@@ -1150,6 +1199,9 @@ function toSurfaceTextureSnapshotDiagnostic(
     resolutionScale: record.resolutionScale,
     textureBytes: record.textureBytes,
     textureLayoutKind: record.textureLayout.kind,
+    ...(record.textureSourceRect
+      ? { textureSourceRect: record.textureSourceRect }
+      : {}),
     tileCount: record.textureLayout.tileCount,
     zoomBucket: record.zoomBucket,
   };

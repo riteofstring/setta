@@ -151,6 +151,41 @@ describe("HTML surface frame helpers", () => {
     expect(result.missingTextureNodeIds).toEqual(["node-b"]);
   });
 
+  it("uses the committed texture source rect instead of a newer quad source rect", () => {
+    const committedSourceRect = { height: 90, width: 120, x: 0, y: 0 };
+    const texture = textureRecord("node-a", {
+      textureSourceRect: committedSourceRect,
+    });
+
+    const result = buildTexturedGpuNodeQuads(
+      [
+        {
+          height: 90,
+          nodeId: "node-a",
+          textureSourceRect: { height: 90, width: 120, x: 0, y: 180 },
+          width: 120,
+          x: 1,
+          y: 2,
+          zIndex: 0,
+        },
+      ],
+      (nodeId) => (nodeId === "node-a" ? texture : undefined),
+    );
+
+    expect(result.texturedQuads).toEqual([
+      {
+        height: 90,
+        nodeId: "node-a",
+        texture,
+        textureSourceRect: committedSourceRect,
+        width: 120,
+        x: 1,
+        y: 2,
+        zIndex: 0,
+      },
+    ]);
+  });
+
   it("configures node source hosts without hidden-source styles", () => {
     const canvas = document.createElement("canvas");
     const host = document.createElement("div");

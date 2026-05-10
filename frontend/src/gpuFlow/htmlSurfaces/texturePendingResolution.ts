@@ -37,6 +37,7 @@ export type PendingHtmlSurfaceTextureSnapshot = Mutable<
     | "texture"
     | "textureBytes"
     | "textureLayout"
+    | "textureSourceRect"
     | "textureView"
     | "tiles"
     | "zoomBucket"
@@ -62,6 +63,7 @@ type PendingResolutionTextureEntry = Mutable<
     | "texture"
     | "textureBytes"
     | "textureLayout"
+    | "textureSourceRect"
     | "textureView"
     | "tiles"
     | "zoomBucket"
@@ -70,6 +72,10 @@ type PendingResolutionTextureEntry = Mutable<
   element: Element;
   pendingResolution: TextureResolution | null;
   pendingTextureRecord: PendingHtmlSurfaceTextureSnapshot | null;
+  pendingTextureSourceRect?:
+    | CommittedHtmlSurfaceTextureSnapshot["textureSourceRect"]
+    | null
+    | undefined;
 };
 
 type TextureUploadBudgetOptions = Pick<
@@ -221,6 +227,11 @@ function ensurePendingResolutionRecord({
     surfaceId: record.surfaceId,
     textureBytes: layoutResources.textureBytes,
     textureLayout: layoutResources.textureLayout,
+    ...textureSourceRectOption(
+      record.pendingTextureSourceRect === undefined
+        ? record.textureSourceRect
+        : record.pendingTextureSourceRect ?? undefined,
+    ),
     tiles: layoutResources.tiles,
     zoomBucket: resolution.zoomBucket,
   };
@@ -283,6 +294,10 @@ function commitPendingResolutionRecord({
   record.maxTextureDimension2D = pendingRecord.maxTextureDimension2D;
   record.pendingResolution = null;
   record.pendingTextureRecord = null;
+  if (record.pendingTextureSourceRect !== undefined) {
+    record.textureSourceRect = record.pendingTextureSourceRect ?? undefined;
+    record.pendingTextureSourceRect = undefined;
+  }
   record.pixelHeight = pendingRecord.pixelHeight;
   record.pixelWidth = pendingRecord.pixelWidth;
   record.requestedScale = pendingRecord.requestedScale;
@@ -305,4 +320,12 @@ function resolutionSnapshot(
     resolutionScale: record.resolutionScale,
     zoomBucket: record.zoomBucket,
   };
+}
+
+function textureSourceRectOption(
+  textureSourceRect: CommittedHtmlSurfaceTextureSnapshot["textureSourceRect"],
+):
+  | Pick<PendingHtmlSurfaceTextureSnapshot, "textureSourceRect">
+  | Record<string, never> {
+  return textureSourceRect ? { textureSourceRect } : {};
 }

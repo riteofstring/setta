@@ -865,6 +865,53 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(5);
   });
 
+  it("keeps the committed source rect while a source-window upload is pending", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+    const initialSourceRect = { height: 100, width: 100, x: 0, y: 0 };
+    const nextSourceRect = { height: 100, width: 100, x: 0, y: 128 };
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      textureSourceRect: initialSourceRect,
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 3,
+      surfaceId: "node-a",
+      textureSourceRect: nextSourceRect,
+      zoom: 1,
+    });
+
+    const partial = manager.uploadDirtySurfaceTextures({
+      frame: 4,
+      maxUploads: 1,
+    });
+
+    expect(partial.budgetExhausted).toBe(true);
+    expect(record.textureSourceRect).toEqual(initialSourceRect);
+
+    const complete = manager.uploadDirtySurfaceTextures({ frame: 5 });
+
+    expect(complete.budgetExhausted).toBe(false);
+    expect(record.textureSourceRect).toEqual(nextSourceRect);
+  });
+
   it("defers existing passive content uploads during active viewport frames", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -1253,7 +1300,9 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(manager.getCommittedSurfaceTexture("visible")).toBeDefined();
     expect(manager.getCommittedSurfaceTexture("explicit")).toBeDefined();
     expect(manager.getCommittedSurfaceTexture("interactive")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("dirty-interactive")).toBeDefined();
+    expect(
+      manager.getCommittedSurfaceTexture("dirty-interactive"),
+    ).toBeDefined();
   });
 
   it("destroys individual and retained surface textures", () => {

@@ -564,6 +564,9 @@ function registerVisibleGpuNodeTextures({
         activeSurfaceIds,
       ),
       surfaceId: quad.nodeId,
+      ...(quad.textureSourceRect
+        ? { textureSourceRect: quad.textureSourceRect }
+        : {}),
       zoom,
     });
   }
@@ -760,7 +763,13 @@ export function buildTexturedGpuNodeQuads(
       missingTextureNodeIds.push(quad.nodeId);
       continue;
     }
-    texturedQuads.push({ ...quad, texture });
+    texturedQuads.push({
+      ...quad,
+      texture,
+      ...(texture.textureSourceRect
+        ? { textureSourceRect: texture.textureSourceRect }
+        : {}),
+    });
   }
 
   return { missingTextureNodeIds, texturedQuads };
