@@ -116,6 +116,23 @@ scroll physics from wheel packets unless there is no native scroll source.
 
 ## Target Architecture
 
+### Interaction Ownership
+
+Retained scroll input must have one canonical owner per gesture class:
+
+| Gesture/input | Owner | Notes |
+| --- | --- | --- |
+| Plain wheel or trackpad over retained scrollable content | Native retained scroll source | Browser updates `scrollTop`/`scrollLeft`; GPU-flow samples the result. |
+| Trackpad inertia after retained scroll starts | Native retained scroll source | Must continue through the same browser scroll stream. |
+| Ctrl/meta wheel or pinch zoom | Viewport runtime | Canvas/runtime claims the gesture before retained scroll ownership. |
+| Configured canvas pan gesture | Viewport runtime | Remains separate from retained section scroll. |
+| Keyboard page/home/end/arrow scrolling for retained content | Native retained scroll source | Focus routing should move the native source, not a parallel offset map. |
+| Custom retained scrollbar drag/track click | Retained scroll runtime | Sets native source `scrollTop`/`scrollLeft`; native `scroll` event drives rendering. |
+| Programmatic reveal/search scroll | Retained scroll runtime | Sets native source `scrollTop`/`scrollLeft`; no direct retained scene offset commit. |
+| Active editor wheel | Active editor when it can consume; otherwise native retained scroll source | Boundary handoff must stay explicit and observable. |
+| Retained control click/drag/hover | Existing retained hit/control path | The native scroll source must not steal non-scroll pointer ownership. |
+| Drag auto-scroll | Retained scroll runtime | Drives the native source position on each auto-scroll tick. |
+
 ### 1. Native Scroll Source Per Retained Surface
 
 Each scrollable retained content surface gets a real DOM scroll source:
@@ -133,6 +150,18 @@ The GPU-flow canvas no longer prevents normal wheel scrolling for retained
 surfaces merely to interpret `deltaY`. The canvas/runtime only claims wheel
 events for gestures that are not native retained-content scrolling, such as
 viewport pan/zoom when configured.
+
+The source element layering must be explicit:
+
+- it must be placed so browser wheel, keyboard, accessibility, and native
+  scrollbar behavior can reach it directly
+- it must not block retained control clicks, drags, hover, selection, or active
+  DOM island pointer input
+- if CSS transforms are needed for alignment, they should use native hit testing
+  instead of synthetic wheel dispatch
+- pointer-event policy must be documented in code near the source registration,
+  because placing a transparent scroll layer above the canvas is otherwise easy
+  to regress
 
 ### 2. Runtime-Owned Retained Scroll State
 
@@ -245,6 +274,62 @@ Consumers that need exact per-frame geometry must join the runtime/overlay path.
   names into acceptance criteria.
 - Do not make texture upload budget tuning the primary fix.
 
+## Acceptance Criteria
+
+- The first visual scroll frame is presented from the live native scroll offset
+  before retained page maintenance runs, unless no committed retained page exists
+  for the visible area at all.
+- Visual scroll offset samples have native-like cadence: no long stall followed
+  by a large catch-up jump unless the injected input stream itself contains a
+  matching large delta or the surface hits a documented scroll boundary.
+- Retained rows, text-like snapshots, active DOM islands, native controls,
+  retained hit tests, and custom scrollbar visuals agree on one live scroll
+  position in each presented frame.
+- Plain retained scrolling, keyboard scrolling, custom scrollbar commands,
+  programmatic reveal, and drag auto-scroll all drive the native scroll source
+  instead of committing independent retained offset maps.
+- Ctrl/meta wheel zoom and configured canvas pan remain owned by the viewport
+  runtime and do not leak into retained section native scroll.
+- Native page scroll does not leak while retained content owns a scroll gesture.
+- No old wheel-delta retained scroll path remains reachable after migration.
+
+## Migration Checkpoints
+
+These checkpoints are not compatibility shims. They are cleanup gates that keep
+the refactor from becoming dual-owned:
+
+1. Native source registration works for one retained surface and can report live
+   `scrollTop`/`scrollLeft`.
+2. One retained surface renders from the native source while the old wheel path
+   is still present but unreachable for that surface.
+3. All retained surfaces register native sources and draw from the retained
+   scroll runtime.
+4. Scrollbar, keyboard, reveal, and drag auto-scroll commands set native source
+   positions only.
+5. Retained DOM island positioning no longer depends on scroll-time scene rect
+   mutation.
+6. Old wheel-delta scroll resolution, scene mutation hot paths, duplicate scroll
+   maps, and transitional adapters are deleted.
+
+## Step 0: Feasibility Spike
+
+Before the full refactor, prove the native source layering is viable with one
+real retained settings surface:
+
+1. Register a native scroll source aligned to one scrollable retained surface.
+2. Confirm real wheel, trackpad-style wheel bursts, keyboard scroll commands,
+   and native scrollbar interaction update `scrollTop`/`scrollLeft`.
+3. Confirm retained control click, drag, hover, active editor wheel handoff, and
+   canvas pan/zoom ownership still route to the expected owner.
+4. Confirm the source can be positioned through viewport transforms without
+   synthetic wheel dispatch.
+5. Capture a short note in the baseline report describing the chosen layering
+   and pointer-events strategy.
+
+If this spike shows that browser-native input cannot reach the source without
+breaking retained controls, stop and revise the architecture before replacing
+the old wheel path.
+
 ## Step 1: Failing Behavior Tests And Baseline
 
 This step is mandatory and should fail against the current implementation.
@@ -280,6 +365,10 @@ Observed behavior assertions:
   gesture.
 - Canvas output remains nonblank before, during, and after the burst.
 - Scroll movement is monotonic except at documented bounds.
+- Visual offset cadence is the primary failure signal: the test must fail if the
+  visible retained offset stalls for multiple frames and then catches up with a
+  large jump that is not explained by the raw injected input delta or a scroll
+  boundary.
 - p95 animation frame interval during measured scroll is `<= 34ms`.
 - max animation frame interval after warmup is `<= 50ms`.
 - no long task `> 50ms` occurs during the measured burst.
@@ -287,6 +376,11 @@ Observed behavior assertions:
   jump; specifically, no measured visual offset delta should exceed a bounded
   multiple of the median nonzero delta unless the raw injected input delta also
   does.
+
+Frame cadence is supporting evidence, not the only pass/fail signal. The
+current implementation can have cheap scroll commits and acceptable short-run
+frame timings while still feeling non-native because visual movement is driven
+by raw wheel packets and retained maintenance cadence.
 
 Failure output must include:
 
@@ -326,6 +420,16 @@ The source element should be managed by the runtime, not by per-row React state.
 It should be positioned and clipped like an overlay, but it should not render
 the retained content itself.
 
+Implement this as a vertical slice first:
+
+1. Register one native scroll source for one retained settings surface.
+2. Draw that surface from live `scrollTop`/`scrollLeft`.
+3. Keep the old retained wheel-delta path unreachable for that surface.
+4. Verify wheel, keyboard, native scrollbar, retained controls, active editor
+   handoff, and viewport pan/zoom against that one surface.
+5. Expand registration to all retained surfaces only after the one-surface
+   slice has passing behavior coverage.
+
 ## Step 3: Replace Wheel Delta Ownership
 
 Delete the retained canvas wheel-delta scroll owner.
@@ -333,7 +437,9 @@ Delete the retained canvas wheel-delta scroll owner.
 Wheel events over retained scrollable surfaces should reach the native scroll
 source. If event forwarding is required because the source is transformed over a
 canvas, use the CSS transform/native hit-testing approach from the example repos
-rather than synthetic wheel dispatch.
+rather than synthetic wheel dispatch. Do not replace direct wheel-delta scrolling
+with a synthetic `WheelEvent` forwarding layer; that would keep the same physics
+problem with a different transport.
 
 Viewport pan/zoom ownership remains separate. Ctrl/meta wheel zoom and configured
 canvas pan gestures should still be claimed by the viewport runtime.
@@ -364,6 +470,11 @@ The overlay manager should compute element transforms from:
 - retained local control rect
 
 This mirrors the example repos' single-transform-per-element approach.
+
+Pointer routing must be verified here as well: active DOM islands should stay
+above the canvas when they need native input, while passive retained controls
+should continue to use retained hit testing. The native scroll source must not
+become a blanket pointer interceptor for retained controls.
 
 ## Step 6: Rework Scrollbar And Keyboard Paths
 
