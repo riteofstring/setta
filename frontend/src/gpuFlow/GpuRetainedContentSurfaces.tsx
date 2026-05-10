@@ -53,7 +53,9 @@ type GpuRetainedContentTextureWindow = {
   readonly cacheViewportRect: GpuRect;
   readonly sourceRect: GpuRect;
   readonly textureHeight: number;
+  readonly textureScale: number;
   readonly textureWidth: number;
+  readonly viewportZoomBucket: number;
 };
 
 type GpuRetainedContentCanvasCacheKey = {
@@ -64,6 +66,7 @@ type GpuRetainedContentCanvasCacheKey = {
   readonly sourceClipY: number;
   readonly sourceInput: GpuRetainedContentSceneSourceInput;
   readonly textureHeight: number;
+  readonly textureScale: number;
   readonly textureWidth: number;
 };
 
@@ -78,6 +81,7 @@ type GpuRetainedContentSurfaceLayerProps = {
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
+  readonly viewportZoomBucket?: number | undefined;
 };
 
 const GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME =
@@ -92,10 +96,14 @@ export function GpuRetainedContentSurfaceLayer({
   onSurfaceElementChange,
   surfaces,
   switchAnimations,
+  viewportZoomBucket,
 }: GpuRetainedContentSurfaceLayerProps) {
   const retainedSources = useMemo(
-    () => getGpuRetainedContentRenderableSources(surfaces),
-    [surfaces],
+    () =>
+      getGpuRetainedContentRenderableSources(surfaces, {
+        viewportZoomBucket,
+      }),
+    [surfaces, viewportZoomBucket],
   );
   if (retainedSources.length === 0) {
     return null;
@@ -219,6 +227,7 @@ export function redrawGpuRetainedContentSourceElement({
   surface,
   sourceId,
   switchAnimations,
+  viewportZoomBucket,
 }: {
   readonly element: HTMLElement;
   readonly nowMs?: number | undefined;
@@ -227,16 +236,20 @@ export function redrawGpuRetainedContentSourceElement({
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
+  readonly viewportZoomBucket?: number | undefined;
 }): GpuRetainedContentSurfaceDrawEvent | null {
+  const canvas = getGpuRetainedContentCanvasElement(element);
+  if (!canvas) {
+    return null;
+  }
   const sourceSurface = getGpuRetainedContentSourceSurfaceForId({
     sourceId: sourceId ?? surface.id,
     surfaces: [surface],
+    viewportZoomBucket:
+      viewportZoomBucket ??
+      getGpuRetainedContentCanvasViewportZoomBucket(canvas),
   });
   if (!sourceSurface) {
-    return null;
-  }
-  const canvas = getGpuRetainedContentCanvasElement(element);
-  if (!canvas) {
     return null;
   }
   const ctx = canvas.getContext("2d");
@@ -311,7 +324,9 @@ function GpuRetainedContentCanvas({
       cancelPendingAnimationFrame();
       return;
     }
-    const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
+    const sourceSurface = clipGpuRetainedContentSourceSurface(surface, {
+      viewportZoomBucket: surface.textureWindow.viewportZoomBucket,
+    });
     if (!sourceSurface) {
       cancelPendingAnimationFrame();
       return;
@@ -368,7 +383,9 @@ function GpuRetainedContentCanvas({
     surface.textureWindow.sourceRect.x,
     surface.textureWindow.sourceRect.y,
     surface.textureWindow.textureHeight,
+    surface.textureWindow.textureScale,
     surface.textureWindow.textureWidth,
+    surface.textureWindow.viewportZoomBucket,
     switchAnimations,
   ]);
 
@@ -380,6 +397,9 @@ function GpuRetainedContentCanvas({
       data-gpu-flow-retained-content-canvas="true"
       data-gpu-flow-retained-content-id={surface.id}
       data-gpu-flow-retained-content-source="true"
+      data-gpu-flow-retained-content-zoom-bucket={
+        surface.textureWindow.viewportZoomBucket
+      }
       data-owner-section-id={surface.ownerSectionId}
       data-retained-content-source-kind="content"
       data-testid={`gpu-retained-content-source-${sourceId}`}
@@ -547,33 +567,43 @@ function getGpuRetainedContentSourceNowMs(): number {
 
 function getGpuRetainedContentRenderableSources(
   surfaces: readonly GpuContentSurface[] | undefined,
+  options: GpuRetainedContentSourceSurfaceOptions = {},
 ): readonly GpuRetainedContentRenderableSource[] {
-  return getGpuRetainedContentSourceSurfaces(surfaces).map((surface) => ({
-    sourceId: surface.id,
-    surface,
-  }));
+  return getGpuRetainedContentSourceSurfaces(surfaces, options).map(
+    (surface) => ({
+      sourceId: surface.id,
+      surface,
+    }),
+  );
 }
 
 function getGpuRetainedContentSourceSurfaceForId({
   sourceId,
   surfaces,
+  viewportZoomBucket,
 }: {
   readonly sourceId: string;
   readonly surfaces: readonly GpuContentSurface[] | undefined;
+  readonly viewportZoomBucket?: number | undefined;
 }): GpuRetainedContentSourceSurface | null {
   return (
-    getGpuRetainedContentSourceSurfaces(surfaces).find(
-      (surface) => surface.id === sourceId,
-    ) ?? null
+    getGpuRetainedContentSourceSurfaces(surfaces, {
+      viewportZoomBucket,
+    }).find((surface) => surface.id === sourceId) ?? null
   );
 }
 
+type GpuRetainedContentSourceSurfaceOptions = {
+  readonly viewportZoomBucket?: number | undefined;
+};
+
 export function getGpuRetainedContentSourceSurfaces(
   surfaces: readonly GpuContentSurface[] | undefined,
+  options: GpuRetainedContentSourceSurfaceOptions = {},
 ): readonly GpuRetainedContentSourceSurface[] {
   return (surfaces ?? [])
     .filter(isGpuRetainedContentSurface)
-    .map(clipGpuRetainedContentSourceSurface)
+    .map((surface) => clipGpuRetainedContentSourceSurface(surface, options))
     .filter((surface): surface is GpuRetainedContentSourceSurface =>
       Boolean(surface),
     );
@@ -594,11 +624,11 @@ function prepareGpuRetainedContentCanvas(
   canvas: HTMLCanvasElement,
   surface: GpuRetainedContentSourceSurface,
 ) {
-  const dpr = getGpuRetainedContentDevicePixelRatio();
   const cssWidth = Math.max(0, surface.textureWindow.textureWidth);
   const cssHeight = Math.max(0, surface.textureWindow.textureHeight);
-  const pixelWidth = Math.max(1, Math.ceil(cssWidth * dpr));
-  const pixelHeight = Math.max(1, Math.ceil(cssHeight * dpr));
+  const textureScale = surface.textureWindow.textureScale;
+  const pixelWidth = Math.max(1, Math.ceil(cssWidth * textureScale));
+  const pixelHeight = Math.max(1, Math.ceil(cssHeight * textureScale));
   if (canvas.width !== pixelWidth) {
     canvas.width = pixelWidth;
   }
@@ -608,7 +638,11 @@ function prepareGpuRetainedContentCanvas(
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
   const ctx = canvas.getContext("2d");
-  ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx?.setTransform(textureScale, 0, 0, textureScale, 0, 0);
+}
+
+function getGpuRetainedContentTextureScale(viewportZoomBucket: number): number {
+  return getGpuRetainedContentDevicePixelRatio() * viewportZoomBucket;
 }
 
 function getGpuRetainedContentCanvasSourceStyle(
@@ -649,8 +683,25 @@ function getGpuRetainedContentCanvasElement(
   );
 }
 
+function getGpuRetainedContentCanvasViewportZoomBucket(
+  canvas: HTMLCanvasElement,
+): number {
+  return normalizeGpuRetainedContentViewportZoomBucket(
+    Number(canvas.dataset.gpuFlowRetainedContentZoomBucket),
+  );
+}
+
+function normalizeGpuRetainedContentViewportZoomBucket(
+  viewportZoomBucket: number | undefined,
+): number {
+  return Number.isFinite(viewportZoomBucket) && viewportZoomBucket > 0
+    ? viewportZoomBucket
+    : 1;
+}
+
 export function clipGpuRetainedContentSourceSurface(
   surface: GpuRetainedContentSurface,
+  options: GpuRetainedContentSourceSurfaceOptions = {},
 ): GpuRetainedContentSourceSurface | null {
   const rect = intersectGpuRetainedContentRects(surface.rect, surface.clipRect);
   if (rect.width <= 0 || rect.height <= 0) {
@@ -672,6 +723,7 @@ export function clipGpuRetainedContentSourceSurface(
       rect,
       scene: surface.retainedScene,
       sourceClipOffset,
+      viewportZoomBucket: options.viewportZoomBucket,
     }),
   };
 }
@@ -680,10 +732,12 @@ function resolveGpuRetainedContentTextureWindow({
   rect,
   scene,
   sourceClipOffset,
+  viewportZoomBucket,
 }: {
   readonly rect: GpuRect;
   readonly scene: GpuRetainedContentScene;
   readonly sourceClipOffset: GpuPoint;
+  readonly viewportZoomBucket?: number | undefined;
 }): GpuRetainedContentTextureWindow {
   const viewportHeight = Math.max(1, scene.viewportRect.height);
   const contentHeight = Math.max(viewportHeight, scene.contentRect.height);
@@ -719,6 +773,8 @@ function resolveGpuRetainedContentTextureWindow({
     sourceRect.x + sourceRect.width,
     scene.viewportRect.width,
   );
+  const resolvedZoomBucket =
+    normalizeGpuRetainedContentViewportZoomBucket(viewportZoomBucket);
   return {
     cacheScrollOffset: {
       x: scene.scrollOffset.x,
@@ -730,7 +786,9 @@ function resolveGpuRetainedContentTextureWindow({
     },
     sourceRect,
     textureHeight,
+    textureScale: getGpuRetainedContentTextureScale(resolvedZoomBucket),
     textureWidth,
+    viewportZoomBucket: resolvedZoomBucket,
   };
 }
 
@@ -773,6 +831,7 @@ function createGpuRetainedContentCanvasCacheKey({
     sourceClipY: sourceSurface.sourceClipOffset.y,
     sourceInput,
     textureHeight: sourceSurface.textureWindow.textureHeight,
+    textureScale: sourceSurface.textureWindow.textureScale,
     textureWidth: sourceSurface.textureWindow.textureWidth,
   };
 }
@@ -793,6 +852,7 @@ function isGpuRetainedContentCanvasCacheKeyEqual(
         right.sourceInput,
       ) &&
       left.textureHeight === right.textureHeight &&
+      left.textureScale === right.textureScale &&
       left.textureWidth === right.textureWidth,
   );
 }

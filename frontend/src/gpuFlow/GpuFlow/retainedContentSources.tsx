@@ -37,6 +37,7 @@ export function useGpuFlowRetainedContentSources({
   switchAnimations,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
+  viewportZoomBucket = 1,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
@@ -46,6 +47,7 @@ export function useGpuFlowRetainedContentSources({
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<GpuFlowRetainedContentSourceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
+  readonly viewportZoomBucket?: number | undefined;
 }): {
   readonly retainedContentSourceElement: ReactNode;
   readonly retainedContentNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
@@ -125,6 +127,7 @@ export function useGpuFlowRetainedContentSources({
         onSurfaceElementChange={handleRetainedContentElementChange}
         surfaces={scene?.contentSurfaces}
         switchAnimations={switchAnimations}
+        viewportZoomBucket={viewportZoomBucket}
       />
     ),
     retainedContentNativeVisuals,

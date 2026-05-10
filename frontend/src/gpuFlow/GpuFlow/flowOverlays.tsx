@@ -1,4 +1,10 @@
-import { useMemo, type MutableRefObject, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import type { GpuSurfaceHandle } from "../GpuSurface";
@@ -6,11 +12,13 @@ import type {
   GpuHtmlSurfaceOverlayLayout,
   GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
-import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
+import { chooseZoomBucket } from "../textureResolution";
+import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
@@ -57,6 +65,8 @@ export function useGpuFlowOverlaySources({
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }): GpuFlowOverlaySources {
+  const retainedContentViewportZoomBucket =
+    useGpuFlowRetainedContentViewportZoomBucket(viewportStore);
   const { edgeLabelSourceElement, edgeLabelSurfaces } =
     useGpuFlowEdgeLabelSources({
       edgeScene,
@@ -71,15 +81,16 @@ export function useGpuFlowOverlaySources({
     retainedContentSourceElement,
     retainedContentSurfaces,
   } = useGpuFlowRetainedContentSources({
-      activeResizeNodeIdRef,
-      nodeDomTransformSyncCacheRef,
-      nodeElementByIdRef,
-      scene,
-      surfaceRef,
-      switchAnimations,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-    });
+    activeResizeNodeIdRef,
+    nodeDomTransformSyncCacheRef,
+    nodeElementByIdRef,
+    scene,
+    surfaceRef,
+    switchAnimations,
+    textureManagerRef,
+    transformOnlyPaintNodeIdsRef,
+    viewportZoomBucket: retainedContentViewportZoomBucket,
+  });
   const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
     useGpuFlowNodeDragPreviewSources({
       layoutStore,
@@ -136,4 +147,35 @@ export function useGpuFlowOverlaySources({
     retainedContentSourceElement,
     selectionOverlaySourceElement,
   };
+}
+
+function useGpuFlowRetainedContentViewportZoomBucket(
+  viewportStore: GpuFlowViewportStoreApi,
+): number {
+  const [zoomBucket, setZoomBucket] = useState(() =>
+    getGpuFlowRetainedContentViewportZoomBucket(viewportStore),
+  );
+
+  useEffect(() => {
+    const syncZoomBucket = () => {
+      setZoomBucket(getGpuFlowRetainedContentViewportZoomBucket(viewportStore));
+    };
+    syncZoomBucket();
+    return viewportStore.subscribe((state, previousState) => {
+      if (state.transform === previousState.transform) {
+        return;
+      }
+      syncZoomBucket();
+    });
+  }, [viewportStore]);
+
+  return zoomBucket;
+}
+
+function getGpuFlowRetainedContentViewportZoomBucket(
+  viewportStore: GpuFlowViewportStoreApi,
+): number {
+  return chooseZoomBucket(
+    normalizeGpuViewport(viewportStore.getState().transform).zoom,
+  );
 }

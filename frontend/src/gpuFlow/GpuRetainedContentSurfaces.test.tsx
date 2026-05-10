@@ -157,6 +157,7 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     );
     expect(markup).toContain('data-gpu-flow-retained-content-source="true"');
     expect(markup).toContain('data-gpu-flow-retained-content-canvas="true"');
+    expect(markup).toContain('data-gpu-flow-retained-content-zoom-bucket="1"');
     expect(markup).not.toContain(":scrollbar");
   });
 
@@ -176,6 +177,25 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     expect(canvas.width).toBeGreaterThan(0);
     expect(context.clearRect).toHaveBeenCalled();
     expect(context.fillRect).toHaveBeenCalled();
+  });
+
+  it("sizes retained source canvas backing pixels from the viewport zoom bucket", () => {
+    const surface = emptyRetainedSurface();
+    const canvas = document.createElement("canvas");
+    const context = createCanvasContextStub();
+    vi.spyOn(canvas, "getContext").mockReturnValue(context as never);
+    canvas.setAttribute("data-gpu-flow-retained-content-canvas", "true");
+
+    const drawEvent = redrawGpuRetainedContentSourceElement({
+      element: canvas,
+      surface,
+      viewportZoomBucket: 3,
+    });
+
+    expect(drawEvent).toEqual({ reason: "content" });
+    expect(canvas.width).toBe(720);
+    expect(canvas.height).toBe(288);
+    expect(context.setTransform).toHaveBeenCalledWith(3, 0, 0, 3, 0, 0);
   });
 
   it("does not create a texture-backed source for retained scrollbars", () => {
