@@ -1,0 +1,36 @@
+/* Keep these selectors in sync with gpuFlow/gpuFlowDomClasses.ts. */
+.setta-gpu-flow__pane {
+  z-index: auto;
+}
+
+.setta-project-gpu-edge-layer-host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.setta-project-gpu-edge-layer {
+  pointer-events: none;
+}
+
+.setta-project-gpu-edge-layer .setta-gpu-flow__canvas {
+  pointer-events: none;
+}
+
+.setta-gpu-flow__minimap {
+  background-color: #94a3b8b6 !important;
+}
+
+html.dark .setta-gpu-flow__minimap {
+  background-color: hsla(220, 27%, 6%, 0.72) !important;
+  border-color: hsla(220, 26%, 14%, 0.55) !important;
+}
+
+.setta-codemirror-tooltips {
+  z-index: 300;
+}
+
+.setta-popover-portals {
+  z-index: 320;
+}

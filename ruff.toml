@@ -1,0 +1,23 @@
+exclude = ["tests"]
+
+[lint]
+extend-select = [
+    "ARG", # unused function arguments
+    "G",   # logging format
+    "TCH", # TYPE_CHECKING import blocks
+]
+
+ignore = [
+    "E266",  # too many leading '#' for block comment
+    "E203",  # whitespace before ':'
+    "E402",  # module level import not at top of file
+    "E501",  # line too long
+    "E741",  # ambiguous variable names
+    "E265",  # block comment should start with #
+    "E722",  # bare except
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused import
+
+

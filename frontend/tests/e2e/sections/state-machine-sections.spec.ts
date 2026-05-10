@@ -1,0 +1,1193 @@
+import { expect, test } from "@playwright/test";
+import {
+  cleanupIsolatedProject,
+  ensureAppReady,
+  openIsolatedProject,
+  openOverviewMoreDestination,
+  postBackend,
+  seedLocalStorage,
+  setSectionNameFromFrontend,
+} from "../helpers";
+
+import { type WorkflowRunRecord } from "./state-machine-section-test-types";
+
+import {
+  createSectionViaCommandPalette,
+  createStateMachineEdge,
+  createTopLevelSection,
+  deleteStateMachineEdgesFromFrontend,
+  dragHandleToHandle,
+  ensureDeterministicManagedChatEngine,
+  expectNodeTextWithinBounds,
+  readSectionEngineConfigId,
+  readStateMachineEdge,
+  readStateMachineEdges,
+  readStateMachineImpl,
+  readWorkflowEdgeStyle,
+  selectComboboxOption,
+  selectStateMachineEdge,
+  setPromptTemplateFromFrontend,
+  setStateMachineSectionSettings,
+} from "./state-machine-section-helpers";
+
+test.describe.serial("state machine sections", () => {
+  test("creates workflow sections, connects workflow edges, edits workflow settings, and controls workflow runs", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: {
+        StateMachineStart: "SectionConfig",
+        StateMachineGate: "SectionConfig",
+        StateMachineEnd: "SectionConfig",
+      },
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const managedEngine = await ensureDeterministicManagedChatEngine(page);
+
+    try {
+      const startSectionId = await createSectionViaCommandPalette(
+        page,
+        projectContext.projectConfigId,
+        "State Machine Start",
+      );
+      const gateSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineGate",
+        { x: 520, y: 80 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 1040, y: 80 },
+      );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 640, y: 280 },
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: chatSectionId,
+        managed: true,
+        engineConfigId: managedEngine.engineConfigId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      await expect
+        .poll(
+          async () =>
+            await readSectionEngineConfigId(
+              page,
+              projectContext.projectConfigId,
+              chatSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toBe(managedEngine.engineConfigId);
+
+      const startNode = page.getByTestId(`rf__node-${startSectionId}`);
+      const gateNode = page.getByTestId(`rf__node-${gateSectionId}`);
+      const endNode = page.getByTestId(`rf__node-${endSectionId}`);
+      const chatNode = page.getByTestId(`rf__node-${chatSectionId}`);
+
+      await expect(startNode).toContainText("Workflow");
+      await expect(startNode).toContainText("Start");
+      await expect(gateNode).toContainText("Workflow");
+      await expect(gateNode).toContainText("AND Gate");
+      await expect(endNode).toContainText("Workflow");
+      await expect(endNode).toContainText("End");
+      await expect(chatNode).toBeVisible();
+
+      await gateNode.click();
+      const uiEditorPane = page.locator("#UiEditorPane");
+      await expect(uiEditorPane).toBeVisible();
+      await expect(uiEditorPane.getByLabel("Machine Group ID")).toBeVisible();
+      await expect(uiEditorPane.getByLabel("Label")).toBeVisible();
+      await expect(
+        uiEditorPane.getByText("Gate Type", { exact: true }),
+      ).toBeVisible();
+
+      const machineGroupInput = uiEditorPane.getByLabel("Machine Group ID");
+      await machineGroupInput.fill("workflow-main");
+      await machineGroupInput.blur();
+
+      const labelInput = uiEditorPane.getByLabel("Label");
+      await labelInput.fill("Review Gate");
+      await labelInput.blur();
+
+      await expect(gateNode).toContainText("Review Gate");
+      await expect(gateNode).toContainText("workflow-main");
+      // The edited workflow metadata must stay inside the visible node shell.
+      await expectNodeTextWithinBounds(gateNode, "Review Gate");
+      await expectNodeTextWithinBounds(gateNode, "workflow-main");
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toBeVisible();
+      await expect(gateNode.getByLabel("Agentic link target")).toHaveCount(0);
+      await expect(gateNode.getByLabel("Agentic link source")).toHaveCount(0);
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        gateSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Review Gate",
+          gateType: "AND",
+        },
+      );
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              gateSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineGate",
+          machineGroupId: "workflow-main",
+        });
+
+      const gateSourceHandle = page.getByTestId(
+        `workflow-source-handle-${gateSectionId}`,
+      );
+      const endTargetHandle = page.getByTestId(
+        `workflow-target-handle-${endSectionId}`,
+      );
+      await gateNode.hover();
+      await expect(gateSourceHandle).toBeVisible();
+      await endNode.hover();
+      await expect(endTargetHandle).toBeVisible();
+      await dragHandleToHandle(page, gateSourceHandle, endTargetHandle);
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
+      await expect
+        .poll(
+          async () =>
+            (
+              await readStateMachineEdges(page, projectContext.projectConfigId)
+            ).find(
+              (edge) =>
+                edge.sourceSectionId === gateSectionId &&
+                edge.targetSectionId === endSectionId,
+            ) ?? null,
+          { timeout: 8000 },
+        )
+        .not.toBeNull();
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              endSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineEnd",
+          machineGroupId: "workflow-main",
+        });
+      const temporaryEdges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const temporaryGateToEndEdgeId = temporaryEdges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === endSectionId,
+      )?.id;
+      if (!temporaryGateToEndEdgeId) {
+        throw new Error("Missing temporary gate-to-end workflow edge.");
+      }
+      await deleteStateMachineEdgesFromFrontend(
+        page,
+        projectContext.projectConfigId,
+        [temporaryGateToEndEdgeId],
+      );
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(0);
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Review Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      // Start + Gate without any End in the machine group must still show the
+      // draft warning. Gates are not valid End nodes.
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toBeVisible();
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "End",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+
+      await expect(startNode).toContainText("workflow-main");
+      await expect(endNode).toContainText("workflow-main");
+      await expect(
+        page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
+      ).toBeVisible();
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              startSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineStart",
+          machineGroupId: "workflow-main",
+          maxIterations: null,
+        });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              endSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineEnd",
+          machineGroupId: "workflow-main",
+        });
+
+      const chatTargetHandle = page.getByTestId(
+        `chat-shared-target-handle-${chatSectionId}`,
+      );
+      const chatSourceHandle = page.getByTestId(
+        `chat-shared-source-handle-${chatSectionId}`,
+      );
+
+      await startNode.hover();
+      await expect(
+        page.getByTestId(`workflow-source-handle-${startSectionId}`),
+      ).toBeVisible();
+      await gateNode.hover();
+      await expect(gateSourceHandle).toBeVisible();
+      await chatNode.hover();
+      await expect(chatTargetHandle).toBeVisible();
+      await expect(chatSourceHandle).toBeVisible();
+      await expect(
+        page.locator(
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
+        ),
+      ).toHaveCount(1);
+      await expect(
+        page.locator(
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
+        ),
+      ).toHaveCount(1);
+      await endNode.hover();
+      await expect(endTargetHandle).toBeVisible();
+      await page.mouse.move(1, 1);
+      await expect(
+        page.getByTestId(`workflow-source-handle-${startSectionId}`),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(`workflow-target-handle-${gateSectionId}`),
+      ).toBeVisible();
+      await expect(gateSourceHandle).toBeVisible();
+      await expect(endTargetHandle).toBeVisible();
+
+      await dragHandleToHandle(
+        page,
+        page.getByTestId(`workflow-reverse-start-handle-${endSectionId}`),
+        page.getByTestId(`chat-shared-source-handle-${chatSectionId}`),
+      );
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
+      await expect
+        .poll(
+          async () =>
+            (
+              await readStateMachineEdges(page, projectContext.projectConfigId)
+            )[0],
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          machineGroupId: "workflow-main",
+          sourceSectionId: chatSectionId,
+          targetSectionId: endSectionId,
+        });
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: gateSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: null,
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: gateSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          inlinePrompt: null,
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(3);
+
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const startToGateEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === gateSectionId,
+      );
+      const gateToChatEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === chatSectionId,
+      );
+      const chatToEndEdge = edges.find(
+        (edge) =>
+          edge.sourceSectionId === chatSectionId &&
+          edge.targetSectionId === endSectionId,
+      );
+      expect(startToGateEdge?.id).toBeTruthy();
+      expect(gateToChatEdge?.id).toBeTruthy();
+      expect(chatToEndEdge?.id).toBeTruthy();
+      if (!startToGateEdge?.id || !gateToChatEdge?.id || !chatToEndEdge?.id) {
+        throw new Error("Expected workflow edge ids after connecting handles.");
+      }
+      const gateToChatEdgeStyleBefore = await readWorkflowEdgeStyle(
+        page,
+        gateToChatEdge.id,
+      );
+      const chatToEndEdgeStyleBefore = await readWorkflowEdgeStyle(
+        page,
+        chatToEndEdge.id,
+      );
+      expect(gateToChatEdgeStyleBefore.className).not.toContain(
+        "workflow-edge--reset-thread",
+      );
+      expect(chatToEndEdgeStyleBefore.className).not.toContain(
+        "workflow-edge--signal",
+      );
+
+      await selectStateMachineEdge(page, chatToEndEdge.id);
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-source-filter",
+        "Structured Signal",
+      );
+      await page
+        .getByTestId("workflow-edge-signal-name")
+        .fill("merge_decision");
+      await page
+        .getByTestId("workflow-edge-signal-payload-field")
+        .fill("decision");
+      await page.getByTestId("workflow-edge-signal-equals").fill("retry");
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              chatToEndEdge.id,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          sourceFilter: {
+            type: "signal",
+            signalName: "merge_decision",
+            payloadField: "decision",
+            equals: "retry",
+          },
+        });
+      const chatToEndEdgeStyleAfter = await readWorkflowEdgeStyle(
+        page,
+        chatToEndEdge.id,
+      );
+      expect(chatToEndEdgeStyleAfter.className).not.toContain(
+        "workflow-edge--signal",
+      );
+      expect(chatToEndEdgeStyleAfter.strokeDasharray).toBe(
+        chatToEndEdgeStyleBefore.strokeDasharray,
+      );
+
+      await selectStateMachineEdge(page, gateToChatEdge.id);
+      await expect(inspector).toBeVisible();
+      await expect(page.locator("#workflow-edge-target-action")).toBeVisible();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-target-action",
+        "Send Prompt",
+      );
+      await page
+        .getByTestId("workflow-edge-inline-prompt")
+        .fill("Review the latest output.");
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              gateToChatEdge.id,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          targetAction: {
+            type: "send_prompt",
+            inlinePrompt: "Review the latest output.",
+            threadStrategy: "continue_current_thread",
+          },
+        });
+      const gateToChatEdgeStyleAfter = await readWorkflowEdgeStyle(
+        page,
+        gateToChatEdge.id,
+      );
+      expect(gateToChatEdgeStyleAfter.className).not.toContain(
+        "workflow-edge--send-prompt",
+      );
+      expect(gateToChatEdgeStyleAfter.strokeDasharray).toBe(
+        gateToChatEdgeStyleBefore.strokeDasharray,
+      );
+      const currentWorkflowEdgeIds = (
+        await readStateMachineEdges(page, projectContext.projectConfigId)
+      )
+        .map((edge) => edge.id)
+        .filter((edgeId): edgeId is string => edgeId !== null);
+      await deleteStateMachineEdgesFromFrontend(
+        page,
+        projectContext.projectConfigId,
+        currentWorkflowEdgeIds,
+      );
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(0);
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "send_prompt",
+          promptTemplateId: null,
+          inlinePrompt: "Review the latest output.",
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
+
+      const startStatus = page.getByTestId(
+        `state-machine-run-status-${startSectionId}`,
+      );
+      const startActivityPanel = page.getByTestId(
+        `state-machine-activity-panel-${startSectionId}`,
+      );
+      await openOverviewMoreDestination(page, "Custom Runs");
+      const workflowControlsTrigger = page.getByTestId(
+        "run-instructions-accordion-workflow-controls",
+      );
+      await expect(workflowControlsTrigger).toBeVisible();
+      await expect(workflowControlsTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      const workflowControlRow = page.getByTestId(
+        `run-instructions-workflow-control-row-${startSectionId}`,
+      );
+      await expect(workflowControlRow).toContainText("Review Flow");
+      await expect(workflowControlRow).toContainText("workflow-main");
+      const overviewWorkflowStatus = page.locator(
+        `[data-testid="run-instructions-workflow-status-${startSectionId}"]:visible`,
+      );
+      const overviewStartButton = page.locator(
+        `[data-testid="run-instructions-workflow-start-${startSectionId}"]:visible`,
+      );
+      const overviewStopButton = page.locator(
+        `[data-testid="run-instructions-workflow-stop-${startSectionId}"]:visible`,
+      );
+      const overviewResetButton = page.locator(
+        `[data-testid="run-instructions-workflow-reset-${startSectionId}"]:visible`,
+      );
+
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
+      await expect(startStatus).toHaveText("Idle");
+
+      await overviewStartButton.click();
+      await expect
+        .poll(() => managedEngine.providerServer.requests.length, {
+          timeout: 8000,
+        })
+        .toBe(1);
+      expect(managedEngine.providerServer.requests[0]?.path).toBe(
+        "/v1/chat/completions",
+      );
+      expect(managedEngine.providerServer.requests[0]?.authorization).toBe(
+        "Bearer e2e-workflow-secret",
+      );
+      await expect(overviewWorkflowStatus).toHaveText("Running");
+      await expect(startStatus).toHaveText("Running");
+      await expect(overviewStopButton).toBeEnabled();
+      await expect(startActivityPanel).toContainText(
+        "Dispatched 1 start action",
+      );
+
+      await overviewStopButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Stopped");
+      await expect(startStatus).toHaveText("Stopped");
+      await expect(startActivityPanel).toContainText("Workflow stopped");
+
+      await expect(overviewStartButton).toBeEnabled();
+      await overviewStartButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Running");
+      await expect(startStatus).toHaveText("Running");
+
+      await expect(overviewResetButton).toBeEnabled();
+      await overviewResetButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
+      await expect(startStatus).toHaveText("Idle");
+      await expect(startActivityPanel).toHaveCount(0);
+      await expect(overviewStopButton).toBeDisabled();
+      await expect(overviewResetButton).toBeDisabled();
+    } finally {
+      await managedEngine.cleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("warns when a workflow can never reach End and clears after a Send Prompt fix", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 440, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 800, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Validation Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-main",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          inlinePrompt: null,
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: chatSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: {
+          type: "run_completed",
+          signalName: null,
+          payloadField: null,
+          equals: null,
+        },
+        targetAction: null,
+      });
+
+      const startWarning = page.getByTestId(
+        `state-machine-draft-warning-${startSectionId}`,
+      );
+      await expect(startWarning).toBeVisible();
+
+      const edgesBeforeFix = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const startToChatEdgeId = edgesBeforeFix.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === chatSectionId,
+      )?.id;
+      if (!startToChatEdgeId) {
+        throw new Error(
+          "Missing start-to-chat workflow edge for validation test.",
+        );
+      }
+
+      await deleteStateMachineEdgesFromFrontend(
+        page,
+        projectContext.projectConfigId,
+        [startToChatEdgeId],
+      );
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "send_prompt",
+          promptTemplateId: null,
+          inlinePrompt: "Review this branch.",
+          threadStrategy: "new_thread_before_send",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+
+      await expect(startWarning).toHaveCount(0);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("edits a workflow send-prompt edge to use a prompt section with bindings", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const chatSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Chat",
+        { x: 440, y: 120 },
+      );
+      const promptSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Prompt",
+        { x: 440, y: 320 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-prompt-section",
+          label: "Prompt Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setSectionNameFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: promptSectionId,
+        name: "Greeting Prompt",
+      });
+      await setPromptTemplateFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: promptSectionId,
+        template: "Hi my name is {{ name }}. What's your name?",
+      });
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-prompt-section",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: chatSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: {
+          type: "reset_thread",
+          promptTemplateId: null,
+          promptSectionId: null,
+          inlinePrompt: null,
+          promptInputs: {},
+          threadStrategy: "continue_current_thread",
+          stopIfRunning: false,
+          engineConfigId: null,
+          agentProfileId: null,
+          permissionMode: null,
+          searchEnabled: null,
+        },
+      });
+
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const startToChatEdgeId = edges.find(
+        (edge) =>
+          edge.sourceSectionId === startSectionId &&
+          edge.targetSectionId === chatSectionId,
+      )?.id;
+      if (!startToChatEdgeId) {
+        throw new Error("Missing start-to-chat workflow edge.");
+      }
+
+      await selectStateMachineEdge(page, startToChatEdgeId);
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-target-action",
+        "Send Prompt",
+      );
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-prompt-source",
+        "Prompt Section",
+      );
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-prompt-section",
+        "Greeting Prompt",
+      );
+      await page
+        .getByTestId("workflow-edge-prompt-inputs")
+        .fill('{\n  "name": "Kevin"\n}');
+      await page.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              startToChatEdgeId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          targetAction: {
+            type: "send_prompt",
+            promptTemplateId: null,
+            promptSectionId,
+            inlinePrompt: null,
+            promptInputs: {
+              name: "Kevin",
+            },
+            threadStrategy: "continue_current_thread",
+          },
+        });
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("edits a workflow edge to use a zero-indexed source activation condition", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const gateSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineGate",
+        { x: 420, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 760, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Loop Start",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        gateSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Loop Gate",
+          gateType: "AND",
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-source-count-condition",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-source-count-condition",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: gateSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        sourceActivationCountCondition: null,
+        targetAction: null,
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-source-count-condition",
+        sourceSectionId: gateSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        sourceActivationCountCondition: null,
+        targetAction: null,
+      });
+
+      const edges = await readStateMachineEdges(
+        page,
+        projectContext.projectConfigId,
+      );
+      const gateToEndEdgeId = edges.find(
+        (edge) =>
+          edge.sourceSectionId === gateSectionId &&
+          edge.targetSectionId === endSectionId,
+      )?.id;
+      if (!gateToEndEdgeId) {
+        throw new Error("Missing gate-to-end workflow edge.");
+      }
+
+      await selectStateMachineEdge(page, gateToEndEdgeId);
+      const inspector = page.getByTestId("workflow-edge-inspector");
+      await expect(inspector).toBeVisible();
+
+      const sourceActivationConditionToggle = inspector.getByTestId(
+        "workflow-edge-enable-source-activation-condition",
+      );
+      await sourceActivationConditionToggle.scrollIntoViewIfNeeded();
+      await inspector
+        .getByText("Limit this edge by source activation count (0-indexed)")
+        .click();
+      await selectComboboxOption(
+        page,
+        "#workflow-edge-source-activation-operator",
+        ">=",
+      );
+      await inspector
+        .getByTestId("workflow-edge-source-activation-value")
+        .fill("2");
+      await inspector.getByTestId("workflow-edge-apply").click();
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdge(
+              page,
+              projectContext.projectConfigId,
+              gateToEndEdgeId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          sourceActivationCountCondition: {
+            operator: "gte",
+            value: 2,
+          },
+        });
+
+      const badge = page.getByTestId(
+        `workflow-edge-source-activation-badge-${gateToEndEdgeId}`,
+      );
+      await expect(badge).toBeVisible();
+      await expect(badge).toContainText("src count >= 2");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("refreshes running workflow rows through getStateMachineRun when agent runs stay stale", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+    });
+
+    let workflowRefreshRequestCount = 0;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      const response = await route.fetch();
+      const runs = (await response.json()) as WorkflowRunRecord[];
+      const staleRuns = runs.map((run) => {
+        if (
+          run.inputs?.runType !== "state_machine" ||
+          run.inputs.machineGroupId !== "workflow-refresh"
+        ) {
+          return run;
+        }
+        return {
+          ...run,
+          status: "running",
+          finishedAt: null,
+          events:
+            run.events?.filter((event) => event.type !== "run_completed") ?? [],
+        };
+      });
+      await route.fulfill({
+        status: response.status(),
+        headers: {
+          ...response.headers(),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(staleRuns),
+      });
+    });
+    await page.route("**/api/getStateMachineRun", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | { machineGroupId?: string }
+        | undefined;
+      if (payload?.machineGroupId === "workflow-refresh") {
+        workflowRefreshRequestCount += 1;
+      }
+      await route.continue();
+    });
+
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const startSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineStart",
+        { x: 80, y: 120 },
+      );
+      const endSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "StateMachineEnd",
+        { x: 480, y: 120 },
+      );
+
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        startSectionId,
+        {
+          machineGroupId: "workflow-refresh",
+          label: "Refresh Flow",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await setStateMachineSectionSettings(
+        page,
+        projectContext.projectConfigId,
+        endSectionId,
+        {
+          machineGroupId: "workflow-refresh",
+          label: "Done",
+          gateType: null,
+          maxIterations: null,
+        },
+      );
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-refresh",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: endSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: null,
+      });
+
+      await openOverviewMoreDestination(page, "Custom Runs");
+      const overviewWorkflowStatus = page.getByTestId(
+        `run-instructions-workflow-status-${startSectionId}`,
+      );
+      const overviewStartButton = page.getByTestId(
+        `run-instructions-workflow-start-${startSectionId}`,
+      );
+      const startNodeStatus = page.getByTestId(
+        `state-machine-run-status-${startSectionId}`,
+      );
+
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
+      await overviewStartButton.click();
+
+      await expect
+        .poll(() => workflowRefreshRequestCount, { timeout: 15000 })
+        .toBeGreaterThan(0);
+      await expect(overviewWorkflowStatus).toHaveText("Completed");
+      await expect(startNodeStatus).toHaveText("Completed");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+});
