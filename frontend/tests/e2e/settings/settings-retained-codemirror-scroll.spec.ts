@@ -381,6 +381,10 @@ async function resolveVisibleGuiRow(
         (row): row is RetainedRowDebugEntry =>
           row.surfaceId === surfaceId &&
           row.rowLabel === label &&
+          row.canvasSamplePoint.x >= 0 &&
+          row.canvasSamplePoint.y >= 0 &&
+          row.canvasSamplePoint.x < row.canvasCssSize.width &&
+          row.canvasSamplePoint.y < row.canvasCssSize.height &&
           row.clientRect.width > 16 &&
           row.clientRect.height > 8 &&
           row.clientRect.y < window.innerHeight &&
@@ -400,6 +404,13 @@ async function resolveVisibleGuiSurfaceClip(page: Page): Promise<Rect> {
   return await page.evaluate((surfaceId) => {
     const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
       .filter((row) => row.surfaceId === surfaceId)
+      .filter(
+        (row) =>
+          row.canvasSamplePoint.x >= 0 &&
+          row.canvasSamplePoint.y >= 0 &&
+          row.canvasSamplePoint.x < row.canvasCssSize.width &&
+          row.canvasSamplePoint.y < row.canvasCssSize.height,
+      )
       .map((row) => row.clientRect)
       .filter(
         (rect) =>
@@ -444,6 +455,10 @@ async function resetGuiContentScrollToTop(page: Page): Promise<void> {
           (candidate): candidate is RetainedRowDebugEntry =>
             candidate.surfaceId === surfaceId &&
             candidate.rowLabel === "Grid Pattern Size" &&
+            candidate.canvasSamplePoint.x >= 0 &&
+            candidate.canvasSamplePoint.y >= 0 &&
+            candidate.canvasSamplePoint.x < candidate.canvasCssSize.width &&
+            candidate.canvasSamplePoint.y < candidate.canvasCssSize.height &&
             candidate.clientRect.y > 0 &&
             candidate.clientRect.y < window.innerHeight,
         ).length;
@@ -859,6 +874,10 @@ async function analyzeVisibleTextPreviewRows(
             trackedLabelSet.has(row.rowLabel) &&
             row.controlKind === "text-like" &&
             row.controlClientRect !== null &&
+            row.canvasSamplePoint.x >= 0 &&
+            row.canvasSamplePoint.y >= 0 &&
+            row.canvasSamplePoint.x < row.canvasCssSize.width &&
+            row.canvasSamplePoint.y < row.canvasCssSize.height &&
             row.clientRect.width > 16 &&
             row.clientRect.height > 8 &&
             row.controlClientRect.y >= clip.y + 1 &&
@@ -937,7 +956,8 @@ async function analyzeVisibleTextPreviewRows(
         }
         const coolText = b > 95 && g > 75 && b - r > 18;
         const purpleText = r > 115 && b > 115 && b - g > 10;
-        return coolText || purpleText;
+        const warmText = r > 120 && r - g > 25 && r - b > 15;
+        return coolText || purpleText || warmText;
       }
     },
     {

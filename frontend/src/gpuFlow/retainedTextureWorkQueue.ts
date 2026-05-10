@@ -47,9 +47,9 @@ const PRIORITY_RANK: Record<NodeTexturePriority, number> = {
 
 const WORK_KIND_RANK: Record<RetainedTextureWorkKind, number> = {
   "animation-rect": 0,
-  "hover-rect": 1,
+  "first-visible": 1,
   "content-rect": 2,
-  "first-visible": 3,
+  "hover-rect": 3,
   "full-content": 4,
   "source-window": 5,
   "lod-refinement": 6,

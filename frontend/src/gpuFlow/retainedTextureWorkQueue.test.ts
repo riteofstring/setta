@@ -120,6 +120,12 @@ describe("RetainedTextureWorkQueue", () => {
     });
     queue.enqueue({
       contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 16, width: 16, x: 48, y: 48 },
+      surfaceId: "surface",
+    });
+    queue.enqueue({
+      contentVersion: 1,
       kind: "content-rect",
       priority: "interactive",
       sourceRect: { height: 16, width: 16, x: 24, y: 24 },
@@ -127,10 +133,35 @@ describe("RetainedTextureWorkQueue", () => {
     });
 
     expect(queue.orderedWorkItems({ viewportInteractionActive: true })).toEqual(
-      [expect.objectContaining({ kind: "content-rect" })],
+      [
+        expect.objectContaining({ kind: "content-rect" }),
+        expect.objectContaining({ kind: "first-visible" }),
+      ],
     );
     expect(queue.hasUploadableWork({ viewportInteractionActive: true })).toBe(
       true,
     );
+  });
+
+  it("prioritizes first-visible work before stale visible content", () => {
+    const queue = new RetainedTextureWorkQueue();
+
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "content-rect",
+      sourceRect: { height: 16, width: 16, x: 24, y: 24 },
+      surfaceId: "surface",
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 16, width: 16, x: 0, y: 0 },
+      surfaceId: "surface",
+    });
+
+    expect(queue.orderedWorkItems()).toEqual([
+      expect.objectContaining({ kind: "first-visible" }),
+      expect.objectContaining({ kind: "content-rect" }),
+    ]);
   });
 });

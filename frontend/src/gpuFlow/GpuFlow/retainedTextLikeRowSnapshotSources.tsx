@@ -79,6 +79,21 @@ export function useGpuFlowRetainedTextLikeRowSnapshotSources({
         : EMPTY_TEXT_LIKE_ROW_SNAPSHOT_SOURCES,
     [renderSnapshot, scene],
   );
+  const paintSourceSignatureRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!renderSnapshot || sources.length === 0) {
+      paintSourceSignatureRef.current = null;
+      return;
+    }
+    const signature =
+      createGpuRetainedTextLikeRowSnapshotPaintSignature(sources);
+    if (signature === paintSourceSignatureRef.current) {
+      return;
+    }
+    paintSourceSignatureRef.current = signature;
+    surfaceRef.current?.requestPaint();
+    surfaceRef.current?.requestFrame("manual");
+  }, [renderSnapshot, sources, surfaceRef]);
   const chromeReproSourceSignatureRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isChromeReproActive()) {
@@ -262,6 +277,17 @@ function roundGpuRetainedTextLikeRowSnapshotRect(rect: GpuRect): GpuRect {
     x: roundChromeReproMs(rect.x),
     y: roundChromeReproMs(rect.y),
   };
+}
+
+function createGpuRetainedTextLikeRowSnapshotPaintSignature(
+  sources: readonly GpuRetainedTextLikeRowSnapshotSource[],
+): string {
+  return JSON.stringify(
+    sources.map((source) => ({
+      sourceId: source.sourceId,
+      sourceKey: source.sourceKey,
+    })),
+  );
 }
 
 function GpuRetainedTextLikeRowSnapshotSourceLayer({

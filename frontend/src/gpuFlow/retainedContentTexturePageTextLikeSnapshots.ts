@@ -1,4 +1,8 @@
-import type { GpuQueueWithElementUpload } from "./htmlInCanvasTypes";
+import type {
+  GpuQueueWithElementUpload,
+  HtmlInCanvasCanvas,
+} from "./htmlInCanvasTypes";
+import { isMissingElementPaintRecordError } from "./htmlSurfaces/textureManagerHelpers";
 import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
@@ -56,9 +60,9 @@ export function uploadRetainedContentTexturePageTextLikeSnapshots({
   readonly queue: GPUQueue;
   readonly resource: HtmlSurfaceTextureResources;
   readonly snapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
-}) {
+}): boolean {
   if (snapshots.length === 0) {
-    return;
+    return true;
   }
   const elementUploadQueue = queue as GpuQueueWithElementUpload;
   if (typeof elementUploadQueue.copyElementImageToTexture !== "function") {
@@ -67,25 +71,53 @@ export function uploadRetainedContentTexturePageTextLikeSnapshots({
     );
   }
   for (const snapshot of snapshots) {
-    const element = elementBySourceId.get(snapshot.sourceId);
-    if (!isTextLikeSnapshotElementCurrent(element, snapshot)) {
-      throw new Error(
-        `Retained text-like row snapshot ${snapshot.sourceId} is not mounted or current for page upload.`,
-      );
+    if (
+      !uploadRetainedContentTexturePageTextLikeSnapshot({
+        descriptor,
+        element: elementBySourceId.get(snapshot.sourceId),
+        queue: elementUploadQueue,
+        resource,
+        snapshot,
+      })
+    ) {
+      return false;
     }
-    const overlap = intersectRects(snapshot.rectCss, descriptor.sourceRectCss);
-    if (!overlap) {
-      continue;
-    }
-    const copy = resolveTextLikeSnapshotPageCopy({
-      descriptor,
-      overlap,
-      snapshot,
-    });
-    if (copy.pixelWidth <= 0 || copy.pixelHeight <= 0) {
-      continue;
-    }
-    elementUploadQueue.copyElementImageToTexture(
+  }
+  return true;
+}
+
+function uploadRetainedContentTexturePageTextLikeSnapshot({
+  descriptor,
+  element,
+  queue,
+  resource,
+  snapshot,
+}: {
+  readonly descriptor: RetainedTexturePageDescriptor;
+  readonly element: HTMLElement | undefined;
+  readonly queue: GpuQueueWithElementUpload;
+  readonly resource: HtmlSurfaceTextureResources;
+  readonly snapshot: RetainedContentTexturePageTextLikeSnapshot;
+}): boolean {
+  if (!isTextLikeSnapshotElementCurrent(element, snapshot)) {
+    throw new Error(
+      `Retained text-like row snapshot ${snapshot.sourceId} is not mounted or current for page upload.`,
+    );
+  }
+  const overlap = intersectRects(snapshot.rectCss, descriptor.sourceRectCss);
+  if (!overlap) {
+    return true;
+  }
+  const copy = resolveTextLikeSnapshotPageCopy({
+    descriptor,
+    overlap,
+    snapshot,
+  });
+  if (copy.pixelWidth <= 0 || copy.pixelHeight <= 0) {
+    return true;
+  }
+  try {
+    queue.copyElementImageToTexture?.(
       element,
       copy.sourceX,
       copy.sourceY,
@@ -94,15 +126,18 @@ export function uploadRetainedContentTexturePageTextLikeSnapshots({
       copy.pixelWidth,
       copy.pixelHeight,
       {
-        origin: {
-          x: copy.destinationX,
-          y: copy.destinationY,
-          z: 0,
-        },
+        origin: { x: copy.destinationX, y: copy.destinationY, z: 0 },
         texture: resource.texture,
       },
     );
+  } catch (error: unknown) {
+    if (isMissingElementPaintRecordError(error)) {
+      requestTextLikeSnapshotPaint(element);
+      return false;
+    }
+    throw error;
   }
+  return true;
 }
 
 export function resolveRetainedContentTexturePageTextLikeSnapshots({
@@ -153,6 +188,22 @@ function isTextLikeSnapshotElementCurrent(
     element !== undefined &&
     element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ===
       snapshot.sourceKey
+  );
+}
+
+function requestTextLikeSnapshotPaint(element: HTMLElement) {
+  const canvas = resolveTextLikeSnapshotPaintCanvas(element);
+  canvas?.requestPaint?.();
+}
+
+function resolveTextLikeSnapshotPaintCanvas(
+  element: HTMLElement,
+): Partial<HtmlInCanvasCanvas> | null {
+  return (
+    (element.closest("canvas") as Partial<HtmlInCanvasCanvas> | null) ??
+    (element.ownerDocument.querySelector(
+      "canvas[data-gpu-flow-surface='true']",
+    ) as Partial<HtmlInCanvasCanvas> | null)
   );
 }
 

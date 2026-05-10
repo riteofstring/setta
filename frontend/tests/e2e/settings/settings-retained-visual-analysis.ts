@@ -11,6 +11,8 @@ export type Rect = Point & {
 };
 
 export type RetainedRowDebugEntry = {
+  readonly canvasCssSize: { readonly height: number; readonly width: number };
+  readonly canvasSamplePoint: Point;
   readonly clientRect: Rect;
   readonly controlClientRect: Rect | null;
   readonly controlClientPoint: Point | null;
@@ -215,7 +217,8 @@ async function analyzeTextInkBounds(
         }
         const coolText = b > 95 && g > 75 && b - r > 18;
         const purpleText = r > 115 && b > 115 && b - g > 10;
-        return coolText || purpleText;
+        const warmText = r > 120 && r - g > 25 && r - b > 15;
+        return coolText || purpleText || warmText;
       }
     },
     {

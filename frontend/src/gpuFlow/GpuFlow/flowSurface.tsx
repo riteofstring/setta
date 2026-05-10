@@ -334,10 +334,18 @@ export function GpuFlow({
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ??
     defaultRetainedContentRuntimeStateRef.current;
+  const [retainedContentSnapshotScene, setRetainedContentSnapshotScene] =
+    useState<GpuFlowScene | undefined>(scene);
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
   retainedContentInteractionRef.current = retainedContentInteraction;
+  const handleRetainedContentSceneChange = useCallback(
+    (nextScene: GpuFlowScene | undefined) => {
+      setRetainedContentSnapshotScene(nextScene);
+    },
+    [],
+  );
   const nodeResizeEnabled = nodeResize !== false;
   const {
     edgeLabelSourceElement,
@@ -356,7 +364,7 @@ export function GpuFlow({
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
     renderRetainedTextLikeRowSnapshot,
-    scene,
+    scene: retainedContentSnapshotScene,
     surfaceRef,
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
@@ -497,6 +505,9 @@ export function GpuFlow({
     uploadBudget,
     viewportStore,
   ]);
+  useEffect(() => {
+    setRetainedContentSnapshotScene(nodeLayerRef.current.scene);
+  }, [scene, activeRetainedContentRuntimeState]);
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -510,6 +521,7 @@ export function GpuFlow({
     retainedContentPageManagerRef,
     retainedContentRuntimeState: activeRetainedContentRuntimeState,
     retainedContentScroll,
+    onRetainedContentSceneChange: handleRetainedContentSceneChange,
     retainedContentSwitchAnimations,
     scenePortConnection,
     surfaceRef,

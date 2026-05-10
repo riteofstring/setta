@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { HtmlInCanvasCanvas } from "./htmlInCanvasTypes";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import {
   RetainedContentTexturePageManager,
@@ -68,7 +69,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
   });
 
-  it("pauses LOD uploads during viewport interaction", () => {
+  it("uploads uncovered first-visible work during viewport interaction", () => {
     const fixture = createManagerFixture({ maxPagePixelSize: 50 });
     const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
@@ -78,11 +79,11 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(result.uploadCount).toBe(0);
-    expect(result.budgetExhausted).toBe(false);
+    expect(result.uploadCount).toBe(1);
+    expect(result.budgetExhausted).toBe(true);
     expect(result.flatSurfaces).toEqual([]);
     expect(result.missingPageCount).toBe(4);
-    expect(fixture.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
+    expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
   });
 
   it("requests a follow-up frame for committed coverage without reporting budget pressure", () => {
@@ -501,6 +502,9 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(result.uploadCount).toBe(1);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
+    expect(fixture.queue.copyElementImageToTexture.mock.contexts[0]).toBe(
+      fixture.queue,
+    );
     expect(fixture.queue.copyElementImageToTexture).toHaveBeenCalledWith(
       snapshotElement,
       0,
@@ -514,6 +518,69 @@ describe("RetainedContentTexturePageManager", () => {
         texture: fixture.textures[0],
       },
     );
+  });
+
+  it("keeps text-like snapshot pages queued when Chromium has not cached a paint record yet", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const requestPaint = vi.fn();
+    const snapshotElement = createTextLikeSnapshotElement(
+      "snapshot-key",
+      requestPaint,
+    );
+    const surface = createFrameSurface({
+      textLikeSnapshots: [
+        {
+          rectCss: { height: 20, width: 40, x: 10, y: 12 },
+          rowId: "row-a",
+          sourceId: "snapshot-a",
+          sourceKey: "snapshot-key",
+        },
+      ],
+    });
+    fixture.queue.copyElementImageToTexture.mockImplementationOnce(() => {
+      throw new DOMException(
+        "No cached paint record for element.",
+        "InvalidStateError",
+      );
+    });
+
+    const firstResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+
+    expect(firstResult.uploadCount).toBe(0);
+    expect(firstResult.uploadedBytes).toBe(0);
+    expect(firstResult.budgetExhausted).toBe(true);
+    expect(firstResult.needsFollowUpFrame).toBe(true);
+    expect(firstResult.queuedWorkCount).toBe(1);
+    expect(firstResult.memory.pendingCount).toBe(0);
+    expect(requestPaint).toHaveBeenCalledTimes(1);
+    expect(fixture.textures[0]?.destroy).toHaveBeenCalledTimes(1);
+
+    const secondResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+
+    expect(secondResult.uploadCount).toBe(1);
+    expect(secondResult.budgetExhausted).toBe(false);
+    expect(secondResult.queuedWorkCount).toBe(0);
+    expect(secondResult.memory.pendingCount).toBe(0);
+    expect(fixture.queue.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -610,10 +677,24 @@ function createManagerFixture({
   return { manager, queue, textures };
 }
 
-function createTextLikeSnapshotElement(sourceKey: string): HTMLElement {
+function createTextLikeSnapshotElement(
+  sourceKey: string,
+  requestPaint?: (() => void) | undefined,
+): HTMLElement {
+  const paintCanvas = requestPaint
+    ? ({ requestPaint } as Partial<HtmlInCanvasCanvas>)
+    : null;
   return {
+    closest: vi.fn(() => null),
     dataset: {
       gpuFlowRetainedTextLikeRowSnapshotSourceKey: sourceKey,
+    },
+    ownerDocument: {
+      querySelector: vi.fn((selector: string) =>
+        selector === "canvas[data-gpu-flow-surface='true']"
+          ? paintCanvas
+          : null,
+      ),
     },
   } as unknown as HTMLElement;
 }

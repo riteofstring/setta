@@ -14,6 +14,15 @@ import {
   normalizeRetainedContentTexturePageLodScale,
 } from "./retainedContentTexturePageBudget";
 import {
+  didRetainedPageVisualCoverageChange,
+  isRetainedTextureWorkItemCompleteAfterPageUpload,
+  rectsEqual,
+  rectsIntersect,
+  shouldEnqueueRemainingRefreshDescriptors,
+  shouldRefreshCommittedPage,
+  shouldUploadRetainedTexturePage,
+} from "./retainedContentTexturePageManagerHelpers";
+import {
   EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
   areRetainedContentTexturePageTextLikeSnapshotsReady,
   resolveRetainedContentTexturePageTextLikeSnapshots,
@@ -531,14 +540,27 @@ export class RetainedContentTexturePageManager {
       if (this.cache.getCommittedPage(retainedTexturePageKey(descriptor))) {
         continue;
       }
+      const hasDrawableFallback = this.hasCommittedFallbackCoverage(descriptor);
       this.enqueueDescriptorWork({
         descriptors: [descriptor],
         frame,
-        kind: "lod-refinement",
+        kind: hasDrawableFallback ? "lod-refinement" : "first-visible",
         priority: "visible",
-        targetLod: descriptor.lodScale,
+        ...(hasDrawableFallback ? { targetLod: descriptor.lodScale } : {}),
       });
     }
+  }
+
+  private hasCommittedFallbackCoverage(
+    descriptor: RetainedTexturePageDescriptor,
+  ): boolean {
+    const coverage = resolveRetainedTexturePageCoverage({
+      cache: this.cache,
+      desiredPages: [descriptor],
+    });
+    return (
+      coverage.drawQuads.length > 0 && coverage.uncoveredRectsCss.length === 0
+    );
   }
 
   private enqueueDescriptorWork({
@@ -689,10 +711,11 @@ export class RetainedContentTexturePageManager {
     let uploadMs = 0;
     let uploadedBytes = 0;
     let uploadCount = 0;
-    if (
-      shouldRefreshCommittedPage(item) ||
-      !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))
-    ) {
+    let pageUploadComplete = true;
+    const committedPagePresent = Boolean(
+      this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
+    );
+    if (shouldUploadRetainedTexturePage({ committedPagePresent, item })) {
       if (
         !areRetainedContentTexturePageTextLikeSnapshotsReady({
           descriptor,
@@ -715,12 +738,19 @@ export class RetainedContentTexturePageManager {
         palette,
         switchAnimations,
       });
+      pageUploadComplete = upload.complete;
       rasterMs = upload.rasterMs;
       uploadMs = upload.uploadMs;
       uploadedBytes = upload.uploadedBytes;
-      uploadCount = 1;
+      uploadCount = upload.uploadCount;
     }
-    if (shouldRefreshCommittedPage(item) && descriptors.length > 1) {
+    if (
+      shouldEnqueueRemainingRefreshDescriptors({
+        descriptorCount: descriptors.length,
+        item,
+        pageUploadComplete,
+      })
+    ) {
       this.enqueueDescriptorWork({
         descriptors: descriptors.slice(1),
         frame,
@@ -730,7 +760,11 @@ export class RetainedContentTexturePageManager {
       });
     }
     return {
-      complete: shouldRefreshCommittedPage(item) || descriptors.length <= 1,
+      complete: isRetainedTextureWorkItemCompleteAfterPageUpload({
+        descriptorCount: descriptors.length,
+        item,
+        pageUploadComplete,
+      }),
       rasterMs,
       uploadCount,
       uploadedBytes,
@@ -799,13 +833,21 @@ export class RetainedContentTexturePageManager {
       | GpuRetainedContentSwitchAnimationStore
       | undefined;
   }): {
+    readonly complete: boolean;
     readonly rasterMs: number;
+    readonly uploadCount: number;
     readonly uploadedBytes: number;
     readonly uploadMs: number;
   } {
     const surface = this.frameSurfaceById.get(descriptor.surfaceId);
     if (!surface) {
-      return { rasterMs: 0, uploadedBytes: 0, uploadMs: 0 };
+      return {
+        complete: true,
+        rasterMs: 0,
+        uploadCount: 0,
+        uploadedBytes: 0,
+        uploadMs: 0,
+      };
     }
     const ctx = this.scratchCanvas.getContext("2d");
     if (!ctx) {
@@ -837,16 +879,28 @@ export class RetainedContentTexturePageManager {
         width: descriptor.pixelWidth,
       },
     );
-    uploadRetainedContentTexturePageTextLikeSnapshots({
-      descriptor,
-      elementBySourceId: elementByTextLikeSnapshotSourceId,
-      queue: this.device.queue,
-      resource,
-      snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
+    const textLikeSnapshotPaintAvailable =
+      uploadRetainedContentTexturePageTextLikeSnapshots({
         descriptor,
-        surface,
-      }),
-    });
+        elementBySourceId: elementByTextLikeSnapshotSourceId,
+        queue: this.device.queue,
+        resource,
+        snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
+          descriptor,
+          surface,
+        }),
+      });
+    if (!textLikeSnapshotPaintAvailable) {
+      resource.texture.destroy?.();
+      this.cache.cancelPendingPage(pending.key);
+      return {
+        complete: false,
+        rasterMs,
+        uploadCount: 0,
+        uploadedBytes: 0,
+        uploadMs: performance.now() - uploadStartedAt,
+      };
+    }
     const uploadMs = performance.now() - uploadStartedAt;
     this.cache.commitPendingPage({
       frame,
@@ -854,7 +908,9 @@ export class RetainedContentTexturePageManager {
       resource,
     });
     return {
+      complete: true,
       rasterMs,
+      uploadCount: 1,
       uploadedBytes: pending.byteSize,
       uploadMs,
     };
@@ -928,58 +984,4 @@ export class RetainedContentTexturePageManager {
       this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
     }
   }
-}
-
-function shouldRefreshCommittedPage(item: RetainedTextureWorkItem): boolean {
-  return (
-    item.kind === "animation-rect" ||
-    item.kind === "content-rect" ||
-    item.kind === "full-content" ||
-    item.kind === "hover-rect"
-  );
-}
-
-function didRetainedPageVisualCoverageChange({
-  after,
-  before,
-}: {
-  readonly after: Pick<
-    RetainedContentTexturePagePreparedFrame,
-    | "drawQuadCount"
-    | "fallbackDrawQuadCount"
-    | "missingPageCount"
-    | "uncoveredRectCount"
-  >;
-  readonly before: Pick<
-    RetainedContentTexturePagePreparedFrame,
-    | "drawQuadCount"
-    | "fallbackDrawQuadCount"
-    | "missingPageCount"
-    | "uncoveredRectCount"
-  >;
-}): boolean {
-  return (
-    after.drawQuadCount !== before.drawQuadCount ||
-    after.fallbackDrawQuadCount !== before.fallbackDrawQuadCount ||
-    after.missingPageCount !== before.missingPageCount ||
-    after.uncoveredRectCount !== before.uncoveredRectCount
-  );
-}
-
-function rectsEqual(left: GpuRect, right: GpuRect): boolean {
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height
-  );
-}
-
-function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
 }

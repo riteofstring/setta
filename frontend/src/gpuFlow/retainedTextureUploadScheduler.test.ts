@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { RetainedTextureWorkQueue } from "./retainedTextureWorkQueue";
 import {
   retainedTextureSchedulerQueueForWorkItem,
   runRetainedTextureUploadScheduler,
   type RetainedTextureUploadSchedulerBudget,
   type RetainedTextureUploadWorkEstimate,
 } from "./retainedTextureUploadScheduler";
+import { RetainedTextureWorkQueue } from "./retainedTextureWorkQueue";
 
 const DEFAULT_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxFrameRasterMs: 4,
@@ -135,6 +135,29 @@ describe("runRetainedTextureUploadScheduler", () => {
       contentVersion: 1,
       kind: "animation-rect",
       priority: "interactive",
+      sourceRect: { height: 10, width: 10, x: 0, y: 0 },
+      surfaceId: "surface-a",
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: DEFAULT_BUDGET,
+      estimateWorkItem: () => SMALL_WORK,
+      executeWorkItem: () => ({ ...SMALL_WORK, complete: true }),
+      queue,
+      viewportInteractionActive: true,
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-a",
+    ]);
+    expect(queue.hasWork()).toBe(false);
+  });
+
+  it("allows first-visible work during viewport interaction", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
       sourceRect: { height: 10, width: 10, x: 0, y: 0 },
       surfaceId: "surface-a",
     });

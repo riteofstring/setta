@@ -173,6 +173,10 @@ export class RetainedTexturePageCache<TResource = unknown> {
     });
   }
 
+  cancelPendingPage(key: string) {
+    this.pendingPages.delete(key);
+  }
+
   evictToBudget({
     frame = 0,
     maxBytes,

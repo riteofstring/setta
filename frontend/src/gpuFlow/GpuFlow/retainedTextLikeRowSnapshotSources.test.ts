@@ -1,13 +1,33 @@
+/* @vitest-environment jsdom */
+
+import { act, createElement, useRef, type ReactElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
-import { describe, expect, it } from "vitest";
+import "testUtils/reactRefreshPreamble";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
 import type { GpuFlowScene } from "../scene";
-import { getGpuRetainedTextLikeRowSnapshotSources } from "./retainedTextLikeRowSnapshotSources";
+import {
+  getGpuRetainedTextLikeRowSnapshotSources,
+  useGpuFlowRetainedTextLikeRowSnapshotSources,
+  type GpuRetainedTextLikeRowSnapshotSource,
+} from "./retainedTextLikeRowSnapshotSources";
+
+let root: Root | null = null;
 
 describe("getGpuRetainedTextLikeRowSnapshotSources", () => {
+  afterEach(() => {
+    if (root) {
+      act(() => root?.unmount());
+      root = null;
+    }
+    document.body.replaceChildren();
+  });
+
   it("derives row-owned passive editor snapshots from retained row geometry", () => {
     const sources = getGpuRetainedTextLikeRowSnapshotSources(scene());
 
@@ -47,12 +67,44 @@ describe("getGpuRetainedTextLikeRowSnapshotSources", () => {
     expect(firstSource?.sourceKey).toBe(nextSource?.sourceKey);
     expect(firstSource?.targetRectCss).toEqual(nextSource?.targetRectCss);
   });
+
+  it("requests a canvas paint when retained snapshot contents change without remounting", () => {
+    const requestFrame = vi.fn();
+    const requestPaint = vi.fn();
+    const surface: GpuSurfaceHandle = {
+      getRuntime: () => null,
+      requestFrame,
+      requestPaint,
+    };
+
+    renderHookHarness(
+      createElement(SnapshotPaintHarness, {
+        scene: scene({ firstValue: "alpha" }),
+        surface,
+      }),
+    );
+    requestFrame.mockClear();
+    requestPaint.mockClear();
+
+    renderHookHarness(
+      createElement(SnapshotPaintHarness, {
+        scene: scene({ firstValue: "bravo" }),
+        surface,
+      }),
+    );
+
+    expect(requestPaint).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+  });
 });
 
 function scene({
+  firstValue = "alpha",
   rowCount = 2,
   scrollY = 0,
 }: {
+  readonly firstValue?: string | undefined;
   readonly rowCount?: number | undefined;
   readonly scrollY?: number | undefined;
 } = {}): GpuFlowScene {
@@ -64,7 +116,7 @@ function scene({
     rows: Array.from({ length: rowCount }, (_, index) =>
       row(
         `param-${String.fromCharCode(97 + index)}`,
-        index === 0 ? "alpha" : `value-${index}`,
+        index === 0 ? firstValue : `value-${index}`,
         index === 1,
       ),
     ),
@@ -88,6 +140,39 @@ function scene({
     revision: 1,
     sections: [],
   };
+}
+
+function SnapshotPaintHarness({
+  scene,
+  surface,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly surface: GpuSurfaceHandle;
+}) {
+  const elementBySourceIdRef = useRef(new Map<string, HTMLElement>());
+  const surfaceRef = useRef<GpuSurfaceHandle | null>(surface);
+  surfaceRef.current = surface;
+  const { retainedTextLikeRowSnapshotSourceElement } =
+    useGpuFlowRetainedTextLikeRowSnapshotSources({
+      elementBySourceIdRef,
+      renderSnapshot: renderSnapshot,
+      scene,
+      surfaceRef,
+    });
+  return createElement("div", null, retainedTextLikeRowSnapshotSourceElement);
+}
+
+function renderSnapshot(source: GpuRetainedTextLikeRowSnapshotSource) {
+  return createElement("span", null, source.code);
+}
+
+function renderHookHarness(element: ReactElement): void {
+  if (!root) {
+    const host = document.createElement("div");
+    document.body.append(host);
+    root = createRoot(host);
+  }
+  act(() => root?.render(element));
 }
 
 function row(
