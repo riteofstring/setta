@@ -16,7 +16,7 @@ test("escape clears active section when focused in section input", async ({
   try {
     await clearSelectedParams(page, projectConfigId);
     const sectionNode = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
 
@@ -67,9 +67,7 @@ async function isSectionActive(
   sectionId: string,
 ): Promise<boolean> {
   return page.evaluate((id) => {
-    const node = document.querySelector(
-      `.setta-gpu-flow__node[data-id="${id}"]`,
-    );
+    const node = document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!node) {
       return false;
     }
@@ -93,7 +91,7 @@ async function isFocusedInsideSection(
     if (active.id === `${id}-search`) {
       return true;
     }
-    const sectionNode = active.closest(".setta-gpu-flow__node");
+    const sectionNode = active.closest(".react-flow__node");
     return sectionNode?.getAttribute("data-id") === id;
   }, sectionId);
 }

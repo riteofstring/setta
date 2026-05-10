@@ -948,6 +948,11 @@ func parseToolMetadata(toolName string, meta sdkmcp.Meta) (*tools.Metadata, erro
 
 func buildSDKTransport(config ServerConfig, headers http.Header, httpConnectWait time.Duration) (sdkmcp.Transport, error) {
 	switch config.Transport {
+	case TransportSSE:
+		return &sdkmcp.SSEClientTransport{
+			Endpoint:   config.URL,
+			HTTPClient: buildMCPHTTPClient(headers, httpConnectWait),
+		}, nil
 	case TransportStreamableHTTP:
 		return &sdkmcp.StreamableClientTransport{
 			Endpoint:   config.URL,

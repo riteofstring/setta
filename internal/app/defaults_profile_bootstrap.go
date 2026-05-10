@@ -42,14 +42,13 @@ func bootstrapWorkspaceDefaultsInstallProfile(
 		return err
 	}
 	selections := profile.AvailableLanguageServerSelections(snapshot)
-	if len(selections) == 0 {
-		return nil
-	}
-	if _, err := settingsRuntime.MutateAndSave(ctx, func(document settingsstate.Document) (settingsstate.Document, error) {
-		next, _, err := settingsstate.BootstrapLanguageServerSelections(document, selections)
-		return next, err
-	}); err != nil {
-		return err
+	if len(selections) != 0 {
+		if _, err := settingsRuntime.MutateAndSave(ctx, func(document settingsstate.Document) (settingsstate.Document, error) {
+			next, _, err := settingsstate.BootstrapLanguageServerSelections(document, selections)
+			return next, err
+		}); err != nil {
+			return err
+		}
 	}
 
 	// The bootstrap marker is advisory one-shot state. Startup must fail open

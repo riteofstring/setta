@@ -16,5 +16,5 @@ export async function enableFirstPartyAppSubsystemPlugin(page: Page) {
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 }

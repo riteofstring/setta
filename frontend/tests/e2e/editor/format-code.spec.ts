@@ -12,7 +12,7 @@ const BACKEND_ORIGIN =
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
-const READY_SELECTOR = ".setta-gpu-flow__pane";
+const READY_SELECTOR = ".react-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -397,7 +397,7 @@ function findSectionByName(page: Page, name: string): Locator {
 }
 
 function findSectionById(page: Page, sectionId: string): Locator {
-  return page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
+  return page.locator(`.react-flow__node[data-id="${sectionId}"]`);
 }
 
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {
@@ -554,17 +554,13 @@ async function setViewportTransform(
   transform: { x: number; y: number; zoom: number },
 ): Promise<void> {
   await page.evaluate(async ({ x, y, zoom }) => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({ x, y, zoom });
-    viewportStore.setFitViewInitializationState({
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [x, y, zoom],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
     });
-    window.settaGpuFlowZoom = zoom;
+    window.reactFlowZoom = zoom;
   }, transform);
 }
 

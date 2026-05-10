@@ -158,9 +158,7 @@ async function setBrowserPath(
 
     await expect
       .poll(async () =>
-        normalizePathForComparison(
-          await readCodeMirrorValue(page, pathInputId),
-        ),
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
       )
       .toContain(normalizePathForComparison(nextPath));
   };
@@ -241,7 +239,7 @@ test("browser opens markdown and text files in text sections", async ({
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -330,7 +328,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -432,7 +430,7 @@ test("browser list view opens folders on double click", async ({ page }) => {
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 
@@ -542,7 +540,7 @@ test("browser path commits latest value on blur after fast typing", async ({
 
   try {
     const sectionNode = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
     await sectionNode.locator('button[aria-label="Carousel view"]').click();
@@ -555,7 +553,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
     await page.keyboard.insertText(workspaceRoot);
-    await page.click(".setta-gpu-flow__pane", {
+    await page.click(".react-flow__pane", {
       position: { x: 8, y: 8 },
       force: true,
     });
@@ -572,7 +570,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
     await page.keyboard.insertText(folderPath);
-    await page.click(".setta-gpu-flow__pane", {
+    await page.click(".react-flow__pane", {
       position: { x: 8, y: 8 },
       force: true,
     });

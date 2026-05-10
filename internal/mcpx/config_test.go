@@ -22,8 +22,8 @@ func TestLoadServerConfigsDefaultsToSettaWhenFileMissing(t *testing.T) {
 	if !ok {
 		t.Fatal("expected default setta server config")
 	}
-	if config.Transport != TransportStreamableHTTP {
-		t.Fatalf("expected streamable_http transport, got %q", config.Transport)
+	if config.Transport != TransportSSE {
+		t.Fatalf("expected sse transport, got %q", config.Transport)
 	}
 	if config.URL != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected default setta url, got %q", config.URL)
@@ -45,7 +45,7 @@ func TestLoadServerConfigsRewritesSettaURLAndPreservesExternalServers(t *testing
   "default_config_id": "claude",
   "mcpServers": {
     "setta": {
-      "transport": "streamable_http",
+      "transport": "sse",
       "url": "http://127.0.0.1:9999/mcp"
     },
     "github": {
@@ -87,7 +87,7 @@ func TestLoadServerConfigsRejectsInvalidServerID(t *testing.T) {
 	payload := `{
   "mcpServers": {
     "bad__id": {
-      "transport": "streamable_http",
+      "transport": "sse",
       "url": "http://127.0.0.1:8000/mcp"
     }
   }
@@ -128,7 +128,7 @@ func TestServerConfigNormalize(t *testing.T) {
 		t.Parallel()
 
 		config, err := (ServerConfig{
-			Transport: TransportStreamableHTTP,
+			Transport: TransportSSE,
 			URL:       "  http://127.0.0.1:8000/mcp  ",
 			CWD:       "  /tmp/workspace  ",
 		}).normalize("setta")
@@ -162,7 +162,7 @@ func TestServerConfigNormalize(t *testing.T) {
 		{
 			name: "http transport requires url",
 			config: ServerConfig{
-				Transport: TransportStreamableHTTP,
+				Transport: TransportSSE,
 			},
 			target: ErrServerURLRequired,
 		},

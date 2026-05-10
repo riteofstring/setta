@@ -73,7 +73,7 @@ func TestMCPRuntimeStatusRouteReturnsCurrentStatuses(t *testing.T) {
 					{
 						ServerID:            "setta",
 						Source:              "setta_mcp",
-						Transport:           mcpx.TransportStreamableHTTP,
+						Transport:           mcpx.TransportSSE,
 						Endpoint:            "http://127.0.0.1:8000/mcp",
 						State:               mcpx.RuntimeStateConnected,
 						LastAttemptAt:       &now,
@@ -166,21 +166,6 @@ func TestMCPRuntimeStatusRouteReportsCustomSettaFilesLocationForExplicitRoot(t *
 func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 	t.Parallel()
 
-	fixture := newMCPRuntimeStatusExternalFixture(t)
-	payload := postMCPRuntimeStatus(t, fixture.handler, `{"chatId":"chat-external","engineConfigId":"engine-external"}`)
-
-	assertMCPRuntimeStatusExternalPayload(t, payload)
-	assertMCPRuntimeStatusExternalProviderCall(t, fixture.provider)
-}
-
-type mcpRuntimeStatusExternalFixture struct {
-	handler  http.Handler
-	provider *testExternalMCPStatusProvider
-}
-
-func newMCPRuntimeStatusExternalFixture(t *testing.T) mcpRuntimeStatusExternalFixture {
-	t.Helper()
-
 	runStore, err := agentruns.NewRunStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("new run store: %v", err)
@@ -237,17 +222,9 @@ func newMCPRuntimeStatusExternalFixture(t *testing.T) mcpRuntimeStatusExternalFi
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
 	}
-	return mcpRuntimeStatusExternalFixture{
-		handler:  handler,
-		provider: provider,
-	}
-}
-
-func postMCPRuntimeStatus(t *testing.T, handler http.Handler, body string) MCPRuntimeStatusResponse {
-	t.Helper()
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(body))
+	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(`{"chatId":"chat-external","engineConfigId":"engine-external"}`))
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -258,12 +235,6 @@ func postMCPRuntimeStatus(t *testing.T, handler http.Handler, body string) MCPRu
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode payload: %v", err)
 	}
-	return payload
-}
-
-func assertMCPRuntimeStatusExternalPayload(t *testing.T, payload MCPRuntimeStatusResponse) {
-	t.Helper()
-
 	if len(payload.ExternalServers) != 1 {
 		t.Fatalf("expected one external server status, got %#v", payload.ExternalServers)
 	}
@@ -279,11 +250,6 @@ func assertMCPRuntimeStatusExternalPayload(t *testing.T, payload MCPRuntimeStatu
 	if payload.ResolvedServers[0].ToolCount != 4 {
 		t.Fatalf("expected resolved tool count 4, got %#v", payload.ResolvedServers[0])
 	}
-}
-
-func assertMCPRuntimeStatusExternalProviderCall(t *testing.T, provider *testExternalMCPStatusProvider) {
-	t.Helper()
-
 	if len(provider.calls) != 1 {
 		t.Fatalf("expected one external status provider call, got %#v", provider.calls)
 	}
@@ -489,7 +455,7 @@ func TestMCPRuntimeStatusRouteResolvedServersKeepSettaMetadataWhenExternalStatus
 					{
 						ServerID:  "setta",
 						Source:    "setta_mcp",
-						Transport: mcpx.TransportStreamableHTTP,
+						Transport: mcpx.TransportSSE,
 						Endpoint:  "http://127.0.0.1:8000/mcp",
 						State:     mcpx.RuntimeStateConnected,
 						ToolCount: 79,
@@ -523,8 +489,8 @@ func TestMCPRuntimeStatusRouteResolvedServersKeepSettaMetadataWhenExternalStatus
 	if payload.ResolvedServers[0].ServerID != "setta" {
 		t.Fatalf("unexpected resolved server %#v", payload.ResolvedServers[0])
 	}
-	if payload.ResolvedServers[0].Transport != mcpx.TransportStreamableHTTP {
-		t.Fatalf("expected resolved transport streamable_http, got %#v", payload.ResolvedServers[0])
+	if payload.ResolvedServers[0].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected resolved transport sse, got %#v", payload.ResolvedServers[0])
 	}
 	if payload.ResolvedServers[0].Endpoint != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected resolved endpoint from setta runtime, got %#v", payload.ResolvedServers[0])

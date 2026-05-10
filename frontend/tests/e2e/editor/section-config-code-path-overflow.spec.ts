@@ -6,8 +6,8 @@ import {
   createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
-  seedLocalStorage,
   setCodeFileBindingFromFrontend,
+  seedLocalStorage,
 } from "../helpers";
 
 const MIN_UI_EDITOR_WIDTH = 425;
@@ -67,7 +67,7 @@ test("code section file path stays clipped at narrow and wide pane widths", asyn
     );
     await setUiEditorWidth(page, targetWideWidth);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await focusSection(page, sectionId);
 
     const widePaneWidth = await getUiEditorPaneWidth(page);

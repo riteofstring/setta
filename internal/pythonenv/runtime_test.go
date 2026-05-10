@@ -131,64 +131,6 @@ func TestResolveRepoLocalVirtualEnvInterpreterSearchesParentDirectories(t *testi
 	}
 }
 
-func TestPluginDistributionSearchPathsFromEnvLookupParsesPythonPath(t *testing.T) {
-	t.Parallel()
-
-	first := filepath.Join(t.TempDir(), "site-one")
-	second := filepath.Join(t.TempDir(), "site-two")
-	raw := " " + first + " " + string(os.PathListSeparator) + " " + string(os.PathListSeparator) + " " + second + " "
-	paths := PluginDistributionSearchPathsFromEnvLookup(func(key string) (string, bool) {
-		if key == "PYTHONPATH" {
-			return raw, true
-		}
-		return "", false
-	})
-
-	if len(paths) != 2 || paths[0] != first || paths[1] != second {
-		t.Fatalf("expected trimmed pythonpath entries, got %#v", paths)
-	}
-}
-
-func TestEncodePluginDistributionSearchPathsUsesDefaultInterpreterPathsForEmptyInput(t *testing.T) {
-	t.Parallel()
-
-	for name, searchPaths := range map[string][]string{
-		"nil":        nil,
-		"empty":      []string{},
-		"whitespace": []string{" ", "\t"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			encoded, err := encodePluginDistributionSearchPaths(searchPaths)
-			if err != nil {
-				t.Fatalf("encode plugin distribution search paths: %v", err)
-			}
-			if string(encoded) != "null" {
-				t.Fatalf("expected null search path sentinel, got %s", encoded)
-			}
-		})
-	}
-}
-
-func TestEncodePluginDistributionSearchPathsPreservesExplicitPaths(t *testing.T) {
-	t.Parallel()
-
-	first := filepath.Join(t.TempDir(), "site-one")
-	second := filepath.Join(t.TempDir(), "site-two")
-	encoded, err := encodePluginDistributionSearchPaths([]string{" " + first + " ", "", second})
-	if err != nil {
-		t.Fatalf("encode plugin distribution search paths: %v", err)
-	}
-	var paths []string
-	if err := json.Unmarshal(encoded, &paths); err != nil {
-		t.Fatalf("decode encoded plugin distribution search paths: %v", err)
-	}
-	if len(paths) != 2 || paths[0] != first || paths[1] != second {
-		t.Fatalf("expected explicit search paths, got %#v", paths)
-	}
-}
-
 func TestRuntimeInstalledPackagesReturnsSortedNameVersions(t *testing.T) {
 	t.Parallel()
 

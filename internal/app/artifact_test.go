@@ -20,22 +20,6 @@ import (
 )
 
 func TestAppServesArtifactRoutes(t *testing.T) {
-	harness := newAppArtifactRouteHarness(t)
-
-	harness.assertImportsWorkspaceFile(t)
-	harness.assertLoadsCachedImageBinary(t)
-	harness.assertUpdatesAndDeletesFileArtifact(t)
-}
-
-type appArtifactRouteHarness struct {
-	cfg        config.Config
-	serverURL  string
-	authCookie *http.Cookie
-}
-
-func newAppArtifactRouteHarness(t *testing.T) appArtifactRouteHarness {
-	t.Helper()
-
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -51,29 +35,21 @@ func newAppArtifactRouteHarness(t *testing.T) appArtifactRouteHarness {
 	})
 
 	server := httptest.NewServer(app.Handler())
-	t.Cleanup(server.Close)
+	defer server.Close()
 
-	return appArtifactRouteHarness{
-		cfg:        cfg,
-		serverURL:  server.URL,
-		authCookie: newAppTestAuthCookie(t, app),
-	}
-}
+	authCookie := newAppTestAuthCookie(t, app)
 
-func (h appArtifactRouteHarness) assertImportsWorkspaceFile(t *testing.T) {
-	t.Helper()
-
-	workspaceFile := filepath.Join(h.cfg.Paths.WorkspaceRoot, "app-import.txt")
+	workspaceFile := filepath.Join(cfg.Paths.WorkspaceRoot, "app-import.txt")
 	if err := os.WriteFile(workspaceFile, []byte("app import"), 0o644); err != nil {
 		t.Fatalf("write workspace import file: %v", err)
 	}
 
-	importRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+workspaceFile+`"],"uploadScope":"generic"}`))
+	importRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteImportFilesToArtifacts, strings.NewReader(`{"paths":["`+workspaceFile+`"],"uploadScope":"generic"}`))
 	if err != nil {
 		t.Fatalf("new import request: %v", err)
 	}
 	importRequest.Header.Set("Content-Type", "application/json")
-	importRequest.AddCookie(h.authCookie)
+	importRequest.AddCookie(authCookie)
 
 	importResponse, err := http.DefaultClient.Do(importRequest)
 	if err != nil {
@@ -92,17 +68,13 @@ func (h appArtifactRouteHarness) assertImportsWorkspaceFile(t *testing.T) {
 	if len(imported) != 1 {
 		t.Fatalf("expected one imported artifact, got %#v", imported)
 	}
-	importedPath := filepath.Join(h.cfg.Paths.SettaFilesRoot, filepath.FromSlash(imported[0].ID))
+	importedPath := filepath.Join(cfg.Paths.SettaFilesRoot, filepath.FromSlash(imported[0].ID))
 	if payload, err := os.ReadFile(importedPath); err != nil || string(payload) != "app import" {
 		t.Fatalf("expected app imported payload, got %q err=%v", string(payload), err)
 	}
-}
-
-func (h appArtifactRouteHarness) assertLoadsCachedImageBinary(t *testing.T) {
-	t.Helper()
 
 	imageID := "artifacts/app-preview.png"
-	imagePath := filepath.Join(h.cfg.Paths.SettaFilesRoot, filepath.FromSlash(imageID))
+	imagePath := filepath.Join(cfg.Paths.SettaFilesRoot, filepath.FromSlash(imageID))
 	if err := os.MkdirAll(filepath.Dir(imagePath), 0o755); err != nil {
 		t.Fatalf("mkdir image parent: %v", err)
 	}
@@ -110,12 +82,12 @@ func (h appArtifactRouteHarness) assertLoadsCachedImageBinary(t *testing.T) {
 		t.Fatalf("write app image: %v", err)
 	}
 
-	loadRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteLoadCachedImageArtifacts, strings.NewReader(`{"paths":["`+imageID+`"]}`))
+	loadRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteLoadCachedImageArtifacts, strings.NewReader(`{"paths":["`+imageID+`"]}`))
 	if err != nil {
 		t.Fatalf("new load request: %v", err)
 	}
 	loadRequest.Header.Set("Content-Type", "application/json")
-	loadRequest.AddCookie(h.authCookie)
+	loadRequest.AddCookie(authCookie)
 
 	loadResponse, err := http.DefaultClient.Do(loadRequest)
 	if err != nil {
@@ -135,11 +107,11 @@ func (h appArtifactRouteHarness) assertLoadsCachedImageBinary(t *testing.T) {
 		t.Fatalf("expected image payload, got %#v", images)
 	}
 
-	binaryRequest, err := http.NewRequest(http.MethodGet, h.serverURL+"/api/binary/"+images[0].Value.ContentID, nil)
+	binaryRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api/binary/"+images[0].Value.ContentID, nil)
 	if err != nil {
 		t.Fatalf("new binary request: %v", err)
 	}
-	binaryRequest.AddCookie(h.authCookie)
+	binaryRequest.AddCookie(authCookie)
 
 	binaryResponse, err := http.DefaultClient.Do(binaryRequest)
 	if err != nil {
@@ -157,19 +129,15 @@ func (h appArtifactRouteHarness) assertLoadsCachedImageBinary(t *testing.T) {
 	if string(binaryBody) != "app-image" {
 		t.Fatalf("expected app image bytes, got %q", string(binaryBody))
 	}
-}
 
-func (h appArtifactRouteHarness) assertUpdatesAndDeletesFileArtifact(t *testing.T) {
-	t.Helper()
-
-	contentID := uploadArtifactBinary(t, h.serverURL, h.authCookie, []byte("delete me"), "delete.txt")
+	contentID := uploadArtifactBinary(t, server.URL, authCookie, []byte("delete me"), "delete.txt")
 	updateBody := `{"artifacts":[{"type":"File","id":"artifacts/delete.txt","value":{"contentId":"` + contentID + `","byteLength":9,"mimeType":"text/plain"}}],"uploadScope":"generic"}`
-	updateRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteUpdateArtifacts, strings.NewReader(updateBody))
+	updateRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteUpdateArtifacts, strings.NewReader(updateBody))
 	if err != nil {
 		t.Fatalf("new update request: %v", err)
 	}
 	updateRequest.Header.Set("Content-Type", "application/json")
-	updateRequest.AddCookie(h.authCookie)
+	updateRequest.AddCookie(authCookie)
 
 	updateResponse, err := http.DefaultClient.Do(updateRequest)
 	if err != nil {
@@ -181,12 +149,12 @@ func (h appArtifactRouteHarness) assertUpdatesAndDeletesFileArtifact(t *testing.
 		t.Fatalf("expected update 200, got %d with body %q", updateResponse.StatusCode, string(body))
 	}
 
-	deleteRequest, err := http.NewRequest(http.MethodPost, h.serverURL+"/api"+httpapi.RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/delete.txt","type":"File"}]}`))
+	deleteRequest, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteArtifacts, strings.NewReader(`{"artifacts":[{"id":"artifacts/delete.txt","type":"File"}]}`))
 	if err != nil {
 		t.Fatalf("new delete request: %v", err)
 	}
 	deleteRequest.Header.Set("Content-Type", "application/json")
-	deleteRequest.AddCookie(h.authCookie)
+	deleteRequest.AddCookie(authCookie)
 
 	deleteResponse, err := http.DefaultClient.Do(deleteRequest)
 	if err != nil {
@@ -198,7 +166,7 @@ func (h appArtifactRouteHarness) assertUpdatesAndDeletesFileArtifact(t *testing.
 		t.Fatalf("expected delete 200, got %d with body %q", deleteResponse.StatusCode, string(body))
 	}
 
-	deletedPath := filepath.Join(h.cfg.Paths.SettaFilesRoot, "artifacts", "delete.txt")
+	deletedPath := filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts", "delete.txt")
 	if _, err := os.Stat(deletedPath); !os.IsNotExist(err) {
 		t.Fatalf("expected deleted artifact to be removed, stat err=%v", err)
 	}

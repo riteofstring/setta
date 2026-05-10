@@ -12,7 +12,7 @@ import {
 } from "./focusManager";
 
 const hoisted = vi.hoisted(() => {
-  const movePaneToIncludeSectionMock = vi.fn();
+  const movePaneToIncludeElementMock = vi.fn();
   const applyActiveSectionChangeMock = vi.fn();
   const getCurrEffectiveSectionImplMock = vi.fn(() => ({ type: "Code" }));
   const getTopLevelSectionIdsForDisplayMock = vi.fn(() => [
@@ -31,24 +31,19 @@ const hoisted = vi.hoisted(() => {
     selfOnly: {} as Record<string, HTMLElement>,
     withNested: {} as Record<string, HTMLElement>,
   };
-  const localStorageState = {
-    overviewTrueWidth: 24,
-    uiEditorTrueWidth: 48,
-  };
 
   return {
     applyActiveSectionChangeMock,
     getCurrEffectiveSectionImplMock,
     getTopLevelSectionIdsForDisplayMock,
-    localStorageState,
-    movePaneToIncludeSectionMock,
+    movePaneToIncludeElementMock,
     projectState,
     sectionRefsState,
   };
 });
 
-vi.mock("gpuFlow/flowGeometry", () => ({
-  movePaneToIncludeSection: hoisted.movePaneToIncludeSectionMock,
+vi.mock("forks/xyflow/core/utils/graph", () => ({
+  movePaneToIncludeElement: hoisted.movePaneToIncludeElementMock,
 }));
 
 vi.mock("state/actions/activeSectionController", () => ({
@@ -61,9 +56,6 @@ vi.mock("state/actions/sectionInfos", () => ({
 }));
 
 vi.mock("state/definitions", () => ({
-  useLocalStorage: {
-    getState: () => hoisted.localStorageState,
-  },
   useProjectState: {
     getState: () => hoisted.projectState,
   },
@@ -116,15 +108,13 @@ describe("focusManager", () => {
       "section-1",
       "section-2",
     ]);
-    hoisted.movePaneToIncludeSectionMock.mockReset();
+    hoisted.movePaneToIncludeElementMock.mockReset();
     hoisted.projectState.projectConfig.topLevelSections = {
       "section-1": { x: 0, y: 0, zIndex: 0 },
       "section-2": { x: 100, y: 0, zIndex: 0 },
     };
     hoisted.sectionRefsState.selfOnly = {};
     hoisted.sectionRefsState.withNested = {};
-    hoisted.localStorageState.overviewTrueWidth = 24;
-    hoisted.localStorageState.uiEditorTrueWidth = 48;
   });
 
   afterEach(async () => {
@@ -243,7 +233,7 @@ describe("focusManager", () => {
     document.body.appendChild(canvasScope);
 
     const sectionOne = document.createElement("div");
-    sectionOne.className = "setta-gpu-flow__node";
+    sectionOne.className = "react-flow__node";
     sectionOne.setAttribute("data-id", "section-1");
     const sourceButton = document.createElement("button");
     sourceButton.type = "button";
@@ -251,7 +241,7 @@ describe("focusManager", () => {
     sectionOne.appendChild(sourceButton);
 
     const sectionTwo = document.createElement("div");
-    sectionTwo.className = "setta-gpu-flow__node";
+    sectionTwo.className = "react-flow__node";
     sectionTwo.setAttribute("data-id", "section-2");
     const targetButton = document.createElement("button");
     targetButton.type = "button";
@@ -273,11 +263,8 @@ describe("focusManager", () => {
       sectionId: "section-2",
     });
     expect(document.activeElement?.textContent).toBe("target");
-    expect(hoisted.movePaneToIncludeSectionMock).toHaveBeenCalledWith(
-      "section-2",
-      {
-        overviewWidth: 24,
-      },
+    expect(hoisted.movePaneToIncludeElementMock).toHaveBeenCalledWith(
+      targetButton,
     );
   });
 });

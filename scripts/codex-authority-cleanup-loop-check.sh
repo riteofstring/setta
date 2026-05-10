@@ -22,8 +22,6 @@ Options:
                             represent clean non-commit progress. Repeatable.
   --allow-clean-failures N  Tolerate up to N consecutive clean Codex failures
                             that leave HEAD unchanged and the worktree clean.
-  --reset-failed-attempts   Reset the worktree to HEAD and retry after failed
-                            or invalid attempts instead of stopping the loop.
 EOF
 }
 
@@ -34,7 +32,6 @@ complete_exit_code="42"
 sentinels=()
 progress_files=()
 allow_clean_failures="0"
-reset_failed_attempts="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -65,10 +62,6 @@ while [[ $# -gt 0 ]]; do
     --allow-clean-failures)
       allow_clean_failures="${2:-}"
       shift 2
-      ;;
-    --reset-failed-attempts)
-      reset_failed_attempts="1"
-      shift
       ;;
     --help|-h)
       usage
@@ -199,51 +192,6 @@ repo_is_clean() {
   return 0
 }
 
-stop_repo_dev_sessions() {
-  if [[ -x "${root_dir}/kill.sh" ]]; then
-    "${root_dir}/kill.sh" >/dev/null 2>&1 || true
-  fi
-}
-
-reset_repo_to_head() {
-  stop_repo_dev_sessions
-  git -C "${root_dir}" reset --hard HEAD >/dev/null
-  git -C "${root_dir}" clean -fd >/dev/null
-}
-
-recover_failed_attempt() {
-  local status="$1"
-  local message="$2"
-  local recovered_head=""
-
-  printf '%s\n' "${status}" > "${status_file}"
-  echo "${message}" >&2
-
-  if [[ "${reset_failed_attempts}" != "1" ]]; then
-    exit 1
-  fi
-
-  if ! reset_repo_to_head; then
-    printf '%s\n' "error:reset-failed:${status}" > "${status_file}"
-    echo "Automatic recovery failed while resetting the repo to HEAD." >&2
-    exit 1
-  fi
-
-  if ! repo_is_clean; then
-    printf '%s\n' "error:reset-left-dirty:${status}" > "${status_file}"
-    echo "Automatic recovery reset to HEAD, but the repo is still dirty." >&2
-    exit 1
-  fi
-
-  recovered_head="$(git -C "${root_dir}" rev-parse HEAD)"
-  printf '%s\n' "${recovered_head}" > "${head_file}"
-  printf '%s\n' "retrying-after-reset:${status}:${recovered_head}" > "${status_file}"
-  update_progress_snapshots
-  reset_failure_state
-  echo "Repository reset to ${recovered_head}; retrying with the next iteration."
-  exit 0
-}
-
 find_matching_sentinel() {
   local response_file="$1"
   local sentinel=""
@@ -299,11 +247,11 @@ if [[ -f "${latest_run_status_file}" ]]; then
   latest_run_status="$(<"${latest_run_status_file}")"
 fi
 
-if [[ "${latest_run_status}" == "success" ]] && matched_sentinel="$(find_matching_sentinel "${response_file}")"; then
+if matched_sentinel="$(find_matching_sentinel "${response_file}")"; then
   if ! repo_is_clean; then
-    recover_failed_attempt \
-      "error:stop-sentinel-dirty-worktree" \
-      "Latest iteration emitted the stop sentinel but left the repo dirty."
+    printf '%s\n' "error:stop-sentinel-dirty-worktree" > "${status_file}"
+    echo "Latest iteration emitted the stop sentinel but left the repo dirty." >&2
+    exit 1
   fi
 
   if [[ "${current_head}" != "${previous_head}" ]]; then
@@ -317,17 +265,7 @@ if [[ "${latest_run_status}" == "success" ]] && matched_sentinel="$(find_matchin
   exit "${complete_exit_code}"
 fi
 
-if [[ "${latest_run_status}" == failure:* || "${latest_run_status}" == post-iteration-failure:* ]]; then
-  if [[ "${reset_failed_attempts}" == "1" ]] && (
-    [[ "${latest_run_status}" == post-iteration-failure:* ]] \
-      || [[ "${current_head}" != "${previous_head}" ]] \
-      || ! repo_is_clean
-  ); then
-    recover_failed_attempt \
-      "retryable-failed-attempt:${latest_run_status}" \
-      "Latest iteration failed; resetting the repo to HEAD and retrying."
-  fi
-
+if [[ "${latest_run_status}" == failure:* ]]; then
   if [[ "${current_head}" != "${previous_head}" ]]; then
     printf '%s\n' "error:clean-failure-after-commit" > "${status_file}"
     echo "Latest iteration failed after advancing HEAD." >&2
@@ -376,15 +314,15 @@ if [[ "${current_head}" == "${previous_head}" ]]; then
     exit 0
   fi
 
-  recover_failed_attempt \
-    "error:no-new-commit" \
-    "Latest iteration finished without a new commit, without the stop sentinel, and without recognized state-file progress."
+  printf '%s\n' "error:no-new-commit" > "${status_file}"
+  echo "Latest iteration finished without a new commit, without the stop sentinel, and without recognized state-file progress." >&2
+  exit 1
 fi
 
 if ! repo_is_clean; then
-  recover_failed_attempt \
-    "error:dirty-worktree" \
-    "Latest iteration advanced HEAD but left the repo dirty."
+  printf '%s\n' "error:dirty-worktree" > "${status_file}"
+  echo "Latest iteration advanced HEAD but left the repo dirty." >&2
+  exit 1
 fi
 
 printf '%s\n' "${current_head}" > "${head_file}"

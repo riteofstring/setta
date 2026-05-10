@@ -275,7 +275,42 @@ describe("chatHistory", () => {
     expect(entries[0]?.waitingForResponse).toBe(false);
   });
 
-  it("keeps mixed-engine history visible", () => {
+  it("filters history entries to the selected run type and engine config", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-match",
+        messageText: "Match",
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      }),
+      buildRun({
+        chatId: "chat-wrong-engine",
+        messageText: "Wrong engine",
+        runType: "llm_chat",
+        engineConfigId: "engine-b",
+        startedAt: "2024-01-02T00:00:00Z",
+      }),
+      buildRun({
+        chatId: "chat-wrong-type",
+        messageText: "Wrong type",
+        runType: "external_agent",
+        engineConfigId: "engine-a",
+        startedAt: "2024-01-03T00:00:00Z",
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs, {
+      compatibility: {
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      },
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.chatId).toBe("chat-match");
+  });
+
+  it("keeps mixed-engine history visible when no compatibility filter is applied", () => {
     const runs = [
       buildRun({
         chatId: "chat-selected-engine",

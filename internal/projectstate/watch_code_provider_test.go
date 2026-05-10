@@ -2,6 +2,13 @@ package projectstate
 
 const testWatchCodeProviderPluginID = "setta-watch-code-test-provider"
 
+func mustLoadTestWatchCodePluginData(t testHelper, document *Document) {
+	t.Helper()
+	if _, _, err := document.WatchCodePluginProjectData(testWatchCodeProviderPluginID, ""); err != nil {
+		t.Fatalf("load watch code plugin data: %v", err)
+	}
+}
+
 func mustSetTestWatchCodePluginProjectData(
 	t testHelper,
 	document *Document,
@@ -30,6 +37,16 @@ func mustReadTestWatchCodePluginProjectData(
 		t.Fatalf("read watch code plugin data: %v", err)
 	}
 	return projectData
+}
+
+func mustStoreTestWatchCodePluginData(t testHelper, document *Document) {
+	t.Helper()
+	if err := document.setWatchCodePluginData(testWatchCodeProviderPluginID, WatchCodePluginData{
+		SchemaVersion: WatchCodePluginDataSchemaVersion,
+		Projects:      map[string]WatchCodePluginProjectData{},
+	}, true); err != nil {
+		t.Fatalf("store watch code plugin data: %v", err)
+	}
 }
 
 type testHelper interface {

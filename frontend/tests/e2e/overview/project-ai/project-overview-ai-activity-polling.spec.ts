@@ -42,7 +42,7 @@ test("project overview ignores running activity from other project configs", asy
   const projectContext = await openIsolatedProject(page);
 
   try {
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() => getAgentRunsRequestCount, { timeout: 10000 })
       .toBeGreaterThan(0);
@@ -86,7 +86,7 @@ test("project overview retries getAgentRuns after an initial load failure", asyn
   const projectContext = await openIsolatedProject(page);
 
   try {
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() => getAgentRunsRequestCount, { timeout: 15000 })
       .toBeGreaterThanOrEqual(2);
@@ -116,7 +116,7 @@ test("project overview keeps a slow idle poll so new runs can be discovered", as
   const projectContext = await openIsolatedProject(page);
 
   try {
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await expect
       .poll(() => getAgentRunsRequestCount, { timeout: 10000 })
       .toBeGreaterThan(0);

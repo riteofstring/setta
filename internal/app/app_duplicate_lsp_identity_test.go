@@ -18,27 +18,6 @@ import (
 )
 
 func TestAppDuplicatePluginCopiesKeepCommittedAppliedIdentityUntilRestart(t *testing.T) {
-	harness := newAppDuplicatePluginLSPHarness(t)
-
-	assertAppDuplicateLSPCompletionAndSource(t, harness, "fixtureCompletion", harness.workspacePluginRoot)
-	overwriteAppPluginBackendWithInvalidGo(t, harness.workspacePluginRoot)
-
-	assertAppDuplicatePluginRescanKeepsWorkspaceApplied(t, harness)
-	assertAppDuplicatePluginConfigRefreshKeepsWorkspaceApplied(t, harness)
-	assertAppDuplicatePluginRestartAppliesSettaFilesReplacement(t, harness)
-}
-
-type appDuplicatePluginLSPHarness struct {
-	app                  *App
-	serverURL            string
-	authCookie           *http.Cookie
-	workspacePluginRoot  string
-	settaFilesPluginRoot string
-}
-
-func newAppDuplicatePluginLSPHarness(t *testing.T) appDuplicatePluginLSPHarness {
-	t.Helper()
-
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -71,95 +50,90 @@ func newAppDuplicatePluginLSPHarness(t *testing.T) appDuplicatePluginLSPHarness 
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
 
 	server := httptest.NewServer(app.Handler())
-	t.Cleanup(server.Close)
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
 
-	return appDuplicatePluginLSPHarness{
-		app:                  app,
-		serverURL:            server.URL,
-		authCookie:           newAppTestAuthCookie(t, app),
-		workspacePluginRoot:  workspacePluginRoot,
-		settaFilesPluginRoot: settaFilesPluginRoot,
-	}
-}
+	assertAppCompletionLabel(t, server.URL, authCookie, "fixtureCompletion")
+	currentSpecs, appliedSpecs := cloneAppRuntimeLanguageServerSpecs(t, app)
+	assertAppLanguageServerSpecSourcePath(t, currentSpecs, appliedSpecs, workspacePluginRoot)
 
-func assertAppDuplicateLSPCompletionAndSource(t *testing.T, harness appDuplicatePluginLSPHarness, wantCompletion string, expectedSourcePath string) {
-	t.Helper()
+	overwriteAppPluginBackendWithInvalidGo(t, workspacePluginRoot)
 
-	assertAppCompletionLabel(t, harness.serverURL, harness.authCookie, wantCompletion)
-	currentSpecs, appliedSpecs := cloneAppRuntimeLanguageServerSpecs(t, harness.app)
-	assertAppLanguageServerSpecSourcePath(t, currentSpecs, appliedSpecs, expectedSourcePath)
-}
-
-func assertAppDuplicatePluginRescanKeepsWorkspaceApplied(t *testing.T, harness appDuplicatePluginLSPHarness) {
-	t.Helper()
-
-	rescanResponse := rescanAppPlugins(t, harness.serverURL, harness.authCookie)
+	rescanResponse := rescanAppPlugins(t, server.URL, authCookie)
 	defer rescanResponse.Body.Close()
 	if rescanResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(rescanResponse.Body)
 		t.Fatalf("expected plugins rescan 200 after invalidating higher-precedence duplicate, got %d with body %q", rescanResponse.StatusCode, string(body))
 	}
 
-	assertAppDuplicateLSPCompletionAndSource(t, harness, "fixtureCompletion", harness.workspacePluginRoot)
+	assertAppCompletionLabel(t, server.URL, authCookie, "fixtureCompletion")
+	currentSpecs, appliedSpecs = cloneAppRuntimeLanguageServerSpecs(t, app)
+	assertAppLanguageServerSpecSourcePath(t, currentSpecs, appliedSpecs, workspacePluginRoot)
 
-	statusAfterRescan := fetchAppPluginRuntimeStatus(t, harness.serverURL, harness.authCookie)
-	assertAppInvalidWorkspaceDuplicateStatus(t, statusAfterRescan, "before restart")
-}
-
-func assertAppDuplicatePluginConfigRefreshKeepsWorkspaceApplied(t *testing.T, harness appDuplicatePluginLSPHarness) {
-	t.Helper()
-
-	writeAppPluginConfig(t, harness.serverURL, harness.authCookie, "setta-fixture-backend", fixtureLanguageServerConfig(true))
-
-	assertAppDuplicateLSPCompletionAndSource(t, harness, "fixtureCompletion", harness.workspacePluginRoot)
-
-	statusAfterConfig := fetchAppPluginRuntimeStatus(t, harness.serverURL, harness.authCookie)
-	assertAppInvalidWorkspaceDuplicateStatus(t, statusAfterConfig, "after config refresh")
-}
-
-func assertAppInvalidWorkspaceDuplicateStatus(t *testing.T, status []plugins.PluginStatusEntry, phase string) {
-	t.Helper()
-
-	duplicateEntries := appPluginStatusEntriesForID(status, "setta-fixture-backend")
+	statusAfterRescan := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	duplicateEntries := appPluginStatusEntriesForID(statusAfterRescan, "setta-fixture-backend")
 	if len(duplicateEntries) < 2 {
-		t.Fatalf("expected duplicate runtime status entries %s, got %#v", phase, duplicateEntries)
+		t.Fatalf("expected duplicate runtime status entries after invalidation, got %#v", duplicateEntries)
 	}
 	if !entryAppliesLanguage(duplicateEntries[0], "fixturedsl") || duplicateEntries[0].State != plugins.PluginRuntimeStateInvalid || duplicateEntries[0].SourceScope != plugins.PluginScopeWorkspace {
-		t.Fatalf("expected first duplicate entry to keep the invalid applied workspace implementation %s, got %#v", phase, duplicateEntries[0])
+		t.Fatalf("expected first duplicate entry to keep the invalid applied workspace implementation, got %#v", duplicateEntries[0])
 	}
 	activeDuplicate := mustFindAppPluginStatusEntryByScopeAndState(
 		t,
-		status,
+		statusAfterRescan,
 		"setta-fixture-backend",
 		plugins.PluginScopeSettaFiles,
 		plugins.PluginRuntimeStateActive,
 	)
 	if len(activeDuplicate.AppliedLanguageServerLanguages) != 0 {
-		t.Fatalf("expected active replacement duplicate to remain unapplied %s, got %#v", phase, activeDuplicate.AppliedLanguageServerLanguages)
+		t.Fatalf("expected active replacement duplicate to remain unapplied before restart, got %#v", activeDuplicate.AppliedLanguageServerLanguages)
 	}
-}
 
-func assertAppDuplicatePluginRestartAppliesSettaFilesReplacement(t *testing.T, harness appDuplicatePluginLSPHarness) {
-	t.Helper()
+	writeAppPluginConfig(t, server.URL, authCookie, "setta-fixture-backend", fixtureLanguageServerConfig(true))
 
-	restartResponse := restartAppLanguageServer(t, harness.serverURL, harness.authCookie)
+	assertAppCompletionLabel(t, server.URL, authCookie, "fixtureCompletion")
+	currentSpecs, appliedSpecs = cloneAppRuntimeLanguageServerSpecs(t, app)
+	assertAppLanguageServerSpecSourcePath(t, currentSpecs, appliedSpecs, workspacePluginRoot)
+
+	statusAfterConfig := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	duplicateEntries = appPluginStatusEntriesForID(statusAfterConfig, "setta-fixture-backend")
+	if len(duplicateEntries) < 2 {
+		t.Fatalf("expected duplicate runtime status entries after config refresh, got %#v", duplicateEntries)
+	}
+	if !entryAppliesLanguage(duplicateEntries[0], "fixturedsl") || duplicateEntries[0].State != plugins.PluginRuntimeStateInvalid || duplicateEntries[0].SourceScope != plugins.PluginScopeWorkspace {
+		t.Fatalf("expected config refresh to keep the invalid applied workspace implementation first, got %#v", duplicateEntries[0])
+	}
+	activeDuplicate = mustFindAppPluginStatusEntryByScopeAndState(
+		t,
+		statusAfterConfig,
+		"setta-fixture-backend",
+		plugins.PluginScopeSettaFiles,
+		plugins.PluginRuntimeStateActive,
+	)
+	if len(activeDuplicate.AppliedLanguageServerLanguages) != 0 {
+		t.Fatalf("expected active replacement duplicate to remain unapplied after config refresh, got %#v", activeDuplicate.AppliedLanguageServerLanguages)
+	}
+
+	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
 	defer restartResponse.Body.Close()
 	if restartResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(restartResponse.Body)
 		t.Fatalf("expected restart 200 after duplicate replacement becomes selected, got %d with body %q", restartResponse.StatusCode, string(body))
 	}
 
-	assertAppDuplicateLSPCompletionAndSource(t, harness, "altFixtureCompletion", harness.settaFilesPluginRoot)
+	assertAppCompletionLabel(t, server.URL, authCookie, "altFixtureCompletion")
+	currentSpecs, appliedSpecs = cloneAppRuntimeLanguageServerSpecs(t, app)
+	assertAppLanguageServerSpecSourcePath(t, currentSpecs, appliedSpecs, settaFilesPluginRoot)
 
-	statusAfterRestart := fetchAppPluginRuntimeStatus(t, harness.serverURL, harness.authCookie)
-	duplicateEntries := appPluginStatusEntriesForID(statusAfterRestart, "setta-fixture-backend")
+	statusAfterRestart := fetchAppPluginRuntimeStatus(t, server.URL, authCookie)
+	duplicateEntries = appPluginStatusEntriesForID(statusAfterRestart, "setta-fixture-backend")
 	if len(duplicateEntries) == 0 {
 		t.Fatalf("expected duplicate runtime status entries after restart, got %#v", statusAfterRestart)
 	}
 	if duplicateEntries[0].SourceScope != plugins.PluginScopeSettaFiles || !entryAppliesLanguage(duplicateEntries[0], "fixturedsl") {
 		t.Fatalf("expected restart to apply the setta_files duplicate first, got %#v", duplicateEntries[0])
 	}
-	activeDuplicate := mustFindAppPluginStatusEntryByScopeAndState(
+	activeDuplicate = mustFindAppPluginStatusEntryByScopeAndState(
 		t,
 		statusAfterRestart,
 		"setta-fixture-backend",

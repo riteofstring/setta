@@ -23,6 +23,7 @@ const (
 type Transport string
 
 const (
+	TransportSSE            Transport = "sse"
 	TransportStreamableHTTP Transport = "streamable_http"
 	TransportStdio          Transport = "stdio"
 )
@@ -385,7 +386,7 @@ func defaultConfigs(opts LoadOptions) AllConfigs {
 	servers := map[string]ServerConfig{}
 	if strings.TrimSpace(opts.SettaServerURL) != "" {
 		servers[DefaultServerID] = ServerConfig{
-			Transport: TransportStreamableHTTP,
+			Transport: TransportSSE,
 			URL:       strings.TrimSpace(opts.SettaServerURL),
 		}
 	}
@@ -651,7 +652,7 @@ func validateNormalizedServerConfig(serverID string, normalized ServerConfig, ra
 	switch normalized.Transport {
 	case "":
 		return fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
-	case TransportStreamableHTTP:
+	case TransportSSE, TransportStreamableHTTP:
 		return validateHTTPTransportServerConfig(serverID, normalized)
 	case TransportStdio:
 		return validateStdioTransportServerConfig(serverID, normalized)
@@ -695,7 +696,7 @@ func ensureSettaServerURL(servers map[string]ServerConfig, settaServerURL string
 	if !ok {
 		return cloned
 	}
-	if server.Transport != TransportStreamableHTTP {
+	if server.Transport != TransportSSE && server.Transport != TransportStreamableHTTP {
 		return cloned
 	}
 	server.URL = settaServerURL

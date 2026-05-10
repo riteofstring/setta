@@ -16,7 +16,7 @@ import {
 
 type FollowAIToggleButtonProps = {
   labelMode?: "responsive" | "always";
-  triggerClassName?: string | undefined;
+  triggerClassName?: string;
 };
 
 type FollowEntryKind = "chat" | "section";
@@ -68,7 +68,7 @@ function getFollowEntryCheckClassName(isSelected: boolean): string {
 }
 
 function buildProjectChatEntry(
-  activeChatId: string | null | undefined,
+  activeChatId: string | undefined,
 ): FollowEntry | null {
   if (typeof activeChatId !== "string" || !activeChatId.trim()) {
     return null;
@@ -84,7 +84,7 @@ function buildProjectChatEntry(
 function getSectionFollowLabel(
   sectionId: string,
   core: SectionCoreEntry,
-  chatId: string | null | undefined,
+  chatId: string | undefined,
 ): string {
   const baseLabel = core.displayName?.trim() || core.name || "Chat";
   const sectionLabel = `${baseLabel} (${sectionId.slice(0, 8)})`;
@@ -122,7 +122,7 @@ function buildSectionFollowEntry(
 }
 
 function buildFollowEntries(
-  activeChatId: string | null | undefined,
+  activeChatId: string | undefined,
   sections: Record<string, SectionCoreEntry>,
   sectionVariantMap: SectionVariantMap,
   sectionVariants: Record<string, SectionVariantEntry | undefined>,
@@ -246,7 +246,7 @@ function FollowModeMenuItem({
   currentMode: AIFollowMode;
   mode: AIFollowMode;
   label: string;
-  shortcut?: string | undefined;
+  shortcut?: string;
 }) {
   return (
     <MenuItem

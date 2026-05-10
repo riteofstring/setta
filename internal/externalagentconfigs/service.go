@@ -75,6 +75,28 @@ func (s *Service) Get(configID string) (Config, error) {
 	return s.configs.Get(configID)
 }
 
+func (s *Service) ReconcileManagedCanonicalConfigs() error {
+	if err := s.requireConfigured(); err != nil {
+		return err
+	}
+	configs, err := s.configs.List()
+	if err != nil {
+		return err
+	}
+	for _, config := range configs {
+		if config.SettingsMode == SettingsModeExplicitPath {
+			continue
+		}
+		switch config.ToolType {
+		case ToolTypeCodex:
+			if err := s.writeCodexConfig(s.codexConfigPath(config.ID), config); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *Service) Create(config Config) (Config, error) {
 	if err := s.requireConfigured(); err != nil {
 		return Config{}, err

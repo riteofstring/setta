@@ -3733,36 +3733,6 @@ type ParamCodeObjFields = {
 type ParamNameType = "CODE" | "TEXT";
 
 /**
- * ParamUIRendererConfigValue
- */
-export type ParamUIRendererConfigValue = {
-  dateTimeParamTypes: null | Array<CodeObjType>;
-  rendererFamiliesByType: {
-    [key: string]: ParamUIRendererFamily;
-  };
-  rendererTypes: null | Array<CodeObjType>;
-  specializedRendererFamilies: {
-    [key: string]: ParamUIRendererFamily;
-  };
-  textLikeParamTypes: null | Array<CodeObjType>;
-};
-
-/**
- * ParamUIRendererFamily
- */
-export type ParamUIRendererFamily =
-  | "text-like"
-  | "date-time"
-  | "button"
-  | "slider"
-  | "rotary"
-  | "switch"
-  | "color-picker"
-  | "dropdown"
-  | "password"
-  | "dropzone";
-
-/**
  * ParameterPassingStyle
  */
 type ParameterPassingStyle =
@@ -4647,47 +4617,6 @@ export type ProjectConfigDiagnostics = {
 export type ProjectConfigMetadata = {
   id: string;
   name: string;
-};
-
-/**
- * ProjectParamUpdateContent
- */
-export type ProjectParamUpdateContent = {
-  codeObj: Core;
-  codeObjImpl:
-    | BaseCodeObjImpl
-    | CodeCallableCodeObjImpl
-    | CodeParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | DateParamCodeObjImpl
-    | TimeParamCodeObjImpl
-    | ButtonParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | RotaryParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
-    | NestedParamCodeObjImpl
-    | null;
-  codeObjVariant: Variant;
-  completedOpIds: null | Array<string>;
-  paramInfoId: string;
-  pendingOpIds: null | Array<string>;
-  projectConfigId: string;
-  sectionId: string;
-  sectionVariantId: string;
-};
-
-/**
- * ProjectParamUpdateMessage
- */
-type ProjectParamUpdateMessage = {
-  content: ProjectParamUpdateContent;
-  id: null | string;
-  messageType: WebsocketMessageType;
 };
 
 /**
@@ -6169,7 +6098,7 @@ type SharePolicyOverrides = {
 /**
  * ShownParamIDDetails
  */
-export type ShownParamIDDetails = {
+type ShownParamIDDetails = {
   requiredParamIdsToPaths: {
     [key: string]: null | Array<string>;
   };
@@ -6402,7 +6331,7 @@ type StateMachineEndSectionImpl = {
 /**
  * StateMachineGateSectionImpl
  */
-export type StateMachineGateSectionImpl = {
+type StateMachineGateSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   gateType: StateMachineGateType;
@@ -6447,7 +6376,7 @@ type StateMachineGateTypeOption = {
 /**
  * StateMachineGateUIState
  */
-export type StateMachineGateUIState = {
+type StateMachineGateUIState = {
   showDetails: boolean;
 };
 
@@ -7252,7 +7181,7 @@ type TranscriptionProfilesUpdatedMessage = {
 /**
  * Transport
  */
-type Transport = "streamable_http" | "stdio";
+type Transport = "sse" | "streamable_http" | "stdio";
 
 /**
  * TransportMode
@@ -7591,7 +7520,6 @@ export type WebsocketMessageType =
   | "PromptTemplatesUpdated"
   | "TranscriptionProfilesUpdated"
   | "UpdateFrontendProjectState"
-  | "UpdateFrontendProjectParam"
   | "UpdateSettings"
   | "UpdatePluginRuntime"
   | "ReturnRenameRefactorResults"

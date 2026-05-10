@@ -30,39 +30,10 @@ func TestAppStreamsManagedToolArgumentPreviewOverFrontendWebsocket(t *testing.T)
 	// The real IDE app should broadcast managed tool preview deltas over the
 	// existing frontend websocket contract while the internal MCP tool call is
 	// still in flight.
-	cfg := newManagedPreviewAppConfig(t)
-	listener, serverURL := listenManagedPreviewApp(t, &cfg)
-	provider := newManagedPreviewProvider(t)
-	writeManagedPreviewLLMConfig(t, cfg, provider.url, serverURL)
-	writeManagedPreviewEngineConfig(t, cfg)
-
-	app := startManagedPreviewApp(t, cfg, listener)
-	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
-	seedManagedPreviewProject(t, app)
-
-	authCookie := newAppTestAuthCookie(t, app)
-	conn := dialManagedPreviewFrontend(t, serverURL, authCookie)
-	chatID := sendManagedPreviewChat(t, serverURL, authCookie)
-
-	assertManagedPreviewChunk(t, waitForManagedPreviewChunk(t, conn))
-	waitForManagedPreviewRunCompleted(t, cfg, chatID)
-	provider.assertRequestCount(t, 2)
-}
-
-type managedPreviewProvider struct {
-	url          string
-	requests     []map[string]any
-	requestCount int
-}
-
-func newManagedPreviewAppConfig(t *testing.T) config.Config {
-	t.Helper()
-
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	cfg.Server.Host = "127.0.0.1"
 	prepareAppCurrentSession(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	t.Setenv("OPENAI_API_KEY", "secret")
 	t.Cleanup(func() {
 		deadline := time.Now().Add(2 * time.Second)
@@ -74,71 +45,45 @@ func newManagedPreviewAppConfig(t *testing.T) config.Config {
 			time.Sleep(20 * time.Millisecond)
 		}
 	})
-	return cfg
-}
-
-func listenManagedPreviewApp(t *testing.T, cfg *config.Config) (net.Listener, string) {
-	t.Helper()
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
 	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
-	return listener, "http://" + listener.Addr().String()
-}
+	serverURL := "http://" + listener.Addr().String()
 
-func newManagedPreviewProvider(t *testing.T) *managedPreviewProvider {
-	t.Helper()
-
-	provider := &managedPreviewProvider{
-		requests: make([]map[string]any, 0, 2),
-	}
-	server := httptest.NewServer(http.HandlerFunc(provider.serve))
-	provider.url = server.URL
-	t.Cleanup(server.Close)
-	return provider
-}
-
-func (p *managedPreviewProvider) serve(w http.ResponseWriter, r *http.Request) {
-	body := map[string]any{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	p.requests = append(p.requests, body)
-	w.Header().Set("Content-Type", "text/event-stream")
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "missing flusher", http.StatusInternalServerError)
-		return
-	}
-	switch p.requestCount {
-	case 0:
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__stream_app_definition\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"patches\\\":\\\"{\\\\\\\"op\\\\\\\":\\\\\\\"set\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/root\\\\\\\",\\\\\\\"value\\\\\\\":\\\\\\\"stream-root\\\\\\\"}\\\\n\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: [DONE]\n\n")
-	case 1:
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Preview applied\"},\"finish_reason\":\"stop\"}]}\n\n")
-		flusher.Flush()
-		_, _ = io.WriteString(w, "data: [DONE]\n\n")
-	default:
-		http.Error(w, "unexpected request", http.StatusInternalServerError)
-		return
-	}
-	p.requestCount++
-}
-
-func (p *managedPreviewProvider) assertRequestCount(t *testing.T, expected int) {
-	t.Helper()
-
-	if len(p.requests) != expected {
-		t.Fatalf("expected %d provider requests, got %d", expected, len(p.requests))
-	}
-}
-
-func writeManagedPreviewLLMConfig(t *testing.T, cfg config.Config, providerURL string, serverURL string) {
-	t.Helper()
+	providerRequests := make([]map[string]any, 0, 2)
+	requestCount := 0
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests = append(providerRequests, body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		switch requestCount {
+		case 0:
+			_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__stream_app_definition\",\"arguments\":\"{\\\"projectConfigId\\\":\\\"project-alpha\\\",\\\"patches\\\":\\\"{\\\\\\\"op\\\\\\\":\\\\\\\"set\\\\\\\",\\\\\\\"path\\\\\\\":\\\\\\\"/root\\\\\\\",\\\\\\\"value\\\\\\\":\\\\\\\"stream-root\\\\\\\"}\\\\n\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		case 1:
+			_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Preview applied\"},\"finish_reason\":\"stop\"}]}\n\n")
+			flusher.Flush()
+			_, _ = io.WriteString(w, "data: [DONE]\n\n")
+		default:
+			http.Error(w, "unexpected request", http.StatusInternalServerError)
+			return
+		}
+		requestCount++
+	}))
+	defer provider.Close()
 
 	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
@@ -146,30 +91,20 @@ func writeManagedPreviewLLMConfig(t *testing.T, cfg config.Config, providerURL s
 				ID:           "primary",
 				Model:        "gpt-4o-mini",
 				Provider:     "openai",
-				BaseURL:      providerURL + "/v1",
+				BaseURL:      provider.URL + "/v1",
 				APIKeyEnv:    "OPENAI_API_KEY",
 				MCPServerIDs: []string{mcpx.DefaultServerID},
-			},
-			"openai-whisper-1": {
-				ID:        "openai-whisper-1",
-				Model:     "whisper-1",
-				Provider:  "openai",
-				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "streamable_http",
+				Transport: "sse",
 				URL:       serverURL + "/mcp",
 			},
 		},
 	}); err != nil {
 		t.Fatalf("save llm config: %v", err)
 	}
-}
-
-func writeManagedPreviewEngineConfig(t *testing.T, cfg config.Config) {
-	t.Helper()
 
 	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
@@ -186,10 +121,6 @@ func writeManagedPreviewEngineConfig(t *testing.T, cfg config.Config) {
 	}); err != nil {
 		t.Fatalf("write engine config: %v", err)
 	}
-}
-
-func startManagedPreviewApp(t *testing.T, cfg config.Config, listener net.Listener) *App {
-	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -217,11 +148,7 @@ func startManagedPreviewApp(t *testing.T, cfg config.Config, listener net.Listen
 		}
 	})
 
-	return app
-}
-
-func seedManagedPreviewProject(t *testing.T, app *App) {
-	t.Helper()
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
 
 	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -233,15 +160,8 @@ func seedManagedPreviewProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("seed app project: %v", err)
 	}
-}
 
-func dialManagedPreviewFrontend(
-	t *testing.T,
-	serverURL string,
-	authCookie *http.Cookie,
-) *websocket.Conn {
-	t.Helper()
-
+	authCookie := newAppTestAuthCookie(t, app)
 	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(serverURL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
 		HTTPHeader: http.Header{
 			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
@@ -250,15 +170,8 @@ func dialManagedPreviewFrontend(
 	if err != nil {
 		t.Fatalf("dial frontend websocket route: %v", err)
 	}
-	t.Cleanup(func() {
-		_ = conn.CloseNow()
-	})
+	defer conn.CloseNow()
 	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-	return conn
-}
-
-func sendManagedPreviewChat(t *testing.T, serverURL string, authCookie *http.Cookie) string {
-	t.Helper()
 
 	request, err := http.NewRequest(
 		http.MethodPost,
@@ -300,12 +213,8 @@ func sendManagedPreviewChat(t *testing.T, serverURL string, authCookie *http.Coo
 	if strings.TrimSpace(chatID) == "" {
 		t.Fatal("expected managed chat id")
 	}
-	return chatID
-}
 
-func assertManagedPreviewChunk(t *testing.T, previewChunk map[string]any) {
-	t.Helper()
-
+	previewChunk := waitForManagedPreviewChunk(t, conn)
 	if previewChunk["tool_name"] != "setta__stream_app_definition" {
 		t.Fatalf("unexpected preview chunk %#v", previewChunk)
 	}
@@ -315,10 +224,6 @@ func assertManagedPreviewChunk(t *testing.T, previewChunk map[string]any) {
 	if previewChunk["preview_value_delta"] != "{\"op\":\"set\",\"path\":\"/root\",\"value\":\"stream-root\"}\n" {
 		t.Fatalf("unexpected preview delta %#v", previewChunk)
 	}
-}
-
-func waitForManagedPreviewRunCompleted(t *testing.T, cfg config.Config, chatID string) {
-	t.Helper()
 
 	waitForAppCondition(t, 5*time.Second, func() bool {
 		runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
@@ -342,6 +247,10 @@ func waitForManagedPreviewRunCompleted(t *testing.T, cfg config.Config, chatID s
 		}
 		return false
 	})
+
+	if len(providerRequests) != 2 {
+		t.Fatalf("expected two provider requests, got %d", len(providerRequests))
+	}
 }
 
 func waitForManagedPreviewChunk(t *testing.T, conn *websocket.Conn) map[string]any {

@@ -75,32 +75,11 @@ function getTextareaClassName(markup: string): string | null {
   return markup.slice(valueStart, valueEnd);
 }
 
-function getOpeningTagByAttribute(
-  markup: string,
-  attribute: string,
-  value: string,
-): string | null {
-  const marker = `${attribute}="${value}"`;
-  const attributeIndex = markup.indexOf(marker);
-  if (attributeIndex < 0) {
-    return null;
-  }
-  const tagStart = markup.lastIndexOf("<", attributeIndex);
-  if (tagStart < 0) {
-    return null;
-  }
-  const tagEnd = markup.indexOf(">", attributeIndex);
-  if (tagEnd < 0) {
-    return null;
-  }
-  return markup.slice(tagStart, tagEnd);
-}
-
 function getButtonTagByAriaLabel(
   markup: string,
   ariaLabel: string,
 ): string | null {
-  const marker = `aria-label="${ariaLabel}"`;
+  const marker = `aria-label=\"${ariaLabel}\"`;
   const labelIndex = markup.indexOf(marker);
   if (labelIndex < 0) {
     return null;
@@ -356,30 +335,6 @@ describe("ChatInput composer controls", () => {
     expect(textareaClassName).not.toBeNull();
     expect(textareaClassName).toContain("pl-9");
     expect(textareaClassName).not.toContain("pl-3");
-  });
-
-  it("marks the composer as a GPU flow interactive nodrag surface", () => {
-    const markup = renderChatInput();
-    const formTag = getOpeningTagByAttribute(
-      markup,
-      "data-gpu-flow-control",
-      "chat-composer",
-    );
-    const fieldTag = getOpeningTagByAttribute(
-      markup,
-      "data-gpu-flow-control",
-      "chat-composer-field",
-    );
-    const textareaClassName = getTextareaClassName(markup);
-
-    expect(formTag).not.toBeNull();
-    expect(formTag).toContain('data-gpu-flow-interactive="true"');
-    expect(formTag).toContain("nodrag nopan nowheel");
-    expect(fieldTag).not.toBeNull();
-    expect(fieldTag).toContain('data-gpu-flow-interactive="true"');
-    expect(fieldTag).toContain("nodrag nopan nowheel");
-    expect(textareaClassName).not.toBeNull();
-    expect(textareaClassName).toContain("nodrag nopan nowheel");
   });
 
   it("defaults slash suggestions to below placement", () => {

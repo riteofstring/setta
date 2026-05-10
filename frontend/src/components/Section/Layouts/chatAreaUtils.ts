@@ -5,13 +5,13 @@ import {
 } from "state/actions/agentRunUtils";
 import {
   buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
   AgentRun,
   ChatSectionState,
   EngineTypeEnum,
-  type EngineConfig,
 } from "utils/generatedTypes";
 
 type ComparableChatState = Pick<
@@ -157,15 +157,17 @@ export function toSortedHistoryEntries(
   runs: Array<AgentRun>,
   projectConfigId: string,
   sectionId: string,
+  compatibility: ChatHistoryCompatibility | null,
 ): Array<ChatSectionHistoryEntry> {
   return buildChatHistoryEntries(runs, {
     projectConfigId,
     sectionId,
+    compatibility,
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
 }
 
 export function resolveManagedChatRunType(
-  engineType: EngineConfig["engineType"] | null,
+  engineType: EngineTypeEnum | null,
 ): ChatRunType | null {
   if (engineType === EngineTypeEnum.external_agent) {
     return "external_agent";

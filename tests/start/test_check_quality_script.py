@@ -9,7 +9,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "check_quality_sandbox"
     frontend_dir = sandbox_root / "frontend" / "src"
-    frontend_e2e_dir = sandbox_root / "frontend" / "tests" / "e2e"
     sdk_package_dir = sandbox_root / "frontend" / "plugin-sdk" / "app-subsystem"
     sdk_frontend_dir = sdk_package_dir / "src"
     sdk_types_dir = sdk_package_dir / "types"
@@ -21,14 +20,11 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     plugin_vendor_types_dir = plugin_vendor_dir / "types"
     plugin_backend_dir = sandbox_root / "plugins" / "demo" / "backend"
     generated_python_dir = sandbox_root / "backend" / "setta" / "sdk_contracts"
-    python_tests_dir = sandbox_root / "tests"
-    go_tests_dir = sandbox_root / "internal" / "demo"
     scripts_dir = sandbox_root / "scripts"
     quality_scripts_dir = scripts_dir / "quality"
     bin_dir = sandbox_root / "bin"
 
     frontend_dir.mkdir(parents=True, exist_ok=True)
-    frontend_e2e_dir.mkdir(parents=True, exist_ok=True)
     sdk_frontend_dir.mkdir(parents=True, exist_ok=True)
     sdk_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -37,24 +33,16 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     plugin_vendor_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_backend_dir.mkdir(parents=True, exist_ok=True)
     generated_python_dir.mkdir(parents=True, exist_ok=True)
-    python_tests_dir.mkdir(parents=True, exist_ok=True)
-    go_tests_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
     quality_scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    script_dst = sandbox_root / "scripts/quality/check.sh"
+    script_dst = sandbox_root / "check_quality.sh"
     script_dst.write_text(
-        (root / "scripts/quality/check.sh").read_text(encoding="utf-8"),
+        (root / "check_quality.sh").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     script_dst.chmod(0o755)
-    report_file_lengths_dst = sandbox_root / "scripts/quality/report_file_lengths.sh"
-    report_file_lengths_dst.write_text(
-        (root / "scripts/quality/report_file_lengths.sh").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    report_file_lengths_dst.chmod(0o755)
     (scripts_dir / "lib").mkdir(parents=True, exist_ok=True)
     quality_paths_dst = scripts_dir / "lib" / "quality_paths.sh"
     quality_paths_dst.write_text(
@@ -68,14 +56,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     quality_list_files_dst.chmod(0o755)
-    quality_file_lengths_dst = quality_scripts_dir / "check_file_lengths.py"
-    quality_file_lengths_dst.write_text(
-        (root / "scripts" / "quality" / "check_file_lengths.py").read_text(
-            encoding="utf-8"
-        ),
-        encoding="utf-8",
-    )
-    quality_file_lengths_dst.chmod(0o755)
     (sandbox_root / "quality.paths.yaml").write_text(
         (root / "quality.paths.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -88,9 +68,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     (sandbox_root / "activate.sh").chmod(0o755)
 
     (frontend_dir / "app.ts").write_text("export const app = true;\n", encoding="utf-8")
-    (frontend_e2e_dir / "app.spec.ts").write_text(
-        "export const e2eFixture = true;\n", encoding="utf-8"
-    )
     (sdk_frontend_dir / "index.ts").write_text(
         "export const sdk = true;\n", encoding="utf-8"
     )
@@ -141,14 +118,6 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     )
     (plugin_backend_dir / "main.py").write_text(
         "def main() -> None:\n    return None\n",
-        encoding="utf-8",
-    )
-    (python_tests_dir / "test_python_quality.py").write_text(
-        "def test_python_quality() -> None:\n    assert True\n",
-        encoding="utf-8",
-    )
-    (go_tests_dir / "main_test.go").write_text(
-        "package demo\n\nfunc TestDemo(t interface{}) {}\n",
         encoding="utf-8",
     )
     (generated_python_dir / "constants.py").write_text(
@@ -219,7 +188,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
+            str(sandbox_root / "check_quality.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
@@ -302,7 +271,7 @@ def test_check_quality_runs_standalone_guardrail_suite_for_manifest_and_config_f
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
+            str(sandbox_root / "check_quality.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/package.json",
             "frontend/plugin-sdk/app-subsystem/vite.config.mjs",
@@ -343,7 +312,7 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
+            str(sandbox_root / "check_quality.sh"),
             "--files",
             "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
             "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
@@ -383,56 +352,13 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
     ]
 
 
-def test_check_quality_includes_python_tests_and_test_file_length_sources(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
-            "--files",
-            "tests/test_python_quality.py",
-            "frontend/tests/e2e/app.spec.ts",
-            "internal/demo/main_test.go",
-        ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert "Python quality checks (1 files)..." in result.stdout
-    assert "File length checks..." in result.stdout
-
-    ruff_calls = _split_calls(sandbox_root / "ruff_calls.txt")
-    assert ruff_calls == [
-        ["check", "tests/test_python_quality.py"],
-        [
-            "check",
-            "--select",
-            "C901",
-            "--output-format=concise",
-            "--config",
-            "lint.mccabe.max-complexity = 9",
-            "tests/test_python_quality.py",
-        ],
-    ]
-    assert not (sandbox_root / "pnpm_calls.txt").exists()
-    assert not (sandbox_root / "node_calls.txt").exists()
-    assert not (sandbox_root / "go_calls.txt").exists()
-
-
 def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
     sandbox_root = _build_check_quality_sandbox(tmp_path)
 
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
+            str(sandbox_root / "check_quality.sh"),
             "--files",
             "backend/setta/sdk_contracts/constants.py",
             "plugins/demo/frontend/src/generated/contract.ts",
@@ -450,120 +376,3 @@ def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
     assert not (sandbox_root / "pnpm_calls.txt").exists()
     assert not (sandbox_root / "node_calls.txt").exists()
     assert not (sandbox_root / "go_calls.txt").exists()
-
-
-def test_check_quality_fails_long_non_generated_source_files(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-    long_python = sandbox_root / "plugins" / "demo" / "backend" / "long.py"
-    long_go = sandbox_root / "plugins" / "demo" / "backend" / "long.go"
-    long_typescript = sandbox_root / "frontend" / "src" / "LongComponent.tsx"
-    generated_typescript = (
-        sandbox_root
-        / "plugins"
-        / "demo"
-        / "frontend"
-        / "src"
-        / "generated"
-        / "largeContract.ts"
-    )
-    long_python.write_text("VALUE = 1\n" * 1001, encoding="utf-8")
-    long_go.write_text(
-        "package main\n" + ("const value = 1\n" * 1200), encoding="utf-8"
-    )
-    long_typescript.write_text("export const value = 1;\n" * 1001, encoding="utf-8")
-    generated_typescript.write_text(
-        "// Code generated by a test generator; DO NOT EDIT.\n"
-        + ("export const generatedValue = 1;\n" * 1001),
-        encoding="utf-8",
-    )
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "scripts/quality/check.sh"),
-            "--files",
-            "plugins/demo/backend/long.py",
-            "plugins/demo/backend/long.go",
-            "frontend/src/LongComponent.tsx",
-            "plugins/demo/frontend/src/generated/largeContract.ts",
-        ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 1
-    assert "File length limit exceeded:" in result.stdout
-    assert "Python plugins/demo/backend/long.py: 1001 lines (max 1000)" in result.stdout
-    assert "Go plugins/demo/backend/long.go: 1201 lines (max 1200)" in result.stdout
-    assert (
-        "TypeScript frontend/src/LongComponent.tsx: 1001 lines (max 1000)"
-        in result.stdout
-    )
-    assert "largeContract.ts" not in result.stdout
-
-
-def test_report_file_lengths_reports_all_tracked_violations_without_failing(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-    long_typescript = sandbox_root / "frontend" / "src" / "LongComponent.tsx"
-    long_python_test = sandbox_root / "tests" / "test_long_quality.py"
-    long_typescript_test = sandbox_root / "frontend" / "tests" / "e2e" / "long.spec.ts"
-    long_go_test = sandbox_root / "internal" / "demo" / "long_test.go"
-    long_typescript.write_text("export const value = 1;\n" * 1001, encoding="utf-8")
-    long_python_test.write_text("# filler\n" * 1001, encoding="utf-8")
-    long_typescript_test.write_text(
-        "export const value = 1;\n" * 1801,
-        encoding="utf-8",
-    )
-    long_go_test.write_text(
-        "package main\n" + ("const value = 1\n" * 2000),
-        encoding="utf-8",
-    )
-
-    subprocess.run(
-        ["git", "init"],
-        cwd=sandbox_root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    subprocess.run(
-        ["git", "add", "."],
-        cwd=sandbox_root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    result = subprocess.run(
-        ["bash", str(sandbox_root / "scripts/quality/report_file_lengths.sh")],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert (
-        "TypeScript frontend/src/LongComponent.tsx: 1001 lines (max 1000)"
-        in result.stdout
-    )
-    assert (
-        "Python test tests/test_long_quality.py: 1001 lines (max 1000)"
-        in result.stdout
-    )
-    assert (
-        "TypeScript test frontend/tests/e2e/long.spec.ts: 1801 lines (max 1800)"
-        in result.stdout
-    )
-    assert (
-        "Go test internal/demo/long_test.go: 2001 lines (max 2000)"
-        in result.stdout
-    )

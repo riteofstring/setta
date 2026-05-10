@@ -24,31 +24,6 @@ import (
 func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T) {
 	t.Parallel()
 
-	harness := newLauncherRecentWorkspaceRouteHarness(t)
-
-	addPayload := addLauncherRecentWorkspace(t, harness)
-	assertLauncherRecentWorkspacePayload(t, "add recent workspace", addPayload, harness.resolvedWorkspaceRoot)
-
-	getPayload := getLauncherRecentWorkspaces(t, harness)
-	assertLauncherRecentWorkspacePayload(t, "get recent workspaces", getPayload, harness.resolvedWorkspaceRoot)
-
-	pinPayload := pinLauncherRecentWorkspace(t, harness)
-	assertLauncherPinnedRecentWorkspacePayload(t, pinPayload)
-
-	removePayload := removeLauncherRecentWorkspace(t, harness)
-	assertLauncherRecentWorkspaceRemoved(t, removePayload)
-}
-
-type launcherRecentWorkspaceRouteHarness struct {
-	handler               http.Handler
-	settaHome             string
-	workspaceRoot         string
-	resolvedWorkspaceRoot string
-}
-
-func newLauncherRecentWorkspaceRouteHarness(t *testing.T) launcherRecentWorkspaceRouteHarness {
-	t.Helper()
-
 	allowedRoot := t.TempDir()
 	settaHome := filepath.Join(t.TempDir(), ".setta")
 	workspaceRoot := filepath.Join(allowedRoot, "workspace-a")
@@ -67,28 +42,15 @@ func newLauncherRecentWorkspaceRouteHarness(t *testing.T) launcherRecentWorkspac
 		}.lookup,
 	})
 	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, settaHome, home, newLauncherHomeOpenWorkspaceService(t, settaHome, home, &httpAPICapturingLauncher{}))
-	return launcherRecentWorkspaceRouteHarness{
-		handler:               handler,
-		settaHome:             settaHome,
-		workspaceRoot:         workspaceRoot,
-		resolvedWorkspaceRoot: resolvedWorkspaceRoot,
-	}
-}
-
-func addLauncherRecentWorkspace(
-	t *testing.T,
-	harness launcherRecentWorkspaceRouteHarness,
-) LauncherRecentWorkspacesResponse {
-	t.Helper()
 
 	addResponse := httptest.NewRecorder()
 	addRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteAddLauncherRecentWorkspace,
-		stringsReader(`{"settaHome":"`+harness.settaHome+`","workspaceRoot":"`+harness.workspaceRoot+`"}`),
+		stringsReader(`{"settaHome":"`+settaHome+`","workspaceRoot":"`+workspaceRoot+`"}`),
 	)
 	addRequest.Header.Set("Content-Type", "application/json")
-	harness.handler.ServeHTTP(addResponse, addRequest)
+	handler.ServeHTTP(addResponse, addRequest)
 	if addResponse.Code != http.StatusOK {
 		t.Fatalf("expected add recent workspace 200, got %d with body %q", addResponse.Code, addResponse.Body.String())
 	}
@@ -97,22 +59,17 @@ func addLauncherRecentWorkspace(
 	if err := json.Unmarshal(addResponse.Body.Bytes(), &addPayload); err != nil {
 		t.Fatalf("decode add recent workspace payload: %v", err)
 	}
-	return addPayload
-}
-
-func getLauncherRecentWorkspaces(
-	t *testing.T,
-	harness launcherRecentWorkspaceRouteHarness,
-) LauncherRecentWorkspacesResponse {
-	t.Helper()
+	if !addPayload.Ok || len(addPayload.Workspaces) != 1 || addPayload.Workspaces[0].WorkspaceRoot != resolvedWorkspaceRoot {
+		t.Fatalf("unexpected add recent workspace payload %#v", addPayload)
+	}
 
 	getResponse := httptest.NewRecorder()
 	getRequest := httptest.NewRequest(
 		http.MethodGet,
-		"/api"+RouteGetLauncherRecentWorkspaces+"?setta_home="+urlQueryEscape(harness.settaHome),
+		"/api"+RouteGetLauncherRecentWorkspaces+"?setta_home="+urlQueryEscape(settaHome),
 		nil,
 	)
-	harness.handler.ServeHTTP(getResponse, getRequest)
+	handler.ServeHTTP(getResponse, getRequest)
 	if getResponse.Code != http.StatusOK {
 		t.Fatalf("expected get recent workspaces 200, got %d with body %q", getResponse.Code, getResponse.Body.String())
 	}
@@ -121,23 +78,18 @@ func getLauncherRecentWorkspaces(
 	if err := json.Unmarshal(getResponse.Body.Bytes(), &getPayload); err != nil {
 		t.Fatalf("decode get recent workspaces payload: %v", err)
 	}
-	return getPayload
-}
-
-func pinLauncherRecentWorkspace(
-	t *testing.T,
-	harness launcherRecentWorkspaceRouteHarness,
-) LauncherRecentWorkspacesResponse {
-	t.Helper()
+	if !getPayload.Ok || len(getPayload.Workspaces) != 1 || getPayload.Workspaces[0].WorkspaceRoot != resolvedWorkspaceRoot {
+		t.Fatalf("unexpected get recent workspaces payload %#v", getPayload)
+	}
 
 	pinResponse := httptest.NewRecorder()
 	pinRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RoutePinLauncherRecentWorkspace,
-		stringsReader(`{"settaHome":"`+harness.settaHome+`","workspaceRoot":"`+harness.workspaceRoot+`","pinned":true}`),
+		stringsReader(`{"settaHome":"`+settaHome+`","workspaceRoot":"`+workspaceRoot+`","pinned":true}`),
 	)
 	pinRequest.Header.Set("Content-Type", "application/json")
-	harness.handler.ServeHTTP(pinResponse, pinRequest)
+	handler.ServeHTTP(pinResponse, pinRequest)
 	if pinResponse.Code != http.StatusOK {
 		t.Fatalf("expected pin recent workspace 200, got %d with body %q", pinResponse.Code, pinResponse.Body.String())
 	}
@@ -146,23 +98,18 @@ func pinLauncherRecentWorkspace(
 	if err := json.Unmarshal(pinResponse.Body.Bytes(), &pinPayload); err != nil {
 		t.Fatalf("decode pin recent workspace payload: %v", err)
 	}
-	return pinPayload
-}
-
-func removeLauncherRecentWorkspace(
-	t *testing.T,
-	harness launcherRecentWorkspaceRouteHarness,
-) LauncherRecentWorkspacesResponse {
-	t.Helper()
+	if !pinPayload.Ok || len(pinPayload.Workspaces) != 1 || !pinPayload.Workspaces[0].Pinned {
+		t.Fatalf("unexpected pin recent workspace payload %#v", pinPayload)
+	}
 
 	removeResponse := httptest.NewRecorder()
 	removeRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRemoveLauncherRecentWorkspace,
-		stringsReader(`{"settaHome":"`+harness.settaHome+`","workspaceRoot":"`+harness.workspaceRoot+`"}`),
+		stringsReader(`{"settaHome":"`+settaHome+`","workspaceRoot":"`+workspaceRoot+`"}`),
 	)
 	removeRequest.Header.Set("Content-Type", "application/json")
-	harness.handler.ServeHTTP(removeResponse, removeRequest)
+	handler.ServeHTTP(removeResponse, removeRequest)
 	if removeResponse.Code != http.StatusOK {
 		t.Fatalf("expected remove recent workspace 200, got %d with body %q", removeResponse.Code, removeResponse.Body.String())
 	}
@@ -171,33 +118,6 @@ func removeLauncherRecentWorkspace(
 	if err := json.Unmarshal(removeResponse.Body.Bytes(), &removePayload); err != nil {
 		t.Fatalf("decode remove recent workspace payload: %v", err)
 	}
-	return removePayload
-}
-
-func assertLauncherRecentWorkspacePayload(
-	t *testing.T,
-	label string,
-	payload LauncherRecentWorkspacesResponse,
-	resolvedWorkspaceRoot string,
-) {
-	t.Helper()
-
-	if !payload.Ok || len(payload.Workspaces) != 1 || payload.Workspaces[0].WorkspaceRoot != resolvedWorkspaceRoot {
-		t.Fatalf("unexpected %s payload %#v", label, payload)
-	}
-}
-
-func assertLauncherPinnedRecentWorkspacePayload(t *testing.T, pinPayload LauncherRecentWorkspacesResponse) {
-	t.Helper()
-
-	if !pinPayload.Ok || len(pinPayload.Workspaces) != 1 || !pinPayload.Workspaces[0].Pinned {
-		t.Fatalf("unexpected pin recent workspace payload %#v", pinPayload)
-	}
-}
-
-func assertLauncherRecentWorkspaceRemoved(t *testing.T, removePayload LauncherRecentWorkspacesResponse) {
-	t.Helper()
-
 	if !removePayload.Ok || len(removePayload.Workspaces) != 0 {
 		t.Fatalf("unexpected remove recent workspace payload %#v", removePayload)
 	}
@@ -445,27 +365,6 @@ func TestRegisterLauncherHomeRoutesUsesDefaultSettaHomeWhenScopeBlank(t *testing
 func TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment(t *testing.T) {
 	t.Parallel()
 
-	fixture := newLauncherOpenWorkspaceBootstrapFixture(t)
-	payload := openLauncherWorkspaceForBootstrap(t, fixture)
-
-	params := assertLauncherOpenWorkspaceBootstrapPayload(t, payload)
-	assertLauncherOpenWorkspaceDefaultHandoff(t, params)
-	assertLauncherOpenWorkspacePathPayload(t, payload, fixture)
-	assertLauncherOpenWorkspaceSessionPayload(t, payload)
-	assertLauncherOpenWorkspaceDefaultFilesLocation(t, fixture.sessionLauncher)
-}
-
-type launcherOpenWorkspaceBootstrapFixture struct {
-	handler               http.Handler
-	workspaceRoot         string
-	resolvedWorkspaceRoot string
-	resolvedSettaHome     string
-	sessionLauncher       *httpAPICapturingLauncher
-}
-
-func newLauncherOpenWorkspaceBootstrapFixture(t *testing.T) launcherOpenWorkspaceBootstrapFixture {
-	t.Helper()
-
 	allowedRoot := t.TempDir()
 	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
 	if err := os.MkdirAll(defaultSettaHome, 0o755); err != nil {
@@ -510,29 +409,15 @@ func newLauncherOpenWorkspaceBootstrapFixture(t *testing.T) launcherOpenWorkspac
 	}
 
 	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher))
-	return launcherOpenWorkspaceBootstrapFixture{
-		handler:               handler,
-		workspaceRoot:         workspaceRoot,
-		resolvedWorkspaceRoot: resolvedWorkspaceRoot,
-		resolvedSettaHome:     resolvedSettaHome,
-		sessionLauncher:       sessionLauncher,
-	}
-}
-
-func openLauncherWorkspaceForBootstrap(
-	t *testing.T,
-	fixture launcherOpenWorkspaceBootstrapFixture,
-) LauncherOpenWorkspaceResponse {
-	t.Helper()
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteOpenLauncherWorkspace,
-		stringsReader(`{"workspaceRoot":"`+fixture.workspaceRoot+`","createIfMissing":true}`),
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`","createIfMissing":true}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
-	fixture.handler.ServeHTTP(response, request)
+	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
 	}
@@ -541,12 +426,6 @@ func openLauncherWorkspaceForBootstrap(
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode open workspace payload: %v", err)
 	}
-	return payload
-}
-
-func assertLauncherOpenWorkspaceBootstrapPayload(t *testing.T, payload LauncherOpenWorkspaceResponse) url.Values {
-	t.Helper()
-
 	if !payload.Ok || payload.BootstrapURLFragment == nil {
 		t.Fatalf("unexpected open workspace payload %#v", payload)
 	}
@@ -561,12 +440,6 @@ func assertLauncherOpenWorkspaceBootstrapPayload(t *testing.T, payload LauncherO
 	if params.Get("token") != "tok" {
 		t.Fatalf("expected bootstrap token, got %q", params.Get("token"))
 	}
-	return params
-}
-
-func assertLauncherOpenWorkspaceDefaultHandoff(t *testing.T, params url.Values) {
-	t.Helper()
-
 	if params.Get("lo") != "http://example.com" {
 		t.Fatalf("expected default request-origin handoff, got %q", params.Get("lo"))
 	}
@@ -578,34 +451,15 @@ func assertLauncherOpenWorkspaceDefaultHandoff(t *testing.T, params url.Values) 
 	) {
 		t.Fatalf("expected launcher origin proof to validate, got %q", params.Get("lop"))
 	}
-}
-
-func assertLauncherOpenWorkspacePathPayload(
-	t *testing.T,
-	payload LauncherOpenWorkspaceResponse,
-	fixture launcherOpenWorkspaceBootstrapFixture,
-) {
-	t.Helper()
-
-	if payload.WorkspaceRoot == nil || *payload.WorkspaceRoot != fixture.resolvedWorkspaceRoot {
+	if payload.WorkspaceRoot == nil || *payload.WorkspaceRoot != resolvedWorkspaceRoot {
 		t.Fatalf("unexpected workspace root payload %#v", payload.WorkspaceRoot)
 	}
-	if payload.SettaHome == nil || *payload.SettaHome != fixture.resolvedSettaHome {
+	if payload.SettaHome == nil || *payload.SettaHome != resolvedSettaHome {
 		t.Fatalf("unexpected setta home payload %#v", payload.SettaHome)
 	}
-}
-
-func assertLauncherOpenWorkspaceSessionPayload(t *testing.T, payload LauncherOpenWorkspaceResponse) {
-	t.Helper()
-
 	if payload.SessionID == nil || *payload.SessionID != "session-1" || payload.StartedNew == nil || !*payload.StartedNew {
 		t.Fatalf("unexpected session payload %#v", payload)
 	}
-}
-
-func assertLauncherOpenWorkspaceDefaultFilesLocation(t *testing.T, sessionLauncher *httpAPICapturingLauncher) {
-	t.Helper()
-
 	if sessionLauncher.input == nil || sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
 		t.Fatalf("expected route to normalize omitted files location to auto, got %#v", sessionLauncher.input)
 	}

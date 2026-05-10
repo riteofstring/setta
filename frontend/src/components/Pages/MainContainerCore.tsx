@@ -5,7 +5,7 @@ import { UiEditor } from "components/Panes/UiEditor/UiEditor";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { useAddMouseLocationListener } from "gpuFlow/mouseLocation";
+import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import {
   useAppSubsystemPreviewEnabled,
   useAppSubsystemPreviewSurface,

@@ -32,8 +32,6 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/dev-vs-built.md` – differences between dev and built runtime setups.
 - `reference/emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `reference/frontend-performance-profiling.md` – workflow for profiling and fixing UI performance issues.
-- `reference/html-in-canvas-architecture.md` – project-level HTML-in-canvas architecture for pan/zoom, section rendering, resizing, drag/drop, retained parameters, and parameter inputs.
-- `reference/webgpu-pan-zoom-html-in-canvas.md` – current WebGPU/html-in-canvas project canvas architecture.
 - `reference/json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.

@@ -109,23 +109,14 @@ function maybeClearInput(clearInputAfterSelection: boolean) {
   return {};
 }
 
-type HandleEnterInput<T> = {
-  readonly highlightedIndex: number;
-  readonly clearInputAfterSelection: boolean;
-  readonly inputValue: string;
-  readonly items: AllItemsType<T>;
-  readonly selectedItemCanBeNull: boolean;
-  readonly state: UseComboboxState<ComboboxItemType<T>>;
-};
-
-function handleEnter<T>({
-  highlightedIndex,
-  clearInputAfterSelection,
-  inputValue,
-  items,
-  selectedItemCanBeNull,
-  state,
-}: HandleEnterInput<T>) {
+function handleEnter<T>(
+  highlightedIndex: number,
+  clearInputAfterSelection: boolean,
+  inputValue: string,
+  items: AllItemsType<T>,
+  selectedItemCanBeNull: boolean,
+  state: UseComboboxState<ComboboxItemType<T>>,
+) {
   if (highlightedIndex !== -1) {
     return maybeClearInput(clearInputAfterSelection);
   }
@@ -147,25 +138,14 @@ function handleEnter<T>({
   return resetToPreviousVal(state);
 }
 
-type ReducerModificationInput<T> = {
-  readonly type: UseComboboxStateChangeTypes;
-  readonly state: UseComboboxState<ComboboxItemType<T>>;
-  readonly changes: Partial<UseComboboxState<ComboboxItemType<T>>>;
-  readonly items: AllItemsType<T>;
-  readonly selectedItemCanBeNull: boolean;
-  readonly clearInputAfterSelection: boolean;
-};
-
-function getReducerModifications<T>({
-  type,
-  state,
-  changes,
-  items,
-  selectedItemCanBeNull,
-  clearInputAfterSelection,
-}: ReducerModificationInput<T>): Partial<
-  UseComboboxState<ComboboxItemType<T>>
-> {
+function getReducerModifications<T>(
+  type: UseComboboxStateChangeTypes,
+  state: UseComboboxState<ComboboxItemType<T>>,
+  changes: Partial<UseComboboxState<ComboboxItemType<T>>>,
+  items: AllItemsType<T>,
+  selectedItemCanBeNull: boolean,
+  clearInputAfterSelection: boolean,
+): Partial<UseComboboxState<ComboboxItemType<T>>> {
   const changeTypes = useCombobox.stateChangeTypes;
 
   switch (type) {
@@ -184,14 +164,14 @@ function getReducerModifications<T>({
     case changeTypes.InputKeyDownArrowDown:
       return getValueFromHighlightedIndex(items, changes.highlightedIndex);
     case changeTypes.InputKeyDownEnter:
-      return handleEnter({
-        highlightedIndex: state.highlightedIndex,
+      return handleEnter(
+        state.highlightedIndex,
         clearInputAfterSelection,
-        inputValue: state.inputValue,
+        state.inputValue,
         items,
         selectedItemCanBeNull,
         state,
-      });
+      );
     case changeTypes.ItemClick:
       return maybeClearInput(clearInputAfterSelection);
     default:
@@ -290,14 +270,14 @@ export function useComboboxStateReducerWithFilteredItems<T>(
       setFilteredItems(latestItems);
     }
 
-    const mods = getReducerModifications({
+    const mods = getReducerModifications(
       type,
       state,
       changes,
-      items: latestItems,
+      latestItems,
       selectedItemCanBeNull,
       clearInputAfterSelection,
-    });
+    );
 
     return { ...changes, ...mods };
   };

@@ -59,9 +59,8 @@ Backend normalization keeps this state coherent:
 
 ## Workspace Behavior
 
-- The workspace does not auto-create an initial project-chat window by default.
-- Manually created project-chat windows open in the docked workspace window
-  manager and minimize into the bottom tray.
+- New project-chat windows open in the docked workspace window manager and
+  minimize into the bottom tray.
 - The Overview `Project AI Chat` tab is the primary integrated
   project-chat surface; use the dock to create, reopen, focus, hide, float,
   and move additional chat windows to canvas sections.

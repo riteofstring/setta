@@ -44,7 +44,7 @@ test("marquee selection includes nested group children", async ({ page }) => {
       })
       .toEqual([]);
 
-    const pane = page.locator(".setta-gpu-flow__pane").first();
+    const pane = page.locator(".react-flow__pane").first();
     const childSection = page
       .locator(`section[data-section-id="${childId}"]`)
       .first();
@@ -111,7 +111,7 @@ test("marquee selection ignores far-away unmeasured top-level nodes when DOM bou
       [sectionId]: { x: 80, y: 120 },
     });
 
-    const pane = page.locator(".setta-gpu-flow__pane").first();
+    const pane = page.locator(".react-flow__pane").first();
     const section = page
       .locator(`section[data-section-id="${sectionId}"]`)
       .first();
@@ -178,7 +178,7 @@ test("marquee selection ignores zero-width node internals when DOM bounds do not
       [sectionId]: { x: 80, y: 120 },
     });
 
-    const pane = page.locator(".setta-gpu-flow__pane").first();
+    const pane = page.locator(".react-flow__pane").first();
     const section = page
       .locator(`section[data-section-id="${sectionId}"]`)
       .first();

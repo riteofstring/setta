@@ -8,6 +8,10 @@ import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
 type ChatTitleSource = "llm" | "deterministic" | "reused" | "external";
 export type ChatRunType = keyof typeof ChatRunTypesByName;
+export type ChatHistoryCompatibility = {
+  runType: ChatRunType;
+  engineConfigId: string | null;
+};
 type ChatRunProvenance = {
   runType: ChatRunType;
   engineConfigId: string | null;
@@ -45,6 +49,7 @@ type ChatRunSummaryFilter = {
   projectConfigId: string | null;
   sectionId: string | null;
   unscopedOnly: boolean;
+  compatibility: ChatHistoryCompatibility | null;
 };
 
 type ChatRunProvenanceCandidate = {
@@ -59,9 +64,10 @@ type ChatRunSummaryCandidate = {
 };
 
 type BuildChatHistoryEntriesOptions = {
-  sectionId?: string | null | undefined;
-  unscopedOnly?: boolean | undefined;
-  projectConfigId?: string | null | undefined;
+  sectionId?: string | null;
+  unscopedOnly?: boolean;
+  compatibility?: ChatHistoryCompatibility | null;
+  projectConfigId?: string | null;
 };
 
 export function buildChatHistoryEntries(
@@ -236,6 +242,7 @@ function createChatRunSummaryFilter(
     projectConfigId: normalizeProjectConfigId(options.projectConfigId ?? null),
     sectionId: normalizeRunSectionId(options.sectionId ?? null),
     unscopedOnly: options.unscopedOnly === true,
+    compatibility: options.compatibility ?? null,
   };
 }
 
@@ -278,6 +285,9 @@ function shouldCollectRunForChatSummary(
   options: ChatRunSummaryFilter,
 ): boolean {
   if (!isChatRun(run)) {
+    return false;
+  }
+  if (!isRunCompatibleWithHistoryFilter(run, options.compatibility)) {
     return false;
   }
   if (
@@ -375,6 +385,25 @@ function isChatRunType(value: string): value is ChatRunType {
 
 function isChatRun(run: AgentRun): boolean {
   return getRunType(run) !== null;
+}
+
+function isRunCompatibleWithHistoryFilter(
+  run: AgentRun,
+  compatibility: ChatHistoryCompatibility | null,
+): boolean {
+  if (!compatibility) {
+    return true;
+  }
+  const runType = getRunType(run);
+  if (runType !== compatibility.runType) {
+    return false;
+  }
+  if (!compatibility.engineConfigId) {
+    return true;
+  }
+  return (
+    getRunInputString(run, "engineConfigId") === compatibility.engineConfigId
+  );
 }
 
 function isBranchRun(run: AgentRun): boolean {

@@ -20,17 +20,17 @@ test.describe.serial("agentic handles", () => {
       );
 
       const node = page
-        .locator(".setta-gpu-flow__nodes")
+        .locator(".react-flow__nodes")
         .getByTestId(`rf__node-${sectionId}`);
       await expect(node).toBeVisible();
 
       await page.getByRole("button", { name: "fit view" }).click();
 
       const sourceHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       // Hover briefly (less than the fade-in duration) then leave. Previously the
@@ -95,17 +95,17 @@ test.describe.serial("agentic handles", () => {
       );
 
       const node = page
-        .locator(".setta-gpu-flow__nodes")
+        .locator(".react-flow__nodes")
         .getByTestId(`rf__node-${sectionId}`);
       await expect(node).toBeVisible();
 
       await page.getByRole("button", { name: "fit view" }).click();
 
       const sourceHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await node.hover();
@@ -133,9 +133,7 @@ test.describe.serial("agentic handles", () => {
         targetHandle.boundingBox(),
       ]);
       if (!nodeBox || !sourceBox || !targetBox) {
-        throw new Error(
-          "Unable to resolve bounding boxes for agentic handles.",
-        );
+        throw new Error("Unable to resolve bounding boxes for agentic handles.");
       }
 
       const nodeCenterX = nodeBox.x + nodeBox.width / 2;

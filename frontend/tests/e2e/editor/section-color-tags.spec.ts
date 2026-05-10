@@ -45,9 +45,7 @@ test.describe.serial("section color tags", () => {
         refetchParams: true,
       });
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       const sectionChrome = node
         .locator(`section[data-section-id="${sectionId}"]`)
@@ -134,9 +132,7 @@ test.describe.serial("section color tags", () => {
         "__pw_section_color_tag__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       await node.click();
 
@@ -232,10 +228,10 @@ test.describe.serial("section color tags", () => {
         .toBe("#3b82f6");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const nodeAfter = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(nodeAfter).toBeVisible();
       await nodeAfter.click();

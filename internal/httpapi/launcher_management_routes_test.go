@@ -112,20 +112,6 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
 	handler := newLauncherManagementRouteTestHandler(t, config.ModeIDE, defaultSettaHome, newLauncherManagementService(t))
 
-	setupPayload := setupLauncherManagementMetadataOnly(t, handler, defaultSettaHome)
-	assertLauncherManagementMetadataOnlySetup(t, setupPayload)
-
-	removePayload := removeLauncherManagement(t, handler)
-	assertLauncherManagementRemoved(t, removePayload)
-}
-
-func setupLauncherManagementMetadataOnly(
-	t *testing.T,
-	handler http.Handler,
-	defaultSettaHome string,
-) LauncherStatusResponse {
-	t.Helper()
-
 	setupResponse := httptest.NewRecorder()
 	setupRequest := httptest.NewRequest(
 		http.MethodPost,
@@ -142,12 +128,6 @@ func setupLauncherManagementMetadataOnly(
 	if err := json.Unmarshal(setupResponse.Body.Bytes(), &setupPayload); err != nil {
 		t.Fatalf("decode setup launcher payload: %v", err)
 	}
-	return setupPayload
-}
-
-func assertLauncherManagementMetadataOnlySetup(t *testing.T, setupPayload LauncherStatusResponse) {
-	t.Helper()
-
 	if !setupPayload.Ok || setupPayload.Installed == nil || !*setupPayload.Installed {
 		t.Fatalf("unexpected setup launcher payload %#v", setupPayload)
 	}
@@ -166,10 +146,6 @@ func assertLauncherManagementMetadataOnlySetup(t *testing.T, setupPayload Launch
 	if len(setupPayload.ManagedArtifacts) != 0 {
 		t.Fatalf("expected metadata-only install, got managed artifacts %#v", setupPayload.ManagedArtifacts)
 	}
-}
-
-func removeLauncherManagement(t *testing.T, handler http.Handler) LauncherStatusResponse {
-	t.Helper()
 
 	removeResponse := httptest.NewRecorder()
 	removeRequest := httptest.NewRequest(
@@ -186,12 +162,6 @@ func removeLauncherManagement(t *testing.T, handler http.Handler) LauncherStatus
 	if err := json.Unmarshal(removeResponse.Body.Bytes(), &removePayload); err != nil {
 		t.Fatalf("decode remove launcher payload: %v", err)
 	}
-	return removePayload
-}
-
-func assertLauncherManagementRemoved(t *testing.T, removePayload LauncherStatusResponse) {
-	t.Helper()
-
 	if !removePayload.Ok || removePayload.Installed == nil || *removePayload.Installed {
 		t.Fatalf("unexpected remove launcher payload %#v", removePayload)
 	}

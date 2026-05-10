@@ -1,9 +1,11 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Item } from "components/Utils/atoms/dropdown/item";
 import {
   AllItemsType,
   OnSelectedItemChangeFnType,
 } from "components/Utils/Combobox/ComboboxStateReducer";
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
-import { screenToFlowPosition } from "gpuFlow/viewportActions";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import type {
   ComponentPropsWithRef,
@@ -127,9 +129,7 @@ export function PaneContextMenu() {
     <ContextMenuCore
       x={x}
       y={y}
-      ariaLabel="Create section"
       closeContextMenu={closeAllContextMenus}
-      contentRole="dialog"
       isOpen={isOpen}
       onKeyDownCapture={onMenuKeyDownCapture}
     >
@@ -218,36 +218,31 @@ function PaneContextMenuContents({
             const index = itemIndex;
             itemIndex += 1;
             const itemProps = getItemProps({ item, index });
-            const highlightClassName =
-              highlightedIndex === index
-                ? "bg-setta-100 dark:bg-setta-700"
-                : "";
+            let highlightClassName = "";
+            if (highlightedIndex === index) {
+              highlightClassName = "bg-setta-100 dark:bg-setta-700";
+            }
             return (
-              <div
+              <Item
                 key={`${group.group}:${item.name}`}
                 {...itemProps}
-                className={`flex cursor-pointer flex-row items-center gap-2 rounded-md px-2 py-[0.15rem] font-sans text-xs font-semibold text-setta-700 outline-none hover:bg-setta-100 hover:ring-0 focus-visible:ring-1 dark:text-setta-100 dark:hover:bg-setta-700 ${highlightClassName}`}
+                className={highlightClassName}
               >
                 {itemToString(item)}
-              </div>
+              </Item>
             );
           });
 
           return (
-            <div
-              aria-label={group.group}
+            <DropdownMenu.Group
               key={group.group}
               className="[&:not(:first-child)]:mt-1.5"
-              role="group"
             >
-              <div
-                className="menulabel mx-2 mb-1 min-w-[100px] border-b border-setta-100 py-1 text-xs font-bold uppercase text-setta-600 dark:border-setta-700 dark:text-setta-300"
-                role="presentation"
-              >
+              <DropdownMenu.Label className="menulabel mx-2 mb-1  min-w-[100px] border-b border-setta-100 py-1 text-xs font-bold uppercase text-setta-300 dark:border-setta-700 dark:text-setta-500">
                 {group.group}
-              </div>
+              </DropdownMenu.Label>
               {groupItems}
-            </div>
+            </DropdownMenu.Group>
           );
         })}
       </div>
@@ -269,13 +264,7 @@ function ContextMenuFilter({
       <div className="absolute left-0 grid select-none place-items-center pl-1">
         <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
       </div>
-      <input
-        {...rest}
-        aria-label={rest["aria-label"] ?? "Filter create section menu"}
-        className={classes}
-        placeholder="Filter"
-        tabIndex={0}
-      />
+      <input {...rest} className={classes} placeholder="Filter" tabIndex={0} />
     </search>
   );
 }

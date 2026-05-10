@@ -217,9 +217,7 @@ test.describe.serial("minimized callable edge handles", () => {
       await expect
         .poll(
           async () =>
-            page
-              .locator("svg.setta-gpu-flow__edges .setta-gpu-flow__edge")
-              .count(),
+            page.locator("svg.react-flow__edges .react-flow__edge").count(),
           { timeout: 15000 },
         )
         .toBe(4);
@@ -228,7 +226,7 @@ test.describe.serial("minimized callable edge handles", () => {
           async () =>
             page
               .locator(
-                "svg.setta-gpu-flow__agentic-edges .setta-gpu-flow__agentic-edge-path",
+                "svg.react-flow__agentic-edges .react-flow__agentic-edge-path",
               )
               .count(),
           { timeout: 15000 },
@@ -239,10 +237,10 @@ test.describe.serial("minimized callable edge handles", () => {
       await expect(sectionBNode).toBeVisible();
 
       const expandedInputHandles = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle.setta-gpu-flow__handle-left",
+        ".react-flow__handle.arg-edge-handle.react-flow__handle-left",
       );
       const expandedOutputHandles = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle.setta-gpu-flow__handle-right",
+        ".react-flow__handle.arg-edge-handle.react-flow__handle-right",
       );
 
       await expect(expandedInputHandles).toHaveCount(2);
@@ -260,53 +258,51 @@ test.describe.serial("minimized callable edge handles", () => {
       // connected by routing all ports to one dot on each side.
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bParam1}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bParam1}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bParam2}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bParam2}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bOutPortId1}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bOutPortId1}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bOutPortId2}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bOutPortId2}"]`,
         ),
       ).toHaveCount(0);
 
       const minimizedDots = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized",
+        ".react-flow__handle.arg-edge-handle--minimized",
       );
       await expect(minimizedDots).toHaveCount(2);
       await expect
         .poll(
           async () =>
-            page
-              .locator("svg.setta-gpu-flow__edges .setta-gpu-flow__edge")
-              .count(),
+            page.locator("svg.react-flow__edges .react-flow__edge").count(),
           { timeout: 15000 },
         )
         .toBe(4);
 
       const minimizedLeftDot = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized.setta-gpu-flow__handle-left",
+        ".react-flow__handle.arg-edge-handle--minimized.react-flow__handle-left",
       );
       const minimizedRightDot = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized.setta-gpu-flow__handle-right",
+        ".react-flow__handle.arg-edge-handle--minimized.react-flow__handle-right",
       );
       await expect(minimizedLeftDot).toBeVisible();
       await expect(minimizedRightDot).toBeVisible();
 
       const agenticTarget = sectionBNode.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-target"]`,
       );
       const agenticSource = sectionBNode.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-source"]`,
       );
       await expect(agenticTarget).toBeVisible();
       await expect(agenticSource).toBeVisible();

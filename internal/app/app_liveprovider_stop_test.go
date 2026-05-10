@@ -52,50 +52,8 @@ func TestAppStopsManagedAnthropicChatAgainstLiveProviderThroughStopRoute(t *test
 func runAppManagedChatLiveProviderStopTest(t *testing.T, testCase appManagedLiveProviderTestCase) {
 	t.Helper()
 
-	fixture := newAppManagedLiveProviderStopFixture(t, testCase)
-	defer fixture.server.Close()
-
-	conn := dialAppManagedLiveProviderStopFrontend(t, fixture)
-	defer conn.CloseNow()
-
-	chatID := sendAppManagedLiveProviderStopChat(t, fixture)
-	firstDeltaText := waitForAppManagedStreamingTextDelta(t, conn, chatID)
-	if strings.TrimSpace(firstDeltaText) == "" {
-		t.Fatal("expected non-empty streamed text delta before stop")
-	}
-
-	stopPayload := stopAppManagedLiveProviderChat(t, fixture, chatID)
-	hydrated := waitForStoppedAppManagedLiveProviderChat(t, fixture, chatID)
-	hydratedAssistantText := appTestMessageText(hydrated.Messages[1])
-	if !strings.Contains(hydratedAssistantText, firstDeltaText) {
-		t.Fatalf("expected hydrated assistant text %q to include first delta %q", hydratedAssistantText, firstDeltaText)
-	}
-
-	stoppedRun := waitForStoppedAppManagedLiveProviderRun(t, fixture.app, *stopPayload.StoppedRunID)
-	assertStoppedAppManagedLiveProviderRun(t, stoppedRun, *stopPayload.StoppedMessageID, firstDeltaText)
-}
-
-type appManagedLiveProviderStopFixture struct {
-	app        *App
-	server     *httptest.Server
-	authCookie *http.Cookie
-}
-
-type appManagedLiveProviderStopPayload struct {
-	AlreadyStopped   bool    `json:"alreadyStopped"`
-	StoppedRunID     *string `json:"stoppedRunId"`
-	StoppedMessageID *string `json:"stoppedMessageId"`
-}
-
-type appManagedLiveProviderHydratePayload struct {
-	Messages           []map[string]any `json:"messages"`
-	WaitingForResponse bool             `json:"waitingForResponse"`
-}
-
-func newAppManagedLiveProviderStopFixture(t *testing.T, testCase appManagedLiveProviderTestCase) appManagedLiveProviderStopFixture {
-	t.Helper()
-
 	apiKey := requireAppLiveProviderAPIKey(t, testCase.apiKeyEnv, testCase.host)
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -141,17 +99,6 @@ func newAppManagedLiveProviderStopFixture(t *testing.T, testCase appManagedLiveP
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	seedAppManagedLiveProviderStopProject(t, app)
-
-	return appManagedLiveProviderStopFixture{
-		app:        app,
-		server:     httptest.NewServer(app.Handler()),
-		authCookie: newAppTestAuthCookie(t, app),
-	}
-}
-
-func seedAppManagedLiveProviderStopProject(t *testing.T, app *App) {
-	t.Helper()
 
 	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
@@ -163,29 +110,25 @@ func seedAppManagedLiveProviderStopProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("seed app project: %v", err)
 	}
-}
 
-func dialAppManagedLiveProviderStopFrontend(t *testing.T, fixture appManagedLiveProviderStopFixture) *websocket.Conn {
-	t.Helper()
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
 
-	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(fixture.server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
 		HTTPHeader: http.Header{
-			"Cookie": []string{fixture.authCookie.Name + "=" + fixture.authCookie.Value},
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
 		},
 	})
 	if err != nil {
 		t.Fatalf("dial frontend websocket route: %v", err)
 	}
+	defer conn.CloseNow()
 	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
-	return conn
-}
-
-func sendAppManagedLiveProviderStopChat(t *testing.T, fixture appManagedLiveProviderStopFixture) string {
-	t.Helper()
 
 	sendRequest, err := http.NewRequest(
 		http.MethodPost,
-		fixture.server.URL+"/api"+httpapi.RouteGetLLMResponse,
+		server.URL+"/api"+httpapi.RouteGetLLMResponse,
 		strings.NewReader(`{
 			"chatId":null,
 			"message":{"id":"user-stop","role":"user","content":[{"type":"text","text":"Count from 1 to 600, one number per line, with no extra words or punctuation."}]},
@@ -203,7 +146,7 @@ func sendAppManagedLiveProviderStopChat(t *testing.T, fixture appManagedLiveProv
 		t.Fatalf("new live-provider stop send request: %v", err)
 	}
 	sendRequest.Header.Set("Content-Type", "application/json")
-	sendRequest.AddCookie(fixture.authCookie)
+	sendRequest.AddCookie(authCookie)
 
 	sendResponse, err := http.DefaultClient.Do(sendRequest)
 	if err != nil {
@@ -222,22 +165,22 @@ func sendAppManagedLiveProviderStopChat(t *testing.T, fixture appManagedLiveProv
 	if strings.TrimSpace(chatID) == "" {
 		t.Fatal("expected managed chat id")
 	}
-	return chatID
-}
 
-func stopAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProviderStopFixture, chatID string) appManagedLiveProviderStopPayload {
-	t.Helper()
+	firstDeltaText := waitForAppManagedStreamingTextDelta(t, conn, chatID)
+	if strings.TrimSpace(firstDeltaText) == "" {
+		t.Fatal("expected non-empty streamed text delta before stop")
+	}
 
 	stopRequest, err := http.NewRequest(
 		http.MethodPost,
-		fixture.server.URL+"/api"+httpapi.RouteStopLLMChat,
+		server.URL+"/api"+httpapi.RouteStopLLMChat,
 		strings.NewReader(`{"chatId":"`+chatID+`"}`),
 	)
 	if err != nil {
 		t.Fatalf("new live-provider stop request: %v", err)
 	}
 	stopRequest.Header.Set("Content-Type", "application/json")
-	stopRequest.AddCookie(fixture.authCookie)
+	stopRequest.AddCookie(authCookie)
 
 	stopResponse, err := http.DefaultClient.Do(stopRequest)
 	if err != nil {
@@ -249,7 +192,11 @@ func stopAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProvider
 		t.Fatalf("expected stop 200, got %d with body %q", stopResponse.StatusCode, string(body))
 	}
 
-	var stopPayload appManagedLiveProviderStopPayload
+	var stopPayload struct {
+		AlreadyStopped   bool    `json:"alreadyStopped"`
+		StoppedRunID     *string `json:"stoppedRunId"`
+		StoppedMessageID *string `json:"stoppedMessageId"`
+	}
 	if err := json.NewDecoder(stopResponse.Body).Decode(&stopPayload); err != nil {
 		t.Fatalf("decode stop payload: %v", err)
 	}
@@ -262,24 +209,23 @@ func stopAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProvider
 	if stopPayload.StoppedMessageID == nil || strings.TrimSpace(*stopPayload.StoppedMessageID) == "" {
 		t.Fatalf("expected stopped message id, got %#v", stopPayload)
 	}
-	return stopPayload
-}
 
-func waitForStoppedAppManagedLiveProviderChat(t *testing.T, fixture appManagedLiveProviderStopFixture, chatID string) appManagedLiveProviderHydratePayload {
-	t.Helper()
-
-	var hydrated appManagedLiveProviderHydratePayload
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+	}
+	var hydrated hydratePayload
 	waitForAppCondition(t, 90*time.Second, func() bool {
 		hydrateRequest, err := http.NewRequest(
 			http.MethodPost,
-			fixture.server.URL+"/api"+httpapi.RouteGetLLMChat,
+			server.URL+"/api"+httpapi.RouteGetLLMChat,
 			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
 		)
 		if err != nil {
 			t.Fatalf("new hydrate request: %v", err)
 		}
 		hydrateRequest.Header.Set("Content-Type", "application/json")
-		hydrateRequest.AddCookie(fixture.authCookie)
+		hydrateRequest.AddCookie(authCookie)
 
 		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
 		if err != nil {
@@ -298,24 +244,18 @@ func waitForStoppedAppManagedLiveProviderChat(t *testing.T, fixture appManagedLi
 		}
 		return strings.TrimSpace(appTestMessageText(hydrated.Messages[1])) != ""
 	})
-	return hydrated
-}
 
-func waitForStoppedAppManagedLiveProviderRun(t *testing.T, app *App, stoppedRunID string) agentruns.Run {
-	t.Helper()
+	hydratedAssistantText := appTestMessageText(hydrated.Messages[1])
+	if !strings.Contains(hydratedAssistantText, firstDeltaText) {
+		t.Fatalf("expected hydrated assistant text %q to include first delta %q", hydratedAssistantText, firstDeltaText)
+	}
 
 	waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, stoppedRunID)
+	stoppedRun, err := app.agentRuntime.WaitForRun(waitCtx, *stopPayload.StoppedRunID)
 	if err != nil {
 		t.Fatalf("wait for stopped managed runtime: %v", err)
 	}
-	return stoppedRun
-}
-
-func assertStoppedAppManagedLiveProviderRun(t *testing.T, stoppedRun agentruns.Run, stoppedMessageID string, firstDeltaText string) {
-	t.Helper()
-
 	if stoppedRun.Status != agentruns.RunStatusCancelled {
 		t.Fatalf("expected cancelled run, got %q", stoppedRun.Status)
 	}
@@ -336,8 +276,8 @@ func assertStoppedAppManagedLiveProviderRun(t *testing.T, stoppedRun agentruns.R
 	if !strings.Contains(assistantText, firstDeltaText) {
 		t.Fatalf("expected persisted assistant text %q to include first delta %q", assistantText, firstDeltaText)
 	}
-	if assistantMessageID != stoppedMessageID {
-		t.Fatalf("expected stopped message id %q, got %q", stoppedMessageID, assistantMessageID)
+	if assistantMessageID != *stopPayload.StoppedMessageID {
+		t.Fatalf("expected stopped message id %q, got %q", *stopPayload.StoppedMessageID, assistantMessageID)
 	}
 }
 

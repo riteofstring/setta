@@ -34,7 +34,7 @@ const mockAIState = vi.hoisted(() => ({
     configs: {},
     mcpServers: {
       setta: {
-        transport: "streamable_http",
+        transport: "sse",
         url: "http://127.0.0.1:8019/mcp",
       },
     },
@@ -119,7 +119,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -135,7 +135,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
         resolvedServers: [
           {
             serverId: "setta",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -195,7 +195,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -274,7 +274,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -358,7 +358,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           {
             serverId: "setta",
             source: "setta_mcp",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -389,7 +389,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
         resolvedServers: [
           {
             serverId: "setta",
-            transport: "streamable_http",
+            transport: "sse",
             endpoint: "http://127.0.0.1:8019/mcp",
             state: "connected",
             lastAttemptAt: null,
@@ -427,7 +427,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
     const serverStatus = host.querySelector(
       '[data-testid="skills-mcp-server-status"]',
     );
-    expect(host.textContent).toContain("streamable_http");
+    expect(host.textContent).toContain("sse");
     expect(host.textContent).toContain("http://127.0.0.1:8019/mcp");
     expect(serverStatus?.textContent).toContain("Connected: 79 tools");
   });

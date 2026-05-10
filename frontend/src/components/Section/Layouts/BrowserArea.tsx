@@ -2,17 +2,12 @@ import {
   FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
   FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
 } from "components/Panes/Overview/FileBrowser/fileBrowserPaneShared";
-import { getSectionRect } from "gpuFlow/flowGeometry";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { BrowserAreaItemsColumn } from "./BrowserAreaItemsColumn";
@@ -88,9 +83,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
   });
   return (
     <div
-      className={`section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4 @sm/multipane:overflow-visible ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-      data-gpu-flow-control={`browser:${sectionId}`}
-      data-gpu-flow-interactive="true"
+      className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
       ref={containerRef}
     >
       {!hideColumn ? (
