@@ -120,19 +120,18 @@ How Setta should use this:
 
 ## Target Architecture
 
-### 1. Row-Native Passive Text Renderer
+### 1. Row-Owned Passive Editor Snapshots
 
-Replace whole-section passive CodeMirror preview pages with a row-native renderer for inactive text-like controls.
+Replace whole-section passive CodeMirror preview pages with row-owned browser-rendered snapshots for inactive text-like controls.
 
-The renderer should:
+The snapshot path should:
 
-- Derive a pure presentation model from the retained row/control descriptor.
-- Use CodeMirror parsing/highlighting data where syntax highlighting is required, but not mount CodeMirror DOM for passive rows.
-- Lay out text deterministically for the row's available width, font metrics, wrapping policy, padding, and clipped viewport.
-- Rasterize passive value text into retained row content texture segments.
+- Render the passive text in row-scoped DOM using the same visual rules as the inactive CodeMirror/DummyCodeMirror path.
+- Let the browser own glyph layout, wrapping, line height, font fallback, syntax styling, and clipping.
+- Snapshot only the row/control-sized source region into retained row content texture segments.
 - Reuse the existing retained row texture/page infrastructure where possible, especially the segmented row content version model.
 - Keep the last good row texture visible until a new row texture is ready.
-- Fail loudly in development/test if a row is asked to render text without the required font, metrics, or presentation data.
+- Fail loudly in development/test if a row is asked to snapshot before the matching row-scoped source DOM is mounted and current.
 
 This makes inactive text pixels part of the row's retained content lifecycle. Clicking a field should only mount the active editor DOM island and transfer focus/caret state.
 
@@ -178,7 +177,7 @@ The retained runtime should process section scroll updates from these handed-off
 
 ### 5. Remove The Whole-Section Preview Pipeline
 
-After the row-native renderer is in place, remove the old passive preview path rather than keeping it as a fallback:
+After the row-owned snapshot path is in place, remove the old passive preview path rather than keeping it as a fallback:
 
 - `retainedTextLikePreviewSources.tsx`
 - `retainedTextLikePreviewPageManager.ts`
@@ -229,51 +228,51 @@ Candidate tests:
 
 These tests should fail now because the current path can present blank passive CodeMirror/text-like fields until activation, can produce large interaction frame gaps during preview-page churn, and can trap wheel scrolling inside an active CodeMirror overlay.
 
-### Step 2. Define The Passive Text Presentation Model
+### Step 2. Define The Passive Snapshot Descriptor
 
-Create a pure data model for retained passive text-like controls.
+Create a pure descriptor for retained passive text-like snapshots.
 
-The model should include:
+The descriptor should include:
 
 - text value
 - language or plain-text mode
-- token runs when syntax highlighting is enabled
-- line wrapping result
-- visible line range
-- font family, size, line height, padding, and color tokens
+- editor visual mode and CodeMirror/DummyCodeMirror props
+- row/control geometry
+- visible source rect
+- theme and density inputs
 - selection-free passive state
 - content revision key
 
 Reuse existing retained control descriptors and generated/shared types before adding new TypeScript types. If new frontend-only types are needed, keep them private to the retained text renderer and document why they cannot come from the Go-owned contract.
 
-### Step 3. Extract Shared Highlight/Token Logic
+### Step 3. Build Row-Scoped Passive Source DOM
 
-Move passive syntax/token extraction out of DOM components into a reusable pure helper.
+Move passive source rendering from whole-section hidden DOM pages to row-scoped source DOM.
 
-The helper should:
+The source DOM should:
 
-- Accept the language/config already used by the field.
-- Return token runs with stable style categories.
-- Be usable by both passive canvas rasterization and any lightweight non-editing preview component that remains in tests or stories.
-- Avoid depending on mounted CodeMirror editor state.
+- Reuse the same inactive CodeMirror/DummyCodeMirror visual component used today, or extract the shared DOM component needed to do that cleanly.
+- Render one row/control-sized source per visible or near-visible passive text-like row.
+- Use the retained row geometry as its source of size and clipping truth.
+- Keep source DOM mounted only for rows that need snapshots.
+- Publish source readiness keyed by row id, control id, content revision, width bucket, theme, and zoom bucket.
 
-The goal is not to duplicate CodeMirror. The goal is to use the same parsing/highlighting source without making DOM rendering a prerequisite for passive visibility.
+The goal is not to duplicate CodeMirror layout in canvas. The goal is to narrow the browser-rendered snapshot source from whole sections to rows.
 
-### Step 4. Build The Row-Native Rasterizer
+### Step 4. Build The Row-Owned Snapshot Uploader
 
-Implement a retained text-like row rasterizer that draws passive values into row content textures.
+Implement a retained text-like row snapshot uploader that copies browser-rendered passive values into row content textures.
 
-The rasterizer should:
+The uploader should:
 
-- Measure with browser canvas text APIs using the configured font.
-- Wrap text according to the row control policy.
-- Draw token runs with the row theme colors.
-- Clip to the control value rect.
+- Use the row-scoped source DOM as the source of text pixels.
+- Copy only the visible row/control source rect into the retained texture segment.
 - Produce row content texture segments keyed by row id, control id, content revision, width bucket, and zoom bucket.
-- Keep stale row content visible while new content is being rasterized/uploaded.
+- Keep stale row content visible while new content is being snapshotted/uploaded.
 - Prioritize visible rows before offscreen rows.
+- Avoid invalidating unrelated rows when one row scrolls, activates, changes value, or changes width.
 
-This renderer replaces the dependency on hidden whole-section preview DOM for inactive text-like controls.
+This replaces the dependency on hidden whole-section preview DOM for inactive text-like controls without making canvas responsible for text layout.
 
 ### Step 5. Centralize Retained Runtime State
 
@@ -284,8 +283,8 @@ The runtime should be responsible for:
 - accepting pan/zoom/scroll/activation events
 - updating live section scroll offsets immediately
 - computing dirty retained rows
-- scheduling row content rasterization and uploads
-- exposing immutable draw snapshots to the renderer
+- scheduling row-owned snapshot uploads
+- exposing immutable draw snapshots to the renderer/compositor
 - emitting user intent callbacks to React/project code after runtime state is updated
 
 React should keep owning structural settings data and persisted values. It should not own transient scroll position, texture readiness, or active DOM island geometry after this refactor.
@@ -306,7 +305,7 @@ Deactivation sequence:
 
 1. Persist any value change through the existing owner path.
 2. Runtime increments the row content revision.
-3. Passive rasterizer refreshes the row texture.
+3. Passive source DOM refreshes and uploads the row texture.
 4. Active DOM island unmounts after replacement passive content is ready or after value-equivalent stale content is still valid.
 
 ### Step 7. Route Active Editor Wheel Events Through The Runtime
@@ -325,15 +324,15 @@ This should replace accidental behavior where whichever DOM element receives the
 
 ### Step 8. Delete The Old Passive Preview Path
 
-Remove the whole-section preview manager and source renderer once the new renderer passes the failing tests.
+Remove the whole-section preview manager and source renderer once the new row-owned snapshot path passes the failing tests.
 
-Do not keep a fallback to the old preview path. If the new renderer cannot draw a row, the test/dev behavior should fail loudly with enough context to diagnose the missing presentation data.
+Do not keep a fallback to the old preview path. If the new snapshot path cannot produce a row texture, the test/dev behavior should fail loudly with enough context to diagnose the missing source DOM or descriptor data.
 
 ### Step 9. Verification
 
 Run targeted verification throughout the refactor:
 
-- `pnpm -C frontend exec vitest run <focused retained renderer tests>`
+- `pnpm -C frontend exec vitest run <focused retained snapshot tests>`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-codemirror-passive-visibility-regression.spec.ts`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-codemirror-click-not-required.spec.ts`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings-retained-pan-zoom-smoothness-regression.spec.ts`
@@ -357,11 +356,11 @@ Record before/after performance results in `perf/` as append-only reports becaus
 
 ## Risks And Mitigations
 
-- Canvas text rendering can drift from CodeMirror DOM styling.
-  - Mitigation: share token extraction, theme colors, font metrics, and screenshot compare against active editor output.
+- Passive source DOM can drift from active CodeMirror styling if it stops sharing the same visual component and CSS.
+  - Mitigation: keep passive source DOM and active editor CSS/props shared, and screenshot-compare passive output against active editor output.
 
-- Syntax highlighting support may be incomplete for some languages.
-  - Mitigation: fail loudly for unsupported modes in development/test and add explicit renderer coverage for every settings language mode that exists.
+- Source DOM readiness bugs can still produce blank textures.
+  - Mitigation: key source DOM and snapshot descriptors strictly by row/control/content/size/theme/zoom, keep stale row textures visible, and fail loudly on source-key mismatch in development/test.
 
 - Texture memory can grow if row text content is cached too aggressively.
   - Mitigation: keep row content page eviction explicit and tie cache keys to visible rows, content revision, width bucket, and zoom bucket.
