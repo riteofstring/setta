@@ -4,15 +4,14 @@ import { ensureAppReady } from "../helpers";
 import {
   analyzeHoverBands,
   analyzeHoverContrast,
-  analyzeSwitchThumbMotion,
   analyzeVerticalScrollbar,
+  assertSwitchTransitionFrames,
   compareScreenshots,
   type HoverBandStats,
   type Point,
   type Rect,
   type RetainedRowDebugEntry,
   type SwitchFrame,
-  type SwitchThumbStats,
 } from "./settings-retained-visual-analysis";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -195,7 +194,9 @@ test("retained switch click animates the thumb monotonically", async ({
   );
   let controlRect = row.controlClientRect;
   if (!controlRect) {
-    throw new Error(`Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`);
+    throw new Error(
+      `Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`,
+    );
   }
   let clickPoint = resolveRenderedSwitchClickPoint(controlRect);
   if (initialChecked) {
@@ -895,7 +896,8 @@ async function waitForViewportIdle(page: Page): Promise<void> {
 
 async function waitForAnimationFrame(page: Page): Promise<void> {
   await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
   );
 }
 
@@ -915,77 +917,6 @@ async function captureSwitchFrame({
     name,
     screenshot,
   };
-}
-
-async function assertSwitchTransitionFrames({
-  frames,
-  initialChecked,
-  page,
-}: {
-  readonly frames: readonly SwitchFrame[];
-  readonly initialChecked: boolean;
-  readonly page: Page;
-}): Promise<void> {
-  const thumbStats = await analyzeSwitchThumbMotion(page, frames);
-  const detectedStats = thumbStats.filter(
-    (stats): stats is SwitchThumbStats & { readonly progress: number } =>
-      stats.progress !== null,
-  );
-  const backtracks = [];
-  let maxProgress = Number.NEGATIVE_INFINITY;
-  for (const stats of detectedStats) {
-    if (stats.progress < maxProgress - 0.08) {
-      backtracks.push({
-        name: stats.name,
-        previousMaxProgress: maxProgress,
-        progress: stats.progress,
-      });
-    }
-    maxProgress = Math.max(maxProgress, stats.progress);
-  }
-  const distinctPositions = new Set(
-    detectedStats.map((stats) =>
-      stats.thumbCenterX === null
-        ? "missing"
-        : String(Math.round(stats.thumbCenterX)),
-    ),
-  );
-  const intermediateSamples = detectedStats.filter(
-    (stats) => stats.progress > 0.12 && stats.progress < 0.88,
-  );
-  const missingTrackStates = detectedStats.filter(
-    (stats) => stats.trackChecked === null,
-  );
-  const contradictoryTrackStates = detectedStats.filter((stats) => {
-    if (stats.trackChecked === null) {
-      return true;
-    }
-    if (stats.progress <= 0.02) {
-      return stats.trackChecked !== initialChecked;
-    }
-    if (stats.progress >= 0.6) {
-      return stats.trackChecked !== !initialChecked;
-    }
-    return false;
-  });
-  const failureDetails = JSON.stringify(
-    {
-      backtracks,
-      contradictoryTrackStates,
-      distinctPositions: [...distinctPositions],
-      initialChecked,
-      missingTrackStates,
-      thumbStats,
-    },
-    null,
-    2,
-  );
-  expect(detectedStats.length, failureDetails).toBe(frames.length);
-  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(4);
-  expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
-  expect(backtracks, failureDetails).toHaveLength(0);
-  expect(missingTrackStates, failureDetails).toHaveLength(0);
-  expect(contradictoryTrackStates, failureDetails).toHaveLength(0);
 }
 
 async function captureScrollContentFrame({
@@ -1151,10 +1082,7 @@ async function resolveSwitchClipFromControlRect(
     SWITCH_ANIMATION_CLIP_HEIGHT,
     Math.max(1, rect.height),
   );
-  const width = Math.min(
-    SWITCH_ANIMATION_CLIP_WIDTH,
-    Math.max(1, rect.width),
-  );
+  const width = Math.min(SWITCH_ANIMATION_CLIP_WIDTH, Math.max(1, rect.width));
   return await clampScreenshotClipToViewport(page, {
     height,
     width,
@@ -1166,7 +1094,8 @@ async function resolveSwitchClipFromControlRect(
 function resolveRenderedSwitchClickPoint(rect: Rect): Point {
   return {
     x: rect.x + Math.min(rect.width / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_X),
-    y: rect.y + Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y),
+    y:
+      rect.y + Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y),
   };
 }
 

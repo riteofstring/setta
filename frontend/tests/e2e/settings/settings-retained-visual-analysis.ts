@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export type Point = {
   readonly x: number;
@@ -520,6 +520,89 @@ export async function analyzeSwitchThumbMotion(
       name: frame.name,
     })),
   );
+}
+
+export async function assertSwitchTransitionFrames({
+  frames,
+  initialChecked,
+  page,
+}: {
+  readonly frames: readonly SwitchFrame[];
+  readonly initialChecked: boolean;
+  readonly page: Page;
+}): Promise<void> {
+  const thumbStats = await analyzeSwitchThumbMotion(page, frames);
+  const detectedStats = thumbStats.filter(
+    (stats): stats is SwitchThumbStats & { readonly progress: number } =>
+      stats.progress !== null,
+  );
+  const backtracks = [];
+  let maxProgress = Number.NEGATIVE_INFINITY;
+  for (const stats of detectedStats) {
+    if (stats.progress < maxProgress - 0.08) {
+      backtracks.push({
+        name: stats.name,
+        previousMaxProgress: maxProgress,
+        progress: stats.progress,
+      });
+    }
+    maxProgress = Math.max(maxProgress, stats.progress);
+  }
+  const distinctPositions = new Set(
+    detectedStats.map((stats) =>
+      stats.thumbCenterX === null
+        ? "missing"
+        : String(Math.round(stats.thumbCenterX)),
+    ),
+  );
+  const intermediateSamples = detectedStats.filter(
+    (stats) => stats.progress > 0.12 && stats.progress < 0.88,
+  );
+  const progressSteps = detectedStats.slice(1).map((stats, index) => ({
+    delta: stats.progress - (detectedStats[index]?.progress ?? stats.progress),
+    from: detectedStats[index]?.name ?? "missing",
+    to: stats.name,
+  }));
+  const largestProgressStep = Math.max(
+    0,
+    ...progressSteps.map((step) => step.delta),
+  );
+  const missingTrackStates = detectedStats.filter(
+    (stats) => stats.trackChecked === null,
+  );
+  const contradictoryTrackStates = detectedStats.filter((stats) => {
+    if (stats.trackChecked === null) {
+      return true;
+    }
+    if (stats.progress <= 0.02) {
+      return stats.trackChecked !== initialChecked;
+    }
+    if (stats.progress >= 0.6) {
+      return stats.trackChecked !== !initialChecked;
+    }
+    return false;
+  });
+  const failureDetails = JSON.stringify(
+    {
+      backtracks,
+      contradictoryTrackStates,
+      distinctPositions: [...distinctPositions],
+      initialChecked,
+      largestProgressStep,
+      missingTrackStates,
+      progressSteps,
+      thumbStats,
+    },
+    null,
+    2,
+  );
+  expect(detectedStats.length, failureDetails).toBe(frames.length);
+  expect(distinctPositions.size, failureDetails).toBeGreaterThanOrEqual(6);
+  expect(largestProgressStep, failureDetails).toBeLessThan(0.45);
+  expect(intermediateSamples.length, failureDetails).toBeGreaterThan(0);
+  expect(backtracks, failureDetails).toHaveLength(0);
+  expect(missingTrackStates, failureDetails).toHaveLength(0);
+  expect(contradictoryTrackStates, failureDetails).toHaveLength(0);
 }
 
 export async function locateCheckedSwitchBounds(

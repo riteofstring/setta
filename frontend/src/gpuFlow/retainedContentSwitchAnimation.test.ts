@@ -315,6 +315,53 @@ describe("retained content switch animation store", () => {
     });
   });
 
+  it("keeps the target visual active after the duration until the target scene arrives", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 200,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 20,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+    store.syncSurface(surface({ checked: false }), 240);
+
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 260,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 1,
+      targetChecked: true,
+    });
+    expect(store.hasActiveSurface("surface-a", 260)).toBe(true);
+
+    store.syncSurface(surface({ checked: true }), 280);
+    expect(
+      store.resolveVisualState({
+        checked: true,
+        nowMs: 280,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 1,
+      targetChecked: true,
+    });
+    expect(store.hasActiveSurface("surface-a", 280)).toBe(true);
+
+    store.settleCompletedSurfaceTransitions("surface-a", 280);
+    expect(store.hasActiveSurface("surface-a", 280)).toBe(false);
+  });
+
   it("reports the target checked state separately from delayed scene checked state", () => {
     const store = createGpuRetainedContentSwitchAnimationStore({
       durationMs: 200,

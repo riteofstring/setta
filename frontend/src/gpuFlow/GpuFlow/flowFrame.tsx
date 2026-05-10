@@ -14,6 +14,7 @@ import {
   type GpuNodeLayout,
   type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 
 import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
@@ -45,6 +46,7 @@ import {
 } from "../interactionDiagnostics";
 import type { GpuRetainedContentDrawCommand } from "../retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
 import { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport, type GpuRect } from "../viewportMath";
@@ -214,18 +216,35 @@ function completeGpuNodeInteractionFrame(
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
-function requestRemainingTextureUploadFrame({
+function requestRemainingGpuFlowFrame({
   layerResult,
   retainedTexturePageFollowUpFrame,
+  switchAnimationFollowUpFrame,
   surfaceRef,
 }: {
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly retainedTexturePageFollowUpFrame: boolean;
+  readonly switchAnimationFollowUpFrame: boolean;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }) {
   if (layerResult.budgetExhausted || retainedTexturePageFollowUpFrame) {
     surfaceRef.current?.requestFrame("texture-upload");
+  } else if (switchAnimationFollowUpFrame) {
+    surfaceRef.current?.requestFrame("animation");
   }
+}
+
+function combineGpuFlowHtmlSurfaceNativeVisuals(
+  baseVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[] | null | undefined,
+  transientVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[],
+): readonly HtmlSurfaceSolidRoundedRectVisual[] | undefined {
+  if (transientVisuals.length === 0) {
+    return baseVisuals ?? undefined;
+  }
+  if (!baseVisuals?.length) {
+    return transientVisuals;
+  }
+  return [...baseVisuals, ...transientVisuals];
 }
 
 export function nextFrame(frameRef: MutableRefObject<number>): number {
@@ -292,11 +311,13 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
+  const darkMode = isGpuFlowFrameDarkMode(runtime.canvas);
   postGpuFlowRetainedContentVisualStateChromeReproEvent({
     frame,
     scene: layer.scene,
   });
   syncGpuFlowRetainedContentSwitchAnimationSurfaces({
+    nowMs: renderStartedAt,
     scene: layer.scene,
     switchAnimations: retainedContentSwitchAnimations,
   });
@@ -317,6 +338,13 @@ export function renderGpuFlowNodeLayerFrame({
       ),
       viewportZoomBucket,
     });
+  const switchAnimationNativeVisuals =
+    getGpuRetainedContentSwitchAnimationVisuals({
+      darkMode,
+      nowMs: renderStartedAt,
+      scene: layer.scene,
+      switchAnimations: retainedContentSwitchAnimations,
+    });
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -332,7 +360,10 @@ export function renderGpuFlowNodeLayerFrame({
     frame,
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
-    htmlSurfaceNativeVisuals: layer.htmlSurfaceNativeVisuals,
+    htmlSurfaceNativeVisuals: combineGpuFlowHtmlSurfaceNativeVisuals(
+      layer.htmlSurfaceNativeVisuals,
+      switchAnimationNativeVisuals,
+    ),
     htmlSurfacePageVisuals: retainedPagePreparedFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,
@@ -344,15 +375,22 @@ export function renderGpuFlowNodeLayerFrame({
   });
   const retainedPageResult =
     resources.retainedContentPageManager.runPostSubmitMaintenance({
-      darkMode: isGpuFlowFrameDarkMode(runtime.canvas),
+      darkMode,
       preparedFrame: retainedPagePreparedFrame,
-      switchAnimations: retainedContentSwitchAnimations,
+      // Switch transitions are composited below as native visuals, so texture
+      // pages must cache only the static scene state.
       viewportInteractionActive: deferResolutionUpdates,
     });
+  settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
+    nowMs: renderStartedAt,
+    retainedPagesMissing:
+      retainedPageResult.postMaintenanceMissingPageCount > 0,
+    scene: layer.scene,
+    switchAnimations: retainedContentSwitchAnimations,
+  });
   const switchAnimationNeedsFollowUpFrame =
-    markGpuFlowRetainedContentSwitchAnimationSurfacesDirty({
-      frame,
-      pageManager: resources.retainedContentPageManager,
+    hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
+      nowMs: renderStartedAt,
       scene: layer.scene,
       switchAnimations: retainedContentSwitchAnimations,
     });
@@ -407,10 +445,9 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
-    retainedTexturePageFollowUpFrame:
-      retainedPageResult.needsFollowUpFrame ||
-      switchAnimationNeedsFollowUpFrame,
+    retainedTexturePageFollowUpFrame: retainedPageResult.needsFollowUpFrame,
     surfaceRef,
+    switchAnimationFollowUpFrame: switchAnimationNeedsFollowUpFrame,
     transformOnlyPaintNodeIdsRef,
     viewportFrame,
     visibleNodeIdsRef,
@@ -418,16 +455,17 @@ export function renderGpuFlowNodeLayerFrame({
 }
 
 function syncGpuFlowRetainedContentSwitchAnimationSurfaces({
+  nowMs,
   scene,
   switchAnimations,
 }: {
+  readonly nowMs: number;
   readonly scene: GpuFlowScene | undefined;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
 }) {
   if (!scene) {
     return;
   }
-  const nowMs = performance.now();
   for (const surface of scene.contentSurfaces) {
     if (!isGpuFlowRetainedContentSwitchAnimationSurface(surface)) {
       continue;
@@ -436,21 +474,18 @@ function syncGpuFlowRetainedContentSwitchAnimationSurfaces({
   }
 }
 
-function markGpuFlowRetainedContentSwitchAnimationSurfacesDirty({
-  frame,
-  pageManager,
+function hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
+  nowMs,
   scene,
   switchAnimations,
 }: {
-  readonly frame: number;
-  readonly pageManager: RetainedContentTexturePageManager;
+  readonly nowMs: number;
   readonly scene: GpuFlowScene | undefined;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
 }): boolean {
   if (!scene) {
     return false;
   }
-  const nowMs = performance.now();
   let hasActiveSurface = false;
   for (const surface of scene.contentSurfaces) {
     if (
@@ -459,28 +494,31 @@ function markGpuFlowRetainedContentSwitchAnimationSurfacesDirty({
     ) {
       continue;
     }
-    hasActiveSurface =
-      pageManager.markSurfaceContentDirty({
-        frame,
-        priority: "visible",
-        ...createGpuFlowRetainedContentSwitchAnimationDirtySourceRect(
-          switchAnimations,
-          surface,
-        ),
-        surfaceId: surface.id,
-      }) || hasActiveSurface;
+    hasActiveSurface = true;
   }
   return hasActiveSurface;
 }
 
-function createGpuFlowRetainedContentSwitchAnimationDirtySourceRect(
-  switchAnimations: GpuRetainedContentSwitchAnimationStore,
-  surface: GpuContentSurface & {
-    readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-  },
-): { readonly sourceRect?: GpuRect } {
-  const sourceRect = switchAnimations.getActiveSurfaceSourceRect(surface);
-  return sourceRect ? { sourceRect } : {};
+function settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
+  nowMs,
+  retainedPagesMissing,
+  scene,
+  switchAnimations,
+}: {
+  readonly nowMs: number;
+  readonly retainedPagesMissing: boolean;
+  readonly scene: GpuFlowScene | undefined;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
+}) {
+  if (!scene || retainedPagesMissing) {
+    return;
+  }
+  for (const surface of scene.contentSurfaces) {
+    if (!isGpuFlowRetainedContentSwitchAnimationSurface(surface)) {
+      continue;
+    }
+    switchAnimations.settleCompletedSurfaceTransitions(surface.id, nowMs);
+  }
 }
 
 function isGpuFlowRetainedContentSwitchAnimationSurface(
@@ -515,9 +553,7 @@ function postGpuFlowRetainedContentVisualStateChromeReproEvent({
   const surfaces = scene.contentSurfaces
     .map(createGpuFlowRetainedContentSurfaceVisualState)
     .filter(
-      (
-        surface,
-      ): surface is NonNullable<typeof surface> => surface !== null,
+      (surface): surface is NonNullable<typeof surface> => surface !== null,
     );
   if (surfaces.length === 0) {
     return;
@@ -535,28 +571,26 @@ function postGpuFlowRetainedContentVisualStateChromeReproEvent({
 
 function createGpuFlowRetainedContentSurfaceVisualState(
   surface: GpuContentSurface,
-):
-  | {
-      readonly contentRect: GpuRect;
-      readonly rect: GpuRect;
-      readonly scrollbars: readonly {
-        readonly axis: string;
-        readonly state: unknown;
-        readonly thumbRect: GpuRect;
-        readonly trackRect: GpuRect;
-      }[];
-      readonly scrollOffset: { readonly x: number; readonly y: number };
-      readonly surfaceId: string;
-      readonly switches: readonly {
-        readonly checked: boolean;
-        readonly displayValue: string;
-        readonly rect: GpuRect;
-        readonly rowId: string;
-      }[];
-      readonly viewportRect: GpuRect;
-      readonly zIndex: number;
-    }
-  | null {
+): {
+  readonly contentRect: GpuRect;
+  readonly rect: GpuRect;
+  readonly scrollbars: readonly {
+    readonly axis: string;
+    readonly state: unknown;
+    readonly thumbRect: GpuRect;
+    readonly trackRect: GpuRect;
+  }[];
+  readonly scrollOffset: { readonly x: number; readonly y: number };
+  readonly surfaceId: string;
+  readonly switches: readonly {
+    readonly checked: boolean;
+    readonly displayValue: string;
+    readonly rect: GpuRect;
+    readonly rowId: string;
+  }[];
+  readonly viewportRect: GpuRect;
+  readonly zIndex: number;
+} | null {
   const retainedScene = surface.retainedScene;
   if (!retainedScene) {
     return null;
@@ -564,16 +598,12 @@ function createGpuFlowRetainedContentSurfaceVisualState(
   const switches = retainedScene.drawCommands
     .map(createGpuFlowRetainedContentSwitchVisualState)
     .filter(
-      (
-        command,
-      ): command is NonNullable<typeof command> => command !== null,
+      (command): command is NonNullable<typeof command> => command !== null,
     );
   const scrollbars = retainedScene.drawCommands
     .map(createGpuFlowRetainedContentScrollbarVisualState)
     .filter(
-      (
-        command,
-      ): command is NonNullable<typeof command> => command !== null,
+      (command): command is NonNullable<typeof command> => command !== null,
     );
   if (switches.length === 0 && scrollbars.length === 0) {
     return null;
@@ -708,6 +738,7 @@ function updateGpuFlowNodeLayerFrameState({
   nodeLayerRef,
   retainedTexturePageFollowUpFrame,
   surfaceRef,
+  switchAnimationFollowUpFrame,
   transformOnlyPaintNodeIdsRef,
   viewportFrame,
   visibleNodeIdsRef,
@@ -718,6 +749,7 @@ function updateGpuFlowNodeLayerFrameState({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly retainedTexturePageFollowUpFrame: boolean;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly switchAnimationFollowUpFrame: boolean;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly viewportFrame: boolean;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
@@ -734,10 +766,11 @@ function updateGpuFlowNodeLayerFrameState({
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
-  requestRemainingTextureUploadFrame({
+  requestRemainingGpuFlowFrame({
     layerResult,
     retainedTexturePageFollowUpFrame,
     surfaceRef,
+    switchAnimationFollowUpFrame,
   });
 }
 
