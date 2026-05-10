@@ -132,7 +132,6 @@ export type ProjectGpuLayoutAdapter = {
     scrollOffsets: GpuSectionSceneScrollOffsetMap,
   ) => void;
   readonly setContentScrollOffsets: ContentScrollSetter;
-  readonly setTransientContentScrollOffsets: ContentScrollSetter;
 };
 
 type ProjectSectionSceneAspectRatioFields = {
@@ -258,12 +257,6 @@ export function useProjectGpuLayoutAdapter({
     },
     [],
   );
-  const setTransientContentScrollOffsets = useCallback(
-    (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
-      contentScrollOffsetsRef.current = new Map(scrollOffsets);
-    },
-    [],
-  );
   const getContentScrollOffsets = useCallback(
     () => contentScrollOffsetsRef.current,
     [],
@@ -345,7 +338,6 @@ export function useProjectGpuLayoutAdapter({
       sceneScrollOffsets,
       setContentScrollOffsets: setNextContentScrollOffsets,
       setSceneScrollOffsets: setNextSceneScrollOffsets,
-      setTransientContentScrollOffsets,
     }),
     [
       getContentScrollOffsets,
@@ -357,7 +349,6 @@ export function useProjectGpuLayoutAdapter({
       sceneScrollOffsets,
       setNextContentScrollOffsets,
       setNextSceneScrollOffsets,
-      setTransientContentScrollOffsets,
     ],
   );
 }

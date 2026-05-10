@@ -99,9 +99,6 @@ export function rasterizeGpuRetainedContentPage({
   );
 
   for (const command of commands) {
-    if (command.kind === "scrollbar") {
-      continue;
-    }
     drawGpuRetainedContentCommand({
       command,
       ctx,
@@ -116,9 +113,7 @@ export function rasterizeGpuRetainedContentPage({
   ctx.restore();
 
   return {
-    drawnCommandCount: commands.filter(
-      (command) => command.kind !== "scrollbar",
-    ).length,
+    drawnCommandCount: commands.length,
     plan,
   };
 }
@@ -164,11 +159,13 @@ export function filterGpuRetainedContentDrawCommandsForPage({
   readonly sourceRectCss: GpuRect;
 }): readonly GpuRetainedContentDrawCommand[] {
   const normalizedSourceRect = normalizeRect("sourceRectCss", sourceRectCss);
-  return commands.filter((command) =>
-    rectsIntersect(
-      getGpuRetainedContentDrawCommandBounds(command),
-      normalizedSourceRect,
-    ),
+  return commands.filter(
+    (command) =>
+      command.kind !== "scrollbar" &&
+      rectsIntersect(
+        getGpuRetainedContentDrawCommandBounds(command),
+        normalizedSourceRect,
+      ),
   );
 }
 
@@ -176,7 +173,7 @@ export function getGpuRetainedContentDrawCommandBounds(
   command: GpuRetainedContentDrawCommand,
 ): GpuRect {
   if (command.kind === "scrollbar") {
-    return unionRects(command.trackRect, command.thumbRect);
+    throw new Error("Retained scrollbars are overlay-owned, not page-rasterized.");
   }
   return command.rect;
 }
@@ -188,19 +185,6 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
     left.y < right.y + right.height &&
     left.y + left.height > right.y
   );
-}
-
-function unionRects(left: GpuRect, right: GpuRect): GpuRect {
-  const x = Math.min(left.x, right.x);
-  const y = Math.min(left.y, right.y);
-  const rightEdge = Math.max(left.x + left.width, right.x + right.width);
-  const bottomEdge = Math.max(left.y + left.height, right.y + right.height);
-  return {
-    height: bottomEdge - y,
-    width: rightEdge - x,
-    x,
-    y,
-  };
 }
 
 function normalizeRect(name: string, rect: GpuRect): GpuRect {

@@ -1,10 +1,11 @@
 /* @vitest-environment jsdom */
 
-import { act, useMemo, useRef, useState } from "react";
+import { act, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
@@ -12,10 +13,23 @@ import {
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
-import type { GpuFlowRetainedContentPageManager } from "./retainedContentControllerSurfaceUpdates";
+import type {
+  GpuFlowRetainedContentNodeLayerState,
+  GpuFlowRetainedContentPageManager,
+} from "./retainedContentControllerSurfaceUpdates";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
 
 let root: Root | null = null;
+
+type DirtySurfaceRecord = {
+  readonly sourceRect?: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  };
+  readonly surfaceId: string;
+};
 
 describe("GpuFlow retained content controllers", () => {
   afterEach(() => {
@@ -131,18 +145,12 @@ describe("GpuFlow retained content controllers", () => {
     expect(dirtySurfaceIds).toEqual(["dict-a:param-content:unpinned"]);
   });
 
-  it("marks only the hovered retained row source rect dirty on pointer hover", () => {
-    const dirtySurfaces: Array<{
-      readonly sourceRect?: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      } | undefined;
-      readonly surfaceId: string;
-    }> = [];
-    const requestPaint = vi.fn();
+  it("updates retained row hover as a native visual without dirtying page content", () => {
+    const dirtySurfaces: DirtySurfaceRecord[] = [];
+    const requestedFrames: string[] = [];
     let host: HTMLDivElement | null = null;
+    let readNativeVisuals = (): readonly HtmlSurfaceSolidRoundedRectVisual[] =>
+      [];
 
     act(() => {
       root = createRoot(
@@ -156,7 +164,12 @@ describe("GpuFlow retained content controllers", () => {
           onHostChange={(element) => {
             host = element;
           }}
-          onRequestPaint={requestPaint}
+          onReadNativeVisuals={(read) => {
+            readNativeVisuals = read;
+          }}
+          onRequestFrame={(reason) => {
+            requestedFrames.push(reason);
+          }}
         />,
       );
     });
@@ -176,81 +189,22 @@ describe("GpuFlow retained content controllers", () => {
       );
     });
 
-    expect(dirtySurfaces).toEqual([
-      {
-        sourceRect: { height: 28, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
+    expect(dirtySurfaces).toEqual([]);
+    expect(requestedFrames).toEqual(["manual"]);
+    expect(readNativeVisuals()).toEqual([
+      expect.objectContaining({
+        rect: { height: 28, width: 160, x: 0, y: 0 },
+        surfaceId: "dict-a:param-content:unpinned:row-hover:param-0",
+      }),
     ]);
-    expect(requestPaint).toHaveBeenCalledTimes(1);
   });
 
-  it("does not request retained hover paint when no dirty texture work is queued", () => {
-    const dirtySurfaces: Array<{
-      readonly sourceRect?: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      } | undefined;
-      readonly surfaceId: string;
-    }> = [];
-    const requestPaint = vi.fn();
+  it("replaces the retained row hover visual during fast row movement", () => {
+    const dirtySurfaces: DirtySurfaceRecord[] = [];
+    const requestedFrames: string[] = [];
     let host: HTMLDivElement | null = null;
-
-    act(() => {
-      root = createRoot(
-        document.body.appendChild(document.createElement("div")),
-      );
-      root.render(
-        <RetainedContentHoverHarness
-          markDirtyResult={false}
-          onDirtySurface={(surface) => {
-            dirtySurfaces.push(surface);
-          }}
-          onHostChange={(element) => {
-            host = element;
-          }}
-          onRequestPaint={requestPaint}
-        />,
-      );
-    });
-
-    if (!host) {
-      throw new Error("Expected retained content hover host to mount.");
-    }
-
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 14,
-          pointerId: 1,
-        }),
-      );
-    });
-
-    expect(dirtySurfaces).toEqual([
-      {
-        sourceRect: { height: 28, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-    ]);
-    expect(requestPaint).not.toHaveBeenCalled();
-  });
-
-  it("clears the previous retained row hover after the scene is refreshed", () => {
-    const dirtySurfaces: Array<{
-      readonly sourceRect?: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      };
-      readonly surfaceId: string;
-    }> = [];
-    let host: HTMLDivElement | null = null;
+    let readNativeVisuals = (): readonly HtmlSurfaceSolidRoundedRectVisual[] =>
+      [];
 
     act(() => {
       root = createRoot(
@@ -264,72 +218,11 @@ describe("GpuFlow retained content controllers", () => {
           onHostChange={(element) => {
             host = element;
           }}
-          resetSceneAfterFirstDirty
-          rowCount={2}
-        />,
-      );
-    });
-
-    if (!host) {
-      throw new Error("Expected retained content hover host to mount.");
-    }
-
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 14,
-          pointerId: 1,
-        }),
-      );
-    });
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 42,
-          pointerId: 1,
-        }),
-      );
-    });
-
-    expect(dirtySurfaces).toEqual([
-      {
-        sourceRect: { height: 28, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-      {
-        sourceRect: { height: 56, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-    ]);
-  });
-
-  it("keeps recently hovered rows dirty during fast retained row movement", () => {
-    const dirtySurfaces: Array<{
-      readonly sourceRect?: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      };
-      readonly surfaceId: string;
-    }> = [];
-    let host: HTMLDivElement | null = null;
-
-    act(() => {
-      root = createRoot(
-        document.body.appendChild(document.createElement("div")),
-      );
-      root.render(
-        <RetainedContentHoverHarness
-          onDirtySurface={(surface) => {
-            dirtySurfaces.push(surface);
+          onReadNativeVisuals={(read) => {
+            readNativeVisuals = read;
           }}
-          onHostChange={(element) => {
-            host = element;
+          onRequestFrame={(reason) => {
+            requestedFrames.push(reason);
           }}
           rowCount={5}
         />,
@@ -340,50 +233,26 @@ describe("GpuFlow retained content controllers", () => {
       throw new Error("Expected retained content hover host to mount.");
     }
 
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 14,
-          pointerId: 1,
-        }),
-      );
-    });
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 42,
-          pointerId: 1,
-        }),
-      );
-    });
-    act(() => {
-      host?.dispatchEvent(
-        createPointerEvent("pointermove", {
-          buttons: 0,
-          clientX: 20,
-          clientY: 70,
-          pointerId: 1,
-        }),
-      );
-    });
+    for (const clientY of [14, 42, 70]) {
+      act(() => {
+        host?.dispatchEvent(
+          createPointerEvent("pointermove", {
+            buttons: 0,
+            clientX: 20,
+            clientY,
+            pointerId: 1,
+          }),
+        );
+      });
+    }
 
-    expect(dirtySurfaces).toEqual([
-      {
-        sourceRect: { height: 28, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-      {
-        sourceRect: { height: 56, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
-      {
-        sourceRect: { height: 84, width: 160, x: 0, y: 0 },
-        surfaceId: "dict-a:param-content:unpinned",
-      },
+    expect(dirtySurfaces).toEqual([]);
+    expect(requestedFrames).toEqual(["manual", "manual", "manual"]);
+    expect(getHoverNativeVisuals(readNativeVisuals())).toEqual([
+      expect.objectContaining({
+        rect: { height: 24, width: 160, x: 0, y: 56 },
+        surfaceId: "dict-a:param-content:unpinned:row-hover:param-2",
+      }),
     ]);
   });
 });
@@ -547,27 +416,27 @@ function RetainedContentHoverHarness({
   markDirtyResult = true,
   onDirtySurface,
   onHostChange,
+  onReadNativeVisuals,
+  onRequestFrame,
   onRequestPaint,
   resetSceneAfterFirstDirty = false,
   rowCount = 1,
 }: {
   readonly markDirtyResult?: boolean | undefined;
-  readonly onDirtySurface: (surface: {
-    readonly sourceRect?: {
-      readonly height: number;
-      readonly width: number;
-      readonly x: number;
-      readonly y: number;
-    };
-    readonly surfaceId: string;
-  }) => void;
+  readonly onDirtySurface: (surface: DirtySurfaceRecord) => void;
   readonly onHostChange: (element: HTMLDivElement | null) => void;
+  readonly onReadNativeVisuals?:
+    | ((
+        read: () => readonly HtmlSurfaceSolidRoundedRectVisual[],
+      ) => void)
+    | undefined;
+  readonly onRequestFrame?: ((reason: string) => void) | undefined;
   readonly onRequestPaint?: (() => void) | undefined;
   readonly resetSceneAfterFirstDirty?: boolean | undefined;
   readonly rowCount?: number | undefined;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const nodeLayerRef = useRef<{ scene: GpuFlowScene | undefined }>({
+  const nodeLayerRef = useRef<GpuFlowRetainedContentNodeLayerState>({
     scene: retainedContentScene(1, rowCount),
   });
   const dirtySurfaceCountRef = useRef(0);
@@ -611,7 +480,9 @@ function RetainedContentHoverHarness({
   });
   const surfaceRef = useRef({
     getRuntime: () => null,
-    requestFrame: vi.fn(),
+    requestFrame: (reason: string) => {
+      onRequestFrame?.(reason);
+    },
     requestPaint: () => {
       onRequestPaint?.();
     },
@@ -659,6 +530,12 @@ function RetainedContentHoverHarness({
     viewportStore,
   });
 
+  useEffect(() => {
+    onReadNativeVisuals?.(
+      () => nodeLayerRef.current.htmlSurfaceNativeVisuals ?? [],
+    );
+  }, [onReadNativeVisuals]);
+
   return (
     <div
       ref={(element) => {
@@ -667,6 +544,12 @@ function RetainedContentHoverHarness({
       }}
     />
   );
+}
+
+function getHoverNativeVisuals(
+  visuals: readonly HtmlSurfaceSolidRoundedRectVisual[],
+): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  return visuals.filter((visual) => visual.surfaceId.includes(":row-hover:"));
 }
 
 function retainedContentScene(revision: number, rowCount = 1): GpuFlowScene {

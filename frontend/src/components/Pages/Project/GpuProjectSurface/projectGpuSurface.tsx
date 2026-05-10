@@ -567,7 +567,7 @@ function ProjectGpuFlowLayer({
         retainedContentScroll: {
           getScene: () => effectiveScene,
           getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-          onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
+          onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
         },
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
@@ -837,7 +837,7 @@ function getProjectRetainedContentScrollOptions({
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
     getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-    onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
+    onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
   };
 }
 

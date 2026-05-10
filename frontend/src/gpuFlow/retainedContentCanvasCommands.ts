@@ -35,7 +35,6 @@ import type {
   GpuRetainedContentRowState,
   GpuRetainedContentScene,
 } from "./retainedContentScene";
-import { drawGpuRetainedContentScrollbar } from "./retainedContentScrollbarCanvas";
 import {
   drawGpuRetainedContentStatusBadge,
   drawGpuRetainedContentStatusOverlay,
@@ -100,13 +99,6 @@ export function drawGpuRetainedContentCommand({
       switchAnimations,
     });
     return;
-  }
-  if (command.kind === "scrollbar") {
-    drawGpuRetainedContentScrollbar({
-      command,
-      ctx,
-      palette,
-    });
   }
 }
 

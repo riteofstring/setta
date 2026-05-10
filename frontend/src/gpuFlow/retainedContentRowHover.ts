@@ -1,75 +1,97 @@
-import type {
-  GpuRetainedContentDrawCommand,
-  GpuRetainedContentRow,
-  GpuRetainedContentRowInput,
-  GpuRetainedContentRowState,
-  GpuRetainedContentScene,
-} from "./retainedContentScene";
 import {
-  getGpuRetainedContentSceneSourceInput,
-  setGpuRetainedContentSceneSourceInput,
-  type GpuRetainedContentSceneSourceInput,
-} from "./retainedContentSceneSourceMetadata";
-import type { GpuContentSurface, GpuFlowScene } from "./scene";
+  getGpuRetainedContentSourceSurfaces,
+  type GpuRetainedContentSourceSurface,
+} from "./GpuRetainedContentSurfaces";
+import type {
+  HtmlSurfaceColor,
+  HtmlSurfaceSolidRoundedRectVisual,
+} from "./htmlSurfaces/visualScene";
+import {
+  getGpuRetainedContentCanvasPalette,
+  type GpuRetainedContentCanvasPalette,
+} from "./retainedContentCanvasTheme";
+import type { GpuFlowScene } from "./scene";
+import type { GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentRowHoverTarget = {
   readonly rowId: string;
   readonly surfaceId: string;
 };
 
-type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
-  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-};
-
-export type GpuRetainedContentRowHoverSceneUpdate = {
-  readonly changedRowIdsBySurfaceId: ReadonlyMap<string, ReadonlySet<string>>;
-  readonly scene: GpuFlowScene;
-  readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
-};
-
-export function applyGpuRetainedContentRowHoverStateToScene({
+export function getGpuRetainedContentRowHoverVisuals({
   scene,
-  surfaceIds,
   target,
 }: {
-  readonly scene: GpuFlowScene;
-  readonly surfaceIds?: ReadonlySet<string> | undefined;
+  readonly scene: GpuFlowScene | undefined;
   readonly target: GpuRetainedContentRowHoverTarget | null;
-}): GpuRetainedContentRowHoverSceneUpdate | null {
-  let nextSurfaces: GpuContentSurface[] | null = null;
-  const changedSurfaces: GpuRetainedContentSurfaceWithScene[] = [];
-  const changedRowIdsBySurfaceId = new Map<string, Set<string>>();
-
-  scene.contentSurfaces.forEach((surface, index) => {
-    if (surfaceIds && !surfaceIds.has(surface.id)) {
-      return;
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  if (!scene || !target) {
+    return [];
+  }
+  const palette = getGpuRetainedContentCanvasPalette(
+    isGpuRetainedContentRowHoverDarkMode(),
+  );
+  const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
+  for (const surface of getGpuRetainedContentSourceSurfaces(
+    scene.contentSurfaces,
+  )) {
+    if (surface.id !== target.surfaceId) {
+      continue;
     }
-    if (!isGpuRetainedContentSurfaceWithScene(surface)) {
-      return;
-    }
-    const update = applyGpuRetainedContentRowHoverStateToSurface({
+    const visual = createGpuRetainedContentRowHoverVisual({
+      palette,
+      rowId: target.rowId,
       surface,
-      targetRowId: target?.surfaceId === surface.id ? target.rowId : null,
     });
-    if (!update) {
-      return;
+    if (visual) {
+      visuals.push(visual);
     }
-    nextSurfaces ??= [...scene.contentSurfaces];
-    nextSurfaces[index] = update.surface;
-    changedSurfaces.push(update.surface);
-    changedRowIdsBySurfaceId.set(surface.id, update.changedRowIds);
-  });
+  }
+  return visuals;
+}
 
-  if (!nextSurfaces) {
+function createGpuRetainedContentRowHoverVisual({
+  palette,
+  rowId,
+  surface,
+}: {
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly rowId: string;
+  readonly surface: GpuRetainedContentSourceSurface;
+}): HtmlSurfaceSolidRoundedRectVisual | null {
+  const row = surface.retainedScene.rows.find(
+    (candidate) => candidate.id === rowId,
+  );
+  if (!row) {
+    return null;
+  }
+  const visibleLocalRect = {
+    height: surface.rect.height,
+    width: surface.rect.width,
+    x: surface.sourceClipOffset.x,
+    y: surface.sourceClipOffset.y,
+  };
+  const clippedLocalRect = intersectGpuRetainedContentRects(
+    row.visualProjectedRect,
+    visibleLocalRect,
+  );
+  if (clippedLocalRect.width <= 0 || clippedLocalRect.height <= 0) {
     return null;
   }
   return {
-    changedRowIdsBySurfaceId,
-    scene: {
-      ...scene,
-      contentSurfaces: nextSurfaces,
+    color: toGpuRetainedContentRowHoverHtmlSurfaceColor(
+      palette.rowHoverBackground,
+    ),
+    kind: "solid-rounded-rect",
+    radius: 0,
+    rect: {
+      height: clippedLocalRect.height,
+      width: clippedLocalRect.width,
+      x: surface.rect.x - surface.sourceClipOffset.x + clippedLocalRect.x,
+      y: surface.rect.y - surface.sourceClipOffset.y + clippedLocalRect.y,
     },
-    surfaces: changedSurfaces,
+    surfaceId: `${surface.id}:row-hover:${row.id}`,
+    zIndex: surface.zIndex,
   };
 }
 
@@ -80,187 +102,63 @@ export function areGpuRetainedContentRowHoverTargetsEqual(
   return left?.rowId === right?.rowId && left?.surfaceId === right?.surfaceId;
 }
 
-function applyGpuRetainedContentRowHoverStateToSurface({
-  surface,
-  targetRowId,
-}: {
-  readonly surface: GpuRetainedContentSurfaceWithScene;
-  readonly targetRowId: string | null;
-}): {
-  readonly changedRowIds: Set<string>;
-  readonly surface: GpuRetainedContentSurfaceWithScene;
-} | null {
-  const sourceInput = getGpuRetainedContentSceneSourceInput(
-    surface.retainedScene,
+function toGpuRetainedContentRowHoverHtmlSurfaceColor(
+  color: string,
+): HtmlSurfaceColor {
+  const hex = /^#(?<red>[0-9a-f]{2})(?<green>[0-9a-f]{2})(?<blue>[0-9a-f]{2})$/iu.exec(
+    color.trim(),
   );
-  if (!sourceInput) {
-    return null;
-  }
-  const sourceUpdate = applyGpuRetainedContentRowHoverStateToSourceInput({
-    sourceInput,
-    targetRowId,
-  });
-  if (!sourceUpdate) {
-    return null;
-  }
-  const nextScene = applyGpuRetainedContentRowHoverStateToRetainedScene({
-    changedRowIds: sourceUpdate.changedRowIds,
-    retainedScene: surface.retainedScene,
-    targetRowId,
-  });
-  setGpuRetainedContentSceneSourceInput(nextScene, sourceUpdate.sourceInput);
-  return {
-    changedRowIds: sourceUpdate.changedRowIds,
-    surface: {
-      ...surface,
-      retainedScene: nextScene,
-    },
-  };
-}
-
-function applyGpuRetainedContentRowHoverStateToSourceInput({
-  sourceInput,
-  targetRowId,
-}: {
-  readonly sourceInput: GpuRetainedContentSceneSourceInput;
-  readonly targetRowId: string | null;
-}): {
-  readonly changedRowIds: Set<string>;
-  readonly sourceInput: GpuRetainedContentSceneSourceInput;
-} | null {
-  const changedRowIds = new Set<string>();
-  const nextRows = sourceInput.rows.map((row) => {
-    const hovered = targetRowId === row.id;
-    if (Boolean(row.state?.hovered) === hovered) {
-      return row;
-    }
-    changedRowIds.add(row.id);
-    return applyGpuRetainedContentRowInputHoverState(row, hovered);
-  });
-  if (changedRowIds.size === 0) {
-    return null;
-  }
-  const nextRowById = new Map(nextRows.map((row) => [row.id, row]));
-  const nextRowMetrics = sourceInput.layout.rowMetrics.map((metric) => {
-    if (!changedRowIds.has(metric.input.id)) {
-      return metric;
-    }
-    const input = nextRowById.get(metric.input.id);
-    if (!input) {
-      throw new Error(`Missing retained row input ${metric.input.id}.`);
-    }
+  if (hex?.groups) {
     return {
-      ...metric,
-      input,
+      a: 1,
+      b: Number.parseInt(hex.groups.blue, 16) / 255,
+      g: Number.parseInt(hex.groups.green, 16) / 255,
+      r: Number.parseInt(hex.groups.red, 16) / 255,
     };
-  });
-  return {
-    changedRowIds,
-    sourceInput: {
-      ...sourceInput,
-      layout: {
-        ...sourceInput.layout,
-        rowMetrics: nextRowMetrics,
-      },
-      rows: nextRows,
-    },
-  };
-}
-
-function applyGpuRetainedContentRowHoverStateToRetainedScene({
-  changedRowIds,
-  retainedScene,
-  targetRowId,
-}: {
-  readonly changedRowIds: ReadonlySet<string>;
-  readonly retainedScene: GpuRetainedContentScene;
-  readonly targetRowId: string | null;
-}): GpuRetainedContentScene {
-  return {
-    ...retainedScene,
-    drawCommands: retainedScene.drawCommands.map((command) =>
-      applyGpuRetainedContentRowHoverStateToDrawCommand({
-        changedRowIds,
-        command,
-        targetRowId,
-      }),
-    ),
-    rows: retainedScene.rows.map((row) =>
-      applyGpuRetainedContentRowHoverStateToRow({
-        changedRowIds,
-        row,
-        targetRowId,
-      }),
-    ),
-  };
-}
-
-function applyGpuRetainedContentRowHoverStateToRow({
-  changedRowIds,
-  row,
-  targetRowId,
-}: {
-  readonly changedRowIds: ReadonlySet<string>;
-  readonly row: GpuRetainedContentRow;
-  readonly targetRowId: string | null;
-}): GpuRetainedContentRow {
-  if (!changedRowIds.has(row.id)) {
-    return row;
   }
-  return {
-    ...row,
-    state: {
-      ...row.state,
-      hovered: targetRowId === row.id,
-    },
-  };
-}
-
-function applyGpuRetainedContentRowHoverStateToDrawCommand({
-  changedRowIds,
-  command,
-  targetRowId,
-}: {
-  readonly changedRowIds: ReadonlySet<string>;
-  readonly command: GpuRetainedContentDrawCommand;
-  readonly targetRowId: string | null;
-}): GpuRetainedContentDrawCommand {
-  if (command.kind !== "row-background" || !changedRowIds.has(command.rowId)) {
-    return command;
+  const rgba =
+    /^rgba\(\s*(?<red>\d+(?:\.\d+)?)\s*,\s*(?<green>\d+(?:\.\d+)?)\s*,\s*(?<blue>\d+(?:\.\d+)?)\s*,\s*(?<alpha>\d+(?:\.\d+)?)\s*\)$/iu.exec(
+      color.trim(),
+    );
+  if (rgba?.groups) {
+    return {
+      a: Number(rgba.groups.alpha),
+      b: Number(rgba.groups.blue) / 255,
+      g: Number(rgba.groups.green) / 255,
+      r: Number(rgba.groups.red) / 255,
+    };
   }
+  throw new Error(`Unsupported retained row hover color "${color}".`);
+}
+
+function intersectGpuRetainedContentRects(
+  left: GpuRect,
+  right: GpuRect,
+): GpuRect {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
   return {
-    ...command,
-    state: {
-      ...command.state,
-      hovered: targetRowId === command.rowId,
-    },
+    height,
+    width,
+    x,
+    y,
   };
 }
 
-function applyGpuRetainedContentRowInputHoverState(
-  row: GpuRetainedContentRowInput,
-  hovered: boolean,
-): GpuRetainedContentRowInput {
-  return {
-    ...row,
-    state: applyGpuRetainedContentPartialRowStateHover(row.state, hovered),
-  };
-}
-
-function applyGpuRetainedContentPartialRowStateHover(
-  state: Partial<GpuRetainedContentRowState> | undefined,
-  hovered: boolean,
-): Partial<GpuRetainedContentRowState> {
-  return {
-    ...state,
-    hovered,
-  };
-}
-
-function isGpuRetainedContentSurfaceWithScene(
-  surface: GpuContentSurface,
-): surface is GpuRetainedContentSurfaceWithScene {
-  return (
-    surface.renderer.kind === "canvas-content" && Boolean(surface.retainedScene)
+function isGpuRetainedContentRowHoverDarkMode(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return Boolean(
+    document.documentElement.closest(".dark") ??
+      document.body?.closest(".dark"),
   );
 }

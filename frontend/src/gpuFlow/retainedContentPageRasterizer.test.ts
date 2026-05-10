@@ -82,7 +82,7 @@ describe("createGpuRetainedContentPageRasterPlan", () => {
 });
 
 describe("filterGpuRetainedContentDrawCommandsForPage", () => {
-  it("keeps only commands whose draw bounds intersect the page rect", () => {
+  it("keeps only non-scrollbar commands whose draw bounds intersect the page rect", () => {
     const inside = rowBackgroundCommand("inside", {
       height: 20,
       width: 40,
@@ -108,7 +108,7 @@ describe("filterGpuRetainedContentDrawCommandsForPage", () => {
         commands: [inside, outside, scrollbar],
         sourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
       }),
-    ).toEqual([inside, scrollbar]);
+    ).toEqual([inside]);
   });
 });
 

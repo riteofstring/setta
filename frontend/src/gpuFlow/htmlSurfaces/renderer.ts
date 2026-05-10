@@ -249,18 +249,18 @@ export class HtmlSurfaceRenderer {
       effectSurfaceDraw,
       effectSurfaces,
     );
-    this.drawSolidRoundedRectSurfaces(
-      pass,
-      cameraBindGroup,
-      solidRoundedRectSurfaceDraw,
-      solidRoundedRectSurfaces,
-    );
     this.flatLayerPasses.drawLateFlat({
       cameraBindGroup,
       flatSurfaceDraw: lateFlatSurfaceDraw,
       flatSurfaces: lateFlatSurfaces,
       pass,
     });
+    this.drawSolidRoundedRectSurfaces(
+      pass,
+      cameraBindGroup,
+      solidRoundedRectSurfaceDraw,
+      solidRoundedRectSurfaces,
+    );
     pass.end();
 
     this.runtime.device.queue.submit([commandEncoder.finish()]);

@@ -1,84 +1,78 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyGpuRetainedContentRowHoverStateToScene,
   areGpuRetainedContentRowHoverTargetsEqual,
+  getGpuRetainedContentRowHoverVisuals,
 } from "./retainedContentRowHover";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
-import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 
-describe("applyGpuRetainedContentRowHoverStateToScene", () => {
-  it("moves row hover state through retained scene and source metadata", () => {
+describe("getGpuRetainedContentRowHoverVisuals", () => {
+  it("creates a transient hover visual for the targeted retained row", () => {
     const scene = flowScene();
 
-    const hoverA = applyGpuRetainedContentRowHoverStateToScene({
+    const visuals = getGpuRetainedContentRowHoverVisuals({
       scene,
       target: { rowId: "param-a", surfaceId: "dict-a:param-content" },
     });
 
-    expect(hoverA).not.toBeNull();
-    expect([
-      ...hoverA!.changedRowIdsBySurfaceId.get("dict-a:param-content")!,
-    ]).toEqual(["param-a"]);
-    expect(getRowHoverStates(hoverA!.scene)).toEqual({
-      "param-a": true,
-      "param-b": false,
+    expect(visuals).toHaveLength(1);
+    expect(visuals[0]).toMatchObject({
+      kind: "solid-rounded-rect",
+      radius: 0,
+      rect: { height: 28, width: 240, x: 12, y: 34 },
+      surfaceId: "dict-a:param-content:row-hover:param-a",
+      zIndex: 7,
     });
-    expect(getSourceInputHoverStates(hoverA!.scene)).toEqual({
-      "param-a": true,
-      "param-b": false,
-    });
-    expect(getRowBackgroundHoverStates(hoverA!.scene)).toEqual({
-      "param-a": true,
-      "param-b": false,
-    });
-
-    const hoverB = applyGpuRetainedContentRowHoverStateToScene({
-      scene: hoverA!.scene,
-      target: { rowId: "param-b", surfaceId: "dict-a:param-content" },
-    });
-
-    expect(hoverB).not.toBeNull();
-    expect([
-      ...hoverB!.changedRowIdsBySurfaceId.get("dict-a:param-content")!,
-    ]).toEqual(["param-a", "param-b"]);
-    expect(getRowHoverStates(hoverB!.scene)).toEqual({
-      "param-a": false,
-      "param-b": true,
-    });
-    expect(getSourceInputHoverStates(hoverB!.scene)).toEqual({
-      "param-a": false,
-      "param-b": true,
-    });
-
-    const cleared = applyGpuRetainedContentRowHoverStateToScene({
-      scene: hoverB!.scene,
-      target: null,
-    });
-
-    expect(cleared).not.toBeNull();
-    expect([
-      ...cleared!.changedRowIdsBySurfaceId.get("dict-a:param-content")!,
-    ]).toEqual(["param-b"]);
-    expect(getRowHoverStates(cleared!.scene)).toEqual({
+    expect(visuals[0]?.color.a).toBe(1);
+    expect(visuals[0]?.color.r).toBeCloseTo(239 / 255);
+    expect(visuals[0]?.color.g).toBeCloseTo(246 / 255);
+    expect(visuals[0]?.color.b).toBe(1);
+    expect(getRowHoverStates(scene)).toEqual({
       "param-a": false,
       "param-b": false,
     });
   });
 
-  it("does not update a scene whose retained row hover already matches", () => {
+  it("clips the hover visual to the retained viewport", () => {
     const scene = flowScene();
-    const hoverA = applyGpuRetainedContentRowHoverStateToScene({
-      scene,
+    const surface = getRetainedSurface(scene);
+    const clippedScene = {
+      ...scene,
+      contentSurfaces: [
+        {
+          ...surface,
+          clipRect: { height: 20, width: 240, x: 12, y: 48 },
+        },
+      ],
+    };
+
+    const visuals = getGpuRetainedContentRowHoverVisuals({
+      scene: clippedScene,
       target: { rowId: "param-a", surfaceId: "dict-a:param-content" },
     });
 
+    expect(visuals).toHaveLength(1);
+    expect(visuals[0]?.rect).toEqual({
+      height: 14,
+      width: 240,
+      x: 12,
+      y: 48,
+    });
+  });
+
+  it("returns no visual without a visible matching row", () => {
     expect(
-      applyGpuRetainedContentRowHoverStateToScene({
-        scene: hoverA!.scene,
-        target: { rowId: "param-a", surfaceId: "dict-a:param-content" },
+      getGpuRetainedContentRowHoverVisuals({
+        scene: flowScene(),
+        target: { rowId: "missing", surfaceId: "dict-a:param-content" },
       }),
-    ).toBeNull();
+    ).toEqual([]);
+    expect(
+      getGpuRetainedContentRowHoverVisuals({
+        scene: flowScene(),
+        target: null,
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -168,32 +162,6 @@ function getRowHoverStates(scene: GpuFlowScene): Record<string, boolean> {
       row.id,
       row.state.hovered,
     ]),
-  );
-}
-
-function getSourceInputHoverStates(
-  scene: GpuFlowScene,
-): Record<string, boolean> {
-  const sourceInput = getGpuRetainedContentSceneSourceInput(
-    getRetainedSurface(scene).retainedScene,
-  );
-  if (!sourceInput) {
-    throw new Error("Missing retained source input.");
-  }
-  return Object.fromEntries(
-    sourceInput.rows.map((row) => [row.id, Boolean(row.state?.hovered)]),
-  );
-}
-
-function getRowBackgroundHoverStates(
-  scene: GpuFlowScene,
-): Record<string, boolean> {
-  return Object.fromEntries(
-    getRetainedSurface(scene)
-      .retainedScene.drawCommands.filter(
-        (command) => command.kind === "row-background",
-      )
-      .map((command) => [command.rowId, command.state.hovered]),
   );
 }
 

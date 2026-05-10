@@ -919,6 +919,7 @@ export function GpuFlow({
         nodeLayerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedContentSwitchAnimations,
         runtime,
         surfaceRef,
         textureManagerRef,
@@ -929,7 +930,7 @@ export function GpuFlow({
       });
       callbacksRef.current.onFrame?.(runtime, event);
     },
-    [viewportStore],
+    [retainedContentSwitchAnimations, viewportStore],
   );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
