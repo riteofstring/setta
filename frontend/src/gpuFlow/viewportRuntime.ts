@@ -1,3 +1,9 @@
+import {
+  isChromeReproActive,
+  postChromeReproEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
+
 import type { GpuFrameReason } from "./gpuRenderer";
 import {
   gpuViewportToTuple,
@@ -61,11 +67,13 @@ type PendingGpuViewportInput =
   | {
       readonly delta: GpuPoint;
       readonly kind: "pan";
+      readonly queuedAtMs: number;
     }
   | {
       readonly factor: number;
       readonly kind: "zoom";
       readonly point: GpuPoint;
+      readonly queuedAtMs: number;
     };
 
 type ActiveGpuViewportTransition = {
@@ -75,7 +83,18 @@ type ActiveGpuViewportTransition = {
   readonly to: GpuViewport;
 };
 
+type GpuFlowObserverSnapshotPublishResult = {
+  readonly action: "not-requested" | "published" | "throttled";
+  readonly elapsedMs: number | null;
+  readonly publishDurationMs: number | null;
+};
+
 const DEFAULT_OBSERVER_PUBLISH_INTERVAL_MS = 500;
+const NO_OBSERVER_SNAPSHOT_PUBLISH: GpuFlowObserverSnapshotPublishResult = {
+  action: "not-requested",
+  elapsedMs: null,
+  publishDurationMs: null,
+};
 
 export function createGpuFlowViewportRuntime({
   observerPublishIntervalMs = DEFAULT_OBSERVER_PUBLISH_INTERVAL_MS,
@@ -173,6 +192,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     this.pendingInputs.push({
       delta: { x: delta.x, y: delta.y },
       kind: "pan",
+      queuedAtMs: performanceNow(),
     });
     this.requestViewportFrame();
     return true;
@@ -196,6 +216,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       factor,
       kind: "zoom",
       point: { x: point.x, y: point.y },
+      queuedAtMs: performanceNow(),
     });
     this.requestViewportFrame();
     return true;
@@ -259,20 +280,46 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     if (this.destroyed) {
       return { viewportChanged: false, viewportFrame: false };
     }
+    const frameStartedAtMs = performanceNow();
     this.viewportFramePending = false;
     this.cancelViewportFrameRetry();
     let viewportChanged = false;
+    let inputConsumeMs = 0;
+    let observerSnapshotPublish = NO_OBSERVER_SNAPSHOT_PUBLISH;
+    let overlayMs = 0;
+    const inputStats = summarizePendingGpuViewportInputs(
+      this.pendingInputs,
+      frameStartedAtMs,
+    );
     const inputFrame = this.pendingInputs.length > 0;
     if (inputFrame) {
+      const inputConsumeStartedAtMs = performanceNow();
       viewportChanged = this.consumePendingInput() || viewportChanged;
+      inputConsumeMs = performanceNow() - inputConsumeStartedAtMs;
     }
+    const transitionFrame = this.transition !== null;
     if (this.transition) {
       viewportChanged = this.runTransitionFrame(timestampMs) || viewportChanged;
     }
     if (viewportChanged) {
+      const overlayStartedAtMs = performanceNow();
       this.applyOverlayTransforms();
-      this.publishObserverSnapshot({ force: false, timestampMs });
+      overlayMs = performanceNow() - overlayStartedAtMs;
+      observerSnapshotPublish = this.publishObserverSnapshot({
+        force: false,
+        timestampMs,
+      });
     }
+    this.postViewportRuntimeFrameChromeReproEvent({
+      inputConsumeMs,
+      inputFrame,
+      inputStats,
+      observerSnapshotPublish,
+      overlayMs,
+      runtimeFrameMs: performanceNow() - frameStartedAtMs,
+      transitionFrame,
+      viewportChanged,
+    });
     return {
       viewportChanged,
       viewportFrame: inputFrame || viewportChanged,
@@ -376,20 +423,83 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
   }: {
     readonly force: boolean;
     readonly timestampMs?: number | undefined;
-  }) {
+  }): GpuFlowObserverSnapshotPublishResult {
+    const elapsedMs = Number.isFinite(this.lastObserverPublishMs)
+      ? timestampMs - this.lastObserverPublishMs
+      : null;
     if (
       !force &&
-      timestampMs - this.lastObserverPublishMs < this.observerPublishIntervalMs
+      elapsedMs !== null &&
+      elapsedMs < this.observerPublishIntervalMs
     ) {
-      return;
+      return {
+        action: "throttled",
+        elapsedMs: roundChromeReproMs(elapsedMs),
+        publishDurationMs: null,
+      };
     }
     this.lastObserverPublishMs = timestampMs;
     this.publishingObserverSnapshot = true;
+    const publishStartedAtMs = performanceNow();
     try {
       this.store.getState().setTransform(this.viewport);
     } finally {
       this.publishingObserverSnapshot = false;
     }
+    return {
+      action: "published",
+      elapsedMs: elapsedMs === null ? null : roundChromeReproMs(elapsedMs),
+      publishDurationMs: roundChromeReproMs(
+        performanceNow() - publishStartedAtMs,
+      ),
+    };
+  }
+
+  private postViewportRuntimeFrameChromeReproEvent({
+    inputConsumeMs,
+    inputFrame,
+    inputStats,
+    observerSnapshotPublish,
+    overlayMs,
+    runtimeFrameMs,
+    transitionFrame,
+    viewportChanged,
+  }: {
+    readonly inputConsumeMs: number;
+    readonly inputFrame: boolean;
+    readonly inputStats: ReturnType<typeof summarizePendingGpuViewportInputs>;
+    readonly observerSnapshotPublish: GpuFlowObserverSnapshotPublishResult;
+    readonly overlayMs: number;
+    readonly runtimeFrameMs: number;
+    readonly transitionFrame: boolean;
+    readonly viewportChanged: boolean;
+  }) {
+    if (
+      !isChromeReproActive() ||
+      (!inputFrame && !transitionFrame && !viewportChanged)
+    ) {
+      return;
+    }
+    const publicStoreViewport = normalizeGpuViewport(
+      this.store.getState().transform,
+    );
+    const runtimeViewport = normalizeGpuViewport(this.viewport);
+    postChromeReproEvent("gpu-flow-viewport-runtime-frame", {
+      inputConsumeMs: roundChromeReproMs(inputConsumeMs),
+      inputFrame,
+      observerPublishAction: observerSnapshotPublish.action,
+      observerPublishDurationMs: observerSnapshotPublish.publishDurationMs,
+      observerPublishElapsedMs: observerSnapshotPublish.elapsedMs,
+      observerPublishIntervalMs: this.observerPublishIntervalMs,
+      overlayMs: roundChromeReproMs(overlayMs),
+      publicStoreViewport:
+        roundGpuFlowViewportForChromeRepro(publicStoreViewport),
+      runtimeFrameMs: roundChromeReproMs(runtimeFrameMs),
+      runtimeViewport: roundGpuFlowViewportForChromeRepro(runtimeViewport),
+      transitionFrame,
+      viewportChanged,
+      ...inputStats,
+    });
   }
 
   private cancelRuntimeTransition(): boolean {
@@ -511,6 +621,38 @@ function areGpuViewportTuplesEqual(
   right: GpuViewportTuple,
 ): boolean {
   return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
+function summarizePendingGpuViewportInputs(
+  inputs: readonly PendingGpuViewportInput[],
+  nowMs: number,
+) {
+  let maxInputAgeMs = 0;
+  let panInputCount = 0;
+  let zoomInputCount = 0;
+  for (const input of inputs) {
+    maxInputAgeMs = Math.max(maxInputAgeMs, nowMs - input.queuedAtMs);
+    if (input.kind === "pan") {
+      panInputCount += 1;
+    } else {
+      zoomInputCount += 1;
+    }
+  }
+  return {
+    maxInputAgeMs:
+      inputs.length === 0 ? null : roundChromeReproMs(maxInputAgeMs),
+    panInputCount,
+    pendingInputCount: inputs.length,
+    zoomInputCount,
+  };
+}
+
+function roundGpuFlowViewportForChromeRepro(viewport: GpuViewport) {
+  return {
+    x: roundChromeReproMs(viewport.x),
+    y: roundChromeReproMs(viewport.y),
+    zoom: roundChromeReproMs(viewport.zoom),
+  };
 }
 
 function normalizeFiniteNonNegative(name: string, value: number): number {

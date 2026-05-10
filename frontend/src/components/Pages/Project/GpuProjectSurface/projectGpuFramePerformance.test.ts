@@ -67,18 +67,23 @@ describe("projectGpuFramePerformance", () => {
           retainedTexturePageUploadMs: 2.4,
           textureMemoryAllocatedBytes: 4096,
           uploadDiagnosticCount: 1,
-          uploadDiagnostics: [
+          uploadDiagnosticSummary: [
             expect.objectContaining({
-              cssHeight: 50.1,
-              cssWidth: 100.4,
-              dirtySourceRect: { height: 12.3, width: 24.7, x: 1.1, y: 2.2 },
+              count: 1,
+              dirtyTileBytes: 512,
               dirtyTileCount: 1,
               durationMs: 3.2,
+              priority: "interactive",
               reasons: ["animation"],
-              surfaceId: "node-12",
+              sampleSurfaceIds: ["node-12"],
+              textureLayoutKind: "single",
               uploadedBytes: 512,
+              uploadedTextureCount: 1,
+              uploadedTileCount: 1,
+              workKinds: ["content"],
             }),
           ],
+          uploadDiagnostics: [],
           uploadedNodeCount: 1,
           viewport: { x: 10.1, y: 20.6, zoom: 0.6 },
           visibleNodeCount: 4,
@@ -152,8 +157,10 @@ function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
     retainedTexturePageBudgetExhausted: true,
     retainedTexturePageCoverageCandidateCount: 5,
     retainedTexturePageDiagnosticCount: 1,
+    retainedTexturePageDrawQuadCount: 1,
     retainedTexturePageEvictedBytes: 512,
     retainedTexturePageEvictedCount: 1,
+    retainedTexturePageFallbackDrawQuadCount: 0,
     retainedTexturePageMemoryCommittedBytes: 4096,
     retainedTexturePageMemoryCommittedCount: 4,
     retainedTexturePageMemoryRetiredBytes: 0,
@@ -170,6 +177,7 @@ function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
     retainedTexturePageUploadCount: 2,
     retainedTexturePageUploadMs: 2.35,
     skippedNodeCount: 1,
+    solidRoundedRectSurfaceCount: 0,
     textureMemoryAllocatedBytes: 4096,
     textureMemoryBeforeEvictionAllocatedBytes: 8192,
     textureMemoryBeforeEvictionCount: 5,
@@ -177,6 +185,21 @@ function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
     textureMemoryLargestBytes: 2048,
     textureMemoryVisibleBytes: 3072,
     textureMemoryVisibleCount: 3,
+    textureLifecycleDiagnosticCount: 0,
+    textureLifecycleDiagnostics: [],
+    textureUploadDeferredSurfaceCount: 0,
+    textureUploadInitialDirtySurfaceCount: 1,
+    textureUploadInitialDirtyWorkCounts: createDirtyWorkCounts({
+      content: 1,
+    }),
+    textureUploadNoWorkReason: null,
+    textureUploadPaintUnavailableSurfaceCount: 0,
+    textureUploadRemainingDirtySurfaceCount: 0,
+    textureUploadRemainingDirtyWorkCounts: createDirtyWorkCounts(),
+    textureUploadSkippedSurfaceCount: 0,
+    textureUploadUploadableRemainingDirtySurfaceCount: 0,
+    textureUploadUploadableRemainingDirtyWorkCounts: createDirtyWorkCounts(),
+    textureUploadUploadedSurfaceCount: 1,
     uploadDiagnosticCount: 1,
     uploadDiagnostics: [
       {
@@ -203,11 +226,35 @@ function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
         uploadedBytes: 512,
         uploadedTextureCount: 1,
         uploadedTileCount: 1,
+        workKinds: ["content"],
       },
     ],
     uploadedNodeCount: 1,
     viewport: { x: 10.12, y: 20.56, zoom: 0.55 },
     viewportFrame: false,
     visibleNodeCount: 4,
+  };
+}
+
+function createDirtyWorkCounts(
+  overrides: Partial<
+    Record<
+      | "animation"
+      | "content"
+      | "geometry"
+      | "hover"
+      | "resolution"
+      | "source-window",
+      number
+    >
+  > = {},
+) {
+  return {
+    animation: overrides.animation ?? 0,
+    content: overrides.content ?? 0,
+    geometry: overrides.geometry ?? 0,
+    hover: overrides.hover ?? 0,
+    resolution: overrides.resolution ?? 0,
+    "source-window": overrides["source-window"] ?? 0,
   };
 }

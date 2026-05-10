@@ -9,7 +9,9 @@ import {
 
 import {
   isChromeReproActive,
-  postChromeReproEvent,
+  isChromeReproVerboseGpuFlowActive,
+  nowChromeReproPerformanceMs,
+  postMeasuredChromeReproEvent,
   roundChromeReproMs,
 } from "state/actions/chromeRepro";
 
@@ -99,15 +101,26 @@ export function useGpuFlowRetainedTextLikeRowSnapshotSources({
     if (!isChromeReproActive()) {
       return;
     }
-    const state = sources.map(summarizeGpuRetainedTextLikeRowSnapshotSource);
+    const buildStartedAtMs = nowChromeReproPerformanceMs();
+    const verbose = isChromeReproVerboseGpuFlowActive();
+    const state = sources.map((source) =>
+      summarizeGpuRetainedTextLikeRowSnapshotSource(source, { verbose }),
+    );
     const signature = JSON.stringify(state);
     if (signature === chromeReproSourceSignatureRef.current) {
       return;
     }
     chromeReproSourceSignatureRef.current = signature;
-    postChromeReproEvent("gpu-flow-retained-text-like-row-snapshot-sources", {
-      sources: state,
-    });
+    postMeasuredChromeReproEvent(
+      "gpu-flow-retained-text-like-row-snapshot-sources",
+      {
+        sourceCount: sources.length,
+        sources: state,
+      },
+      {
+        buildDurationMs: nowChromeReproPerformanceMs() - buildStartedAtMs,
+      },
+    );
   }, [sources]);
   const handleSnapshotElementChange = useCallback(
     (sourceId: string, element: HTMLElement | null) => {
@@ -224,10 +237,13 @@ function getGpuRetainedTextLikeRowSnapshotSourcesForSurface(
 
 function summarizeGpuRetainedTextLikeRowSnapshotSource(
   source: GpuRetainedTextLikeRowSnapshotSource,
+  { verbose }: { readonly verbose: boolean },
 ): {
-  readonly code: string;
+  readonly code?: string | undefined;
+  readonly codeLength: number;
   readonly commitPolicy: string;
-  readonly defaultValue: string;
+  readonly defaultValue?: string | undefined;
+  readonly defaultValueLength: number;
   readonly disabled: boolean;
   readonly editorKind: string;
   readonly error: boolean;
@@ -246,9 +262,11 @@ function summarizeGpuRetainedTextLikeRowSnapshotSource(
   readonly wrapLines: boolean;
 } {
   return {
-    code: source.code,
+    ...(verbose ? { code: source.code } : {}),
+    codeLength: source.code.length,
     commitPolicy: source.commitPolicy,
-    defaultValue: source.defaultValue,
+    ...(verbose ? { defaultValue: source.defaultValue } : {}),
+    defaultValueLength: source.defaultValue.length,
     disabled: source.disabled,
     editorKind: source.editorKind,
     error: source.error,

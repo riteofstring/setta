@@ -15,6 +15,7 @@ import { attachGpuRetainedContentScrollController } from "./retainedContentScrol
 
 const chromeReproMock = vi.hoisted(() => ({
   isChromeReproActive: vi.fn(() => false),
+  nowChromeReproPerformanceMs: vi.fn(() => 0),
   postChromeReproEvent: vi.fn(),
   roundChromeReproMs: (value: number) => Math.round(value * 1000) / 1000,
 }));
@@ -25,6 +26,7 @@ describe("GPU retained content scroll controller", () => {
   afterEach(() => {
     document.body.replaceChildren();
     chromeReproMock.isChromeReproActive.mockReturnValue(false);
+    chromeReproMock.nowChromeReproPerformanceMs.mockClear();
     chromeReproMock.postChromeReproEvent.mockClear();
     vi.useRealTimers();
     vi.unstubAllGlobals();
