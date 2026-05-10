@@ -273,6 +273,9 @@ export function toNodeQuad(node: GpuNodeLayout): GpuVisibleNodeQuad | null {
   return {
     height: node.height,
     nodeId: node.nodeId,
+    ...(node.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: node.textureContentKey }),
     ...(node.textureCssHeight === undefined
       ? {}
       : { textureCssHeight: node.textureCssHeight }),

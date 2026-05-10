@@ -75,6 +75,7 @@ import {
 export type GpuNodeLayout = {
   readonly height: number | null;
   readonly nodeId: string;
+  readonly textureContentKey?: string | undefined;
   readonly textureCssHeight?: number | undefined;
   readonly textureCssWidth?: number | undefined;
   readonly textureSourceRect?: GpuRect | undefined;
@@ -88,6 +89,7 @@ export type GpuNodeLayout = {
 export type GpuVisibleNodeQuad = {
   readonly height: number;
   readonly nodeId: string;
+  readonly textureContentKey?: string | undefined;
   readonly textureCssHeight?: number | undefined;
   readonly textureCssWidth?: number | undefined;
   readonly textureSourceRect?: GpuRect | undefined;
@@ -101,6 +103,7 @@ export type GpuHtmlSurfaceOverlayLayout = {
   readonly height: number;
   readonly ownerNodeId?: string | undefined;
   readonly surfaceId: string;
+  readonly textureContentKey?: string | undefined;
   readonly textureCssHeight?: number | undefined;
   readonly textureCssWidth?: number | undefined;
   readonly textureSourceRect?: GpuRect | undefined;
@@ -564,6 +567,9 @@ function registerVisibleGpuNodeTextures({
         activeSurfaceIds,
       ),
       surfaceId: quad.nodeId,
+      ...(quad.textureContentKey
+        ? { textureContentKey: quad.textureContentKey }
+        : {}),
       ...(quad.textureSourceRect
         ? { textureSourceRect: quad.textureSourceRect }
         : {}),
@@ -687,6 +693,9 @@ export function collectVisibleGpuNodeQuads({
       ...(quad.textureCssWidth === undefined
         ? {}
         : { textureCssWidth: quad.textureCssWidth }),
+      ...(quad.textureContentKey === undefined
+        ? {}
+        : { textureContentKey: quad.textureContentKey }),
       ...(quad.textureSourceRect === undefined
         ? {}
         : { textureSourceRect: quad.textureSourceRect }),
@@ -734,6 +743,9 @@ function toGpuHtmlSurfaceOverlayNodeLayouts(
     ...(overlay.textureCssWidth === undefined
       ? {}
       : { textureCssWidth: overlay.textureCssWidth }),
+    ...(overlay.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: overlay.textureContentKey }),
     ...(overlay.textureSourceRect === undefined
       ? {}
       : { textureSourceRect: overlay.textureSourceRect }),

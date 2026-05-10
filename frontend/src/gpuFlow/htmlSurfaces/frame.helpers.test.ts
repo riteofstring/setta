@@ -6,6 +6,7 @@ import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
   CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLifecycleDiagnostic,
+  HtmlSurfaceTextureUploadWorkSummary,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
@@ -203,7 +204,9 @@ export function createFrameTextureManager() {
     markSurfaceTextureDirty: vi.fn(() => true),
     markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
-      ({ surfaceId }: { readonly surfaceId: string }) => {
+      ({
+        surfaceId,
+      }: { readonly surfaceId: string } & Record<string, unknown>) => {
         const record = textureRecord(
           surfaceId,
         ) as CommittedHtmlSurfaceTextureSnapshot & {
@@ -219,6 +222,8 @@ export function createFrameTextureManager() {
         const uploaded = Array.from(records.values()) as Array<
           CommittedHtmlSurfaceTextureSnapshot & { lastUploadFrame: number }
         >;
+        const noUploadReason: HtmlSurfaceTextureUploadWorkSummary["noUploadReason"] =
+          uploaded.length > 0 ? null : "no-dirty-surfaces";
         uploaded.forEach((record) => {
           record.lastUploadFrame = frame;
         });
@@ -236,7 +241,7 @@ export function createFrameTextureManager() {
           workSummary: {
             deferredSurfaceCount: 0,
             initialDirtySurfaceCount: uploaded.length,
-            noUploadReason: uploaded.length > 0 ? null : "no-dirty-surfaces",
+            noUploadReason,
             paintUnavailableSurfaceCount: 0,
             remainingDirtySurfaceCount: 0,
             skippedSurfaceCount: 0,

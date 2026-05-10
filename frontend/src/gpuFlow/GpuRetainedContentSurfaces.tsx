@@ -51,6 +51,7 @@ export type GpuRetainedContentSourceSurface = GpuRetainedContentSurface & {
 type GpuRetainedContentTextureWindow = {
   readonly cacheScrollOffset: GpuPoint;
   readonly cacheViewportRect: GpuRect;
+  readonly contentKey: string;
   readonly sourceRect: GpuRect;
   readonly textureHeight: number;
   readonly textureScale: number;
@@ -201,6 +202,7 @@ function toGpuRetainedContentSurfaceLayout({
     height: surface.rect.height,
     ownerNodeId: surface.ownerSectionId,
     surfaceId: sourceId,
+    textureContentKey: surface.textureWindow.contentKey,
     textureCssHeight: surface.textureWindow.textureHeight,
     textureCssWidth: surface.textureWindow.textureWidth,
     textureSourceRect: surface.textureWindow.sourceRect,
@@ -378,6 +380,7 @@ function GpuRetainedContentCanvas({
     surface.sourceClipOffset.y,
     surface.textureWindow.cacheScrollOffset.x,
     surface.textureWindow.cacheScrollOffset.y,
+    surface.textureWindow.contentKey,
     surface.textureWindow.sourceRect.height,
     surface.textureWindow.sourceRect.width,
     surface.textureWindow.sourceRect.x,
@@ -694,8 +697,9 @@ function getGpuRetainedContentCanvasViewportZoomBucket(
 function normalizeGpuRetainedContentViewportZoomBucket(
   viewportZoomBucket: number | undefined,
 ): number {
-  return Number.isFinite(viewportZoomBucket) && viewportZoomBucket > 0
-    ? viewportZoomBucket
+  const resolvedZoomBucket = viewportZoomBucket ?? 1;
+  return Number.isFinite(resolvedZoomBucket) && resolvedZoomBucket > 0
+    ? resolvedZoomBucket
     : 1;
 }
 
@@ -784,12 +788,51 @@ function resolveGpuRetainedContentTextureWindow({
       ...scene.viewportRect,
       height: textureHeight,
     },
+    contentKey: createGpuRetainedContentTextureContentKey({
+      cacheScrollX: scene.scrollOffset.x,
+      cacheScrollY: cacheTop,
+      sourceClipOffset,
+      textureHeight,
+      textureScale: getGpuRetainedContentTextureScale(resolvedZoomBucket),
+      textureWidth,
+      viewportZoomBucket: resolvedZoomBucket,
+    }),
     sourceRect,
     textureHeight,
     textureScale: getGpuRetainedContentTextureScale(resolvedZoomBucket),
     textureWidth,
     viewportZoomBucket: resolvedZoomBucket,
   };
+}
+
+function createGpuRetainedContentTextureContentKey({
+  cacheScrollX,
+  cacheScrollY,
+  sourceClipOffset,
+  textureHeight,
+  textureScale,
+  textureWidth,
+  viewportZoomBucket,
+}: {
+  readonly cacheScrollX: number;
+  readonly cacheScrollY: number;
+  readonly sourceClipOffset: GpuPoint;
+  readonly textureHeight: number;
+  readonly textureScale: number;
+  readonly textureWidth: number;
+  readonly viewportZoomBucket: number;
+}): string {
+  return [
+    "retained-content-v1",
+    cacheScrollX,
+    cacheScrollY,
+    sourceClipOffset.x,
+    sourceClipOffset.y,
+    textureWidth,
+    textureHeight,
+    textureScale,
+    viewportZoomBucket,
+  ].join(":");
 }
 
 function resolveGpuRetainedContentTextureCacheHeight({

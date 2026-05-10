@@ -9,6 +9,15 @@ import {
   registerNode,
 } from "./textures.helpers.test";
 
+function requireCommittedSurfaceTexture(
+  manager: HtmlSurfaceTextureManager,
+  surfaceId: string,
+) {
+  const record = manager.getCommittedSurfaceTexture(surfaceId);
+  expect(record).toBeDefined();
+  return record!;
+}
+
 describe("HtmlSurfaceTextureManager", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -63,7 +72,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 80_000,
     });
-    expect(record).toMatchObject({
+    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 2,
@@ -165,7 +174,11 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 300 * 200 * 4,
     });
-    expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
+    expect(
+      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
+        (tile) => tile.lastUploadFrame === 2,
+      ),
+    ).toBe(true);
   });
 
   it("uploads single-texture dirty source rects into the existing texture origin", () => {
@@ -246,7 +259,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 40 * 20 * 4,
     });
-    expect(record).toMatchObject({
+    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 4,
@@ -384,12 +397,13 @@ describe("HtmlSurfaceTextureManager", () => {
         texture: record.tiles[1]?.texture,
       },
     );
-    expect(record.tiles[1]).toMatchObject({
+    const committed = requireCommittedSurfaceTexture(manager, "large-node");
+    expect(committed.tiles[1]).toMatchObject({
       dirtyContent: false,
       lastUploadFrame: 4,
     });
     expect(
-      record.tiles
+      committed.tiles
         .filter((tile) => tile.tileId !== "large-node:1:0")
         .every((tile) => tile.lastUploadFrame === 2),
     ).toBe(true);
@@ -435,7 +449,11 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: 2 * 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(8);
-    expect(record.tiles.slice(0, 2)).toMatchObject([
+    const partiallyUploaded = requireCommittedSurfaceTexture(
+      manager,
+      "large-node",
+    );
+    expect(partiallyUploaded.tiles.slice(0, 2)).toMatchObject([
       {
         dirtyContent: false,
         lastUploadFrame: 4,
@@ -445,7 +463,9 @@ describe("HtmlSurfaceTextureManager", () => {
         lastUploadFrame: 4,
       },
     ]);
-    expect(record.tiles.slice(2).every((tile) => tile.dirtyContent)).toBe(true);
+    expect(
+      partiallyUploaded.tiles.slice(2).every((tile) => tile.dirtyContent),
+    ).toBe(true);
 
     const remaining = manager.uploadDirtySurfaceTextures({ frame: 5 });
 
@@ -456,7 +476,11 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(12);
-    expect(record.tiles.every((tile) => !tile.dirtyContent)).toBe(true);
+    expect(
+      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
+        (tile) => !tile.dirtyContent,
+      ),
+    ).toBe(true);
   });
 
   it("spends tiled first-visible uploads under the upload budget before exposing the record", () => {
@@ -488,8 +512,12 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: record.textureBytes - 2 * 128 * 128 * 4,
       uploadedBytes: 2 * 128 * 128 * 4,
     });
-    expect(record.lastUploadFrame).toBe(-1);
-    expect(record.tiles.slice(0, 2)).toMatchObject([
+    const partiallyUploaded = requireCommittedSurfaceTexture(
+      manager,
+      "large-node",
+    );
+    expect(partiallyUploaded.lastUploadFrame).toBe(-1);
+    expect(partiallyUploaded.tiles.slice(0, 2)).toMatchObject([
       {
         dirtyResolution: false,
         lastUploadFrame: 2,
@@ -499,9 +527,9 @@ describe("HtmlSurfaceTextureManager", () => {
         lastUploadFrame: 2,
       },
     ]);
-    expect(record.tiles.slice(2).every((tile) => tile.dirtyResolution)).toBe(
-      true,
-    );
+    expect(
+      partiallyUploaded.tiles.slice(2).every((tile) => tile.dirtyResolution),
+    ).toBe(true);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
 
     const complete = manager.uploadDirtySurfaceTextures({
@@ -515,8 +543,9 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
     });
-    expect(record.lastUploadFrame).toBe(3);
-    expect(record.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
+    const committed = requireCommittedSurfaceTexture(manager, "large-node");
+    expect(committed.lastUploadFrame).toBe(3);
+    expect(committed.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
   });
 
@@ -616,7 +645,8 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(gpu.createTexture).toHaveBeenCalledTimes(2);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
-    expect(record).toMatchObject({
+    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    expect(committed).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 3,
@@ -630,7 +660,7 @@ describe("HtmlSurfaceTextureManager", () => {
       300,
       150,
       {
-        texture: record.texture,
+        texture: committed.texture,
       },
     );
   });
@@ -684,7 +714,7 @@ describe("HtmlSurfaceTextureManager", () => {
     ]);
 
     manager.uploadDirtySurfaceTextures({ frame: 4 });
-    expect(record).toMatchObject({
+    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
       lastUploadFrame: 4,
       pixelHeight: 150,
       pixelWidth: 300,
@@ -877,9 +907,10 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 128 * 72 * 4 + 72 * 72 * 4,
     });
-    expect(record.texture).not.toBe(oldTexture);
+    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    expect(committed.texture).not.toBe(oldTexture);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
-    expect(record).toMatchObject({
+    expect(committed).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 5,
@@ -906,7 +937,7 @@ describe("HtmlSurfaceTextureManager", () => {
     const initialSourceRect = { height: 100, width: 100, x: 0, y: 0 };
     const nextSourceRect = { height: 100, width: 100, x: 0, y: 128 };
 
-    const record = manager.registerSurfaceTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 200,
       cssWidth: 300,
       devicePixelRatio: 1,
@@ -935,12 +966,57 @@ describe("HtmlSurfaceTextureManager", () => {
     });
 
     expect(partial.budgetExhausted).toBe(true);
-    expect(record.textureSourceRect).toEqual(initialSourceRect);
+    expect(
+      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+    ).toEqual(initialSourceRect);
 
     const complete = manager.uploadDirtySurfaceTextures({ frame: 5 });
 
     expect(complete.budgetExhausted).toBe(false);
-    expect(record.textureSourceRect).toEqual(nextSourceRect);
+    expect(
+      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+    ).toEqual(nextSourceRect);
+  });
+
+  it("retargets a source rect without upload when the texture content key is unchanged", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const element = document.createElement("div");
+    const initialSourceRect = { height: 100, width: 100, x: 0, y: 0 };
+    const nextSourceRect = { height: 100, width: 100, x: 0, y: 24 };
+
+    manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      textureContentKey: "cache-a",
+      textureSourceRect: initialSourceRect,
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    gpu.copyElementImageToTexture.mockClear();
+
+    manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 3,
+      surfaceId: "node-a",
+      textureContentKey: "cache-a",
+      textureSourceRect: nextSourceRect,
+      zoom: 1,
+    });
+
+    expect(manager.getDirtySurfaces()).toEqual([]);
+    expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
+    expect(
+      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+    ).toEqual(nextSourceRect);
   });
 
   it("defers existing passive content uploads during active viewport frames", () => {

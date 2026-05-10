@@ -36,6 +36,7 @@ export type PendingHtmlSurfaceTextureSnapshot = Mutable<
     | "surfaceId"
     | "texture"
     | "textureBytes"
+    | "textureContentKey"
     | "textureLayout"
     | "textureSourceRect"
     | "textureView"
@@ -44,34 +45,15 @@ export type PendingHtmlSurfaceTextureSnapshot = Mutable<
   >
 >;
 
-type PendingResolutionTextureEntry = Mutable<
-  Pick<
-    CommittedHtmlSurfaceTextureSnapshot,
-    | "clampedByMaxTexture"
-    | "cssHeight"
-    | "cssWidth"
-    | "dirtyContent"
-    | "dirtyResolution"
-    | "lastUploadFrame"
-    | "maxTextureDimension2D"
-    | "pixelHeight"
-    | "pixelWidth"
-    | "requestedScale"
-    | "resolutionScale"
-    | "sampler"
-    | "surfaceId"
-    | "texture"
-    | "textureBytes"
-    | "textureLayout"
-    | "textureSourceRect"
-    | "textureView"
-    | "tiles"
-    | "zoomBucket"
-  >
-> & {
+type PendingResolutionTextureHandle = {
+  committed: CommittedHtmlSurfaceTextureSnapshot;
   element: Element;
   pendingResolution: TextureResolution | null;
   pendingTextureRecord: PendingHtmlSurfaceTextureSnapshot | null;
+  pendingTextureContentKey?:
+    | CommittedHtmlSurfaceTextureSnapshot["textureContentKey"]
+    | null
+    | undefined;
   pendingTextureSourceRect?:
     | CommittedHtmlSurfaceTextureSnapshot["textureSourceRect"]
     | null
@@ -89,7 +71,7 @@ export function uploadPendingResolutionRecord({
   frame,
   options,
   queue,
-  record,
+  handle,
   uploadProgress,
 }: {
   readonly createTextureLayoutResources: (
@@ -106,7 +88,7 @@ export function uploadPendingResolutionRecord({
   readonly frame: number;
   readonly options: TextureUploadBudgetOptions;
   readonly queue: GpuQueueWithElementUpload;
-  readonly record: PendingResolutionTextureEntry;
+  readonly handle: PendingResolutionTextureHandle;
   readonly uploadProgress: Pick<
     HtmlSurfaceTextureUploadBudget,
     "startedAt" | "uploadedBytes" | "uploadedTextureCount"
@@ -115,13 +97,13 @@ export function uploadPendingResolutionRecord({
   const pendingRecord = ensurePendingResolutionRecord({
     createTextureLayoutResources,
     destroyTextureTiles,
-    record,
+    handle,
   });
   const upload = uploadHtmlSurfaceTextureSnapshot(
     queue,
     {
       ...pendingRecord,
-      element: record.element,
+      element: handle.element,
     },
     createTextureUploadBudget(options, uploadProgress),
   );
@@ -137,8 +119,8 @@ export function uploadPendingResolutionRecord({
     commitPendingResolutionRecord({
       destroyTextureTiles,
       frame,
+      handle,
       pendingRecord,
-      record,
     });
   }
   return upload;
@@ -173,7 +155,7 @@ export function pendingTextureResolutionMatches(
 function ensurePendingResolutionRecord({
   createTextureLayoutResources,
   destroyTextureTiles,
-  record,
+  handle,
 }: {
   readonly createTextureLayoutResources: (
     surfaceId: string,
@@ -186,16 +168,25 @@ function ensurePendingResolutionRecord({
   readonly destroyTextureTiles: (
     tiles: readonly HtmlSurfaceTextureTileRecord[],
   ) => void;
-  readonly record: PendingResolutionTextureEntry;
+  readonly handle: PendingResolutionTextureHandle;
 }): PendingHtmlSurfaceTextureSnapshot {
-  const resolution = record.pendingResolution;
+  const resolution = handle.pendingResolution;
   if (!resolution) {
     throw new Error(
-      `Setta HTML surface "${record.surfaceId}" has no pending texture resolution to upload.`,
+      `Setta HTML surface "${handle.committed.surfaceId}" has no pending texture resolution to upload.`,
     );
   }
-  const existing = record.pendingTextureRecord;
-  if (existing && pendingTextureResolutionMatches(existing, resolution)) {
+  const descriptor = resolvePendingTextureDescriptor(handle);
+  const existing = handle.pendingTextureRecord;
+  if (
+    existing &&
+    pendingTextureResolutionMatches(existing, resolution) &&
+    existing.textureContentKey === descriptor.textureContentKey &&
+    textureSourceRectsEqual(
+      existing.textureSourceRect,
+      descriptor.textureSourceRect,
+    )
+  ) {
     return existing;
   }
   if (existing) {
@@ -203,7 +194,7 @@ function ensurePendingResolutionRecord({
   }
 
   const layoutResources = createTextureLayoutResources(
-    record.surfaceId,
+    handle.committed.surfaceId,
     resolution,
     {
       dirtyContent: true,
@@ -224,18 +215,15 @@ function ensurePendingResolutionRecord({
     pixelWidth: resolution.pixelWidth,
     requestedScale: resolution.requestedScale,
     resolutionScale: resolution.resolutionScale,
-    surfaceId: record.surfaceId,
+    surfaceId: handle.committed.surfaceId,
     textureBytes: layoutResources.textureBytes,
     textureLayout: layoutResources.textureLayout,
-    ...textureSourceRectOption(
-      record.pendingTextureSourceRect === undefined
-        ? record.textureSourceRect
-        : record.pendingTextureSourceRect ?? undefined,
-    ),
+    ...textureContentKeyOption(descriptor.textureContentKey),
+    ...textureSourceRectOption(descriptor.textureSourceRect),
     tiles: layoutResources.tiles,
     zoomBucket: resolution.zoomBucket,
   };
-  record.pendingTextureRecord = pendingRecord;
+  handle.pendingTextureRecord = pendingRecord;
   return pendingRecord;
 }
 
@@ -271,41 +259,39 @@ function updatePendingUploadedTiles({
 function commitPendingResolutionRecord({
   destroyTextureTiles,
   frame,
+  handle,
   pendingRecord,
-  record,
 }: {
   readonly destroyTextureTiles: (
     tiles: readonly HtmlSurfaceTextureTileRecord[],
   ) => void;
   readonly frame: number;
+  readonly handle: PendingResolutionTextureHandle;
   readonly pendingRecord: PendingHtmlSurfaceTextureSnapshot;
-  readonly record: PendingResolutionTextureEntry;
 }) {
-  const previousTiles = record.tiles;
-  record.texture = pendingRecord.texture;
-  record.textureView = pendingRecord.textureView;
-  record.sampler = pendingRecord.sampler;
-  record.clampedByMaxTexture = pendingRecord.clampedByMaxTexture;
-  record.cssHeight = pendingRecord.cssHeight;
-  record.cssWidth = pendingRecord.cssWidth;
-  record.dirtyContent = false;
-  record.dirtyResolution = false;
-  record.lastUploadFrame = frame;
-  record.maxTextureDimension2D = pendingRecord.maxTextureDimension2D;
-  record.pendingResolution = null;
-  record.pendingTextureRecord = null;
-  if (record.pendingTextureSourceRect !== undefined) {
-    record.textureSourceRect = record.pendingTextureSourceRect ?? undefined;
-    record.pendingTextureSourceRect = undefined;
-  }
-  record.pixelHeight = pendingRecord.pixelHeight;
-  record.pixelWidth = pendingRecord.pixelWidth;
-  record.requestedScale = pendingRecord.requestedScale;
-  record.resolutionScale = pendingRecord.resolutionScale;
-  record.textureBytes = pendingRecord.textureBytes;
-  record.textureLayout = pendingRecord.textureLayout;
-  record.tiles = pendingRecord.tiles;
-  record.zoomBucket = pendingRecord.zoomBucket;
+  const previousCommitted = handle.committed;
+  const previousTiles = previousCommitted.tiles;
+  handle.committed = {
+    ...previousCommitted,
+    ...pendingRecord,
+    dirtyContent: false,
+    dirtyResolution: false,
+    lastUploadFrame: frame,
+    ...textureContentKeyOption(
+      handle.pendingTextureContentKey === undefined
+        ? pendingRecord.textureContentKey
+        : handle.pendingTextureContentKey ?? undefined,
+    ),
+    ...textureSourceRectOption(
+      handle.pendingTextureSourceRect === undefined
+        ? pendingRecord.textureSourceRect
+        : handle.pendingTextureSourceRect ?? undefined,
+    ),
+  };
+  handle.pendingResolution = null;
+  handle.pendingTextureRecord = null;
+  handle.pendingTextureContentKey = undefined;
+  handle.pendingTextureSourceRect = undefined;
   destroyTextureTiles(previousTiles);
 }
 
@@ -328,4 +314,45 @@ function textureSourceRectOption(
   | Pick<PendingHtmlSurfaceTextureSnapshot, "textureSourceRect">
   | Record<string, never> {
   return textureSourceRect ? { textureSourceRect } : {};
+}
+
+function textureContentKeyOption(
+  textureContentKey: CommittedHtmlSurfaceTextureSnapshot["textureContentKey"],
+):
+  | Pick<PendingHtmlSurfaceTextureSnapshot, "textureContentKey">
+  | Record<string, never> {
+  return textureContentKey ? { textureContentKey } : {};
+}
+
+function resolvePendingTextureDescriptor(
+  handle: PendingResolutionTextureHandle,
+): Pick<
+  PendingHtmlSurfaceTextureSnapshot,
+  "textureContentKey" | "textureSourceRect"
+> {
+  return {
+    textureContentKey:
+      handle.pendingTextureContentKey === undefined
+        ? handle.committed.textureContentKey
+        : handle.pendingTextureContentKey ?? undefined,
+    textureSourceRect:
+      handle.pendingTextureSourceRect === undefined
+        ? handle.committed.textureSourceRect
+        : handle.pendingTextureSourceRect ?? undefined,
+  };
+}
+
+function textureSourceRectsEqual(
+  left: CommittedHtmlSurfaceTextureSnapshot["textureSourceRect"],
+  right: CommittedHtmlSurfaceTextureSnapshot["textureSourceRect"],
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return (
+    left.height === right.height &&
+    left.width === right.width &&
+    left.x === right.x &&
+    left.y === right.y
+  );
 }

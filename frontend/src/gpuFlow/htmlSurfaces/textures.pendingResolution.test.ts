@@ -7,6 +7,15 @@ import {
   installTextureUsage,
 } from "./textures.helpers.test";
 
+function requireCommittedSurfaceTexture(
+  manager: HtmlSurfaceTextureManager,
+  surfaceId: string,
+) {
+  const record = manager.getCommittedSurfaceTexture(surfaceId);
+  expect(record).toBeDefined();
+  return record!;
+}
+
 describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -75,8 +84,9 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: [],
     });
-    expect(record.texture).not.toBe(oldTexture);
-    expect(record).toMatchObject({
+    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    expect(committed.texture).not.toBe(oldTexture);
+    expect(committed).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 6,
@@ -230,7 +240,7 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
     ]);
 
     manager.uploadDirtySurfaceTextures({ frame: 4, maxUploads: 1 });
-    expect(record).toMatchObject({
+    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
       cssHeight: 120,
       cssWidth: 100,
       lastUploadFrame: 4,

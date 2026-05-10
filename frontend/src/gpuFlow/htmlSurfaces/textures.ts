@@ -120,6 +120,7 @@ export type CommittedHtmlSurfaceTextureSnapshot = {
   readonly surfaceId: string;
   readonly textureBytes: number;
   readonly texture: GPUTexture;
+  readonly textureContentKey?: string | undefined;
   readonly textureView: GPUTextureView;
   readonly textureLayout: HtmlSurfaceTextureLayout;
   readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
@@ -135,6 +136,7 @@ type RegisterHtmlSurfaceTextureInput = {
   readonly frame?: number | undefined;
   readonly priority?: HtmlSurfaceTexturePriority | undefined;
   readonly surfaceId: string;
+  readonly textureContentKey?: string | undefined;
   readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly zoom: number;
 };
@@ -189,6 +191,7 @@ export type HtmlSurfaceTextureSnapshotDiagnostic = {
   readonly requestedScale: number;
   readonly resolutionScale: number;
   readonly textureBytes: number;
+  readonly textureContentKey?: string | undefined;
   readonly textureLayoutKind: HtmlSurfaceTextureLayout["kind"];
   readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly tileCount: number;
@@ -242,13 +245,12 @@ type HtmlSurfaceTextureManagerOptions = {
   readonly maxTextureDimension2D?: number | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
 };
-type Mutable<T> = {
-  -readonly [Key in keyof T]: T[Key];
-};
-type HtmlSurfaceTextureEntry = Mutable<CommittedHtmlSurfaceTextureSnapshot> & {
+export type HtmlSurfaceTextureHandle = {
+  committed: CommittedHtmlSurfaceTextureSnapshot;
   element: Element;
   pendingResolution: TextureResolution | null;
   pendingTextureRecord: PendingHtmlSurfaceTextureSnapshot | null;
+  pendingTextureContentKey?: string | null | undefined;
   pendingTextureSourceRect?: HtmlSurfaceDirtyRect | null | undefined;
 };
 const DEFAULT_HTML_SURFACE_TEXTURE_FORMAT = "rgba8unorm";
@@ -262,7 +264,7 @@ export class HtmlSurfaceTextureManager {
   private readonly maxTextureDimension2D: number;
   private readonly maxTextureTileDimension2D: number;
   private readonly paintDeferral = new HtmlSurfaceTexturePaintDeferral();
-  private readonly records = new Map<string, HtmlSurfaceTextureEntry>();
+  private readonly records = new Map<string, HtmlSurfaceTextureHandle>();
   private readonly textureUsage: GPUTextureUsageFlags;
 
   constructor(
@@ -312,7 +314,7 @@ export class HtmlSurfaceTextureManager {
   getCommittedSurfaceTexture(
     surfaceId: string,
   ): CommittedHtmlSurfaceTextureSnapshot | undefined {
-    return this.records.get(surfaceId);
+    return this.records.get(surfaceId)?.committed;
   }
 
   getSurfaceTextureLifecycleDiagnostics(
@@ -323,20 +325,20 @@ export class HtmlSurfaceTextureManager {
         ? [...this.records.values()].sort(compareSurfaceTextureRecords)
         : [...surfaceIds]
             .map((surfaceId) => this.records.get(surfaceId))
-            .filter((record): record is HtmlSurfaceTextureEntry =>
+            .filter((record): record is HtmlSurfaceTextureHandle =>
               Boolean(record),
             );
 
-    return records.map((record) => ({
-      committed: toSurfaceTextureSnapshotDiagnostic(record),
-      pending: record.pendingTextureRecord
-        ? toSurfaceTextureSnapshotDiagnostic(record.pendingTextureRecord)
+    return records.map((handle) => ({
+      committed: toSurfaceTextureSnapshotDiagnostic(handle.committed),
+      pending: handle.pendingTextureRecord
+        ? toSurfaceTextureSnapshotDiagnostic(handle.pendingTextureRecord)
         : null,
-      pendingResolution: record.pendingResolution
-        ? toSurfaceTextureResolutionDiagnostic(record.pendingResolution)
+      pendingResolution: handle.pendingResolution
+        ? toSurfaceTextureResolutionDiagnostic(handle.pendingResolution)
         : null,
-      priority: record.priority,
-      surfaceId: record.surfaceId,
+      priority: handle.committed.priority,
+      surfaceId: handle.committed.surfaceId,
     }));
   }
 
@@ -347,7 +349,7 @@ export class HtmlSurfaceTextureManager {
     "visibleSurfaceIds"
   > = {}): HtmlSurfaceTextureMemorySnapshot {
     return createHtmlSurfaceTextureMemorySnapshot(
-      this.records.values(),
+      [...this.records.values()].map(toSurfaceTextureMemoryRecord),
       normalizeSurfaceIdSet(visibleSurfaceIds),
     );
   }
@@ -365,7 +367,7 @@ export class HtmlSurfaceTextureManager {
         content: dirtyFlags.content,
         frame: input.frame,
         nodeId: input.surfaceId,
-        priority: input.priority ?? record?.priority,
+        priority: input.priority ?? record?.committed.priority,
         reason: input.reason,
         resolution: dirtyFlags.resolution,
         ...(input.sourceRect ? { sourceRect: input.sourceRect } : {}),
@@ -389,7 +391,8 @@ export class HtmlSurfaceTextureManager {
       cssHeight: input.cssHeight,
       cssWidth: input.cssWidth,
       currentZoomBucket:
-        existing?.pendingResolution?.zoomBucket ?? existing?.zoomBucket,
+        existing?.pendingResolution?.zoomBucket ??
+        existing?.committed.zoomBucket,
       devicePixelRatio: input.devicePixelRatio,
       maxTextureDimension2D: this.maxTextureDimension2D,
       zoom: input.zoom,
@@ -414,19 +417,16 @@ export class HtmlSurfaceTextureManager {
         lastUploadFrame: -1,
       },
     );
-    const record: HtmlSurfaceTextureEntry = {
+    const committed: CommittedHtmlSurfaceTextureSnapshot = {
       ...layoutResources.primaryResources,
       clampedByMaxTexture: resolution.clampedByMaxTexture,
       cssHeight: resolution.cssHeight,
       cssWidth: resolution.cssWidth,
       dirtyContent: true,
       dirtyResolution: true,
-      element: input.element,
       lastUploadFrame: -1,
       lastVisibleFrame: input.frame ?? 0,
       maxTextureDimension2D: resolution.maxTextureDimension2D,
-      pendingResolution: null,
-      pendingTextureRecord: null,
       pixelHeight: resolution.pixelHeight,
       pixelWidth: resolution.pixelWidth,
       priority: input.priority ?? "visible",
@@ -434,6 +434,9 @@ export class HtmlSurfaceTextureManager {
       resolutionScale: resolution.resolutionScale,
       surfaceId: input.surfaceId,
       textureBytes: layoutResources.textureBytes,
+      ...(input.textureContentKey
+        ? { textureContentKey: input.textureContentKey }
+        : {}),
       textureLayout: layoutResources.textureLayout,
       ...(input.textureSourceRect
         ? { textureSourceRect: input.textureSourceRect }
@@ -441,37 +444,49 @@ export class HtmlSurfaceTextureManager {
       tiles: layoutResources.tiles,
       zoomBucket: resolution.zoomBucket,
     };
-    this.records.set(input.surfaceId, record);
+    const handle: HtmlSurfaceTextureHandle = {
+      committed,
+      element: input.element,
+      pendingResolution: null,
+      pendingTextureRecord: null,
+    };
+    this.records.set(input.surfaceId, handle);
     const deferInitialPaint =
-      input.deferResolution && record.priority !== "interactive";
+      input.deferResolution && committed.priority !== "interactive";
     this.markSurfaceTextureDirty({
       content: true,
       frame: input.frame,
-      priority: record.priority,
+      priority: committed.priority,
       reason: "first-visible",
       requestPaint: !deferInitialPaint,
       resolution: true,
       surfaceId: input.surfaceId,
     });
-    return record;
+    return handle.committed;
   }
 
   private updateRegisteredSurfaceTexture(
-    existing: HtmlSurfaceTextureEntry,
+    existing: HtmlSurfaceTextureHandle,
     input: RegisterHtmlSurfaceTextureInput,
     resolution: TextureResolution,
   ): CommittedHtmlSurfaceTextureSnapshot {
     existing.element = input.element;
-    existing.lastVisibleFrame = input.frame ?? existing.lastVisibleFrame;
-    existing.priority = input.priority ?? existing.priority;
+    updateCommittedSurfaceTextureSnapshot(existing, {
+      lastVisibleFrame: input.frame ?? existing.committed.lastVisibleFrame,
+      priority: input.priority ?? existing.committed.priority,
+    });
 
     const resolutionChanged = !textureResolutionMatches(
       resolutionSnapshot(existing),
       resolution,
     );
+    const textureContentKeyChanged = !textureContentKeysEqual(
+      resolveTargetTextureContentKey(existing),
+      input.textureContentKey,
+    );
     const targetTextureSourceRect =
       existing.pendingTextureSourceRect === undefined
-        ? existing.textureSourceRect
+        ? existing.committed.textureSourceRect
         : existing.pendingTextureSourceRect ?? undefined;
     const textureSourceRectChanged = !textureSourceRectsEqual(
       targetTextureSourceRect,
@@ -489,27 +504,42 @@ export class HtmlSurfaceTextureManager {
         existing.pendingTextureRecord = null;
       }
       existing.pendingResolution = resolution;
+      existing.pendingTextureContentKey = input.textureContentKey ?? null;
       existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
-      existing.dirtyResolution = true;
       this.markSurfaceTextureDirty({
         frame: input.frame,
-        priority: existing.priority,
+        priority: existing.committed.priority,
         reason: "resolution",
         resolution: true,
         surfaceId: input.surfaceId,
       });
-    } else if (textureSourceRectChanged) {
+    } else if (
+      textureSourceRectChanged &&
+      !textureContentKeyChanged &&
+      input.textureContentKey !== undefined &&
+      !existing.pendingResolution &&
+      !existing.pendingTextureRecord
+    ) {
+      updateCommittedSurfaceTextureSnapshot(existing, {
+        textureContentKey: input.textureContentKey,
+        textureSourceRect: input.textureSourceRect,
+      });
+    } else if (textureContentKeyChanged || textureSourceRectChanged) {
+      existing.pendingResolution =
+        existing.pendingResolution ??
+        textureResolutionFromSnapshot(existing.committed);
+      existing.pendingTextureContentKey = input.textureContentKey ?? null;
       existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
       this.markSurfaceTextureDirty({
         content: true,
         frame: input.frame,
-        priority: existing.priority,
+        priority: existing.committed.priority,
         reason: "scroll",
         surfaceId: input.surfaceId,
       });
     }
 
-    return existing;
+    return existing.committed;
   }
 
   evictSurfaceTextures({
@@ -536,10 +566,10 @@ export class HtmlSurfaceTextureManager {
         if (allocatedBytes <= resolvedBudgetBytes) {
           break;
         }
-        evictedSurfaceIds.push(record.surfaceId);
-        evictedBytes += record.textureBytes;
-        allocatedBytes -= record.textureBytes;
-        this.destroySurfaceTexture(record.surfaceId);
+        evictedSurfaceIds.push(record.committed.surfaceId);
+        evictedBytes += record.committed.textureBytes;
+        allocatedBytes -= record.committed.textureBytes;
+        this.destroySurfaceTexture(record.committed.surfaceId);
       }
     }
 
@@ -564,7 +594,7 @@ export class HtmlSurfaceTextureManager {
   ) {
     const record = this.records.get(surfaceId);
     if (record) {
-      record.priority = priority;
+      updateCommittedSurfaceTextureSnapshot(record, { priority });
     }
     this.dirtyQueue.setPriority(surfaceId, priority);
   }
@@ -721,19 +751,19 @@ export class HtmlSurfaceTextureManager {
       "startedAt" | "uploadedBytes" | "uploadedTextureCount"
     >,
   ): DirtyHtmlSurfaceUploadOutcome {
-    const record = this.records.get(dirtySurface.nodeId);
-    if (!record) {
+    const handle = this.records.get(dirtySurface.nodeId);
+    if (!handle) {
       this.dirtyQueue.clear(dirtySurface.nodeId);
       return "missing";
     }
-    if (this.shouldDeferDirtySurfaceUpload(dirtySurface, record, options)) {
+    if (this.shouldDeferDirtySurfaceUpload(dirtySurface, handle, options)) {
       return "deferred";
     }
 
     try {
       return this.uploadDirtyTextureRecord(
         dirtySurface,
-        record,
+        handle,
         options,
         uploadProgress,
       );
@@ -748,7 +778,7 @@ export class HtmlSurfaceTextureManager {
 
   private uploadDirtyTextureRecord(
     dirtySurface: DirtyNodeState,
-    record: HtmlSurfaceTextureEntry,
+    handle: HtmlSurfaceTextureHandle,
     options: ResolvedUploadDirtyHtmlSurfaceTexturesOptions,
     uploadProgress: Pick<
       HtmlSurfaceTextureUploadBudget,
@@ -756,32 +786,32 @@ export class HtmlSurfaceTextureManager {
     >,
   ): DirtyHtmlSurfaceUploadOutcome {
     const dirtyTileSummary = dirtyTextureTileSummary(
-      record.pendingTextureRecord ?? record,
+      handle.pendingTextureRecord ?? handle.committed,
       dirtySurface.sourceRect,
     );
     const uploadStartedAt = options.now();
     const upload = this.uploadRecord(
-      record,
+      handle,
       options,
       uploadProgress,
       dirtySurface.sourceRect,
     );
     const durationMs = options.now() - uploadStartedAt;
     if (upload.uploadedTextureCount === 0) {
-      if (!record.dirtyContent && !record.dirtyResolution) {
-        this.dirtyQueue.clear(record.surfaceId);
+      if (!handle.committed.dirtyContent && !handle.committed.dirtyResolution) {
+        this.dirtyQueue.clear(handle.committed.surfaceId);
       }
       return "deferred";
     }
     if (upload.complete) {
-      commitPendingTextureSourceRect(record);
-      this.dirtyQueue.clear(record.surfaceId);
+      commitPendingTextureSourceRect(handle);
+      this.dirtyQueue.clear(handle.committed.surfaceId);
     }
     return {
       dirtyTileBytes: dirtyTileSummary.dirtyTileBytes,
       dirtyTileCount: dirtyTileSummary.dirtyTileIds.length,
       durationMs,
-      record,
+      record: handle.committed,
       upload,
     };
   }
@@ -805,10 +835,10 @@ export class HtmlSurfaceTextureManager {
 
   private shouldDeferDirtySurfaceUpload(
     dirtyNode: DirtyNodeState,
-    record: CommittedHtmlSurfaceTextureSnapshot | undefined,
+    handle: HtmlSurfaceTextureHandle | undefined,
     options: ResolvedUploadDirtyHtmlSurfaceTexturesOptions,
   ): boolean {
-    return shouldDeferDirtySurfaceUpload(dirtyNode, record, {
+    return shouldDeferDirtySurfaceUpload(dirtyNode, handle?.committed, {
       deferPassiveUploads: options.deferPassiveUploads,
       deferSurfaceIds: options.deferSurfaceIds,
       deferResolutionOnly:
@@ -863,7 +893,7 @@ export class HtmlSurfaceTextureManager {
   }
 
   private uploadRecord(
-    record: HtmlSurfaceTextureEntry,
+    handle: HtmlSurfaceTextureHandle,
     options: ResolvedUploadDirtyHtmlSurfaceTexturesOptions,
     uploadProgress: Pick<
       HtmlSurfaceTextureUploadBudget,
@@ -871,9 +901,9 @@ export class HtmlSurfaceTextureManager {
     >,
     dirtySourceRect?: HtmlSurfaceDirtyRect | undefined,
   ): HtmlSurfaceTextureUploadResult {
-    if (record.pendingResolution) {
+    if (handle.pendingResolution) {
       return this.uploadPendingResolutionTextureRecord(
-        record,
+        handle,
         options,
         uploadProgress,
       );
@@ -885,10 +915,11 @@ export class HtmlSurfaceTextureManager {
       );
     }
     const uploadBudget = createTextureUploadBudget(options, uploadProgress);
-    const hadCompleteTexture = record.lastUploadFrame >= 0;
+    const committed = handle.committed;
+    const hadCompleteTexture = committed.lastUploadFrame >= 0;
     const upload = uploadHtmlSurfaceTextureSnapshot(
       queue,
-      record,
+      { ...committed, element: handle.element },
       uploadBudget,
       dirtySourceRect,
     );
@@ -896,10 +927,7 @@ export class HtmlSurfaceTextureManager {
       return upload;
     }
     const uploadedTileIds = new Set(upload.uploadedTileIds);
-    if (hadCompleteTexture || upload.complete) {
-      record.lastUploadFrame = options.frame;
-    }
-    record.tiles = record.tiles.map((tile) => ({
+    const tiles = committed.tiles.map((tile) => ({
       ...tile,
       dirtyContent: uploadedTileIds.has(tile.tileId)
         ? false
@@ -911,13 +939,20 @@ export class HtmlSurfaceTextureManager {
         ? options.frame
         : tile.lastUploadFrame,
     }));
-    record.dirtyContent = record.tiles.some((tile) => tile.dirtyContent);
-    record.dirtyResolution = record.tiles.some((tile) => tile.dirtyResolution);
+    updateCommittedSurfaceTextureSnapshot(handle, {
+      dirtyContent: tiles.some((tile) => tile.dirtyContent),
+      dirtyResolution: tiles.some((tile) => tile.dirtyResolution),
+      lastUploadFrame:
+        hadCompleteTexture || upload.complete
+          ? options.frame
+          : committed.lastUploadFrame,
+      tiles,
+    });
     return upload;
   }
 
   private uploadPendingResolutionTextureRecord(
-    record: HtmlSurfaceTextureEntry,
+    handle: HtmlSurfaceTextureHandle,
     options: ResolvedUploadDirtyHtmlSurfaceTexturesOptions,
     uploadProgress: Pick<
       HtmlSurfaceTextureUploadBudget,
@@ -935,9 +970,9 @@ export class HtmlSurfaceTextureManager {
         this.createTextureLayoutResources.bind(this),
       destroyTextureTiles,
       frame: options.frame,
+      handle,
       options,
       queue,
-      record,
       uploadProgress,
     });
   }
@@ -957,8 +992,8 @@ export class HtmlSurfaceTextureManager {
       ...normalizeSurfaceIdSet(protectedSurfaceIds),
     ]);
     for (const record of this.records.values()) {
-      if (record.priority === "interactive") {
-        protectedIds.add(record.surfaceId);
+      if (record.committed.priority === "interactive") {
+        protectedIds.add(record.committed.surfaceId);
       }
     }
     for (const dirtySurface of this.dirtyQueue.orderedDirtyNodes()) {
@@ -971,9 +1006,9 @@ export class HtmlSurfaceTextureManager {
 
   private evictableRecords(
     protectedSurfaceIds: ReadonlySet<string>,
-  ): HtmlSurfaceTextureEntry[] {
+  ): HtmlSurfaceTextureHandle[] {
     return [...this.records.values()]
-      .filter((record) => !protectedSurfaceIds.has(record.surfaceId))
+      .filter((record) => !protectedSurfaceIds.has(record.committed.surfaceId))
       .sort(compareEvictableSurfaceTextureRecords);
   }
 }
@@ -992,14 +1027,10 @@ export function createHtmlSurfaceTextureManager(
   });
 }
 
-function destroyTextureRecord(record: CommittedHtmlSurfaceTextureSnapshot) {
-  destroyTextureTiles(record.tiles);
-  const pendingTextureRecord =
-    "pendingTextureRecord" in record
-      ? (record.pendingTextureRecord as PendingHtmlSurfaceTextureSnapshot | null)
-      : null;
-  if (pendingTextureRecord) {
-    destroyTextureTiles(pendingTextureRecord.tiles);
+function destroyTextureRecord(handle: HtmlSurfaceTextureHandle) {
+  destroyTextureTiles(handle.committed.tiles);
+  if (handle.pendingTextureRecord) {
+    destroyTextureTiles(handle.pendingTextureRecord.tiles);
   }
 }
 
@@ -1016,17 +1047,25 @@ function destroyTextureTiles(tiles: readonly HtmlSurfaceTextureTileRecord[]) {
 
 function estimateDirtySurfaceUploadBytes(
   dirtySurfaces: readonly DirtyNodeState[],
-  records: ReadonlyMap<string, HtmlSurfaceTextureEntry>,
+  records: ReadonlyMap<string, HtmlSurfaceTextureHandle>,
 ): number {
   let skippedBytes = 0;
   for (const dirtySurface of dirtySurfaces) {
-    const record = records.get(dirtySurface.nodeId);
+    const handle = records.get(dirtySurface.nodeId);
     skippedBytes += estimateDirtyTextureUploadBytes(
-      record?.pendingTextureRecord ?? record,
+      handle?.pendingTextureRecord ?? handle?.committed,
       dirtySurface.sourceRect,
     );
   }
   return skippedBytes;
+}
+
+function toSurfaceTextureMemoryRecord(handle: HtmlSurfaceTextureHandle) {
+  return {
+    pendingTextureRecord: handle.pendingTextureRecord,
+    surfaceId: handle.committed.surfaceId,
+    textureBytes: handle.committed.textureBytes,
+  };
 }
 
 function createTextureUploadWorkSummary({
@@ -1104,12 +1143,25 @@ function resolveTextureUploadNoWorkReason({
   return null;
 }
 
-function commitPendingTextureSourceRect(record: HtmlSurfaceTextureEntry) {
-  if (record.pendingTextureSourceRect === undefined) {
+function commitPendingTextureSourceRect(handle: HtmlSurfaceTextureHandle) {
+  if (
+    handle.pendingTextureSourceRect === undefined &&
+    handle.pendingTextureContentKey === undefined
+  ) {
     return;
   }
-  record.textureSourceRect = record.pendingTextureSourceRect ?? undefined;
-  record.pendingTextureSourceRect = undefined;
+  updateCommittedSurfaceTextureSnapshot(handle, {
+    textureContentKey:
+      handle.pendingTextureContentKey === undefined
+        ? handle.committed.textureContentKey
+        : handle.pendingTextureContentKey ?? undefined,
+    textureSourceRect:
+      handle.pendingTextureSourceRect === undefined
+        ? handle.committed.textureSourceRect
+        : handle.pendingTextureSourceRect ?? undefined,
+  });
+  handle.pendingTextureContentKey = undefined;
+  handle.pendingTextureSourceRect = undefined;
 }
 
 function textureSourceRectsEqual(
@@ -1127,35 +1179,87 @@ function textureSourceRectsEqual(
   );
 }
 
+function textureContentKeysEqual(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return left === right;
+}
+
+function resolveTargetTextureContentKey(
+  handle: HtmlSurfaceTextureHandle,
+): string | undefined {
+  return handle.pendingTextureContentKey === undefined
+    ? handle.committed.textureContentKey
+    : handle.pendingTextureContentKey ?? undefined;
+}
+
+function textureResolutionFromSnapshot(
+  snapshot: CommittedHtmlSurfaceTextureSnapshot,
+): TextureResolution {
+  return {
+    clampedByMaxTexture: snapshot.clampedByMaxTexture,
+    cssHeight: snapshot.cssHeight,
+    cssWidth: snapshot.cssWidth,
+    devicePixelRatio:
+      snapshot.zoomBucket > 0
+        ? snapshot.requestedScale / snapshot.zoomBucket
+        : snapshot.requestedScale,
+    maxTextureDimension2D: snapshot.maxTextureDimension2D,
+    pixelHeight: snapshot.pixelHeight,
+    pixelWidth: snapshot.pixelWidth,
+    requestedScale: snapshot.requestedScale,
+    resolutionScale: snapshot.resolutionScale,
+    zoom: snapshot.zoomBucket,
+    zoomBucket: snapshot.zoomBucket,
+  };
+}
+
+function updateCommittedSurfaceTextureSnapshot(
+  handle: HtmlSurfaceTextureHandle,
+  updates: Partial<CommittedHtmlSurfaceTextureSnapshot>,
+) {
+  handle.committed = {
+    ...handle.committed,
+    ...updates,
+  };
+}
+
 function markExistingSurfaceTextureRecordDirty(
-  record: HtmlSurfaceTextureEntry,
+  handle: HtmlSurfaceTextureHandle,
   dirtyFlags: { readonly content: boolean; readonly resolution: boolean },
   input: Pick<MarkHtmlSurfaceTextureDirtyInput, "priority" | "sourceRect">,
 ): boolean {
+  const dirtyCommitted = { ...handle.committed };
   const shouldQueueDirtySurface = markTextureRecordDirty(
-    record,
+    dirtyCommitted,
     dirtyFlags,
     input.sourceRect,
   );
-  if (record.pendingTextureRecord && dirtyFlags.content) {
+  if (shouldQueueDirtySurface) {
+    handle.committed = dirtyCommitted;
+  }
+  if (handle.pendingTextureRecord && dirtyFlags.content) {
     // Pending resolution textures already start resolution-dirty. Repeated
     // registration during zoom must not restart partially uploaded tiles.
     markTextureRecordDirty(
-      record.pendingTextureRecord,
+      handle.pendingTextureRecord,
       dirtyFlags,
       input.sourceRect,
     );
   }
-  record.priority = input.priority ?? record.priority;
+  updateCommittedSurfaceTextureSnapshot(handle, {
+    priority: input.priority ?? handle.committed.priority,
+  });
   return shouldQueueDirtySurface;
 }
 
 function toDirtySurfaceState(
   { nodeId, ...state }: DirtyNodeState,
-  record: HtmlSurfaceTextureEntry | undefined,
+  record: HtmlSurfaceTextureHandle | undefined,
 ): DirtyHtmlSurfaceTextureState {
   const dirtyTileSummary = dirtyTextureTileSummary(
-    record?.pendingTextureRecord ?? record,
+    record?.pendingTextureRecord ?? record?.committed,
     state.sourceRect,
   );
   return {
@@ -1166,21 +1270,21 @@ function toDirtySurfaceState(
 }
 
 function compareEvictableSurfaceTextureRecords(
-  left: HtmlSurfaceTextureEntry,
-  right: HtmlSurfaceTextureEntry,
+  left: HtmlSurfaceTextureHandle,
+  right: HtmlSurfaceTextureHandle,
 ): number {
   return (
-    left.lastVisibleFrame - right.lastVisibleFrame ||
-    left.lastUploadFrame - right.lastUploadFrame ||
-    compareSurfaceIds(left.surfaceId, right.surfaceId)
+    left.committed.lastVisibleFrame - right.committed.lastVisibleFrame ||
+    left.committed.lastUploadFrame - right.committed.lastUploadFrame ||
+    compareSurfaceIds(left.committed.surfaceId, right.committed.surfaceId)
   );
 }
 
 function compareSurfaceTextureRecords(
-  left: HtmlSurfaceTextureEntry,
-  right: HtmlSurfaceTextureEntry,
+  left: HtmlSurfaceTextureHandle,
+  right: HtmlSurfaceTextureHandle,
 ): number {
-  return compareSurfaceIds(left.surfaceId, right.surfaceId);
+  return compareSurfaceIds(left.committed.surfaceId, right.committed.surfaceId);
 }
 
 function toSurfaceTextureSnapshotDiagnostic(
@@ -1200,6 +1304,9 @@ function toSurfaceTextureSnapshotDiagnostic(
     requestedScale: record.requestedScale,
     resolutionScale: record.resolutionScale,
     textureBytes: record.textureBytes,
+    ...(record.textureContentKey
+      ? { textureContentKey: record.textureContentKey }
+      : {}),
     textureLayoutKind: record.textureLayout.kind,
     ...(record.textureSourceRect
       ? { textureSourceRect: record.textureSourceRect }
@@ -1226,8 +1333,9 @@ function toSurfaceTextureResolutionDiagnostic(
 }
 
 function resolutionSnapshot(
-  record: HtmlSurfaceTextureEntry,
+  handle: HtmlSurfaceTextureHandle,
 ): TextureResolutionSnapshot {
+  const record = handle.committed;
   return {
     cssHeight: record.cssHeight,
     cssWidth: record.cssWidth,
