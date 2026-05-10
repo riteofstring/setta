@@ -107,7 +107,7 @@ export type GpuVisibleNodeQuad = {
 
 export type GpuHtmlSurfaceOverlayLayout = {
   readonly height: number;
-  readonly layer?: "late" | "normal" | undefined;
+  readonly layer?: "late" | "normal" | "page" | undefined;
   readonly ownerNodeId?: string | undefined;
   readonly surfaceId: string;
   readonly textureContentKey?: string | undefined;
@@ -470,6 +470,10 @@ export function renderHtmlSurfaceFrame({
     overlayQuads.normalQuads,
     textureManager,
   );
+  const pageOverlayTextureResult = buildTexturedGpuNodeQuads(
+    overlayQuads.pageQuads,
+    textureManager,
+  );
   const lateOverlayTextureResult = buildTexturedGpuNodeQuads(
     overlayQuads.lateQuads,
     textureManager,
@@ -479,6 +483,10 @@ export function renderHtmlSurfaceFrame({
   );
   const uploadedOverlayTexturedQuads =
     overlayTextureResult.texturedQuads.filter(
+      (quad) => quad.texture.lastUploadFrame >= 0,
+    );
+  const uploadedPageOverlayTexturedQuads =
+    pageOverlayTextureResult.texturedQuads.filter(
       (quad) => quad.texture.lastUploadFrame >= 0,
     );
   const uploadedLateOverlayTexturedQuads =
@@ -492,9 +500,15 @@ export function renderHtmlSurfaceFrame({
   const lateOverlayVisualSurfaces = buildHtmlSurfaceVisuals(
     uploadedLateOverlayTexturedQuads,
   );
+  const pageOverlayVisualSurfaces = buildHtmlSurfaceVisuals(
+    uploadedPageOverlayTexturedQuads,
+  );
   const visualScene = createGpuNodeVisualScene({
     htmlSurfaceNativeVisuals,
-    htmlSurfacePageVisuals,
+    htmlSurfacePageVisuals: [
+      ...(htmlSurfacePageVisuals ?? []),
+      ...pageOverlayVisualSurfaces.flatSurfaces,
+    ],
     htmlSurfaceLateVisuals: lateOverlayVisualSurfaces.flatSurfaces,
     visualSurfaces,
   });
@@ -537,6 +551,7 @@ export function renderHtmlSurfaceFrame({
     missingTextureNodeIds: [
       ...textureResult.missingTextureNodeIds,
       ...overlayTextureResult.missingTextureNodeIds,
+      ...pageOverlayTextureResult.missingTextureNodeIds,
       ...lateOverlayTextureResult.missingTextureNodeIds,
     ],
     remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds.filter(

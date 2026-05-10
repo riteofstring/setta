@@ -114,6 +114,65 @@ test("retained settings text editors show live CodeMirror feedback before persis
   expect(backendConfirmationReleasedForTest).toBe(true);
 });
 
+test("retained settings text editor activation preserves the passive visual frame", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await page.addStyleTag({
+    content: ".cm-cursor,.cm-cursorLayer{opacity:0!important}",
+  });
+  const row = await resolveVisibleGuiRow(page, MAX_ZOOM_LABEL);
+  if (!row.controlClientPoint || !row.controlClientRect) {
+    throw new Error(`Missing retained control geometry for ${MAX_ZOOM_LABEL}`);
+  }
+  const clip = await resolveEditorClipFromControlRect(
+    page,
+    row.controlClientRect,
+  );
+  await waitForStableScreenshotClip(page, clip);
+  const passiveFrame = await page.screenshot({
+    clip,
+    path: testInfo.outputPath("codemirror-passive-frame.png"),
+  });
+
+  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await expect
+    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
+    .toContain(row.rowId);
+  await waitForAnimationFrame(page);
+  const activeGeometry = await readActiveEditorGeometry(
+    page,
+    row.controlClientRect,
+  );
+  const activeFrame = await page.screenshot({
+    clip,
+    path: testInfo.outputPath("codemirror-active-frame.png"),
+  });
+  const visualDelta = await compareScreenshots(page, passiveFrame, activeFrame);
+  const failureDetails = JSON.stringify(
+    {
+      activeGeometry,
+      clip,
+      row: {
+        controlClientRect: row.controlClientRect,
+        rowId: row.rowId,
+        rowLabel: row.rowLabel,
+      },
+      visualDelta,
+    },
+    null,
+    2,
+  );
+
+  expect(activeGeometry.activeEditorId, failureDetails).toContain(row.rowId);
+  expect(Math.abs(activeGeometry.leftDelta), failureDetails).toBeLessThan(2);
+  expect(Math.abs(activeGeometry.topDelta), failureDetails).toBeLessThan(4);
+  expect(Math.abs(activeGeometry.widthDelta), failureDetails).toBeLessThan(2);
+  expect(Math.abs(activeGeometry.heightDelta), failureDetails).toBeLessThan(4);
+  expect(visualDelta.meanDelta, failureDetails).toBeLessThan(4);
+  expect(visualDelta.changedPixelRatio, failureDetails).toBeLessThan(0.08);
+});
+
 async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -235,6 +294,62 @@ async function resolveEditorClipFromControlRect(
     x: rect.x,
     y: rect.y + rect.height / 2 - Math.min(44, rect.height) / 2,
   });
+}
+
+async function readActiveEditorGeometry(
+  page: Page,
+  expectedRect: Rect,
+): Promise<{
+  activeEditorId: string | null;
+  heightDelta: number;
+  leftDelta: number;
+  topDelta: number;
+  widthDelta: number;
+}> {
+  return await page.evaluate((expectedRect) => {
+    const activeElement = document.activeElement;
+    const activeEditor =
+      activeElement instanceof Element
+        ? activeElement.closest(".cm-editor")
+        : null;
+    const activeEditorId =
+      activeElement instanceof Element
+        ? activeElement
+            .closest("[data-gpu-flow-control]")
+            ?.getAttribute("data-gpu-flow-control") ?? null
+        : null;
+    if (!activeEditor) {
+      throw new Error("Missing active CodeMirror editor.");
+    }
+    const rect = activeEditor.getBoundingClientRect();
+    return {
+      activeEditorId,
+      heightDelta: rect.height - expectedRect.height,
+      leftDelta: rect.left - expectedRect.x,
+      topDelta: rect.top - expectedRect.y,
+      widthDelta: rect.width - expectedRect.width,
+    };
+  }, expectedRect);
+}
+
+async function waitForStableScreenshotClip(
+  page: Page,
+  rect: Rect,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const first = await page.screenshot({ clip: rect });
+        await page.waitForTimeout(80);
+        const second = await page.screenshot({ clip: rect });
+        return (await compareScreenshots(page, first, second)).meanDelta;
+      },
+      {
+        intervals: [80, 120, 180, 240],
+        timeout: 2_000,
+      },
+    )
+    .toBeLessThan(1);
 }
 
 async function clampScreenshotClipToViewport(

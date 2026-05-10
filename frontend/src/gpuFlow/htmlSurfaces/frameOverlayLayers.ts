@@ -29,20 +29,27 @@ export function partitionGpuHtmlSurfaceOverlayQuads({
 }): {
   readonly lateQuads: readonly GpuVisibleNodeQuad[];
   readonly normalQuads: readonly GpuVisibleNodeQuad[];
+  readonly pageQuads: readonly GpuVisibleNodeQuad[];
 } {
-  const lateSurfaceIds = getLateGpuHtmlSurfaceOverlayIds(overlays);
+  const lateSurfaceIds = getGpuHtmlSurfaceOverlayIdsByLayer(overlays, "late");
+  const pageSurfaceIds = getGpuHtmlSurfaceOverlayIdsByLayer(overlays, "page");
   return {
     lateQuads: quads.filter((quad) => lateSurfaceIds.has(quad.nodeId)),
-    normalQuads: quads.filter((quad) => !lateSurfaceIds.has(quad.nodeId)),
+    normalQuads: quads.filter(
+      (quad) =>
+        !lateSurfaceIds.has(quad.nodeId) && !pageSurfaceIds.has(quad.nodeId),
+    ),
+    pageQuads: quads.filter((quad) => pageSurfaceIds.has(quad.nodeId)),
   };
 }
 
-function getLateGpuHtmlSurfaceOverlayIds(
+function getGpuHtmlSurfaceOverlayIdsByLayer(
   overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
+  layer: NonNullable<GpuHtmlSurfaceOverlayLayout["layer"]>,
 ): ReadonlySet<string> {
   return new Set(
     (overlays ?? [])
-      .filter((overlay) => overlay.layer === "late")
+      .filter((overlay) => overlay.layer === layer)
       .map((overlay) => overlay.surfaceId),
   );
 }

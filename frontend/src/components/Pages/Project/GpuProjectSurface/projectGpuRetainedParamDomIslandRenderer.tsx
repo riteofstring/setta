@@ -21,6 +21,7 @@ import {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
+  CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
@@ -61,6 +62,12 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
 
 const PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS =
   "relative h-full min-w-0 bg-white shadow-[inset_0_0_0_1px_rgba(148,163,184,0.85),0_1px_2px_rgba(15,23,42,0.12)] dark:bg-setta-900 dark:shadow-[inset_0_0_0_1px_rgba(148,163,184,0.55),0_1px_2px_rgba(0,0,0,0.24)]";
+const PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CLASS =
+  "relative h-full min-w-0";
+const PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CONTENT_CLASS =
+  "absolute grid min-w-0 px-1 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]";
+const PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CONTENT_CLASS =
+  "absolute grid min-w-0 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]";
 
 function ProjectGpuParamControlDomIsland({
   activation,
@@ -74,6 +81,10 @@ function ProjectGpuParamControlDomIsland({
   readonly sectionId: string;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const isTextLikeControl = useProjectGpuParamControlIsTextLike(
+    sectionId,
+    paramInfoId,
+  );
   const maybeErrorMessage = useTypeErrors(
     (state) => state.errors[sectionId]?.params?.[paramInfoId]?.join("\n") ?? "",
   );
@@ -90,7 +101,11 @@ function ProjectGpuParamControlDomIsland({
 
   return (
     <div
-      className={PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS}
+      className={
+        isTextLikeControl
+          ? PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CLASS
+          : PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CLASS
+      }
       data-gpu-flow-retained-content-native="true"
       data-gpu-project-param-dom-island="true"
       data-gpu-project-param-dom-island-editor="codemirror-dom"
@@ -99,7 +114,11 @@ function ProjectGpuParamControlDomIsland({
       ref={rootRef}
     >
       <div
-        className="absolute grid min-w-0 px-1 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]"
+        className={
+          isTextLikeControl
+            ? PROJECT_GPU_PARAM_DOM_ISLAND_TEXT_LIKE_ACTIVE_CONTENT_CLASS
+            : PROJECT_GPU_PARAM_DOM_ISLAND_ACTIVE_CONTENT_CLASS
+        }
         style={{
           height: contentRect.height,
           left: contentRect.x,
@@ -116,6 +135,31 @@ function ProjectGpuParamControlDomIsland({
         />
       </div>
     </div>
+  );
+}
+
+function useProjectGpuParamControlIsTextLike(
+  sectionId: string,
+  paramInfoId: string,
+): boolean {
+  return useProjectState((state) => {
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+      state,
+      sectionId,
+      paramInfoId,
+      isBaseParamCodeObjImpl,
+    );
+    return Boolean(
+      codeObjImpl && isProjectGpuTextLikeParamType(codeObjImpl.type),
+    );
+  });
+}
+
+function isProjectGpuTextLikeParamType(type: string): boolean {
+  return (
+    type === CodeObjTypeEnum.CodeParam ||
+    type === CodeObjTypeEnum.TextAreaParam ||
+    type === CodeObjTypeEnum.TextParam
   );
 }
 
