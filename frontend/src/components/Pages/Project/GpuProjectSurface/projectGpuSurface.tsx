@@ -549,9 +549,8 @@ function ProjectGpuFlowLayer({
     () =>
       getProjectRetainedContentScrollOptions({
         flowInteractionKeys,
-        layoutAdapter,
       }),
-    [flowInteractionKeys, layoutAdapter],
+    [flowInteractionKeys],
   );
   const retainedContentInteractionOptions = useMemo(
     () =>
@@ -565,9 +564,9 @@ function ProjectGpuFlowLayer({
         onRetainedParamDragPreviewChange,
         passwordRevealStates,
         retainedContentScroll: {
+          applyScrollOffsets: layoutAdapter.setContentScrollOffsets,
           getScene: () => effectiveScene,
           getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-          onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
         },
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
@@ -609,9 +608,8 @@ function ProjectGpuFlowLayer({
         activeNodeIds,
         canEditStructure,
         flowInteractionKeys,
-        layoutAdapter,
       }),
-    [activeNodeIds, canEditStructure, flowInteractionKeys, layoutAdapter],
+    [activeNodeIds, canEditStructure, flowInteractionKeys],
   );
   if (!readyToRender) {
     return null;
@@ -638,6 +636,7 @@ function ProjectGpuFlowLayer({
       retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}
+      retainedContentRuntimeState={layoutAdapter.retainedContentRuntimeState}
       retainedContentScroll={retainedContentScrollOptions}
       scene={effectiveScene}
       scenePortConnection={scenePortConnectionOptions}
@@ -830,15 +829,11 @@ function getProjectSceneScrollOptions({
 
 function getProjectRetainedContentScrollOptions({
   flowInteractionKeys,
-  layoutAdapter,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly layoutAdapter: ProjectGpuLayoutAdapter;
 }) {
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
-    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-    onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
   };
 }
 
@@ -846,12 +841,10 @@ function getProjectRetainedContentKeyboardOptions({
   activeNodeIds,
   canEditStructure,
   flowInteractionKeys,
-  layoutAdapter,
 }: {
   readonly activeNodeIds: readonly string[];
   readonly canEditStructure: boolean;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly layoutAdapter: ProjectGpuLayoutAdapter;
 }) {
   return {
     disabled: () =>
@@ -864,9 +857,7 @@ function getProjectRetainedContentKeyboardOptions({
         projectState: useProjectState.getState(),
         scene,
       }),
-    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
     onNavigation: (event: GpuRetainedContentKeyboardNavigationEvent) => {
-      layoutAdapter.setContentScrollOffsets(event.scrollOffsets);
       selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
     },
   };

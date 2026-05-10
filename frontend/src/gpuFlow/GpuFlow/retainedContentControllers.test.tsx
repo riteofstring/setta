@@ -7,6 +7,7 @@ import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
@@ -287,6 +288,10 @@ function RetainedContentInteractionHarness({
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
   );
+  const retainedContentRuntimeState = useMemo(
+    () => createGpuRetainedContentRuntimeState(),
+    [],
+  );
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -302,6 +307,7 @@ function RetainedContentInteractionHarness({
     },
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
+    retainedContentRuntimeState,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
@@ -379,7 +385,10 @@ function RetainedContentScrollHarness({
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
   );
-  const scrollOffsetsRef = useRef(new Map<string, { x: number; y: number }>());
+  const retainedContentRuntimeState = useMemo(
+    () => createGpuRetainedContentRuntimeState(),
+    [],
+  );
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -390,12 +399,8 @@ function RetainedContentScrollHarness({
     retainedContentInteraction: false,
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
-    retainedContentScroll: {
-      getScrollOffsets: () => scrollOffsetsRef.current,
-      onScrollOffsetsChange: (scrollOffsets) => {
-        scrollOffsetsRef.current = new Map(scrollOffsets);
-      },
-    },
+    retainedContentRuntimeState,
+    retainedContentScroll: {},
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
     surfaceRef,
@@ -508,6 +513,10 @@ function RetainedContentHoverHarness({
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
   );
+  const retainedContentRuntimeState = useMemo(
+    () => createGpuRetainedContentRuntimeState(),
+    [],
+  );
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -518,6 +527,7 @@ function RetainedContentHoverHarness({
     retainedContentInteraction: {},
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
+    retainedContentRuntimeState,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,

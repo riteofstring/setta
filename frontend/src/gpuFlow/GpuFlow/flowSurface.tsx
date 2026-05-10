@@ -76,6 +76,10 @@ import {
   partitionGpuFlowPortals,
   type GpuFlowPortalDescriptor,
 } from "../portals/portalManager";
+import {
+  createGpuRetainedContentRuntimeState,
+  type GpuRetainedContentRuntimeState,
+} from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { RetainedTextLikePreviewPageManager } from "../retainedTextLikePreviewPageManager";
@@ -108,6 +112,7 @@ import {
   type GpuFlowNodeResizeOptions,
 } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
+import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
@@ -122,6 +127,7 @@ import {
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
 import type { GpuRetainedTextLikePreviewRenderer } from "./retainedTextLikePreviewSources";
 import {
+  getGpuFlowSelectionDragPrimaryNodeId,
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
 } from "./selectionDragLayer";
@@ -191,6 +197,7 @@ type GpuFlowProps = Pick<
   retainedContentInteraction?: GpuFlowRetainedContentInteractionOptions;
   retainedContentConnection?: GpuFlowRetainedContentConnectionOptions;
   retainedContentKeyboard?: GpuFlowRetainedContentKeyboardOptions;
+  retainedContentRuntimeState?: GpuRetainedContentRuntimeState | undefined;
   retainedContentScroll?: GpuFlowRetainedContentScrollOptions;
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
@@ -248,6 +255,7 @@ export function GpuFlow({
   retainedContentInteraction,
   retainedContentConnection,
   retainedContentKeyboard,
+  retainedContentRuntimeState,
   retainedContentScroll,
   renderDomIsland,
   renderNode,
@@ -320,6 +328,15 @@ export function GpuFlow({
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
+  const defaultRetainedContentRuntimeStateRef =
+    useRef<GpuRetainedContentRuntimeState | null>(null);
+  if (!defaultRetainedContentRuntimeStateRef.current) {
+    defaultRetainedContentRuntimeStateRef.current =
+      createGpuRetainedContentRuntimeState();
+  }
+  const activeRetainedContentRuntimeState =
+    retainedContentRuntimeState ??
+    defaultRetainedContentRuntimeStateRef.current;
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
@@ -436,50 +453,37 @@ export function GpuFlow({
     });
   }, [viewportStore]);
   useEffect(() => {
-    validateGpuFlowEdgeInput({
+    syncGpuFlowNodeLayerSceneState({
+      activeRetainedContentRuntimeState,
       edgeInteraction,
+      edgePalette,
       edgeReconnect,
       edgeScene,
       edges,
-    });
-    const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
-    nodeLayerRef.current = {
-      edgeScene,
-      edgePalette,
-      edges: nextEdges,
-      edgeLabelSurfaces: htmlSurfaceOverlays,
-      htmlSurfaceNativeVisuals,
       forceVisibleNodeIds,
       grid,
+      htmlSurfaceNativeVisuals,
+      htmlSurfaceOverlays,
+      htmlSurfaceRendererRef,
       marginCssPx,
+      nodeDomTransformSyncCacheRef,
+      nodeLayerRef,
       nodes,
       nodeTextureMemoryBudgetBytes,
+      retainedContentPageManagerRef,
+      retainedTextLikePreviewElementByIdRef,
+      retainedTextLikePreviewPageManagerRef,
       scene,
+      sourceInteractionProjector,
+      surfaceRef,
+      textureManagerRef,
+      transformOnlyPaintNodeIdsRef,
       uploadBudget,
       viewport: viewportStore.getState().transform,
-    };
-    if (
-      !nodes &&
-      !nextEdges &&
-      !grid &&
-      htmlSurfaceOverlays.length === 0 &&
-      htmlSurfaceNativeVisuals.length === 0 &&
-      !scene?.contentSurfaces.length
-    ) {
-      visibleNodeIdsRef.current = new Set();
-      retainedTextLikePreviewElementByIdRef.current.clear();
-      clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
-      transformOnlyPaintNodeIdsRef.current.clear();
-      sourceInteractionProjector.destroy();
-      destroyNodeLayerResources(
-        textureManagerRef,
-        htmlSurfaceRendererRef,
-        retainedContentPageManagerRef,
-        retainedTextLikePreviewPageManagerRef,
-      );
-    }
-    surfaceRef.current?.requestFrame("viewport");
+      visibleNodeIdsRef,
+    });
   }, [
+    activeRetainedContentRuntimeState,
     edgeInteraction,
     edgeReconnect,
     edgePalette,
@@ -493,6 +497,7 @@ export function GpuFlow({
     nodes,
     nodeTextureMemoryBudgetBytes,
     scene,
+    sourceInteractionProjector,
     uploadBudget,
     viewportStore,
   ]);
@@ -507,6 +512,7 @@ export function GpuFlow({
     retainedContentInteraction,
     retainedContentKeyboard,
     retainedContentPageManagerRef,
+    retainedContentRuntimeState: activeRetainedContentRuntimeState,
     retainedContentScroll,
     retainedContentSwitchAnimations,
     scenePortConnection,
@@ -984,13 +990,4 @@ export function GpuFlow({
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
   );
-}
-
-function getGpuFlowSelectionDragPrimaryNodeId(
-  selectionDrag: GpuFlowSelectionDragOptions,
-): string | null {
-  if (!selectionDrag) {
-    return null;
-  }
-  return selectionDrag.primaryNodeId ?? null;
 }

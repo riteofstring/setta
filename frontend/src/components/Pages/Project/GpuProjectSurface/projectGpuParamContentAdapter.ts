@@ -761,6 +761,7 @@ function createProjectGpuParamListContentSurfaces({
       id: surfaceId,
       ownerSectionId: section.sectionId,
       rect,
+      retainedScrollResetKey: surfaceId,
       retainedScene: createGpuRetainedRowContentScene({
         activePopup: getProjectGpuParamRetainedContentActivePopupInput({
           activeParamCanvasPopup,

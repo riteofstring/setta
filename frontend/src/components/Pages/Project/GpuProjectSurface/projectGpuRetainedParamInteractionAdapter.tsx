@@ -89,7 +89,7 @@ import { commitProjectGpuRetainedSwitchParamClick } from "./projectGpuRetainedPa
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
   readonly getScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
-  readonly onScrollOffsetsChange: (
+  readonly applyScrollOffsets: (
     scrollOffsets: GpuRetainedContentScrollOffsetMap,
   ) => void;
 };
@@ -556,7 +556,7 @@ function handleProjectRetainedContentDragMove(
     surfaceId: session.surfaceId,
   });
   if (scrollResult.changed) {
-    retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
+    retainedContentScroll.applyScrollOffsets(scrollResult.scrollOffsets);
   }
   onRetainedParamDragPreviewChange(
     createProjectGpuRetainedParamDragPreview({
@@ -601,7 +601,7 @@ function handleProjectRetainedContentDragFrame(
   if (!scrollResult.changed) {
     return false;
   }
-  retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
+  retainedContentScroll.applyScrollOffsets(scrollResult.scrollOffsets);
   onRetainedParamDragPreviewChange(
     createProjectGpuRetainedParamDragPreview({
       hit: event.hit,

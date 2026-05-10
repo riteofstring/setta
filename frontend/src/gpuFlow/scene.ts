@@ -92,6 +92,7 @@ export type GpuContentSurface = {
   readonly ownerSectionId: string;
   readonly rect: GpuRect;
   readonly retainedScene?: GpuRetainedContentScene | undefined;
+  readonly retainedScrollResetKey?: string | undefined;
   readonly renderer: GpuSectionContentRendererDescriptor;
   readonly zIndex: number;
 };

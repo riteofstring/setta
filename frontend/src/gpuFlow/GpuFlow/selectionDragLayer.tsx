@@ -18,6 +18,15 @@ export type GpuFlowSelectionDragOptions =
     >
   | undefined;
 
+export function getGpuFlowSelectionDragPrimaryNodeId(
+  selectionDrag: GpuFlowSelectionDragOptions,
+): string | null {
+  if (!selectionDrag) {
+    return null;
+  }
+  return selectionDrag.primaryNodeId ?? null;
+}
+
 export function useGpuFlowSelectionDragLayer({
   containerRef,
   layoutStore,

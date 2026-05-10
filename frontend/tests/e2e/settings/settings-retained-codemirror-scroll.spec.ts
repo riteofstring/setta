@@ -226,6 +226,80 @@ test("retained passive text editor preview ink moves with its retained row durin
   expect(failures, failureDetails).toHaveLength(0);
 });
 
+test("retained rows move monotonically during one-direction section wheel input", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await resetGuiContentScrollToTop(page);
+  const label = "Pan On Scroll";
+  const initialRow = await resolveVisibleGuiRow(page, label);
+  await page.mouse.move(
+    initialRow.labelClientPoint.x,
+    initialRow.labelClientPoint.y,
+  );
+  await waitForStableScreenshotClip(page, await viewportScreenshotClip(page));
+
+  const frames = [
+    await captureRetainedLabelMotionFrame({
+      label,
+      name: "monotonic-initial",
+      page,
+      testInfo,
+    }),
+  ];
+  for (let index = 0; index < 16; index += 1) {
+    await page.mouse.wheel(0, 8);
+    await waitForAnimationFrame(page);
+    frames.push(
+      await captureRetainedLabelMotionFrame({
+        label,
+        name: `monotonic-wheel-${index}`,
+        page,
+        testInfo,
+      }),
+    );
+  }
+
+  const failures = frames.slice(1).flatMap((frame, index) => {
+    const previous = frames[index];
+    if (!previous) {
+      return [];
+    }
+    if (!previous.labelInk || !frame.labelInk) {
+      return [
+        {
+          frame: frame.name,
+          previousFrame: previous.name,
+          reason: "missing-label-ink",
+        },
+      ];
+    }
+    const deltaY = frame.labelInk.centerY - previous.labelInk.centerY;
+    return deltaY > 1.5
+      ? [
+          {
+            deltaY,
+            frame,
+            previousFrame: previous,
+          },
+        ]
+      : [];
+  });
+  const failureDetails = JSON.stringify(
+    {
+      failures,
+      frames: frames.map((frame) => ({
+        labelInk: frame.labelInk,
+        name: frame.name,
+        row: frame.row,
+      })),
+    },
+    null,
+    2,
+  );
+  expect(failures, failureDetails).toHaveLength(0);
+});
+
 async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -568,6 +642,47 @@ async function captureTextInkAlignmentFrameForLabel({
   };
 }
 
+async function captureRetainedLabelMotionFrame({
+  label,
+  name,
+  page,
+  testInfo,
+}: {
+  readonly label: string;
+  readonly name: string;
+  readonly page: Page;
+  readonly testInfo: TestInfo;
+}): Promise<{
+  readonly labelInk: TextInkBounds | null;
+  readonly name: string;
+  readonly row: {
+    readonly rowLabel: string;
+    readonly rowY: number;
+  };
+}> {
+  const clip = await viewportScreenshotClip(page);
+  const screenshot = await screenshotClip({
+    name: `visual-scroll-label-motion-${name}.png`,
+    page,
+    rect: clip,
+    testInfo,
+  });
+  const row = await resolveVisibleGuiRow(page, label);
+  const labelInk = await analyzeRetainedLabelTextInkBounds(page, {
+    clip,
+    screenshot,
+    searchRect: resolveVisibleLabelInkSearchRect(row),
+  });
+  return {
+    labelInk,
+    name,
+    row: {
+      rowLabel: row.rowLabel,
+      rowY: row.clientRect.y,
+    },
+  };
+}
+
 async function viewportScreenshotClip(page: Page): Promise<Rect> {
   return await page.evaluate(() => ({
     height: window.innerHeight,
@@ -592,6 +707,20 @@ function resolveLabelInkSearchRect(
   return {
     height: row.clientRect.height,
     width: Math.max(1, row.controlClientRect.x - row.clientRect.x - 8),
+    x: row.clientRect.x,
+    y: row.clientRect.y,
+  };
+}
+
+function resolveVisibleLabelInkSearchRect(row: RetainedRowDebugEntry): Rect {
+  return {
+    height: row.clientRect.height,
+    width: Math.max(
+      1,
+      (row.controlClientRect?.x ?? row.clientRect.x + row.clientRect.width) -
+        row.clientRect.x -
+        8,
+    ),
     x: row.clientRect.x,
     y: row.clientRect.y,
   };
@@ -753,6 +882,13 @@ async function waitForStableScreenshotClip(
       },
     )
     .toBeLessThan(1);
+}
+
+async function waitForAnimationFrame(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
 }
 
 function clampScreenshotClip(rect: Rect): Rect {
