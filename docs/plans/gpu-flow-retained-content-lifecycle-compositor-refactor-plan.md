@@ -60,28 +60,32 @@ authoritative.
 
 ## Regression Prevention Gates
 
-This refactor is not complete unless both gates are satisfied:
+This refactor is not complete unless all gates are satisfied:
 
-1. Add realistic failing tests for the current user-visible failure before
-   changing compositor behavior.
-2. Run the full GPU Flow-related test suite before handoff, not only the new
+1. Add at least one realistic failing test for the current user-visible failure
+   before changing compositor behavior.
+2. Add the remaining realistic visual and performance guardrails before final
+   handoff.
+3. Run the full GPU Flow-related test suite before handoff, not only the new
    focused tests.
 
-The first gate means the tests must exercise production rendering paths and
-assert observed behavior. They should use real browser interaction, frame
-samples, screenshots, crop analysis, visible motion, nonblank content, frame
-pacing, and absence of repeated horizontal placeholder bands. They must not
+The first gate means the first failing test must exercise production rendering
+paths and assert observed behavior. It should use real browser interaction,
+frame samples, screenshots, crop analysis, visible motion, nonblank content,
+frame pacing, and absence of repeated horizontal placeholder bands. It must not
 pass by checking internal implementation details such as pending-strip counts,
 texture readiness names, publication mode strings, queue internals, or private
 diagnostic counters. Diagnostics are useful failure attachments, but they are
 not the acceptance oracle.
 
-The second gate means targeted Vitest and Playwright runs are useful during
-development, but they are not enough before cleanup or handoff. The final pass
-must include the full related GPU Flow unit, integration, retained compositor,
-and Settings E2E coverage listed in Step 12, plus the final Chrome recording
-and `./scripts/quality/check.sh`. Record the commands and results in the
-implementation report.
+The second gate means the first failing test may be narrow, but the full
+zoom/click/rapid-interaction/large-scene visual coverage listed in Step 1 must
+exist before final verification. The third gate means targeted Vitest and
+Playwright runs are useful during development, but they are not enough before
+cleanup or handoff. The final pass must include the full related GPU Flow unit,
+integration, retained compositor, and Settings E2E coverage listed in Step 12,
+plus the final Chrome recording and `./scripts/quality/check.sh`. Record the
+commands and results in the implementation report.
 
 ## Performance Target
 
@@ -257,6 +261,15 @@ Compatible content means it is safe to draw without showing wrong rows, wrong
 values, wrong theme, or stale active-control state. It does not mean the page is
 the ideal current resolution.
 
+Initial compatibility matrix:
+
+| Attribute | Owner Decision | Notes |
+| --- | --- | --- |
+| `surfaceId`, `sourceKey`, `sourceVersion`, row/source identity, row/content version, theme/renderer family, active/passive ownership state | Semantic compatibility | A mismatch must reject the page loudly and specifically. Drawing it risks wrong rows, wrong values, wrong theme, or stale active state. |
+| LOD, DPR bucket, viewport zoom bucket, page-grid shape, source window, tile shape | Fidelity/readiness | A mismatch should enqueue refinement, not create a visible hole, unless it changes semantic content. |
+| Content-coordinate rect coverage | Coverage | Partial compatible coverage is drawable. Only the uncovered remainder can become a true hole. |
+| First-load or newly exposed content-coordinate area with no compatible page | True hole | This is the only case where fallback treatment is allowed. |
+
 ### 3. Retained Page Cache Owner
 
 Replace the current "desired page is either exact or missing" model with a
@@ -276,6 +289,11 @@ The cache should keep old compatible pages protected while a replacement
 generation is prepared. Eviction may remove old pages only after the new
 generation covers the same visible region or after the region is no longer
 near-visible.
+
+Old-page protection must be explicitly bounded. Protect only visible and
+near-visible compatible pages, report protected page count and bytes, and make
+eviction decisions from those metrics. Do not trade placeholder stripes for
+unbounded texture memory growth.
 
 ### 4. Coverage Planner
 
@@ -300,6 +318,11 @@ Coverage readiness and fidelity readiness should be separate diagnostics:
   "compatible-previous-grid" | "refining"`.
 
 The exact names can change during implementation, but the separation must not.
+New planner and display-composer vocabulary should use names such as
+`trueHoleRects`, `compatibleCoverageRects`, and `fidelityState`. Do not
+introduce new authoritative APIs named around `pendingStrip`,
+`textureReadiness`, or `publish-motion-frame-with-pending-strips`; those are
+old publication concepts to delete.
 
 ### 5. Display Composer
 
@@ -321,6 +344,10 @@ The current high-contrast pending stripe visuals should be removed. If a true
 hole needs a visual treatment, use the normal retained section body background
 or a subtle no-pattern fill that cannot be mistaken for row content. It should
 appear only for actual first-load/new-edge holes.
+
+Changing stripe colors, opacity, or pattern alone is not a fix. The compositor
+must stop turning quality-only misses into true-hole fallback before visual
+treatment changes count toward this plan.
 
 ### 6. Zoom And LOD Policy
 
@@ -373,6 +400,8 @@ work-class budgets:
 The scheduler should preserve frame pacing. It should also avoid draining only
 one tiny page per frame when a large visible region is uncovered and the frame
 budget has headroom.
+Interaction may throttle fidelity refinement, but it must not categorically
+starve refinement when measured frame budget is available.
 
 ### 9. Diagnostics
 
@@ -402,8 +431,11 @@ Chrome recordings should let us answer:
 
 ### Step 1: Add Failing Observed-Behavior Tests
 
-Create the tests first, before changing compositor behavior. They should fail
-on the current branch with the gray/white horizontal-line artifact.
+Create at least one high-signal failing test before changing compositor
+behavior. It should fail on the current branch with the gray/white
+horizontal-line artifact. The remaining tests in this section may be added
+while the refactor is underway, but all of them must exist and pass before
+Step 12 is considered complete.
 
 Add a Playwright spec such as:
 
@@ -416,7 +448,9 @@ Diagnostics can be attached for failure analysis only.
 These tests are the primary regression guard for this bug. A unit test that
 only proves the new planner shape is not a substitute.
 
-The first failing tests should cover:
+The first pre-code test should cover either the zoom case or the click/handoff
+case below with screenshot crop analysis. Prefer the shortest case that fails
+reliably on the current branch. Before handoff, the guardrail set should cover:
 
 1. Zoom in/out retained sections without horizontal placeholder bands.
    - Open Settings in the retained GPU Flow surface.
@@ -467,12 +501,14 @@ Suggested visual analysis:
   nonblank content ratio, and text/control ink ratio.
 - Store failure screenshots as Playwright attachments.
 
-The tests should be allowed to fail at this step. Record the failure mode in
-the implementation notes before changing compositor code.
+The first test should be allowed to fail at this step. Record the failure mode
+in the implementation notes before changing compositor code. The broader test
+set should not be left failing at handoff.
 
 ### Step 2: Baseline The Current Failure
 
-Run the new failing tests and a Chrome recording against the current branch.
+Run the new failing-first test and a Chrome recording against the current
+branch.
 Record:
 
 - failed screenshots,
@@ -556,6 +592,9 @@ For true holes:
 
 The fallback visual must be visually distinct from row content but quiet enough
 that a transient true hole is not worse than the old freeze.
+This step is only valid after the planner prevents quality-only misses from
+becoming true holes. A cosmetic replacement of stripes with quieter fills does
+not satisfy the plan by itself.
 
 ### Step 7: Refactor Zoom Refinement
 
@@ -599,6 +638,9 @@ Give `visible-true-hole` a guaranteed small budget even during interaction.
 Give `visible-refinement` an opportunistic budget that preserves frame pacing.
 Let multiple small visible pages upload in a frame when the measured budget has
 room.
+Interaction may reduce refinement budget, but it must not impose a categorical
+"no refinement while interacting" rule when the measured frame budget has
+headroom.
 
 ### Step 10: Update Diagnostics And Chrome Recording Summaries
 
@@ -684,8 +726,12 @@ The refactor is complete only when:
   content holes.
 - True-hole fallback appears only when no semantically compatible content page
   exists.
+- Quality-only misses are fixed at the coverage/planner layer, not hidden by a
+  quieter placeholder treatment.
 - Wrong-content pages are never drawn as fallback.
 - Old compatible pages are protected until replacement coverage exists.
+- Old-page protection is scoped to visible and near-visible content, with
+  reported protected page count and bytes.
 - Obsolete pending-strip and held-frame publication concepts are removed.
 
 ## Likely Files To Touch
