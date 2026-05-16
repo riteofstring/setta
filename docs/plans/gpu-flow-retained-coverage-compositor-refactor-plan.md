@@ -114,6 +114,11 @@ No backward-compatibility layer, dual implementation, migration shim, old-field
 alias, or transitional adapter is required. Replace the old page-key display
 publication model directly.
 
+Temporary implementation staging is allowed only as throwaway dev/test-only
+scaffolding while the refactor is in progress. It must be removed before
+acceptance, may not satisfy publication exit checks, and may not preserve the
+old page-key display publication behavior in the completed implementation.
+
 ## Publication Exit Checks
 
 The refactor is not complete until the old display-publication boundary is gone.
@@ -172,6 +177,49 @@ happens only after replacement requests are emitted. It is not acceptable to
 generate hundreds of visible region targets that correspond one-for-one with
 retained texture pages.
 
+### Semantic Target Generation
+
+Visible region targets are produced by a retained target generator, not by the
+page descriptor generator:
+
+```ts
+function createRetainedVisibleRegionTargets(
+  scene: GpuFlowScene,
+  retainedRuntimeFrame: GpuRetainedRuntimeFrame,
+  viewport: GpuViewportInput,
+): readonly RetainedRegionTarget[];
+```
+
+The target generator derives targets from retained surfaces, row/content owners,
+clips, scroll offsets, scene revision, content versions, theme/font generation,
+render mode, and active native island state. It must not derive visible targets
+from retained page descriptors, page-grid coordinates, tile rows or columns,
+pixel sizes, or upload texture dimensions.
+
+### Content-To-Texture Mapping Proof
+
+Every committed region and draw region must have an auditable mapping proof:
+
+```ts
+type RetainedContentToTextureMappingProof = {
+  readonly ownerManifest: RetainedRegionManifest;
+  readonly contentRect: ContentRect;
+  readonly clipRect: ContentRect;
+  readonly textureRect: TextureRect;
+  readonly uvRect: TextureUvRect;
+  readonly sourceRect: ContentRect;
+  readonly dpr: number;
+  readonly zoomBucket: RetainedZoomBucket;
+  readonly fidelity: RetainedFidelityTarget;
+  readonly generation: number;
+};
+```
+
+Compatible historical coverage may be drawn only when this proof remains valid
+for the current viewport, clip, owner manifest, and content version. Fidelity
+misses may request replacement coverage, but they must not independently create
+fallback visuals while a valid compatible mapping proof exists.
+
 ### Typed Compatibility
 
 Compatibility remains a typed result with structured rejection reasons:
@@ -223,6 +271,18 @@ Only `trueHoles` from the planner may render fallback visuals. Descriptor
 misses, upload backlog, and fidelity misses cannot independently produce
 fallback visuals.
 
+After clipping and overlap normalization, the proof must partition visible
+coverage:
+
+```text
+exactCoveredAreaCssPx + compatibleCoveredAreaCssPx + trueHoleAreaCssPx
+  == visibleAreaCssPx
+```
+
+`replacementRequestedAreaCssPx` may overlap compatible coverage when the request
+is for fidelity refinement. Visible true-hole repair requests must overlap true
+hole area.
+
 ### Planner Cost Invariant
 
 Planner cost must be structurally bounded and measured:
@@ -231,6 +291,10 @@ Planner cost must be structurally bounded and measured:
 type RetainedCoveragePlanCost = {
   readonly visibleRegionCount: number;
   readonly visibleRegionGroupCount: number;
+  readonly drawRegionCount: number;
+  readonly coverageFragmentCount: number;
+  readonly maxFragmentsPerVisibleTarget: number;
+  readonly sliverDiscardedAreaCssPx: number;
   readonly spatialQueryCount: number;
   readonly candidateCount: number;
   readonly compatibilityCheckCount: number;
@@ -247,9 +311,16 @@ Development assertions and planner tests should enforce:
   page target count;
 - `visibleRegionCount` remains semantic-region scale for All Settings-like
   scenes, not raster-tile scale.
+- `coverageFragmentCount` and `maxFragmentsPerVisibleTarget` stay below
+  configured caps on adversarial overlapping regions.
 
 These checks are planner contract tests and diagnostics. They are not the
 user-facing E2E oracle.
+
+The planner should merge adjacent compatible regions with identical texture,
+mapping, fidelity, and layer; snap fractional slivers consistently; account for
+discarded sliver area; and fail loudly or fall back to bounded repair work when
+subtraction would exceed configured fragmentation caps.
 
 ### Legal Coverage Plan Reuse
 
@@ -279,6 +350,61 @@ type RetainedReplacementRequestKey = {
 If zoom bucket or target fidelity changes, obsolete refinement requests are
 canceled or coalesced before tiling. Visible true-hole and active-island
 requests are never starved behind obsolete refinement tiles.
+
+### Snapshot And Native Visual Dependencies
+
+Replacement requests must preserve dependencies that page descriptors currently
+carry for retained text-like snapshots and native retained visuals:
+
+```ts
+type RetainedReplacementDependencyFields = {
+  readonly contentManifest: RetainedRegionManifest;
+  readonly nativeVisualDependencies?: readonly RetainedNativeVisualDependency[];
+  readonly snapshotSources?: readonly RetainedTextLikeSnapshotDependency[];
+};
+```
+
+Raster tasks derived from replacement requests must wait for required text-like
+snapshot paint records and native visual dependencies before committing
+replacement coverage. Moving page descriptors out of display publication must
+not drop inactive text-like controls, delayed Chromium paint records, or
+retained native visual state.
+
+### Visual Scene And Layering
+
+Display draw regions must carry enough mapping and z-order information to
+preserve the current visual scene:
+
+```ts
+type RetainedDrawRegion = {
+  readonly zOrder: RetainedSurfaceZOrder;
+  readonly clipRect: ContentRect;
+  readonly flowRect: FlowRect;
+  readonly textureHandle: RetainedTextureHandle;
+  readonly uvRect: TextureUvRect;
+  readonly mappingProof: RetainedContentToTextureMappingProof;
+  readonly renderLayer:
+    | "retained-content"
+    | "retained-overlay"
+    | "native-underlay";
+};
+```
+
+The conversion from retained draw regions to the existing visual scene must
+preserve retained content, row hover visuals, scrollbars, switch transitions,
+popups, active DOM islands, grid, edges, and connection-line layering.
+
+### Active-Interaction Planning Budget
+
+During active viewport interaction, a frame may synchronously plan only:
+
+- unchanged-plan reuse;
+- newly exposed delta bands;
+- visible true-hole confirmation under a small time budget.
+
+Full visible-region replanning runs only when the visible semantic region hash
+changes and must be bounded, incremental, or deferred. Covered pan/zoom frames
+should remain on the transform/camera/committed-texture path.
 
 ### Eviction Order And Reserves
 
@@ -343,6 +469,23 @@ Regression prevention is a first-class requirement for this refactor.
 - Any skipped, quarantined, or flaky GPU Flow-related test must be recorded in
   the `perf/` report with the reason, owner, and follow-up path. Do not silently
   narrow the suite to get a pass.
+
+Additional focused regression tests should cover:
+
+- inactive text-like controls whose retained replacement must wait for DOM
+  snapshot copy and paint availability before commit;
+- retained-section scrolling that exposes new rows while preserving overlapping
+  committed coverage;
+- native island detach after editing while pan/zoom is active and passive
+  replacement is not ready;
+- retained content, hover, scrollbar, switch transition, popup, and DOM island
+  z-order;
+- row-level content changes that must not invalidate unrelated rows;
+- theme or font generation mismatches that reject compatibility without
+  expanded rejected-rect allocation;
+- memory pressure that protects visible compatible coverage until replacement
+  exists;
+- adversarial overlapping regions that must stay within fragmentation caps.
 
 ## Performance Targets
 
@@ -470,7 +613,8 @@ This replaces page-key publication as the display contract.
 
 ### 2. Batched Visible Coverage Planning
 
-The display frame asks the coverage scene for one plan per frame:
+The display frame asks the coverage scene for a plan when display coverage needs
+to change:
 
 ```ts
 type RetainedVisibleCoverageRequest = {
@@ -500,6 +644,9 @@ The planner must be batched:
 - emit replacement requests for uncovered or non-target-fidelity areas.
 
 The planner must not call `queryVisibleCoverage` once per page descriptor.
+During active viewport interaction, the render frame should reuse a legal
+previous plan or plan only bounded deltas whenever possible. A full synchronous
+visible-region replan is not part of the steady-state pan/zoom hot path.
 
 ### 3. Spatial Index And Exact Lookup
 
@@ -564,6 +711,9 @@ they must be derived from replacement requests after display planning:
 ```ts
 type RetainedReplacementRequest = {
   readonly key: RetainedReplacementRequestKey;
+  readonly contentManifest: RetainedRegionManifest;
+  readonly nativeVisualDependencies?: readonly RetainedNativeVisualDependency[];
+  readonly snapshotSources?: readonly RetainedTextLikeSnapshotDependency[];
   readonly target: RetainedRegionTarget;
   readonly reason:
     | "true-hole"
@@ -592,6 +742,9 @@ Normal-frame diagnostics should be compact and bounded:
 ```ts
 type RetainedCoveragePlanDiagnostics = {
   readonly visibleRegionCount: number;
+  readonly drawRegionCount: number;
+  readonly coverageFragmentCount: number;
+  readonly maxFragmentsPerVisibleTarget: number;
   readonly committedCandidateCount: number;
   readonly exactRegionCount: number;
   readonly compatibleRegionCount: number;
@@ -665,6 +818,9 @@ Create the owner-level types for:
 - replacement request;
 - replacement request cancellation key;
 - replacement transaction;
+- retained text-like snapshot dependencies;
+- native visual dependencies;
+- retained draw region z-order and mapping;
 - coverage diagnostics;
 - coverage plan cost;
 - memory/eviction report.
@@ -672,7 +828,38 @@ Create the owner-level types for:
 Keep the contracts in the GPU Flow retained-content owner modules. Do not add
 parallel frontend aliases in unrelated folders.
 
-### 4. Implement The Spatial Coverage Store
+### 4. Define Semantic Target Generation And Mapping Proofs
+
+Define the retained target generator and mapping contracts before building the
+store:
+
+- derive visible region targets from retained surfaces, row/content owners,
+  clips, scroll offsets, scene revision, content versions, theme/font
+  generation, render mode, and active native island state;
+- do not derive visible region targets from retained page descriptors;
+- define content-to-texture mapping proof: content rect, texture rect, UV rect,
+  clip, DPR, zoom bucket, LOD/fidelity, source rect, owner manifest, and
+  generation;
+- carry retained text-like snapshot dependencies from replacement request to
+  raster task;
+- carry retained native visual dependencies from replacement request to raster
+  task;
+- preserve visual-scene z-order and native retained visual layering;
+- add proof invariants for exact, compatible, and true-hole area partitioning;
+- add fragmentation counters, merge rules, sliver handling, and fragment caps.
+
+Add focused tests for:
+
+- inactive text-like row replacement waits for DOM snapshot paint and then
+  commits;
+- delayed Chromium paint records do not publish incomplete replacement coverage;
+- row-level content changes do not invalidate unrelated rows;
+- theme or font generation mismatch rejects compatibility without expanded
+  rejected-rect allocation;
+- retained scrollbars, hover visuals, switch transitions, popups, and DOM
+  islands layer correctly.
+
+### 5. Implement The Spatial Coverage Store
 
 Replace the scan-all coverage store with owner-scoped indexed storage.
 
@@ -697,9 +884,10 @@ Add focused unit tests for:
 - aggregate rejected diagnostics;
 - structural cost counters for query count, candidate count, compatibility
   check count, and allocated diagnostic rect count;
+- fragmentation caps and adjacent-region merge behavior;
 - visible protection and eviction order.
 
-### 5. Build The Batched Visible Coverage Planner
+### 6. Build The Batched Visible Coverage Planner
 
 Add a planner that accepts all visible retained region targets for a display
 frame and returns draw regions plus replacement requests.
@@ -712,6 +900,7 @@ It should:
 - produce draw regions directly;
 - produce bounded diagnostics;
 - produce a coverage proof and planner cost report;
+- normalize and cap coverage fragments;
 - avoid allocating per-page rejected coverage arrays.
 
 Add tests that compare output to realistic visible-region fixtures. These tests
@@ -723,6 +912,7 @@ Planner contract tests must prove the old algorithm did not sneak back:
 - spatial query count is bounded by visible region groups;
 - allocated diagnostic rect count is capped;
 - compatibility checks are bounded by intersecting local candidates;
+- coverage fragment counts are bounded and adjacent compatible regions merge;
 - visible target count remains semantic-region scale, not raster-tile scale.
 
 Before replacing display publication, record a mid-refactor benchmark result
@@ -731,7 +921,7 @@ showing the new planner shape no longer scales with
 end-to-end user-facing performance target, but it must prove the core coverage
 planning cost has moved to visible regions plus local candidate count.
 
-### 6. Replace Display Publication
+### 7. Replace Display Publication
 
 Update GPU Flow frame rendering so display publication consumes the new
 coverage plan. Remove the page-descriptor display publication path directly.
@@ -741,7 +931,9 @@ The render path should:
 - use current viewport and hit-test transforms every frame;
 - reuse the last committed coverage plan when motion-only state changes and the
   visible region set remains mappable;
-- request a new coverage plan when visible regions change;
+- request a new coverage plan when visible semantic regions change, but during
+  active viewport interaction limit synchronous planning to legal reuse, newly
+  exposed delta bands, and visible true-hole confirmation under budget;
 - publish true holes only when no compatible committed region can cover the
   visible target;
 - avoid per-frame generation of large desired page descriptor arrays during
@@ -757,13 +949,17 @@ Required code-shape result:
   identities;
 - previous coverage plans are reused only for legal motion-only frames with
   mappable visible semantic regions and valid content-to-texture mappings;
+- retained draw regions preserve z-order, clip, flow rect, UV rect, render
+  layer, and texture handle mapping;
 - expanded rejected coverage arrays are absent from normal render-frame
   diagnostics.
 
-Do not keep an adapter around the old retained page frame as a compatibility
-layer.
+Do not delete the old publication path until the new planner is producing real
+draw regions, true holes, native island publications, and replacement requests.
+Once the new path is authoritative, do not keep an adapter around the old
+retained page frame as a compatibility layer.
 
-### 7. Convert Raster And Upload To Replacement Requests
+### 8. Convert Raster And Upload To Replacement Requests
 
 Move retained raster scheduling behind replacement requests:
 
@@ -788,7 +984,7 @@ Commit replacement regions transactionally:
 - reject transaction loudly on manifest mismatch, allocation failure, or raster
   failure.
 
-### 8. Native Island Transaction Cleanup
+### 9. Native Island Transaction Cleanup
 
 Make active native islands first-class coverage transactions:
 
@@ -800,9 +996,11 @@ Make active native islands first-class coverage transactions:
 - if passive replacement coverage is not committed at detach time, the native
   island remains visually covering the edited region until replacement coverage
   commits;
+- editing, panning, zooming, and detaching before passive replacement is ready
+  must not reveal stale passive retained content;
 - no full retained section invalidation for row focus, hover, or blur.
 
-### 9. Remove Old Page-Key Publication Code
+### 10. Remove Old Page-Key Publication Code
 
 Delete old display-publication-only concepts after the new path is wired:
 
@@ -814,7 +1012,7 @@ Delete old display-publication-only concepts after the new path is wired:
 
 Keep tiling helpers only where they are needed by raster/upload.
 
-### 10. Verification And Perf Report
+### 11. Verification And Perf Report
 
 Run the full GPU Flow-related verification set before considering the refactor
 complete. Do not stop after the new tests or only the files edited in the
@@ -846,7 +1044,9 @@ Record before/after results in `perf/`:
   the original repro flow;
 - coverage candidate count;
 - planner cost report: visible region count, spatial query count, compatibility
-  check count, rejected sample count, and allocated diagnostic rect count;
+  check count, draw region count, coverage fragment count, max fragments per
+  visible target, sliver discarded area, rejected sample count, and allocated
+  diagnostic rect count;
 - replacement request count;
 - upload/raster totals;
 - visible true-hole continuity result.
@@ -878,10 +1078,16 @@ report with reason, owner, and follow-up path.
   in disguise.
 - Coverage plans include an auditable coverage proof, and only planner true
   holes can render fallback visuals.
+- Coverage proof exact, compatible, and true-hole areas partition visible area
+  after clipping and overlap normalization.
 - Planner cost counters show bounded spatial queries, local-candidate
-  compatibility checks, and capped diagnostic allocation.
+  compatibility checks, capped fragmentation, and capped diagnostic allocation.
 - Replacement requests are canceled or coalesced by semantic owner, content
   rect, content version, and fidelity target before raster tiling.
+- Text-like snapshot dependencies and native visual dependencies survive the
+  move from page descriptors to replacement requests.
+- Retained scrollbars, hover visuals, switch transitions, popups, active DOM
+  islands, grid, edges, and connection-line layering are preserved.
 - Normal Chrome recordings do not contain tens of thousands of rejected retained
   rect diagnostics for one frame.
 - Visible content remains continuous while zooming and panning.
@@ -902,6 +1108,10 @@ report with reason, owner, and follow-up path.
 - The render loop must not wait on raster/upload completion.
 - Eviction must be coverage-aware. Memory pressure cannot expose a blank region
   when compatible visible coverage exists.
+- Text-like snapshot availability, native visual dependencies, and z-order must
+  be preserved while removing page descriptors from display publication.
+- Region subtraction must be normalized and capped so the page loop does not
+  reappear as a rect-fragment loop.
 - The test harness must measure observed browser behavior. Internal retained
   counters are diagnostics only.
 
