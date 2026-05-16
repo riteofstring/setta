@@ -101,6 +101,15 @@ these invariants:
 - Active native islands detach transactionally. Passive retained coverage for an
   edited region is published only after final passive content commits.
 
+This plan does not replace the transactional retained-coverage model. It makes
+that model efficient enough to run at frame cadence:
+
+```text
+region-planned display publication
++ transactional replacement
++ page-based raster implementation
+```
+
 No backward-compatibility layer, dual implementation, migration shim, old-field
 alias, or transitional adapter is required. Replace the old page-key display
 publication model directly.
@@ -133,6 +142,167 @@ helper under the existing page loop:
 - The display frame consumes draw regions and texture handles. It must not
   reinterpret page descriptors, page keys, or target descriptor counts as
   display coverage truth.
+
+## Structural Contracts
+
+These contracts are required to prevent the new planner from becoming the old
+page loop under different names.
+
+### Visible Region Target Granularity
+
+Visible targets are semantic/content regions, not raster tiles.
+
+```ts
+type RetainedRegionTarget = {
+  readonly owner: RetainedSemanticOwner;
+  readonly contentRect: ContentRect;
+  readonly clipRect: ContentRect;
+  readonly requestedFidelity: RetainedFidelityTarget;
+  readonly reason:
+    | "visible"
+    | "active-island"
+    | "newly-exposed"
+    | "refinement";
+};
+```
+
+The planner may split targets only for clipping, semantic ownership boundaries,
+active native island regions, or actual coverage subtraction. Raster tiling
+happens only after replacement requests are emitted. It is not acceptable to
+generate hundreds of visible region targets that correspond one-for-one with
+retained texture pages.
+
+### Typed Compatibility
+
+Compatibility remains a typed result with structured rejection reasons:
+
+```ts
+type RetainedCompatibilityResult =
+  | {
+      readonly kind: "compatible";
+      readonly fidelity:
+        | "exact"
+        | "lower-lod"
+        | "previous-grid"
+        | "previous-source-rect"
+        | "compatible-mapped-region";
+      readonly region: RetainedCommittedRegion;
+    }
+  | {
+      readonly kind: "incompatible";
+      readonly reason:
+        | "surface-mismatch"
+        | "owner-mismatch"
+        | "content-version-mismatch"
+        | "theme-or-font-mismatch"
+        | "active-passive-mode-mismatch"
+        | "content-to-texture-mapping-mismatch";
+    };
+```
+
+The planner aggregates rejection reasons in normal frames. It must not silently
+draw stale content and must not allocate every rejected rectangle unless verbose
+diagnostics are explicitly enabled.
+
+### Coverage Proof
+
+Every visible coverage plan carries an auditable proof:
+
+```ts
+type RetainedVisibleCoverageProof = {
+  readonly visibleAreaCssPx: number;
+  readonly exactCoveredAreaCssPx: number;
+  readonly compatibleCoveredAreaCssPx: number;
+  readonly trueHoleAreaCssPx: number;
+  readonly replacementRequestedAreaCssPx: number;
+  readonly rejectedCoverageCountByReason: Readonly<Record<string, number>>;
+};
+```
+
+Only `trueHoles` from the planner may render fallback visuals. Descriptor
+misses, upload backlog, and fidelity misses cannot independently produce
+fallback visuals.
+
+### Planner Cost Invariant
+
+Planner cost must be structurally bounded and measured:
+
+```ts
+type RetainedCoveragePlanCost = {
+  readonly visibleRegionCount: number;
+  readonly visibleRegionGroupCount: number;
+  readonly spatialQueryCount: number;
+  readonly candidateCount: number;
+  readonly compatibilityCheckCount: number;
+  readonly rejectedSampleCount: number;
+  readonly allocatedDiagnosticRectCount: number;
+};
+```
+
+Development assertions and planner tests should enforce:
+
+- `spatialQueryCount <= visibleRegionGroupCount * small_constant`;
+- `allocatedDiagnosticRectCount <= diagnosticSampleCap`;
+- `compatibilityCheckCount` is bounded by intersecting local candidates, not by
+  page target count;
+- `visibleRegionCount` remains semantic-region scale for All Settings-like
+  scenes, not raster-tile scale.
+
+These checks are planner contract tests and diagnostics. They are not the
+user-facing E2E oracle.
+
+### Legal Coverage Plan Reuse
+
+A previous coverage plan may be reused for motion-only frames only when the
+visible semantic region set is unchanged or mappable through the current motion
+transform, and every draw region still has a valid content-to-texture mapping
+for the current viewport and clip.
+
+If the viewport crosses into newly visible content, the previous plan may still
+draw overlapping committed regions, but the planner must account for newly
+exposed regions and queue repair. Plan reuse must not hide true holes or stale
+active native island geometry.
+
+### Replacement Cancellation Identity
+
+Replacement requests must have cancellation and coalescing identity:
+
+```ts
+type RetainedReplacementRequestKey = {
+  readonly owner: RetainedSemanticOwner;
+  readonly contentRect: ContentRect;
+  readonly contentVersion: string;
+  readonly fidelityTarget: RetainedFidelityTarget;
+};
+```
+
+If zoom bucket or target fidelity changes, obsolete refinement requests are
+canceled or coalesced before tiling. Visible true-hole and active-island
+requests are never starved behind obsolete refinement tiles.
+
+### Eviction Order And Reserves
+
+Eviction policy is a correctness contract:
+
+1. Obsolete superseded offscreen regions.
+2. Offscreen prefetch.
+3. Near-visible refinement.
+4. Near-visible compatible historical coverage.
+5. Visible compatible historical coverage only after replacement exists.
+
+```ts
+type RetainedCoverageBudget = {
+  readonly hardMaxBytes: number;
+  readonly visibleCompatibleReserveBytes: number;
+  readonly activeIslandReserveBytes: number;
+  readonly visibleTrueHoleRepairReserveBytes: number;
+  readonly refinementMaxBytes: number;
+  readonly prefetchMaxBytes: number;
+};
+```
+
+Memory pressure must not evict the only compatible visible coverage and expose
+a blank region.
 
 ## Non-Goals
 
@@ -315,6 +485,7 @@ type RetainedVisibleCoveragePlan = {
   readonly nativeIslandRegions: readonly RetainedNativeIslandPublication[];
   readonly trueHoles: readonly ContentRect[];
   readonly replacementRequests: readonly RetainedReplacementRequest[];
+  readonly proof: RetainedVisibleCoverageProof;
   readonly diagnostics: RetainedCoveragePlanDiagnostics;
 };
 ```
@@ -332,11 +503,12 @@ The planner must not call `queryVisibleCoverage` once per page descriptor.
 
 ### 3. Spatial Index And Exact Lookup
 
-Replace full committed-region scans with owner-scoped indexes:
+Replace full committed-region scans with owner-scoped indexes. Start with a
+per-surface owner-scoped exact map plus uniform grid or sweep/grid hybrid, then
+graduate to an R-tree only if benchmarks show pathological bucket density:
 
 - exact lookup by stable committed region key for the common case;
-- interval tree, R-tree, grid, or sweep index per surface for compatible mapped
-  coverage;
+- grid or sweep-index lookup for compatible mapped coverage;
 - optional per-row sub-index for text-like rows;
 - separate indexes for exact target fidelity and compatible historical fidelity;
 - aggregate rejected reasons without materializing every rejected rectangle.
@@ -380,6 +552,10 @@ Motion must not require rebuilding the full retained page target set. During
 active interaction, old compatible regions can be sampled through their mapping
 proof while replacement work is queued.
 
+Active native island placement comes from current motion geometry. Passive
+retained replacement for the affected region is a replacement request. Neither
+operation may trigger whole-section coverage invalidation.
+
 ### 5. Raster Work Becomes A Derived Task
 
 Page descriptors can still exist as a raster tiling implementation detail, but
@@ -387,6 +563,7 @@ they must be derived from replacement requests after display planning:
 
 ```ts
 type RetainedReplacementRequest = {
+  readonly key: RetainedReplacementRequestKey;
   readonly target: RetainedRegionTarget;
   readonly reason:
     | "true-hole"
@@ -422,6 +599,7 @@ type RetainedCoveragePlanDiagnostics = {
   readonly trueHoleRectCount: number;
   readonly rejectedCoverageCountByReason: Readonly<Record<string, number>>;
   readonly sampledRejectedCoverage: readonly RetainedRejectedCoverageSample[];
+  readonly cost: RetainedCoveragePlanCost;
   readonly coveragePlanDurationMs: number;
   readonly spatialQueryDurationMs: number;
   readonly compatibilityDurationMs: number;
@@ -483,9 +661,12 @@ Create the owner-level types for:
 - visible region target;
 - native island target;
 - visible coverage plan;
+- visible coverage proof;
 - replacement request;
+- replacement request cancellation key;
 - replacement transaction;
 - coverage diagnostics;
+- coverage plan cost;
 - memory/eviction report.
 
 Keep the contracts in the GPU Flow retained-content owner modules. Do not add
@@ -500,6 +681,9 @@ Required behavior:
 - exact lookup should be O(1) or near O(1);
 - compatible lookup should consider only intersecting regions for the same
   semantic owner;
+- initial index shape should be `regionsBySurface -> regionsByOwner ->
+  exactKeyMap + uniformGridBuckets`, unless the benchmark proves a different
+  structure is required;
 - rejected reason aggregation should be bounded;
 - insert/remove/protect/evict should update the index deterministically;
 - eviction order must never remove the only visible compatible coverage before
@@ -511,6 +695,8 @@ Add focused unit tests for:
 - mapped compatible coverage;
 - row/content-version compatibility;
 - aggregate rejected diagnostics;
+- structural cost counters for query count, candidate count, compatibility
+  check count, and allocated diagnostic rect count;
 - visible protection and eviction order.
 
 ### 5. Build The Batched Visible Coverage Planner
@@ -525,11 +711,19 @@ It should:
 - subtract coverage once per visible target;
 - produce draw regions directly;
 - produce bounded diagnostics;
+- produce a coverage proof and planner cost report;
 - avoid allocating per-page rejected coverage arrays.
 
 Add tests that compare output to realistic visible-region fixtures. These tests
 can inspect data contracts because they are planner unit tests, but they should
 not replace the observed-behavior E2E tests.
+
+Planner contract tests must prove the old algorithm did not sneak back:
+
+- spatial query count is bounded by visible region groups;
+- allocated diagnostic rect count is capped;
+- compatibility checks are bounded by intersecting local candidates;
+- visible target count remains semantic-region scale, not raster-tile scale.
 
 Before replacing display publication, record a mid-refactor benchmark result
 showing the new planner shape no longer scales with
@@ -561,6 +755,8 @@ Required code-shape result:
   raster/upload scheduling;
 - page keys are texture/resource identifiers only, not display coverage
   identities;
+- previous coverage plans are reused only for legal motion-only frames with
+  mappable visible semantic regions and valid content-to-texture mappings;
 - expanded rejected coverage arrays are absent from normal render-frame
   diagnostics.
 
@@ -578,6 +774,10 @@ Move retained raster scheduling behind replacement requests:
 
 Split requests into tiles only inside the raster/upload layer. Tiling should
 not leak back into display coverage publication.
+
+Cancellation and coalescing must happen before tiling. Obsolete refinement
+requests for previous zoom buckets or superseded fidelity targets should be
+canceled before they produce page descriptors or upload work.
 
 Commit replacement regions transactionally:
 
@@ -597,6 +797,9 @@ Make active native islands first-class coverage transactions:
   over the active island;
 - detach waits for passive committed replacement coverage that reflects the
   final value;
+- if passive replacement coverage is not committed at detach time, the native
+  island remains visually covering the edited region until replacement coverage
+  commits;
 - no full retained section invalidation for row focus, hover, or blur.
 
 ### 9. Remove Old Page-Key Publication Code
@@ -639,7 +842,11 @@ Record before/after results in `perf/`:
 - dropped-frame bursts;
 - long task count and max duration;
 - coverage planning duration;
+- `coveragePlanDurationMs` during active zoom/pan in a new Chrome recording of
+  the original repro flow;
 - coverage candidate count;
+- planner cost report: visible region count, spatial query count, compatibility
+  check count, rejected sample count, and allocated diagnostic rect count;
 - replacement request count;
 - upload/raster totals;
 - visible true-hole continuity result.
@@ -653,6 +860,10 @@ report with reason, owner, and follow-up path.
 - The new large-scene panning, zooming, retained-section scrolling, and mixed
   interaction performance tests meet the 120 fps-class refresh-aware targets, or
   have a documented trace-backed fallback ceiling in `perf/`.
+- A new Chrome recording of the original repro shows bounded
+  `coveragePlanDurationMs` during active zoom/pan, capped normal-frame rejected
+  diagnostic allocation, and no correlation between zoom-bucket transitions and
+  multi-frame main-thread stalls.
 - No measured interaction long task over 50 ms in the target workload.
 - No 200 ms-class frame gaps during All Settings zoom/pan.
 - Display publication no longer loops through hundreds of page descriptors and
@@ -663,6 +874,14 @@ report with reason, owner, and follow-up path.
   path.
 - Page descriptors are produced only for raster/upload work derived from
   replacement requests.
+- Visible region targets are semantic/content regions and are not raster tiles
+  in disguise.
+- Coverage plans include an auditable coverage proof, and only planner true
+  holes can render fallback visuals.
+- Planner cost counters show bounded spatial queries, local-candidate
+  compatibility checks, and capped diagnostic allocation.
+- Replacement requests are canceled or coalesced by semantic owner, content
+  rect, content version, and fidelity target before raster tiling.
 - Normal Chrome recordings do not contain tens of thousands of rejected retained
   rect diagnostics for one frame.
 - Visible content remains continuous while zooming and panning.
@@ -688,10 +907,9 @@ report with reason, owner, and follow-up path.
 
 ## Open Questions
 
-- Which spatial index should we use first: a simple per-surface uniform grid,
-  an interval tree, or an R-tree? A uniform grid may be enough because retained
-  surfaces are already page/tile shaped, but the benchmark in step 2 should
-  decide.
+- What bucket size and owner grouping should the first per-surface uniform grid
+  use? Start simple with exact lookup plus grid buckets; graduate to an R-tree
+  only if the step 2 benchmark shows pathological bucket density.
 - Should compatible historical coverage be allowed across zoom buckets only
   while active interaction is in progress, or always when the mapping proof is
   valid? The stricter choice is active-interaction-only plus immediate
