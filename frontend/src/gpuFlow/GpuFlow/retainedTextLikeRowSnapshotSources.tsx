@@ -235,7 +235,11 @@ function getGpuRetainedTextLikeRowSnapshotSourcesForSurface(
       }),
       sourceWidth: controlRect.width,
       surfaceId: surface.id,
-      targetRectCss: controlRect,
+      targetRectCss: toRetainedContentRectCss({
+        rect: controlRect,
+        viewportRect: surface.textureWindow.cacheViewportRect,
+        windowOrigin: surface.textureWindow.cacheScrollOffset,
+      }),
       wrapLines: row.control.policy.wrapLines,
     };
     return [
@@ -245,6 +249,23 @@ function getGpuRetainedTextLikeRowSnapshotSourcesForSurface(
       },
     ];
   });
+}
+
+function toRetainedContentRectCss({
+  rect,
+  viewportRect,
+  windowOrigin,
+}: {
+  readonly rect: GpuRect;
+  readonly viewportRect: GpuRect;
+  readonly windowOrigin: { readonly x: number; readonly y: number };
+}): GpuRect {
+  return {
+    height: rect.height,
+    width: rect.width,
+    x: rect.x - viewportRect.x + windowOrigin.x,
+    y: rect.y - viewportRect.y + windowOrigin.y,
+  };
 }
 
 function summarizeGpuRetainedTextLikeRowSnapshotSource(
@@ -372,6 +393,38 @@ function configureGpuRetainedTextLikeRowSnapshotSourceElement({
   host.style.height = `${source.sourceHeight}px`;
   host.style.overflow = "hidden";
   host.style.width = `${source.sourceWidth}px`;
+  deferGpuRetainedTextLikeRowSnapshotReadyKey(host, source.sourceKey);
+}
+
+function deferGpuRetainedTextLikeRowSnapshotReadyKey(
+  host: HTMLElement,
+  sourceKey: string,
+) {
+  if (
+    host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey === sourceKey ||
+    host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey === sourceKey
+  ) {
+    return;
+  }
+  host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = "";
+  host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey = sourceKey;
+  const view = host.ownerDocument.defaultView;
+  if (!view?.requestAnimationFrame) {
+    host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = sourceKey;
+    delete host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey;
+    return;
+  }
+  view.requestAnimationFrame(() => {
+    view.requestAnimationFrame(() => {
+      if (
+        host.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey !== sourceKey
+      ) {
+        return;
+      }
+      host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = sourceKey;
+      delete host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey;
+    });
+  });
 }
 
 function createGpuRetainedTextLikeRowSnapshotSourceKey(

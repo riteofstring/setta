@@ -1,5 +1,8 @@
 import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
-import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceSolidRoundedRectVisual,
+} from "./htmlSurfaces/visualScene";
 import {
   getRetainedContentTextureResourceRegion,
   type RetainedContentTextureResources,
@@ -47,6 +50,84 @@ export function createRetainedTexturePageFlatVisuals({
     });
   }
   return visuals;
+}
+
+export function createRetainedTexturePagePendingStripVisuals({
+  pendingRects,
+  layout,
+}: {
+  readonly pendingRects: readonly GpuRect[];
+  readonly layout: RetainedTexturePageSurfaceLayout;
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
+  for (const pendingRect of pendingRects) {
+    const visiblePendingRect = intersectRects(
+      pendingRect,
+      layout.textureSourceRect,
+    );
+    if (!visiblePendingRect) {
+      continue;
+    }
+    visuals.push({
+      color: { a: 0.78, b: 0.2, g: 0.19, r: 0.18 },
+      kind: "solid-rounded-rect",
+      radius: 0,
+      rect: toFlowRect(layout, visiblePendingRect),
+      surfaceId: `${layout.surfaceId}:retained-pending:${rectKey(
+        visiblePendingRect,
+      )}`,
+      zIndex: (layout.zIndex ?? 0) + 0.01,
+    });
+    visuals.push(
+      ...createRetainedPendingStripPlaceholderStripes({
+        layout,
+        rect: visiblePendingRect,
+      }),
+    );
+  }
+  return visuals;
+}
+
+function createRetainedPendingStripPlaceholderStripes({
+  layout,
+  rect,
+}: {
+  readonly layout: RetainedTexturePageSurfaceLayout;
+  readonly rect: GpuRect;
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  const stripeVisuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
+  const stripeSpacingCss = 32;
+  const stripeHeightCss = Math.min(3, Math.max(1, rect.height / 6));
+  const maxStripeCount = 8;
+  let stripeCount = 0;
+  let y =
+    Math.floor(rect.y / stripeSpacingCss) * stripeSpacingCss + stripeSpacingCss;
+  while (y < rect.y + rect.height && stripeCount < maxStripeCount) {
+    const stripeRect = intersectRects(
+      {
+        height: stripeHeightCss,
+        width: rect.width,
+        x: rect.x,
+        y,
+      },
+      rect,
+    );
+    if (stripeRect) {
+      stripeVisuals.push({
+        color: { a: 0.82, b: 0.82, g: 0.78, r: 0.74 },
+        kind: "solid-rounded-rect",
+        radius: 0,
+        rect: toFlowRect(layout, stripeRect),
+        surfaceId: `${layout.surfaceId}:retained-pending-stripe:${rectKey(
+          rect,
+        )}:${stripeCount}`,
+        zIndex: (layout.zIndex ?? 0) + 0.02,
+      });
+      stripeCount += 1;
+    }
+    y += stripeSpacingCss;
+  }
+  return stripeVisuals;
 }
 
 function toFlowRect(
@@ -156,6 +237,10 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
 
 function clampUnit(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function rectKey(rect: GpuRect): string {
+  return [rect.x, rect.y, rect.width, rect.height].join(":");
 }
 
 function isAtlasTextureRegion(

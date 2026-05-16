@@ -19,7 +19,11 @@ import {
   type SingleConfig,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX } from "./projectGpuParamContentLayout";
+import {
+  PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX,
+  PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+} from "./projectGpuParamContentLayout";
+import { getProjectGpuParamRowHeightForCodeObjType } from "./projectGpuParamRowHeight";
 import {
   getProjectNodeIntrinsicSizeObserverNodeIds,
   measureIntrinsicElementHeight,
@@ -28,6 +32,11 @@ import {
   shouldObserveProjectNodeIntrinsicSize,
 } from "./projectNodeIntrinsicSize";
 import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
+
+const CODE_PARAM_ROW_HEIGHT_PX = getProjectGpuParamRowHeightForCodeObjType({
+  codeObjType: CodeObjTypeEnum.CodeParam,
+  configLanguage: "python",
+});
 
 function parsePixelValue(value: string): number | null {
   const parsed = Number.parseFloat(value);
@@ -182,7 +191,7 @@ describe("projectNodeIntrinsicSize", () => {
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
-        3 * 24,
+        3 * CODE_PARAM_ROW_HEIGHT_PX,
     });
     expect(element.style.height).toBe("80px");
   });
@@ -199,7 +208,8 @@ describe("projectNodeIntrinsicSize", () => {
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
-        2 * 24,
+        PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX +
+        CODE_PARAM_ROW_HEIGHT_PX,
     });
     expect(element.style.height).toBe("80px");
   });
@@ -219,7 +229,8 @@ describe("projectNodeIntrinsicSize", () => {
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
         4 +
-        3 * 24,
+        PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX +
+        2 * CODE_PARAM_ROW_HEIGHT_PX,
     });
     expect(element.style.height).toBe("80px");
   });
@@ -239,7 +250,8 @@ describe("projectNodeIntrinsicSize", () => {
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
         4 +
-        3 * 24,
+        PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX +
+        2 * CODE_PARAM_ROW_HEIGHT_PX,
     });
     expect(element.style.height).toBe("80px");
   });

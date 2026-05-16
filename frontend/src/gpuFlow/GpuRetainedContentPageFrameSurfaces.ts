@@ -72,14 +72,25 @@ function toGpuRetainedContentTexturePageFrameSurface(
     x: surface.textureWindow.cacheScrollOffset.x,
     y: surface.textureWindow.cacheScrollOffset.y,
   };
+  const visibleContentRectCss = toRetainedContentRectCss({
+    rect: surface.textureWindow.sourceRect,
+    viewportRect: surface.textureWindow.cacheViewportRect,
+    windowOrigin: sourceWindowCss,
+  });
   const sourceKey = createRetainedContentTexturePageFrameSurfaceSourceKey({
     contentVersion,
     surfaceId: surface.id,
   });
   return {
     contentBoundsCss: {
-      height: surface.textureWindow.textureHeight,
-      width: surface.textureWindow.textureWidth,
+      height: Math.max(
+        surface.retainedScene.contentRect.height,
+        sourceWindowCss.y + surface.textureWindow.textureHeight,
+      ),
+      width: Math.max(
+        surface.retainedScene.contentRect.width,
+        sourceWindowCss.x + surface.textureWindow.textureWidth,
+      ),
       x: 0,
       y: 0,
     },
@@ -88,7 +99,7 @@ function toGpuRetainedContentTexturePageFrameSurface(
     layout: {
       height: surface.rect.height,
       surfaceId: surface.id,
-      textureSourceRect: surface.textureWindow.sourceRect,
+      textureSourceRect: visibleContentRectCss,
       width: surface.rect.width,
       x: surface.rect.x,
       y: surface.rect.y,
@@ -104,7 +115,24 @@ function toGpuRetainedContentTexturePageFrameSurface(
     sourceWindowCss,
     surfaceId: surface.id,
     textLikeSnapshots,
-    visibleSourceRectCss: surface.textureWindow.sourceRect,
+    visibleSourceRectCss: visibleContentRectCss,
+  };
+}
+
+function toRetainedContentRectCss({
+  rect,
+  viewportRect,
+  windowOrigin,
+}: {
+  readonly rect: GpuRect;
+  readonly viewportRect: GpuRect;
+  readonly windowOrigin: { readonly x: number; readonly y: number };
+}): GpuRect {
+  return {
+    height: rect.height,
+    width: rect.width,
+    x: rect.x - viewportRect.x + windowOrigin.x,
+    y: rect.y - viewportRect.y + windowOrigin.y,
   };
 }
 

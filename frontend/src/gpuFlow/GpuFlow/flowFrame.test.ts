@@ -182,6 +182,7 @@ function retainedFrameCache({
       frame: 1,
       mergedDrawQuadCount: 0,
       missingPageCount,
+      pendingStripVisuals: [],
       protectedPageKeys: [],
       refinementDescriptors: [],
       staleFallbackDrawQuadCount: 0,

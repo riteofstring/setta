@@ -11,7 +11,7 @@ import type {
   RetainedContentTexturePageMaintenanceResult,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
-import type { PublishedRetainedFrame } from "../retainedDisplayFrame";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { RetainedTexturePageDescriptor } from "../retainedTexturePages";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
@@ -88,7 +88,7 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
 }: {
   readonly frame: number;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly publishedFrame: PublishedRetainedFrame;
+  readonly publishedFrame: RetainedDisplayFrame;
   readonly viewportInteractionActive: boolean;
 }) {
   if (!isChromeReproActive()) {
@@ -98,33 +98,30 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
   const verbose = isChromeReproVerboseGpuFlowActive();
   const proof = publishedFrame.coverageProof;
   const diagnostics = publishedFrame.diagnostics;
+  const continuityProof = diagnostics.continuityProof;
   const state = {
     activeIslandTransactionMode: diagnostics.activeIslandTransaction.mode,
+    continuityReason: continuityProof.reason,
     coverageReadiness: diagnostics.coverageReadiness,
     desiredScrollRevision: diagnostics.desiredScrollRevision,
     fallbackPageCount: diagnostics.fallbackPageCount,
-    heldScrollFrameCount: diagnostics.scrollLag.heldFrameCount,
-    heldScrollWithoutVisiblePreparationProgressFrameCount:
-      diagnostics.scrollLag.heldWithoutVisiblePreparationProgressFrameCount,
     missingPageCount: diagnostics.missingPageCount,
     missingRectCount: proof.missingRects.length,
+    motionMaxConsecutivePendingFrames:
+      continuityProof.maxConsecutivePendingFrames,
+    motionOverlapCoveredAreaCssPx: roundChromeReproMs(
+      continuityProof.overlapCoveredAreaCssPx,
+    ),
+    pendingAreaCssPx: roundChromeReproMs(continuityProof.pendingAreaCssPx),
+    pendingAreaRatio: roundChromeReproMs(continuityProof.pendingAreaRatio),
+    pendingStripCount: proof.pendingStrips.length,
     preparedFrameId: preparedFrame.frame,
     publishedFrameId: publishedFrame.id,
     publishedPreparedFrameId: diagnostics.publishedPreparedFrameId,
-    publishedScrollRevision: diagnostics.scrollLag.publishedScrollRevision,
     rejectedFrameCount: diagnostics.rejectedFrameCount,
-    scrollLagCssPx: roundChromeReproMs(diagnostics.scrollLag.lagCssPx),
-    scrollLagCssPxPerMs: roundChromeReproMs(
-      diagnostics.scrollLag.lagCssPxPerMs,
-    ),
-    scrollLagDurationMs: roundChromeReproMs(
-      diagnostics.scrollLag.lagDurationMs,
-    ),
     scrollPublicationMode: diagnostics.scrollPublicationMode,
     textureReadiness: diagnostics.textureReadiness,
     uncoveredRectCount: diagnostics.uncoveredRectCount,
-    visiblePreparationProgressCount:
-      diagnostics.scrollLag.visiblePreparationProgressCount,
     viewportInteractionActive,
     visibleRectCount: proof.visibleRects.length,
   };
@@ -137,6 +134,10 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
         missingRects: proof.missingRects
           .slice(0, 24)
           .map(roundGpuFlowChromeReproRect),
+        pendingStrips: proof.pendingStrips.slice(0, 24).map((strip) => ({
+          reason: strip.reason,
+          rect: roundGpuFlowChromeReproRect(strip.rect),
+        })),
         rejectedPreparedFrameIds: proof.rejectedPreparedFrameIds.slice(-24),
         visibleRects: proof.visibleRects
           .slice(0, 24)

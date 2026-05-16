@@ -45,11 +45,11 @@ describe("retainedTexturePageKey", () => {
     });
 
     expect(retainedTexturePageKey(descriptor)).toBe(
-      "surface:7:1:source-a:64:128:128:128:0:0:256:256:scale=2:1024:256:256:2:4:1:1",
+      "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1",
     );
   });
 
-  it("uses source window and scale identity to distinguish page pixels", () => {
+  it("uses scale identity but ignores source window origin for page identity", () => {
     const base = page();
 
     expect(
@@ -67,7 +67,7 @@ describe("retainedTexturePageKey", () => {
         ...base,
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 128 },
       }),
-    ).not.toBe(retainedTexturePageKey(base));
+    ).toBe(retainedTexturePageKey(base));
   });
 });
 
@@ -266,7 +266,7 @@ describe("RetainedTexturePageCache", () => {
     expect(result).toEqual({
       evictedBytes: 512 * 512 * 4,
       evictedKeys: [
-        "surface:1:1:source-a:0:0:128:128:0:0:256:256:scale=4:2048:512:512:1:0:1:1",
+        "surface:1:1:source-a:0:0:128:128:scale=4:2048:512:512:1:0:1:1",
       ],
       remainingBytes: 128 * 128 * 4,
     });

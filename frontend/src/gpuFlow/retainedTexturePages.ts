@@ -53,14 +53,13 @@ export type RetainedTexturePageCacheSnapshot = {
 };
 
 export type RetainedTexturePageLookup = {
-  readonly allowCompatibleSourceWindow?: boolean | undefined;
   readonly allowStaleContent?: boolean | undefined;
   readonly contentVersion: number;
   readonly devicePixelRatioBucket: number;
   readonly sourceKey: string;
   readonly sourceRectCss: GpuRect;
   readonly sourceVersion: number;
-  readonly sourceWindowCss: GpuRect;
+  readonly sourceWindowCss?: GpuRect | undefined;
   readonly surfaceId: string;
   readonly targetLodScale: number;
   readonly usedFrame?: number | undefined;
@@ -98,10 +97,6 @@ export type RetainedTexturePageCacheOptions<TResource> = {
 const EMPTY_PAGE_KEY_SET = new Set<string>();
 
 export class RetainedTexturePageCache<TResource = unknown> {
-  private readonly committedPageKeysBySurfaceWindow = new Map<
-    string,
-    Map<string, Set<string>>
-  >();
   private readonly committedPageKeysBySurface = new Map<string, Set<string>>();
   private readonly committedPages = new Map<
     string,
@@ -124,7 +119,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
     }
     this.committedPages.clear();
     this.committedPageKeysBySurface.clear();
-    this.committedPageKeysBySurfaceWindow.clear();
     this.pendingPages.clear();
     this.retiredPages = [];
   }
@@ -227,13 +221,13 @@ export class RetainedTexturePageCache<TResource = unknown> {
     viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
+    void sourceWindowCss;
     const candidates = this.getCommittedPagesForCoverage({
       contentVersion,
       devicePixelRatioBucket,
       sourceKey,
       sourceRectCss: lookupRect,
       sourceVersion,
-      sourceWindowCss,
       surfaceId,
       targetLodScale,
       viewportZoomBucket,
@@ -250,14 +244,12 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   getCommittedPagesForCoverage({
-    allowCompatibleSourceWindow = false,
     allowStaleContent = false,
     contentVersion,
     devicePixelRatioBucket,
     sourceKey,
     sourceRectCss,
     sourceVersion,
-    sourceWindowCss,
     surfaceId,
     targetLodScale,
     viewportZoomBucket,
@@ -266,16 +258,8 @@ export class RetainedTexturePageCache<TResource = unknown> {
     "usedFrame"
   >): readonly CommittedRetainedTexturePage<TResource>[] {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
-    const lookupSourceWindow = normalizeRect(
-      "sourceWindowCss",
-      sourceWindowCss,
-    );
     void viewportZoomBucket;
-    return this.getCommittedPagesForLookup({
-      allowCompatibleSourceWindow,
-      lookupSourceWindow,
-      surfaceId,
-    })
+    return this.getCommittedPagesForLookup({ surfaceId })
       .filter(
         (page) =>
           (allowStaleContent ||
@@ -283,11 +267,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
           page.descriptor.devicePixelRatioBucket === devicePixelRatioBucket &&
           page.descriptor.sourceKey === sourceKey &&
           page.descriptor.sourceVersion === sourceVersion &&
-          (!allowCompatibleSourceWindow ||
-            sourceWindowsShareScrollOrigin(
-              page.descriptor.sourceWindowCss,
-              lookupSourceWindow,
-            )) &&
           rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
       )
       .sort((left, right) =>
@@ -387,37 +366,16 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   private getCommittedPagesForLookup({
-    allowCompatibleSourceWindow,
-    lookupSourceWindow,
     surfaceId,
   }: {
-    readonly allowCompatibleSourceWindow: boolean;
-    readonly lookupSourceWindow: GpuRect;
     readonly surfaceId: string;
   }): readonly CommittedRetainedTexturePage<TResource>[] {
-    const keys = allowCompatibleSourceWindow
-      ? this.committedPageKeysBySurface.get(surfaceId) ?? EMPTY_PAGE_KEY_SET
-      : this.getIndexedPageKeys({
-          indexes: this.committedPageKeysBySurfaceWindow,
-          key: rectKey(lookupSourceWindow),
-          surfaceId,
-        });
+    const keys =
+      this.committedPageKeysBySurface.get(surfaceId) ?? EMPTY_PAGE_KEY_SET;
     return [...keys].flatMap((key) => {
       const page = this.committedPages.get(key);
       return page ? [page] : [];
     });
-  }
-
-  private getIndexedPageKeys({
-    indexes,
-    key,
-    surfaceId,
-  }: {
-    readonly indexes: ReadonlyMap<string, ReadonlyMap<string, Set<string>>>;
-    readonly key: string;
-    readonly surfaceId: string;
-  }): ReadonlySet<string> {
-    return indexes.get(surfaceId)?.get(key) ?? EMPTY_PAGE_KEY_SET;
   }
 
   private indexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
@@ -426,11 +384,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       key: page.descriptor.surfaceId,
       pageKey: page.key,
     });
-    addNestedCommittedPageIndexKey({
-      indexes: this.committedPageKeysBySurfaceWindow,
-      key: rectKey(page.descriptor.sourceWindowCss),
-      page,
-    });
   }
 
   private unindexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
@@ -438,11 +391,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       indexes: this.committedPageKeysBySurface,
       key: page.descriptor.surfaceId,
       pageKey: page.key,
-    });
-    removeNestedCommittedPageIndexKey({
-      indexes: this.committedPageKeysBySurfaceWindow,
-      key: rectKey(page.descriptor.sourceWindowCss),
-      page,
     });
   }
 
@@ -473,10 +421,6 @@ export function retainedTexturePageKey(
     normalized.sourceRectCss.y,
     normalized.sourceRectCss.width,
     normalized.sourceRectCss.height,
-    normalized.sourceWindowCss.x,
-    normalized.sourceWindowCss.y,
-    normalized.sourceWindowCss.width,
-    normalized.sourceWindowCss.height,
     normalized.scaleKey,
     normalized.lodLevel,
     normalized.pixelWidth,
@@ -486,48 +430,6 @@ export function retainedTexturePageKey(
     normalized.devicePixelRatioBucket,
     normalized.viewportZoomBucket,
   ].join(":");
-}
-
-function addNestedCommittedPageIndexKey<TResource>({
-  indexes,
-  key,
-  page,
-}: {
-  readonly indexes: Map<string, Map<string, Set<string>>>;
-  readonly key: string;
-  readonly page: CommittedRetainedTexturePage<TResource>;
-}) {
-  const surfaceIndexes =
-    indexes.get(page.descriptor.surfaceId) ??
-    createNestedCommittedPageIndex(indexes, page.descriptor.surfaceId);
-  addCommittedPageIndexKey({
-    indexes: surfaceIndexes,
-    key,
-    pageKey: page.key,
-  });
-}
-
-function removeNestedCommittedPageIndexKey<TResource>({
-  indexes,
-  key,
-  page,
-}: {
-  readonly indexes: Map<string, Map<string, Set<string>>>;
-  readonly key: string;
-  readonly page: CommittedRetainedTexturePage<TResource>;
-}) {
-  const surfaceIndexes = indexes.get(page.descriptor.surfaceId);
-  if (!surfaceIndexes) {
-    return;
-  }
-  removeCommittedPageIndexKey({
-    indexes: surfaceIndexes,
-    key,
-    pageKey: page.key,
-  });
-  if (surfaceIndexes.size === 0) {
-    indexes.delete(page.descriptor.surfaceId);
-  }
 }
 
 function addCommittedPageIndexKey({
@@ -560,15 +462,6 @@ function removeCommittedPageIndexKey({
   if (pageKeys.size === 0) {
     indexes.delete(key);
   }
-}
-
-function createNestedCommittedPageIndex(
-  indexes: Map<string, Map<string, Set<string>>>,
-  key: string,
-): Map<string, Set<string>> {
-  const nested = new Map<string, Set<string>>();
-  indexes.set(key, nested);
-  return nested;
 }
 
 function createCommittedPageIndex(
@@ -721,17 +614,6 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
     left.y < right.y + right.height &&
     left.y + left.height > right.y
   );
-}
-
-function sourceWindowsShareScrollOrigin(
-  left: GpuRect,
-  right: GpuRect,
-): boolean {
-  return left.x === right.x && left.y === right.y;
-}
-
-function rectKey(rect: GpuRect): string {
-  return [rect.x, rect.y, rect.width, rect.height].join(":");
 }
 
 function rectArea(rect: GpuRect): number {

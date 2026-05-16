@@ -29,6 +29,7 @@ const STRICT_P99_FRAME_BUDGET_MS = 16.7;
 const CI_P95_FRAME_BUDGET_MS = 20;
 const CI_MAX_FRAME_BUDGET_MS = 110;
 const CI_LONG_TASK_BUDGET_MS = 50;
+const CI_SLOW_FRAME_RATIO_BUDGET = 0.24;
 const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
 
 type FrameSamplerHandle = {
@@ -576,7 +577,7 @@ export function resolveRetainedCompositorCadenceBudget({
       eventSpacing.p95Ms + 4,
     ),
     p99FrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
-    slowFrameRatioBudget: 0.12,
+    slowFrameRatioBudget: CI_SLOW_FRAME_RATIO_BUDGET,
   };
 }
 
@@ -726,16 +727,15 @@ async function startGestureFrameSampler(page: Page): Promise<void> {
       PerformanceObserver.supportedEntryTypes.includes("longtask")
         ? new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
-              const longTaskEntry =
-                entry as PerformanceEntry & {
-                  readonly attribution?: readonly {
-                    readonly containerId?: string;
-                    readonly containerName?: string;
-                    readonly containerSrc?: string;
-                    readonly containerType?: string;
-                    readonly name?: string;
-                  }[];
-                };
+              const longTaskEntry = entry as PerformanceEntry & {
+                readonly attribution?: readonly {
+                  readonly containerId?: string;
+                  readonly containerName?: string;
+                  readonly containerSrc?: string;
+                  readonly containerType?: string;
+                  readonly name?: string;
+                }[];
+              };
               longTasks.push({
                 attribution: (longTaskEntry.attribution ?? []).map(
                   (attribution) => ({

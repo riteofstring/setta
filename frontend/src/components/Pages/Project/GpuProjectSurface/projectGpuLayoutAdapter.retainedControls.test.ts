@@ -787,7 +787,7 @@ describe("project GPU layout adapter retained controls", () => {
 
     expect(paramSurface?.retainedScene).toMatchObject({
       scrollOffset: { x: 0, y: 56 },
-      visibleRange: { endIndex: 2, rowCount: 8, startIndex: 0 },
+      visibleRange: { endIndex: 5, rowCount: 8, startIndex: 0 },
     });
     expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
       id: "param-0",

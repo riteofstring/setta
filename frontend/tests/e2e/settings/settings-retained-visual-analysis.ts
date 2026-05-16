@@ -222,7 +222,9 @@ async function analyzeTextInkBounds(
         const coolText = b > 95 && g > 75 && b - r > 18;
         const purpleText = r > 115 && b > 115 && b - g > 10;
         const warmText = r > 120 && r - g > 25 && r - b > 15;
-        return coolText || purpleText || warmText;
+        const neutralText =
+          luma > 105 && Math.max(r, g, b) - Math.min(r, g, b) < 55;
+        return coolText || purpleText || warmText || neutralText;
       }
     },
     {

@@ -249,6 +249,50 @@ describe("runRetainedTextureUploadScheduler", () => {
       reason: "budget-exhausted",
     });
   });
+
+  it("reserves page work bytes for visible coverage before refinement and prefetch", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 10, width: 10, x: 0, y: 0 },
+      surfaceId: "visible",
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "lod-refinement",
+      sourceRect: { height: 10, width: 10, x: 0, y: 20 },
+      surfaceId: "refinement",
+      targetLod: 2,
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "source-window",
+      priority: "prefetch",
+      sourceWindow: { height: 100, width: 100, x: 0, y: 120 },
+      surfaceId: "prefetch",
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: { ...DEFAULT_BUDGET, maxUploads: 3 },
+      estimateWorkItem: () => SMALL_WORK,
+      executeWorkItem: () => ({ ...SMALL_WORK, complete: true }),
+      pageWorkBudget: {
+        prefetchMaxBytes: 0,
+        refinementMaxBytes: 0,
+        visibleEdgeMaxUploads: 1,
+      },
+      queue,
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "visible",
+    ]);
+    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
+      "refinement",
+      "prefetch",
+    ]);
+  });
 });
 
 describe("retainedTextureSchedulerQueueForWorkItem", () => {

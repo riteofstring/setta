@@ -27,28 +27,31 @@ export type RetainedScaleBucket = number;
 
 export type CoverageReadiness =
   | "complete"
-  | "missing-visible-coverage"
+  | "pending-visible-strips"
   | "explicit-loading-state";
 
 export type TextureReadiness = "ready" | "fallback" | "missing";
 
 export type ScrollPublicationMode =
-  | "transform-only-within-covered-window"
-  | "publish-covered-scroll-frame"
-  | "hold-previous-frame-with-scroll-lag"
-  | "explicit-loading-state";
+  | "publish-motion-frame"
+  | "publish-motion-frame-with-pending-strips"
+  | "publish-initial-loading-state"
+  | "reject-content-snapshot";
 
-export type RetainedFallbackCompatibility =
-  | "exact"
-  | "same-scroll-origin-lod-fallback";
+export type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
+  readonly frameId: RetainedFrameId;
+};
 
-export type DesiredRetainedFrame = {
+export type RetainedContentSnapshotFrame = {
   readonly id: RetainedFrameId;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type PreparedRetainedFrame = DesiredRetainedFrame & {
-  readonly pageFrame: RetainedContentTexturePagePreparedFrame;
+export type RetainedPageFrame = RetainedContentTexturePagePreparedFrame;
+
+export type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
+  readonly motionFrame: RetainedMotionFrame;
+  readonly pageFrame: RetainedPageFrame;
 };
 
 export type PublishedRetainedPage =
@@ -62,28 +65,41 @@ export type PublishedRetainedHitIndex = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type VisibleCoverageProof = {
+export type RetainedPendingStrip = {
+  readonly rect: GpuRect;
+  readonly reason:
+    | "normal-edge-strip"
+    | "large-delta-no-overlap"
+    | "cache-cold"
+    | "content-incompatible";
+};
+
+export type RetainedMotionContinuityProof = {
+  readonly overlapCoveredAreaCssPx: number;
+  readonly pendingAreaCssPx: number;
+  readonly pendingAreaRatio: number;
+  readonly maxConsecutivePendingFrames: number;
+  readonly reason:
+    | "normal-edge-strip"
+    | "large-delta-no-overlap"
+    | "cache-cold"
+    | "content-incompatible";
+};
+
+export type RetainedVisibleCoverageProof = {
   readonly coveredRects: readonly GpuRect[];
+  readonly exactRects: readonly GpuRect[];
   readonly fallbackRects: readonly GpuRect[];
+  readonly impossibleRects: readonly GpuRect[];
   readonly missingRects: readonly GpuRect[];
+  readonly pendingStrips: readonly RetainedPendingStrip[];
   readonly rejectedPreparedFrameIds: readonly RetainedFrameId[];
   readonly visibleRects: readonly GpuRect[];
 };
 
-export type PublishedRetainedScrollLagDiagnostics = {
-  readonly heldFrameCount: number;
-  readonly heldWithoutVisiblePreparationProgressFrameCount: number;
-  readonly lagCssPx: number;
-  readonly lagCssPxPerMs: number;
-  readonly lagDurationMs: number;
-  readonly lagStartedAtMs: number | null;
-  readonly publishedScrollRevision: number;
-  readonly visiblePreparationProgressCount: number;
-  readonly visiblePreparationProgressSignature: string;
-};
-
 export type PublishedFrameDiagnostics = {
   readonly activeIslandTransaction: NativeIslandPublicationTransaction;
+  readonly continuityProof: RetainedMotionContinuityProof;
   readonly coverageReadiness: CoverageReadiness;
   readonly desiredScrollRevision: number;
   readonly fallbackPageCount: number;
@@ -91,42 +107,43 @@ export type PublishedFrameDiagnostics = {
   readonly missingPageCount: number;
   readonly publishedPreparedFrameId: RetainedFrameId;
   readonly rejectedFrameCount: number;
-  readonly scrollLag: PublishedRetainedScrollLagDiagnostics;
   readonly scrollPublicationMode: ScrollPublicationMode;
   readonly textureReadiness: TextureReadiness;
   readonly uncoveredRectCount: number;
 };
 
-export type PublishedRetainedFrame = {
+export type RetainedDisplayFrame = {
   readonly activeIslandRects: readonly PublishedNativeIslandRect[];
-  readonly coverageProof: VisibleCoverageProof;
+  readonly coverageProof: RetainedVisibleCoverageProof;
   readonly diagnostics: PublishedFrameDiagnostics;
   readonly fallbackPages: readonly PublishedRetainedFallbackPage[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly hitIndex: PublishedRetainedHitIndex;
   readonly id: RetainedFrameId;
-  readonly pageFrame: RetainedContentTexturePagePreparedFrame;
+  readonly pageFrame: RetainedPageFrame;
   readonly pages: readonly PublishedRetainedPage[];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
 export type RetainedFrameTransaction = {
   readonly nowMs?: number | undefined;
-  readonly prepared: PreparedRetainedFrame;
-  readonly previous: PublishedRetainedFrame | null;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null;
 };
 
-const MAX_REJECTED_PREPARED_FRAME_IDS = 32;
-
-export function createPreparedRetainedFrame({
+export function createRetainedDisplayFrameInput({
   pageFrame,
   retainedRuntimeFrame,
 }: {
-  readonly pageFrame: RetainedContentTexturePagePreparedFrame;
+  readonly pageFrame: RetainedPageFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): PreparedRetainedFrame {
+}): RetainedDisplayFrameInput {
   return Object.freeze({
     id: retainedRuntimeFrame.frameId,
+    motionFrame: Object.freeze({
+      ...retainedRuntimeFrame.input,
+      frameId: retainedRuntimeFrame.frameId,
+    }),
     pageFrame,
     retainedRuntimeFrame,
   });
@@ -136,43 +153,45 @@ export function publishRetainedDisplayFrame({
   nowMs = 0,
   prepared,
   previous,
-}: RetainedFrameTransaction): PublishedRetainedFrame {
+}: RetainedFrameTransaction): RetainedDisplayFrame {
   const proof = createVisibleCoverageProof({
     prepared,
-    rejectedPreparedFrameIds: previous?.coverageProof.rejectedPreparedFrameIds,
+    previous,
   });
   if (proof.missingRects.length === 0) {
-    return createPublishedRetainedFrame({
+    return createComposedRetainedDisplayFrame({
       coverageReadiness: "complete",
       diagnosticsPrevious: previous,
       prepared,
       proof,
-      scrollPublicationMode: resolveCoveredScrollPublicationMode({
-        prepared,
-        previous,
-      }),
+      scrollPublicationMode: "publish-motion-frame",
       textureReadiness:
         prepared.pageFrame.fallbackDrawQuadCount > 0 ? "fallback" : "ready",
     });
   }
   if (!previous) {
-    return createPublishedRetainedFrame({
+    return createComposedRetainedDisplayFrame({
       coverageReadiness: "explicit-loading-state",
       diagnosticsPrevious: null,
       prepared,
       proof,
-      scrollPublicationMode: "explicit-loading-state",
+      scrollPublicationMode: "publish-initial-loading-state",
       textureReadiness: "missing",
     });
   }
-  return retainPreviousPublishedFrame({
-    nowMs,
+  void nowMs;
+  return createComposedRetainedDisplayFrame({
+    coverageReadiness: "pending-visible-strips",
+    diagnosticsPrevious: previous,
     prepared,
-    previous,
+    proof,
+    scrollPublicationMode: "publish-motion-frame-with-pending-strips",
+    textureReadiness:
+      prepared.pageFrame.drawQuadCount > 0 ? "fallback" : "missing",
   });
 }
 
-function createPublishedRetainedFrame({
+function createComposedRetainedDisplayFrame({
   coverageReadiness,
   diagnosticsPrevious,
   prepared,
@@ -181,20 +200,27 @@ function createPublishedRetainedFrame({
   textureReadiness,
 }: {
   readonly coverageReadiness: CoverageReadiness;
-  readonly diagnosticsPrevious: PublishedRetainedFrame | null;
-  readonly prepared: PreparedRetainedFrame;
-  readonly proof: VisibleCoverageProof;
+  readonly diagnosticsPrevious: RetainedDisplayFrame | null;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly proof: RetainedVisibleCoverageProof;
   readonly scrollPublicationMode: ScrollPublicationMode;
   readonly textureReadiness: TextureReadiness;
-}): PublishedRetainedFrame {
+}): RetainedDisplayFrame {
   const fallbackPages = prepared.pageFrame.drawQuads.filter(
     (page): page is PublishedRetainedFallbackPage => page.fallback,
   );
-  const activeIslandRects = createPublishedNativeIslandRects(
+  const desiredActiveIslandRects = createPublishedNativeIslandRects(
     prepared.retainedRuntimeFrame,
   );
+  const blockedPassiveDetachByCoverage =
+    proof.missingRects.length > 0 &&
+    desiredActiveIslandRects.length === 0 &&
+    Boolean(diagnosticsPrevious?.activeIslandRects.length);
+  const activeIslandRects = blockedPassiveDetachByCoverage
+    ? diagnosticsPrevious?.activeIslandRects ?? []
+    : desiredActiveIslandRects;
   const activeIslandTransaction = resolveNativeIslandPublicationTransaction({
-    blockedByCoverage: false,
+    blockedByCoverage: blockedPassiveDetachByCoverage,
     desiredIslandIds: prepared.retainedRuntimeFrame.input.activeNativeIslandIds,
     previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),
     publishedIslandIds: activeIslandRects.map((island) => island.id),
@@ -204,6 +230,11 @@ function createPublishedRetainedFrame({
     coverageProof: proof,
     diagnostics: Object.freeze({
       activeIslandTransaction,
+      continuityProof: createRetainedMotionContinuityProof({
+        prepared,
+        previous: diagnosticsPrevious,
+        proof,
+      }),
       coverageReadiness,
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
       fallbackPageCount: fallbackPages.length,
@@ -212,9 +243,6 @@ function createPublishedRetainedFrame({
       publishedPreparedFrameId: prepared.id,
       rejectedFrameCount:
         diagnosticsPrevious?.diagnostics.rejectedFrameCount ?? 0,
-      scrollLag: createCoveredScrollLagDiagnostics({
-        prepared,
-      }),
       scrollPublicationMode,
       textureReadiness,
       uncoveredRectCount: prepared.pageFrame.uncoveredRectCount,
@@ -231,222 +259,263 @@ function createPublishedRetainedFrame({
   });
 }
 
-function retainPreviousPublishedFrame({
-  nowMs,
-  prepared,
-  previous,
-}: {
-  readonly nowMs: number;
-  readonly prepared: PreparedRetainedFrame;
-  readonly previous: PublishedRetainedFrame;
-}): PublishedRetainedFrame {
-  const rejectedPreparedFrameIds = appendRejectedPreparedFrameId({
-    frameId: prepared.id,
-    previousIds: previous.coverageProof.rejectedPreparedFrameIds,
-  });
-  const activeIslandTransaction = resolveNativeIslandPublicationTransaction({
-    blockedByCoverage: true,
-    desiredIslandIds: prepared.retainedRuntimeFrame.input.activeNativeIslandIds,
-    previousIslandIds: previous.activeIslandRects.map((island) => island.id),
-    publishedIslandIds: previous.activeIslandRects.map((island) => island.id),
-  });
-  return Object.freeze({
-    ...previous,
-    coverageProof: Object.freeze({
-      ...previous.coverageProof,
-      rejectedPreparedFrameIds,
-    }),
-    diagnostics: Object.freeze({
-      ...previous.diagnostics,
-      activeIslandTransaction,
-      coverageReadiness: "missing-visible-coverage",
-      desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
-      lastRejectedPreparedFrameId: prepared.id,
-      rejectedFrameCount: previous.diagnostics.rejectedFrameCount + 1,
-      scrollLag: createHeldScrollLagDiagnostics({
-        nowMs,
-        prepared,
-        previous,
-      }),
-      scrollPublicationMode: "hold-previous-frame-with-scroll-lag",
-      textureReadiness: "missing",
-    }),
-  });
-}
-
-function createCoveredScrollLagDiagnostics({
-  prepared,
-}: {
-  readonly prepared: PreparedRetainedFrame;
-}): PublishedRetainedScrollLagDiagnostics {
-  return Object.freeze({
-    heldFrameCount: 0,
-    heldWithoutVisiblePreparationProgressFrameCount: 0,
-    lagCssPx: 0,
-    lagCssPxPerMs: 0,
-    lagDurationMs: 0,
-    lagStartedAtMs: null,
-    publishedScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
-    visiblePreparationProgressCount: 0,
-    visiblePreparationProgressSignature:
-      createVisiblePreparationProgressSignature(prepared),
-  });
-}
-
-function createHeldScrollLagDiagnostics({
-  nowMs,
-  prepared,
-  previous,
-}: {
-  readonly nowMs: number;
-  readonly prepared: PreparedRetainedFrame;
-  readonly previous: PublishedRetainedFrame;
-}): PublishedRetainedScrollLagDiagnostics {
-  const lagCssPx = getMaxScrollLagCssPx({
-    desired: prepared.retainedRuntimeFrame.input.scrollOffsets,
-    published: previous.retainedRuntimeFrame.input.scrollOffsets,
-  });
-  if (lagCssPx <= 0) {
-    return createCoveredScrollLagDiagnostics({
-      prepared,
-    });
-  }
-  const previousLag = previous.diagnostics.scrollLag;
-  const lagStartedAtMs = previousLag.lagStartedAtMs ?? nowMs;
-  const lagDurationMs = Math.max(0, nowMs - lagStartedAtMs);
-  const visiblePreparationProgressSignature =
-    createVisiblePreparationProgressSignature(prepared);
-  const visiblePreparationProgressChanged =
-    previousLag.heldFrameCount === 0 ||
-    previousLag.visiblePreparationProgressSignature !==
-      visiblePreparationProgressSignature;
-  const visiblePreparationProgressCount =
-    previousLag.visiblePreparationProgressCount +
-    (visiblePreparationProgressChanged ? 1 : 0);
-  return Object.freeze({
-    heldFrameCount: previousLag.heldFrameCount + 1,
-    heldWithoutVisiblePreparationProgressFrameCount:
-      visiblePreparationProgressChanged
-        ? 0
-        : previousLag.heldWithoutVisiblePreparationProgressFrameCount + 1,
-    lagCssPx,
-    lagCssPxPerMs: lagDurationMs > 0 ? lagCssPx / lagDurationMs : 0,
-    lagDurationMs,
-    lagStartedAtMs,
-    publishedScrollRevision: previous.retainedRuntimeFrame.input.scrollRevision,
-    visiblePreparationProgressCount,
-    visiblePreparationProgressSignature,
-  });
-}
-
-function getMaxScrollLagCssPx({
-  desired,
-  published,
-}: {
-  readonly desired: ReadonlyMap<
-    string,
-    { readonly x: number; readonly y: number }
-  >;
-  readonly published: ReadonlyMap<
-    string,
-    { readonly x: number; readonly y: number }
-  >;
-}): number {
-  const surfaceIds = new Set([...desired.keys(), ...published.keys()]);
-  let maxLag = 0;
-  for (const surfaceId of surfaceIds) {
-    const desiredOffset = desired.get(surfaceId) ?? { x: 0, y: 0 };
-    const publishedOffset = published.get(surfaceId) ?? { x: 0, y: 0 };
-    maxLag = Math.max(
-      maxLag,
-      Math.hypot(
-        desiredOffset.x - publishedOffset.x,
-        desiredOffset.y - publishedOffset.y,
-      ),
-    );
-  }
-  return maxLag;
-}
-
-function createVisiblePreparationProgressSignature(
-  prepared: PreparedRetainedFrame,
-): string {
-  return [
-    prepared.pageFrame.drawQuadCount,
-    prepared.pageFrame.fallbackDrawQuadCount,
-    prepared.pageFrame.missingPageCount,
-    prepared.pageFrame.uncoveredRectCount,
-    prepared.pageFrame.refinementDescriptors.length,
-    prepared.pageFrame.coverageCandidateCount,
-  ].join(":");
-}
-
 function getPublishedNativeIslandIds(
-  frame: PublishedRetainedFrame | null,
+  frame: RetainedDisplayFrame | null,
 ): readonly string[] {
   return frame?.activeIslandRects.map((island) => island.id) ?? [];
 }
 
 function createVisibleCoverageProof({
   prepared,
-  rejectedPreparedFrameIds = [],
+  previous,
 }: {
-  readonly prepared: PreparedRetainedFrame;
-  readonly rejectedPreparedFrameIds?: readonly RetainedFrameId[] | undefined;
-}): VisibleCoverageProof {
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null;
+}): RetainedVisibleCoverageProof {
+  const coveredRects = freezeRects(
+    prepared.pageFrame.drawQuads.map((quad) => quad.sampleRectCss),
+  );
+  const fallbackRects = freezeRects(
+    prepared.pageFrame.drawQuads
+      .filter((quad) => quad.fallback)
+      .map((quad) => quad.sampleRectCss),
+  );
+  const exactRects = freezeRects(
+    prepared.pageFrame.drawQuads
+      .filter((quad) => !quad.fallback)
+      .map((quad) => quad.sampleRectCss),
+  );
+  const missingRects = freezeRects(prepared.pageFrame.uncoveredRectsCss);
+  const visibleRects = freezeRects(
+    prepared.pageFrame.targetDescriptors.map(
+      (descriptor: RetainedTexturePageDescriptor) => descriptor.sourceRectCss,
+    ),
+  );
+  const reason = resolveRetainedMotionContinuityReason({
+    coveredRects,
+    missingRects,
+    prepared,
+    previous,
+    visibleRects,
+  });
   return Object.freeze({
-    coveredRects: freezeRects(
-      prepared.pageFrame.drawQuads.map((quad) => quad.sampleRectCss),
+    coveredRects,
+    exactRects,
+    fallbackRects,
+    impossibleRects: Object.freeze([]),
+    missingRects,
+    pendingStrips: Object.freeze(
+      missingRects.map((rect) => Object.freeze({ reason, rect })),
     ),
-    fallbackRects: freezeRects(
-      prepared.pageFrame.drawQuads
-        .filter((quad) => quad.fallback)
-        .map((quad) => quad.sampleRectCss),
-    ),
-    missingRects: freezeRects(prepared.pageFrame.uncoveredRectsCss),
-    rejectedPreparedFrameIds: Object.freeze([...rejectedPreparedFrameIds]),
-    visibleRects: freezeRects(
-      prepared.pageFrame.targetDescriptors.map(
-        (descriptor: RetainedTexturePageDescriptor) => descriptor.sourceRectCss,
-      ),
-    ),
+    rejectedPreparedFrameIds: Object.freeze([
+      ...(previous?.coverageProof.rejectedPreparedFrameIds ?? []),
+    ]),
+    visibleRects,
   });
 }
 
-function resolveCoveredScrollPublicationMode({
+function createRetainedMotionContinuityProof({
   prepared,
   previous,
+  proof,
 }: {
-  readonly prepared: PreparedRetainedFrame;
-  readonly previous: PublishedRetainedFrame | null;
-}): ScrollPublicationMode {
-  if (
-    previous &&
-    previous.retainedRuntimeFrame.input.scrollRevision !==
-      prepared.retainedRuntimeFrame.input.scrollRevision
-  ) {
-    if (
-      prepared.pageFrame.drawQuadCount > 0 &&
-      prepared.pageFrame.drawQuadCount ===
-        prepared.pageFrame.fallbackDrawQuadCount
-    ) {
-      return "transform-only-within-covered-window";
-    }
-    return "publish-covered-scroll-frame";
-  }
-  return "publish-covered-scroll-frame";
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null;
+  readonly proof: RetainedVisibleCoverageProof;
+}): RetainedMotionContinuityProof {
+  const reason =
+    proof.pendingStrips[0]?.reason ??
+    resolveRetainedMotionContinuityReason({
+      coveredRects: proof.coveredRects,
+      missingRects: proof.missingRects,
+      prepared,
+      previous,
+      visibleRects: proof.visibleRects,
+    });
+  const previousVisibleRects = previous?.coverageProof.visibleRects ?? [];
+  const visibleOverlapRects = intersectRectSets(
+    previousVisibleRects,
+    proof.visibleRects,
+  );
+  const visibleOverlapArea = rectSetArea(visibleOverlapRects);
+  const overlapCoveredArea = rectSetArea(
+    intersectRectSets(visibleOverlapRects, proof.coveredRects),
+  );
+  const pendingArea = rectSetArea(proof.missingRects);
+  const visibleArea = rectSetArea(proof.visibleRects);
+  const maxConsecutivePendingFrames =
+    getRetainedMotionConsecutivePendingFrameCount({
+      pendingArea,
+      previous,
+    });
+  assertRetainedMotionContinuityCoveredOverlap({
+    overlapCoveredArea,
+    pendingArea,
+    previous,
+    reason,
+    visibleOverlapArea,
+  });
+  return Object.freeze({
+    maxConsecutivePendingFrames,
+    overlapCoveredAreaCssPx: overlapCoveredArea,
+    pendingAreaCssPx: pendingArea,
+    pendingAreaRatio: ratioOrZero(pendingArea, visibleArea),
+    reason,
+  });
 }
 
-function appendRejectedPreparedFrameId({
-  frameId,
-  previousIds,
+function getRetainedMotionConsecutivePendingFrameCount({
+  pendingArea,
+  previous,
 }: {
-  readonly frameId: RetainedFrameId;
-  readonly previousIds: readonly RetainedFrameId[];
-}): readonly RetainedFrameId[] {
-  return Object.freeze(
-    [...previousIds, frameId].slice(-MAX_REJECTED_PREPARED_FRAME_IDS),
+  readonly pendingArea: number;
+  readonly previous: RetainedDisplayFrame | null;
+}): number {
+  if (pendingArea <= 0) {
+    return 0;
+  }
+  return (
+    (previous?.diagnostics.continuityProof.maxConsecutivePendingFrames ?? 0) +
+    1
   );
+}
+
+function assertRetainedMotionContinuityCoveredOverlap({
+  overlapCoveredArea,
+  pendingArea,
+  previous,
+  reason,
+  visibleOverlapArea,
+}: {
+  readonly overlapCoveredArea: number;
+  readonly pendingArea: number;
+  readonly previous: RetainedDisplayFrame | null;
+  readonly reason: RetainedMotionContinuityReason;
+  readonly visibleOverlapArea: number;
+}) {
+  if (
+    shouldAssertRetainedMotionContinuityCoveredOverlap({
+      overlapCoveredArea,
+      pendingArea,
+      previous,
+      reason,
+      visibleOverlapArea,
+    })
+  ) {
+    throw new Error(
+      "Retained scroll motion has previous visible overlap but no compatible covered content.",
+    );
+  }
+}
+
+function shouldAssertRetainedMotionContinuityCoveredOverlap({
+  overlapCoveredArea,
+  pendingArea,
+  previous,
+  reason,
+  visibleOverlapArea,
+}: {
+  readonly overlapCoveredArea: number;
+  readonly pendingArea: number;
+  readonly previous: RetainedDisplayFrame | null;
+  readonly reason: RetainedMotionContinuityReason;
+  readonly visibleOverlapArea: number;
+}): boolean {
+  return (
+    isRetainedDisplayFrameTestRuntime() &&
+    Boolean(previous?.pageFrame.drawQuadCount) &&
+    reason === "normal-edge-strip" &&
+    visibleOverlapArea > 0 &&
+    overlapCoveredArea <= 0 &&
+    pendingArea > 0
+  );
+}
+
+function ratioOrZero(numerator: number, denominator: number): number {
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function resolveRetainedMotionContinuityReason({
+  missingRects,
+  prepared,
+  previous,
+  visibleRects,
+}: {
+  readonly coveredRects: readonly GpuRect[];
+  readonly missingRects: readonly GpuRect[];
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null;
+  readonly visibleRects: readonly GpuRect[];
+}): RetainedMotionContinuityProof["reason"] {
+  if (missingRects.length === 0) {
+    return "normal-edge-strip";
+  }
+  if (!previous) {
+    return "cache-cold";
+  }
+  if (!hasCompatibleRetainedContentIdentity(previous, prepared)) {
+    return "content-incompatible";
+  }
+  const previousVisibleRects = previous.coverageProof.visibleRects;
+  const visibleOverlapArea = rectSetArea(
+    intersectRectSets(previousVisibleRects, visibleRects),
+  );
+  return visibleOverlapArea > 0
+    ? "normal-edge-strip"
+    : "large-delta-no-overlap";
+}
+
+function hasCompatibleRetainedContentIdentity(
+  previous: RetainedDisplayFrame,
+  prepared: RetainedDisplayFrameInput,
+): boolean {
+  return prepared.pageFrame.targetDescriptors.some((current) =>
+    previous.pageFrame.targetDescriptors.some(
+      (published) =>
+        published.surfaceId === current.surfaceId &&
+        published.sourceKey === current.sourceKey &&
+        published.sourceVersion === current.sourceVersion &&
+        published.contentVersion === current.contentVersion,
+    ),
+  );
+}
+
+function intersectRectSets(
+  leftRects: readonly GpuRect[],
+  rightRects: readonly GpuRect[],
+): readonly GpuRect[] {
+  const intersections: GpuRect[] = [];
+  for (const left of leftRects) {
+    for (const right of rightRects) {
+      const intersection = intersectRects(left, right);
+      if (intersection) {
+        intersections.push(intersection);
+      }
+    }
+  }
+  return intersections;
+}
+
+function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
+  return width > 0 && height > 0 ? { height, width, x, y } : null;
+}
+
+function rectSetArea(rects: readonly GpuRect[]): number {
+  return rects.reduce((total, rect) => total + rect.width * rect.height, 0);
+}
+
+function isRetainedDisplayFrameTestRuntime(): boolean {
+  return typeof process !== "undefined" && process.env.NODE_ENV === "test";
 }
 
 function freezeRects(rects: readonly GpuRect[]): readonly GpuRect[] {

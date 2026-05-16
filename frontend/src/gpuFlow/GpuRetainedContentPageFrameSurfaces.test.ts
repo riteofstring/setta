@@ -80,6 +80,30 @@ describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
       segmentVersion(activeSurface, "row-b"),
     );
   });
+
+  it("describes visible retained pages in absolute content coordinates", () => {
+    const frame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 3,
+      scene: sceneWithSurface(scrollablePageSurface()),
+      scrollOffsets: new Map([["surface-a", { x: 0, y: 24 }]]),
+      scrollRevision: 2,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const surface = frame.descriptors.contentPageSurfaces[0];
+
+    expect(surface?.visibleSourceRectCss).toEqual({
+      height: 48,
+      width: 240,
+      x: 0,
+      y: 24,
+    });
+    expect(surface?.layout.textureSourceRect).toEqual(
+      surface?.visibleSourceRectCss,
+    );
+    expect(surface?.sourceWindowCss.y).toBe(0);
+  });
 });
 
 function segmentVersion(
@@ -199,6 +223,34 @@ function textLikePageSurface({
           label: "Unchanged",
         },
       ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: rect,
+    }),
+    zIndex: 1,
+  };
+}
+
+function scrollablePageSurface(): GpuContentSurface {
+  const rect = { height: 48, width: 240, x: 0, y: 0 };
+  return {
+    clipRect: rect,
+    id: "surface-a",
+    ownerSectionId: "section-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "surface-a",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: Array.from({ length: 5 }, (_, index) => ({
+        controlKind: null,
+        depth: 0,
+        id: `row-${index}`,
+        label: `Row ${index}`,
+      })),
       scrollOffset: { x: 0, y: 0 },
       viewportRect: rect,
     }),

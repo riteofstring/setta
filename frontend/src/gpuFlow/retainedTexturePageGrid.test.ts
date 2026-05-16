@@ -229,7 +229,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     );
   });
 
-  it("does not use committed same-surface pages from previous scroll windows as fallback", () => {
+  it("uses committed same-surface content pages from previous scroll windows as fallback", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -256,13 +256,21 @@ describe("createRetainedTexturePageDrawQuads", () => {
       }),
     ).toEqual(
       expect.objectContaining({
-        drawQuads: [],
-        uncoveredRectsCss: [{ height: 64, width: 64, x: 64, y: 64 }],
+        drawQuads: [
+          expect.objectContaining({
+            fallback: true,
+            page: expect.objectContaining({
+              resource: "previous-scroll-window",
+            }),
+            sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
+          }),
+        ],
+        uncoveredRectsCss: [],
       }),
     );
   });
 
-  it("uses committed pages from the same scroll origin as fallback when zoom changes the source window size", () => {
+  it("uses committed content pages as fallback when zoom changes the source window size", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -274,7 +282,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
         sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
         sourceWindowCss: { height: 512, width: 512, x: 0, y: 0 },
       }),
-      resource: "same-scroll-origin",
+      resource: "compatible-content",
     });
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
@@ -297,7 +305,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
         drawQuads: [
           expect.objectContaining({
             fallback: true,
-            page: expect.objectContaining({ resource: "same-scroll-origin" }),
+            page: expect.objectContaining({ resource: "compatible-content" }),
             sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
           }),
         ],

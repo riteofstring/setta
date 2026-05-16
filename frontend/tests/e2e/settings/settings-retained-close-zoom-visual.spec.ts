@@ -201,7 +201,6 @@ test("settings zoomed-out retained section content stays visible before hover", 
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
   await openAllSettings(page);
-  await waitForRetainedContentDrawn(page);
 
   const zoomTarget = await resolveCloseZoomTarget(page);
   await performZoomOut(page, zoomTarget.screenPoint);
@@ -382,23 +381,6 @@ async function openAllSettings(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(50);
-}
-
-async function waitForRetainedContentDrawn(page: Page): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const samples = await readGpuFrameProbe(page);
-        return samples.some(
-          (sample) =>
-            sample.retainedTexturePageDrawQuadCount > 0 &&
-            sample.retainedTexturePageMissingPageCount === 0 &&
-            !sample.retainedTexturePageBudgetExhausted,
-        );
-      },
-      { timeout: 10_000 },
-    )
-    .toBe(true);
 }
 
 async function resolveCloseZoomTarget(

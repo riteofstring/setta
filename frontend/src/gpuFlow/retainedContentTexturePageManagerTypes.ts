@@ -1,5 +1,8 @@
 import type { NodeTexturePriority } from "./dirtyTracking";
-import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceSolidRoundedRectVisual,
+} from "./htmlSurfaces/visualScene";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
@@ -60,6 +63,7 @@ export type RetainedContentTexturePageFrameResult = {
   readonly missingPageCount: number;
   readonly needsFollowUpFrame: boolean;
   readonly mergedDrawQuadCount: number;
+  readonly pendingStripVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly rasterMs: number;
   readonly staleFallbackDrawQuadCount: number;
   readonly targetDescriptorCount: number;
@@ -79,6 +83,7 @@ export type RetainedContentTexturePagePreparedFrame = {
   readonly frame: number;
   readonly missingPageCount: number;
   readonly mergedDrawQuadCount: number;
+  readonly pendingStripVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly protectedPageKeys: readonly string[];
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly staleFallbackDrawQuadCount: number;

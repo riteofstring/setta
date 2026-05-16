@@ -13,6 +13,15 @@ export type RetainedTextureUploadSchedulerBudget = {
   readonly maxUploads: number;
 };
 
+export type RetainedPageWorkBudget = {
+  readonly activeIslandReserveBytes: number;
+  readonly interactionFrameMaxMs: number;
+  readonly prefetchMaxBytes: number;
+  readonly refinementMaxBytes: number;
+  readonly visibleCoverageReserveBytes: number;
+  readonly visibleEdgeMaxUploads: number;
+};
+
 export type RetainedTextureUploadWorkEstimate = {
   readonly rasterMs: number;
   readonly uploadMs: number;
@@ -58,6 +67,7 @@ export type RunRetainedTextureUploadSchedulerInput = {
   readonly executeWorkItem: (
     item: RetainedTextureWorkItem,
   ) => RetainedTextureUploadWorkResult;
+  readonly pageWorkBudget?: Partial<RetainedPageWorkBudget> | undefined;
   readonly queue: RetainedTextureWorkQueue;
   readonly textureBudget?: RetainedTextureBudget | undefined;
   readonly viewportInteractionActive?: boolean | undefined;
@@ -65,21 +75,29 @@ export type RunRetainedTextureUploadSchedulerInput = {
 
 type RetainedTextureUploadSchedulerProgress = {
   prefetchUploadedBytes: number;
+  refinementUploadedBytes: number;
   rasterMs: number;
   uploadMs: number;
   uploadedBytes: number;
   uploadCount: number;
+  visibleEdgeUploadCount: number;
 };
 
 export function runRetainedTextureUploadScheduler({
   budget,
   estimateWorkItem,
   executeWorkItem,
+  pageWorkBudget,
   queue,
   textureBudget,
   viewportInteractionActive,
 }: RunRetainedTextureUploadSchedulerInput): RetainedTextureUploadSchedulerResult {
   const normalizedBudget = normalizeSchedulerBudget(budget);
+  const normalizedPageWorkBudget = normalizeRetainedPageWorkBudget({
+    budget: pageWorkBudget,
+    schedulerBudget: normalizedBudget,
+    textureBudget,
+  });
   const queueOptions: RetainedTextureWorkQueueOptions = {
     viewportInteractionActive: viewportInteractionActive ?? false,
   };
@@ -92,42 +110,29 @@ export function runRetainedTextureUploadScheduler({
     const estimate = normalizeWorkEstimate(estimateWorkItem(item));
     const schedulerQueue = retainedTextureSchedulerQueueForWorkItem(item);
     if (
-      shouldSkipPrefetchForTextureBudget({
+      shouldSkipRetainedTextureWorkItem({
+        budget: normalizedBudget,
         estimate,
+        item,
+        pageWorkBudget: normalizedPageWorkBudget,
         progress,
         schedulerQueue,
         textureBudget,
       })
     ) {
-      diagnostics.push({
-        estimate,
-        item,
-        queue: schedulerQueue,
-        reason: "budget-exhausted",
-      });
-      skippedItems.push(item);
-      continue;
-    }
-    if (
-      !fitsBudget(progress, estimate, normalizedBudget) &&
-      !canForceRetainedTextureUploadProgress({
-        budget: normalizedBudget,
-        estimate,
-        progress,
-      })
-    ) {
-      diagnostics.push({
-        estimate,
-        item,
-        queue: schedulerQueue,
-        reason: "budget-exhausted",
-      });
+      diagnostics.push(
+        createRetainedTextureBudgetExhaustedDiagnostic({
+          estimate,
+          item,
+          schedulerQueue,
+        }),
+      );
       skippedItems.push(item);
       continue;
     }
 
     const result = normalizeWorkResult(executeWorkItem(item));
-    addProgress(progress, result, schedulerQueue);
+    addProgress(progress, result, item, schedulerQueue);
     executedItems.push(item);
     if (result.complete) {
       queue.complete(item);
@@ -161,6 +166,73 @@ export function runRetainedTextureUploadScheduler({
   };
 }
 
+function shouldSkipRetainedTextureWorkItem({
+  budget,
+  estimate,
+  item,
+  pageWorkBudget,
+  progress,
+  schedulerQueue,
+  textureBudget,
+}: {
+  readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly schedulerQueue: RetainedTextureSchedulerQueue;
+  readonly textureBudget: RetainedTextureBudget | undefined;
+}): boolean {
+  if (
+    shouldSkipNonVisibleWorkForPageBudget({
+      estimate,
+      item,
+      pageWorkBudget,
+      progress,
+      schedulerQueue,
+    })
+  ) {
+    return true;
+  }
+  if (
+    shouldSkipPrefetchForTextureBudget({
+      estimate,
+      progress,
+      schedulerQueue,
+      textureBudget,
+    })
+  ) {
+    return true;
+  }
+  return (
+    !fitsBudget(progress, estimate, budget) &&
+    !canForceRetainedTextureUploadProgress({
+      budget,
+      estimate,
+      item,
+      pageWorkBudget,
+      progress,
+    })
+  );
+}
+
+function createRetainedTextureBudgetExhaustedDiagnostic({
+  estimate,
+  item,
+  schedulerQueue,
+}: {
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+  readonly schedulerQueue: RetainedTextureSchedulerQueue;
+}): RetainedTextureUploadSchedulerDiagnostic {
+  return {
+    estimate,
+    item,
+    queue: schedulerQueue,
+    reason: "budget-exhausted",
+  };
+}
+
 function shouldSkipPrefetchForTextureBudget({
   estimate,
   progress,
@@ -180,17 +252,54 @@ function shouldSkipPrefetchForTextureBudget({
   );
 }
 
+function shouldSkipNonVisibleWorkForPageBudget({
+  estimate,
+  item,
+  pageWorkBudget,
+  progress,
+  schedulerQueue,
+}: {
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly schedulerQueue: RetainedTextureSchedulerQueue;
+}): boolean {
+  if (item.kind === "first-visible" || schedulerQueue === "interactive") {
+    return false;
+  }
+  if (
+    item.kind === "lod-refinement" &&
+    progress.refinementUploadedBytes + estimate.uploadedBytes >
+      pageWorkBudget.refinementMaxBytes
+  ) {
+    return true;
+  }
+  return (
+    schedulerQueue === "prefetch" &&
+    progress.prefetchUploadedBytes + estimate.uploadedBytes >
+      pageWorkBudget.prefetchMaxBytes
+  );
+}
+
 function canForceRetainedTextureUploadProgress({
   budget,
   estimate,
+  item,
+  pageWorkBudget,
   progress,
 }: {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
 }): boolean {
+  const visibleEdgeUploadAvailable =
+    item.kind === "first-visible" &&
+    progress.visibleEdgeUploadCount < pageWorkBudget.visibleEdgeMaxUploads;
   return (
-    progress.uploadCount === 0 &&
+    (progress.uploadCount === 0 || visibleEdgeUploadAvailable) &&
     progress.uploadedBytes === 0 &&
     progress.rasterMs === 0 &&
     progress.uploadMs === 0 &&
@@ -228,10 +337,17 @@ function fitsBudget(
 function addProgress(
   progress: RetainedTextureUploadSchedulerProgress,
   result: RetainedTextureUploadWorkEstimate,
+  item: RetainedTextureWorkItem,
   queue: RetainedTextureSchedulerQueue,
 ) {
   if (queue === "prefetch") {
     progress.prefetchUploadedBytes += result.uploadedBytes;
+  }
+  if (item.kind === "lod-refinement") {
+    progress.refinementUploadedBytes += result.uploadedBytes;
+  }
+  if (item.kind === "first-visible") {
+    progress.visibleEdgeUploadCount += result.uploadCount;
   }
   progress.rasterMs += result.rasterMs;
   progress.uploadMs += result.uploadMs;
@@ -242,11 +358,127 @@ function addProgress(
 function createEmptyProgress(): RetainedTextureUploadSchedulerProgress {
   return {
     prefetchUploadedBytes: 0,
+    refinementUploadedBytes: 0,
     rasterMs: 0,
     uploadMs: 0,
     uploadedBytes: 0,
     uploadCount: 0,
+    visibleEdgeUploadCount: 0,
   };
+}
+
+function normalizeRetainedPageWorkBudget({
+  budget,
+  schedulerBudget,
+  textureBudget,
+}: {
+  readonly budget: Partial<RetainedPageWorkBudget> | undefined;
+  readonly schedulerBudget: RetainedTextureUploadSchedulerBudget;
+  readonly textureBudget: RetainedTextureBudget | undefined;
+}): RetainedPageWorkBudget {
+  return {
+    activeIslandReserveBytes: normalizeFiniteNonNegativeNumber(
+      "activeIslandReserveBytes",
+      resolveActiveIslandReserveBytes(budget, textureBudget),
+    ),
+    interactionFrameMaxMs: normalizeFiniteNonNegativeNumber(
+      "interactionFrameMaxMs",
+      resolveInteractionFrameMaxMs(budget, schedulerBudget),
+    ),
+    prefetchMaxBytes: normalizeFiniteNonNegativeNumber(
+      "prefetchMaxBytes",
+      resolvePrefetchMaxBytes(budget, textureBudget, schedulerBudget),
+    ),
+    refinementMaxBytes: normalizeFiniteNonNegativeNumber(
+      "refinementMaxBytes",
+      resolveRefinementMaxBytes(budget, textureBudget, schedulerBudget),
+    ),
+    visibleCoverageReserveBytes: normalizeFiniteNonNegativeNumber(
+      "visibleCoverageReserveBytes",
+      resolveVisibleCoverageReserveBytes(budget, textureBudget),
+    ),
+    visibleEdgeMaxUploads: normalizeFiniteNonNegativeInteger(
+      "visibleEdgeMaxUploads",
+      resolveVisibleEdgeMaxUploads(budget, schedulerBudget),
+    ),
+  };
+}
+
+function resolveActiveIslandReserveBytes(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  textureBudget: RetainedTextureBudget | undefined,
+): number {
+  return firstDefinedNumber(
+    budget?.activeIslandReserveBytes,
+    textureBudget?.activeIslandReserveBytes,
+    0,
+  );
+}
+
+function resolveInteractionFrameMaxMs(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  schedulerBudget: RetainedTextureUploadSchedulerBudget,
+): number {
+  return firstDefinedNumber(
+    budget?.interactionFrameMaxMs,
+    schedulerBudget.maxFrameRasterMs + schedulerBudget.maxFrameUploadMs,
+  );
+}
+
+function resolvePrefetchMaxBytes(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  textureBudget: RetainedTextureBudget | undefined,
+  schedulerBudget: RetainedTextureUploadSchedulerBudget,
+): number {
+  return firstDefinedNumber(
+    budget?.prefetchMaxBytes,
+    textureBudget?.offscreenPrefetchMaxBytes,
+    schedulerBudget.maxFrameUploadedBytes,
+  );
+}
+
+function resolveRefinementMaxBytes(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  textureBudget: RetainedTextureBudget | undefined,
+  schedulerBudget: RetainedTextureUploadSchedulerBudget,
+): number {
+  return firstDefinedNumber(
+    budget?.refinementMaxBytes,
+    textureBudget?.nearViewportReserveBytes,
+    schedulerBudget.maxFrameUploadedBytes,
+  );
+}
+
+function resolveVisibleCoverageReserveBytes(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  textureBudget: RetainedTextureBudget | undefined,
+): number {
+  return firstDefinedNumber(
+    budget?.visibleCoverageReserveBytes,
+    textureBudget?.visibleReserveBytes,
+    0,
+  );
+}
+
+function resolveVisibleEdgeMaxUploads(
+  budget: Partial<RetainedPageWorkBudget> | undefined,
+  schedulerBudget: RetainedTextureUploadSchedulerBudget,
+): number {
+  return firstDefinedNumber(
+    budget?.visibleEdgeMaxUploads,
+    schedulerBudget.maxUploads,
+  );
+}
+
+function firstDefinedNumber(
+  ...values: readonly (number | undefined)[]
+): number {
+  for (const value of values) {
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return 0;
 }
 
 function normalizeSchedulerBudget(

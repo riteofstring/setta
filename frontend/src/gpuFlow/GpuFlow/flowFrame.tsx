@@ -55,9 +55,9 @@ import {
   type RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
 import {
-  createPreparedRetainedFrame,
+  createRetainedDisplayFrameInput,
   publishRetainedDisplayFrame,
-  type PublishedRetainedFrame,
+  type RetainedDisplayFrame,
 } from "../retainedDisplayFrame";
 import {
   createGpuRetainedRuntimeFrame,
@@ -266,13 +266,17 @@ function requestRemainingGpuFlowFrame({
 
 function combineGpuFlowHtmlSurfaceNativeVisuals(
   baseVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[] | null | undefined,
-  transientVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[],
+  ...visualGroups: readonly (readonly HtmlSurfaceSolidRoundedRectVisual[])[]
 ): readonly HtmlSurfaceSolidRoundedRectVisual[] | undefined {
-  if (transientVisuals.length === 0) {
-    return baseVisuals ?? undefined;
+  const transientVisuals = visualGroups.flat();
+  if (!baseVisuals?.length && transientVisuals.length === 0) {
+    return undefined;
   }
   if (!baseVisuals?.length) {
     return transientVisuals;
+  }
+  if (transientVisuals.length === 0) {
+    return baseVisuals;
   }
   return [...baseVisuals, ...transientVisuals];
 }
@@ -473,7 +477,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly runtime: GpuFlowRuntime;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
-  readonly retainedDisplayFrameRef: MutableRefObject<PublishedRetainedFrame | null>;
+  readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
   readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
@@ -546,7 +550,7 @@ export function renderGpuFlowNodeLayerFrame({
   );
   const publishedRetainedFrame = publishRetainedDisplayFrame({
     nowMs: renderStartedAt,
-    prepared: createPreparedRetainedFrame({
+    prepared: createRetainedDisplayFrameInput({
       pageFrame: retainedPagePreparedFrame,
       retainedRuntimeFrame,
     }),
@@ -604,6 +608,7 @@ export function renderGpuFlowNodeLayerFrame({
     htmlSurfaceNativeVisuals: combineGpuFlowHtmlSurfaceNativeVisuals(
       retainedRuntimeNativeVisuals,
       switchAnimationNativeVisuals,
+      publishedRetainedPageFrame.pendingStripVisuals,
     ),
     htmlSurfacePageVisuals: publishedRetainedPageFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
@@ -974,7 +979,6 @@ function updateGpuFlowNodeLayerFrameState({
     switchAnimationFollowUpFrame,
   });
 }
-
 function markTransformOnlyPaintNodesForViewportFrame({
   layerResult,
   transformOnlyPaintNodeIdsRef,

@@ -49,7 +49,7 @@ import {
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import type { PublishedRetainedFrame } from "../retainedDisplayFrame";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
   createGpuRetainedRuntimeFrame,
   type GpuRetainedRuntimeFrame,
@@ -214,7 +214,7 @@ export function GpuFlow({
     useRef<RetainedContentTexturePageManager | null>(null);
   const retainedContentFrameCacheRef =
     useRef<GpuFlowRetainedContentFrameCache | null>(null);
-  const retainedDisplayFrameRef = useRef<PublishedRetainedFrame | null>(null);
+  const retainedDisplayFrameRef = useRef<RetainedDisplayFrame | null>(null);
   const retainedTextLikeRowSnapshotElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );

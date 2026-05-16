@@ -4,7 +4,7 @@ import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
-  createPreparedRetainedFrame,
+  createRetainedDisplayFrameInput,
   publishRetainedDisplayFrame,
 } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -43,7 +43,7 @@ describe("retained display frame publisher", () => {
     ]);
   });
 
-  it("keeps the previous published frame when prepared coverage is missing", () => {
+  it("publishes current motion with pending strips when prepared coverage is missing", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -56,6 +56,12 @@ describe("retained display frame publisher", () => {
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
+        drawQuads: [
+          pageDrawQuad(descriptor, {
+            fallback: true,
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
         frame: 2,
         targetDescriptors: [descriptor],
         uncoveredRectsCss: [missingRect],
@@ -63,19 +69,22 @@ describe("retained display frame publisher", () => {
       previous,
     });
 
-    expect(next.id).toBe(previous.id);
-    expect(next.retainedRuntimeFrame).toBe(previous.retainedRuntimeFrame);
-    expect(next.pageFrame).toBe(previous.pageFrame);
-    expect(next.coverageProof.missingRects).toEqual([]);
-    expect(next.coverageProof.rejectedPreparedFrameIds).toEqual([2]);
-    expect(next.diagnostics.coverageReadiness).toBe("missing-visible-coverage");
-    expect(next.diagnostics.lastRejectedPreparedFrameId).toBe(2);
+    expect(next.id).toBe(2);
+    expect(next.retainedRuntimeFrame.input.scrollRevision).toBe(2);
+    expect(next.pageFrame).not.toBe(previous.pageFrame);
+    expect(next.coverageProof.missingRects).toEqual([missingRect]);
+    expect(next.coverageProof.pendingStrips).toEqual([
+      { reason: "normal-edge-strip", rect: missingRect },
+    ]);
+    expect(next.coverageProof.rejectedPreparedFrameIds).toEqual([]);
+    expect(next.diagnostics.coverageReadiness).toBe("pending-visible-strips");
+    expect(next.diagnostics.lastRejectedPreparedFrameId).toBe(null);
     expect(next.diagnostics.scrollPublicationMode).toBe(
-      "hold-previous-frame-with-scroll-lag",
+      "publish-motion-frame-with-pending-strips",
     );
   });
 
-  it("reports held scroll lag and repeated held frames without visible preparation progress", () => {
+  it("records motion continuity while publishing pending scroll frames", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       nowMs: 10,
@@ -88,9 +97,15 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
-    const firstHeld = publishRetainedDisplayFrame({
+    const firstPending = publishRetainedDisplayFrame({
       nowMs: 20,
       prepared: preparedFrame({
+        drawQuads: [
+          pageDrawQuad(descriptor, {
+            fallback: true,
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
         frame: 2,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
         targetDescriptors: [descriptor],
@@ -98,34 +113,34 @@ describe("retained display frame publisher", () => {
       }),
       previous,
     });
-    const secondHeld = publishRetainedDisplayFrame({
+    const secondPending = publishRetainedDisplayFrame({
       nowMs: 36,
       prepared: preparedFrame({
+        drawQuads: [
+          pageDrawQuad(descriptor, {
+            fallback: true,
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
         frame: 3,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
         targetDescriptors: [descriptor],
         uncoveredRectsCss: [missingRect],
       }),
-      previous: firstHeld,
+      previous: firstPending,
     });
 
-    expect(firstHeld.diagnostics.scrollLag).toMatchObject({
-      heldFrameCount: 1,
-      heldWithoutVisiblePreparationProgressFrameCount: 0,
-      lagCssPx: 24,
-      lagDurationMs: 0,
-      publishedScrollRevision: 1,
-      visiblePreparationProgressCount: 1,
+    expect(firstPending.diagnostics.continuityProof).toMatchObject({
+      maxConsecutivePendingFrames: 1,
+      pendingAreaCssPx: 1024,
+      pendingAreaRatio: 0.25,
+      reason: "normal-edge-strip",
     });
-    expect(secondHeld.diagnostics.scrollLag).toMatchObject({
-      heldFrameCount: 2,
-      heldWithoutVisiblePreparationProgressFrameCount: 1,
-      lagCssPx: 24,
-      lagDurationMs: 16,
-      publishedScrollRevision: 1,
-      visiblePreparationProgressCount: 1,
+    expect(secondPending.diagnostics.continuityProof).toMatchObject({
+      maxConsecutivePendingFrames: 2,
+      pendingAreaCssPx: 1024,
+      reason: "normal-edge-strip",
     });
-    expect(secondHeld.diagnostics.scrollLag.lagCssPxPerMs).toBe(1.5);
   });
 
   it("keeps an active native island published while detach waits for passive coverage", () => {
@@ -141,6 +156,12 @@ describe("retained display frame publisher", () => {
     });
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
+        drawQuads: [
+          pageDrawQuad(descriptor, {
+            fallback: true,
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
         frame: 2,
         nativeDomIslands: [],
         targetDescriptors: [descriptor],
@@ -178,7 +199,7 @@ describe("retained display frame publisher", () => {
     expect(frame.diagnostics.textureReadiness).toBe("fallback");
   });
 
-  it("marks covered scroll frames that draw only fallback pages as transform-only", () => {
+  it("marks covered scroll frames as published motion frames", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -197,9 +218,7 @@ describe("retained display frame publisher", () => {
       previous,
     });
 
-    expect(next.diagnostics.scrollPublicationMode).toBe(
-      "transform-only-within-covered-window",
-    );
+    expect(next.diagnostics.scrollPublicationMode).toBe("publish-motion-frame");
   });
 
   it("allows only the initial frame to publish an explicit loading state", () => {
@@ -216,7 +235,7 @@ describe("retained display frame publisher", () => {
     expect(frame.coverageProof.missingRects).toEqual([missingRect]);
     expect(frame.diagnostics.coverageReadiness).toBe("explicit-loading-state");
     expect(frame.diagnostics.scrollPublicationMode).toBe(
-      "explicit-loading-state",
+      "publish-initial-loading-state",
     );
   });
 });
@@ -224,7 +243,7 @@ describe("retained display frame publisher", () => {
 function preparedFrame({
   drawQuads = [],
   frame = 1,
-  missingPageCount = drawQuads.length === 0 ? 1 : 0,
+  missingPageCount,
   nativeDomIslands = [],
   scrollOffsets = new Map(),
   targetDescriptors = [],
@@ -241,6 +260,11 @@ function preparedFrame({
   readonly targetDescriptors?: readonly RetainedTexturePageDescriptor[];
   readonly uncoveredRectsCss?: readonly GpuRect[];
 }) {
+  const resolvedMissingPageCount = resolvePreparedFrameMissingPageCount({
+    drawQuads,
+    missingPageCount,
+    uncoveredRectsCss,
+  });
   const pageFrame: RetainedContentTexturePagePreparedFrame = {
     coverageCandidateCount: 0,
     drawQuadCount: drawQuads.length,
@@ -249,7 +273,8 @@ function preparedFrame({
     flatSurfaces: [flatVisual(`frame-${frame}`)],
     frame,
     mergedDrawQuadCount: 0,
-    missingPageCount,
+    missingPageCount: resolvedMissingPageCount,
+    pendingStripVisuals: [],
     protectedPageKeys: [],
     refinementDescriptors: targetDescriptors,
     staleFallbackDrawQuadCount: 0,
@@ -257,7 +282,7 @@ function preparedFrame({
     uncoveredRectsCss,
     uncoveredRectCount: uncoveredRectsCss.length,
   };
-  return createPreparedRetainedFrame({
+  return createRetainedDisplayFrameInput({
     pageFrame,
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
@@ -269,6 +294,24 @@ function preparedFrame({
       viewportZoomBucket: 1,
     }),
   });
+}
+
+function resolvePreparedFrameMissingPageCount({
+  drawQuads,
+  missingPageCount,
+  uncoveredRectsCss,
+}: {
+  readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
+  readonly missingPageCount: number | undefined;
+  readonly uncoveredRectsCss: readonly GpuRect[];
+}): number {
+  if (missingPageCount !== undefined) {
+    return missingPageCount;
+  }
+  if (uncoveredRectsCss.length > 0) {
+    return uncoveredRectsCss.length;
+  }
+  return drawQuads.length === 0 ? 1 : 0;
 }
 
 function sceneWithNativeDomIslands(
@@ -327,8 +370,10 @@ function pageDrawQuad(
   descriptor: RetainedTexturePageDescriptor,
   {
     fallback = false,
+    sampleRectCss = descriptor.sourceRectCss,
   }: {
     readonly fallback?: boolean | undefined;
+    readonly sampleRectCss?: GpuRect | undefined;
   } = {},
 ): RetainedTexturePageDrawQuad<RetainedContentTextureResources> {
   return {
@@ -342,7 +387,7 @@ function pageDrawQuad(
       lastUsedFrame: 1,
       resource: {} as RetainedContentTextureResources,
     },
-    sampleRectCss: descriptor.sourceRectCss,
+    sampleRectCss,
     staleContent: false,
   };
 }

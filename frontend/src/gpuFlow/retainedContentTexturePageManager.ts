@@ -5,7 +5,6 @@ import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
-import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import {
   normalizeRetainedContentTexturePageBudget,
@@ -36,14 +35,12 @@ import type {
 import {
   EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
   areRetainedContentTexturePageTextLikeSnapshotsReady,
-  resolveRetainedContentTexturePageTextLikeSnapshots,
-  uploadRetainedContentTexturePageTextLikeSnapshots,
+  type RetainedContentTexturePageTextLikeSnapshot,
 } from "./retainedContentTexturePageTextLikeSnapshots";
+import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
   RetainedContentTextureAtlasStore,
-  createRetainedContentTextureResources,
   destroyRetainedContentTextureResources,
-  getRetainedContentTextureResourceRegion,
   type RetainedContentTextureResources,
 } from "./retainedContentTextureResources";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
@@ -58,7 +55,10 @@ import {
   retainedTexturePageKey,
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
-import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
+import {
+  createRetainedTexturePageFlatVisuals,
+  createRetainedTexturePagePendingStripVisuals,
+} from "./retainedTexturePageVisuals";
 import {
   runRetainedTextureUploadScheduler,
   type RetainedTextureUploadSchedulerBudget,
@@ -106,7 +106,8 @@ export class RetainedContentTexturePageManager {
   private drawableRevision = 0;
   private readonly pageContentVersions = new Map<string, number>();
   private maintenanceUploadedDrawCommandCount = 0;
-  private nextPageContentVersion = 1;
+  // Page-derived versions must not alias owner-provided surface or row versions.
+  private nextPageContentVersion = -1;
   private retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
   private retiredResourceDrainScheduled = false;
   private frameSurfaceById = new Map<
@@ -163,7 +164,7 @@ export class RetainedContentTexturePageManager {
     this.frameSurfaceById.clear();
     this.drawableRevision += 1;
     this.pageContentVersions.clear();
-    this.nextPageContentVersion = 1;
+    this.nextPageContentVersion = -1;
     this.devicePixelRatioBucket = 1;
     this.viewportZoomBucket = null;
     this.targetLodScale = 1;
@@ -299,6 +300,15 @@ export class RetainedContentTexturePageManager {
           switchAnimations,
           textLikeSnapshotElementById,
         }),
+      pageWorkBudget: {
+        activeIslandReserveBytes: this.textureBudget.activeIslandReserveBytes,
+        interactionFrameMaxMs:
+          this.budget.maxFrameRasterMs + this.budget.maxFrameUploadMs,
+        prefetchMaxBytes: this.textureBudget.offscreenPrefetchMaxBytes,
+        refinementMaxBytes: this.textureBudget.nearViewportReserveBytes,
+        visibleCoverageReserveBytes: this.textureBudget.visibleReserveBytes,
+        visibleEdgeMaxUploads: this.budget.maxUploads,
+      },
       queue: this.workQueue,
       textureBudget: this.textureBudget,
       viewportInteractionActive,
@@ -341,6 +351,7 @@ export class RetainedContentTexturePageManager {
         uploadResult.budgetExhausted ||
         committedRefinementChangedDrawableCoverage ||
         committedMissingPageCoverage,
+      pendingStripVisuals: preparedFrame.pendingStripVisuals,
       postMaintenanceMissingPageCount:
         postMaintenancePageVisualResult.missingPageCount,
       queuedWorkCount: this.workQueue.size,
@@ -382,6 +393,7 @@ export class RetainedContentTexturePageManager {
       mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
       missingPageCount: preparedFrame.missingPageCount,
       needsFollowUpFrame: false,
+      pendingStripVisuals: preparedFrame.pendingStripVisuals,
       postMaintenanceMissingPageCount: preparedFrame.missingPageCount,
       queuedWorkCount: this.workQueue.size,
       queuedWorkCountBeforeUpload: this.workQueue.size,
@@ -429,7 +441,8 @@ export class RetainedContentTexturePageManager {
     readonly surface: RetainedContentTexturePageFrameSurface;
   }): readonly RetainedTexturePageDescriptor[] {
     const segments = surface.contentSegments ?? [];
-    if (segments.length === 0) {
+    const textLikeSnapshots = surface.textLikeSnapshots ?? [];
+    if (segments.length === 0 && textLikeSnapshots.length === 0) {
       return descriptors;
     }
     return descriptors.map((descriptor) => ({
@@ -438,6 +451,7 @@ export class RetainedContentTexturePageManager {
         descriptor,
         segments,
         surfaceContentVersion: surface.contentVersion,
+        textLikeSnapshots,
       }),
     }));
   }
@@ -446,10 +460,12 @@ export class RetainedContentTexturePageManager {
     descriptor,
     segments,
     surfaceContentVersion,
+    textLikeSnapshots,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly segments: readonly RetainedContentTexturePageContentSegment[];
     readonly surfaceContentVersion: number;
+    readonly textLikeSnapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
   }): number {
     const intersectingSegments = segments
       .filter((segment) =>
@@ -461,11 +477,30 @@ export class RetainedContentTexturePageManager {
         rectCss: segment.rectCss,
       }))
       .sort((left, right) => left.id.localeCompare(right.id));
-    if (intersectingSegments.length === 0) {
+    const intersectingTextLikeSnapshots = textLikeSnapshots
+      .filter((snapshot) =>
+        rectsIntersect(snapshot.rectCss, descriptor.sourceRectCss),
+      )
+      .map((snapshot) => ({
+        rectCss: snapshot.rectCss,
+        rowId: snapshot.rowId,
+        sourceId: snapshot.sourceId,
+        sourceKey: snapshot.sourceKey,
+      }))
+      .sort(
+        (left, right) =>
+          left.sourceId.localeCompare(right.sourceId) ||
+          left.rowId.localeCompare(right.rowId),
+      );
+    if (
+      intersectingSegments.length === 0 &&
+      intersectingTextLikeSnapshots.length === 0
+    ) {
       return surfaceContentVersion;
     }
     return this.resolvePageContentVersionId({
       intersectingSegments,
+      intersectingTextLikeSnapshots,
       sourceRectCss: descriptor.sourceRectCss,
       surfaceContentVersion,
     });
@@ -477,6 +512,12 @@ export class RetainedContentTexturePageManager {
       readonly id: string;
       readonly rectCss: GpuRect;
     }[];
+    readonly intersectingTextLikeSnapshots: readonly {
+      readonly rectCss: GpuRect;
+      readonly rowId: string;
+      readonly sourceId: string;
+      readonly sourceKey: string;
+    }[];
     readonly sourceRectCss: GpuRect;
     readonly surfaceContentVersion: number;
   }): number {
@@ -486,7 +527,7 @@ export class RetainedContentTexturePageManager {
       return existing;
     }
     const version = this.nextPageContentVersion;
-    this.nextPageContentVersion += 1;
+    this.nextPageContentVersion -= 1;
     this.pageContentVersions.set(signature, version);
     return version;
   }
@@ -585,6 +626,7 @@ export class RetainedContentTexturePageManager {
   }): {
     readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
     readonly missingPageCount: number;
+    readonly pendingStripVisuals: RetainedContentTexturePagePreparedFrame["pendingStripVisuals"];
     readonly protectedPageKeys: readonly string[];
     readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
     readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
@@ -597,6 +639,8 @@ export class RetainedContentTexturePageManager {
     readonly uncoveredRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
+    const pendingStripVisuals: RetainedContentTexturePagePreparedFrame["pendingStripVisuals"][number][] =
+      [];
     const drawQuads: RetainedTexturePageDrawQuad<RetainedContentTextureResources>[] =
       [];
     const protectedPageKeys = new Set<string>();
@@ -639,6 +683,12 @@ export class RetainedContentTexturePageManager {
           layout: surface.layout,
         }),
       );
+      pendingStripVisuals.push(
+        ...createRetainedTexturePagePendingStripVisuals({
+          layout: surface.layout,
+          pendingRects: coverage.uncoveredRectsCss,
+        }),
+      );
     }
     return {
       coverageCandidateCount,
@@ -648,6 +698,7 @@ export class RetainedContentTexturePageManager {
       flatSurfaces,
       mergedDrawQuadCount,
       missingPageCount,
+      pendingStripVisuals,
       protectedPageKeys: [...protectedPageKeys],
       refinementDescriptors,
       staleFallbackDrawQuadCount,
@@ -829,91 +880,30 @@ export class RetainedContentTexturePageManager {
     readonly uploadedBytes: number;
     readonly uploadMs: number;
   } {
-    const surface = this.frameSurfaceById.get(descriptor.surfaceId);
-    if (!surface) {
-      return {
-        complete: true,
-        rasterMs: 0,
-        uploadCount: 0,
-        uploadedBytes: 0,
-        uploadMs: 0,
-      };
-    }
-    const ctx = this.scratchCanvas.getContext("2d");
-    if (!ctx) {
-      throw new Error(
-        "Setta retained content page rasterization requires a 2D canvas context.",
-      );
-    }
-    const pending = this.cache.stagePendingPage({ descriptor, frame });
-    const rasterStartedAt = performance.now();
-    const rasterResult = rasterizeGpuRetainedContentPage({
-      canvas: this.scratchCanvas,
-      ctx,
-      lodScale: descriptor.lodScale,
-      palette,
-      scene: surface.rasterScene,
-      sourceRectCss: descriptor.sourceRectCss,
-      surfaceId: descriptor.surfaceId,
-      switchAnimations,
-    });
-    this.maintenanceUploadedDrawCommandCount += rasterResult.drawnCommandCount;
-    const rasterMs = performance.now() - rasterStartedAt;
-    const resource = createRetainedContentTextureResources({
-      atlasStore: this.textureAtlasStore,
+    const result = uploadRetainedContentTexturePage({
+      cache: this.cache,
       descriptor,
       device: this.device,
+      elementByTextLikeSnapshotSourceId,
       format: this.format,
+      frame,
+      frameSurfaceById: this.frameSurfaceById,
+      palette,
+      scratchCanvas: this.scratchCanvas,
+      switchAnimations,
+      textureAtlasStore: this.textureAtlasStore,
       textureUsage: this.textureUsage,
     });
-    const textureRegion = getRetainedContentTextureResourceRegion(resource);
-    const uploadStartedAt = performance.now();
-    this.device.queue.copyExternalImageToTexture(
-      { source: this.scratchCanvas },
-      {
-        origin: { x: textureRegion.x, y: textureRegion.y, z: 0 },
-        texture: resource.texture,
-      },
-      {
-        height: descriptor.pixelHeight,
-        width: descriptor.pixelWidth,
-      },
-    );
-    const textLikeSnapshotPaintAvailable =
-      uploadRetainedContentTexturePageTextLikeSnapshots({
-        descriptor,
-        elementBySourceId: elementByTextLikeSnapshotSourceId,
-        queue: this.device.queue,
-        resource,
-        snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
-          descriptor,
-          surface,
-        }),
-      });
-    if (!textLikeSnapshotPaintAvailable) {
-      destroyRetainedContentTextureResources(resource);
-      this.cache.cancelPendingPage(pending.key);
-      return {
-        complete: false,
-        rasterMs,
-        uploadCount: 0,
-        uploadedBytes: 0,
-        uploadMs: performance.now() - uploadStartedAt,
-      };
+    this.maintenanceUploadedDrawCommandCount += result.drawnCommandCount;
+    if (result.drawableChanged) {
+      this.drawableRevision += 1;
     }
-    const uploadMs = performance.now() - uploadStartedAt;
-    this.cache.commitPendingPage({
-      frame,
-      key: pending.key,
-      resource,
-    });
-    this.drawableRevision += 1;
     return {
-      complete: true,
-      rasterMs,
-      uploadCount: 1,
-      uploadedBytes: pending.byteSize,
-      uploadMs,
+      complete: result.complete,
+      rasterMs: result.rasterMs,
+      uploadCount: result.uploadCount,
+      uploadedBytes: result.uploadedBytes,
+      uploadMs: result.uploadMs,
     };
   }
 

@@ -8,6 +8,16 @@ import {
 } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
+export type RetainedMotionFrame = {
+  readonly scrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+  readonly scrollRevision: number;
+};
+
+export type RetainedVisibleContentRect = RetainedTexturePageDescriptor;
+
 const PAGE_GRID_EDGE_EPSILON = 1e-6;
 
 export type RetainedTexturePageGridInput = {
@@ -337,20 +347,23 @@ function resolveFallbackPageDrawQuads<TResource>({
   let uncoveredRects: readonly GpuRect[] = [desiredDescriptor.sourceRectCss];
   let staleFallbackDrawQuadCount = 0;
   const candidates = cache.getCommittedPagesForCoverage({
-    allowCompatibleSourceWindow: true,
     allowStaleContent: false,
     contentVersion: desiredDescriptor.contentVersion,
     devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
     sourceKey: desiredDescriptor.sourceKey,
     sourceRectCss: desiredDescriptor.sourceRectCss,
     sourceVersion: desiredDescriptor.sourceVersion,
-    sourceWindowCss: desiredDescriptor.sourceWindowCss,
     surfaceId: desiredDescriptor.surfaceId,
     targetLodScale: desiredDescriptor.lodScale,
     viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   for (const candidate of candidates) {
-    if (!canDrawRetainedFallbackPage(candidate, desiredDescriptor)) {
+    if (
+      !canDrawRetainedScrollFallbackPage(candidate, desiredDescriptor, {
+        scrollOffsets: new Map(),
+        scrollRevision: 0,
+      })
+    ) {
       continue;
     }
     const result = coverRectsWithPage({
@@ -383,10 +396,12 @@ function resolveFallbackPageDrawQuads<TResource>({
   };
 }
 
-export function canDrawRetainedFallbackPage<TResource>(
+export function canDrawRetainedScrollFallbackPage<TResource>(
   fallback: CommittedRetainedTexturePage<TResource>,
-  target: RetainedTexturePageDescriptor,
+  target: RetainedVisibleContentRect,
+  motion: RetainedMotionFrame,
 ): boolean {
+  void motion;
   const descriptor = fallback.descriptor;
   return (
     descriptor.surfaceId === target.surfaceId &&
@@ -394,10 +409,6 @@ export function canDrawRetainedFallbackPage<TResource>(
     descriptor.sourceVersion === target.sourceVersion &&
     descriptor.contentVersion === target.contentVersion &&
     descriptor.devicePixelRatioBucket === target.devicePixelRatioBucket &&
-    sourceWindowsShareScrollOrigin(
-      descriptor.sourceWindowCss,
-      target.sourceWindowCss,
-    ) &&
     intersectRects(descriptor.sourceRectCss, target.sourceRectCss) !== null
   );
 }
@@ -476,13 +487,6 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
     Math.min(left.y + left.height, right.y + right.height) - y,
   );
   return width > 0 && height > 0 ? { height, width, x, y } : null;
-}
-
-function sourceWindowsShareScrollOrigin(
-  left: GpuRect,
-  right: GpuRect,
-): boolean {
-  return left.x === right.x && left.y === right.y;
 }
 
 function subtractRect(rect: GpuRect, cutout: GpuRect): readonly GpuRect[] {

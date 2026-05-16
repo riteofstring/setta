@@ -191,6 +191,8 @@ function isTextLikeSnapshotElementCurrent(
   return (
     element !== undefined &&
     element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ===
+      snapshot.sourceKey &&
+    element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey ===
       snapshot.sourceKey
   );
 }

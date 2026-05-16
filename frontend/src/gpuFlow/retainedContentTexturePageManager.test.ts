@@ -281,8 +281,8 @@ describe("RetainedContentTexturePageManager", () => {
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
-      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
-      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
     ]);
   });
 
@@ -320,7 +320,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(result.uploadCount).toBe(1);
     expect(result.flatSurfaces).toHaveLength(1);
     expect(result.flatSurfaces[0]?.surfaceId).toBe(
-      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
     );
   });
 
@@ -750,6 +750,66 @@ describe("RetainedContentTexturePageManager", () => {
     );
   });
 
+  it("reuploads a committed page when row-owned text-like snapshots become part of its content", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface();
+    const snapshotElement = createTextLikeSnapshotElement("snapshot-key");
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
+
+    const result = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [
+        createFrameSurface({
+          textLikeSnapshots: [
+            {
+              rectCss: { height: 20, width: 40, x: 10, y: 12 },
+              rowId: "row-a",
+              sourceId: "snapshot-a",
+              sourceKey: "snapshot-key",
+            },
+          ],
+        }),
+      ],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+
+    expect(result.uploadCount).toBe(1);
+    const copyCall = fixture.queue.copyElementImageToTexture.mock.calls[0];
+    expect(copyCall?.slice(0, 7)).toEqual([
+      snapshotElement,
+      0,
+      0,
+      40,
+      20,
+      40,
+      20,
+    ]);
+    const destination = copyCall?.[7] as
+      | {
+          readonly origin?: { readonly x?: number; readonly y?: number };
+          readonly texture?: unknown;
+        }
+      | undefined;
+    expect(destination?.origin).toEqual({ x: 10, y: 12, z: 0 });
+    expect(fixture.textures).toContain(destination?.texture);
+  });
+
   it("keeps text-like snapshot pages queued when Chromium has not cached a paint record yet", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -922,6 +982,7 @@ function createTextLikeSnapshotElement(
   return {
     closest: vi.fn(() => null),
     dataset: {
+      gpuFlowRetainedTextLikeRowSnapshotReadyKey: sourceKey,
       gpuFlowRetainedTextLikeRowSnapshotSourceKey: sourceKey,
     },
     ownerDocument: {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
-import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
+import {
+  createRetainedTexturePageFlatVisuals,
+  createRetainedTexturePagePendingStripVisuals,
+} from "./retainedTexturePageVisuals";
 import {
   retainedTexturePageLodLevel,
   retainedTexturePageScaleKey,
@@ -126,6 +129,30 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     });
 
     expect(visuals).toEqual([]);
+  });
+
+  it("maps pending retained strips into explicit surface-space visuals", () => {
+    const visuals = createRetainedTexturePagePendingStripVisuals({
+      layout: {
+        height: 40,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 40, width: 80, x: 20, y: 30 },
+        width: 160,
+        x: 100,
+        y: 200,
+        zIndex: 5,
+      },
+      pendingRects: [{ height: 10, width: 20, x: 60, y: 50 }],
+    });
+
+    expect(visuals).toEqual([
+      expect.objectContaining({
+        kind: "solid-rounded-rect",
+        rect: { height: 10, width: 40, x: 180, y: 220 },
+        surfaceId: "surface-a:retained-pending:60:50:20:10",
+        zIndex: 5.01,
+      }),
+    ]);
   });
 });
 
