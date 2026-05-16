@@ -1,6 +1,6 @@
 import type { Rect } from "./flowTypes";
 import { gpuFlowLayoutStore, type GpuFlowLayoutStoreApi } from "./layoutStore";
-import { panBy } from "./viewportActions";
+import { panGpuViewport } from "./viewportActions";
 import {
   normalizeGpuViewport,
   screenToFlowPosition as screenToFlowPoint,
@@ -97,7 +97,7 @@ function movePaneToIncludePoint(
   }
 
   const zoom = normalizeGpuViewport(viewportStore.getState().transform).zoom;
-  panBy({ x: -x * zoom, y: -y * zoom }, { store: viewportStore });
+  panGpuViewport({ x: -x * zoom, y: -y * zoom }, { store: viewportStore });
 }
 
 function resolveLayoutStore(

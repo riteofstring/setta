@@ -28,14 +28,13 @@ type RetainedTextureWorkDescriptorUploadOutcome = {
   readonly result: RetainedTextureWorkExecutionResult;
 };
 
-export const EMPTY_RETAINED_TEXTURE_WORK_RESULT: RetainedTextureWorkExecutionResult =
-  {
-    complete: true,
-    rasterMs: 0,
-    uploadCount: 0,
-    uploadedBytes: 0,
-    uploadMs: 0,
-  };
+const EMPTY_RETAINED_TEXTURE_WORK_RESULT: RetainedTextureWorkExecutionResult = {
+  complete: true,
+  rasterMs: 0,
+  uploadCount: 0,
+  uploadedBytes: 0,
+  uploadMs: 0,
+};
 
 export function executeRetainedContentTextureWorkItem({
   cache,

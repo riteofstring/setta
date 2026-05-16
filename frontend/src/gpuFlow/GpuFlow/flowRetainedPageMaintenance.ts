@@ -7,7 +7,7 @@ import type {
 const MIN_PRE_PUBLISH_TRUE_HOLE_REPAIR_PASSES = 12;
 const TRUE_HOLE_REPAIR_AREA_EPSILON_CSS_PX = 0.5;
 
-export type GpuFlowRetainedPageMaintenanceRun = ReturnType<
+type GpuFlowRetainedPageMaintenanceRun = ReturnType<
   typeof runGpuFlowRetainedPageMaintenance
 >;
 
@@ -24,7 +24,7 @@ export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   return deferResolutionUpdates && preparedFrame.trueHoleRectCount === 0;
 }
 
-export function runGpuFlowRetainedPageMaintenance({
+function runGpuFlowRetainedPageMaintenance({
   darkMode,
   deferResolutionUpdates,
   preparedFrame,
@@ -406,13 +406,7 @@ function createRetainedAggregateDebugDetails(
   aggregate: RetainedContentTexturePageMaintenanceResult | null,
 ): readonly string[] {
   if (!aggregate) {
-    return [
-      "queued=0",
-      "uploadable=0",
-      "executed=0",
-      "uploads=0",
-      "bytes=0",
-    ];
+    return ["queued=0", "uploadable=0", "executed=0", "uploads=0", "bytes=0"];
   }
   return [
     `queued=${aggregate.queuedWorkCount}`,

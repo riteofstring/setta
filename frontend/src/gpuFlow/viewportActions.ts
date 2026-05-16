@@ -308,7 +308,6 @@ function cancelGpuViewportTransition(
 }
 
 export const setViewport = setGpuViewport;
-export const panBy = panGpuViewport;
 export const zoomAtScreenPoint = zoomGpuViewportAt;
 export const zoomBy = zoomGpuViewportByFactor;
 export const zoomTo = zoomGpuViewportTo;

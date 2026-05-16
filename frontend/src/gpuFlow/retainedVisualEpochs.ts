@@ -8,7 +8,7 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedVisualEpochKind = "base" | "snapshot-exact" | "active-dom";
 
-export type RetainedPageHandle = {
+type RetainedPageHandle = {
   readonly key: string;
   readonly page: CommittedRetainedTexturePage<RetainedContentTextureResources>;
 };
@@ -26,7 +26,7 @@ export type RetainedVisualEpoch = {
   readonly zoomBucket: number;
 };
 
-export function retainedVisualEpochKindForDescriptor(
+function retainedVisualEpochKindForDescriptor(
   descriptor: Pick<RetainedTexturePageDescriptor, "visualEpochKind">,
 ): Exclude<RetainedVisualEpochKind, "active-dom"> {
   return descriptor.visualEpochKind ?? "base";

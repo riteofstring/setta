@@ -7,7 +7,7 @@ import {
   flowToScreenPosition,
   getViewport,
   getZoom,
-  panBy,
+  panGpuViewport,
   requestInitialFitView,
   resetZoom,
   screenToFlowPosition,
@@ -33,9 +33,9 @@ describe("gpu viewport actions", () => {
       transform: [10, 20, 2],
     });
 
-    expect(panBy({ x: -3, y: 4 }, { store })).toBe(true);
+    expect(panGpuViewport({ x: -3, y: 4 }, { store })).toBe(true);
     expect(store.getState().transform).toEqual([7, 24, 2]);
-    expect(panBy({ x: 0, y: 0 }, { store })).toBe(false);
+    expect(panGpuViewport({ x: 0, y: 0 }, { store })).toBe(false);
   });
 
   it("zooms around the requested screen point without moving its flow coordinate", () => {
@@ -317,7 +317,7 @@ describe("gpu viewport actions", () => {
 
     expect(setViewport({ x: 100 }, { duration: 100, store })).toBe(true);
 
-    expect(panBy({ x: 5, y: 6 }, { store })).toBe(true);
+    expect(panGpuViewport({ x: 5, y: 6 }, { store })).toBe(true);
 
     expect(store.getState().transform).toEqual([5, 6, 1]);
     expect(store.getState().viewportAnimating).toBe(false);
