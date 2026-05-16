@@ -91,7 +91,9 @@ have true holes run first-visible retained-page work.
   surfaces use `renderer.kind === "canvas-content"` and carry a retained scene.
 - `domIslands`: active native DOM island descriptors with flow-space geometry,
   clipping owner, source hit record, z-index, and optional pointer activation.
-- `edges`: scene edge records.
+- `edges`: scene edge records reserved for generic scene metadata. Project-rendered
+  edge geometry, labels, reconnect anchors, hit testing, and connection-line state
+  live in the separate `GpuEdgeScene` passed to `GpuFlow` through `edgeScene`.
 - `revision`: the project scene revision used by frame and interaction code.
 
 The project scene is built in `projectGpuLayoutAdapter.ts` from project state,
@@ -105,7 +107,7 @@ Setta sections.
 
 `projectGpuFlowSceneFactory.ts` appends retained parameter content surfaces and
 DOM islands to the layout scene. `syncProjectGpuLayoutStoreFromScene()` keeps
-the GPU layout store aligned with the visible DOM-section nodes so shared
+the GPU layout store aligned with the renderable DOM-section nodes so shared
 interaction controllers operate on the same coordinates as the renderer.
 
 ## Module Map
@@ -256,10 +258,12 @@ respective classes of work.
 
 ## Browser Capability Contract
 
-`frontend/src/gpuFlow/gpuDevice.ts` owns core WebGPU/html-in-canvas runtime
-support checks, and `frontend/src/gpuFlow/gpuRenderer.ts` checks
-`ResizeObserver` during DPR-aware canvas sizing setup. GPU flow fails loudly if
-the development browser does not expose the required native APIs:
+`frontend/src/gpuFlow/gpuDevice.ts` owns startup checks for core
+WebGPU/html-in-canvas runtime support and `GPUQueue.copyElementImageToTexture`,
+while `frontend/src/gpuFlow/gpuRenderer.ts` checks `ResizeObserver` during
+DPR-aware canvas sizing setup. Texture creation and retained page upload paths
+also fail loudly when `GPUTextureUsage`, `GPUQueue.copyExternalImageToTexture`,
+or a 2D canvas context is unavailable. GPU flow requires these native APIs:
 
 - `HTMLCanvasElement.layoutSubtree`
 - `HTMLCanvasElement.requestPaint`
@@ -578,10 +582,12 @@ projector contracts.
 
 Viewport-only redraws of an unchanged visual scene write only the camera
 uniform. When pan or zoom crosses a culling boundary, the active draw set
-changes; the frame syncs newly entered or exited source hosts and the renderer
-rewrites the flat or tiled-flat vertex buffer for changed draw geometry.
-Those bounded updates are separate from content updates: they do not call
-`requestPaint()`, perform HTML texture uploads, or force React renders, and
+changes; the frame syncs newly entered source hosts and any retained or active
+hosts that must stay live, while inactive exited hosts can keep their previous
+passive DOM state because they are already dropped from visual and hit scenes.
+The renderer rewrites the flat or tiled-flat vertex buffer for changed draw
+geometry. Those bounded updates are separate from content updates: they do not
+call `requestPaint()`, perform HTML texture uploads, or force React renders, and
 transform-only paint records from synced sources are ignored for dirtying.
 Frame and probe reports expose DOM transform counts, texture upload work,
 retained page work, edge vertex counts, and queue write summaries so pan/zoom
