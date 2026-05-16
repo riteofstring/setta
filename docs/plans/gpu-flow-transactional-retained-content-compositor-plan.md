@@ -100,6 +100,133 @@ The performance tests should report refresh-rate-aware results instead of assumi
 
 If 120 fps-class performance is proven impossible for a specific scene or device class, document the measured ceiling in `perf/` with trace evidence and set an explicit fallback budget. Do not silently lower the target.
 
+## Contracts Before Implementation
+
+After the failing observed-behavior tests and measurement harness exist, define these contracts before changing compositor publication behavior. Names can evolve during implementation, but the ownership boundaries and invariants must not.
+
+### Region Manifest And Typed Compatibility
+
+Compatibility must be a typed result, not a boolean and not an implicit page-key match.
+
+```ts
+type RetainedRegionManifest = {
+  readonly surfaceId: RetainedSurfaceId;
+  readonly documentId: RetainedDocumentId;
+  readonly sectionId: RetainedSectionId;
+  readonly rowId: RetainedRowId | null;
+  readonly contentVersion: RetainedContentVersion;
+  readonly themeGeneration: RetainedThemeGeneration;
+  readonly fontGeneration: RetainedFontGeneration;
+  readonly renderMode: "active" | "passive";
+  readonly contentRect: ContentRect;
+  readonly clipRect: ContentRect;
+};
+
+type RetainedRegionCompatibility =
+  | {
+      readonly kind: "compatible";
+      readonly fidelity:
+        | "exact"
+        | "lower-lod"
+        | "previous-grid"
+        | "compatible-mapped-region";
+      readonly manifest: RetainedRegionManifest;
+      readonly coverageRect: ContentRect;
+    }
+  | {
+      readonly kind: "incompatible";
+      readonly reason:
+        | "surface-mismatch"
+        | "section-or-row-mismatch"
+        | "row-content-version-mismatch"
+        | "theme-or-font-generation-mismatch"
+        | "active-passive-mode-mismatch"
+        | "clip-mapping-mismatch"
+        | "content-coordinate-mapping-mismatch";
+    };
+```
+
+The `compatible-mapped-region` fidelity case covers old raster windows or source rectangles that are still safe to sample because the committed region carries a valid content-to-texture mapping proof. Source rectangles must not become semantic identity again.
+
+### Committed Region Mapping Proof
+
+Every committed drawable region must prove what content-coordinate region it contains and how that region maps to texture coordinates.
+
+```ts
+type RetainedCommittedRegion = {
+  readonly id: RetainedCommittedRegionId;
+  readonly manifest: RetainedRegionManifest;
+  readonly contentRect: ContentRect;
+  readonly clipRect: ContentRect;
+  readonly zLayer: RetainedLayerId;
+  readonly textureHandle: RetainedTextureHandle;
+  readonly contentToTexture: Matrix3;
+  readonly fidelity: RetainedFidelityMetadata;
+  readonly generation: number;
+};
+```
+
+The display compositor must not draw previous-grid, lower-LOD, or previous-raster-window content without this mapping proof.
+
+### Committed Coverage Store API
+
+Rendering should consume a coverage plan from an authoritative store. It must not consume target page descriptors and reinterpret them as drawable state.
+
+```ts
+interface RetainedCommittedCoverageStore {
+  queryVisibleCoverage(target: RetainedCoverageTarget): RetainedCoveragePlan;
+  beginReplacement(target: RetainedRegionTarget): RetainedReplacementTxn;
+  commitReplacement(
+    txn: RetainedReplacementTxn,
+    uploaded: UploadedRetainedRegion,
+  ): void;
+  rejectReplacement(
+    txn: RetainedReplacementTxn,
+    reason: RetainedRejectReason,
+  ): void;
+  protectVisibleRegions(
+    window: RetainedProtectionWindow,
+  ): RetainedProtectionStats;
+  evictToBudget(budget: RetainedCoverageBudget): RetainedEvictionReport;
+}
+```
+
+`queryVisibleCoverage` is the only API that should decide exact coverage, compatible coverage, and true holes for display publication.
+
+### Visible-Hole Repair Budget
+
+Visible-hole repair may be budgeted to preserve frame pacing, but it must not be categorically skipped during interaction.
+
+```ts
+type RetainedSchedulerBudgets = {
+  readonly visibleTrueHoleMinMs: number;
+  readonly visibleTrueHoleMaxUploads: number;
+  readonly activeIslandMinMs: number;
+  readonly visibleRefinementOpportunisticMs: number;
+  readonly prefetchMaxMs: number;
+};
+```
+
+If visible true holes are repairable, every eligible scheduler tick or retained maintenance pass during interaction must either spend the visible-hole budget, prove no source/texture/memory work can progress, or emit a fail-loud diagnostic. This rule must coexist with the 120 fps-class frame budget; it should force bounded progress or a specific blocker, not unbounded main-thread work.
+
+### Eviction Protection Order
+
+Eviction policy is a correctness invariant, not only a memory mitigation. Use this order:
+
+1. Obsolete superseded offscreen regions.
+2. Offscreen prefetch.
+3. Near-visible lower-priority refinement.
+4. Near-visible compatible old generation.
+5. Visible compatible old generation only when replacement coverage exists.
+
+Memory pressure must not evict the only compatible visible coverage and expose a blank region. If the device cannot hold even the lowest acceptable compatible visible representation, fail loudly with a specific memory or device-limit diagnostic.
+
+### Active Island Detach And Commit
+
+Active native islands must use region-scoped coverage transactions.
+
+On blur or detach, do not reveal passive retained content for the active region unless the passive committed region reflects the final value. If replacement passive coverage is not committed yet, keep the native island visually covering the region until replacement coverage commits.
+
 ## Plan
 
 ### 1. Add Failing Observed-Behavior Tests First
@@ -143,7 +270,7 @@ Keep this helper generic and test-facing. It should not depend on retained-page 
 
 The baseline report must include the recording path/name, the failing test command, the visible blank-region metrics, frame pacing, long tasks, and whether the run reproduced the same multi-frame or multi-second visible-hole class as the Chrome recording.
 
-### 3. Define Region-Level Content Identity
+### 3. Define Region-Level Content Identity And Contracts
 
 Replace page-level semantic identity with a region-level content manifest.
 
@@ -162,6 +289,8 @@ Compatibility should be explicit and typed. A candidate retained region is drawa
 
 Delete or replace page-derived semantic versions built from source rects, page-grid descriptors, LOD, DPR, viewport zoom buckets, or rasterization windows. These may remain as fidelity or resource metadata, but they must not decide semantic compatibility.
 
+Implement the region manifest, committed region, typed compatibility, coverage store API, scheduler budget, eviction order, and active island detach contracts from the Contracts Before Implementation section before changing display publication behavior.
+
 ### 4. Introduce A Committed Coverage Store
 
 Create a retained drawable coverage store that owns the currently committed visible content. This must be an authoritative owner, not just a few new lookup helpers on the existing page cache.
@@ -175,6 +304,8 @@ Responsibilities:
 - Protect visible committed regions from eviction until replacement coverage exists or the region leaves the protection window.
 
 This store should become the compositor's source of truth for what can be drawn. The display composer must ask the coverage store for drawable regions; it must not decide visibility from target page descriptors or blank a page because a new descriptor differs.
+
+The coverage store should expose the query, begin, commit, reject, protect, and evict operations defined in the contract section. The display composer should consume `RetainedCoveragePlan` only.
 
 ### 5. Split Target Computation From Publication
 
@@ -222,6 +353,8 @@ Visible true-hole repair must continue during zooming, scrolling, and clicking. 
 
 Replace the current categorical deferral rule: `deferResolutionUpdates` must not bypass retained maintenance when the published or prepared frame contains visible uncovered regions with repairable coverage work.
 
+Encode this with explicit scheduler budgets and bounded-progress diagnostics. A visible repairable hole during interaction must produce upload/raster progress, a concrete blocker reason, or a fail-loud diagnostic.
+
 ### 8. Make Texture Resources Stable Across Fidelity Changes
 
 Introduce stable resource handles for drawable retained content.
@@ -246,6 +379,8 @@ Refactor active native island handling so activation is a local transaction:
 - On deactivation, rasterize and commit only the affected passive regions.
 
 The active island should be coordinated with the same coverage store rather than using a separate whole-section invalidation path.
+
+On blur or detach, do not reveal passive retained content for the active region until the passive committed region reflects the final value. If replacement passive coverage is not committed yet, keep the native island visually covering the region until replacement coverage commits.
 
 ### 10. Remove Old Retained Page Identity Paths
 
@@ -303,6 +438,7 @@ Record before/after performance and visual results under `perf/` as an append-on
 - Panning, zooming, and retained-section scrolling on an All Settings-scale scene meet the refresh-rate-aware performance target, aiming for 120 fps-class p95 frame intervals on capable hardware.
 - The full GPU Flow-related Vitest and Playwright suites pass after the refactor, including existing retained-content, interaction, viewport, Settings retained, and GPU Flow probe coverage.
 - New Chrome recordings do not show multi-second streaks of large true holes or `uploadCount=0` periods while visible uncovered regions are repairable.
+- Region manifest compatibility, committed region mapping proof, coverage store query/commit/evict API, scheduler budgets, eviction protection order, and active island detach behavior are implemented as explicit contracts.
 - The old retained page identity and whole-section invalidation paths are removed rather than preserved behind compatibility code.
 
 ## Risks And Mitigations
