@@ -100,12 +100,13 @@ based on user-visible behavior.
 ### 120 FPS-Class Performance Tests
 
 Performance tests are required for the primary interaction workloads, not just
-visual correctness. They must run against a large complex scene equivalent to
-the Settings project's All Settings page: hundreds of retained rows, many GPU
-Flow nodes, multiple retained surfaces, mixed retained control kinds, nested
-sections, DOM sections, overlays, and active native-control paths. A synthetic
-fixture is acceptable only if it matches that complexity and is kept in sync
-with the All Settings scene shape.
+visual correctness. The canonical required gate must run against the Settings
+project's real All Settings page: hundreds of retained rows, many GPU Flow
+nodes, multiple retained surfaces, mixed retained control kinds, nested
+sections, DOM sections, overlays, and active native-control paths. Synthetic
+fixtures may be added as supplemental stress coverage, but they cannot replace
+the real All Settings performance gate and must be kept in sync with the All
+Settings scene shape.
 
 Required measured workloads:
 
@@ -609,6 +610,11 @@ the actor conversion to DOM sections and overlays:
 This is the critical path for the 120 fps-class target and the first production
 proof that the transaction model is not just another repair layer.
 
+This step and the retained-slice publication step are one acceptance unit. It is
+fine to implement them incrementally, but retained scroll must not be considered
+complete while the old retained publication or pre-publish repair path still
+owns visible correctness for migrated retained surfaces.
+
 Deletion checkpoint:
 
 - remove pre-publish retained-scroll repair as the steady-state mechanism for
@@ -631,6 +637,11 @@ surfaces:
 Remove pre-publish retained repair loops as the steady-state mechanism. Missing
 visible coverage should be represented as a blocked transaction plus scheduled
 work, while the previous compatible display stays visible.
+
+This is the publication counterpart to retained-scroll runtime motion. The
+retained-scroll milestone is not accepted until this publication path, the
+retained-scroll runtime path, and the associated deletion checkpoints all land
+together.
 
 Deletion checkpoint:
 
@@ -755,6 +766,8 @@ The final report must include:
   path.
 - The retained-scroll vertical slice deletes the replaced retained repair and
   retained-only publication paths before broader surface migration is accepted.
+- The retained-scroll runtime-motion milestone and retained-slice publication
+  milestone are accepted together, not as independently shippable half-steps.
 
 ## Risks
 
@@ -780,9 +793,10 @@ The final report must include:
 2. Add pure surface compositor contracts and contract tests.
 3. Build unified coverage store for the retained-scroll slice.
 4. Convert retained parameter content and text-like snapshots to actors.
-5. Move retained scroll fully onto runtime motion.
-6. Replace frame publication with transaction publish/hold semantics for the
-   retained slice and delete replaced retained repair/publication code.
+5. Move retained scroll fully onto runtime motion and pair it with retained-slice
+   transaction publication semantics.
+6. Complete retained-slice frame publication and delete replaced retained
+   repair/publication code.
 7. Convert DOM section and overlay textures to actors.
 8. Replace interaction projection.
 9. Delete remaining legacy retained repair/publication code.
