@@ -27,6 +27,7 @@ export function createGpuRetainedContentFrameGeneration({
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly viewportZoomBucket: number;
 }): GpuRetainedContentFrameGeneration {
+  assertGpuRetainedContentFrameGenerationSceneOnlyAccessAllowed();
   const sourceSurfaces = getGpuRetainedContentSourceSurfaces(contentSurfaces, {
     scrollOffsets,
     viewportZoomBucket,
@@ -43,4 +44,13 @@ export function createGpuRetainedContentFrameGeneration({
     textLikeRowSnapshotSources,
     viewportZoomBucket,
   };
+}
+
+function assertGpuRetainedContentFrameGenerationSceneOnlyAccessAllowed() {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return;
+  }
+  throw new Error(
+    "Retained content frame generation must be read from a sampled retained runtime frame.",
+  );
 }

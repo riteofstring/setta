@@ -14,6 +14,7 @@ import {
   type GpuRetainedContentControlDescriptor,
 } from "../retainedContentScene";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import type {
@@ -273,11 +274,17 @@ function RetainedContentInteractionHarness({
   readonly onHostChange: (element: HTMLDivElement | null) => void;
 }) {
   const [revision, setRevision] = useState(1);
+  const scene = retainedContentScene(revision);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const nodeLayerRef = useRef<{ scene: GpuFlowScene | undefined }>({
-    scene: retainedContentScene(revision),
+  const nodeLayerRef = useRef<GpuFlowRetainedContentNodeLayerState>({
+    retainedRuntimeFrame: createTestRetainedRuntimeFrame({ scene }),
+    scene,
   });
-  nodeLayerRef.current.scene = retainedContentScene(revision);
+  nodeLayerRef.current = {
+    ...nodeLayerRef.current,
+    retainedRuntimeFrame: createTestRetainedRuntimeFrame({ scene }),
+    scene,
+  };
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
   const surfaceRef = useRef<GpuSurfaceHandle | null>({
     getRuntime: () => null,
@@ -453,6 +460,9 @@ function RetainedContentHoverHarness({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const nodeLayerRef = useRef<GpuFlowRetainedContentNodeLayerState>({
+    retainedRuntimeFrame: createTestRetainedRuntimeFrame({
+      scene: retainedContentScene(1, rowCount),
+    }),
     scene: retainedContentScene(1, rowCount),
   });
   const dirtySurfaceCountRef = useRef(0);
@@ -552,7 +562,14 @@ function RetainedContentHoverHarness({
 
   useEffect(() => {
     onReadNativeVisuals?.(
-      () => nodeLayerRef.current.htmlSurfaceNativeVisuals ?? [],
+      () =>
+        createTestRetainedRuntimeFrame({
+          rowHoverTarget:
+            nodeLayerRef.current.retainedContentRowHoverTarget ?? null,
+          scene: nodeLayerRef.current.scene,
+          scrollbarVisualState:
+            nodeLayerRef.current.retainedContentScrollbarVisualState,
+        }).descriptors.htmlSurfaceNativeVisuals,
     );
   }, [onReadNativeVisuals]);
 
@@ -580,6 +597,33 @@ function retainedContentScene(revision: number, rowCount = 1): GpuFlowScene {
     revision,
     sections: [],
   };
+}
+
+function createTestRetainedRuntimeFrame({
+  rowHoverTarget = null,
+  scene,
+  scrollbarVisualState,
+}: {
+  readonly rowHoverTarget?:
+    | GpuFlowRetainedContentNodeLayerState["retainedContentRowHoverTarget"]
+    | null
+    | undefined;
+  readonly scene: GpuFlowScene | undefined;
+  readonly scrollbarVisualState?:
+    | GpuFlowRetainedContentNodeLayerState["retainedContentScrollbarVisualState"]
+    | undefined;
+}) {
+  return createGpuRetainedRuntimeFrame({
+    devicePixelRatioBucket: 1,
+    frameId: 1,
+    rowHoverTarget: rowHoverTarget ?? null,
+    scene,
+    scrollbarVisualState,
+    scrollOffsets: new Map(),
+    scrollRevision: 1,
+    viewport: [0, 0, 1],
+    viewportZoomBucket: 1,
+  });
 }
 
 function scrollableRetainedContentScene(): GpuFlowScene {

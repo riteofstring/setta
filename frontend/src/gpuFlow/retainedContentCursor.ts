@@ -7,6 +7,7 @@ import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
 } from "./retainedContentScene";
+import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuFlowScene } from "./scene";
 import type { GpuFlowViewportStoreApi } from "./viewportStore";
 
@@ -26,11 +27,15 @@ const GPU_RETAINED_CONTROL_CURSOR_BY_KIND = {
 export function resolveGpuRetainedContentCursor({
   element,
   event,
+  getRetainedRuntimeFrame,
   getScene,
   store,
 }: {
   readonly element: HTMLElement;
   readonly event: PointerEvent;
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly getScene: () => GpuFlowScene | undefined;
   readonly store: GpuFlowViewportStoreApi;
 }): string | null {
@@ -38,6 +43,7 @@ export function resolveGpuRetainedContentCursor({
     hitTestGpuRetainedContentInteraction({
       element,
       event,
+      getRetainedRuntimeFrame,
       getScene,
       store,
     }),

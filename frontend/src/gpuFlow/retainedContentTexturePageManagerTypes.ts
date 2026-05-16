@@ -23,6 +23,8 @@ export type RetainedContentTexturePageFrameSurface = {
   readonly contentVersion: number;
   readonly layout: RetainedTexturePageSurfaceLayout;
   readonly rasterScene: GpuRetainedContentScene;
+  readonly sourceKey: string;
+  readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly textLikeSnapshots?: readonly RetainedContentTexturePageTextLikeSnapshot[];

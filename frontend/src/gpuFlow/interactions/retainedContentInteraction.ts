@@ -5,10 +5,12 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import {
+  hitTestGpuRetainedContentRuntimeFrame,
   hitTestGpuRetainedContentScene,
   type GpuRetainedContentHitTarget,
 } from "../retainedContentHitTest";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
@@ -61,6 +63,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
   readonly getScene: () => GpuFlowScene | undefined;
   readonly getScrollOffsets?:
     | (() => GpuRetainedContentScrollOffsetMap)
+    | undefined;
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
     | undefined;
   readonly interactionDiagnostics?:
     | GpuRetainedContentInteractionDiagnosticsRef
@@ -146,12 +151,16 @@ export function hitTestGpuRetainedContentInteraction({
   element,
   event,
   getScene,
+  getRetainedRuntimeFrame,
   getScrollOffsets,
   store = gpuFlowViewportStore,
 }: {
   readonly element?: HTMLElement | undefined;
   readonly event: Pick<PointerEvent, "clientX" | "clientY">;
   readonly getScene: () => GpuFlowScene | undefined;
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly getScrollOffsets?:
     | (() => GpuRetainedContentScrollOffsetMap)
     | undefined;
@@ -167,12 +176,41 @@ export function hitTestGpuRetainedContentInteraction({
     screenPoint,
     store.getState().transform,
   );
-  const hit = hitTestGpuRetainedContentScene({
+  const hit = hitTestGpuRetainedContentInteractionFrame({
+    getRetainedRuntimeFrame,
+    getScrollOffsets,
     point: flowPoint,
-    scrollOffsets: getScrollOffsets?.(),
     scene,
   });
   return hit ? { ...hit, screenPoint } : null;
+}
+
+function hitTestGpuRetainedContentInteractionFrame({
+  getRetainedRuntimeFrame,
+  getScrollOffsets,
+  point,
+  scene,
+}: {
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
+  readonly getScrollOffsets?:
+    | (() => GpuRetainedContentScrollOffsetMap)
+    | undefined;
+  readonly point: GpuPoint;
+  readonly scene: GpuFlowScene;
+}): GpuRetainedContentHitTarget | null {
+  if (getRetainedRuntimeFrame) {
+    const frame = getRetainedRuntimeFrame();
+    return frame
+      ? hitTestGpuRetainedContentRuntimeFrame({ frame, point })
+      : null;
+  }
+  return hitTestGpuRetainedContentScene({
+    point,
+    scrollOffsets: getScrollOffsets?.(),
+    scene,
+  });
 }
 
 class GpuRetainedContentInteractionController {
@@ -374,6 +412,7 @@ class GpuRetainedContentInteractionController {
       element: this.element,
       event,
       getScene: this.options.getScene,
+      getRetainedRuntimeFrame: this.options.getRetainedRuntimeFrame,
       getScrollOffsets: this.options.getScrollOffsets,
       store: this.store,
     });

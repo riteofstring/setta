@@ -10,6 +10,7 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import {
   getGpuRetainedTextLikeRowSnapshotSources,
@@ -156,7 +157,15 @@ function SnapshotPaintHarness({
     useGpuFlowRetainedTextLikeRowSnapshotSources({
       elementBySourceIdRef,
       renderSnapshot: renderSnapshot,
-      scene,
+      retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
+        devicePixelRatioBucket: 1,
+        frameId: 1,
+        scene,
+        scrollOffsets: new Map(),
+        scrollRevision: 0,
+        viewport: [0, 0, 1],
+        viewportZoomBucket: 1,
+      }),
       surfaceRef,
     });
   return createElement("div", null, retainedTextLikeRowSnapshotSourceElement);

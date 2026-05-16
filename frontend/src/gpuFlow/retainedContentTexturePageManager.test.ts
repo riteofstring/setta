@@ -281,8 +281,8 @@ describe("RetainedContentTexturePageManager", () => {
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
+      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
     ]);
   });
 
@@ -320,11 +320,11 @@ describe("RetainedContentTexturePageManager", () => {
     expect(result.uploadCount).toBe(1);
     expect(result.flatSurfaces).toHaveLength(1);
     expect(result.flatSurfaces[0]?.surfaceId).toBe(
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
+      "surface-a:1:1:source-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0:1:1",
     );
   });
 
-  it("draws stale content pages while replacement content pages are pending", () => {
+  it("does not draw stale content pages while replacement content pages are pending", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -350,13 +350,11 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(replacementFrame.uploadCount).toBe(0);
-    expect(replacementFrame.flatSurfaces).toHaveLength(1);
-    expect(replacementFrame.flatSurfaces[0]?.surfaceId).toBe(
-      "surface-a:1:0:0:100:100:0:0:100:100:scale=1:0:100:100:0:0",
-    );
+    expect(replacementFrame.uploadCount).toBe(1);
+    expect(replacementFrame.flatSurfaces).toHaveLength(0);
     expect(replacementFrame.missingPageCount).toBe(1);
-    expect(replacementFrame.uncoveredRectCount).toBe(0);
+    expect(replacementFrame.postMaintenanceMissingPageCount).toBe(0);
+    expect(replacementFrame.uncoveredRectCount).toBe(1);
   });
 
   it("keeps unchanged row-segment pages exact when a neighboring row changes", () => {
@@ -423,15 +421,16 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(replacementFrame.uploadCount).toBe(0);
-    expect(replacementFrame.drawQuadCount).toBe(2);
-    expect(replacementFrame.fallbackDrawQuadCount).toBe(1);
-    expect(replacementFrame.staleFallbackDrawQuadCount).toBe(1);
+    expect(replacementFrame.uploadCount).toBe(1);
+    expect(replacementFrame.drawQuadCount).toBe(1);
+    expect(replacementFrame.fallbackDrawQuadCount).toBe(0);
+    expect(replacementFrame.staleFallbackDrawQuadCount).toBe(0);
     expect(replacementFrame.missingPageCount).toBe(1);
-    expect(replacementFrame.uncoveredRectCount).toBe(0);
+    expect(replacementFrame.postMaintenanceMissingPageCount).toBe(0);
+    expect(replacementFrame.uncoveredRectCount).toBe(1);
   });
 
-  it("reports row content as stale until the current row page is committed", () => {
+  it("refreshes row content before reporting the row as fresh again", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -507,7 +506,7 @@ describe("RetainedContentTexturePageManager", () => {
         sourceRect: rowRect,
         surfaceId: "surface-a",
       }),
-    ).toBe(false);
+    ).toBe(true);
 
     fixture.manager.markSurfaceContentDirty({
       frame: 3,
@@ -919,9 +918,10 @@ function createScratchCanvas(): HTMLCanvasElement {
 function createFrameSurface(
   overrides: Partial<RetainedContentTexturePageFrameSurface> = {},
 ): RetainedContentTexturePageFrameSurface {
+  const contentVersion = overrides.contentVersion ?? 1;
   return {
     contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
-    contentVersion: 1,
+    contentVersion,
     layout: {
       height: 100,
       surfaceId: "surface-a",
@@ -931,6 +931,8 @@ function createFrameSurface(
       y: 20,
     },
     rasterScene: createRasterScene(),
+    sourceKey: `source-a:${contentVersion}`,
+    sourceVersion: contentVersion,
     sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     visibleSourceRectCss: { height: 100, width: 100, x: 0, y: 0 },

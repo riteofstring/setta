@@ -7,6 +7,7 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
 } from "../retainedContentScene";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
@@ -786,6 +787,58 @@ describe("GPU retained content interaction controller", () => {
         clientY: 42,
         pointerId: 1,
       }),
+      getScene: () => retainedContentScene(),
+      store: createGpuFlowViewportStore(),
+    });
+
+    expect(hit).toMatchObject({
+      hit: {
+        id: "row:param-1",
+        kind: "row",
+        ownerRowId: "param-1",
+      },
+      localPoint: { x: 116, y: 42 },
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+  });
+
+  it("does not fall back to scene-only hit testing when the runtime frame provider has no published frame", () => {
+    const element = createHostElement();
+    const hit = hitTestGpuRetainedContentInteraction({
+      element,
+      event: createPointerEvent("pointermove", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+      getRetainedRuntimeFrame: () => null,
+      getScene: () => retainedContentScene(),
+      store: createGpuFlowViewportStore(),
+    });
+
+    expect(hit).toBeNull();
+  });
+
+  it("hit tests retained content interaction against the published runtime frame when available", () => {
+    const element = createHostElement();
+    const scene = retainedContentScene();
+    const hit = hitTestGpuRetainedContentInteraction({
+      element,
+      event: createPointerEvent("pointermove", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+      getRetainedRuntimeFrame: () =>
+        createGpuRetainedRuntimeFrame({
+          devicePixelRatioBucket: 1,
+          frameId: 1,
+          scene,
+          scrollOffsets: new Map(),
+          scrollRevision: 1,
+          viewport: [0, 0, 1],
+          viewportZoomBucket: 1,
+        }),
       getScene: () => retainedContentScene(),
       store: createGpuFlowViewportStore(),
     });

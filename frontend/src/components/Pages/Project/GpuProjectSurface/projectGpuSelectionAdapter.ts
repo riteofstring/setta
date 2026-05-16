@@ -57,8 +57,8 @@ import type {
   ProjectGpuNodeDragChange,
   ProjectGpuNodeDragItem,
   ProjectGpuSelectionChange,
-  useProjectGpuSurfaceSettings,
 } from "./projectGpuSurface";
+import type { ProjectGpuSurfaceSettings } from "./projectGpuSurfaceSettings";
 
 const projectNestedDragScrollOffsetsByLayoutStore = new WeakMap<
   GpuFlowLayoutStoreApi,
@@ -561,7 +561,7 @@ export function resolveProjectWireColor({
   settings,
 }: {
   readonly darkMode: boolean;
-  readonly settings: ReturnType<typeof useProjectGpuSurfaceSettings>;
+  readonly settings: ProjectGpuSurfaceSettings;
 }): string {
   const light = settings.wireColor ?? "#41506c";
   const dark = settings.wireColorDarkMode ?? "#bac2d3";

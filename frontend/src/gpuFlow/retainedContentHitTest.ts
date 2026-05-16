@@ -12,6 +12,7 @@ import type {
   GpuRetainedContentScene,
 } from "./retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
+import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -65,10 +66,58 @@ export function hitTestGpuRetainedContentScene({
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly scene: GpuFlowScene;
 }): GpuRetainedContentHitTarget | null {
+  assertGpuRetainedContentSceneOnlyHitTestAllowed();
+  const surfaces = getRetainedContentHitSurfaces(scene.contentSurfaces).map(
+    (surface) => ({
+      ...surface,
+      retainedScene: createGpuRetainedContentSampledSceneForSurface({
+        scrollOffsets,
+        surface,
+      }),
+    }),
+  );
+  return hitTestGpuRetainedContentSurfaces({
+    contentSurfaceCount: scene.contentSurfaces.length,
+    point,
+    surfaces,
+  });
+}
+
+function assertGpuRetainedContentSceneOnlyHitTestAllowed() {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return;
+  }
+  throw new Error(
+    "Retained hit testing must use the last drawn retained runtime frame.",
+  );
+}
+
+export function hitTestGpuRetainedContentRuntimeFrame({
+  frame,
+  point,
+}: {
+  readonly frame: GpuRetainedRuntimeFrame;
+  readonly point: GpuPoint;
+}): GpuRetainedContentHitTarget | null {
+  return hitTestGpuRetainedContentSurfaces({
+    contentSurfaceCount: frame.descriptors.sourceSurfaces.length,
+    point,
+    surfaces: frame.descriptors.hitTestSurfaces,
+  });
+}
+
+function hitTestGpuRetainedContentSurfaces({
+  contentSurfaceCount,
+  point,
+  surfaces,
+}: {
+  readonly contentSurfaceCount: number;
+  readonly point: GpuPoint;
+  readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
+}): GpuRetainedContentHitTarget | null {
   const recordHitTest =
     getGpuRetainedContentDiagnosticsRecorder()?.recordHitTest;
   const startTime = recordHitTest ? nowForGpuRetainedContentDiagnostics() : 0;
-  const surfaces = getRetainedContentHitSurfaces(scene.contentSurfaces);
   const surfaceDiagnostics: GpuRetainedContentHitTestSurfaceDiagnostic[] = [];
   let checkedHitRecordCount = 0;
   let testedHitRecordCount = 0;
@@ -85,10 +134,7 @@ export function hitTestGpuRetainedContentScene({
       x: point.x - surface.rect.x,
       y: point.y - surface.rect.y,
     };
-    const retainedScene = createGpuRetainedContentSampledSceneForSurface({
-      scrollOffsets,
-      surface,
-    });
+    const retainedScene = surface.retainedScene;
     testedSurfaceCount += 1;
     const result = hitTestRetainedContentRecords({
       point: localPoint,
@@ -108,7 +154,7 @@ export function hitTestGpuRetainedContentScene({
     }
     recordHitTest?.({
       checkedHitRecordCount,
-      contentSurfaceCount: scene.contentSurfaces.length,
+      contentSurfaceCount,
       durationMs: nowForGpuRetainedContentDiagnostics() - startTime,
       matched: true,
       retainedSurfaceCount: surfaces.length,
@@ -129,7 +175,7 @@ export function hitTestGpuRetainedContentScene({
   }
   recordHitTest?.({
     checkedHitRecordCount,
-    contentSurfaceCount: scene.contentSurfaces.length,
+    contentSurfaceCount,
     durationMs: nowForGpuRetainedContentDiagnostics() - startTime,
     matched: false,
     retainedSurfaceCount: surfaces.length,
@@ -230,7 +276,10 @@ function createGpuRetainedContentHitRecordIndex(
   retainedScene: GpuRetainedContentScene,
 ): GpuRetainedContentHitRecordIndex {
   const rowIds = new Set(retainedScene.rows.map((row) => row.id));
-  const recordsByRowId = new Map<string, GpuRetainedContentIndexedHitRecord[]>();
+  const recordsByRowId = new Map<
+    string,
+    GpuRetainedContentIndexedHitRecord[]
+  >();
   const overlayRecords: GpuRetainedContentIndexedHitRecord[] = [];
   retainedScene.hitRecords.forEach((record, order) => {
     const entry = { order, record };

@@ -106,6 +106,37 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(result.remainingUploadableWorkCount).toBe(1);
   });
 
+  it("executes one visible upload when a single page exceeds the frame byte budget", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 10, width: 10, x: 0, y: 0 },
+      surfaceId: "surface-a",
+    });
+
+    const oversizedWork: RetainedTextureUploadWorkEstimate = {
+      rasterMs: 1,
+      uploadCount: 1,
+      uploadedBytes: 2_000,
+      uploadMs: 1,
+    };
+    const result = runRetainedTextureUploadScheduler({
+      budget: { ...DEFAULT_BUDGET, maxFrameUploadedBytes: 1_000 },
+      estimateWorkItem: () => oversizedWork,
+      executeWorkItem: () => ({ ...oversizedWork, complete: true }),
+      queue,
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-a",
+    ]);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({ reason: "actual-budget-miss" }),
+    ]);
+    expect(queue.hasWork()).toBe(false);
+  });
+
   it("does not run visible LOD refinement during viewport interaction", () => {
     const queue = new RetainedTextureWorkQueue();
     queue.enqueue({

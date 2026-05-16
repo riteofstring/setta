@@ -13,6 +13,7 @@ import type {
 import type { GpuRetainedContentRowHoverTarget } from "../retainedContentRowHover";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuRetainedContentScrollbarVisualState } from "../retainedContentScrollbar";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 
@@ -41,6 +42,7 @@ export type GpuFlowNodeLayerState = {
   readonly retainedContentRuntimeScrollOffsets?:
     | GpuRetainedContentScrollOffsetMap
     | undefined;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
   readonly retainedContentScrollbarVisualState?:
     | GpuRetainedContentScrollbarVisualState
     | undefined;

@@ -35,18 +35,38 @@ export function getGpuRetainedContentScrollbarVisuals(
   surfaces: readonly GpuContentSurface[] | undefined,
   options: GpuRetainedContentScrollbarVisualOptions = {},
 ): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  assertGpuRetainedContentScrollbarSceneOnlyAccessAllowed();
+  return getGpuRetainedContentScrollbarVisualsFromSourceSurfaces(
+    getGpuRetainedContentSourceSurfaces(surfaces, {
+      scrollOffsets: options.scrollOffsets,
+    }),
+    options,
+  );
+}
+
+export function getGpuRetainedContentScrollbarVisualsFromSourceSurfaces(
+  surfaces: readonly GpuRetainedContentSourceSurface[],
+  options: GpuRetainedContentScrollbarVisualOptions = {},
+): readonly HtmlSurfaceSolidRoundedRectVisual[] {
   const palette = getGpuRetainedContentCanvasPalette(
     isGpuRetainedContentNativeScrollbarDarkMode(),
   );
-  return getGpuRetainedContentSourceSurfaces(surfaces, {
-    scrollOffsets: options.scrollOffsets,
-  }).flatMap((surface) =>
+  return surfaces.flatMap((surface) =>
     getGpuRetainedContentSurfaceScrollbarVisuals({
       palette,
       scrollOffsets: options.scrollOffsets,
       surface,
       visualState: options.visualState,
     }),
+  );
+}
+
+function assertGpuRetainedContentScrollbarSceneOnlyAccessAllowed() {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return;
+  }
+  throw new Error(
+    "Retained scrollbar visuals must be read from a sampled retained runtime frame.",
   );
 }
 

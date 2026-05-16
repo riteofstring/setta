@@ -2,16 +2,20 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageDescriptor = {
   readonly contentVersion: number;
+  readonly devicePixelRatioBucket: number;
   readonly lodLevel: number;
   readonly lodScale: number;
   readonly pixelHeight: number;
   readonly pixelWidth: number;
   readonly scaleKey: string;
+  readonly sourceKey: string;
   readonly sourceRectCss: GpuRect;
+  readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly tileColumn: number;
   readonly tileRow: number;
+  readonly viewportZoomBucket: number;
 };
 
 export type PendingRetainedTexturePage = {
@@ -52,11 +56,15 @@ export type RetainedTexturePageLookup = {
   readonly allowCompatibleSourceWindow?: boolean | undefined;
   readonly allowStaleContent?: boolean | undefined;
   readonly contentVersion: number;
+  readonly devicePixelRatioBucket: number;
+  readonly sourceKey: string;
   readonly sourceRectCss: GpuRect;
+  readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly targetLodScale: number;
   readonly usedFrame?: number | undefined;
+  readonly viewportZoomBucket: number;
 };
 
 export type RetainedTexturePageEvictionOptions = {
@@ -208,19 +216,27 @@ export class RetainedTexturePageCache<TResource = unknown> {
 
   getBestCommittedPage({
     contentVersion,
+    devicePixelRatioBucket,
+    sourceKey,
     sourceRectCss,
+    sourceVersion,
     sourceWindowCss,
     surfaceId,
     targetLodScale,
     usedFrame,
+    viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
     const candidates = this.getCommittedPagesForCoverage({
       contentVersion,
+      devicePixelRatioBucket,
+      sourceKey,
       sourceRectCss: lookupRect,
+      sourceVersion,
       sourceWindowCss,
       surfaceId,
       targetLodScale,
+      viewportZoomBucket,
     }).filter((page) =>
       rectContains(page.descriptor.sourceRectCss, lookupRect),
     );
@@ -237,10 +253,14 @@ export class RetainedTexturePageCache<TResource = unknown> {
     allowCompatibleSourceWindow = false,
     allowStaleContent = false,
     contentVersion,
+    devicePixelRatioBucket,
+    sourceKey,
     sourceRectCss,
+    sourceVersion,
     sourceWindowCss,
     surfaceId,
     targetLodScale,
+    viewportZoomBucket,
   }: Omit<
     RetainedTexturePageLookup,
     "usedFrame"
@@ -250,6 +270,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       "sourceWindowCss",
       sourceWindowCss,
     );
+    void viewportZoomBucket;
     return this.getCommittedPagesForLookup({
       allowCompatibleSourceWindow,
       lookupSourceWindow,
@@ -259,6 +280,14 @@ export class RetainedTexturePageCache<TResource = unknown> {
         (page) =>
           (allowStaleContent ||
             page.descriptor.contentVersion === contentVersion) &&
+          page.descriptor.devicePixelRatioBucket === devicePixelRatioBucket &&
+          page.descriptor.sourceKey === sourceKey &&
+          page.descriptor.sourceVersion === sourceVersion &&
+          (!allowCompatibleSourceWindow ||
+            sourceWindowsShareScrollOrigin(
+              page.descriptor.sourceWindowCss,
+              lookupSourceWindow,
+            )) &&
           rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
       )
       .sort((left, right) =>
@@ -438,6 +467,8 @@ export function retainedTexturePageKey(
   return [
     normalized.surfaceId,
     normalized.contentVersion,
+    normalized.sourceVersion,
+    normalized.sourceKey,
     normalized.sourceRectCss.x,
     normalized.sourceRectCss.y,
     normalized.sourceRectCss.width,
@@ -452,6 +483,8 @@ export function retainedTexturePageKey(
     normalized.pixelHeight,
     normalized.tileColumn,
     normalized.tileRow,
+    normalized.devicePixelRatioBucket,
+    normalized.viewportZoomBucket,
   ].join(":");
 }
 
@@ -576,6 +609,10 @@ function normalizePageDescriptor(
     "lodScale",
     descriptor.lodScale,
   );
+  const devicePixelRatioBucket = normalizeFinitePositiveNumber(
+    "devicePixelRatioBucket",
+    descriptor.devicePixelRatioBucket,
+  );
   const lodLevel = normalizeFiniteInteger("lodLevel", descriptor.lodLevel);
   const expectedLodLevel = retainedTexturePageLodLevel(lodScale);
   if (lodLevel !== expectedLodLevel) {
@@ -590,6 +627,15 @@ function normalizePageDescriptor(
       `Retained texture page scaleKey "${scaleKey}" does not match lodScale ${lodScale}.`,
     );
   }
+  const sourceKey = normalizeSourceKey(descriptor.sourceKey);
+  const sourceVersion = normalizeFiniteNumber(
+    "sourceVersion",
+    descriptor.sourceVersion,
+  );
+  const viewportZoomBucket = normalizeFiniteNumber(
+    "viewportZoomBucket",
+    descriptor.viewportZoomBucket,
+  );
   const pixelWidth = normalizeFinitePositiveInteger(
     "pixelWidth",
     descriptor.pixelWidth,
@@ -608,12 +654,15 @@ function normalizePageDescriptor(
   );
   return {
     contentVersion,
+    devicePixelRatioBucket,
     lodLevel,
     lodScale,
     pixelHeight,
     pixelWidth,
     scaleKey,
+    sourceKey,
     sourceRectCss: normalizeRect("sourceRectCss", descriptor.sourceRectCss),
+    sourceVersion,
     sourceWindowCss: normalizeRect(
       "sourceWindowCss",
       descriptor.sourceWindowCss,
@@ -621,6 +670,7 @@ function normalizePageDescriptor(
     surfaceId,
     tileColumn,
     tileRow,
+    viewportZoomBucket,
   };
 }
 
@@ -673,6 +723,13 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
   );
 }
 
+function sourceWindowsShareScrollOrigin(
+  left: GpuRect,
+  right: GpuRect,
+): boolean {
+  return left.x === right.x && left.y === right.y;
+}
+
 function rectKey(rect: GpuRect): string {
   return [rect.x, rect.y, rect.width, rect.height].join(":");
 }
@@ -709,6 +766,13 @@ function normalizeScaleKey(scaleKey: string): string {
     throw new Error("Retained texture page requires scaleKey.");
   }
   return scaleKey;
+}
+
+function normalizeSourceKey(sourceKey: string): string {
+  if (!sourceKey) {
+    throw new Error("Retained texture page requires sourceKey.");
+  }
+  return sourceKey;
 }
 
 function normalizeFiniteNumber(name: string, value: number): number {

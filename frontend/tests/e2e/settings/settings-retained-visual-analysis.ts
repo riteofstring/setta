@@ -20,7 +20,11 @@ export type RetainedRowDebugEntry = {
   readonly labelClientPoint: Point;
   readonly rowId: string;
   readonly rowLabel: string;
+  readonly surfaceContentHeight: number;
   readonly surfaceId: string;
+  readonly surfaceLogicalRowCount: number;
+  readonly surfaceScrollOffset: Point;
+  readonly surfaceViewportHeight: number;
 };
 
 export type RowBand = {

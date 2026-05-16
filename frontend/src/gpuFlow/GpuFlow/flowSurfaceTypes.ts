@@ -18,6 +18,7 @@ import type { GpuSelectionControllerOptions } from "../interactions/selection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuFlowPortalDescriptor } from "../portals/portalManager";
 import type { GpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -71,6 +72,9 @@ export type GpuFlowProps = Pick<
   onNodeLayerFrame?:
     | ((result: RenderHtmlSurfaceFrameResult) => void)
     | undefined;
+  onRetainedRuntimeFrame?:
+    | ((frame: GpuRetainedRuntimeFrame) => void)
+    | undefined;
   panZoom?:
     | false
     | Omit<
@@ -117,6 +121,7 @@ export type GpuFlowCallbacks = Pick<
   | "onNodeLayerFrame"
   | "onPaint"
   | "onReady"
+  | "onRetainedRuntimeFrame"
   | "onResize"
 > & {
   readonly framePerformanceReporter:

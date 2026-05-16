@@ -14,6 +14,7 @@ import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
 } from "gpuFlow/retainedContentScene";
+import type { GpuRetainedRuntimeFrame } from "gpuFlow/retainedRuntimeFrame";
 import type { GpuFlowScene } from "gpuFlow/scene";
 import { useEffect, type RefObject } from "react";
 
@@ -107,11 +108,15 @@ export function useProjectGpuRetainedParamCanvasControlWheel<
   RootElement extends HTMLElement,
 >({
   disabled,
+  getRetainedRuntimeFrame,
   onActiveParamCanvasControlChange,
   rootRef,
   scene,
 }: {
   readonly disabled?: (() => boolean) | undefined;
+  readonly getRetainedRuntimeFrame:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly onActiveParamCanvasControlChange:
     | ((target: ProjectGpuRetainedParamTarget | null) => void)
     | undefined;
@@ -131,6 +136,7 @@ export function useProjectGpuRetainedParamCanvasControlWheel<
       const hit = hitTestGpuRetainedContentInteraction({
         element: root,
         event,
+        getRetainedRuntimeFrame,
         getScene: () => scene,
       });
       if (
@@ -152,7 +158,13 @@ export function useProjectGpuRetainedParamCanvasControlWheel<
     return () => {
       ownerDocument.removeEventListener("wheel", handleWheel, true);
     };
-  }, [disabled, onActiveParamCanvasControlChange, rootRef, scene]);
+  }, [
+    disabled,
+    getRetainedRuntimeFrame,
+    onActiveParamCanvasControlChange,
+    rootRef,
+    scene,
+  ]);
 }
 
 export function handleProjectGpuRetainedParamCanvasControlKeyDown({

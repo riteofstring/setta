@@ -1,6 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnostics";
 import {
@@ -27,8 +26,6 @@ import {
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import {
   areGpuRetainedContentRowHoverTargetsEqual,
-  getGpuRetainedContentRowHoverStateVisuals,
-  getGpuRetainedContentRowHoverVisuals,
   type GpuRetainedContentRowHoverTarget,
 } from "../retainedContentRowHover";
 import {
@@ -47,7 +44,6 @@ import {
   type GpuRetainedContentScrollbarVisualTarget,
 } from "../retainedContentScrollbar";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
-import type { GpuFlowScene } from "../scene";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   type GpuFlowRetainedContentNodeLayerState,
@@ -69,6 +65,7 @@ export type GpuFlowRetainedContentInteractionOptions =
       GpuRetainedContentInteractionControllerOptions,
       | "element"
       | "getScene"
+      | "getRetainedRuntimeFrame"
       | "getScrollOffsets"
       | "interactionDiagnostics"
       | "requestFrame"
@@ -126,9 +123,6 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly retainedContentConnection: GpuFlowRetainedContentConnectionOptions;
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
-  readonly onRetainedContentSceneChange?:
-    | ((scene: GpuFlowScene | undefined) => void)
-    | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
@@ -148,7 +142,6 @@ export function useGpuFlowRetainedContentControllers({
   retainedContentConnection,
   retainedContentInteraction,
   retainedContentKeyboard,
-  onRetainedContentSceneChange,
   retainedContentPageManagerRef,
   retainedContentRuntimeState,
   retainedContentScroll,
@@ -183,6 +176,8 @@ export function useGpuFlowRetainedContentControllers({
     return attachGpuRetainedContentConnectionController({
       ...retainedContentConnection,
       element: container,
+      getRetainedRuntimeFrame: () =>
+        nodeLayerRef.current.retainedRuntimeFrame ?? null,
       getScene: () => nodeLayerRef.current.scene,
       layoutStore,
       store: viewportStore,
@@ -316,6 +311,8 @@ export function useGpuFlowRetainedContentControllers({
           ),
         element: container,
         getScene: () => nodeLayerRef.current.scene,
+        getRetainedRuntimeFrame: () =>
+          nodeLayerRef.current.retainedRuntimeFrame ?? null,
         getScrollOffsets: () =>
           getGpuRetainedContentRuntimeScrollOffsets(
             retainedContentRuntimeState,
@@ -539,7 +536,6 @@ export function useGpuFlowRetainedContentControllers({
     surfaceRef,
     textureManagerRef,
     viewportStore,
-    onRetainedContentSceneChange,
   ]);
 
   useEffect(() => {
@@ -577,7 +573,6 @@ export function useGpuFlowRetainedContentControllers({
     nodeElementByIdRef,
     nodeLayerRef,
     retainedContentKeyboard,
-    onRetainedContentSceneChange,
     retainedContentPageManagerRef,
     retainedContentRuntimeState,
     retainedContentSwitchAnimations,
@@ -617,7 +612,6 @@ export function useGpuFlowRetainedContentControllers({
     nodeLayerRef,
     nodeElementByIdRef,
     retainedContentScroll,
-    onRetainedContentSceneChange,
     retainedContentSwitchAnimations,
     retainedContentRowHoverTargetRef,
     retainedContentRuntimeState,
@@ -734,26 +728,8 @@ function updateGpuFlowRetainedContentRuntimeNativeVisuals({
   const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
     retainedContentRuntimeState,
   );
-  const rowHoverTarget =
-    nodeLayerRef.current.retainedContentRowHoverTarget ?? null;
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
-    htmlSurfaceNativeVisuals: [
-      ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces, {
-        scrollOffsets,
-        visualState: nodeLayerRef.current.retainedContentScrollbarVisualState,
-      }),
-      ...(rowHoverTarget
-        ? getGpuRetainedContentRowHoverVisuals({
-            scene,
-            scrollOffsets,
-            target: rowHoverTarget,
-          })
-        : getGpuRetainedContentRowHoverStateVisuals({
-            scene,
-            scrollOffsets,
-          })),
-    ],
     retainedContentRuntimeScrollOffsets: scrollOffsets,
   };
 }

@@ -28,6 +28,7 @@ import {
 import { createGpuRetainedContentRowControlRect } from "../retainedContentRowLayout";
 import { createGpuRetainedRowContentSceneWithScrollWindow } from "../retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "../retainedContentSceneSourceMetadata";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
 
@@ -64,12 +65,12 @@ const GPU_RETAINED_TEXT_LIKE_ROW_SNAPSHOT_SOURCE_CLASS_NAME =
 export function useGpuFlowRetainedTextLikeRowSnapshotSources({
   elementBySourceIdRef,
   renderSnapshot,
-  scene,
+  retainedRuntimeFrame,
   surfaceRef,
 }: {
   readonly elementBySourceIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly renderSnapshot: GpuRetainedTextLikeRowSnapshotRenderer | undefined;
-  readonly scene: GpuFlowScene | undefined;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): {
   readonly retainedTextLikeRowSnapshotSourceElement: ReactNode;
@@ -77,9 +78,10 @@ export function useGpuFlowRetainedTextLikeRowSnapshotSources({
   const sources = useMemo(
     () =>
       renderSnapshot
-        ? getGpuRetainedTextLikeRowSnapshotSources(scene)
+        ? retainedRuntimeFrame?.descriptors.textLikeRowSnapshotSources ??
+          EMPTY_TEXT_LIKE_ROW_SNAPSHOT_SOURCES
         : EMPTY_TEXT_LIKE_ROW_SNAPSHOT_SOURCES,
-    [renderSnapshot, scene],
+    [renderSnapshot, retainedRuntimeFrame],
   );
   const paintSourceSignatureRef = useRef<string | null>(null);
   useEffect(() => {
@@ -153,8 +155,18 @@ const EMPTY_TEXT_LIKE_ROW_SNAPSHOT_SOURCES: readonly GpuRetainedTextLikeRowSnaps
 export function getGpuRetainedTextLikeRowSnapshotSources(
   scene: GpuFlowScene | undefined,
 ): readonly GpuRetainedTextLikeRowSnapshotSource[] {
+  assertGpuRetainedTextLikeRowSnapshotSceneOnlyAccessAllowed();
   return getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces(
     getGpuRetainedContentSourceSurfaces(scene?.contentSurfaces),
+  );
+}
+
+function assertGpuRetainedTextLikeRowSnapshotSceneOnlyAccessAllowed() {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return;
+  }
+  throw new Error(
+    "Retained text-like snapshot sources must be read from a sampled retained runtime frame.",
   );
 }
 

@@ -1,5 +1,6 @@
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import { resolveGpuRetainedContentCursor } from "../retainedContentCursor";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -8,6 +9,7 @@ import type { GpuFlowRetainedContentInteractionOptions } from "./retainedContent
 
 export function resolveGpuFlowCanvasCursor({
   event,
+  getRetainedRuntimeFrame,
   getScene,
   nodes,
   retainedContentInteraction,
@@ -16,6 +18,9 @@ export function resolveGpuFlowCanvasCursor({
   viewport,
 }: {
   readonly event: PointerEvent;
+  readonly getRetainedRuntimeFrame:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly getScene: () => GpuFlowScene | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
@@ -28,6 +33,7 @@ export function resolveGpuFlowCanvasCursor({
       ? resolveGpuRetainedContentCursor({
           element: surfaceElement,
           event,
+          getRetainedRuntimeFrame,
           getScene,
           store,
         })

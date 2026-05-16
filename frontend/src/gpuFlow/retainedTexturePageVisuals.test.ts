@@ -35,8 +35,10 @@ describe("createRetainedTexturePageFlatVisuals", () => {
       drawQuads: [
         {
           desiredDescriptor: page.descriptor,
+          fallback: false,
           page,
           sampleRectCss: { height: 10, width: 20, x: 70, y: 40 },
+          staleContent: false,
         },
       ],
       layout: {
@@ -72,8 +74,10 @@ describe("createRetainedTexturePageFlatVisuals", () => {
       drawQuads: [
         {
           desiredDescriptor: page.descriptor,
+          fallback: false,
           page,
           sampleRectCss: { height: 20, width: 40, x: 0, y: 0 },
+          staleContent: false,
         },
       ],
       layout: {
@@ -105,8 +109,10 @@ describe("createRetainedTexturePageFlatVisuals", () => {
       drawQuads: [
         {
           desiredDescriptor: page.descriptor,
+          fallback: false,
           page,
           sampleRectCss: { height: 10, width: 10, x: 0, y: 0 },
+          staleContent: false,
         },
       ],
       layout: {
@@ -128,16 +134,20 @@ function createCommittedPage(
 ): CommittedRetainedTexturePage<RetainedContentTextureResources> {
   const descriptor: RetainedTexturePageDescriptor = {
     contentVersion: 1,
+    devicePixelRatioBucket: 1,
     lodLevel: retainedTexturePageLodLevel(2),
     lodScale: 2,
     pixelHeight: 200,
     pixelWidth: 200,
     scaleKey: retainedTexturePageScaleKey(2),
+    sourceKey: "source-a",
     sourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
+    sourceVersion: 1,
     sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     tileColumn: 0,
     tileRow: 0,
+    viewportZoomBucket: 1,
     ...descriptorUpdates,
   };
   return {

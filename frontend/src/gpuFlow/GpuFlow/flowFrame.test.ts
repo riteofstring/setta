@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
 import {
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
@@ -115,6 +116,37 @@ describe("GPU flow frame helpers", () => {
     ).toBe(false);
     expect(
       shouldReuseGpuFlowRetainedContentFrameCache({
+        allowCoveredRefinementBacklog: true,
+        cachedFrame: retainedFrameCache({
+          contentSurfaces,
+          missingPageCount: 1,
+        }),
+        contentSurfaces,
+        devicePixelRatio: 2,
+        pageDrawableRevision: 5,
+        sceneRevision: 7,
+        scrollRevision: 3,
+        viewportZoomBucket: 1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldReuseGpuFlowRetainedContentFrameCache({
+        allowCoveredRefinementBacklog: true,
+        cachedFrame: retainedFrameCache({
+          contentSurfaces,
+          missingPageCount: 1,
+          uncoveredRectCount: 1,
+        }),
+        contentSurfaces,
+        devicePixelRatio: 2,
+        pageDrawableRevision: 5,
+        sceneRevision: 7,
+        scrollRevision: 3,
+        viewportZoomBucket: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldReuseGpuFlowRetainedContentFrameCache({
         cachedFrame: retainedFrameCache({
           contentSurfaces,
           missingPageCount: 1,
@@ -133,19 +165,16 @@ describe("GPU flow frame helpers", () => {
 function retainedFrameCache({
   contentSurfaces,
   missingPageCount = 0,
+  uncoveredRectCount = 0,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[];
   readonly missingPageCount?: number | undefined;
+  readonly uncoveredRectCount?: number | undefined;
 }): GpuFlowRetainedContentFrameCache {
   return {
     contentSurfaces,
     devicePixelRatio: 2,
-    generation: {
-      contentPageSurfaces: [],
-      sourceSurfaces: [],
-      textLikeRowSnapshotSources: [],
-      viewportZoomBucket: 1,
-    },
+    nativeVisualSignature: "{}",
     pageDrawableRevision: 5,
     preparedFrame: {
       coverageCandidateCount: 0,
@@ -160,8 +189,17 @@ function retainedFrameCache({
       refinementDescriptors: [],
       staleFallbackDrawQuadCount: 0,
       targetDescriptors: [],
-      uncoveredRectCount: 0,
+      uncoveredRectCount,
     },
+    retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 2,
+      frameId: 1,
+      scene: undefined,
+      scrollOffsets: new Map(),
+      scrollRevision: 3,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    }),
     sceneRevision: 7,
     scrollRevision: 3,
     viewportZoomBucket: 1,

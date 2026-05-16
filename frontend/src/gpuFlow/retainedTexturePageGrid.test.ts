@@ -13,6 +13,12 @@ import {
 } from "./retainedTexturePages";
 
 const SOURCE_WINDOW = { height: 256, width: 256, x: 0, y: 0 };
+const PAGE_IDENTITY = {
+  devicePixelRatioBucket: 1,
+  sourceKey: "source-a",
+  sourceVersion: 1,
+  viewportZoomBucket: 1,
+};
 
 function page(
   overrides: Partial<RetainedTexturePageDescriptor> = {},
@@ -20,16 +26,20 @@ function page(
   const lodScale = overrides.lodScale ?? 1;
   return {
     contentVersion: 1,
+    devicePixelRatioBucket: 1,
     lodLevel: retainedTexturePageLodLevel(lodScale),
     lodScale,
     pixelHeight: 128,
     pixelWidth: 128,
     scaleKey: retainedTexturePageScaleKey(lodScale),
+    sourceKey: "source-a",
     sourceRectCss: { height: 128, width: 128, x: 0, y: 0 },
+    sourceVersion: 1,
     sourceWindowCss: SOURCE_WINDOW,
     surfaceId: "surface",
     tileColumn: 0,
     tileRow: 0,
+    viewportZoomBucket: 1,
     ...overrides,
   };
 }
@@ -39,6 +49,7 @@ describe("createRetainedTexturePageDescriptors", () => {
     const descriptors = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 2,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -102,6 +113,7 @@ describe("createRetainedTexturePageDescriptors", () => {
       createRetainedTexturePageDescriptors({
         contentBoundsCss: { height: 150, width: 150, x: 0, y: 0 },
         contentVersion: 1,
+        ...PAGE_IDENTITY,
         lodScale: 2,
         maxPagePixelSize: 128,
         sourceWindowCss: SOURCE_WINDOW,
@@ -124,6 +136,7 @@ describe("createRetainedTexturePageDescriptors", () => {
       createRetainedTexturePageDescriptors({
         contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
         contentVersion: 1,
+        ...PAGE_IDENTITY,
         lodScale: 1,
         maxPagePixelSize: 64,
         sourceWindowCss: SOURCE_WINDOW,
@@ -151,6 +164,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 4,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -175,7 +189,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     ]);
   });
 
-  it("uses stale content pages as fallback while current content pages are pending", () => {
+  it("does not use stale content pages as fallback while current content pages are pending", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -192,6 +206,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 2,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -207,22 +222,14 @@ describe("createRetainedTexturePageDrawQuads", () => {
       }),
     ).toEqual(
       expect.objectContaining({
-        drawQuads: [
-          expect.objectContaining({
-            page: expect.objectContaining({
-              lastUsedFrame: 12,
-              resource: "previous-content",
-            }),
-            sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
-          }),
-        ],
+        drawQuads: [],
         refinementDescriptors: desiredPages,
-        uncoveredRectsCss: [],
+        uncoveredRectsCss: [{ height: 64, width: 64, x: 64, y: 64 }],
       }),
     );
   });
 
-  it("uses committed same-surface pages from previous scroll windows as fallback", () => {
+  it("does not use committed same-surface pages from previous scroll windows as fallback", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -234,6 +241,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: { height: 256, width: 256, x: 0, y: 48 },
@@ -248,11 +256,48 @@ describe("createRetainedTexturePageDrawQuads", () => {
       }),
     ).toEqual(
       expect.objectContaining({
+        drawQuads: [],
+        uncoveredRectsCss: [{ height: 64, width: 64, x: 64, y: 64 }],
+      }),
+    );
+  });
+
+  it("uses committed pages from the same scroll origin as fallback when zoom changes the source window size", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    cache.commitPage({
+      descriptor: page({
+        lodScale: 1,
+        lodLevel: retainedTexturePageLodLevel(1),
+        pixelHeight: 256,
+        pixelWidth: 256,
+        scaleKey: retainedTexturePageScaleKey(1),
+        sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
+        sourceWindowCss: { height: 512, width: 512, x: 0, y: 0 },
+      }),
+      resource: "same-scroll-origin",
+    });
+    const desiredPages = createRetainedTexturePageDescriptors({
+      contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
+      contentVersion: 1,
+      ...PAGE_IDENTITY,
+      lodScale: 2,
+      maxPagePixelSize: 128,
+      sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
+      surfaceId: "surface",
+      visibleSourceRectCss: { height: 64, width: 64, x: 64, y: 64 },
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages,
+      }),
+    ).toEqual(
+      expect.objectContaining({
         drawQuads: [
           expect.objectContaining({
-            page: expect.objectContaining({
-              resource: "previous-scroll-window",
-            }),
+            fallback: true,
+            page: expect.objectContaining({ resource: "same-scroll-origin" }),
             sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
           }),
         ],
@@ -275,6 +320,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 64, width: 256, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -346,6 +392,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 0.5,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -384,6 +431,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 128, width: 128, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -418,6 +466,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 64, width: 64, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,
@@ -468,6 +517,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 64, width: 64, x: 0, y: 0 },
       contentVersion: 1,
+      ...PAGE_IDENTITY,
       lodScale: 2,
       maxPagePixelSize: 128,
       sourceWindowCss: SOURCE_WINDOW,

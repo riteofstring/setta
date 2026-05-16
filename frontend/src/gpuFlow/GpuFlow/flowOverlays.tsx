@@ -9,7 +9,7 @@ import type {
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
-import type { GpuFlowScene } from "../scene";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
@@ -40,7 +40,7 @@ export function useGpuFlowOverlaySources({
   nodes,
   primaryNodeId,
   renderRetainedTextLikeRowSnapshot,
-  scene,
+  retainedRuntimeFrame,
   surfaceRef,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
@@ -58,7 +58,7 @@ export function useGpuFlowOverlaySources({
   readonly renderRetainedTextLikeRowSnapshot:
     | GpuRetainedTextLikeRowSnapshotRenderer
     | undefined;
-  readonly scene: GpuFlowScene | undefined;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
@@ -74,13 +74,13 @@ export function useGpuFlowOverlaySources({
       transformOnlyPaintNodeIdsRef,
     });
   const { retainedContentNativeVisuals } = useGpuFlowRetainedContentSources({
-    scene,
+    retainedRuntimeFrame,
   });
   const { retainedTextLikeRowSnapshotSourceElement } =
     useGpuFlowRetainedTextLikeRowSnapshotSources({
       elementBySourceIdRef: retainedTextLikeRowSnapshotElementByIdRef,
       renderSnapshot: renderRetainedTextLikeRowSnapshot,
-      scene,
+      retainedRuntimeFrame,
       surfaceRef,
     });
   const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =

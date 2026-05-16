@@ -1,22 +1,26 @@
 import { useMemo } from "react";
 
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
-import type { GpuFlowScene } from "../scene";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 
 export function useGpuFlowRetainedContentSources({
-  scene,
+  retainedRuntimeFrame,
 }: {
-  readonly scene: GpuFlowScene | undefined;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
 }): {
   readonly retainedContentNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
 } {
   const retainedContentNativeVisuals = useMemo(
-    () => getGpuRetainedContentScrollbarVisuals(scene?.contentSurfaces),
-    [scene?.contentSurfaces],
+    () =>
+      retainedRuntimeFrame?.descriptors.htmlSurfaceNativeVisuals ??
+      EMPTY_RETAINED_CONTENT_NATIVE_VISUALS,
+    [retainedRuntimeFrame],
   );
 
   return {
     retainedContentNativeVisuals,
   };
 }
+
+const EMPTY_RETAINED_CONTENT_NATIVE_VISUALS: readonly HtmlSurfaceSolidRoundedRectVisual[] =
+  [];

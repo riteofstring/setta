@@ -1,9 +1,12 @@
+import type { NodeTexturePriority } from "./dirtyTracking";
 import { getHtmlSurfaceTextureUsage } from "./htmlSurfaces/textureManagerHelpers";
+import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
 import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
+import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import {
   normalizeRetainedContentTexturePageBudget,
   normalizeRetainedContentTexturePageLodScale,
@@ -18,6 +21,8 @@ import {
   shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
 import type {
+  RetainedContentTexturePageContentSegment,
+  RetainedContentTexturePageFrameInput,
   RetainedContentTexturePageFrameSurface,
   RetainedContentTexturePageFreshnessQuery,
   RetainedContentTexturePageInvalidation,
@@ -104,6 +109,7 @@ export class RetainedContentTexturePageManager {
     string,
     RetainedContentTexturePageFrameSurface
   >();
+  private devicePixelRatioBucket = 1;
   private viewportZoomBucket: number | null = null;
   private targetLodScale = 1;
 
@@ -147,6 +153,7 @@ export class RetainedContentTexturePageManager {
     this.drawableRevision += 1;
     this.pageContentVersions.clear();
     this.nextPageContentVersion = 1;
+    this.devicePixelRatioBucket = 1;
     this.viewportZoomBucket = null;
     this.targetLodScale = 1;
     this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
@@ -231,6 +238,8 @@ export class RetainedContentTexturePageManager {
     RetainedContentTexturePageFrameInput,
     "devicePixelRatio" | "frame" | "surfaces" | "viewportZoomBucket"
   >): RetainedContentTexturePagePreparedFrame {
+    this.devicePixelRatioBucket = devicePixelRatio;
+    this.viewportZoomBucket = viewportZoomBucket;
     this.frameSurfaceById = new Map(
       surfaces.map((surface) => [surface.surfaceId, surface]),
     );
@@ -383,11 +392,15 @@ export class RetainedContentTexturePageManager {
         descriptors: createRetainedTexturePageDescriptors({
           contentBoundsCss: surface.contentBoundsCss,
           contentVersion: surface.contentVersion,
+          devicePixelRatioBucket: this.devicePixelRatioBucket,
           lodScale: this.targetLodScale,
           maxPagePixelSize: this.maxPagePixelSize,
+          sourceKey: surface.sourceKey,
+          sourceVersion: surface.sourceVersion,
           sourceWindowCss: surface.sourceWindowCss,
           surfaceId: surface.surfaceId,
           visibleSourceRectCss: surface.visibleSourceRectCss,
+          viewportZoomBucket: this.viewportZoomBucket ?? 0,
         }),
         surface,
       }),
@@ -477,11 +490,15 @@ export class RetainedContentTexturePageManager {
       descriptors: createRetainedTexturePageDescriptors({
         contentBoundsCss: surface.contentBoundsCss,
         contentVersion: surface.contentVersion,
+        devicePixelRatioBucket: this.devicePixelRatioBucket,
         lodScale,
         maxPagePixelSize: this.maxPagePixelSize,
+        sourceKey: surface.sourceKey,
+        sourceVersion: surface.sourceVersion,
         sourceWindowCss: surface.sourceWindowCss,
         surfaceId: surface.surfaceId,
         visibleSourceRectCss: sourceRect,
+        viewportZoomBucket: this.viewportZoomBucket ?? 0,
       }),
       surface,
     });

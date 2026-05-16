@@ -3,6 +3,7 @@ import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
+import type { GpuRetainedRuntimeFrame } from "gpuFlow/retainedRuntimeFrame";
 import type { GpuFlowScene } from "gpuFlow/scene";
 
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
@@ -40,7 +41,6 @@ import {
   useLocalStorage,
   useMisc,
   useProjectState,
-  useSettings,
 } from "state/definitions";
 
 import { useShareCapabilities } from "state/hooks/share";
@@ -105,6 +105,10 @@ import {
   getProjectSurfaceClientDimensions,
   type ProjectSurfaceDimensions,
 } from "./projectGpuSurfaceDimensions";
+import {
+  useProjectGpuSurfaceSettings,
+  type ProjectGpuSurfaceSettings,
+} from "./projectGpuSurfaceSettings";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -158,10 +162,6 @@ export type ProjectGpuSelectionChange = {
   readonly selectedNodeIds: readonly string[];
 };
 
-type ProjectGpuSurfaceSettings = ReturnType<
-  typeof useProjectGpuSurfaceSettings
->;
-
 export type ProjectFlowInteractionKeys = {
   readonly panActivationKeyPressed: boolean;
   readonly selectionKeyPressed: boolean;
@@ -181,6 +181,7 @@ const ignoreProjectGpuHoveredParamTargetChange = () => undefined;
 
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const retainedRuntimeFrameRef = useRef<GpuRetainedRuntimeFrame | null>(null);
   const dimensions = useProjectSurfaceDimensions(rootRef);
   const [activeParamDomIsland, setActiveParamDomIsland] =
     useState<ProjectGpuActiveParamDomIsland | null>(null);
@@ -194,6 +195,10 @@ export function GpuProjectSurface() {
   const dismissActiveParamCanvasPopup = useCallback(() => {
     setActiveParamCanvasPopup(null);
   }, []);
+  const getRetainedRuntimeFrame = useCallback(
+    () => retainedRuntimeFrameRef.current,
+    [],
+  );
   const handleRetainedPasswordRevealStateChange = useCallback(
     (update: ProjectGpuRetainedPasswordRevealUpdate) => {
       setRetainedPasswordRevealStates((current) =>
@@ -250,6 +255,7 @@ export function GpuProjectSurface() {
   });
   useProjectGpuActiveParamCanvasPopupWheel({
     activeParamCanvasPopup,
+    getRetainedRuntimeFrame,
     onActiveParamCanvasPopupChange: setActiveParamCanvasPopup,
     rootRef,
     scene: layoutAdapter.scene,
@@ -264,6 +270,7 @@ export function GpuProjectSurface() {
   });
   useProjectGpuRetainedParamCanvasControlWheel({
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    getRetainedRuntimeFrame,
     onActiveParamCanvasControlChange: setActiveParamCanvasControl,
     rootRef,
     scene: layoutAdapter.scene,
@@ -297,6 +304,7 @@ export function GpuProjectSurface() {
           isProjectRetainedContentClickPoint({
             event,
             root: rootRef.current,
+            getRetainedRuntimeFrame,
             scene: layoutAdapter.scene,
           })
         ) {
@@ -353,6 +361,9 @@ export function GpuProjectSurface() {
         }}
         onHoveredParamTargetChange={ignoreProjectGpuHoveredParamTargetChange}
         onPasswordRevealStateChange={handleRetainedPasswordRevealStateChange}
+        onRetainedRuntimeFrameChange={(frame) => {
+          retainedRuntimeFrameRef.current = frame;
+        }}
         onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
         passwordRevealStates={retainedPasswordRevealStates}
         readyToRender={readyToRender}
@@ -363,6 +374,22 @@ export function GpuProjectSurface() {
     </div>
   );
 }
+
+type PopupChange = (popup: ProjectGpuActiveParamCanvasPopup | null) => void;
+type CanvasControlChange = (
+  target: ProjectGpuRetainedParamTarget | null,
+) => void;
+type DomIslandChange = (island: ProjectGpuActiveParamDomIsland | null) => void;
+type RetainedParamTargetChange = (
+  target: ProjectGpuRetainedParamTarget | null,
+) => void;
+type PasswordRevealChange = (
+  update: ProjectGpuRetainedPasswordRevealUpdate,
+) => void;
+type RetainedRuntimeFrameChange = (frame: GpuRetainedRuntimeFrame) => void;
+type RetainedParamDragPreviewChange = (
+  preview: ProjectGpuRetainedParamDragPreview | null,
+) => void;
 
 function ProjectGpuFlowLayer({
   canEditStructure,
@@ -376,6 +403,7 @@ function ProjectGpuFlowLayer({
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onPasswordRevealStateChange,
+  onRetainedRuntimeFrameChange,
   onRetainedParamDragPreviewChange,
   passwordRevealStates,
   readyToRender,
@@ -389,24 +417,13 @@ function ProjectGpuFlowLayer({
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
-  readonly onActiveParamCanvasPopupChange: (
-    popup: ProjectGpuActiveParamCanvasPopup | null,
-  ) => void;
-  readonly onActiveParamCanvasControlChange: (
-    target: ProjectGpuRetainedParamTarget | null,
-  ) => void;
-  readonly onActiveParamDomIslandChange: (
-    island: ProjectGpuActiveParamDomIsland | null,
-  ) => void;
-  readonly onHoveredParamTargetChange: (
-    target: ProjectGpuRetainedParamTarget | null,
-  ) => void;
-  readonly onPasswordRevealStateChange: (
-    update: ProjectGpuRetainedPasswordRevealUpdate,
-  ) => void;
-  readonly onRetainedParamDragPreviewChange: (
-    preview: ProjectGpuRetainedParamDragPreview | null,
-  ) => void;
+  readonly onActiveParamCanvasPopupChange: PopupChange;
+  readonly onActiveParamCanvasControlChange: CanvasControlChange;
+  readonly onActiveParamDomIslandChange: DomIslandChange;
+  readonly onHoveredParamTargetChange: RetainedParamTargetChange;
+  readonly onPasswordRevealStateChange: PasswordRevealChange;
+  readonly onRetainedRuntimeFrameChange: RetainedRuntimeFrameChange;
+  readonly onRetainedParamDragPreviewChange: RetainedParamDragPreviewChange;
   readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
@@ -627,6 +644,7 @@ function ProjectGpuFlowLayer({
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
       onNodeElementChange={handleNodeElementChange}
+      onRetainedRuntimeFrame={onRetainedRuntimeFrameChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
       portals={portals}
@@ -910,38 +928,7 @@ function booleanDataAttribute(value: boolean): "true" | "false" {
   return value ? "true" : "false";
 }
 
-export function useProjectGpuSurfaceSettings() {
-  return useSettings(
-    (state) => ({
-      defaultZoomLevel: state.gui.defaultZoomLevel,
-      gridColor: state.gui.gridColor,
-      gridColorDarkMode: state.gui.gridColorDarkMode,
-      gridPattern: state.gui.gridPattern,
-      gridPatternSize: state.gui.gridPatternSize,
-      maxZoom: state.gui.maxZoom,
-      minZoom: state.gui.minZoom,
-      panOnDrag: state.gui.panOnDrag,
-      panOnScroll: state.gui.panOnScroll,
-      panOnScrollMode: state.gui.panOnScrollMode,
-      panOnScrollSpeed: state.gui.panOnScrollSpeed,
-      selectionMode: state.gui.selectionMode,
-      showGridLines: !!state.gui.showGridLines,
-      snapGrid: state.gui.snapGrid,
-      wireColor: (state.gui as unknown as { wireColor?: string }).wireColor,
-      wireColorDarkMode: (
-        state.gui as unknown as { wireColorDarkMode?: string }
-      ).wireColorDarkMode,
-      zoomOnDoubleClick: state.gui.zoomOnDoubleClick,
-      zoomOnPinch: state.gui.zoomOnPinch,
-      zoomOnScroll: state.gui.zoomOnScroll,
-    }),
-    _.isEqual,
-  );
-}
-
-function useProjectViewportSettingsSync(
-  settings: ReturnType<typeof useProjectGpuSurfaceSettings>,
-) {
+function useProjectViewportSettingsSync(settings: ProjectGpuSurfaceSettings) {
   useEffect(() => {
     gpuFlowViewportStore.getState().setZoomBounds({
       defaultZoom: settings.defaultZoomLevel,

@@ -1,10 +1,5 @@
 import type { MutableRefObject } from "react";
 
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
-import {
-  getGpuRetainedContentRowHoverStateVisuals,
-  getGpuRetainedContentRowHoverVisuals,
-} from "../retainedContentRowHover";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   syncGpuRetainedContentRuntimeStateForScene,
@@ -69,25 +64,9 @@ function getDefaultGpuFlowRetainedContentNativeVisuals(
   scene: GpuFlowScene | undefined,
   layerState: GpuFlowRetainedContentNodeLayerState,
 ): GpuFlowRetainedContentNodeLayerState["htmlSurfaceNativeVisuals"] {
-  const rowHoverTarget = layerState.retainedContentRowHoverTarget ?? null;
-  const scrollOffsets =
-    layerState.retainedContentRuntimeScrollOffsets ?? new Map();
-  return scene
-    ? [
-        ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces, {
-          scrollOffsets,
-          visualState: layerState.retainedContentScrollbarVisualState,
-        }),
-        ...(rowHoverTarget
-          ? getGpuRetainedContentRowHoverVisuals({
-              scene,
-              scrollOffsets,
-              target: rowHoverTarget,
-            })
-          : getGpuRetainedContentRowHoverStateVisuals({
-              scene,
-              scrollOffsets,
-            })),
-      ]
-    : undefined;
+  void scene;
+  return (
+    layerState.retainedRuntimeFrame?.descriptors.htmlSurfaceNativeVisuals ??
+    layerState.htmlSurfaceNativeVisuals
+  );
 }

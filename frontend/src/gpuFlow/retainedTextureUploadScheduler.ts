@@ -86,7 +86,14 @@ export function runRetainedTextureUploadScheduler({
 
   for (const item of queue.orderedWorkItems(queueOptions)) {
     const estimate = normalizeWorkEstimate(estimateWorkItem(item));
-    if (!fitsBudget(progress, estimate, normalizedBudget)) {
+    if (
+      !fitsBudget(progress, estimate, normalizedBudget) &&
+      !canForceRetainedTextureUploadProgress({
+        budget: normalizedBudget,
+        estimate,
+        progress,
+      })
+    ) {
       diagnostics.push({
         estimate,
         item,
@@ -130,6 +137,25 @@ export function runRetainedTextureUploadScheduler({
     uploadedBytes: progress.uploadedBytes,
     uploadCount: progress.uploadCount,
   };
+}
+
+function canForceRetainedTextureUploadProgress({
+  budget,
+  estimate,
+  progress,
+}: {
+  readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+}): boolean {
+  return (
+    progress.uploadCount === 0 &&
+    progress.uploadedBytes === 0 &&
+    progress.rasterMs === 0 &&
+    progress.uploadMs === 0 &&
+    budget.maxUploads > 0 &&
+    estimate.uploadCount > 0
+  );
 }
 
 export function retainedTextureSchedulerQueueForWorkItem(

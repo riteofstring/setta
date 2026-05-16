@@ -12,6 +12,7 @@ import {
   getGpuRetainedContentChoicePopupWheelCommand,
   resolveGpuRetainedContentChoicePopupKeyboard,
 } from "gpuFlow/retainedContentPopupKeyboard";
+import type { GpuRetainedRuntimeFrame } from "gpuFlow/retainedRuntimeFrame";
 import type { GpuFlowScene } from "gpuFlow/scene";
 import { useEffect, useRef, type RefObject } from "react";
 
@@ -127,11 +128,15 @@ export function useProjectGpuActiveParamCanvasPopupWheel<
   RootElement extends HTMLElement,
 >({
   activeParamCanvasPopup,
+  getRetainedRuntimeFrame,
   onActiveParamCanvasPopupChange,
   rootRef,
   scene,
 }: {
   readonly activeParamCanvasPopup: ProjectGpuActiveParamCanvasPopup | null;
+  readonly getRetainedRuntimeFrame:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly onActiveParamCanvasPopupChange: (
     popup: ProjectGpuActiveParamCanvasPopup | null,
   ) => void;
@@ -154,6 +159,7 @@ export function useProjectGpuActiveParamCanvasPopupWheel<
       const hit = hitTestGpuRetainedContentInteraction({
         element: root,
         event,
+        getRetainedRuntimeFrame,
         getScene: () => scene,
       });
       if (!isProjectGpuChoiceCanvasPopupWheelHit(activeParamCanvasPopup, hit)) {
@@ -178,7 +184,13 @@ export function useProjectGpuActiveParamCanvasPopupWheel<
     return () => {
       ownerDocument.removeEventListener("wheel", handleWheel, true);
     };
-  }, [activeParamCanvasPopup, onActiveParamCanvasPopupChange, rootRef, scene]);
+  }, [
+    activeParamCanvasPopup,
+    getRetainedRuntimeFrame,
+    onActiveParamCanvasPopupChange,
+    rootRef,
+    scene,
+  ]);
 }
 
 export function resolveProjectGpuActiveParamCanvasPopupKeyboard({

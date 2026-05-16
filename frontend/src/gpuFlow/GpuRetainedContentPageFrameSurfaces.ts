@@ -32,9 +32,19 @@ export function getGpuRetainedContentTexturePageFrameSurfaces(
   surfaces: readonly GpuContentSurface[] | undefined,
   options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
+  assertGpuRetainedContentPageFrameSurfaceSceneOnlyAccessAllowed();
   return getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
     getGpuRetainedContentSourceSurfaces(surfaces, options),
     options,
+  );
+}
+
+function assertGpuRetainedContentPageFrameSurfaceSceneOnlyAccessAllowed() {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+    return;
+  }
+  throw new Error(
+    "Retained page frame surfaces must be read from a sampled retained runtime frame.",
   );
 }
 
@@ -51,6 +61,22 @@ function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
   options: GpuRetainedContentPageFrameSurfaceOptions,
 ): RetainedContentTexturePageFrameSurface {
+  const textLikeSnapshots = createTextLikeSnapshots({
+    sources: options.textLikeRowSnapshotSources ?? [],
+    surfaceId: surface.id,
+  });
+  const contentVersion = getBaseContentVersion(surface.retainedScene);
+  const sourceWindowCss = {
+    height: surface.textureWindow.cacheViewportRect.height,
+    width: surface.textureWindow.cacheViewportRect.width,
+    x: surface.textureWindow.cacheScrollOffset.x,
+    y: surface.textureWindow.cacheScrollOffset.y,
+  };
+  const sourceKey = createRetainedContentTexturePageFrameSurfaceSourceKey({
+    contentVersion,
+    textLikeSnapshots,
+    surfaceId: surface.id,
+  });
   return {
     contentBoundsCss: {
       height: surface.textureWindow.textureHeight,
@@ -59,7 +85,7 @@ function toGpuRetainedContentTexturePageFrameSurface(
       y: 0,
     },
     contentSegments: createContentSegments(surface.retainedScene),
-    contentVersion: getBaseContentVersion(surface.retainedScene),
+    contentVersion,
     layout: {
       height: surface.rect.height,
       surfaceId: surface.id,
@@ -74,19 +100,32 @@ function toGpuRetainedContentTexturePageFrameSurface(
       scrollOffset: surface.textureWindow.cacheScrollOffset,
       viewportRect: surface.textureWindow.cacheViewportRect,
     }),
-    sourceWindowCss: {
-      height: surface.textureWindow.cacheViewportRect.height,
-      width: surface.textureWindow.cacheViewportRect.width,
-      x: surface.textureWindow.cacheScrollOffset.x,
-      y: surface.textureWindow.cacheScrollOffset.y,
-    },
+    sourceKey,
+    sourceVersion: contentVersion,
+    sourceWindowCss,
     surfaceId: surface.id,
-    textLikeSnapshots: createTextLikeSnapshots({
-      sources: options.textLikeRowSnapshotSources ?? [],
-      surfaceId: surface.id,
-    }),
+    textLikeSnapshots,
     visibleSourceRectCss: surface.textureWindow.sourceRect,
   };
+}
+
+function createRetainedContentTexturePageFrameSurfaceSourceKey({
+  contentVersion,
+  surfaceId,
+  textLikeSnapshots,
+}: {
+  readonly contentVersion: number;
+  readonly surfaceId: string;
+  readonly textLikeSnapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
+}): string {
+  return JSON.stringify({
+    contentVersion,
+    surfaceId,
+    textLikeSnapshots: textLikeSnapshots.map((snapshot) => ({
+      rowId: snapshot.rowId,
+      sourceKey: snapshot.sourceKey,
+    })),
+  });
 }
 
 function createTextLikeSnapshots({

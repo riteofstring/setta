@@ -29,7 +29,6 @@ import {
   createGpuFlowFramePerformanceEvent,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import {
   getGpuRetainedContentSourceRectForRows,
   type GpuRetainedContentSourceSurface,
@@ -42,14 +41,6 @@ import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
-import {
-  createGpuRetainedContentFrameGeneration,
-  type GpuRetainedContentFrameGeneration,
-} from "../retainedContentFrameGeneration";
-import {
-  getGpuRetainedContentRowHoverStateVisuals,
-  getGpuRetainedContentRowHoverVisuals,
-} from "../retainedContentRowHover";
 import { createGpuRetainedContentSampledSceneForSurface } from "../retainedContentRuntimeSampling";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
@@ -63,6 +54,10 @@ import {
   RetainedContentTexturePageManager,
   type RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
+import {
+  createGpuRetainedRuntimeFrame,
+  type GpuRetainedRuntimeFrame,
+} from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -73,6 +68,11 @@ import {
   postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
+import {
+  shouldReuseGpuFlowRetainedContentFrameCache,
+  type GpuFlowRetainedContentFrameCache,
+} from "./flowRetainedContentFrameCache";
+import { runGpuFlowRetainedPageMaintenance } from "./flowRetainedPageMaintenance";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -271,73 +271,36 @@ function combineGpuFlowHtmlSurfaceNativeVisuals(
   return [...baseVisuals, ...transientVisuals];
 }
 
-function getGpuFlowRetainedContentRuntimeNativeVisuals({
-  layer,
-  scrollOffsets,
-}: {
-  readonly layer: GpuFlowNodeLayerState;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-}): readonly HtmlSurfaceSolidRoundedRectVisual[] | undefined {
-  const scene = layer.scene;
-  if (!scene) {
-    return layer.htmlSurfaceNativeVisuals;
-  }
-  const rowHoverTarget = layer.retainedContentRowHoverTarget ?? null;
-  return [
-    ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces, {
-      scrollOffsets,
-      visualState: layer.retainedContentScrollbarVisualState,
-    }),
-    ...(rowHoverTarget
-      ? getGpuRetainedContentRowHoverVisuals({
-          scene,
-          scrollOffsets,
-          target: rowHoverTarget,
-        })
-      : getGpuRetainedContentRowHoverStateVisuals({
-          scene,
-          scrollOffsets,
-        })),
-  ];
-}
-
 export function nextFrame(frameRef: MutableRefObject<number>): number {
   frameRef.current += 1;
   return frameRef.current;
 }
 
-export type GpuFlowRetainedContentFrameCache = {
-  readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
-  readonly devicePixelRatio: number;
-  readonly generation: GpuRetainedContentFrameGeneration;
-  readonly pageDrawableRevision: number;
-  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly sceneRevision: number;
-  readonly scrollRevision: number;
-  readonly viewportZoomBucket: number;
-};
-
 function resolveGpuFlowRetainedContentFrame({
   contentSurfaces,
+  deferResolutionUpdates,
   devicePixelRatio,
   frame,
   retainedContentFrameCacheRef,
   retainedContentPageManager,
   retainedContentRuntimeState,
   sceneRevision,
+  layer,
   viewportZoomBucket,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
+  readonly deferResolutionUpdates: boolean;
   readonly devicePixelRatio: number;
   readonly frame: number;
+  readonly layer: GpuFlowNodeLayerState;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly sceneRevision: number;
   readonly viewportZoomBucket: number;
 }): {
-  readonly generation: GpuRetainedContentFrameGeneration;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 } {
   const cachedFrame = retainedContentFrameCacheRef.current;
   const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
@@ -346,6 +309,8 @@ function resolveGpuFlowRetainedContentFrame({
   const scrollRevision = getGpuRetainedContentRuntimeScrollRevision(
     retainedContentRuntimeState,
   );
+  const nativeVisualSignature =
+    createGpuFlowRetainedContentNativeVisualSignature(layer);
   const pageDrawableRevision = retainedContentPageManager.getDrawableRevision();
   if (
     cachedFrame &&
@@ -357,82 +322,106 @@ function resolveGpuFlowRetainedContentFrame({
       sceneRevision,
       scrollRevision,
       viewportZoomBucket,
+      allowCoveredRefinementBacklog: deferResolutionUpdates,
     })
   ) {
+    const retainedRuntimeFrame =
+      cachedFrame.nativeVisualSignature === nativeVisualSignature
+        ? cachedFrame.retainedRuntimeFrame
+        : createGpuFlowRetainedRuntimeFrameForLayer({
+            devicePixelRatio,
+            frame,
+            layer,
+            scrollOffsets,
+            scrollRevision,
+            viewportZoomBucket,
+          });
+    const preparedFrame = {
+      ...cachedFrame.preparedFrame,
+      frame,
+    };
+    retainedContentFrameCacheRef.current = {
+      ...cachedFrame,
+      nativeVisualSignature,
+      preparedFrame,
+      retainedRuntimeFrame,
+    };
     return {
-      generation: cachedFrame.generation,
-      preparedFrame: {
-        ...cachedFrame.preparedFrame,
-        frame,
-      },
+      preparedFrame,
+      retainedRuntimeFrame,
     };
   }
 
-  const generation = createGpuRetainedContentFrameGeneration({
-    contentSurfaces,
+  const retainedRuntimeFrame = createGpuFlowRetainedRuntimeFrameForLayer({
+    devicePixelRatio,
+    frame,
+    layer,
     scrollOffsets,
+    scrollRevision,
     viewportZoomBucket,
   });
   const preparedFrame = retainedContentPageManager.prepareFrame({
     devicePixelRatio,
     frame,
-    surfaces: generation.contentPageSurfaces,
+    surfaces: retainedRuntimeFrame.descriptors.contentPageSurfaces,
     viewportZoomBucket,
   });
   retainedContentFrameCacheRef.current = {
     contentSurfaces,
     devicePixelRatio,
-    generation,
     pageDrawableRevision,
     preparedFrame,
+    retainedRuntimeFrame,
     sceneRevision,
     scrollRevision,
+    nativeVisualSignature,
     viewportZoomBucket,
   };
-  return { generation, preparedFrame };
+  return { preparedFrame, retainedRuntimeFrame };
 }
 
-export function shouldReuseGpuFlowRetainedContentFrameCache({
-  cachedFrame,
-  contentSurfaces,
+function createGpuFlowRetainedRuntimeFrameForLayer({
   devicePixelRatio,
-  pageDrawableRevision,
-  sceneRevision,
+  frame,
+  layer,
+  scrollOffsets,
   scrollRevision,
   viewportZoomBucket,
 }: {
-  readonly cachedFrame: GpuFlowRetainedContentFrameCache;
-  readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
   readonly devicePixelRatio: number;
-  readonly pageDrawableRevision: number;
-  readonly sceneRevision: number;
+  readonly frame: number;
+  readonly layer: GpuFlowNodeLayerState;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scrollRevision: number;
   readonly viewportZoomBucket: number;
-}): boolean {
-  return (
-    cachedFrame.contentSurfaces === contentSurfaces &&
-    cachedFrame.devicePixelRatio === devicePixelRatio &&
-    cachedFrame.pageDrawableRevision === pageDrawableRevision &&
-    cachedFrame.preparedFrame.missingPageCount === 0 &&
-    cachedFrame.preparedFrame.uncoveredRectCount === 0 &&
-    cachedFrame.sceneRevision === sceneRevision &&
-    cachedFrame.scrollRevision === scrollRevision &&
-    cachedFrame.viewportZoomBucket === viewportZoomBucket
-  );
+}): GpuRetainedRuntimeFrame {
+  return createGpuRetainedRuntimeFrame({
+    devicePixelRatioBucket: devicePixelRatio,
+    frameId: frame,
+    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
+    scene: layer.scene,
+    scrollbarVisualState: layer.retainedContentScrollbarVisualState,
+    scrollOffsets,
+    scrollRevision,
+    viewport: layer.viewport,
+    viewportZoomBucket,
+  });
 }
 
-export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
-  deferResolutionUpdates,
-  preparedFrame,
-}: {
-  readonly deferResolutionUpdates: boolean;
-  readonly preparedFrame: Pick<
-    RetainedContentTexturePagePreparedFrame,
-    "uncoveredRectCount"
-  >;
-}): boolean {
-  return deferResolutionUpdates && preparedFrame.uncoveredRectCount === 0;
+function createGpuFlowRetainedContentNativeVisualSignature(
+  layer: GpuFlowNodeLayerState,
+): string {
+  return JSON.stringify({
+    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
+    scrollbarVisualState: layer.retainedContentScrollbarVisualState ?? null,
+  });
 }
+
+export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRetainedPageMaintenance";
+export {
+  shouldReuseGpuFlowRetainedContentFrameCache,
+  type GpuFlowRetainedContentFrameCache,
+} from "./flowRetainedContentFrameCache";
 
 export function renderGpuFlowNodeLayerFrame({
   activeResizeNodeIdRef,
@@ -459,6 +448,7 @@ export function renderGpuFlowNodeLayerFrame({
   visibleNodeIdsRef,
   viewportStore,
   viewportFrame,
+  onRetainedRuntimeFrame,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -480,6 +470,9 @@ export function renderGpuFlowNodeLayerFrame({
   >;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
+  readonly onRetainedRuntimeFrame?:
+    | ((frame: GpuRetainedRuntimeFrame) => void)
+    | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
@@ -523,27 +516,30 @@ export function renderGpuFlowNodeLayerFrame({
     });
   const retainedFrame = resolveGpuFlowRetainedContentFrame({
     contentSurfaces: layer.scene?.contentSurfaces,
+    deferResolutionUpdates,
     devicePixelRatio: canvasSize.devicePixelRatio,
     frame,
+    layer,
     retainedContentFrameCacheRef,
     retainedContentPageManager: resources.retainedContentPageManager,
     retainedContentRuntimeState,
     sceneRevision: layer.scene?.revision ?? 0,
     viewportZoomBucket,
   });
-  const retainedFrameGeneration = retainedFrame.generation;
+  const retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
   const retainedPagePreparedFrame = retainedFrame.preparedFrame;
   postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
     frame,
     preparedFrame: retainedPagePreparedFrame,
-    snapshotSources: retainedFrameGeneration.textLikeRowSnapshotSources,
+    snapshotSources:
+      retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   markGpuFlowRetainedContentSwitchFreshnessDirty({
     frame,
     retainedContentPageManager: resources.retainedContentPageManager,
     scrollOffsets: runtimeScrollOffsets,
-    sourceSurfaces: retainedFrameGeneration.sourceSurfaces,
+    sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
   const switchAnimationNativeVisuals =
@@ -555,10 +551,7 @@ export function renderGpuFlowNodeLayerFrame({
       switchAnimations: retainedContentSwitchAnimations,
     });
   const retainedRuntimeNativeVisuals =
-    getGpuFlowRetainedContentRuntimeNativeVisuals({
-      layer,
-      scrollOffsets: runtimeScrollOffsets,
-    });
+    retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals;
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -587,29 +580,22 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
-  const deferRetainedPageMaintenance =
-    shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
-      deferResolutionUpdates,
-      preparedFrame: retainedPagePreparedFrame,
-    });
-  const retainedPageResult = deferRetainedPageMaintenance
-    ? resources.retainedContentPageManager.deferPostSubmitMaintenance({
-        preparedFrame: retainedPagePreparedFrame,
-      })
-    : resources.retainedContentPageManager.runPostSubmitMaintenance({
-        darkMode,
-        preparedFrame: retainedPagePreparedFrame,
-        // Switch transitions are composited below as native visuals, so texture
-        // pages must cache only the static scene state.
-        textLikeSnapshotElementById:
-          retainedTextLikeRowSnapshotElementByIdRef.current,
-        viewportInteractionActive: deferResolutionUpdates,
-      });
+  const retainedPageMaintenance = runGpuFlowRetainedPageMaintenance({
+    darkMode,
+    deferResolutionUpdates,
+    preparedFrame: retainedPagePreparedFrame,
+    retainedContentPageManager: resources.retainedContentPageManager,
+    textLikeSnapshotElementById:
+      retainedTextLikeRowSnapshotElementByIdRef.current,
+  });
+  const deferRetainedPageMaintenance = retainedPageMaintenance.deferred;
+  const retainedPageResult = retainedPageMaintenance.result;
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent({
     elementBySourceId: retainedTextLikeRowSnapshotElementByIdRef.current,
     frame,
     maintenanceResult: retainedPageResult,
-    snapshotSources: retainedFrameGeneration.textLikeRowSnapshotSources,
+    snapshotSources:
+      retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   if (!deferRetainedPageMaintenance) {
@@ -617,7 +603,7 @@ export function renderGpuFlowNodeLayerFrame({
       nowMs: renderStartedAt,
       retainedContentPageManager: resources.retainedContentPageManager,
       scrollOffsets: runtimeScrollOffsets,
-      sourceSurfaces: retainedFrameGeneration.sourceSurfaces,
+      sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
       switchAnimations: retainedContentSwitchAnimations,
     });
   }
@@ -657,6 +643,7 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     nodeInteractionRef,
     nodeLayerRef,
+    retainedRuntimeFrame,
     retainedTexturePageFollowUpFrame: retainedPageResult.needsFollowUpFrame,
     surfaceRef,
     switchAnimationFollowUpFrame: switchAnimationNeedsFollowUpFrame,
@@ -665,6 +652,7 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
+  onRetainedRuntimeFrame?.(retainedRuntimeFrame);
 }
 
 function syncGpuFlowRetainedContentSwitchAnimationSurfaces({
@@ -901,6 +889,7 @@ function updateGpuFlowNodeLayerFrameState({
   layerResult,
   nodeInteractionRef,
   nodeLayerRef,
+  retainedRuntimeFrame,
   retainedTexturePageFollowUpFrame,
   surfaceRef,
   switchAnimationFollowUpFrame,
@@ -913,6 +902,7 @@ function updateGpuFlowNodeLayerFrameState({
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly retainedTexturePageFollowUpFrame: boolean;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly switchAnimationFollowUpFrame: boolean;
@@ -928,6 +918,7 @@ function updateGpuFlowNodeLayerFrameState({
   });
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
+    retainedRuntimeFrame,
     visualScene: layerResult.visualScene,
     visualSceneViewport: viewport,
   };

@@ -9,6 +9,7 @@ import { handlePointerDown } from "../Handle/handler";
 import type { ValidConnectionFunc } from "../Handle/utils";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuRetainedContentPortAnchor } from "../retainedContentScene";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import {
   gpuFlowViewportStore,
@@ -53,6 +54,9 @@ export type GpuRetainedContentConnectionOptions = {
 export type GpuRetainedContentConnectionControllerOptions =
   GpuRetainedContentConnectionOptions & {
     readonly element: HTMLElement;
+    readonly getRetainedRuntimeFrame?:
+      | (() => GpuRetainedRuntimeFrame | null | undefined)
+      | undefined;
     readonly getScene: () => GpuFlowScene | null | undefined;
     readonly layoutStore: GpuFlowLayoutStoreApi;
   };
@@ -70,11 +74,15 @@ export function attachGpuRetainedContentConnectionController(
 export function hitTestGpuRetainedContentConnection({
   element,
   event,
+  getRetainedRuntimeFrame,
   getScene,
   store = gpuFlowViewportStore,
 }: {
   readonly element?: HTMLElement | undefined;
   readonly event: Pick<PointerEvent, "clientX" | "clientY" | "target">;
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly getScene: () => GpuFlowScene | null | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 }): GpuRetainedContentConnectionHit | null {
@@ -84,6 +92,7 @@ export function hitTestGpuRetainedContentConnection({
   const hit = hitTestGpuRetainedContentInteraction({
     element,
     event,
+    getRetainedRuntimeFrame,
     getScene: () => getScene() ?? undefined,
     store,
   });
@@ -117,6 +126,9 @@ class GpuRetainedContentConnectionController {
   private readonly autoPanInsetsPx: GpuFlowAutoPanInsetsInput;
   private readonly disabled: boolean | (() => boolean) | undefined;
   private readonly element: HTMLElement;
+  private readonly getRetainedRuntimeFrame:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   private readonly getScene: () => GpuFlowScene | null | undefined;
   private readonly isConnectionCandidateAllowed:
     | ((
@@ -137,6 +149,7 @@ class GpuRetainedContentConnectionController {
     this.autoPanInsetsPx = options.autoPanInsetsPx;
     this.disabled = options.disabled;
     this.element = options.element;
+    this.getRetainedRuntimeFrame = options.getRetainedRuntimeFrame;
     this.getScene = options.getScene;
     this.isConnectionCandidateAllowed = options.isConnectionCandidateAllowed;
     this.isValidConnection = options.isValidConnection ?? alwaysValidConnection;
@@ -166,6 +179,7 @@ class GpuRetainedContentConnectionController {
     const hit = hitTestGpuRetainedContentConnection({
       element: this.element,
       event,
+      getRetainedRuntimeFrame: this.getRetainedRuntimeFrame,
       getScene: this.getScene,
       store: this.store,
     });

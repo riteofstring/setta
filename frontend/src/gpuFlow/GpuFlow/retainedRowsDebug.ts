@@ -301,6 +301,7 @@ function createGpuFlowRetainedSurfaceDebugEntries({
         row.id,
       ),
       row,
+      sampledRetainedScene,
       sourceClipOffset,
       surface,
     }),
@@ -312,6 +313,7 @@ function createGpuFlowRetainedRowDebugEntry({
   context,
   controlHit,
   row,
+  sampledRetainedScene,
   sourceClipOffset,
   surface,
 }: {
@@ -319,6 +321,9 @@ function createGpuFlowRetainedRowDebugEntry({
   readonly context: GpuFlowRetainedRowDebugContext;
   readonly controlHit: GpuRetainedContentHitRecord | null;
   readonly row: GpuRetainedContentRow;
+  readonly sampledRetainedScene: NonNullable<
+    GpuContentSurface["retainedScene"]
+  >;
   readonly sourceClipOffset: GpuPoint;
   readonly surface: GpuContentSurface;
 }): GpuFlowRetainedRowDebugEntry {
@@ -406,7 +411,11 @@ function createGpuFlowRetainedRowDebugEntry({
     rowId: row.id,
     rowLabel: row.label,
     rowState: { ...row.state },
+    surfaceContentHeight: sampledRetainedScene.contentRect.height,
     surfaceId: surface.id,
+    surfaceLogicalRowCount: sampledRetainedScene.visibleRange.rowCount,
+    surfaceScrollOffset: { ...sampledRetainedScene.scrollOffset },
+    surfaceViewportHeight: sampledRetainedScene.viewportRect.height,
   };
 }
 

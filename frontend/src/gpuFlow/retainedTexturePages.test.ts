@@ -14,16 +14,20 @@ function page(
 ): RetainedTexturePageDescriptor {
   return {
     contentVersion: 1,
+    devicePixelRatioBucket: 1,
     lodLevel: retainedTexturePageLodLevel(overrides.lodScale ?? 1),
     lodScale: 1,
     pixelHeight: 128,
     pixelWidth: 128,
     scaleKey: retainedTexturePageScaleKey(overrides.lodScale ?? 1),
+    sourceKey: "source-a",
     sourceRectCss: { height: 128, width: 128, x: 0, y: 0 },
+    sourceVersion: 1,
     sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
     surfaceId: "surface",
     tileColumn: 0,
     tileRow: 0,
+    viewportZoomBucket: 1,
     ...overrides,
   };
 }
@@ -41,7 +45,7 @@ describe("retainedTexturePageKey", () => {
     });
 
     expect(retainedTexturePageKey(descriptor)).toBe(
-      "surface:7:64:128:128:128:0:0:256:256:scale=2:1024:256:256:2:4",
+      "surface:7:1:source-a:64:128:128:128:0:0:256:256:scale=2:1024:256:256:2:4:1:1",
     );
   });
 
@@ -132,11 +136,15 @@ describe("RetainedTexturePageCache", () => {
     expect(
       cache.getBestCommittedPage({
         contentVersion: 1,
+        devicePixelRatioBucket: 1,
+        sourceKey: "source-a",
         sourceRectCss: { height: 32, width: 32, x: 80, y: 80 },
+        sourceVersion: 1,
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
         surfaceId: "surface",
         targetLodScale: 3,
         usedFrame: 12,
+        viewportZoomBucket: 1,
       }),
     ).toEqual(
       expect.objectContaining({
@@ -161,10 +169,14 @@ describe("RetainedTexturePageCache", () => {
     expect(
       cache.getBestCommittedPage({
         contentVersion: 1,
+        devicePixelRatioBucket: 1,
+        sourceKey: "source-a",
         sourceRectCss: { height: 64, width: 64, x: 96, y: 96 },
+        sourceVersion: 1,
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
         surfaceId: "surface",
         targetLodScale: 4,
+        viewportZoomBucket: 1,
       }),
     ).toEqual(expect.objectContaining({ resource: "low" }));
   });
@@ -184,10 +196,14 @@ describe("RetainedTexturePageCache", () => {
     expect(
       cache.getBestCommittedPage({
         contentVersion: 1,
+        devicePixelRatioBucket: 1,
+        sourceKey: "source-a",
         sourceRectCss: { height: 64, width: 64, x: 96, y: 96 },
+        sourceVersion: 1,
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
         surfaceId: "surface",
         targetLodScale: 0.5,
+        viewportZoomBucket: 1,
       }),
     ).toEqual(expect.objectContaining({ resource: "sharp" }));
   });
@@ -205,10 +221,14 @@ describe("RetainedTexturePageCache", () => {
     expect(
       cache.getBestCommittedPage({
         contentVersion: 1,
+        devicePixelRatioBucket: 1,
+        sourceKey: "source-a",
         sourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
+        sourceVersion: 1,
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
         surfaceId: "surface",
         targetLodScale: 2,
+        viewportZoomBucket: 1,
       }),
     ).toBeNull();
   });
@@ -246,7 +266,7 @@ describe("RetainedTexturePageCache", () => {
     expect(result).toEqual({
       evictedBytes: 512 * 512 * 4,
       evictedKeys: [
-        "surface:1:0:0:128:128:0:0:256:256:scale=4:2048:512:512:1:0",
+        "surface:1:1:source-a:0:0:128:128:0:0:256:256:scale=4:2048:512:512:1:0:1:1",
       ],
       remainingBytes: 128 * 128 * 4,
     });

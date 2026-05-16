@@ -3,7 +3,6 @@ import type { MutableRefObject } from "react";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
-import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCache,
@@ -16,10 +15,6 @@ import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactio
 import type { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
-import {
-  getGpuRetainedContentRowHoverStateVisuals,
-  getGpuRetainedContentRowHoverVisuals,
-} from "../retainedContentRowHover";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   syncGpuRetainedContentRuntimeStateForScene,
@@ -115,24 +110,14 @@ export function syncGpuFlowNodeLayerSceneState({
     activeRetainedContentRuntimeState,
   );
   const nextScene = scene;
-  const nextHtmlSurfaceNativeVisuals = nextScene
-    ? [
-        ...getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces, {
-          scrollOffsets,
-          visualState: nodeLayerRef.current.retainedContentScrollbarVisualState,
-        }),
-        ...(retainedContentRowHoverTarget
-          ? getGpuRetainedContentRowHoverVisuals({
-              scene: nextScene,
-              scrollOffsets,
-              target: retainedContentRowHoverTarget,
-            })
-          : getGpuRetainedContentRowHoverStateVisuals({
-              scene: nextScene,
-              scrollOffsets,
-            })),
-      ]
-    : htmlSurfaceNativeVisuals;
+  const previousRetainedRuntimeFrame =
+    nodeLayerRef.current.retainedRuntimeFrame ?? null;
+  const retainedRuntimeFrame =
+    previousRetainedRuntimeFrame?.input.sceneRevision ===
+    (nextScene?.revision ?? 0)
+      ? previousRetainedRuntimeFrame
+      : null;
+  const nextHtmlSurfaceNativeVisuals = htmlSurfaceNativeVisuals;
   nodeLayerRef.current = {
     edgeScene,
     edgePalette,
@@ -146,6 +131,7 @@ export function syncGpuFlowNodeLayerSceneState({
     nodeTextureMemoryBudgetBytes,
     retainedContentRuntimeScrollOffsets: scrollOffsets,
     retainedContentRowHoverTarget,
+    retainedRuntimeFrame,
     scene: nextScene,
     uploadBudget,
     viewport,

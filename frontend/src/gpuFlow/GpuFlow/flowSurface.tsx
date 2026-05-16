@@ -43,11 +43,17 @@ import {
 } from "../portals/portalManager";
 import {
   createGpuRetainedContentRuntimeState,
+  getGpuRetainedContentRuntimeScrollOffsets,
+  getGpuRetainedContentRuntimeScrollRevision,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
-import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
+import {
+  createGpuRetainedRuntimeFrame,
+  type GpuRetainedRuntimeFrame,
+} from "../retainedRuntimeFrame";
+import { getGpuFlowSceneDomSectionNodes } from "../scene";
 import { GpuFlowSceneContext } from "../sceneContext";
 import {
   createGpuFlowViewportRuntime,
@@ -116,6 +122,7 @@ export function GpuFlow({
   onNodeLayerFrame,
   onPaint,
   onReady,
+  onRetainedRuntimeFrame,
   onResize,
   panZoom,
   portals,
@@ -215,22 +222,33 @@ export function GpuFlow({
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ??
     defaultRetainedContentRuntimeStateRef.current;
-  const [retainedContentSnapshotScene, setRetainedContentSnapshotScene] =
-    useState<GpuFlowScene | undefined>(scene);
-  const retainedContentSnapshotSceneRef = useRef<GpuFlowScene | undefined>(
-    scene,
+  const [retainedRuntimeFrame, setRetainedRuntimeFrame] =
+    useState<GpuRetainedRuntimeFrame | null>(null);
+  const retainedRuntimeFrameRef = useRef<GpuRetainedRuntimeFrame | null>(null);
+  const initialRetainedRuntimeFrame = useMemo(
+    () =>
+      createGpuRetainedRuntimeFrame({
+        devicePixelRatioBucket:
+          typeof window === "undefined" ? 1 : window.devicePixelRatio,
+        frameId: 0,
+        scene,
+        scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+          activeRetainedContentRuntimeState,
+        ),
+        scrollRevision: getGpuRetainedContentRuntimeScrollRevision(
+          activeRetainedContentRuntimeState,
+        ),
+        viewport: viewport ?? viewportRuntime.getViewportTuple(),
+        viewportZoomBucket: 1,
+      }),
+    [activeRetainedContentRuntimeState, scene, viewport, viewportRuntime],
   );
+  const overlayRetainedRuntimeFrame =
+    retainedRuntimeFrame ?? initialRetainedRuntimeFrame;
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
   retainedContentInteractionRef.current = retainedContentInteraction;
-  const handleRetainedContentSceneChange = useCallback(
-    (nextScene: GpuFlowScene | undefined) => {
-      retainedContentSnapshotSceneRef.current = nextScene;
-      setRetainedContentSnapshotScene(nextScene);
-    },
-    [],
-  );
   const nodeResizeEnabled = nodeResize !== false;
   const {
     edgeLabelSourceElement,
@@ -249,7 +267,7 @@ export function GpuFlow({
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
     renderRetainedTextLikeRowSnapshot,
-    scene: retainedContentSnapshotScene,
+    retainedRuntimeFrame: overlayRetainedRuntimeFrame,
     surfaceRef,
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
@@ -261,6 +279,7 @@ export function GpuFlow({
     onNodeLayerFrame,
     onPaint,
     onReady,
+    onRetainedRuntimeFrame,
     onResize,
     framePerformanceReporter,
   });
@@ -307,6 +326,7 @@ export function GpuFlow({
       onNodeLayerFrame,
       onPaint,
       onReady,
+      onRetainedRuntimeFrame,
       onResize,
       framePerformanceReporter,
     };
@@ -317,6 +337,7 @@ export function GpuFlow({
     onNodeLayerFrame,
     onPaint,
     onReady,
+    onRetainedRuntimeFrame,
     onResize,
   ]);
   useEffect(() => {
@@ -393,8 +414,8 @@ export function GpuFlow({
     viewportRuntime,
   ]);
   useEffect(() => {
-    retainedContentSnapshotSceneRef.current = nodeLayerRef.current.scene;
-    setRetainedContentSnapshotScene(nodeLayerRef.current.scene);
+    retainedRuntimeFrameRef.current = null;
+    setRetainedRuntimeFrame(null);
   }, [scene, activeRetainedContentRuntimeState]);
 
   useGpuFlowRetainedContentControllers({
@@ -409,7 +430,6 @@ export function GpuFlow({
     retainedContentPageManagerRef,
     retainedContentRuntimeState: activeRetainedContentRuntimeState,
     retainedContentScroll,
-    onRetainedContentSceneChange: handleRetainedContentSceneChange,
     retainedContentSwitchAnimations,
     scenePortConnection,
     surfaceRef,
@@ -687,6 +707,8 @@ export function GpuFlow({
           const surfaceElement = containerRef.current ?? runtime.canvas;
           return resolveGpuFlowCanvasCursor({
             event,
+            getRetainedRuntimeFrame: () =>
+              nodeLayerRef.current.retainedRuntimeFrame ?? null,
             getScene: () => nodeLayerRef.current.scene,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
             retainedContentInteraction: retainedContentInteractionRef.current,
@@ -806,19 +828,10 @@ export function GpuFlow({
         ...nodeLayerRef.current,
         viewport: viewportRuntime.getViewportTuple(),
       };
-      const sampledRetainedContentScene =
-        sampleGpuFlowRetainedContentRuntimeScene({
-          nodeLayerRef,
-          retainedContentRuntimeState: activeRetainedContentRuntimeState,
-        });
-      if (
-        sampledRetainedContentScene.scene !==
-        retainedContentSnapshotSceneRef.current
-      ) {
-        retainedContentSnapshotSceneRef.current =
-          sampledRetainedContentScene.scene;
-        setRetainedContentSnapshotScene(sampledRetainedContentScene.scene);
-      }
+      sampleGpuFlowRetainedContentRuntimeScene({
+        nodeLayerRef,
+        retainedContentRuntimeState: activeRetainedContentRuntimeState,
+      });
       const viewportFrame =
         event.reasons.includes("viewport") || runtimeFrame.viewportFrame;
       const textureUploadFrame = event.reasons.includes("texture-upload");
@@ -850,6 +863,16 @@ export function GpuFlow({
         visibleNodeIdsRef,
         viewportStore,
         viewportFrame,
+        onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
+          if (retainedRuntimeFrameRef.current === nextRetainedRuntimeFrame) {
+            return;
+          }
+          retainedRuntimeFrameRef.current = nextRetainedRuntimeFrame;
+          setRetainedRuntimeFrame(nextRetainedRuntimeFrame);
+          callbacksRef.current.onRetainedRuntimeFrame?.(
+            nextRetainedRuntimeFrame,
+          );
+        },
       });
       viewportRuntime.applyOverlayTransforms();
       callbacksRef.current.onFrame?.(runtime, event);
@@ -907,8 +930,7 @@ export function GpuFlow({
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}
-            retainedContentRuntimeState={activeRetainedContentRuntimeState}
-            scene={retainedContentSnapshotScene}
+            retainedRuntimeFrame={overlayRetainedRuntimeFrame}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />

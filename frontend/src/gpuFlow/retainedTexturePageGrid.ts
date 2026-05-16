@@ -13,11 +13,15 @@ const PAGE_GRID_EDGE_EPSILON = 1e-6;
 export type RetainedTexturePageGridInput = {
   readonly contentBoundsCss: GpuRect;
   readonly contentVersion: number;
+  readonly devicePixelRatioBucket: number;
   readonly lodScale: number;
   readonly maxPagePixelSize: number;
+  readonly sourceKey: string;
+  readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly visibleSourceRectCss: GpuRect;
+  readonly viewportZoomBucket: number;
 };
 
 export type RetainedTexturePageDrawQuad<TResource = unknown> = {
@@ -42,11 +46,15 @@ export type RetainedTexturePageCoverage<TResource = unknown> = {
 export function createRetainedTexturePageDescriptors({
   contentBoundsCss,
   contentVersion,
+  devicePixelRatioBucket,
   lodScale,
   maxPagePixelSize,
+  sourceKey,
+  sourceVersion,
   sourceWindowCss,
   surfaceId,
   visibleSourceRectCss,
+  viewportZoomBucket,
 }: RetainedTexturePageGridInput): readonly RetainedTexturePageDescriptor[] {
   const normalizedContentBounds = normalizeRect(
     "contentBoundsCss",
@@ -114,6 +122,7 @@ export function createRetainedTexturePageDescriptors({
       }
       descriptors.push({
         contentVersion,
+        devicePixelRatioBucket,
         lodLevel,
         lodScale: normalizedLodScale,
         pixelHeight: Math.max(
@@ -122,11 +131,14 @@ export function createRetainedTexturePageDescriptors({
         ),
         pixelWidth: Math.max(1, Math.ceil(pageRect.width * normalizedLodScale)),
         scaleKey,
+        sourceKey,
         sourceRectCss: pageRect,
+        sourceVersion,
         sourceWindowCss: normalizedSourceWindow,
         surfaceId,
         tileColumn: column,
         tileRow: row,
+        viewportZoomBucket,
       });
     }
   }
@@ -326,12 +338,16 @@ function resolveFallbackPageDrawQuads<TResource>({
   let staleFallbackDrawQuadCount = 0;
   const candidates = cache.getCommittedPagesForCoverage({
     allowCompatibleSourceWindow: true,
-    allowStaleContent: true,
+    allowStaleContent: false,
     contentVersion: desiredDescriptor.contentVersion,
+    devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
+    sourceKey: desiredDescriptor.sourceKey,
     sourceRectCss: desiredDescriptor.sourceRectCss,
+    sourceVersion: desiredDescriptor.sourceVersion,
     sourceWindowCss: desiredDescriptor.sourceWindowCss,
     surfaceId: desiredDescriptor.surfaceId,
     targetLodScale: desiredDescriptor.lodScale,
+    viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   for (const candidate of candidates) {
     const result = coverRectsWithPage({

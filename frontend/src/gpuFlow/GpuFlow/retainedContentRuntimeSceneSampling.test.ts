@@ -6,6 +6,7 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
 } from "../retainedContentScene";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowRetainedContentNodeLayerState } from "./retainedContentControllerSurfaceUpdates";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
@@ -20,6 +21,10 @@ describe("sampleGpuFlowRetainedContentRuntimeScene", () => {
       current: GpuFlowRetainedContentNodeLayerState;
     } = {
       current: {
+        retainedRuntimeFrame: createTestRetainedRuntimeFrame({
+          rowHoverTarget: target,
+          scene: retainedContentScene(),
+        }),
         retainedContentRowHoverTarget: target,
         scene: retainedContentScene(),
       },
@@ -74,6 +79,27 @@ function retainedContentScene(): GpuFlowScene {
     revision: 1,
     sections: [],
   };
+}
+
+function createTestRetainedRuntimeFrame({
+  rowHoverTarget,
+  scene,
+}: {
+  readonly rowHoverTarget: NonNullable<
+    GpuFlowRetainedContentNodeLayerState["retainedContentRowHoverTarget"]
+  >;
+  readonly scene: GpuFlowScene | undefined;
+}) {
+  return createGpuRetainedRuntimeFrame({
+    devicePixelRatioBucket: 1,
+    frameId: 1,
+    rowHoverTarget,
+    scene,
+    scrollOffsets: new Map(),
+    scrollRevision: 1,
+    viewport: [0, 0, 1],
+    viewportZoomBucket: 1,
+  });
 }
 
 function retainedSurface(): GpuContentSurface {

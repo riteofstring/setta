@@ -10,6 +10,7 @@ import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll
 import type { GpuRetainedContentScrollbarVisualState } from "../retainedContentScrollbar";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
 
@@ -27,6 +28,7 @@ export type GpuFlowRetainedContentNodeLayerState = {
   readonly retainedContentRuntimeScrollOffsets?:
     | GpuRetainedContentScrollOffsetMap
     | undefined;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
   readonly retainedContentScrollbarVisualState?:
     | GpuRetainedContentScrollbarVisualState
     | undefined;
