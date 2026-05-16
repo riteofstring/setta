@@ -39,6 +39,25 @@ The screenshots show two additional user-visible failures:
 
 These are ownership-contract failures, not just upload-budget failures.
 
+The current pre-publish repair gate is now considered diagnostic evidence, not
+the architecture to extend. The next implementation should replace direct
+descriptor publication and render-path repair gating with visual ownership,
+committed epochs, and atomic visual groups. Do not make this failure mode go
+away by adding another retry loop around the same publication contract.
+
+## Anti-Loop Guardrails
+
+- Do not add another render-path retry or repair loop as the primary fix.
+- Do not make `snapshot-exact` satisfy or block deterministic base readiness.
+- Do not downgrade the render-loop failure into a silent fallback.
+- Do not accept queue counts, upload counts, descriptor counts, or repair
+  progress as proof of user-visible correctness.
+- Do not keep old descriptor publication running in parallel after the
+  replacement epoch path lands.
+- Do not patch only the reported `row-content-version-mismatch` case unless the
+  ownership contract also prevents the same class of blank, overlapping, or
+  wedged visual state for other mismatch reasons.
+
 ## Source Of Truth
 
 The retained content contract should be:
@@ -454,6 +473,17 @@ Deliver:
 
 No production fix in this slice.
 
+Exit criteria:
+
+- The baseline report records the latest failing Chrome recording path, `637`
+  page errors, the first `Retained deterministic visible base coverage did not
+  make pre-publish repair progress` timestamp/message, and the Chrome
+  `Attempt to read from an uninitialized SharedImage` log line.
+- At least one failing test proves Core -> All Settings accepts input but does
+  not produce visible motion after the render-loop failure.
+- At least one failing visual test proves passive/active text ownership overlap
+  or delayed passive row restyling using pixels, not retained internals.
+
 ### Slice 1: Visual Ownership Types
 
 Deliver:
@@ -465,14 +495,35 @@ Deliver:
 
 Delete direct "descriptor is publishable" assumptions where the display layer currently uses them.
 
+Exit criteria:
+
+- A display caller must choose a committed owner for every visible deterministic
+  retained rect or an explicit `unsupported` diagnostic owner.
+- There is no API state where deterministic passive content can be represented
+  as publishable with no base owner.
+- Snapshot-exact ownership is represented separately from base ownership.
+
 ### Slice 2: Canonical Deterministic Base Renderer
 
 Deliver:
 
 - deterministic passive renderer coverage for visible settings row kinds used by Core and All Settings
+- an inventory of Core and All Settings deterministic row kinds, the descriptor
+  fields they already expose, and any missing fields that must be exported from
+  the owner path
 - pixel tests for labels, shortcut text, scalar values, disabled text, switches, checkboxes, dropdown summaries, color swatches, and scrollbars
 - removal of snapshot-exact as the first-visible source for ordinary text-like rows
 - full GPU Flow-related suite run and reported
+
+Exit criteria:
+
+- Ordinary text-like, scalar, switch, checkbox, dropdown, color, date/time, and
+  scrollbar visuals can render readable passive base pixels from descriptors.
+- Missing descriptor fields are exported from the existing owner path or called
+  out as explicit unsupported regions; they are not filled by a handwritten
+  TypeScript settings mirror.
+- Snapshot-exact unavailability cannot make ordinary deterministic settings
+  rows blank or unpublishable.
 
 ### Slice 3: Visual Epoch Store And Atomic Commit
 
@@ -487,6 +538,17 @@ Deliver:
 
 Delete the path that publishes visible true holes for deterministic passive content.
 
+Exit criteria:
+
+- Display frames cannot sample building descriptors or uncommitted page
+  resources.
+- A test proves an unready `snapshot-exact` epoch does not block or replace a
+  ready base epoch.
+- A Core -> All Settings transition keeps the previous committed group or an
+  explicit staged state until the new deterministic base group is readable.
+- The old true-hole publication path is deleted, not shadowed behind a
+  compatibility branch.
+
 ### Slice 4: Event-Driven Snapshot Producer
 
 Deliver:
@@ -499,6 +561,15 @@ Deliver:
 
 Delete retry storms and render-loop exceptions for unavailable snapshot refinement.
 
+Exit criteria:
+
+- Snapshot readiness is observable before upload work is scheduled.
+- Upload-time polling is not on the display-critical path.
+- An unavailable snapshot-exact refinement keeps the committed base epoch
+  visible and records an unavailable state instead of throwing in the frame loop.
+- Native HTML-in-Canvas support and fallback rasterization sit behind the same
+  snapshot producer contract.
+
 ### Slice 5: Active DOM Island Transactions
 
 Deliver:
@@ -510,6 +581,21 @@ Deliver:
 - tests for no overlap and no blank during attach/detach
 - full GPU Flow-related suite run and reported
 
+This slice may start after Slice 3 if active-control overlap remains the most
+urgent user-visible failure. It does not have to wait for the full snapshot
+producer, but it must use the same owner and visual-group model.
+
+Exit criteria:
+
+- Attach publishes active DOM island geometry and suppresses passive value
+  pixels for the same committed visual group.
+- Pan, zoom, and retained section scroll move the active island by transform
+  without requiring retained recapture.
+- Detach keeps the active island visible until a passive base epoch containing
+  the edited value is committed.
+- Tests prove no frame has two visible text owners or no visible owner for the
+  active control rect.
+
 ### Slice 6: Motion-First Compositor
 
 Deliver:
@@ -520,6 +606,15 @@ Deliver:
 - no render-loop exception wedge on unready content
 - full GPU Flow-related suite run and reported
 
+Exit criteria:
+
+- Runtime viewport transforms visibly update the canvas while retained repair
+  or snapshot refinement work is pending.
+- Core -> All Settings followed immediately by wheel and pointer pan produces
+  visible movement in the input direction within the latency budget.
+- Unready retained content is reported through diagnostics and staged visual
+  state, not frame-loop exceptions.
+
 ### Slice 7: Cleanup
 
 Deliver:
@@ -528,6 +623,14 @@ Deliver:
 - remove stale diagnostics that describe queues as the source of display truth
 - update docs for the new visual ownership contract
 - full GPU Flow-related suite, GPU Flow E2E behavior suite, and GPU Flow performance suite run and reported
+
+Exit criteria:
+
+- No dual publication path, old-field alias, transitional adapter, or
+  compatibility branch remains for retained visual publication.
+- Diagnostics describe committed owners, staged epochs, and visual groups rather
+  than upload queues as the source of display truth.
+- Architecture docs match the implemented owner/epoch contract.
 
 ## Acceptance Criteria
 
