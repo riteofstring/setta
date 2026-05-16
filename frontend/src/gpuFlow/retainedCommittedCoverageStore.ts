@@ -151,6 +151,11 @@ export type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly target: RetainedRegionTarget;
 };
 
+export type RetainedUncoveredRegion = {
+  readonly rect: GpuRect;
+  readonly target: RetainedRegionTarget;
+};
+
 type RetainedRejectedCoverage = {
   readonly reason: Extract<
     RetainedRegionCompatibility,
@@ -175,6 +180,7 @@ type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
   readonly exactCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly protectedRegionIds: readonly RetainedCommittedRegionId[];
   readonly rejectedCoverage: readonly RetainedRejectedCoverage[];
+  readonly uncoveredRegionEntries: readonly RetainedUncoveredRegion[];
   readonly uncoveredRegions: readonly ContentRect[];
 };
 
@@ -228,6 +234,7 @@ type CoverageAccumulator<TTextureHandle> = {
   readonly exactCoverage: RetainedCoverageEntry<TTextureHandle>[];
   readonly protectedRegionIds: Set<RetainedCommittedRegionId>;
   readonly rejectedCoverage: RetainedRejectedCoverage[];
+  readonly uncoveredRegionEntries: RetainedUncoveredRegion[];
   readonly uncoveredRegions: ContentRect[];
 };
 
@@ -441,6 +448,14 @@ export class RetainedCommittedCoverageMap<
       ...coverage,
       diagnostics: collected.diagnostics,
       rejectedCoverage: Object.freeze([...collected.rejectedCoverage]),
+      uncoveredRegionEntries: Object.freeze(
+        coverage.uncoveredRegions.map((rect) =>
+          Object.freeze({
+            rect: Object.freeze({ ...rect }),
+            target: freezeRegionTarget(target),
+          }),
+        ),
+      ),
     });
   }
 
@@ -618,6 +633,7 @@ function createCoverageAccumulator<
     exactCoverage: [],
     protectedRegionIds: new Set(),
     rejectedCoverage: [],
+    uncoveredRegionEntries: [],
     uncoveredRegions: [],
   };
 }
@@ -633,6 +649,7 @@ function mergeCoverageAccumulator<TTextureHandle>(
   );
   accumulator.exactCoverage.push(...plan.exactCoverage);
   accumulator.rejectedCoverage.push(...plan.rejectedCoverage);
+  accumulator.uncoveredRegionEntries.push(...plan.uncoveredRegionEntries);
   accumulator.uncoveredRegions.push(...plan.uncoveredRegions);
   for (const id of plan.protectedRegionIds) {
     accumulator.protectedRegionIds.add(id);
@@ -648,6 +665,7 @@ function freezeCoverageAccumulator<TTextureHandle>(
     exactCoverage: Object.freeze(accumulator.exactCoverage),
     protectedRegionIds: Object.freeze([...accumulator.protectedRegionIds]),
     rejectedCoverage: Object.freeze(accumulator.rejectedCoverage),
+    uncoveredRegionEntries: Object.freeze(accumulator.uncoveredRegionEntries),
     uncoveredRegions: Object.freeze(accumulator.uncoveredRegions),
   });
 }
@@ -733,6 +751,7 @@ function resolveTargetCoverage<TTextureHandle>({
     compatibleCoverage: Object.freeze(compatibleCoverage),
     exactCoverage: Object.freeze(exactCoverage),
     protectedRegionIds: Object.freeze([...protectedRegionIds]),
+    uncoveredRegionEntries: Object.freeze([]),
     uncoveredRegions: Object.freeze([...uncoveredRects]),
   });
 }

@@ -123,6 +123,11 @@ type RetainedVisibleCoverageProof = {
   readonly visibleAreaCssPx: number;
 };
 
+type RetainedVisibleTrueHoleEntry = {
+  readonly rect: GpuRect;
+  readonly target: RetainedVisibleRegionTarget;
+};
+
 type RetainedCoveragePlanCost = {
   readonly allocatedDiagnosticRectCount: number;
   readonly candidateCount: number;
@@ -252,13 +257,19 @@ export function planRetainedVisibleCoverage<
       }),
     ),
   ]);
-  const trueHoles = Object.freeze(
-    coverage.uncoveredRegions.map((rect) => Object.freeze({ ...rect })),
+  const trueHoleEntries = Object.freeze(
+    coverage.uncoveredRegionEntries.map((entry) =>
+      Object.freeze({
+        rect: Object.freeze({ ...entry.rect }),
+        target: entry.target as RetainedVisibleRegionTarget,
+      }),
+    ),
   );
+  const trueHoles = Object.freeze(trueHoleEntries.map((entry) => entry.rect));
   const replacementRequests = createReplacementRequests({
     drawRegions,
     targets,
-    trueHoles,
+    trueHoleEntries,
   });
   const proof = createVisibleCoverageProof({
     drawRegions,
@@ -515,18 +526,14 @@ function mergeAdjacentDrawRegions<TResource>(
 function createReplacementRequests<TResource>({
   drawRegions,
   targets,
-  trueHoles,
+  trueHoleEntries,
 }: {
   readonly drawRegions: readonly RetainedDrawRegion<TResource>[];
   readonly targets: readonly RetainedVisibleRegionTarget[];
-  readonly trueHoles: readonly GpuRect[];
+  readonly trueHoleEntries: readonly RetainedVisibleTrueHoleEntry[];
 }): readonly RetainedReplacementRequest[] {
   const requests = new Map<string, RetainedReplacementRequest>();
-  for (const trueHole of trueHoles) {
-    const target = findTargetForRect(targets, trueHole);
-    if (!target) {
-      continue;
-    }
+  for (const { rect: trueHole, target } of trueHoleEntries) {
     const requestTarget = retargetVisibleRegion(
       target,
       trueHole,
@@ -615,17 +622,6 @@ function retargetVisibleRegion(
     manifest,
     reason,
   });
-}
-
-function findTargetForRect(
-  targets: readonly RetainedVisibleRegionTarget[],
-  rect: GpuRect,
-): RetainedVisibleRegionTarget | null {
-  return (
-    targets.find((target) =>
-      Boolean(intersectRects(target.contentRect, rect)),
-    ) ?? null
-  );
 }
 
 function createVisibleCoverageProof<TResource>({

@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createRetainedCommittedPageLifecycle } from "./retainedContentLifecycle";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
-import {
-  createRetainedTexturePageFlatVisuals,
-  createRetainedTexturePageTrueHoleVisuals,
-} from "./retainedTexturePageVisuals";
+import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
 import {
   retainedTexturePageLodLevel,
   retainedTexturePageScaleKey,
@@ -133,30 +130,6 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     });
 
     expect(visuals).toEqual([]);
-  });
-
-  it("maps retained true holes into quiet surface-space visuals", () => {
-    const visuals = createRetainedTexturePageTrueHoleVisuals({
-      layout: {
-        height: 40,
-        surfaceId: "surface-a",
-        textureSourceRect: { height: 40, width: 80, x: 20, y: 30 },
-        width: 160,
-        x: 100,
-        y: 200,
-        zIndex: 5,
-      },
-      trueHoleRects: [{ height: 10, width: 20, x: 60, y: 50 }],
-    });
-
-    expect(visuals).toEqual([
-      expect.objectContaining({
-        kind: "solid-rounded-rect",
-        rect: { height: 10, width: 40, x: 180, y: 220 },
-        surfaceId: "surface-a:retained-true-hole:60:50:20:10",
-        zIndex: 5.01,
-      }),
-    ]);
   });
 });
 

@@ -856,7 +856,7 @@ export async function analyzeSwitchThumbMotion(
         const blueRatio = sampled === 0 ? 0 : blue / sampled;
         return {
           blueRatio,
-          checked: blueRatio > 0.32,
+          checked: blueRatio > 0.24,
         };
       }
 

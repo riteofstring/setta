@@ -172,6 +172,68 @@ describe("retained visible coverage planner", () => {
       }),
     ]);
   });
+
+  it("keeps true-hole replacement requests attached to their owning surface when local rects overlap", () => {
+    const cache =
+      new RetainedTexturePageCache<RetainedContentTextureResources>();
+    const firstSurface = visibleSurface({
+      layout: surfaceLayout("surface-a"),
+      sourceKey: "source-a",
+      surfaceId: "surface-a",
+    });
+    const secondSurface = visibleSurface({
+      layout: surfaceLayout("surface-b"),
+      sourceKey: "source-b",
+      surfaceId: "surface-b",
+    });
+    cache.commitPage({
+      descriptor: pageDescriptor({
+        contentBoundsCss: firstSurface.contentBoundsCss,
+        contentVersion: firstSurface.contentVersion,
+        lodScale: 1,
+        sourceKey: firstSurface.sourceKey,
+        sourceVersion: firstSurface.sourceVersion,
+        sourceWindowCss: firstSurface.sourceWindowCss,
+        surfaceId: firstSurface.surfaceId,
+        visibleSourceRectCss: firstSurface.visibleSourceRectCss,
+      }),
+      frame: 1,
+      resource: {} as RetainedContentTextureResources,
+    });
+    const targets = createRetainedVisibleRegionTargets({
+      devicePixelRatioBucket: 1,
+      lodScale: 1,
+      surfaces: [firstSurface, secondSurface],
+      viewportZoomBucket: 1,
+    });
+
+    const plan = planRetainedVisibleCoverage({
+      cache,
+      frame: 2,
+      targets,
+    });
+
+    expect(
+      plan.drawRegions.map(
+        (drawRegion) => drawRegion.mappingProof.ownerManifest.surfaceId,
+      ),
+    ).toEqual(["surface-a"]);
+    expect(plan.trueHoles).toEqual([secondSurface.visibleSourceRectCss]);
+    expect(plan.replacementRequests).toEqual([
+      expect.objectContaining({
+        priority: "visible-hole",
+        reason: "true-hole",
+        target: expect.objectContaining({
+          contentRect: secondSurface.visibleSourceRectCss,
+          manifest: expect.objectContaining({
+            documentId: "source-b",
+            sectionId: "surface-b",
+            surfaceId: "surface-b",
+          }),
+        }),
+      }),
+    ]);
+  });
 });
 
 function visibleSurface(
@@ -180,20 +242,26 @@ function visibleSurface(
   return {
     contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
     contentVersion: 1,
-    layout: {
-      height: 100,
-      surfaceId: "surface-a",
-      textureSourceRect: { height: 100, width: 100, x: 0, y: 0 },
-      width: 100,
-      x: 0,
-      y: 0,
-    },
+    layout: surfaceLayout("surface-a"),
     sourceKey: "source-a",
     sourceVersion: 1,
     sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     visibleSourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
     ...overrides,
+  };
+}
+
+function surfaceLayout(
+  surfaceId: string,
+): RetainedVisibleRegionSurface["layout"] {
+  return {
+    height: 100,
+    surfaceId,
+    textureSourceRect: { height: 100, width: 100, x: 0, y: 0 },
+    width: 100,
+    x: 0,
+    y: 0,
   };
 }
 

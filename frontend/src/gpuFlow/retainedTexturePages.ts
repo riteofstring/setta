@@ -5,6 +5,7 @@ import {
   type RetainedRegionContentSegment,
   type RetainedRegionTarget,
   type RetainedRegionTextLikeSnapshot,
+  type RetainedUncoveredRegion,
   type RetainedReplacementTxn,
 } from "./retainedCommittedCoverageStore";
 import {
@@ -122,6 +123,7 @@ type RetainedTexturePageRegionCoveragePlan<TResource = unknown> = {
   readonly exactCoverage: readonly RetainedTexturePageRegionCoverageEntry<TResource>[];
   readonly protectedPageKeys: readonly string[];
   readonly rejectedCoverage: readonly RetainedTexturePageRejectedCoverage[];
+  readonly uncoveredRegionEntries: readonly RetainedUncoveredRegion[];
   readonly uncoveredRegions: readonly GpuRect[];
 };
 
@@ -522,6 +524,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
         reason: entry.reason,
         rect: entry.rect,
       })),
+      uncoveredRegionEntries: plan.uncoveredRegionEntries,
       uncoveredRegions: plan.uncoveredRegions,
     };
   }
@@ -928,28 +931,24 @@ function normalizeSurfaceId(surfaceId: string): string {
   }
   return surfaceId;
 }
-
 function normalizeScaleKey(scaleKey: string): string {
   if (!scaleKey) {
     throw new Error("Retained texture page requires scaleKey.");
   }
   return scaleKey;
 }
-
 function normalizeSourceKey(sourceKey: string): string {
   if (!sourceKey) {
     throw new Error("Retained texture page requires sourceKey.");
   }
   return sourceKey;
 }
-
 function normalizeFiniteNumber(name: string, value: number): number {
   if (!Number.isFinite(value)) {
     throw new Error(`Retained texture page ${name} must be finite.`);
   }
   return value;
 }
-
 function normalizeFinitePositiveNumber(name: string, value: number): number {
   const normalized = normalizeFiniteNumber(name, value);
   if (normalized <= 0) {

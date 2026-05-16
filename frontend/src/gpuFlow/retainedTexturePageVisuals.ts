@@ -1,8 +1,5 @@
 import type { CommittedHtmlSurfaceTextureSnapshot } from "./htmlSurfaces/textures";
-import type {
-  HtmlSurfaceFlatVisual,
-  HtmlSurfaceSolidRoundedRectVisual,
-} from "./htmlSurfaces/visualScene";
+import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import { retainedContentRectToTextureRect } from "./retainedContentLifecycle";
 import {
   getRetainedContentTextureResourceRegion,
@@ -70,36 +67,6 @@ export function createRetainedDrawRegionFlatVisuals({
     ),
     zIndex: drawRegion.zOrder,
   }));
-}
-
-export function createRetainedTexturePageTrueHoleVisuals({
-  layout,
-  trueHoleRects,
-}: {
-  readonly layout: RetainedTexturePageSurfaceLayout;
-  readonly trueHoleRects: readonly GpuRect[];
-}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
-  const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
-  for (const trueHoleRect of trueHoleRects) {
-    const visibleTrueHoleRect = intersectRects(
-      trueHoleRect,
-      layout.textureSourceRect,
-    );
-    if (!visibleTrueHoleRect) {
-      continue;
-    }
-    visuals.push({
-      color: { a: 0.78, b: 0.12, g: 0.115, r: 0.11 },
-      kind: "solid-rounded-rect",
-      radius: 0,
-      rect: toFlowRect(layout, visibleTrueHoleRect),
-      surfaceId: `${layout.surfaceId}:retained-true-hole:${rectKey(
-        visibleTrueHoleRect,
-      )}`,
-      zIndex: (layout.zIndex ?? 0) + 0.01,
-    });
-  }
-  return visuals;
 }
 
 function toFlowRect(
@@ -187,10 +154,6 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
 
 function clampUnit(value: number): number {
   return Math.min(1, Math.max(0, value));
-}
-
-function rectKey(rect: GpuRect): string {
-  return [rect.x, rect.y, rect.width, rect.height].join(":");
 }
 
 function isAtlasTextureRegion(

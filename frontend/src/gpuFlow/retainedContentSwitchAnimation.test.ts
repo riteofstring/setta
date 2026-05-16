@@ -369,7 +369,14 @@ describe("retained content switch animation store", () => {
       nowMs: 280,
       surface: surface({ checked: true }),
     });
-    expect(store.hasActiveSurface("surface-a", 280)).toBe(false);
+    expect(store.hasActiveSurface("surface-a", 280)).toBe(true);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 800,
+      surface: surface({ checked: true }),
+    });
+    expect(store.hasActiveSurface("surface-a", 800)).toBe(false);
   });
 
   it("reports the target checked state separately from delayed scene checked state", () => {
@@ -466,7 +473,89 @@ describe("retained content switch animation store", () => {
       nowMs: 260,
       surface: targetSurface,
     });
-    expect(store.hasActiveSurface("surface-a", 260)).toBe(false);
+    expect(store.hasActiveSurface("surface-a", 260)).toBe(true);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 600,
+      surface: targetSurface,
+    });
+    expect(store.hasActiveSurface("surface-a", 600)).toBe(false);
+  });
+
+  it("re-protects completed interaction visuals when a stale old scene returns", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 100,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 10,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+    store.syncSurface(surface({ checked: true }), 120);
+    store.syncSurface(surface({ checked: false }), 300);
+
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 320,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 1,
+      targetChecked: true,
+    });
+
+    store.syncSurface(surface({ checked: true }), 340);
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 700,
+      surface: surface({ checked: true }),
+    });
+    expect(store.hasActiveSurface("surface-a", 700)).toBe(true);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 860,
+      surface: surface({ checked: true }),
+    });
+    expect(store.hasActiveSurface("surface-a", 860)).toBe(false);
+  });
+
+  it("keeps interaction-seeded transitions when a sampled frame omits the row", () => {
+    const store = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 100,
+      prefersReducedMotion: () => false,
+    });
+
+    store.syncSurface(surface({ checked: false }), 0);
+    store.beginTransition({
+      fromChecked: false,
+      nowMs: 10,
+      rowId: "switch-param",
+      surfaceId: "surface-a",
+      toChecked: true,
+    });
+    store.syncSurface(surfaceWithoutRows(), 60);
+
+    expect(store.hasActiveSurface("surface-a", 60)).toBe(true);
+    expect(
+      store.resolveVisualState({
+        checked: false,
+        nowMs: 80,
+        rowId: "switch-param",
+        surfaceId: "surface-a",
+      }),
+    ).toEqual({
+      progress: 0.7,
+      targetChecked: true,
+    });
   });
 });
 
@@ -494,6 +583,23 @@ function surface({
       viewportRect: { height: 24, width: 220, x: 0, y: 0 },
     }),
     sourceClipOffset,
+  };
+}
+
+function surfaceWithoutRows(): Parameters<
+  GpuRetainedContentSwitchAnimationStore["syncSurface"]
+>[0] {
+  return {
+    id: "surface-a",
+    rect: { height: 24, width: 220, x: 0, y: 0 },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    }),
   };
 }
 

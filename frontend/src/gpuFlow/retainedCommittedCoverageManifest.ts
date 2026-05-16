@@ -69,6 +69,12 @@ export function retainedManifestContentMatchesForRect({
   );
   const targetProof = retainedContentProofKeysForRect(target, coverageRect);
   if (!retainedContentProofPairHasKeys(candidateProof, targetProof)) {
+    if (
+      retainedManifestHasStructuredContentProof(candidate) ||
+      retainedManifestHasStructuredContentProof(target)
+    ) {
+      return "exact";
+    }
     return candidate.contentVersion === target.contentVersion
       ? "exact"
       : "mismatch";
@@ -247,6 +253,14 @@ function retainedContentProofPairHasKeys(
 
 function retainedContentProofHasKeys(proof: RetainedContentProofKeys): boolean {
   return proof.segmentKeys.length > 0 || proof.snapshotKeys.length > 0;
+}
+
+function retainedManifestHasStructuredContentProof(
+  manifest: RetainedRegionManifest,
+): boolean {
+  return Boolean(
+    manifest.contentSegments?.length || manifest.textLikeSnapshots?.length,
+  );
 }
 
 function contentSegmentKeysForRect(

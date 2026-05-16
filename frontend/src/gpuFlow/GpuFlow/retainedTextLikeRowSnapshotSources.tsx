@@ -136,12 +136,23 @@ export function useGpuFlowRetainedTextLikeRowSnapshotSources({
     },
     [elementBySourceIdRef, surfaceRef],
   );
+  const handleSnapshotReady = useCallback(
+    (sourceId: string) => {
+      if (!elementBySourceIdRef.current.has(sourceId)) {
+        return;
+      }
+      surfaceRef.current?.requestPaint();
+      surfaceRef.current?.requestFrame("manual");
+    },
+    [elementBySourceIdRef, surfaceRef],
+  );
 
   return {
     retainedTextLikeRowSnapshotSourceElement:
       renderSnapshot && sources.length > 0 ? (
         <GpuRetainedTextLikeRowSnapshotSourceLayer
           onSnapshotElementChange={handleSnapshotElementChange}
+          onSnapshotReady={handleSnapshotReady}
           renderSnapshot={renderSnapshot}
           sources={sources}
         />
@@ -343,20 +354,30 @@ function createGpuRetainedTextLikeRowSnapshotPaintSignature(
 
 function GpuRetainedTextLikeRowSnapshotSourceLayer({
   onSnapshotElementChange,
+  onSnapshotReady,
   renderSnapshot,
   sources,
 }: {
   readonly onSnapshotElementChange:
     | ((sourceId: string, element: HTMLElement | null) => void)
     | undefined;
+  readonly onSnapshotReady: ((sourceId: string) => void) | undefined;
   readonly renderSnapshot: GpuRetainedTextLikeRowSnapshotRenderer;
   readonly sources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
+  const configureSnapshotSourceElement = useCallback(
+    (
+      config: HtmlSurfaceSourceElementConfig<GpuRetainedTextLikeRowSnapshotSource>,
+    ) =>
+      configureGpuRetainedTextLikeRowSnapshotSourceElement({
+        ...config,
+        onSnapshotReady,
+      }),
+    [onSnapshotReady],
+  );
   return (
     <HtmlSurfaceSourceLayer
-      configureSourceElement={
-        configureGpuRetainedTextLikeRowSnapshotSourceElement
-      }
+      configureSourceElement={configureSnapshotSourceElement}
       getSourceId={getGpuRetainedTextLikeRowSnapshotSourceIdFromSource}
       onSourceElementChange={onSnapshotElementChange}
       renderSource={renderSnapshot}
@@ -384,8 +405,12 @@ function getGpuRetainedTextLikeRowSnapshotSourceId({
 
 function configureGpuRetainedTextLikeRowSnapshotSourceElement({
   host,
+  onSnapshotReady,
   source,
-}: HtmlSurfaceSourceElementConfig<GpuRetainedTextLikeRowSnapshotSource>) {
+  sourceId,
+}: HtmlSurfaceSourceElementConfig<GpuRetainedTextLikeRowSnapshotSource> & {
+  readonly onSnapshotReady: ((sourceId: string) => void) | undefined;
+}) {
   host.dataset.gpuFlowRetainedTextLikeRowSnapshotSource = "true";
   host.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey = source.sourceKey;
   host.dataset.gpuFlowRetainedSurfaceId = source.surfaceId;
@@ -393,13 +418,25 @@ function configureGpuRetainedTextLikeRowSnapshotSourceElement({
   host.style.height = `${source.sourceHeight}px`;
   host.style.overflow = "hidden";
   host.style.width = `${source.sourceWidth}px`;
-  deferGpuRetainedTextLikeRowSnapshotReadyKey(host, source.sourceKey);
+  deferGpuRetainedTextLikeRowSnapshotReadyKey({
+    host,
+    onSnapshotReady,
+    sourceId,
+    sourceKey: source.sourceKey,
+  });
 }
 
-function deferGpuRetainedTextLikeRowSnapshotReadyKey(
-  host: HTMLElement,
-  sourceKey: string,
-) {
+function deferGpuRetainedTextLikeRowSnapshotReadyKey({
+  host,
+  onSnapshotReady,
+  sourceId,
+  sourceKey,
+}: {
+  readonly host: HTMLElement;
+  readonly onSnapshotReady: ((sourceId: string) => void) | undefined;
+  readonly sourceId: string;
+  readonly sourceKey: string;
+}) {
   if (
     host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey === sourceKey ||
     host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey === sourceKey
@@ -412,6 +449,7 @@ function deferGpuRetainedTextLikeRowSnapshotReadyKey(
   if (!view?.requestAnimationFrame) {
     host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = sourceKey;
     delete host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey;
+    onSnapshotReady?.(sourceId);
     return;
   }
   view.requestAnimationFrame(() => {
@@ -423,6 +461,7 @@ function deferGpuRetainedTextLikeRowSnapshotReadyKey(
       }
       host.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = sourceKey;
       delete host.dataset.gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey;
+      onSnapshotReady?.(sourceId);
     });
   });
 }

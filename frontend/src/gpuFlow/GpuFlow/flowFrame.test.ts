@@ -1,7 +1,12 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import type {
+  RetainedContentTexturePageMaintenanceResult,
+  RetainedContentTexturePageManager,
+  RetainedContentTexturePagePreparedFrame,
+} from "../retainedContentTexturePageManager";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
 import type { GpuRect } from "../viewportMath";
@@ -11,6 +16,7 @@ import {
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
+import { runGpuFlowRetainedPageMaintenanceBeforePublish } from "./flowRetainedPageMaintenance";
 import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 
 describe("GPU flow frame helpers", () => {
@@ -58,6 +64,87 @@ describe("GPU flow frame helpers", () => {
           .preparedFrame,
       }),
     ).toBe(false);
+  });
+
+  it("repairs all true-hole coverage before retained display publication", () => {
+    const initialFrame = retainedFrameCache({
+      trueHoleRectCount: 2,
+    }).preparedFrame;
+    const partialFrame = retainedFrameCache({
+      trueHoleRectCount: 1,
+    }).preparedFrame;
+    const repairedFrame = retainedFrameCache({
+      trueHoleRectCount: 0,
+    }).preparedFrame;
+    const manager = {
+      runPostSubmitMaintenance: vi
+        .fn()
+        .mockReturnValueOnce(
+          retainedMaintenanceResult({
+            preparedFrame: initialFrame,
+            repairedPreparedFrame: partialFrame,
+          }),
+        )
+        .mockReturnValueOnce(
+          retainedMaintenanceResult({
+            preparedFrame: partialFrame,
+            repairedPreparedFrame: repairedFrame,
+          }),
+        ),
+    } as unknown as RetainedContentTexturePageManager;
+
+    const result = runGpuFlowRetainedPageMaintenanceBeforePublish({
+      darkMode: false,
+      deferResolutionUpdates: true,
+      preparedFrame: initialFrame,
+      retainedContentPageManager: manager,
+      textLikeSnapshotElementById: new Map(),
+    });
+
+    expect(manager.runPostSubmitMaintenance).toHaveBeenCalledTimes(2);
+    expect(result?.result.repairedPreparedFrame).toBe(repairedFrame);
+    expect(result?.result.trueHoleRectCount).toBe(0);
+    expect(result?.result.uploadCount).toBe(2);
+  });
+
+  it("continues pre-publish repair when true-hole area shrinks without changing rect count", () => {
+    const initialFrame = retainedFrameCache({
+      trueHoleRectsCss: [{ height: 100, width: 100, x: 0, y: 0 }],
+    }).preparedFrame;
+    const partialFrame = retainedFrameCache({
+      trueHoleRectsCss: [{ height: 50, width: 100, x: 0, y: 50 }],
+    }).preparedFrame;
+    const repairedFrame = retainedFrameCache({
+      trueHoleRectsCss: [],
+    }).preparedFrame;
+    const manager = {
+      runPostSubmitMaintenance: vi
+        .fn()
+        .mockReturnValueOnce(
+          retainedMaintenanceResult({
+            preparedFrame: initialFrame,
+            repairedPreparedFrame: partialFrame,
+          }),
+        )
+        .mockReturnValueOnce(
+          retainedMaintenanceResult({
+            preparedFrame: partialFrame,
+            repairedPreparedFrame: repairedFrame,
+          }),
+        ),
+    } as unknown as RetainedContentTexturePageManager;
+
+    const result = runGpuFlowRetainedPageMaintenanceBeforePublish({
+      darkMode: false,
+      deferResolutionUpdates: true,
+      preparedFrame: initialFrame,
+      retainedContentPageManager: manager,
+      textLikeSnapshotElementById: new Map(),
+    });
+
+    expect(manager.runPostSubmitMaintenance).toHaveBeenCalledTimes(2);
+    expect(result?.result.repairedPreparedFrame).toBe(repairedFrame);
+    expect(result?.result.trueHoleRectCount).toBe(0);
   });
 
   it("reuses committed retained page coverage when scene, zoom, and scroll inputs are unchanged", () => {
@@ -322,11 +409,22 @@ function retainedFrameCache({
   contentSurfaces = [],
   refinementPageCount = 0,
   trueHoleRectCount = 0,
+  trueHoleRectsCss,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[];
   readonly refinementPageCount?: number | undefined;
   readonly trueHoleRectCount?: number | undefined;
+  readonly trueHoleRectsCss?: readonly GpuRect[] | undefined;
 }): GpuFlowRetainedContentFrameCache {
+  const resolvedTrueHoleRectsCss =
+    trueHoleRectsCss ??
+    Array.from({ length: trueHoleRectCount }, (_, index) => ({
+      height: 1,
+      width: 1,
+      x: index,
+      y: 0,
+    }));
+  const resolvedTrueHoleRectCount = resolvedTrueHoleRectsCss.length;
   return {
     contentSurfaces,
     devicePixelRatio: 2,
@@ -338,7 +436,7 @@ function retainedFrameCache({
       drawRegions: [],
       drawQuadCount: 0,
       compatibleDrawQuadCount: 0,
-      fidelityState: trueHoleRectCount > 0 ? "refining" : "target",
+      fidelityState: resolvedTrueHoleRectCount > 0 ? "refining" : "target",
       flatSurfaces: [],
       frame: 1,
       mergedDrawQuadCount: 0,
@@ -350,8 +448,8 @@ function retainedFrameCache({
       replacementRequests: [],
       refinementDescriptors: [],
       rejectedStaleRectCount: 0,
-      trueHoleRectsCss: [],
-      trueHoleRectCount,
+      trueHoleRectsCss: resolvedTrueHoleRectsCss,
+      trueHoleRectCount: resolvedTrueHoleRectCount,
       visibleRegionTargets: [],
     },
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
@@ -366,6 +464,57 @@ function retainedFrameCache({
     sceneRevision: 7,
     scrollRevision: 3,
     viewportZoomBucket: 1,
+  };
+}
+
+function retainedMaintenanceResult({
+  preparedFrame,
+  repairedPreparedFrame,
+}: {
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly repairedPreparedFrame: RetainedContentTexturePagePreparedFrame;
+}): RetainedContentTexturePageMaintenanceResult {
+  return {
+    budgetExhausted: false,
+    compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
+    coverageCandidateCount: preparedFrame.coverageCandidateCount,
+    diagnostics: [],
+    drawQuadCount: preparedFrame.drawQuadCount,
+    evicted: {
+      evictedBytes: 0,
+      evictedKeys: [],
+      remainingBytes: 0,
+    },
+    executedItemCount: 1,
+    fidelityState: repairedPreparedFrame.fidelityState,
+    memory: {
+      committedBytes: 0,
+      committedCount: 0,
+      pendingBytes: 0,
+      pendingCount: 0,
+      retiredBytes: 0,
+      retiredCount: 0,
+      totalBytes: 0,
+    },
+    mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
+    needsFollowUpFrame: repairedPreparedFrame.trueHoleRectCount > 0,
+    postMaintenanceRefinementPageCount:
+      repairedPreparedFrame.refinementPageCount,
+    queuedWorkCount: 0,
+    queuedWorkCountBeforeUpload: 1,
+    rasterMs: 1,
+    refinementPageCount: preparedFrame.refinementPageCount,
+    rejectedStaleRectCount: repairedPreparedFrame.rejectedStaleRectCount,
+    remainingUploadableWorkCount: 0,
+    repairedPreparedFrame,
+    skippedItemCount: 0,
+    targetDescriptorCount: preparedFrame.refinementDescriptors.length,
+    trueHoleRectCount: preparedFrame.trueHoleRectCount,
+    trueHoleVisuals: preparedFrame.trueHoleVisuals,
+    uploadedBytes: 1024,
+    uploadedDrawCommandCount: 1,
+    uploadCount: 1,
+    uploadMs: 1,
   };
 }
 

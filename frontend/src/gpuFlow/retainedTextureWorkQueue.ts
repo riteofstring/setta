@@ -20,6 +20,7 @@ type RetainedTextureWorkItemInput = {
   readonly priority?: NodeTexturePriority | undefined;
   readonly refreshCommittedPage?: boolean | undefined;
   readonly sourceRect?: GpuRect | undefined;
+  readonly sourceRectCoalescing?: "exact" | "union" | undefined;
   readonly sourceWindow?: RetainedTextureSourceWindow | undefined;
   readonly surfaceId: string;
   readonly targetLod?: number | undefined;
@@ -34,6 +35,7 @@ export type RetainedTextureWorkItem = {
   readonly refreshCommittedPage: boolean;
   readonly sequence: number;
   readonly sourceRect?: GpuRect | undefined;
+  readonly sourceRectCoalescing: "exact" | "union";
   readonly sourceWindow?: RetainedTextureSourceWindow | undefined;
   readonly surfaceId: string;
   readonly targetLod?: number | undefined;
@@ -165,6 +167,7 @@ export class RetainedTextureWorkQueue {
       priority: input.priority ?? "visible",
       refreshCommittedPage: input.refreshCommittedPage ?? false,
       sequence: this.sequence,
+      sourceRectCoalescing: input.sourceRectCoalescing ?? "union",
       surfaceId: normalizeSurfaceId(input.surfaceId),
       ...createOptionalWorkItemGeometry({
         sourceRect,
@@ -284,7 +287,11 @@ function workItemCoalescingKey(item: RetainedTextureWorkItem): string {
     item.surfaceId,
     item.contentVersion,
     item.kind,
-    item.sourceRect ? "rect" : "full",
+    item.sourceRect
+      ? item.sourceRectCoalescing === "exact"
+        ? rectKey(item.sourceRect)
+        : "rect"
+      : "full",
     item.sourceWindow ? rectKey(item.sourceWindow) : "window:none",
     item.targetLod ?? "lod:none",
     item.visualEpochKind ?? "base",

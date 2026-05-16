@@ -51,6 +51,27 @@ export function areRetainedContentTexturePageTextLikeSnapshotsReady({
   );
 }
 
+export function isRetainedContentTexturePageSnapshotExactDescriptorReady({
+  descriptor,
+  elementBySourceId,
+  surface,
+}: {
+  readonly descriptor: RetainedTexturePageDescriptor;
+  readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
+  readonly surface:
+    | RetainedContentTexturePageTextLikeSnapshotSurface
+    | undefined;
+}): boolean {
+  return (
+    descriptor.visualEpochKind !== "snapshot-exact" ||
+    areRetainedContentTexturePageTextLikeSnapshotsReady({
+      descriptor,
+      elementBySourceId,
+      surface,
+    })
+  );
+}
+
 export function uploadRetainedContentTexturePageTextLikeSnapshots({
   descriptor,
   elementBySourceId,

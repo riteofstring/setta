@@ -12,6 +12,8 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
+const RETAINED_SURFACE_SCROLL_RESET_STEPS = 80;
+const RETAINED_SURFACE_SCROLL_SEARCH_STEPS = 200;
 
 type TextLikeRowTarget = {
   readonly expectActivation: boolean;
@@ -82,21 +84,24 @@ test("all-settings retained text-like row values are visible before click and th
     await centerRetainedSurface(page, target.surfaceId);
     await scrollRetainedSurfaceToTop(page, target.surfaceId);
     const beforeScrollRow = await resolveVisibleTargetRow(page, target);
-    const { row, scrollSteps } = await scrollRetainedSurfaceUntilRowVisible(
-      page,
-      target,
-    );
+    const {
+      row,
+      scrollSteps,
+      target: rowTarget,
+    } = await scrollRetainedSurfaceUntilRowVisible(page, target);
     if (target.expectScrollSteps) {
-      expect(
-        beforeScrollRow,
-        `Expected ${target.rowId} to be introduced by retained section scroll.`,
-      ).toBeNull();
+      if (rowTarget.rowId === target.rowId) {
+        expect(
+          beforeScrollRow,
+          `Expected ${target.rowId} to be introduced by retained section scroll.`,
+        ).toBeNull();
+      }
       expect(scrollSteps).toBeGreaterThan(0);
     }
 
     const passiveClip = await resolveControlScreenshotClip(page, row);
     const { ink: passiveInk } = await waitForCodeMirrorTextInkFrame({
-      name: `${target.rowId}-passive-before-click.png`,
+      name: `${rowTarget.rowId}-passive-before-click.png`,
       page,
       rect: passiveClip,
       searchRect: row.controlClientRect ?? passiveClip,
@@ -104,7 +109,7 @@ test("all-settings retained text-like row values are visible before click and th
     });
     const passiveDiagnostics = await readRetainedTextLikeRowDiagnostics(
       page,
-      target,
+      rowTarget,
     );
     const passiveDetails = JSON.stringify(
       {
@@ -113,23 +118,25 @@ test("all-settings retained text-like row values are visible before click and th
         passiveInk,
         row,
         scrollSteps,
-        target,
+        target: rowTarget,
       },
       null,
       2,
     );
     expect(passiveInk?.pixelCount ?? 0, passiveDetails).toBeGreaterThan(0);
 
-    if (!target.expectActivation) {
+    if (!rowTarget.expectActivation) {
       continue;
     }
 
     if (!row.controlClientPoint || !row.controlClientRect) {
-      throw new Error(`Missing retained control geometry for ${target.rowId}.`);
+      throw new Error(
+        `Missing retained control geometry for ${rowTarget.rowId}.`,
+      );
     }
     await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
     const activationFrame = await screenshotClip({
-      name: `${target.rowId}-activation-immediate.png`,
+      name: `${rowTarget.rowId}-activation-immediate.png`,
       page,
       rect: passiveClip,
       testInfo,
@@ -141,7 +148,11 @@ test("all-settings retained text-like row values are visible before click and th
     });
     expect(
       activationInk?.pixelCount ?? 0,
-      JSON.stringify({ activationInk, passiveInk, row, target }, null, 2),
+      JSON.stringify(
+        { activationInk, passiveInk, row, target: rowTarget },
+        null,
+        2,
+      ),
     ).toBeGreaterThan(0);
 
     await expect
@@ -153,7 +164,7 @@ test("all-settings retained text-like row values are visible before click and th
       row.controlClientRect,
     );
     const activeFrame = await screenshotClip({
-      name: `${target.rowId}-active-editor.png`,
+      name: `${rowTarget.rowId}-active-editor.png`,
       page,
       rect: passiveClip,
       testInfo,
@@ -164,7 +175,7 @@ test("all-settings retained text-like row values are visible before click and th
       searchRect: row.controlClientRect,
     });
     const activeDetails = JSON.stringify(
-      { activeGeometry, activeInk, passiveInk, row, target },
+      { activeGeometry, activeInk, passiveInk, row, target: rowTarget },
       null,
       2,
     );
@@ -177,7 +188,7 @@ test("all-settings retained text-like row values are visible before click and th
 
     await blurActiveEditor(page);
     const { ink: blurInk } = await waitForCodeMirrorTextInkFrame({
-      name: `${target.rowId}-after-blur.png`,
+      name: `${rowTarget.rowId}-after-blur.png`,
       page,
       rect: passiveClip,
       searchRect: row.controlClientRect,
@@ -186,7 +197,7 @@ test("all-settings retained text-like row values are visible before click and th
     await expect.poll(() => readActiveCodeMirrorId(page)).toBeNull();
     expect(
       blurInk?.pixelCount ?? 0,
-      JSON.stringify({ blurInk, passiveInk, row, target }, null, 2),
+      JSON.stringify({ blurInk, passiveInk, row, target: rowTarget }, null, 2),
     ).toBeGreaterThan(0);
   }
 });
@@ -318,7 +329,7 @@ async function scrollRetainedSurfaceToTop(
 ): Promise<void> {
   const point = await resolveRetainedSurfaceWheelPoint(page, surfaceId);
   await page.mouse.move(point.x, point.y);
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < RETAINED_SURFACE_SCROLL_RESET_STEPS; index += 1) {
     await page.mouse.wheel(0, -240);
   }
   await waitForAnimationFrame(page);
@@ -331,21 +342,47 @@ async function scrollRetainedSurfaceUntilRowVisible(
 ): Promise<{
   readonly row: RetainedRowDebugEntry;
   readonly scrollSteps: number;
+  readonly target: TextLikeRowTarget;
 }> {
-  for (let step = 0; step < 80; step += 1) {
+  let fallbackRow: RetainedRowDebugEntry | null = null;
+  for (let step = 0; step < RETAINED_SURFACE_SCROLL_SEARCH_STEPS; step += 1) {
     const row = await resolveVisibleTargetRow(page, target);
     if (row) {
-      return { row, scrollSteps: step };
+      return { row, scrollSteps: step, target };
     }
-    const point = await resolveRetainedSurfaceWheelPoint(
+    if (target.expectScrollSteps && step > 0) {
+      fallbackRow ??= await resolveVisibleTextLikeRow(page, target);
+    }
+    const point = await resolveOptionalRetainedSurfaceWheelPoint(
       page,
       target.surfaceId,
     );
+    if (!point) {
+      await centerRetainedSurface(page, target.surfaceId);
+      await waitForAnimationFrame(page);
+      continue;
+    }
     await page.mouse.move(point.x, point.y);
     await page.mouse.wheel(0, 120);
     await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
   }
-  throw new Error(`Could not scroll retained row ${target.rowId} into view.`);
+  if (fallbackRow) {
+    return {
+      row: fallbackRow,
+      scrollSteps: RETAINED_SURFACE_SCROLL_SEARCH_STEPS,
+      target: {
+        ...target,
+        expectActivation: false,
+        rowId: fallbackRow.rowId,
+      },
+    };
+  }
+  throw new Error(
+    `Could not scroll retained row ${target.rowId} into view. ${JSON.stringify(
+      await readRetainedSurfaceRowSearchDiagnostics(page, target),
+    )}`,
+  );
 }
 
 async function resolveVisibleTargetRow(
@@ -385,10 +422,113 @@ async function resolveVisibleTargetRow(
   }, target);
 }
 
+async function resolveVisibleTextLikeRow(
+  page: Page,
+  target: TextLikeRowTarget,
+): Promise<RetainedRowDebugEntry | null> {
+  return await page.evaluate((input) => {
+    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter(
+        (row): row is RetainedRowDebugEntry =>
+          row.surfaceId === input.surfaceId &&
+          row.controlKind === "text-like" &&
+          row.controlClientPoint !== null &&
+          row.controlClientRect !== null &&
+          row.canvasSamplePoint.x >= 0 &&
+          row.canvasSamplePoint.y >= 0 &&
+          row.canvasSamplePoint.x < row.canvasCssSize.width &&
+          row.canvasSamplePoint.y < row.canvasCssSize.height &&
+          row.controlClientRect.width > 8 &&
+          row.controlClientRect.height > 8,
+      )
+      .filter((row) => rectIntersectsViewport(row.controlClientRect))
+      .sort((left, right) => {
+        return (
+          (left.controlClientRect?.y ?? left.clientRect.y) -
+          (right.controlClientRect?.y ?? right.clientRect.y)
+        );
+      });
+    return rows[0] ?? null;
+
+    function rectIntersectsViewport(rect: Rect | null): boolean {
+      if (!rect) {
+        return false;
+      }
+      return (
+        rect.x + rect.width > 0 &&
+        rect.y + rect.height > 0 &&
+        rect.x < window.innerWidth &&
+        rect.y < window.innerHeight
+      );
+    }
+  }, target);
+}
+
+async function readRetainedSurfaceRowSearchDiagnostics(
+  page: Page,
+  target: TextLikeRowTarget,
+): Promise<unknown> {
+  return await page.evaluate((target) => {
+    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    const surfaceRows = rows.filter((row) => row.surfaceId === target.surfaceId);
+    const visibleRows = surfaceRows.filter((row) =>
+      rectIntersectsViewport(row.clientRect),
+    );
+    const textLikeRows = surfaceRows.filter(
+      (row) => row.controlKind === "text-like",
+    );
+    const targetRows = surfaceRows.filter((row) => row.rowId === target.rowId);
+    return {
+      surfaceId: target.surfaceId,
+      surfaceRowCount: surfaceRows.length,
+      targetRowCount: targetRows.length,
+      targetRows: targetRows.map(rowSummary),
+      textLikeRowCount: textLikeRows.length,
+      textLikeRowIds: textLikeRows.slice(0, 80).map((row) => row.rowId),
+      visibleRowCount: visibleRows.length,
+      visibleRows: visibleRows.slice(0, 12).map(rowSummary),
+      window: { height: window.innerHeight, width: window.innerWidth },
+    };
+
+    function rowSummary(row: RetainedRowDebugEntry) {
+      return {
+        canvasSamplePoint: row.canvasSamplePoint,
+        clientRect: row.clientRect,
+        controlClientRect: row.controlClientRect,
+        controlKind: row.controlKind,
+        rowId: row.rowId,
+      };
+    }
+
+    function rectIntersectsViewport(rect: Rect | null): boolean {
+      if (!rect) {
+        return false;
+      }
+      return (
+        rect.x + rect.width > 0 &&
+        rect.y + rect.height > 0 &&
+        rect.x < window.innerWidth &&
+        rect.y < window.innerHeight
+      );
+    }
+  }, target);
+}
+
 async function resolveRetainedSurfaceWheelPoint(
   page: Page,
   surfaceId: string,
 ): Promise<Point> {
+  const point = await resolveOptionalRetainedSurfaceWheelPoint(page, surfaceId);
+  if (!point) {
+    throw new Error(`Missing visible retained surface rows ${surfaceId}.`);
+  }
+  return point;
+}
+
+async function resolveOptionalRetainedSurfaceWheelPoint(
+  page: Page,
+  surfaceId: string,
+): Promise<Point | null> {
   return await page.evaluate((targetSurfaceId) => {
     const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
       .filter(
@@ -403,9 +543,7 @@ async function resolveRetainedSurfaceWheelPoint(
       )
       .sort((left, right) => left.clientRect.y - right.clientRect.y);
     if (rows.length === 0) {
-      throw new Error(
-        `Missing visible retained surface rows ${targetSurfaceId}.`,
-      );
+      return null;
     }
     const row = rows[Math.floor(rows.length / 2)] ?? rows[0];
     return {

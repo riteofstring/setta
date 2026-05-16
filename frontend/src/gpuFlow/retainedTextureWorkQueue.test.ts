@@ -30,6 +30,38 @@ describe("RetainedTextureWorkQueue", () => {
     ]);
   });
 
+  it("keeps exact-coalesced first-visible hole repairs separate by source rect", () => {
+    const queue = new RetainedTextureWorkQueue();
+
+    queue.enqueue({
+      contentVersion: 3,
+      kind: "first-visible",
+      sourceRect: { height: 20, width: 30, x: 10, y: 10 },
+      sourceRectCoalescing: "exact",
+      sourceWindow: { height: 200, width: 100, x: 0, y: 0 },
+      surfaceId: "surface",
+    });
+    queue.enqueue({
+      contentVersion: 3,
+      kind: "first-visible",
+      sourceRect: { height: 12, width: 40, x: 25, y: 24 },
+      sourceRectCoalescing: "exact",
+      sourceWindow: { height: 200, width: 100, x: 0, y: 0 },
+      surfaceId: "surface",
+    });
+
+    expect(queue.orderedWorkItems()).toEqual([
+      expect.objectContaining({
+        kind: "first-visible",
+        sourceRect: { height: 20, width: 30, x: 10, y: 10 },
+      }),
+      expect.objectContaining({
+        kind: "first-visible",
+        sourceRect: { height: 12, width: 40, x: 25, y: 24 },
+      }),
+    ]);
+  });
+
   it("keeps explicit full-content work separate from rect work", () => {
     const queue = new RetainedTextureWorkQueue();
 

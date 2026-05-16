@@ -145,9 +145,66 @@ describe("RetainedCommittedCoverageMap", () => {
             rect: BASE_RECT,
           },
         ],
+        uncoveredRegionEntries: [
+          expect.objectContaining({
+            rect: BASE_RECT,
+            target: expect.objectContaining({
+              contentRect: BASE_RECT,
+              manifest: expect.objectContaining({
+                contentVersion: 2,
+                surfaceId: "surface",
+              }),
+            }),
+          }),
+        ],
         uncoveredRegions: [BASE_RECT],
       }),
     );
+  });
+
+  it("keeps proofless gaps in row-segmented pages compatible with the surface target", () => {
+    const store = new RetainedCommittedCoverageMap<string>();
+    const gapRect = { height: 20, width: 100, x: 0, y: 0 };
+    const rowSegment = {
+      contentVersion: 101,
+      id: "row-a",
+      rectCss: { height: 80, width: 100, x: 0, y: 20 },
+    };
+    const committedTarget = target({
+      contentRect: BASE_RECT,
+      manifestOverrides: {
+        contentSegments: [rowSegment],
+        contentVersion: -1,
+      },
+    });
+    store.commitReplacement(
+      store.beginReplacement(committedTarget),
+      uploaded({ regionTarget: committedTarget }),
+    );
+
+    const visibleGapTarget = target({
+      contentRect: gapRect,
+      manifestOverrides: {
+        contentSegments: [rowSegment],
+        contentVersion: 1,
+      },
+    });
+
+    expect(
+      store.queryVisibleCoverage({ regions: [visibleGapTarget] }),
+    ).toMatchObject({
+      compatibleCoverage: [
+        {
+          compatibility: {
+            fidelity: "compatible-mapped-region",
+          },
+          coverageRect: gapRect,
+        },
+      ],
+      exactCoverage: [],
+      rejectedCoverage: [],
+      uncoveredRegions: [],
+    });
   });
 
   it("rejects replacement commits whose manifest no longer matches the transaction target", () => {

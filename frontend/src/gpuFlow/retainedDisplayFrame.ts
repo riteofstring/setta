@@ -12,13 +12,12 @@ import {
   type PublishedNativeIslandRect,
 } from "./retainedNativeIslandTransactions";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
-import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
 type RetainedFrameId = number;
 
-type CoverageReadiness = "covered" | "true-holes" | "initial-loading";
+type CoverageReadiness = "covered";
 
 type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
   readonly frameId: RetainedFrameId;
@@ -132,29 +131,18 @@ export function publishRetainedDisplayFrame({
   prepared,
   previous,
 }: RetainedFrameTransaction): RetainedDisplayFrame {
+  void nowMs;
   const proof = createVisibleCoverageProof({
     prepared,
     previous,
   });
-  if (proof.trueHoleRects.length === 0) {
-    return createComposedRetainedDisplayFrame({
-      coverageReadiness: "covered",
-      diagnosticsPrevious: previous,
-      prepared,
-      proof,
-    });
+  if (proof.trueHoleRects.length > 0) {
+    throw new Error(
+      `Retained display frame publication requires committed visual epoch coverage; ${proof.trueHoleRects.length} true-hole rects remained.`,
+    );
   }
-  if (!previous) {
-    return createComposedRetainedDisplayFrame({
-      coverageReadiness: "initial-loading",
-      diagnosticsPrevious: null,
-      prepared,
-      proof,
-    });
-  }
-  void nowMs;
   return createComposedRetainedDisplayFrame({
-    coverageReadiness: "true-holes",
+    coverageReadiness: "covered",
     diagnosticsPrevious: previous,
     prepared,
     proof,
@@ -182,15 +170,9 @@ function createComposedRetainedDisplayFrame({
   const desiredActiveIslandRects = createPublishedNativeIslandRects(
     prepared.retainedRuntimeFrame,
   );
-  const blockedPassiveDetachByCoverage =
-    proof.trueHoleRects.length > 0 &&
-    desiredActiveIslandRects.length === 0 &&
-    Boolean(diagnosticsPrevious?.activeIslandRects.length);
-  const activeIslandRects = blockedPassiveDetachByCoverage
-    ? diagnosticsPrevious?.activeIslandRects ?? []
-    : desiredActiveIslandRects;
+  const activeIslandRects = desiredActiveIslandRects;
   const activeIslandTransaction = resolveNativeIslandPublicationTransaction({
-    blockedByCoverage: blockedPassiveDetachByCoverage,
+    blockedByCoverage: false,
     desiredIslandIds: prepared.retainedRuntimeFrame.input.activeNativeIslandIds,
     previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),
     publishedIslandIds: activeIslandRects.map((island) => island.id),

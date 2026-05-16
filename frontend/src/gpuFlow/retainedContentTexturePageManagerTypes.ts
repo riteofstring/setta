@@ -118,6 +118,8 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly darkMode?: boolean | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly publishedProtectedPageKeys?: readonly string[] | undefined;
+  readonly preserveFirstVisibleSourceRects?: boolean | undefined;
+  readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
   readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;

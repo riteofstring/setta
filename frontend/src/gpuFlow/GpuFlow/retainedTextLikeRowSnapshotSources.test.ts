@@ -26,6 +26,7 @@ describe("getGpuRetainedTextLikeRowSnapshotSources", () => {
       act(() => root?.unmount());
       root = null;
     }
+    vi.restoreAllMocks();
     document.body.replaceChildren();
   });
 
@@ -93,6 +94,48 @@ describe("getGpuRetainedTextLikeRowSnapshotSources", () => {
         surface,
       }),
     );
+
+    expect(requestPaint).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+  });
+
+  it("requests a frame when a retained snapshot source reaches paint readiness", () => {
+    const requestFrame = vi.fn();
+    const requestPaint = vi.fn();
+    const surface: GpuSurfaceHandle = {
+      getRuntime: () => null,
+      requestFrame,
+      requestPaint,
+    };
+    const rafCallbacks: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    });
+
+    renderHookHarness(
+      createElement(SnapshotPaintHarness, {
+        scene: scene({ firstValue: "alpha" }),
+        surface,
+      }),
+    );
+    requestFrame.mockClear();
+    requestPaint.mockClear();
+
+    act(() => {
+      for (const callback of rafCallbacks.splice(0)) {
+        callback(performance.now());
+      }
+    });
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(requestPaint).not.toHaveBeenCalled();
+
+    act(() => {
+      for (const callback of rafCallbacks.splice(0)) {
+        callback(performance.now());
+      }
+    });
 
     expect(requestPaint).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledTimes(1);

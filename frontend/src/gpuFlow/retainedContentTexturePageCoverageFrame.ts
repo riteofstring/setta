@@ -11,10 +11,7 @@ import {
   type RetainedTexturePageDescriptor,
   type RetainedTexturePageRejectedCoverage,
 } from "./retainedTexturePages";
-import {
-  createRetainedDrawRegionFlatVisuals,
-  createRetainedTexturePageTrueHoleVisuals,
-} from "./retainedTexturePageVisuals";
+import { createRetainedDrawRegionFlatVisuals } from "./retainedTexturePageVisuals";
 import {
   planRetainedVisibleCoverage,
   type RetainedReplacementRequest,
@@ -106,10 +103,7 @@ export function createRetainedContentTexturePageVisibleCoverageFrame({
     replacementRequests: coveragePlan.replacementRequests,
     trueHoleRectCount: coveragePlan.trueHoles.length,
     trueHoleRectsCss: coveragePlan.trueHoles,
-    trueHoleVisuals: createTrueHoleVisuals({
-      frameSurfaceById,
-      replacementRequests: coveragePlan.replacementRequests,
-    }),
+    trueHoleVisuals: [],
     visibleRegionTargets,
     visualEpochs: createRetainedVisualEpochsFromDrawRegions(
       coveragePlan.drawRegions,
@@ -165,36 +159,6 @@ function createReplacementRequestDescriptors({
     }
   }
   return [...descriptorsByKey.values()];
-}
-
-function createTrueHoleVisuals({
-  frameSurfaceById,
-  replacementRequests,
-}: {
-  readonly frameSurfaceById: ReadonlyMap<
-    string,
-    RetainedContentTexturePageFrameSurface
-  >;
-  readonly replacementRequests: readonly RetainedReplacementRequest[];
-}): RetainedContentTexturePagePreparedFrame["trueHoleVisuals"] {
-  const visuals: RetainedContentTexturePagePreparedFrame["trueHoleVisuals"][number][] =
-    [];
-  for (const surface of frameSurfaceById.values()) {
-    const surfaceTrueHoles = replacementRequests
-      .filter(
-        (request) =>
-          request.reason === "true-hole" &&
-          request.target.manifest.surfaceId === surface.surfaceId,
-      )
-      .map((request) => request.target.contentRect);
-    visuals.push(
-      ...createRetainedTexturePageTrueHoleVisuals({
-        layout: surface.layout,
-        trueHoleRects: surfaceTrueHoles,
-      }),
-    );
-  }
-  return visuals;
 }
 
 function resolveVisibleCoverageFidelityState(

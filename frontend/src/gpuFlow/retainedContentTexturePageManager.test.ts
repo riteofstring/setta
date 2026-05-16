@@ -974,7 +974,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
-  it("bounds missing snapshot-exact retries while keeping base content committed", () => {
+  it("keeps unready snapshot-exact descriptors out of upload work while base content stays committed", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -1016,6 +1016,7 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(finalRetry.uploadCount).toBe(0);
     expect(finalRetry.queuedWorkCount).toBe(0);
+    expect(finalRetry.targetDescriptorCount).toBe(1);
     expect(finalRetry.visualEpochs.map((epoch) => epoch.kind)).toEqual([
       "base",
     ]);
@@ -1028,7 +1029,8 @@ describe("RetainedContentTexturePageManager", () => {
       textLikeSnapshotElementById: new Map(),
       viewportZoomBucket: 1,
     });
-    expect(followUp.targetDescriptorCount).toBe(0);
+    expect(followUp.targetDescriptorCount).toBe(1);
+    expect(followUp.queuedWorkCount).toBe(0);
     expect(followUp.visualEpochs.map((epoch) => epoch.kind)).toEqual(["base"]);
   });
 });

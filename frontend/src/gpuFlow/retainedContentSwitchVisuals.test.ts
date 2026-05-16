@@ -138,6 +138,20 @@ describe("getGpuRetainedContentSwitchAnimationVisuals", () => {
         scene: flowScene(true),
         switchAnimations: store,
       }),
+    ).toHaveLength(2);
+
+    store.settleCompletedSurfaceTransitions({
+      isRowFresh: () => true,
+      nowMs: 620,
+      surface: retainedSurface(true),
+    });
+    expect(
+      getGpuRetainedContentSwitchAnimationVisuals({
+        darkMode: true,
+        nowMs: 636,
+        scene: flowScene(true),
+        switchAnimations: store,
+      }),
     ).toEqual([]);
   });
 

@@ -79,6 +79,7 @@ import {
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import {
+  assertGpuFlowRetainedPreparedFrameHasNoTrueHoles,
   resolveGpuFlowRetainedPageMaintenanceAfterPublish,
   runGpuFlowRetainedPageMaintenanceBeforePublish,
 } from "./flowRetainedPageMaintenance";
@@ -565,6 +566,9 @@ export function renderGpuFlowNodeLayerFrame({
   if (retainedPageMaintenance) {
     retainedPagePreparedFrame =
       retainedPageMaintenance.result.repairedPreparedFrame;
+    assertGpuFlowRetainedPreparedFrameHasNoTrueHoles({
+      preparedFrame: retainedPagePreparedFrame,
+    });
     updateGpuFlowRetainedContentFrameCacheAfterRepair({
       preparedFrame: retainedPagePreparedFrame,
       retainedContentFrameCacheRef,
@@ -572,6 +576,9 @@ export function renderGpuFlowNodeLayerFrame({
       retainedRuntimeFrame,
     });
   }
+  assertGpuFlowRetainedPreparedFrameHasNoTrueHoles({
+    preparedFrame: retainedPagePreparedFrame,
+  });
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedPreparedRuntimeFrame,
     createGpuFlowRetainedPreparationRuntimeFrame({
@@ -641,7 +648,6 @@ export function renderGpuFlowNodeLayerFrame({
     htmlSurfaceNativeVisuals: combineGpuFlowHtmlSurfaceNativeVisuals(
       retainedRuntimeNativeVisuals,
       switchAnimationNativeVisuals,
-      publishedRetainedPageFrame.trueHoleVisuals,
     ),
     htmlSurfacePageVisuals: publishedRetainedPageFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,

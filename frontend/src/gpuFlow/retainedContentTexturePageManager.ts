@@ -35,7 +35,11 @@ import type {
   RetainedContentTexturePagePreparedFrame,
   RetainedContentTexturePageReplacementDescriptor,
 } from "./retainedContentTexturePageManagerTypes";
-import { EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS } from "./retainedContentTexturePageTextLikeSnapshots";
+import { isCommittedRetainedPageCompatibleWithReplacementTarget } from "./retainedContentTexturePageCompatibility";
+import {
+  EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
+  isRetainedContentTexturePageSnapshotExactDescriptorReady,
+} from "./retainedContentTexturePageTextLikeSnapshots";
 import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
   RetainedContentTextureAtlasStore,
@@ -287,7 +291,9 @@ export class RetainedContentTexturePageManager {
   runPostSubmitMaintenance({
     darkMode = false,
     preparedFrame,
+    preserveFirstVisibleSourceRects = false,
     publishedProtectedPageKeys,
+    refreshFirstVisiblePages = false,
     switchAnimations,
     textLikeSnapshotElementById = EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
     viewportInteractionActive = false,
@@ -295,6 +301,9 @@ export class RetainedContentTexturePageManager {
     this.enqueueMissingReplacementPages(
       preparedFrame.replacementDescriptors,
       preparedFrame.frame,
+      preserveFirstVisibleSourceRects,
+      refreshFirstVisiblePages,
+      textLikeSnapshotElementById,
     );
     this.maintenanceUploadedDrawCommandCount = 0;
     const queuedWorkCountBeforeUpload = this.workQueue.size;
@@ -426,10 +435,19 @@ export class RetainedContentTexturePageManager {
   private enqueueMissingReplacementPages(
     replacementDescriptors: readonly RetainedContentTexturePageReplacementDescriptor[],
     frame: number,
+    preserveFirstVisibleSourceRects: boolean,
+    refreshFirstVisiblePages: boolean,
+    textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>,
   ) {
     this.cancelStaleFirstVisibleReplacementWork(replacementDescriptors);
     for (const replacementDescriptor of replacementDescriptors) {
-      this.enqueueMissingReplacementPage(replacementDescriptor, frame);
+      this.enqueueMissingReplacementPage(
+        replacementDescriptor,
+        frame,
+        preserveFirstVisibleSourceRects,
+        refreshFirstVisiblePages,
+        textLikeSnapshotElementById,
+      );
     }
   }
 
@@ -439,9 +457,32 @@ export class RetainedContentTexturePageManager {
       replacementRequest,
     }: RetainedContentTexturePageReplacementDescriptor,
     frame: number,
+    preserveFirstVisibleSourceRects: boolean,
+    refreshFirstVisiblePages: boolean,
+    textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>,
   ) {
+    if (
+      !isRetainedContentTexturePageSnapshotExactDescriptorReady({
+        descriptor,
+        elementBySourceId: textLikeSnapshotElementById,
+        surface: this.frameSurfaceById.get(descriptor.surfaceId),
+      })
+    ) {
+      this.markSnapshotBlockedSurface(descriptor.surfaceId);
+      return;
+    }
     const isVisibleRefinement =
       replacementRequest.priority === "visible-refinement";
+    if (refreshFirstVisiblePages && !isVisibleRefinement) {
+      this.enqueueDescriptorWorkForReplacement({
+        descriptor,
+        frame,
+        isVisibleRefinement,
+        preserveFirstVisibleSourceRects,
+        refreshCommittedPage: true,
+      });
+      return;
+    }
     const committedPage = this.cache.getCommittedPage(
       retainedTexturePageKey(descriptor),
     );
@@ -450,6 +491,7 @@ export class RetainedContentTexturePageManager {
         descriptor,
         frame,
         isVisibleRefinement,
+        preserveFirstVisibleSourceRects,
       });
       return;
     }
@@ -463,6 +505,22 @@ export class RetainedContentTexturePageManager {
         descriptor,
         frame,
         isVisibleRefinement,
+        preserveFirstVisibleSourceRects,
+        refreshCommittedPage: true,
+      });
+      return;
+    }
+    if (
+      !isCommittedRetainedPageCompatibleWithReplacementTarget({
+        committedPage,
+        replacementDescriptor: { descriptor, replacementRequest },
+      })
+    ) {
+      this.enqueueDescriptorWorkForReplacement({
+        descriptor,
+        frame,
+        isVisibleRefinement,
+        preserveFirstVisibleSourceRects,
         refreshCommittedPage: true,
       });
       return;
@@ -473,6 +531,7 @@ export class RetainedContentTexturePageManager {
     this.enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
       descriptor,
       frame,
+      textLikeSnapshotElementById,
     });
   }
 
@@ -480,17 +539,20 @@ export class RetainedContentTexturePageManager {
     descriptor,
     frame,
     isVisibleRefinement,
+    preserveFirstVisibleSourceRects,
     refreshCommittedPage = false,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly frame: number;
     readonly isVisibleRefinement: boolean;
+    readonly preserveFirstVisibleSourceRects: boolean;
     readonly refreshCommittedPage?: boolean | undefined;
   }) {
     this.enqueueDescriptorWork({
       descriptors: [descriptor],
       frame,
       kind: isVisibleRefinement ? "lod-refinement" : "first-visible",
+      preserveFirstVisibleSourceRects,
       priority: "visible",
       refreshCommittedPage,
       ...(isVisibleRefinement ? { targetLod: descriptor.lodScale } : {}),
@@ -500,19 +562,39 @@ export class RetainedContentTexturePageManager {
   private enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
     descriptor,
     frame,
+    textLikeSnapshotElementById,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly frame: number;
+    readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
   }) {
     const exactDescriptors =
       this.createSnapshotExactDescriptorsForCommittedBaseReplacement(
         descriptor,
       );
-    if (exactDescriptors.length === 0) {
+    const readyDescriptors = exactDescriptors.filter((exactDescriptor) => {
+      if (
+        this.snapshotUnavailablePageKeys.has(
+          retainedTexturePageKey(exactDescriptor),
+        )
+      ) {
+        return false;
+      }
+      const ready = isRetainedContentTexturePageSnapshotExactDescriptorReady({
+        descriptor: exactDescriptor,
+        elementBySourceId: textLikeSnapshotElementById,
+        surface: this.frameSurfaceById.get(exactDescriptor.surfaceId),
+      });
+      if (!ready) {
+        this.markSnapshotBlockedSurface(exactDescriptor.surfaceId);
+      }
+      return ready;
+    });
+    if (readyDescriptors.length === 0) {
       return;
     }
     this.enqueueDescriptorWork({
-      descriptors: exactDescriptors,
+      descriptors: readyDescriptors,
       frame,
       kind: "first-visible",
       priority: "visible",
@@ -531,12 +613,7 @@ export class RetainedContentTexturePageManager {
       sourceRect: descriptor.sourceRectCss,
       surface,
       visualEpochKind: "snapshot-exact",
-    }).filter(
-      (exactDescriptor) =>
-        !this.snapshotUnavailablePageKeys.has(
-          retainedTexturePageKey(exactDescriptor),
-        ),
-    );
+    });
   }
 
   private cancelStaleFirstVisibleReplacementWork(
@@ -566,6 +643,7 @@ export class RetainedContentTexturePageManager {
     descriptors,
     frame,
     kind,
+    preserveFirstVisibleSourceRects = false,
     priority,
     refreshCommittedPage,
     targetLod,
@@ -573,6 +651,7 @@ export class RetainedContentTexturePageManager {
     readonly descriptors: readonly RetainedTexturePageDescriptor[];
     readonly frame: number;
     readonly kind: RetainedTextureWorkItem["kind"];
+    readonly preserveFirstVisibleSourceRects?: boolean | undefined;
     readonly priority: NodeTexturePriority;
     readonly refreshCommittedPage?: boolean | undefined;
     readonly targetLod?: number | undefined;
@@ -585,6 +664,10 @@ export class RetainedContentTexturePageManager {
         priority,
         refreshCommittedPage,
         sourceRect: descriptor.sourceRectCss,
+        sourceRectCoalescing:
+          preserveFirstVisibleSourceRects && kind === "first-visible"
+            ? "exact"
+            : "union",
         sourceWindow: descriptor.sourceWindowCss,
         surfaceId: descriptor.surfaceId,
         visualEpochKind: descriptor.visualEpochKind ?? "base",

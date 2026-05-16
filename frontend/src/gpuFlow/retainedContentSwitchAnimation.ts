@@ -26,6 +26,7 @@ type GpuRetainedContentSwitchTransition = {
   readonly protectFromCheckedUntilComplete: boolean;
   readonly rowId: string;
   readonly startedAtMs: number;
+  readonly targetSceneMatchedAtMs?: number | undefined;
   readonly surfaceId: string;
   readonly toChecked: boolean;
   readonly toProgress: number;
@@ -90,6 +91,7 @@ export type GpuRetainedContentSwitchAnimationStore = {
 };
 
 export const DEFAULT_SWITCH_TRANSITION_DURATION_MS = 140;
+const SWITCH_INTERACTION_TARGET_SCENE_SETTLE_DELAY_MS = 500;
 const SWITCH_ANIMATION_KEY_SEPARATOR = "\u0000";
 
 export function createGpuRetainedContentSwitchAnimationStore({
@@ -348,6 +350,7 @@ export function createGpuRetainedContentSwitchAnimationStore({
         clearKey,
         nextKeys,
         previousKeys: surfaceKeys.get(surface.id),
+        transitions,
       });
       if (nextKeys.size === 0) {
         surfaceKeys.delete(surface.id);
@@ -485,9 +488,20 @@ function syncGpuRetainedContentSwitchCommand({
   nextKeys.add(key);
   const transition = transitions.get(key);
   if (shouldIgnoreSwitchSceneCommand(transition, checked)) {
+    markSwitchTransitionSceneStale({
+      key,
+      transition,
+      transitions,
+    });
     return;
   }
-  releaseSwitchTransitionSceneMatch({ checked, key, transition, transitions });
+  releaseSwitchTransitionSceneMatch({
+    checked,
+    key,
+    nowMs,
+    transition,
+    transitions,
+  });
   const previousChecked = checkedByKey.get(key);
   seedGpuRetainedContentSwitchProgress({
     checked,
@@ -537,11 +551,13 @@ function shouldIgnoreSwitchSceneCommand(
 function releaseSwitchTransitionSceneMatch({
   checked,
   key,
+  nowMs,
   transition,
   transitions,
 }: {
   readonly checked: boolean;
   readonly key: string;
+  readonly nowMs: number;
   readonly transition: GpuRetainedContentSwitchTransition | undefined;
   readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
 }) {
@@ -551,6 +567,26 @@ function releaseSwitchTransitionSceneMatch({
   transitions.set(key, {
     ...transition,
     pendingSceneMatch: false,
+    targetSceneMatchedAtMs: transition.targetSceneMatchedAtMs ?? nowMs,
+  });
+}
+
+function markSwitchTransitionSceneStale({
+  key,
+  transition,
+  transitions,
+}: {
+  readonly key: string;
+  readonly transition: GpuRetainedContentSwitchTransition | undefined;
+  readonly transitions: Map<string, GpuRetainedContentSwitchTransition>;
+}) {
+  if (!transition?.protectFromCheckedUntilComplete) {
+    return;
+  }
+  transitions.set(key, {
+    ...transition,
+    pendingSceneMatch: true,
+    targetSceneMatchedAtMs: undefined,
   });
 }
 
@@ -678,7 +714,17 @@ function isGpuRetainedContentSwitchTransitionComplete(
   transition: GpuRetainedContentSwitchTransition,
   nowMs: number,
 ): boolean {
-  return (nowMs - transition.startedAtMs) / transition.durationMs >= 1;
+  if ((nowMs - transition.startedAtMs) / transition.durationMs < 1) {
+    return false;
+  }
+  if (!transition.protectFromCheckedUntilComplete) {
+    return true;
+  }
+  return (
+    transition.targetSceneMatchedAtMs !== undefined &&
+    nowMs - transition.targetSceneMatchedAtMs >=
+      SWITCH_INTERACTION_TARGET_SCENE_SETTLE_DELAY_MS
+  );
 }
 
 function isGpuRetainedContentSwitchTransitionSourceFresh({
@@ -703,18 +749,25 @@ function removeMissingGpuRetainedContentSwitchKeys({
   clearKey,
   nextKeys,
   previousKeys,
+  transitions,
 }: {
   readonly clearKey: (key: string) => void;
-  readonly nextKeys: ReadonlySet<string>;
+  readonly nextKeys: Set<string>;
   readonly previousKeys: ReadonlySet<string> | undefined;
+  readonly transitions: ReadonlyMap<string, GpuRetainedContentSwitchTransition>;
 }) {
   if (!previousKeys) {
     return;
   }
   for (const previousKey of previousKeys) {
-    if (!nextKeys.has(previousKey)) {
-      clearKey(previousKey);
+    if (nextKeys.has(previousKey)) {
+      continue;
     }
+    if (transitions.has(previousKey)) {
+      nextKeys.add(previousKey);
+      continue;
+    }
+    clearKey(previousKey);
   }
 }
 
