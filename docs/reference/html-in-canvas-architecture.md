@@ -71,7 +71,7 @@ The reusable canvas runtime is centered on these modules:
   HTML texture uploads.
 - `htmlSurfaces/frame.tsx` resolves visible surfaces, syncs DOM transforms,
   registers and uploads dirty textures, builds the visual scene, renders, and
-  evicts old textures.
+  evicts unused texture records.
 - `interactions/panZoom.ts`, `interactions/nodeDrag.ts`,
   `interactions/nodeResize.ts`, and `interactions/retainedContentInteraction.ts`
   implement the main pointer and wheel interaction controllers.
@@ -255,7 +255,7 @@ The resize flow is:
 8. On commit, `updateNodeDimensionsFromGpuResize()` and
    `persistSectionSizeChange()` persist the new size through the normal project
    paths.
-9. On cancel, the adapter restores the previous scene and layout store state.
+9. On cancel, the adapter restores the baseline scene and layout store state.
 
 The resize overlay is itself a canvas source layer. It draws the visible resize
 affordances and uploads them like the other overlay surfaces. The pointer hit
@@ -297,7 +297,7 @@ follow mode, locked sections, and incompatible selection state.
 ## Parameter Drag and Drop
 
 Parameter drag and drop in the HTML-in-canvas surface uses retained-content
-interaction, not the older dnd-kit DOM row path. The relevant entrypoint is
+interaction. The relevant entrypoint is
 `projectGpuRetainedParamInteractionAdapter.tsx`, with move planning in
 `projectGpuParamDragAdapter.ts`.
 
@@ -417,8 +417,8 @@ When extending this surface, prefer the existing owner path:
 - Keep generated or backend-owned contracts authoritative when a change touches
   cross-language project data.
 - Do not add a second parameter row DOM rendering path for the GPU surface.
-- Do not use dnd-kit for retained parameter drag/drop in this surface; that path
-  exists for other DOM-based drag surfaces and legacy integration points.
+- Keep retained parameter drag/drop in the retained-content interaction path.
+  DOM-only drag surfaces can continue to use their existing dnd-kit owners.
 - Preserve direct canvas child source hosts and avoid wrapping source content in
   extra DOM that breaks `layoutsubtree` upload eligibility.
 - Preserve transform-only pan/zoom behavior and defer passive texture work while
