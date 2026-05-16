@@ -29,6 +29,13 @@ publication transaction as texture coverage. That is the wrong abstraction.
 Scroll is motion; texture readiness is content. Motion must remain continuous
 even while content refinement is catching up.
 
+The target model is motion-first publication plus content-atomic replacement.
+Scroll, pan, and active zoom motion should publish every frame or near display
+cadence. Content and layout replacement should remain transactional when source
+identity, row identity, layout, theme, or ownership changes. The refactor must
+not reintroduce blanking, wrong-row display, stale passive input textures, or
+unbounded scroll holds.
+
 ## Goal
 
 Refactor retained content around a scroll-first compositor:
@@ -236,6 +243,11 @@ Critical invariant:
 
 - Texture readiness may decide which pixels are exact, fallback, or pending.
   It may not decide whether scroll motion is published.
+- `RetainedMotionFrame` is always publishable.
+- `RetainedContentSnapshotFrame` is transactionally replaceable.
+- `RetainedPageFrame` may lag behind motion.
+- `RetainedDisplayFrame` composes current motion with the best compatible
+  content.
 
 ## Core Refactor
 
@@ -253,12 +265,47 @@ Do not include scroll-window origin in the page identity. The current
 scroll-window origin should be a rasterization input and draw transform input,
 not a cache key that invalidates fallback compatibility.
 
-Fallback compatibility after this refactor should be explicit and based on:
+Each committed page is addressed by content coordinates, even if its raster
+source was produced from a scroll-windowed source. The commit must record the
+content-coordinate mapping used for the upload, and draw eligibility must use
+that mapping rather than the transient capture window.
+
+Fallback compatibility after this refactor must be centralized in one named
+predicate:
+
+```ts
+function canDrawRetainedScrollFallbackPage(
+  page: CommittedRetainedPage,
+  target: RetainedVisibleContentRect,
+  motion: RetainedMotionFrame,
+): boolean;
+```
+
+Required exact or semantically exact matches:
 
 - same surface id,
 - same source/content identity and version,
-- compatible DPR and LOD according to one named predicate,
+- same row/segment identity and content-to-page mapping,
+- same layout revision,
+- same style/theme revision if rendered into the page,
+- same clip owner and z layer,
+- compatible DPR bucket,
+- compatible LOD policy,
 - rect intersection in retained content coordinates.
+
+Allowed differences:
+
+- current scroll offset,
+- current viewport transform,
+- lower LOD or lower scale bucket when content identity and mapping match.
+
+Disallowed differences:
+
+- different row or segment identity,
+- different content revision,
+- different source generation for text-like content,
+- different content-to-page mapping,
+- stale active-island mask state.
 
 For scroll-only motion, fallback compatibility must not require matching
 `sourceWindowCss.x` or `sourceWindowCss.y`.
@@ -283,6 +330,27 @@ Target behavior:
   intersecting covered content must keep translating. If central or previously
   covered content is missing for a scroll-only frame, development and tests
   should fail loudly instead of widening the pending treatment.
+- For scroll-only motion, any portion of the current visible content rect that
+  intersects compatible committed pages must translate immediately. Any portion
+  with no compatible committed page may show explicit pending treatment, but the
+  motion frame still publishes. Large wheel deltas with little or no overlap
+  must use this rule rather than reintroducing a hold path.
+
+Record pending continuity with a diagnostic shaped like:
+
+```ts
+type RetainedMotionContinuityProof = {
+  overlapCoveredAreaCssPx: number;
+  pendingAreaCssPx: number;
+  pendingAreaRatio: number;
+  maxConsecutivePendingFrames: number;
+  reason:
+    | "normal-edge-strip"
+    | "large-delta-no-overlap"
+    | "cache-cold"
+    | "content-incompatible";
+};
+```
 
 ### Motion-First Drawing
 
@@ -313,7 +381,8 @@ Allowed publication modes:
 - `publish-motion-frame`: current motion published with exact or fallback
   retained pages.
 - `publish-motion-frame-with-pending-strips`: current motion published; missing
-  coverage is limited to newly exposed strips with explicit pending visuals.
+  coverage is limited to newly exposed strips with explicit pending visuals, or
+  to large-delta no-overlap regions recorded in the continuity proof.
 - `publish-initial-loading-state`: only before there is any usable retained
   content for the surface.
 - `reject-content-snapshot`: only for true content/layout incompatibility where
@@ -321,8 +390,9 @@ Allowed publication modes:
   scroll-only changes.
 
 The display frame should fail loudly in development/tests if a scroll-only
-motion frame cannot use any compatible prior content for the previously visible
-area.
+motion frame cannot use compatible prior content for the previously visible
+overlap area when such overlap exists. A legitimate no-overlap case must publish
+motion with an explicit `large-delta-no-overlap` continuity reason.
 
 ### Scheduler And Budgeting
 
@@ -340,16 +410,49 @@ before refinement or prefetch. If the hard budget is insufficient for current
 visible coverage at the target LOD, choose an explicit lower LOD for the current
 visible rect rather than freezing motion.
 
+Visible-edge work may use a separate emergency budget class, capped by frame
+time, that is allowed to preempt LOD refinement and offscreen prefetch
+entirely:
+
+```ts
+type RetainedPageWorkBudget = {
+  interactionFrameMaxMs: number;
+  visibleEdgeMaxUploads: number;
+  visibleCoverageReserveBytes: number;
+  activeIslandReserveBytes: number;
+  refinementMaxBytes: number;
+  prefetchMaxBytes: number;
+};
+```
+
+Offscreen prefetch and LOD refinement must never consume budget needed to
+restore current visible-edge coverage.
+
 ### Native Islands And Hit Testing
 
 Hit testing should use current motion geometry, not the lagging texture frame.
+
+Pending-strip hit testing policy:
+
+- Exact or fallback visible rows use normal hit testing and activation.
+- Pending known row geometry allows hover and scroll; activation is allowed
+  only when source metadata is ready.
+- Unknown pending content allows no control activation; wheel and scroll
+  interaction remains enabled everywhere inside the retained surface.
 
 Native island attach/detach should be transactional around content identity:
 
 - Scroll-only motion updates reposition active islands immediately.
 - Focus activation attaches from current motion geometry.
+- If an active island scrolls partially or fully out of the retained surface
+  clip, the island remains logically active while its visible rect is clipped or
+  parked according to current motion. This must not force passive source remount
+  and must not block surrounding section scroll.
 - Blur/detach waits only if revealing passive content would expose stale or
   missing content for the active row.
+- On blur/detach, do not reveal the passive row texture until the passive page
+  either reflects the committed value or the active island remains covering that
+  rect until replacement coverage is ready.
 - Passive rows should not be remounted or re-keyed just because an active island
   exists.
 
@@ -362,6 +465,10 @@ motion:
 - Snapshot readiness affects page upload, not motion publication.
 - A missing text-like snapshot blocks only the page that needs that row snapshot.
 - Existing compatible pages remain drawable until the replacement page commits.
+- If source capture remains window-based during the refactor, each committed
+  page records the content-coordinate rect that the captured pixels actually
+  represent. Draw eligibility uses that recorded mapping, not the capture
+  window.
 
 ## Step 1: Add Failing User-Visible Regression Tests
 
@@ -472,6 +579,8 @@ Introduce the new contracts in frontend GPU Flow owners:
 - `RetainedDisplayFrame`
 - `RetainedVisibleCoverageProof`
 - `RetainedPendingStrip`
+- `RetainedMotionContinuityProof`
+- `RetainedPageWorkBudget`
 
 Known current replacement targets include:
 
@@ -501,10 +610,17 @@ Implementation ordering constraint:
 Refactor retained page descriptors, cache keys, coverage, and visual generation:
 
 - Page keys use content-coordinate rects and content identity.
-- Scroll-window origin is removed from fallback compatibility.
+- `canDrawRetainedScrollFallbackPage` is the only fallback compatibility
+  predicate for scroll-only retained fallback.
+- Scroll-window origin is removed from fallback compatibility and publication
+  decisions.
+- Committed pages record the content-coordinate mapping used for upload, even
+  when the raster source is still produced from `sourceWindowCss`.
 - Coverage is computed against the current visible content rect.
 - Flat visuals are generated by applying current motion to page content rects.
 - Existing pages can cover any intersecting visible content after scroll.
+- Large scroll deltas publish motion with whatever compatible overlap exists
+  and mark only incompatible or uncovered regions as explicit pending content.
 
 Delete old compatibility predicates that require matching scroll-window origin
 for scroll-only fallback.
@@ -544,6 +660,11 @@ interaction frames must spend only bounded work per frame. If the scheduler
 cannot finish visible-edge work in one frame, display pending strips and keep
 motion publishing.
 
+Add the visible-edge emergency budget class before enabling broad refinement
+work. Visible coverage and active-island reserves are hard reservations; LOD
+refinement and offscreen prefetch may use only the budget left after those
+reservations are satisfied.
+
 ## Step 6: Reposition Native Islands From Current Motion
 
 Refactor retained native island transactions so scroll-only motion does not
@@ -551,9 +672,14 @@ block active input positioning:
 
 - active island rects are derived from current motion and stable content
   geometry,
+- hit testing uses current motion plus pending-strip readiness rules,
 - attach/detach uses content identity readiness,
+- active islands clipped by the retained surface remain logically active and do
+  not force passive remount,
 - passive texture replacement is independent from island positioning,
-- stale passive reveal is blocked only for the affected row or content rect.
+- stale passive reveal is blocked only for the affected row or content rect,
+- blur/detach keeps active coverage in place until the passive replacement page
+  reflects the committed value.
 
 ## Step 7: Delete Obsolete Atomic-Hold Paths
 
@@ -570,7 +696,10 @@ failure is gone. After the old failure is covered by user-visible tests, replace
 diagnostics around motion continuity:
 
 - visual stall duration,
-- max pending strip area,
+- overlap covered area,
+- pending area and pending area ratio,
+- max consecutive pending frames,
+- continuity proof reason,
 - exact/fallback/pending visible coverage ratios,
 - visible-edge queue depth,
 - motion frame publication cadence.
@@ -660,6 +789,13 @@ Final success criteria:
   tasks over `50ms`.
 - Missing newly exposed content is limited to explicit pending strips.
 - Existing visible content keeps moving during scroll.
+- Large scroll deltas with little or no compatible overlap publish motion with
+  explicit pending treatment and a `large-delta-no-overlap` continuity reason,
+  not a previous-frame hold.
+- Pending diagnostics report overlap covered area, pending area ratio, max
+  consecutive pending frames, and continuity reason.
+- LOD refinement and offscreen prefetch never consume budget needed to restore
+  visible-edge coverage.
 - Focused inputs do not degrade retained section scroll continuity.
 - High zoom increases pending/refinement work but does not freeze motion.
 
