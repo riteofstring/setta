@@ -25,6 +25,23 @@ Observed behavior from the recording:
 
 The issue is not just missing budget caps. The retained runtime still lets input state, hover state, and committed content state share too much machinery.
 
+## Already Done And Still Coupled
+Recent retained GPU Flow work made real progress and should not be re-solved in this refactor:
+
+- viewport pan/zoom now has a runtime path, and the current recording shows that path is cheap;
+- retained text-like controls use row-owned snapshots instead of the old whole-section passive preview path;
+- retained texture pages have last-known-good and stale/lower-resolution coverage behavior that reduced earlier blanking and upload churn;
+- retained settings E2E coverage now checks pan/zoom, section scroll, CodeMirror activation/scroll, switch visuals, and nonblank retained content.
+
+The remaining architectural coupling is narrower and must be removed rather than wrapped:
+
+- runtime scroll offsets are still applied back into retained scenes during frame sampling;
+- hover targets still mutate retained row scene state and draw commands;
+- active input, overlay feedback, committed content identity, and snapshot maintenance still share too much frame-time machinery;
+- retained composition still scales with visible page count enough to affect input windows even when upload/raster work is absent.
+
+A new runtime module is not progress if active input still calls scene rewrite helpers, changes retained surface identity, or dirties retained content to show scroll or hover feedback. The milestone is accepted only when runtime state is sampled by the composer without rewriting retained scenes.
+
 ## Ideas To Borrow From Example Repos
 Use these as architectural input, not as code to copy.
 
@@ -167,6 +184,13 @@ If a machine or browser is capped below 120Hz, first measure a control gesture s
 
 If 120fps-class cadence proves impossible even after the compositor refactor, document the bottleneck with Chrome traces and set the next explicit target in the same range, such as p95 `<= 11.1ms` for 90fps-class interaction, but only after the observed-behavior tests demonstrate that retained presence no longer materially worsens pan, zoom, or section scroll cadence.
 
+Separate acceptance into two performance lanes:
+
+- **CI behavior gate:** measure a control gesture in the same browser run, record the detected cadence cap, and assert no dropped frames or retained-specific slowdown relative to that cap. CI may use tolerant max-frame and long-task ceilings only when the report documents harness/browser scheduling noise.
+- **Local performance gate:** record local/performance Chrome results on a 120Hz-capable environment and meet the 120fps-class targets above, or document a trace-backed adjusted target in the same performance range.
+
+Each perf report must state which lane each result belongs to. A CI pass on a capped or noisy browser does not replace the local performance gate.
+
 ## Regression Guardrails
 This refactor is only acceptable if regression prevention is built into the workflow, not inferred from internal diagnostics.
 
@@ -186,6 +210,21 @@ Required gates:
    - Pan, zoom, retained-hover zoom, retained section scroll, and scroll-then-zoom must each meet the cadence target or have a documented trace-backed target adjustment.
 
 A clean result from logs, frame diagnostics, or targeted smoke tests is supporting evidence only. It does not replace the observed-behavior tests plus the full related suite.
+
+Implementation counters such as retained page count, draw quad count, bind count, upload count, target descriptor count, or scheduler queue length are profiling evidence only. They belong in perf reports and Chrome traces, not Playwright pass/fail assertions.
+
+## Hard Deletion Checks
+Before accepting the refactor, production active-frame paths must no longer depend on the old scene-rewrite helpers. Use text search as a backstop after the implementation:
+
+```sh
+rg "applyGpuRetainedContentRuntimeStateToScene|applyGpuRetainedContentScrollOffsetToScene|applyGpuRetainedContentRowHoverTargetToScene" frontend/src/gpuFlow
+```
+
+Expected final state:
+
+- no production active input, frame sampling, or compositor path calls these helpers;
+- tests that only validate deleted scene-rewrite behavior are removed or replaced with tests for sampled runtime state and overlays;
+- any remaining symbol with one of these names is either deleted or renamed so it cannot be mistaken for an accepted compatibility path.
 
 ## Implementation Plan
 
@@ -250,7 +289,18 @@ Do not assert:
 
 Record a baseline failure in an append-only `perf/` report with exact commands, browser cadence, p50/p95/p99/max frame intervals, slow-frame ratio, long-task count/max, and visual movement/nonblank results.
 
-### 2. Define The New Owner Boundaries
+### 2. Cut The Coupled Input Path First
+The first implementation milestone is deliberately narrower than the full architecture:
+
+- add and baseline the failing observed-behavior tests;
+- remove scroll-time retained scene mutation from active input/frame sampling;
+- remove hover-time retained scene mutation from active input/frame sampling;
+- prove retained-hover zoom and retained section scroll do not change retained scene identity or retained content identity during input;
+- prove scroll, hover, DOM island alignment, and visible retained content are driven by sampled runtime state plus overlays.
+
+Do not start with scheduler abstractions, atlas work, or broad module reshaping unless those changes are required to delete the scroll/hover scene mutation path safely.
+
+### 3. Define The New Owner Boundaries
 Create narrow modules for the six owners:
 
 - retained surface registry;
@@ -262,7 +312,7 @@ Create narrow modules for the six owners:
 
 Keep the first slice structural and explicit. Do not add compatibility layers around old scene-mutation paths.
 
-### 3. Remove Scroll-Time Scene Mutation
+### 4. Remove Scroll-Time Scene Mutation
 Delete the input-frame path that applies retained scroll offsets back into retained scenes.
 
 Concrete deletion targets include the responsibilities currently represented by:
@@ -279,7 +329,7 @@ Replacement behavior:
 - DOM islands read sampled scroll state in the overlay synchronizer;
 - scheduler receives a deferred invalidation/preload signal only after active input yields.
 
-### 4. Remove Hover-Time Scene Mutation
+### 5. Remove Hover-Time Scene Mutation
 Delete retained row hover mutation as a content-scene update.
 
 Replacement behavior:
@@ -288,7 +338,7 @@ Replacement behavior:
 - hover highlight is drawn as a compositor overlay using stable row geometry plus sampled viewport/scroll state;
 - hover changes do not dirty retained row draw commands, retained page content, text-like snapshots, or surface layout identity.
 
-### 5. Introduce Stable Committed Snapshot Rendering
+### 6. Introduce Stable Committed Snapshot Rendering
 Make retained content frames consume an immutable committed snapshot set.
 
 Required behavior:
@@ -298,7 +348,7 @@ Required behavior:
 - missing high-resolution coverage draws stale/lower-resolution coverage when available;
 - blank fallback is allowed only outside visible content or before first successful coverage, with explicit readiness gating.
 
-### 6. Split Scheduler Work From Composer Work
+### 7. Split Scheduler Work From Composer Work
 Move retained page descriptor selection, upload, text-like row snapshot maintenance, and cache pruning out of active input frames.
 
 Scheduler requirements:
@@ -309,7 +359,7 @@ Scheduler requirements:
 - yields completely during active pan/zoom/retained scroll unless visible coverage is truly missing and no stale coverage exists;
 - publishes atomic snapshot updates to the committed store.
 
-### 7. Batch Retained Page Composition
+### 8. Batch Retained Page Composition
 Reduce per-page bind/draw overhead so retained sections scale like a canvas compositor.
 
 Preferred direction:
@@ -321,7 +371,9 @@ Preferred direction:
 
 This is part of the principled fix. The recording shows bad windows even without upload/raster, which means composition overhead itself matters.
 
-### 8. Rework Overlay And Hit Synchronization
+Batching success is judged by frame cadence and trace/perf evidence. Do not turn page counts, draw quad counts, bind counts, or target descriptor counts into E2E assertions.
+
+### 9. Rework Overlay And Hit Synchronization
 Derive DOM islands and hit targets from stable geometry plus sampled runtime state.
 
 Required behavior:
@@ -332,7 +384,7 @@ Required behavior:
 - pointer hover updates do not force scene regeneration;
 - overlay transforms are applied from the same frame sample used by the composer.
 
-### 9. Delete Obsolete Paths
+### 10. Delete Obsolete Paths
 Remove old code and tests that only validate deleted behavior:
 
 - retained wheel-scroll scene rewrite paths;
@@ -343,7 +395,7 @@ Remove old code and tests that only validate deleted behavior:
 
 Do not keep old and new retained runtimes side by side.
 
-### 10. Verify And Profile
+### 11. Verify And Profile
 Run the new failing tests until they pass.
 
 Run the full retained/GPU-flow Playwright suite, not a hand-picked subset:
