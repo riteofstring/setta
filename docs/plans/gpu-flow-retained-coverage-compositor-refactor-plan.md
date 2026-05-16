@@ -105,6 +105,35 @@ No backward-compatibility layer, dual implementation, migration shim, old-field
 alias, or transitional adapter is required. Replace the old page-key display
 publication model directly.
 
+## Publication Exit Checks
+
+The refactor is not complete until the old display-publication boundary is gone.
+These checks are intentionally concrete so review cannot stop at adding another
+helper under the existing page loop:
+
+- `RetainedContentTexturePageManager.prepareFrame()` no longer returns
+  `targetDescriptors` as the display publication primitive.
+- `resolveRetainedTexturePageCoverage()` is not called from the render-frame
+  display publication path.
+- `queryVisibleCoverage()` is not called once per retained page descriptor.
+- Page descriptor creation runs only inside raster/upload scheduling derived
+  from replacement requests, not before display planning.
+- Display frame composition consumes `RetainedVisibleCoveragePlan` draw regions
+  and true holes, not retained page descriptors or page-key coverage results.
+
+## Post-Refactor Ownership Boundary
+
+- The display planner owns `RetainedVisibleCoveragePlan`, visible draw regions,
+  true holes, replacement requests, native-island publications, and bounded
+  coverage diagnostics.
+- The raster scheduler owns page descriptors, tiling, raster priority, upload
+  ordering, and cancellation after replacement requests exist.
+- The texture cache owns committed texture resources, resource lifetimes,
+  memory accounting, and texture handle lookup.
+- The display frame consumes draw regions and texture handles. It must not
+  reinterpret page descriptors, page keys, or target descriptor counts as
+  display coverage truth.
+
 ## Non-Goals
 
 - Do not tune budgets as the primary fix.
@@ -123,6 +152,11 @@ Regression prevention is a first-class requirement for this refactor.
 - The first tests must be realistic observed-behavior tests that fail against
   the current issue. They must drive production UI paths and assert frame
   cadence, long-task absence, and visual continuity.
+- The failing-first baseline must reproduce this performance failure class:
+  interaction-window long tasks, high retained frame duration, and frame gaps in
+  the same class as the latest Chrome recording while raster and upload work are
+  not the bottleneck. Target descriptor and rejected coverage counts may be
+  attached as diagnostics only.
 - Implementation-detail tests are allowed only as secondary coverage for pure
   coverage-store, planner, and scheduler contracts. They are not sufficient to
   prove the refactor correct.
@@ -315,6 +349,10 @@ The index should support:
 - protect visible committed regions;
 - evict by memory budget without evicting the only visible compatible coverage.
 
+Adding an owner-scoped index under the existing per-page display loop is not
+sufficient. The spatial store is only complete when the display planner queries
+it in batches by visible owner/region group and emits draw regions directly.
+
 ### 4. Motion-First Display Pipeline
 
 Split the current frame pipeline into three phases:
@@ -394,6 +432,10 @@ Verbose mode may include expanded rejected rectangles, but normal Chrome
 recordings must not allocate tens of thousands of rejected rect objects per
 frame.
 
+`sampledRejectedCoverage` must be capped in normal frames. The default cap
+should be small, such as 20 samples per frame, with full rejected-rectangle
+expansion available only through an explicit verbose diagnostic mode.
+
 ## Implementation Plan
 
 ### 1. Add Failing Observed-Behavior Tests
@@ -406,6 +448,16 @@ Also add a small measurement utility if needed:
 - record active interaction start/end;
 - collect RAF intervals, long tasks, and optional screenshot samples;
 - export diagnostics on failure.
+
+The baseline report must show that the failing test reproduces the same shape as
+the latest recording:
+
+- no input backlog and cheap viewport runtime handling;
+- app-caused long task over 50 ms during the interaction window;
+- p99 or worst RAF interval showing a multi-frame stall;
+- high retained frame duration while raster and upload time are near zero;
+- high target descriptor count and rejected coverage count recorded only as
+  explanatory diagnostics.
 
 Do not change compositor behavior in this step.
 
@@ -479,6 +531,12 @@ Add tests that compare output to realistic visible-region fixtures. These tests
 can inspect data contracts because they are planner unit tests, but they should
 not replace the observed-behavior E2E tests.
 
+Before replacing display publication, record a mid-refactor benchmark result
+showing the new planner shape no longer scales with
+`target page count * committed page count`. This checkpoint may still fail the
+end-to-end user-facing performance target, but it must prove the core coverage
+planning cost has moved to visible regions plus local candidate count.
+
 ### 6. Replace Display Publication
 
 Update GPU Flow frame rendering so display publication consumes the new
@@ -494,6 +552,17 @@ The render path should:
   visible target;
 - avoid per-frame generation of large desired page descriptor arrays during
   active interaction.
+
+Required code-shape result:
+
+- the display frame receives `drawRegions`, `trueHoles`, native island
+  publications, and replacement requests from the planner;
+- retained page descriptors are created only after replacement requests reach
+  raster/upload scheduling;
+- page keys are texture/resource identifiers only, not display coverage
+  identities;
+- expanded rejected coverage arrays are absent from normal render-frame
+  diagnostics.
 
 Do not keep an adapter around the old retained page frame as a compatibility
 layer.
@@ -588,6 +657,12 @@ report with reason, owner, and follow-up path.
 - No 200 ms-class frame gaps during All Settings zoom/pan.
 - Display publication no longer loops through hundreds of page descriptors and
   scans committed regions for each descriptor.
+- `RetainedContentTexturePageManager.prepareFrame()` does not publish
+  `targetDescriptors` as display state.
+- `resolveRetainedTexturePageCoverage()` is not in the render-frame publication
+  path.
+- Page descriptors are produced only for raster/upload work derived from
+  replacement requests.
 - Normal Chrome recordings do not contain tens of thousands of rejected retained
   rect diagnostics for one frame.
 - Visible content remains continuous while zooming and panning.
