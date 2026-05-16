@@ -32,6 +32,124 @@ describe("RetainedContentTexturePageManager", () => {
     ).toBe(3);
   });
 
+  it("uses large production retained pages for common visible settings surfaces", () => {
+    const fixture = createManagerFixture();
+    const surface = createFrameSurface({
+      contentBoundsCss: { height: 520, width: 680, x: 0, y: 0 },
+      layout: {
+        height: 520,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 520, width: 680, x: 0, y: 0 },
+        width: 680,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 520, width: 680, x: 0, y: 0 },
+      visibleSourceRectCss: { height: 520, width: 680, x: 0, y: 0 },
+    });
+
+    const firstPreparedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 2,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const firstMaintenance = fixture.manager.runPostSubmitMaintenance({
+      preparedFrame: firstPreparedFrame,
+    });
+    const secondPreparedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 2,
+      frame: 2,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+
+    expect(firstPreparedFrame.targetDescriptors).toHaveLength(1);
+    expect(firstMaintenance.uploadCount).toBe(1);
+    expect(secondPreparedFrame.drawQuadCount).toBe(1);
+    expect(secondPreparedFrame.flatSurfaces).toHaveLength(1);
+  });
+
+  it("packs retained pages into shared atlas textures for batched composition", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+      maxTextureDimension2D: 204,
+    });
+    const surface = createFrameSurface({
+      contentBoundsCss: { height: 100, width: 200, x: 0, y: 0 },
+      layout: {
+        height: 100,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 100, width: 200, x: 0, y: 0 },
+        width: 200,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 100, width: 200, x: 0, y: 0 },
+      visibleSourceRectCss: { height: 100, width: 200, x: 0, y: 0 },
+    });
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const preparedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+
+    expect(fixture.textures).toHaveLength(1);
+    expect(preparedFrame.drawQuadCount).toBe(2);
+    expect(preparedFrame.flatSurfaces).toHaveLength(2);
+    expect(
+      new Set(
+        preparedFrame.flatSurfaces.map(
+          (surfaceVisual) => surfaceVisual.texture.texture,
+        ),
+      ).size,
+    ).toBe(1);
+    expect(
+      new Set(
+        preparedFrame.flatSurfaces.map(
+          (surfaceVisual) => surfaceVisual.texture.textureContentKey,
+        ),
+      ).size,
+    ).toBe(1);
+    expect(
+      preparedFrame.flatSurfaces.map(
+        (surfaceVisual) => surfaceVisual.textureCoordinates,
+      ),
+    ).toEqual([
+      {
+        u0: 1 / 204,
+        u1: 101 / 204,
+        v0: 1 / 204,
+        v1: 101 / 204,
+      },
+      {
+        u0: 103 / 204,
+        u1: 203 / 204,
+        v0: 1 / 204,
+        v1: 101 / 204,
+      },
+    ]);
+  });
+
   it("uploads visible pages within the configured upload budget", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -495,6 +613,48 @@ describe("RetainedContentTexturePageManager", () => {
     expect(nextPreparedFrame.missingPageCount).toBe(0);
   });
 
+  it("increments drawable revision when committed retained pages change", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface();
+
+    expect(fixture.manager.getDrawableRevision()).toBe(0);
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    expect(fixture.manager.getDrawableRevision()).toBe(1);
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    expect(fixture.manager.getDrawableRevision()).toBe(1);
+
+    fixture.manager.markSurfaceContentDirty({
+      frame: 3,
+      sourceRect: { height: 20, width: 20, x: 0, y: 0 },
+      surfaceId: "surface-a",
+    });
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    expect(fixture.manager.getDrawableRevision()).toBe(2);
+  });
+
   it("uploads current row-owned text-like snapshots into retained content pages", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -658,10 +818,12 @@ function renderFrame(
 
 function createManagerFixture({
   budget,
-  maxPagePixelSize = 100,
+  maxTextureDimension2D,
+  maxPagePixelSize,
   onSubmittedWorkDone,
 }: {
   readonly budget?: Partial<RetainedTextureUploadSchedulerBudget> | undefined;
+  readonly maxTextureDimension2D?: number | undefined;
   readonly maxPagePixelSize?: number | undefined;
   readonly onSubmittedWorkDone?: (() => Promise<void>) | undefined;
 } = {}) {
@@ -687,6 +849,9 @@ function createManagerFixture({
       return texture;
     }),
     queue,
+    ...(maxTextureDimension2D === undefined
+      ? {}
+      : { limits: { maxTextureDimension2D } }),
   } as unknown as GPUDevice;
   const scratchCanvas = createScratchCanvas();
   const ownerDocument = {

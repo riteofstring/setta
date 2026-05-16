@@ -1,5 +1,7 @@
+import { getGpuRetainedContentSampledScrollOffset } from "./retainedContentRuntimeSampling";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
+import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { GpuContentSurface } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -21,6 +23,7 @@ type GpuRetainedContentTextureWindow = {
 };
 
 type GpuRetainedContentSourceSurfaceOptions = {
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
 
@@ -93,7 +96,7 @@ export function getGpuRetainedContentSourceSurfaces(
   void options.viewportZoomBucket;
   return (surfaces ?? [])
     .filter(isGpuRetainedContentSurface)
-    .map(clipGpuRetainedContentSourceSurface)
+    .map((surface) => clipGpuRetainedContentSourceSurface(surface, options))
     .filter((surface): surface is GpuRetainedContentSourceSurface =>
       Boolean(surface),
     );
@@ -101,6 +104,7 @@ export function getGpuRetainedContentSourceSurfaces(
 
 export function clipGpuRetainedContentSourceSurface(
   surface: GpuRetainedContentSurface,
+  options: GpuRetainedContentSourceSurfaceOptions = {},
 ): GpuRetainedContentSourceSurface | null {
   const rect = intersectGpuRetainedContentRects(surface.rect, surface.clipRect);
   if (rect.width <= 0 || rect.height <= 0) {
@@ -121,6 +125,10 @@ export function clipGpuRetainedContentSourceSurface(
     textureWindow: resolveGpuRetainedContentTextureWindow({
       rect,
       scene: surface.retainedScene,
+      scrollOffset: getGpuRetainedContentSampledScrollOffset({
+        scrollOffsets: options.scrollOffsets,
+        surface,
+      }),
       sourceClipOffset,
     }),
   };
@@ -140,10 +148,12 @@ function isGpuRetainedContentSurface(
 function resolveGpuRetainedContentTextureWindow({
   rect,
   scene,
+  scrollOffset,
   sourceClipOffset,
 }: {
   readonly rect: GpuRect;
   readonly scene: GpuRetainedContentScene;
+  readonly scrollOffset: GpuPoint;
   readonly sourceClipOffset: GpuPoint;
 }): GpuRetainedContentTextureWindow {
   const viewportHeight = Math.max(1, scene.viewportRect.height);
@@ -154,11 +164,7 @@ function resolveGpuRetainedContentTextureWindow({
     viewportHeight,
   });
   const maxScrollY = Math.max(0, contentHeight - viewportHeight);
-  const scrollY = clampGpuRetainedContentNumber(
-    scene.scrollOffset.y,
-    0,
-    maxScrollY,
-  );
+  const scrollY = clampGpuRetainedContentNumber(scrollOffset.y, 0, maxScrollY);
   const maxCacheTop = Math.max(0, contentHeight - cacheHeight);
   const cacheStride = Math.max(1, cacheHeight - viewportHeight);
   const cacheTop = clampGpuRetainedContentNumber(
@@ -187,7 +193,7 @@ function resolveGpuRetainedContentTextureWindow({
   );
   return {
     cacheScrollOffset: {
-      x: scene.scrollOffset.x,
+      x: scrollOffset.x,
       y: cacheTop,
     },
     cacheViewportRect: {

@@ -107,10 +107,34 @@ export class HtmlSurfaceFlatPass {
     pass.setPipeline(flatSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, flatSurfaceDraw.vertexBuffer);
-    flatSurfaces.forEach((surface, index) => {
-      pass.setBindGroup(1, this.getTextureBindGroup(surface));
-      pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
-    });
+    let runBindGroup: GPUBindGroup | null = null;
+    let runStart = 0;
+    for (let index = 0; index < flatSurfaces.length; index += 1) {
+      const surface = flatSurfaces[index];
+      if (!surface) {
+        continue;
+      }
+      const bindGroup = this.getTextureBindGroup(surface);
+      if (runBindGroup === null) {
+        runBindGroup = bindGroup;
+        runStart = index;
+        continue;
+      }
+      if (bindGroup === runBindGroup) {
+        continue;
+      }
+      this.drawRun({ bindGroup: runBindGroup, pass, runEnd: index, runStart });
+      runBindGroup = bindGroup;
+      runStart = index;
+    }
+    if (runBindGroup) {
+      this.drawRun({
+        bindGroup: runBindGroup,
+        pass,
+        runEnd: flatSurfaces.length,
+        runStart,
+      });
+    }
   }
 
   getPipeline(): GPURenderPipeline {
@@ -127,6 +151,30 @@ export class HtmlSurfaceFlatPass {
 
   getVertexCount(flatSurfaces: readonly HtmlSurfaceFlatVisual[]): number {
     return flatSurfaces.length * VERTICES_PER_QUAD;
+  }
+
+  private drawRun({
+    bindGroup,
+    pass,
+    runEnd,
+    runStart,
+  }: {
+    readonly bindGroup: GPUBindGroup;
+    readonly pass: GPURenderPassEncoder;
+    readonly runEnd: number;
+    readonly runStart: number;
+  }) {
+    const quadCount = runEnd - runStart;
+    if (quadCount <= 0) {
+      return;
+    }
+    pass.setBindGroup(1, bindGroup);
+    pass.draw(
+      VERTICES_PER_QUAD * quadCount,
+      1,
+      runStart * VERTICES_PER_QUAD,
+      0,
+    );
   }
 
   private ensureVertexBuffer(byteLength: number): GPUBuffer {

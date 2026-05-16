@@ -77,6 +77,13 @@ const TEST_PARAM_TYPES = [
   { impl: "DateParam", name: "canvas_date" },
   DROPZONE_TEST_PARAM_TYPE,
 ] as const;
+const SCAN_BACKED_TEST_PARAM_TYPES = [
+  ...TEST_PARAM_TYPES,
+  ...Array.from({ length: 24 }, (_, index) => ({
+    impl: "TextParam",
+    name: `canvas_extra_${index + 1}`,
+  })),
+];
 
 for (const theme of [
   { colorMode: "light", darkMode: false },
@@ -159,7 +166,7 @@ test("retained DOM islands pass scoped axe and return ownership to the canvas", 
       projectConfigId,
       sectionSizes: {
         [sectionId]: { height: 1040, width: 560 },
-        [dropzoneSectionId]: { height: 320, width: 360 },
+        [dropzoneSectionId]: { height: 760, width: 360 },
       },
     });
     await setParamEnteredValueFromFrontend(page, {
@@ -227,8 +234,15 @@ test("retained hit testing stays scan-backed under realistic retained interactio
   try {
     await setCallable(page, projectConfigId, sectionId);
     const paramIds = await createAdoptionTestParams(page, {
+      paramTypes: SCAN_BACKED_TEST_PARAM_TYPES,
       projectConfigId,
       sectionId,
+    });
+    await setSectionSizesFromFrontend(page, {
+      projectConfigId,
+      sectionSizes: {
+        [sectionId]: { height: 820, width: 560 },
+      },
     });
 
     await performCanvasPanAndZoom(page);
@@ -525,23 +539,101 @@ async function activateRetainedRowControl(
   page: Page,
   rowLabelOrId: string,
 ): Promise<RetainedRowTarget> {
-  const target = await resolveRetainedRowTarget(page, rowLabelOrId);
-  const viewport = page.viewportSize();
+  const target = await bringRetainedRowControlIntoViewport(
+    page,
+    rowLabelOrId,
+  );
+  await page.mouse.click(target.clientPoint.x, target.clientPoint.y);
+  return target;
+}
+
+async function bringRetainedRowControlIntoViewport(
+  page: Page,
+  rowLabelOrId: string,
+): Promise<RetainedRowTarget> {
+  let target = await resolveRetainedRowTarget(page, rowLabelOrId);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const paneBounds = await getGpuPaneBounds(page);
+    if (
+      isRetainedRowTargetInBounds(target, paneBounds) &&
+      (await isRetainedRowTargetExposed(page, target))
+    ) {
+      return target;
+    }
+    const anchorPoint = await getEmptyPanePoint(page);
+    await translateViewportBy(page, {
+      x: anchorPoint.x - target.clientPoint.x,
+      y: anchorPoint.y - target.clientPoint.y,
+    });
+    target = await resolveRetainedRowTarget(page, rowLabelOrId);
+  }
+  const paneBounds = await getGpuPaneBounds(page);
   if (
-    !viewport ||
-    target.clientPoint.x < 0 ||
-    target.clientPoint.x > viewport.width ||
-    target.clientPoint.y < 0 ||
-    target.clientPoint.y > viewport.height
+    !isRetainedRowTargetInBounds(target, paneBounds) ||
+    !(await isRetainedRowTargetExposed(page, target))
   ) {
     throw new Error(
-      `Retained row ${rowLabelOrId} control point is outside viewport: ${Math.round(
+      `Retained row ${rowLabelOrId} control point is outside exposed GPU pane: ${Math.round(
         target.clientPoint.x,
       )},${Math.round(target.clientPoint.y)}`,
     );
   }
-  await page.mouse.click(target.clientPoint.x, target.clientPoint.y);
   return target;
+}
+
+async function getGpuPaneBounds(page: Page): Promise<{
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}> {
+  const bounds = await page.locator(GPU_PANE_SELECTOR).first().boundingBox();
+  if (!bounds) {
+    throw new Error("Missing GPU pane bounds.");
+  }
+  return bounds;
+}
+
+function isRetainedRowTargetInBounds(
+  target: RetainedRowTarget,
+  bounds: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  },
+): boolean {
+  return (
+    target.clientPoint.x >= bounds.x &&
+    target.clientPoint.x <= bounds.x + bounds.width &&
+    target.clientPoint.y >= bounds.y &&
+    target.clientPoint.y <= bounds.y + bounds.height
+  );
+}
+
+async function isRetainedRowTargetExposed(
+  page: Page,
+  target: RetainedRowTarget,
+): Promise<boolean> {
+  return await page.evaluate((point) => {
+    const element = document.elementFromPoint(point.x, point.y);
+    return Boolean(element?.closest(".setta-gpu-flow"));
+  }, target.clientPoint);
+}
+
+async function translateViewportBy(
+  page: Page,
+  delta: { readonly x: number; readonly y: number },
+): Promise<void> {
+  await page.evaluate(async (delta) => {
+    const [{ panGpuViewport }, { gpuFlowViewportStore }] = await Promise.all([
+      import("/src/gpuFlow/viewportActions.ts"),
+      import("/src/gpuFlow/viewportStore.ts"),
+    ]);
+    panGpuViewport(delta, { store: gpuFlowViewportStore });
+  }, delta);
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 async function resolveRetainedRowTarget(
@@ -559,6 +651,20 @@ async function resolveRetainedRowTarget(
     }
     if (!row.controlClientPoint) {
       throw new Error(`Missing retained control hit for ${rowLabelOrId}.`);
+    }
+    const visibleInCanvas =
+      row.canvasSamplePoint.x >= 0 &&
+      row.canvasSamplePoint.y >= 0 &&
+      row.canvasSamplePoint.x < row.canvasCssSize.width &&
+      row.canvasSamplePoint.y < row.canvasCssSize.height;
+    if (!visibleInCanvas) {
+      throw new Error(
+        `Retained row ${rowLabelOrId} is outside its canvas clip: sample ${Math.round(
+          row.canvasSamplePoint.x,
+        )},${Math.round(row.canvasSamplePoint.y)} size ${Math.round(
+          row.canvasCssSize.width,
+        )}x${Math.round(row.canvasCssSize.height)}.`,
+      );
     }
     return {
       clientPoint: row.controlClientPoint,
@@ -610,6 +716,13 @@ async function waitForGpuTextureUploadQuiet(page: Page): Promise<void> {
     .toBe(true);
 }
 
+async function waitForAnimationFrame(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
+}
+
 async function openCommandPaletteCombobox(page: Page): Promise<Locator> {
   const shortcut =
     process.platform === "darwin" ? "Meta+Shift+P" : "Control+Shift+P";
@@ -632,9 +745,14 @@ async function performCanvasPan(page: Page): Promise<void> {
   const start = await getEmptyPanePoint(page);
   const before = await readGpuViewportTransform(page);
   await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(start.x + 90, start.y + 64, { steps: 8 });
-  await page.mouse.up();
+  await page.keyboard.down("Space");
+  try {
+    await page.mouse.down();
+    await page.mouse.move(start.x + 90, start.y + 64, { steps: 8 });
+    await page.mouse.up();
+  } finally {
+    await page.keyboard.up("Space");
+  }
   await expect.poll(() => readGpuViewportTransform(page)).not.toEqual(before);
 }
 
@@ -885,7 +1003,7 @@ async function expectFloatingBoxInsideViewport(
 }
 
 async function useRetainedSlider(page: Page, rowLabel: string): Promise<void> {
-  const target = await resolveRetainedRowTarget(page, rowLabel);
+  const target = await bringRetainedRowControlIntoViewport(page, rowLabel);
   await page.mouse.move(target.clientPoint.x, target.clientPoint.y);
   await page.mouse.down();
   await page.mouse.move(target.clientPoint.x + 90, target.clientPoint.y, {
@@ -907,13 +1025,16 @@ async function scrollRetainedParameterSurface(
   page: Page,
   rowLabel: string,
 ): Promise<void> {
-  const target = await resolveRetainedRowTarget(page, rowLabel);
+  const target = await bringRetainedRowControlIntoViewport(page, rowLabel);
   await page.mouse.move(target.clientPoint.x, target.clientPoint.y);
   const before = await readRetainedRowClientY(page, target.rowId);
   await page.mouse.wheel(0, 240);
   await expect
     .poll(() => readRetainedRowClientY(page, target.rowId))
     .not.toBe(before);
+  await page.mouse.wheel(0, -240);
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 async function dragRetainedParam(

@@ -2,14 +2,14 @@ import type { MutableRefObject } from "react";
 
 import { getGpuRetainedContentScrollbarVisuals } from "../GpuRetainedContentScrollbarVisuals";
 import {
-  applyGpuRetainedContentRuntimeStateToScene,
-  type GpuRetainedContentRuntimeState,
-} from "../retainedContentRuntimeState";
-import {
-  applyGpuRetainedContentRowHoverTargetToScene,
   getGpuRetainedContentRowHoverStateVisuals,
   getGpuRetainedContentRowHoverVisuals,
 } from "../retainedContentRowHover";
+import {
+  getGpuRetainedContentRuntimeScrollOffsets,
+  syncGpuRetainedContentRuntimeStateForScene,
+  type GpuRetainedContentRuntimeState,
+} from "../retainedContentRuntimeState";
 import type { GpuFlowScene } from "../scene";
 import {
   mergeGpuFlowRetainedContentSurfaceLayouts,
@@ -36,22 +36,18 @@ export function sampleGpuFlowRetainedContentRuntimeScene<
   readonly scene: GpuFlowScene | undefined;
 } {
   const previousScene = nodeLayerRef.current.scene;
-  const runtimeScene = applyGpuRetainedContentRuntimeStateToScene({
+  const changed = syncGpuRetainedContentRuntimeStateForScene({
     scene: previousScene,
     state: retainedContentRuntimeState,
   });
-  const hoverTarget = nodeLayerRef.current.retainedContentRowHoverTarget ?? null;
-  const hoverUpdate = runtimeScene
-    ? applyGpuRetainedContentRowHoverTargetToScene({
-        scene: runtimeScene,
-        target: hoverTarget,
-      })
-    : null;
-  const nextScene = hoverUpdate?.scene ?? runtimeScene;
-  if (nextScene === previousScene) {
+  const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
+    retainedContentRuntimeState,
+  );
+  const nextScene = previousScene;
+  if (!changed) {
     return { changed: false, scene: nextScene };
   }
-  nodeLayerRef.current = {
+  const nextLayerState = {
     ...nodeLayerRef.current,
     edgeLabelSurfaces: nextScene
       ? mergeGpuFlowRetainedContentSurfaceLayouts({
@@ -59,8 +55,12 @@ export function sampleGpuFlowRetainedContentRuntimeScene<
           scene: nextScene,
         })
       : nodeLayerRef.current.edgeLabelSurfaces,
-    htmlSurfaceNativeVisuals: getNativeVisuals(nextScene, nodeLayerRef.current),
+    retainedContentRuntimeScrollOffsets: scrollOffsets,
     scene: nextScene,
+  };
+  nodeLayerRef.current = {
+    ...nextLayerState,
+    htmlSurfaceNativeVisuals: getNativeVisuals(nextScene, nextLayerState),
   };
   return { changed: true, scene: nextScene };
 }
@@ -70,15 +70,24 @@ function getDefaultGpuFlowRetainedContentNativeVisuals(
   layerState: GpuFlowRetainedContentNodeLayerState,
 ): GpuFlowRetainedContentNodeLayerState["htmlSurfaceNativeVisuals"] {
   const rowHoverTarget = layerState.retainedContentRowHoverTarget ?? null;
+  const scrollOffsets =
+    layerState.retainedContentRuntimeScrollOffsets ?? new Map();
   return scene
     ? [
-        ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces),
+        ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces, {
+          scrollOffsets,
+          visualState: layerState.retainedContentScrollbarVisualState,
+        }),
         ...(rowHoverTarget
           ? getGpuRetainedContentRowHoverVisuals({
               scene,
+              scrollOffsets,
               target: rowHoverTarget,
             })
-          : getGpuRetainedContentRowHoverStateVisuals({ scene })),
+          : getGpuRetainedContentRowHoverStateVisuals({
+              scene,
+              scrollOffsets,
+            })),
       ]
     : undefined;
 }

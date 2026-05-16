@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
@@ -278,7 +279,7 @@ function RetainedContentInteractionHarness({
   });
   nodeLayerRef.current.scene = retainedContentScene(revision);
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
-  const surfaceRef = useRef({
+  const surfaceRef = useRef<GpuSurfaceHandle | null>({
     getRuntime: () => null,
     requestFrame: vi.fn(),
     requestPaint: vi.fn(),
@@ -367,10 +368,12 @@ function RetainedContentScrollHarness({
     },
     markSurfacesPainted: vi.fn(),
   });
-  const surfaceRef = useRef({
+  const surfaceRef = useRef<GpuSurfaceHandle | null>({
     getRuntime: () => null,
-    requestFrame: (reason: string) => {
-      onRequestFrame?.(reason);
+    requestFrame: (reason) => {
+      if (reason) {
+        onRequestFrame?.(reason);
+      }
     },
     requestPaint: () => {
       markHtmlSurfaceFramePaintDirty({
@@ -491,10 +494,12 @@ function RetainedContentHoverHarness({
     },
     markSurfacesPainted: vi.fn(),
   });
-  const surfaceRef = useRef({
+  const surfaceRef = useRef<GpuSurfaceHandle | null>({
     getRuntime: () => null,
-    requestFrame: (reason: string) => {
-      onRequestFrame?.(reason);
+    requestFrame: (reason) => {
+      if (reason) {
+        onRequestFrame?.(reason);
+      }
     },
     requestPaint: () => {
       onRequestPaint?.();

@@ -8,6 +8,14 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
+import {
+  createGpuRetainedContentSampledSceneForSurface,
+  isGpuRetainedContentSurfaceWithScene,
+} from "../retainedContentRuntimeSampling";
+import {
+  getGpuRetainedContentRuntimeScrollOffsets,
+  type GpuRetainedContentRuntimeState,
+} from "../retainedContentRuntimeState";
 import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
@@ -37,7 +45,9 @@ type GpuFlowSurfaceClipBounds = {
 
 type GpuFlowDebugNodeLayer = {
   readonly scene: GpuFlowScene | undefined;
+  readonly viewport?: GpuViewportInput | undefined;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
+  readonly visualSceneViewport?: GpuViewportInput | undefined;
 };
 
 export function useGpuFlowDebugGlobals<
@@ -49,6 +59,7 @@ export function useGpuFlowDebugGlobals<
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
+  retainedContentRuntimeState,
   viewportStore,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
@@ -57,6 +68,7 @@ export function useGpuFlowDebugGlobals<
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<TNodeLayer>;
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
   useEffect(() => {
@@ -81,13 +93,17 @@ export function useGpuFlowDebugGlobals<
     const getRetainedRows = () =>
       createGpuFlowRetainedRowsDebugSnapshot({
         container: containerRef.current,
+        retainedContentRuntimeState,
         scene: nodeLayerRef.current.scene,
         viewport: getLiveViewport(),
       });
     const getVisualSurfaces = () =>
       createGpuFlowVisualSurfacesDebugSnapshot({
         container: containerRef.current,
-        viewport: getLiveViewport(),
+        viewport:
+          nodeLayerRef.current.visualSceneViewport ??
+          nodeLayerRef.current.viewport ??
+          getLiveViewport(),
         visualScene: nodeLayerRef.current.visualScene,
       });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
@@ -113,6 +129,7 @@ export function useGpuFlowDebugGlobals<
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
+    retainedContentRuntimeState,
     viewportStore,
   ]);
 }
@@ -226,10 +243,12 @@ function toVisualSurfaceDebugEntry({
 
 export function createGpuFlowRetainedRowsDebugSnapshot({
   container,
+  retainedContentRuntimeState,
   scene,
   viewport,
 }: {
   readonly container: HTMLElement | null;
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly scene: GpuFlowScene | undefined;
   readonly viewport: GpuViewportInput;
 }): readonly GpuFlowRetainedRowDebugEntry[] {
@@ -241,28 +260,46 @@ export function createGpuFlowRetainedRowsDebugSnapshot({
     viewport,
   };
   return scene.contentSurfaces.flatMap((surface) =>
-    createGpuFlowRetainedSurfaceDebugEntries(surface, context),
+    createGpuFlowRetainedSurfaceDebugEntries({
+      context,
+      retainedContentRuntimeState,
+      surface,
+    }),
   );
 }
 
-function createGpuFlowRetainedSurfaceDebugEntries(
-  surface: GpuContentSurface,
-  context: GpuFlowRetainedRowDebugContext,
-): readonly GpuFlowRetainedRowDebugEntry[] {
+function createGpuFlowRetainedSurfaceDebugEntries({
+  context,
+  retainedContentRuntimeState,
+  surface,
+}: {
+  readonly context: GpuFlowRetainedRowDebugContext;
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly surface: GpuContentSurface;
+}): readonly GpuFlowRetainedRowDebugEntry[] {
   const retainedScene = surface.retainedScene;
-  if (!retainedScene) {
+  if (!retainedScene || !isGpuRetainedContentSurfaceWithScene(surface)) {
     return [];
   }
+  const sampledRetainedScene = createGpuRetainedContentSampledSceneForSurface({
+    scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+      retainedContentRuntimeState,
+    ),
+    surface,
+  });
   const clipBounds = getGpuFlowSurfaceClipBounds(surface);
   const sourceClipOffset = getGpuFlowSurfaceSourceClipOffset(
     surface,
     clipBounds,
   );
-  return retainedScene.rows.map((row) =>
+  return sampledRetainedScene.rows.map((row) =>
     createGpuFlowRetainedRowDebugEntry({
       clipBounds,
       context,
-      controlHit: findGpuFlowRetainedRowControlHit(surface, row.id),
+      controlHit: findGpuFlowRetainedRowControlHit(
+        sampledRetainedScene.hitRecords,
+        row.id,
+      ),
       row,
       sourceClipOffset,
       surface,
@@ -374,15 +411,11 @@ function createGpuFlowRetainedRowDebugEntry({
 }
 
 function findGpuFlowRetainedRowControlHit(
-  surface: GpuContentSurface,
+  hitRecords: readonly GpuRetainedContentHitRecord[],
   rowId: string,
 ): GpuRetainedContentHitRecord | null {
-  const retainedScene = surface.retainedScene;
-  if (!retainedScene) {
-    return null;
-  }
   return (
-    retainedScene.hitRecords.find(
+    hitRecords.find(
       (hit) => hit.kind === "control" && hit.ownerRowId === rowId,
     ) ?? null
   );

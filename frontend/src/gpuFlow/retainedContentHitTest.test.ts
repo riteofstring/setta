@@ -215,6 +215,42 @@ describe("retained content hit testing", () => {
       }),
     ]);
   });
+
+  it("uses row geometry to limit retained hit record checks", () => {
+    const recordHitTest = vi.fn();
+    vi.stubGlobal("window", {
+      __SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS__: { recordHitTest },
+    });
+    const surface = retainedSurface({
+      id: "params",
+      rect: { height: 112, width: 160, x: 0, y: 0 },
+    });
+    const scene = sceneWithSurfaces([surface]);
+    const hitRecordCount = surface.retainedScene?.hitRecords.length ?? 0;
+
+    const hit = hitTestGpuRetainedContentScene({
+      point: { x: 12, y: 14 },
+      scene,
+    });
+
+    expect(hit).toMatchObject({
+      hit: { kind: "label", ownerRowId: "param-0" },
+    });
+    expect(recordHitTest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkedHitRecordCount: expect.any(Number),
+        matched: true,
+        testedHitRecordCount: expect.any(Number),
+      }),
+    );
+    const payload = recordHitTest.mock.calls[0]?.[0];
+    expect(payload).toBeDefined();
+    if (!payload) {
+      throw new Error("Expected retained hit-test diagnostics.");
+    }
+    expect(payload.checkedHitRecordCount).toBeLessThan(hitRecordCount);
+    expect(payload.testedHitRecordCount).toBeLessThan(hitRecordCount);
+  });
 });
 
 function sceneWithSurfaces(

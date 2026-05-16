@@ -93,7 +93,9 @@ test("rapid row hover shows exactly one retained row highlight", async ({
     readonly targetLabel: string;
   }> = [];
   for (const [index, row] of rows.entries()) {
-    await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y);
+    await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y, {
+      steps: 4,
+    });
     await waitForGuiRowHoverState(page, row.rowLabel);
     await waitForAnimationFrame(page);
     await waitForAnimationFrame(page);
@@ -546,6 +548,7 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await disableMinimapIfEnabled(page);
   await page.getByRole("button", { exact: true, name: "Core" }).click();
   await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
@@ -554,6 +557,18 @@ async function openSettings(page: Page): Promise<void> {
     page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
   ).toBeVisible();
   await waitForRetainedRows(page);
+}
+
+async function disableMinimapIfEnabled(page: Page): Promise<void> {
+  const minimapToggle = page.getByRole("button", { name: "toggle minimap" });
+  if ((await minimapToggle.count()) === 0) {
+    return;
+  }
+  if ((await minimapToggle.first().getAttribute("aria-pressed")) !== "true") {
+    return;
+  }
+  await minimapToggle.first().click();
+  await waitForAnimationFrame(page);
 }
 
 async function waitForCoreSettingsView(page: Page): Promise<void> {
@@ -628,15 +643,26 @@ async function waitForGuiRowHoverState(
     .poll(
       async () =>
         await page.evaluate((surfaceId) => {
-          const hoveredRows = (
-            window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
-          )
+          const rowLabelById = new Map(
+            (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+              .filter(
+                (row): row is RetainedRowDebugEntry =>
+                  row.surfaceId === surfaceId,
+              )
+              .map((row) => [row.rowId, row.rowLabel]),
+          );
+          const hoverPrefix = `${surfaceId}:row-hover:`;
+          return (window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [])
             .filter(
-              (row): row is RetainedRowDebugEntry =>
-                row.surfaceId === surfaceId && row.rowState.hovered,
+              (surface) =>
+                surface.kind === "solid-rounded-rect" &&
+                surface.surfaceId.startsWith(hoverPrefix),
             )
-            .map((row) => row.rowLabel);
-          return hoveredRows;
+            .map((surface) =>
+              rowLabelById.get(surface.surfaceId.slice(hoverPrefix.length)),
+            )
+            .filter((label): label is string => label !== undefined)
+            .sort();
         }, GUI_CONTENT_SURFACE_ID),
       { timeout: 2_000 },
     )
@@ -795,7 +821,8 @@ async function bringVisibleGuiRowControlIntoView(
   label: string,
 ): Promise<RetainedRowDebugEntry> {
   let row = await resolveVisibleGuiRow(page, label);
-  if (!row.controlClientPoint) {
+  let controlPoint = resolveVisibleGuiRowSwitchInteractionPoint(row);
+  if (!controlPoint) {
     return row;
   }
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -804,36 +831,46 @@ async function bringVisibleGuiRowControlIntoView(
       width: window.innerWidth,
     }));
     if (
-      row.controlClientPoint.x > 96 &&
-      row.controlClientPoint.x < viewport.width - 96 &&
-      row.controlClientPoint.y > 96 &&
-      row.controlClientPoint.y < viewport.height - 96
+      controlPoint.x > 96 &&
+      controlPoint.x < viewport.width - 96 &&
+      controlPoint.y > 96 &&
+      controlPoint.y < viewport.height - 96
     ) {
       return row;
     }
-    const beforeDistance = Math.abs(
-      row.controlClientPoint.x - viewport.width / 2,
-    );
-    const primaryDx =
-      row.controlClientPoint.x > viewport.width - 96 ? -320 : 320;
-    await panViewportBy(page, primaryDx, 0);
-    let nextRow = await resolveVisibleGuiRow(page, label);
-    if (nextRow.controlClientPoint) {
-      const afterDistance = Math.abs(
-        nextRow.controlClientPoint.x - viewport.width / 2,
-      );
-      if (afterDistance <= beforeDistance) {
-        row = nextRow;
-        continue;
-      }
-    }
-    await panViewportBy(page, -primaryDx * 2, 0);
-    nextRow = await resolveVisibleGuiRow(page, label);
-    if (nextRow.controlClientPoint) {
+    await translateViewportBy(page, viewport.width / 2 - controlPoint.x, 0);
+    const nextRow = await resolveVisibleGuiRow(page, label);
+    const nextControlPoint = resolveVisibleGuiRowSwitchInteractionPoint(nextRow);
+    if (nextControlPoint) {
       row = nextRow;
+      controlPoint = nextControlPoint;
     }
   }
   return row;
+}
+
+function resolveVisibleGuiRowSwitchInteractionPoint(
+  row: RetainedRowDebugEntry,
+): Point | null {
+  return row.controlClientRect
+    ? resolveRenderedSwitchClickPoint(row.controlClientRect)
+    : row.controlClientPoint;
+}
+
+async function translateViewportBy(
+  page: Page,
+  dx: number,
+  dy: number,
+): Promise<void> {
+  await page.evaluate(async (delta) => {
+    const [{ panGpuViewport }, { gpuFlowViewportStore }] = await Promise.all([
+      import("/src/gpuFlow/viewportActions.ts"),
+      import("/src/gpuFlow/viewportStore.ts"),
+    ]);
+    panGpuViewport(delta, { store: gpuFlowViewportStore });
+  }, { x: dx, y: dy });
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 async function panViewportBy(

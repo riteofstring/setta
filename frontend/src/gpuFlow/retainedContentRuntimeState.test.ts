@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { createGpuRetainedContentSampledSceneForSurface } from "./retainedContentRuntimeSampling";
 import {
-  applyGpuRetainedContentRuntimeStateToScene,
   createGpuRetainedContentRuntimeState,
+  getGpuRetainedContentRuntimeScrollOffset,
   setGpuRetainedContentRuntimeScrollOffset,
+  syncGpuRetainedContentRuntimeStateForScene,
 } from "./retainedContentRuntimeState";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
@@ -17,16 +19,25 @@ describe("retained content runtime state", () => {
     });
 
     const refreshedScene = retainedRuntimeStateScene({ scrollY: 0 });
-    const resolvedScene = applyGpuRetainedContentRuntimeStateToScene({
+    const changed = syncGpuRetainedContentRuntimeStateForScene({
       scene: refreshedScene,
       state: runtimeState,
     });
 
-    const resolvedSurface = resolvedScene?.contentSurfaces[0];
-    const visibleRow = resolvedSurface?.retainedScene?.rows.find(
-      (row) => row.id === "row-2",
-    );
-    expect(resolvedSurface?.retainedScene?.scrollOffset).toEqual({
+    const resolvedSurface = refreshedScene.contentSurfaces[0]!;
+    const sampledScene = createGpuRetainedContentSampledSceneForSurface({
+      scrollOffsets: runtimeState.scrollOffsets,
+      surface: resolvedSurface as GpuContentSurface & {
+        readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+      },
+    });
+    const visibleRow = sampledScene.rows.find((row) => row.id === "row-2");
+    expect(changed).toBe(false);
+    expect(resolvedSurface.retainedScene?.scrollOffset).toEqual({
+      x: 0,
+      y: 0,
+    });
+    expect(sampledScene.scrollOffset).toEqual({
       x: 0,
       y: 56,
     });
@@ -41,17 +52,24 @@ describe("retained content runtime state", () => {
       surfaceId: "surface-a",
     });
 
-    applyGpuRetainedContentRuntimeStateToScene({
+    syncGpuRetainedContentRuntimeStateForScene({
       scene: retainedRuntimeStateScene({ resetKey: "section-a", scrollY: 0 }),
       state: runtimeState,
     });
-    const resolvedScene = applyGpuRetainedContentRuntimeStateToScene({
+    const resolvedScene = retainedRuntimeStateScene({
+      resetKey: "section-b",
+      scrollY: 0,
+    });
+    syncGpuRetainedContentRuntimeStateForScene({
       scene: retainedRuntimeStateScene({ resetKey: "section-b", scrollY: 0 }),
       state: runtimeState,
     });
 
     expect(
-      resolvedScene?.contentSurfaces[0]?.retainedScene?.scrollOffset,
+      getGpuRetainedContentRuntimeScrollOffset({
+        state: runtimeState,
+        surface: resolvedScene.contentSurfaces[0]!,
+      }),
     ).toEqual({
       x: 0,
       y: 0,

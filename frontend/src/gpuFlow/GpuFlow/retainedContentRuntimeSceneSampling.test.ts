@@ -11,16 +11,18 @@ import type { GpuFlowRetainedContentNodeLayerState } from "./retainedContentCont
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 
 describe("sampleGpuFlowRetainedContentRuntimeScene", () => {
-  it("re-applies retained row hover state when the scene is regenerated", () => {
+  it("keeps retained row hover as sampled native visuals when the scene is regenerated", () => {
     const target = {
       rowId: "param-0",
       surfaceId: "dict-a:param-content:unpinned",
     };
-    const nodeLayerRef = {
+    const nodeLayerRef: {
+      current: GpuFlowRetainedContentNodeLayerState;
+    } = {
       current: {
         retainedContentRowHoverTarget: target,
         scene: retainedContentScene(),
-      } satisfies GpuFlowRetainedContentNodeLayerState,
+      },
     };
 
     const result = sampleGpuFlowRetainedContentRuntimeScene({
@@ -29,7 +31,7 @@ describe("sampleGpuFlowRetainedContentRuntimeScene", () => {
     });
 
     expect(result.changed).toBe(true);
-    expect(readRowHovered(nodeLayerRef.current.scene)).toBe(true);
+    expect(readRowHovered(nodeLayerRef.current.scene)).toBe(false);
     expect(nodeLayerRef.current.htmlSurfaceNativeVisuals).toEqual([
       expect.objectContaining({
         rect: { height: 28, width: 160, x: 0, y: 0 },
@@ -49,7 +51,7 @@ describe("sampleGpuFlowRetainedContentRuntimeScene", () => {
     });
 
     expect(regeneratedResult.changed).toBe(true);
-    expect(readRowHovered(nodeLayerRef.current.scene)).toBe(true);
+    expect(readRowHovered(nodeLayerRef.current.scene)).toBe(false);
     expect(nodeLayerRef.current.htmlSurfaceNativeVisuals).toEqual([
       expect.objectContaining({
         surfaceId: "dict-a:param-content:unpinned:row-hover:param-0",
@@ -59,7 +61,9 @@ describe("sampleGpuFlowRetainedContentRuntimeScene", () => {
 });
 
 function readRowHovered(scene: GpuFlowScene | undefined): boolean {
-  return Boolean(scene?.contentSurfaces[0]?.retainedScene?.rows[0]?.state.hovered);
+  return Boolean(
+    scene?.contentSurfaces[0]?.retainedScene?.rows[0]?.state.hovered,
+  );
 }
 
 function retainedContentScene(): GpuFlowScene {

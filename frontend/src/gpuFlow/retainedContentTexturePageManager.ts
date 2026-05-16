@@ -1,14 +1,9 @@
-import type { NodeTexturePriority } from "./dirtyTracking";
 import { getHtmlSurfaceTextureUsage } from "./htmlSurfaces/textureManagerHelpers";
-import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
-import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
 import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
-import type { GpuRetainedContentScene } from "./retainedContentScene";
-import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import {
   normalizeRetainedContentTexturePageBudget,
   normalizeRetainedContentTexturePageLodScale,
@@ -22,35 +17,43 @@ import {
   shouldRefreshCommittedPage,
   shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
+import type {
+  RetainedContentTexturePageFrameSurface,
+  RetainedContentTexturePageFreshnessQuery,
+  RetainedContentTexturePageInvalidation,
+  RetainedContentTexturePageMaintenanceInput,
+  RetainedContentTexturePageMaintenanceResult,
+  RetainedContentTexturePageManagerOptions,
+  RetainedContentTexturePagePreparedFrame,
+} from "./retainedContentTexturePageManagerTypes";
 import {
   EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
   areRetainedContentTexturePageTextLikeSnapshotsReady,
   resolveRetainedContentTexturePageTextLikeSnapshots,
   uploadRetainedContentTexturePageTextLikeSnapshots,
-  type RetainedContentTexturePageTextLikeSnapshot,
 } from "./retainedContentTexturePageTextLikeSnapshots";
-import { createRetainedContentTextureResources } from "./retainedContentTextureResources";
+import {
+  RetainedContentTextureAtlasStore,
+  createRetainedContentTextureResources,
+  destroyRetainedContentTextureResources,
+  getRetainedContentTextureResourceRegion,
+  type RetainedContentTextureResources,
+} from "./retainedContentTextureResources";
 import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
   type RetainedTexturePageDrawQuad,
 } from "./retainedTexturePageGrid";
 import {
-  createRetainedTexturePageFlatVisuals,
-  type RetainedTexturePageSurfaceLayout,
-} from "./retainedTexturePageVisuals";
-import {
   RetainedTexturePageCache,
   estimatePageByteSize,
   retainedTexturePageKey,
-  type RetainedTexturePageCacheSnapshot,
   type RetainedTexturePageDescriptor,
-  type RetainedTexturePageEvictionResult,
 } from "./retainedTexturePages";
+import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
 import {
   runRetainedTextureUploadScheduler,
   type RetainedTextureUploadSchedulerBudget,
-  type RetainedTextureUploadSchedulerDiagnostic,
 } from "./retainedTextureUploadScheduler";
 import {
   RetainedTextureWorkQueue,
@@ -59,120 +62,18 @@ import {
 import { chooseStableZoomBucket } from "./textureResolution";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedContentTexturePageFrameSurface = {
-  readonly contentBoundsCss: GpuRect;
-  readonly contentSegments?: readonly RetainedContentTexturePageContentSegment[];
-  readonly contentVersion: number;
-  readonly layout: RetainedTexturePageSurfaceLayout;
-  readonly rasterScene: GpuRetainedContentScene;
-  readonly sourceWindowCss: GpuRect;
-  readonly surfaceId: string;
-  readonly textLikeSnapshots?: readonly RetainedContentTexturePageTextLikeSnapshot[];
-  readonly visibleSourceRectCss: GpuRect;
-};
-
-export type RetainedContentTexturePageContentSegment = {
-  readonly contentVersion: number;
-  readonly id: string;
-  readonly rectCss: GpuRect;
-};
-
-export type RetainedContentTexturePageFrameInput = {
-  readonly darkMode?: boolean | undefined;
-  readonly devicePixelRatio: number;
-  readonly frame: number;
-  readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
-  readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
-  readonly viewportInteractionActive?: boolean | undefined;
-  readonly viewportZoomBucket: number;
-};
-
-export type RetainedContentTexturePageFrameResult = {
-  readonly budgetExhausted: boolean;
-  readonly coverageCandidateCount: number;
-  readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
-  readonly drawQuadCount: number;
-  readonly evicted: RetainedTexturePageEvictionResult;
-  readonly fallbackDrawQuadCount: number;
-  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly memory: RetainedTexturePageCacheSnapshot;
-  readonly missingPageCount: number;
-  readonly needsFollowUpFrame: boolean;
-  readonly mergedDrawQuadCount: number;
-  readonly rasterMs: number;
-  readonly staleFallbackDrawQuadCount: number;
-  readonly targetDescriptorCount: number;
-  readonly uncoveredRectCount: number;
-  readonly uploadedBytes: number;
-  readonly uploadedDrawCommandCount: number;
-  readonly uploadCount: number;
-  readonly uploadMs: number;
-};
-
-export type RetainedContentTexturePagePreparedFrame = {
-  readonly coverageCandidateCount: number;
-  readonly drawQuadCount: number;
-  readonly drawQuads: readonly RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[];
-  readonly fallbackDrawQuadCount: number;
-  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly frame: number;
-  readonly missingPageCount: number;
-  readonly mergedDrawQuadCount: number;
-  readonly protectedPageKeys: readonly string[];
-  readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly staleFallbackDrawQuadCount: number;
-  readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly uncoveredRectCount: number;
-};
-
-export type RetainedContentTexturePageMaintenanceInput = {
-  readonly darkMode?: boolean | undefined;
-  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
-  readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
-  readonly viewportInteractionActive?: boolean | undefined;
-};
-
-export type RetainedContentTexturePageMaintenanceResult = Omit<
+export type {
+  RetainedContentTexturePageContentSegment,
+  RetainedContentTexturePageFrameInput,
   RetainedContentTexturePageFrameResult,
-  "flatSurfaces" | "missingPageCount"
-> & {
-  readonly coverageCandidateCount: number;
-  readonly drawQuadCount: number;
-  readonly executedItemCount: number;
-  readonly fallbackDrawQuadCount: number;
-  readonly mergedDrawQuadCount: number;
-  readonly missingPageCount: number;
-  readonly needsFollowUpFrame: boolean;
-  readonly postMaintenanceMissingPageCount: number;
-  readonly queuedWorkCount: number;
-  readonly queuedWorkCountBeforeUpload: number;
-  readonly remainingUploadableWorkCount: number;
-  readonly skippedItemCount: number;
-  readonly staleFallbackDrawQuadCount: number;
-  readonly targetDescriptorCount: number;
-  readonly uncoveredRectCount: number;
-};
-
-export type RetainedContentTexturePageManagerOptions = {
-  readonly budget?: Partial<RetainedTextureUploadSchedulerBudget> | undefined;
-  readonly format?: GPUTextureFormat | undefined;
-  readonly maxPagePixelSize?: number | undefined;
-  readonly scratchCanvas?: HTMLCanvasElement | undefined;
-  readonly textureUsage?: GPUTextureUsageFlags | undefined;
-};
-
-export type RetainedContentTexturePageInvalidation = {
-  readonly frame: number;
-  readonly priority?: NodeTexturePriority | undefined;
-  readonly sourceRect?: GpuRect | undefined;
-  readonly surfaceId: string;
-};
-
-export type RetainedContentTexturePageFreshnessQuery = {
-  readonly sourceRect: GpuRect;
-  readonly surfaceId: string;
-};
+  RetainedContentTexturePageFrameSurface,
+  RetainedContentTexturePageFreshnessQuery,
+  RetainedContentTexturePageInvalidation,
+  RetainedContentTexturePageMaintenanceInput,
+  RetainedContentTexturePageMaintenanceResult,
+  RetainedContentTexturePageManagerOptions,
+  RetainedContentTexturePagePreparedFrame,
+} from "./retainedContentTexturePageManagerTypes";
 
 const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxFrameRasterMs: 4,
@@ -181,15 +82,19 @@ const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxTextureMemoryBytes: 192 * 1024 * 1024,
   maxUploads: 4,
 };
+const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 2048;
+
 export class RetainedContentTexturePageManager {
   private readonly budget: RetainedTextureUploadSchedulerBudget;
-  private readonly cache: RetainedTexturePageCache<HtmlSurfaceTextureResources>;
+  private readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
   private readonly device: GPUDevice;
   private readonly format: GPUTextureFormat;
   private readonly maxPagePixelSize: number;
   private readonly scratchCanvas: HTMLCanvasElement;
+  private readonly textureAtlasStore: RetainedContentTextureAtlasStore;
   private readonly textureUsage: GPUTextureUsageFlags;
   private readonly workQueue = new RetainedTextureWorkQueue();
+  private drawableRevision = 0;
   private readonly pageContentVersions = new Map<string, number>();
   private maintenanceUploadedDrawCommandCount = 0;
   private nextPageContentVersion = 1;
@@ -212,26 +117,44 @@ export class RetainedContentTexturePageManager {
       ...options.budget,
     });
     this.cache = new RetainedTexturePageCache({
-      destroyResource: (resource) => resource.texture.destroy?.(),
+      destroyResource: destroyRetainedContentTextureResources,
     });
     this.device = device;
     this.format = options.format ?? "rgba8unorm";
-    this.maxPagePixelSize = options.maxPagePixelSize ?? 512;
+    this.maxPagePixelSize =
+      options.maxPagePixelSize ??
+      Math.min(
+        DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE,
+        device.limits?.maxTextureDimension2D ??
+          DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE,
+      );
     this.scratchCanvas =
       options.scratchCanvas ?? ownerDocument.createElement("canvas");
     this.textureUsage = options.textureUsage ?? getHtmlSurfaceTextureUsage();
+    this.textureAtlasStore = createRetainedContentTextureAtlasStore({
+      device,
+      format: this.format,
+      maxPagePixelSize: this.maxPagePixelSize,
+      textureUsage: this.textureUsage,
+    });
   }
 
   destroy() {
     this.cache.clear();
+    this.textureAtlasStore.destroy();
     this.workQueue.clear();
     this.frameSurfaceById.clear();
+    this.drawableRevision += 1;
     this.pageContentVersions.clear();
     this.nextPageContentVersion = 1;
     this.viewportZoomBucket = null;
     this.targetLodScale = 1;
     this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
     this.retiredResourceDrainScheduled = false;
+  }
+
+  getDrawableRevision(): number {
+    return this.drawableRevision;
   }
 
   resolveFrameViewportZoomBucket({
@@ -370,6 +293,9 @@ export class RetainedContentTexturePageManager {
         ...postMaintenancePageVisualResult.protectedPageKeys,
       ],
     });
+    if (evicted.evictedKeys.length > 0) {
+      this.drawableRevision += 1;
+    }
     this.scheduleRetiredResourceDrain(preparedFrame.frame);
     const committedRefinementChangedDrawableCoverage =
       uploadResult.uploadCount > 0 &&
@@ -630,7 +556,7 @@ export class RetainedContentTexturePageManager {
     readonly missingPageCount: number;
     readonly protectedPageKeys: readonly string[];
     readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
-    readonly drawQuads: readonly RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[];
+    readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
     readonly drawQuadCount: number;
     readonly fallbackDrawQuadCount: number;
     readonly coverageCandidateCount: number;
@@ -639,7 +565,7 @@ export class RetainedContentTexturePageManager {
     readonly uncoveredRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
-    const drawQuads: RetainedTexturePageDrawQuad<HtmlSurfaceTextureResources>[] =
+    const drawQuads: RetainedTexturePageDrawQuad<RetainedContentTextureResources>[] =
       [];
     const protectedPageKeys = new Set<string>();
     const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
@@ -899,15 +825,20 @@ export class RetainedContentTexturePageManager {
     this.maintenanceUploadedDrawCommandCount += rasterResult.drawnCommandCount;
     const rasterMs = performance.now() - rasterStartedAt;
     const resource = createRetainedContentTextureResources({
+      atlasStore: this.textureAtlasStore,
       descriptor,
       device: this.device,
       format: this.format,
       textureUsage: this.textureUsage,
     });
+    const textureRegion = getRetainedContentTextureResourceRegion(resource);
     const uploadStartedAt = performance.now();
     this.device.queue.copyExternalImageToTexture(
       { source: this.scratchCanvas },
-      { texture: resource.texture },
+      {
+        origin: { x: textureRegion.x, y: textureRegion.y, z: 0 },
+        texture: resource.texture,
+      },
       {
         height: descriptor.pixelHeight,
         width: descriptor.pixelWidth,
@@ -925,7 +856,7 @@ export class RetainedContentTexturePageManager {
         }),
       });
     if (!textLikeSnapshotPaintAvailable) {
-      resource.texture.destroy?.();
+      destroyRetainedContentTextureResources(resource);
       this.cache.cancelPendingPage(pending.key);
       return {
         complete: false,
@@ -941,6 +872,7 @@ export class RetainedContentTexturePageManager {
       key: pending.key,
       resource,
     });
+    this.drawableRevision += 1;
     return {
       complete: true,
       rasterMs,
@@ -994,4 +926,25 @@ export class RetainedContentTexturePageManager {
       this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
     }
   }
+}
+
+function createRetainedContentTextureAtlasStore({
+  device,
+  format,
+  maxPagePixelSize,
+  textureUsage,
+}: {
+  readonly device: GPUDevice;
+  readonly format: GPUTextureFormat;
+  readonly maxPagePixelSize: number;
+  readonly textureUsage: GPUTextureUsageFlags;
+}): RetainedContentTextureAtlasStore {
+  return new RetainedContentTextureAtlasStore({
+    device,
+    format,
+    maxPagePixelSize,
+    maxTextureDimension2D:
+      device.limits?.maxTextureDimension2D ?? maxPagePixelSize,
+    textureUsage,
+  });
 }

@@ -17,14 +17,14 @@ import type { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import {
-  applyGpuRetainedContentRuntimeStateToScene,
-  type GpuRetainedContentRuntimeState,
-} from "../retainedContentRuntimeState";
-import {
-  applyGpuRetainedContentRowHoverTargetToScene,
   getGpuRetainedContentRowHoverStateVisuals,
   getGpuRetainedContentRowHoverVisuals,
 } from "../retainedContentRowHover";
+import {
+  getGpuRetainedContentRuntimeScrollOffsets,
+  syncGpuRetainedContentRuntimeStateForScene,
+  type GpuRetainedContentRuntimeState,
+} from "../retainedContentRuntimeState";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuFlowScene } from "../scene";
 import {
@@ -107,26 +107,30 @@ export function syncGpuFlowNodeLayerSceneState({
   const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const retainedContentRowHoverTarget =
     nodeLayerRef.current.retainedContentRowHoverTarget ?? null;
-  const runtimeScene = applyGpuRetainedContentRuntimeStateToScene({
+  syncGpuRetainedContentRuntimeStateForScene({
     scene,
     state: activeRetainedContentRuntimeState,
   });
-  const rowHoverUpdate = runtimeScene
-    ? applyGpuRetainedContentRowHoverTargetToScene({
-        scene: runtimeScene,
-        target: retainedContentRowHoverTarget,
-      })
-    : null;
-  const nextScene = rowHoverUpdate?.scene ?? runtimeScene;
+  const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
+    activeRetainedContentRuntimeState,
+  );
+  const nextScene = scene;
   const nextHtmlSurfaceNativeVisuals = nextScene
     ? [
-        ...getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces),
+        ...getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces, {
+          scrollOffsets,
+          visualState: nodeLayerRef.current.retainedContentScrollbarVisualState,
+        }),
         ...(retainedContentRowHoverTarget
           ? getGpuRetainedContentRowHoverVisuals({
               scene: nextScene,
+              scrollOffsets,
               target: retainedContentRowHoverTarget,
             })
-          : getGpuRetainedContentRowHoverStateVisuals({ scene: nextScene })),
+          : getGpuRetainedContentRowHoverStateVisuals({
+              scene: nextScene,
+              scrollOffsets,
+            })),
       ]
     : htmlSurfaceNativeVisuals;
   nodeLayerRef.current = {
@@ -140,6 +144,7 @@ export function syncGpuFlowNodeLayerSceneState({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    retainedContentRuntimeScrollOffsets: scrollOffsets,
     retainedContentRowHoverTarget,
     scene: nextScene,
     uploadBudget,

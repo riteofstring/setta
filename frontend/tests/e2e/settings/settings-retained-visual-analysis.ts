@@ -522,9 +522,9 @@ export async function analyzeSwitchThumbMotion(
           const trackBottom = Math.max(
             ...visiblePixels.map((pixel) => pixel.y),
           );
-          const medianVisibleLuma = percentile(
+          const trackReferenceLuma = percentile(
             visiblePixels.map((pixel) => pixel.luma),
-            0.6,
+            0.85,
           );
           const columnWeights = new Map<number, number>();
           for (let y = trackTop + 2; y <= trackBottom - 2; y += 1) {
@@ -534,7 +534,7 @@ export async function analyzeSwitchThumbMotion(
               const g = data[index + 1] ?? 0;
               const b = data[index + 2] ?? 0;
               const luma = luminance(r, g, b);
-              if (luma < medianVisibleLuma - 18 && luma > 14) {
+              if (luma < trackReferenceLuma - 10 && luma > 8) {
                 columnWeights.set(x, (columnWeights.get(x) ?? 0) + 1);
               }
             }

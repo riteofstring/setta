@@ -341,6 +341,7 @@ export function GpuFlow({
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
+    retainedContentRuntimeState: activeRetainedContentRuntimeState,
     viewportStore,
   });
   useEffect(() => {
@@ -839,6 +840,7 @@ export function GpuFlow({
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
         retainedContentFrameCacheRef,
+        retainedContentRuntimeState: activeRetainedContentRuntimeState,
         retainedTextLikeRowSnapshotElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
@@ -905,6 +907,7 @@ export function GpuFlow({
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}
+            retainedContentRuntimeState={activeRetainedContentRuntimeState}
             scene={retainedContentSnapshotScene}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}

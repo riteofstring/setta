@@ -11,10 +11,12 @@ import {
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
 import { parseGpuRetainedContentNativeVisualColor } from "./retainedContentNativeVisualColor";
+import { createGpuRetainedContentSampledSceneForSurface } from "./retainedContentRuntimeSampling";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
 } from "./retainedContentScene";
+import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type {
   GpuRetainedContentSwitchAnimationStore,
   GpuRetainedContentSwitchVisualState,
@@ -39,11 +41,13 @@ type GpuRetainedContentSwitchCommand = Extract<
 export function getGpuRetainedContentSwitchAnimationVisuals({
   darkMode,
   nowMs,
+  scrollOffsets,
   scene,
   switchAnimations,
 }: {
   readonly darkMode: boolean;
   readonly nowMs: number;
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
 }): readonly HtmlSurfaceSolidRoundedRectVisual[] {
@@ -54,6 +58,7 @@ export function getGpuRetainedContentSwitchAnimationVisuals({
   const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
   for (const surface of getGpuRetainedContentSourceSurfaces(
     scene.contentSurfaces,
+    { scrollOffsets },
   )) {
     if (!switchAnimations.hasActiveSurface(surface.id, nowMs)) {
       continue;
@@ -62,6 +67,7 @@ export function getGpuRetainedContentSwitchAnimationVisuals({
       ...getGpuRetainedContentSurfaceSwitchAnimationVisuals({
         nowMs,
         palette,
+        scrollOffsets,
         surface,
         switchAnimations,
       }),
@@ -73,19 +79,25 @@ export function getGpuRetainedContentSwitchAnimationVisuals({
 function getGpuRetainedContentSurfaceSwitchAnimationVisuals({
   nowMs,
   palette,
+  scrollOffsets,
   surface,
   switchAnimations,
 }: {
   readonly nowMs: number;
   readonly palette: GpuRetainedContentCanvasPalette;
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly surface: GpuRetainedContentSourceSurface;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
 }): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  const retainedScene = createGpuRetainedContentSampledSceneForSurface({
+    scrollOffsets,
+    surface,
+  });
   const stateByRowId = new Map(
-    surface.retainedScene.rows.map((row) => [row.id, row.state]),
+    retainedScene.rows.map((row) => [row.id, row.state]),
   );
   const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
-  for (const command of surface.retainedScene.drawCommands) {
+  for (const command of retainedScene.drawCommands) {
     if (!isGpuRetainedContentSwitchCommand(command)) {
       continue;
     }

@@ -927,12 +927,14 @@ export class HtmlSurfaceRenderer {
 
   private getTextureBindGroup(surface: {
     readonly surfaceId: string;
-    readonly texture: Pick<
-      HtmlSurfaceFlatVisual["texture"],
-      "sampler" | "textureView"
-    >;
+    readonly texture: {
+      readonly sampler: GPUSampler;
+      readonly textureContentKey?: string | undefined;
+      readonly textureView: GPUTextureView;
+    };
   }): GPUBindGroup {
-    const cached = this.textureBindGroups.get(surface.surfaceId);
+    const bindGroupKey = surface.texture.textureContentKey ?? surface.surfaceId;
+    const cached = this.textureBindGroups.get(bindGroupKey);
     if (
       cached &&
       cached.textureView === surface.texture.textureView &&
@@ -954,10 +956,10 @@ export class HtmlSurfaceRenderer {
           resource: surface.texture.textureView,
         },
       ],
-      label: `setta-html-surface-texture-bind-group-${surface.surfaceId}`,
+      label: `setta-html-surface-texture-bind-group-${bindGroupKey}`,
       layout: textureBindGroupLayout,
     });
-    this.textureBindGroups.set(surface.surfaceId, {
+    this.textureBindGroups.set(bindGroupKey, {
       bindGroup,
       sampler: surface.texture.sampler,
       textureView: surface.texture.textureView,

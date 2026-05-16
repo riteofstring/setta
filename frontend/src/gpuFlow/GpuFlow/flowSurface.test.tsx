@@ -409,10 +409,7 @@ function sceneWithDomIsland(): GpuFlowScene {
         ownerSectionId: "section-a",
         rect: { height: 20, width: 40, x: 10, y: 20 },
         source: {
-          hitRecordId: "control:param-a",
-          kind: "retained-content",
-          ownerRowId: "param-a",
-          surfaceId: "surface-a",
+          kind: "custom",
         },
         zIndex: 9,
       },

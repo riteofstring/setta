@@ -965,7 +965,7 @@ function PasswordParamConfigured({
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
   const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-400 dark:hover:text-setta-300`;
   const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex min-w-0 items-center gap-2`;
   return (
     <>

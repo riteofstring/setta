@@ -6,8 +6,10 @@ import type { GpuHtmlSurfaceOverlayLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { GpuRetainedContentRowHoverTarget } from "../retainedContentRowHover";
-import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
+import type { GpuRetainedContentScrollbarVisualState } from "../retainedContentScrollbar";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
 
@@ -21,6 +23,12 @@ export type GpuFlowRetainedContentNodeLayerState = {
   readonly retainedContentRowHoverTarget?:
     | GpuRetainedContentRowHoverTarget
     | null
+    | undefined;
+  readonly retainedContentRuntimeScrollOffsets?:
+    | GpuRetainedContentScrollOffsetMap
+    | undefined;
+  readonly retainedContentScrollbarVisualState?:
+    | GpuRetainedContentScrollbarVisualState
     | undefined;
   readonly scene: GpuFlowScene | undefined;
 };

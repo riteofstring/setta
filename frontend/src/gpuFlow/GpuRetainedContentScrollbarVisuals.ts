@@ -1,16 +1,23 @@
+import {
+  getGpuRetainedContentSourceSurfaces,
+  type GpuRetainedContentSourceSurface,
+} from "./GpuRetainedContentSurfaces";
 import type {
   HtmlSurfaceColor,
   HtmlSurfaceSolidRoundedRectVisual,
 } from "./htmlSurfaces/visualScene";
 import {
-  getGpuRetainedContentSourceSurfaces,
-  type GpuRetainedContentSourceSurface,
-} from "./GpuRetainedContentSurfaces";
-import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
-import type { GpuRetainedContentDrawCommand } from "./retainedContentScene";
+import { getGpuRetainedContentSampledScrollOffset } from "./retainedContentRuntimeSampling";
+import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
+import {
+  createGpuRetainedContentScrollbarLayouts,
+  type GpuRetainedContentScrollbarAxis,
+  type GpuRetainedContentScrollbarPart,
+  type GpuRetainedContentScrollbarVisualState,
+} from "./retainedContentScrollbar";
 import {
   getGpuRetainedContentScrollbarThumbColor,
   getGpuRetainedContentScrollbarTrackColor,
@@ -19,39 +26,59 @@ import {
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
-type GpuRetainedContentScrollbarCommand = Extract<
-  GpuRetainedContentDrawCommand,
-  { kind: "scrollbar" }
->;
+type GpuRetainedContentScrollbarVisualOptions = {
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly visualState?: GpuRetainedContentScrollbarVisualState | undefined;
+};
 
 export function getGpuRetainedContentScrollbarVisuals(
   surfaces: readonly GpuContentSurface[] | undefined,
+  options: GpuRetainedContentScrollbarVisualOptions = {},
 ): readonly HtmlSurfaceSolidRoundedRectVisual[] {
   const palette = getGpuRetainedContentCanvasPalette(
     isGpuRetainedContentNativeScrollbarDarkMode(),
   );
-  return getGpuRetainedContentSourceSurfaces(surfaces).flatMap((surface) =>
-    getGpuRetainedContentSurfaceScrollbarVisuals({ palette, surface }),
+  return getGpuRetainedContentSourceSurfaces(surfaces, {
+    scrollOffsets: options.scrollOffsets,
+  }).flatMap((surface) =>
+    getGpuRetainedContentSurfaceScrollbarVisuals({
+      palette,
+      scrollOffsets: options.scrollOffsets,
+      surface,
+      visualState: options.visualState,
+    }),
   );
 }
 
 function getGpuRetainedContentSurfaceScrollbarVisuals({
   palette,
+  scrollOffsets,
   surface,
+  visualState,
 }: {
   readonly palette: GpuRetainedContentCanvasPalette;
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly surface: GpuRetainedContentSourceSurface;
+  readonly visualState?: GpuRetainedContentScrollbarVisualState | undefined;
 }): readonly HtmlSurfaceSolidRoundedRectVisual[] {
   const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
-  for (const command of surface.retainedScene.drawCommands) {
-    if (command.kind !== "scrollbar") {
-      continue;
-    }
+  const scrollOffset = getGpuRetainedContentSampledScrollOffset({
+    scrollOffsets,
+    surface,
+  });
+  for (const layout of createGpuRetainedContentScrollbarLayouts({
+    contentRect: surface.retainedScene.contentRect,
+    scrollOffset,
+    viewportRect: surface.retainedScene.viewportRect,
+  })) {
     visuals.push(
       ...createGpuRetainedContentScrollbarCommandVisuals({
-        command,
+        axis: layout.axis,
         palette,
         surface,
+        thumbRect: layout.thumbRect,
+        trackRect: layout.trackRect,
+        visualState,
       }),
     );
   }
@@ -59,26 +86,46 @@ function getGpuRetainedContentSurfaceScrollbarVisuals({
 }
 
 function createGpuRetainedContentScrollbarCommandVisuals({
-  command,
+  axis,
   palette,
   surface,
+  thumbRect,
+  trackRect,
+  visualState,
 }: {
-  readonly command: GpuRetainedContentScrollbarCommand;
+  readonly axis: GpuRetainedContentScrollbarAxis;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly surface: GpuRetainedContentSourceSurface;
+  readonly thumbRect: GpuRect;
+  readonly trackRect: GpuRect;
+  readonly visualState?: GpuRetainedContentScrollbarVisualState | undefined;
 }): readonly HtmlSurfaceSolidRoundedRectVisual[] {
-  const trackActive = command.state?.activePart === "track";
-  const trackHovered = command.state?.hoveredPart === "track";
-  const thumbActive = command.state?.activePart === "thumb";
-  const thumbHovered = command.state?.hoveredPart === "thumb";
-  const trackRadius =
-    command.axis === "y"
-      ? command.trackRect.width / 2
-      : command.trackRect.height / 2;
-  const thumbRadius =
-    command.axis === "y"
-      ? command.thumbRect.width / 2
-      : command.thumbRect.height / 2;
+  const trackActive = isGpuRetainedContentScrollbarVisualTargetActive({
+    axis,
+    part: "track",
+    surfaceId: surface.id,
+    visualState,
+  });
+  const trackHovered = isGpuRetainedContentScrollbarVisualTargetHovered({
+    axis,
+    part: "track",
+    surfaceId: surface.id,
+    visualState,
+  });
+  const thumbActive = isGpuRetainedContentScrollbarVisualTargetActive({
+    axis,
+    part: "thumb",
+    surfaceId: surface.id,
+    visualState,
+  });
+  const thumbHovered = isGpuRetainedContentScrollbarVisualTargetHovered({
+    axis,
+    part: "thumb",
+    surfaceId: surface.id,
+    visualState,
+  });
+  const trackRadius = axis === "y" ? trackRect.width / 2 : trackRect.height / 2;
+  const thumbRadius = axis === "y" ? thumbRect.width / 2 : thumbRect.height / 2;
   const trackAlpha = trackActive ? 1 : trackHovered ? 0.94 : 0.86;
   return [
     createGpuRetainedContentScrollbarVisual({
@@ -90,10 +137,10 @@ function createGpuRetainedContentScrollbarCommandVisuals({
         }),
         trackAlpha,
       ),
-      localRect: command.trackRect,
+      localRect: trackRect,
       radius: trackRadius,
       surface,
-      visualId: `${surface.id}:scrollbar:${command.axis}:track`,
+      visualId: `${surface.id}:scrollbar:${axis}:track`,
     }),
     createGpuRetainedContentScrollbarVisual({
       color: toHtmlSurfaceColor(
@@ -103,15 +150,49 @@ function createGpuRetainedContentScrollbarCommandVisuals({
           palette,
         }),
       ),
-      localRect: command.thumbRect,
+      localRect: thumbRect,
       radius: thumbRadius,
       surface,
-      visualId: `${surface.id}:scrollbar:${command.axis}:thumb`,
+      visualId: `${surface.id}:scrollbar:${axis}:thumb`,
     }),
   ].filter(
-    (
-      visual,
-    ): visual is HtmlSurfaceSolidRoundedRectVisual => visual !== null,
+    (visual): visual is HtmlSurfaceSolidRoundedRectVisual => visual !== null,
+  );
+}
+
+function isGpuRetainedContentScrollbarVisualTargetActive({
+  axis,
+  part,
+  surfaceId,
+  visualState,
+}: {
+  readonly axis: GpuRetainedContentScrollbarAxis;
+  readonly part: GpuRetainedContentScrollbarPart;
+  readonly surfaceId: string;
+  readonly visualState?: GpuRetainedContentScrollbarVisualState | undefined;
+}): boolean {
+  return (
+    visualState?.activeTarget?.axis === axis &&
+    visualState.activeTarget.part === part &&
+    visualState.activeTarget.surfaceId === surfaceId
+  );
+}
+
+function isGpuRetainedContentScrollbarVisualTargetHovered({
+  axis,
+  part,
+  surfaceId,
+  visualState,
+}: {
+  readonly axis: GpuRetainedContentScrollbarAxis;
+  readonly part: GpuRetainedContentScrollbarPart;
+  readonly surfaceId: string;
+  readonly visualState?: GpuRetainedContentScrollbarVisualState | undefined;
+}): boolean {
+  return (
+    visualState?.hoveredTarget?.axis === axis &&
+    visualState.hoveredTarget.part === part &&
+    visualState.hoveredTarget.surfaceId === surfaceId
   );
 }
 

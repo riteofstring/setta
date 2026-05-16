@@ -116,16 +116,64 @@ export class HtmlSurfaceTiledFlatPass {
     pass.setPipeline(tiledFlatSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, tiledFlatSurfaceDraw.vertexBuffer);
-    tiledFlatSurfaceTiles.forEach((tile, index) => {
-      pass.setBindGroup(1, this.getTextureBindGroup(tile));
-      pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
-    });
+    let runBindGroup: GPUBindGroup | null = null;
+    let runStart = 0;
+    for (let index = 0; index < tiledFlatSurfaceTiles.length; index += 1) {
+      const tile = tiledFlatSurfaceTiles[index];
+      if (!tile) {
+        continue;
+      }
+      const bindGroup = this.getTextureBindGroup(tile);
+      if (runBindGroup === null) {
+        runBindGroup = bindGroup;
+        runStart = index;
+        continue;
+      }
+      if (bindGroup === runBindGroup) {
+        continue;
+      }
+      this.drawRun({ bindGroup: runBindGroup, pass, runEnd: index, runStart });
+      runBindGroup = bindGroup;
+      runStart = index;
+    }
+    if (runBindGroup) {
+      this.drawRun({
+        bindGroup: runBindGroup,
+        pass,
+        runEnd: tiledFlatSurfaceTiles.length,
+        runStart,
+      });
+    }
   }
 
   getVertexCount(
     tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
   ): number {
     return tiledFlatSurfaceTiles.length * VERTICES_PER_QUAD;
+  }
+
+  private drawRun({
+    bindGroup,
+    pass,
+    runEnd,
+    runStart,
+  }: {
+    readonly bindGroup: GPUBindGroup;
+    readonly pass: GPURenderPassEncoder;
+    readonly runEnd: number;
+    readonly runStart: number;
+  }) {
+    const quadCount = runEnd - runStart;
+    if (quadCount <= 0) {
+      return;
+    }
+    pass.setBindGroup(1, bindGroup);
+    pass.draw(
+      VERTICES_PER_QUAD * quadCount,
+      1,
+      runStart * VERTICES_PER_QUAD,
+      0,
+    );
   }
 
   private ensureVertexBuffer(byteLength: number): GPUBuffer {

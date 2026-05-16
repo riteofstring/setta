@@ -7,6 +7,7 @@ import {
   getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
 } from "./GpuRetainedContentSurfaces";
+import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
 import type { GpuContentSurface } from "./scene";
 
@@ -19,12 +20,15 @@ export type GpuRetainedContentFrameGeneration = {
 
 export function createGpuRetainedContentFrameGeneration({
   contentSurfaces,
+  scrollOffsets,
   viewportZoomBucket,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly viewportZoomBucket: number;
 }): GpuRetainedContentFrameGeneration {
   const sourceSurfaces = getGpuRetainedContentSourceSurfaces(contentSurfaces, {
+    scrollOffsets,
     viewportZoomBucket,
   });
   const textLikeRowSnapshotSources =

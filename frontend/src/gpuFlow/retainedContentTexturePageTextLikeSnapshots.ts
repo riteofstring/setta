@@ -3,7 +3,10 @@ import type {
   HtmlInCanvasCanvas,
 } from "./htmlInCanvasTypes";
 import { isMissingElementPaintRecordError } from "./htmlSurfaces/textureManagerHelpers";
-import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
+import {
+  getRetainedContentTextureResourceRegion,
+  type RetainedContentTextureResources,
+} from "./retainedContentTextureResources";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
@@ -58,7 +61,7 @@ export function uploadRetainedContentTexturePageTextLikeSnapshots({
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly queue: GPUQueue;
-  readonly resource: HtmlSurfaceTextureResources;
+  readonly resource: RetainedContentTextureResources;
   readonly snapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
 }): boolean {
   if (snapshots.length === 0) {
@@ -96,7 +99,7 @@ function uploadRetainedContentTexturePageTextLikeSnapshot({
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly element: HTMLElement | undefined;
   readonly queue: GpuQueueWithElementUpload;
-  readonly resource: HtmlSurfaceTextureResources;
+  readonly resource: RetainedContentTextureResources;
   readonly snapshot: RetainedContentTexturePageTextLikeSnapshot;
 }): boolean {
   if (!isTextLikeSnapshotElementCurrent(element, snapshot)) {
@@ -111,6 +114,7 @@ function uploadRetainedContentTexturePageTextLikeSnapshot({
   const copy = resolveTextLikeSnapshotPageCopy({
     descriptor,
     overlap,
+    resource,
     snapshot,
   });
   if (copy.pixelWidth <= 0 || copy.pixelHeight <= 0) {
@@ -210,10 +214,12 @@ function resolveTextLikeSnapshotPaintCanvas(
 function resolveTextLikeSnapshotPageCopy({
   descriptor,
   overlap,
+  resource,
   snapshot,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly overlap: GpuRect;
+  readonly resource: RetainedContentTextureResources;
   readonly snapshot: RetainedContentTexturePageTextLikeSnapshot;
 }): {
   readonly destinationX: number;
@@ -229,26 +235,35 @@ function resolveTextLikeSnapshotPageCopy({
   const sourceY = Math.max(0, Math.floor(overlap.y - snapshot.rectCss.y));
   const sourceWidth = Math.max(1, Math.ceil(overlap.width));
   const sourceHeight = Math.max(1, Math.ceil(overlap.height));
-  const destinationX = clampInteger(
-    Math.floor((overlap.x - descriptor.sourceRectCss.x) * descriptor.lodScale),
-    0,
-    Math.max(0, descriptor.pixelWidth - 1),
-  );
-  const destinationY = clampInteger(
-    Math.floor((overlap.y - descriptor.sourceRectCss.y) * descriptor.lodScale),
-    0,
-    Math.max(0, descriptor.pixelHeight - 1),
-  );
+  const textureRegion = getRetainedContentTextureResourceRegion(resource);
+  const destinationX =
+    textureRegion.x +
+    clampInteger(
+      Math.floor(
+        (overlap.x - descriptor.sourceRectCss.x) * descriptor.lodScale,
+      ),
+      0,
+      Math.max(0, descriptor.pixelWidth - 1),
+    );
+  const destinationY =
+    textureRegion.y +
+    clampInteger(
+      Math.floor(
+        (overlap.y - descriptor.sourceRectCss.y) * descriptor.lodScale,
+      ),
+      0,
+      Math.max(0, descriptor.pixelHeight - 1),
+    );
   return {
     destinationX,
     destinationY,
     pixelHeight: Math.min(
       Math.max(1, Math.ceil(overlap.height * descriptor.lodScale)),
-      descriptor.pixelHeight - destinationY,
+      descriptor.pixelHeight - (destinationY - textureRegion.y),
     ),
     pixelWidth: Math.min(
       Math.max(1, Math.ceil(overlap.width * descriptor.lodScale)),
-      descriptor.pixelWidth - destinationX,
+      descriptor.pixelWidth - (destinationX - textureRegion.x),
     ),
     sourceHeight,
     sourceWidth,

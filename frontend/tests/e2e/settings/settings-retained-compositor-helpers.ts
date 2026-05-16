@@ -1,0 +1,705 @@
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+
+import { expect, type Page } from "@playwright/test";
+
+import { ensureAppReady } from "../helpers";
+import {
+  measurePageRafCadence,
+  percentile,
+  waitForAnimationFrame,
+  type PageRafCadence,
+} from "./settings-retained-frame-helpers";
+import type {
+  Rect,
+  RetainedRowDebugEntry,
+} from "./settings-retained-visual-analysis";
+
+export const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
+export const SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
+
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
+const READY_SELECTOR = ".setta-gpu-flow__pane";
+const GESTURE_SPACING_MS = 8;
+const STRICT_LOCAL_120HZ =
+  process.env.SETTA_RETAINED_COMPOSITOR_STRICT_120HZ === "1";
+const STRICT_P95_FRAME_BUDGET_MS = 8.5;
+const STRICT_P99_FRAME_BUDGET_MS = 16.7;
+const CI_P95_FRAME_BUDGET_MS = 20;
+const CI_MAX_FRAME_BUDGET_MS = 110;
+const CI_LONG_TASK_BUDGET_MS = 110;
+const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
+
+type FrameSamplerHandle = {
+  readonly stop: () => RetainedCompositorFrameSample;
+};
+
+export type RetainedCompositorPoint = {
+  readonly x: number;
+  readonly y: number;
+};
+
+export type RetainedCompositorIntervalStats = {
+  readonly count: number;
+  readonly maxMs: number;
+  readonly p50Ms: number;
+  readonly p95Ms: number;
+  readonly p99Ms: number;
+  readonly slowFrameRatio: number;
+};
+
+export type RetainedCompositorFrameSample = {
+  readonly intervalsMs: readonly number[];
+  readonly longTasks: readonly { readonly durationMs: number }[];
+};
+
+export type RetainedCompositorGestureResult = {
+  readonly eventSpacing: RetainedCompositorIntervalStats;
+  readonly frame: RetainedCompositorIntervalStats;
+  readonly longTasks: {
+    readonly count: number;
+    readonly maxDurationMs: number;
+  };
+};
+
+export type RetainedCompositorCadenceBudget = {
+  readonly lane: "ci-capped" | "local-120hz";
+  readonly longTaskBudgetMs: number;
+  readonly maxFrameBudgetMs: number;
+  readonly p95FrameBudgetMs: number;
+  readonly p99FrameBudgetMs: number;
+  readonly slowFrameRatioBudget: number;
+};
+
+export type RetainedCompositorTarget = {
+  readonly clip: Rect;
+  readonly controlKinds: readonly string[];
+  readonly point: RetainedCompositorPoint;
+  readonly rowCount: number;
+  readonly surfaceId: string;
+  readonly visibleRowCount: number;
+};
+
+export type RetainedCompositorScrollSignature = {
+  readonly firstRowId: string | null;
+  readonly firstRowY: number | null;
+  readonly lastRowId: string | null;
+  readonly rowCount: number;
+};
+
+export type RetainedCompositorVisualStats = {
+  readonly height: number;
+  readonly nonblankRatio: number;
+  readonly width: number;
+};
+
+export type RetainedCompositorViewportSample = {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+};
+
+declare global {
+  interface Window {
+    [FRAME_SAMPLER_KEY]?: FrameSamplerHandle | undefined;
+  }
+}
+
+export async function openAllSettingsForRetainedCompositor(
+  page: Page,
+): Promise<void> {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { name: "fit view" }).click();
+  await waitForAnimationFrame(page);
+  await page.getByRole("button", { exact: true, name: "All Settings" }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
+  );
+  await expect
+    .poll(() => readRetainedCompositorRowCount(page), { timeout: 10_000 })
+    .toBeGreaterThan(50);
+  await waitForAnimationFrame(page);
+}
+
+export async function centerRetainedCompositorSurface(
+  page: Page,
+  surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+): Promise<void> {
+  await page.evaluate(async (targetSurfaceId) => {
+    const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
+    const transform =
+      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
+    const rows = getRetainedRows().filter(
+      (row) => row.surfaceId === targetSurfaceId,
+    );
+    const firstRow = rows[0];
+    if (!pane || !transform || !firstRow) {
+      throw new Error(`Missing retained surface ${targetSurfaceId}.`);
+    }
+    const paneRect = pane.getBoundingClientRect();
+    const minClientX = Math.min(...rows.map((row) => row.clientRect.x));
+    const minClientY = Math.min(...rows.map((row) => row.clientRect.y));
+    const maxClientY = Math.max(
+      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
+    );
+    const flowLeft =
+      (minClientX - paneRect.left - transform.x) / transform.zoom;
+    const flowTop = (minClientY - paneRect.top - transform.y) / transform.zoom;
+    const visibleFlowHeight = Math.max(
+      firstRow.canvasCssSize.height,
+      (maxClientY - minClientY) / transform.zoom,
+    );
+    const zoom = 1;
+    const flowCenter = {
+      x: flowLeft + firstRow.canvasCssSize.width / 2,
+      y: flowTop + visibleFlowHeight / 2,
+    };
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore.ts"
+    );
+    const viewportStore = gpuFlowViewportStore.getState();
+    viewportStore.setTransform({
+      x: paneRect.width * 0.5 - flowCenter.x * zoom,
+      y: paneRect.height * 0.48 - flowCenter.y * zoom,
+      zoom,
+    });
+    viewportStore.setFitViewInitializationState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+    window.settaGpuFlowZoom = zoom;
+
+    function getRetainedRows(): readonly RetainedRowDebugEntry[] {
+      return window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    }
+  }, surfaceId);
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
+}
+
+export async function resolveRetainedCompositorTarget(
+  page: Page,
+  surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+): Promise<RetainedCompositorTarget> {
+  return await page.evaluate((targetSurfaceId) => {
+    const rows = getRetainedRows().filter(
+      (row) => row.surfaceId === targetSurfaceId,
+    );
+    const visibleRows = rows.filter((row) => {
+      const rect = row.controlClientRect ?? row.clientRect;
+      return isVisibleRect(rect);
+    });
+    const targetRow = visibleRows[Math.floor(visibleRows.length / 2)];
+    if (!targetRow) {
+      throw new Error(`Missing visible retained row for ${targetSurfaceId}.`);
+    }
+    const visibleRect = surfaceRowsToClientRect(visibleRows);
+    return {
+      clip: clampScreenshotClip({
+        height: Math.min(visibleRect.height, 520),
+        width: Math.min(visibleRect.width, 680),
+        x: visibleRect.x,
+        y: visibleRect.y,
+      }),
+      controlKinds: uniqueStrings(
+        rows
+          .map((row) => row.controlKind)
+          .filter((kind): kind is string => Boolean(kind)),
+      ),
+      point: {
+        x: targetRow.clientRect.x + targetRow.clientRect.width * 0.62,
+        y: targetRow.clientRect.y + targetRow.clientRect.height / 2,
+      },
+      rowCount: rows.length,
+      surfaceId: targetSurfaceId,
+      visibleRowCount: visibleRows.length,
+    };
+
+    function getRetainedRows(): readonly RetainedRowDebugEntry[] {
+      return window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    }
+
+    function isVisibleRect(rect: Rect): boolean {
+      return (
+        rect.width > 20 &&
+        rect.height > 8 &&
+        rect.x + rect.width > 0 &&
+        rect.y + rect.height > 0 &&
+        rect.x < window.innerWidth &&
+        rect.y < window.innerHeight
+      );
+    }
+
+    function surfaceRowsToClientRect(
+      surfaceRows: readonly RetainedRowDebugEntry[],
+    ) {
+      const left = Math.min(...surfaceRows.map((row) => row.clientRect.x));
+      const top = Math.max(
+        0,
+        Math.min(...surfaceRows.map((row) => row.clientRect.y)),
+      );
+      const right = Math.min(
+        window.innerWidth,
+        Math.max(
+          ...surfaceRows.map((row) => row.clientRect.x + row.clientRect.width),
+        ),
+      );
+      const bottom = Math.min(
+        window.innerHeight,
+        Math.max(
+          ...surfaceRows.map((row) => row.clientRect.y + row.clientRect.height),
+        ),
+      );
+      return {
+        height: Math.max(0, bottom - top),
+        width: Math.max(0, right - left),
+        x: left,
+        y: top,
+      };
+    }
+
+    function clampScreenshotClip(rect: Rect): Rect {
+      const x = Math.max(0, Math.min(window.innerWidth - 1, rect.x));
+      const y = Math.max(0, Math.min(window.innerHeight - 1, rect.y));
+      return {
+        height: Math.max(1, Math.min(rect.height, window.innerHeight - y)),
+        width: Math.max(1, Math.min(rect.width, window.innerWidth - x)),
+        x,
+        y,
+      };
+    }
+
+    function uniqueStrings(values: readonly string[]): readonly string[] {
+      return [...new Set(values)].sort((left, right) =>
+        left.localeCompare(right),
+      );
+    }
+  }, surfaceId);
+}
+
+export async function resolveRetainedCompositorViewportPoint(
+  page: Page,
+): Promise<RetainedCompositorPoint> {
+  return await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLElement>(
+      ".setta-gpu-flow__canvas",
+    );
+    if (!canvas) {
+      throw new Error("Missing GPU flow canvas.");
+    }
+    const box = canvas.getBoundingClientRect();
+    const candidates = [
+      [0.08, 0.92],
+      [0.92, 0.92],
+      [0.08, 0.08],
+      [0.92, 0.08],
+      [0.55, 0.52],
+    ] as const;
+    for (const [xRatio, yRatio] of candidates) {
+      const x = box.left + box.width * xRatio;
+      const y = box.top + box.height * yRatio;
+      const target = document.elementFromPoint(x, y);
+      if (
+        target?.closest(".setta-gpu-flow__pane") &&
+        !target.closest(".nowheel, .nopan")
+      ) {
+        return { x, y };
+      }
+    }
+    return {
+      x: box.left + box.width * 0.55,
+      y: box.top + box.height * 0.52,
+    };
+  });
+}
+
+export async function measureRetainedCompositorGesture(
+  page: Page,
+  operation: () => Promise<readonly number[]>,
+): Promise<RetainedCompositorGestureResult> {
+  await startGestureFrameSampler(page);
+  const eventSpacingMs = await operation();
+  await page.waitForTimeout(180);
+  const sample = await stopGestureFrameSampler(page);
+  return {
+    eventSpacing: summarizeIntervals(eventSpacingMs),
+    frame: summarizeIntervals(sample.intervalsMs),
+    longTasks: {
+      count: sample.longTasks.length,
+      maxDurationMs: Math.max(
+        0,
+        ...sample.longTasks.map((task) => task.durationMs),
+      ),
+    },
+  };
+}
+
+export async function dispatchRetainedCompositorWheelBurst(
+  page: Page,
+  input: {
+    readonly ctrlKey?: boolean | undefined;
+    readonly deltaX?: number | undefined;
+    readonly deltaY: number;
+    readonly eventCount: number;
+    readonly point: RetainedCompositorPoint;
+  },
+): Promise<readonly number[]> {
+  return await page.evaluate(
+    async ({
+      ctrlKey = false,
+      deltaX = 0,
+      deltaY,
+      eventCount,
+      point,
+      spacingMs,
+    }) => {
+      const target = document.elementFromPoint(point.x, point.y);
+      if (!target) {
+        throw new Error(
+          `Missing wheel target at ${point.x.toFixed(1)}, ${point.y.toFixed(
+            1,
+          )}.`,
+        );
+      }
+      const timestamps: number[] = [];
+      for (let index = 0; index < eventCount; index += 1) {
+        timestamps.push(performance.now());
+        target.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            clientX: point.x,
+            clientY: point.y,
+            ctrlKey,
+            deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+            deltaX,
+            deltaY,
+            view: window,
+          }),
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, spacingMs));
+      }
+      return timestamps.slice(1).map((timestamp, index) => {
+        const previous = timestamps[index] ?? timestamp;
+        return timestamp - previous;
+      });
+    },
+    { ...input, spacingMs: GESTURE_SPACING_MS },
+  );
+}
+
+export async function runNativeRetainedCompositorWheelBurst(
+  page: Page,
+  input: {
+    readonly deltaY: number;
+    readonly eventCount: number;
+    readonly point: RetainedCompositorPoint;
+  },
+): Promise<readonly number[]> {
+  const timestamps: number[] = [];
+  await page.mouse.move(input.point.x, input.point.y);
+  for (let index = 0; index < input.eventCount; index += 1) {
+    timestamps.push(performance.now());
+    await page.mouse.wheel(0, input.deltaY);
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, GESTURE_SPACING_MS),
+    );
+  }
+  return timestamps.slice(1).map((timestamp, index) => {
+    const previous = timestamps[index] ?? timestamp;
+    return timestamp - previous;
+  });
+}
+
+export async function captureRetainedCompositorVisualStats(
+  page: Page,
+  clip: Rect,
+): Promise<RetainedCompositorVisualStats> {
+  const screenshot = await page.screenshot({ clip: normalizeClip(clip) });
+  return await page.evaluate(
+    async ({ screenshotDataUrl }) => {
+      const image = await loadImage(screenshotDataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        throw new Error("Missing retained compositor visual analysis context.");
+      }
+      ctx.drawImage(image, 0, 0);
+      const { data, height, width } = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      let nonblankPixels = 0;
+      for (let index = 0; index < data.length; index += 4) {
+        const r = data[index] ?? 0;
+        const g = data[index + 1] ?? 0;
+        const b = data[index + 2] ?? 0;
+        const a = data[index + 3] ?? 0;
+        if (
+          a > 12 &&
+          (Math.max(r, g, b) - Math.min(r, g, b) > 8 || Math.max(r, g, b) > 32)
+        ) {
+          nonblankPixels += 1;
+        }
+      }
+      return {
+        height,
+        nonblankRatio:
+          width * height === 0 ? 0 : nonblankPixels / (width * height),
+        width,
+      };
+
+      function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () =>
+            reject(new Error("Could not decode retained screenshot."));
+          image.src = dataUrl;
+        });
+      }
+    },
+    {
+      screenshotDataUrl: `data:image/png;base64,${screenshot.toString(
+        "base64",
+      )}`,
+    },
+  );
+}
+
+export async function measureRetainedCompositorControlCadence(
+  page: Page,
+): Promise<PageRafCadence> {
+  return await measurePageRafCadence(page);
+}
+
+export function resolveRetainedCompositorCadenceBudget({
+  controlCadence,
+  eventSpacing,
+}: {
+  readonly controlCadence: PageRafCadence;
+  readonly eventSpacing: RetainedCompositorIntervalStats;
+}): RetainedCompositorCadenceBudget {
+  if (STRICT_LOCAL_120HZ) {
+    return {
+      lane: "local-120hz",
+      longTaskBudgetMs: 50,
+      maxFrameBudgetMs: 50,
+      p95FrameBudgetMs: STRICT_P95_FRAME_BUDGET_MS,
+      p99FrameBudgetMs: STRICT_P99_FRAME_BUDGET_MS,
+      slowFrameRatioBudget: 0.02,
+    };
+  }
+  return {
+    lane: "ci-capped",
+    longTaskBudgetMs: CI_LONG_TASK_BUDGET_MS,
+    maxFrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
+    p95FrameBudgetMs: Math.max(
+      CI_P95_FRAME_BUDGET_MS,
+      controlCadence.p95Ms + 4,
+      eventSpacing.p95Ms + 4,
+    ),
+    p99FrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
+    slowFrameRatioBudget: 0.12,
+  };
+}
+
+export function expectRetainedCompositorGestureWithinBudget({
+  budget,
+  details,
+  gesture,
+}: {
+  readonly budget: RetainedCompositorCadenceBudget;
+  readonly details: string;
+  readonly gesture: RetainedCompositorGestureResult;
+}) {
+  expect(gesture.frame.count, details).toBeGreaterThan(6);
+  expect(gesture.frame.p95Ms, details).toBeLessThanOrEqual(
+    budget.p95FrameBudgetMs,
+  );
+  expect(gesture.frame.p99Ms, details).toBeLessThanOrEqual(
+    budget.p99FrameBudgetMs,
+  );
+  expect(gesture.frame.maxMs, details).toBeLessThanOrEqual(
+    budget.maxFrameBudgetMs,
+  );
+  expect(gesture.frame.slowFrameRatio, details).toBeLessThanOrEqual(
+    budget.slowFrameRatioBudget,
+  );
+  expect(gesture.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
+    budget.longTaskBudgetMs,
+  );
+}
+
+export async function readRetainedCompositorViewport(
+  page: Page,
+): Promise<RetainedCompositorViewportSample> {
+  return await page.evaluate(() => {
+    const transform =
+      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
+    if (!transform) {
+      throw new Error("Missing GPU flow viewport debug transform.");
+    }
+    return transform;
+  });
+}
+
+export async function readRetainedCompositorScrollSignature(
+  page: Page,
+  surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+): Promise<RetainedCompositorScrollSignature> {
+  return await page.evaluate((targetSurfaceId) => {
+    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter(
+        (row): row is RetainedRowDebugEntry =>
+          row.surfaceId === targetSurfaceId,
+      )
+      .sort((left, right) => left.clientRect.y - right.clientRect.y);
+    return {
+      firstRowId: rows[0]?.rowId ?? null,
+      firstRowY: rows[0] ? Math.round(rows[0].clientRect.y * 10) / 10 : null,
+      lastRowId: rows.at(-1)?.rowId ?? null,
+      rowCount: rows.length,
+    };
+  }, surfaceId);
+}
+
+export async function readNativePageScrollY(page: Page): Promise<number> {
+  return await page.evaluate(() => window.scrollY);
+}
+
+export async function readRetainedCompositorRowCount(
+  page: Page,
+): Promise<number> {
+  return await page.evaluate(
+    () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+  );
+}
+
+export async function readRetainedCompositorSceneSummary(page: Page): Promise<{
+  readonly controlKinds: readonly string[];
+  readonly nodeCount: number;
+  readonly retainedRowCount: number;
+  readonly surfaceCount: number;
+}> {
+  return await page.evaluate(() => {
+    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    return {
+      controlKinds: [
+        ...new Set(
+          rows
+            .map((row) => row.controlKind)
+            .filter((kind): kind is string => Boolean(kind)),
+        ),
+      ].sort((left, right) => left.localeCompare(right)),
+      nodeCount: document.querySelectorAll(".setta-gpu-flow__node").length,
+      retainedRowCount: rows.length,
+      surfaceCount: new Set(rows.map((row) => row.surfaceId)).size,
+    };
+  });
+}
+
+export function recordRetainedCompositorPerfSample({
+  name,
+  sample,
+}: {
+  readonly name: string;
+  readonly sample: unknown;
+}) {
+  const outputPath = process.env.SETTA_RETAINED_COMPOSITOR_PERF_JSONL;
+  if (!outputPath) {
+    return;
+  }
+  mkdirSync(dirname(outputPath), { recursive: true });
+  appendFileSync(
+    outputPath,
+    `${JSON.stringify({
+      name,
+      recordedAt: new Date().toISOString(),
+      sample,
+    })}\n`,
+  );
+}
+
+function summarizeIntervals(
+  values: readonly number[],
+): RetainedCompositorIntervalStats {
+  const sorted = [...values].sort((left, right) => left - right);
+  return {
+    count: values.length,
+    maxMs: sorted[sorted.length - 1] ?? 0,
+    p50Ms: percentile(sorted, 0.5),
+    p95Ms: percentile(sorted, 0.95),
+    p99Ms: percentile(sorted, 0.99),
+    slowFrameRatio:
+      values.length === 0
+        ? 0
+        : values.filter((interval) => interval > 16.7).length / values.length,
+  };
+}
+
+async function startGestureFrameSampler(page: Page): Promise<void> {
+  await page.evaluate((samplerKey) => {
+    const intervalsMs: number[] = [];
+    const longTasks: { durationMs: number }[] = [];
+    let previousTimestamp: number | null = null;
+    let running = true;
+    const observer =
+      "PerformanceObserver" in window &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+        ? new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              longTasks.push({ durationMs: entry.duration });
+            }
+          })
+        : null;
+    observer?.observe({ entryTypes: ["longtask"] });
+    const tick = (timestamp: number) => {
+      if (previousTimestamp !== null) {
+        intervalsMs.push(timestamp - previousTimestamp);
+      }
+      previousTimestamp = timestamp;
+      if (running) {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
+    window[samplerKey] = {
+      stop: () => {
+        running = false;
+        observer?.disconnect();
+        return { intervalsMs, longTasks };
+      },
+    };
+  }, FRAME_SAMPLER_KEY);
+}
+
+async function stopGestureFrameSampler(
+  page: Page,
+): Promise<RetainedCompositorFrameSample> {
+  return await page.evaluate((samplerKey) => {
+    const sampler = window[samplerKey];
+    if (!sampler) {
+      throw new Error("Missing retained compositor frame sampler.");
+    }
+    delete window[samplerKey];
+    return sampler.stop();
+  }, FRAME_SAMPLER_KEY);
+}
+
+function normalizeClip(rect: Rect): Rect {
+  return {
+    height: Math.max(1, Math.floor(rect.height)),
+    width: Math.max(1, Math.floor(rect.width)),
+    x: Math.max(0, Math.floor(rect.x)),
+    y: Math.max(0, Math.floor(rect.y)),
+  };
+}

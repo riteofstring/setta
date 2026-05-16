@@ -8,6 +8,7 @@ import {
   type GpuRetainedContentScene,
 } from "./retainedContentScene";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
+import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
@@ -17,6 +18,7 @@ import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly textLikeRowSnapshotSources?:
     | readonly GpuRetainedTextLikeRowSnapshotSource[]
     | undefined;
@@ -32,6 +34,7 @@ export function getGpuRetainedContentTexturePageFrameSurfaces(
 ): readonly RetainedContentTexturePageFrameSurface[] {
   return getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
     getGpuRetainedContentSourceSurfaces(surfaces, options),
+    options,
   );
 }
 

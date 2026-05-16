@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { HtmlSurfaceTextureResources } from "./htmlSurfaces/textureTiles";
+import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import { createRetainedTexturePageFlatVisuals } from "./retainedTexturePageVisuals";
 import {
   retainedTexturePageLodLevel,
@@ -10,10 +10,20 @@ import {
 } from "./retainedTexturePages";
 
 const RESOURCE = {
+  releaseRetainedContentTextureResources: () => {},
+  retainedContentTextureRegion: {
+    atlasId: "page-texture",
+    pixelHeight: 200,
+    pixelWidth: 200,
+    texturePixelHeight: 200,
+    texturePixelWidth: 200,
+    x: 0,
+    y: 0,
+  },
   sampler: {} as GPUSampler,
   texture: {} as GPUTexture,
   textureView: {} as GPUTextureView,
-} satisfies HtmlSurfaceTextureResources;
+} satisfies RetainedContentTextureResources;
 
 describe("createRetainedTexturePageFlatVisuals", () => {
   it("maps page source rects into flow-space quads with page UVs", () => {
@@ -115,7 +125,7 @@ describe("createRetainedTexturePageFlatVisuals", () => {
 
 function createCommittedPage(
   descriptorUpdates: Partial<RetainedTexturePageDescriptor>,
-): CommittedRetainedTexturePage<HtmlSurfaceTextureResources> {
+): CommittedRetainedTexturePage<RetainedContentTextureResources> {
   const descriptor: RetainedTexturePageDescriptor = {
     contentVersion: 1,
     lodLevel: retainedTexturePageLodLevel(2),
