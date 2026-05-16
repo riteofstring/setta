@@ -46,7 +46,6 @@ import type { GpuPoint, GpuRect } from "./viewportMath";
 export type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 export type { GpuRetainedContentRowStatus } from "./retainedContentRowStatus";
 export type {
-  CreateGpuRetainedRowContentSceneInput,
   GpuRetainedContentActivePopupInput,
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
@@ -65,7 +64,6 @@ export type {
   GpuRetainedContentRowVisualBounds,
   GpuRetainedContentScene,
   GpuRetainedContentTextLikeEditorPolicy,
-  GpuRetainedContentVisibleRowRange,
 } from "./retainedContentSceneTypes";
 
 const DEFAULT_CONTROL_WIDTH = 112;

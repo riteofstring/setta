@@ -148,7 +148,7 @@ export type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly target: RetainedRegionTarget;
 };
 
-export type RetainedRejectedCoverage = {
+type RetainedRejectedCoverage = {
   readonly reason: Extract<
     RetainedRegionCompatibility,
     { readonly kind: "incompatible" }
@@ -166,7 +166,7 @@ export type RetainedCoveragePlanDiagnostics = {
   readonly visibleRegionGroupCount: number;
 };
 
-export type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
+type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
   readonly compatibleCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly diagnostics: RetainedCoveragePlanDiagnostics;
   readonly exactCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];

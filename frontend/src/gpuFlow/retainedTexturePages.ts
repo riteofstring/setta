@@ -111,7 +111,7 @@ export type RetainedTexturePageRegionCoverageEntry<TResource = unknown> =
     readonly page: CommittedRetainedTexturePage<TResource>;
   };
 
-export type RetainedTexturePageRegionCoveragePlan<TResource = unknown> = {
+type RetainedTexturePageRegionCoveragePlan<TResource = unknown> = {
   readonly compatibleCoverage: readonly RetainedTexturePageRegionCoverageEntry<TResource>[];
   readonly diagnostics: RetainedCoveragePlanDiagnostics;
   readonly exactCoverage: readonly RetainedTexturePageRegionCoverageEntry<TResource>[];

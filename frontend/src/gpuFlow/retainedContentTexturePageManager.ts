@@ -74,13 +74,8 @@ import type { GpuRect } from "./viewportMath";
 
 export type {
   RetainedContentTexturePageContentSegment,
-  RetainedContentTexturePageFrameInput,
   RetainedContentTexturePageFrameSurface,
-  RetainedContentTexturePageFreshnessQuery,
-  RetainedContentTexturePageInvalidation,
-  RetainedContentTexturePageMaintenanceInput,
   RetainedContentTexturePageMaintenanceResult,
-  RetainedContentTexturePageManagerOptions,
   RetainedContentTexturePagePreparedFrame,
 } from "./retainedContentTexturePageManagerTypes";
 

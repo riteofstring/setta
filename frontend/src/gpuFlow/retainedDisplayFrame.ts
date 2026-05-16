@@ -16,12 +16,6 @@ import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
-export type {
-  NativeIslandPublicationTransaction,
-  PublishedNativeIslandRect,
-  RetainedTextureBudget,
-};
-
 type RetainedFrameId = number;
 
 type CoverageReadiness = "covered" | "true-holes" | "initial-loading";

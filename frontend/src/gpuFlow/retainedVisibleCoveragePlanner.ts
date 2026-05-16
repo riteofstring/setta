@@ -23,18 +23,18 @@ import {
 } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedFidelityTarget = RetainedFidelityMetadata;
+type RetainedFidelityTarget = RetainedFidelityMetadata;
 
-export type TextureRect = GpuRect;
+type TextureRect = GpuRect;
 
-export type TextureUvRect = {
+type TextureUvRect = {
   readonly u0: number;
   readonly u1: number;
   readonly v0: number;
   readonly v1: number;
 };
 
-export type RetainedRegionTargetReason =
+type RetainedRegionTargetReason =
   | "active-island"
   | "newly-exposed"
   | "refinement"
@@ -58,7 +58,7 @@ export type RetainedVisibleRegionTarget = RetainedRegionTarget & {
   readonly surfaceLayout: RetainedTexturePageSurfaceLayout;
 };
 
-export type RetainedContentToTextureMappingProof = {
+type RetainedContentToTextureMappingProof = {
   readonly clipRect: GpuRect;
   readonly contentRect: GpuRect;
   readonly dpr: number;
@@ -71,7 +71,7 @@ export type RetainedContentToTextureMappingProof = {
   readonly zoomBucket: number;
 };
 
-export type RetainedSurfaceZOrder = number;
+type RetainedSurfaceZOrder = number;
 
 export type RetainedDrawRegion<TResource = RetainedContentTextureResources> = {
   readonly clipRect: GpuRect;
@@ -90,7 +90,7 @@ export type RetainedDrawRegion<TResource = RetainedContentTextureResources> = {
   readonly zOrder: RetainedSurfaceZOrder;
 };
 
-export type RetainedReplacementRequestKey = {
+type RetainedReplacementRequestKey = {
   readonly contentRect: GpuRect;
   readonly contentVersion: string;
   readonly fidelityTarget: RetainedFidelityTarget;
@@ -113,7 +113,7 @@ export type RetainedReplacementRequest = {
   readonly target: RetainedVisibleRegionTarget;
 };
 
-export type RetainedVisibleCoverageProof = {
+type RetainedVisibleCoverageProof = {
   readonly compatibleCoveredAreaCssPx: number;
   readonly exactCoveredAreaCssPx: number;
   readonly rejectedCoverageCountByReason: Readonly<Record<string, number>>;
@@ -122,7 +122,7 @@ export type RetainedVisibleCoverageProof = {
   readonly visibleAreaCssPx: number;
 };
 
-export type RetainedCoveragePlanCost = {
+type RetainedCoveragePlanCost = {
   readonly allocatedDiagnosticRectCount: number;
   readonly candidateCount: number;
   readonly compatibilityCheckCount: number;
@@ -136,7 +136,7 @@ export type RetainedCoveragePlanCost = {
   readonly visibleRegionGroupCount: number;
 };
 
-export type RetainedCoveragePlanDiagnostics = {
+type RetainedCoveragePlanDiagnostics = {
   readonly committedCandidateCount: number;
   readonly compatibleRegionCount: number;
   readonly compatibilityDurationMs: number;
