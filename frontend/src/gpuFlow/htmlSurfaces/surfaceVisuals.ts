@@ -5,7 +5,7 @@ import type {
   HtmlSurfaceTiledFlatVisual,
 } from "./visualScene";
 
-export type HtmlSurfaceVisualQuad = {
+type HtmlSurfaceVisualQuad = {
   readonly height: number;
   readonly nodeId: string;
   readonly texture: CommittedHtmlSurfaceTextureSnapshot;

@@ -23,42 +23,38 @@ export type {
   RetainedTextureBudget,
 };
 
-export type RetainedFrameId = number;
-export type RetainedSourceId = string;
-export type RetainedSourceRevision = number;
-export type RetainedPageId = string;
-export type RetainedScaleBucket = number;
+type RetainedFrameId = number;
 
-export type CoverageReadiness = "covered" | "true-holes" | "initial-loading";
+type CoverageReadiness = "covered" | "true-holes" | "initial-loading";
 
-export type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
+type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
   readonly frameId: RetainedFrameId;
 };
 
-export type RetainedContentSnapshotFrame = {
+type RetainedContentSnapshotFrame = {
   readonly id: RetainedFrameId;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type RetainedPageFrame = RetainedContentTexturePagePreparedFrame;
+type RetainedPageFrame = RetainedContentTexturePagePreparedFrame;
 
-export type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
+type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
   readonly motionFrame: RetainedMotionFrame;
   readonly pageFrame: RetainedPageFrame;
 };
 
-export type PublishedRetainedPage =
+type PublishedRetainedPage =
   RetainedTexturePageDrawQuad<RetainedContentTextureResources>;
 
-export type PublishedRetainedCompatiblePage = PublishedRetainedPage & {
+type PublishedRetainedCompatiblePage = PublishedRetainedPage & {
   readonly coverageKind: "compatible";
 };
 
-export type PublishedRetainedHitIndex = {
+type PublishedRetainedHitIndex = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type RetainedMotionContinuityProof = {
+type RetainedMotionContinuityProof = {
   readonly overlapCoveredAreaCssPx: number;
   readonly trueHoleAreaCssPx: number;
   readonly trueHoleAreaRatio: number;
@@ -72,7 +68,7 @@ export type RetainedMotionContinuityProof = {
 
 type RetainedMotionContinuityReason = RetainedMotionContinuityProof["reason"];
 
-export type RetainedVisibleCoverageProof = {
+type RetainedVisibleCoverageProof = {
   readonly compatibleCoverageRects: readonly GpuRect[];
   readonly exactCoverageRects: readonly GpuRect[];
   readonly fidelityState: RetainedFidelityState;
@@ -86,7 +82,7 @@ export type RetainedVisibleCoverageProof = {
   readonly visibleContentRects: readonly GpuRect[];
 };
 
-export type PublishedFrameDiagnostics = {
+type PublishedFrameDiagnostics = {
   readonly activeIslandTransaction: NativeIslandPublicationTransaction;
   readonly compatiblePageCount: number;
   readonly continuityProof: RetainedMotionContinuityProof;
@@ -114,7 +110,7 @@ export type RetainedDisplayFrame = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type RetainedFrameTransaction = {
+type RetainedFrameTransaction = {
   readonly nowMs?: number | undefined;
   readonly prepared: RetainedDisplayFrameInput;
   readonly previous: RetainedDisplayFrame | null;

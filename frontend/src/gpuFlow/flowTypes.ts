@@ -93,7 +93,6 @@ export type ConnectionStatus = "valid" | "invalid";
 
 export enum ConnectionMode {
   Strict = "strict",
-  Loose = "loose",
 }
 
 export type HandleProps = {

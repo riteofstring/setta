@@ -11,7 +11,7 @@ import type { GpuRect } from "./viewportMath";
 
 const PAGE_GRID_EDGE_EPSILON = 1e-6;
 
-export type RetainedTexturePageGridInput = {
+type RetainedTexturePageGridInput = {
   readonly contentBoundsCss: GpuRect;
   readonly contentVersion: number;
   readonly devicePixelRatioBucket: number;
@@ -34,7 +34,7 @@ export type RetainedTexturePageDrawQuad<TResource = unknown> = {
   readonly staleContent: boolean;
 };
 
-export type RetainedTexturePageCoverage<TResource = unknown> = {
+type RetainedTexturePageCoverage<TResource = unknown> = {
   readonly coverageCandidateCount: number;
   readonly compatibleCoverageRects: readonly GpuRect[];
   readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];

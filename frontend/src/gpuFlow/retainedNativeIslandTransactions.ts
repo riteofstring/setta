@@ -6,7 +6,7 @@ export type PublishedNativeIslandRect = {
   readonly rect: GpuRect;
 };
 
-export type NativeIslandPublicationMode =
+type NativeIslandPublicationMode =
   | "none"
   | "attach"
   | "survive"

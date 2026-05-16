@@ -1,7 +1,7 @@
 import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedTextureWorkKind =
+type RetainedTextureWorkKind =
   | "animation-rect"
   | "content-rect"
   | "first-visible"
@@ -10,9 +10,9 @@ export type RetainedTextureWorkKind =
   | "lod-refinement"
   | "source-window";
 
-export type RetainedTextureSourceWindow = GpuRect;
+type RetainedTextureSourceWindow = GpuRect;
 
-export type RetainedTextureWorkItemInput = {
+type RetainedTextureWorkItemInput = {
   readonly contentVersion: number;
   readonly createdFrame?: number | undefined;
   readonly kind: RetainedTextureWorkKind;
@@ -68,14 +68,6 @@ export class RetainedTextureWorkQueue {
 
   clear() {
     this.items.clear();
-  }
-
-  clearSurface(surfaceId: string) {
-    for (const [key, item] of this.items) {
-      if (item.surfaceId === surfaceId) {
-        this.items.delete(key);
-      }
-    }
   }
 
   complete(item: RetainedTextureWorkItem): boolean {

@@ -4,14 +4,14 @@ import type { HtmlSurfaceFlatVisual } from "./visualScene";
 
 export type PreparedFlatSurfaceDraw = ReturnType<HtmlSurfaceFlatPass["prepare"]>;
 
-export type HtmlSurfaceFlatLayerPassesOptions = {
+type HtmlSurfaceFlatLayerPassesOptions = {
   readonly getCameraBindGroupLayout: () => GPUBindGroupLayout;
   readonly getTextureBindGroup: (surface: HtmlSurfaceFlatVisual) => GPUBindGroup;
   readonly getTextureBindGroupLayout: () => GPUBindGroupLayout;
   readonly runtime: HtmlSurfaceRenderRuntime;
 };
 
-export type HtmlSurfaceFlatLayerDrawInput = {
+type HtmlSurfaceFlatLayerDrawInput = {
   readonly cameraBindGroup: GPUBindGroup;
   readonly flatSurfaceDraw: PreparedFlatSurfaceDraw;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];

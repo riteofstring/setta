@@ -12,7 +12,7 @@ const retainedContentSceneSourceInputKey: unique symbol = Symbol(
   "gpu-retained-content-scene-source-input",
 );
 
-export type GpuRetainedContentSceneSourceBaseInput = {
+type GpuRetainedContentSceneSourceBaseInput = {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly controlRightInset: number;
   readonly controlWidth: number;
@@ -29,7 +29,7 @@ export type GpuRetainedContentSceneSourceBaseInput = {
   readonly viewportRect: GpuRect;
 };
 
-export type GpuRetainedContentSceneSourceLayout = {
+type GpuRetainedContentSceneSourceLayout = {
   readonly contentRect: GpuRect;
   readonly hasVerticalGaps: boolean;
   readonly rowMetrics: readonly GpuRetainedContentRowMetric[];

@@ -13,7 +13,7 @@ export type RetainedTextureUploadSchedulerBudget = {
   readonly maxUploads: number;
 };
 
-export type RetainedPageWorkBudget = {
+type RetainedPageWorkBudget = {
   readonly activeIslandReserveBytes: number;
   readonly interactionFrameMaxMs: number;
   readonly prefetchMaxBytes: number;
@@ -22,7 +22,7 @@ export type RetainedPageWorkBudget = {
   readonly visibleEdgeMaxUploads: number;
 };
 
-export type RetainedSchedulerBudgets = {
+type RetainedSchedulerBudgets = {
   readonly visibleTrueHoleMinMs: number;
   readonly visibleTrueHoleMaxUploads: number;
   readonly activeIslandMinMs: number;
@@ -37,7 +37,7 @@ export type RetainedTextureUploadWorkEstimate = {
   readonly uploadCount: number;
 };
 
-export type RetainedTextureUploadWorkResult =
+type RetainedTextureUploadWorkResult =
   RetainedTextureUploadWorkEstimate & {
     readonly complete: boolean;
   };
@@ -49,7 +49,7 @@ export type RetainedTextureUploadSchedulerDiagnostic = {
   readonly reason: "budget-exhausted" | "actual-budget-miss";
 };
 
-export type RetainedTextureUploadSchedulerResult = {
+type RetainedTextureUploadSchedulerResult = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly budgetExhausted: boolean;
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
@@ -62,12 +62,12 @@ export type RetainedTextureUploadSchedulerResult = {
   readonly uploadCount: number;
 };
 
-export type RetainedTextureSchedulerQueue =
+type RetainedTextureSchedulerQueue =
   | "interactive"
   | "visible"
   | "prefetch";
 
-export type RunRetainedTextureUploadSchedulerInput = {
+type RunRetainedTextureUploadSchedulerInput = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly estimateWorkItem: (
     item: RetainedTextureWorkItem,

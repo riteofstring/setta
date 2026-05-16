@@ -6,7 +6,7 @@ import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll
 import type { GpuRetainedContentScrollbarVisualState } from "../retainedContentScrollbar";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import type { GpuContentSurface, GpuFlowScene } from "../scene";
+import type { GpuFlowScene } from "../scene";
 
 export type GpuFlowRetainedContentNodeLayerState = {
   readonly edgeLabelSurfaces?:
@@ -37,10 +37,6 @@ export type GpuFlowRetainedContentPageManager = Pick<
   RetainedContentTexturePageManager,
   "markSurfaceContentDirty"
 >;
-
-export type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
-  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-};
 
 export function mergeGpuFlowRetainedContentSurfaceLayouts({
   overlays,

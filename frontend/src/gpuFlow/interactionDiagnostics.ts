@@ -11,7 +11,7 @@ import {
 } from "./viewportMath";
 import type { GpuFlowViewportStore } from "./viewportStore";
 
-export type GpuFlowInteractionMode =
+type GpuFlowInteractionMode =
   | "none"
   | "connection"
   | "node-drag"
@@ -25,7 +25,7 @@ export type GpuFlowInteractionMode =
   | "viewport"
   | "wheel-zoom";
 
-export type GpuFlowElementDiagnostics = {
+type GpuFlowElementDiagnostics = {
   readonly className: string | null;
   readonly gpuFlowDomIslandId: string | null;
   readonly gpuFlowDomIslandKind: string | null;
@@ -39,7 +39,7 @@ export type GpuFlowElementDiagnostics = {
   readonly testId: string | null;
 };
 
-export type GpuFlowRetainedHitDiagnostics = {
+type GpuFlowRetainedHitDiagnostics = {
   readonly flowPoint: GpuPoint;
   readonly hitId: string;
   readonly hitKind: string;
@@ -55,7 +55,7 @@ export type GpuFlowRetainedHitDiagnostics = {
   readonly zIndex: number;
 };
 
-export type GpuFlowPointerDiagnostics = {
+type GpuFlowPointerDiagnostics = {
   readonly button: number;
   readonly buttons: number;
   readonly clientX: number;
@@ -68,7 +68,7 @@ export type GpuFlowPointerDiagnostics = {
   readonly type: string;
 };
 
-export type GpuFlowPointerCaptureDiagnostics = {
+type GpuFlowPointerCaptureDiagnostics = {
   readonly active: boolean;
   readonly pointerId: number;
 };

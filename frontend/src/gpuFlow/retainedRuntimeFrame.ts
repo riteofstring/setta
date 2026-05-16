@@ -20,7 +20,7 @@ import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTe
 import type { GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
-export type GpuRetainedRuntimeFrameInputSnapshot = {
+type GpuRetainedRuntimeFrameInputSnapshot = {
   readonly activeNativeIslandIds: readonly string[];
   readonly devicePixelRatioBucket: number;
   readonly sceneRevision: number;
@@ -30,7 +30,7 @@ export type GpuRetainedRuntimeFrameInputSnapshot = {
   readonly viewportZoomBucket: number;
 };
 
-export type GpuRetainedRuntimeFrameDescriptors = {
+type GpuRetainedRuntimeFrameDescriptors = {
   readonly contentPageSurfaces: readonly RetainedContentTexturePageFrameSurface[];
   readonly hitTestSurfaces: readonly GpuRetainedContentSurface[];
   readonly htmlSurfaceNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
@@ -39,7 +39,7 @@ export type GpuRetainedRuntimeFrameDescriptors = {
   readonly textLikeRowSnapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 };
 
-export type GpuRetainedRuntimeFrameDiagnostics = {
+type GpuRetainedRuntimeFrameDiagnostics = {
   readonly activeNativeIslandCount: number;
   readonly sourceSurfaceCount: number;
   readonly textLikeSnapshotSourceCount: number;
@@ -53,7 +53,7 @@ export type GpuRetainedRuntimeFrame = {
   readonly input: GpuRetainedRuntimeFrameInputSnapshot;
 };
 
-export type CreateGpuRetainedRuntimeFrameInput = {
+type CreateGpuRetainedRuntimeFrameInput = {
   readonly devicePixelRatioBucket: number;
   readonly frameId: number;
   readonly scene: GpuFlowScene | undefined;

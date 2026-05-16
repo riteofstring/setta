@@ -78,13 +78,6 @@ export type HtmlSurfaceEffectVisual = {
   readonly zIndex: number;
 };
 
-export type HtmlSurfaceVisual =
-  | HtmlSurfaceFlatVisual
-  | HtmlSurfaceSolidRoundedRectVisual
-  | HtmlSurfaceTiledFlatVisual
-  | HtmlSurfaceMeshVisual
-  | HtmlSurfaceEffectVisual;
-
 export type HtmlSurfaceVisualScene = {
   readonly effectSurfaces: readonly HtmlSurfaceEffectVisual[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];

@@ -17,7 +17,7 @@ export type GpuSectionSceneScrollResult = {
 
 type GpuSectionSceneDragAutoScrollResult = GpuSectionSceneScrollResult;
 
-export type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult & {
+type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult & {
   readonly handled: boolean;
 };
 

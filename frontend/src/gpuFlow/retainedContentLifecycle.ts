@@ -38,24 +38,24 @@ export type RetainedCompatibilityResult =
       readonly reason: RetainedCompatibilityRejectReason;
     };
 
-export type RetainedSemanticIdentity = {
+type RetainedSemanticIdentity = {
   readonly contentVersion: number;
   readonly sourceKey: string;
   readonly sourceVersion: number;
   readonly surfaceId: string;
 };
 
-export type RetainedLod = {
+type RetainedLod = {
   readonly level: number;
   readonly scale: number;
   readonly scaleKey: string;
 };
 
-export type RetainedDprBucket = number;
+type RetainedDprBucket = number;
 
-export type RetainedContentToTextureTransform = Matrix3;
+type RetainedContentToTextureTransform = Matrix3;
 
-export type RetainedContentSnapshot = {
+type RetainedContentSnapshot = {
   readonly contentRect: GpuRect;
   readonly dprBucket: RetainedDprBucket;
   readonly fidelityMetadata: RetainedFidelityMetadata;
@@ -81,12 +81,12 @@ export type RetainedCommittedPageLifecycle = {
   readonly viewportZoomBucket: number;
 };
 
-export type RetainedCommittedPageForCompatibility =
+type RetainedCommittedPageForCompatibility =
   RetainedCommittedPageLifecycle & {
     readonly key: string;
   };
 
-export type RetainedPageLifecycleDescriptor = {
+type RetainedPageLifecycleDescriptor = {
   readonly contentVersion: number;
   readonly contentSegments?: readonly RetainedRegionContentSegment[];
   readonly devicePixelRatioBucket: number;
@@ -185,7 +185,7 @@ export function createRetainedRegionTargetFromDescriptor(
   });
 }
 
-export function createRetainedRegionManifest(
+function createRetainedRegionManifest(
   descriptor: RetainedPageLifecycleDescriptor,
 ): RetainedRegionManifest {
   return Object.freeze({
@@ -206,7 +206,7 @@ export function createRetainedRegionManifest(
   });
 }
 
-export function createRetainedFidelityMetadata(
+function createRetainedFidelityMetadata(
   descriptor: RetainedPageLifecycleDescriptor,
 ): RetainedFidelityMetadata {
   return Object.freeze({

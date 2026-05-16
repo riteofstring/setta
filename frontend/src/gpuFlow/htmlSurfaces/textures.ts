@@ -180,7 +180,7 @@ export type HtmlSurfaceTextureMemorySnapshot = {
   readonly visibleBytes: number;
   readonly visibleTextureCount: number;
 };
-export type HtmlSurfaceTextureSnapshotDiagnostic = {
+type HtmlSurfaceTextureSnapshotDiagnostic = {
   readonly clampedByMaxTexture: boolean;
   readonly cssHeight: number;
   readonly cssWidth: number;
@@ -198,7 +198,7 @@ export type HtmlSurfaceTextureSnapshotDiagnostic = {
   readonly tileCount: number;
   readonly zoomBucket: number;
 };
-export type HtmlSurfaceTextureResolutionDiagnostic = {
+type HtmlSurfaceTextureResolutionDiagnostic = {
   readonly clampedByMaxTexture: boolean;
   readonly cssHeight: number;
   readonly cssWidth: number;
@@ -246,7 +246,7 @@ type HtmlSurfaceTextureManagerOptions = {
   readonly maxTextureDimension2D?: number | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
 };
-export type HtmlSurfaceTextureHandle = {
+type HtmlSurfaceTextureHandle = {
   committed: CommittedHtmlSurfaceTextureSnapshot;
   element: Element;
   pendingResolution: TextureResolution | null;

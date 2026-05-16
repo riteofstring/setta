@@ -33,13 +33,13 @@ export type GpuRetainedContentRowVisualBounds = {
   readonly x: number;
 };
 
-export type GpuRetainedContentRowPortInput = {
+type GpuRetainedContentRowPortInput = {
   readonly id: string;
   readonly kind: "input" | "output";
   readonly side: "left" | "right";
 };
 
-export type GpuRetainedContentControlCommitPolicy =
+type GpuRetainedContentControlCommitPolicy =
   | "immediate"
   | "native-island"
   | "preview-commit";

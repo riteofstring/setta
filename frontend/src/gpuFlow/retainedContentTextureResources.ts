@@ -4,7 +4,7 @@ import {
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
 
-export type RetainedContentTextureRegion = {
+type RetainedContentTextureRegion = {
   readonly atlasId: string;
   readonly pixelHeight: number;
   readonly pixelWidth: number;

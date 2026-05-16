@@ -14,7 +14,7 @@ export type GpuRetainedContentScrollbarAxis = "x" | "y";
 
 export type GpuRetainedContentScrollbarPart = "thumb" | "track";
 
-export type GpuRetainedContentScrollbarCommandState = {
+type GpuRetainedContentScrollbarCommandState = {
   readonly activePart: GpuRetainedContentScrollbarPart | null;
   readonly hoveredPart: GpuRetainedContentScrollbarPart | null;
 };
@@ -39,7 +39,7 @@ export type GpuRetainedContentScrollbarVisualState = {
   readonly hoveredTarget: GpuRetainedContentScrollbarVisualTarget | null;
 };
 
-export type GpuRetainedContentScrollbarLayout = {
+type GpuRetainedContentScrollbarLayout = {
   readonly axis: GpuRetainedContentScrollbarAxis;
   readonly maxOffset: number;
   readonly thumbRect: GpuRect;

@@ -21,18 +21,18 @@ export type Matrix3 = readonly [
   number,
 ];
 
-export type RetainedSurfaceId = string;
-export type RetainedDocumentId = string;
-export type RetainedSectionId = string;
-export type RetainedRowId = string;
-export type RetainedContentVersion = number;
-export type RetainedThemeGeneration = number;
-export type RetainedFontGeneration = number;
-export type RetainedCommittedRegionId = string;
-export type RetainedLayerId = number;
-export type RetainedTextureHandle = unknown;
+type RetainedSurfaceId = string;
+type RetainedDocumentId = string;
+type RetainedSectionId = string;
+type RetainedRowId = string;
+type RetainedContentVersion = number;
+type RetainedThemeGeneration = number;
+type RetainedFontGeneration = number;
+type RetainedCommittedRegionId = string;
+type RetainedLayerId = number;
+type RetainedTextureHandle = unknown;
 
-export type ContentRect = GpuRect;
+type ContentRect = GpuRect;
 
 export type RetainedRegionManifest = {
   readonly surfaceId: RetainedSurfaceId;
@@ -115,11 +115,11 @@ export type RetainedRegionTarget = {
   readonly fidelity: RetainedFidelityMetadata;
 };
 
-export type RetainedCoverageTarget = {
+type RetainedCoverageTarget = {
   readonly regions: readonly RetainedRegionTarget[];
 };
 
-export type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
+type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly compatibility: Extract<
     RetainedRegionCompatibility,
     { readonly kind: "compatible" }
@@ -129,7 +129,7 @@ export type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly target: RetainedRegionTarget;
 };
 
-export type RetainedRejectedCoverage = {
+type RetainedRejectedCoverage = {
   readonly reason: Extract<
     RetainedRegionCompatibility,
     { readonly kind: "incompatible" }
@@ -137,7 +137,7 @@ export type RetainedRejectedCoverage = {
   readonly rect: ContentRect;
 };
 
-export type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
+type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
   readonly compatibleCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly exactCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly protectedRegionIds: readonly RetainedCommittedRegionId[];
@@ -156,29 +156,29 @@ export type UploadedRetainedRegion<TTextureHandle = RetainedTextureHandle> =
     readonly byteSize: number;
   };
 
-export type RetainedRejectReason =
+type RetainedRejectReason =
   | "obsolete"
   | "raster-failed"
   | "semantic-manifest-mismatch"
   | "texture-allocation-failed";
 
-export type RetainedProtectionWindow = {
+type RetainedProtectionWindow = {
   readonly regions: readonly RetainedRegionTarget[];
 };
 
-export type RetainedProtectionStats = {
+type RetainedProtectionStats = {
   readonly protectedRegionIds: readonly RetainedCommittedRegionId[];
   readonly protectedRegionCount: number;
 };
 
-export type RetainedCoverageBudget = {
+type RetainedCoverageBudget = {
   readonly maxBytes: number;
   readonly protectedRegionIds?:
     | readonly RetainedCommittedRegionId[]
     | undefined;
 };
 
-export type RetainedEvictionReport = {
+type RetainedEvictionReport = {
   readonly evictedBytes: number;
   readonly evictedRegionIds: readonly RetainedCommittedRegionId[];
   readonly remainingBytes: number;
@@ -222,7 +222,7 @@ type RetainedContentProofKeys = {
   readonly snapshotKeys: readonly string[];
 };
 
-export interface RetainedCommittedCoverageStore<
+interface RetainedCommittedCoverageStore<
   TTextureHandle = RetainedTextureHandle,
 > {
   queryVisibleCoverage(
@@ -313,11 +313,6 @@ export class RetainedCommittedCoverageMap<
     });
   }
 
-  deleteCommittedRegion(id: RetainedCommittedRegionId): boolean {
-    this.protectedRegionIds.delete(id);
-    return this.committedRegions.delete(id);
-  }
-
   evictToBudget({ maxBytes, protectedRegionIds = [] }: RetainedCoverageBudget) {
     const protectedIds = new Set([
       ...this.protectedRegionIds,
@@ -343,12 +338,6 @@ export class RetainedCommittedCoverageMap<
       evictedRegionIds: Object.freeze(evictedRegionIds),
       remainingBytes,
     };
-  }
-
-  getCommittedRegion(
-    id: RetainedCommittedRegionId,
-  ): RetainedCommittedRegion<TTextureHandle> | undefined {
-    return this.committedRegions.get(id)?.region;
   }
 
   get committedByteSize(): number {

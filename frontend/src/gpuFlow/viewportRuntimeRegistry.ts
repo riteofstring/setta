@@ -10,7 +10,7 @@ export type GpuViewportRuntimeCommandOptions = {
   readonly durationMs?: number | undefined;
 };
 
-export type RegisteredGpuFlowViewportRuntime = {
+type RegisteredGpuFlowViewportRuntime = {
   applyViewportCommand(
     viewport: GpuViewportInput,
     options?: GpuViewportRuntimeCommandOptions,

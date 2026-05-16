@@ -93,10 +93,6 @@ export class DirtyNodeQueue {
     return state ? toPublicDirtyNodeState(state) : undefined;
   }
 
-  hasDirtyNodes(): boolean {
-    return this.states.size > 0;
-  }
-
   markDirty(mark: DirtyNodeMark): DirtyNodeState {
     const dirtyFlags = resolveDirtyMarkFlags(mark);
     const existing = this.states.get(mark.nodeId);

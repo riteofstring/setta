@@ -13,7 +13,7 @@ import {
 
 type HtmlSurfaceAnimationSourceRect = HtmlSurfaceSourceRect;
 
-export type HtmlSurfaceAnimationCaptureLeaseController = {
+type HtmlSurfaceAnimationCaptureLeaseController = {
   begin(input: BeginHtmlSurfaceAnimationCaptureLeaseInput): void;
   cancel(surfaceId: string): void;
   destroy(): void;

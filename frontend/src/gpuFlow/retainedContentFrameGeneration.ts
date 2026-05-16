@@ -11,7 +11,7 @@ import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll"
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
 import type { GpuContentSurface } from "./scene";
 
-export type GpuRetainedContentFrameGeneration = {
+type GpuRetainedContentFrameGeneration = {
   readonly contentPageSurfaces: readonly RetainedContentTexturePageFrameSurface[];
   readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
   readonly textLikeRowSnapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];

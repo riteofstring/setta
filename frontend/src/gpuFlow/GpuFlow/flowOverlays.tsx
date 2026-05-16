@@ -21,7 +21,7 @@ import {
 } from "./retainedTextLikeRowSnapshotSources";
 import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
-export type GpuFlowOverlaySources = {
+type GpuFlowOverlaySources = {
   readonly edgeLabelSourceElement: ReactNode;
   readonly htmlSurfaceNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly htmlSurfaceOverlays: readonly GpuHtmlSurfaceOverlayLayout[];

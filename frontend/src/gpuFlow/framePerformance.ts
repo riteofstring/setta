@@ -70,7 +70,7 @@ export type GpuFlowFrameUploadDiagnostic = {
   readonly workKinds: readonly string[];
 };
 
-export type GpuFlowFrameTextureLifecycleDiagnostic = {
+type GpuFlowFrameTextureLifecycleDiagnostic = {
   readonly committed: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["committed"];
   readonly pending: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["pending"];
   readonly pendingResolution: RenderHtmlSurfaceFrameResult["textureLifecycleDiagnostics"][number]["pendingResolution"];

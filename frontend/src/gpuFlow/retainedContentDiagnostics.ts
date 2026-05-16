@@ -5,7 +5,7 @@ export type GpuRetainedContentHitTestSurfaceDiagnostic = {
   readonly surfaceId: string;
 };
 
-export type GpuRetainedContentHitTestDiagnostic = {
+type GpuRetainedContentHitTestDiagnostic = {
   readonly checkedHitRecordCount: number;
   readonly contentSurfaceCount: number;
   readonly durationMs: number;
@@ -17,7 +17,7 @@ export type GpuRetainedContentHitTestDiagnostic = {
   readonly timestampMs: number;
 };
 
-export type GpuRetainedContentSceneBuildDiagnostic = {
+type GpuRetainedContentSceneBuildDiagnostic = {
   readonly activePopup: boolean;
   readonly durationMs: number;
   readonly hitRecordBuildDurationMs: number;
@@ -28,7 +28,7 @@ export type GpuRetainedContentSceneBuildDiagnostic = {
   readonly visibleRowCount: number;
 };
 
-export type GpuRetainedContentDiagnosticsRecorder = {
+type GpuRetainedContentDiagnosticsRecorder = {
   readonly recordHitTest?: (
     sample: GpuRetainedContentHitTestDiagnostic,
   ) => void;

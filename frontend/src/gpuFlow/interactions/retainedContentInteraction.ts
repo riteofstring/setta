@@ -52,7 +52,7 @@ export type GpuRetainedContentDragCancelEvent<
   readonly nativeEvent: NativeEvent;
 };
 
-export type GpuRetainedContentInteractionDiagnosticsRef = {
+type GpuRetainedContentInteractionDiagnosticsRef = {
   readonly current: MutableGpuFlowInteractionDiagnostics;
 };
 

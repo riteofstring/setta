@@ -36,7 +36,7 @@ export type RetainedTexturePageDescriptor = {
   readonly viewportZoomBucket: number;
 };
 
-export type PendingRetainedTexturePage = {
+type PendingRetainedTexturePage = {
   readonly byteSize: number;
   readonly createdFrame: number;
   readonly descriptor: RetainedTexturePageDescriptor;
@@ -53,7 +53,7 @@ export type CommittedRetainedTexturePage<TResource = unknown> = {
   readonly resource: TResource;
 } & RetainedCommittedPageLifecycle;
 
-export type RetiredRetainedTexturePage<TResource = unknown> = {
+type RetiredRetainedTexturePage<TResource = unknown> = {
   readonly byteSize: number;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly key: string;
@@ -71,7 +71,7 @@ export type RetainedTexturePageCacheSnapshot = {
   readonly totalBytes: number;
 };
 
-export type RetainedTexturePageLookup = {
+type RetainedTexturePageLookup = {
   readonly contentVersion: number;
   readonly contentSegments?: readonly RetainedRegionContentSegment[];
   readonly devicePixelRatioBucket: number;
@@ -95,7 +95,7 @@ export type RetainedTexturePageRejectedCoverage = {
   readonly rect: GpuRect;
 };
 
-export type RetainedTexturePageCoverageCandidate<TResource = unknown> = {
+type RetainedTexturePageCoverageCandidate<TResource = unknown> = {
   readonly compatibility: Extract<
     RetainedCompatibilityResult,
     { readonly kind: "compatible" }
@@ -103,7 +103,7 @@ export type RetainedTexturePageCoverageCandidate<TResource = unknown> = {
   readonly page: CommittedRetainedTexturePage<TResource>;
 };
 
-export type RetainedTexturePageEvictionOptions = {
+type RetainedTexturePageEvictionOptions = {
   readonly frame?: number | undefined;
   readonly maxBytes: number;
   readonly protectedPageKeys?:
@@ -118,16 +118,16 @@ export type RetainedTexturePageEvictionResult = {
   readonly remainingBytes: number;
 };
 
-export type RetainedTexturePageRetirementResult = {
+type RetainedTexturePageRetirementResult = {
   readonly destroyedBytes: number;
   readonly destroyedCount: number;
 };
 
-export type RetainedTexturePageRetirementOptions = {
+type RetainedTexturePageRetirementOptions = {
   readonly retiredFrameThrough?: number | undefined;
 };
 
-export type RetainedTexturePageCacheOptions<TResource> = {
+type RetainedTexturePageCacheOptions<TResource> = {
   readonly destroyResource?: ((resource: TResource) => void) | undefined;
 };
 

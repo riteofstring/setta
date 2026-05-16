@@ -53,7 +53,7 @@ export type RetainedContentTexturePageFrameInput = {
   readonly viewportZoomBucket: number;
 };
 
-export type RetainedContentTexturePageFrameResult = {
+type RetainedContentTexturePageFrameResult = {
   readonly budgetExhausted: boolean;
   readonly coverageCandidateCount: number;
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];

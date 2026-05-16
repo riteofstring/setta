@@ -10,7 +10,7 @@ import type {
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { GpuRect } from "./viewportMath";
 
-export type GpuRetainedContentPageRasterPlan = {
+type GpuRetainedContentPageRasterPlan = {
   readonly pixelHeight: number;
   readonly pixelWidth: number;
   readonly sourceRectCss: GpuRect;
@@ -24,7 +24,7 @@ export type GpuRetainedContentPageRasterPlan = {
   };
 };
 
-export type RasterizeGpuRetainedContentPageInput = {
+type RasterizeGpuRetainedContentPageInput = {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   readonly lodScale: number;
@@ -38,7 +38,7 @@ export type RasterizeGpuRetainedContentPageInput = {
     | undefined;
 };
 
-export type RasterizeGpuRetainedContentPageResult = {
+type RasterizeGpuRetainedContentPageResult = {
   readonly drawnCommandCount: number;
   readonly plan: GpuRetainedContentPageRasterPlan;
 };

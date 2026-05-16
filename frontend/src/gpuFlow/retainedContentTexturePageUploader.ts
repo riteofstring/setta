@@ -19,7 +19,7 @@ import {
 } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedContentTexturePageUploadResult = {
+type RetainedContentTexturePageUploadResult = {
   readonly complete: boolean;
   readonly drawableChanged: boolean;
   readonly drawnCommandCount: number;

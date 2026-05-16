@@ -18,21 +18,16 @@ import {
 import type { GpuViewportRuntimeCommandOptions } from "./viewportRuntimeRegistry";
 import type { GpuFlowViewportStoreApi } from "./viewportStore";
 
-export type GpuFlowRuntimeSceneInput = {
-  readonly source: "react";
-  readonly sceneVersion: number;
-};
-
-export type GpuFlowViewportOverlayManager = {
+type GpuFlowViewportOverlayManager = {
   applyViewport(viewport: GpuViewportTuple): void;
 };
 
-export type GpuFlowViewportRuntimeFrameResult = {
+type GpuFlowViewportRuntimeFrameResult = {
   readonly viewportChanged: boolean;
   readonly viewportFrame: boolean;
 };
 
-export type GpuFlowViewportRuntimeOptions = {
+type GpuFlowViewportRuntimeOptions = {
   readonly observerPublishIntervalMs?: number | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly store: GpuFlowViewportStoreApi;
