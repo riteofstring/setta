@@ -116,6 +116,11 @@ The current problem is that pieces of the desired/prepared frame are leaking int
 
 The first change should be tests that reproduce the exact observed behavior and fail on the current implementation. These tests should measure frame cadence, visual stability, and interaction behavior, not internal implementation details.
 
+Regression prevention has two mandatory gates:
+
+- Add realistic tests for the observed failures, using production rendering behavior and user-visible assertions.
+- Run the full GPU Flow-related test suite before the refactor is considered complete. Targeted tests are useful during implementation, but they are not a substitute for the full related suite.
+
 Recommended location:
 
 - `frontend/tests/e2e/gpu-flow/retained-display-frame-regression.spec.ts`
@@ -157,6 +162,32 @@ Required failing tests:
    - Zoom in until retained page pressure is high.
    - Scroll through a dense section.
    - Assert that the currently visible area is prioritized over offscreen retained pages by measuring what the user sees: visible content should stay present and scroll should progress without multi-frame blank gaps.
+
+Required large-scene performance tests:
+
+1. `large complex scene panning stays within the interaction frame budget`
+   - Use a realistic fixture comparable to the Settings project's All Settings page.
+   - Include many nodes, retained sections, dense parameter rows, text inputs, dropdowns, sliders, and enough section content to require internal scrolling.
+   - Pan the canvas for a fixed distance and duration using real pointer or wheel input.
+   - Measure requestAnimationFrame cadence, long tasks, dropped-frame streaks, and visible movement continuity.
+
+2. `large complex scene zooming stays within the interaction frame budget`
+   - Use the same All Settings-like fixture.
+   - Zoom through the range that creates retained page pressure.
+   - Assert both visual stability and sustained interaction cadence.
+   - High-resolution refinement may continue after active zoom, but the active zoom interaction must not blank visible content or stall movement.
+
+3. `large complex retained section scrolling stays within the interaction frame budget`
+   - Use a dense retained section inside the same fixture.
+   - Scroll the section while unfocused and while a text input inside the section is focused.
+   - Assert comparable cadence between both states and no multi-frame blank gaps.
+
+Performance target:
+
+- Aim for 120 fps-class interaction on capable hardware and browsers.
+- For a true 120 Hz environment, steady-state interaction should target p95 frame interval at or below 8.33 ms, no long tasks over 50 ms, no repeated dropped-frame streaks, and continuous visible movement.
+- If the local or CI environment is capped below 120 Hz, use refresh-aware thresholds: p95 frame interval should stay close to the observed display cadence, main-thread interaction work should stay within an 8 ms per-frame budget, no long tasks over 50 ms should occur, and the report must record the observed refresh cadence so the result is interpretable.
+- A lower-refresh pass is not enough by itself to claim the 120 fps-class goal. The final verification should include a run on capable hardware or explicitly record why that was not possible and what residual risk remains.
 
 Instrumentation guidance:
 
@@ -387,14 +418,31 @@ Verification should happen in this order:
 3. Run targeted frontend tests:
    - `pnpm -C frontend exec vitest run <relevant-unit-tests>`
    - `./scripts/run-playwright-e2e.sh <gpu-flow-retained-display-frame-spec>`
-4. Use Chrome DevTools performance recording on the same reproduction:
+4. Run the full GPU Flow-related test suite, not just the new regression spec:
+   - `pnpm -C frontend exec vitest run frontend/src/gpuFlow`
+   - `pnpm -C frontend exec vitest run frontend/src/components/Pages/Project/gpuFlowCompatibilityFixture.test.ts frontend/src/components/Pages/Project/gpuFlowCompatibilityMatrix.test.ts`
+   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow`
+   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpuFlowInteractionLatencyProbe.test.ts frontend/tests/e2e/gpuFlowLargeGraphStressFixture.test.ts frontend/tests/e2e/gpuFlowPerformanceProbe.test.ts frontend/tests/e2e/gpuFlowVisualParityProbe.test.ts`
+   - Include GPU Flow-adjacent editor section reflow specs if the implementation touches section layout, terminal attachment, or retained section integration:
+     `frontend/tests/e2e/editor/code-section-terminal-attachment-reflow.spec.ts`,
+     `frontend/tests/e2e/editor/code-section-terminal-reflow.spec.ts`,
+     `frontend/tests/e2e/editor/section-config-code-path-overflow.spec.ts`.
+5. Use Chrome DevTools performance recording on the same reproduction:
    - Zoom into the dense section.
    - Activate a text input.
    - Scroll while focused.
    - Confirm no full-section blank frames.
    - Confirm frame gaps are reduced and visible content remains present under high zoom pressure.
-5. Save before/after performance reports under `perf/` as append-only notes for the implementation PR.
-6. Run `./scripts/quality/check.sh` unless the developer narrows scope.
+6. Run the large-scene performance gate on the All Settings-like fixture:
+   - Pan the canvas.
+   - Zoom through the high-pressure retained content range.
+   - Scroll a dense retained section while unfocused.
+   - Scroll the same retained section with a text input focused.
+   - Record whether the run was a true 120 Hz-capable run or a refresh-aware lower-cadence run.
+7. Save before/after performance reports under `perf/` as append-only notes for the implementation PR.
+8. Run `./scripts/quality/check.sh` unless the developer narrows scope.
+
+If a full-suite command cannot run in the local environment, record the exact blocker and residual risk in the implementation notes. Do not treat targeted passing tests as equivalent to the full GPU Flow-related suite.
 
 ## Acceptance Criteria
 
@@ -408,7 +456,10 @@ The refactor is complete when:
 - Hit testing, drawing, active input placement, and wheel ownership all read from `PublishedRetainedFrame`.
 - Desired or prepared frames cannot become visible until the visible coverage rule passes.
 - High zoom uses visible-first scheduling with explicit memory and texture limits.
+- Large complex scenes comparable to the Settings project's All Settings page meet the pan, zoom, and retained section scroll performance targets: 120 fps-class p95 frame pacing on capable hardware, refresh-aware pacing on capped environments, no interaction long tasks over 50 ms, and main-thread interaction work within the documented per-frame budget.
+- Large-scene performance has before/after reports in `perf/`.
 - Obsolete broad invalidation paths and transitional compatibility code are removed.
+- The full GPU Flow-related Vitest and Playwright suite has been run and passes, or any inability to run it is recorded with an explicit blocker and residual risk.
 
 ## Implementation Notes
 
