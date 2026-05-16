@@ -708,8 +708,9 @@ For the final Chrome recording, report:
 
 The refactor is complete only when:
 
-- The new zoom/click visual continuity tests fail before implementation and
-  pass after implementation.
+- The failing-first visual continuity test fails before implementation, and
+  the full zoom/click/rapid-interaction/large-scene guardrail set passes before
+  handoff.
 - Zooming in/out retained sections keeps content visible without repeated
   horizontal placeholder lines.
 - Clicking retained text-like rows does not blank or stripe unrelated section
