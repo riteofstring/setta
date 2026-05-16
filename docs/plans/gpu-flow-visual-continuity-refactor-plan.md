@@ -1,171 +1,293 @@
-# GPU Flow Visual Continuity Refactor Plan
+# GPU Flow Retained Visual Epoch Refactor Plan
 
 ## Goal
-Make retained GPU Flow content visually continuous under cold cache, fast pan, resize, and first-open settings scenarios. A section shell must not be visible for more than a frame or two while its deterministic passive content is blank.
 
-This is a larger refactor plan. It deliberately does not preserve the old retained page publication semantics, add compatibility shims, or keep a transitional dual path.
+Make GPU Flow settings sections visually atomic, stable, and responsive under cold cache, view switches, active text input, pan, zoom, resize, and section scrolling.
 
-## Problem Statement
-The latest Chrome recording shows that the retained coverage refactor removed some redundant work, but it did not make visual publication atomic.
+The retained renderer must not:
 
-Baseline recording:
-`/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260515-234334`
+- show a section shell while deterministic passive row content is blank
+- restyle passive settings inputs one second after first paint
+- draw passive retained text underneath an active DOM text island
+- wedge pan or zoom because a retained repair path cannot make progress
+- publish uninitialized or partially initialized texture content
 
-Observed failure:
-- `sectionSizingPolicy`, `shortcuts`, and other sections show card chrome while row contents remain blank for more than one second.
-- Retained display diagnostics in the recording show max true-hole area of about `5,381,066` CSS px.
-- The recording shows a true-hole window above `1,000,000` CSS px lasting about `1343ms`; aggregate analysis across the full recording shows true-hole area above `100,000` CSS px for about `17,076ms`.
-- A text-like row snapshot sample around frame `1740` showed `401` passive text-like rows, with `30` ready, `371` missing, and `368` blank.
-- In that frame, `shortcuts` had `49` blank passive rows out of `62`, and `sectionSizingPolicy` had `48` blank passive rows out of `58`.
-- The retained texture maintenance path had many visible descriptors queued while the default retained upload budget repaired roughly one page per frame after the blank frame was already published.
+This is a larger refactor plan. It intentionally does not preserve the current publication semantics, compatibility paths, or dual-read/write behavior. The implementation should delete replaced paths as each new owner boundary lands.
 
-Root cause:
-- The display path can publish visible "true holes" for deterministic passive content.
-- Text-like passive rows often depend on async DOM snapshot readiness before their retained page can upload.
-- Repair happens after submit, so the first visible frame is allowed to be blank and later frames catch up gradually.
-- The scheduler treats cold visible repair too much like ordinary refinement work.
+## Current Failure
 
-The more principled fix is to change the retained content contract from "publish holes, then repair" to "publish only committed visual epochs, with a deterministic readable base for passive content and exact snapshots as refinement."
+The latest recording showed a hard render-loop failure after switching from Core to All Settings:
 
-## Design Principles
-- Display frames consume committed visual epochs, not in-progress retained page descriptors.
-- Deterministic passive content must have a readable base representation before it is exposed.
-- Async DOM snapshots are an exactness upgrade, not the only way to draw visible passive text-like rows.
-- Active controls remain real DOM islands. Passive controls are canvas/GPU content unless they are actively edited, focused, hovered where needed, or selected.
-- Snapshot readiness is an explicit event in the pipeline, not a failed upload attempt that is retried during frame maintenance.
-- Visible cold repair has its own priority and time budget. Background prefetch and exact-fidelity refinement cannot starve it.
-- Scrolling, panning, and simple viewport motion use transforms, UVs, or uniforms. They do not require recapturing deterministic content every frame.
-- Existing retained texture handles should be stable at the logical level; backing resources can swap only after a replacement is complete.
-- Warm interaction performance is a first-class contract. Panning, zooming, and section scrolling in an All Settings-scale scene should target 120 fps-class responsiveness, with pass/fail gates normalized against the measured idle frame baseline on every environment.
+`Retained deterministic visible base coverage did not make pre-publish repair progress`
 
-## Preserve Existing Progress
-The retained coverage planner, committed coverage store, transactional page lifecycle, motion-first frame work, and bounded rejected-coverage diagnostics are useful progress from the previous refactors. This plan should preserve those pieces unless the failing visual-continuity test proves a specific piece blocks readable first-visible passive content.
+The first failure reported:
 
-Do not restart the coverage compositor, committed coverage index, or motion pipeline as cleanup. The next implementation should change only the ownership boundary that still permits deterministic passive content to be published as visible blank true holes.
+- `holes=40->40`
+- `area=5381066->5381066`
+- `queued=0->0`
+- `uploadable=0`
+- `replacements=0`
+- `rejectedReasons={"row-content-version-mismatch":9}`
+- the visible target was `snapshot-exact`
 
-## Publication Invariant
-The current architecture is sound in its ownership model. The missing contract is what may be displayed when different surfaces in the same section are ready at different times.
+After this, wheel and pointer input continued to enter the viewport runtime, but normal retained display frames stopped publishing. That explains why panning and zooming appeared dead after switching views.
 
-| Surface type | Owner | Capture/source | Committed visual unit | Interaction path | Stale-content policy | Visible blank allowed |
-| --- | --- | --- | --- | --- | --- | --- |
-| Section chrome | React/browser section DOM | DOM/html surface capture | section chrome generation | browser DOM where interactive, otherwise GPU composite | keep previous committed chrome or delay new group until body base is readable | no silent blank |
-| Deterministic retained parameter rows | project retained row/control descriptors | retained descriptors, layout, theme, style tokens | readable base visual epoch over retained pages/tiles | retained hit records; active controls promote to DOM islands | keep compatible previous epoch or generate base from descriptors | never when authoritative descriptors exist |
-| Snapshot-exact parameter rows | snapshot producer | hidden snapshot DOM or native element image | exact snapshot epoch generation | passive only; active controls use DOM islands | keep readable base visible until exact snapshot commits | no |
-| Active DOM island | active control owner | live DOM control | active island transform and value generation | native browser input/focus/selection | keep passive base outside active island; commit value before returning passive | no silent blank |
-| Unsupported or non-deterministic content | explicit diagnostic owner | none or unsupported capture | explicit unavailable diagnostic, not a blank hole | none unless promoted to active DOM | fail loudly without retry storms | no silent blank |
+The screenshots show two additional user-visible failures:
 
-Parameter-owning sections have a cross-surface visual group. A section group's chrome and visible retained body base coverage must publish as a readable group. If the chrome for a new group is ready but the retained body base is not, keep the previous committed group or delay the new group. The accepted first-visible state is readable base content, not a card shell with blank deterministic rows.
+- Passive text-like controls initially draw with one style and then switch to a different retained/snapshot style after about one second.
+- Clicking a text-like control draws an active DOM island while retained passive text remains visible underneath it.
 
-## Ideas To Borrow From The Example Repos
-The examples under `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` point toward a better model than the current "snapshot required before upload" flow.
+These are ownership-contract failures, not just upload-budget failures.
+
+## Source Of Truth
+
+The retained content contract should be:
+
+- Go and generated project data remain authoritative for settings values, row identity, and section structure.
+- Frontend retained descriptors are the authoritative frontend input to passive rendering.
+- Deterministic passive settings rows are rendered by the retained canvas/GPU renderer.
+- Snapshot-exact DOM capture is a refinement for content that truly needs browser rendering fidelity.
+- Active controls are real DOM islands and have exclusive ownership of their visual rect while active.
+
+Do not add a parallel TypeScript settings schema, row inventory, or handwritten compatibility mirror. If a field is missing from the retained descriptors, export it from the existing owner path.
+
+## Principles
+
+- Display frames consume committed visual epochs, never in-progress descriptors.
+- A deterministic passive row with authoritative descriptors must always have readable base pixels before it can be exposed.
+- Snapshot-exact content is never the first-visible readability gate for deterministic settings rows.
+- Active DOM islands own their control rect exclusively.
+- Old committed visuals remain visible until replacement visuals are complete.
+- View switches are visual transactions. A new settings surface group can be staged, but it cannot partially publish blank body content.
+- Pan, zoom, and scroll use transforms, UVs, or uniforms against committed content. They do not require new raster capture before motion appears.
+- Snapshot readiness is event-driven. It is not discovered by retrying failed uploads during the render path.
+- Runtime rendering should fail loudly in diagnostics and tests, but an expected unready snapshot refinement must not throw every frame and wedge input.
+
+## Ideas To Borrow From Example Repos
 
 ### `html-in-canvas-cracks`
-- Treat DOM as a texture source, but never expose an unpainted texture as the foreground content.
-- Keep the logical texture object stable while forcing GPU reallocation only when the backing buffer size changes.
-- Use an explicit first-paint readiness gate so the screen does not flash through uninitialized content.
-- Use shader UVs and transforms for scroll and resize alignment instead of rebuilding all visual content on motion.
-- Coalesce paint work through animation-frame scheduling.
+
+Borrow:
+
+- First-paint readiness gates. The example outputs a stable fallback until the first HTML texture is actually painted.
+- Stable logical texture references. The JS texture object stays stable while backing GPU resources are forced to reallocate when dimensions change.
+- Scroll and resize alignment via shader UVs and transforms, not recapturing content on every motion frame.
+- Real DOM for input and selection, while the composited texture is what the user sees.
+- Coalesced paint work through animation-frame scheduling.
+
+Apply to Setta:
+
+- A retained visual handle should remain stable while backing pages swap only after completion.
+- A new base or snapshot epoch should commit atomically.
+- Motion should keep sampling committed epochs while repair/refinement proceeds independently.
 
 ### `compiz-web`
-- Transitions sample both old and new page textures.
-- The old committed visual state remains available until the new state is ready.
-- Replacement is a visual transaction: new content is appended, painted, and only then composited into view.
+
+Borrow:
+
+- Navigation transitions sample both old and new page textures.
+- The old visual remains usable while the new visual is prepared.
+- Replacement is a transaction: capture, paint, then composite into view.
+
+Apply to Setta:
+
+- Core to All Settings should keep the previous committed settings view or an explicit staged state until the new All Settings base group is readable.
+- A partial All Settings group with blank deterministic rows is not publishable.
 
 ### `three-html-render`
-- Separate interaction from texture capture. DOM overlays can be positioned with `matrix3d` while raster content follows its own paint lifecycle.
-- Prefer event-driven paint and interaction updates over per-frame polling.
-- Keep a native fast path for element-to-texture capture, with a fallback path behind the same abstraction.
+
+Borrow:
+
+- Separate interaction from texture capture.
+- DOM overlays are synchronized with `matrix3d` transforms, while texture capture follows its own paint lifecycle.
+- Native HTML-in-Canvas APIs and fallback rasterization sit behind one abstraction.
+- Interaction updates are event-driven where possible.
+
+Apply to Setta:
+
+- Active text-like controls should be DOM overlays synchronized from the retained frame, with exclusive visual ownership.
+- Snapshot exactness should sit behind a snapshot producer interface, not behind ad hoc upload attempts.
 
 ### `html-in-canvas-official`
-- Treat the paint event as the snapshot boundary.
-- Drawing outside a paint event uses the previous committed snapshot; before the first snapshot, the API fails instead of silently providing blank content.
-- Element snapshots can be captured and transferred to worker/offscreen work.
-- DOM transforms are synchronized separately from drawing so hit testing and accessibility stay aligned with the rendered surface.
 
-## Proposed Architecture
+Borrow:
 
-### 1. Behavior Tests First
-Add tests before changing the implementation. These tests must fail against the current code and must assert user-observable behavior, not internal queue or descriptor details.
+- The `paint` event is the snapshot boundary.
+- Drawing outside a paint event uses the previous committed snapshot; before the first snapshot, the API fails instead of silently returning blank content.
+- `captureElementImage` allows transferable snapshots for worker/offscreen work.
+- `drawElementImage` returns transforms for DOM/canvas synchronization.
 
-Required tests:
-- Add a Playwright or Chrome-recording based test for the cold Settings All Settings view.
-- Drive the same kind of scenario from the recording: open settings, show multiple sections including `shortcuts` and `sectionSizingPolicy`, and capture frames after the section shell becomes visible.
-- Assert that first-visible deterministic base content reaches a readable state no later than two animation frames after section chrome visibility, with same visual-group commit preferred.
-- Assert that exact snapshot refinement reaches its own looser target, for example `250ms`, because it is a fidelity upgrade rather than the readability gate.
-- Assert that no large visible deterministic blank-content region persists longer than the two-frame base-readability threshold. This should be based primarily on screenshots, sampled pixels, canvas output, or existing recording state summaries that represent visible output.
-- DOM or accessibility-visible text may support the diagnosis, but it must not be the sole passing oracle because source DOM can contain text while the WebGPU canvas remains blank.
-- Define "readable" without OCR: for known row label/value rectangles, assert non-background foreground coverage, text-like pixel density, contrast against the row background, and absence of large blank deterministic regions. Renderer diagnostics may identify the visible row rectangles, but the passing oracle must include visible canvas/screenshot pixels.
-- Assert frame cadence during recovery, for example p95 frame interval below `32ms` and no repair-induced long task above `50ms` in the measured window.
-- Avoid assertions on `maxUploads`, `targetDescriptorCount`, retained page keys, texture page queue length, or snapshot readiness internals.
+Apply to Setta:
 
-Also add focused frontend tests that model the public behavior of the retained renderer:
-- A cold visible section with many passive text-like rows publishes readable row labels and values in the first displayed visual epoch.
-- Motion of an already committed visual epoch remains smooth while exact snapshots or higher-fidelity pages are prepared.
-- An exact snapshot can replace the base epoch atomically without a blank intermediate frame.
-- Common-row base-to-exact replacement stays visually bounded: no blank intermediate frame and no unacceptable visual jump for row labels, scalar values, switches, checkboxes, dropdown display text, numeric values, or readonly/disabled text.
+- Snapshot-exact epochs should be produced by explicit paint events.
+- If no initial snapshot exists, keep base content visible and record `snapshot unavailable`, rather than publishing blank pixels or throwing in the frame loop.
+- DOM island geometry should be synchronized as part of the visual transaction.
 
-The first implementation PR for this plan should contain only these failing tests and a baseline report under `perf/`.
-The baseline report must include the recording path above, the max true-hole area, the max continuous true-hole windows for the chosen thresholds, and the frame `1740` passive row readiness sample.
+## Step 1: Add Failing Behavior Tests First
 
-Regression rule:
-- Do not begin the architecture change until at least one realistic behavior-level test reproduces the blank-section issue and fails on the current implementation.
-- Do not accept implementation work based only on narrow new tests. Each implementation slice must run the full GPU Flow-related test suite before it is considered done.
-- A passing result from the new repro test is necessary but not sufficient. The existing GPU Flow behavior suite is the guard against regressions in panning, resize, active DOM islands, retained controls, hit testing, texture scheduling, frame generation, and project-surface integration.
+The first PR for this plan must add failing tests and a baseline report only. These tests must use observed behavior: screenshots, frame timing, input-to-render latency, visible movement, long tasks, console/page errors, and stable visual output. They must not assert queue counts, descriptor counts, internal replacement reasons, upload budgets, retained page keys, or scheduler names.
 
-### 2. High-Refresh Performance Tests
-Add realistic interaction performance tests before relying on the refactor for user-facing performance claims.
+Regression prevention depends on two requirements:
 
-Required scene:
-- Use the real Settings project's All Settings page when practical.
-- If the real project fixture is too expensive or brittle for CI, add a generated fixture that matches the All Settings page's observed complexity: many sections, dense parameter rows, mixed control types, nested section content, scrollable section bodies, and enough visible/offscreen content to exercise retained coverage, active DOM island boundaries, and texture replacement.
-- Do not use a tiny synthetic graph as the primary performance proof. Existing large graph fixtures are useful supporting coverage, but this plan needs an All Settings-like content fixture.
+- The new tests must be realistic and user-observable. They should fail only when the user would see blank content, visual instability, overlapping owners, stalled motion, frame-rate collapse, long tasks, unhandled errors, or uninitialized texture publication.
+- Every implementation slice after the failing-test slice must run the full GPU Flow-related test suite, not only the new focused repro tests. A focused repro passing is necessary but not sufficient.
 
-Required interactions:
-- Panning across a large complex scene at multiple zoom levels.
-- Zooming in and out around dense section clusters.
-- Scrolling section contents inside large sections.
-- Repeating the same interactions in both warm-cache and cold-cache states. The warm-cache run measures steady interaction performance; the cold-cache run verifies that repair/refinement work does not cause visible stalls.
+Add a baseline report under `perf/` that records:
 
-Performance target:
-- Each test must first measure an idle/requestAnimationFrame baseline for the current browser and machine. Apply baseline normalization everywhere, including 120 Hz-capable local runs.
-- The 120 fps-class target is p95 frame interval at or below `8.33ms`, p99 no worse than one missed 120 Hz frame, and no long task above `50ms` during panning, zooming, or section scrolling.
-- The non-flaky pass gate should be baseline-normalized, for example p95 interaction frame interval no worse than `max(8.33ms, idleP95 * 1.15)` and p99 no worse than one missed measured baseline frame.
-- If 120 fps proves impossible for a specific environment, the perf report must say why with measurements. The fallback target should still be in the same range: no sustained interaction below the measured display refresh class, no repeated multi-frame gaps, and no repair-induced long tasks.
-- Track input-to-render latency when possible, not just raw frame cadence.
+- latest recording path
+- browser version and display refresh baseline
+- machine/display notes
+- screenshots or frame captures for the three reported failures
+- first page-error timestamp and message
+- p95/p99 frame interval during the failed All Settings switch
+- whether pan/zoom produced visible movement after the switch
 
-Required assertions:
-- The tests assert observed performance behavior: frame intervals, dropped-frame windows, long tasks, input-to-render latency, and visible blank-content windows.
-- The tests do not assert implementation details such as upload counts, queue lengths, descriptor counts, or internal scheduler names.
-- Any performance threshold change must update the baseline report under `perf/` with the hardware, browser version, refresh-rate baseline, test scene size, and before/after numbers.
+### Required E2E Repro Tests
 
-Likely implementation hooks:
-- Extend `frontend/tests/e2e/gpuFlowPerformanceProbe.ts` if needed to compute p95/p99 intervals and input-to-render latency.
-- Add a Playwright spec under `frontend/tests/e2e/gpu-flow/` for the All Settings-like performance scenario.
-- Reuse `gpuFlowLargeGraphStressFixture` only as supplemental stress coverage, not as a replacement for the settings-shaped fixture.
+Add tests under `frontend/tests/e2e/gpu-flow/`.
 
-### 3. First Implementation Slice Boundary
-After the failing tests and baseline report exist, the first implementation slice should be deliberately narrow:
+#### 1. Cold Settings Passive Input Stability
 
-- Add a deterministic base visual epoch for visible passive text-like rows in the Settings All Settings scenario.
-- Draw readable row labels and scalar values from existing retained scene/control descriptors and existing style tokens.
-- Treat exact DOM snapshots as later fidelity refinement, not as the first-visible readability gate.
-- Add parameter-owning section visual-group readiness so DOM chrome and visible retained body base coverage do not publish as desynchronized visible states.
-- Do not rewrite the retained coverage planner, committed coverage store, motion pipeline, or full scheduler unless the failing behavior test proves one of them directly blocks the first slice.
-- Do not implement the full common-control renderer, stable handle model, or event-driven snapshot producer in the first slice unless they are needed to make deterministic text-like rows readable without frame-cadence regression.
+Scenario:
 
-The first slice is complete only when the cold Settings repro no longer shows a large deterministic text-like blank window and the existing GPU Flow behavior suite still passes.
+- Open the Settings project cold.
+- Let the Core view show the same visible sections as the screenshots.
+- Capture a screenshot as soon as the `shortcuts` section body is visibly readable.
+- Capture another screenshot after at least 1500ms.
 
-### 4. Introduce Retained Visual Epochs
-Replace direct display publication of retained page descriptors with an explicit visual epoch model.
+Assertions:
 
-Conceptual states:
-- `base`: deterministic canvas/GPU rendering of passive content from scene/control descriptors.
-- `snapshot-exact`: DOM-captured or native element-captured rendering for higher fidelity.
-- `active-dom`: real DOM island for focused or actively edited controls.
+- Known row label/value regions remain visually stable within a tight pixel-diff threshold.
+- Row separator and input/background styling do not change class of appearance after the delayed capture.
+- The test samples actual page pixels or canvas pixels, not only DOM text.
+- The test fails if a delayed snapshot-exact replacement changes the user-visible passive row style.
 
-A display frame may sample only committed epochs. It may not sample unready snapshot pages or publish a blank true hole for deterministic passive content.
+#### 2. Active Text-Like Control Has Exclusive Visual Ownership
 
-Start with page/tile-level epochs wrapped around the existing retained page machinery. Whole-section or new surface resources are later options, not a prerequisite for the first slice.
+Scenario:
+
+- Open Settings Core.
+- Scroll or position the `shortcuts` section so a text-like shortcut row is visible.
+- Click the value/control cell to activate the native text island.
+- Capture the active control crop.
+
+Assertions:
+
+- The crop contains one visible text rendering, not overlapping passive and active text.
+- The active DOM island rect is aligned with the retained control rect within a small pixel tolerance.
+- Text baseline and caret/selection pixels do not overlap a second retained value baseline underneath.
+- The test may use screenshot pixel density, component counting, or bounded visual diff against a known active-control reference. It should not inspect retained draw-region arrays.
+
+#### 3. Core To All Settings Does Not Wedge Motion
+
+Scenario:
+
+- Open Settings Core.
+- Switch to All Settings.
+- Immediately perform a wheel-pan sequence and a pointer-pan sequence.
+- Capture frame timing and screenshots before and after motion.
+
+Assertions:
+
+- There are no unhandled page errors during the switch and motion window.
+- RequestAnimationFrame p95 is no worse than `max(16.7ms, idleP95 * 1.25)` for the non-stress gate, with a stricter high-refresh perf gate below.
+- At least one screenshot after each input sequence shows visible viewport movement matching the input direction.
+- Input-to-visible-movement latency stays below 100ms for the functional test.
+- The test fails if wheel/pointer events are consumed but the visible canvas does not move.
+
+#### 4. All Settings First Visible Rows Are Readable
+
+Scenario:
+
+- Switch to All Settings cold.
+- Capture frames from the first visible All Settings section shell through the next two animation frames and again at 250ms.
+
+Assertions:
+
+- Deterministic row label/value rectangles have foreground contrast and text-like pixel density by two animation frames after the section shell is visible.
+- No large deterministic blank body region remains visible after that threshold.
+- The 250ms capture may be stricter for refinement, but base readability is the pass gate.
+- The oracle uses screenshot/canvas pixels plus known row rectangles. DOM text alone is not sufficient.
+
+#### 5. No Uninitialized Texture Publication
+
+Scenario:
+
+- Run the same cold view-switch and active-control sequence.
+- Collect browser console, page errors, and Chrome log output when available.
+
+Assertions:
+
+- No unhandled page errors.
+- No repeated render-loop exceptions.
+- No Chrome GPU error matching `Attempt to read from an uninitialized SharedImage`.
+- If Chrome log capture is unavailable in CI, the screenshot and page-error gates remain required.
+
+### Required Performance Tests
+
+Add a high-refresh oriented spec under `frontend/tests/e2e/gpu-flow/`.
+
+The primary performance scene must be realistic. Prefer the real Settings project's All Settings page. If that fixture is too expensive or brittle for a specific CI lane, add a generated All Settings-like fixture that matches the observed complexity: many sections, dense parameter rows, mixed retained control types, nested row groups, large scrollable section bodies, visible and offscreen sections, active DOM island candidates, retained scrollbars, and enough retained pages to exercise texture replacement and eviction. Tiny synthetic graphs can be supplemental stress coverage, but they are not an acceptable primary proof for this plan.
+
+Scenario:
+
+- Measure idle rAF baseline first.
+- Run warm and cold panning across the large All Settings-like scene at multiple zoom levels.
+- Run warm and cold zooming around dense section clusters.
+- Run section body scrolling inside large settings sections.
+- Include at least one run immediately after Core -> All Settings.
+
+Assertions:
+
+- The target is 120 fps-class interaction: p95 frame interval at or below 8.33ms and p99 no worse than one missed 120Hz frame when the measured idle/display baseline supports it.
+- The non-flaky normalized gate is p95 no worse than `max(8.33ms, idleP95 * 1.15)` and p99 no worse than one missed measured baseline frame.
+- No long task above 50ms during input windows.
+- Input-to-render latency is recorded and bounded.
+- Visible blank-content windows are recorded and must stay within the base-readability threshold.
+- If 120 fps-class performance is impossible on a specific machine/browser/display combination, the test report must prove that with idle baseline, hardware, browser version, scene size, before/after numbers, and the limiting factor. The fallback target must stay in the same range: no sustained interaction below the measured display refresh class, no repeated multi-frame gaps, and no repair/refinement-induced long tasks.
+
+The first PR should not "fix" the tests. It should demonstrate that the current implementation fails for the same user-visible issues.
+
+## Regression Rule
+
+Do not accept an implementation slice based only on the new repro tests. Each slice must run and report the full GPU Flow-related suite, including:
+
+- GPU Flow unit and integration tests under `frontend/src/gpuFlow/`
+- GPU Flow project-surface tests under `frontend/src/components/Pages/Project/GpuProjectSurface/`
+- GPU Flow E2E specs under `frontend/tests/e2e/gpu-flow/`
+- the new visual-continuity and motion tests from this plan
+- any focused tests for files touched by the slice
+
+If a slice changes shared retained-rendering behavior, active DOM island behavior, texture lifecycle behavior, hit testing, scrolling, viewport motion, or settings project rendering, it must include the broader GPU Flow suite in verification. A passing result from the new cold Settings repro is not enough because it can miss regressions in panning, zooming, section scrolling, active DOM island attach/detach, retained controls, row hover, keyboard handling, hit testing, texture eviction, and project-surface integration.
+
+Verification output for every implementation slice should include:
+
+- exact commands run
+- pass/fail status
+- any skipped tests and a narrow justification
+- browser/refresh-rate baseline for performance-sensitive checks
+- residual risk if a relevant suite could not run
+
+## Target Architecture
+
+### 1. Retained Visual Ownership Model
+
+Introduce an explicit ownership model for every visible retained rect:
+
+| Owner | Purpose | Publish rule |
+| --- | --- | --- |
+| `base` | deterministic passive canvas/GPU pixels from retained descriptors | required before first visible publication |
+| `snapshot-exact` | DOM/native element capture for higher fidelity | optional refinement after base |
+| `active-dom` | real DOM island for focused/edited controls | exclusive visual owner for its rect |
+| `unsupported` | explicit diagnostic content for unsupported deterministic regions | visible diagnostic, never silent blank |
+
+The display path must ask one question: "Which committed owner owns this pixel right now?" It should not infer ownership from upload queues or descriptor availability.
+
+### 2. Visual Epoch Store
+
+Replace direct publication of retained page descriptors with committed visual epochs.
+
+Conceptual type:
 
 ```ts
 type RetainedVisualEpochKind = "base" | "snapshot-exact" | "active-dom";
@@ -174,234 +296,293 @@ type RetainedVisualEpoch = {
   readonly surfaceId: string;
   readonly generation: number;
   readonly kind: RetainedVisualEpochKind;
-  readonly zoomBucket: number;
   readonly dpr: number;
-  readonly styleKey: string;
+  readonly zoomBucket: number;
   readonly layoutVersion: number;
+  readonly styleKey: string;
   readonly contentVersion: string;
   readonly committedCoverage: readonly Rect[];
   readonly pages: readonly RetainedPageHandle[];
 };
 ```
 
-The important first change is the publication rule: display samples committed readable epoch coverage, not in-progress descriptors.
+Rules:
 
-True-hole categories must be explicit:
-- Deterministic passive content: must not publish as a visible blank first-visible state.
-- Active DOM island content: owned by a real DOM island while active; it is not passive epoch coverage.
-- Unsupported or non-deterministic content: must fail loudly or publish an explicit non-readable fallback diagnostic, and it does not satisfy deterministic passive-content acceptance criteria.
+- Display frames sample only committed epochs.
+- A building epoch is invisible until all required coverage for its visual group is complete.
+- Previous compatible epochs stay alive until replacement epochs commit.
+- Base and snapshot-exact epochs have distinct identities. A snapshot-exact target must not make base coverage appear missing.
+- Epoch keys include owner kind, layout/style/content version, dpr, zoom bucket, and surface identity.
+- Page resources are an implementation detail of an epoch, not the display contract.
 
-Deliverables:
-- Add a `RetainedVisualEpoch` model owned by the GPU Flow retained content layer.
-- Make each visible region resolve to a committed epoch before publication.
-- Keep old epoch resources alive until the replacement epoch is complete and committed.
-- Delete the old behavior that treats blank true holes as an acceptable visible output for deterministic passive rows.
+### 3. Section Visual Groups
 
-### 5. Add A Deterministic Passive Text Renderer
-Build a canvas/GPU passive renderer for text-like rows and common settings controls.
+Settings sections have cross-surface publication requirements:
 
-This renderer should draw from authoritative frontend scene/control descriptors:
-- section labels
+- section chrome
+- retained passive body base
+- scrollbars
+- active DOM islands
+- snapshot refinements
+
+Commit these as visual groups.
+
+Rules:
+
+- Chrome for a new group must not publish over blank deterministic body content.
+- If a new group is not ready, keep the previous committed group or show an explicit staged state outside the canvas content area.
+- Section scrollbars must reflect the same body epoch they visually scroll.
+- All Settings may stage many groups, but only readable base groups become visible.
+
+### 4. Deterministic Passive Renderer Becomes Canonical
+
+For ordinary settings rows, the deterministic canvas/GPU renderer should be the canonical passive renderer, not a temporary fallback.
+
+It must draw:
+
 - row labels
 - scalar text values
-- disabled/readonly input text
-- checkboxes, switches, dropdown display text, numeric values, and empty states
-- selected/focused passive visual states when the control is not an active DOM island
+- shortcut values
+- readonly/disabled text
+- checkboxes
+- switches
+- dropdown display text
+- numeric/date/time summaries
+- color swatches
+- selected, hovered, disabled, error, and passive focused states
+- scrollbars and clipped row bodies
 
-This is not meant to recreate arbitrary HTML. It is the base visual contract for deterministic controls that already have structured descriptors. Exact DOM snapshots can still refine typography, caret details, rich text, or browser-native form rendering after they are ready.
+Snapshot-exact should be reserved for content that truly cannot be represented from descriptors. It must not silently restyle deterministic text rows after base content has already appeared.
 
-For simple deterministic rows, the base renderer should be the long-term canonical passive renderer rather than merely a temporary fallback. Snapshot-exact should be reserved for cases where browser-native rendering, complex text fidelity, or active-control fidelity materially matters.
+### 5. Snapshot Producer
 
-The renderer must use existing retained row/control descriptors, geometry, theme, typography, and style-token inputs. Do not introduce a parallel inventory of row kinds, control kinds, aliases, or local type mirrors. If a needed field is missing, export it from the existing owner surface rather than duplicating it.
+Replace upload-time snapshot readiness polling with an event-driven snapshot producer.
 
-Deliverables:
-- A renderer abstraction that turns passive row descriptors into readable pixels without waiting for DOM snapshot readiness.
-- Typography and color inputs wired to the existing style tokens used by the settings UI.
-- Coverage for large section bodies, not only headers and chrome.
+Responsibilities:
 
-### 6. Make Snapshot Capture Event-Driven
-Replace snapshot readiness polling during upload attempts with an explicit snapshot producer.
-
-The snapshot producer should:
-- subscribe to source invalidations, layout changes, paint readiness, and active/passive transitions
+- subscribe to source invalidation, layout, paint readiness, active/passive transitions, and style changes
 - coalesce work per animation frame
-- produce a committed snapshot generation keyed by source identity and visual inputs
-- notify the retained texture store when a snapshot generation is ready
-- fail loudly for unsupported or impossible capture states instead of silently publishing blank pages
-- fail without retry storms: after bounded attempts, a missing paint record or unsupported capture state becomes `snapshot unavailable for generation X` while readable base content remains visible
+- produce snapshot generations keyed by source identity, content, layout, style, dpr, and zoom bucket
+- expose readiness as data before upload work is scheduled
+- mark unavailable snapshots after bounded attempts without retry storms
+- keep base epochs visible while snapshot-exact epochs are unavailable
 
-Native or future HTML-in-Canvas style APIs should sit behind this producer:
+Native APIs should sit behind this producer:
+
 - `drawElementImage`
 - `texElementImage2D`
 - `copyElementImageToTexture`
-- fallback raster capture where currently required
+- fallback rasterization where required
 
-Snapshot generation keys must include at least:
-- source identity
-- content version
-- layout version
-- style/theme token version
-- font readiness or font version
-- DPR
-- zoom bucket
-- active/passive control state
-- scroll offset or clipped window
-- relevant value, error, focus, hover, disabled, readonly, validation, and search-highlight state
+Before first snapshot, snapshot-exact is unavailable, not blank.
 
-The retained display path should not know which capture mechanism produced the snapshot. It should only know whether a committed snapshot epoch exists.
+### 6. Active DOM Island Exclusivity
 
-### 7. Split Visible Repair From Background Refinement
-Replace the single small post-submit maintenance loop with two explicit queues.
+Active DOM islands need an explicit transaction model.
 
-Visible repair queue:
-- first-visible, user-observable, highest priority
-- area and distance weighted
-- allowed to consume an adaptive time or byte budget until the visual continuity target is met
-- never blocked by background prefetch or exact snapshot refinement
+Attach:
 
-Refinement queue:
-- exact DOM snapshot replacement
-- offscreen prefetch
-- lower-resolution to higher-resolution upgrades
-- stale-but-readable epoch replacement
+- compute the retained control rect
+- publish active DOM island geometry
+- suppress passive value rendering in that rect for the same committed visual group
+- keep labels, row backgrounds, selection, and surrounding passive content visible
 
-The scheduler should optimize for observed frame cadence, not a fixed upload count. A fixed count such as "one upload per frame" is the wrong unit because page area, byte size, and user-visible urgency vary.
-This step is later architecture work. It must not substitute for the first-slice requirement that deterministic passive rows have a readable base before they are exposed.
+Survive:
 
-### 8. Add Atomic Texture Commit And Stable Logical Handles
-Keep logical texture handles stable across resize, DPR changes, and replacement epochs.
+- move the DOM island by transform as the viewport pans, zooms, and scrolls
+- do not recapture retained base content every motion frame
+- keep hit testing aligned
 
-Implementation rules:
-- Allocate or resize backing resources off the display path.
-- Upload all pages required for a replacement epoch before committing it to display.
-- Atomically swap the committed backing generation when complete.
-- Retain the previous committed generation until no display frame can reference it.
-- Dispose old GPU resources after the frame fence or equivalent lifecycle point.
+Commit detach:
 
-This borrows the useful part of the examples' texture lifecycle: stable material references with controlled backing reallocation.
+- commit the edited value to the authoritative owner
+- build a new passive base epoch that includes the new value
+- remove the DOM island only when the passive replacement is committed
 
-### 9. Clarify Active DOM Island Ownership
-Make active controls independent from passive snapshot capture.
+Replace:
+
+- never publish a frame with two visible text owners for the same control rect
+- never publish a frame with no owner for the active control rect
+
+### 7. Motion-First Runtime
+
+Pan and zoom must be independent from retained repair and snapshot refinement.
 
 Rules:
-- Passive controls are rendered by the retained visual epoch.
-- The currently active editor/control becomes a DOM island positioned with a transform that matches the canvas draw location.
-- When the active control deactivates, it commits data back to the scene/control model first.
-- The passive base epoch can render the committed value immediately.
-- Exact snapshots may refine later, but cannot block the readable base.
 
-This avoids keeping a large live DOM just to make passive content visible, while preserving native behavior for editing and focus.
+- Runtime viewport transforms are consumed immediately by the compositor.
+- Public store synchronization may be deferred during active input, but the visible canvas must move.
+- Retained coverage repair and exact refinement run against predicted or committed visible regions, but cannot block motion.
+- Render-loop exceptions are not an acceptable control-flow path for unready retained content.
 
-### 10. Delete The Old True-Hole Publication Path
-Once epochs, base rendering, event-driven snapshots, and atomic commits are in place, remove the old publication model.
+### 8. Resource Lifecycle
 
-Deletion targets:
-- display-time replacement descriptors that can point at unready blank retained pages
-- upload retry loops that use snapshot unready state as ordinary scheduler backpressure
-- any rule that marks deterministic passive content as publishable while visually blank
-- transitional compatibility aliases or dual-read paths
+Keep logical visual handles stable and swap backing resources only after complete replacement.
 
-The retained page machinery may still exist as an implementation detail inside an epoch, but display publication should no longer reason in raw page descriptors.
+Rules:
 
-### 11. Observability And Guardrails
-Keep logs and metrics focused on the user-observable contract.
+- A texture/page handle exposed to display stays valid for the committed frame.
+- Backing GPU allocation can be recreated on size changes, but only behind a completed epoch.
+- Uninitialized resources are never sampled.
+- Retired resources are protected until no committed display frame can reference them.
+- Memory pressure may evict unreferenced refinements first, then compatible old epochs, but not the current visible base group.
 
-Add or preserve metrics for:
-- time from section shell visible to deterministic content readable
-- section visual-group ready/committed latency
-- largest visible blank deterministic content area
-- consecutive blank frames
-- p95 and p99 frame interval during visible repair
-- p95 and p99 frame interval during warm panning, zooming, and section scrolling
-- dropped-frame windows relative to measured idle refresh baseline
-- input-to-render latency for pointer wheel, drag, and zoom interactions where measurable
-- repair work time per frame
-- exact snapshot replacement latency
-- base-to-exact visual delta for common deterministic rows
-- active DOM island count
+### 9. Diagnostics
 
-Avoid making internal queue length the main success metric. It is useful for debugging, but the contract is visual continuity and frame cadence.
+Add diagnostics that explain visual ownership without tests depending on them:
 
-## Execution Order
-1. Add the cold Settings repro and baseline report. Include the known true-hole area/window and passive row-readiness samples.
-2. Add the public-behavior retained renderer test: many passive text-like rows, no snapshot readiness, first displayed epoch must be readable.
-3. Add base text/value drawing inside the retained page raster path using existing retained descriptors and style tokens.
-4. Change display publication so deterministic retained rows cannot emit blank true-hole coverage when base coverage can be generated from descriptors.
-5. Add section visual-group readiness for parameter-owning sections so chrome and retained body do not visibly desynchronize.
-6. Add snapshot-exact as an atomic refinement over the base epoch, with bounded visual delta for common deterministic rows.
-7. Only after first-visible readability is fixed, split visible repair/refinement queues and delete the old true-hole publication path.
+- committed epoch summaries by surface and kind
+- staged epoch readiness
+- active owner rects
+- snapshot producer readiness and unavailable states
+- visual group commit/delay reasons
+- last committed frame id after view switch
+- input-to-visible-frame latency
+- page errors and GPU-log markers captured by Chrome recording
 
-## Verification Plan
-- First PR: add failing behavior-level tests and append the current baseline to `perf/`.
-- First PR baseline report: include the baseline recording path, max true-hole area, continuous true-hole windows for the chosen thresholds, frame `1740` passive-row readiness, and per-surface blank counts for `shortcuts` and `sectionSizingPolicy`.
-- First PR: add the All Settings-like high-refresh performance test harness and record current panning, zooming, and section-scrolling baseline under `perf/`, even if the initial thresholds are marked as expected failures during the architecture work.
-- First implementation slice: prove visible passive text-like rows in the cold Settings scenario become readable within two animation frames or same visual-group commit without relying on DOM/accessibility text as the sole oracle.
-- First implementation slice: prove parameter-owning section chrome and retained body base coverage publish as a readable visual group.
-- Snapshot refinement verification: prove exact snapshot replacement occurs atomically, does not introduce a blank intermediate frame, and stays within the documented visual-delta bound for common deterministic rows.
-- During implementation: run targeted Vitest coverage for retained renderer behavior.
-- During implementation: run Playwright or Chrome-recording tests for the cold settings scenario.
-- During implementation: run the All Settings-like performance scenario for warm-cache and cold-cache panning, zooming, and section scrolling.
-- During every implementation slice: run the full GPU Flow-related Vitest suite, not only the newly added tests:
-  - `pnpm -C frontend exec vitest run src/gpuFlow src/components/Pages/Project/GpuProjectSurface src/components/Pages/Project/gpuFlowCompatibilityMatrix.test.ts src/components/Pages/Project/gpuFlowCompatibilityFixture.test.ts src/components/Pages/Project/GpuProjectSurface.grid.test.ts src/forks/dnd-kit`
-- During every implementation slice that can affect browser-visible behavior: run the full GPU Flow-related Playwright suite, not only the new repro:
-  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow frontend/tests/e2e/gpuFlowPerformanceProbe.test.ts frontend/tests/e2e/gpuFlowVisualParityProbe.test.ts frontend/tests/e2e/gpuFlowInteractionLatencyProbe.test.ts`
-  - Also run every existing E2E spec that renders or manipulates GPU Flow. Discover that set with `rg -l 'setta-gpu-flow|gpuFlow' frontend/tests/e2e | rg '(\.spec|\.test)\.ts$'` and pass those files to `./scripts/run-playwright-e2e.sh`, or run the complete E2E suite if that is simpler.
-- After implementation: create a new Chrome recording of the original repro and compare:
-  - blank deterministic content window
-  - largest blank area
-  - frame cadence during repair
-  - frame cadence during panning, zooming, and section scrolling
-  - exact snapshot replacement latency
-- Run `pnpm -C frontend exec vitest run <targeted tests>` for frontend unit coverage.
-- Run `./scripts/run-playwright-e2e.sh` for affected browser flows.
-- Run `./scripts/quality/check.sh` before completion unless the implementation scope is explicitly narrowed.
-- Perform CDP visual verification for the settings page.
+Diagnostics should be stable enough for debugging recordings, but test gates should remain user-observable.
+
+## Implementation Slices
+
+### Slice 0: Failing Tests And Baseline
+
+Deliver:
+
+- failing E2E tests listed in Step 1
+- focused renderer behavior tests for active DOM exclusivity and base readability
+- baseline report under `perf/`
+
+No production fix in this slice.
+
+### Slice 1: Visual Ownership Types
+
+Deliver:
+
+- explicit owner model for base, snapshot-exact, active-dom, unsupported
+- visual group model for settings sections
+- tests proving the display API cannot represent silent deterministic blanks
+- full GPU Flow-related suite run and reported
+
+Delete direct "descriptor is publishable" assumptions where the display layer currently uses them.
+
+### Slice 2: Canonical Deterministic Base Renderer
+
+Deliver:
+
+- deterministic passive renderer coverage for visible settings row kinds used by Core and All Settings
+- pixel tests for labels, shortcut text, scalar values, disabled text, switches, checkboxes, dropdown summaries, color swatches, and scrollbars
+- removal of snapshot-exact as the first-visible source for ordinary text-like rows
+- full GPU Flow-related suite run and reported
+
+### Slice 3: Visual Epoch Store And Atomic Commit
+
+Deliver:
+
+- committed epoch store
+- staged epoch builder
+- previous-epoch retention until replacement commit
+- section visual group transaction
+- display path samples only committed epochs
+- full GPU Flow-related suite run and reported
+
+Delete the path that publishes visible true holes for deterministic passive content.
+
+### Slice 4: Event-Driven Snapshot Producer
+
+Deliver:
+
+- snapshot producer with readiness events and unavailable states
+- native API adapter for available HTML-in-Canvas APIs
+- fallback adapter where the current platform requires it
+- no upload-time snapshot readiness polling in the display-critical path
+- full GPU Flow-related suite run and reported
+
+Delete retry storms and render-loop exceptions for unavailable snapshot refinement.
+
+### Slice 5: Active DOM Island Transactions
+
+Deliver:
+
+- exclusive owner masks for active control rects
+- attach, survive, commit-detach, and replace transactions
+- passive value suppression under active islands
+- viewport/scroll transform synchronization for DOM islands
+- tests for no overlap and no blank during attach/detach
+- full GPU Flow-related suite run and reported
+
+### Slice 6: Motion-First Compositor
+
+Deliver:
+
+- pan/zoom visible movement independent of repair/refinement
+- stable old/new visual group transition for Core -> All Settings
+- normalized frame-rate gates passing on cold and warm runs
+- no render-loop exception wedge on unready content
+- full GPU Flow-related suite run and reported
+
+### Slice 7: Cleanup
+
+Deliver:
+
+- remove replaced retained publication, snapshot polling, and compatibility paths
+- remove stale diagnostics that describe queues as the source of display truth
+- update docs for the new visual ownership contract
+- full GPU Flow-related suite, GPU Flow E2E behavior suite, and GPU Flow performance suite run and reported
 
 ## Acceptance Criteria
-First-slice acceptance criteria:
-- The new cold Settings behavior-level test fails on the current implementation and passes after the first implementation slice.
-- `shortcuts`, `sectionSizingPolicy`, and similarly visible deterministic text-like rows show readable labels and scalar values within two animation frames after their shells are visible, with same visual-group commit preferred.
-- Parameter-owning section chrome and retained row body publish as a readable group for the visible region.
-- No visible deterministic text-like blank region above the agreed area threshold persists longer than two animation frames in the cold Settings repro.
-- The first slice does not rewrite the retained coverage planner, committed coverage store, motion pipeline, or full scheduler unless the perf report identifies a direct blocker.
-- The passive base renderer consumes existing retained scene/control descriptors and existing style-token inputs, with no parallel control-kind inventory or local type mirror.
-- Exact DOM snapshot readiness is not required for first-visible passive text-like row readability.
 
-Full refactor acceptance criteria:
-- The initial tests fail on the current implementation and pass after the refactor.
-- The full GPU Flow-related Vitest suite passes.
-- The full GPU Flow-related Playwright suite passes, including the new observed-behavior repro and existing specs discovered by GPU Flow selectors/imports.
-- The All Settings-like performance tests pass for panning, zooming, and section scrolling.
-- Warm panning, zooming, and section scrolling meet the baseline-normalized performance gate on every environment: p95 frame interval no worse than `max(8.33ms, idleP95 * 1.15)`, p99 no worse than one missed measured baseline frame, and no long task above `50ms`.
-- On 120 Hz-capable hardware, the perf report also records whether the stricter 120 fps-class target was met: p95 frame interval at or below `8.33ms` and p99 no worse than one missed 120 Hz frame.
-- `shortcuts`, `sectionSizingPolicy`, and similarly large cold sections show readable deterministic base content within two animation frames after their shells are visible, with same visual-group commit preferred.
-- Parameter-owning section chrome and visible retained row body publish as a readable visual group; the accepted visible state is never a card shell with blank deterministic retained rows.
-- No deterministic passive section publishes a visible true hole as its normal first-visible state.
-- Hidden DOM snapshot readiness cannot block base passive row readability.
-- Exact DOM snapshots can replace base content without a blank intermediate frame.
-- Exact DOM snapshot replacement for common deterministic rows stays within the accepted visual-delta bound.
-- Visible repair maintains the agreed frame cadence target, for example p95 frame interval below `32ms` in the measured recovery window.
-- A new Chrome recording no longer shows one-second blank section bodies or large true-hole windows during the Settings All Settings repro.
-- Old page-descriptor display publication is removed rather than kept behind a compatibility switch.
-- No backward compatibility, transitional adapters, dual paths, or legacy shims are added.
+Functional:
 
-## Non-Goals
-- Do not add skeleton loading placeholders as the long-term fix.
-- Do not preserve the old blank-hole publication behavior.
-- Do not keep all passive controls as live visible DOM.
-- Do not replace the whole settings data model.
-- Do not rewrite the retained coverage planner, committed coverage store, or motion pipeline solely as cleanup.
-- Do not hand-roll a browser-grade rich text or form renderer for arbitrary HTML. The base renderer covers deterministic structured controls; exact snapshots cover higher-fidelity cases.
+- Cold Settings input visuals do not change appearance after one second.
+- Clicking a text-like input never shows overlapping passive and active text.
+- Core -> All Settings does not block pan or zoom.
+- All Settings first-visible deterministic rows are readable within two animation frames of section shell visibility.
+- No unhandled page errors in the view-switch and active-control scenarios.
+- No uninitialized SharedImage reads in the Chrome recording when Chrome logs are available.
+
+Performance:
+
+- A large complex scene matching the Settings project's All Settings page is the primary performance proof for panning, zooming, and section scrolling.
+- Warm and cold pan/zoom/section-scroll target 120 fps-class responsiveness: p95 at or below 8.33ms and p99 no worse than one missed 120Hz frame when the measured idle/display baseline supports it.
+- Warm and cold pan/zoom/section-scroll p95 frame interval is no worse than `max(8.33ms, idleP95 * 1.15)` on 120Hz-capable local runs.
+- Functional CI gate remains no worse than `max(16.7ms, idleP95 * 1.25)` unless CI baseline proves a lower refresh class.
+- No long task above 50ms during measured interaction windows.
+- Input-to-visible-movement latency is recorded and bounded.
+- Any claim that 120 fps-class performance is impossible must include measured idle baseline, hardware/browser/display details, scene size, before/after numbers, and a fallback target still in the measured refresh-rate range.
+
+Architecture:
+
+- Display frames consume committed visual epochs.
+- Snapshot-exact is refinement, not the base readability gate.
+- Active DOM islands have exclusive visual ownership.
+- View switches commit visual groups atomically.
+- No backward-compatibility shim, old-field alias, dual publication path, or transitional adapter remains after cleanup.
 
 ## Risks
-- Canvas text and control rendering must match the UI closely enough to avoid a visible jump when exact snapshots arrive.
-- The base renderer adds a new owner for passive visual fidelity, so style token integration needs to be deliberate.
-- Atomic epoch commits may temporarily increase GPU memory during replacement.
-- Active DOM island alignment bugs would be user-visible, so transform math needs dedicated visual tests.
 
-## Open Decisions
-- Choose the final area and density thresholds for the pixel-based "readable" oracle before implementing the tests. The timing target is two animation frames or same visual-group commit for deterministic base readability; `250ms` is reserved for exact snapshot refinement.
-- Choose the exact high-refresh performance gates after the first baseline run. The target is 120 fps-class behavior on capable hardware, with pass/fail normalized against measured idle baseline everywhere; any lower threshold must be justified by measured browser/hardware limits, not implementation convenience.
-- Decide which settings/control kinds are deterministic enough for the base renderer in the first implementation slice.
-- Decide whether exact snapshot capture should run on the main thread initially or move to worker/offscreen capture as part of the first refactor.
-- Decide whether to represent base epochs as one surface per section, one surface per viewport tile, or a hybrid based on section size and scroll behavior.
+- The deterministic base renderer must be broad enough to cover settings controls without reintroducing snapshot dependency for ordinary rows.
+- Visual group staging can hide missing base coverage if tests do not sample real pixels. The Step 1 screenshot/canvas gates are mandatory.
+- Event-driven snapshot capture depends on browser capability. The architecture must treat unavailable exact snapshots as a visible-base state, not as a fatal display state.
+- Memory pressure rules need careful tests so previous committed epochs are not retired while still visible.
+
+## Verification Command Map
+
+Use targeted checks while building slices:
+
+- `pnpm -C frontend exec vitest run <focused gpu-flow test>`
+- `./scripts/run-playwright-e2e.sh <focused gpu-flow spec>`
+- `./scripts/record-chrome-repro.sh` for browser recordings
+- `./scripts/latest-chrome-recording.sh --json` to inspect repro artifacts
+
+Use the full GPU Flow-related suite before accepting each implementation slice:
+
+- `pnpm -C frontend exec vitest run frontend/src/gpuFlow`
+- `pnpm -C frontend exec vitest run frontend/src/components/Pages/Project/GpuProjectSurface`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow`
+
+Before completion:
+
+- `./scripts/quality/check.sh`
+- GPU Flow E2E behavior suite
+- GPU Flow performance suite
+- Chrome recording for the exact three reported scenarios
