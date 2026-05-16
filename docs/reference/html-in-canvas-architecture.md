@@ -2,11 +2,12 @@
 
 This document is the complete reference for Setta's project-level
 HTML-in-canvas architecture and the lower-level WebGPU HTML surface renderer.
-Section content remains real browser DOM for content, focus, hit testing, and
-accessibility, while the visible project surface is composed by WebGPU from
-cached HTML textures and retained canvas textures. Interaction projects source
-DOM under the browser pointer; it does not make the source DOM the visible
-rendering path.
+DOM section bodies remain real React DOM sources for browser-owned content,
+focus, editor behavior, and hit testing during handoff, while retained parameter
+rows are rendered from project-owned retained scenes. The visible project
+surface is composed by WebGPU from cached HTML textures and retained canvas
+textures. Interaction projects source DOM under the browser pointer; it does not
+make the source DOM the visible rendering path.
 
 The project entrypoint is
 `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuSurface.tsx`.
@@ -72,9 +73,11 @@ The hot path for viewport movement is:
    viewport interaction is active and on viewport frames that are not
    `texture-upload` frames.
 
-Pure pan and zoom frames must not call `requestPaint()`, call
+Pan and zoom frames whose visible surfaces are already covered by committed
+textures do not call `requestPaint()`, upload HTML source textures with
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
-every source transform.
+every source transform. Viewport frames with prepared retained displays that
+have true holes run first-visible retained-page work.
 
 ## Scene Model
 
@@ -219,9 +222,8 @@ runtime:
   selection commits, parameter value commits, and connection edits into
   existing project actions
 
-The renderer intentionally keeps high-level project behavior in the project
-owners while implementing viewport state and visual composition in the GPU
-runtime.
+The renderer keeps high-level project behavior in the project owners while
+implementing viewport state and visual composition in the GPU runtime.
 
 ## Ownership Boundaries
 
@@ -254,8 +256,9 @@ respective classes of work.
 ## Browser Capability Contract
 
 `frontend/src/gpuFlow/gpuDevice.ts` owns core WebGPU/html-in-canvas runtime
-support checks, and canvas sizing setup checks `ResizeObserver`. GPU flow fails
-loudly if the development browser does not expose the required native APIs:
+support checks, and `frontend/src/gpuFlow/gpuRenderer.ts` checks
+`ResizeObserver` during DPR-aware canvas sizing setup. GPU flow fails loudly if
+the development browser does not expose the required native APIs:
 
 - `HTMLCanvasElement.layoutSubtree`
 - `HTMLCanvasElement.requestPaint`
@@ -455,13 +458,14 @@ Each render frame follows this shape:
    the current viewport camera.
 7. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-8. Retained page post-submit maintenance either defers all raster, upload, and
-   eviction work while `deferResolutionUpdates` is true or calls
-   `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to enqueue
-   missing retained pages, rasterize and upload retained page textures within
-   its own budget, upload text-like row DOM snapshots into retained page textures
-   when required, evict retained pages to budget, and report whether another
-   frame is needed.
+8. Retained page post-submit maintenance defers raster, upload, and eviction
+   work while `deferResolutionUpdates` is true only when the prepared frame has
+   no true holes. When true holes are present or `deferResolutionUpdates` is
+   false, `RetainedContentTexturePageManager.runPostSubmitMaintenance()`
+   enqueues missing retained pages, rasterizes and uploads retained page textures
+   within its own budget, uploads text-like row DOM snapshots into retained page
+   textures when required, evicts retained pages to budget, and reports whether
+   another frame is needed.
 9. Frame performance reporting records render time, upload work, texture memory,
    retained page metrics, viewport state, and interaction diagnostics.
 
@@ -469,11 +473,10 @@ Pure pan and zoom frames update the runtime viewport and redraw cached
 surfaces. Passive texture resolution upgrades and passive uploads are deferred
 while `deferResolutionUpdates` is true: whenever viewport interaction is active
 and on viewport frames that are not `texture-upload` frames. Retained page
-post-submit maintenance is also deferred on those frames: retained page raster,
-upload, and eviction work runs on idle or `texture-upload` frames. The published
-retained display frame reuses compatible committed pages and exposes true-hole
-visuals for uncovered areas while deferred work waits. Idle or texture-upload
-frames catch up deferred work.
+post-submit maintenance is also deferred on those frames when compatible
+committed pages cover the prepared frame. When the prepared frame exposes true
+holes, maintenance runs and produces first-visible pages on the viewport frame.
+Otherwise, idle or `texture-upload` frames catch up deferred retained work.
 
 ## HTML Texture Lifecycle
 
@@ -577,7 +580,9 @@ rewrites the flat or tiled-flat vertex buffer for changed draw geometry.
 Those bounded updates are separate from content updates: they do not call
 `requestPaint()`, perform HTML texture uploads, or force React renders, and
 transform-only paint records from synced sources are ignored for dirtying.
-Pan/zoom reports expose vertex-write calls and bytes as separate counters.
+Frame and probe reports expose DOM transform counts, texture upload work,
+retained page work, edge vertex counts, and queue write summaries so pan/zoom
+verification can distinguish camera-only frames from draw-set changes.
 
 Edges are generated as CPU-side line-list buffer data from the current edge
 scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
@@ -827,7 +832,7 @@ targets, tracks click-versus-drag thresholds, emits drag start/move/frame/end
 callbacks, updates hover and scrollbar visuals, and reports pointer activity in
 flow-local retained-content coordinates.
 
-Parameter drag starts when structure editing is allowed, parameter selection
+Parameter drag starts when structure editing is enabled, parameter selection
 mode is active, and the pointer starts on a row or label hit. The drag session
 records the source section, retained surface, active parameter, selected move
 set, parent map, visible children by parent, source parent, and list key. A
