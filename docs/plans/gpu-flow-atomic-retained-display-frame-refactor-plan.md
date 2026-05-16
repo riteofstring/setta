@@ -125,6 +125,17 @@ Reuse and tighten the existing retained texture page manager, page grid, fallbac
 
 In particular, existing `missingPageCount`, `uncoveredRectCount`, fallback draw-quad, content revision, source revision, and texture memory signals should drive publication decisions before adding new parallel state. Add new types only when they make the desired/prepared/published ownership boundary explicit.
 
+### Contract Additions Before Implementation
+
+Add these contracts before broad scheduler or resource rewrites:
+
+- Scroll publication must distinguish desired scroll from published scroll so preventing blank frames does not create unbounded visual scroll lag.
+- Source identity and raster target identity must be separate. Zoom and DPR changes should create new raster targets, not remount passive DOM sources for unchanged content.
+- Fallback compatibility must be one named predicate used by the publisher, not scattered call-site checks.
+- Each `PublishedRetainedFrame` must carry an auditable visible coverage proof.
+- Active native islands need attach, detach, and commit transactions so activation and blur cannot expose stale passive textures.
+- Retained texture budgeting must reserve memory for visible coverage and active islands before offscreen prefetch.
+
 ## Non-Goals
 
 - Do not preserve old compositor APIs for compatibility.
@@ -244,6 +255,10 @@ Proposed core concepts:
 - `RetainedFrameTransaction`
 - `CoverageReadiness`
 - `TextureReadiness`
+- `VisibleCoverageProof`
+- `ScrollPublicationMode`
+- `RetainedFallbackCompatibility`
+- `RetainedTextureBudget`
 
 The contract should enforce:
 
@@ -262,12 +277,40 @@ Publication rule:
 
 This is the central invariant. All later implementation choices should preserve it.
 
+Published frames should carry the proof that made them publishable:
+
+```ts
+type PublishedRetainedFrame = {
+  readonly id: RetainedFrameId;
+  readonly viewport: ViewportSnapshot;
+  readonly retainedScroll: RetainedScrollSnapshot;
+  readonly pages: readonly PublishedRetainedPage[];
+  readonly fallbackPages: readonly PublishedRetainedFallbackPage[];
+  readonly hitIndex: PublishedRetainedHitIndex;
+  readonly activeIslandRects: readonly PublishedNativeIslandRect[];
+  readonly coverageProof: VisibleCoverageProof;
+  readonly diagnostics: PublishedFrameDiagnostics;
+};
+
+type VisibleCoverageProof = {
+  readonly visibleRects: readonly Rect[];
+  readonly coveredRects: readonly Rect[];
+  readonly missingRects: readonly Rect[];
+  readonly fallbackRects: readonly Rect[];
+  readonly rejectedPreparedFrameIds: readonly RetainedFrameId[];
+};
+```
+
+`missingRects` must be empty for normal published frames. Non-empty `missingRects` are allowed only for an explicit product loading state, not as an accidental compositor fallback.
+
 First implementation milestone:
 
 - Add the minimal publisher before deeper source-identity, scheduler, or resource-owner rewrites.
+- Add coverage proof construction and publication rejection diagnostics with the minimal publisher.
 - `renderHtmlSurfaceFrame` must consume retained page visuals from `PublishedRetainedFrame`, not directly from `PreparedRetainedFrame.flatSurfaces`.
 - `onRetainedRuntimeFrame`, retained hit testing, active input placement, and section wheel ownership must observe the same published frame used for drawing.
 - If a prepared frame has missing visible coverage, record the rejection reason and keep the previous published frame active.
+- Add the fallback compatibility predicate before allowing any previous page to draw for a new prepared descriptor.
 
 This should be a structural guard, not call-site discipline. The type boundary should make it hard to accidentally pass desired or prepared state to rendering and interaction code.
 
@@ -275,22 +318,45 @@ This should be a structural guard, not call-site discipline. The type boundary s
 
 Focus, caret state, and zoom should not change the identity of unrelated passive section content.
 
-Refactor source identity so it is based on:
+Split passive source identity from raster target identity:
+
+```ts
+type RetainedSourceIdentity = {
+  readonly sectionId: string;
+  readonly rowOrSegmentId: string;
+  readonly contentRevision: string;
+  readonly layoutRevision: string;
+  readonly styleRevision: string;
+  readonly themeRevision: string;
+};
+
+type RetainedRasterTargetIdentity = {
+  readonly sourceIdentity: RetainedSourceIdentity;
+  readonly contentRegion: Rect;
+  readonly sourceWindow: Rect;
+  readonly scaleBucket: RetainedScaleBucket;
+  readonly dprBucket: DevicePixelRatioBucket;
+  readonly texturePixelSize: Size;
+};
+```
+
+`RetainedSourceIdentity` is based on:
 
 - Section id.
 - Row or segment id.
 - Content revision.
 - Layout revision.
-- Scale bucket.
 - Theme/style revision if it affects rendering.
 
-It should not be based on:
+`RetainedSourceIdentity` should not be based on:
 
 - Whether a text input is active.
 - Whether the active input overlay is currently mounted.
 - Transient caret blink state.
-- The current target zoom while an older compatible scale bucket is still publishable.
+- Scale bucket, DPR bucket, or desired target zoom.
 - Scroll offset, except where a source genuinely renders different content for different scroll windows.
+
+`RetainedRasterTargetIdentity` should include scale bucket, DPR bucket, texture pixel size, content region, and source window. Zoom and DPR changes can create new raster targets without remounting unchanged hidden DOM/passive sources.
 
 When a text input activates, the passive source for surrounding content should remain the same source. If the active row must be hidden under a native input overlay, mask or replace only that active island in the published frame transaction. Do not cause the section's passive row set to drop and rebuild.
 
@@ -307,13 +373,22 @@ Responsibilities:
 - Route wheel and pointer events based on the published hit geometry.
 - Return focus/selection changes to the app model without invalidating unrelated section content.
 
+Attach and detach rules:
+
+- Attach from the currently published content identity and geometry only.
+- When an active native island detaches, the passive retained page beneath it must not become visible until the passive page reflects the committed value or the island continues visually covering the active rect until replacement passive coverage is ready.
+- An active island may survive a newly published frame only when its control identity is unchanged and its clipped rect can be derived from the same published content identity.
+- If the control identity changes or geometry cannot be derived from the new published frame, commit or cancel the island before remounting.
+
 This borrows from `three-html-render`: interaction is a focused native DOM overlay aligned to texture-space geometry. Activation is not a request to rebuild the entire passive section.
 
 ## Step 5: Introduce Page-Level Coverage Transactions
 
-Change retained coverage from "the section has a ready snapshot list" to "each visible page or row segment has a readiness state."
+Change retained coverage from "the section has a ready snapshot list" to page-level publication coverage with row/segment-level invalidation.
 
-For each page or row segment, track:
+The primary scheduling, texture, and publication unit should remain a page. Row or segment revisions should feed dirty regions, invalidation, and descriptor identity; they should not become thousands of tiny publication units unless a failing test proves page-level publication cannot meet the behavior contract.
+
+For each page, track:
 
 - Source id.
 - Source revision.
@@ -330,11 +405,43 @@ The publisher should evaluate visible coverage page-by-page:
 - Compatible fallback page: draw the previous published page with the correct transform.
 - Missing visible page: do not publish the new frame yet.
 
+Fallback compatibility must be centralized:
+
+```ts
+function canDrawRetainedFallbackPage(
+  fallback: PublishedRetainedPage,
+  target: PreparedRetainedPageDescriptor,
+): boolean;
+```
+
+The predicate must require an exact match for:
+
+- Surface id.
+- Row or segment identity.
+- Content revision.
+- Layout revision.
+- Style and theme revision.
+- Source window or content-region mapping.
+- Clip owner.
+- Z-order layer.
+
+It may allow a lower scale bucket or lower pixel scale only when content identity and mapping are identical. This is the guard against drawing a crisp page for the wrong row, scroll window, or layer.
+
 This directly addresses the zoom flash where a new target set is published before any page is drawable.
 
 ## Step 6: Make Scroll A Transform-First Fast Path
 
 Scrolling within a section should update viewport-relative transforms first and schedule content refinement second.
+
+Define scroll publication explicitly:
+
+```ts
+type ScrollPublicationMode =
+  | "transform-only-within-covered-window"
+  | "publish-covered-scroll-frame"
+  | "hold-previous-frame-with-scroll-lag"
+  | "explicit-loading-state";
+```
 
 Implementation direction:
 
@@ -344,6 +451,14 @@ Implementation direction:
 - Prepare newly visible pages in priority order.
 - Keep drawing old compatible pages until replacements are ready.
 - Avoid clearing page texture bindings just because the scroll target changed.
+
+Rules:
+
+- A scroll update may publish immediately only if the new visible viewport is fully covered by ready pages or compatible fallback pages.
+- A transform-only scroll may publish when the new viewport remains inside already covered compatible content.
+- If coverage is missing, keep `desiredScrollOffset` separate from `publishedScrollOffset`, prioritize the missing visible pages, and report scroll visual lag in pixels and milliseconds.
+- There must be no repeated frames where desired scroll changes, published scroll is held, and no visible-page preparation progress occurs.
+- `explicit-loading-state` is allowed only as an intentional product state, not as the default response to retained page pressure.
 
 This borrows from `html-in-canvas-cracks`: geometry can stay stable while the sampling offset follows scroll. The user's immediate scroll should be a transform update, not a content invalidation event.
 
@@ -374,6 +489,24 @@ Resource policy:
 - Prefer preserving a lower-resolution visible fallback over allocating a higher-resolution offscreen target.
 - Record budget decisions in structured diagnostics.
 
+Use explicit budget buckets:
+
+```ts
+type RetainedTextureBudget = {
+  readonly hardMaxBytes: number;
+  readonly visibleReserveBytes: number;
+  readonly activeIslandReserveBytes: number;
+  readonly nearViewportReserveBytes: number;
+  readonly offscreenPrefetchMaxBytes: number;
+};
+```
+
+Scheduler invariants:
+
+- Offscreen prefetch must never evict the last compatible visible fallback.
+- Visible fallback preservation outranks high-resolution offscreen allocation.
+- Active island coverage reserves must be preserved before near-viewport or offscreen refinement.
+
 This should fix the recording pattern where high zoom creates a large target set, exhausts budget, and leaves the visible frame missing for multiple frames.
 
 ## Step 8: Consolidate Pixel Buffers And Texture Lifetime
@@ -400,7 +533,7 @@ Replace broad invalidations with specific revision changes:
 - Content revision for actual row/content changes.
 - Layout revision for size or position changes.
 - Style revision for theme/font/style changes.
-- Scale bucket revision for resolution changes.
+- Raster target revision for scale bucket, DPR bucket, or texture pixel size changes.
 - Interaction island revision for active native overlay changes.
 
 Activation of a text input should update the interaction island revision and at most the active row mask. It should not update the passive content revision for the whole section.
@@ -425,6 +558,10 @@ Add structured logs for:
 - Active island attached/detached with source id and published geometry id.
 - Scroll fast path applied.
 - Zoom scheduler target counts and budget decisions.
+- Published scroll offset and desired scroll offset.
+- Coverage rejection age in frames and milliseconds.
+- Oldest visible missing page descriptor.
+- Visible fallback age and scale delta.
 
 Avoid logs that only expose internal implementation details without tying them to user-visible publication decisions.
 
@@ -486,11 +623,17 @@ The refactor is complete when:
 - Zooming does not blank visible section content while new LOD pages are prepared.
 - Focusing a text input does not blank surrounding section content.
 - Scrolling with a focused input has comparable frame cadence to scrolling without focus at the same zoom level.
+- Scroll publication has no unbounded visual lag and no repeated held-scroll frames without visible-page preparation progress.
 - The published frame contract is enforced by code structure, not by scattered call-site discipline.
 - `renderHtmlSurfaceFrame` does not consume retained page visuals directly from a prepared frame.
 - Hit testing, drawing, active input placement, and wheel ownership all read from `PublishedRetainedFrame`.
 - Desired or prepared frames cannot become visible until the visible coverage rule passes.
+- Published retained frames carry a coverage proof, and normal published frames have no missing visible rects.
+- Fallback pages are admitted only through the named fallback compatibility predicate.
+- Passive source identity is separate from raster target identity, so zoom and DPR changes do not remount unchanged passive sources.
+- Active island detach cannot reveal stale passive retained content after an edit.
 - High zoom uses visible-first scheduling with explicit memory and texture limits.
+- Offscreen prefetch cannot evict the last compatible visible fallback.
 - Large complex scenes comparable to the Settings project's All Settings page meet the pan, zoom, and retained section scroll performance targets: 120 fps-class p95 frame pacing on capable hardware, refresh-aware pacing on capped environments, no interaction long tasks over 50 ms, and main-thread interaction work within the documented per-frame budget.
 - Large-scene performance has before/after reports in `perf/`.
 - Obsolete broad invalidation paths and transitional compatibility code are removed.
