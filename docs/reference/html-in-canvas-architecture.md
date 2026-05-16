@@ -77,7 +77,8 @@ Pan and zoom frames whose visible surfaces are already covered by committed
 textures do not call `requestPaint()`, upload HTML source textures with
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
 every source transform. Viewport frames with prepared retained displays that
-have true holes run first-visible retained-page work.
+have true holes run first-visible retained-page repair before publishing the
+retained display frame.
 
 ## Scene Model
 
@@ -176,10 +177,14 @@ The reusable runtime is centered on these modules:
   summary helpers used by focused browser capability tests.
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
-- `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`, and
+- `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
+  `retainedDisplayFrame.ts`, `GpuFlow/flowRetainedPageMaintenance.ts`,
+  `GpuFlow/flowRetainedPreparationRuntimeFrame.ts`, and
   `retainedContentTexturePageManager.ts` sample retained runtime frames, derive
-  retained page frame inputs, page-rasterize retained scenes, cache committed
-  retained pages, and schedule retained texture upload work.
+  retained page frame inputs, repair first-visible true holes before display
+  publication, publish active retained display frames, page-rasterize retained
+  scenes, cache committed retained pages, and schedule retained texture upload
+  work.
 - `retainedContentFrameGeneration.ts` is a test-only descriptor-generation
   facade and throws outside the test environment.
 - `retainedContentScene.ts` and related retained-content modules build retained
@@ -394,11 +399,12 @@ page textures.
 
 Page frame descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. The hidden React
-snapshot source layer is mounted from
-`retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources` via
-`GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`. Retained page upload
-joins sampled descriptors with mounted snapshot source elements by snapshot id
-and source key before copying text-like DOM into retained page textures.
+snapshot source layer is mounted from the source retained runtime frame via
+`GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`; frame preparation can
+narrow that source list to descriptors needed for current first-visible repair
+or refinement work. Retained page upload joins sampled descriptors with mounted
+snapshot source elements by snapshot id and source key before copying text-like
+DOM into retained page textures.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -451,40 +457,46 @@ Each render frame follows this shape:
    derives text-like row snapshot descriptors for page upload, and builds
    retained page frame surfaces.
 3. `RetainedContentTexturePageManager.resolveFrameViewportZoomBucket()` selects
-   the stable zoom bucket. `prepareFrame()` computes desired page descriptors and
-   emits flat visuals for already-committed retained pages plus refinement work
-   for missing or stale pages.
-4. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
+   the stable zoom bucket. `prepareFrame()` computes desired page descriptors,
+   committed-page draw regions, replacement and refinement work descriptors, and
+   any true-hole count for pages that are required for first-visible coverage.
+4. If the prepared retained frame has true holes,
+   `GpuFlow/flowRetainedPageMaintenance.ts` repairs first-visible pages before
+   display publication. The retained display frame is not published until
+   deterministic retained coverage has no true holes.
+5. `publishRetainedDisplayFrame()` publishes the retained page visuals, coverage
+   proof, flat surface records, and active DOM islands for the frame.
+6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
-5. The frame syncs DOM transforms for visible, active, and overlay HTML
+7. The frame syncs DOM transforms for visible, active, and overlay HTML
    sources, registers visible HTML textures, uploads dirty HTML textures within
    the project upload budget, and builds textured DOM and overlay visuals.
-6. The visual scene combines DOM textures, overlay textures, retained page
+8. The visual scene combines DOM textures, overlay textures, retained page
    visuals, retained scrollbar, row-hover, switch-animation, grid, edges, and
    connection-line visuals. `HtmlSurfaceRenderer.render()` draws that scene with
    the viewport camera.
-7. HTML textures are evicted according to visibility, protected active ids, and
+9. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-8. Retained page post-submit maintenance defers raster, upload, and eviction
-   work while `deferResolutionUpdates` is true only when the prepared frame has
-   no true holes. When true holes are present or `deferResolutionUpdates` is
-   false, `RetainedContentTexturePageManager.runPostSubmitMaintenance()`
-   enqueues missing retained pages, rasterizes and uploads retained page textures
-   within its own budget, uploads text-like row DOM snapshots into retained page
-   textures when required, evicts retained pages to budget, and reports whether
-   another frame is needed.
-9. Frame performance reporting records render time, upload work, texture memory,
-   retained page metrics, viewport state, and interaction diagnostics.
+10. Retained page maintenance after publish either reuses the work already done
+    for true-hole repair, defers passive refinement while
+    `deferResolutionUpdates` is true and committed pages cover the frame, or
+    calls `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to
+    enqueue missing retained pages, rasterize and upload retained page textures
+    within its own budget, upload text-like row DOM snapshots into retained page
+    textures when required, evict retained pages to budget, and report whether
+    another frame is needed.
+11. Frame performance reporting records render time, upload work, texture memory,
+    retained page metrics, viewport state, and interaction diagnostics.
 
 Pure pan and zoom frames update the runtime viewport and redraw cached
 surfaces. Passive texture resolution upgrades and passive uploads are deferred
 while `deferResolutionUpdates` is true: whenever viewport interaction is active
-and on viewport frames that are not `texture-upload` frames. Retained page
-post-submit maintenance is also deferred on those frames when compatible
-committed pages cover the prepared frame. When the prepared frame exposes true
-holes, maintenance runs and produces first-visible pages on the viewport frame.
-Otherwise, idle or `texture-upload` frames catch up deferred retained work.
+and on viewport frames that are not `texture-upload` frames. True-hole retained
+page repair runs before display publication so first-visible coverage is never
+published with holes. When compatible committed pages already cover the frame,
+post-publish retained maintenance can defer passive refinement until idle or
+`texture-upload` frames catch up deferred retained work.
 
 ## HTML Texture Lifecycle
 
@@ -644,8 +656,10 @@ Each section scene node includes:
 - `portAnchors`, used by edge and connection scenes.
 - `contentRenderer`, which identifies the section's renderable surface.
 
-Once the scene is resolved, `getGpuFlowSceneDomSectionNodes()` selects visible
-`dom-section` nodes. `renderProjectGpuNode()` renders each selected source as:
+Once the scene is resolved, `getGpuFlowSceneDomSectionNodes()` selects
+renderable in-clip `dom-section` nodes; viewport visibility is resolved later by
+`collectVisibleGpuNodeQuads()`. `renderProjectGpuNode()` renders each selected
+source as:
 
 ```tsx
 <SectionContainer sectionId={node.nodeId} isTopLevel={...} />
@@ -729,9 +743,9 @@ preserves the project-canvas coordinate contract:
 - the GPU flow DOM node for screen-relative coordinate conversion
 
 `frontend/src/gpuFlow/viewportActions.ts` exposes the app-facing action surface:
-`setViewport`, `panBy`, `zoomAtScreenPoint`, `zoomBy`, `zoomTo`, `setCenter`,
-`fitView`, `screenToFlowPosition`, `flowToScreenPosition`, `getViewport`,
-`getZoom`, `requestInitialFitView`, `finishInitialFitView`,
+`setViewport`, `panGpuViewport`, `zoomAtScreenPoint`, `zoomBy`, `zoomTo`,
+`setCenter`, `fitView`, `screenToFlowPosition`, `flowToScreenPosition`,
+`getViewport`, `getZoom`, `requestInitialFitView`, `finishInitialFitView`,
 `setInitialFitViewDone`, `resetZoom`, `updateMapPosition`, and
 `cancelViewportTransition`.
 
