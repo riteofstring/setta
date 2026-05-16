@@ -173,11 +173,12 @@ The reusable runtime is centered on these modules:
   capture availability.
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
-- `retainedContentFrameGeneration.ts`,
-  `GpuRetainedContentPageFrameSurfaces.ts`, and
-  `retainedContentTexturePageManager.ts` generate retained page frame inputs,
-  page-rasterize retained scenes, cache committed retained pages, and schedule
-  retained texture upload work.
+- `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`, and
+  `retainedContentTexturePageManager.ts` sample retained runtime frames, derive
+  retained page frame inputs, page-rasterize retained scenes, cache committed
+  retained pages, and schedule retained texture upload work.
+- `retainedContentFrameGeneration.ts` is a test-only descriptor-generation
+  facade and throws outside the test environment.
 - `retainedContentScene.ts` and related retained-content modules build retained
   rows, draw commands, popups, scrollbar hit records, general hit records, port
   anchors, and control geometry.
@@ -185,8 +186,8 @@ The reusable runtime is centered on these modules:
   real DOM.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
   preview HTML overlay sources plus retained text-like snapshot source roots
-  and initial retained scrollbar visuals. Runtime scrollbar, row-hover, and
-  switch-animation native visuals are resampled in `GpuFlow/flowFrame.tsx`.
+  and retained native visual inputs. Runtime scrollbar, row-hover, and
+  switch-animation native visuals are sampled in `GpuFlow/flowFrame.tsx`.
 - `GpuFlow/retainedContentControllers.ts` attaches retained-content pointer,
   drag, scroll, keyboard, scrollbar, hover, connection, and scene-port
   controllers.
@@ -254,7 +255,8 @@ respective classes of work.
 
 ## Browser Capability Contract
 
-`frontend/src/gpuFlow/gpuDevice.ts` owns runtime support checks. GPU flow fails
+`frontend/src/gpuFlow/gpuDevice.ts` owns core WebGPU/html-in-canvas runtime
+support checks, and canvas sizing setup checks `ResizeObserver`. GPU flow fails
 loudly if the development browser does not expose the required native APIs:
 
 - `HTMLCanvasElement.layoutSubtree`
@@ -360,10 +362,11 @@ projected for pointer or wheel handoff.
 
 During passive rendering, the source DOM is capture material for textures. DOM
 transform synchronization keeps visible sources sized for html-in-canvas capture
-and parks culled sources. During pointer or wheel handoff, the interaction
-projector temporarily aligns the target source-local point under the browser
-pointer and enables pointer events for that source. When the interaction ends,
-the source returns to passive capture state.
+and parks no-longer-visible inactive sources. Active or force-visible sources
+can stay live until their handoff or retention state is released. During pointer
+or wheel handoff, the interaction projector temporarily aligns the target
+source-local point under the browser pointer and enables pointer events for that
+source. When the interaction ends, the source returns to passive capture state.
 
 Pointer and wheel handoff modifies only the targeted source:
 
@@ -381,11 +384,12 @@ frame descriptors carry the matching snapshot ids and source keys so
 page textures.
 
 Page frame descriptors are sampled from runtime scroll offsets in
-`GpuFlow/flowFrame.tsx`. The hidden React snapshot source layer is mounted from
-`retainedContentSnapshotScene` via `GpuFlow/flowSurface.tsx` and
-`GpuFlow/flowOverlays.tsx`. Retained page upload joins sampled descriptors with
-the current snapshot source elements by snapshot id and source key before
-copying text-like DOM into retained page textures.
+`GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. The hidden React
+snapshot source layer is mounted from
+`retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources` via
+`GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`. Retained page upload
+joins sampled descriptors with the current snapshot source elements by snapshot
+id and source key before copying text-like DOM into retained page textures.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -432,9 +436,10 @@ Each render frame follows this shape:
 
 1. `renderGpuFlowNodeLayerFrame()` resolves the canvas size, active scene,
    renderer, HTML texture manager, and retained texture page manager.
-2. Retained content frame generation clips retained surfaces, resolves each
-   surface texture window, derives text-like row snapshot descriptors for page
-   upload, and builds retained page frame surfaces.
+2. `createGpuRetainedRuntimeFrame()` samples retained content from runtime
+   scroll offsets, clips retained surfaces, resolves each surface texture window,
+   derives text-like row snapshot descriptors for page upload, and builds
+   retained page frame surfaces.
 3. `RetainedContentTexturePageManager.resolveFrameViewportZoomBucket()` selects
    the stable zoom bucket. `prepareFrame()` computes desired page descriptors and
    emits flat visuals for already-committed retained pages plus refinement work
@@ -565,11 +570,12 @@ projector contracts.
 
 Viewport-only redraws of an unchanged visual scene write only the camera
 uniform. When pan or zoom crosses a culling boundary, the active draw set can
-change; the renderer may then rewrite the flat or tiled-flat vertex buffer for
-the changed draw geometry. That bounded geometry write is separate from the
-HTML-surface invariants: it must not request paint, upload textures, rewrite
-source DOM transforms, or force React renders. Pan/zoom reports expose
-vertex-write calls and bytes as separate counters.
+change; the frame may sync newly entered or exited source hosts and the renderer
+may rewrite the flat or tiled-flat vertex buffer for the changed draw geometry.
+Those bounded updates are separate from content updates: they do not call
+`requestPaint()`, perform HTML texture uploads, or force React renders, and
+transform-only paint records from synced sources are ignored for dirtying.
+Pan/zoom reports expose vertex-write calls and bytes as separate counters.
 
 Edges are generated as CPU-side line-list buffer data from the current edge
 scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
@@ -662,8 +668,9 @@ The retained renderer uses texture pages:
 
 - `GpuRetainedContentSurfaces.tsx` clips retained surfaces and resolves a cache
   window around the visible scroll position.
-- `retainedContentFrameGeneration.ts` derives source surfaces, text-like
-  snapshot sources, and retained page frame surfaces.
+- `retainedRuntimeFrame.ts` samples source surfaces, text-like snapshot sources,
+  native DOM islands, native visuals, and retained page frame surfaces for the
+  current scene, scroll offsets, and zoom bucket.
 - `GpuRetainedContentPageFrameSurfaces.ts` assigns content versions to the base
   surface and row-level content segments so page freshness can be checked
   without rerasterizing unrelated rows.
@@ -868,12 +875,13 @@ state into `GpuEdgeScene`. The scene combines:
 - scope-violation edges
 - the active connection line
 
-Data edges use measured handle positions. Agentic and workflow edges can anchor
-to node frames. `frontend/src/gpuFlow/edges/edgeGeometry.ts` builds straight or
-bezier geometry and also powers CPU hit testing. Pointer interaction on edges is
-handled before pane interaction by `frontend/src/gpuFlow/interactions/edges.ts`,
-which converts the screen event to flow coordinates and tests against the edge
-scene with a screen-pixel tolerance converted to flow units.
+Data edges use scene-derived section and retained-content handle positions.
+Agentic and workflow edges can anchor to node frames.
+`frontend/src/gpuFlow/edges/edgeGeometry.ts` builds straight or bezier geometry
+and also powers CPU hit testing. Pointer interaction on edges is handled before
+pane interaction by `frontend/src/gpuFlow/interactions/edges.ts`, which converts
+the screen event to flow coordinates and tests against the edge scene with a
+screen-pixel tolerance converted to flow units.
 
 Connection ownership is split by interaction source:
 
@@ -900,24 +908,27 @@ Pointer and wheel targeting follows the rendered visual scene:
    tiled-flat, mesh, or effect visual.
 2. Flat and tiled-flat surfaces use exact inverse viewport math.
 3. Mesh surfaces raycast CPU triangles and interpolate UVs.
-4. Shader-effect surfaces must provide an explicit projector id; an effect
-   without a projector is not interactive.
+4. Shader-effect surfaces carry a projector id. Hit testing requires a
+   registered projector for that id; a missing projector throws instead of
+   silently falling back.
 5. `HtmlSurfaceInteractionProjector` aligns the source host so the projected
    local coordinate sits under the browser pointer.
-6. Browser hit testing resolves the native target, with narrow synthetic
-   handoff only when pre-alignment cannot deliver the original event.
+6. Browser hit testing resolves the native target after source projection, and
+   the controller dispatches the narrow synthetic pointer/mouse/click handoff
+   events needed to activate that target.
 
 Dirty tracking separates transform-only frames from content changes:
 
 - html-in-canvas paint events mark changed DOM source elements dirty;
-- explicit dirty events mark source textures dirty for input, focus, selection,
-  animation, transition, and interaction updates;
+- DOM events and custom GPU-flow dirty events mark source textures dirty for
+  input, focus, selection, animation, transition, and interaction updates;
 - source-rect invalidations map dirty content to owning texture tiles;
 - retained-content scroll, hover, scrollbar, switch animation, and row content
   changes mark retained pages or native visuals dirty.
 
-`frontend/src/gpuFlow/nodeInteractionDirty.ts` listens at capture phase for DOM
-events that imply a source texture is stale:
+The controller exported from `frontend/src/gpuFlow/nodeInteractionDirty.ts` and
+implemented under `frontend/src/gpuFlow/nodeInteractionDirty/` listens at
+capture phase for DOM events that imply a source texture is stale:
 
 - custom GPU-flow dirty events
 - `beforeinput`, `input`, and `change`
@@ -944,7 +955,8 @@ own raster/upload/memory budget and can request additional frames independently
 from HTML source texture uploads.
 
 Pure pan and zoom are transform-only. Panning and zooming do not request HTML
-paints, rerender section trees, or upload every texture.
+paints, rerender section trees, or upload every texture; transform-only paint
+invalidations are routed away from texture dirtying.
 
 ## Verification Surface
 
