@@ -89,8 +89,9 @@ export function combineRetainedContentTexturePageFidelityState(
     target: 0,
     "compatible-previous-dpr-bucket": 1,
     "compatible-previous-grid": 2,
-    "compatible-lower-lod": 3,
-    refining: 4,
+    "compatible-mapped-region": 3,
+    "compatible-lower-lod": 4,
+    refining: 5,
   } satisfies Record<
     RetainedContentTexturePagePreparedFrame["fidelityState"],
     number

@@ -1,6 +1,14 @@
 import {
+  RetainedCommittedCoverageMap,
+  type RetainedRegionContentSegment,
+  type RetainedRegionTextLikeSnapshot,
+  type RetainedReplacementTxn,
+} from "./retainedCommittedCoverageStore";
+import {
   createRetainedCommittedPageLifecycle,
+  createRetainedCommittedRegionFromDescriptor,
   createRetainedContentSnapshot,
+  createRetainedRegionTargetFromDescriptor,
   isSemanticallyCompatibleRetainedPage,
   type RetainedCommittedPageLifecycle,
   type RetainedCompatibilityRejectReason,
@@ -10,6 +18,7 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageDescriptor = {
   readonly contentVersion: number;
+  readonly contentSegments?: readonly RetainedRegionContentSegment[];
   readonly devicePixelRatioBucket: number;
   readonly lodLevel: number;
   readonly lodScale: number;
@@ -21,6 +30,7 @@ export type RetainedTexturePageDescriptor = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
+  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
   readonly tileColumn: number;
   readonly tileRow: number;
   readonly viewportZoomBucket: number;
@@ -31,6 +41,7 @@ export type PendingRetainedTexturePage = {
   readonly createdFrame: number;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly key: string;
+  readonly replacementTxn: RetainedReplacementTxn;
 };
 
 export type CommittedRetainedTexturePage<TResource = unknown> = {
@@ -62,13 +73,19 @@ export type RetainedTexturePageCacheSnapshot = {
 
 export type RetainedTexturePageLookup = {
   readonly contentVersion: number;
+  readonly contentSegments?: readonly RetainedRegionContentSegment[];
   readonly devicePixelRatioBucket: number;
+  readonly pixelHeight?: number | undefined;
+  readonly pixelWidth?: number | undefined;
   readonly sourceKey: string;
   readonly sourceRectCss: GpuRect;
   readonly sourceVersion: number;
   readonly sourceWindowCss?: GpuRect | undefined;
   readonly surfaceId: string;
   readonly targetLodScale: number;
+  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly tileColumn?: number | undefined;
+  readonly tileRow?: number | undefined;
   readonly usedFrame?: number | undefined;
   readonly viewportZoomBucket: number;
 };
@@ -114,14 +131,13 @@ export type RetainedTexturePageCacheOptions<TResource> = {
   readonly destroyResource?: ((resource: TResource) => void) | undefined;
 };
 
-const EMPTY_PAGE_KEY_SET = new Set<string>();
-
 export class RetainedTexturePageCache<TResource = unknown> {
   private readonly committedPageKeysBySurface = new Map<string, Set<string>>();
   private readonly committedPages = new Map<
     string,
     CommittedRetainedTexturePage<TResource>
   >();
+  private readonly coverageStore = new RetainedCommittedCoverageMap<string>();
   private readonly destroyResource: ((resource: TResource) => void) | undefined;
   private readonly pendingPages = new Map<string, PendingRetainedTexturePage>();
   private retiredPages: RetiredRetainedTexturePage<TResource>[] = [];
@@ -139,6 +155,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     }
     this.committedPages.clear();
     this.committedPageKeysBySurface.clear();
+    this.coverageStore.clear();
     this.pendingPages.clear();
     this.retiredPages = [];
   }
@@ -146,19 +163,17 @@ export class RetainedTexturePageCache<TResource = unknown> {
   commitPage({
     descriptor,
     frame = 0,
+    replacementTxn,
     resource,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly frame?: number | undefined;
+    readonly replacementTxn?: RetainedReplacementTxn | undefined;
     readonly resource: TResource;
   }): CommittedRetainedTexturePage<TResource> {
     const normalizedDescriptor = normalizePageDescriptor(descriptor);
     const key = retainedTexturePageKey(normalizedDescriptor);
     const existing = this.committedPages.get(key);
-    if (existing) {
-      this.retireCommittedPage(existing, frame);
-    }
-    this.pendingPages.delete(key);
     const page: CommittedRetainedTexturePage<TResource> = {
       byteSize: estimatePageByteSize(normalizedDescriptor),
       committedFrame: frame,
@@ -168,6 +183,24 @@ export class RetainedTexturePageCache<TResource = unknown> {
       resource,
       ...createRetainedCommittedPageLifecycle(normalizedDescriptor),
     };
+    const txn =
+      replacementTxn ??
+      this.coverageStore.beginReplacement(
+        createRetainedRegionTargetFromDescriptor(normalizedDescriptor),
+      );
+    this.coverageStore.commitReplacement(txn, {
+      ...createRetainedCommittedRegionFromDescriptor({
+        descriptor: normalizedDescriptor,
+        generation: frame,
+        id: key,
+        textureHandle: key,
+      }),
+      byteSize: page.byteSize,
+    });
+    if (existing) {
+      this.retireCommittedPage(existing, frame);
+    }
+    this.pendingPages.delete(key);
     this.committedPages.set(key, page);
     this.indexCommittedPage(page);
     return page;
@@ -189,12 +222,20 @@ export class RetainedTexturePageCache<TResource = unknown> {
     return this.commitPage({
       descriptor: pendingPage.descriptor,
       frame,
+      replacementTxn: pendingPage.replacementTxn,
       resource,
     });
   }
 
   cancelPendingPage(key: string) {
-    this.pendingPages.delete(key);
+    const pendingPage = this.pendingPages.get(key);
+    if (pendingPage) {
+      this.coverageStore.rejectReplacement(
+        pendingPage.replacementTxn,
+        "obsolete",
+      );
+      this.pendingPages.delete(key);
+    }
   }
 
   evictToBudget({
@@ -206,13 +247,18 @@ export class RetainedTexturePageCache<TResource = unknown> {
       throw new Error("Retained texture page cache maxBytes must be finite.");
     }
     const protectedKeys = new Set(protectedPageKeys ?? []);
+    const evictionReport = this.coverageStore.evictToBudget({
+      maxBytes,
+      protectedRegionIds: [...protectedKeys],
+    });
     let remainingBytes = this.snapshot().committedBytes;
     const evictedKeys: string[] = [];
     let evictedBytes = 0;
 
-    for (const page of this.evictableCommittedPages(protectedKeys)) {
-      if (remainingBytes <= maxBytes) {
-        break;
+    for (const key of evictionReport.evictedRegionIds) {
+      const page = this.committedPages.get(key);
+      if (!page) {
+        continue;
       }
       this.committedPages.delete(page.key);
       this.unindexCommittedPage(page);
@@ -231,6 +277,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
 
   getBestCommittedPage({
     contentVersion,
+    contentSegments,
     devicePixelRatioBucket,
     sourceKey,
     sourceRectCss,
@@ -238,6 +285,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
+    textLikeSnapshots,
     usedFrame,
     viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
@@ -251,7 +299,9 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
+      textLikeSnapshots,
       viewportZoomBucket,
+      contentSegments,
     }).filter((page) =>
       rectContains(page.descriptor.sourceRectCss, lookupRect),
     );
@@ -266,13 +316,19 @@ export class RetainedTexturePageCache<TResource = unknown> {
 
   getCommittedPagesForCoverage({
     contentVersion,
+    contentSegments,
     devicePixelRatioBucket,
+    pixelHeight,
+    pixelWidth,
     sourceKey,
     sourceRectCss,
     sourceVersion,
     sourceWindowCss,
     surfaceId,
     targetLodScale,
+    textLikeSnapshots,
+    tileColumn = 0,
+    tileRow = 0,
     viewportZoomBucket,
   }: Omit<
     RetainedTexturePageLookup,
@@ -287,19 +343,31 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
+      textLikeSnapshots,
+      tileColumn,
+      tileRow,
       viewportZoomBucket,
+      pixelHeight,
+      pixelWidth,
+      contentSegments,
     }).map((candidate) => candidate.page);
   }
 
   getCommittedPageCoverageCandidates({
     contentVersion,
+    contentSegments,
     devicePixelRatioBucket,
+    pixelHeight,
+    pixelWidth,
     sourceKey,
     sourceRectCss,
     sourceVersion,
     sourceWindowCss,
     surfaceId,
     targetLodScale,
+    textLikeSnapshots,
+    tileColumn = 0,
+    tileRow = 0,
     viewportZoomBucket,
   }: Omit<
     RetainedTexturePageLookup,
@@ -308,21 +376,35 @@ export class RetainedTexturePageCache<TResource = unknown> {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
     const snapshot = createRetainedContentSnapshot({
       contentVersion,
+      contentSegments,
       devicePixelRatioBucket,
       lodLevel: retainedTexturePageLodLevel(targetLodScale),
       lodScale: targetLodScale,
+      pixelHeight:
+        pixelHeight ??
+        Math.max(1, Math.ceil(lookupRect.height * targetLodScale)),
+      pixelWidth:
+        pixelWidth ?? Math.max(1, Math.ceil(lookupRect.width * targetLodScale)),
       scaleKey: retainedTexturePageScaleKey(targetLodScale),
       sourceKey,
       sourceRectCss: lookupRect,
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      tileColumn: 0,
-      tileRow: 0,
+      textLikeSnapshots,
+      tileColumn,
+      tileRow,
       viewportZoomBucket,
     });
-    return this.getCommittedPagesForLookup({ surfaceId })
-      .flatMap((page) => {
+    const plan = this.coverageStore.queryVisibleCoverage({
+      regions: [snapshot.target],
+    });
+    return [...plan.exactCoverage, ...plan.compatibleCoverage]
+      .flatMap((entry) => {
+        const page = this.committedPages.get(entry.region.id);
+        if (!page) {
+          return [];
+        }
         const compatibility = isSemanticallyCompatibleRetainedPage(
           page,
           snapshot,
@@ -344,13 +426,19 @@ export class RetainedTexturePageCache<TResource = unknown> {
 
   getRejectedCommittedPagesForCoverage({
     contentVersion,
+    contentSegments,
     devicePixelRatioBucket,
+    pixelHeight,
+    pixelWidth,
     sourceKey,
     sourceRectCss,
     sourceVersion,
     sourceWindowCss,
     surfaceId,
     targetLodScale,
+    textLikeSnapshots,
+    tileColumn = 0,
+    tileRow = 0,
     viewportZoomBucket,
   }: Omit<
     RetainedTexturePageLookup,
@@ -359,33 +447,32 @@ export class RetainedTexturePageCache<TResource = unknown> {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
     const snapshot = createRetainedContentSnapshot({
       contentVersion,
+      contentSegments,
       devicePixelRatioBucket,
       lodLevel: retainedTexturePageLodLevel(targetLodScale),
       lodScale: targetLodScale,
+      pixelHeight:
+        pixelHeight ??
+        Math.max(1, Math.ceil(lookupRect.height * targetLodScale)),
+      pixelWidth:
+        pixelWidth ?? Math.max(1, Math.ceil(lookupRect.width * targetLodScale)),
       scaleKey: retainedTexturePageScaleKey(targetLodScale),
       sourceKey,
       sourceRectCss: lookupRect,
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      tileColumn: 0,
-      tileRow: 0,
+      textLikeSnapshots,
+      tileColumn,
+      tileRow,
       viewportZoomBucket,
     });
-    return this.getCommittedPagesForLookup({ surfaceId }).flatMap((page) => {
-      const rect = intersectRects(page.contentRect, lookupRect);
-      if (!rect) {
-        return [];
-      }
-      const compatibility = isSemanticallyCompatibleRetainedPage(
-        page,
-        snapshot,
-        lookupRect,
-      );
-      return compatibility.kind === "incompatible"
-        ? [{ reason: compatibility.reason, rect }]
-        : [];
-    });
+    return this.coverageStore
+      .queryVisibleCoverage({ regions: [snapshot.target] })
+      .rejectedCoverage.map((entry) => ({
+        reason: entry.reason,
+        rect: entry.rect,
+      }));
   }
 
   markCommittedPageUsed(
@@ -456,35 +543,18 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }): PendingRetainedTexturePage {
     const normalizedDescriptor = normalizePageDescriptor(descriptor);
     const key = retainedTexturePageKey(normalizedDescriptor);
+    this.cancelPendingPage(key);
     const page: PendingRetainedTexturePage = {
       byteSize: estimatePageByteSize(normalizedDescriptor),
       createdFrame: frame,
       descriptor: normalizedDescriptor,
       key,
+      replacementTxn: this.coverageStore.beginReplacement(
+        createRetainedRegionTargetFromDescriptor(normalizedDescriptor),
+      ),
     };
     this.pendingPages.set(key, page);
     return page;
-  }
-
-  private evictableCommittedPages(
-    protectedKeys: ReadonlySet<string>,
-  ): readonly CommittedRetainedTexturePage<TResource>[] {
-    return [...this.committedPages.values()]
-      .filter((page) => !protectedKeys.has(page.key))
-      .sort(compareEvictablePages);
-  }
-
-  private getCommittedPagesForLookup({
-    surfaceId,
-  }: {
-    readonly surfaceId: string;
-  }): readonly CommittedRetainedTexturePage<TResource>[] {
-    const keys =
-      this.committedPageKeysBySurface.get(surfaceId) ?? EMPTY_PAGE_KEY_SET;
-    return [...keys].flatMap((key) => {
-      const page = this.committedPages.get(key);
-      return page ? [page] : [];
-    });
   }
 
   private indexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
@@ -656,6 +726,10 @@ function normalizePageDescriptor(
   );
   return {
     contentVersion,
+    contentSegments:
+      descriptor.contentSegments === undefined
+        ? undefined
+        : normalizeContentSegments(descriptor.contentSegments),
     devicePixelRatioBucket,
     lodLevel,
     lodScale,
@@ -670,10 +744,47 @@ function normalizePageDescriptor(
       descriptor.sourceWindowCss,
     ),
     surfaceId,
+    textLikeSnapshots:
+      descriptor.textLikeSnapshots === undefined
+        ? undefined
+        : normalizeTextLikeSnapshots(descriptor.textLikeSnapshots),
     tileColumn,
     tileRow,
     viewportZoomBucket,
   };
+}
+
+function normalizeContentSegments(
+  segments: readonly RetainedRegionContentSegment[],
+): readonly RetainedRegionContentSegment[] {
+  return segments
+    .map((segment) => ({
+      contentVersion: normalizeFiniteNumber(
+        "contentSegments.contentVersion",
+        segment.contentVersion,
+      ),
+      id: normalizeSourceKey(segment.id),
+      rectCss: normalizeRect("contentSegments.rectCss", segment.rectCss),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function normalizeTextLikeSnapshots(
+  snapshots: readonly RetainedRegionTextLikeSnapshot[],
+): readonly RetainedRegionTextLikeSnapshot[] {
+  return snapshots
+    .map((snapshot) => ({
+      rectCss: normalizeRect("textLikeSnapshots.rectCss", snapshot.rectCss),
+      rowId: normalizeSourceKey(snapshot.rowId),
+      sourceId: normalizeSourceKey(snapshot.sourceId),
+      sourceKey: normalizeSourceKey(snapshot.sourceKey),
+    }))
+    .sort(
+      (left, right) =>
+        left.rowId.localeCompare(right.rowId) ||
+        left.sourceId.localeCompare(right.sourceId) ||
+        left.sourceKey.localeCompare(right.sourceKey),
+    );
 }
 
 function compareCompatiblePagesForTarget({
@@ -714,20 +825,6 @@ function rectContains(container: GpuRect, rect: GpuRect): boolean {
     container.x + container.width >= rect.x + rect.width &&
     container.y + container.height >= rect.y + rect.height
   );
-}
-
-function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const width = Math.max(
-    0,
-    Math.min(left.x + left.width, right.x + right.width) - x,
-  );
-  const height = Math.max(
-    0,
-    Math.min(left.y + left.height, right.y + right.height) - y,
-  );
-  return width > 0 && height > 0 ? { height, width, x, y } : null;
 }
 
 function rectArea(rect: GpuRect): number {
@@ -825,16 +922,4 @@ function normalizeRetiredFrameThrough(value: number): number {
     );
   }
   return value;
-}
-
-function compareEvictablePages<TResource>(
-  left: CommittedRetainedTexturePage<TResource>,
-  right: CommittedRetainedTexturePage<TResource>,
-): number {
-  return (
-    right.descriptor.lodLevel - left.descriptor.lodLevel ||
-    left.lastUsedFrame - right.lastUsedFrame ||
-    right.byteSize - left.byteSize ||
-    left.key.localeCompare(right.key)
-  );
 }

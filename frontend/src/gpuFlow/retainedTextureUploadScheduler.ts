@@ -22,6 +22,14 @@ export type RetainedPageWorkBudget = {
   readonly visibleEdgeMaxUploads: number;
 };
 
+export type RetainedSchedulerBudgets = {
+  readonly visibleTrueHoleMinMs: number;
+  readonly visibleTrueHoleMaxUploads: number;
+  readonly activeIslandMinMs: number;
+  readonly visibleRefinementOpportunisticMs: number;
+  readonly prefetchMaxMs: number;
+};
+
 export type RetainedTextureUploadWorkEstimate = {
   readonly rasterMs: number;
   readonly uploadMs: number;
@@ -98,6 +106,10 @@ export function runRetainedTextureUploadScheduler({
     schedulerBudget: normalizedBudget,
     textureBudget,
   });
+  const retainedSchedulerBudgets = normalizeRetainedSchedulerBudgets({
+    pageWorkBudget: normalizedPageWorkBudget,
+    schedulerBudget: normalizedBudget,
+  });
   const queueOptions: RetainedTextureWorkQueueOptions = {
     viewportInteractionActive: viewportInteractionActive ?? false,
   };
@@ -116,6 +128,7 @@ export function runRetainedTextureUploadScheduler({
         item,
         pageWorkBudget: normalizedPageWorkBudget,
         progress,
+        retainedSchedulerBudgets,
         schedulerQueue,
         textureBudget,
       })
@@ -172,6 +185,7 @@ function shouldSkipRetainedTextureWorkItem({
   item,
   pageWorkBudget,
   progress,
+  retainedSchedulerBudgets,
   schedulerQueue,
   textureBudget,
 }: {
@@ -180,6 +194,7 @@ function shouldSkipRetainedTextureWorkItem({
   readonly item: RetainedTextureWorkItem;
   readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
   readonly schedulerQueue: RetainedTextureSchedulerQueue;
   readonly textureBudget: RetainedTextureBudget | undefined;
 }): boolean {
@@ -189,6 +204,7 @@ function shouldSkipRetainedTextureWorkItem({
       item,
       pageWorkBudget,
       progress,
+      retainedSchedulerBudgets,
       schedulerQueue,
     })
   ) {
@@ -210,8 +226,8 @@ function shouldSkipRetainedTextureWorkItem({
       budget,
       estimate,
       item,
-      pageWorkBudget,
       progress,
+      retainedSchedulerBudgets,
     })
   );
 }
@@ -257,12 +273,14 @@ function shouldSkipNonVisibleWorkForPageBudget({
   item,
   pageWorkBudget,
   progress,
+  retainedSchedulerBudgets,
   schedulerQueue,
 }: {
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
   readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
   readonly schedulerQueue: RetainedTextureSchedulerQueue;
 }): boolean {
   if (item.kind === "first-visible" || schedulerQueue === "interactive") {
@@ -270,15 +288,25 @@ function shouldSkipNonVisibleWorkForPageBudget({
   }
   if (
     item.kind === "lod-refinement" &&
-    progress.refinementUploadedBytes + estimate.uploadedBytes >
-      pageWorkBudget.refinementMaxBytes
+    (progress.refinementUploadedBytes + estimate.uploadedBytes >
+      pageWorkBudget.refinementMaxBytes ||
+      progress.rasterMs +
+        progress.uploadMs +
+        estimate.rasterMs +
+        estimate.uploadMs >
+        retainedSchedulerBudgets.visibleRefinementOpportunisticMs)
   ) {
     return true;
   }
   return (
     schedulerQueue === "prefetch" &&
-    progress.prefetchUploadedBytes + estimate.uploadedBytes >
-      pageWorkBudget.prefetchMaxBytes
+    (progress.prefetchUploadedBytes + estimate.uploadedBytes >
+      pageWorkBudget.prefetchMaxBytes ||
+      progress.rasterMs +
+        progress.uploadMs +
+        estimate.rasterMs +
+        estimate.uploadMs >
+        retainedSchedulerBudgets.prefetchMaxMs)
   );
 }
 
@@ -286,25 +314,33 @@ function canForceRetainedTextureUploadProgress({
   budget,
   estimate,
   item,
-  pageWorkBudget,
   progress,
+  retainedSchedulerBudgets,
 }: {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
-  readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
 }): boolean {
   const visibleEdgeUploadAvailable =
     item.kind === "first-visible" &&
-    progress.visibleEdgeUploadCount < pageWorkBudget.visibleEdgeMaxUploads;
+    progress.visibleEdgeUploadCount <
+      retainedSchedulerBudgets.visibleTrueHoleMaxUploads;
+  const visibleRepairTimeAvailable =
+    estimate.rasterMs + estimate.uploadMs <=
+    Math.max(
+      retainedSchedulerBudgets.visibleTrueHoleMinMs,
+      budget.maxFrameRasterMs + budget.maxFrameUploadMs,
+    );
   return (
     (progress.uploadCount === 0 || visibleEdgeUploadAvailable) &&
     progress.uploadedBytes === 0 &&
     progress.rasterMs === 0 &&
     progress.uploadMs === 0 &&
     budget.maxUploads > 0 &&
-    estimate.uploadCount > 0
+    estimate.uploadCount > 0 &&
+    visibleRepairTimeAvailable
   );
 }
 
@@ -400,6 +436,39 @@ function normalizeRetainedPageWorkBudget({
     visibleEdgeMaxUploads: normalizeFiniteNonNegativeInteger(
       "visibleEdgeMaxUploads",
       resolveVisibleEdgeMaxUploads(budget, schedulerBudget),
+    ),
+  };
+}
+
+function normalizeRetainedSchedulerBudgets({
+  pageWorkBudget,
+  schedulerBudget,
+}: {
+  readonly pageWorkBudget: RetainedPageWorkBudget;
+  readonly schedulerBudget: RetainedTextureUploadSchedulerBudget;
+}): RetainedSchedulerBudgets {
+  const frameMs =
+    schedulerBudget.maxFrameRasterMs + schedulerBudget.maxFrameUploadMs;
+  return {
+    activeIslandMinMs: normalizeFiniteNonNegativeNumber(
+      "activeIslandMinMs",
+      Math.min(pageWorkBudget.interactionFrameMaxMs, frameMs),
+    ),
+    prefetchMaxMs: normalizeFiniteNonNegativeNumber(
+      "prefetchMaxMs",
+      pageWorkBudget.interactionFrameMaxMs,
+    ),
+    visibleRefinementOpportunisticMs: normalizeFiniteNonNegativeNumber(
+      "visibleRefinementOpportunisticMs",
+      pageWorkBudget.interactionFrameMaxMs,
+    ),
+    visibleTrueHoleMaxUploads: normalizeFiniteNonNegativeInteger(
+      "visibleTrueHoleMaxUploads",
+      pageWorkBudget.visibleEdgeMaxUploads,
+    ),
+    visibleTrueHoleMinMs: normalizeFiniteNonNegativeNumber(
+      "visibleTrueHoleMinMs",
+      Math.min(pageWorkBudget.interactionFrameMaxMs, frameMs),
     ),
   };
 }

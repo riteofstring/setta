@@ -314,6 +314,59 @@ describe("createRetainedTexturePageDrawQuads", () => {
     );
   });
 
+  it("uses manifest segment proof when zoom changes page-derived content versions", () => {
+    const cache = new RetainedTexturePageCache<string>();
+    const rowA = {
+      contentVersion: 101,
+      id: "row-a",
+      rectCss: { height: 128, width: 256, x: 0, y: 0 },
+    };
+    const rowB = {
+      contentVersion: 202,
+      id: "row-b",
+      rectCss: { height: 128, width: 256, x: 0, y: 128 },
+    };
+    cache.commitPage({
+      descriptor: page({
+        contentSegments: [rowA, rowB],
+        contentVersion: -1,
+        lodScale: 1,
+        pixelHeight: 256,
+        pixelWidth: 256,
+        sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
+      }),
+      resource: "coarse-superset-page",
+    });
+
+    expect(
+      resolveRetainedTexturePageCoverage({
+        cache,
+        desiredPages: [
+          page({
+            contentSegments: [rowA],
+            contentVersion: -2,
+            lodScale: 2,
+            pixelHeight: 128,
+            pixelWidth: 128,
+            sourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
+          }),
+        ],
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        drawQuads: [
+          expect.objectContaining({
+            coverageKind: "compatible",
+            page: expect.objectContaining({ resource: "coarse-superset-page" }),
+            sampleRectCss: { height: 64, width: 64, x: 0, y: 0 },
+          }),
+        ],
+        rejectedStaleRectCount: 0,
+        trueHoleRectsCss: [],
+      }),
+    );
+  });
+
   it("merges adjacent compatible quads that sample the same committed page", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({

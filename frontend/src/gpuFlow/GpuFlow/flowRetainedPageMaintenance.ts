@@ -6,10 +6,15 @@ import type {
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
+  preparedFrame,
 }: {
   readonly deferResolutionUpdates: boolean;
+  readonly preparedFrame: Pick<
+    RetainedContentTexturePagePreparedFrame,
+    "trueHoleRectCount"
+  >;
 }): boolean {
-  return deferResolutionUpdates;
+  return deferResolutionUpdates && preparedFrame.trueHoleRectCount === 0;
 }
 
 export function runGpuFlowRetainedPageMaintenance({
@@ -32,6 +37,7 @@ export function runGpuFlowRetainedPageMaintenance({
 } {
   const deferred = shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
     deferResolutionUpdates,
+    preparedFrame,
   });
   const result = deferred
     ? retainedContentPageManager.deferPostSubmitMaintenance({ preparedFrame })

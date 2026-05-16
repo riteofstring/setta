@@ -11,19 +11,18 @@ import {
   normalizeRetainedContentTexturePageLodScale,
   resolveRetainedContentTexturePageTextureBudget,
 } from "./retainedContentTexturePageBudget";
+import { RetainedTexturePageContentIdentityResolver } from "./retainedContentTexturePageContentIdentity";
 import {
   combineRetainedContentTexturePageFidelityState,
   didRetainedPageVisualCoverageChange,
   isRetainedTextureWorkItemCompleteAfterPageUpload,
   rectsEqual,
-  rectsIntersect,
   resolveRetainedPageEvictionProtectedKeys,
   shouldEnqueueRemainingRefreshDescriptors,
   shouldRefreshCommittedPage,
   shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
 import type {
-  RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameInput,
   RetainedContentTexturePageFrameSurface,
   RetainedContentTexturePageFreshnessQuery,
@@ -36,7 +35,6 @@ import type {
 import {
   EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
   areRetainedContentTexturePageTextLikeSnapshotsReady,
-  type RetainedContentTexturePageTextLikeSnapshot,
 } from "./retainedContentTexturePageTextLikeSnapshots";
 import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
@@ -105,11 +103,10 @@ export class RetainedContentTexturePageManager {
   private readonly textureAtlasStore: RetainedContentTextureAtlasStore;
   private readonly textureUsage: GPUTextureUsageFlags;
   private readonly workQueue = new RetainedTextureWorkQueue();
+  private readonly contentIdentityResolver =
+    new RetainedTexturePageContentIdentityResolver();
   private drawableRevision = 0;
-  private readonly pageContentVersions = new Map<string, number>();
   private maintenanceUploadedDrawCommandCount = 0;
-  // Page-derived versions must not alias owner-provided surface or row versions.
-  private nextPageContentVersion = -1;
   private retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
   private retiredResourceDrainScheduled = false;
   private frameSurfaceById = new Map<
@@ -164,9 +161,8 @@ export class RetainedContentTexturePageManager {
     this.textureAtlasStore.destroy();
     this.workQueue.clear();
     this.frameSurfaceById.clear();
+    this.contentIdentityResolver.clear();
     this.drawableRevision += 1;
-    this.pageContentVersions.clear();
-    this.nextPageContentVersion = -1;
     this.devicePixelRatioBucket = 1;
     this.viewportZoomBucket = null;
     this.targetLodScale = 1;
@@ -444,96 +440,10 @@ export class RetainedContentTexturePageManager {
     readonly descriptors: readonly RetainedTexturePageDescriptor[];
     readonly surface: RetainedContentTexturePageFrameSurface;
   }): readonly RetainedTexturePageDescriptor[] {
-    const segments = surface.contentSegments ?? [];
-    const textLikeSnapshots = surface.textLikeSnapshots ?? [];
-    if (segments.length === 0 && textLikeSnapshots.length === 0) {
-      return descriptors;
-    }
-    return descriptors.map((descriptor) => ({
-      ...descriptor,
-      contentVersion: this.resolvePageContentVersion({
-        descriptor,
-        segments,
-        surfaceContentVersion: surface.contentVersion,
-        textLikeSnapshots,
-      }),
-    }));
-  }
-
-  private resolvePageContentVersion({
-    descriptor,
-    segments,
-    surfaceContentVersion,
-    textLikeSnapshots,
-  }: {
-    readonly descriptor: RetainedTexturePageDescriptor;
-    readonly segments: readonly RetainedContentTexturePageContentSegment[];
-    readonly surfaceContentVersion: number;
-    readonly textLikeSnapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
-  }): number {
-    const intersectingSegments = segments
-      .filter((segment) =>
-        rectsIntersect(segment.rectCss, descriptor.sourceRectCss),
-      )
-      .map((segment) => ({
-        contentVersion: segment.contentVersion,
-        id: segment.id,
-        rectCss: segment.rectCss,
-      }))
-      .sort((left, right) => left.id.localeCompare(right.id));
-    const intersectingTextLikeSnapshots = textLikeSnapshots
-      .filter((snapshot) =>
-        rectsIntersect(snapshot.rectCss, descriptor.sourceRectCss),
-      )
-      .map((snapshot) => ({
-        rectCss: snapshot.rectCss,
-        rowId: snapshot.rowId,
-        sourceId: snapshot.sourceId,
-        sourceKey: snapshot.sourceKey,
-      }))
-      .sort(
-        (left, right) =>
-          left.sourceId.localeCompare(right.sourceId) ||
-          left.rowId.localeCompare(right.rowId),
-      );
-    if (
-      intersectingSegments.length === 0 &&
-      intersectingTextLikeSnapshots.length === 0
-    ) {
-      return surfaceContentVersion;
-    }
-    return this.resolvePageContentVersionId({
-      intersectingSegments,
-      intersectingTextLikeSnapshots,
-      sourceRectCss: descriptor.sourceRectCss,
-      surfaceContentVersion,
+    return this.contentIdentityResolver.resolveDescriptors({
+      descriptors,
+      surface,
     });
-  }
-
-  private resolvePageContentVersionId(input: {
-    readonly intersectingSegments: readonly {
-      readonly contentVersion: number;
-      readonly id: string;
-      readonly rectCss: GpuRect;
-    }[];
-    readonly intersectingTextLikeSnapshots: readonly {
-      readonly rectCss: GpuRect;
-      readonly rowId: string;
-      readonly sourceId: string;
-      readonly sourceKey: string;
-    }[];
-    readonly sourceRectCss: GpuRect;
-    readonly surfaceContentVersion: number;
-  }): number {
-    const signature = JSON.stringify(input);
-    const existing = this.pageContentVersions.get(signature);
-    if (existing !== undefined) {
-      return existing;
-    }
-    const version = this.nextPageContentVersion;
-    this.nextPageContentVersion -= 1;
-    this.pageContentVersions.set(signature, version);
-    return version;
   }
 
   private createPageDescriptors({

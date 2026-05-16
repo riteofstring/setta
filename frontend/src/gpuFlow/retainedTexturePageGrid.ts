@@ -1,7 +1,6 @@
 import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import {
   RetainedTexturePageCache,
-  retainedTexturePageKey,
   retainedTexturePageLodLevel,
   retainedTexturePageScaleKey,
   type CommittedRetainedTexturePage,
@@ -337,17 +336,33 @@ function resolveExactPageDrawQuad<TResource>({
   readonly desiredDescriptor: RetainedTexturePageDescriptor;
   readonly usedFrame?: number | undefined;
 }): RetainedTexturePageDrawQuad<TResource> | null {
-  const exactPage = cache.getCommittedPage(
-    retainedTexturePageKey(desiredDescriptor),
-  );
-  if (!exactPage) {
+  const exactCandidate = cache
+    .getCommittedPageCoverageCandidates({
+      contentVersion: desiredDescriptor.contentVersion,
+      contentSegments: desiredDescriptor.contentSegments,
+      devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
+      pixelHeight: desiredDescriptor.pixelHeight,
+      pixelWidth: desiredDescriptor.pixelWidth,
+      sourceKey: desiredDescriptor.sourceKey,
+      sourceRectCss: desiredDescriptor.sourceRectCss,
+      sourceVersion: desiredDescriptor.sourceVersion,
+      sourceWindowCss: desiredDescriptor.sourceWindowCss,
+      surfaceId: desiredDescriptor.surfaceId,
+      targetLodScale: desiredDescriptor.lodScale,
+      textLikeSnapshots: desiredDescriptor.textLikeSnapshots,
+      tileColumn: desiredDescriptor.tileColumn,
+      tileRow: desiredDescriptor.tileRow,
+      viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
+    })
+    .find((candidate) => candidate.compatibility.fidelity === "target");
+  if (!exactCandidate) {
     return null;
   }
   return {
     coverageKind: "exact",
     desiredDescriptor,
     fidelityState: "target",
-    page: markPageUsed({ cache, page: exactPage, usedFrame }),
+    page: markPageUsed({ cache, page: exactCandidate.page, usedFrame }),
     sampleRectCss: desiredDescriptor.sourceRectCss,
     staleContent: false,
   };
@@ -376,23 +391,36 @@ function resolveCompatiblePageDrawQuads<TResource>({
   let uncoveredRects: readonly GpuRect[] = [desiredDescriptor.sourceRectCss];
   const rejectedStaleRects = cache.getRejectedCommittedPagesForCoverage({
     contentVersion: desiredDescriptor.contentVersion,
+    contentSegments: desiredDescriptor.contentSegments,
     devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
+    pixelHeight: desiredDescriptor.pixelHeight,
+    pixelWidth: desiredDescriptor.pixelWidth,
     sourceKey: desiredDescriptor.sourceKey,
     sourceRectCss: desiredDescriptor.sourceRectCss,
     sourceVersion: desiredDescriptor.sourceVersion,
     sourceWindowCss: desiredDescriptor.sourceWindowCss,
     surfaceId: desiredDescriptor.surfaceId,
     targetLodScale: desiredDescriptor.lodScale,
+    textLikeSnapshots: desiredDescriptor.textLikeSnapshots,
+    tileColumn: desiredDescriptor.tileColumn,
+    tileRow: desiredDescriptor.tileRow,
     viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   const candidates = cache.getCommittedPageCoverageCandidates({
     contentVersion: desiredDescriptor.contentVersion,
+    contentSegments: desiredDescriptor.contentSegments,
     devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
+    pixelHeight: desiredDescriptor.pixelHeight,
+    pixelWidth: desiredDescriptor.pixelWidth,
     sourceKey: desiredDescriptor.sourceKey,
     sourceRectCss: desiredDescriptor.sourceRectCss,
     sourceVersion: desiredDescriptor.sourceVersion,
+    sourceWindowCss: desiredDescriptor.sourceWindowCss,
     surfaceId: desiredDescriptor.surfaceId,
     targetLodScale: desiredDescriptor.lodScale,
+    textLikeSnapshots: desiredDescriptor.textLikeSnapshots,
+    tileColumn: desiredDescriptor.tileColumn,
+    tileRow: desiredDescriptor.tileRow,
     viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   for (const candidate of candidates) {
@@ -461,9 +489,7 @@ function coverRectsWithPage<TResource>({
       fidelityState,
       page: usedPage,
       sampleRectCss: sampleRect,
-      staleContent:
-        candidate.descriptor.contentVersion !==
-        desiredDescriptor.contentVersion,
+      staleContent: false,
     });
     nextUncoveredRects.push(...subtractRect(uncoveredRect, sampleRect));
   }

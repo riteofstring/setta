@@ -36,20 +36,26 @@ describe("GPU flow frame helpers", () => {
     expect(nextElement.dataset.gpuFlowInteractive).toBe("true");
   });
 
-  it("defers retained page uploads during active viewport frames", () => {
+  it("keeps visible true-hole repair active during viewport interaction", () => {
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: true,
+        preparedFrame: retainedFrameCache({ trueHoleRectCount: 0 })
+          .preparedFrame,
       }),
     ).toBe(true);
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: true,
+        preparedFrame: retainedFrameCache({ trueHoleRectCount: 1 })
+          .preparedFrame,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: false,
+        preparedFrame: retainedFrameCache({ trueHoleRectCount: 0 })
+          .preparedFrame,
       }),
     ).toBe(false);
   });
@@ -143,7 +149,7 @@ describe("GPU flow frame helpers", () => {
         scrollRevision: 3,
         viewportZoomBucket: 1,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldReuseGpuFlowRetainedContentFrameCache({
         cachedFrame: retainedFrameCache({

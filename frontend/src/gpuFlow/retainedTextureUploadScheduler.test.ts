@@ -327,6 +327,55 @@ describe("runRetainedTextureUploadScheduler", () => {
       "prefetch",
     ]);
   });
+
+  it("reserves interaction time for visible true-hole repair before refinement", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 10, width: 10, x: 0, y: 0 },
+      surfaceId: "visible",
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "lod-refinement",
+      sourceRect: { height: 10, width: 10, x: 0, y: 20 },
+      surfaceId: "refinement",
+      targetLod: 2,
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: { ...DEFAULT_BUDGET, maxUploads: 2 },
+      estimateWorkItem: (item) =>
+        item.kind === "first-visible"
+          ? SMALL_WORK
+          : { rasterMs: 3, uploadCount: 1, uploadedBytes: 400, uploadMs: 3 },
+      executeWorkItem: (item) =>
+        item.kind === "first-visible"
+          ? { ...SMALL_WORK, complete: true }
+          : {
+              complete: true,
+              rasterMs: 3,
+              uploadCount: 1,
+              uploadedBytes: 400,
+              uploadMs: 3,
+            },
+      pageWorkBudget: {
+        interactionFrameMaxMs: 2,
+        refinementMaxBytes: 1_000,
+        visibleEdgeMaxUploads: 1,
+      },
+      queue,
+      viewportInteractionActive: true,
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "visible",
+    ]);
+    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
+      "refinement",
+    ]);
+  });
 });
 
 describe("retainedTextureSchedulerQueueForWorkItem", () => {

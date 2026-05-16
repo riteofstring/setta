@@ -1,24 +1,37 @@
+import {
+  evaluateRetainedRegionCompatibility,
+  type Matrix3,
+  type RetainedCommittedRegion,
+  type RetainedFidelityMetadata,
+  type RetainedRegionCompatibility,
+  type RetainedRegionContentSegment,
+  type RetainedRegionManifest,
+  type RetainedRegionTarget,
+  type RetainedRegionTextLikeSnapshot,
+} from "./retainedCommittedCoverageStore";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedCompatibilityRejectReason =
-  | "surface-mismatch"
-  | "source-version-mismatch"
-  | "row-version-mismatch"
-  | "theme-mismatch"
-  | "active-passive-state-mismatch"
-  | "content-rect-mapping-mismatch";
+export type RetainedCompatibilityRejectReason = Extract<
+  RetainedRegionCompatibility,
+  { readonly kind: "incompatible" }
+>["reason"];
 
 export type RetainedFidelityState =
   | "target"
   | "compatible-lower-lod"
   | "compatible-previous-grid"
   | "compatible-previous-dpr-bucket"
+  | "compatible-mapped-region"
   | "refining";
 
 export type RetainedCompatibilityResult =
   | {
       readonly fidelity: Exclude<RetainedFidelityState, "refining">;
       readonly kind: "compatible";
+      readonly regionCompatibility: Extract<
+        RetainedRegionCompatibility,
+        { readonly kind: "compatible" }
+      >;
     }
   | {
       readonly kind: "incompatible";
@@ -40,32 +53,28 @@ export type RetainedLod = {
 
 export type RetainedDprBucket = number;
 
-export type RetainedContentToTextureTransform = readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
+export type RetainedContentToTextureTransform = Matrix3;
 
 export type RetainedContentSnapshot = {
   readonly contentRect: GpuRect;
   readonly dprBucket: RetainedDprBucket;
+  readonly fidelityMetadata: RetainedFidelityMetadata;
   readonly lod: RetainedLod;
+  readonly manifest: RetainedRegionManifest;
   readonly pageGridGeneration: string;
   readonly semanticIdentity: RetainedSemanticIdentity;
+  readonly target: RetainedRegionTarget;
   readonly viewportZoomBucket: number;
 };
 
 export type RetainedCommittedPageLifecycle = {
+  readonly clipRect: GpuRect;
   readonly contentRect: GpuRect;
   readonly contentToTextureTransform: RetainedContentToTextureTransform;
   readonly dprBucket: RetainedDprBucket;
+  readonly fidelityMetadata: RetainedFidelityMetadata;
   readonly lod: RetainedLod;
+  readonly manifest: RetainedRegionManifest;
   readonly pageGridGeneration: string;
   readonly semanticIdentity: RetainedSemanticIdentity;
   readonly sourceCaptureRect: GpuRect;
@@ -79,15 +88,19 @@ export type RetainedCommittedPageForCompatibility =
 
 export type RetainedPageLifecycleDescriptor = {
   readonly contentVersion: number;
+  readonly contentSegments?: readonly RetainedRegionContentSegment[];
   readonly devicePixelRatioBucket: number;
   readonly lodLevel: number;
   readonly lodScale: number;
+  readonly pixelHeight?: number | undefined;
+  readonly pixelWidth?: number | undefined;
   readonly scaleKey: string;
   readonly sourceKey: string;
   readonly sourceRectCss: GpuRect;
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
+  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
   readonly tileColumn: number;
   readonly tileRow: number;
   readonly viewportZoomBucket: number;
@@ -96,12 +109,17 @@ export type RetainedPageLifecycleDescriptor = {
 export function createRetainedContentSnapshot(
   descriptor: RetainedPageLifecycleDescriptor,
 ): RetainedContentSnapshot {
+  const manifest = createRetainedRegionManifest(descriptor);
+  const fidelityMetadata = createRetainedFidelityMetadata(descriptor);
   return Object.freeze({
     contentRect: freezeRect(descriptor.sourceRectCss),
     dprBucket: descriptor.devicePixelRatioBucket,
+    fidelityMetadata,
     lod: createRetainedLod(descriptor),
+    manifest,
     pageGridGeneration: retainedPageGridGeneration(descriptor),
     semanticIdentity: createRetainedSemanticIdentity(descriptor),
+    target: createRetainedRegionTargetFromDescriptor(descriptor),
     viewportZoomBucket: descriptor.viewportZoomBucket,
   });
 }
@@ -109,16 +127,95 @@ export function createRetainedContentSnapshot(
 export function createRetainedCommittedPageLifecycle(
   descriptor: RetainedPageLifecycleDescriptor,
 ): RetainedCommittedPageLifecycle {
+  const manifest = createRetainedRegionManifest(descriptor);
+  const fidelityMetadata = createRetainedFidelityMetadata(descriptor);
   return Object.freeze({
+    clipRect: freezeRect(descriptor.sourceWindowCss),
     contentRect: freezeRect(descriptor.sourceRectCss),
     contentToTextureTransform: createRetainedContentToTextureTransform(
       descriptor.sourceRectCss,
     ),
     dprBucket: descriptor.devicePixelRatioBucket,
+    fidelityMetadata,
     lod: createRetainedLod(descriptor),
+    manifest,
     pageGridGeneration: retainedPageGridGeneration(descriptor),
     semanticIdentity: createRetainedSemanticIdentity(descriptor),
     sourceCaptureRect: freezeRect(descriptor.sourceWindowCss),
+    viewportZoomBucket: descriptor.viewportZoomBucket,
+  });
+}
+
+export function createRetainedCommittedRegionFromDescriptor<TTextureHandle>({
+  descriptor,
+  generation = 0,
+  id,
+  textureHandle,
+  zLayer = 0,
+}: {
+  readonly descriptor: RetainedPageLifecycleDescriptor;
+  readonly generation?: number | undefined;
+  readonly id: string;
+  readonly textureHandle: TTextureHandle;
+  readonly zLayer?: number | undefined;
+}): RetainedCommittedRegion<TTextureHandle> {
+  const lifecycle = createRetainedCommittedPageLifecycle(descriptor);
+  return Object.freeze({
+    contentRect: lifecycle.contentRect,
+    contentToTexture: lifecycle.contentToTextureTransform,
+    clipRect: lifecycle.clipRect,
+    fidelity: lifecycle.fidelityMetadata,
+    generation,
+    id,
+    manifest: lifecycle.manifest,
+    textureHandle,
+    zLayer,
+  });
+}
+
+export function createRetainedRegionTargetFromDescriptor(
+  descriptor: RetainedPageLifecycleDescriptor,
+): RetainedRegionTarget {
+  return Object.freeze({
+    clipRect: freezeRect(descriptor.sourceWindowCss),
+    contentRect: freezeRect(descriptor.sourceRectCss),
+    fidelity: createRetainedFidelityMetadata(descriptor),
+    manifest: createRetainedRegionManifest(descriptor),
+    zLayer: 0,
+  });
+}
+
+export function createRetainedRegionManifest(
+  descriptor: RetainedPageLifecycleDescriptor,
+): RetainedRegionManifest {
+  return Object.freeze({
+    clipRect: freezeRect(descriptor.sourceWindowCss),
+    contentSegments: freezeContentSegments(descriptor.contentSegments ?? []),
+    contentRect: freezeRect(descriptor.sourceRectCss),
+    contentVersion: descriptor.contentVersion,
+    documentId: descriptor.sourceKey,
+    fontGeneration: 0,
+    renderMode: "passive",
+    rowId: null,
+    sectionId: descriptor.surfaceId,
+    surfaceId: descriptor.surfaceId,
+    textLikeSnapshots: freezeTextLikeSnapshots(
+      descriptor.textLikeSnapshots ?? [],
+    ),
+    themeGeneration: descriptor.sourceVersion,
+  });
+}
+
+export function createRetainedFidelityMetadata(
+  descriptor: RetainedPageLifecycleDescriptor,
+): RetainedFidelityMetadata {
+  return Object.freeze({
+    devicePixelRatioBucket: descriptor.devicePixelRatioBucket,
+    lodLevel: descriptor.lodLevel,
+    lodScale: descriptor.lodScale,
+    pageGridGeneration: retainedPageGridGeneration(descriptor),
+    pixelHeight: descriptor.pixelHeight ?? 1,
+    pixelWidth: descriptor.pixelWidth ?? 1,
     viewportZoomBucket: descriptor.viewportZoomBucket,
   });
 }
@@ -169,31 +266,31 @@ export function isSemanticallyCompatibleRetainedPage(
   snapshot: RetainedContentSnapshot,
   visibleRegion: GpuRect,
 ): RetainedCompatibilityResult {
-  const pageIdentity = page.semanticIdentity;
-  const snapshotIdentity = snapshot.semanticIdentity;
-  if (pageIdentity.surfaceId !== snapshotIdentity.surfaceId) {
-    return incompatible("surface-mismatch");
-  }
-  if (pageIdentity.sourceKey !== snapshotIdentity.sourceKey) {
-    return incompatible("source-version-mismatch");
-  }
-  if (pageIdentity.sourceVersion !== snapshotIdentity.sourceVersion) {
-    return incompatible("source-version-mismatch");
-  }
-  if (pageIdentity.contentVersion !== snapshotIdentity.contentVersion) {
-    return incompatible("row-version-mismatch");
-  }
-  if (!hasValidContentMapping(page, visibleRegion)) {
-    return incompatible("content-rect-mapping-mismatch");
+  const compatibility = evaluateRetainedRegionCompatibility({
+    candidate: {
+      clipRect: page.clipRect,
+      contentRect: page.contentRect,
+      contentToTexture: page.contentToTextureTransform,
+      fidelity: page.fidelityMetadata,
+      manifest: page.manifest,
+    },
+    target: {
+      ...snapshot.target,
+      contentRect: visibleRegion,
+    },
+  });
+  if (compatibility.kind === "incompatible") {
+    return compatibility;
   }
   return {
-    fidelity: resolveRetainedFidelityState(page, snapshot),
+    fidelity: resolveRetainedFidelityState(page, snapshot, compatibility),
     kind: "compatible",
+    regionCompatibility: compatibility,
   };
 }
 
 export function retainedContentRectToTextureRect(
-  page: RetainedCommittedPageLifecycle,
+  page: Pick<RetainedCommittedPageLifecycle, "contentToTextureTransform">,
   contentRect: GpuRect,
 ): {
   readonly u0: number;
@@ -219,27 +316,27 @@ export function retainedContentRectToTextureRect(
 function resolveRetainedFidelityState(
   page: RetainedCommittedPageLifecycle,
   snapshot: RetainedContentSnapshot,
+  compatibility: Extract<
+    RetainedRegionCompatibility,
+    { readonly kind: "compatible" }
+  >,
 ): Exclude<RetainedFidelityState, "refining"> {
+  if (compatibility.fidelity === "exact") {
+    return "target";
+  }
   if (page.lod.level !== snapshot.lod.level) {
     return "compatible-lower-lod";
   }
   if (page.dprBucket !== snapshot.dprBucket) {
     return "compatible-previous-dpr-bucket";
   }
+  if (compatibility.fidelity === "compatible-mapped-region") {
+    return "compatible-mapped-region";
+  }
   if (page.pageGridGeneration !== snapshot.pageGridGeneration) {
     return "compatible-previous-grid";
   }
   return "target";
-}
-
-function hasValidContentMapping(
-  page: RetainedCommittedPageLifecycle,
-  visibleRegion: GpuRect,
-): boolean {
-  return (
-    page.contentToTextureTransform.every((value) => Number.isFinite(value)) &&
-    intersectRects(page.contentRect, visibleRegion) !== null
-  );
 }
 
 function createRetainedLod(
@@ -282,28 +379,34 @@ function transformPoint(
   };
 }
 
-function incompatible(
-  reason: RetainedCompatibilityRejectReason,
-): RetainedCompatibilityResult {
-  return { kind: "incompatible", reason };
-}
-
-function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const width = Math.max(
-    0,
-    Math.min(left.x + left.width, right.x + right.width) - x,
-  );
-  const height = Math.max(
-    0,
-    Math.min(left.y + left.height, right.y + right.height) - y,
-  );
-  return width > 0 && height > 0 ? { height, width, x, y } : null;
-}
-
 function freezeRect(rect: GpuRect): GpuRect {
   return Object.freeze({ ...rect });
+}
+
+function freezeContentSegments(
+  segments: readonly RetainedRegionContentSegment[],
+): readonly RetainedRegionContentSegment[] {
+  return Object.freeze(
+    segments.map((segment) =>
+      Object.freeze({
+        ...segment,
+        rectCss: freezeRect(segment.rectCss),
+      }),
+    ),
+  );
+}
+
+function freezeTextLikeSnapshots(
+  snapshots: readonly RetainedRegionTextLikeSnapshot[],
+): readonly RetainedRegionTextLikeSnapshot[] {
+  return Object.freeze(
+    snapshots.map((snapshot) =>
+      Object.freeze({
+        ...snapshot,
+        rectCss: freezeRect(snapshot.rectCss),
+      }),
+    ),
+  );
 }
 
 function clampUnit(value: number): number {
