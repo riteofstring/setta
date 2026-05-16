@@ -4,7 +4,7 @@ import { getGpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 
 describe("retained content text-like canvas", () => {
-  it("does not draw inactive row-text editor pixels in canvas", () => {
+  it("draws inactive row-text editor value pixels from the descriptor", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -16,15 +16,19 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.measureText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
     expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
   });
 
-  it("keeps row-text focus chrome separate from editor value pixels", () => {
+  it("draws row-text focus chrome around readable editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -48,12 +52,16 @@ describe("retained content text-like canvas", () => {
       },
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.measureText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(ctx.stroke).toHaveBeenCalled();
   });
 
-  it("keeps boxed chrome separate from editor value pixels", () => {
+  it("draws boxed chrome and readable editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(false);
 
@@ -65,8 +73,12 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.measureText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
   });

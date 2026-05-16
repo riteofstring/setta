@@ -17,6 +17,10 @@ import {
   type RetainedCompatibilityRejectReason,
   type RetainedCompatibilityResult,
 } from "./retainedContentLifecycle";
+import {
+  normalizeRetainedTexturePageVisualEpochKind,
+  type RetainedVisualEpochKind,
+} from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageDescriptor = {
@@ -36,6 +40,7 @@ export type RetainedTexturePageDescriptor = {
   readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
   readonly tileColumn: number;
   readonly tileRow: number;
+  readonly visualEpochKind?: Exclude<RetainedVisualEpochKind, "active-dom">;
   readonly viewportZoomBucket: number;
 };
 
@@ -674,6 +679,7 @@ export function retainedTexturePageKey(
     normalized.tileRow,
     normalized.devicePixelRatioBucket,
     normalized.viewportZoomBucket,
+    normalized.visualEpochKind ?? "base",
   ].join(":");
 }
 
@@ -816,6 +822,9 @@ function normalizePageDescriptor(
         : normalizeTextLikeSnapshots(descriptor.textLikeSnapshots),
     tileColumn,
     tileRow,
+    visualEpochKind: normalizeRetainedTexturePageVisualEpochKind(
+      descriptor.visualEpochKind,
+    ),
     viewportZoomBucket,
   };
 }

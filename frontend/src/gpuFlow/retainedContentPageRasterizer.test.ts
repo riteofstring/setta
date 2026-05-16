@@ -156,4 +156,102 @@ describe("rasterizeGpuRetainedContentPage", () => {
       }),
     );
   });
+
+  it("draws deterministic passive text-like row labels and values without snapshots", () => {
+    const canvas = { height: 1, width: 1 } as HTMLCanvasElement;
+    const ctx = createCanvasContextRecorder();
+
+    const result = rasterizeGpuRetainedContentPage({
+      canvas,
+      ctx,
+      lodScale: 1,
+      palette: getGpuRetainedContentCanvasPalette(false),
+      scene: emptyScene([
+        rowBackgroundCommand("row-a", {
+          height: 24,
+          width: 180,
+          x: 0,
+          y: 0,
+        }),
+        {
+          appearance: {
+            fontFamily: "sans",
+            fontWeight: "normal",
+            tone: "default",
+          },
+          depth: 0,
+          kind: "row-label",
+          rect: { height: 24, width: 80, x: 0, y: 0 },
+          rowId: "row-a",
+          text: "Label A",
+        },
+        {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "42",
+            editorKind: "text",
+            kind: "text-like",
+            policy: {
+              editorKind: "text",
+              language: null,
+              linePolicy: "single-line",
+              maxVisibleLines: 1,
+              minVisibleLines: 1,
+              wrapLines: false,
+            },
+            rendererFamily: "text",
+            commitPolicy: "native-island",
+          },
+          controlKind: "text-like",
+          kind: "row-control",
+          rect: { height: 24, width: 80, x: 90, y: 0 },
+          rowId: "row-a",
+        },
+      ]),
+      sourceRectCss: { height: 32, width: 180, x: 0, y: 0 },
+      surfaceId: "surface",
+    });
+
+    expect(result.drawnCommandCount).toBe(3);
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "Label A",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "42",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
 });
+
+function createCanvasContextRecorder(): CanvasRenderingContext2D {
+  return {
+    beginPath: vi.fn(),
+    clearRect: vi.fn(),
+    clip: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    fillRect: vi.fn(),
+    fillStyle: "",
+    fillText: vi.fn(),
+    font: "",
+    lineTo: vi.fn(),
+    lineWidth: 0,
+    measureText: vi.fn((text: string) => ({ width: text.length * 6 })),
+    moveTo: vi.fn(),
+    quadraticCurveTo: vi.fn(),
+    rect: vi.fn(),
+    restore: vi.fn(),
+    save: vi.fn(),
+    setTransform: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    strokeStyle: "",
+    textAlign: "start",
+    textBaseline: "alphabetic",
+  } as unknown as CanvasRenderingContext2D;
+}

@@ -1,6 +1,5 @@
 import type { NodeTexturePriority } from "./dirtyTracking";
 import { getHtmlSurfaceTextureUsage } from "./htmlSurfaces/textureManagerHelpers";
-import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
 import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
@@ -13,14 +12,17 @@ import {
 } from "./retainedContentTexturePageBudget";
 import { RetainedTexturePageContentIdentityResolver } from "./retainedContentTexturePageContentIdentity";
 import {
-  combineRetainedContentTexturePageFidelityState,
-  didRetainedPageVisualCoverageChange,
-  isRetainedTextureWorkItemCompleteAfterPageUpload,
+  createRetainedContentTexturePageVisibleCoverageFrame,
+  type RetainedContentTexturePageVisibleCoverageFrame,
+} from "./retainedContentTexturePageCoverageFrame";
+import {
+  createDeferredRetainedContentTexturePageMaintenanceResult,
+  createRetainedContentTexturePageMaintenanceResult,
+} from "./retainedContentTexturePageMaintenanceResult";
+import {
   rectsEqual,
   resolveRetainedPageEvictionProtectedKeys,
-  shouldEnqueueRemainingRefreshDescriptors,
   shouldRefreshCommittedPage,
-  shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
 import type {
   RetainedContentTexturePageFrameInput,
@@ -33,16 +35,17 @@ import type {
   RetainedContentTexturePagePreparedFrame,
   RetainedContentTexturePageReplacementDescriptor,
 } from "./retainedContentTexturePageManagerTypes";
-import {
-  EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
-  areRetainedContentTexturePageTextLikeSnapshotsReady,
-} from "./retainedContentTexturePageTextLikeSnapshots";
+import { EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS } from "./retainedContentTexturePageTextLikeSnapshots";
 import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
   RetainedContentTextureAtlasStore,
   destroyRetainedContentTextureResources,
   type RetainedContentTextureResources,
 } from "./retainedContentTextureResources";
+import {
+  executeRetainedContentTextureWorkItem,
+  type RetainedTextureWorkExecutionResult,
+} from "./retainedContentTextureWorkItemExecutor";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import { createRetainedTexturePageDescriptors } from "./retainedTexturePageGrid";
 import {
@@ -50,12 +53,7 @@ import {
   estimatePageByteSize,
   retainedTexturePageKey,
   type RetainedTexturePageDescriptor,
-  type RetainedTexturePageRejectedCoverage,
 } from "./retainedTexturePages";
-import {
-  createRetainedDrawRegionFlatVisuals,
-  createRetainedTexturePageTrueHoleVisuals,
-} from "./retainedTexturePageVisuals";
 import {
   runRetainedTextureUploadScheduler,
   type RetainedTextureUploadSchedulerBudget,
@@ -64,11 +62,7 @@ import {
   RetainedTextureWorkQueue,
   type RetainedTextureWorkItem,
 } from "./retainedTextureWorkQueue";
-import {
-  createRetainedVisibleRegionTargets,
-  planRetainedVisibleCoverage,
-  type RetainedReplacementRequest,
-} from "./retainedVisibleCoveragePlanner";
+import { createRetainedVisibleRegionTargets } from "./retainedVisibleCoveragePlanner";
 import { chooseStableZoomBucket } from "./textureResolution";
 import type { GpuRect } from "./viewportMath";
 
@@ -87,6 +81,7 @@ const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxUploads: 1,
 };
 const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 1024;
+const SNAPSHOT_EXACT_UNAVAILABLE_ATTEMPT_LIMIT = 30;
 
 export class RetainedContentTexturePageManager {
   private readonly budget: RetainedTextureUploadSchedulerBudget;
@@ -105,6 +100,11 @@ export class RetainedContentTexturePageManager {
     string,
     number
   >();
+  private readonly snapshotExactAttemptCountByPageKey = new Map<
+    string,
+    number
+  >();
+  private readonly snapshotUnavailablePageKeys = new Set<string>();
   private snapshotBlockedSequence = 0;
   private drawableRevision = 0;
   private maintenanceUploadedDrawCommandCount = 0;
@@ -162,6 +162,8 @@ export class RetainedContentTexturePageManager {
     this.textureAtlasStore.destroy();
     this.workQueue.clear();
     this.snapshotBlockedSurfaceSequenceById.clear();
+    this.snapshotExactAttemptCountByPageKey.clear();
+    this.snapshotUnavailablePageKeys.clear();
     this.snapshotBlockedSequence = 0;
     this.frameSurfaceById.clear();
     this.contentIdentityResolver.clear();
@@ -315,7 +317,13 @@ export class RetainedContentTexturePageManager {
         prefetchMaxBytes: this.textureBudget.offscreenPrefetchMaxBytes,
         refinementMaxBytes: this.textureBudget.nearViewportReserveBytes,
         visibleCoverageReserveBytes: this.textureBudget.visibleReserveBytes,
-        visibleEdgeMaxUploads: this.budget.maxUploads,
+        visibleEdgeMaxUploads: Math.max(
+          this.budget.maxUploads,
+          Math.ceil(
+            this.textureBudget.visibleReserveBytes /
+              Math.max(1, this.budget.maxFrameUploadedBytes),
+          ),
+        ),
       },
       queue: this.workQueue,
       textureBudget: this.textureBudget,
@@ -339,47 +347,16 @@ export class RetainedContentTexturePageManager {
       this.drawableRevision += 1;
     }
     this.scheduleRetiredResourceDrain(preparedFrame.frame);
-    const committedRefinementChangedDrawableCoverage =
-      uploadResult.uploadCount > 0 &&
-      didRetainedPageVisualCoverageChange({
-        after: postMaintenancePageVisualResult,
-        before: preparedFrame,
-      });
-    const committedMissingPageCoverage =
-      preparedFrame.refinementPageCount > 0 && uploadResult.uploadCount > 0;
-
-    return {
-      budgetExhausted: uploadResult.budgetExhausted,
-      coverageCandidateCount: preparedFrame.coverageCandidateCount,
-      diagnostics: uploadResult.diagnostics,
+    return createRetainedContentTexturePageMaintenanceResult({
       evicted,
-      executedItemCount: uploadResult.executedItems.length,
       memory: this.cache.snapshot(),
-      refinementPageCount: preparedFrame.refinementPageCount,
-      needsFollowUpFrame:
-        uploadResult.budgetExhausted ||
-        committedRefinementChangedDrawableCoverage ||
-        committedMissingPageCoverage,
-      trueHoleVisuals: preparedFrame.trueHoleVisuals,
-      postMaintenanceRefinementPageCount:
-        postMaintenancePageVisualResult.refinementPageCount,
+      postMaintenancePageVisualResult,
+      preparedFrame,
       queuedWorkCount: this.workQueue.size,
       queuedWorkCountBeforeUpload,
-      rasterMs: uploadResult.rasterMs,
-      drawQuadCount: preparedFrame.drawQuadCount,
-      compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
-      fidelityState: preparedFrame.fidelityState,
-      mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
-      remainingUploadableWorkCount: uploadResult.remainingUploadableWorkCount,
-      skippedItemCount: uploadResult.skippedItems.length,
-      rejectedStaleRectCount: preparedFrame.rejectedStaleRectCount,
-      targetDescriptorCount: preparedFrame.refinementDescriptors.length,
-      trueHoleRectCount: preparedFrame.trueHoleRectCount,
-      uploadedBytes: uploadResult.uploadedBytes,
       uploadedDrawCommandCount: this.maintenanceUploadedDrawCommandCount,
-      uploadCount: uploadResult.uploadCount,
-      uploadMs: uploadResult.uploadMs,
-    };
+      uploadResult,
+    });
   }
 
   deferPostSubmitMaintenance({
@@ -387,38 +364,11 @@ export class RetainedContentTexturePageManager {
   }: {
     readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   }): RetainedContentTexturePageMaintenanceResult {
-    return {
-      budgetExhausted: false,
-      coverageCandidateCount: preparedFrame.coverageCandidateCount,
-      diagnostics: [],
-      drawQuadCount: preparedFrame.drawQuadCount,
-      evicted: {
-        evictedBytes: 0,
-        evictedKeys: [],
-        remainingBytes: this.cache.snapshot().committedBytes,
-      },
-      executedItemCount: 0,
-      compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
-      fidelityState: preparedFrame.fidelityState,
+    return createDeferredRetainedContentTexturePageMaintenanceResult({
       memory: this.cache.snapshot(),
-      mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
-      refinementPageCount: preparedFrame.refinementPageCount,
-      needsFollowUpFrame: false,
-      trueHoleVisuals: preparedFrame.trueHoleVisuals,
-      postMaintenanceRefinementPageCount: preparedFrame.refinementPageCount,
+      preparedFrame,
       queuedWorkCount: this.workQueue.size,
-      queuedWorkCountBeforeUpload: this.workQueue.size,
-      rasterMs: 0,
-      remainingUploadableWorkCount: 0,
-      skippedItemCount: 0,
-      rejectedStaleRectCount: preparedFrame.rejectedStaleRectCount,
-      targetDescriptorCount: preparedFrame.refinementDescriptors.length,
-      trueHoleRectCount: preparedFrame.trueHoleRectCount,
-      uploadedBytes: 0,
-      uploadedDrawCommandCount: 0,
-      uploadCount: 0,
-      uploadMs: 0,
-    };
+    });
   }
 
   private resolveDescriptorContentVersions({
@@ -438,26 +388,38 @@ export class RetainedContentTexturePageManager {
     lodScale = this.targetLodScale,
     sourceRect,
     surface,
+    visualEpochKind = "base",
   }: {
     readonly lodScale?: number | undefined;
     readonly sourceRect: GpuRect;
     readonly surface: RetainedContentTexturePageFrameSurface;
+    readonly visualEpochKind?:
+      | RetainedTexturePageDescriptor["visualEpochKind"]
+      | undefined;
   }): readonly RetainedTexturePageDescriptor[] {
+    const pageSurface =
+      visualEpochKind === "base"
+        ? ({
+            ...surface,
+            textLikeSnapshots: [],
+          } satisfies RetainedContentTexturePageFrameSurface)
+        : surface;
     return this.resolveDescriptorContentVersions({
       descriptors: createRetainedTexturePageDescriptors({
-        contentBoundsCss: surface.contentBoundsCss,
-        contentVersion: surface.contentVersion,
+        contentBoundsCss: pageSurface.contentBoundsCss,
+        contentVersion: pageSurface.contentVersion,
         devicePixelRatioBucket: this.devicePixelRatioBucket,
         lodScale,
         maxPagePixelSize: this.maxPagePixelSize,
-        sourceKey: surface.sourceKey,
-        sourceVersion: surface.sourceVersion,
-        sourceWindowCss: surface.sourceWindowCss,
-        surfaceId: surface.surfaceId,
+        sourceKey: pageSurface.sourceKey,
+        sourceVersion: pageSurface.sourceVersion,
+        sourceWindowCss: pageSurface.sourceWindowCss,
+        surfaceId: pageSurface.surfaceId,
         visibleSourceRectCss: sourceRect,
+        visualEpochKind,
         viewportZoomBucket: this.viewportZoomBucket ?? 0,
       }),
-      surface,
+      surface: pageSurface,
     });
   }
 
@@ -465,20 +427,139 @@ export class RetainedContentTexturePageManager {
     replacementDescriptors: readonly RetainedContentTexturePageReplacementDescriptor[],
     frame: number,
   ) {
-    for (const { descriptor, replacementRequest } of replacementDescriptors) {
-      if (this.cache.getCommittedPage(retainedTexturePageKey(descriptor))) {
-        continue;
-      }
-      const isVisibleRefinement =
-        replacementRequest.priority === "visible-refinement";
-      this.enqueueDescriptorWork({
-        descriptors: [descriptor],
-        frame,
-        kind: isVisibleRefinement ? "lod-refinement" : "first-visible",
-        priority: "visible",
-        ...(isVisibleRefinement ? { targetLod: descriptor.lodScale } : {}),
-      });
+    this.cancelStaleFirstVisibleReplacementWork(replacementDescriptors);
+    for (const replacementDescriptor of replacementDescriptors) {
+      this.enqueueMissingReplacementPage(replacementDescriptor, frame);
     }
+  }
+
+  private enqueueMissingReplacementPage(
+    {
+      descriptor,
+      replacementRequest,
+    }: RetainedContentTexturePageReplacementDescriptor,
+    frame: number,
+  ) {
+    const isVisibleRefinement =
+      replacementRequest.priority === "visible-refinement";
+    const committedPage = this.cache.getCommittedPage(
+      retainedTexturePageKey(descriptor),
+    );
+    if (!committedPage) {
+      this.enqueueDescriptorWorkForReplacement({
+        descriptor,
+        frame,
+        isVisibleRefinement,
+      });
+      return;
+    }
+    if (
+      !rectsEqual(
+        committedPage.descriptor.sourceWindowCss,
+        descriptor.sourceWindowCss,
+      )
+    ) {
+      this.enqueueDescriptorWorkForReplacement({
+        descriptor,
+        frame,
+        isVisibleRefinement,
+        refreshCommittedPage: true,
+      });
+      return;
+    }
+    if (isVisibleRefinement) {
+      return;
+    }
+    this.enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
+      descriptor,
+      frame,
+    });
+  }
+
+  private enqueueDescriptorWorkForReplacement({
+    descriptor,
+    frame,
+    isVisibleRefinement,
+    refreshCommittedPage = false,
+  }: {
+    readonly descriptor: RetainedTexturePageDescriptor;
+    readonly frame: number;
+    readonly isVisibleRefinement: boolean;
+    readonly refreshCommittedPage?: boolean | undefined;
+  }) {
+    this.enqueueDescriptorWork({
+      descriptors: [descriptor],
+      frame,
+      kind: isVisibleRefinement ? "lod-refinement" : "first-visible",
+      priority: "visible",
+      refreshCommittedPage,
+      ...(isVisibleRefinement ? { targetLod: descriptor.lodScale } : {}),
+    });
+  }
+
+  private enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
+    descriptor,
+    frame,
+  }: {
+    readonly descriptor: RetainedTexturePageDescriptor;
+    readonly frame: number;
+  }) {
+    const exactDescriptors =
+      this.createSnapshotExactDescriptorsForCommittedBaseReplacement(
+        descriptor,
+      );
+    if (exactDescriptors.length === 0) {
+      return;
+    }
+    this.enqueueDescriptorWork({
+      descriptors: exactDescriptors,
+      frame,
+      kind: "first-visible",
+      priority: "visible",
+    });
+  }
+
+  private createSnapshotExactDescriptorsForCommittedBaseReplacement(
+    descriptor: RetainedTexturePageDescriptor,
+  ): readonly RetainedTexturePageDescriptor[] {
+    const surface = this.frameSurfaceById.get(descriptor.surfaceId);
+    if (!surface?.textLikeSnapshots?.length) {
+      return [];
+    }
+    return this.createPageDescriptors({
+      lodScale: descriptor.lodScale,
+      sourceRect: descriptor.sourceRectCss,
+      surface,
+      visualEpochKind: "snapshot-exact",
+    }).filter(
+      (exactDescriptor) =>
+        !this.snapshotUnavailablePageKeys.has(
+          retainedTexturePageKey(exactDescriptor),
+        ),
+    );
+  }
+
+  private cancelStaleFirstVisibleReplacementWork(
+    replacementDescriptors: readonly RetainedContentTexturePageReplacementDescriptor[],
+  ) {
+    const visibleHoleSurfaceEpochKeys = new Set(
+      replacementDescriptors
+        .filter(
+          ({ replacementRequest }) =>
+            replacementRequest.priority === "visible-hole",
+        )
+        .map(({ descriptor }) =>
+          retainedFirstVisibleSurfaceEpochKey(descriptor),
+        ),
+    );
+    if (visibleHoleSurfaceEpochKeys.size === 0) {
+      return;
+    }
+    this.workQueue.cancelFirstVisible((item) =>
+      visibleHoleSurfaceEpochKeys.has(
+        retainedFirstVisibleSurfaceEpochKey(item),
+      ),
+    );
   }
 
   private enqueueDescriptorWork({
@@ -486,12 +567,14 @@ export class RetainedContentTexturePageManager {
     frame,
     kind,
     priority,
+    refreshCommittedPage,
     targetLod,
   }: {
     readonly descriptors: readonly RetainedTexturePageDescriptor[];
     readonly frame: number;
     readonly kind: RetainedTextureWorkItem["kind"];
     readonly priority: NodeTexturePriority;
+    readonly refreshCommittedPage?: boolean | undefined;
     readonly targetLod?: number | undefined;
   }) {
     for (const descriptor of descriptors) {
@@ -500,9 +583,11 @@ export class RetainedContentTexturePageManager {
         createdFrame: frame,
         kind,
         priority,
+        refreshCommittedPage,
         sourceRect: descriptor.sourceRectCss,
         sourceWindow: descriptor.sourceWindowCss,
         surfaceId: descriptor.surfaceId,
+        visualEpochKind: descriptor.visualEpochKind ?? "base",
         ...(targetLod === undefined ? {} : { targetLod }),
       });
     }
@@ -514,102 +599,17 @@ export class RetainedContentTexturePageManager {
   }: {
     readonly frame: number;
     readonly visibleRegionTargets: RetainedContentTexturePagePreparedFrame["visibleRegionTargets"];
-  }): {
-    readonly coveragePlan: RetainedContentTexturePagePreparedFrame["coveragePlan"];
-    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly refinementPageCount: number;
-    readonly trueHoleVisuals: RetainedContentTexturePagePreparedFrame["trueHoleVisuals"];
-    readonly protectedPageKeys: readonly string[];
-    readonly rejectedStaleRects: readonly RetainedTexturePageRejectedCoverage[];
-    readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
-    readonly replacementDescriptors: RetainedContentTexturePagePreparedFrame["replacementDescriptors"];
-    readonly replacementRequests: RetainedContentTexturePagePreparedFrame["replacementRequests"];
-    readonly drawRegions: RetainedContentTexturePagePreparedFrame["drawRegions"];
-    readonly drawQuadCount: number;
-    readonly compatibleDrawQuadCount: number;
-    readonly fidelityState: RetainedContentTexturePagePreparedFrame["fidelityState"];
-    readonly coverageCandidateCount: number;
-    readonly mergedDrawQuadCount: number;
-    readonly rejectedStaleRectCount: number;
-    readonly trueHoleRectsCss: readonly GpuRect[];
-    readonly trueHoleRectCount: number;
-    readonly visibleRegionTargets: RetainedContentTexturePagePreparedFrame["visibleRegionTargets"];
-  } {
-    const coveragePlan = planRetainedVisibleCoverage({
+  }): RetainedContentTexturePageVisibleCoverageFrame {
+    return createRetainedContentTexturePageVisibleCoverageFrame({
       cache: this.cache,
+      createPageDescriptors: (input) => this.createPageDescriptors(input),
       frame,
-      targets: visibleRegionTargets,
-    });
-    const flatSurfaces = createRetainedDrawRegionFlatVisuals({
-      drawRegions: coveragePlan.drawRegions,
-    });
-    const trueHoleVisuals: RetainedContentTexturePagePreparedFrame["trueHoleVisuals"][number][] =
-      [];
-    for (const surface of this.frameSurfaceById.values()) {
-      const surfaceTrueHoles = coveragePlan.replacementRequests
-        .filter(
-          (request) =>
-            request.reason === "true-hole" &&
-            request.target.manifest.surfaceId === surface.surfaceId,
-        )
-        .map((request) => request.target.contentRect);
-      trueHoleVisuals.push(
-        ...createRetainedTexturePageTrueHoleVisuals({
-          layout: surface.layout,
-          trueHoleRects: surfaceTrueHoles,
-        }),
-      );
-    }
-    const replacementDescriptors = this.createReplacementRequestDescriptors(
-      coveragePlan.replacementRequests,
-    );
-    const refinementDescriptors = replacementDescriptors.map(
-      ({ descriptor }) => descriptor,
-    );
-    let fidelityState: RetainedContentTexturePagePreparedFrame["fidelityState"] =
-      "target";
-    for (const drawRegion of coveragePlan.drawRegions) {
-      fidelityState = combineRetainedContentTexturePageFidelityState(
-        fidelityState,
-        drawRegion.fidelityState,
-      );
-    }
-    if (coveragePlan.trueHoles.length > 0) {
-      fidelityState = combineRetainedContentTexturePageFidelityState(
-        fidelityState,
-        "refining",
-      );
-    }
-    const rejectedStaleRects =
-      coveragePlan.diagnostics.sampledRejectedCoverage.map((entry) => ({
-        reason: entry.reason as RetainedTexturePageRejectedCoverage["reason"],
-        rect: entry.rect,
-      }));
-    return {
-      coverageCandidateCount: coveragePlan.diagnostics.cost.candidateCount,
-      coveragePlan,
-      drawRegions: coveragePlan.drawRegions,
-      drawQuadCount: coveragePlan.drawRegions.length,
-      compatibleDrawQuadCount: coveragePlan.drawRegions.filter(
-        (drawRegion) => drawRegion.coverageKind === "compatible",
-      ).length,
-      fidelityState,
-      flatSurfaces,
-      mergedDrawQuadCount: 0,
-      refinementPageCount: refinementDescriptors.length,
-      trueHoleVisuals,
-      protectedPageKeys: coveragePlan.protectedPageKeys,
-      rejectedStaleRects,
-      replacementDescriptors,
-      refinementDescriptors,
-      replacementRequests: coveragePlan.replacementRequests,
-      rejectedStaleRectCount: sumRecordValues(
-        coveragePlan.proof.rejectedCoverageCountByReason,
-      ),
-      trueHoleRectsCss: coveragePlan.trueHoles,
-      trueHoleRectCount: coveragePlan.trueHoles.length,
+      frameSurfaceById: this.frameSurfaceById,
+      snapshotBlockedSurfaceSequenceById:
+        this.snapshotBlockedSurfaceSequenceById,
+      snapshotUnavailablePageKeys: this.snapshotUnavailablePageKeys,
       visibleRegionTargets,
-    };
+    });
   }
 
   private createPostMaintenanceCoverageFrame({
@@ -630,40 +630,6 @@ export class RetainedContentTexturePageManager {
       frame: preparedFrame.frame,
       visibleRegionTargets: preparedFrame.visibleRegionTargets,
     });
-  }
-
-  private createReplacementRequestDescriptors(
-    replacementRequests: readonly RetainedReplacementRequest[],
-  ): readonly RetainedContentTexturePageReplacementDescriptor[] {
-    const descriptorsByKey = new Map<
-      string,
-      RetainedContentTexturePageReplacementDescriptor
-    >();
-    for (const request of replacementRequests) {
-      const surface = this.frameSurfaceById.get(
-        request.target.manifest.surfaceId,
-      );
-      if (!surface) {
-        continue;
-      }
-      const descriptors = this.createPageDescriptors({
-        lodScale: request.target.fidelity.lodScale,
-        sourceRect: request.target.contentRect,
-        surface,
-      });
-      for (const descriptor of descriptors) {
-        const snapshotBlockSequence =
-          this.snapshotBlockedSurfaceSequenceById.get(descriptor.surfaceId) ??
-          null;
-        descriptorsByKey.set(retainedTexturePageKey(descriptor), {
-          descriptor,
-          replacementRequest: request,
-          snapshotBlockSequence,
-          snapshotRequired: snapshotBlockSequence !== null,
-        });
-      }
-    }
-    return [...descriptorsByKey.values()];
   }
 
   private estimateWorkItem(item: RetainedTextureWorkItem): {
@@ -695,85 +661,37 @@ export class RetainedContentTexturePageManager {
       | GpuRetainedContentSwitchAnimationStore
       | undefined;
     readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  }): RetainedTextureWorkExecutionResult {
+    return executeRetainedContentTextureWorkItem({
+      cache: this.cache,
+      clearSnapshotExactUnavailableState: (input) =>
+        this.clearSnapshotExactUnavailableState(input),
+      enqueueDescriptorWork: (input) => this.enqueueDescriptorWork(input),
+      frame,
+      frameSurfaceById: this.frameSurfaceById,
+      item,
+      palette,
+      resolveSnapshotExactUnavailableResult: (descriptor) =>
+        this.resolveSnapshotExactUnavailableResult(descriptor),
+      resolveWorkItemDescriptors: (workItem) =>
+        this.resolveWorkItemDescriptors(workItem),
+      snapshotUnavailablePageKeys: this.snapshotUnavailablePageKeys,
+      switchAnimations,
+      textLikeSnapshotElementById,
+      uploadPage: (input) => this.uploadPage(input),
+    });
+  }
+
+  private clearSnapshotExactUnavailableState({
+    descriptor,
+    descriptorKey,
+  }: {
+    readonly descriptor: RetainedTexturePageDescriptor;
+    readonly descriptorKey: string;
   }) {
-    const descriptors = this.resolveWorkItemDescriptors(item);
-    const descriptor = descriptors[0];
-    if (!descriptor) {
-      return {
-        complete: true,
-        rasterMs: 0,
-        uploadCount: 0,
-        uploadedBytes: 0,
-        uploadMs: 0,
-      };
-    }
-    let rasterMs = 0;
-    let uploadMs = 0;
-    let uploadedBytes = 0;
-    let uploadCount = 0;
-    let pageUploadComplete = true;
-    const committedPagePresent = Boolean(
-      this.cache.getCommittedPage(retainedTexturePageKey(descriptor)),
-    );
-    if (shouldUploadRetainedTexturePage({ committedPagePresent, item })) {
-      if (
-        !areRetainedContentTexturePageTextLikeSnapshotsReady({
-          descriptor,
-          elementBySourceId: textLikeSnapshotElementById,
-          surface: this.frameSurfaceById.get(descriptor.surfaceId),
-        })
-      ) {
-        this.markSnapshotBlockedSurface(descriptor.surfaceId);
-        return {
-          complete: false,
-          rasterMs: 0,
-          uploadCount: 0,
-          uploadedBytes: 0,
-          uploadMs: 0,
-        };
-      }
-      const upload = this.uploadPage({
-        descriptor,
-        elementByTextLikeSnapshotSourceId: textLikeSnapshotElementById,
-        frame,
-        palette,
-        switchAnimations,
-      });
-      pageUploadComplete = upload.complete;
-      if (pageUploadComplete) {
-        this.snapshotBlockedSurfaceSequenceById.delete(descriptor.surfaceId);
-      }
-      rasterMs = upload.rasterMs;
-      uploadMs = upload.uploadMs;
-      uploadedBytes = upload.uploadedBytes;
-      uploadCount = upload.uploadCount;
-    }
-    if (
-      shouldEnqueueRemainingRefreshDescriptors({
-        descriptorCount: descriptors.length,
-        item,
-        pageUploadComplete,
-      })
-    ) {
-      this.enqueueDescriptorWork({
-        descriptors: descriptors.slice(1),
-        frame,
-        kind: item.kind,
-        priority: item.priority,
-        ...(item.targetLod === undefined ? {} : { targetLod: item.targetLod }),
-      });
-    }
-    return {
-      complete: isRetainedTextureWorkItemCompleteAfterPageUpload({
-        descriptorCount: descriptors.length,
-        item,
-        pageUploadComplete,
-      }),
-      rasterMs,
-      uploadCount,
-      uploadedBytes,
-      uploadMs,
-    };
+    this.snapshotExactAttemptCountByPageKey.delete(descriptorKey);
+    this.snapshotUnavailablePageKeys.delete(descriptorKey);
+    this.snapshotBlockedSurfaceSequenceById.delete(descriptor.surfaceId);
   }
 
   private resolveWorkItemDescriptors(
@@ -795,6 +713,7 @@ export class RetainedContentTexturePageManager {
       lodScale: item.targetLod ?? this.targetLodScale,
       sourceRect: visibleSourceRectCss,
       surface,
+      visualEpochKind: item.visualEpochKind,
     }).filter(
       (descriptor) =>
         descriptor.contentVersion === item.contentVersion &&
@@ -807,15 +726,20 @@ export class RetainedContentTexturePageManager {
     lodScale = this.targetLodScale,
     sourceRect,
     surface,
+    visualEpochKind = "base",
   }: {
     readonly lodScale?: number | undefined;
     readonly sourceRect: GpuRect;
     readonly surface: RetainedContentTexturePageFrameSurface;
+    readonly visualEpochKind?:
+      | RetainedTexturePageDescriptor["visualEpochKind"]
+      | undefined;
   }): readonly RetainedTexturePageDescriptor[] {
     return this.createPageDescriptors({
       lodScale,
       sourceRect,
       surface,
+      visualEpochKind,
     });
   }
 
@@ -825,6 +749,41 @@ export class RetainedContentTexturePageManager {
       this.snapshotBlockedSequence,
     );
     this.snapshotBlockedSequence += 1;
+  }
+
+  private resolveSnapshotExactUnavailableResult(
+    descriptor: RetainedTexturePageDescriptor,
+  ): {
+    readonly complete: boolean;
+    readonly rasterMs: number;
+    readonly uploadCount: number;
+    readonly uploadedBytes: number;
+    readonly uploadMs: number;
+  } {
+    const descriptorKey = retainedTexturePageKey(descriptor);
+    const attemptCount =
+      (this.snapshotExactAttemptCountByPageKey.get(descriptorKey) ?? 0) + 1;
+    if (attemptCount >= SNAPSHOT_EXACT_UNAVAILABLE_ATTEMPT_LIMIT) {
+      this.snapshotExactAttemptCountByPageKey.delete(descriptorKey);
+      this.snapshotUnavailablePageKeys.add(descriptorKey);
+      this.snapshotBlockedSurfaceSequenceById.delete(descriptor.surfaceId);
+      return {
+        complete: true,
+        rasterMs: 0,
+        uploadCount: 0,
+        uploadedBytes: 0,
+        uploadMs: 0,
+      };
+    }
+    this.snapshotExactAttemptCountByPageKey.set(descriptorKey, attemptCount);
+    this.markSnapshotBlockedSurface(descriptor.surfaceId);
+    return {
+      complete: false,
+      rasterMs: 0,
+      uploadCount: 0,
+      uploadedBytes: 0,
+      uploadMs: 0,
+    };
   }
 
   private uploadPage({
@@ -924,8 +883,11 @@ export class RetainedContentTexturePageManager {
   }
 }
 
-function sumRecordValues(record: Readonly<Record<string, number>>): number {
-  return Object.values(record).reduce((total, value) => total + value, 0);
+function retainedFirstVisibleSurfaceEpochKey({
+  surfaceId,
+  visualEpochKind,
+}: Pick<RetainedTextureWorkItem, "surfaceId" | "visualEpochKind">): string {
+  return `${surfaceId}:${visualEpochKind ?? "base"}`;
 }
 
 function createRetainedContentTextureAtlasStore({

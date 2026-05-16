@@ -37,10 +37,9 @@ export type RetainedTextureUploadWorkEstimate = {
   readonly uploadCount: number;
 };
 
-type RetainedTextureUploadWorkResult =
-  RetainedTextureUploadWorkEstimate & {
-    readonly complete: boolean;
-  };
+type RetainedTextureUploadWorkResult = RetainedTextureUploadWorkEstimate & {
+  readonly complete: boolean;
+};
 
 export type RetainedTextureUploadSchedulerDiagnostic = {
   readonly estimate: RetainedTextureUploadWorkEstimate;
@@ -62,10 +61,7 @@ type RetainedTextureUploadSchedulerResult = {
   readonly uploadCount: number;
 };
 
-type RetainedTextureSchedulerQueue =
-  | "interactive"
-  | "visible"
-  | "prefetch";
+type RetainedTextureSchedulerQueue = "interactive" | "visible" | "prefetch";
 
 type RunRetainedTextureUploadSchedulerInput = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
@@ -150,7 +146,15 @@ export function runRetainedTextureUploadScheduler({
     if (result.complete) {
       queue.complete(item);
     }
-    if (!fitsBudget(createEmptyProgress(), progress, normalizedBudget)) {
+    if (
+      !fitsBudget(createEmptyProgress(), progress, normalizedBudget) &&
+      !fitsVisibleRepairBudget(
+        progress,
+        normalizedBudget,
+        normalizedPageWorkBudget,
+        retainedSchedulerBudgets,
+      )
+    ) {
       diagnostics.push({
         estimate: result,
         item,
@@ -226,6 +230,7 @@ function shouldSkipRetainedTextureWorkItem({
       budget,
       estimate,
       item,
+      pageWorkBudget,
       progress,
       retainedSchedulerBudgets,
     })
@@ -314,33 +319,64 @@ function canForceRetainedTextureUploadProgress({
   budget,
   estimate,
   item,
+  pageWorkBudget,
   progress,
   retainedSchedulerBudgets,
 }: {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
   readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
 }): boolean {
+  if (item.kind !== "first-visible") {
+    return false;
+  }
+  const firstVisibleUploadProgress =
+    progress.uploadCount === 0 && progress.uploadedBytes === 0;
   const visibleEdgeUploadAvailable =
-    item.kind === "first-visible" &&
-    progress.visibleEdgeUploadCount <
-      retainedSchedulerBudgets.visibleTrueHoleMaxUploads;
+    progress.visibleEdgeUploadCount + estimate.uploadCount <=
+    retainedSchedulerBudgets.visibleTrueHoleMaxUploads;
+  const visibleRepairBytesAvailable =
+    firstVisibleUploadProgress ||
+    progress.uploadedBytes + estimate.uploadedBytes <=
+      pageWorkBudget.visibleCoverageReserveBytes;
   const visibleRepairTimeAvailable =
-    estimate.rasterMs + estimate.uploadMs <=
+    progress.rasterMs +
+      progress.uploadMs +
+      estimate.rasterMs +
+      estimate.uploadMs <=
     Math.max(
       retainedSchedulerBudgets.visibleTrueHoleMinMs,
       budget.maxFrameRasterMs + budget.maxFrameUploadMs,
     );
   return (
-    (progress.uploadCount === 0 || visibleEdgeUploadAvailable) &&
-    progress.uploadedBytes === 0 &&
-    progress.rasterMs === 0 &&
-    progress.uploadMs === 0 &&
+    visibleEdgeUploadAvailable &&
+    visibleRepairBytesAvailable &&
     budget.maxUploads > 0 &&
     estimate.uploadCount > 0 &&
     visibleRepairTimeAvailable
+  );
+}
+
+function fitsVisibleRepairBudget(
+  progress: RetainedTextureUploadSchedulerProgress,
+  budget: RetainedTextureUploadSchedulerBudget,
+  pageWorkBudget: RetainedPageWorkBudget,
+  retainedSchedulerBudgets: RetainedSchedulerBudgets,
+): boolean {
+  return (
+    progress.uploadCount > 0 &&
+    progress.uploadCount === progress.visibleEdgeUploadCount &&
+    progress.visibleEdgeUploadCount <=
+      retainedSchedulerBudgets.visibleTrueHoleMaxUploads &&
+    progress.uploadedBytes <= pageWorkBudget.visibleCoverageReserveBytes &&
+    progress.rasterMs + progress.uploadMs <=
+      Math.max(
+        retainedSchedulerBudgets.visibleTrueHoleMinMs,
+        budget.maxFrameRasterMs + budget.maxFrameUploadMs,
+      )
   );
 }
 

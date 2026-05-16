@@ -4,6 +4,10 @@ import type {
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
 
+export type GpuFlowRetainedPageMaintenanceRun = ReturnType<
+  typeof runGpuFlowRetainedPageMaintenance
+>;
+
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
   preparedFrame,
@@ -51,4 +55,62 @@ export function runGpuFlowRetainedPageMaintenance({
         viewportInteractionActive: deferResolutionUpdates,
       });
   return { deferred, result };
+}
+
+export function runGpuFlowRetainedPageMaintenanceBeforePublish({
+  darkMode,
+  deferResolutionUpdates,
+  preparedFrame,
+  publishedProtectedPageKeys,
+  retainedContentPageManager,
+  textLikeSnapshotElementById,
+}: {
+  readonly darkMode: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+}): GpuFlowRetainedPageMaintenanceRun | null {
+  if (preparedFrame.trueHoleRectCount === 0) {
+    return null;
+  }
+  return runGpuFlowRetainedPageMaintenance({
+    darkMode,
+    deferResolutionUpdates,
+    preparedFrame,
+    publishedProtectedPageKeys,
+    retainedContentPageManager,
+    textLikeSnapshotElementById,
+  });
+}
+
+export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
+  darkMode,
+  deferResolutionUpdates,
+  existingMaintenance,
+  preparedFrame,
+  publishedProtectedPageKeys,
+  retainedContentPageManager,
+  textLikeSnapshotElementById,
+}: {
+  readonly darkMode: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly existingMaintenance: GpuFlowRetainedPageMaintenanceRun | null;
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly publishedProtectedPageKeys: readonly string[];
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+}): GpuFlowRetainedPageMaintenanceRun {
+  return (
+    existingMaintenance ??
+    runGpuFlowRetainedPageMaintenance({
+      darkMode,
+      deferResolutionUpdates,
+      preparedFrame,
+      publishedProtectedPageKeys,
+      retainedContentPageManager,
+      textLikeSnapshotElementById,
+    })
+  );
 }

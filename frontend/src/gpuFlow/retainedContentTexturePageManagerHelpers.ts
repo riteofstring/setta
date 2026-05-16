@@ -6,6 +6,7 @@ export function shouldRefreshCommittedPage(
   item: RetainedTextureWorkItem,
 ): boolean {
   return (
+    item.refreshCommittedPage ||
     item.kind === "animation-rect" ||
     item.kind === "content-rect" ||
     item.kind === "full-content" ||
@@ -87,11 +88,12 @@ export function combineRetainedContentTexturePageFidelityState(
 ): RetainedContentTexturePagePreparedFrame["fidelityState"] {
   const rank = {
     target: 0,
-    "compatible-previous-dpr-bucket": 1,
-    "compatible-previous-grid": 2,
-    "compatible-mapped-region": 3,
-    "compatible-lower-lod": 4,
-    refining: 5,
+    "compatible-deterministic-base": 1,
+    "compatible-previous-dpr-bucket": 2,
+    "compatible-previous-grid": 3,
+    "compatible-mapped-region": 4,
+    "compatible-lower-lod": 5,
+    refining: 6,
   } satisfies Record<
     RetainedContentTexturePagePreparedFrame["fidelityState"],
     number

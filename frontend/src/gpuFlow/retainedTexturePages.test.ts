@@ -33,7 +33,7 @@ function page(
 }
 
 describe("retainedTexturePageKey", () => {
-  it("keys pages by surface, content version, CSS source rect, LOD, and tile", () => {
+  it("keys pages by surface, content version, CSS source rect, LOD, tile, and visual epoch", () => {
     const descriptor = page({
       contentVersion: 7,
       lodScale: 2,
@@ -45,7 +45,15 @@ describe("retainedTexturePageKey", () => {
     });
 
     expect(retainedTexturePageKey(descriptor)).toBe(
-      "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1",
+      "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1:base",
+    );
+    expect(
+      retainedTexturePageKey({
+        ...descriptor,
+        visualEpochKind: "snapshot-exact",
+      }),
+    ).toBe(
+      "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1:snapshot-exact",
     );
   });
 
@@ -266,7 +274,7 @@ describe("RetainedTexturePageCache", () => {
     expect(result).toEqual({
       evictedBytes: 512 * 512 * 4,
       evictedKeys: [
-        "surface:1:1:source-a:0:0:128:128:scale=4:2048:512:512:1:0:1:1",
+        "surface:1:1:source-a:0:0:128:128:scale=4:2048:512:512:1:0:1:1:base",
       ],
       remainingBytes: 128 * 128 * 4,
     });

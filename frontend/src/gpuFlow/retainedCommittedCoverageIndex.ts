@@ -139,6 +139,7 @@ function retainedCoverageExactKeys({
       manifest.themeGeneration,
       manifest.fontGeneration,
       manifest.renderMode,
+      manifest.visualEpochKind ?? "base",
       rectKey(contentRect),
       rectKey(clipRect),
       fidelity.devicePixelRatioBucket,

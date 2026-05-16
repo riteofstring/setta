@@ -26,6 +26,7 @@ import type {
   RetainedVisibleCoveragePlan,
   RetainedVisibleRegionTarget,
 } from "./retainedVisibleCoveragePlanner";
+import type { RetainedVisualEpoch } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
@@ -110,6 +111,7 @@ export type RetainedContentTexturePagePreparedFrame = {
   readonly trueHoleRectsCss: readonly GpuRect[];
   readonly trueHoleRectCount: number;
   readonly visibleRegionTargets: readonly RetainedVisibleRegionTarget[];
+  readonly visualEpochs: readonly RetainedVisualEpoch[];
 };
 
 export type RetainedContentTexturePageMaintenanceInput = {
@@ -136,6 +138,7 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
   readonly postMaintenanceRefinementPageCount: number;
   readonly queuedWorkCount: number;
   readonly queuedWorkCountBeforeUpload: number;
+  readonly repairedPreparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly remainingUploadableWorkCount: number;
   readonly skippedItemCount: number;
   readonly rejectedStaleRectCount: number;

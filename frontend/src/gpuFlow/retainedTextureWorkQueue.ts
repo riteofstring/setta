@@ -1,4 +1,5 @@
 import type { NodeTexturePriority } from "./dirtyTracking";
+import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
 type RetainedTextureWorkKind =
@@ -17,10 +18,12 @@ type RetainedTextureWorkItemInput = {
   readonly createdFrame?: number | undefined;
   readonly kind: RetainedTextureWorkKind;
   readonly priority?: NodeTexturePriority | undefined;
+  readonly refreshCommittedPage?: boolean | undefined;
   readonly sourceRect?: GpuRect | undefined;
   readonly sourceWindow?: RetainedTextureSourceWindow | undefined;
   readonly surfaceId: string;
   readonly targetLod?: number | undefined;
+  readonly visualEpochKind?: RetainedTexturePageDescriptor["visualEpochKind"];
 };
 
 export type RetainedTextureWorkItem = {
@@ -28,11 +31,13 @@ export type RetainedTextureWorkItem = {
   readonly createdFrame: number;
   readonly kind: RetainedTextureWorkKind;
   readonly priority: NodeTexturePriority;
+  readonly refreshCommittedPage: boolean;
   readonly sequence: number;
   readonly sourceRect?: GpuRect | undefined;
   readonly sourceWindow?: RetainedTextureSourceWindow | undefined;
   readonly surfaceId: string;
   readonly targetLod?: number | undefined;
+  readonly visualEpochKind?: RetainedTexturePageDescriptor["visualEpochKind"];
 };
 
 export type RetainedTextureWorkQueueOptions = {
@@ -94,6 +99,20 @@ export class RetainedTextureWorkQueue {
     return canceledCount;
   }
 
+  cancelFirstVisible(
+    predicate: (item: RetainedTextureWorkItem) => boolean = () => true,
+  ): number {
+    let canceledCount = 0;
+    for (const [key, item] of this.items) {
+      if (item.kind !== "first-visible" || !predicate(item)) {
+        continue;
+      }
+      this.items.delete(key);
+      canceledCount += 1;
+    }
+    return canceledCount;
+  }
+
   enqueue(input: RetainedTextureWorkItemInput): RetainedTextureWorkItem {
     const item = this.normalizeWorkItem(input);
     const key = workItemCoalescingKey(item);
@@ -130,12 +149,11 @@ export class RetainedTextureWorkQueue {
   private normalizeWorkItem(
     input: RetainedTextureWorkItemInput,
   ): RetainedTextureWorkItem {
-    const sourceRect = input.sourceRect
-      ? normalizeRect("sourceRect", input.sourceRect)
-      : undefined;
-    const sourceWindow = input.sourceWindow
-      ? normalizeRect("sourceWindow", input.sourceWindow)
-      : undefined;
+    const sourceRect = normalizeOptionalRect("sourceRect", input.sourceRect);
+    const sourceWindow = normalizeOptionalRect(
+      "sourceWindow",
+      input.sourceWindow,
+    );
     validateWorkItemInput(input, { sourceRect, sourceWindow });
     const item: RetainedTextureWorkItem = {
       contentVersion: normalizeFiniteNumber(
@@ -145,18 +163,15 @@ export class RetainedTextureWorkQueue {
       createdFrame: input.createdFrame ?? 0,
       kind: input.kind,
       priority: input.priority ?? "visible",
+      refreshCommittedPage: input.refreshCommittedPage ?? false,
       sequence: this.sequence,
       surfaceId: normalizeSurfaceId(input.surfaceId),
-      ...(sourceRect ? { sourceRect } : {}),
-      ...(sourceWindow ? { sourceWindow } : {}),
-      ...(input.targetLod === undefined
-        ? {}
-        : {
-            targetLod: normalizeFinitePositiveNumber(
-              "targetLod",
-              input.targetLod,
-            ),
-          }),
+      ...createOptionalWorkItemGeometry({
+        sourceRect,
+        sourceWindow,
+        targetLod: input.targetLod,
+      }),
+      visualEpochKind: input.visualEpochKind ?? "base",
     };
     this.sequence += 1;
     return item;
@@ -190,6 +205,31 @@ function validateWorkItemInput(
   }
 }
 
+function normalizeOptionalRect(
+  name: string,
+  rect: GpuRect | undefined,
+): GpuRect | undefined {
+  return rect === undefined ? undefined : normalizeRect(name, rect);
+}
+
+function createOptionalWorkItemGeometry({
+  sourceRect,
+  sourceWindow,
+  targetLod,
+}: {
+  readonly sourceRect: GpuRect | undefined;
+  readonly sourceWindow: GpuRect | undefined;
+  readonly targetLod: number | undefined;
+}): Pick<RetainedTextureWorkItem, "sourceRect" | "sourceWindow" | "targetLod"> {
+  return {
+    ...(sourceRect === undefined ? {} : { sourceRect }),
+    ...(sourceWindow === undefined ? {} : { sourceWindow }),
+    ...(targetLod === undefined
+      ? {}
+      : { targetLod: normalizeFinitePositiveNumber("targetLod", targetLod) }),
+  };
+}
+
 function coalesceWorkItems(
   existing: RetainedTextureWorkItem,
   next: RetainedTextureWorkItem,
@@ -202,6 +242,8 @@ function coalesceWorkItems(
     ...existing,
     createdFrame: Math.min(existing.createdFrame, next.createdFrame),
     priority: higherPriority(existing.priority, next.priority),
+    refreshCommittedPage:
+      existing.refreshCommittedPage || next.refreshCommittedPage,
     ...(sourceRect ? { sourceRect } : {}),
   };
 }
@@ -245,6 +287,7 @@ function workItemCoalescingKey(item: RetainedTextureWorkItem): string {
     item.sourceRect ? "rect" : "full",
     item.sourceWindow ? rectKey(item.sourceWindow) : "window:none",
     item.targetLod ?? "lod:none",
+    item.visualEpochKind ?? "base",
   ].join("|");
 }
 

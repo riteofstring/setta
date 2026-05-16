@@ -21,6 +21,7 @@ import {
   type RetainedTexturePageCache,
   type RetainedTexturePageRegionCoverageEntry,
 } from "./retainedTexturePages";
+import type { RetainedVisualEpochKind } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 type RetainedFidelityTarget = RetainedFidelityMetadata;
@@ -242,9 +243,11 @@ export function planRetainedVisibleCoverage<
     ),
     ...coverage.compatibleCoverage.map((entry) =>
       createRetainedDrawRegion({
-        coverageKind: entryMatchesTargetFidelity(entry)
-          ? "exact"
-          : "compatible",
+        coverageKind:
+          entry.compatibility.fidelity !== "deterministic-base" &&
+          entryMatchesTargetFidelity(entry)
+            ? "exact"
+            : "compatible",
         entry,
       }),
     ),
@@ -321,6 +324,7 @@ function createVisibleRegionManifest({
       ),
     ),
     themeGeneration: surface.sourceVersion,
+    visualEpochKind: retainedVisualEpochKindForSurface(surface),
   });
 }
 
@@ -350,11 +354,18 @@ function createVisibleRegionFidelity({
       surface.contentVersion,
       retainedTexturePageScaleKey(lodScale),
       viewportZoomBucket,
+      retainedVisualEpochKindForSurface(surface),
     ].join(":"),
     pixelHeight: Math.max(1, Math.ceil(contentRect.height * lodScale)),
     pixelWidth: Math.max(1, Math.ceil(contentRect.width * lodScale)),
     viewportZoomBucket,
   });
+}
+
+function retainedVisualEpochKindForSurface(
+  surface: RetainedVisibleRegionSurface,
+): Exclude<RetainedVisualEpochKind, "active-dom"> {
+  return surface.textLikeSnapshots?.length ? "snapshot-exact" : "base";
 }
 
 function createRetainedDrawRegion<TResource>({
@@ -408,6 +419,9 @@ function createRetainedDrawRegion<TResource>({
 function retainedCoverageFidelityState<TResource>(
   entry: RetainedTexturePageRegionCoverageEntry<TResource>,
 ): Exclude<RetainedFidelityState, "refining"> {
+  if (entry.compatibility.fidelity === "deterministic-base") {
+    return "compatible-deterministic-base";
+  }
   if (
     entry.region.fidelity.lodLevel !== entry.target.fidelity.lodLevel ||
     entry.region.fidelity.lodScale !== entry.target.fidelity.lodScale

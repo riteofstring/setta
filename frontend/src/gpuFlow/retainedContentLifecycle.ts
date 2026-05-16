@@ -9,6 +9,7 @@ import {
   type RetainedRegionTarget,
   type RetainedRegionTextLikeSnapshot,
 } from "./retainedCommittedCoverageStore";
+import type { RetainedVisualEpochKind } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedCompatibilityRejectReason = Extract<
@@ -18,6 +19,7 @@ export type RetainedCompatibilityRejectReason = Extract<
 
 export type RetainedFidelityState =
   | "target"
+  | "compatible-deterministic-base"
   | "compatible-lower-lod"
   | "compatible-previous-grid"
   | "compatible-previous-dpr-bucket"
@@ -81,10 +83,9 @@ export type RetainedCommittedPageLifecycle = {
   readonly viewportZoomBucket: number;
 };
 
-type RetainedCommittedPageForCompatibility =
-  RetainedCommittedPageLifecycle & {
-    readonly key: string;
-  };
+type RetainedCommittedPageForCompatibility = RetainedCommittedPageLifecycle & {
+  readonly key: string;
+};
 
 type RetainedPageLifecycleDescriptor = {
   readonly contentVersion: number;
@@ -103,6 +104,7 @@ type RetainedPageLifecycleDescriptor = {
   readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
   readonly tileColumn: number;
   readonly tileRow: number;
+  readonly visualEpochKind?: Exclude<RetainedVisualEpochKind, "active-dom">;
   readonly viewportZoomBucket: number;
 };
 
@@ -203,6 +205,7 @@ function createRetainedRegionManifest(
       descriptor.textLikeSnapshots ?? [],
     ),
     themeGeneration: descriptor.sourceVersion,
+    visualEpochKind: descriptor.visualEpochKind ?? "base",
   });
 }
 
@@ -243,6 +246,7 @@ function retainedPageGridGeneration(
     | "sourceRectCss"
     | "tileColumn"
     | "tileRow"
+    | "visualEpochKind"
     | "viewportZoomBucket"
   >,
 ): string {
@@ -254,6 +258,7 @@ function retainedPageGridGeneration(
     descriptor.viewportZoomBucket,
     descriptor.tileColumn,
     descriptor.tileRow,
+    descriptor.visualEpochKind ?? "base",
     rect.x,
     rect.y,
     rect.width,
@@ -323,6 +328,9 @@ function resolveRetainedFidelityState(
 ): Exclude<RetainedFidelityState, "refining"> {
   if (compatibility.fidelity === "exact") {
     return "target";
+  }
+  if (compatibility.fidelity === "deterministic-base") {
+    return "compatible-deterministic-base";
   }
   if (page.lod.level !== snapshot.lod.level) {
     return "compatible-lower-lod";

@@ -241,6 +241,47 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(queue.hasWork()).toBe(false);
   });
 
+  it("uses the visible repair reserve for multiple first-visible pages before refinement", () => {
+    const queue = new RetainedTextureWorkQueue();
+    for (let index = 0; index < 3; index += 1) {
+      queue.enqueue({
+        contentVersion: 1,
+        kind: "first-visible",
+        sourceRect: { height: 10, width: 10, x: 0, y: index * 12 },
+        surfaceId: `visible-${index}`,
+      });
+    }
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "lod-refinement",
+      sourceRect: { height: 10, width: 10, x: 0, y: 60 },
+      surfaceId: "refinement",
+      targetLod: 2,
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: { ...DEFAULT_BUDGET, maxUploads: 1 },
+      estimateWorkItem: () => SMALL_WORK,
+      executeWorkItem: () => ({ ...SMALL_WORK, complete: true }),
+      pageWorkBudget: {
+        refinementMaxBytes: 0,
+        visibleCoverageReserveBytes: 2_000,
+        visibleEdgeMaxUploads: 3,
+      },
+      queue,
+      viewportInteractionActive: true,
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "visible-0",
+      "visible-1",
+      "visible-2",
+    ]);
+    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
+      "refinement",
+    ]);
+  });
+
   it("keeps offscreen prefetch work inside the explicit prefetch budget bucket", () => {
     const queue = new RetainedTextureWorkQueue();
     queue.enqueue({

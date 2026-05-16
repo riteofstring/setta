@@ -24,6 +24,7 @@ import {
   retainedManifestIncompatibilityReason,
   retainedRegionManifestsMatch,
 } from "./retainedCommittedCoverageManifest";
+import type { RetainedVisualEpochKind } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 export type Matrix3 = readonly [
@@ -66,6 +67,7 @@ export type RetainedRegionManifest = {
   readonly renderMode: "active" | "passive";
   readonly contentRect: ContentRect;
   readonly clipRect: ContentRect;
+  readonly visualEpochKind?: RetainedVisualEpochKind;
 };
 
 export type RetainedRegionContentSegment = {
@@ -85,6 +87,7 @@ export type RetainedRegionCompatibility =
   | {
       readonly kind: "compatible";
       readonly fidelity:
+        | "deterministic-base"
         | "exact"
         | "lower-lod"
         | "previous-grid"
@@ -812,13 +815,12 @@ export function evaluateRetainedRegionCompatibility({
   if (!coverageRect) {
     return incompatible("content-coordinate-mapping-mismatch");
   }
-  if (
-    !retainedManifestContentMatchesForRect({
-      candidate: candidate.manifest,
-      target: target.manifest,
-      coverageRect,
-    })
-  ) {
+  const contentCompatibility = retainedManifestContentMatchesForRect({
+    candidate: candidate.manifest,
+    target: target.manifest,
+    coverageRect,
+  });
+  if (contentCompatibility === "mismatch") {
     return incompatible("row-content-version-mismatch");
   }
   if (!intersectRects(candidate.clipRect, coverageRect)) {
@@ -826,22 +828,37 @@ export function evaluateRetainedRegionCompatibility({
   }
   return {
     coverageRect,
-    fidelity: resolveRetainedRegionFidelity(candidate, target),
+    fidelity: resolveRetainedRegionFidelity({
+      candidate,
+      contentCompatibility,
+      target,
+    }),
     kind: "compatible",
     manifest: freezeRegionManifest(candidate.manifest),
   };
 }
 
-function resolveRetainedRegionFidelity(
-  candidate: Pick<
+function resolveRetainedRegionFidelity({
+  candidate,
+  contentCompatibility,
+  target,
+}: {
+  readonly candidate: Pick<
     RetainedCommittedRegion,
     "contentRect" | "clipRect" | "fidelity"
-  >,
-  target: RetainedRegionTarget,
-): Extract<
+  >;
+  readonly contentCompatibility: Exclude<
+    ReturnType<typeof retainedManifestContentMatchesForRect>,
+    "mismatch"
+  >;
+  readonly target: RetainedRegionTarget;
+}): Extract<
   RetainedRegionCompatibility,
   { readonly kind: "compatible" }
 >["fidelity"] {
+  if (contentCompatibility === "deterministic-base") {
+    return "deterministic-base";
+  }
   if (
     candidate.fidelity.lodLevel !== target.fidelity.lodLevel ||
     candidate.fidelity.devicePixelRatioBucket !==
@@ -906,6 +923,7 @@ function compatibilityRank(
     "lower-lod": 1,
     "previous-grid": 2,
     "compatible-mapped-region": 3,
+    "deterministic-base": 4,
   }[fidelity];
 }
 

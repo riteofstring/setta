@@ -27,6 +27,11 @@ type RetainedContentProofKeys = {
   readonly snapshotKeys: readonly string[];
 };
 
+type RetainedManifestContentCompatibility =
+  | "deterministic-base"
+  | "exact"
+  | "mismatch";
+
 export function retainedManifestIncompatibilityReason({
   candidate,
   target,
@@ -57,24 +62,34 @@ export function retainedManifestContentMatchesForRect({
   readonly candidate: RetainedRegionManifest;
   readonly coverageRect: GpuRect;
   readonly target: RetainedRegionManifest;
-}): boolean {
+}): RetainedManifestContentCompatibility {
   const candidateProof = retainedContentProofKeysForRect(
     candidate,
     coverageRect,
   );
   const targetProof = retainedContentProofKeysForRect(target, coverageRect);
   if (!retainedContentProofPairHasKeys(candidateProof, targetProof)) {
-    return candidate.contentVersion === target.contentVersion;
+    return candidate.contentVersion === target.contentVersion
+      ? "exact"
+      : "mismatch";
   }
   if (
     !sortedStringsEqual(candidateProof.segmentKeys, targetProof.segmentKeys)
   ) {
-    return false;
+    return "mismatch";
   }
-  return sortedStringsEqual(
-    candidateProof.snapshotKeys,
-    targetProof.snapshotKeys,
-  );
+  if (
+    sortedStringsEqual(candidateProof.snapshotKeys, targetProof.snapshotKeys)
+  ) {
+    return "exact";
+  }
+  if (
+    candidateProof.snapshotKeys.length === 0 &&
+    targetProof.snapshotKeys.length > 0
+  ) {
+    return "deterministic-base";
+  }
+  return "mismatch";
 }
 
 export function areRetainedRegionTargetsEquivalent(
@@ -100,6 +115,7 @@ export function retainedRegionManifestsMatch(
     retainedManifestContentProofMatches(left, right),
     retainedManifestStyleGenerationMatches(left, right),
     left.renderMode === right.renderMode,
+    (left.visualEpochKind ?? "base") === (right.visualEpochKind ?? "base"),
     rectsEqual(left.contentRect, right.contentRect),
     rectsEqual(left.clipRect, right.clipRect),
   ].every(Boolean);

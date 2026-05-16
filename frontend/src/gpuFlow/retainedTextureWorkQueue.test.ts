@@ -101,6 +101,28 @@ describe("RetainedTextureWorkQueue", () => {
     ]);
   });
 
+  it("cancels stale first-visible work without clearing content work", () => {
+    const queue = new RetainedTextureWorkQueue();
+
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "first-visible",
+      sourceRect: { height: 24, width: 50, x: 0, y: 24 },
+      surfaceId: "surface",
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "content-rect",
+      sourceRect: { height: 24, width: 50, x: 0, y: 24 },
+      surfaceId: "surface",
+    });
+
+    expect(queue.cancelFirstVisible()).toBe(1);
+    expect(queue.orderedWorkItems()).toEqual([
+      expect.objectContaining({ kind: "content-rect" }),
+    ]);
+  });
+
   it("allows visible refinement but filters prefetch during active viewport interaction", () => {
     const queue = new RetainedTextureWorkQueue();
 

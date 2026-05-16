@@ -78,7 +78,10 @@ import {
   postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
-import { runGpuFlowRetainedPageMaintenance } from "./flowRetainedPageMaintenance";
+import {
+  resolveGpuFlowRetainedPageMaintenanceAfterPublish,
+  runGpuFlowRetainedPageMaintenanceBeforePublish,
+} from "./flowRetainedPageMaintenance";
 import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
@@ -531,8 +534,11 @@ export function renderGpuFlowNodeLayerFrame({
       viewportInteractionActive: deferResolutionUpdates,
       zoom: normalizeGpuViewport(layer.viewport).zoom,
     });
+  const retainedSceneInput = createGpuFlowRetainedContentFrameSceneInput(
+    layer.scene,
+  );
   const retainedFrame = resolveGpuFlowRetainedContentFrame({
-    contentSurfaces: layer.scene?.contentSurfaces,
+    contentSurfaces: retainedSceneInput.contentSurfaces,
     deferResolutionUpdates,
     devicePixelRatio: canvasSize.devicePixelRatio,
     frame,
@@ -540,11 +546,32 @@ export function renderGpuFlowNodeLayerFrame({
     retainedContentFrameCacheRef,
     retainedContentPageManager: resources.retainedContentPageManager,
     retainedContentRuntimeState,
-    sceneRevision: layer.scene?.revision ?? 0,
+    sceneRevision: retainedSceneInput.sceneRevision,
     viewportZoomBucket,
   });
   const retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
-  const retainedPagePreparedFrame = retainedFrame.preparedFrame;
+  let retainedPagePreparedFrame = retainedFrame.preparedFrame;
+  let retainedPageMaintenance = runGpuFlowRetainedPageMaintenanceBeforePublish({
+    darkMode,
+    deferResolutionUpdates,
+    preparedFrame: retainedPagePreparedFrame,
+    publishedProtectedPageKeys: resolvePublishedRetainedProtectedPageKeys(
+      retainedDisplayFrameRef.current,
+    ),
+    retainedContentPageManager: resources.retainedContentPageManager,
+    textLikeSnapshotElementById:
+      retainedTextLikeRowSnapshotElementByIdRef.current,
+  });
+  if (retainedPageMaintenance) {
+    retainedPagePreparedFrame =
+      retainedPageMaintenance.result.repairedPreparedFrame;
+    updateGpuFlowRetainedContentFrameCacheAfterRepair({
+      preparedFrame: retainedPagePreparedFrame,
+      retainedContentFrameCacheRef,
+      retainedContentPageManager: resources.retainedContentPageManager,
+      retainedRuntimeFrame,
+    });
+  }
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedPreparedRuntimeFrame,
     createGpuFlowRetainedPreparationRuntimeFrame({
@@ -581,7 +608,7 @@ export function renderGpuFlowNodeLayerFrame({
     deferResolutionUpdates,
     frame,
     retainedContentPageManager: resources.retainedContentPageManager,
-    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
+    rowHoverTarget: resolveGpuFlowRetainedContentRowHoverTarget(layer),
     scrollOffsets: runtimeScrollOffsets,
     sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
@@ -625,9 +652,10 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
-  const retainedPageMaintenance = runGpuFlowRetainedPageMaintenance({
+  retainedPageMaintenance = resolveGpuFlowRetainedPageMaintenanceAfterPublish({
     darkMode,
     deferResolutionUpdates,
+    existingMaintenance: retainedPageMaintenance,
     preparedFrame: retainedPagePreparedFrame,
     publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
     retainedContentPageManager: resources.retainedContentPageManager,
@@ -671,7 +699,7 @@ export function renderGpuFlowNodeLayerFrame({
       activeResizeNodeId: activeResizeNodeIdRef.current,
       diagnostics: interactionDiagnosticsRef.current,
       nodeInteractionActiveNodeId:
-        nodeInteractionRef.current?.getActiveNodeId() ?? null,
+        resolveGpuFlowNodeInteractionActiveNodeId(nodeInteractionRef),
       ownerDocument: runtime.canvas.ownerDocument,
       viewportState: viewportStore.getState(),
     }),
@@ -697,7 +725,63 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
-  onRetainedRuntimeFrame?.(publishedRetainedRuntimeFrame);
+  notifyGpuFlowRetainedRuntimeFrame(
+    onRetainedRuntimeFrame,
+    publishedRetainedRuntimeFrame,
+  );
+}
+
+function createGpuFlowRetainedContentFrameSceneInput(
+  scene: GpuFlowScene | null | undefined,
+): {
+  readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
+  readonly sceneRevision: number;
+} {
+  return {
+    contentSurfaces: scene?.contentSurfaces,
+    sceneRevision: scene?.revision ?? 0,
+  };
+}
+
+function resolvePublishedRetainedProtectedPageKeys(
+  retainedDisplayFrame: RetainedDisplayFrame | null,
+): readonly string[] | undefined {
+  return retainedDisplayFrame?.pageFrame.protectedPageKeys;
+}
+
+function resolveGpuFlowRetainedContentRowHoverTarget(
+  layer: GpuFlowNodeLayerState,
+): GpuFlowNodeLayerState["retainedContentRowHoverTarget"] | null {
+  return layer.retainedContentRowHoverTarget ?? null;
+}
+
+function resolveGpuFlowNodeInteractionActiveNodeId(
+  nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
+): string | null {
+  return nodeInteractionRef.current?.getActiveNodeId() ?? null;
+}
+
+function updateGpuFlowRetainedContentFrameCacheAfterRepair({
+  preparedFrame,
+  retainedContentFrameCacheRef,
+  retainedContentPageManager,
+  retainedRuntimeFrame,
+}: {
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+}) {
+  const cachedFrame = retainedContentFrameCacheRef.current;
+  if (!cachedFrame) {
+    return;
+  }
+  retainedContentFrameCacheRef.current = {
+    ...cachedFrame,
+    pageDrawableRevision: retainedContentPageManager.getDrawableRevision(),
+    preparedFrame,
+    retainedRuntimeFrame,
+  };
 }
 
 function notifyGpuFlowRetainedRuntimeFrame(

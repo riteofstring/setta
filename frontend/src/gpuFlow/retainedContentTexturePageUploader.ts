@@ -1,5 +1,5 @@
-import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
+import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
 import {
@@ -109,16 +109,18 @@ export function uploadRetainedContentTexturePage({
     },
   );
   const textLikeSnapshotPaintAvailable =
-    uploadRetainedContentTexturePageTextLikeSnapshots({
-      descriptor,
-      elementBySourceId: elementByTextLikeSnapshotSourceId,
-      queue: device.queue,
-      resource,
-      snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
-        descriptor,
-        surface,
-      }),
-    });
+    descriptor.visualEpochKind === "snapshot-exact"
+      ? uploadRetainedContentTexturePageTextLikeSnapshots({
+          descriptor,
+          elementBySourceId: elementByTextLikeSnapshotSourceId,
+          queue: device.queue,
+          resource,
+          snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
+            descriptor,
+            surface,
+          }),
+        })
+      : true;
   if (!textLikeSnapshotPaintAvailable) {
     destroyRetainedContentTextureResources(resource);
     cache.cancelPendingPage(pending.key);

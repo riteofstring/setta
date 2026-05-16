@@ -22,6 +22,7 @@ type RetainedTexturePageGridInput = {
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
   readonly visibleSourceRectCss: GpuRect;
+  readonly visualEpochKind?: RetainedTexturePageDescriptor["visualEpochKind"];
   readonly viewportZoomBucket: number;
 };
 
@@ -61,6 +62,7 @@ export function createRetainedTexturePageDescriptors({
   sourceWindowCss,
   surfaceId,
   visibleSourceRectCss,
+  visualEpochKind,
   viewportZoomBucket,
 }: RetainedTexturePageGridInput): readonly RetainedTexturePageDescriptor[] {
   const normalizedContentBounds = normalizeRect(
@@ -145,6 +147,7 @@ export function createRetainedTexturePageDescriptors({
         surfaceId,
         tileColumn: column,
         tileRow: row,
+        visualEpochKind: visualEpochKind ?? "base",
         viewportZoomBucket,
       });
     }

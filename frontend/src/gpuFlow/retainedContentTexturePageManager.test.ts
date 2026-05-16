@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { HtmlInCanvasCanvas } from "./htmlInCanvasTypes";
-import type { GpuRetainedContentScene } from "./retainedContentScene";
 import {
-  RetainedContentTexturePageManager,
-  type RetainedContentTexturePageFrameSurface,
-} from "./retainedContentTexturePageManager";
-import type { RetainedTextureUploadSchedulerBudget } from "./retainedTextureUploadScheduler";
+  createDeferred,
+  createFrameSurface,
+  createManagerFixture,
+  createTextLikeSnapshotElement,
+  renderFrame,
+} from "./retainedContentTexturePageManager.testSupport";
 
 describe("RetainedContentTexturePageManager", () => {
   it("keeps the current LOD bucket stable while the viewport is moving", () => {
@@ -220,6 +220,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(deferred.uploadCount).toBe(0);
     expect(deferred.needsFollowUpFrame).toBe(false);
     expect(deferred.refinementPageCount).toBe(4);
+    expect(deferred.repairedPreparedFrame).toBe(preparedFrame);
     expect(fixture.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
 
     const maintenance = fixture.manager.runPostSubmitMaintenance({
@@ -282,7 +283,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
-      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1:base",
     ]);
   });
 
@@ -320,7 +321,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(result.uploadCount).toBe(1);
     expect(result.flatSurfaces).toHaveLength(1);
     expect(result.flatSurfaces[0]?.surfaceId).toBe(
-      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
+      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1:base",
     );
   });
 
@@ -355,6 +356,8 @@ describe("RetainedContentTexturePageManager", () => {
     expect(replacementFrame.refinementPageCount).toBe(1);
     expect(replacementFrame.postMaintenanceRefinementPageCount).toBe(0);
     expect(replacementFrame.trueHoleRectCount).toBe(1);
+    expect(replacementFrame.repairedPreparedFrame.trueHoleRectCount).toBe(0);
+    expect(replacementFrame.repairedPreparedFrame.flatSurfaces).toHaveLength(1);
   });
 
   it("protects the last published pages while a replacement frame is prepared", () => {
@@ -701,6 +704,64 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.manager.getDrawableRevision()).toBe(2);
   });
 
+  it("refreshes first-visible coverage when a committed page has a stale source window", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const firstSurface = createFrameSurface({
+      contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
+      layout: {
+        height: 50,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 50, width: 100, x: 0, y: 0 },
+        width: 100,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 50, width: 100, x: 0, y: 0 },
+      visibleSourceRectCss: { height: 50, width: 100, x: 0, y: 0 },
+    });
+
+    const firstResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [firstSurface],
+      viewportZoomBucket: 1,
+    });
+    expect(firstResult.uploadCount).toBe(1);
+
+    const nextSurface = createFrameSurface({
+      contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
+      layout: {
+        height: 50,
+        surfaceId: "surface-a",
+        textureSourceRect: { height: 50, width: 100, x: 0, y: 50 },
+        width: 100,
+        x: 10,
+        y: 20,
+      },
+      sourceWindowCss: { height: 50, width: 100, x: 0, y: 50 },
+      visibleSourceRectCss: { height: 50, width: 100, x: 0, y: 50 },
+    });
+    const nextResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [nextSurface],
+      viewportZoomBucket: 1,
+    });
+
+    expect(nextResult.uploadCount).toBe(1);
+    expect(nextResult.repairedPreparedFrame.trueHoleRectCount).toBe(0);
+    expect(nextResult.repairedPreparedFrame.visualEpochs).toEqual([
+      expect.objectContaining({ kind: "base" }),
+    ]);
+  });
+
   it("uploads current row-owned text-like snapshots into retained content pages", () => {
     const fixture = createManagerFixture({
       budget: {
@@ -722,7 +783,7 @@ describe("RetainedContentTexturePageManager", () => {
       ],
     });
 
-    const result = renderFrame(fixture.manager, {
+    const baseResult = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
@@ -730,8 +791,23 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(result.uploadCount).toBe(1);
+    expect(baseResult.uploadCount).toBe(1);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
+    expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
+
+    const exactResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+
+    expect(exactResult.uploadCount).toBe(1);
+    expect(exactResult.visualEpochs.map((epoch) => epoch.kind)).toEqual([
+      "base",
+    ]);
+    expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
     expect(fixture.queue.copyElementImageToTexture.mock.contexts[0]).toBe(
       fixture.queue,
     );
@@ -745,7 +821,7 @@ describe("RetainedContentTexturePageManager", () => {
       20,
       {
         origin: { x: 10, y: 12, z: 0 },
-        texture: fixture.textures[0],
+        texture: fixture.textures[1],
       },
     );
   });
@@ -770,21 +846,20 @@ describe("RetainedContentTexturePageManager", () => {
     });
     expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
 
+    const snapshotSurface = createFrameSurface({
+      textLikeSnapshots: [
+        {
+          rectCss: { height: 20, width: 40, x: 10, y: 12 },
+          rowId: "row-a",
+          sourceId: "snapshot-a",
+          sourceKey: "snapshot-key",
+        },
+      ],
+    });
     const result = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
       frame: 2,
-      surfaces: [
-        createFrameSurface({
-          textLikeSnapshots: [
-            {
-              rectCss: { height: 20, width: 40, x: 10, y: 12 },
-              rowId: "row-a",
-              sourceId: "snapshot-a",
-              sourceKey: "snapshot-key",
-            },
-          ],
-        }),
-      ],
+      surfaces: [snapshotSurface],
       textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
@@ -808,6 +883,17 @@ describe("RetainedContentTexturePageManager", () => {
       | undefined;
     expect(destination?.origin).toEqual({ x: 10, y: 12, z: 0 });
     expect(fixture.textures).toContain(destination?.texture);
+
+    const committedExact = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [snapshotSurface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+    expect(committedExact.visualEpochs.map((epoch) => epoch.kind)).toEqual([
+      "snapshot-exact",
+    ]);
   });
 
   it("keeps text-like snapshot pages queued when Chromium has not cached a paint record yet", () => {
@@ -849,14 +935,14 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(firstResult.uploadCount).toBe(0);
-    expect(firstResult.uploadedBytes).toBe(0);
-    expect(firstResult.budgetExhausted).toBe(true);
+    expect(firstResult.uploadCount).toBe(1);
+    expect(firstResult.uploadedBytes).toBeGreaterThan(0);
+    expect(firstResult.budgetExhausted).toBe(false);
     expect(firstResult.needsFollowUpFrame).toBe(true);
-    expect(firstResult.queuedWorkCount).toBe(1);
+    expect(firstResult.queuedWorkCount).toBe(0);
     expect(firstResult.memory.pendingCount).toBe(0);
-    expect(requestPaint).toHaveBeenCalledTimes(1);
-    expect(fixture.textures[0]?.destroy).toHaveBeenCalledTimes(1);
+    expect(requestPaint).not.toHaveBeenCalled();
+    expect(fixture.textures[0]?.destroy).not.toHaveBeenCalled();
 
     const secondResult = renderFrame(fixture.manager, {
       devicePixelRatio: 1,
@@ -866,201 +952,83 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(secondResult.uploadCount).toBe(1);
-    expect(secondResult.budgetExhausted).toBe(false);
-    expect(secondResult.queuedWorkCount).toBe(0);
+    expect(secondResult.uploadCount).toBe(0);
+    expect(secondResult.uploadedBytes).toBe(0);
+    expect(secondResult.budgetExhausted).toBe(true);
+    expect(secondResult.queuedWorkCount).toBe(1);
     expect(secondResult.memory.pendingCount).toBe(0);
+    expect(requestPaint).toHaveBeenCalledTimes(1);
+    expect(fixture.textures[1]?.destroy).toHaveBeenCalledTimes(1);
+
+    const thirdResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      viewportZoomBucket: 1,
+    });
+
+    expect(thirdResult.uploadCount).toBe(1);
+    expect(thirdResult.budgetExhausted).toBe(false);
+    expect(thirdResult.queuedWorkCount).toBe(0);
     expect(fixture.queue.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
-});
 
-function renderFrame(
-  manager: RetainedContentTexturePageManager,
-  {
-    darkMode = false,
-    devicePixelRatio,
-    frame,
-    surfaces,
-    textLikeSnapshotElementById,
-    viewportInteractionActive = false,
-    viewportZoomBucket,
-  }: {
-    readonly darkMode?: boolean | undefined;
-    readonly devicePixelRatio: number;
-    readonly frame: number;
-    readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
-    readonly textLikeSnapshotElementById?:
-      | ReadonlyMap<string, HTMLElement>
-      | undefined;
-    readonly viewportInteractionActive?: boolean | undefined;
-    readonly viewportZoomBucket: number;
-  },
-) {
-  const preparedFrame = manager.prepareFrame({
-    devicePixelRatio,
-    frame,
-    surfaces,
-    viewportZoomBucket,
-  });
-  const maintenanceInput = {
-    darkMode,
-    preparedFrame,
-    viewportInteractionActive,
-  };
-  const maintenance = manager.runPostSubmitMaintenance(
-    textLikeSnapshotElementById === undefined
-      ? maintenanceInput
-      : {
-          ...maintenanceInput,
-          textLikeSnapshotElementById,
+  it("bounds missing snapshot-exact retries while keeping base content committed", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 10_000_000,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface({
+      textLikeSnapshots: [
+        {
+          rectCss: { height: 20, width: 40, x: 10, y: 12 },
+          rowId: "row-a",
+          sourceId: "snapshot-a",
+          sourceKey: "snapshot-key",
         },
-  );
-  return {
-    ...maintenance,
-    flatSurfaces: preparedFrame.flatSurfaces,
-    refinementPageCount: preparedFrame.refinementPageCount,
-  };
-}
+      ],
+    });
 
-function createManagerFixture({
-  budget,
-  maxTextureDimension2D,
-  maxPagePixelSize,
-  onSubmittedWorkDone,
-}: {
-  readonly budget?: Partial<RetainedTextureUploadSchedulerBudget> | undefined;
-  readonly maxTextureDimension2D?: number | undefined;
-  readonly maxPagePixelSize?: number | undefined;
-  readonly onSubmittedWorkDone?: (() => Promise<void>) | undefined;
-} = {}) {
-  const textures: Array<{
-    readonly createView: ReturnType<typeof vi.fn>;
-    readonly destroy: ReturnType<typeof vi.fn>;
-  }> = [];
-  const queue = {
-    copyElementImageToTexture: vi.fn(),
-    copyExternalImageToTexture: vi.fn(),
-    ...(onSubmittedWorkDone === undefined ? {} : { onSubmittedWorkDone }),
-    submit: vi.fn(),
-    writeBuffer: vi.fn(),
-  };
-  const device = {
-    createSampler: vi.fn(() => ({}) as GPUSampler),
-    createTexture: vi.fn(() => {
-      const texture = {
-        createView: vi.fn(() => ({}) as GPUTextureView),
-        destroy: vi.fn(),
-      };
-      textures.push(texture);
-      return texture;
-    }),
-    queue,
-    ...(maxTextureDimension2D === undefined
-      ? {}
-      : { limits: { maxTextureDimension2D } }),
-  } as unknown as GPUDevice;
-  const scratchCanvas = createScratchCanvas();
-  const ownerDocument = {
-    createElement: vi.fn(() => scratchCanvas),
-  } as unknown as Document;
-  const manager = new RetainedContentTexturePageManager(device, ownerDocument, {
-    budget,
-    maxPagePixelSize,
-    scratchCanvas,
-    textureUsage: 1,
+    const baseResult = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map(),
+      viewportZoomBucket: 1,
+    });
+    expect(baseResult.uploadCount).toBe(1);
+
+    let finalRetry = baseResult;
+    for (let frame = 2; frame <= 31; frame += 1) {
+      finalRetry = renderFrame(fixture.manager, {
+        devicePixelRatio: 1,
+        frame,
+        surfaces: [surface],
+        textLikeSnapshotElementById: new Map(),
+        viewportZoomBucket: 1,
+      });
+    }
+
+    expect(finalRetry.uploadCount).toBe(0);
+    expect(finalRetry.queuedWorkCount).toBe(0);
+    expect(finalRetry.visualEpochs.map((epoch) => epoch.kind)).toEqual([
+      "base",
+    ]);
+    expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
+
+    const followUp = renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 32,
+      surfaces: [surface],
+      textLikeSnapshotElementById: new Map(),
+      viewportZoomBucket: 1,
+    });
+    expect(followUp.targetDescriptorCount).toBe(0);
+    expect(followUp.visualEpochs.map((epoch) => epoch.kind)).toEqual(["base"]);
   });
-  return { manager, queue, textures };
-}
-
-function createTextLikeSnapshotElement(
-  sourceKey: string,
-  requestPaint?: (() => void) | undefined,
-): HTMLElement {
-  const paintCanvas = requestPaint
-    ? ({ requestPaint } as Partial<HtmlInCanvasCanvas>)
-    : null;
-  return {
-    closest: vi.fn(() => null),
-    dataset: {
-      gpuFlowRetainedTextLikeRowSnapshotReadyKey: sourceKey,
-      gpuFlowRetainedTextLikeRowSnapshotSourceKey: sourceKey,
-    },
-    ownerDocument: {
-      querySelector: vi.fn((selector: string) =>
-        selector === "canvas[data-gpu-flow-surface='true']"
-          ? paintCanvas
-          : null,
-      ),
-    },
-  } as unknown as HTMLElement;
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, reject, resolve };
-}
-
-function createScratchCanvas(): HTMLCanvasElement {
-  const context = {
-    beginPath: vi.fn(),
-    clearRect: vi.fn(),
-    clip: vi.fn(),
-    fillRect: vi.fn(),
-    rect: vi.fn(),
-    restore: vi.fn(),
-    save: vi.fn(),
-    setTransform: vi.fn(),
-  };
-  return {
-    getContext: vi.fn(() => context),
-    height: 0,
-    width: 0,
-  } as unknown as HTMLCanvasElement;
-}
-
-function createFrameSurface(
-  overrides: Partial<RetainedContentTexturePageFrameSurface> = {},
-): RetainedContentTexturePageFrameSurface {
-  const contentVersion = overrides.contentVersion ?? 1;
-  return {
-    contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
-    contentVersion,
-    layout: {
-      height: 100,
-      surfaceId: "surface-a",
-      textureSourceRect: { height: 100, width: 100, x: 0, y: 0 },
-      width: 100,
-      x: 10,
-      y: 20,
-    },
-    rasterScene: createRasterScene(),
-    sourceKey: `source-a:${contentVersion}`,
-    sourceVersion: contentVersion,
-    sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
-    surfaceId: "surface-a",
-    visibleSourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
-    ...overrides,
-  };
-}
-
-function createRasterScene(): GpuRetainedContentScene {
-  return {
-    contentRect: { height: 100, width: 100, x: 0, y: 0 },
-    drawCommands: [],
-    hitRecords: [],
-    id: "scene-a",
-    ownerSectionId: "section-a",
-    portAnchors: [],
-    rowHeight: 20,
-    rowOrder: [],
-    rows: [],
-    scrollOffset: { x: 0, y: 0 },
-    viewportRect: { height: 100, width: 100, x: 0, y: 0 },
-    visibleRange: { endIndex: 0, rowCount: 0, startIndex: 0 },
-  };
-}
+});
