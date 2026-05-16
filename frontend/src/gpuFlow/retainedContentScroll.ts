@@ -280,9 +280,36 @@ function getGpuRetainedContentWheelScrollContext({
     readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
   };
 } | null {
-  const sourceSurfaces =
-    retainedRuntimeFrame?.descriptors.hitTestSurfaces ?? scene.contentSurfaces;
-  const candidates = sourceSurfaces
+  const surface = retainedRuntimeFrame
+    ? retainedRuntimeFrame.descriptors.hitTestSurfaces.find((candidate) =>
+        isGpuRetainedContentWheelScrollCandidate({
+          point,
+          surface: candidate,
+        }),
+      )
+    : getGpuRetainedContentWheelScrollSceneCandidates({ point, scene })[0]
+        ?.surface;
+  if (!surface) {
+    return null;
+  }
+  return {
+    surface: surface as GpuContentSurface & {
+      readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+    },
+  };
+}
+
+function getGpuRetainedContentWheelScrollSceneCandidates({
+  point,
+  scene,
+}: {
+  readonly point: GpuPoint;
+  readonly scene: GpuFlowScene;
+}): readonly {
+  readonly index: number;
+  readonly surface: GpuContentSurface;
+}[] {
+  return scene.contentSurfaces
     .map((surface, index) => ({ index, surface }))
     .filter(({ surface }) =>
       isGpuRetainedContentWheelScrollCandidate({ point, surface }),
@@ -291,15 +318,6 @@ function getGpuRetainedContentWheelScrollContext({
       (left, right) =>
         right.surface.zIndex - left.surface.zIndex || right.index - left.index,
     );
-  const winner = candidates[0];
-  if (!winner) {
-    return null;
-  }
-  return {
-    surface: winner.surface as GpuContentSurface & {
-      readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-    },
-  };
 }
 
 function getGpuRetainedContentSurfaceById(

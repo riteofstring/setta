@@ -1,3 +1,11 @@
+import {
+  createRetainedCommittedPageLifecycle,
+  createRetainedContentSnapshot,
+  isSemanticallyCompatibleRetainedPage,
+  type RetainedCommittedPageLifecycle,
+  type RetainedCompatibilityRejectReason,
+  type RetainedCompatibilityResult,
+} from "./retainedContentLifecycle";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageDescriptor = {
@@ -32,7 +40,7 @@ export type CommittedRetainedTexturePage<TResource = unknown> = {
   readonly key: string;
   readonly lastUsedFrame: number;
   readonly resource: TResource;
-};
+} & RetainedCommittedPageLifecycle;
 
 export type RetiredRetainedTexturePage<TResource = unknown> = {
   readonly byteSize: number;
@@ -53,7 +61,6 @@ export type RetainedTexturePageCacheSnapshot = {
 };
 
 export type RetainedTexturePageLookup = {
-  readonly allowStaleContent?: boolean | undefined;
   readonly contentVersion: number;
   readonly devicePixelRatioBucket: number;
   readonly sourceKey: string;
@@ -64,6 +71,19 @@ export type RetainedTexturePageLookup = {
   readonly targetLodScale: number;
   readonly usedFrame?: number | undefined;
   readonly viewportZoomBucket: number;
+};
+
+export type RetainedTexturePageRejectedCoverage = {
+  readonly reason: RetainedCompatibilityRejectReason;
+  readonly rect: GpuRect;
+};
+
+export type RetainedTexturePageCoverageCandidate<TResource = unknown> = {
+  readonly compatibility: Extract<
+    RetainedCompatibilityResult,
+    { readonly kind: "compatible" }
+  >;
+  readonly page: CommittedRetainedTexturePage<TResource>;
 };
 
 export type RetainedTexturePageEvictionOptions = {
@@ -146,6 +166,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       key,
       lastUsedFrame: frame,
       resource,
+      ...createRetainedCommittedPageLifecycle(normalizedDescriptor),
     };
     this.committedPages.set(key, page);
     this.indexCommittedPage(page);
@@ -221,13 +242,13 @@ export class RetainedTexturePageCache<TResource = unknown> {
     viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
-    void sourceWindowCss;
     const candidates = this.getCommittedPagesForCoverage({
       contentVersion,
       devicePixelRatioBucket,
       sourceKey,
       sourceRectCss: lookupRect,
       sourceVersion,
+      sourceWindowCss,
       surfaceId,
       targetLodScale,
       viewportZoomBucket,
@@ -244,12 +265,12 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   getCommittedPagesForCoverage({
-    allowStaleContent = false,
     contentVersion,
     devicePixelRatioBucket,
     sourceKey,
     sourceRectCss,
     sourceVersion,
+    sourceWindowCss,
     surfaceId,
     targetLodScale,
     viewportZoomBucket,
@@ -257,26 +278,114 @@ export class RetainedTexturePageCache<TResource = unknown> {
     RetainedTexturePageLookup,
     "usedFrame"
   >): readonly CommittedRetainedTexturePage<TResource>[] {
+    return this.getCommittedPageCoverageCandidates({
+      contentVersion,
+      devicePixelRatioBucket,
+      sourceKey,
+      sourceRectCss,
+      sourceVersion,
+      sourceWindowCss,
+      surfaceId,
+      targetLodScale,
+      viewportZoomBucket,
+    }).map((candidate) => candidate.page);
+  }
+
+  getCommittedPageCoverageCandidates({
+    contentVersion,
+    devicePixelRatioBucket,
+    sourceKey,
+    sourceRectCss,
+    sourceVersion,
+    sourceWindowCss,
+    surfaceId,
+    targetLodScale,
+    viewportZoomBucket,
+  }: Omit<
+    RetainedTexturePageLookup,
+    "usedFrame"
+  >): readonly RetainedTexturePageCoverageCandidate<TResource>[] {
     const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
-    void viewportZoomBucket;
+    const snapshot = createRetainedContentSnapshot({
+      contentVersion,
+      devicePixelRatioBucket,
+      lodLevel: retainedTexturePageLodLevel(targetLodScale),
+      lodScale: targetLodScale,
+      scaleKey: retainedTexturePageScaleKey(targetLodScale),
+      sourceKey,
+      sourceRectCss: lookupRect,
+      sourceVersion,
+      sourceWindowCss: sourceWindowCss ?? lookupRect,
+      surfaceId,
+      tileColumn: 0,
+      tileRow: 0,
+      viewportZoomBucket,
+    });
     return this.getCommittedPagesForLookup({ surfaceId })
-      .filter(
-        (page) =>
-          (allowStaleContent ||
-            page.descriptor.contentVersion === contentVersion) &&
-          page.descriptor.devicePixelRatioBucket === devicePixelRatioBucket &&
-          page.descriptor.sourceKey === sourceKey &&
-          page.descriptor.sourceVersion === sourceVersion &&
-          rectsIntersect(page.descriptor.sourceRectCss, lookupRect),
-      )
+      .flatMap((page) => {
+        const compatibility = isSemanticallyCompatibleRetainedPage(
+          page,
+          snapshot,
+          lookupRect,
+        );
+        return compatibility.kind === "compatible"
+          ? [{ compatibility, page }]
+          : [];
+      })
       .sort((left, right) =>
-        compareFallbackPagesForTarget({
+        compareCompatiblePagesForTarget({
           contentVersion,
-          left,
-          right,
+          left: left.page,
+          right: right.page,
           targetLodScale,
         }),
       );
+  }
+
+  getRejectedCommittedPagesForCoverage({
+    contentVersion,
+    devicePixelRatioBucket,
+    sourceKey,
+    sourceRectCss,
+    sourceVersion,
+    sourceWindowCss,
+    surfaceId,
+    targetLodScale,
+    viewportZoomBucket,
+  }: Omit<
+    RetainedTexturePageLookup,
+    "usedFrame"
+  >): readonly RetainedTexturePageRejectedCoverage[] {
+    const lookupRect = normalizeRect("sourceRectCss", sourceRectCss);
+    const snapshot = createRetainedContentSnapshot({
+      contentVersion,
+      devicePixelRatioBucket,
+      lodLevel: retainedTexturePageLodLevel(targetLodScale),
+      lodScale: targetLodScale,
+      scaleKey: retainedTexturePageScaleKey(targetLodScale),
+      sourceKey,
+      sourceRectCss: lookupRect,
+      sourceVersion,
+      sourceWindowCss: sourceWindowCss ?? lookupRect,
+      surfaceId,
+      tileColumn: 0,
+      tileRow: 0,
+      viewportZoomBucket,
+    });
+    return this.getCommittedPagesForLookup({ surfaceId }).flatMap((page) => {
+      const rect = intersectRects(page.contentRect, lookupRect);
+      if (!rect) {
+        return [];
+      }
+      const compatibility = isSemanticallyCompatibleRetainedPage(
+        page,
+        snapshot,
+        lookupRect,
+      );
+      return compatibility.kind === "incompatible"
+        ? [{ reason: compatibility.reason, rect }]
+        : [];
+    });
   }
 
   markCommittedPageUsed(
@@ -567,7 +676,7 @@ function normalizePageDescriptor(
   };
 }
 
-function compareFallbackPagesForTarget({
+function compareCompatiblePagesForTarget({
   contentVersion,
   left,
   right,
@@ -607,13 +716,18 @@ function rectContains(container: GpuRect, rect: GpuRect): boolean {
   );
 }
 
-function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
+function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
   );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
+  return width > 0 && height > 0 ? { height, width, x, y } : null;
 }
 
 function rectArea(rect: GpuRect): number {

@@ -36,6 +36,7 @@ describe("GPU retained content scroll controller", () => {
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
+    const store = createGpuFlowViewportStore();
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
     const requestFrame = vi.fn();
     const cleanup = attachGpuRetainedContentScrollController({
@@ -46,6 +47,7 @@ describe("GPU retained content scroll controller", () => {
         scrollOffsets = nextOffsets;
       },
       requestFrame,
+      store,
     });
 
     const event = new WheelEvent("wheel", {
@@ -73,6 +75,7 @@ describe("GPU retained content scroll controller", () => {
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
+    const store = createGpuFlowViewportStore();
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
     const requestFrame = vi.fn();
     const cleanup = attachGpuRetainedContentScrollController({
@@ -83,6 +86,7 @@ describe("GPU retained content scroll controller", () => {
         scrollOffsets = nextOffsets;
       },
       requestFrame,
+      store,
     });
 
     const event = new WheelEvent("wheel", {
@@ -164,6 +168,7 @@ describe("GPU retained content scroll controller", () => {
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
     document.body.append(element);
+    const store = createGpuFlowViewportStore();
     let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
     const requestFrame = vi.fn();
     const cleanup = attachGpuRetainedContentScrollController({
@@ -174,6 +179,7 @@ describe("GPU retained content scroll controller", () => {
         scrollOffsets = nextOffsets;
       },
       requestFrame,
+      store,
     });
 
     element.dispatchEvent(
@@ -187,11 +193,16 @@ describe("GPU retained content scroll controller", () => {
     );
     animationFrames.flush();
 
+    expect(store.getState().retainedContentScrolling).toBe(true);
+    expect(store.getState().viewportInteractionActive).toBe(true);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
     vi.advanceTimersByTime(119);
+    expect(store.getState().retainedContentScrolling).toBe(true);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
     vi.advanceTimersByTime(1);
+    expect(store.getState().retainedContentScrolling).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     cleanup();
@@ -226,15 +237,19 @@ describe("GPU retained content scroll controller", () => {
       }),
     );
     animationFrames.flush();
+    expect(store.getState().retainedContentScrolling).toBe(true);
     store.getState().setViewportInteractionFlags({ panScrolling: true });
 
     vi.advanceTimersByTime(120);
+    expect(store.getState().retainedContentScrolling).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(true);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
 
     store.getState().setViewportInteractionFlags({ panScrolling: false });
     vi.advanceTimersByTime(119);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
     vi.advanceTimersByTime(1);
+    expect(store.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     cleanup();

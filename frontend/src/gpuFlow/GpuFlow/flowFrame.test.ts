@@ -4,12 +4,14 @@ import { describe, expect, it } from "vitest";
 
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
+import type { GpuRect } from "../viewportMath";
 import {
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
   shouldReuseGpuFlowRetainedContentFrameCache,
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
+import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 
 describe("GPU flow frame helpers", () => {
   it("reports deactivated interaction nodes for final texture capture", () => {
@@ -116,7 +118,7 @@ describe("GPU flow frame helpers", () => {
         allowCoveredRefinementBacklog: true,
         cachedFrame: retainedFrameCache({
           contentSurfaces,
-          missingPageCount: 1,
+          refinementPageCount: 1,
         }),
         contentSurfaces,
         devicePixelRatio: 2,
@@ -131,8 +133,8 @@ describe("GPU flow frame helpers", () => {
         allowCoveredRefinementBacklog: true,
         cachedFrame: retainedFrameCache({
           contentSurfaces,
-          missingPageCount: 1,
-          uncoveredRectCount: 1,
+          refinementPageCount: 1,
+          trueHoleRectCount: 1,
         }),
         contentSurfaces,
         devicePixelRatio: 2,
@@ -141,12 +143,12 @@ describe("GPU flow frame helpers", () => {
         scrollRevision: 3,
         viewportZoomBucket: 1,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldReuseGpuFlowRetainedContentFrameCache({
         cachedFrame: retainedFrameCache({
           contentSurfaces,
-          missingPageCount: 1,
+          refinementPageCount: 1,
         }),
         contentSurfaces,
         devicePixelRatio: 2,
@@ -157,16 +159,68 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(false);
   });
+
+  it("limits retained preparation snapshot sources to current refinement pages", () => {
+    const runtimeFrame = retainedFrameWithSnapshotSources([
+      retainedSnapshotSource("source-a", "surface-a", {
+        height: 20,
+        width: 120,
+        x: 10,
+        y: 10,
+      }),
+      retainedSnapshotSource("source-b", "surface-b", {
+        height: 20,
+        width: 120,
+        x: 10,
+        y: 10,
+      }),
+      ...Array.from({ length: 64 }, (_, index) =>
+        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+          height: 20,
+          width: 120,
+          x: 0,
+          y: index * 24,
+        }),
+      ),
+    ]);
+    const preparedFrame = {
+      ...retainedFrameCache({
+        contentSurfaces: [],
+        refinementPageCount: 1,
+        trueHoleRectCount: 1,
+      }).preparedFrame,
+      refinementDescriptors: [
+        retainedTexturePageDescriptor("surface-a", {
+          height: 64,
+          width: 256,
+          x: 0,
+          y: 0,
+        }),
+      ],
+    };
+
+    const preparationFrame = createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame,
+      retainedRuntimeFrame: runtimeFrame,
+    });
+
+    expect(
+      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+        (source) => source.sourceId,
+      ),
+    ).toEqual(["source-a"]);
+    expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(1);
+  });
 });
 
 function retainedFrameCache({
   contentSurfaces,
-  missingPageCount = 0,
-  uncoveredRectCount = 0,
+  refinementPageCount = 0,
+  trueHoleRectCount = 0,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[];
-  readonly missingPageCount?: number | undefined;
-  readonly uncoveredRectCount?: number | undefined;
+  readonly refinementPageCount?: number | undefined;
+  readonly trueHoleRectCount?: number | undefined;
 }): GpuFlowRetainedContentFrameCache {
   return {
     contentSurfaces,
@@ -177,18 +231,20 @@ function retainedFrameCache({
       coverageCandidateCount: 0,
       drawQuadCount: 0,
       drawQuads: [],
-      fallbackDrawQuadCount: 0,
+      compatibleDrawQuadCount: 0,
+      fidelityState: trueHoleRectCount > 0 ? "refining" : "target",
       flatSurfaces: [],
       frame: 1,
       mergedDrawQuadCount: 0,
-      missingPageCount,
-      pendingStripVisuals: [],
+      refinementPageCount,
+      trueHoleVisuals: [],
       protectedPageKeys: [],
+      rejectedStaleRects: [],
       refinementDescriptors: [],
-      staleFallbackDrawQuadCount: 0,
+      rejectedStaleRectCount: 0,
       targetDescriptors: [],
-      uncoveredRectsCss: [],
-      uncoveredRectCount,
+      trueHoleRectsCss: [],
+      trueHoleRectCount,
     },
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 2,
@@ -201,6 +257,83 @@ function retainedFrameCache({
     }),
     sceneRevision: 7,
     scrollRevision: 3,
+    viewportZoomBucket: 1,
+  };
+}
+
+function retainedFrameWithSnapshotSources(
+  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"],
+): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"] {
+  const frame = createGpuRetainedRuntimeFrame({
+    devicePixelRatioBucket: 2,
+    frameId: 1,
+    scene: undefined,
+    scrollOffsets: new Map(),
+    scrollRevision: 3,
+    viewport: [0, 0, 1],
+    viewportZoomBucket: 1,
+  });
+  return {
+    ...frame,
+    descriptors: {
+      ...frame.descriptors,
+      textLikeRowSnapshotSources: sources,
+    },
+    diagnostics: {
+      ...frame.diagnostics,
+      textLikeSnapshotSourceCount: sources.length,
+    },
+  };
+}
+
+function retainedSnapshotSource(
+  sourceId: string,
+  surfaceId: string,
+  targetRectCss: GpuRect,
+): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"][number] {
+  return {
+    code: "",
+    commitPolicy: "native-island",
+    defaultValue: "",
+    disabled: false,
+    editorKind: "text",
+    error: false,
+    language: null,
+    linePolicy: "single-line",
+    maxVisibleLines: 1,
+    minVisibleLines: 1,
+    rendererFamily: "plain",
+    rowId: sourceId,
+    sectionId: "section-a",
+    sourceHeight: targetRectCss.height,
+    sourceId,
+    sourceKey: `${surfaceId}:${sourceId}`,
+    sourceWidth: targetRectCss.width,
+    surfaceId,
+    targetRectCss,
+    wrapLines: false,
+  };
+}
+
+function retainedTexturePageDescriptor(
+  surfaceId: string,
+  sourceRectCss: GpuRect,
+): GpuFlowRetainedContentFrameCache["preparedFrame"]["refinementDescriptors"][number] {
+  return {
+    contentVersion: 1,
+    devicePixelRatioBucket: 2,
+    lodLevel: 0,
+    lodScale: 1,
+    pixelHeight: Math.ceil(sourceRectCss.height),
+    pixelWidth: Math.ceil(sourceRectCss.width),
+    scaleKey: "scale=1",
+    sourceKey: `${surfaceId}:source`,
+    sourceRectCss,
+    sourceVersion: 1,
+    sourceWindowCss: sourceRectCss,
+    surfaceId,
+    tileColumn: 0,
+    tileRow: 0,
     viewportZoomBucket: 1,
   };
 }

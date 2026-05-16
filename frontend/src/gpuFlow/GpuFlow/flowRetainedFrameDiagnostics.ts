@@ -5,7 +5,6 @@ import {
   postMeasuredChromeReproEvent,
   roundChromeReproMs,
 } from "state/actions/chromeRepro";
-
 import type { GpuRetainedContentDrawCommand } from "../retainedContentScene";
 import type {
   RetainedContentTexturePageMaintenanceResult,
@@ -102,44 +101,47 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
   const state = {
     activeIslandTransactionMode: diagnostics.activeIslandTransaction.mode,
     continuityReason: continuityProof.reason,
+    compatiblePageCount: diagnostics.compatiblePageCount,
     coverageReadiness: diagnostics.coverageReadiness,
     desiredScrollRevision: diagnostics.desiredScrollRevision,
-    fallbackPageCount: diagnostics.fallbackPageCount,
-    missingPageCount: diagnostics.missingPageCount,
-    missingRectCount: proof.missingRects.length,
-    motionMaxConsecutivePendingFrames:
-      continuityProof.maxConsecutivePendingFrames,
+    exactPageCount: diagnostics.exactPageCount,
+    fidelityReadiness: diagnostics.fidelityReadiness,
+    motionMaxConsecutiveTrueHoleFrames:
+      continuityProof.maxConsecutiveTrueHoleFrames,
     motionOverlapCoveredAreaCssPx: roundChromeReproMs(
       continuityProof.overlapCoveredAreaCssPx,
     ),
-    pendingAreaCssPx: roundChromeReproMs(continuityProof.pendingAreaCssPx),
-    pendingAreaRatio: roundChromeReproMs(continuityProof.pendingAreaRatio),
-    pendingStripCount: proof.pendingStrips.length,
     preparedFrameId: preparedFrame.frame,
     publishedFrameId: publishedFrame.id,
     publishedPreparedFrameId: diagnostics.publishedPreparedFrameId,
     rejectedFrameCount: diagnostics.rejectedFrameCount,
-    scrollPublicationMode: diagnostics.scrollPublicationMode,
-    textureReadiness: diagnostics.textureReadiness,
-    uncoveredRectCount: diagnostics.uncoveredRectCount,
+    refinementPageCount: diagnostics.refinementPageCount,
+    trueHoleAreaCssPx: roundChromeReproMs(continuityProof.trueHoleAreaCssPx),
+    trueHoleAreaRatio: roundChromeReproMs(continuityProof.trueHoleAreaRatio),
+    trueHoleRectCount: diagnostics.trueHoleRectCount,
     viewportInteractionActive,
-    visibleRectCount: proof.visibleRects.length,
+    visibleRectCount: proof.visibleContentRects.length,
   };
   const verboseState = verbose
     ? {
         activeIslandTransaction: diagnostics.activeIslandTransaction,
-        fallbackRects: proof.fallbackRects
+        compatibleCoverageRects: proof.compatibleCoverageRects
           .slice(0, 24)
           .map(roundGpuFlowChromeReproRect),
-        missingRects: proof.missingRects
+        exactCoverageRects: proof.exactCoverageRects
           .slice(0, 24)
           .map(roundGpuFlowChromeReproRect),
-        pendingStrips: proof.pendingStrips.slice(0, 24).map((strip) => ({
-          reason: strip.reason,
-          rect: roundGpuFlowChromeReproRect(strip.rect),
-        })),
+        rejectedStaleRects: proof.rejectedStaleRects
+          .slice(0, 24)
+          .map((entry) => ({
+            reason: entry.reason,
+            rect: roundGpuFlowChromeReproRect(entry.rect),
+          })),
         rejectedPreparedFrameIds: proof.rejectedPreparedFrameIds.slice(-24),
-        visibleRects: proof.visibleRects
+        trueHoleRects: proof.trueHoleRects
+          .slice(0, 24)
+          .map(roundGpuFlowChromeReproRect),
+        visibleRects: proof.visibleContentRects
           .slice(0, 24)
           .map(roundGpuFlowChromeReproRect),
       }
@@ -184,7 +186,7 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
   const verbose = isChromeReproVerboseGpuFlowActive();
   const state = {
     drawQuadCount: preparedFrame.drawQuadCount,
-    missingPageCount: preparedFrame.missingPageCount,
+    refinementPageCount: preparedFrame.refinementPageCount,
     snapshotCount: snapshotSources.length,
     targetDescriptorCount: preparedFrame.targetDescriptors.length,
     textLikePassiveVisibility:
@@ -253,9 +255,9 @@ export function postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEven
     ),
     executedItemCount: maintenanceResult.executedItemCount,
     memory: maintenanceResult.memory,
-    missingPageCount: maintenanceResult.missingPageCount,
-    postMaintenanceMissingPageCount:
-      maintenanceResult.postMaintenanceMissingPageCount,
+    refinementPageCount: maintenanceResult.refinementPageCount,
+    postMaintenanceRefinementPageCount:
+      maintenanceResult.postMaintenanceRefinementPageCount,
     queuedWorkCount: maintenanceResult.queuedWorkCount,
     queuedWorkCountBeforeUpload: maintenanceResult.queuedWorkCountBeforeUpload,
     remainingUploadableWorkCount:

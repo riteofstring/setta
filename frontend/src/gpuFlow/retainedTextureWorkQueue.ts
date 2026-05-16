@@ -242,9 +242,6 @@ function isWorkItemUploadable(
   if (item.priority === "interactive") {
     return true;
   }
-  if (item.kind === "lod-refinement") {
-    return false;
-  }
   return !(item.kind === "source-window" && item.priority === "prefetch");
 }
 

@@ -148,7 +148,7 @@ describe("createRetainedTexturePageDescriptors", () => {
 });
 
 describe("createRetainedTexturePageDrawQuads", () => {
-  it("uses lower LOD committed pages as fallback for desired high LOD pages", () => {
+  it("uses lower LOD committed pages as compatible coverage for desired high LOD pages", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -159,7 +159,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
         scaleKey: retainedTexturePageScaleKey(1),
         sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
       }),
-      resource: "fallback",
+      resource: "compatible",
     });
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
@@ -182,14 +182,14 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         page: expect.objectContaining({
           lastUsedFrame: 10,
-          resource: "fallback",
+          resource: "compatible",
         }),
         sampleRectCss: { height: 32, width: 32, x: 64, y: 64 },
       }),
     ]);
   });
 
-  it("does not use stale content pages as fallback while current content pages are pending", () => {
+  it("does not use stale content pages as compatible coverage while current content pages are pending", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -224,12 +224,12 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [],
         refinementDescriptors: desiredPages,
-        uncoveredRectsCss: [{ height: 64, width: 64, x: 64, y: 64 }],
+        trueHoleRectsCss: [{ height: 64, width: 64, x: 64, y: 64 }],
       }),
     );
   });
 
-  it("uses committed same-surface content pages from previous scroll windows as fallback", () => {
+  it("uses committed same-surface content pages from previous scroll windows as compatible", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -258,19 +258,19 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [
           expect.objectContaining({
-            fallback: true,
+            coverageKind: "compatible",
             page: expect.objectContaining({
               resource: "previous-scroll-window",
             }),
             sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
           }),
         ],
-        uncoveredRectsCss: [],
+        trueHoleRectsCss: [],
       }),
     );
   });
 
-  it("uses committed content pages as fallback when zoom changes the source window size", () => {
+  it("uses committed content pages as compatible coverage when zoom changes the source window size", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -304,17 +304,17 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [
           expect.objectContaining({
-            fallback: true,
+            coverageKind: "compatible",
             page: expect.objectContaining({ resource: "compatible-content" }),
             sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
           }),
         ],
-        uncoveredRectsCss: [],
+        trueHoleRectsCss: [],
       }),
     );
   });
 
-  it("merges adjacent fallback quads that sample the same committed page", () => {
+  it("merges adjacent compatible quads that sample the same committed page", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -345,18 +345,18 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [
           expect.objectContaining({
-            fallback: true,
+            coverageKind: "compatible",
             page: expect.objectContaining({ resource: "wide-page" }),
             sampleRectCss: { height: 64, width: 128, x: 0, y: 0 },
           }),
         ],
         mergedDrawQuadCount: 1,
-        uncoveredRectsCss: [],
+        trueHoleRectsCss: [],
       }),
     );
   });
 
-  it("uses higher LOD committed pages as fallback for desired low LOD pages", () => {
+  it("uses higher LOD committed pages as compatible coverage for desired low LOD pages", () => {
     const cache = new RetainedTexturePageCache<string>();
     const highLodPages = [
       {
@@ -430,12 +430,12 @@ describe("createRetainedTexturePageDrawQuads", () => {
             page: expect.objectContaining({ resource: "bottom-right" }),
           }),
         ],
-        uncoveredRectsCss: [],
+        trueHoleRectsCss: [],
       }),
     );
   });
 
-  it("omits desired pages without a committed fallback", () => {
+  it("omits desired pages without a committed compatible", () => {
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 128, width: 128, x: 0, y: 0 },
       contentVersion: 1,
@@ -455,7 +455,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
     ).toEqual([]);
   });
 
-  it("covers one target page from multiple committed fallback pages", () => {
+  it("covers one target page from multiple committed compatible pages", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -507,12 +507,12 @@ describe("createRetainedTexturePageDrawQuads", () => {
           }),
         ],
         refinementDescriptors: desiredPages,
-        uncoveredRectsCss: [],
+        trueHoleRectsCss: [],
       }),
     );
   });
 
-  it("does not use committed pages from a different surface as fallback", () => {
+  it("does not use committed pages from a different surface as compatible", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
@@ -542,7 +542,7 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [],
         refinementDescriptors: desiredPages,
-        uncoveredRectsCss: [{ height: 64, width: 64, x: 0, y: 0 }],
+        trueHoleRectsCss: [{ height: 64, width: 64, x: 0, y: 0 }],
       }),
     );
   });

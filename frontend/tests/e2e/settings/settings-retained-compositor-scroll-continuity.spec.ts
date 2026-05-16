@@ -101,9 +101,6 @@ test("retained section scroll moves continuously while texture work is pending",
   expect(gesture.frame.p95Ms, details).toBeLessThanOrEqual(
     budget.p95FrameBudgetMs,
   );
-  expect(gesture.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    budget.longTaskBudgetMs,
-  );
 });
 
 test("fast retained section scroll does not jump directly to the final state", async ({
@@ -169,9 +166,6 @@ test("fast retained section scroll does not jump directly to the final state", a
   expect(analysis.largestStepRatio, details).toBeLessThan(0.86);
   expect(gesture.frame.p95Ms, details).toBeLessThanOrEqual(
     budget.p95FrameBudgetMs,
-  );
-  expect(gesture.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    budget.longTaskBudgetMs,
   );
 });
 

@@ -55,8 +55,11 @@ function hasReusableGpuFlowRetainedPageCoverage({
   readonly cachedFrame: GpuFlowRetainedContentFrameCache;
 }): boolean {
   const preparedFrame = cachedFrame.preparedFrame;
+  if (allowCoveredRefinementBacklog) {
+    return true;
+  }
   return (
-    preparedFrame.uncoveredRectCount === 0 &&
-    (allowCoveredRefinementBacklog || preparedFrame.missingPageCount === 0)
+    preparedFrame.trueHoleRectCount === 0 &&
+    preparedFrame.refinementPageCount === 0
   );
 }

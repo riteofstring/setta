@@ -89,7 +89,7 @@ describe("gpu viewport store", () => {
     expect(computeGpuReadyToBeVisible(store.getState())).toBe(true);
   });
 
-  it("treats resize, drag, and viewport animation as explicit viewport interactions", () => {
+  it("treats resize, drag, retained scroll, and viewport animation as explicit viewport interactions", () => {
     const store = createGpuFlowViewportStore();
 
     store.getState().setViewportInteractionFlags({ nodeResizing: true });
@@ -107,6 +107,19 @@ describe("gpu viewport store", () => {
     expect(store.getState().viewportInteractionActive).toBe(true);
 
     store.getState().setViewportInteractionFlags({ nodeDragging: false });
+
+    expect(store.getState().viewportInteractionActive).toBe(false);
+
+    store
+      .getState()
+      .setViewportInteractionFlags({ retainedContentScrolling: true });
+
+    expect(store.getState().retainedContentScrolling).toBe(true);
+    expect(store.getState().viewportInteractionActive).toBe(true);
+
+    store
+      .getState()
+      .setViewportInteractionFlags({ retainedContentScrolling: false });
 
     expect(store.getState().viewportInteractionActive).toBe(false);
 

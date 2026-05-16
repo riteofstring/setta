@@ -6,10 +6,12 @@ import {
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
   expectRetainedCompositorGestureWithinBudget,
+  installOptionalRetainedCompositorFrameProbe,
   measureRetainedCompositorControlCadence,
   measureRetainedCompositorGesture,
   openAllSettingsForRetainedCompositor,
   readNativePageScrollY,
+  readOptionalRetainedCompositorFrameProbe,
   readRetainedCompositorScrollSignature,
   readRetainedCompositorViewport,
   recordRetainedCompositorPerfSample,
@@ -17,6 +19,7 @@ import {
   resolveRetainedCompositorTarget,
   resolveRetainedCompositorViewportPoint,
   runNativeRetainedCompositorWheelBurst,
+  waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
 
 test.use({
@@ -113,6 +116,7 @@ test("retained-hover zoom sustains the same compositor cadence class as viewport
 test("retained section scroll and immediate retained-hover zoom preserve scroll ownership and content", async ({
   page,
 }) => {
+  await installOptionalRetainedCompositorFrameProbe(page);
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page);
   const target = await resolveRetainedCompositorTarget(
@@ -126,6 +130,7 @@ test("retained section scroll and immediate retained-hover zoom preserve scroll 
   );
   const beforeViewport = await readRetainedCompositorViewport(page);
   const beforePageScrollY = await readNativePageScrollY(page);
+  await waitForRetainedCompositorGestureIdle(page);
   const beforeVisual = await captureRetainedCompositorVisualStats(
     page,
     target.clip,
@@ -146,6 +151,7 @@ test("retained section scroll and immediate retained-hover zoom preserve scroll 
     page,
     target.clip,
   );
+  await waitForRetainedCompositorGestureIdle(page);
   const scrollThenZoom = await measureRetainedCompositorGesture(
     page,
     async () => {
@@ -169,6 +175,8 @@ test("retained section scroll and immediate retained-hover zoom preserve scroll 
     page,
     target.clip,
   );
+  const retainedFrameProbe =
+    await readOptionalRetainedCompositorFrameProbe(page);
   const scrollBudget = resolveRetainedCompositorCadenceBudget({
     controlCadence,
     eventSpacing: scrollGesture.eventSpacing,
@@ -182,6 +190,7 @@ test("retained section scroll and immediate retained-hover zoom preserve scroll 
       budgets: { scrollBudget, scrollThenZoomBudget },
       controlCadence,
       pageScroll: { after: afterPageScrollY, before: beforePageScrollY },
+      retainedFrameProbe,
       scrollGesture,
       scrollSignatures: {
         afterScroll: afterScrollSignature,

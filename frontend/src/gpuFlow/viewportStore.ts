@@ -47,6 +47,7 @@ type GpuViewportInteractionFlags = {
   readonly panScrolling?: boolean | undefined;
   readonly paneDragging?: boolean | undefined;
   readonly pointerPanning?: boolean | undefined;
+  readonly retainedContentScrolling?: boolean | undefined;
   readonly viewportAnimating?: boolean | undefined;
   readonly wheelZooming?: boolean | undefined;
 };
@@ -76,6 +77,7 @@ type GpuFlowViewportStoreState = {
   readonly panActivationKeyPressed: boolean;
   readonly paneDragging: boolean;
   readonly pointerPanning: boolean;
+  readonly retainedContentScrolling: boolean;
   readonly selectionKeyPressed: boolean;
   readonly transform: GpuViewportTuple;
   readonly viewportAnimating: boolean;
@@ -166,6 +168,7 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   panScrolling: false,
   paneDragging: false,
   pointerPanning: false,
+  retainedContentScrolling: false,
   selectionKeyPressed: false,
   transform: [0, 0, 1] as GpuViewportTuple,
   userSelectionActive: false,
@@ -639,6 +642,7 @@ function resolveGpuViewportInteractionState(
   | "panScrolling"
   | "paneDragging"
   | "pointerPanning"
+  | "retainedContentScrolling"
   | "viewportAnimating"
   | "viewportInteractionActive"
   | "wheelZooming"
@@ -650,6 +654,8 @@ function resolveGpuViewportInteractionState(
   const panScrolling = flags.panScrolling ?? state.panScrolling;
   const paneDragging = flags.paneDragging ?? state.paneDragging;
   const pointerPanning = flags.pointerPanning ?? state.pointerPanning;
+  const retainedContentScrolling =
+    flags.retainedContentScrolling ?? state.retainedContentScrolling;
   const viewportAnimating = flags.viewportAnimating ?? state.viewportAnimating;
   const wheelZooming = flags.wheelZooming ?? state.wheelZooming;
   const viewportInteractionActive = isGpuViewportInteractionActive([
@@ -657,6 +663,7 @@ function resolveGpuViewportInteractionState(
     nodeResizing,
     panScrolling,
     pointerPanning,
+    retainedContentScrolling,
     viewportAnimating,
     wheelZooming,
   ]);
@@ -666,6 +673,7 @@ function resolveGpuViewportInteractionState(
     panScrolling,
     paneDragging,
     pointerPanning,
+    retainedContentScrolling,
     viewportAnimating,
     viewportInteractionActive,
     wheelZooming,
@@ -682,6 +690,7 @@ function areGpuViewportInteractionStatesEqual(
     | "panScrolling"
     | "paneDragging"
     | "pointerPanning"
+    | "retainedContentScrolling"
     | "viewportAnimating"
     | "viewportInteractionActive"
     | "wheelZooming"
@@ -693,6 +702,7 @@ function areGpuViewportInteractionStatesEqual(
     | "panScrolling"
     | "paneDragging"
     | "pointerPanning"
+    | "retainedContentScrolling"
     | "viewportAnimating"
     | "viewportInteractionActive"
     | "wheelZooming"
@@ -706,6 +716,7 @@ function areGpuViewportInteractionStatesEqual(
     left.panScrolling === right.panScrolling &&
     left.paneDragging === right.paneDragging &&
     left.pointerPanning === right.pointerPanning &&
+    left.retainedContentScrolling === right.retainedContentScrolling &&
     left.viewportAnimating === right.viewportAnimating &&
     left.viewportInteractionActive === right.viewportInteractionActive &&
     left.wheelZooming === right.wheelZooming

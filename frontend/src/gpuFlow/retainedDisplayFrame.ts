@@ -1,4 +1,8 @@
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
+import type {
+  RetainedCompatibilityRejectReason,
+  RetainedFidelityState,
+} from "./retainedContentLifecycle";
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
@@ -25,18 +29,7 @@ export type RetainedSourceRevision = number;
 export type RetainedPageId = string;
 export type RetainedScaleBucket = number;
 
-export type CoverageReadiness =
-  | "complete"
-  | "pending-visible-strips"
-  | "explicit-loading-state";
-
-export type TextureReadiness = "ready" | "fallback" | "missing";
-
-export type ScrollPublicationMode =
-  | "publish-motion-frame"
-  | "publish-motion-frame-with-pending-strips"
-  | "publish-initial-loading-state"
-  | "reject-content-snapshot";
+export type CoverageReadiness = "covered" | "true-holes" | "initial-loading";
 
 export type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
   readonly frameId: RetainedFrameId;
@@ -57,66 +50,62 @@ export type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
 export type PublishedRetainedPage =
   RetainedTexturePageDrawQuad<RetainedContentTextureResources>;
 
-export type PublishedRetainedFallbackPage = PublishedRetainedPage & {
-  readonly fallback: true;
+export type PublishedRetainedCompatiblePage = PublishedRetainedPage & {
+  readonly coverageKind: "compatible";
 };
 
 export type PublishedRetainedHitIndex = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type RetainedPendingStrip = {
-  readonly rect: GpuRect;
-  readonly reason:
-    | "normal-edge-strip"
-    | "large-delta-no-overlap"
-    | "cache-cold"
-    | "content-incompatible";
-};
-
 export type RetainedMotionContinuityProof = {
   readonly overlapCoveredAreaCssPx: number;
-  readonly pendingAreaCssPx: number;
-  readonly pendingAreaRatio: number;
-  readonly maxConsecutivePendingFrames: number;
+  readonly trueHoleAreaCssPx: number;
+  readonly trueHoleAreaRatio: number;
+  readonly maxConsecutiveTrueHoleFrames: number;
   readonly reason:
-    | "normal-edge-strip"
+    | "normal-visible-edge"
     | "large-delta-no-overlap"
     | "cache-cold"
     | "content-incompatible";
 };
 
+type RetainedMotionContinuityReason = RetainedMotionContinuityProof["reason"];
+
 export type RetainedVisibleCoverageProof = {
-  readonly coveredRects: readonly GpuRect[];
-  readonly exactRects: readonly GpuRect[];
-  readonly fallbackRects: readonly GpuRect[];
+  readonly compatibleCoverageRects: readonly GpuRect[];
+  readonly exactCoverageRects: readonly GpuRect[];
+  readonly fidelityState: RetainedFidelityState;
   readonly impossibleRects: readonly GpuRect[];
-  readonly missingRects: readonly GpuRect[];
-  readonly pendingStrips: readonly RetainedPendingStrip[];
+  readonly rejectedStaleRects: readonly {
+    readonly reason: RetainedCompatibilityRejectReason;
+    readonly rect: GpuRect;
+  }[];
   readonly rejectedPreparedFrameIds: readonly RetainedFrameId[];
-  readonly visibleRects: readonly GpuRect[];
+  readonly trueHoleRects: readonly GpuRect[];
+  readonly visibleContentRects: readonly GpuRect[];
 };
 
 export type PublishedFrameDiagnostics = {
   readonly activeIslandTransaction: NativeIslandPublicationTransaction;
+  readonly compatiblePageCount: number;
   readonly continuityProof: RetainedMotionContinuityProof;
   readonly coverageReadiness: CoverageReadiness;
   readonly desiredScrollRevision: number;
-  readonly fallbackPageCount: number;
+  readonly exactPageCount: number;
+  readonly fidelityReadiness: RetainedFidelityState;
   readonly lastRejectedPreparedFrameId: RetainedFrameId | null;
-  readonly missingPageCount: number;
   readonly publishedPreparedFrameId: RetainedFrameId;
   readonly rejectedFrameCount: number;
-  readonly scrollPublicationMode: ScrollPublicationMode;
-  readonly textureReadiness: TextureReadiness;
-  readonly uncoveredRectCount: number;
+  readonly refinementPageCount: number;
+  readonly trueHoleRectCount: number;
 };
 
 export type RetainedDisplayFrame = {
   readonly activeIslandRects: readonly PublishedNativeIslandRect[];
   readonly coverageProof: RetainedVisibleCoverageProof;
   readonly diagnostics: PublishedFrameDiagnostics;
-  readonly fallbackPages: readonly PublishedRetainedFallbackPage[];
+  readonly compatiblePages: readonly PublishedRetainedCompatiblePage[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly hitIndex: PublishedRetainedHitIndex;
   readonly id: RetainedFrameId;
@@ -158,36 +147,28 @@ export function publishRetainedDisplayFrame({
     prepared,
     previous,
   });
-  if (proof.missingRects.length === 0) {
+  if (proof.trueHoleRects.length === 0) {
     return createComposedRetainedDisplayFrame({
-      coverageReadiness: "complete",
+      coverageReadiness: "covered",
       diagnosticsPrevious: previous,
       prepared,
       proof,
-      scrollPublicationMode: "publish-motion-frame",
-      textureReadiness:
-        prepared.pageFrame.fallbackDrawQuadCount > 0 ? "fallback" : "ready",
     });
   }
   if (!previous) {
     return createComposedRetainedDisplayFrame({
-      coverageReadiness: "explicit-loading-state",
+      coverageReadiness: "initial-loading",
       diagnosticsPrevious: null,
       prepared,
       proof,
-      scrollPublicationMode: "publish-initial-loading-state",
-      textureReadiness: "missing",
     });
   }
   void nowMs;
   return createComposedRetainedDisplayFrame({
-    coverageReadiness: "pending-visible-strips",
+    coverageReadiness: "true-holes",
     diagnosticsPrevious: previous,
     prepared,
     proof,
-    scrollPublicationMode: "publish-motion-frame-with-pending-strips",
-    textureReadiness:
-      prepared.pageFrame.drawQuadCount > 0 ? "fallback" : "missing",
   });
 }
 
@@ -196,24 +177,24 @@ function createComposedRetainedDisplayFrame({
   diagnosticsPrevious,
   prepared,
   proof,
-  scrollPublicationMode,
-  textureReadiness,
 }: {
   readonly coverageReadiness: CoverageReadiness;
   readonly diagnosticsPrevious: RetainedDisplayFrame | null;
   readonly prepared: RetainedDisplayFrameInput;
   readonly proof: RetainedVisibleCoverageProof;
-  readonly scrollPublicationMode: ScrollPublicationMode;
-  readonly textureReadiness: TextureReadiness;
 }): RetainedDisplayFrame {
-  const fallbackPages = prepared.pageFrame.drawQuads.filter(
-    (page): page is PublishedRetainedFallbackPage => page.fallback,
+  const compatiblePages = prepared.pageFrame.drawQuads.filter(
+    (page): page is PublishedRetainedCompatiblePage =>
+      page.coverageKind === "compatible",
   );
+  const exactPageCount = prepared.pageFrame.drawQuads.filter(
+    (page) => page.coverageKind === "exact",
+  ).length;
   const desiredActiveIslandRects = createPublishedNativeIslandRects(
     prepared.retainedRuntimeFrame,
   );
   const blockedPassiveDetachByCoverage =
-    proof.missingRects.length > 0 &&
+    proof.trueHoleRects.length > 0 &&
     desiredActiveIslandRects.length === 0 &&
     Boolean(diagnosticsPrevious?.activeIslandRects.length);
   const activeIslandRects = blockedPassiveDetachByCoverage
@@ -230,6 +211,7 @@ function createComposedRetainedDisplayFrame({
     coverageProof: proof,
     diagnostics: Object.freeze({
       activeIslandTransaction,
+      compatiblePageCount: compatiblePages.length,
       continuityProof: createRetainedMotionContinuityProof({
         prepared,
         previous: diagnosticsPrevious,
@@ -237,17 +219,16 @@ function createComposedRetainedDisplayFrame({
       }),
       coverageReadiness,
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
-      fallbackPageCount: fallbackPages.length,
+      exactPageCount,
+      fidelityReadiness: proof.fidelityState,
       lastRejectedPreparedFrameId: null,
-      missingPageCount: prepared.pageFrame.missingPageCount,
       publishedPreparedFrameId: prepared.id,
       rejectedFrameCount:
         diagnosticsPrevious?.diagnostics.rejectedFrameCount ?? 0,
-      scrollPublicationMode,
-      textureReadiness,
-      uncoveredRectCount: prepared.pageFrame.uncoveredRectCount,
+      refinementPageCount: prepared.pageFrame.refinementPageCount,
+      trueHoleRectCount: proof.trueHoleRects.length,
     }),
-    fallbackPages: Object.freeze(fallbackPages),
+    compatiblePages: Object.freeze(compatiblePages),
     flatSurfaces: prepared.pageFrame.flatSurfaces,
     hitIndex: Object.freeze({
       retainedRuntimeFrame: prepared.retainedRuntimeFrame,
@@ -272,45 +253,40 @@ function createVisibleCoverageProof({
   readonly prepared: RetainedDisplayFrameInput;
   readonly previous: RetainedDisplayFrame | null;
 }): RetainedVisibleCoverageProof {
-  const coveredRects = freezeRects(
-    prepared.pageFrame.drawQuads.map((quad) => quad.sampleRectCss),
-  );
-  const fallbackRects = freezeRects(
+  const compatibleCoverageRects = freezeRects(
     prepared.pageFrame.drawQuads
-      .filter((quad) => quad.fallback)
+      .filter((quad) => quad.coverageKind === "compatible")
       .map((quad) => quad.sampleRectCss),
   );
-  const exactRects = freezeRects(
+  const exactCoverageRects = freezeRects(
     prepared.pageFrame.drawQuads
-      .filter((quad) => !quad.fallback)
+      .filter((quad) => quad.coverageKind === "exact")
       .map((quad) => quad.sampleRectCss),
   );
-  const missingRects = freezeRects(prepared.pageFrame.uncoveredRectsCss);
-  const visibleRects = freezeRects(
+  const trueHoleRects = freezeRects(prepared.pageFrame.trueHoleRectsCss);
+  const visibleContentRects = freezeRects(
     prepared.pageFrame.targetDescriptors.map(
       (descriptor: RetainedTexturePageDescriptor) => descriptor.sourceRectCss,
     ),
   );
-  const reason = resolveRetainedMotionContinuityReason({
-    coveredRects,
-    missingRects,
-    prepared,
-    previous,
-    visibleRects,
-  });
   return Object.freeze({
-    coveredRects,
-    exactRects,
-    fallbackRects,
+    compatibleCoverageRects,
+    exactCoverageRects,
+    fidelityState: prepared.pageFrame.fidelityState,
     impossibleRects: Object.freeze([]),
-    missingRects,
-    pendingStrips: Object.freeze(
-      missingRects.map((rect) => Object.freeze({ reason, rect })),
+    rejectedStaleRects: Object.freeze(
+      prepared.pageFrame.rejectedStaleRects.map((entry) =>
+        Object.freeze({
+          reason: entry.reason,
+          rect: Object.freeze({ ...entry.rect }),
+        }),
+      ),
     ),
     rejectedPreparedFrameIds: Object.freeze([
       ...(previous?.coverageProof.rejectedPreparedFrameIds ?? []),
     ]),
-    visibleRects,
+    trueHoleRects,
+    visibleContentRects,
   });
 }
 
@@ -323,72 +299,74 @@ function createRetainedMotionContinuityProof({
   readonly previous: RetainedDisplayFrame | null;
   readonly proof: RetainedVisibleCoverageProof;
 }): RetainedMotionContinuityProof {
-  const reason =
-    proof.pendingStrips[0]?.reason ??
-    resolveRetainedMotionContinuityReason({
-      coveredRects: proof.coveredRects,
-      missingRects: proof.missingRects,
-      prepared,
-      previous,
-      visibleRects: proof.visibleRects,
-    });
-  const previousVisibleRects = previous?.coverageProof.visibleRects ?? [];
+  const reason = resolveRetainedMotionContinuityReason({
+    trueHoleRects: proof.trueHoleRects,
+    prepared,
+    previous,
+    visibleRects: proof.visibleContentRects,
+  });
+  const previousVisibleRects =
+    previous?.coverageProof.visibleContentRects ?? [];
   const visibleOverlapRects = intersectRectSets(
     previousVisibleRects,
-    proof.visibleRects,
+    proof.visibleContentRects,
   );
   const visibleOverlapArea = rectSetArea(visibleOverlapRects);
+  const coveredRects = [
+    ...proof.exactCoverageRects,
+    ...proof.compatibleCoverageRects,
+  ];
   const overlapCoveredArea = rectSetArea(
-    intersectRectSets(visibleOverlapRects, proof.coveredRects),
+    intersectRectSets(visibleOverlapRects, coveredRects),
   );
-  const pendingArea = rectSetArea(proof.missingRects);
-  const visibleArea = rectSetArea(proof.visibleRects);
-  const maxConsecutivePendingFrames =
-    getRetainedMotionConsecutivePendingFrameCount({
-      pendingArea,
+  const trueHoleArea = rectSetArea(proof.trueHoleRects);
+  const visibleArea = rectSetArea(proof.visibleContentRects);
+  const maxConsecutiveTrueHoleFrames =
+    getRetainedMotionConsecutiveTrueHoleFrameCount({
+      trueHoleArea,
       previous,
     });
   assertRetainedMotionContinuityCoveredOverlap({
     overlapCoveredArea,
-    pendingArea,
+    trueHoleArea,
     previous,
     reason,
     visibleOverlapArea,
   });
   return Object.freeze({
-    maxConsecutivePendingFrames,
+    maxConsecutiveTrueHoleFrames,
     overlapCoveredAreaCssPx: overlapCoveredArea,
-    pendingAreaCssPx: pendingArea,
-    pendingAreaRatio: ratioOrZero(pendingArea, visibleArea),
+    trueHoleAreaCssPx: trueHoleArea,
+    trueHoleAreaRatio: ratioOrZero(trueHoleArea, visibleArea),
     reason,
   });
 }
 
-function getRetainedMotionConsecutivePendingFrameCount({
-  pendingArea,
+function getRetainedMotionConsecutiveTrueHoleFrameCount({
+  trueHoleArea,
   previous,
 }: {
-  readonly pendingArea: number;
+  readonly trueHoleArea: number;
   readonly previous: RetainedDisplayFrame | null;
 }): number {
-  if (pendingArea <= 0) {
+  if (trueHoleArea <= 0) {
     return 0;
   }
   return (
-    (previous?.diagnostics.continuityProof.maxConsecutivePendingFrames ?? 0) +
+    (previous?.diagnostics.continuityProof.maxConsecutiveTrueHoleFrames ?? 0) +
     1
   );
 }
 
 function assertRetainedMotionContinuityCoveredOverlap({
   overlapCoveredArea,
-  pendingArea,
+  trueHoleArea,
   previous,
   reason,
   visibleOverlapArea,
 }: {
   readonly overlapCoveredArea: number;
-  readonly pendingArea: number;
+  readonly trueHoleArea: number;
   readonly previous: RetainedDisplayFrame | null;
   readonly reason: RetainedMotionContinuityReason;
   readonly visibleOverlapArea: number;
@@ -396,7 +374,7 @@ function assertRetainedMotionContinuityCoveredOverlap({
   if (
     shouldAssertRetainedMotionContinuityCoveredOverlap({
       overlapCoveredArea,
-      pendingArea,
+      trueHoleArea,
       previous,
       reason,
       visibleOverlapArea,
@@ -410,13 +388,13 @@ function assertRetainedMotionContinuityCoveredOverlap({
 
 function shouldAssertRetainedMotionContinuityCoveredOverlap({
   overlapCoveredArea,
-  pendingArea,
+  trueHoleArea,
   previous,
   reason,
   visibleOverlapArea,
 }: {
   readonly overlapCoveredArea: number;
-  readonly pendingArea: number;
+  readonly trueHoleArea: number;
   readonly previous: RetainedDisplayFrame | null;
   readonly reason: RetainedMotionContinuityReason;
   readonly visibleOverlapArea: number;
@@ -424,10 +402,10 @@ function shouldAssertRetainedMotionContinuityCoveredOverlap({
   return (
     isRetainedDisplayFrameTestRuntime() &&
     Boolean(previous?.pageFrame.drawQuadCount) &&
-    reason === "normal-edge-strip" &&
+    reason === "normal-visible-edge" &&
     visibleOverlapArea > 0 &&
     overlapCoveredArea <= 0 &&
-    pendingArea > 0
+    trueHoleArea > 0
   );
 }
 
@@ -436,19 +414,18 @@ function ratioOrZero(numerator: number, denominator: number): number {
 }
 
 function resolveRetainedMotionContinuityReason({
-  missingRects,
+  trueHoleRects,
   prepared,
   previous,
   visibleRects,
 }: {
-  readonly coveredRects: readonly GpuRect[];
-  readonly missingRects: readonly GpuRect[];
+  readonly trueHoleRects: readonly GpuRect[];
   readonly prepared: RetainedDisplayFrameInput;
   readonly previous: RetainedDisplayFrame | null;
   readonly visibleRects: readonly GpuRect[];
 }): RetainedMotionContinuityProof["reason"] {
-  if (missingRects.length === 0) {
-    return "normal-edge-strip";
+  if (trueHoleRects.length === 0) {
+    return "normal-visible-edge";
   }
   if (!previous) {
     return "cache-cold";
@@ -456,12 +433,12 @@ function resolveRetainedMotionContinuityReason({
   if (!hasCompatibleRetainedContentIdentity(previous, prepared)) {
     return "content-incompatible";
   }
-  const previousVisibleRects = previous.coverageProof.visibleRects;
+  const previousVisibleRects = previous.coverageProof.visibleContentRects;
   const visibleOverlapArea = rectSetArea(
     intersectRectSets(previousVisibleRects, visibleRects),
   );
   return visibleOverlapArea > 0
-    ? "normal-edge-strip"
+    ? "normal-visible-edge"
     : "large-delta-no-overlap";
 }
 

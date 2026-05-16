@@ -171,7 +171,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(firstFrame.uploadCount).toBe(1);
     expect(firstFrame.budgetExhausted).toBe(true);
     expect(firstFrame.flatSurfaces).toHaveLength(0);
-    expect(firstFrame.missingPageCount).toBe(4);
+    expect(firstFrame.refinementPageCount).toBe(4);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
 
     const secondFrame = renderFrame(fixture.manager, {
@@ -183,7 +183,7 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(secondFrame.uploadCount).toBe(1);
     expect(secondFrame.flatSurfaces).toHaveLength(1);
-    expect(secondFrame.missingPageCount).toBe(3);
+    expect(secondFrame.refinementPageCount).toBe(3);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
   });
 
@@ -200,7 +200,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(result.uploadCount).toBe(1);
     expect(result.budgetExhausted).toBe(true);
     expect(result.flatSurfaces).toEqual([]);
-    expect(result.missingPageCount).toBe(4);
+    expect(result.refinementPageCount).toBe(4);
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
   });
 
@@ -218,7 +218,7 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(deferred.uploadCount).toBe(0);
     expect(deferred.needsFollowUpFrame).toBe(false);
-    expect(deferred.missingPageCount).toBe(4);
+    expect(deferred.refinementPageCount).toBe(4);
     expect(fixture.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
 
     const maintenance = fixture.manager.runPostSubmitMaintenance({
@@ -275,9 +275,9 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 2,
     });
 
-    expect(zoomFrame.uploadCount).toBe(0);
+    expect(zoomFrame.uploadCount).toBe(1);
     expect(zoomFrame.flatSurfaces).toHaveLength(2);
-    expect(zoomFrame.missingPageCount).toBe(4);
+    expect(zoomFrame.refinementPageCount).toBe(4);
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
@@ -286,7 +286,7 @@ describe("RetainedContentTexturePageManager", () => {
     ]);
   });
 
-  it("queues bounded content invalidation without deleting committed fallback", () => {
+  it("queues bounded content invalidation without deleting committed compatible coverage", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -352,9 +352,9 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(replacementFrame.uploadCount).toBe(1);
     expect(replacementFrame.flatSurfaces).toHaveLength(0);
-    expect(replacementFrame.missingPageCount).toBe(1);
-    expect(replacementFrame.postMaintenanceMissingPageCount).toBe(0);
-    expect(replacementFrame.uncoveredRectCount).toBe(1);
+    expect(replacementFrame.refinementPageCount).toBe(1);
+    expect(replacementFrame.postMaintenanceRefinementPageCount).toBe(0);
+    expect(replacementFrame.trueHoleRectCount).toBe(1);
   });
 
   it("protects the last published pages while a replacement frame is prepared", () => {
@@ -397,7 +397,7 @@ describe("RetainedContentTexturePageManager", () => {
     });
 
     expect(publishedFrame.protectedPageKeys).toHaveLength(1);
-    expect(replacementFrame.missingPageCount).toBe(1);
+    expect(replacementFrame.refinementPageCount).toBe(1);
     expect(maintenance.uploadCount).toBe(1);
     expect(maintenance.evicted.evictedKeys).toHaveLength(0);
     expect(maintenance.memory.committedCount).toBe(2);
@@ -470,11 +470,11 @@ describe("RetainedContentTexturePageManager", () => {
 
     expect(replacementFrame.uploadCount).toBe(1);
     expect(replacementFrame.drawQuadCount).toBe(1);
-    expect(replacementFrame.fallbackDrawQuadCount).toBe(0);
-    expect(replacementFrame.staleFallbackDrawQuadCount).toBe(0);
-    expect(replacementFrame.missingPageCount).toBe(1);
-    expect(replacementFrame.postMaintenanceMissingPageCount).toBe(0);
-    expect(replacementFrame.uncoveredRectCount).toBe(1);
+    expect(replacementFrame.compatibleDrawQuadCount).toBe(0);
+    expect(replacementFrame.rejectedStaleRectCount).toBe(1);
+    expect(replacementFrame.refinementPageCount).toBe(1);
+    expect(replacementFrame.postMaintenanceRefinementPageCount).toBe(0);
+    expect(replacementFrame.trueHoleRectCount).toBe(1);
   });
 
   it("refreshes row content before reporting the row as fresh again", () => {
@@ -644,7 +644,7 @@ describe("RetainedContentTexturePageManager", () => {
     });
 
     expect(preparedFrame.flatSurfaces).toHaveLength(0);
-    expect(preparedFrame.missingPageCount).toBe(1);
+    expect(preparedFrame.refinementPageCount).toBe(1);
     expect(maintenance.uploadCount).toBe(1);
     expect(maintenance.budgetExhausted).toBe(false);
     expect(maintenance.needsFollowUpFrame).toBe(true);
@@ -656,7 +656,7 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
     expect(nextPreparedFrame.flatSurfaces).toHaveLength(1);
-    expect(nextPreparedFrame.missingPageCount).toBe(0);
+    expect(nextPreparedFrame.refinementPageCount).toBe(0);
   });
 
   it("increments drawable revision when committed retained pages change", () => {
@@ -918,7 +918,7 @@ function renderFrame(
   return {
     ...maintenance,
     flatSurfaces: preparedFrame.flatSurfaces,
-    missingPageCount: preparedFrame.missingPageCount,
+    refinementPageCount: preparedFrame.refinementPageCount,
   };
 }
 

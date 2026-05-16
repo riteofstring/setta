@@ -208,7 +208,7 @@ describe("RetainedTexturePageCache", () => {
     ).toEqual(expect.objectContaining({ resource: "sharp" }));
   });
 
-  it("does not use pending pages as renderer fallback", () => {
+  it("does not use pending pages as compatible renderer coverage", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.stagePendingPage({
       descriptor: page({
@@ -233,7 +233,7 @@ describe("RetainedTexturePageCache", () => {
     ).toBeNull();
   });
 
-  it("evicts high LOD unprotected pages before protected fallback pages", () => {
+  it("evicts high LOD unprotected pages before protected compatible pages", () => {
     const destroyed: string[] = [];
     const cache = new RetainedTexturePageCache<string>({
       destroyResource: (resource) => destroyed.push(resource),

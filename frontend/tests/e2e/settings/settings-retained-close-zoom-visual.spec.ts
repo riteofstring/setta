@@ -112,12 +112,12 @@ type RetainedTextureFrameSample = {
   readonly frameReasons: readonly string[];
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageDrawQuadCount: number;
-  readonly retainedTexturePageFallbackDrawQuadCount: number;
+  readonly retainedTexturePageCompatibleDrawQuadCount: number;
   readonly retainedTexturePageMemoryCommittedCount: number;
   readonly retainedTexturePageMemoryRetiredBytes: number;
   readonly retainedTexturePageMemoryRetiredCount: number;
-  readonly retainedTexturePageMissingPageCount: number;
-  readonly retainedTexturePageUncoveredRectCount: number;
+  readonly retainedTexturePageRefinementPageCount: number;
+  readonly retainedTexturePageTrueHoleRectCount: number;
   readonly retainedTexturePageUploadedDrawCommandCount: number;
   readonly retainedTexturePageUploadCount: number;
   readonly viewportZoom: number;
@@ -263,12 +263,12 @@ async function installGpuFrameProbe(page: Page): Promise<void> {
         readonly frameReasons: readonly string[];
         readonly retainedTexturePageBudgetExhausted: boolean;
         readonly retainedTexturePageDrawQuadCount: number;
-        readonly retainedTexturePageFallbackDrawQuadCount: number;
+        readonly retainedTexturePageCompatibleDrawQuadCount: number;
         readonly retainedTexturePageMemoryCommittedCount: number;
         readonly retainedTexturePageMemoryRetiredBytes: number;
         readonly retainedTexturePageMemoryRetiredCount: number;
-        readonly retainedTexturePageMissingPageCount: number;
-        readonly retainedTexturePageUncoveredRectCount: number;
+        readonly retainedTexturePageRefinementPageCount: number;
+        readonly retainedTexturePageTrueHoleRectCount: number;
         readonly retainedTexturePageUploadedDrawCommandCount: number;
         readonly retainedTexturePageUploadCount: number;
         readonly viewport: { readonly zoom: number };
@@ -280,18 +280,18 @@ async function installGpuFrameProbe(page: Page): Promise<void> {
             event.retainedTexturePageBudgetExhausted,
           retainedTexturePageDrawQuadCount:
             event.retainedTexturePageDrawQuadCount,
-          retainedTexturePageFallbackDrawQuadCount:
-            event.retainedTexturePageFallbackDrawQuadCount,
+          retainedTexturePageCompatibleDrawQuadCount:
+            event.retainedTexturePageCompatibleDrawQuadCount,
           retainedTexturePageMemoryCommittedCount:
             event.retainedTexturePageMemoryCommittedCount,
           retainedTexturePageMemoryRetiredBytes:
             event.retainedTexturePageMemoryRetiredBytes,
           retainedTexturePageMemoryRetiredCount:
             event.retainedTexturePageMemoryRetiredCount,
-          retainedTexturePageMissingPageCount:
-            event.retainedTexturePageMissingPageCount,
-          retainedTexturePageUncoveredRectCount:
-            event.retainedTexturePageUncoveredRectCount,
+          retainedTexturePageRefinementPageCount:
+            event.retainedTexturePageRefinementPageCount,
+          retainedTexturePageTrueHoleRectCount:
+            event.retainedTexturePageTrueHoleRectCount,
           retainedTexturePageUploadedDrawCommandCount:
             event.retainedTexturePageUploadedDrawCommandCount,
           retainedTexturePageUploadCount: event.retainedTexturePageUploadCount,

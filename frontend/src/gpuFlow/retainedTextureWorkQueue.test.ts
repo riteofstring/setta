@@ -101,7 +101,7 @@ describe("RetainedTextureWorkQueue", () => {
     ]);
   });
 
-  it("filters passive refinement during active viewport interaction", () => {
+  it("allows visible refinement but filters prefetch during active viewport interaction", () => {
     const queue = new RetainedTextureWorkQueue();
 
     queue.enqueue({
@@ -136,6 +136,7 @@ describe("RetainedTextureWorkQueue", () => {
       [
         expect.objectContaining({ kind: "content-rect" }),
         expect.objectContaining({ kind: "first-visible" }),
+        expect.objectContaining({ kind: "lod-refinement" }),
       ],
     );
     expect(queue.hasUploadableWork({ viewportInteractionActive: true })).toBe(

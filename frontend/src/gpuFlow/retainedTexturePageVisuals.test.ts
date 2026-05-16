@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { createRetainedCommittedPageLifecycle } from "./retainedContentLifecycle";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   createRetainedTexturePageFlatVisuals,
-  createRetainedTexturePagePendingStripVisuals,
+  createRetainedTexturePageTrueHoleVisuals,
 } from "./retainedTexturePageVisuals";
 import {
   retainedTexturePageLodLevel,
@@ -37,8 +38,9 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     const visuals = createRetainedTexturePageFlatVisuals({
       drawQuads: [
         {
+          coverageKind: "exact",
           desiredDescriptor: page.descriptor,
-          fallback: false,
+          fidelityState: "target",
           page,
           sampleRectCss: { height: 10, width: 20, x: 70, y: 40 },
           staleContent: false,
@@ -60,7 +62,7 @@ describe("createRetainedTexturePageFlatVisuals", () => {
       height: 10,
       kind: "flat",
       surfaceId: page.key,
-      textureCoordinates: { u0: 0.7, u1: 0.9, v0: 0.4, v1: 0.5 },
+      textureCoordinates: { u0: 0.7000000000000001, u1: 0.9, v0: 0.4, v1: 0.5 },
       width: 20,
       x: 250,
       y: 310,
@@ -76,8 +78,9 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     const visuals = createRetainedTexturePageFlatVisuals({
       drawQuads: [
         {
+          coverageKind: "exact",
           desiredDescriptor: page.descriptor,
-          fallback: false,
+          fidelityState: "target",
           page,
           sampleRectCss: { height: 20, width: 40, x: 0, y: 0 },
           staleContent: false,
@@ -111,8 +114,9 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     const visuals = createRetainedTexturePageFlatVisuals({
       drawQuads: [
         {
+          coverageKind: "exact",
           desiredDescriptor: page.descriptor,
-          fallback: false,
+          fidelityState: "target",
           page,
           sampleRectCss: { height: 10, width: 10, x: 0, y: 0 },
           staleContent: false,
@@ -131,8 +135,8 @@ describe("createRetainedTexturePageFlatVisuals", () => {
     expect(visuals).toEqual([]);
   });
 
-  it("maps pending retained strips into explicit surface-space visuals", () => {
-    const visuals = createRetainedTexturePagePendingStripVisuals({
+  it("maps retained true holes into quiet surface-space visuals", () => {
+    const visuals = createRetainedTexturePageTrueHoleVisuals({
       layout: {
         height: 40,
         surfaceId: "surface-a",
@@ -142,14 +146,14 @@ describe("createRetainedTexturePageFlatVisuals", () => {
         y: 200,
         zIndex: 5,
       },
-      pendingRects: [{ height: 10, width: 20, x: 60, y: 50 }],
+      trueHoleRects: [{ height: 10, width: 20, x: 60, y: 50 }],
     });
 
     expect(visuals).toEqual([
       expect.objectContaining({
         kind: "solid-rounded-rect",
         rect: { height: 10, width: 40, x: 180, y: 220 },
-        surfaceId: "surface-a:retained-pending:60:50:20:10",
+        surfaceId: "surface-a:retained-true-hole:60:50:20:10",
         zIndex: 5.01,
       }),
     ]);
@@ -184,5 +188,6 @@ function createCommittedPage(
     key: "surface-a:page",
     lastUsedFrame: 11,
     resource: RESOURCE,
+    ...createRetainedCommittedPageLifecycle(descriptor),
   };
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import {
   SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
@@ -6,10 +6,12 @@ import {
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
   expectRetainedCompositorGestureWithinBudget,
+  installOptionalRetainedCompositorFrameProbe,
   measureRetainedCompositorControlCadence,
   measureRetainedCompositorGesture,
   openAllSettingsForRetainedCompositor,
   readNativePageScrollY,
+  readOptionalRetainedCompositorFrameProbe,
   readRetainedCompositorSceneSummary,
   readRetainedCompositorScrollSignature,
   readRetainedCompositorViewport,
@@ -20,6 +22,11 @@ import {
   runNativeRetainedCompositorWheelBurst,
   waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
+import {
+  analyzeHorizontalPlaceholderBands,
+  type HorizontalPlaceholderBandStats,
+  type Rect,
+} from "./settings-retained-visual-analysis";
 
 test.use({
   userAgent:
@@ -30,7 +37,8 @@ test.use({
 
 test("all-settings retained compositor gestures stay within the measured cadence cap", async ({
   page,
-}) => {
+}, testInfo) => {
+  await installOptionalRetainedCompositorFrameProbe(page);
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(
     page,
@@ -50,6 +58,18 @@ test("all-settings retained compositor gestures stay within the measured cadence
     page,
     target.clip,
   );
+  const bandStats: Array<{
+    readonly name: string;
+    readonly stats: HorizontalPlaceholderBandStats;
+  }> = [];
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-before.png",
+      page,
+      testInfo,
+    }),
+  );
 
   await waitForRetainedCompositorGestureIdle(page);
   const pan = await measureRetainedCompositorGesture(page, () =>
@@ -60,6 +80,14 @@ test("all-settings retained compositor gestures stay within the measured cadence
     }),
   );
   const afterPanViewport = await readRetainedCompositorViewport(page);
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-after-pan.png",
+      page,
+      testInfo,
+    }),
+  );
   await waitForRetainedCompositorGestureIdle(page);
   const zoom = await measureRetainedCompositorGesture(page, () =>
     dispatchRetainedCompositorWheelBurst(page, {
@@ -69,6 +97,14 @@ test("all-settings retained compositor gestures stay within the measured cadence
       point: viewportPoint,
     }),
   );
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-after-zoom.png",
+      page,
+      testInfo,
+    }),
+  );
   await waitForRetainedCompositorGestureIdle(page);
   const retainedHoverZoom = await measureRetainedCompositorGesture(page, () =>
     dispatchRetainedCompositorWheelBurst(page, {
@@ -76,6 +112,14 @@ test("all-settings retained compositor gestures stay within the measured cadence
       deltaY: -0.25,
       eventCount: 96,
       point: target.point,
+    }),
+  );
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-after-retained-hover-zoom.png",
+      page,
+      testInfo,
     }),
   );
   await waitForRetainedCompositorGestureIdle(page);
@@ -89,6 +133,14 @@ test("all-settings retained compositor gestures stay within the measured cadence
   const afterScrollSignature = await readRetainedCompositorScrollSignature(
     page,
     target.surfaceId,
+  );
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-after-retained-scroll.png",
+      page,
+      testInfo,
+    }),
   );
   await waitForRetainedCompositorGestureIdle(page);
   const scrollThenRetainedHoverZoom = await measureRetainedCompositorGesture(
@@ -114,6 +166,14 @@ test("all-settings retained compositor gestures stay within the measured cadence
     page,
     target.clip,
   );
+  bandStats.push(
+    await captureRetainedCompositorBandStats({
+      clip: target.clip,
+      name: "large-scene-after-mixed.png",
+      page,
+      testInfo,
+    }),
+  );
   const gestures = {
     pan,
     retainedHoverZoom,
@@ -121,6 +181,8 @@ test("all-settings retained compositor gestures stay within the measured cadence
     scrollThenRetainedHoverZoom,
     zoom,
   };
+  const retainedFrameProbe =
+    await readOptionalRetainedCompositorFrameProbe(page);
   const budgets = {
     pan: resolveRetainedCompositorCadenceBudget({
       controlCadence,
@@ -146,9 +208,11 @@ test("all-settings retained compositor gestures stay within the measured cadence
   const details = JSON.stringify(
     {
       budgets,
+      bandStats,
       controlCadence,
       gestures,
       pageScroll: { after: afterPageScrollY, before: beforePageScrollY },
+      retainedFrameProbe,
       scene,
       scrollSignatures: {
         afterScroll: afterScrollSignature,
@@ -184,47 +248,70 @@ test("all-settings retained compositor gestures stay within the measured cadence
   expect(afterPageScrollY, details).toBe(beforePageScrollY);
   expect(beforeVisual.nonblankRatio, details).toBeGreaterThan(0.01);
   expect(afterVisual.nonblankRatio, details).toBeGreaterThan(0.01);
+  expect(
+    bandStats.filter((sample) => sample.stats.highConfidencePlaceholder),
+    details,
+  ).toEqual([]);
   expect(retainedHoverZoom.frame.p95Ms, details).toBeLessThanOrEqual(
     Math.max(budgets.retainedHoverZoom.p95FrameBudgetMs, zoom.frame.p95Ms + 8),
   );
-  await test.step(
-    "large complex scene panning stays within the interaction frame budget",
-    async () => {
-      expectRetainedCompositorGestureWithinBudget({
-        budget: budgets.pan,
-        details,
-        gesture: pan,
-      });
-    },
-  );
-  await test.step(
-    "large complex scene zooming stays within the interaction frame budget",
-    async () => {
-      expectRetainedCompositorGestureWithinBudget({
-        budget: budgets.zoom,
-        details,
-        gesture: zoom,
-      });
-      expectRetainedCompositorGestureWithinBudget({
-        budget: budgets.retainedHoverZoom,
-        details,
-        gesture: retainedHoverZoom,
-      });
-    },
-  );
-  await test.step(
-    "large complex retained section scrolling stays within the interaction frame budget",
-    async () => {
-      expectRetainedCompositorGestureWithinBudget({
-        budget: budgets.retainedScroll,
-        details,
-        gesture: retainedScroll,
-      });
-    },
-  );
+  await test.step("large complex scene panning stays within the interaction frame budget", async () => {
+    expectRetainedCompositorGestureWithinBudget({
+      budget: budgets.pan,
+      details,
+      gesture: pan,
+    });
+  });
+  await test.step("large complex scene zooming stays within the interaction frame budget", async () => {
+    expectRetainedCompositorGestureWithinBudget({
+      budget: budgets.zoom,
+      details,
+      gesture: zoom,
+    });
+    expectRetainedCompositorGestureWithinBudget({
+      budget: budgets.retainedHoverZoom,
+      details,
+      gesture: retainedHoverZoom,
+    });
+  });
+  await test.step("large complex retained section scrolling stays within the interaction frame budget", async () => {
+    expectRetainedCompositorGestureWithinBudget({
+      budget: budgets.retainedScroll,
+      details,
+      gesture: retainedScroll,
+    });
+  });
   expectRetainedCompositorGestureWithinBudget({
     budget: budgets.scrollThenRetainedHoverZoom,
     details,
     gesture: scrollThenRetainedHoverZoom,
   });
 });
+
+async function captureRetainedCompositorBandStats({
+  clip,
+  name,
+  page,
+  testInfo,
+}: {
+  readonly clip: Rect;
+  readonly name: string;
+  readonly page: Page;
+  readonly testInfo: TestInfo;
+}): Promise<{
+  readonly name: string;
+  readonly stats: HorizontalPlaceholderBandStats;
+}> {
+  const screenshot = await page.screenshot({
+    clip,
+    path: testInfo.outputPath(name),
+  });
+  await testInfo.attach(name, {
+    body: screenshot,
+    contentType: "image/png",
+  });
+  return {
+    name,
+    stats: await analyzeHorizontalPlaceholderBands(page, { screenshot }),
+  };
+}

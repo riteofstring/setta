@@ -70,7 +70,7 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   await waitForGpuTextureUploadQuiet(page);
 
   const target = await resolveScrollableSettingsRetainedTarget(page);
-  const beforeVisualStats = await captureRetainedScrollTargetVisualStats({
+  const beforeVisualStats = await waitForRetainedScrollTargetVisualStats({
     page,
     phase: "before-wheel",
     target,
@@ -655,6 +655,34 @@ async function resolveScrollableSettingsRetainedTarget(
 }
 
 async function captureRetainedScrollTargetVisualStats({
+  attach = true,
+  page,
+  phase,
+  target,
+  testInfo,
+}: {
+  readonly attach?: boolean | undefined;
+  readonly page: Page;
+  readonly phase: string;
+  readonly target: ScrollTarget;
+  readonly testInfo: TestInfo;
+}): Promise<RetainedVisualStats> {
+  const screenshot = await page.screenshot({
+    clip: target.screenshotClip,
+    ...(attach
+      ? { path: testInfo.outputPath(`retained-scroll-${phase}.png`) }
+      : {}),
+  });
+  if (attach) {
+    await testInfo.attach(`retained-scroll-${phase}.png`, {
+      body: screenshot,
+      contentType: "image/png",
+    });
+  }
+  return await analyzeRetainedVisualScreenshot(page, screenshot);
+}
+
+async function waitForRetainedScrollTargetVisualStats({
   page,
   phase,
   target,
@@ -665,15 +693,25 @@ async function captureRetainedScrollTargetVisualStats({
   readonly target: ScrollTarget;
   readonly testInfo: TestInfo;
 }): Promise<RetainedVisualStats> {
-  const screenshot = await page.screenshot({
-    clip: target.screenshotClip,
-    path: testInfo.outputPath(`retained-scroll-${phase}.png`),
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const stats = await captureRetainedScrollTargetVisualStats({
+      attach: false,
+      page,
+      phase,
+      target,
+      testInfo,
+    });
+    if (stats.brightPixelRatio > 0.01 && stats.textBandCount > 3) {
+      break;
+    }
+    await page.waitForTimeout(120);
+  }
+  return await captureRetainedScrollTargetVisualStats({
+    page,
+    phase,
+    target,
+    testInfo,
   });
-  await testInfo.attach(`retained-scroll-${phase}.png`, {
-    body: screenshot,
-    contentType: "image/png",
-  });
-  return await analyzeRetainedVisualScreenshot(page, screenshot);
 }
 
 async function analyzeRetainedVisualScreenshot(

@@ -100,6 +100,7 @@ export type GpuFlowInteractionDiagnostics = {
     readonly panScrolling: boolean;
     readonly paneDragging: boolean;
     readonly pointerPanning: boolean;
+    readonly retainedContentScrolling: boolean;
     readonly selectionKeyPressed: boolean;
     readonly transform: {
       readonly x: number;
@@ -192,6 +193,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
       panScrolling: viewportState.panScrolling,
       paneDragging: viewportState.paneDragging,
       pointerPanning: viewportState.pointerPanning,
+      retainedContentScrolling: viewportState.retainedContentScrolling,
       selectionKeyPressed: viewportState.selectionKeyPressed,
       transform: {
         x: roundGpuFlowDiagnosticsNumber(viewport.x),

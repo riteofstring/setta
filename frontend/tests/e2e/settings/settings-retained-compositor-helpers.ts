@@ -698,6 +698,88 @@ export function recordRetainedCompositorPerfSample({
   );
 }
 
+export async function installOptionalRetainedCompositorFrameProbe(page: Page) {
+  if (process.env.SETTA_RETAINED_COMPOSITOR_FRAME_PROBE !== "1") {
+    return;
+  }
+  await page.addInitScript(() => {
+    const samples: unknown[] = [];
+    (
+      window as Window & {
+        __settaRetainedCompositorFrameProbe?: typeof samples;
+        __settaGpuFlowPerformanceProbe?: {
+          readonly recordNodeLayerFrame: (event: unknown) => void;
+        };
+      }
+    ).__settaRetainedCompositorFrameProbe = samples;
+    (
+      window as Window & {
+        __settaGpuFlowPerformanceProbe?: {
+          readonly recordNodeLayerFrame: (event: unknown) => void;
+        };
+      }
+    ).__settaGpuFlowPerformanceProbe = {
+      recordNodeLayerFrame(event: unknown) {
+        samples.push(event);
+        if (samples.length > 240) {
+          samples.shift();
+        }
+      },
+    };
+  });
+}
+
+export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
+  if (process.env.SETTA_RETAINED_COMPOSITOR_FRAME_PROBE !== "1") {
+    return null;
+  }
+  return await page.evaluate(() => {
+    const samples =
+      (
+        window as Window & {
+          readonly __settaRetainedCompositorFrameProbe?: readonly unknown[];
+        }
+      ).__settaRetainedCompositorFrameProbe ?? [];
+    return samples
+      .map((sample) => {
+        const event =
+          sample && typeof sample === "object"
+            ? (sample as Record<string, unknown>)
+            : {};
+        return {
+          deferResolutionUpdates: event.deferResolutionUpdates,
+          durationMs: event.durationMs,
+          frame: event.frame,
+          frameReasons: event.frameReasons,
+          retainedTexturePageDrawQuadCount:
+            event.retainedTexturePageDrawQuadCount,
+          retainedTexturePageRasterMs: event.retainedTexturePageRasterMs,
+          retainedTexturePageRefinementPageCount:
+            event.retainedTexturePageRefinementPageCount,
+          retainedTexturePageTargetDescriptorCount:
+            event.retainedTexturePageTargetDescriptorCount,
+          retainedTexturePageTrueHoleRectCount:
+            event.retainedTexturePageTrueHoleRectCount,
+          retainedTexturePageUploadedBytes:
+            event.retainedTexturePageUploadedBytes,
+          retainedTexturePageUploadedDrawCommandCount:
+            event.retainedTexturePageUploadedDrawCommandCount,
+          retainedTexturePageUploadCount: event.retainedTexturePageUploadCount,
+          retainedTexturePageUploadMs: event.retainedTexturePageUploadMs,
+          viewport: event.viewport,
+          viewportFrame: event.viewportFrame,
+        };
+      })
+      .filter(
+        (sample) =>
+          Number(sample.durationMs) >= 16 ||
+          Number(sample.retainedTexturePageUploadCount) > 0 ||
+          Number(sample.retainedTexturePageTrueHoleRectCount) > 0,
+      )
+      .slice(-80);
+  });
+}
+
 function summarizeIntervals(
   values: readonly number[],
 ): RetainedCompositorIntervalStats {

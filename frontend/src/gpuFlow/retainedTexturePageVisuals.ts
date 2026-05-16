@@ -3,6 +3,7 @@ import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
 } from "./htmlSurfaces/visualScene";
+import { retainedContentRectToTextureRect } from "./retainedContentLifecycle";
 import {
   getRetainedContentTextureResourceRegion,
   type RetainedContentTextureResources,
@@ -52,82 +53,34 @@ export function createRetainedTexturePageFlatVisuals({
   return visuals;
 }
 
-export function createRetainedTexturePagePendingStripVisuals({
-  pendingRects,
+export function createRetainedTexturePageTrueHoleVisuals({
   layout,
+  trueHoleRects,
 }: {
-  readonly pendingRects: readonly GpuRect[];
   readonly layout: RetainedTexturePageSurfaceLayout;
+  readonly trueHoleRects: readonly GpuRect[];
 }): readonly HtmlSurfaceSolidRoundedRectVisual[] {
   const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
-  for (const pendingRect of pendingRects) {
-    const visiblePendingRect = intersectRects(
-      pendingRect,
+  for (const trueHoleRect of trueHoleRects) {
+    const visibleTrueHoleRect = intersectRects(
+      trueHoleRect,
       layout.textureSourceRect,
     );
-    if (!visiblePendingRect) {
+    if (!visibleTrueHoleRect) {
       continue;
     }
     visuals.push({
-      color: { a: 0.78, b: 0.2, g: 0.19, r: 0.18 },
+      color: { a: 0.78, b: 0.12, g: 0.115, r: 0.11 },
       kind: "solid-rounded-rect",
       radius: 0,
-      rect: toFlowRect(layout, visiblePendingRect),
-      surfaceId: `${layout.surfaceId}:retained-pending:${rectKey(
-        visiblePendingRect,
+      rect: toFlowRect(layout, visibleTrueHoleRect),
+      surfaceId: `${layout.surfaceId}:retained-true-hole:${rectKey(
+        visibleTrueHoleRect,
       )}`,
       zIndex: (layout.zIndex ?? 0) + 0.01,
     });
-    visuals.push(
-      ...createRetainedPendingStripPlaceholderStripes({
-        layout,
-        rect: visiblePendingRect,
-      }),
-    );
   }
   return visuals;
-}
-
-function createRetainedPendingStripPlaceholderStripes({
-  layout,
-  rect,
-}: {
-  readonly layout: RetainedTexturePageSurfaceLayout;
-  readonly rect: GpuRect;
-}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
-  const stripeVisuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
-  const stripeSpacingCss = 32;
-  const stripeHeightCss = Math.min(3, Math.max(1, rect.height / 6));
-  const maxStripeCount = 8;
-  let stripeCount = 0;
-  let y =
-    Math.floor(rect.y / stripeSpacingCss) * stripeSpacingCss + stripeSpacingCss;
-  while (y < rect.y + rect.height && stripeCount < maxStripeCount) {
-    const stripeRect = intersectRects(
-      {
-        height: stripeHeightCss,
-        width: rect.width,
-        x: rect.x,
-        y,
-      },
-      rect,
-    );
-    if (stripeRect) {
-      stripeVisuals.push({
-        color: { a: 0.82, b: 0.82, g: 0.78, r: 0.74 },
-        kind: "solid-rounded-rect",
-        radius: 0,
-        rect: toFlowRect(layout, stripeRect),
-        surfaceId: `${layout.surfaceId}:retained-pending-stripe:${rectKey(
-          rect,
-        )}:${stripeCount}`,
-        zIndex: (layout.zIndex ?? 0) + 0.02,
-      });
-      stripeCount += 1;
-    }
-    y += stripeSpacingCss;
-  }
-  return stripeVisuals;
 }
 
 function toFlowRect(
@@ -148,24 +101,12 @@ function toPageTextureCoordinates(
   page: CommittedRetainedTexturePage<RetainedContentTextureResources>,
   sampleRectCss: GpuRect,
 ) {
-  const sourceRect = page.descriptor.sourceRectCss;
   const region = getRetainedContentTextureResourceRegion(page.resource);
-  const x0 =
-    region.x +
-    ((sampleRectCss.x - sourceRect.x) / sourceRect.width) * region.pixelWidth;
-  const x1 =
-    region.x +
-    ((sampleRectCss.x + sampleRectCss.width - sourceRect.x) /
-      sourceRect.width) *
-      region.pixelWidth;
-  const y0 =
-    region.y +
-    ((sampleRectCss.y - sourceRect.y) / sourceRect.height) * region.pixelHeight;
-  const y1 =
-    region.y +
-    ((sampleRectCss.y + sampleRectCss.height - sourceRect.y) /
-      sourceRect.height) *
-      region.pixelHeight;
+  const mappedRect = retainedContentRectToTextureRect(page, sampleRectCss);
+  const x0 = region.x + mappedRect.u0 * region.pixelWidth;
+  const x1 = region.x + mappedRect.u1 * region.pixelWidth;
+  const y0 = region.y + mappedRect.v0 * region.pixelHeight;
+  const y1 = region.y + mappedRect.v1 * region.pixelHeight;
   if (isAtlasTextureRegion(region)) {
     return {
       u0: clampUnit(x0 / region.texturePixelWidth),
@@ -174,17 +115,7 @@ function toPageTextureCoordinates(
       v1: clampUnit(y1 / region.texturePixelHeight),
     };
   }
-  return {
-    u0: clampUnit((sampleRectCss.x - sourceRect.x) / sourceRect.width),
-    u1: clampUnit(
-      (sampleRectCss.x + sampleRectCss.width - sourceRect.x) / sourceRect.width,
-    ),
-    v0: clampUnit((sampleRectCss.y - sourceRect.y) / sourceRect.height),
-    v1: clampUnit(
-      (sampleRectCss.y + sampleRectCss.height - sourceRect.y) /
-        sourceRect.height,
-    ),
-  };
+  return mappedRect;
 }
 
 function toCommittedHtmlSurfaceTextureSnapshot(

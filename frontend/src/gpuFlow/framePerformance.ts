@@ -25,18 +25,18 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly drawQuadCount: number;
   readonly evictedBytes: number;
   readonly evictedCount: number;
-  readonly fallbackDrawQuadCount: number;
+  readonly compatibleDrawQuadCount: number;
   readonly memoryCommittedBytes: number;
   readonly memoryCommittedCount: number;
   readonly memoryRetiredBytes: number;
   readonly memoryRetiredCount: number;
   readonly memoryTotalBytes: number;
   readonly mergedDrawQuadCount: number;
-  readonly missingPageCount: number;
+  readonly refinementPageCount: number;
   readonly rasterMs: number;
-  readonly staleFallbackDrawQuadCount: number;
+  readonly rejectedStaleRectCount: number;
   readonly targetDescriptorCount: number;
-  readonly uncoveredRectCount: number;
+  readonly trueHoleRectCount: number;
   readonly uploadedBytes: number;
   readonly uploadedDrawCommandCount: number;
   readonly uploadCount: number;
@@ -103,18 +103,18 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageDrawQuadCount: number;
   readonly retainedTexturePageEvictedBytes: number;
   readonly retainedTexturePageEvictedCount: number;
-  readonly retainedTexturePageFallbackDrawQuadCount: number;
+  readonly retainedTexturePageCompatibleDrawQuadCount: number;
   readonly retainedTexturePageMemoryCommittedBytes: number;
   readonly retainedTexturePageMemoryCommittedCount: number;
   readonly retainedTexturePageMemoryRetiredBytes: number;
   readonly retainedTexturePageMemoryRetiredCount: number;
   readonly retainedTexturePageMemoryTotalBytes: number;
   readonly retainedTexturePageMergedDrawQuadCount: number;
-  readonly retainedTexturePageMissingPageCount: number;
+  readonly retainedTexturePageRefinementPageCount: number;
   readonly retainedTexturePageRasterMs: number;
-  readonly retainedTexturePageStaleFallbackDrawQuadCount: number;
+  readonly retainedTexturePageRejectedStaleRectCount: number;
   readonly retainedTexturePageTargetDescriptorCount: number;
-  readonly retainedTexturePageUncoveredRectCount: number;
+  readonly retainedTexturePageTrueHoleRectCount: number;
   readonly retainedTexturePageUploadedBytes: number;
   readonly retainedTexturePageUploadedDrawCommandCount: number;
   readonly retainedTexturePageUploadCount: number;
@@ -256,18 +256,18 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageDrawQuadCount"
   | "retainedTexturePageEvictedBytes"
   | "retainedTexturePageEvictedCount"
-  | "retainedTexturePageFallbackDrawQuadCount"
+  | "retainedTexturePageCompatibleDrawQuadCount"
   | "retainedTexturePageMemoryCommittedBytes"
   | "retainedTexturePageMemoryCommittedCount"
   | "retainedTexturePageMemoryRetiredBytes"
   | "retainedTexturePageMemoryRetiredCount"
   | "retainedTexturePageMemoryTotalBytes"
   | "retainedTexturePageMergedDrawQuadCount"
-  | "retainedTexturePageMissingPageCount"
+  | "retainedTexturePageRefinementPageCount"
   | "retainedTexturePageRasterMs"
-  | "retainedTexturePageStaleFallbackDrawQuadCount"
+  | "retainedTexturePageRejectedStaleRectCount"
   | "retainedTexturePageTargetDescriptorCount"
-  | "retainedTexturePageUncoveredRectCount"
+  | "retainedTexturePageTrueHoleRectCount"
   | "retainedTexturePageUploadedBytes"
   | "retainedTexturePageUploadedDrawCommandCount"
   | "retainedTexturePageUploadCount"
@@ -281,18 +281,18 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageDrawQuadCount: 0,
       retainedTexturePageEvictedBytes: 0,
       retainedTexturePageEvictedCount: 0,
-      retainedTexturePageFallbackDrawQuadCount: 0,
+      retainedTexturePageCompatibleDrawQuadCount: 0,
       retainedTexturePageMemoryCommittedBytes: 0,
       retainedTexturePageMemoryCommittedCount: 0,
       retainedTexturePageMemoryRetiredBytes: 0,
       retainedTexturePageMemoryRetiredCount: 0,
       retainedTexturePageMemoryTotalBytes: 0,
       retainedTexturePageMergedDrawQuadCount: 0,
-      retainedTexturePageMissingPageCount: 0,
+      retainedTexturePageRefinementPageCount: 0,
       retainedTexturePageRasterMs: 0,
-      retainedTexturePageStaleFallbackDrawQuadCount: 0,
+      retainedTexturePageRejectedStaleRectCount: 0,
       retainedTexturePageTargetDescriptorCount: 0,
-      retainedTexturePageUncoveredRectCount: 0,
+      retainedTexturePageTrueHoleRectCount: 0,
       retainedTexturePageUploadedBytes: 0,
       retainedTexturePageUploadedDrawCommandCount: 0,
       retainedTexturePageUploadCount: 0,
@@ -307,8 +307,8 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageDrawQuadCount: retainedTexturePages.drawQuadCount,
     retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
     retainedTexturePageEvictedCount: retainedTexturePages.evictedCount,
-    retainedTexturePageFallbackDrawQuadCount:
-      retainedTexturePages.fallbackDrawQuadCount,
+    retainedTexturePageCompatibleDrawQuadCount:
+      retainedTexturePages.compatibleDrawQuadCount,
     retainedTexturePageMemoryCommittedBytes:
       retainedTexturePages.memoryCommittedBytes,
     retainedTexturePageMemoryCommittedCount:
@@ -320,14 +320,15 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageMemoryTotalBytes: retainedTexturePages.memoryTotalBytes,
     retainedTexturePageMergedDrawQuadCount:
       retainedTexturePages.mergedDrawQuadCount,
-    retainedTexturePageMissingPageCount: retainedTexturePages.missingPageCount,
+    retainedTexturePageRefinementPageCount:
+      retainedTexturePages.refinementPageCount,
     retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
-    retainedTexturePageStaleFallbackDrawQuadCount:
-      retainedTexturePages.staleFallbackDrawQuadCount,
+    retainedTexturePageRejectedStaleRectCount:
+      retainedTexturePages.rejectedStaleRectCount,
     retainedTexturePageTargetDescriptorCount:
       retainedTexturePages.targetDescriptorCount,
-    retainedTexturePageUncoveredRectCount:
-      retainedTexturePages.uncoveredRectCount,
+    retainedTexturePageTrueHoleRectCount:
+      retainedTexturePages.trueHoleRectCount,
     retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,
     retainedTexturePageUploadedDrawCommandCount:
       retainedTexturePages.uploadedDrawCommandCount,

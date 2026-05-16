@@ -60,6 +60,7 @@ class GpuRetainedContentScrollController {
   >();
   private pendingScrollOffsets: Map<string, GpuPoint> | null = null;
   private readonly pendingSurfaceIds = new Set<string>();
+  private retainedScrollInteractionActive = false;
   private scrollIdleFrameTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
 
@@ -82,6 +83,7 @@ class GpuRetainedContentScrollController {
     });
     this.cancelPendingScrollFlush();
     this.cancelScrollIdleFrame();
+    this.setRetainedScrollInteractionActive(false);
     this.pendingScrollOffsets = null;
     this.pendingScrollDiagnosticsBySurfaceId.clear();
     this.pendingSurfaceIds.clear();
@@ -126,6 +128,7 @@ class GpuRetainedContentScrollController {
     if (!this.pendingScrollOffsets) {
       this.pendingScrollOffsets = new Map(this.options.getScrollOffsets());
     }
+    this.setRetainedScrollInteractionActive(true);
     this.pendingScrollOffsets.set(result.surfaceId, result.scrollOffset);
     this.pendingSurfaceIds.add(result.surfaceId);
     this.schedulePendingScrollFlush();
@@ -204,6 +207,7 @@ class GpuRetainedContentScrollController {
     this.cancelScrollIdleFrame();
     this.scrollIdleFrameTimeout = setTimeout(() => {
       this.scrollIdleFrameTimeout = null;
+      this.setRetainedScrollInteractionActive(false);
       if (this.store.getState().viewportInteractionActive) {
         this.scheduleScrollIdleFrame();
         return;
@@ -218,6 +222,16 @@ class GpuRetainedContentScrollController {
     }
     clearTimeout(this.scrollIdleFrameTimeout);
     this.scrollIdleFrameTimeout = null;
+  }
+
+  private setRetainedScrollInteractionActive(active: boolean) {
+    if (this.retainedScrollInteractionActive === active) {
+      return;
+    }
+    this.retainedScrollInteractionActive = active;
+    this.store
+      .getState()
+      .setViewportInteractionFlags({ retainedContentScrolling: active });
   }
 
   private recordPendingScrollDiagnostics({

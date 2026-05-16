@@ -73,6 +73,17 @@ export type ScrollbarStats = {
   readonly visibleColumnCount: number;
 };
 
+export type HorizontalPlaceholderBandStats = {
+  readonly bandCount: number;
+  readonly dominantBandCoverage: number;
+  readonly dominantBandHeight: number;
+  readonly dominantBandLuma: number;
+  readonly highConfidencePlaceholder: boolean;
+  readonly nonblankRatio: number;
+  readonly regularBandCount: number;
+  readonly regularSpacingRatio: number;
+};
+
 export type TextInkBounds = Rect & {
   readonly centerX: number;
   readonly centerY: number;
@@ -102,6 +113,177 @@ export async function analyzeRetainedLabelTextInkBounds(
   },
 ): Promise<TextInkBounds | null> {
   return await analyzeTextInkBounds(page, { ...input, pixelKind: "label" });
+}
+
+export async function analyzeHorizontalPlaceholderBands(
+  page: Page,
+  input: {
+    readonly screenshot: Buffer;
+  },
+): Promise<HorizontalPlaceholderBandStats> {
+  return await page.evaluate(
+    async ({ screenshotDataUrl }) => {
+      const image = await loadImage(screenshotDataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        throw new Error("Missing horizontal placeholder analysis context.");
+      }
+      ctx.drawImage(image, 0, 0);
+      const { data, height, width } = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      const rowStats: Array<{
+        readonly coverage: number;
+        readonly luma: number;
+        readonly y: number;
+      }> = [];
+      let nonblankPixels = 0;
+      for (let y = 0; y < height; y += 1) {
+        let lightBandPixels = 0;
+        let lumaTotal = 0;
+        for (let x = 0; x < width; x += 1) {
+          const index = (y * width + x) * 4;
+          const r = data[index] ?? 0;
+          const g = data[index + 1] ?? 0;
+          const b = data[index + 2] ?? 0;
+          const a = data[index + 3] ?? 0;
+          const luma = luminance(r, g, b);
+          const channelSpread = Math.max(r, g, b) - Math.min(r, g, b);
+          lumaTotal += luma;
+          if (a > 12 && (luma > 34 || channelSpread > 10)) {
+            nonblankPixels += 1;
+          }
+          if (a > 80 && luma >= 130 && channelSpread <= 70) {
+            lightBandPixels += 1;
+          }
+        }
+        rowStats.push({
+          coverage: width === 0 ? 0 : lightBandPixels / width,
+          luma: width === 0 ? 0 : lumaTotal / width,
+          y,
+        });
+      }
+      const wideRowThreshold = 0.48;
+      const groupedBands: Array<{
+        readonly coverage: number;
+        readonly height: number;
+        readonly luma: number;
+        readonly y: number;
+      }> = [];
+      let current: {
+        coverageTotal: number;
+        lumaTotal: number;
+        rowCount: number;
+        y: number;
+      } | null = null;
+      for (const row of rowStats) {
+        if (row.coverage >= wideRowThreshold) {
+          current ??= {
+            coverageTotal: 0,
+            lumaTotal: 0,
+            rowCount: 0,
+            y: row.y,
+          };
+          current.coverageTotal += row.coverage;
+          current.lumaTotal += row.luma;
+          current.rowCount += 1;
+          continue;
+        }
+        if (current) {
+          groupedBands.push(toBand(current));
+          current = null;
+        }
+      }
+      if (current) {
+        groupedBands.push(toBand(current));
+      }
+      const bands = groupedBands.filter(
+        (band) => band.height <= 8 && band.coverage >= wideRowThreshold,
+      );
+      const spacings = bands
+        .slice(1)
+        .map((band, index) => band.y - (bands[index]?.y ?? band.y))
+        .filter((spacing) => spacing >= 12);
+      const medianSpacing = percentile(spacings, 0.5);
+      const regularBandCount =
+        medianSpacing <= 0
+          ? 0
+          : spacings.filter((spacing) => Math.abs(spacing - medianSpacing) <= 8)
+              .length + 1;
+      const dominant = bands.reduce(
+        (best, band) => (band.coverage > best.coverage ? band : best),
+        { coverage: 0, height: 0, luma: 0, y: 0 },
+      );
+      const regularSpacingRatio =
+        bands.length === 0 ? 0 : regularBandCount / bands.length;
+      return {
+        bandCount: bands.length,
+        dominantBandCoverage: dominant.coverage,
+        dominantBandHeight: dominant.height,
+        dominantBandLuma: dominant.luma,
+        highConfidencePlaceholder:
+          bands.length >= 3 &&
+          regularBandCount >= 3 &&
+          regularSpacingRatio >= 0.55 &&
+          dominant.coverage >= 0.55,
+        nonblankRatio:
+          width * height === 0 ? 0 : nonblankPixels / (width * height),
+        regularBandCount,
+        regularSpacingRatio,
+      };
+
+      function toBand(input: {
+        readonly coverageTotal: number;
+        readonly lumaTotal: number;
+        readonly rowCount: number;
+        readonly y: number;
+      }) {
+        return {
+          coverage: input.coverageTotal / input.rowCount,
+          height: input.rowCount,
+          luma: input.lumaTotal / input.rowCount,
+          y: input.y,
+        };
+      }
+
+      function loadImage(url: string): Promise<HTMLImageElement> {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () =>
+            reject(new Error("Failed to decode placeholder-band screenshot."));
+          image.src = url;
+        });
+      }
+
+      function luminance(r: number, g: number, b: number): number {
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      }
+
+      function percentile(values: readonly number[], fraction: number): number {
+        if (values.length === 0) {
+          return 0;
+        }
+        const sorted = [...values].sort((left, right) => left - right);
+        const index = Math.min(
+          sorted.length - 1,
+          Math.max(0, Math.round((sorted.length - 1) * fraction)),
+        );
+        return sorted[index] ?? 0;
+      }
+    },
+    {
+      screenshotDataUrl: `data:image/png;base64,${input.screenshot.toString(
+        "base64",
+      )}`,
+    },
+  );
 }
 
 async function analyzeTextInkBounds(

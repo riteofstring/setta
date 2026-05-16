@@ -1,3 +1,4 @@
+import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import {
   RetainedTexturePageCache,
   retainedTexturePageKey,
@@ -5,18 +6,9 @@ import {
   retainedTexturePageScaleKey,
   type CommittedRetainedTexturePage,
   type RetainedTexturePageDescriptor,
+  type RetainedTexturePageRejectedCoverage,
 } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
-
-export type RetainedMotionFrame = {
-  readonly scrollOffsets: ReadonlyMap<
-    string,
-    { readonly x: number; readonly y: number }
-  >;
-  readonly scrollRevision: number;
-};
-
-export type RetainedVisibleContentRect = RetainedTexturePageDescriptor;
 
 const PAGE_GRID_EDGE_EPSILON = 1e-6;
 
@@ -35,8 +27,9 @@ export type RetainedTexturePageGridInput = {
 };
 
 export type RetainedTexturePageDrawQuad<TResource = unknown> = {
+  readonly coverageKind: "exact" | "compatible";
   readonly desiredDescriptor: RetainedTexturePageDescriptor;
-  readonly fallback: boolean;
+  readonly fidelityState: Exclude<RetainedFidelityState, "refining">;
   readonly page: CommittedRetainedTexturePage<TResource>;
   readonly sampleRectCss: GpuRect;
   readonly staleContent: boolean;
@@ -44,13 +37,18 @@ export type RetainedTexturePageDrawQuad<TResource = unknown> = {
 
 export type RetainedTexturePageCoverage<TResource = unknown> = {
   readonly coverageCandidateCount: number;
+  readonly compatibleCoverageRects: readonly GpuRect[];
   readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];
+  readonly exactCoverageRects: readonly GpuRect[];
+  readonly fidelityState: RetainedFidelityState;
   readonly mergedDrawQuadCount: number;
   readonly protectedPageKeys: readonly string[];
+  readonly rejectedStaleRects: readonly RetainedTexturePageRejectedCoverage[];
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly staleFallbackDrawQuadCount: number;
+  readonly rejectedStaleRectCount: number;
   readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly uncoveredRectsCss: readonly GpuRect[];
+  readonly trueHoleRects: readonly GpuRect[];
+  readonly trueHoleRectsCss: readonly GpuRect[];
 };
 
 export function createRetainedTexturePageDescriptors({
@@ -182,10 +180,11 @@ export function resolveRetainedTexturePageCoverage<TResource>({
 }): RetainedTexturePageCoverage<TResource> {
   const quads: RetainedTexturePageDrawQuad<TResource>[] = [];
   const protectedPageKeys = new Set<string>();
+  const rejectedStaleRects: RetainedTexturePageRejectedCoverage[] = [];
   const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
-  const uncoveredRectsCss: GpuRect[] = [];
+  const trueHoleRectsCss: GpuRect[] = [];
   let coverageCandidateCount = 0;
-  let staleFallbackDrawQuadCount = 0;
+  let rejectedStaleRectCount = 0;
   for (const desiredDescriptor of desiredPages) {
     const exactDrawQuad = resolveExactPageDrawQuad({
       cache,
@@ -199,29 +198,45 @@ export function resolveRetainedTexturePageCoverage<TResource>({
     }
 
     refinementDescriptors.push(desiredDescriptor);
-    const fallbackCoverage = resolveFallbackPageDrawQuads({
+    const compatibleCoverage = resolveCompatiblePageDrawQuads({
       cache,
       desiredDescriptor,
       usedFrame,
     });
-    coverageCandidateCount += fallbackCoverage.coverageCandidateCount;
-    staleFallbackDrawQuadCount += fallbackCoverage.staleFallbackDrawQuadCount;
-    for (const pageKey of fallbackCoverage.protectedPageKeys) {
+    coverageCandidateCount += compatibleCoverage.coverageCandidateCount;
+    rejectedStaleRectCount += compatibleCoverage.rejectedStaleRectCount;
+    rejectedStaleRects.push(...compatibleCoverage.rejectedStaleRects);
+    for (const pageKey of compatibleCoverage.protectedPageKeys) {
       protectedPageKeys.add(pageKey);
     }
-    quads.push(...fallbackCoverage.drawQuads);
-    uncoveredRectsCss.push(...fallbackCoverage.uncoveredRectsCss);
+    quads.push(...compatibleCoverage.drawQuads);
+    trueHoleRectsCss.push(...compatibleCoverage.trueHoleRectsCss);
   }
   const mergedQuads = mergeRetainedTexturePageDrawQuads(quads);
+  const exactCoverageRects = mergedQuads
+    .filter((quad) => quad.coverageKind === "exact")
+    .map((quad) => quad.sampleRectCss);
+  const compatibleCoverageRects = mergedQuads
+    .filter((quad) => quad.coverageKind === "compatible")
+    .map((quad) => quad.sampleRectCss);
   return {
+    compatibleCoverageRects,
     coverageCandidateCount,
     drawQuads: mergedQuads,
+    exactCoverageRects,
+    fidelityState: resolveCoverageFidelityState({
+      drawQuads: mergedQuads,
+      refinementDescriptors,
+      trueHoleRects: trueHoleRectsCss,
+    }),
     mergedDrawQuadCount: Math.max(0, quads.length - mergedQuads.length),
     protectedPageKeys: [...protectedPageKeys],
+    rejectedStaleRects,
     refinementDescriptors,
-    staleFallbackDrawQuadCount,
+    rejectedStaleRectCount,
     targetDescriptors: desiredPages,
-    uncoveredRectsCss,
+    trueHoleRects: trueHoleRectsCss,
+    trueHoleRectsCss,
   };
 }
 
@@ -268,7 +283,14 @@ function mergeDrawQuad<TResource>(
 ): RetainedTexturePageDrawQuad<TResource> {
   return {
     ...left,
-    fallback: left.fallback || right.fallback,
+    coverageKind:
+      left.coverageKind === "exact" && right.coverageKind === "exact"
+        ? "exact"
+        : "compatible",
+    fidelityState:
+      left.fidelityState === "target"
+        ? right.fidelityState
+        : left.fidelityState,
     sampleRectCss,
     staleContent: left.staleContent || right.staleContent,
   };
@@ -322,15 +344,16 @@ function resolveExactPageDrawQuad<TResource>({
     return null;
   }
   return {
+    coverageKind: "exact",
     desiredDescriptor,
-    fallback: false,
+    fidelityState: "target",
     page: markPageUsed({ cache, page: exactPage, usedFrame }),
     sampleRectCss: desiredDescriptor.sourceRectCss,
     staleContent: false,
   };
 }
 
-function resolveFallbackPageDrawQuads<TResource>({
+function resolveCompatiblePageDrawQuads<TResource>({
   cache,
   desiredDescriptor,
   usedFrame,
@@ -340,14 +363,29 @@ function resolveFallbackPageDrawQuads<TResource>({
   readonly usedFrame?: number | undefined;
 }): Omit<
   RetainedTexturePageCoverage<TResource>,
-  "mergedDrawQuadCount" | "refinementDescriptors" | "targetDescriptors"
+  | "compatibleCoverageRects"
+  | "exactCoverageRects"
+  | "fidelityState"
+  | "mergedDrawQuadCount"
+  | "refinementDescriptors"
+  | "targetDescriptors"
+  | "trueHoleRects"
 > {
   const drawQuads: RetainedTexturePageDrawQuad<TResource>[] = [];
   const protectedPageKeys = new Set<string>();
   let uncoveredRects: readonly GpuRect[] = [desiredDescriptor.sourceRectCss];
-  let staleFallbackDrawQuadCount = 0;
-  const candidates = cache.getCommittedPagesForCoverage({
-    allowStaleContent: false,
+  const rejectedStaleRects = cache.getRejectedCommittedPagesForCoverage({
+    contentVersion: desiredDescriptor.contentVersion,
+    devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
+    sourceKey: desiredDescriptor.sourceKey,
+    sourceRectCss: desiredDescriptor.sourceRectCss,
+    sourceVersion: desiredDescriptor.sourceVersion,
+    sourceWindowCss: desiredDescriptor.sourceWindowCss,
+    surfaceId: desiredDescriptor.surfaceId,
+    targetLodScale: desiredDescriptor.lodScale,
+    viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
+  });
+  const candidates = cache.getCommittedPageCoverageCandidates({
     contentVersion: desiredDescriptor.contentVersion,
     devicePixelRatioBucket: desiredDescriptor.devicePixelRatioBucket,
     sourceKey: desiredDescriptor.sourceKey,
@@ -358,31 +396,19 @@ function resolveFallbackPageDrawQuads<TResource>({
     viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   for (const candidate of candidates) {
-    if (
-      !canDrawRetainedScrollFallbackPage(candidate, desiredDescriptor, {
-        scrollOffsets: new Map(),
-        scrollRevision: 0,
-      })
-    ) {
-      continue;
-    }
     const result = coverRectsWithPage({
       cache,
-      candidate,
+      candidate: candidate.page,
+      fidelityState: candidate.compatibility.fidelity,
       desiredDescriptor,
       uncoveredRects,
       usedFrame,
     });
     drawQuads.push(...result.drawQuads);
-    if (
-      candidate.descriptor.contentVersion !== desiredDescriptor.contentVersion
-    ) {
-      staleFallbackDrawQuadCount += result.drawQuads.length;
-    }
     if (result.usedPageKey) {
       protectedPageKeys.add(result.usedPageKey);
     }
-    uncoveredRects = result.uncoveredRectsCss;
+    uncoveredRects = result.trueHoleRectsCss;
     if (uncoveredRects.length === 0) {
       break;
     }
@@ -391,43 +417,29 @@ function resolveFallbackPageDrawQuads<TResource>({
     coverageCandidateCount: candidates.length,
     drawQuads,
     protectedPageKeys: [...protectedPageKeys],
-    staleFallbackDrawQuadCount,
-    uncoveredRectsCss: uncoveredRects,
+    rejectedStaleRectCount: rejectedStaleRects.length,
+    rejectedStaleRects,
+    trueHoleRectsCss: uncoveredRects,
   };
-}
-
-export function canDrawRetainedScrollFallbackPage<TResource>(
-  fallback: CommittedRetainedTexturePage<TResource>,
-  target: RetainedVisibleContentRect,
-  motion: RetainedMotionFrame,
-): boolean {
-  void motion;
-  const descriptor = fallback.descriptor;
-  return (
-    descriptor.surfaceId === target.surfaceId &&
-    descriptor.sourceKey === target.sourceKey &&
-    descriptor.sourceVersion === target.sourceVersion &&
-    descriptor.contentVersion === target.contentVersion &&
-    descriptor.devicePixelRatioBucket === target.devicePixelRatioBucket &&
-    intersectRects(descriptor.sourceRectCss, target.sourceRectCss) !== null
-  );
 }
 
 function coverRectsWithPage<TResource>({
   cache,
   candidate,
   desiredDescriptor,
+  fidelityState,
   uncoveredRects,
   usedFrame,
 }: {
   readonly cache: RetainedTexturePageCache<TResource>;
   readonly candidate: CommittedRetainedTexturePage<TResource>;
   readonly desiredDescriptor: RetainedTexturePageDescriptor;
+  readonly fidelityState: Exclude<RetainedFidelityState, "refining">;
   readonly uncoveredRects: readonly GpuRect[];
   readonly usedFrame?: number | undefined;
 }): {
   readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];
-  readonly uncoveredRectsCss: readonly GpuRect[];
+  readonly trueHoleRectsCss: readonly GpuRect[];
   readonly usedPageKey: string | null;
 } {
   const drawQuads: RetainedTexturePageDrawQuad<TResource>[] = [];
@@ -444,8 +456,9 @@ function coverRectsWithPage<TResource>({
     }
     usedPage = usedPage ?? markPageUsed({ cache, page: candidate, usedFrame });
     drawQuads.push({
+      coverageKind: "compatible",
       desiredDescriptor,
-      fallback: true,
+      fidelityState,
       page: usedPage,
       sampleRectCss: sampleRect,
       staleContent:
@@ -456,9 +469,30 @@ function coverRectsWithPage<TResource>({
   }
   return {
     drawQuads,
-    uncoveredRectsCss: nextUncoveredRects,
+    trueHoleRectsCss: nextUncoveredRects,
     usedPageKey: usedPage?.key ?? null,
   };
+}
+
+function resolveCoverageFidelityState<TResource>({
+  drawQuads,
+  refinementDescriptors,
+  trueHoleRects,
+}: {
+  readonly drawQuads: readonly RetainedTexturePageDrawQuad<TResource>[];
+  readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
+  readonly trueHoleRects: readonly GpuRect[];
+}): RetainedFidelityState {
+  if (trueHoleRects.length > 0) {
+    return "refining";
+  }
+  const compatibleQuad = drawQuads.find(
+    (quad) => quad.coverageKind === "compatible",
+  );
+  if (compatibleQuad) {
+    return compatibleQuad.fidelityState;
+  }
+  return refinementDescriptors.length > 0 ? "refining" : "target";
 }
 
 function markPageUsed<TResource>({

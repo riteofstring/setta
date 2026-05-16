@@ -137,7 +137,7 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(queue.hasWork()).toBe(false);
   });
 
-  it("does not run visible LOD refinement during viewport interaction", () => {
+  it("allows bounded visible LOD refinement during viewport interaction", () => {
     const queue = new RetainedTextureWorkQueue();
     queue.enqueue({
       contentVersion: 1,
@@ -155,8 +155,42 @@ describe("runRetainedTextureUploadScheduler", () => {
       viewportInteractionActive: true,
     });
 
-    expect(result.executedItems).toEqual([]);
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-a",
+    ]);
     expect(result.budgetExhausted).toBe(false);
+    expect(queue.hasWork()).toBe(false);
+  });
+
+  it("limits visible LOD refinement during viewport interaction through the refinement budget", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "lod-refinement",
+      sourceRect: { height: 10, width: 10, x: 0, y: 0 },
+      surfaceId: "surface-a",
+      targetLod: 2,
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: DEFAULT_BUDGET,
+      estimateWorkItem: () => SMALL_WORK,
+      executeWorkItem: () => ({ ...SMALL_WORK, complete: true }),
+      pageWorkBudget: {
+        refinementMaxBytes: 0,
+      },
+      queue,
+      viewportInteractionActive: true,
+    });
+
+    expect(result.executedItems).toEqual([]);
+    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-a",
+    ]);
+    expect(result.diagnostics[0]).toMatchObject({
+      reason: "budget-exhausted",
+      queue: "visible",
+    });
     expect(queue.hasWork()).toBe(true);
   });
 

@@ -61,24 +61,41 @@ export function didRetainedPageVisualCoverageChange({
   readonly after: Pick<
     RetainedContentTexturePagePreparedFrame,
     | "drawQuadCount"
-    | "fallbackDrawQuadCount"
-    | "missingPageCount"
-    | "uncoveredRectCount"
+    | "compatibleDrawQuadCount"
+    | "refinementPageCount"
+    | "trueHoleRectCount"
   >;
   readonly before: Pick<
     RetainedContentTexturePagePreparedFrame,
     | "drawQuadCount"
-    | "fallbackDrawQuadCount"
-    | "missingPageCount"
-    | "uncoveredRectCount"
+    | "compatibleDrawQuadCount"
+    | "refinementPageCount"
+    | "trueHoleRectCount"
   >;
 }): boolean {
   return (
     after.drawQuadCount !== before.drawQuadCount ||
-    after.fallbackDrawQuadCount !== before.fallbackDrawQuadCount ||
-    after.missingPageCount !== before.missingPageCount ||
-    after.uncoveredRectCount !== before.uncoveredRectCount
+    after.compatibleDrawQuadCount !== before.compatibleDrawQuadCount ||
+    after.refinementPageCount !== before.refinementPageCount ||
+    after.trueHoleRectCount !== before.trueHoleRectCount
   );
+}
+
+export function combineRetainedContentTexturePageFidelityState(
+  current: RetainedContentTexturePagePreparedFrame["fidelityState"],
+  next: RetainedContentTexturePagePreparedFrame["fidelityState"],
+): RetainedContentTexturePagePreparedFrame["fidelityState"] {
+  const rank = {
+    target: 0,
+    "compatible-previous-dpr-bucket": 1,
+    "compatible-previous-grid": 2,
+    "compatible-lower-lod": 3,
+    refining: 4,
+  } satisfies Record<
+    RetainedContentTexturePagePreparedFrame["fidelityState"],
+    number
+  >;
+  return rank[next] > rank[current] ? next : current;
 }
 
 export function rectsEqual(left: GpuRect, right: GpuRect): boolean {

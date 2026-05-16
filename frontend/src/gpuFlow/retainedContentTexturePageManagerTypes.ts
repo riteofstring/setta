@@ -3,18 +3,20 @@ import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
 } from "./htmlSurfaces/visualScene";
+import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
-import type { RetainedTexturePageSurfaceLayout } from "./retainedTexturePageVisuals";
 import type {
   RetainedTexturePageCacheSnapshot,
   RetainedTexturePageDescriptor,
   RetainedTexturePageEvictionResult,
+  RetainedTexturePageRejectedCoverage,
 } from "./retainedTexturePages";
+import type { RetainedTexturePageSurfaceLayout } from "./retainedTexturePageVisuals";
 import type {
   RetainedTextureUploadSchedulerBudget,
   RetainedTextureUploadSchedulerDiagnostic,
@@ -57,17 +59,18 @@ export type RetainedContentTexturePageFrameResult = {
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
   readonly drawQuadCount: number;
   readonly evicted: RetainedTexturePageEvictionResult;
-  readonly fallbackDrawQuadCount: number;
+  readonly compatibleDrawQuadCount: number;
+  readonly fidelityState: RetainedFidelityState;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly memory: RetainedTexturePageCacheSnapshot;
-  readonly missingPageCount: number;
+  readonly refinementPageCount: number;
   readonly needsFollowUpFrame: boolean;
   readonly mergedDrawQuadCount: number;
-  readonly pendingStripVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
+  readonly trueHoleVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly rasterMs: number;
-  readonly staleFallbackDrawQuadCount: number;
+  readonly rejectedStaleRectCount: number;
   readonly targetDescriptorCount: number;
-  readonly uncoveredRectCount: number;
+  readonly trueHoleRectCount: number;
   readonly uploadedBytes: number;
   readonly uploadedDrawCommandCount: number;
   readonly uploadCount: number;
@@ -78,18 +81,20 @@ export type RetainedContentTexturePagePreparedFrame = {
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
-  readonly fallbackDrawQuadCount: number;
+  readonly compatibleDrawQuadCount: number;
+  readonly fidelityState: RetainedFidelityState;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly frame: number;
-  readonly missingPageCount: number;
+  readonly refinementPageCount: number;
   readonly mergedDrawQuadCount: number;
-  readonly pendingStripVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
+  readonly trueHoleVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly protectedPageKeys: readonly string[];
+  readonly rejectedStaleRects: readonly RetainedTexturePageRejectedCoverage[];
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly staleFallbackDrawQuadCount: number;
+  readonly rejectedStaleRectCount: number;
   readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
-  readonly uncoveredRectsCss: readonly GpuRect[];
-  readonly uncoveredRectCount: number;
+  readonly trueHoleRectsCss: readonly GpuRect[];
+  readonly trueHoleRectCount: number;
 };
 
 export type RetainedContentTexturePageMaintenanceInput = {
@@ -103,23 +108,24 @@ export type RetainedContentTexturePageMaintenanceInput = {
 
 export type RetainedContentTexturePageMaintenanceResult = Omit<
   RetainedContentTexturePageFrameResult,
-  "flatSurfaces" | "missingPageCount"
+  "flatSurfaces" | "refinementPageCount"
 > & {
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly executedItemCount: number;
-  readonly fallbackDrawQuadCount: number;
+  readonly compatibleDrawQuadCount: number;
+  readonly fidelityState: RetainedFidelityState;
   readonly mergedDrawQuadCount: number;
-  readonly missingPageCount: number;
+  readonly refinementPageCount: number;
   readonly needsFollowUpFrame: boolean;
-  readonly postMaintenanceMissingPageCount: number;
+  readonly postMaintenanceRefinementPageCount: number;
   readonly queuedWorkCount: number;
   readonly queuedWorkCountBeforeUpload: number;
   readonly remainingUploadableWorkCount: number;
   readonly skippedItemCount: number;
-  readonly staleFallbackDrawQuadCount: number;
+  readonly rejectedStaleRectCount: number;
   readonly targetDescriptorCount: number;
-  readonly uncoveredRectCount: number;
+  readonly trueHoleRectCount: number;
 };
 
 export type RetainedContentTexturePageManagerOptions = {

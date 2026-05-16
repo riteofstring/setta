@@ -30,10 +30,6 @@ import {
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
 import {
-  getGpuRetainedContentSourceRectForRows,
-  type GpuRetainedContentSourceSurface,
-} from "../GpuRetainedContentSurfaces";
-import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
 } from "../htmlSurfaces/textures";
@@ -41,7 +37,6 @@ import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
-import { createGpuRetainedContentSampledSceneForSurface } from "../retainedContentRuntimeSampling";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
@@ -73,12 +68,18 @@ import {
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
 import {
+  markGpuFlowRetainedContentFrameFreshnessDirty,
+  sampleGpuFlowRetainedContentSwitchAnimationSurface,
+  settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces,
+} from "./flowRetainedContentFreshness";
+import {
   postGpuFlowRetainedContentVisualStateChromeReproEvent,
   postGpuFlowRetainedDisplayFrameChromeReproEvent,
   postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { runGpuFlowRetainedPageMaintenance } from "./flowRetainedPageMaintenance";
+import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -546,7 +547,10 @@ export function renderGpuFlowNodeLayerFrame({
   const retainedPagePreparedFrame = retainedFrame.preparedFrame;
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedPreparedRuntimeFrame,
-    retainedRuntimeFrame,
+    createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame: retainedPagePreparedFrame,
+      retainedRuntimeFrame,
+    }),
   );
   const publishedRetainedFrame = publishRetainedDisplayFrame({
     nowMs: renderStartedAt,
@@ -573,9 +577,11 @@ export function renderGpuFlowNodeLayerFrame({
       retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
-  markGpuFlowRetainedContentSwitchFreshnessDirty({
+  markGpuFlowRetainedContentFrameFreshnessDirty({
+    deferResolutionUpdates,
     frame,
     retainedContentPageManager: resources.retainedContentPageManager,
+    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
     scrollOffsets: runtimeScrollOffsets,
     sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
@@ -608,7 +614,7 @@ export function renderGpuFlowNodeLayerFrame({
     htmlSurfaceNativeVisuals: combineGpuFlowHtmlSurfaceNativeVisuals(
       retainedRuntimeNativeVisuals,
       switchAnimationNativeVisuals,
-      publishedRetainedPageFrame.pendingStripVisuals,
+      publishedRetainedPageFrame.trueHoleVisuals,
     ),
     htmlSurfacePageVisuals: publishedRetainedPageFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
@@ -638,15 +644,14 @@ export function renderGpuFlowNodeLayerFrame({
       retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
-  if (!deferRetainedPageMaintenance) {
-    settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
-      nowMs: renderStartedAt,
-      retainedContentPageManager: resources.retainedContentPageManager,
-      scrollOffsets: runtimeScrollOffsets,
-      sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
-      switchAnimations: retainedContentSwitchAnimations,
-    });
-  }
+  settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces({
+    deferRetainedPageMaintenance,
+    nowMs: renderStartedAt,
+    retainedContentPageManager: resources.retainedContentPageManager,
+    scrollOffsets: runtimeScrollOffsets,
+    sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
+    switchAnimations: retainedContentSwitchAnimations,
+  });
   const switchAnimationNeedsFollowUpFrame =
     hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
       nowMs: renderStartedAt,
@@ -751,106 +756,6 @@ function hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
     hasActiveSurface = true;
   }
   return hasActiveSurface;
-}
-
-function markGpuFlowRetainedContentSwitchFreshnessDirty({
-  frame,
-  retainedContentPageManager,
-  scrollOffsets,
-  sourceSurfaces,
-  switchAnimations,
-}: {
-  readonly frame: number;
-  readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
-  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-}) {
-  for (const surface of sourceSurfaces) {
-    const sampledSurface = sampleGpuFlowRetainedContentSwitchAnimationSurface({
-      scrollOffsets,
-      surface,
-    });
-    const sourceRect = getGpuRetainedContentSourceRectForRows({
-      rowIds:
-        switchAnimations.getFreshnessProtectedSurfaceRowIds(sampledSurface),
-      surface: sampledSurface,
-    });
-    if (!sourceRect) {
-      continue;
-    }
-    if (
-      retainedContentPageManager.hasFreshSurfaceContentForRect({
-        sourceRect,
-        surfaceId: surface.id,
-      })
-    ) {
-      continue;
-    }
-    retainedContentPageManager.markSurfaceContentDirty({
-      frame,
-      priority: "interactive",
-      sourceRect,
-      surfaceId: surface.id,
-    });
-  }
-}
-
-function settleGpuFlowRetainedContentCompletedSwitchAnimationSurfaces({
-  nowMs,
-  retainedContentPageManager,
-  scrollOffsets,
-  sourceSurfaces,
-  switchAnimations,
-}: {
-  readonly nowMs: number;
-  readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
-  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-}) {
-  for (const surface of sourceSurfaces) {
-    const sampledSurface = sampleGpuFlowRetainedContentSwitchAnimationSurface({
-      scrollOffsets,
-      surface,
-    });
-    switchAnimations.settleCompletedSurfaceTransitions({
-      isRowFresh: (rowId) => {
-        const sourceRect = getGpuRetainedContentSourceRectForRows({
-          rowIds: [rowId],
-          surface: sampledSurface,
-        });
-        return sourceRect
-          ? retainedContentPageManager.hasFreshSurfaceContentForRect({
-              sourceRect,
-              surfaceId: sampledSurface.id,
-            })
-          : true;
-      },
-      nowMs,
-      surface: sampledSurface,
-    });
-  }
-}
-
-function sampleGpuFlowRetainedContentSwitchAnimationSurface<
-  TSurface extends GpuContentSurface & {
-    readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-  },
->({
-  scrollOffsets,
-  surface,
-}: {
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly surface: TSurface;
-}): TSurface {
-  return {
-    ...surface,
-    retainedScene: createGpuRetainedContentSampledSceneForSurface({
-      scrollOffsets,
-      surface,
-    }),
-  };
 }
 
 function isGpuFlowRetainedContentSwitchAnimationSurface(

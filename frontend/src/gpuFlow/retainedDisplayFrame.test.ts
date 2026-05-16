@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
+import { createRetainedCommittedPageLifecycle } from "./retainedContentLifecycle";
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
@@ -29,21 +30,21 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
 
-    expect(frame.coverageProof.missingRects).toEqual([]);
-    expect(frame.coverageProof.visibleRects).toEqual([
+    expect(frame.coverageProof.trueHoleRects).toEqual([]);
+    expect(frame.coverageProof.visibleContentRects).toEqual([
       descriptor.sourceRectCss,
     ]);
-    expect(frame.coverageProof.coveredRects).toEqual([
+    expect(frame.coverageProof.exactCoverageRects).toEqual([
       descriptor.sourceRectCss,
     ]);
-    expect(frame.diagnostics.coverageReadiness).toBe("complete");
-    expect(frame.diagnostics.textureReadiness).toBe("ready");
+    expect(frame.diagnostics.coverageReadiness).toBe("covered");
+    expect(frame.diagnostics.fidelityReadiness).toBe("target");
     expect(frame.pageFrame.flatSurfaces).toEqual([
       expect.objectContaining({ surfaceId: "frame-1" }),
     ]);
   });
 
-  it("publishes current motion with pending strips when prepared coverage is missing", () => {
+  it("publishes current motion with true-hole proof when compatible coverage is missing", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -58,13 +59,13 @@ describe("retained display frame publisher", () => {
       prepared: preparedFrame({
         drawQuads: [
           pageDrawQuad(descriptor, {
-            fallback: true,
+            coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
         targetDescriptors: [descriptor],
-        uncoveredRectsCss: [missingRect],
+        trueHoleRectsCss: [missingRect],
       }),
       previous,
     });
@@ -72,19 +73,14 @@ describe("retained display frame publisher", () => {
     expect(next.id).toBe(2);
     expect(next.retainedRuntimeFrame.input.scrollRevision).toBe(2);
     expect(next.pageFrame).not.toBe(previous.pageFrame);
-    expect(next.coverageProof.missingRects).toEqual([missingRect]);
-    expect(next.coverageProof.pendingStrips).toEqual([
-      { reason: "normal-edge-strip", rect: missingRect },
-    ]);
+    expect(next.coverageProof.trueHoleRects).toEqual([missingRect]);
     expect(next.coverageProof.rejectedPreparedFrameIds).toEqual([]);
-    expect(next.diagnostics.coverageReadiness).toBe("pending-visible-strips");
+    expect(next.diagnostics.coverageReadiness).toBe("true-holes");
     expect(next.diagnostics.lastRejectedPreparedFrameId).toBe(null);
-    expect(next.diagnostics.scrollPublicationMode).toBe(
-      "publish-motion-frame-with-pending-strips",
-    );
+    expect(next.diagnostics.trueHoleRectCount).toBe(1);
   });
 
-  it("records motion continuity while publishing pending scroll frames", () => {
+  it("records motion continuity while publishing true-hole scroll frames", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       nowMs: 10,
@@ -102,14 +98,14 @@ describe("retained display frame publisher", () => {
       prepared: preparedFrame({
         drawQuads: [
           pageDrawQuad(descriptor, {
-            fallback: true,
+            coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
         targetDescriptors: [descriptor],
-        uncoveredRectsCss: [missingRect],
+        trueHoleRectsCss: [missingRect],
       }),
       previous,
     });
@@ -118,28 +114,28 @@ describe("retained display frame publisher", () => {
       prepared: preparedFrame({
         drawQuads: [
           pageDrawQuad(descriptor, {
-            fallback: true,
+            coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 3,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
         targetDescriptors: [descriptor],
-        uncoveredRectsCss: [missingRect],
+        trueHoleRectsCss: [missingRect],
       }),
       previous: firstPending,
     });
 
     expect(firstPending.diagnostics.continuityProof).toMatchObject({
-      maxConsecutivePendingFrames: 1,
-      pendingAreaCssPx: 1024,
-      pendingAreaRatio: 0.25,
-      reason: "normal-edge-strip",
+      maxConsecutiveTrueHoleFrames: 1,
+      trueHoleAreaCssPx: 1024,
+      trueHoleAreaRatio: 0.25,
+      reason: "normal-visible-edge",
     });
     expect(secondPending.diagnostics.continuityProof).toMatchObject({
-      maxConsecutivePendingFrames: 2,
-      pendingAreaCssPx: 1024,
-      reason: "normal-edge-strip",
+      maxConsecutiveTrueHoleFrames: 2,
+      trueHoleAreaCssPx: 1024,
+      reason: "normal-visible-edge",
     });
   });
 
@@ -158,14 +154,14 @@ describe("retained display frame publisher", () => {
       prepared: preparedFrame({
         drawQuads: [
           pageDrawQuad(descriptor, {
-            fallback: true,
+            coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
         nativeDomIslands: [],
         targetDescriptors: [descriptor],
-        uncoveredRectsCss: [{ height: 12, width: 12, x: 0, y: 0 }],
+        trueHoleRectsCss: [{ height: 12, width: 12, x: 0, y: 0 }],
       }),
       previous,
     });
@@ -180,26 +176,26 @@ describe("retained display frame publisher", () => {
     });
   });
 
-  it("records fallback coverage without treating it as missing coverage", () => {
+  it("records compatible coverage without treating it as true-hole coverage", () => {
     const descriptor = pageDescriptor();
     const frame = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor, { fallback: true })],
-        missingPageCount: 1,
+        drawQuads: [pageDrawQuad(descriptor, { coverageKind: "compatible" })],
+        refinementPageCount: 1,
         targetDescriptors: [descriptor],
       }),
       previous: null,
     });
 
-    expect(frame.coverageProof.missingRects).toEqual([]);
-    expect(frame.coverageProof.fallbackRects).toEqual([
+    expect(frame.coverageProof.trueHoleRects).toEqual([]);
+    expect(frame.coverageProof.compatibleCoverageRects).toEqual([
       descriptor.sourceRectCss,
     ]);
-    expect(frame.diagnostics.fallbackPageCount).toBe(1);
-    expect(frame.diagnostics.textureReadiness).toBe("fallback");
+    expect(frame.diagnostics.compatiblePageCount).toBe(1);
+    expect(frame.diagnostics.fidelityReadiness).toBe("compatible-lower-lod");
   });
 
-  it("marks covered scroll frames as published motion frames", () => {
+  it("marks compatible covered scroll frames as covered motion frames", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -211,14 +207,14 @@ describe("retained display frame publisher", () => {
     });
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor, { fallback: true })],
+        drawQuads: [pageDrawQuad(descriptor, { coverageKind: "compatible" })],
         frame: 2,
         targetDescriptors: [descriptor],
       }),
       previous,
     });
 
-    expect(next.diagnostics.scrollPublicationMode).toBe("publish-motion-frame");
+    expect(next.diagnostics.coverageReadiness).toBe("covered");
   });
 
   it("allows only the initial frame to publish an explicit loading state", () => {
@@ -227,60 +223,65 @@ describe("retained display frame publisher", () => {
     const frame = publishRetainedDisplayFrame({
       prepared: preparedFrame({
         targetDescriptors: [descriptor],
-        uncoveredRectsCss: [missingRect],
+        trueHoleRectsCss: [missingRect],
       }),
       previous: null,
     });
 
-    expect(frame.coverageProof.missingRects).toEqual([missingRect]);
-    expect(frame.diagnostics.coverageReadiness).toBe("explicit-loading-state");
-    expect(frame.diagnostics.scrollPublicationMode).toBe(
-      "publish-initial-loading-state",
-    );
+    expect(frame.coverageProof.trueHoleRects).toEqual([missingRect]);
+    expect(frame.diagnostics.coverageReadiness).toBe("initial-loading");
   });
 });
 
 function preparedFrame({
   drawQuads = [],
   frame = 1,
-  missingPageCount,
+  refinementPageCount,
   nativeDomIslands = [],
   scrollOffsets = new Map(),
   targetDescriptors = [],
-  uncoveredRectsCss = [],
+  trueHoleRectsCss = [],
 }: {
   readonly drawQuads?: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
   readonly frame?: number | undefined;
-  readonly missingPageCount?: number | undefined;
+  readonly refinementPageCount?: number | undefined;
   readonly nativeDomIslands?: readonly GpuDomIsland[] | undefined;
   readonly scrollOffsets?: ReadonlyMap<
     string,
     { readonly x: number; readonly y: number }
   >;
   readonly targetDescriptors?: readonly RetainedTexturePageDescriptor[];
-  readonly uncoveredRectsCss?: readonly GpuRect[];
+  readonly trueHoleRectsCss?: readonly GpuRect[];
 }) {
-  const resolvedMissingPageCount = resolvePreparedFrameMissingPageCount({
+  const resolvedRefinementPageCount = resolvePreparedFrameRefinementPageCount({
     drawQuads,
-    missingPageCount,
-    uncoveredRectsCss,
+    refinementPageCount,
+    trueHoleRectsCss,
   });
   const pageFrame: RetainedContentTexturePagePreparedFrame = {
     coverageCandidateCount: 0,
     drawQuadCount: drawQuads.length,
     drawQuads,
-    fallbackDrawQuadCount: drawQuads.filter((quad) => quad.fallback).length,
+    compatibleDrawQuadCount: drawQuads.filter(
+      (quad) => quad.coverageKind === "compatible",
+    ).length,
+    fidelityState: drawQuads.some((quad) => quad.coverageKind === "compatible")
+      ? "compatible-lower-lod"
+      : trueHoleRectsCss.length > 0
+        ? "refining"
+        : "target",
     flatSurfaces: [flatVisual(`frame-${frame}`)],
     frame,
     mergedDrawQuadCount: 0,
-    missingPageCount: resolvedMissingPageCount,
-    pendingStripVisuals: [],
+    refinementPageCount: resolvedRefinementPageCount,
+    trueHoleVisuals: [],
     protectedPageKeys: [],
+    rejectedStaleRects: [],
     refinementDescriptors: targetDescriptors,
-    staleFallbackDrawQuadCount: 0,
+    rejectedStaleRectCount: 0,
     targetDescriptors,
-    uncoveredRectsCss,
-    uncoveredRectCount: uncoveredRectsCss.length,
+    trueHoleRectsCss,
+    trueHoleRectCount: trueHoleRectsCss.length,
   };
   return createRetainedDisplayFrameInput({
     pageFrame,
@@ -296,20 +297,20 @@ function preparedFrame({
   });
 }
 
-function resolvePreparedFrameMissingPageCount({
+function resolvePreparedFrameRefinementPageCount({
   drawQuads,
-  missingPageCount,
-  uncoveredRectsCss,
+  refinementPageCount,
+  trueHoleRectsCss,
 }: {
   readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
-  readonly missingPageCount: number | undefined;
-  readonly uncoveredRectsCss: readonly GpuRect[];
+  readonly refinementPageCount: number | undefined;
+  readonly trueHoleRectsCss: readonly GpuRect[];
 }): number {
-  if (missingPageCount !== undefined) {
-    return missingPageCount;
+  if (refinementPageCount !== undefined) {
+    return refinementPageCount;
   }
-  if (uncoveredRectsCss.length > 0) {
-    return uncoveredRectsCss.length;
+  if (trueHoleRectsCss.length > 0) {
+    return trueHoleRectsCss.length;
   }
   return drawQuads.length === 0 ? 1 : 0;
 }
@@ -369,16 +370,18 @@ function pageDescriptor(
 function pageDrawQuad(
   descriptor: RetainedTexturePageDescriptor,
   {
-    fallback = false,
+    coverageKind = "exact",
     sampleRectCss = descriptor.sourceRectCss,
   }: {
-    readonly fallback?: boolean | undefined;
+    readonly coverageKind?: "compatible" | "exact" | undefined;
     readonly sampleRectCss?: GpuRect | undefined;
   } = {},
 ): RetainedTexturePageDrawQuad<RetainedContentTextureResources> {
   return {
+    coverageKind,
     desiredDescriptor: descriptor,
-    fallback,
+    fidelityState:
+      coverageKind === "compatible" ? "compatible-lower-lod" : "target",
     page: {
       byteSize: 1,
       committedFrame: 1,
@@ -386,6 +389,7 @@ function pageDrawQuad(
       key: "page",
       lastUsedFrame: 1,
       resource: {} as RetainedContentTextureResources,
+      ...createRetainedCommittedPageLifecycle(descriptor),
     },
     sampleRectCss,
     staleContent: false,

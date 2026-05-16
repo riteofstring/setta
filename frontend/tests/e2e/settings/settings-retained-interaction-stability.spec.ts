@@ -151,7 +151,11 @@ test("clicking a settings switch keeps retained section content visible", async 
   expect(
     beforeStats.contrastPixelRatio,
     JSON.stringify({ beforeStats, target }, null, 2),
-  ).toBeGreaterThan(0.008);
+  ).toBeGreaterThan(0.006);
+  expect(
+    beforeStats.luminanceRange,
+    JSON.stringify({ beforeStats, target }, null, 2),
+  ).toBeGreaterThan(22);
 
   const initialValue = Boolean(
     await readGuiSetting(page, "leftSidePaneShiftsMap"),
@@ -382,7 +386,8 @@ async function moveAwayFromRetainedRows(page: Page): Promise<void> {
 
 async function waitForAnimationFrame(page: Page): Promise<void> {
   await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
   );
 }
 

@@ -807,7 +807,7 @@ async function captureVisibleRetainedRowVisuals(page: Page) {
   const rows = await page.evaluate(() => {
     return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
       .filter((row): row is RetainedRowDebugEntry => {
-        const rect = row.controlClientRect ?? row.clientRect;
+        const rect = row.clientRect;
         return (
           rect.width > 20 &&
           rect.height > 8 &&
@@ -819,7 +819,7 @@ async function captureVisibleRetainedRowVisuals(page: Page) {
       })
       .slice(0, 4)
       .map((row) => ({
-        rect: row.controlClientRect ?? row.clientRect,
+        rect: row.clientRect,
         rowId: row.rowId,
         surfaceId: row.surfaceId,
       }));
@@ -839,7 +839,7 @@ async function captureRetainedSurfaceRowVisuals(page: Page, surfaceId: string) {
   const rows = await page.evaluate((targetSurfaceId) => {
     return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
       .filter((row): row is RetainedRowDebugEntry => {
-        const rect = row.controlClientRect ?? row.clientRect;
+        const rect = row.clientRect;
         return (
           row.surfaceId === targetSurfaceId &&
           rect.width > 20 &&
@@ -852,7 +852,7 @@ async function captureRetainedSurfaceRowVisuals(page: Page, surfaceId: string) {
       })
       .slice(0, 4)
       .map((row) => ({
-        rect: row.controlClientRect ?? row.clientRect,
+        rect: row.clientRect,
         rowId: row.rowId,
         surfaceId: row.surfaceId,
       }));

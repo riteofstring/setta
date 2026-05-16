@@ -12,6 +12,7 @@ import {
   resolveRetainedContentTexturePageTextureBudget,
 } from "./retainedContentTexturePageBudget";
 import {
+  combineRetainedContentTexturePageFidelityState,
   didRetainedPageVisualCoverageChange,
   isRetainedTextureWorkItemCompleteAfterPageUpload,
   rectsEqual,
@@ -54,10 +55,11 @@ import {
   estimatePageByteSize,
   retainedTexturePageKey,
   type RetainedTexturePageDescriptor,
+  type RetainedTexturePageRejectedCoverage,
 } from "./retainedTexturePages";
 import {
   createRetainedTexturePageFlatVisuals,
-  createRetainedTexturePagePendingStripVisuals,
+  createRetainedTexturePageTrueHoleVisuals,
 } from "./retainedTexturePageVisuals";
 import {
   runRetainedTextureUploadScheduler,
@@ -337,7 +339,7 @@ export class RetainedContentTexturePageManager {
         before: preparedFrame,
       });
     const committedMissingPageCoverage =
-      preparedFrame.missingPageCount > 0 && uploadResult.uploadCount > 0;
+      preparedFrame.refinementPageCount > 0 && uploadResult.uploadCount > 0;
 
     return {
       budgetExhausted: uploadResult.budgetExhausted,
@@ -346,25 +348,26 @@ export class RetainedContentTexturePageManager {
       evicted,
       executedItemCount: uploadResult.executedItems.length,
       memory: this.cache.snapshot(),
-      missingPageCount: preparedFrame.missingPageCount,
+      refinementPageCount: preparedFrame.refinementPageCount,
       needsFollowUpFrame:
         uploadResult.budgetExhausted ||
         committedRefinementChangedDrawableCoverage ||
         committedMissingPageCoverage,
-      pendingStripVisuals: preparedFrame.pendingStripVisuals,
-      postMaintenanceMissingPageCount:
-        postMaintenancePageVisualResult.missingPageCount,
+      trueHoleVisuals: preparedFrame.trueHoleVisuals,
+      postMaintenanceRefinementPageCount:
+        postMaintenancePageVisualResult.refinementPageCount,
       queuedWorkCount: this.workQueue.size,
       queuedWorkCountBeforeUpload,
       rasterMs: uploadResult.rasterMs,
       drawQuadCount: preparedFrame.drawQuadCount,
-      fallbackDrawQuadCount: preparedFrame.fallbackDrawQuadCount,
+      compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
+      fidelityState: preparedFrame.fidelityState,
       mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
       remainingUploadableWorkCount: uploadResult.remainingUploadableWorkCount,
       skippedItemCount: uploadResult.skippedItems.length,
-      staleFallbackDrawQuadCount: preparedFrame.staleFallbackDrawQuadCount,
+      rejectedStaleRectCount: preparedFrame.rejectedStaleRectCount,
       targetDescriptorCount: preparedFrame.targetDescriptors.length,
-      uncoveredRectCount: preparedFrame.uncoveredRectCount,
+      trueHoleRectCount: preparedFrame.trueHoleRectCount,
       uploadedBytes: uploadResult.uploadedBytes,
       uploadedDrawCommandCount: this.maintenanceUploadedDrawCommandCount,
       uploadCount: uploadResult.uploadCount,
@@ -388,21 +391,22 @@ export class RetainedContentTexturePageManager {
         remainingBytes: this.cache.snapshot().committedBytes,
       },
       executedItemCount: 0,
-      fallbackDrawQuadCount: preparedFrame.fallbackDrawQuadCount,
+      compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
+      fidelityState: preparedFrame.fidelityState,
       memory: this.cache.snapshot(),
       mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
-      missingPageCount: preparedFrame.missingPageCount,
+      refinementPageCount: preparedFrame.refinementPageCount,
       needsFollowUpFrame: false,
-      pendingStripVisuals: preparedFrame.pendingStripVisuals,
-      postMaintenanceMissingPageCount: preparedFrame.missingPageCount,
+      trueHoleVisuals: preparedFrame.trueHoleVisuals,
+      postMaintenanceRefinementPageCount: preparedFrame.refinementPageCount,
       queuedWorkCount: this.workQueue.size,
       queuedWorkCountBeforeUpload: this.workQueue.size,
       rasterMs: 0,
       remainingUploadableWorkCount: 0,
       skippedItemCount: 0,
-      staleFallbackDrawQuadCount: preparedFrame.staleFallbackDrawQuadCount,
+      rejectedStaleRectCount: preparedFrame.rejectedStaleRectCount,
       targetDescriptorCount: preparedFrame.targetDescriptors.length,
-      uncoveredRectCount: preparedFrame.uncoveredRectCount,
+      trueHoleRectCount: preparedFrame.trueHoleRectCount,
       uploadedBytes: 0,
       uploadedDrawCommandCount: 0,
       uploadCount: 0,
@@ -567,18 +571,23 @@ export class RetainedContentTexturePageManager {
       if (this.cache.getCommittedPage(retainedTexturePageKey(descriptor))) {
         continue;
       }
-      const hasDrawableFallback = this.hasCommittedFallbackCoverage(descriptor);
+      const hasDrawableCompatibleCoverage =
+        this.hasCommittedCompatibleCoverage(descriptor);
       this.enqueueDescriptorWork({
         descriptors: [descriptor],
         frame,
-        kind: hasDrawableFallback ? "lod-refinement" : "first-visible",
+        kind: hasDrawableCompatibleCoverage
+          ? "lod-refinement"
+          : "first-visible",
         priority: "visible",
-        ...(hasDrawableFallback ? { targetLod: descriptor.lodScale } : {}),
+        ...(hasDrawableCompatibleCoverage
+          ? { targetLod: descriptor.lodScale }
+          : {}),
       });
     }
   }
 
-  private hasCommittedFallbackCoverage(
+  private hasCommittedCompatibleCoverage(
     descriptor: RetainedTexturePageDescriptor,
   ): boolean {
     const coverage = resolveRetainedTexturePageCoverage({
@@ -586,7 +595,7 @@ export class RetainedContentTexturePageManager {
       desiredPages: [descriptor],
     });
     return (
-      coverage.drawQuads.length > 0 && coverage.uncoveredRectsCss.length === 0
+      coverage.drawQuads.length > 0 && coverage.trueHoleRectsCss.length === 0
     );
   }
 
@@ -625,34 +634,39 @@ export class RetainedContentTexturePageManager {
     readonly frame: number;
   }): {
     readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly missingPageCount: number;
-    readonly pendingStripVisuals: RetainedContentTexturePagePreparedFrame["pendingStripVisuals"];
+    readonly refinementPageCount: number;
+    readonly trueHoleVisuals: RetainedContentTexturePagePreparedFrame["trueHoleVisuals"];
     readonly protectedPageKeys: readonly string[];
+    readonly rejectedStaleRects: readonly RetainedTexturePageRejectedCoverage[];
     readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
     readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
     readonly drawQuadCount: number;
-    readonly fallbackDrawQuadCount: number;
+    readonly compatibleDrawQuadCount: number;
+    readonly fidelityState: RetainedContentTexturePagePreparedFrame["fidelityState"];
     readonly coverageCandidateCount: number;
     readonly mergedDrawQuadCount: number;
-    readonly staleFallbackDrawQuadCount: number;
-    readonly uncoveredRectsCss: readonly GpuRect[];
-    readonly uncoveredRectCount: number;
+    readonly rejectedStaleRectCount: number;
+    readonly trueHoleRectsCss: readonly GpuRect[];
+    readonly trueHoleRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
-    const pendingStripVisuals: RetainedContentTexturePagePreparedFrame["pendingStripVisuals"][number][] =
+    const trueHoleVisuals: RetainedContentTexturePagePreparedFrame["trueHoleVisuals"][number][] =
       [];
     const drawQuads: RetainedTexturePageDrawQuad<RetainedContentTextureResources>[] =
       [];
     const protectedPageKeys = new Set<string>();
+    const rejectedStaleRects: RetainedTexturePageRejectedCoverage[] = [];
     const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
-    const uncoveredRectsCss: GpuRect[] = [];
+    const trueHoleRectsCss: GpuRect[] = [];
     let drawQuadCount = 0;
-    let fallbackDrawQuadCount = 0;
+    let compatibleDrawQuadCount = 0;
+    let fidelityState: RetainedContentTexturePagePreparedFrame["fidelityState"] =
+      "target";
     let coverageCandidateCount = 0;
     let mergedDrawQuadCount = 0;
-    let missingPageCount = 0;
-    let staleFallbackDrawQuadCount = 0;
-    let uncoveredRectCount = 0;
+    let refinementPageCount = 0;
+    let rejectedStaleRectCount = 0;
+    let trueHoleRectCount = 0;
     for (const surface of this.frameSurfaceById.values()) {
       const surfaceDesiredPages = desiredPages.filter(
         (page) => page.surfaceId === surface.surfaceId,
@@ -663,15 +677,20 @@ export class RetainedContentTexturePageManager {
         usedFrame: frame,
       });
       coverageCandidateCount += coverage.coverageCandidateCount;
-      missingPageCount += coverage.refinementDescriptors.length;
+      refinementPageCount += coverage.refinementDescriptors.length;
       mergedDrawQuadCount += coverage.mergedDrawQuadCount;
-      staleFallbackDrawQuadCount += coverage.staleFallbackDrawQuadCount;
-      uncoveredRectCount += coverage.uncoveredRectsCss.length;
-      uncoveredRectsCss.push(...coverage.uncoveredRectsCss);
+      rejectedStaleRectCount += coverage.rejectedStaleRectCount;
+      rejectedStaleRects.push(...coverage.rejectedStaleRects);
+      fidelityState = combineRetainedContentTexturePageFidelityState(
+        fidelityState,
+        coverage.fidelityState,
+      );
+      trueHoleRectCount += coverage.trueHoleRectsCss.length;
+      trueHoleRectsCss.push(...coverage.trueHoleRectsCss);
       drawQuads.push(...coverage.drawQuads);
       drawQuadCount += coverage.drawQuads.length;
-      fallbackDrawQuadCount += coverage.drawQuads.filter(
-        (drawQuad) => drawQuad.fallback,
+      compatibleDrawQuadCount += coverage.drawQuads.filter(
+        (drawQuad) => drawQuad.coverageKind === "compatible",
       ).length;
       refinementDescriptors.push(...coverage.refinementDescriptors);
       for (const pageKey of coverage.protectedPageKeys) {
@@ -683,10 +702,10 @@ export class RetainedContentTexturePageManager {
           layout: surface.layout,
         }),
       );
-      pendingStripVisuals.push(
-        ...createRetainedTexturePagePendingStripVisuals({
+      trueHoleVisuals.push(
+        ...createRetainedTexturePageTrueHoleVisuals({
           layout: surface.layout,
-          pendingRects: coverage.uncoveredRectsCss,
+          trueHoleRects: coverage.trueHoleRects,
         }),
       );
     }
@@ -694,16 +713,18 @@ export class RetainedContentTexturePageManager {
       coverageCandidateCount,
       drawQuadCount,
       drawQuads,
-      fallbackDrawQuadCount,
+      compatibleDrawQuadCount,
+      fidelityState,
       flatSurfaces,
       mergedDrawQuadCount,
-      missingPageCount,
-      pendingStripVisuals,
+      refinementPageCount,
+      trueHoleVisuals,
       protectedPageKeys: [...protectedPageKeys],
+      rejectedStaleRects,
       refinementDescriptors,
-      staleFallbackDrawQuadCount,
-      uncoveredRectsCss,
-      uncoveredRectCount,
+      rejectedStaleRectCount,
+      trueHoleRectsCss,
+      trueHoleRectCount,
     };
   }
 
