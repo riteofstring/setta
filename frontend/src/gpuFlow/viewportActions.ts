@@ -108,7 +108,7 @@ export function panGpuViewport(
   });
 }
 
-export function zoomGpuViewportAt(
+function zoomGpuViewportAt(
   zoom: number,
   options: GpuZoomActionOptions = {},
 ): boolean {
@@ -131,7 +131,7 @@ export function zoomGpuViewportAt(
   });
 }
 
-export function zoomGpuViewportByFactor(
+function zoomGpuViewportByFactor(
   factor: number,
   options: GpuZoomActionOptions = {},
 ): boolean {

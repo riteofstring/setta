@@ -169,11 +169,13 @@ export function filterGpuRetainedContentDrawCommandsForPage({
   );
 }
 
-export function getGpuRetainedContentDrawCommandBounds(
+function getGpuRetainedContentDrawCommandBounds(
   command: GpuRetainedContentDrawCommand,
 ): GpuRect {
   if (command.kind === "scrollbar") {
-    throw new Error("Retained scrollbars are overlay-owned, not page-rasterized.");
+    throw new Error(
+      "Retained scrollbars are overlay-owned, not page-rasterized.",
+    );
   }
   return command.rect;
 }

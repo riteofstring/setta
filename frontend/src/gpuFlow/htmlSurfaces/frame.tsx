@@ -38,8 +38,6 @@ import {
   type HtmlSurfaceVisualBuildResult,
 } from "./surfaceVisuals";
 
-export { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
-
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";

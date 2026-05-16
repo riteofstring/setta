@@ -89,12 +89,3 @@ export function getGpuRetainedContentCanvasPalette(
     ? DARK_RETAINED_CONTENT_CANVAS_PALETTE
     : LIGHT_RETAINED_CONTENT_CANVAS_PALETTE;
 }
-
-export function isGpuRetainedContentCanvasDarkMode(
-  canvas: HTMLCanvasElement,
-): boolean {
-  return Boolean(
-    canvas.closest(".dark") ??
-      canvas.ownerDocument.documentElement.closest(".dark"),
-  );
-}

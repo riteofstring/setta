@@ -174,29 +174,6 @@ export function syncSelectedMiniMapNodes(
   }
 }
 
-export function areMiniMapNodesRenderableInputsEqual(
-  left: readonly GpuMiniMapNode[],
-  right: readonly GpuMiniMapNode[],
-) {
-  if (left === right) {
-    return true;
-  }
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    const leftNode = left[index];
-    const rightNode = right[index];
-    if (!leftNode || !rightNode) {
-      return false;
-    }
-    if (!areMiniMapNodeRenderableFieldsEqual(leftNode, rightNode)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export function MinimapSvg({
   elementHeight,
   elementWidth,
@@ -375,52 +352,4 @@ function isRenderableMiniMapNode(
   readonly width: number;
 } {
   return isMeasuredGpuNodeBoundsInput(node);
-}
-
-function areNodeStylesEqual(
-  left: CSSProperties | undefined,
-  right: CSSProperties | undefined,
-) {
-  if (left === right) {
-    return true;
-  }
-  if (!left || !right) {
-    return left === right;
-  }
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (
-      left[key as keyof CSSProperties] !== right[key as keyof CSSProperties]
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-const MINI_MAP_RENDERABLE_FIELD_SELECTORS = [
-  (node: GpuMiniMapNode) => node.id,
-  (node: GpuMiniMapNode) => node.position.x,
-  (node: GpuMiniMapNode) => node.position.y,
-  (node: GpuMiniMapNode) => node.width,
-  (node: GpuMiniMapNode) => node.height,
-  (node: GpuMiniMapNode) => node.zIndex,
-  (node: GpuMiniMapNode) => node.tempZIndex,
-  (node: GpuMiniMapNode) => node.type,
-] as const;
-
-function areMiniMapNodeRenderableFieldsEqual(
-  left: GpuMiniMapNode,
-  right: GpuMiniMapNode,
-) {
-  for (const selector of MINI_MAP_RENDERABLE_FIELD_SELECTORS) {
-    if (selector(left) !== selector(right)) {
-      return false;
-    }
-  }
-  return areNodeStylesEqual(left.style, right.style);
 }

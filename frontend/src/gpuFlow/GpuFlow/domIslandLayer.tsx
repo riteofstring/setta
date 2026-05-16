@@ -150,7 +150,7 @@ function getLiveGpuFlowDomIslandViewport({
   return viewportRuntime.getViewportTuple();
 }
 
-export function syncGpuFlowDomIslandElementStyle({
+function syncGpuFlowDomIslandElementStyle({
   element,
   island,
   viewport,
@@ -174,7 +174,7 @@ export function syncGpuFlowDomIslandElementStyle({
   element.style.zIndex = String(style.zIndex ?? "");
 }
 
-export function hideGpuFlowDomIslandElement(element: HTMLElement) {
+function hideGpuFlowDomIslandElement(element: HTMLElement) {
   element.style.display = "none";
 }
 

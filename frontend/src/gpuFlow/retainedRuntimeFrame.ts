@@ -228,7 +228,7 @@ function createGpuRetainedRuntimeFrameNativeDomIslands({
   });
 }
 
-export function sampleGpuRetainedRuntimeFrameDomIsland({
+function sampleGpuRetainedRuntimeFrameDomIsland({
   hitTestSurfaces,
   island,
 }: {

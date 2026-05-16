@@ -166,11 +166,8 @@ The reusable runtime is centered on these modules:
 - `htmlSurfaces/hitScene.ts` and `htmlSurfaces/interactionProjector.ts` map
   pointer and wheel events through rendered visuals back into source-local DOM
   coordinates.
-- `htmlSurfaces/apiProbes.ts` checks html-in-canvas behavior that the runtime
-  relies on, including direct-child requirements, changed-element granularity,
-  transform handling, transform-only paint invalidation, source-subrect upload
-  support, hidden-source capture policy, `getElementTransform`, and worker
-  capture availability.
+- `htmlSurfaces/apiProbes.ts` keeps source-host policy checks and probe result
+  summary helpers used by focused browser capability tests.
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`, and
@@ -270,11 +267,8 @@ loudly if the development browser does not expose the required native APIs:
 - `GPUQueue.copyElementImageToTexture`
 - `ResizeObserver`
 
-`frontend/src/gpuFlow/htmlSurfaces/apiProbes.ts` covers more detailed
-html-in-canvas behavior such as direct-child requirements, changed-element
-granularity, transform handling, transform-only invalidation, source-subrect
-upload support, hidden-source capture policy, `getElementTransform`, and worker
-capture availability. There is no fallback renderer in this path.
+Focused tests cover source policy, dirty tracking, renderer behavior, and
+texture upload paths. There is no fallback renderer in this path.
 
 ## DOM Sources, Portals, and DOM Islands
 

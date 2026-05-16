@@ -49,15 +49,6 @@ export function getGpuRetainedContentScrollbarThumbColor({
   return hovered ? rgba(51, 65, 85, 0.62) : rgba(71, 85, 105, 0.46);
 }
 
-export function formatGpuRetainedContentScrollbarCssColor({
-  a,
-  b,
-  g,
-  r,
-}: GpuRetainedContentScrollbarColor): string {
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
 function rgba(
   r: number,
   g: number,

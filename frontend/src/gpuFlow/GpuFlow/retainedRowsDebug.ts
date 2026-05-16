@@ -134,7 +134,7 @@ export function useGpuFlowDebugGlobals<
   ]);
 }
 
-export function createGpuFlowVisualSurfacesDebugSnapshot({
+function createGpuFlowVisualSurfacesDebugSnapshot({
   container,
   viewport,
   visualScene,
@@ -241,7 +241,7 @@ function toVisualSurfaceDebugEntry({
   };
 }
 
-export function createGpuFlowRetainedRowsDebugSnapshot({
+function createGpuFlowRetainedRowsDebugSnapshot({
   container,
   retainedContentRuntimeState,
   scene,

@@ -287,7 +287,7 @@ export function recordGpuFlowPointerDiagnostics({
   };
 }
 
-export function toGpuFlowElementDiagnostics(
+function toGpuFlowElementDiagnostics(
   value: EventTarget | Element | null | undefined,
 ): GpuFlowElementDiagnostics | null {
   if (!isGpuFlowDiagnosticsElement(value)) {

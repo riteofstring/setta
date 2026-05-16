@@ -123,7 +123,7 @@ export function createRetainedCommittedPageLifecycle(
   });
 }
 
-export function createRetainedSemanticIdentity(
+function createRetainedSemanticIdentity(
   descriptor: Pick<
     RetainedPageLifecycleDescriptor,
     "contentVersion" | "sourceKey" | "sourceVersion" | "surfaceId"
@@ -137,7 +137,7 @@ export function createRetainedSemanticIdentity(
   });
 }
 
-export function retainedPageGridGeneration(
+function retainedPageGridGeneration(
   descriptor: Pick<
     RetainedPageLifecycleDescriptor,
     | "devicePixelRatioBucket"

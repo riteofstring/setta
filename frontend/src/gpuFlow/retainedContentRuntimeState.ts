@@ -138,7 +138,7 @@ export function syncGpuRetainedContentRuntimeStateForScene({
   let changed = false;
   const retainedSurfaceIds = new Set<string>();
   for (const surface of scene.contentSurfaces) {
-    if (!surface.retainedScene) {
+    if (!isGpuRetainedContentRuntimeSurface(surface)) {
       continue;
     }
     retainedSurfaceIds.add(surface.id);
@@ -166,6 +166,14 @@ function clearGpuRetainedContentRuntimeState(
     state.scrollRevisions.clear();
   }
   return changed;
+}
+
+function isGpuRetainedContentRuntimeSurface(
+  surface: GpuContentSurface,
+): surface is GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+} {
+  return Boolean(surface.retainedScene);
 }
 
 function syncGpuRetainedContentRuntimeSurface({
@@ -196,7 +204,7 @@ function syncGpuRetainedContentRuntimeSurface({
   );
 }
 
-export function clearGpuRetainedContentRuntimeScrollOffset({
+function clearGpuRetainedContentRuntimeScrollOffset({
   state,
   surfaceId,
 }: {

@@ -27,14 +27,6 @@ type GpuRetainedContentSourceSurfaceOptions = {
   readonly viewportZoomBucket?: number | undefined;
 };
 
-export function getGpuRetainedContentSourceIdsForSurface(
-  surface: GpuContentSurface,
-): readonly string[] {
-  return getGpuRetainedContentSourceSurfaces([surface]).map(
-    (source) => source.id,
-  );
-}
-
 export function getGpuRetainedContentSourceRectForRows({
   rowIds,
   surface,
@@ -102,7 +94,7 @@ export function getGpuRetainedContentSourceSurfaces(
     );
 }
 
-export function clipGpuRetainedContentSourceSurface(
+function clipGpuRetainedContentSourceSurface(
   surface: GpuRetainedContentSurface,
   options: GpuRetainedContentSourceSurfaceOptions = {},
 ): GpuRetainedContentSourceSurface | null {

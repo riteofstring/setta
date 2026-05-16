@@ -3,16 +3,13 @@ import type { GpuNodeResizeDirection } from "./resizeHandles";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import { rectsIntersect, type GpuPoint, type GpuRect } from "./viewportMath";
 
-export const GPU_FLOW_SCENE_DIRTY_FLAGS = [
-  "section-geometry",
-  "section-order",
-  "content",
-  "scroll",
-  "ports",
-  "dom-islands",
-] as const;
-
-type GpuFlowSceneDirtyFlag = (typeof GPU_FLOW_SCENE_DIRTY_FLAGS)[number];
+type GpuFlowSceneDirtyFlag =
+  | "section-geometry"
+  | "section-order"
+  | "content"
+  | "scroll"
+  | "ports"
+  | "dom-islands";
 
 export type GpuSectionSceneLayoutMode =
   | "absolute"
@@ -138,14 +135,6 @@ export type GpuFlowScene = {
   readonly edges: readonly GpuEdgeSceneRecord[];
   readonly revision: number;
   readonly sections: readonly GpuSectionSceneNode[];
-};
-
-export const EMPTY_GPU_FLOW_SCENE: GpuFlowScene = {
-  contentSurfaces: [],
-  domIslands: [],
-  edges: [],
-  revision: 0,
-  sections: [],
 };
 
 export function getGpuFlowSceneDomSectionNodes(

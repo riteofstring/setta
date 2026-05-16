@@ -6,14 +6,13 @@ export type RetainedTextureBudget = {
   readonly visibleReserveBytes: number;
 };
 
-export const DEFAULT_RETAINED_TEXTURE_BUDGET: RetainedTextureBudget =
-  Object.freeze({
-    activeIslandReserveBytes: 24 * 1024 * 1024,
-    hardMaxBytes: 192 * 1024 * 1024,
-    nearViewportReserveBytes: 48 * 1024 * 1024,
-    offscreenPrefetchMaxBytes: 8 * 1024 * 1024,
-    visibleReserveBytes: 96 * 1024 * 1024,
-  });
+const DEFAULT_RETAINED_TEXTURE_BUDGET: RetainedTextureBudget = Object.freeze({
+  activeIslandReserveBytes: 24 * 1024 * 1024,
+  hardMaxBytes: 192 * 1024 * 1024,
+  nearViewportReserveBytes: 48 * 1024 * 1024,
+  offscreenPrefetchMaxBytes: 8 * 1024 * 1024,
+  visibleReserveBytes: 96 * 1024 * 1024,
+});
 
 export function normalizeRetainedTextureBudget(
   budget: Partial<RetainedTextureBudget> = {},
