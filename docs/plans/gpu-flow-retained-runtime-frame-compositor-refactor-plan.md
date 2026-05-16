@@ -60,16 +60,66 @@ The same sampled frame must feed:
 
 No layer should derive retained scroll windows independently from base scene state. No click or focus operation should remount passive snapshot sources in a way that changes visible retained content for the current frame.
 
+### Runtime Frame Shape
+
+Keep the retained runtime frame explicit without turning it into a mutable manager object.
+
+- Frame input snapshot:
+  - immutable scene/content registry references,
+  - scene/content revision,
+  - retained runtime scroll offsets and scroll revision,
+  - viewport tuple, zoom bucket, and device pixel ratio bucket,
+  - active native island state.
+- Frame descriptors:
+  - sampled retained content surfaces,
+  - text-like snapshot source descriptors,
+  - retained page/frame surfaces and target page descriptors,
+  - native island rectangles,
+  - hit-test rectangles/index,
+  - scrollbar and hover visuals.
+- Frame diagnostics/output:
+  - source readiness snapshot,
+  - missing visible page count,
+  - stale lower-LOD visible page count,
+  - visible refinement backlog,
+  - memory/budget snapshot.
+
+The frame may snapshot cache and page-manager state, but it must not expose mutable page-manager, texture-cache, DOM-element-map, React state, or scheduler references. Frame id is provenance/debug data. Draw eligibility must be content-addressed, not frame-id-addressed.
+
+### Frame Staging Contract
+
+React source mounting and browser paint readiness are asynchronous relative to frame sampling. The implementation must not assume that a newly sampled source descriptor has a usable DOM element or paint record in the same frame.
+
+The retained pipeline should follow this staged lifecycle:
+
+1. Sample retained runtime frame `N` from scene/content registry and runtime state.
+2. Diff and mount hidden snapshot source descriptors for frame `N`.
+3. Wait for source readiness and browser paint records where required.
+4. Commit/upload retained pages whose descriptors match ready sources.
+5. Draw matching committed coverage for frame `N`, or keep last-known-good matching coverage until replacement coverage is ready.
+
+A frame can schedule work before all sources are ready, but it cannot publish blank or mismatched visible retained content just because a newer descriptor exists.
+
+### Published Interaction Frame Contract
+
+Pointer, wheel, and activation targeting must use the last successfully rendered retained runtime frame, not a speculative frame that has been sampled but not rendered.
+
+Newly sampled frames may schedule source mounting and upload work, but they cannot become the targeting frame until their visible geometry has been rendered or explicitly published as the current interaction frame. This prevents hit testing and native island activation from getting ahead of the pixels the user sees.
+
 ## First Milestone
 
 The first implementation slice should be a narrow vertical cut through the current failure, not a broad rewrite of every retained subsystem.
 
 1. Add the failing retained-section scroll, input activation, and post-activation scroll Playwright regression.
-2. Introduce the retained runtime frame type and sampler.
+2. Add the retained runtime frame type and sampler with only the fields needed for the failing path.
 3. Move hidden text-like snapshot source mounting to the frame-owned source descriptor list.
 4. Move retained page descriptor generation to the same frame-owned source surfaces and snapshot descriptors.
-5. Add fail-loud guards so production code cannot request retained text-like snapshot sources or retained page descriptors from base `scene` alone.
-6. Delete or privatize the old production `scene`-only source derivation path once the frame-owned path is in place.
+5. Make retained hit testing and native island activation read from the last drawn retained runtime frame.
+6. Add fail-loud guards so production code cannot request retained text-like snapshot sources, retained page descriptors, DOM island geometry, hit-test geometry, or scrollbar visuals from base `scene` alone.
+7. Add atomic content-addressed page descriptor matching.
+8. Delete or privatize the old production `scene`-only source derivation path once the frame-owned path is in place.
+9. Replace the zoom refinement scheduler after the frame contract is stable.
+10. Migrate scrollbars, hover visuals, and diagnostics to the frame object.
 
 This milestone should make the visible content, hidden passive source DOM, and clicked native input use the same sampled row geometry before the zoom scheduler is replaced.
 
@@ -104,27 +154,14 @@ This milestone should make the visible content, hidden passive source DOM, and c
   - when the test environment is capped below 120 Hz, use refresh-aware thresholds: p95 frame interval should stay within the display cadence, main-thread interaction work should remain below an 8ms budget, no long tasks over 50ms should occur, and the test output should record the observed refresh cadence so the result is interpretable.
 - These tests should fail on the current implementation. They may use existing debug helpers to find a row or target coordinate, but assertions must be based on visible screenshots, input behavior, scroll movement, and frame timing.
 - Keep the regression fixtures realistic. They should use production app setup, real retained section content, real pointer/wheel/keyboard interactions, and browser rendering output. Do not assert on internal implementation counters such as source counts, page ids, or scheduler queue lengths except as supplemental debugging output when a user-visible assertion fails.
-- Keep the correctness regression first in the implementation sequence. Large-scene performance and high-zoom scheduler targets are required acceptance gates, but they should not delay the frame contract slice that removes the current split between compositor pages and hidden snapshot sources.
+- Keep the correctness regression first in the implementation sequence. The scroll -> activate input -> type -> scroll still works regression is the required CI correctness gate for the first frame-contract slice.
+- Treat large-scene 120 fps-class testing as a dedicated performance gate or CDP verification on known-capable hardware. It should be measured early for baseline and must pass before the refactor is complete, but it should not block the first frame-contract slice unless the environment is explicitly configured for that gate.
+- Treat high-zoom sharpness as required when the pixel threshold is stable for the browser environment. If not, keep it as a browser-specific visual gate plus scheduler/model assertions for bounded eventual progress.
 
 2. Define the retained runtime frame contract
 - Add a focused frontend type/module for the sampled retained runtime frame.
-- The frame should include:
-  - frame id,
-  - scene revision,
-  - runtime scroll revision,
-  - viewport tuple,
-  - zoom bucket,
-  - device pixel ratio,
-  - sampled retained content surfaces,
-  - text-like snapshot source descriptors,
-  - retained page/frame surfaces and target page descriptors,
-  - native island rectangles,
-  - hit-test index,
-  - scrollbar and hover visuals,
-  - source readiness snapshot,
-  - missing visible page count,
-  - stale lower-LOD visible page count,
-  - visible refinement backlog and memory state.
+- Start with the fields needed for the failing vertical path, then expand only as each consumer migrates.
+- Keep the contract split into frame input snapshot, frame descriptors, and frame diagnostics/output.
 - Make the type immutable after creation.
 - The frame should contain immutable descriptors and readiness snapshots. It should not expose mutable page-manager, texture-cache, DOM-element-map, or React state references.
 - Fail loudly if a consumer asks for retained descriptors from a base scene without the current sampled runtime frame.
@@ -143,8 +180,9 @@ This milestone should make the visible content, hidden passive source DOM, and c
 - Remove or restrict production use of `getGpuRetainedTextLikeRowSnapshotSources(scene)`. Tests may keep a scene-only helper only if it delegates through an explicit frame construction helper.
 
 5. Make page commits atomic and content-addressed
-- A retained page descriptor must include content region, source window, source key/version, zoom bucket, pixel scale, and content version.
+- A retained page descriptor must include surface id, content region, source window, source key/version, content version, zoom bucket, pixel scale, and device pixel ratio bucket.
 - A committed page may only draw for a descriptor it actually matches.
+- Frame id should be recorded for provenance/debugging, but it must not be the sole validity key. A committed page should be reusable across frames when its content-addressed descriptor still matches.
 - Fallback may use a lower-resolution page for the same content region, but must not draw stale pages from a different scroll window or source generation.
 - If required sources are not ready, keep the previous matching committed coverage visible and continue scheduling the missing work. Do not publish a frame that exposes blank or mismatched text-like rows.
 - Never mix page descriptors from one runtime frame with text-like snapshot source descriptors from another runtime frame.
@@ -158,12 +196,14 @@ This milestone should make the visible content, hidden passive source DOM, and c
   - cap target descriptors to work that can make progress under budget,
   - record failure only when a visible page cannot fit even after legal eviction.
 - Ensure upload work has eventual progress while visible descriptors are missing.
-- After interaction settles, the visible missing high-resolution page count must decrease monotonically across follow-up frames unless diagnostics report an exact fitting blocker for a specific visible descriptor.
+- For a stable settled descriptor set with stable scene revision, viewport/zoom bucket, runtime scroll revision, source readiness state, and memory budget, visible high-resolution missing pages must make bounded eventual progress or diagnostics must identify the exact visible descriptor and fitting blocker.
 - Treat repeated budget-exhausted frames with no uploads, no evictions, and visible stale fallback pages as scheduler starvation.
 
 7. Rebuild DOM/native input activation on sampled geometry
-- Activate inputs from the retained runtime frame's native island rects.
+- Resolve pointer hits against the last drawn retained runtime frame.
+- Activate inputs from that frame's native island rects.
 - Keep the active DOM island positioned by the same transform/rect used by the drawn frame.
+- Activation is a transaction: the pointer hit consumes the last drawn frame, the active island overlays the clicked control, unrelated passive source lists do not change because of activation, and passive page coverage remains last-known-good until an atomic matching page commit replaces it.
 - If the passive snapshot for the clicked row is not ready, activation should still use deterministic row geometry, while passive content remains last-known-good until the next atomic page commit.
 - Keep native event ownership explicit: active editor wheel handling should either consume editor scroll or hand off to retained section scroll, and visible content must move when section scroll wins.
 
@@ -186,6 +226,7 @@ This milestone should make the visible content, hidden passive source DOM, and c
 
 10. Verify and clean up
 - Run the new failing tests first to confirm they fail before the refactor.
+- Capture a large-scene performance baseline before broad compositor changes, even if the 120 fps-class gate runs in a dedicated environment.
 - After each major refactor slice, run focused Vitest coverage for retained frame sampling, source readiness, page matching, and scheduler memory behavior.
 - Run the Playwright regression spec until the original reproduction passes.
 - Run the large-scene GPU Flow performance tests for pan, zoom, and retained section scroll. Treat 120 fps-class pacing as the target on capable hardware; if the environment cannot report that cadence, record the cap and enforce the refresh-aware main-thread and long-task budgets.
@@ -225,11 +266,14 @@ This milestone should make the visible content, hidden passive source DOM, and c
 
 - The long-section scroll, input activation, and post-activation scroll regression passes with screenshot and frame-pacing assertions.
 - High zoom settles to sharp retained text in the tested section, without persistent stale fallback coverage.
-- After high-zoom interaction settles, visible high-resolution missing page count makes eventual progress to zero or reports a specific visible descriptor that cannot fit after legal eviction.
+- For a stable settled high-zoom descriptor set, visible high-resolution missing page count makes bounded eventual progress to zero or reports a specific visible descriptor that cannot fit after legal eviction.
 - Clicking an input cannot change unrelated visible retained content in the same section.
+- Pointer, wheel, and native input activation target the last successfully rendered/published retained runtime frame, not a speculative sampled frame.
 - Section scroll remains visibly responsive after activating and editing a native retained input.
 - Large complex scenes comparable to the Settings project's All Settings page meet the pan, zoom, and retained section scroll performance targets: 120 fps-class p95 frame pacing on capable hardware, refresh-aware pacing on capped environments, no interaction long tasks over 50ms, and main-thread work within the documented per-frame budget.
+- Large-scene performance has a before/after baseline, even when the 120 fps-class gate runs in a dedicated environment.
 - Retained page descriptors, snapshot sources, DOM islands, hit tests, and scrollbars all consume the same sampled retained runtime frame.
+- Committed retained pages are validated by content-addressed descriptor identity; frame id is provenance/debug data and is not the sole draw eligibility key.
 - Production code cannot derive retained text-like snapshot sources, retained page descriptors, DOM island geometry, hit-test geometry, or scrollbar visuals directly from base `scene` when a retained runtime frame is required.
 - No compatibility layer, dual old/new compositor path, or silent fallback remains.
 - Full GPU Flow-related Vitest and Playwright suites have been run, with failures fixed or explicitly documented as unrelated pre-existing failures.
