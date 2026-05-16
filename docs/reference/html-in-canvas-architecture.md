@@ -96,8 +96,8 @@ offsets, type errors, parameter edit policy, and retained interaction state. The
 scene layout pass in `gpuFlow/sceneLayout.ts` resolves parent/child world
 geometry, ordered child placement, clipping, nested scroll offsets, and layout
 modes such as `none`, `vertical`, `horizontal`, and `kanban`. The generic scene
-type also supports `absolute`; the project adapter currently emits the modes
-above for Setta sections.
+type also supports `absolute`; the project adapter emits the modes above for
+Setta sections.
 
 `projectGpuFlowSceneFactory.ts` appends retained parameter content surfaces and
 DOM islands to the layout scene. `syncProjectGpuLayoutStoreFromScene()` keeps
@@ -128,7 +128,7 @@ The project integration is centered on these modules:
   project actions, parameter value commits, canvas popups, native DOM island
   activation, range-control drags, retained drag previews, and retained edge
   connections.
-- `projectGpuParamDragAdapter.ts` plans retained parameter structural moves.
+- `projectGpuParamDragAdapter.ts` resolves retained parameter structural moves.
 - `projectGpuPortalAdapter.ts` declares source-local and viewport portal roots
   used by CodeMirror, retained-native tooltips, and validation UI.
 - `projectNodeResize.ts` adapts GPU node resizing to Setta section size policy,
@@ -161,7 +161,8 @@ The reusable runtime is centered on these modules:
   overlays from cached textures, plus GPU-native retained visuals that do not
   sample HTML textures.
 - `htmlSurfaces/visualScene.ts` groups HTML surface visuals into flat, tiled
-  flat, mesh, and effect buckets for rendering and hit testing.
+  flat, late flat, mesh, effect, and solid rounded-rect buckets for rendering.
+  Hit testing projects flat, tiled flat, late flat, mesh, and effect visuals.
 - `htmlSurfaces/hitScene.ts` and `htmlSurfaces/interactionProjector.ts` map
   pointer and wheel events through rendered visuals back into source-local DOM
   coordinates.
@@ -247,9 +248,9 @@ Support libraries have narrow jobs:
   parameter drag/drop, and retained parameter scroll are owned by GPU
   interaction controllers.
 
-Core project-surface behavior is added through the owner modules above. New
-surface behavior should use the scene, retained-content, interaction, portal,
-and persistence paths that already own that class of work.
+Core project-surface behavior enters through the owner modules above: scene,
+retained-content, interaction, portal, and persistence paths own their
+respective classes of work.
 
 ## Browser Capability Contract
 
@@ -507,7 +508,7 @@ Dirty work is ordered by `frontend/src/gpuFlow/dirtyTracking.ts`. Priorities are
 `interactive`, `visible`, and `prefetch`; interactive content is uploaded before
 passive visible content. Content dirtiness wins over resolution-only dirtiness.
 
-The project surface currently passes this HTML upload budget:
+The project surface uses this HTML upload budget:
 
 ```ts
 {
@@ -533,7 +534,7 @@ retained page upload rather than being registered as standalone HTML visuals.
 
 ## WebGPU Scene Rendering
 
-`frontend/src/gpuFlow/htmlSurfaces/renderer.ts` owns the current renderer. A
+`frontend/src/gpuFlow/htmlSurfaces/renderer.ts` owns WebGPU scene rendering. A
 single `HtmlSurfaceRenderer.render()` call draws the current frame in this
 order:
 
@@ -567,8 +568,8 @@ uniform. When pan or zoom crosses a culling boundary, the active draw set can
 change; the renderer may then rewrite the flat or tiled-flat vertex buffer for
 the changed draw geometry. That bounded geometry write is separate from the
 HTML-surface invariants: it must not request paint, upload textures, rewrite
-source DOM transforms, or force React renders. Pan/zoom reports should keep
-vertex-write calls and bytes visible as their own counters.
+source DOM transforms, or force React renders. Pan/zoom reports expose
+vertex-write calls and bytes as separate counters.
 
 Edges are generated as CPU-side line-list buffer data from the current edge
 scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
@@ -704,9 +705,8 @@ preserves the project-canvas coordinate contract:
 `fitView`, `screenToFlowPosition`, `flowToScreenPosition`, `getViewport`,
 `getZoom`, `resetZoom`, and `updateMapPosition`.
 
-Transitions with non-zero `duration` intentionally throw. Animated viewport
-transitions need explicit frame-driven behavior rather than an implicit hidden
-transition layer.
+Transitions with non-zero `duration` throw. The viewport runtime does not
+include an implicit hidden transition layer.
 
 The core transform tuple is:
 
@@ -786,7 +786,7 @@ are patched. On stop, the adapter persists positions with `updateNodePositions()
 and updates z-order with `setZIndices()` when needed.
 
 Nested sections are ordered children of a parent section. During drag,
-`previewProjectNestedNodeDrag()` resolves a child move plan with
+`previewProjectNestedNodeDrag()` resolves child move operations with
 `resolveGpuSectionSceneChildMultiMovePlan()`. The preview can reparent or
 reorder the dragged section group, patch the scene layout store, draw drag
 bounds, draw a drop marker, and auto-scroll the nested viewport. On stop, the
@@ -795,9 +795,9 @@ with `sectionIds`, `newParentId`, `newIndex`, and `positionsById: null`.
 
 Nested drag target resolution is scene-aware. The drop parent is selected from
 ordered child drop rects under the dragged center point, preferring deeper and
-higher-priority candidates. The move planner rejects invalid targets such as
-same parent/index no-ops, descendant-parent moves, and targets that cannot
-accept ordered children.
+higher-priority candidates. Move resolution rejects invalid targets such as same
+parent/index no-ops, descendant-parent moves, and targets that cannot accept
+ordered children.
 
 Selection and selection drag use GPU selection controllers. Selection changes
 flow through `handleProjectSelectionChange()`, and keyboard nudge/selection
@@ -820,8 +820,9 @@ represent the full canonical order. Edge-input parameters are not movable.
 
 Drop targets are resolved inside the same retained surface. A drop can land
 before or after a row based on pointer position relative to the row midpoint, or
-inside an empty nested parent control. The planner rejects drops onto the moved
-set, drops into descendants of the moved set, invalid parents, and no-op moves.
+inside an empty nested parent control. Drop resolution rejects drops onto the
+moved set, drops into descendants of the moved set, invalid parents, and no-op
+moves.
 When hidden rows exist, the full insertion index is resolved from the visible
 insertion point so hidden children keep their canonical relative order. On drop,
 the adapter commits through `moveParamsWithBackend()`.
@@ -942,9 +943,8 @@ overlay surfaces are protected from eviction. Retained page uploads have their
 own raster/upload/memory budget and can request additional frames independently
 from HTML source texture uploads.
 
-Pure pan and zoom should remain transform-only. A change that makes panning or
-zooming request HTML paints, rerender section trees, or upload every texture is
-a performance regression.
+Pure pan and zoom are transform-only. Panning and zooming do not request HTML
+paints, rerender section trees, or upload every texture.
 
 ## Verification Surface
 
@@ -954,8 +954,8 @@ The architecture is protected by model-level and browser-level tests:
   coordinate conversion, zoom-at-point invariants, fit-view bounds, retained
   visible row ranges, retained hit clipping and precedence, retained texture
   page coverage, and retained scene behavior;
-- focused unit tests cover scene layout, resize previews, section drag planning,
-  retained parameter insertion/drop planning, portal partitioning, Floating UI
+- focused unit tests cover scene layout, resize previews, section drag behavior,
+  retained parameter insertion/drop behavior, portal partitioning, Floating UI
   virtual references, retained row diagnostics, retained controls, retained
   page rasterization, texture work queues, and retained texture page budgeting;
 - browser tests under `frontend/tests/e2e/gpu-flow/` and
@@ -963,42 +963,3 @@ The architecture is protected by model-level and browser-level tests:
   placement, retained native islands, scoped axe checks, retained scroll,
   retained popups, retained drag/drop, retained CodeMirror activation, visual
   regressions, and pan/zoom/scroll performance probes.
-
-When changing runtime behavior, add coverage at the owner layer. User-visible
-GPU surface changes need production-path tests and browser verification with
-real pointer, wheel, keyboard, focus, and text input events.
-
-## Performance Evidence
-
-HTML GPU surface performance reports live under `perf/reports/frontend/`.
-Representative reports for this implementation include:
-
-- `2026-05-02_html-gpu-dense-panzoom-cdp.md`
-- `2026-05-02_html-gpu-controls-cdp.md`
-- `2026-05-02_html-gpu-animation-paint-aligned-after.md`
-- `2026-05-02_html-gpu-warped-mesh-fixture.md`
-- `2026-05-02_html-gpu-settings-zoom-tiling-artifact-after.md`
-- `2026-05-02_html-gpu-settings-switch-targeted-after.md`
-- `2026-05-13_gpu-flow-retained-snapshot-runtime-refactor.md`
-- `2026-05-14_gpu-flow-retained-compositor-runtime-refactor.md`
-
-## Extension Rules
-
-When extending this surface, use the existing owner path:
-
-- Add section body behavior through `SectionContainer` and the section owner
-  code. Let the GPU scene describe geometry, clipping, and interaction policy.
-- Add section layout, resize, drag, or nested reorder behavior through the scene
-  and project GPU adapters, then persist through the project backend route that
-  owns canonical state.
-- Add parameter controls by extending the owner-defined parameter adapter,
-  retained draw commands, hit records, control descriptors, and project commit
-  adapter. Use a native DOM island only when browser-native input behavior is
-  required.
-- Keep generated or backend-owned contracts authoritative when a change touches
-  cross-language project data.
-- Use known portal roots plus the shared Floating UI wrapper for canvas-aware
-  custom overlays.
-- Preserve direct canvas child source hosts for texture-upload sources.
-- Preserve transform-only pan/zoom behavior and defer passive texture work while
-  viewport interaction is active.
