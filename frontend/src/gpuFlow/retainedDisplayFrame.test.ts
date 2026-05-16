@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
-import { createRetainedCommittedPageLifecycle } from "./retainedContentLifecycle";
+import {
+  createRetainedCommittedPageLifecycle,
+  createRetainedRegionTargetFromDescriptor,
+} from "./retainedContentLifecycle";
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
@@ -9,23 +12,27 @@ import {
   publishRetainedDisplayFrame,
 } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
-import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
 import {
   retainedTexturePageLodLevel,
   retainedTexturePageScaleKey,
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
+import type {
+  RetainedDrawRegion,
+  RetainedVisibleCoveragePlan,
+  RetainedVisibleRegionTarget,
+} from "./retainedVisibleCoveragePlanner";
 import type { GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 describe("retained display frame publisher", () => {
   it("publishes prepared frames with complete visible coverage", () => {
     const descriptor = pageDescriptor();
-    const drawQuad = pageDrawQuad(descriptor);
+    const drawRegion = pageDrawRegion(descriptor);
     const frame = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [drawQuad],
-        targetDescriptors: [descriptor],
+        drawRegions: [drawRegion],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
@@ -48,23 +55,23 @@ describe("retained display frame publisher", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor)],
+        drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [
-          pageDrawQuad(descriptor, {
+        drawRegions: [
+          pageDrawRegion(descriptor, {
             coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
         trueHoleRectsCss: [missingRect],
       }),
       previous,
@@ -85,10 +92,10 @@ describe("retained display frame publisher", () => {
     const previous = publishRetainedDisplayFrame({
       nowMs: 10,
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor)],
+        drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
         scrollOffsets: new Map([["surface", { x: 0, y: 0 }]]),
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
@@ -96,15 +103,15 @@ describe("retained display frame publisher", () => {
     const firstPending = publishRetainedDisplayFrame({
       nowMs: 20,
       prepared: preparedFrame({
-        drawQuads: [
-          pageDrawQuad(descriptor, {
+        drawRegions: [
+          pageDrawRegion(descriptor, {
             coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
         trueHoleRectsCss: [missingRect],
       }),
       previous,
@@ -112,15 +119,15 @@ describe("retained display frame publisher", () => {
     const secondPending = publishRetainedDisplayFrame({
       nowMs: 36,
       prepared: preparedFrame({
-        drawQuads: [
-          pageDrawQuad(descriptor, {
+        drawRegions: [
+          pageDrawRegion(descriptor, {
             coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 3,
         scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
         trueHoleRectsCss: [missingRect],
       }),
       previous: firstPending,
@@ -143,24 +150,24 @@ describe("retained display frame publisher", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor)],
+        drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
         nativeDomIslands: [nativeIsland("island-a")],
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [
-          pageDrawQuad(descriptor, {
+        drawRegions: [
+          pageDrawRegion(descriptor, {
             coverageKind: "compatible",
             sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
           }),
         ],
         frame: 2,
         nativeDomIslands: [],
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
         trueHoleRectsCss: [{ height: 12, width: 12, x: 0, y: 0 }],
       }),
       previous,
@@ -180,9 +187,11 @@ describe("retained display frame publisher", () => {
     const descriptor = pageDescriptor();
     const frame = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor, { coverageKind: "compatible" })],
+        drawRegions: [
+          pageDrawRegion(descriptor, { coverageKind: "compatible" }),
+        ],
         refinementPageCount: 1,
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
@@ -199,17 +208,19 @@ describe("retained display frame publisher", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor)],
+        drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous: null,
     });
     const next = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        drawQuads: [pageDrawQuad(descriptor, { coverageKind: "compatible" })],
+        drawRegions: [
+          pageDrawRegion(descriptor, { coverageKind: "compatible" }),
+        ],
         frame: 2,
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
       }),
       previous,
     });
@@ -222,7 +233,7 @@ describe("retained display frame publisher", () => {
     const missingRect = { height: 64, width: 64, x: 0, y: 0 };
     const frame = publishRetainedDisplayFrame({
       prepared: preparedFrame({
-        targetDescriptors: [descriptor],
+        visibleRegionTargets: [descriptor],
         trueHoleRectsCss: [missingRect],
       }),
       previous: null,
@@ -234,15 +245,15 @@ describe("retained display frame publisher", () => {
 });
 
 function preparedFrame({
-  drawQuads = [],
+  drawRegions = [],
   frame = 1,
   refinementPageCount,
   nativeDomIslands = [],
   scrollOffsets = new Map(),
-  targetDescriptors = [],
+  visibleRegionTargets = [],
   trueHoleRectsCss = [],
 }: {
-  readonly drawQuads?: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
+  readonly drawRegions?: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
   readonly frame?: number | undefined;
   readonly refinementPageCount?: number | undefined;
   readonly nativeDomIslands?: readonly GpuDomIsland[] | undefined;
@@ -250,26 +261,37 @@ function preparedFrame({
     string,
     { readonly x: number; readonly y: number }
   >;
-  readonly targetDescriptors?: readonly RetainedTexturePageDescriptor[];
+  readonly visibleRegionTargets?: readonly RetainedTexturePageDescriptor[];
   readonly trueHoleRectsCss?: readonly GpuRect[];
 }) {
   const resolvedRefinementPageCount = resolvePreparedFrameRefinementPageCount({
-    drawQuads,
+    drawRegions,
     refinementPageCount,
     trueHoleRectsCss,
   });
+  const visibleTargets = visibleRegionTargets.map(
+    visibleRegionTargetFromDescriptor,
+  );
+  const fidelityState = drawRegions.some(
+    (region) => region.coverageKind === "compatible",
+  )
+    ? "compatible-lower-lod"
+    : trueHoleRectsCss.length > 0
+      ? "refining"
+      : "target";
   const pageFrame: RetainedContentTexturePagePreparedFrame = {
+    coveragePlan: testCoveragePlan({
+      drawRegions,
+      trueHoleRectsCss,
+      visibleTargets,
+    }),
     coverageCandidateCount: 0,
-    drawQuadCount: drawQuads.length,
-    drawQuads,
-    compatibleDrawQuadCount: drawQuads.filter(
-      (quad) => quad.coverageKind === "compatible",
+    drawRegions,
+    drawQuadCount: drawRegions.length,
+    compatibleDrawQuadCount: drawRegions.filter(
+      (region) => region.coverageKind === "compatible",
     ).length,
-    fidelityState: drawQuads.some((quad) => quad.coverageKind === "compatible")
-      ? "compatible-lower-lod"
-      : trueHoleRectsCss.length > 0
-        ? "refining"
-        : "target",
+    fidelityState,
     flatSurfaces: [flatVisual(`frame-${frame}`)],
     frame,
     mergedDrawQuadCount: 0,
@@ -277,11 +299,13 @@ function preparedFrame({
     trueHoleVisuals: [],
     protectedPageKeys: [],
     rejectedStaleRects: [],
-    refinementDescriptors: targetDescriptors,
+    replacementDescriptors: [],
+    replacementRequests: [],
+    refinementDescriptors: visibleRegionTargets,
     rejectedStaleRectCount: 0,
-    targetDescriptors,
     trueHoleRectsCss,
     trueHoleRectCount: trueHoleRectsCss.length,
+    visibleRegionTargets: visibleTargets,
   };
   return createRetainedDisplayFrameInput({
     pageFrame,
@@ -298,11 +322,11 @@ function preparedFrame({
 }
 
 function resolvePreparedFrameRefinementPageCount({
-  drawQuads,
+  drawRegions,
   refinementPageCount,
   trueHoleRectsCss,
 }: {
-  readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
+  readonly drawRegions: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
   readonly refinementPageCount: number | undefined;
   readonly trueHoleRectsCss: readonly GpuRect[];
 }): number {
@@ -312,7 +336,7 @@ function resolvePreparedFrameRefinementPageCount({
   if (trueHoleRectsCss.length > 0) {
     return trueHoleRectsCss.length;
   }
-  return drawQuads.length === 0 ? 1 : 0;
+  return drawRegions.length === 0 ? 1 : 0;
 }
 
 function sceneWithNativeDomIslands(
@@ -327,6 +351,96 @@ function sceneWithNativeDomIslands(
     edges: [],
     revision: 1,
     sections: [],
+  };
+}
+
+function testCoveragePlan({
+  drawRegions,
+  trueHoleRectsCss,
+  visibleTargets,
+}: {
+  readonly drawRegions: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
+  readonly trueHoleRectsCss: readonly GpuRect[];
+  readonly visibleTargets: readonly RetainedVisibleRegionTarget[];
+}): RetainedVisibleCoveragePlan<RetainedContentTextureResources> {
+  const exactCoveredAreaCssPx = rectSetArea(
+    drawRegions
+      .filter((region) => region.coverageKind === "exact")
+      .map((region) => region.sampleRectCss),
+  );
+  const compatibleCoveredAreaCssPx = rectSetArea(
+    drawRegions
+      .filter((region) => region.coverageKind === "compatible")
+      .map((region) => region.sampleRectCss),
+  );
+  const trueHoleAreaCssPx = rectSetArea(trueHoleRectsCss);
+  return {
+    diagnostics: {
+      committedCandidateCount: drawRegions.length,
+      compatibleRegionCount: drawRegions.filter(
+        (region) => region.coverageKind === "compatible",
+      ).length,
+      compatibilityDurationMs: 0,
+      cost: {
+        allocatedDiagnosticRectCount: 0,
+        candidateCount: drawRegions.length,
+        compatibilityCheckCount: drawRegions.length,
+        coverageFragmentCount: drawRegions.length + trueHoleRectsCss.length,
+        drawRegionCount: drawRegions.length,
+        maxFragmentsPerVisibleTarget: drawRegions.length,
+        rejectedSampleCount: 0,
+        sliverDiscardedAreaCssPx: 0,
+        spatialQueryCount: visibleTargets.length,
+        visibleRegionCount: visibleTargets.length,
+        visibleRegionGroupCount: visibleTargets.length,
+      },
+      coverageFragmentCount: drawRegions.length + trueHoleRectsCss.length,
+      coveragePlanDurationMs: 0,
+      drawRegionCount: drawRegions.length,
+      exactRegionCount: drawRegions.filter(
+        (region) => region.coverageKind === "exact",
+      ).length,
+      maxFragmentsPerVisibleTarget: drawRegions.length,
+      rejectedCoverageCountByReason: {},
+      sampledRejectedCoverage: [],
+      spatialQueryDurationMs: 0,
+      trueHoleAreaCssPx,
+      trueHoleRectCount: trueHoleRectsCss.length,
+      visibleRegionCount: visibleTargets.length,
+    },
+    drawRegions,
+    nativeIslandRegions: [],
+    proof: {
+      compatibleCoveredAreaCssPx,
+      exactCoveredAreaCssPx,
+      rejectedCoverageCountByReason: {},
+      replacementRequestedAreaCssPx: trueHoleAreaCssPx,
+      trueHoleAreaCssPx,
+      visibleAreaCssPx: rectSetArea(
+        visibleTargets.map((target) => target.contentRect),
+      ),
+    },
+    protectedPageKeys: drawRegions.map((region) => region.textureHandle),
+    replacementRequests: [],
+    trueHoles: trueHoleRectsCss,
+    visibleRegionTargets: visibleTargets,
+  };
+}
+
+function visibleRegionTargetFromDescriptor(
+  descriptor: RetainedTexturePageDescriptor,
+): RetainedVisibleRegionTarget {
+  return {
+    ...createRetainedRegionTargetFromDescriptor(descriptor),
+    reason: "visible",
+    surfaceLayout: {
+      height: descriptor.sourceWindowCss.height,
+      surfaceId: descriptor.surfaceId,
+      textureSourceRect: descriptor.sourceWindowCss,
+      width: descriptor.sourceWindowCss.width,
+      x: 0,
+      y: 0,
+    },
   };
 }
 
@@ -367,7 +481,7 @@ function pageDescriptor(
   };
 }
 
-function pageDrawQuad(
+function pageDrawRegion(
   descriptor: RetainedTexturePageDescriptor,
   {
     coverageKind = "exact",
@@ -376,24 +490,51 @@ function pageDrawQuad(
     readonly coverageKind?: "compatible" | "exact" | undefined;
     readonly sampleRectCss?: GpuRect | undefined;
   } = {},
-): RetainedTexturePageDrawQuad<RetainedContentTextureResources> {
+): RetainedDrawRegion<RetainedContentTextureResources> {
+  const page = {
+    byteSize: 1,
+    committedFrame: 1,
+    descriptor,
+    key: "page",
+    lastUsedFrame: 1,
+    resource: {} as RetainedContentTextureResources,
+    ...createRetainedCommittedPageLifecycle(descriptor),
+  };
+  const uvRect = { u0: 0, u1: 1, v0: 0, v1: 1 };
   return {
+    clipRect: descriptor.sourceWindowCss,
     coverageKind,
-    desiredDescriptor: descriptor,
     fidelityState:
       coverageKind === "compatible" ? "compatible-lower-lod" : "target",
-    page: {
-      byteSize: 1,
-      committedFrame: 1,
-      descriptor,
-      key: "page",
-      lastUsedFrame: 1,
-      resource: {} as RetainedContentTextureResources,
-      ...createRetainedCommittedPageLifecycle(descriptor),
+    flowRect: sampleRectCss,
+    mappingProof: {
+      clipRect: page.clipRect,
+      contentRect: page.contentRect,
+      dpr: page.dprBucket,
+      fidelity: page.fidelityMetadata,
+      generation: 1,
+      ownerManifest: page.manifest,
+      sourceRect: sampleRectCss,
+      textureRect: {
+        height: descriptor.pixelHeight,
+        width: descriptor.pixelWidth,
+        x: 0,
+        y: 0,
+      },
+      uvRect,
+      zoomBucket: descriptor.viewportZoomBucket,
     },
+    page,
+    renderLayer: "retained-content",
     sampleRectCss,
-    staleContent: false,
+    textureHandle: page.key,
+    uvRect,
+    zOrder: 0,
   };
+}
+
+function rectSetArea(rects: readonly GpuRect[]): number {
+  return rects.reduce((total, rect) => total + rect.width * rect.height, 0);
 }
 
 function flatVisual(surfaceId: string): HtmlSurfaceFlatVisual {

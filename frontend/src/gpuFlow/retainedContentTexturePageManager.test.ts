@@ -64,7 +64,8 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(firstPreparedFrame.targetDescriptors).toHaveLength(4);
+    expect(firstPreparedFrame.visibleRegionTargets).toHaveLength(1);
+    expect(firstPreparedFrame.refinementDescriptors).toHaveLength(4);
     expect(firstMaintenance.uploadCount).toBe(1);
     expect(secondPreparedFrame.drawQuadCount).toBe(1);
     expect(secondPreparedFrame.flatSurfaces).toHaveLength(1);
@@ -276,12 +277,11 @@ describe("RetainedContentTexturePageManager", () => {
     });
 
     expect(zoomFrame.uploadCount).toBe(1);
-    expect(zoomFrame.flatSurfaces).toHaveLength(2);
+    expect(zoomFrame.flatSurfaces).toHaveLength(1);
     expect(zoomFrame.refinementPageCount).toBe(4);
     expect(
       zoomFrame.flatSurfaces.map((surfaceVisual) => surfaceVisual.surfaceId),
     ).toEqual([
-      "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
       "surface-a:1:1:source-a:1:0:0:100:100:scale=1:0:100:100:0:0:1:1",
     ]);
   });

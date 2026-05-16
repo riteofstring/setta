@@ -9,7 +9,6 @@ import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSw
 import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
-import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
 import type {
   RetainedTexturePageCacheSnapshot,
   RetainedTexturePageDescriptor,
@@ -21,6 +20,12 @@ import type {
   RetainedTextureUploadSchedulerBudget,
   RetainedTextureUploadSchedulerDiagnostic,
 } from "./retainedTextureUploadScheduler";
+import type {
+  RetainedDrawRegion,
+  RetainedReplacementRequest,
+  RetainedVisibleCoveragePlan,
+  RetainedVisibleRegionTarget,
+} from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
@@ -77,10 +82,18 @@ type RetainedContentTexturePageFrameResult = {
   readonly uploadMs: number;
 };
 
+export type RetainedContentTexturePageReplacementDescriptor = {
+  readonly descriptor: RetainedTexturePageDescriptor;
+  readonly replacementRequest: RetainedReplacementRequest;
+  readonly snapshotBlockSequence: number | null;
+  readonly snapshotRequired: boolean;
+};
+
 export type RetainedContentTexturePagePreparedFrame = {
+  readonly coveragePlan: RetainedVisibleCoveragePlan<RetainedContentTextureResources>;
   readonly coverageCandidateCount: number;
+  readonly drawRegions: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
   readonly drawQuadCount: number;
-  readonly drawQuads: readonly RetainedTexturePageDrawQuad<RetainedContentTextureResources>[];
   readonly compatibleDrawQuadCount: number;
   readonly fidelityState: RetainedFidelityState;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -90,11 +103,13 @@ export type RetainedContentTexturePagePreparedFrame = {
   readonly trueHoleVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly protectedPageKeys: readonly string[];
   readonly rejectedStaleRects: readonly RetainedTexturePageRejectedCoverage[];
+  readonly replacementDescriptors: readonly RetainedContentTexturePageReplacementDescriptor[];
+  readonly replacementRequests: readonly RetainedReplacementRequest[];
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly rejectedStaleRectCount: number;
-  readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly trueHoleRectsCss: readonly GpuRect[];
   readonly trueHoleRectCount: number;
+  readonly visibleRegionTargets: readonly RetainedVisibleRegionTarget[];
 };
 
 export type RetainedContentTexturePageMaintenanceInput = {

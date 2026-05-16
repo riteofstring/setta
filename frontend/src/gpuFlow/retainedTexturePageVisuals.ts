@@ -10,6 +10,7 @@ import {
 } from "./retainedContentTextureResources";
 import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
 import type { CommittedRetainedTexturePage } from "./retainedTexturePages";
+import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
 export type RetainedTexturePageSurfaceLayout = {
@@ -51,6 +52,24 @@ export function createRetainedTexturePageFlatVisuals({
     });
   }
   return visuals;
+}
+
+export function createRetainedDrawRegionFlatVisuals({
+  drawRegions,
+}: {
+  readonly drawRegions: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
+}): readonly HtmlSurfaceFlatVisual[] {
+  return drawRegions.map((drawRegion) => ({
+    ...drawRegion.flowRect,
+    kind: "flat",
+    surfaceId: drawRegion.textureHandle,
+    texture: toCommittedHtmlSurfaceTextureSnapshot(drawRegion.page),
+    textureCoordinates: toPageTextureCoordinates(
+      drawRegion.page,
+      drawRegion.sampleRectCss,
+    ),
+    zIndex: drawRegion.zOrder,
+  }));
 }
 
 export function createRetainedTexturePageTrueHoleVisuals({

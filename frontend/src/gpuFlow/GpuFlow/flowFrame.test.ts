@@ -180,7 +180,7 @@ describe("GPU flow frame helpers", () => {
         x: 10,
         y: 10,
       }),
-      ...Array.from({ length: 64 }, (_, index) =>
+      ...Array.from({ length: 160 }, (_, index) =>
         retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
           height: 20,
           width: 120,
@@ -217,10 +217,109 @@ describe("GPU flow frame helpers", () => {
     ).toEqual(["source-a"]);
     expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(1);
   });
+
+  it("prioritizes large retained preparation snapshot descriptors beyond the initial order", () => {
+    const runtimeFrame = retainedFrameWithSnapshotSources([
+      retainedSnapshotSource("source-late", "surface-30", {
+        height: 20,
+        width: 120,
+        x: 10,
+        y: 10,
+      }),
+      ...Array.from({ length: 160 }, (_, index) =>
+        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+          height: 20,
+          width: 120,
+          x: 0,
+          y: index * 24,
+        }),
+      ),
+    ]);
+    const preparedFrame = {
+      ...retainedFrameCache({
+        contentSurfaces: [],
+        refinementPageCount: 32,
+        trueHoleRectCount: 32,
+      }).preparedFrame,
+      refinementDescriptors: Array.from({ length: 32 }, (_, index) =>
+        retainedTexturePageDescriptor(`surface-${index}`, {
+          height: index === 30 ? 256 : 8,
+          width: index === 30 ? 256 : 8,
+          x: 0,
+          y: 0,
+        }),
+      ),
+    };
+
+    const preparationFrame = createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame,
+      retainedRuntimeFrame: runtimeFrame,
+    });
+
+    expect(
+      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+        (source) => source.sourceId,
+      ),
+    ).toEqual(["source-late"]);
+  });
+
+  it("rotates snapshot-blocked retained preparation descriptors ahead of larger stale holes", () => {
+    const runtimeFrame = retainedFrameWithSnapshotSources([
+      retainedSnapshotSource("source-latest-blocked", "surface-30", {
+        height: 4,
+        width: 4,
+        x: 1,
+        y: 1,
+      }),
+      retainedSnapshotSource("source-large-blocked", "surface-0", {
+        height: 20,
+        width: 120,
+        x: 10,
+        y: 10,
+      }),
+      ...Array.from({ length: 160 }, (_, index) =>
+        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+          height: 20,
+          width: 120,
+          x: 0,
+          y: index * 24,
+        }),
+      ),
+    ]);
+    const preparedFrame = {
+      ...retainedFrameCache({
+        contentSurfaces: [],
+        refinementPageCount: 32,
+        trueHoleRectCount: 32,
+      }).preparedFrame,
+      replacementDescriptors: Array.from({ length: 32 }, (_, index) =>
+        retainedReplacementDescriptor({
+          descriptor: retainedTexturePageDescriptor(`surface-${index}`, {
+            height: index === 30 ? 8 : 256,
+            width: index === 30 ? 8 : 256,
+            x: 0,
+            y: 0,
+          }),
+          snapshotBlockSequence: index,
+        }),
+      ),
+    };
+
+    const preparationFrame = createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame,
+      retainedRuntimeFrame: runtimeFrame,
+    });
+
+    expect(
+      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+        (source) => source.sourceId,
+      ),
+    ).toContain("source-latest-blocked");
+  });
 });
 
 function retainedFrameCache({
-  contentSurfaces,
+  contentSurfaces = [],
   refinementPageCount = 0,
   trueHoleRectCount = 0,
 }: {
@@ -234,9 +333,10 @@ function retainedFrameCache({
     nativeVisualSignature: "{}",
     pageDrawableRevision: 5,
     preparedFrame: {
+      coveragePlan: emptyCoveragePlan(),
       coverageCandidateCount: 0,
+      drawRegions: [],
       drawQuadCount: 0,
-      drawQuads: [],
       compatibleDrawQuadCount: 0,
       fidelityState: trueHoleRectCount > 0 ? "refining" : "target",
       flatSurfaces: [],
@@ -246,11 +346,13 @@ function retainedFrameCache({
       trueHoleVisuals: [],
       protectedPageKeys: [],
       rejectedStaleRects: [],
+      replacementDescriptors: [],
+      replacementRequests: [],
       refinementDescriptors: [],
       rejectedStaleRectCount: 0,
-      targetDescriptors: [],
       trueHoleRectsCss: [],
       trueHoleRectCount,
+      visibleRegionTargets: [],
     },
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 2,
@@ -264,6 +366,54 @@ function retainedFrameCache({
     sceneRevision: 7,
     scrollRevision: 3,
     viewportZoomBucket: 1,
+  };
+}
+
+function emptyCoveragePlan() {
+  return {
+    diagnostics: {
+      committedCandidateCount: 0,
+      compatibleRegionCount: 0,
+      compatibilityDurationMs: 0,
+      cost: {
+        allocatedDiagnosticRectCount: 0,
+        candidateCount: 0,
+        compatibilityCheckCount: 0,
+        coverageFragmentCount: 0,
+        drawRegionCount: 0,
+        maxFragmentsPerVisibleTarget: 0,
+        rejectedSampleCount: 0,
+        sliverDiscardedAreaCssPx: 0,
+        spatialQueryCount: 0,
+        visibleRegionCount: 0,
+        visibleRegionGroupCount: 0,
+      },
+      coverageFragmentCount: 0,
+      coveragePlanDurationMs: 0,
+      drawRegionCount: 0,
+      exactRegionCount: 0,
+      maxFragmentsPerVisibleTarget: 0,
+      rejectedCoverageCountByReason: {},
+      sampledRejectedCoverage: [],
+      spatialQueryDurationMs: 0,
+      trueHoleAreaCssPx: 0,
+      trueHoleRectCount: 0,
+      visibleRegionCount: 0,
+    },
+    drawRegions: [],
+    nativeIslandRegions: [],
+    proof: {
+      compatibleCoveredAreaCssPx: 0,
+      exactCoveredAreaCssPx: 0,
+      rejectedCoverageCountByReason: {},
+      replacementRequestedAreaCssPx: 0,
+      trueHoleAreaCssPx: 0,
+      visibleAreaCssPx: 0,
+    },
+    protectedPageKeys: [],
+    replacementRequests: [],
+    trueHoles: [],
+    visibleRegionTargets: [],
   };
 }
 
@@ -341,5 +491,81 @@ function retainedTexturePageDescriptor(
     tileColumn: 0,
     tileRow: 0,
     viewportZoomBucket: 1,
+  };
+}
+
+function retainedReplacementDescriptor({
+  descriptor,
+  snapshotBlockSequence,
+}: {
+  readonly descriptor: GpuFlowRetainedContentFrameCache["preparedFrame"]["refinementDescriptors"][number];
+  readonly snapshotBlockSequence: number;
+}): GpuFlowRetainedContentFrameCache["preparedFrame"]["replacementDescriptors"][number] {
+  return {
+    descriptor,
+    replacementRequest: {
+      contentManifest: retainedRegionManifest(descriptor),
+      key: {
+        contentRect: descriptor.sourceRectCss,
+        contentVersion: String(descriptor.contentVersion),
+        fidelityTarget: {
+          devicePixelRatioBucket: descriptor.devicePixelRatioBucket,
+          lodLevel: descriptor.lodLevel,
+          lodScale: descriptor.lodScale,
+          pageGridGeneration: "test-grid",
+          pixelHeight: descriptor.pixelHeight,
+          pixelWidth: descriptor.pixelWidth,
+          viewportZoomBucket: descriptor.viewportZoomBucket,
+        },
+        owner: descriptor.surfaceId,
+      },
+      priority: "visible-hole",
+      reason: "true-hole",
+      target: {
+        clipRect: descriptor.sourceWindowCss,
+        contentRect: descriptor.sourceRectCss,
+        fidelity: {
+          devicePixelRatioBucket: descriptor.devicePixelRatioBucket,
+          lodLevel: descriptor.lodLevel,
+          lodScale: descriptor.lodScale,
+          pageGridGeneration: "test-grid",
+          pixelHeight: descriptor.pixelHeight,
+          pixelWidth: descriptor.pixelWidth,
+          viewportZoomBucket: descriptor.viewportZoomBucket,
+        },
+        manifest: retainedRegionManifest(descriptor),
+        reason: "newly-exposed",
+        surfaceLayout: {
+          height: descriptor.sourceRectCss.height,
+          surfaceId: descriptor.surfaceId,
+          textureSourceRect: descriptor.sourceWindowCss,
+          width: descriptor.sourceRectCss.width,
+          x: 0,
+          y: 0,
+        },
+        zLayer: 0,
+      },
+    },
+    snapshotBlockSequence,
+    snapshotRequired: true,
+  };
+}
+
+function retainedRegionManifest(
+  descriptor: GpuFlowRetainedContentFrameCache["preparedFrame"]["refinementDescriptors"][number],
+): GpuFlowRetainedContentFrameCache["preparedFrame"]["replacementDescriptors"][number]["replacementRequest"]["contentManifest"] {
+  return {
+    clipRect: descriptor.sourceWindowCss,
+    contentRect: descriptor.sourceRectCss,
+    contentSegments: [],
+    contentVersion: descriptor.contentVersion,
+    documentId: descriptor.sourceKey,
+    fontGeneration: 0,
+    renderMode: "passive",
+    rowId: null,
+    sectionId: descriptor.surfaceId,
+    surfaceId: descriptor.surfaceId,
+    textLikeSnapshots: [],
+    themeGeneration: descriptor.sourceVersion,
   };
 }

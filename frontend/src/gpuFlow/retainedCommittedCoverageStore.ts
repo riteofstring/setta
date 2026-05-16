@@ -1,12 +1,29 @@
 import {
-  freezeRect,
   intersectRects,
   rectArea,
-  rectKey,
   rectsEqual,
-  sortedStringsEqual,
   subtractRect,
 } from "./retainedCommittedCoverageGeometry";
+import {
+  addIndexedRegionId,
+  createRetainedCoverageOwnerGrid,
+  groupTargetsByOwner,
+  removeIndexedRegionId,
+  retainedCoverageExactKeysForCommittedRegion,
+  retainedCoverageExactKeysForTarget,
+  retainedCoverageGridCellKeys,
+  retainedRegionOwnerKey,
+  type RetainedCoverageIndexEntry,
+} from "./retainedCommittedCoverageIndex";
+import {
+  areRetainedRegionTargetsEquivalent,
+  freezeCommittedRegion,
+  freezeRegionManifest,
+  freezeRegionTarget,
+  retainedManifestContentMatchesForRect,
+  retainedManifestIncompatibilityReason,
+  retainedRegionManifestsMatch,
+} from "./retainedCommittedCoverageManifest";
 import type { GpuRect } from "./viewportMath";
 
 export type Matrix3 = readonly [
@@ -33,6 +50,8 @@ type RetainedLayerId = number;
 type RetainedTextureHandle = unknown;
 
 type ContentRect = GpuRect;
+
+const DEFAULT_RETAINED_COVERAGE_DIAGNOSTIC_SAMPLE_CAP = 20;
 
 export type RetainedRegionManifest = {
   readonly surfaceId: RetainedSurfaceId;
@@ -119,7 +138,7 @@ type RetainedCoverageTarget = {
   readonly regions: readonly RetainedRegionTarget[];
 };
 
-type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
+export type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly compatibility: Extract<
     RetainedRegionCompatibility,
     { readonly kind: "compatible" }
@@ -129,7 +148,7 @@ type RetainedCoverageEntry<TTextureHandle = RetainedTextureHandle> = {
   readonly target: RetainedRegionTarget;
 };
 
-type RetainedRejectedCoverage = {
+export type RetainedRejectedCoverage = {
   readonly reason: Extract<
     RetainedRegionCompatibility,
     { readonly kind: "incompatible" }
@@ -137,8 +156,19 @@ type RetainedRejectedCoverage = {
   readonly rect: ContentRect;
 };
 
-type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
+export type RetainedCoveragePlanDiagnostics = {
+  readonly allocatedDiagnosticRectCount: number;
+  readonly candidateCount: number;
+  readonly compatibilityCheckCount: number;
+  readonly rejectedCoverageCountByReason: Readonly<Record<string, number>>;
+  readonly spatialQueryCount: number;
+  readonly visibleRegionCount: number;
+  readonly visibleRegionGroupCount: number;
+};
+
+export type RetainedCoveragePlan<TTextureHandle = RetainedTextureHandle> = {
   readonly compatibleCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
+  readonly diagnostics: RetainedCoveragePlanDiagnostics;
   readonly exactCoverage: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly protectedRegionIds: readonly RetainedCommittedRegionId[];
   readonly rejectedCoverage: readonly RetainedRejectedCoverage[];
@@ -191,6 +221,7 @@ type StoredRegion<TTextureHandle> = {
 
 type CoverageAccumulator<TTextureHandle> = {
   readonly compatibleCoverage: RetainedCoverageEntry<TTextureHandle>[];
+  readonly diagnostics: MutableRetainedCoveragePlanDiagnostics;
   readonly exactCoverage: RetainedCoverageEntry<TTextureHandle>[];
   readonly protectedRegionIds: Set<RetainedCommittedRegionId>;
   readonly rejectedCoverage: RetainedRejectedCoverage[];
@@ -199,6 +230,7 @@ type CoverageAccumulator<TTextureHandle> = {
 
 type CollectedCoverageCandidates<TTextureHandle> = {
   readonly candidates: readonly RetainedCoverageEntry<TTextureHandle>[];
+  readonly diagnostics: MutableRetainedCoveragePlanDiagnostics;
   readonly rejectedCoverage: readonly RetainedRejectedCoverage[];
 };
 
@@ -212,14 +244,14 @@ type AppliedCoverageCandidate<TTextureHandle> = {
   readonly uncoveredRects: readonly ContentRect[];
 };
 
-type RetainedCompatibilityRejectReason = Extract<
-  RetainedRegionCompatibility,
-  { readonly kind: "incompatible" }
->["reason"];
-
-type RetainedContentProofKeys = {
-  readonly segmentKeys: readonly string[];
-  readonly snapshotKeys: readonly string[];
+type MutableRetainedCoveragePlanDiagnostics = {
+  allocatedDiagnosticRectCount: number;
+  candidateCount: number;
+  compatibilityCheckCount: number;
+  rejectedCoverageCountByReason: Record<string, number>;
+  spatialQueryCount: number;
+  visibleRegionCount: number;
+  visibleRegionGroupCount: number;
 };
 
 interface RetainedCommittedCoverageStore<
@@ -247,9 +279,21 @@ export class RetainedCommittedCoverageMap<
   TTextureHandle = RetainedTextureHandle,
 > implements RetainedCommittedCoverageStore<TTextureHandle>
 {
+  private readonly exactRegionIdsByKey = new Map<
+    string,
+    Set<RetainedCommittedRegionId>
+  >();
   private readonly committedRegions = new Map<
     RetainedCommittedRegionId,
     StoredRegion<TTextureHandle>
+  >();
+  private readonly gridRegionIdsByOwner = new Map<
+    string,
+    Map<string, Set<RetainedCommittedRegionId>>
+  >();
+  private readonly indexEntryByRegionId = new Map<
+    RetainedCommittedRegionId,
+    RetainedCoverageIndexEntry
   >();
   private generation = 0;
   private readonly pendingReplacements = new Map<
@@ -271,7 +315,10 @@ export class RetainedCommittedCoverageMap<
   }
 
   clear() {
+    this.exactRegionIdsByKey.clear();
     this.committedRegions.clear();
+    this.gridRegionIdsByOwner.clear();
+    this.indexEntryByRegionId.clear();
     this.pendingReplacements.clear();
     this.protectedRegionIds.clear();
   }
@@ -304,13 +351,16 @@ export class RetainedCommittedCoverageMap<
     }
     this.pendingReplacements.delete(txn.id);
     this.generation += 1;
-    this.committedRegions.set(uploaded.id, {
+    const stored = {
       byteSize: uploaded.byteSize,
       region: freezeCommittedRegion({
         ...uploaded,
         generation: this.generation,
       }),
-    });
+    };
+    this.unindexCommittedRegion(uploaded.id);
+    this.committedRegions.set(uploaded.id, stored);
+    this.indexCommittedRegion(stored.region);
   }
 
   evictToBudget({ maxBytes, protectedRegionIds = [] }: RetainedCoverageBudget) {
@@ -328,7 +378,7 @@ export class RetainedCommittedCoverageMap<
       if (remainingBytes <= maxBytes) {
         break;
       }
-      this.committedRegions.delete(stored.region.id);
+      this.removeCommittedRegion(stored.region.id);
       evictedRegionIds.push(stored.region.id);
       evictedBytes += stored.byteSize;
       remainingBytes -= stored.byteSize;
@@ -365,8 +415,13 @@ export class RetainedCommittedCoverageMap<
     regions,
   }: RetainedCoverageTarget): RetainedCoveragePlan<TTextureHandle> {
     const coverage = createCoverageAccumulator<TTextureHandle>();
-    for (const target of regions) {
-      mergeCoverageAccumulator(coverage, this.queryTargetCoverage(target));
+    const targetsByOwner = groupTargetsByOwner(regions);
+    coverage.diagnostics.visibleRegionCount = regions.length;
+    coverage.diagnostics.visibleRegionGroupCount = targetsByOwner.size;
+    for (const ownerTargets of targetsByOwner.values()) {
+      for (const target of ownerTargets) {
+        mergeCoverageAccumulator(coverage, this.queryTargetCoverage(target));
+      }
     }
     return freezeCoverageAccumulator(coverage);
   }
@@ -381,6 +436,7 @@ export class RetainedCommittedCoverageMap<
     });
     return Object.freeze({
       ...coverage,
+      diagnostics: collected.diagnostics,
       rejectedCoverage: Object.freeze([...collected.rejectedCoverage]),
     });
   }
@@ -389,20 +445,64 @@ export class RetainedCommittedCoverageMap<
     target: RetainedRegionTarget,
   ): CollectedCoverageCandidates<TTextureHandle> {
     const candidates: RetainedCoverageEntry<TTextureHandle>[] = [];
+    const diagnostics = createMutableCoveragePlanDiagnostics();
     const rejectedCoverage: RetainedRejectedCoverage[] = [];
-    for (const stored of this.committedRegions.values()) {
+    const localRegionIds = this.queryLocalRegionIds(target);
+    diagnostics.spatialQueryCount += 1;
+    diagnostics.candidateCount += localRegionIds.length;
+    for (const regionId of localRegionIds) {
+      const stored = this.committedRegions.get(regionId);
+      if (!stored) {
+        continue;
+      }
+      diagnostics.compatibilityCheckCount += 1;
       const result = this.resolveStoredCoverageCandidate({ stored, target });
       if (result.candidate) {
         candidates.push(result.candidate);
       }
       if (result.rejectedCoverage) {
-        rejectedCoverage.push(result.rejectedCoverage);
+        diagnostics.rejectedCoverageCountByReason[
+          result.rejectedCoverage.reason
+        ] =
+          (diagnostics.rejectedCoverageCountByReason[
+            result.rejectedCoverage.reason
+          ] ?? 0) + 1;
+        if (
+          rejectedCoverage.length <
+          DEFAULT_RETAINED_COVERAGE_DIAGNOSTIC_SAMPLE_CAP
+        ) {
+          rejectedCoverage.push(result.rejectedCoverage);
+          diagnostics.allocatedDiagnosticRectCount += 1;
+        }
       }
     }
     return {
       candidates: Object.freeze(candidates.sort(compareCoverageEntries)),
+      diagnostics,
       rejectedCoverage: Object.freeze(rejectedCoverage),
     };
+  }
+
+  private queryLocalRegionIds(
+    target: RetainedRegionTarget,
+  ): readonly RetainedCommittedRegionId[] {
+    const ownerKey = retainedRegionOwnerKey(target.manifest);
+    const ids = new Set<RetainedCommittedRegionId>();
+    for (const exactKey of retainedCoverageExactKeysForTarget(target)) {
+      for (const regionId of this.exactRegionIdsByKey.get(exactKey) ?? []) {
+        ids.add(regionId);
+      }
+    }
+    const grid = this.gridRegionIdsByOwner.get(ownerKey);
+    if (!grid) {
+      return [...ids];
+    }
+    for (const cellKey of retainedCoverageGridCellKeys(target.contentRect)) {
+      for (const regionId of grid.get(cellKey) ?? []) {
+        ids.add(regionId);
+      }
+    }
+    return [...ids];
   }
 
   private resolveStoredCoverageCandidate({
@@ -456,6 +556,54 @@ export class RetainedCommittedCoverageMap<
       .filter((stored) => !protectedIds.has(stored.region.id))
       .sort(compareEvictableRegions);
   }
+
+  private indexCommittedRegion(
+    region: RetainedCommittedRegion<TTextureHandle>,
+  ) {
+    const ownerKey = retainedRegionOwnerKey(region.manifest);
+    const exactKeys = retainedCoverageExactKeysForCommittedRegion(region);
+    const gridCellKeys = retainedCoverageGridCellKeys(region.contentRect);
+    for (const exactKey of exactKeys) {
+      addIndexedRegionId(this.exactRegionIdsByKey, exactKey, region.id);
+    }
+    const ownerGrid =
+      this.gridRegionIdsByOwner.get(ownerKey) ??
+      createRetainedCoverageOwnerGrid(this.gridRegionIdsByOwner, ownerKey);
+    for (const cellKey of gridCellKeys) {
+      addIndexedRegionId(ownerGrid, cellKey, region.id);
+    }
+    this.indexEntryByRegionId.set(region.id, {
+      exactKeys,
+      gridCellKeys,
+      ownerKey,
+      regionId: region.id,
+    });
+  }
+
+  private removeCommittedRegion(regionId: RetainedCommittedRegionId): void {
+    this.unindexCommittedRegion(regionId);
+    this.committedRegions.delete(regionId);
+  }
+
+  private unindexCommittedRegion(regionId: RetainedCommittedRegionId): void {
+    const indexEntry = this.indexEntryByRegionId.get(regionId);
+    if (!indexEntry) {
+      return;
+    }
+    for (const exactKey of indexEntry.exactKeys) {
+      removeIndexedRegionId(this.exactRegionIdsByKey, exactKey, regionId);
+    }
+    const ownerGrid = this.gridRegionIdsByOwner.get(indexEntry.ownerKey);
+    if (ownerGrid) {
+      for (const cellKey of indexEntry.gridCellKeys) {
+        removeIndexedRegionId(ownerGrid, cellKey, regionId);
+      }
+      if (ownerGrid.size === 0) {
+        this.gridRegionIdsByOwner.delete(indexEntry.ownerKey);
+      }
+    }
+    this.indexEntryByRegionId.delete(regionId);
+  }
 }
 
 function createCoverageAccumulator<
@@ -463,6 +611,7 @@ function createCoverageAccumulator<
 >(): CoverageAccumulator<TTextureHandle> {
   return {
     compatibleCoverage: [],
+    diagnostics: createMutableCoveragePlanDiagnostics(),
     exactCoverage: [],
     protectedRegionIds: new Set(),
     rejectedCoverage: [],
@@ -475,6 +624,10 @@ function mergeCoverageAccumulator<TTextureHandle>(
   plan: RetainedCoveragePlan<TTextureHandle>,
 ): void {
   accumulator.compatibleCoverage.push(...plan.compatibleCoverage);
+  mergeMutableCoveragePlanDiagnostics(
+    accumulator.diagnostics,
+    plan.diagnostics,
+  );
   accumulator.exactCoverage.push(...plan.exactCoverage);
   accumulator.rejectedCoverage.push(...plan.rejectedCoverage);
   accumulator.uncoveredRegions.push(...plan.uncoveredRegions);
@@ -488,10 +641,57 @@ function freezeCoverageAccumulator<TTextureHandle>(
 ): RetainedCoveragePlan<TTextureHandle> {
   return Object.freeze({
     compatibleCoverage: Object.freeze(accumulator.compatibleCoverage),
+    diagnostics: freezeCoveragePlanDiagnostics(accumulator.diagnostics),
     exactCoverage: Object.freeze(accumulator.exactCoverage),
     protectedRegionIds: Object.freeze([...accumulator.protectedRegionIds]),
     rejectedCoverage: Object.freeze(accumulator.rejectedCoverage),
     uncoveredRegions: Object.freeze(accumulator.uncoveredRegions),
+  });
+}
+
+function createMutableCoveragePlanDiagnostics(): MutableRetainedCoveragePlanDiagnostics {
+  return {
+    allocatedDiagnosticRectCount: 0,
+    candidateCount: 0,
+    compatibilityCheckCount: 0,
+    rejectedCoverageCountByReason: {},
+    spatialQueryCount: 0,
+    visibleRegionCount: 0,
+    visibleRegionGroupCount: 0,
+  };
+}
+
+function mergeMutableCoveragePlanDiagnostics(
+  accumulator: MutableRetainedCoveragePlanDiagnostics,
+  next: RetainedCoveragePlanDiagnostics,
+): void {
+  accumulator.allocatedDiagnosticRectCount += next.allocatedDiagnosticRectCount;
+  accumulator.candidateCount += next.candidateCount;
+  accumulator.compatibilityCheckCount += next.compatibilityCheckCount;
+  accumulator.spatialQueryCount += next.spatialQueryCount;
+  accumulator.visibleRegionCount += next.visibleRegionCount;
+  accumulator.visibleRegionGroupCount += next.visibleRegionGroupCount;
+  for (const [reason, count] of Object.entries(
+    next.rejectedCoverageCountByReason,
+  )) {
+    accumulator.rejectedCoverageCountByReason[reason] =
+      (accumulator.rejectedCoverageCountByReason[reason] ?? 0) + count;
+  }
+}
+
+function freezeCoveragePlanDiagnostics(
+  diagnostics: MutableRetainedCoveragePlanDiagnostics,
+): RetainedCoveragePlanDiagnostics {
+  return Object.freeze({
+    allocatedDiagnosticRectCount: diagnostics.allocatedDiagnosticRectCount,
+    candidateCount: diagnostics.candidateCount,
+    compatibilityCheckCount: diagnostics.compatibilityCheckCount,
+    rejectedCoverageCountByReason: Object.freeze({
+      ...diagnostics.rejectedCoverageCountByReason,
+    }),
+    spatialQueryCount: diagnostics.spatialQueryCount,
+    visibleRegionCount: diagnostics.visibleRegionCount,
+    visibleRegionGroupCount: diagnostics.visibleRegionGroupCount,
   });
 }
 
@@ -501,7 +701,10 @@ function resolveTargetCoverage<TTextureHandle>({
 }: {
   readonly candidates: readonly RetainedCoverageEntry<TTextureHandle>[];
   readonly target: RetainedRegionTarget;
-}): Omit<RetainedCoveragePlan<TTextureHandle>, "rejectedCoverage"> {
+}): Omit<
+  RetainedCoveragePlan<TTextureHandle>,
+  "diagnostics" | "rejectedCoverage"
+> {
   const compatibleCoverage: RetainedCoverageEntry<TTextureHandle>[] = [];
   const exactCoverage: RetainedCoverageEntry<TTextureHandle>[] = [];
   const protectedRegionIds = new Set<RetainedCommittedRegionId>();
@@ -713,276 +916,4 @@ function incompatible(
   >["reason"],
 ): RetainedRegionCompatibility {
   return { kind: "incompatible", reason };
-}
-
-function retainedManifestIncompatibilityReason({
-  candidate,
-  target,
-}: {
-  readonly candidate: RetainedRegionManifest;
-  readonly target: RetainedRegionManifest;
-}): RetainedCompatibilityRejectReason | null {
-  if (candidate.surfaceId !== target.surfaceId) {
-    return "surface-mismatch";
-  }
-  if (!retainedManifestOwnerMatches(candidate, target)) {
-    return "section-or-row-mismatch";
-  }
-  if (!retainedManifestStyleGenerationMatches(candidate, target)) {
-    return "theme-or-font-generation-mismatch";
-  }
-  if (candidate.renderMode !== target.renderMode) {
-    return "active-passive-mode-mismatch";
-  }
-  return null;
-}
-
-function retainedManifestOwnerMatches(
-  left: RetainedRegionManifest,
-  right: RetainedRegionManifest,
-): boolean {
-  return [
-    left.documentId === right.documentId,
-    left.sectionId === right.sectionId,
-    left.rowId === right.rowId,
-  ].every(Boolean);
-}
-
-function retainedManifestStyleGenerationMatches(
-  left: RetainedRegionManifest,
-  right: RetainedRegionManifest,
-): boolean {
-  return [
-    left.themeGeneration === right.themeGeneration,
-    left.fontGeneration === right.fontGeneration,
-  ].every(Boolean);
-}
-
-function areRetainedRegionTargetsEquivalent(
-  left: RetainedRegionTarget,
-  right: RetainedRegionTarget,
-): boolean {
-  return (
-    rectsEqual(left.contentRect, right.contentRect) &&
-    rectsEqual(left.clipRect, right.clipRect) &&
-    left.zLayer === right.zLayer &&
-    retainedRegionManifestsMatch(left.manifest, right.manifest) &&
-    retainedFidelityMetadataEqual(left.fidelity, right.fidelity)
-  );
-}
-
-function retainedRegionManifestsMatch(
-  left: RetainedRegionManifest,
-  right: RetainedRegionManifest,
-): boolean {
-  return [
-    left.surfaceId === right.surfaceId,
-    retainedManifestOwnerMatches(left, right),
-    retainedManifestContentProofMatches(left, right),
-    retainedManifestStyleGenerationMatches(left, right),
-    left.renderMode === right.renderMode,
-    rectsEqual(left.contentRect, right.contentRect),
-    rectsEqual(left.clipRect, right.clipRect),
-  ].every(Boolean);
-}
-
-function retainedManifestContentProofMatches(
-  left: RetainedRegionManifest,
-  right: RetainedRegionManifest,
-): boolean {
-  return [
-    left.contentVersion === right.contentVersion,
-    contentSegmentsEqual(left.contentSegments, right.contentSegments),
-    textLikeSnapshotsEqual(left.textLikeSnapshots, right.textLikeSnapshots),
-  ].every(Boolean);
-}
-
-function retainedFidelityMetadataEqual(
-  left: RetainedFidelityMetadata,
-  right: RetainedFidelityMetadata,
-): boolean {
-  return (
-    left.devicePixelRatioBucket === right.devicePixelRatioBucket &&
-    left.lodLevel === right.lodLevel &&
-    left.lodScale === right.lodScale &&
-    left.pageGridGeneration === right.pageGridGeneration &&
-    left.pixelHeight === right.pixelHeight &&
-    left.pixelWidth === right.pixelWidth &&
-    left.viewportZoomBucket === right.viewportZoomBucket
-  );
-}
-
-function freezeCommittedRegion<TTextureHandle>(
-  region: RetainedCommittedRegion<TTextureHandle>,
-): RetainedCommittedRegion<TTextureHandle> {
-  return Object.freeze({
-    ...region,
-    clipRect: freezeRect(region.clipRect),
-    contentRect: freezeRect(region.contentRect),
-    contentToTexture: Object.freeze([...region.contentToTexture]) as Matrix3,
-    fidelity: Object.freeze({ ...region.fidelity }),
-    manifest: freezeRegionManifest(region.manifest),
-  });
-}
-
-function freezeRegionTarget(
-  target: RetainedRegionTarget,
-): RetainedRegionTarget {
-  return Object.freeze({
-    ...target,
-    clipRect: freezeRect(target.clipRect),
-    contentRect: freezeRect(target.contentRect),
-    fidelity: Object.freeze({ ...target.fidelity }),
-    manifest: freezeRegionManifest(target.manifest),
-  });
-}
-
-function freezeRegionManifest(
-  manifest: RetainedRegionManifest,
-): RetainedRegionManifest {
-  return Object.freeze({
-    ...manifest,
-    clipRect: freezeRect(manifest.clipRect),
-    contentSegments: Object.freeze(
-      (manifest.contentSegments ?? []).map((segment) =>
-        Object.freeze({
-          ...segment,
-          rectCss: freezeRect(segment.rectCss),
-        }),
-      ),
-    ),
-    contentRect: freezeRect(manifest.contentRect),
-    textLikeSnapshots: Object.freeze(
-      (manifest.textLikeSnapshots ?? []).map((snapshot) =>
-        Object.freeze({
-          ...snapshot,
-          rectCss: freezeRect(snapshot.rectCss),
-        }),
-      ),
-    ),
-  });
-}
-
-function retainedManifestContentMatchesForRect({
-  candidate,
-  coverageRect,
-  target,
-}: {
-  readonly candidate: RetainedRegionManifest;
-  readonly coverageRect: ContentRect;
-  readonly target: RetainedRegionManifest;
-}): boolean {
-  if (candidate.contentVersion === target.contentVersion) {
-    return true;
-  }
-  const candidateProof = retainedContentProofKeysForRect(
-    candidate,
-    coverageRect,
-  );
-  const targetProof = retainedContentProofKeysForRect(target, coverageRect);
-  if (!retainedContentProofPairHasKeys(candidateProof, targetProof)) {
-    return false;
-  }
-  if (
-    !sortedStringsEqual(candidateProof.segmentKeys, targetProof.segmentKeys)
-  ) {
-    return false;
-  }
-  return sortedStringsEqual(
-    candidateProof.snapshotKeys,
-    targetProof.snapshotKeys,
-  );
-}
-
-function retainedContentProofKeysForRect(
-  manifest: RetainedRegionManifest,
-  coverageRect: ContentRect,
-): RetainedContentProofKeys {
-  return {
-    segmentKeys: contentSegmentKeysForRect(
-      manifest.contentSegments ?? [],
-      coverageRect,
-    ),
-    snapshotKeys: textLikeSnapshotKeysForRect(
-      manifest.textLikeSnapshots ?? [],
-      coverageRect,
-    ),
-  };
-}
-
-function retainedContentProofPairHasKeys(
-  candidate: RetainedContentProofKeys,
-  target: RetainedContentProofKeys,
-): boolean {
-  return (
-    retainedContentProofHasKeys(candidate) ||
-    retainedContentProofHasKeys(target)
-  );
-}
-
-function retainedContentProofHasKeys(proof: RetainedContentProofKeys): boolean {
-  return proof.segmentKeys.length > 0 || proof.snapshotKeys.length > 0;
-}
-
-function contentSegmentKeysForRect(
-  segments: readonly RetainedRegionContentSegment[],
-  coverageRect: ContentRect,
-): readonly string[] {
-  return segments
-    .filter((segment) => intersectRects(segment.rectCss, coverageRect))
-    .map((segment) => `${segment.id}:${segment.contentVersion}`)
-    .sort();
-}
-
-function textLikeSnapshotKeysForRect(
-  snapshots: readonly RetainedRegionTextLikeSnapshot[],
-  coverageRect: ContentRect,
-): readonly string[] {
-  return snapshots
-    .filter((snapshot) => intersectRects(snapshot.rectCss, coverageRect))
-    .map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}`,
-    )
-    .sort();
-}
-
-function contentSegmentsEqual(
-  left: readonly RetainedRegionContentSegment[] | undefined,
-  right: readonly RetainedRegionContentSegment[] | undefined,
-): boolean {
-  const leftSegments = left ?? [];
-  const rightSegments = right ?? [];
-  return sortedStringsEqual(
-    leftSegments.map(
-      (segment) =>
-        `${segment.id}:${segment.contentVersion}:${rectKey(segment.rectCss)}`,
-    ),
-    rightSegments.map(
-      (segment) =>
-        `${segment.id}:${segment.contentVersion}:${rectKey(segment.rectCss)}`,
-    ),
-  );
-}
-
-function textLikeSnapshotsEqual(
-  left: readonly RetainedRegionTextLikeSnapshot[] | undefined,
-  right: readonly RetainedRegionTextLikeSnapshot[] | undefined,
-): boolean {
-  const leftSnapshots = left ?? [];
-  const rightSnapshots = right ?? [];
-  return sortedStringsEqual(
-    leftSnapshots.map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}:${rectKey(
-          snapshot.rectCss,
-        )}`,
-    ),
-    rightSnapshots.map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}:${rectKey(
-          snapshot.rectCss,
-        )}`,
-    ),
-  );
 }

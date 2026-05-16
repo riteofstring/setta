@@ -188,7 +188,7 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
     drawQuadCount: preparedFrame.drawQuadCount,
     refinementPageCount: preparedFrame.refinementPageCount,
     snapshotCount: snapshotSources.length,
-    targetDescriptorCount: preparedFrame.targetDescriptors.length,
+    targetDescriptorCount: preparedFrame.refinementDescriptors.length,
     textLikePassiveVisibility:
       createGpuFlowRetainedTextLikeRowSnapshotVisibilitySummary({
         preparedFrame,
@@ -197,7 +197,7 @@ export function postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
   };
   const verboseState = verbose
     ? {
-        targetDescriptors: preparedFrame.targetDescriptors
+        targetDescriptors: preparedFrame.refinementDescriptors
           .slice(0, 24)
           .map(summarizeRetainedTexturePageDescriptor),
         textLikePassiveVisibilityDetails:
@@ -414,9 +414,9 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
   const committedRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
-    preparedFrame.drawQuads.map((quad) => ({
-      sourceRectCss: quad.sampleRectCss,
-      surfaceId: quad.page.descriptor.surfaceId,
+    preparedFrame.drawRegions.map((region) => ({
+      sourceRectCss: region.sampleRectCss,
+      surfaceId: region.mappingProof.ownerManifest.surfaceId,
     })),
   );
   const missingRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
@@ -468,7 +468,7 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilityState({
     blankPassiveRowCount: rowCoverages.filter(
       (row) => row.availableCoverageRatio <= 0,
     ).length,
-    committedPageRectCount: preparedFrame.drawQuads.length,
+    committedPageRectCount: preparedFrame.drawRegions.length,
     missingPageRectCount: preparedFrame.refinementDescriptors.length,
     missingPassiveRowCount: problematicRows.length,
     partialPassiveRowCount: partialRows.length,
@@ -503,9 +503,9 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilitySummary({
   readonly snapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
 }) {
   const committedRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
-    preparedFrame.drawQuads.map((quad) => ({
-      sourceRectCss: quad.sampleRectCss,
-      surfaceId: quad.page.descriptor.surfaceId,
+    preparedFrame.drawRegions.map((region) => ({
+      sourceRectCss: region.sampleRectCss,
+      surfaceId: region.mappingProof.ownerManifest.surfaceId,
     })),
   );
   const missingRectsBySurfaceId = groupGpuFlowCoverageRectsBySurfaceId(
@@ -593,7 +593,7 @@ function createGpuFlowRetainedTextLikeRowSnapshotVisibilitySummary({
 
   return {
     blankPassiveRowCount,
-    committedPageRectCount: preparedFrame.drawQuads.length,
+    committedPageRectCount: preparedFrame.drawRegions.length,
     missingPageRectCount: preparedFrame.refinementDescriptors.length,
     missingPassiveRowCount,
     partialPassiveRowCount,

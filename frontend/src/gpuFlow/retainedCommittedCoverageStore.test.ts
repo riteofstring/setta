@@ -212,6 +212,43 @@ describe("RetainedCommittedCoverageMap", () => {
       }),
     );
   });
+
+  it("aggregates rejected diagnostics without allocating every rejected rect", () => {
+    const store = new RetainedCommittedCoverageMap<string>();
+    const visibleTarget = target({
+      contentRect: { height: 100, width: 100, x: 0, y: 0 },
+      manifestOverrides: { contentVersion: 2 },
+    });
+    for (let index = 0; index < 25; index += 1) {
+      const staleTarget = target({
+        contentRect: { height: 100, width: 100, x: 0, y: 0 },
+        manifestOverrides: { contentVersion: 1 },
+      });
+      store.commitReplacement(
+        store.beginReplacement(staleTarget),
+        uploaded({
+          id: `stale-${index}`,
+          regionTarget: staleTarget,
+        }),
+      );
+    }
+
+    const plan = store.queryVisibleCoverage({ regions: [visibleTarget] });
+
+    expect(plan.rejectedCoverage).toHaveLength(20);
+    expect(plan.diagnostics).toMatchObject({
+      allocatedDiagnosticRectCount: 20,
+      candidateCount: 25,
+      compatibilityCheckCount: 25,
+      rejectedCoverageCountByReason: {
+        "row-content-version-mismatch": 25,
+      },
+      spatialQueryCount: 1,
+      visibleRegionCount: 1,
+      visibleRegionGroupCount: 1,
+    });
+    expect(plan.uncoveredRegions).toEqual([visibleTarget.contentRect]);
+  });
 });
 
 function contentToTexture(rect: GpuRect): Matrix3 {

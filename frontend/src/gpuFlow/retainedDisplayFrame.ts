@@ -13,8 +13,7 @@ import {
 } from "./retainedNativeIslandTransactions";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
-import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
-import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
+import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
 export type {
@@ -43,10 +42,10 @@ type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
   readonly pageFrame: RetainedPageFrame;
 };
 
-type PublishedRetainedPage =
-  RetainedTexturePageDrawQuad<RetainedContentTextureResources>;
+type PublishedRetainedDrawRegion =
+  RetainedDrawRegion<RetainedContentTextureResources>;
 
-type PublishedRetainedCompatiblePage = PublishedRetainedPage & {
+type PublishedRetainedCompatibleDrawRegion = PublishedRetainedDrawRegion & {
   readonly coverageKind: "compatible";
 };
 
@@ -101,12 +100,12 @@ export type RetainedDisplayFrame = {
   readonly activeIslandRects: readonly PublishedNativeIslandRect[];
   readonly coverageProof: RetainedVisibleCoverageProof;
   readonly diagnostics: PublishedFrameDiagnostics;
-  readonly compatiblePages: readonly PublishedRetainedCompatiblePage[];
+  readonly compatibleDrawRegions: readonly PublishedRetainedCompatibleDrawRegion[];
+  readonly drawRegions: readonly PublishedRetainedDrawRegion[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly hitIndex: PublishedRetainedHitIndex;
   readonly id: RetainedFrameId;
   readonly pageFrame: RetainedPageFrame;
-  readonly pages: readonly PublishedRetainedPage[];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
@@ -179,12 +178,12 @@ function createComposedRetainedDisplayFrame({
   readonly prepared: RetainedDisplayFrameInput;
   readonly proof: RetainedVisibleCoverageProof;
 }): RetainedDisplayFrame {
-  const compatiblePages = prepared.pageFrame.drawQuads.filter(
-    (page): page is PublishedRetainedCompatiblePage =>
-      page.coverageKind === "compatible",
+  const compatibleDrawRegions = prepared.pageFrame.drawRegions.filter(
+    (region): region is PublishedRetainedCompatibleDrawRegion =>
+      region.coverageKind === "compatible",
   );
-  const exactPageCount = prepared.pageFrame.drawQuads.filter(
-    (page) => page.coverageKind === "exact",
+  const exactPageCount = prepared.pageFrame.drawRegions.filter(
+    (region) => region.coverageKind === "exact",
   ).length;
   const desiredActiveIslandRects = createPublishedNativeIslandRects(
     prepared.retainedRuntimeFrame,
@@ -207,7 +206,7 @@ function createComposedRetainedDisplayFrame({
     coverageProof: proof,
     diagnostics: Object.freeze({
       activeIslandTransaction,
-      compatiblePageCount: compatiblePages.length,
+      compatiblePageCount: compatibleDrawRegions.length,
       continuityProof: createRetainedMotionContinuityProof({
         prepared,
         previous: diagnosticsPrevious,
@@ -224,14 +223,14 @@ function createComposedRetainedDisplayFrame({
       refinementPageCount: prepared.pageFrame.refinementPageCount,
       trueHoleRectCount: proof.trueHoleRects.length,
     }),
-    compatiblePages: Object.freeze(compatiblePages),
+    compatibleDrawRegions: Object.freeze(compatibleDrawRegions),
+    drawRegions: prepared.pageFrame.drawRegions,
     flatSurfaces: prepared.pageFrame.flatSurfaces,
     hitIndex: Object.freeze({
       retainedRuntimeFrame: prepared.retainedRuntimeFrame,
     }),
     id: prepared.id,
     pageFrame: prepared.pageFrame,
-    pages: prepared.pageFrame.drawQuads,
     retainedRuntimeFrame: prepared.retainedRuntimeFrame,
   });
 }
@@ -250,20 +249,18 @@ function createVisibleCoverageProof({
   readonly previous: RetainedDisplayFrame | null;
 }): RetainedVisibleCoverageProof {
   const compatibleCoverageRects = freezeRects(
-    prepared.pageFrame.drawQuads
-      .filter((quad) => quad.coverageKind === "compatible")
-      .map((quad) => quad.sampleRectCss),
+    prepared.pageFrame.drawRegions
+      .filter((region) => region.coverageKind === "compatible")
+      .map((region) => region.sampleRectCss),
   );
   const exactCoverageRects = freezeRects(
-    prepared.pageFrame.drawQuads
-      .filter((quad) => quad.coverageKind === "exact")
-      .map((quad) => quad.sampleRectCss),
+    prepared.pageFrame.drawRegions
+      .filter((region) => region.coverageKind === "exact")
+      .map((region) => region.sampleRectCss),
   );
   const trueHoleRects = freezeRects(prepared.pageFrame.trueHoleRectsCss);
   const visibleContentRects = freezeRects(
-    prepared.pageFrame.targetDescriptors.map(
-      (descriptor: RetainedTexturePageDescriptor) => descriptor.sourceRectCss,
-    ),
+    prepared.pageFrame.visibleRegionTargets.map((target) => target.contentRect),
   );
   return Object.freeze({
     compatibleCoverageRects,
@@ -442,13 +439,14 @@ function hasCompatibleRetainedContentIdentity(
   previous: RetainedDisplayFrame,
   prepared: RetainedDisplayFrameInput,
 ): boolean {
-  return prepared.pageFrame.targetDescriptors.some((current) =>
-    previous.pageFrame.targetDescriptors.some(
+  return prepared.pageFrame.visibleRegionTargets.some((current) =>
+    previous.pageFrame.visibleRegionTargets.some(
       (published) =>
-        published.surfaceId === current.surfaceId &&
-        published.sourceKey === current.sourceKey &&
-        published.sourceVersion === current.sourceVersion &&
-        published.contentVersion === current.contentVersion,
+        published.manifest.surfaceId === current.manifest.surfaceId &&
+        published.manifest.documentId === current.manifest.documentId &&
+        published.manifest.themeGeneration ===
+          current.manifest.themeGeneration &&
+        published.manifest.contentVersion === current.manifest.contentVersion,
     ),
   );
 }

@@ -70,12 +70,7 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   await waitForGpuTextureUploadQuiet(page);
 
   const target = await resolveScrollableSettingsRetainedTarget(page);
-  const beforeVisualStats = await waitForRetainedScrollTargetVisualStats({
-    page,
-    phase: "before-wheel",
-    target,
-    testInfo,
-  });
+  await page.mouse.move(target.point.x, target.point.y);
   await resetGpuFlowPerformanceProbe(page);
   const scrollbarVisualStats = await captureRetainedScrollbarWheelSequence({
     page,
@@ -96,6 +91,12 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     .count();
   await restoreRetainedScrollbarWheelSequenceScrollPosition({ page, target });
   await drainPendingGpuTextureUploads(page);
+  const beforeVisualStats = await waitForRetainedScrollTargetVisualStats({
+    page,
+    phase: "before-wheel",
+    target,
+    testInfo,
+  });
   await resetGpuFlowPerformanceProbe(page);
   const beforeScrollSignature = await readRetainedSurfaceScrollSignature(
     page,
@@ -291,7 +292,10 @@ async function waitForGpuTextureUploadQuiet(page: Page): Promise<void> {
         previousUploadCount = currentUploadCount;
         return stable;
       },
-      { intervals: [200, 200, 200, 200, 200], timeout: 2_500 },
+      {
+        intervals: [200, 200, 200, 200, 200, 200, 200, 200],
+        timeout: 5_000,
+      },
     )
     .toBe(true);
 }

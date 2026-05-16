@@ -1,6 +1,9 @@
 import {
   RetainedCommittedCoverageMap,
+  type RetainedCoverageEntry,
+  type RetainedCoveragePlanDiagnostics,
   type RetainedRegionContentSegment,
+  type RetainedRegionTarget,
   type RetainedRegionTextLikeSnapshot,
   type RetainedReplacementTxn,
 } from "./retainedCommittedCoverageStore";
@@ -101,6 +104,20 @@ type RetainedTexturePageCoverageCandidate<TResource = unknown> = {
     { readonly kind: "compatible" }
   >;
   readonly page: CommittedRetainedTexturePage<TResource>;
+};
+
+export type RetainedTexturePageRegionCoverageEntry<TResource = unknown> =
+  RetainedCoverageEntry<string> & {
+    readonly page: CommittedRetainedTexturePage<TResource>;
+  };
+
+export type RetainedTexturePageRegionCoveragePlan<TResource = unknown> = {
+  readonly compatibleCoverage: readonly RetainedTexturePageRegionCoverageEntry<TResource>[];
+  readonly diagnostics: RetainedCoveragePlanDiagnostics;
+  readonly exactCoverage: readonly RetainedTexturePageRegionCoverageEntry<TResource>[];
+  readonly protectedPageKeys: readonly string[];
+  readonly rejectedCoverage: readonly RetainedTexturePageRejectedCoverage[];
+  readonly uncoveredRegions: readonly GpuRect[];
 };
 
 type RetainedTexturePageEvictionOptions = {
@@ -475,6 +492,35 @@ export class RetainedTexturePageCache<TResource = unknown> {
       }));
   }
 
+  queryVisibleRegionCoverage({
+    targets,
+    usedFrame,
+  }: {
+    readonly targets: readonly RetainedRegionTarget[];
+    readonly usedFrame?: number | undefined;
+  }): RetainedTexturePageRegionCoveragePlan<TResource> {
+    const plan = this.coverageStore.queryVisibleCoverage({ regions: targets });
+    const exactCoverage = this.resolveRegionCoverageEntries({
+      entries: plan.exactCoverage,
+      usedFrame,
+    });
+    const compatibleCoverage = this.resolveRegionCoverageEntries({
+      entries: plan.compatibleCoverage,
+      usedFrame,
+    });
+    return {
+      compatibleCoverage,
+      diagnostics: plan.diagnostics,
+      exactCoverage,
+      protectedPageKeys: plan.protectedRegionIds,
+      rejectedCoverage: plan.rejectedCoverage.map((entry) => ({
+        reason: entry.reason,
+        rect: entry.rect,
+      })),
+      uncoveredRegions: plan.uncoveredRegions,
+    };
+  }
+
   markCommittedPageUsed(
     key: string,
     usedFrame: number,
@@ -583,6 +629,26 @@ export class RetainedTexturePageCache<TResource = unknown> {
       key: page.key,
       resource: page.resource,
       retiredFrame,
+    });
+  }
+
+  private resolveRegionCoverageEntries({
+    entries,
+    usedFrame,
+  }: {
+    readonly entries: readonly RetainedCoverageEntry<string>[];
+    readonly usedFrame?: number | undefined;
+  }): readonly RetainedTexturePageRegionCoverageEntry<TResource>[] {
+    return entries.flatMap((entry) => {
+      const page = this.committedPages.get(entry.region.id);
+      if (!page) {
+        return [];
+      }
+      const usedPage =
+        usedFrame === undefined
+          ? page
+          : this.markCommittedPageUsed(page.key, usedFrame) ?? page;
+      return [{ ...entry, page: usedPage }];
     });
   }
 }

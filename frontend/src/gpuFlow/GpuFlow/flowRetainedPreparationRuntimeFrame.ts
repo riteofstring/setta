@@ -2,7 +2,7 @@ import type { RetainedContentTexturePagePreparedFrame } from "../retainedContent
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuRect } from "../viewportMath";
 
-const RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT = 12;
+const RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT = 24;
 const RETAINED_PREPARATION_SNAPSHOT_SOURCE_LIMIT = 48;
 
 export function createGpuFlowRetainedPreparationRuntimeFrame({
@@ -66,14 +66,15 @@ function collectRetainedPreparationSnapshotSourceIds({
   readonly sources: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"];
 }): Set<string> {
   const selectedSourceIds = new Set<string>();
-  for (const descriptor of preparedFrame.refinementDescriptors.slice(
-    0,
-    RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT,
-  )) {
+  const sourcesBySurfaceId =
+    groupRetainedPreparationSnapshotSourcesBySurface(sources);
+  for (const descriptor of selectRetainedPreparationSnapshotDescriptors({
+    preparedFrame,
+  })) {
     const matchedDescriptor = collectRetainedPreparationDescriptorSourceIds({
       descriptor,
       selectedSourceIds,
-      sources,
+      sources: sourcesBySurfaceId.get(descriptor.surfaceId) ?? [],
     });
     if (
       matchedDescriptor &&
@@ -83,6 +84,117 @@ function collectRetainedPreparationSnapshotSourceIds({
     }
   }
   return selectedSourceIds;
+}
+
+function groupRetainedPreparationSnapshotSourcesBySurface(
+  sources: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"],
+): Map<
+  string,
+  GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"]
+> {
+  const sourcesBySurfaceId = new Map<
+    string,
+    GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"][number][]
+  >();
+  for (const source of sources) {
+    const surfaceSources = sourcesBySurfaceId.get(source.surfaceId) ?? [];
+    surfaceSources.push(source);
+    sourcesBySurfaceId.set(source.surfaceId, surfaceSources);
+  }
+  return sourcesBySurfaceId;
+}
+
+function selectRetainedPreparationSnapshotDescriptors({
+  preparedFrame,
+}: {
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+}): readonly RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number][] {
+  const descriptors = prepareRetainedPreparationSnapshotDescriptorCandidates({
+    preparedFrame,
+  });
+  if (descriptors.length <= RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT) {
+    return descriptors.map((candidate) => candidate.descriptor);
+  }
+  return descriptors
+    .slice(0, RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT)
+    .map((candidate) => candidate.descriptor);
+}
+
+function prepareRetainedPreparationSnapshotDescriptorCandidates({
+  preparedFrame,
+}: {
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+}): readonly {
+  readonly descriptor: RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number];
+  readonly priorityRank: number;
+  readonly snapshotBlockSequence: number | null;
+  readonly sourceArea: number;
+  readonly sourceIndex: number;
+}[] {
+  const replacementDescriptors = preparedFrame.replacementDescriptors;
+  const candidates =
+    replacementDescriptors.length > 0
+      ? replacementDescriptors.map(
+          (
+            {
+              descriptor,
+              replacementRequest,
+              snapshotBlockSequence,
+              snapshotRequired,
+            },
+            sourceIndex,
+          ) => ({
+            descriptor,
+            priorityRank: snapshotRequired
+              ? -1
+              : replacementRequest.priority === "visible-hole"
+                ? 0
+                : 1,
+            snapshotBlockSequence,
+            sourceArea: rectArea(descriptor.sourceRectCss),
+            sourceIndex,
+          }),
+        )
+      : preparedFrame.refinementDescriptors.map((descriptor, sourceIndex) => ({
+          descriptor,
+          priorityRank: 1,
+          snapshotBlockSequence: null,
+          sourceArea: rectArea(descriptor.sourceRectCss),
+          sourceIndex,
+        }));
+  return orderRetainedPreparationSnapshotDescriptors(candidates);
+}
+
+function orderRetainedPreparationSnapshotDescriptors(
+  candidates: readonly {
+    readonly descriptor: RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number];
+    readonly priorityRank: number;
+    readonly snapshotBlockSequence: number | null;
+    readonly sourceArea: number;
+    readonly sourceIndex: number;
+  }[],
+): readonly {
+  readonly descriptor: RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number];
+  readonly priorityRank: number;
+  readonly snapshotBlockSequence: number | null;
+  readonly sourceArea: number;
+  readonly sourceIndex: number;
+}[] {
+  const sorted = [...candidates].sort(
+    compareRetainedPreparationSnapshotDescriptors,
+  );
+  const primaryBySurfaceId = new Set<string>();
+  const primary: typeof sorted = [];
+  const secondary: typeof sorted = [];
+  for (const candidate of sorted) {
+    if (!primaryBySurfaceId.has(candidate.descriptor.surfaceId)) {
+      primaryBySurfaceId.add(candidate.descriptor.surfaceId);
+      primary.push(candidate);
+      continue;
+    }
+    secondary.push(candidate);
+  }
+  return [...primary, ...secondary];
 }
 
 function collectRetainedPreparationDescriptorSourceIds({
@@ -122,4 +234,50 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
     left.y < right.y + right.height &&
     left.y + left.height > right.y
   );
+}
+
+function rectArea(rect: GpuRect): number {
+  return rect.width * rect.height;
+}
+
+function compareRetainedPreparationSnapshotDescriptors(
+  left: {
+    readonly priorityRank: number;
+    readonly snapshotBlockSequence: number | null;
+    readonly sourceArea: number;
+    readonly sourceIndex: number;
+  },
+  right: {
+    readonly priorityRank: number;
+    readonly snapshotBlockSequence: number | null;
+    readonly sourceArea: number;
+    readonly sourceIndex: number;
+  },
+): number {
+  return (
+    left.priorityRank - right.priorityRank ||
+    compareSnapshotBlockSequence(left, right) ||
+    right.sourceArea - left.sourceArea ||
+    left.sourceIndex - right.sourceIndex
+  );
+}
+
+function compareSnapshotBlockSequence(
+  left: {
+    readonly snapshotBlockSequence: number | null;
+  },
+  right: {
+    readonly snapshotBlockSequence: number | null;
+  },
+): number {
+  if (left.snapshotBlockSequence === right.snapshotBlockSequence) {
+    return 0;
+  }
+  if (left.snapshotBlockSequence === null) {
+    return 1;
+  }
+  if (right.snapshotBlockSequence === null) {
+    return -1;
+  }
+  return right.snapshotBlockSequence - left.snapshotBlockSequence;
 }
