@@ -29,6 +29,7 @@ import {
   uploadRetainedContentTexturePageTextLikeSnapshots,
   type RetainedContentTexturePageTextLikeSnapshot,
 } from "./retainedContentTexturePageTextLikeSnapshots";
+import { createRetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
@@ -60,17 +61,13 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
   readonly contentBoundsCss: GpuRect;
-  readonly contentSegments?:
-    | readonly RetainedContentTexturePageContentSegment[]
-    | undefined;
+  readonly contentSegments?: readonly RetainedContentTexturePageContentSegment[];
   readonly contentVersion: number;
   readonly layout: RetainedTexturePageSurfaceLayout;
   readonly rasterScene: GpuRetainedContentScene;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?:
-    | readonly RetainedContentTexturePageTextLikeSnapshot[]
-    | undefined;
+  readonly textLikeSnapshots?: readonly RetainedContentTexturePageTextLikeSnapshot[];
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -85,9 +82,7 @@ export type RetainedContentTexturePageFrameInput = {
   readonly devicePixelRatio: number;
   readonly frame: number;
   readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
-  readonly switchAnimations?:
-    | GpuRetainedContentSwitchAnimationStore
-    | undefined;
+  readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
   readonly viewportInteractionActive?: boolean | undefined;
   readonly viewportZoomBucket: number;
 };
@@ -133,9 +128,7 @@ export type RetainedContentTexturePagePreparedFrame = {
 export type RetainedContentTexturePageMaintenanceInput = {
   readonly darkMode?: boolean | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly switchAnimations?:
-    | GpuRetainedContentSwitchAnimationStore
-    | undefined;
+  readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
   readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
 };
@@ -188,9 +181,6 @@ const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxTextureMemoryBytes: 192 * 1024 * 1024,
   maxUploads: 4,
 };
-const DEFAULT_RETAINED_PAGE_FORMAT: GPUTextureFormat = "rgba8unorm";
-const DEFAULT_RETAINED_PAGE_PIXEL_SIZE = 512;
-
 export class RetainedContentTexturePageManager {
   private readonly budget: RetainedTextureUploadSchedulerBudget;
   private readonly cache: RetainedTexturePageCache<HtmlSurfaceTextureResources>;
@@ -225,9 +215,8 @@ export class RetainedContentTexturePageManager {
       destroyResource: (resource) => resource.texture.destroy?.(),
     });
     this.device = device;
-    this.format = options.format ?? DEFAULT_RETAINED_PAGE_FORMAT;
-    this.maxPagePixelSize =
-      options.maxPagePixelSize ?? DEFAULT_RETAINED_PAGE_PIXEL_SIZE;
+    this.format = options.format ?? "rgba8unorm";
+    this.maxPagePixelSize = options.maxPagePixelSize ?? 512;
     this.scratchCanvas =
       options.scratchCanvas ?? ownerDocument.createElement("canvas");
     this.textureUsage = options.textureUsage ?? getHtmlSurfaceTextureUsage();
@@ -388,6 +377,8 @@ export class RetainedContentTexturePageManager {
         after: postMaintenancePageVisualResult,
         before: preparedFrame,
       });
+    const committedMissingPageCoverage =
+      preparedFrame.missingPageCount > 0 && uploadResult.uploadCount > 0;
 
     return {
       budgetExhausted: uploadResult.budgetExhausted,
@@ -399,7 +390,8 @@ export class RetainedContentTexturePageManager {
       missingPageCount: preparedFrame.missingPageCount,
       needsFollowUpFrame:
         uploadResult.budgetExhausted ||
-        committedRefinementChangedDrawableCoverage,
+        committedRefinementChangedDrawableCoverage ||
+        committedMissingPageCoverage,
       postMaintenanceMissingPageCount:
         postMaintenancePageVisualResult.missingPageCount,
       queuedWorkCount: this.workQueue.size,
@@ -417,6 +409,43 @@ export class RetainedContentTexturePageManager {
       uploadedDrawCommandCount: this.maintenanceUploadedDrawCommandCount,
       uploadCount: uploadResult.uploadCount,
       uploadMs: uploadResult.uploadMs,
+    };
+  }
+
+  deferPostSubmitMaintenance({
+    preparedFrame,
+  }: {
+    readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  }): RetainedContentTexturePageMaintenanceResult {
+    return {
+      budgetExhausted: false,
+      coverageCandidateCount: preparedFrame.coverageCandidateCount,
+      diagnostics: [],
+      drawQuadCount: preparedFrame.drawQuadCount,
+      evicted: {
+        evictedBytes: 0,
+        evictedKeys: [],
+        remainingBytes: this.cache.snapshot().committedBytes,
+      },
+      executedItemCount: 0,
+      fallbackDrawQuadCount: preparedFrame.fallbackDrawQuadCount,
+      memory: this.cache.snapshot(),
+      mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
+      missingPageCount: preparedFrame.missingPageCount,
+      needsFollowUpFrame: false,
+      postMaintenanceMissingPageCount: preparedFrame.missingPageCount,
+      queuedWorkCount: this.workQueue.size,
+      queuedWorkCountBeforeUpload: this.workQueue.size,
+      rasterMs: 0,
+      remainingUploadableWorkCount: 0,
+      skippedItemCount: 0,
+      staleFallbackDrawQuadCount: preparedFrame.staleFallbackDrawQuadCount,
+      targetDescriptorCount: preparedFrame.targetDescriptors.length,
+      uncoveredRectCount: preparedFrame.uncoveredRectCount,
+      uploadedBytes: 0,
+      uploadedDrawCommandCount: 0,
+      uploadCount: 0,
+      uploadMs: 0,
     };
   }
 
@@ -869,7 +898,12 @@ export class RetainedContentTexturePageManager {
     });
     this.maintenanceUploadedDrawCommandCount += rasterResult.drawnCommandCount;
     const rasterMs = performance.now() - rasterStartedAt;
-    const resource = this.createTextureResources(descriptor);
+    const resource = createRetainedContentTextureResources({
+      descriptor,
+      device: this.device,
+      format: this.format,
+      textureUsage: this.textureUsage,
+    });
     const uploadStartedAt = performance.now();
     this.device.queue.copyExternalImageToTexture(
       { source: this.scratchCanvas },
@@ -914,30 +948,6 @@ export class RetainedContentTexturePageManager {
       uploadedBytes: pending.byteSize,
       uploadMs,
     };
-  }
-
-  private createTextureResources(
-    descriptor: RetainedTexturePageDescriptor,
-  ): HtmlSurfaceTextureResources {
-    const texture = this.device.createTexture({
-      format: this.format,
-      label: `setta-retained-content-page-${descriptor.surfaceId}-${descriptor.tileColumn}-${descriptor.tileRow}-${descriptor.lodScale}`,
-      size: {
-        height: descriptor.pixelHeight,
-        width: descriptor.pixelWidth,
-      },
-      usage: this.textureUsage,
-    });
-    const textureView = texture.createView({
-      label: `setta-retained-content-page-${descriptor.surfaceId}-${descriptor.tileColumn}-${descriptor.tileRow}-${descriptor.lodScale}-view`,
-    });
-    const sampler = this.device.createSampler({
-      addressModeU: "clamp-to-edge",
-      addressModeV: "clamp-to-edge",
-      magFilter: "linear",
-      minFilter: "linear",
-    });
-    return { sampler, texture, textureView };
   }
 
   private scheduleRetiredResourceDrain(frame: number) {

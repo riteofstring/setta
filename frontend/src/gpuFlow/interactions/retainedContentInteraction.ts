@@ -276,6 +276,10 @@ class GpuRetainedContentInteractionController {
       this.updateActivePointerDrag(event, activePointer);
       return;
     }
+    if (this.store.getState().viewportInteractionActive) {
+      this.clearHover();
+      return;
+    }
     const hit = this.hitTestEvent(
       event,
       this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,

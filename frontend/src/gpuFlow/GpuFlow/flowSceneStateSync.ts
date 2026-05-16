@@ -20,6 +20,11 @@ import {
   applyGpuRetainedContentRuntimeStateToScene,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
+import {
+  applyGpuRetainedContentRowHoverTargetToScene,
+  getGpuRetainedContentRowHoverStateVisuals,
+  getGpuRetainedContentRowHoverVisuals,
+} from "../retainedContentRowHover";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuFlowScene } from "../scene";
 import {
@@ -100,12 +105,29 @@ export function syncGpuFlowNodeLayerSceneState({
     edges,
   });
   const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
-  const nextScene = applyGpuRetainedContentRuntimeStateToScene({
+  const retainedContentRowHoverTarget =
+    nodeLayerRef.current.retainedContentRowHoverTarget ?? null;
+  const runtimeScene = applyGpuRetainedContentRuntimeStateToScene({
     scene,
     state: activeRetainedContentRuntimeState,
   });
+  const rowHoverUpdate = runtimeScene
+    ? applyGpuRetainedContentRowHoverTargetToScene({
+        scene: runtimeScene,
+        target: retainedContentRowHoverTarget,
+      })
+    : null;
+  const nextScene = rowHoverUpdate?.scene ?? runtimeScene;
   const nextHtmlSurfaceNativeVisuals = nextScene
-    ? getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces)
+    ? [
+        ...getGpuRetainedContentScrollbarVisuals(nextScene.contentSurfaces),
+        ...(retainedContentRowHoverTarget
+          ? getGpuRetainedContentRowHoverVisuals({
+              scene: nextScene,
+              target: retainedContentRowHoverTarget,
+            })
+          : getGpuRetainedContentRowHoverStateVisuals({ scene: nextScene })),
+      ]
     : htmlSurfaceNativeVisuals;
   nodeLayerRef.current = {
     edgeScene,
@@ -118,6 +140,7 @@ export function syncGpuFlowNodeLayerSceneState({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    retainedContentRowHoverTarget,
     scene: nextScene,
     uploadBudget,
     viewport,

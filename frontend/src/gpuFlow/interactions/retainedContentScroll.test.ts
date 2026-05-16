@@ -64,7 +64,7 @@ describe("GPU retained content scroll controller", () => {
       x: 0,
       y: 36,
     });
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
 
     cleanup();
   });
@@ -101,7 +101,7 @@ describe("GPU retained content scroll controller", () => {
       x: 0,
       y: 36,
     });
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
 
     cleanup();
   });
@@ -154,6 +154,87 @@ describe("GPU retained content scroll controller", () => {
       y: 25,
     });
     expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+
+    cleanup();
+  });
+
+  it("requests a transform frame before idle retained texture work", () => {
+    vi.useFakeTimers();
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+      requestFrame,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 36,
+      }),
+    );
+    animationFrames.flush();
+
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+    vi.advanceTimersByTime(119);
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+    vi.advanceTimersByTime(1);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+
+    cleanup();
+  });
+
+  it("defers idle retained texture work while viewport interaction is active", () => {
+    vi.useFakeTimers();
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const store = createGpuFlowViewportStore();
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+      requestFrame,
+      store,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 36,
+      }),
+    );
+    animationFrames.flush();
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+
+    vi.advanceTimersByTime(120);
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+
+    store.getState().setViewportInteractionFlags({ panScrolling: false });
+    vi.advanceTimersByTime(119);
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+    vi.advanceTimersByTime(1);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     cleanup();

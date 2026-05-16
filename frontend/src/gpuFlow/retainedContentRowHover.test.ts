@@ -2,6 +2,7 @@ import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetained
 import { describe, expect, it } from "vitest";
 import {
   areGpuRetainedContentRowHoverTargetsEqual,
+  getGpuRetainedContentRowHoverStateVisuals,
   getGpuRetainedContentRowHoverVisuals,
 } from "./retainedContentRowHover";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
@@ -74,6 +75,33 @@ describe("getGpuRetainedContentRowHoverVisuals", () => {
         target: null,
       }),
     ).toEqual([]);
+  });
+
+  it("creates transient hover visuals from retained scene row state", () => {
+    const scene = flowScene();
+    const surface = getRetainedSurface(scene);
+    const hoveredScene = {
+      ...scene,
+      contentSurfaces: [
+        {
+          ...surface,
+          retainedScene: {
+            ...surface.retainedScene,
+            rows: surface.retainedScene.rows.map((row) => ({
+              ...row,
+              state: { ...row.state, hovered: row.id === "param-b" },
+            })),
+          },
+        },
+      ],
+    };
+
+    expect(getGpuRetainedContentRowHoverStateVisuals({ scene: hoveredScene })).toEqual([
+      expect.objectContaining({
+        rect: { height: 28, width: 240, x: 12, y: 62 },
+        surfaceId: "dict-a:param-content:row-hover:param-b",
+      }),
+    ]);
   });
 });
 

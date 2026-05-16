@@ -67,6 +67,7 @@ import {
   nextFrame,
   renderGpuFlowNodeLayerFrame,
   syncGpuFlowNodeInteractionState,
+  type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
@@ -81,6 +82,7 @@ import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
+import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
 import {
   getGpuFlowSelectionDragPrimaryNodeId,
@@ -196,6 +198,8 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const retainedContentPageManagerRef =
     useRef<RetainedContentTexturePageManager | null>(null);
+  const retainedContentFrameCacheRef =
+    useRef<GpuFlowRetainedContentFrameCache | null>(null);
   const retainedTextLikeRowSnapshotElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );
@@ -213,12 +217,16 @@ export function GpuFlow({
     defaultRetainedContentRuntimeStateRef.current;
   const [retainedContentSnapshotScene, setRetainedContentSnapshotScene] =
     useState<GpuFlowScene | undefined>(scene);
+  const retainedContentSnapshotSceneRef = useRef<GpuFlowScene | undefined>(
+    scene,
+  );
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
   retainedContentInteractionRef.current = retainedContentInteraction;
   const handleRetainedContentSceneChange = useCallback(
     (nextScene: GpuFlowScene | undefined) => {
+      retainedContentSnapshotSceneRef.current = nextScene;
       setRetainedContentSnapshotScene(nextScene);
     },
     [],
@@ -384,6 +392,7 @@ export function GpuFlow({
     viewportRuntime,
   ]);
   useEffect(() => {
+    retainedContentSnapshotSceneRef.current = nodeLayerRef.current.scene;
     setRetainedContentSnapshotScene(nodeLayerRef.current.scene);
   }, [scene, activeRetainedContentRuntimeState]);
 
@@ -796,13 +805,29 @@ export function GpuFlow({
         ...nodeLayerRef.current,
         viewport: viewportRuntime.getViewportTuple(),
       };
+      const sampledRetainedContentScene =
+        sampleGpuFlowRetainedContentRuntimeScene({
+          nodeLayerRef,
+          retainedContentRuntimeState: activeRetainedContentRuntimeState,
+        });
+      if (
+        sampledRetainedContentScene.scene !==
+        retainedContentSnapshotSceneRef.current
+      ) {
+        retainedContentSnapshotSceneRef.current =
+          sampledRetainedContentScene.scene;
+        setRetainedContentSnapshotScene(sampledRetainedContentScene.scene);
+      }
       const viewportFrame =
         event.reasons.includes("viewport") || runtimeFrame.viewportFrame;
+      const textureUploadFrame = event.reasons.includes("texture-upload");
+      const deferResolutionUpdates =
+        viewportStore.getState().viewportInteractionActive ||
+        (viewportFrame && !textureUploadFrame);
       renderGpuFlowNodeLayerFrame({
         callbacksRef,
         canvasSizeRef,
-        deferResolutionUpdates:
-          viewportFrame || viewportStore.getState().viewportInteractionActive,
+        deferResolutionUpdates,
         frameReasons: event.reasons,
         frameRef,
         activeResizeNodeIdRef,
@@ -813,6 +838,7 @@ export function GpuFlow({
         nodeLayerRef,
         htmlSurfaceRendererRef,
         retainedContentPageManagerRef,
+        retainedContentFrameCacheRef,
         retainedTextLikeRowSnapshotElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
@@ -826,7 +852,12 @@ export function GpuFlow({
       viewportRuntime.applyOverlayTransforms();
       callbacksRef.current.onFrame?.(runtime, event);
     },
-    [retainedContentSwitchAnimations, viewportRuntime, viewportStore],
+    [
+      activeRetainedContentRuntimeState,
+      retainedContentSwitchAnimations,
+      viewportRuntime,
+      viewportStore,
+    ],
   );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
@@ -874,7 +905,7 @@ export function GpuFlow({
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}
-            scene={scene}
+            scene={retainedContentSnapshotScene}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />

@@ -10,6 +10,18 @@ import {
 } from "../gpuFlowPerformanceProbe";
 import { ensureAppReady } from "../helpers";
 import {
+  measurePageRafCadence,
+  percentile,
+  waitForAnimationFrame,
+} from "./settings-retained-frame-helpers";
+import {
+  activateRetainedEditor,
+  readActiveEditorText,
+  resolveControlScreenshotClip,
+  waitForActiveEditorGeometry,
+  waitForViewportIdle,
+} from "./settings-retained-pan-zoom-editor-helpers";
+import {
   analyzeCodeMirrorTextInkBounds,
   type Rect,
   type RetainedRowDebugEntry,
@@ -19,9 +31,12 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
+const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const GESTURE_EVENT_SPACING_MS = 8;
 const ZOOM_WHEEL_DELTA_Y = -0.25;
-const PAN_ZOOM_P95_FRAME_BUDGET_MS = 34;
+const PAN_ZOOM_P95_FRAME_BUDGET_MS = 20;
+const CAPPED_P95_FRAME_BUDGET_SLACK_MS = 10;
+const CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
 // Keep p95 strict; isolated max/long-task samples include Playwright/Chrome
 // scheduling gaps in this CDP-dispatched gesture harness.
 const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 110;
@@ -231,6 +246,156 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
   );
 });
 
+test("retained section stays nonblank through native scroll then viewport pan and zoom", async ({
+  page,
+}) => {
+  await installGpuFlowPerformanceProbe(page);
+  await openAllSettings(page);
+  await setGpuFlowPerformanceSourceMutationRecording(page, false);
+  await centerRetainedSurface(page, SETTINGS_SCROLL_TEST_SURFACE_ID);
+  await scrollRetainedSurfaceToTop(page, SETTINGS_SCROLL_TEST_SURFACE_ID);
+  await waitForViewportIdle(page);
+
+  const scrollPoint = await resolveRetainedSurfaceWheelPoint(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+  const canvasPoint = await resolveCanvasGesturePoint(page);
+  const beforeViewport = await readViewportSample(page);
+  const beforeSignature = await readRetainedSurfaceScrollSignature(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+  const beforeRows = await captureRetainedSurfaceRowVisuals(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+
+  await resetGpuFlowPerformanceProbe(page);
+  const scrollGesture = await runRetainedScrollBurst(page, {
+    deltaY: 44,
+    eventCount: 18,
+    point: scrollPoint,
+  });
+  await waitForAnimationFrame(page);
+  const afterScrollSignature = await readRetainedSurfaceScrollSignature(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+  const afterScrollRows = await captureRetainedSurfaceRowVisuals(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+  const beforePanRafCadence = await measurePageRafCadence(page);
+  await resetGpuFlowPerformanceProbe(page);
+  const panGesture = await runWheelPanBurst(page, {
+    eventCount: 48,
+    point: canvasPoint,
+  });
+  await waitForAnimationFrame(page);
+  const panSnapshot = await readGpuFlowPerformanceSnapshot(page);
+  const afterPanViewport = await readViewportSample(page);
+
+  const beforeZoomRafCadence = await measurePageRafCadence(page);
+  await resetGpuFlowPerformanceProbe(page);
+  const zoomGesture = await runWheelZoomBurst(page, {
+    eventCount: 48,
+    point: canvasPoint,
+  });
+  await waitForAnimationFrame(page);
+  const zoomSnapshot = await readGpuFlowPerformanceSnapshot(page);
+  await waitForViewportIdle(page);
+  const afterViewport = await readViewportSample(page);
+  const afterRows = await captureRetainedSurfaceRowVisuals(
+    page,
+    SETTINGS_SCROLL_TEST_SURFACE_ID,
+  );
+  const panStats = summarizeMeasuredFrames(panSnapshot);
+  const zoomStats = summarizeMeasuredFrames(zoomSnapshot);
+  const panP95BudgetMs = resolveCappedP95FrameBudget({
+    gesture: panGesture,
+    rafCadence: beforePanRafCadence,
+  });
+  const zoomP95BudgetMs = resolveCappedP95FrameBudget({
+    gesture: zoomGesture,
+    rafCadence: beforeZoomRafCadence,
+  });
+  const details = JSON.stringify(
+    {
+      canvasPoint,
+      budgets: {
+        panP95BudgetMs,
+        zoomP95BudgetMs,
+      },
+      gestures: { pan: panGesture, scroll: scrollGesture, zoom: zoomGesture },
+      retainedRows: {
+        after: afterRows,
+        afterScroll: afterScrollRows,
+        before: beforeRows,
+      },
+      scrollSignatures: {
+        afterScroll: afterScrollSignature,
+        before: beforeSignature,
+      },
+      panStats,
+      panProbe: summarizeProbeForDetails(panSnapshot),
+      zoomStats,
+      zoomProbe: summarizeProbeForDetails(zoomSnapshot),
+      rafCadence: {
+        beforePan: beforePanRafCadence,
+        beforeZoom: beforeZoomRafCadence,
+      },
+      viewport: {
+        after: afterViewport,
+        afterPan: afterPanViewport,
+        before: beforeViewport,
+      },
+    },
+    null,
+    2,
+  );
+
+  expect(afterScrollSignature, details).not.toEqual(beforeSignature);
+  expect(
+    Math.abs(afterPanViewport.y - beforeViewport.y),
+    details,
+  ).toBeGreaterThan(8);
+  expect(afterViewport.zoom, details).not.toBeCloseTo(beforeViewport.zoom, 3);
+  expect(beforeRows.length, details).toBeGreaterThan(0);
+  expect(afterScrollRows.length, details).toBeGreaterThan(0);
+  expect(afterRows.length, details).toBeGreaterThan(0);
+  expect(
+    beforeRows.every((row) => row.nonblankRatio > 0.01),
+    details,
+  ).toBe(true);
+  expect(
+    afterScrollRows.every((row) => row.nonblankRatio > 0.01),
+    details,
+  ).toBe(true);
+  expect(
+    afterRows.every((row) => row.nonblankRatio > 0.01),
+    details,
+  ).toBe(true);
+  expect(panStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
+    panP95BudgetMs,
+  );
+  expect(panStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
+    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+  );
+  expect(zoomStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
+    zoomP95BudgetMs,
+  );
+  expect(zoomStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
+    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+  );
+  expect(panStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
+    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+  );
+  expect(zoomStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
+    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+  );
+});
+
 test("viewport gesture continues while minimap and debug observers are active", async ({
   page,
 }) => {
@@ -342,34 +507,21 @@ async function runWheelPanBurst(
   });
 }
 
-async function runWheelBurst(
+async function runRetainedScrollBurst(
   page: Page,
   input: {
-    readonly deltaX: number;
     readonly deltaY: number;
     readonly eventCount: number;
-    readonly modifiers: number;
     readonly point: { readonly x: number; readonly y: number };
   },
 ): Promise<WheelViewportBurstResult> {
-  const client = await page.context().newCDPSession(page);
   const timestamps: number[] = [];
   const startedAt = performance.now();
-  try {
-    for (let index = 0; index < input.eventCount; index += 1) {
-      timestamps.push(performance.now());
-      await client.send("Input.dispatchMouseEvent", {
-        deltaX: input.deltaX,
-        deltaY: input.deltaY,
-        modifiers: input.modifiers,
-        type: "mouseWheel",
-        x: input.point.x,
-        y: input.point.y,
-      });
-      await page.waitForTimeout(GESTURE_EVENT_SPACING_MS);
-    }
-  } finally {
-    await client.detach();
+  await page.mouse.move(input.point.x, input.point.y);
+  for (let index = 0; index < input.eventCount; index += 1) {
+    timestamps.push(performance.now());
+    await page.mouse.wheel(0, input.deltaY);
+    await waitForGestureEventSpacing();
   }
   const finishedAt = performance.now();
   return {
@@ -380,6 +532,70 @@ async function runWheelBurst(
       return timestamp - previous;
     }),
   };
+}
+
+async function runWheelBurst(
+  page: Page,
+  input: {
+    readonly deltaX: number;
+    readonly deltaY: number;
+    readonly eventCount: number;
+    readonly modifiers: number;
+    readonly point: { readonly x: number; readonly y: number };
+  },
+): Promise<WheelViewportBurstResult> {
+  return await page.evaluate(
+    async ({ deltaX, deltaY, eventCount, modifiers, point, spacingMs }) => {
+      const target = document.elementFromPoint(point.x, point.y);
+      if (!target) {
+        throw new Error(
+          `Missing wheel target at (${point.x.toFixed(1)}, ${point.y.toFixed(
+            1,
+          )}).`,
+        );
+      }
+      const timestamps: number[] = [];
+      const startedAt = performance.now();
+      for (let index = 0; index < eventCount; index += 1) {
+        timestamps.push(performance.now());
+        target.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            clientX: point.x,
+            clientY: point.y,
+            ctrlKey: (modifiers & 2) !== 0,
+            deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+            deltaX,
+            deltaY,
+            metaKey: (modifiers & 4) !== 0,
+            shiftKey: (modifiers & 8) !== 0,
+            view: window,
+          }),
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, spacingMs));
+      }
+      const finishedAt = performance.now();
+      return {
+        durationMs: finishedAt - startedAt,
+        eventCount,
+        eventSpacingMs: timestamps.slice(1).map((timestamp, index) => {
+          const previous = timestamps[index] ?? timestamp;
+          return timestamp - previous;
+        }),
+      };
+    },
+    {
+      ...input,
+      spacingMs: GESTURE_EVENT_SPACING_MS,
+    },
+  );
+}
+
+async function waitForGestureEventSpacing(): Promise<void> {
+  await new Promise<void>((resolve) =>
+    setTimeout(resolve, GESTURE_EVENT_SPACING_MS),
+  );
 }
 
 function summarizeMeasuredFrames(snapshot: GpuFlowPerformanceSnapshot) {
@@ -402,6 +618,68 @@ function summarizeMeasuredFrames(snapshot: GpuFlowPerformanceSnapshot) {
   };
 }
 
+function summarizeProbeForDetails(snapshot: GpuFlowPerformanceSnapshot) {
+  const textureUploads = snapshot.queueCalls.filter(
+    (call) => call.method === "copyElementImageToTexture",
+  );
+  const writeBufferCalls = snapshot.queueCalls.filter(
+    (call) => call.method === "writeBuffer",
+  );
+  return {
+    frameCount: snapshot.frameCount,
+    latestNodeLayerFrame:
+      snapshot.nodeLayerFrames[snapshot.nodeLayerFrames.length - 1] ?? null,
+    nodeLayerFrameCount: snapshot.nodeLayerFrames.length,
+    textureUploadCount: textureUploads.length,
+    textureUploadsBySourceId: countByString(
+      textureUploads.map((call) => call.sourceNodeId ?? "unknown"),
+    ),
+    writeBufferCallCount: writeBufferCalls.length,
+    writeBufferBytesByLabel: sumByString(
+      writeBufferCalls.map((call) => ({
+        key: call.bufferLabel ?? "unknown",
+        value: call.byteLength ?? 0,
+      })),
+    ),
+  };
+}
+
+function resolveCappedP95FrameBudget({
+  gesture,
+  rafCadence,
+}: {
+  readonly gesture: WheelViewportBurstResult;
+  readonly rafCadence: { readonly p95Ms: number };
+}) {
+  const gestureP95Ms = percentile(
+    [...gesture.eventSpacingMs].sort((left, right) => left - right),
+    0.95,
+  );
+  return Math.max(
+    PAN_ZOOM_P95_FRAME_BUDGET_MS,
+    rafCadence.p95Ms + CAPPED_P95_FRAME_BUDGET_SLACK_MS,
+    gestureP95Ms + CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
+  );
+}
+
+function countByString(values: readonly string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const value of values) {
+    counts[value] = (counts[value] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function sumByString(
+  values: readonly { readonly key: string; readonly value: number }[],
+): Record<string, number> {
+  const sums: Record<string, number> = {};
+  for (const { key, value } of values) {
+    sums[key] = (sums[key] ?? 0) + value;
+  }
+  return sums;
+}
+
 function readLatestRenderedViewport(
   snapshot: GpuFlowPerformanceSnapshot,
 ): GpuFlowPerformanceSnapshot["nodeLayerFrames"][number]["viewport"] | null {
@@ -419,17 +697,6 @@ function summarizeIntervals(values: readonly number[]) {
     p50Ms: percentile(sorted, 0.5),
     p95Ms: percentile(sorted, 0.95),
   };
-}
-
-function percentile(sortedValues: readonly number[], percentileValue: number) {
-  if (sortedValues.length === 0) {
-    return 0;
-  }
-  const index = Math.min(
-    sortedValues.length - 1,
-    Math.max(0, Math.ceil(sortedValues.length * percentileValue) - 1),
-  );
-  return sortedValues[index] ?? 0;
 }
 
 async function resolveCanvasGesturePoint(page: Page) {
@@ -568,6 +835,39 @@ async function captureVisibleRetainedRowVisuals(page: Page) {
   return visuals;
 }
 
+async function captureRetainedSurfaceRowVisuals(page: Page, surfaceId: string) {
+  const rows = await page.evaluate((targetSurfaceId) => {
+    return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter((row): row is RetainedRowDebugEntry => {
+        const rect = row.controlClientRect ?? row.clientRect;
+        return (
+          row.surfaceId === targetSurfaceId &&
+          rect.width > 20 &&
+          rect.height > 8 &&
+          rect.x + rect.width > 0 &&
+          rect.y + rect.height > 0 &&
+          rect.x < window.innerWidth &&
+          rect.y < window.innerHeight
+        );
+      })
+      .slice(0, 4)
+      .map((row) => ({
+        rect: row.controlClientRect ?? row.clientRect,
+        rowId: row.rowId,
+        surfaceId: row.surfaceId,
+      }));
+  }, surfaceId);
+  const visuals = [];
+  for (const row of rows) {
+    visuals.push({
+      rowId: row.rowId,
+      surfaceId: row.surfaceId,
+      ...(await captureNonblankClip(page, normalizeClip(row.rect))),
+    });
+  }
+  return visuals;
+}
+
 async function captureNonblankClip(page: Page, clip: Rect) {
   const screenshot = await page.screenshot({ clip: normalizeClip(clip) });
   return await page.evaluate(
@@ -622,6 +922,26 @@ async function captureNonblankClip(page: Page, clip: Rect) {
       screenshotDataUrl: `data:image/png;base64,${screenshot.toString("base64")}`,
     },
   );
+}
+
+async function readRetainedSurfaceScrollSignature(
+  page: Page,
+  surfaceId: string,
+) {
+  return await page.evaluate((targetSurfaceId) => {
+    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter(
+        (row): row is RetainedRowDebugEntry =>
+          row.surfaceId === targetSurfaceId,
+      )
+      .sort((left, right) => left.clientRect.y - right.clientRect.y);
+    return {
+      firstRowId: rows[0]?.rowId ?? null,
+      firstRowY: rows[0] ? Math.round(rows[0].clientRect.y * 10) / 10 : null,
+      lastRowId: rows.at(-1)?.rowId ?? null,
+      rowCount: rows.length,
+    };
+  }, surfaceId);
 }
 
 function normalizeClip(rect: Rect): Rect {
@@ -791,157 +1111,6 @@ async function resolveRetainedSurfaceWheelPoint(page: Page, surfaceId: string) {
   }, surfaceId);
 }
 
-async function resolveControlScreenshotClip(
-  page: Page,
-  row: RetainedRowDebugEntry,
-): Promise<Rect> {
-  const rect = row.controlClientRect;
-  if (!rect) {
-    throw new Error(`Missing control rect for ${row.rowId}.`);
-  }
-  return await page.evaluate(
-    (input) => {
-      const width = Math.min(
-        Math.max(1, Math.floor(input.width)),
-        Math.max(1, window.innerWidth - 1),
-      );
-      const height = Math.min(
-        Math.max(1, Math.floor(input.height)),
-        Math.max(1, window.innerHeight - 1),
-      );
-      return {
-        height,
-        width,
-        x: Math.min(
-          Math.max(0, Math.floor(input.x)),
-          window.innerWidth - width,
-        ),
-        y: Math.min(
-          Math.max(0, Math.floor(input.y)),
-          window.innerHeight - height,
-        ),
-      };
-    },
-    {
-      height: Math.min(44, Math.max(1, rect.height)),
-      width: Math.min(260, Math.max(1, rect.width)),
-      x: rect.x,
-      y: rect.y + rect.height / 2 - Math.min(44, rect.height) / 2,
-    },
-  );
-}
-
-async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
-  return await page.evaluate(() => {
-    const activeElement = document.activeElement;
-    if (!(activeElement instanceof Element)) {
-      return null;
-    }
-    return (
-      activeElement
-        .closest("[data-gpu-flow-control]")
-        ?.getAttribute("data-gpu-flow-control") ?? null
-    );
-  });
-}
-
-async function readActiveEditorText(page: Page): Promise<string> {
-  return await page.evaluate(() => {
-    const activeElement = document.activeElement;
-    const content =
-      activeElement instanceof Element
-        ? activeElement.closest(".cm-editor")?.querySelector(".cm-content")
-        : null;
-    return content?.textContent ?? "";
-  });
-}
-
-async function readActiveEditorGeometry(
-  page: Page,
-  expectedRect: Rect,
-): Promise<{
-  readonly heightDelta: number;
-  readonly leftDelta: number;
-  readonly topDelta: number;
-  readonly widthDelta: number;
-}> {
-  return await page.evaluate((expectedRect) => {
-    const activeElement = document.activeElement;
-    const activeEditor =
-      activeElement instanceof Element
-        ? activeElement.closest(".cm-editor")
-        : null;
-    if (!activeEditor) {
-      throw new Error("Missing active CodeMirror editor.");
-    }
-    const rect = activeEditor.getBoundingClientRect();
-    return {
-      heightDelta: rect.height - expectedRect.height,
-      leftDelta: rect.left - expectedRect.x,
-      topDelta: rect.top - expectedRect.y,
-      widthDelta: rect.width - expectedRect.width,
-    };
-  }, expectedRect);
-}
-
-async function activateRetainedEditor(
-  page: Page,
-  row: RetainedRowDebugEntry,
-): ReturnType<typeof readActiveEditorGeometry> {
-  if (!row.controlClientPoint || !row.controlClientRect) {
-    throw new Error(`Missing retained control geometry for ${row.rowId}.`);
-  }
-  const attempts = [
-    row.controlClientPoint,
-    {
-      x: row.controlClientRect.x + row.controlClientRect.width / 2,
-      y: row.controlClientRect.y + row.controlClientRect.height / 2,
-    },
-    {
-      x:
-        row.controlClientRect.x + Math.min(48, row.controlClientRect.width / 3),
-      y: row.controlClientRect.y + row.controlClientRect.height / 2,
-    },
-  ];
-  let lastError: unknown = null;
-  for (const point of attempts) {
-    await page.mouse.click(point.x, point.y);
-    try {
-      await expect
-        .poll(() => readActiveCodeMirrorId(page), { timeout: 1_500 })
-        .toContain(row.rowId);
-      return await waitForActiveEditorGeometry(page, row.controlClientRect, {
-        timeoutMs: 1_500,
-      });
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`Could not activate retained editor ${row.rowId}.`);
-}
-
-async function waitForActiveEditorGeometry(
-  page: Page,
-  expectedRect: Rect,
-  options: { readonly timeoutMs?: number | undefined } = {},
-): ReturnType<typeof readActiveEditorGeometry> {
-  const deadline = Date.now() + (options.timeoutMs ?? 5_000);
-  let lastError: unknown = null;
-  while (Date.now() < deadline) {
-    try {
-      return await readActiveEditorGeometry(page, expectedRect);
-    } catch (error) {
-      lastError = error;
-      await page.waitForTimeout(50);
-    }
-  }
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Missing active CodeMirror editor.");
-}
-
 async function readRetainedRowCount(page: Page): Promise<number> {
   return await page.evaluate(
     () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
@@ -978,79 +1147,4 @@ async function readViewportRuntimeDebug(page: Page) {
         )?.getViewportTuple() ?? null,
     };
   });
-}
-
-async function waitForViewportIdle(page: Page): Promise<void> {
-  const deadlineMs = Date.now() + 5_000;
-  let lastState: Awaited<ReturnType<typeof readViewportIdleState>> = null;
-  while (Date.now() < deadlineMs) {
-    lastState = await readViewportIdleState(page);
-    if (lastState?.idle) {
-      return;
-    }
-    await page.waitForTimeout(50);
-  }
-  throw new Error(
-    `Viewport did not become idle: ${JSON.stringify(lastState, null, 2)}`,
-  );
-}
-
-async function readViewportIdleState(page: Page) {
-  return await page.evaluate(async () => {
-    const [{ getRegisteredGpuFlowViewportRuntime }, { gpuFlowViewportStore }] =
-      await Promise.all([
-        import("/src/gpuFlow/viewportRuntimeRegistry.ts"),
-        import("/src/gpuFlow/viewportStore.ts"),
-      ]);
-    const runtime = getRegisteredGpuFlowViewportRuntime(gpuFlowViewportStore);
-    const runtimeDebug = runtime as
-      | {
-          readonly destroyed?: boolean | undefined;
-          readonly transition?:
-            | {
-                readonly durationMs: number;
-                readonly from: unknown;
-                readonly startTimeMs: number | null;
-                readonly to: unknown;
-              }
-            | null
-            | undefined;
-          readonly transitionCompletionHandle?: unknown;
-          readonly viewportFramePending?: boolean | undefined;
-        }
-      | undefined;
-    const viewport =
-      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport ?? null;
-    if (!viewport) {
-      return null;
-    }
-    return {
-      idle:
-        !viewport.viewportInteractionActive &&
-        !viewport.wheelZooming &&
-        !viewport.viewportAnimating,
-      nodeDragging: viewport.nodeDragging,
-      nodeResizing: viewport.nodeResizing,
-      panScrolling: viewport.panScrolling,
-      paneDragging: viewport.paneDragging,
-      pointerPanning: viewport.pointerPanning,
-      registeredRuntimeDestroyed: runtimeDebug?.destroyed ?? null,
-      registeredRuntimeFramePending: runtimeDebug?.viewportFramePending ?? null,
-      registeredRuntimeTransition: runtimeDebug?.transition ?? null,
-      registeredRuntimeTransitionCompletionPending:
-        runtimeDebug?.transitionCompletionHandle != null,
-      registeredRuntimeViewport: runtime?.getViewportTuple() ?? null,
-      transform: viewport.transform,
-      viewportAnimating: viewport.viewportAnimating,
-      viewportInteractionActive: viewport.viewportInteractionActive,
-      wheelZooming: viewport.wheelZooming,
-    };
-  });
-}
-
-async function waitForAnimationFrame(page: Page): Promise<void> {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  );
 }

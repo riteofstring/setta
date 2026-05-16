@@ -222,21 +222,21 @@ describe("createRetainedTexturePageDrawQuads", () => {
     );
   });
 
-  it("uses committed pages from the same source-window origin as fallback", () => {
+  it("uses committed same-surface pages from previous scroll windows as fallback", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
         sourceRectCss: { height: 256, width: 256, x: 0, y: 0 },
-        sourceWindowCss: { height: 512, width: 256, x: 0, y: 0 },
+        sourceWindowCss: { height: 256, width: 256, x: 0, y: 0 },
       }),
-      resource: "larger-window",
+      resource: "previous-scroll-window",
     });
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 256, width: 256, x: 0, y: 0 },
       contentVersion: 1,
       lodScale: 2,
       maxPagePixelSize: 128,
-      sourceWindowCss: SOURCE_WINDOW,
+      sourceWindowCss: { height: 256, width: 256, x: 0, y: 48 },
       surfaceId: "surface",
       visibleSourceRectCss: { height: 64, width: 64, x: 64, y: 64 },
     });
@@ -250,7 +250,9 @@ describe("createRetainedTexturePageDrawQuads", () => {
       expect.objectContaining({
         drawQuads: [
           expect.objectContaining({
-            page: expect.objectContaining({ resource: "larger-window" }),
+            page: expect.objectContaining({
+              resource: "previous-scroll-window",
+            }),
             sampleRectCss: { height: 64, width: 64, x: 64, y: 64 },
           }),
         ],
@@ -453,14 +455,15 @@ describe("createRetainedTexturePageDrawQuads", () => {
     );
   });
 
-  it("does not use committed pages from a different source window as fallback", () => {
+  it("does not use committed pages from a different surface as fallback", () => {
     const cache = new RetainedTexturePageCache<string>();
     cache.commitPage({
       descriptor: page({
         sourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
         sourceWindowCss: { height: 256, width: 256, x: 0, y: 128 },
+        surfaceId: "other-surface",
       }),
-      resource: "stale-window",
+      resource: "other-surface-window",
     });
     const desiredPages = createRetainedTexturePageDescriptors({
       contentBoundsCss: { height: 64, width: 64, x: 0, y: 0 },

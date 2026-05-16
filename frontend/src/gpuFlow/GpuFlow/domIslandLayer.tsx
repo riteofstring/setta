@@ -95,33 +95,6 @@ export function GpuFlowDomIslandLayer({
   }, [viewportStore]);
 
   useLayoutEffect(() => {
-    if (domIslands.length === 0) {
-      return;
-    }
-    let animationFrameId: number | null = null;
-    let disposed = false;
-    const sync = () => {
-      syncGpuFlowDomIslandLayerStyles({
-        elementById: elementByIdRef.current,
-        islands: domIslandsRef.current,
-        viewport: getLiveGpuFlowDomIslandViewport({
-          viewportRuntime,
-        }),
-      });
-      if (!disposed) {
-        animationFrameId = requestAnimationFrame(sync);
-      }
-    };
-    sync();
-    return () => {
-      disposed = true;
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [domIslands.length, viewportRuntime, viewportStore]);
-
-  useLayoutEffect(() => {
     syncGpuFlowDomIslandLayerStyles({
       elementById: elementByIdRef.current,
       islands: domIslands,

@@ -5,6 +5,7 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuHtmlSurfaceOverlayLayout } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import type { GpuRetainedContentRowHoverTarget } from "../retainedContentRowHover";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
@@ -16,6 +17,10 @@ export type GpuFlowRetainedContentNodeLayerState = {
     | undefined;
   readonly htmlSurfaceNativeVisuals?:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly retainedContentRowHoverTarget?:
+    | GpuRetainedContentRowHoverTarget
+    | null
     | undefined;
   readonly scene: GpuFlowScene | undefined;
 };

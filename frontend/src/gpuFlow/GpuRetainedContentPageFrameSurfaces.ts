@@ -205,8 +205,16 @@ function createRowContentSignature(
     label: row.label,
     labelAppearance: row.labelAppearance,
     ports: row.ports,
-    state: row.state,
+    state: createRowContentSignatureState(row.state),
     status: row.status,
     verticalGapBefore: row.verticalGapBefore,
   });
+}
+
+function createRowContentSignatureState(
+  state: GpuRetainedContentSceneSourceRow["state"],
+): Omit<NonNullable<GpuRetainedContentSceneSourceRow["state"]>, "hovered"> {
+  const contentState = { ...(state ?? {}) };
+  delete contentState.hovered;
+  return contentState;
 }

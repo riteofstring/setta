@@ -2,7 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { syncGpuFlowNodeInteractionState } from "./flowFrame";
+import {
+  shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
+  syncGpuFlowNodeInteractionState,
+} from "./flowFrame";
 
 describe("GPU flow frame helpers", () => {
   it("reports deactivated interaction nodes for final texture capture", () => {
@@ -25,5 +28,26 @@ describe("GPU flow frame helpers", () => {
     expect(deactivatedNodeIds).toEqual(["node-a"]);
     expect(activeElement.dataset.gpuFlowInteractive).toBe("false");
     expect(nextElement.dataset.gpuFlowInteractive).toBe("true");
+  });
+
+  it("keeps first-visible retained page uploads available during active viewport frames", () => {
+    expect(
+      shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
+        deferResolutionUpdates: true,
+        preparedFrame: { uncoveredRectCount: 0 },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
+        deferResolutionUpdates: true,
+        preparedFrame: { uncoveredRectCount: 1 },
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
+        deferResolutionUpdates: false,
+        preparedFrame: { uncoveredRectCount: 0 },
+      }),
+    ).toBe(false);
   });
 });

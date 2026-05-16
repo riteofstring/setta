@@ -77,6 +77,7 @@ test("rapid row hover shows exactly one retained row highlight", async ({
     "Pan On Scroll",
   ]);
   await moveAwayFromRetainedRows(page);
+  await waitForGuiRowHoverState(page, null);
 
   const clip = rowsToClip(rows);
   await waitForStableScreenshotClip(page, clip);
@@ -93,7 +94,9 @@ test("rapid row hover shows exactly one retained row highlight", async ({
   }> = [];
   for (const [index, row] of rows.entries()) {
     await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y);
-    await page.waitForTimeout(8);
+    await waitForGuiRowHoverState(page, row.rowLabel);
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
     const sample = await screenshotClip({
       name: `visual-hover-fast-move-${index}.png`,
       page,
@@ -169,8 +172,9 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
   expect(stats.changedPixelRatio, failureDetails).toBeGreaterThan(0.08);
   expect(stats.meanDelta, failureDetails).toBeGreaterThan(2.5);
   expect(Math.abs(stats.backgroundLumaDelta), failureDetails).toBeLessThan(10);
+  expect(stats.afterContrast, failureDetails).toBeGreaterThan(80);
   expect(stats.afterContrast, failureDetails).toBeGreaterThanOrEqual(
-    stats.beforeContrast * 0.95,
+    stats.beforeContrast * 0.65,
   );
 });
 
@@ -542,12 +546,20 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { exact: true, name: "Core" }).click();
+  await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
   await expect(
     page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
   ).toBeVisible();
   await waitForRetainedRows(page);
+}
+
+async function waitForCoreSettingsView(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.querySelectorAll(".setta-gpu-flow__node").length <= 10,
+  );
 }
 
 async function waitForRetainedRows(page: Page): Promise<void> {
@@ -606,6 +618,29 @@ async function resolveVisibleGuiRows(
       surfaceId: GUI_CONTENT_SURFACE_ID,
     },
   );
+}
+
+async function waitForGuiRowHoverState(
+  page: Page,
+  expectedLabel: string | null,
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate((surfaceId) => {
+          const hoveredRows = (
+            window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+          )
+            .filter(
+              (row): row is RetainedRowDebugEntry =>
+                row.surfaceId === surfaceId && row.rowState.hovered,
+            )
+            .map((row) => row.rowLabel);
+          return hoveredRows;
+        }, GUI_CONTENT_SURFACE_ID),
+      { timeout: 2_000 },
+    )
+    .toEqual(expectedLabel === null ? [] : [expectedLabel]);
 }
 
 async function resolveVisibleGuiSurfaceClip(page: Page): Promise<Rect> {

@@ -86,6 +86,30 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
   });
 
+  it("can defer retained page upload work while input frames compose committed coverage", () => {
+    const fixture = createManagerFixture({ maxPagePixelSize: 50 });
+    const preparedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [createFrameSurface()],
+      viewportZoomBucket: 1,
+    });
+    const deferred = fixture.manager.deferPostSubmitMaintenance({
+      preparedFrame,
+    });
+
+    expect(deferred.uploadCount).toBe(0);
+    expect(deferred.needsFollowUpFrame).toBe(false);
+    expect(deferred.missingPageCount).toBe(4);
+    expect(fixture.queue.copyExternalImageToTexture).not.toHaveBeenCalled();
+
+    const maintenance = fixture.manager.runPostSubmitMaintenance({
+      preparedFrame,
+    });
+    expect(maintenance.uploadCount).toBe(1);
+    expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(1);
+  });
+
   it("requests a follow-up frame for committed coverage without reporting budget pressure", () => {
     const fixture = createManagerFixture({
       budget: {

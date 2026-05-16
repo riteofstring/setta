@@ -6,6 +6,17 @@ import {
   resetGpuFlowPerformanceProbe,
 } from "../gpuFlowPerformanceProbe";
 import { ensureAppReady } from "../helpers";
+import { measurePageRafCadence } from "./settings-retained-frame-helpers";
+import {
+  formatScrollPerformanceDetails,
+  resolveCappedScrollP95FrameBudget,
+  type NativeWheelBurstResult,
+  type RetainedScrollbarVisualStats,
+  type RetainedScrollSignature,
+  type RetainedVisualStats,
+  type ScrollFrameSample,
+  type ScrollTarget,
+} from "./settings-retained-scroll-performance-helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -13,63 +24,12 @@ const READY_SELECTOR = ".setta-gpu-flow__pane";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const RETAINED_SCROLLBAR_TEXTURE_SUFFIX = ":scrollbar";
-
-type ScrollTarget = {
-  readonly point: { readonly x: number; readonly y: number };
-  readonly screenshotClip: {
-    readonly height: number;
-    readonly width: number;
-    readonly x: number;
-    readonly y: number;
-  };
-  readonly scrollbarScreenshotClip: {
-    readonly height: number;
-    readonly width: number;
-    readonly x: number;
-    readonly y: number;
-  };
-  readonly surfaceId: string;
-  readonly visibleCssArea: number;
-};
-
-type ScrollTargetDetails = {
-  readonly screenshotClip: ScrollTarget["screenshotClip"];
-  readonly surfaceId: string;
-  readonly visibleCssArea: number;
-};
-
-type ScrollFrameSample = {
-  readonly averageIntervalMs: number;
-  readonly frameCount: number;
-  readonly slowFrameCount: number;
-  readonly worstIntervalMs: number;
-};
-
-type RetainedVisualStats = {
-  readonly brightPixelRatio: number;
-  readonly height: number;
-  readonly textBandCount: number;
-  readonly width: number;
-};
-
-type RetainedScrollbarVisualStats = {
-  readonly bottomY: number | null;
-  readonly detectedPixelCount: number;
-  readonly height: number;
-  readonly longestRunHeight: number;
-  readonly thumbContrast: number;
-  readonly thumbHeight: number;
-  readonly thumbTopY: number | null;
-  readonly topY: number | null;
-  readonly width: number;
-};
-
-type RetainedScrollSignature = {
-  readonly firstRowId: string | null;
-  readonly firstRowY: number | null;
-  readonly lastRowId: string | null;
-  readonly rowCount: number;
-};
+const SCROLL_P95_FRAME_BUDGET_MS = 20;
+const CAPPED_SCROLL_P95_FRAME_BUDGET_SLACK_MS = 10;
+const CAPPED_SCROLL_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
+// Native wheel dispatch through Playwright/CDP can produce isolated scheduling
+// gaps in capped headless browsers; keep p95 strict and cap only the max sample.
+const SCROLL_MAX_FRAME_BUDGET_MS = 110;
 
 test("all-settings retained section wheel scrolling does not refill the texture backlog", async ({
   page,
@@ -130,7 +90,9 @@ test("all-settings retained section wheel scrolling does not refill the texture 
       call.sourceNodeId.endsWith(RETAINED_SCROLLBAR_TEXTURE_SUFFIX),
   ).length;
   const retainedScrollbarSourceCount = await page
-    .locator(`[data-gpu-flow-source-id$="${RETAINED_SCROLLBAR_TEXTURE_SUFFIX}"]`)
+    .locator(
+      `[data-gpu-flow-source-id$="${RETAINED_SCROLLBAR_TEXTURE_SUFFIX}"]`,
+    )
     .count();
   await restoreRetainedScrollbarWheelSequenceScrollPosition({ page, target });
   await drainPendingGpuTextureUploads(page);
@@ -140,11 +102,14 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     target.surfaceId,
   );
   await page.mouse.move(target.point.x, target.point.y);
+  const beforeScrollRafCadence = await measurePageRafCadence(page);
   await startScrollFrameSampler(page);
 
-  for (let index = 0; index < 12; index += 1) {
-    await page.mouse.wheel(0, 44);
-  }
+  const scrollGesture = await runNativeWheelBurst(page, {
+    deltaY: 44,
+    eventCount: 12,
+    point: target.point,
+  });
   await page.waitForTimeout(750);
 
   const frameSample = await stopScrollFrameSampler(page);
@@ -196,7 +161,18 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     ...snapshot.nodeLayerFrames.map((frame) => frame.remainingDirtyNodeCount),
   );
   const worstFrameIntervalMs = frameSample.worstIntervalMs;
+  const scrollP95FrameBudgetMs = resolveCappedScrollP95FrameBudget({
+    baseBudgetMs: SCROLL_P95_FRAME_BUDGET_MS,
+    cadenceSlackMs: CAPPED_SCROLL_P95_FRAME_BUDGET_SLACK_MS,
+    gesture: scrollGesture,
+    gestureSlackMs: CAPPED_SCROLL_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
+    rafCadence: beforeScrollRafCadence,
+  });
   const failureDetails = formatScrollPerformanceDetails({
+    budgets: {
+      scrollMaxFrameBudgetMs: SCROLL_MAX_FRAME_BUDGET_MS,
+      scrollP95FrameBudgetMs,
+    },
     frameSample,
     fullTargetRetainedUploadCount: fullTargetRetainedUploads.length,
     largestTargetUploadCssArea,
@@ -215,6 +191,8 @@ test("all-settings retained section wheel scrolling does not refill the texture 
       surfaceId: target.surfaceId,
       visibleCssArea: target.visibleCssArea,
     },
+    rafCadence: { beforeScroll: beforeScrollRafCadence },
+    scrollGesture,
     targetSurfaceId: target.surfaceId,
     unexpectedRetainedUploads,
     visualStats: { after: afterVisualStats, before: beforeVisualStats },
@@ -223,6 +201,20 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   });
 
   expect(frameSample.frameCount, failureDetails).toBeGreaterThan(8);
+  expect(frameSample.p95IntervalMs, failureDetails).toBeLessThanOrEqual(
+    scrollP95FrameBudgetMs,
+  );
+  expect(frameSample.slowFrameRatio, failureDetails).toBeLessThanOrEqual(0.08);
+  expect(beforeVisualStats.brightPixelRatio, failureDetails).toBeGreaterThan(
+    0.01,
+  );
+  expect(afterVisualStats.brightPixelRatio, failureDetails).toBeGreaterThan(
+    Math.max(0.01, beforeVisualStats.brightPixelRatio * 0.55),
+  );
+  expect(beforeVisualStats.textBandCount, failureDetails).toBeGreaterThan(3);
+  expect(afterVisualStats.textBandCount, failureDetails).toBeGreaterThan(
+    Math.max(3, Math.floor(beforeVisualStats.textBandCount * 0.55)),
+  );
   expect(beforeVisualStats.textBandCount, failureDetails).toBeLessThanOrEqual(
     maxRetainedVisualTextBandCount(beforeVisualStats),
   );
@@ -238,9 +230,7 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     failureDetails,
   ).toBe(true);
   expect(
-    Math.max(
-      ...scrollbarVisualStats.map((stats) => stats.topY ?? Number.NaN),
-    ) -
+    Math.max(...scrollbarVisualStats.map((stats) => stats.topY ?? Number.NaN)) -
       Math.min(
         ...scrollbarVisualStats.map((stats) => stats.topY ?? Number.NaN),
       ),
@@ -277,14 +267,15 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   expect(targetRetainedUploadCalls.length, failureDetails).toBeLessThanOrEqual(
     1,
   );
-  expect(
-    fullTargetRetainedUploads.length,
-    failureDetails,
-  ).toBeLessThanOrEqual(1);
+  expect(fullTargetRetainedUploads.length, failureDetails).toBeLessThanOrEqual(
+    1,
+  );
   expect(largestTargetUploadCssArea, failureDetails).toBeLessThan(
     target.visibleCssArea * 0.25,
   );
-  expect(worstFrameIntervalMs, failureDetails).toBeLessThan(80);
+  expect(worstFrameIntervalMs, failureDetails).toBeLessThanOrEqual(
+    SCROLL_MAX_FRAME_BUDGET_MS,
+  );
 });
 
 async function waitForGpuTextureUploadQuiet(page: Page): Promise<void> {
@@ -368,8 +359,7 @@ async function centerSettingsRetainedSurfaceForScrollTest(
     );
     const flowLeft =
       (minClientX - paneRect.left - transform.x) / transform.zoom;
-    const flowTop =
-      (minClientY - paneRect.top - transform.y) / transform.zoom;
+    const flowTop = (minClientY - paneRect.top - transform.y) / transform.zoom;
     const visibleFlowHeight = Math.max(
       firstRow.canvasCssSize.height,
       (maxClientY - minClientY) / transform.zoom,
@@ -466,8 +456,10 @@ async function readRetainedSurfaceScrollSignature(
       readonly rowId: string;
       readonly surfaceId: string;
     };
-    const rows = ((window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ??
-      []) as readonly RetainedRow[])
+    const rows = (
+      (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ??
+        []) as readonly RetainedRow[]
+    )
       .filter((row) => row.surfaceId === targetSurfaceId)
       .sort((left, right) => left.clientRect.y - right.clientRect.y);
     return {
@@ -536,9 +528,7 @@ async function resolveScrollableSettingsRetainedTarget(
           scrollRow: visibleRows[Math.floor(visibleRows.length / 2)] ?? null,
           surfaceId,
           usable:
-            visibleRows.length >= 4 &&
-            rect.height >= 120 &&
-            rect.width >= 220,
+            visibleRows.length >= 4 && rect.height >= 120 && rect.width >= 220,
           visibleCssArea,
         };
       })
@@ -633,9 +623,7 @@ async function resolveScrollableSettingsRetainedTarget(
       const bottom = Math.min(
         window.innerHeight,
         Math.max(
-          ...surfaceRows.map(
-            (row) => row.clientRect.y + row.clientRect.height,
-          ),
+          ...surfaceRows.map((row) => row.clientRect.y + row.clientRect.height),
         ),
       );
       return {
@@ -808,6 +796,32 @@ async function restoreRetainedScrollbarWheelSequenceScrollPosition({
   await page.waitForTimeout(150);
 }
 
+async function runNativeWheelBurst(
+  page: Page,
+  input: {
+    readonly deltaY: number;
+    readonly eventCount: number;
+    readonly point: { readonly x: number; readonly y: number };
+  },
+): Promise<NativeWheelBurstResult> {
+  const timestamps: number[] = [];
+  const startedAt = performance.now();
+  await page.mouse.move(input.point.x, input.point.y);
+  for (let index = 0; index < input.eventCount; index += 1) {
+    timestamps.push(performance.now());
+    await page.mouse.wheel(0, input.deltaY);
+  }
+  const finishedAt = performance.now();
+  return {
+    durationMs: finishedAt - startedAt,
+    eventCount: input.eventCount,
+    eventSpacingMs: timestamps.slice(1).map((timestamp, index) => {
+      const previous = timestamps[index] ?? timestamp;
+      return timestamp - previous;
+    }),
+  };
+}
+
 async function analyzeRetainedScrollbarScreenshot(
   page: Page,
   screenshot: Buffer,
@@ -857,19 +871,20 @@ async function analyzeRetainedScrollbarScreenshot(
       columnContrasts[x] =
         Math.max(0, ...luminances) - percentile(luminances, 0.5);
     }
-    const bestColumn = columnScores
-      .map((score, x) => ({
-        contrast: columnContrasts[x] ?? 0,
-        score,
-        x,
-      }))
-      .filter((column) => column.score >= height * 0.55)
-      .sort((left, right) => {
-        if (right.contrast !== left.contrast) {
-          return right.contrast - left.contrast;
-        }
-        return right.score - left.score;
-      })[0]?.x ?? 0;
+    const bestColumn =
+      columnScores
+        .map((score, x) => ({
+          contrast: columnContrasts[x] ?? 0,
+          score,
+          x,
+        }))
+        .filter((column) => column.score >= height * 0.55)
+        .sort((left, right) => {
+          if (right.contrast !== left.contrast) {
+            return right.contrast - left.contrast;
+          }
+          return right.score - left.score;
+        })[0]?.x ?? 0;
     const scanLeft = Math.max(0, bestColumn - 3);
     const scanRight = Math.min(width - 1, bestColumn + 3);
     const rowLuminanceSums = Array.from({ length: height }, () => 0);
@@ -907,7 +922,9 @@ async function analyzeRetainedScrollbarScreenshot(
       bottomY: longestRun ? longestRun.endY : null,
       detectedPixelCount: columnScores[bestColumn] ?? 0,
       height,
-      longestRunHeight: longestRun ? longestRun.endY - longestRun.startY + 1 : 0,
+      longestRunHeight: longestRun
+        ? longestRun.endY - longestRun.startY + 1
+        : 0,
       thumbContrast: maxLuminance - medianLuminance,
       thumbHeight: thumbRun ? thumbRun.endY - thumbRun.startY + 1 : 0,
       thumbTopY: thumbRun ? thumbRun.startY : null,
@@ -1044,86 +1061,35 @@ async function stopScrollFrameSampler(page: Page): Promise<ScrollFrameSample> {
     }
     sampler.running = false;
     const intervals = sampler.intervals;
+    const sortedIntervals = [...intervals].sort((left, right) => left - right);
     const totalIntervalMs = intervals.reduce((sum, value) => sum + value, 0);
+    const slowFrameCount = intervals.filter(
+      (intervalMs) => intervalMs >= 50,
+    ).length;
     return {
       averageIntervalMs:
         intervals.length === 0 ? 0 : totalIntervalMs / intervals.length,
       frameCount: intervals.length + 1,
-      slowFrameCount: intervals.filter((intervalMs) => intervalMs >= 50).length,
+      p50IntervalMs: framePercentile(sortedIntervals, 0.5),
+      p95IntervalMs: framePercentile(sortedIntervals, 0.95),
+      slowFrameCount,
+      slowFrameRatio:
+        intervals.length === 0 ? 0 : slowFrameCount / intervals.length,
       worstIntervalMs: Math.max(0, ...intervals),
     };
-  });
-}
 
-function formatScrollPerformanceDetails({
-  frameSample,
-  fullTargetRetainedUploadCount,
-  largestTargetUploadCssArea,
-  maxDirtyBacklog,
-  retainedUploadSurfaceIds,
-  retainedScrollbarSourceCount,
-  scrollbarUploadCount,
-  scrollbarVisualStats,
-  scrollSignatures,
-  snapshot,
-  target,
-  targetSurfaceId,
-  unexpectedRetainedUploads,
-  visualStats,
-  visualScrollbarUploadCount,
-  worstFrameIntervalMs,
-}: {
-  readonly frameSample: ScrollFrameSample;
-  readonly fullTargetRetainedUploadCount: number;
-  readonly largestTargetUploadCssArea: number;
-  readonly maxDirtyBacklog: number;
-  readonly retainedUploadSurfaceIds: readonly string[];
-  readonly retainedScrollbarSourceCount: number;
-  readonly scrollbarUploadCount: number;
-  readonly scrollbarVisualStats: readonly RetainedScrollbarVisualStats[];
-  readonly scrollSignatures: {
-    readonly after: RetainedScrollSignature;
-    readonly before: RetainedScrollSignature;
-  };
-  readonly snapshot: Awaited<ReturnType<typeof readGpuFlowPerformanceSnapshot>>;
-  readonly target: ScrollTargetDetails;
-  readonly targetSurfaceId: string;
-  readonly unexpectedRetainedUploads: readonly string[];
-  readonly visualStats: {
-    readonly after: RetainedVisualStats;
-    readonly before: RetainedVisualStats;
-  };
-  readonly visualScrollbarUploadCount: number;
-  readonly worstFrameIntervalMs: number;
-}): string {
-  return JSON.stringify(
-    {
-      frameSample,
-      fullTargetRetainedUploadCount,
-      frameCount: snapshot.frameCount,
-      largestTargetUploadCssArea,
-      latestFrames: snapshot.nodeLayerFrames.slice(-8).map((frame) => ({
-        remainingDirtyNodeCount: frame.remainingDirtyNodeCount,
-        solidRoundedRectSurfaceCount: frame.solidRoundedRectSurfaceCount,
-        uploadedNodeIds: frame.uploadedNodeIds.slice(0, 8),
-      })),
-      maxDirtyBacklog,
-      retainedUploadSurfaceIds,
-      retainedScrollbarSourceCount,
-      scrollbarUploadCount,
-      scrollbarVisualStats,
-      scrollSignatures,
-      target,
-      targetSurfaceId,
-      textureUploadCount: snapshot.queueCalls.filter(
-        (call) => call.method === "copyElementImageToTexture",
-      ).length,
-      unexpectedRetainedUploads,
-      visualStats,
-      visualScrollbarUploadCount,
-      worstFrameIntervalMs,
-    },
-    null,
-    2,
-  );
+    function framePercentile(
+      sortedValues: readonly number[],
+      quantile: number,
+    ): number {
+      if (sortedValues.length === 0) {
+        return 0;
+      }
+      const index = Math.min(
+        sortedValues.length - 1,
+        Math.max(0, Math.ceil(sortedValues.length * quantile) - 1),
+      );
+      return sortedValues[index] ?? 0;
+    }
+  });
 }

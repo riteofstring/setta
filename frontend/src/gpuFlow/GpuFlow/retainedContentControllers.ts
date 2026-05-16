@@ -28,6 +28,7 @@ import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import {
   applyGpuRetainedContentRowHoverTargetToScene,
   areGpuRetainedContentRowHoverTargetsEqual,
+  getGpuRetainedContentRowHoverStateVisuals,
   getGpuRetainedContentRowHoverVisuals,
   type GpuRetainedContentRowHoverTarget,
 } from "../retainedContentRowHover";
@@ -56,14 +57,6 @@ import {
   type GpuFlowRetainedContentPageManager,
   type GpuFlowRetainedContentTextureManager,
 } from "./retainedContentControllerSurfaceUpdates";
-import {
-  applyGpuFlowRetainedContentRuntimeScrollOffsetChanges,
-  applyGpuFlowRetainedContentScrollResult,
-} from "./retainedContentScrollSceneCommit";
-
-function getRetainedContentNativeVisuals(scene: GpuFlowScene | undefined) {
-  return getGpuRetainedContentScrollbarVisuals(scene?.contentSurfaces);
-}
 
 export type GpuFlowRetainedContentConnectionOptions =
   | false
@@ -268,15 +261,19 @@ export function useGpuFlowRetainedContentControllers({
       nextTarget: GpuRetainedContentRowHoverTarget | null,
     ) => {
       const scene = nodeLayerRef.current.scene;
-      if (
-        areGpuRetainedContentRowHoverTargetsEqual(
-          retainedContentRowHoverTargetRef.current,
-          nextTarget,
-        )
-      ) {
-        return;
-      }
+      const targetChanged = !areGpuRetainedContentRowHoverTargetsEqual(
+        retainedContentRowHoverTargetRef.current,
+        nextTarget,
+      );
       retainedContentRowHoverTargetRef.current = nextTarget;
+      if (
+        nodeLayerRef.current.retainedContentRowHoverTarget !== nextTarget
+      ) {
+        nodeLayerRef.current = {
+          ...nodeLayerRef.current,
+          retainedContentRowHoverTarget: nextTarget,
+        };
+      }
       if (!scene) {
         return;
       }
@@ -284,20 +281,22 @@ export function useGpuFlowRetainedContentControllers({
         scene,
         target: nextTarget,
       });
-      if (!update) {
+      if (!update && !targetChanged) {
         return;
       }
+      const nextScene = update?.scene ?? scene;
       nodeLayerRef.current = {
         ...nodeLayerRef.current,
         edgeLabelSurfaces: mergeGpuFlowRetainedContentSurfaceLayouts({
           overlays: nodeLayerRef.current.edgeLabelSurfaces,
-          scene: update.scene,
+          scene: nextScene,
         }),
         htmlSurfaceNativeVisuals: getGpuFlowRetainedContentNativeVisuals({
           rowHoverTarget: nextTarget,
-          scene: update.scene,
+          scene: nextScene,
         }),
-        scene: update.scene,
+        retainedContentRowHoverTarget: nextTarget,
+        scene: nextScene,
       };
       surfaceRef.current?.requestFrame("manual");
     };
@@ -326,20 +325,11 @@ export function useGpuFlowRetainedContentControllers({
         result.scrollOffsets,
         scrollResult,
       );
-      applyGpuFlowRetainedContentScrollResult({
-        containerRef,
-        nodeElementByIdRef,
-        nodeLayerRef,
-        retainedContentPageManagerRef,
-        result: scrollResult,
-        scrollbarVisualState: retainedContentScrollbarVisualState,
-        getNativeVisuals: getRetainedContentNativeVisuals,
+      requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
+        previousScrollOffsets: new Map(),
+        retainedContentRuntimeState,
         surfaceRef,
-        switchAnimations: retainedContentSwitchAnimations,
-        textureManagerRef,
-        viewportStore,
       });
-      onRetainedContentSceneChange?.(nodeLayerRef.current.scene);
     };
     const detachRetainedContentInteractionController =
       attachGpuRetainedContentInteractionController({
@@ -420,26 +410,11 @@ export function useGpuFlowRetainedContentControllers({
           const changed =
             retainedContentInteraction?.onHitDragFrame?.(event) ?? false;
           const appliedRuntimeScroll =
-            applyGpuFlowRetainedContentRuntimeScrollOffsetChanges({
-              containerRef,
-              getNativeVisuals: (scene) =>
-                getGpuFlowRetainedContentNativeVisuals({
-                  rowHoverTarget: retainedContentRowHoverTargetRef.current,
-                  scene,
-                }),
-              nodeElementByIdRef,
-              nodeLayerRef,
+            requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
               previousScrollOffsets,
-              retainedContentPageManagerRef,
               retainedContentRuntimeState,
               surfaceRef,
-              switchAnimations: retainedContentSwitchAnimations,
-              textureManagerRef,
-              viewportStore,
             });
-          if (appliedRuntimeScroll) {
-            onRetainedContentSceneChange?.(nodeLayerRef.current.scene);
-          }
           return appliedRuntimeScroll || changed;
         },
         onHitDragMove: (event) => {
@@ -475,27 +450,11 @@ export function useGpuFlowRetainedContentControllers({
               retainedContentRuntimeState,
             );
           retainedContentInteraction?.onHitDragMove?.(event);
-          const appliedRuntimeScroll =
-            applyGpuFlowRetainedContentRuntimeScrollOffsetChanges({
-              containerRef,
-              getNativeVisuals: (scene) =>
-                getGpuFlowRetainedContentNativeVisuals({
-                  rowHoverTarget: retainedContentRowHoverTargetRef.current,
-                  scene,
-                }),
-              nodeElementByIdRef,
-              nodeLayerRef,
-              previousScrollOffsets,
-              retainedContentPageManagerRef,
-              retainedContentRuntimeState,
-              surfaceRef,
-              switchAnimations: retainedContentSwitchAnimations,
-              textureManagerRef,
-              viewportStore,
-            });
-          if (appliedRuntimeScroll) {
-            onRetainedContentSceneChange?.(nodeLayerRef.current.scene);
-          }
+          requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
+            previousScrollOffsets,
+            retainedContentRuntimeState,
+            surfaceRef,
+          });
         },
         onHitDragStart: (event) => {
           const retainedContentInteraction = getRetainedContentInteraction();
@@ -622,23 +581,11 @@ export function useGpuFlowRetainedContentControllers({
           state: retainedContentRuntimeState,
         });
         retainedContentKeyboard.onNavigation(event);
-        applyGpuFlowRetainedContentScrollResult({
-          containerRef,
-          getNativeVisuals: (scene) =>
-            getGpuFlowRetainedContentNativeVisuals({
-              rowHoverTarget: retainedContentRowHoverTargetRef.current,
-              scene,
-            }),
-          nodeElementByIdRef,
-          nodeLayerRef,
-          retainedContentPageManagerRef,
-          result: event,
+        requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
+          previousScrollOffsets: new Map(),
+          retainedContentRuntimeState,
           surfaceRef,
-          switchAnimations: retainedContentSwitchAnimations,
-          textureManagerRef,
-          viewportStore,
         });
-        onRetainedContentSceneChange?.(nodeLayerRef.current.scene);
       },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
@@ -678,23 +625,6 @@ export function useGpuFlowRetainedContentControllers({
           state: retainedContentRuntimeState,
         });
         retainedContentScroll.onScrollOffsetsCommit?.(scrollOffsets, result);
-        applyGpuFlowRetainedContentScrollResult({
-          containerRef,
-          nodeElementByIdRef,
-          nodeLayerRef,
-          retainedContentPageManagerRef,
-          result,
-          surfaceRef,
-          getNativeVisuals: (scene) =>
-            getGpuFlowRetainedContentNativeVisuals({
-              rowHoverTarget: retainedContentRowHoverTargetRef.current,
-              scene,
-            }),
-          switchAnimations: retainedContentSwitchAnimations,
-          textureManagerRef,
-          viewportStore,
-        });
-        onRetainedContentSceneChange?.(nodeLayerRef.current.scene);
       },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
@@ -743,6 +673,62 @@ export function useGpuFlowRetainedContentControllers({
   ]);
 }
 
+function requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
+  previousScrollOffsets,
+  retainedContentRuntimeState,
+  surfaceRef,
+}: {
+  readonly previousScrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+}): boolean {
+  const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
+    retainedContentRuntimeState,
+  );
+  if (
+    !haveGpuFlowRetainedContentRuntimeScrollOffsetsChanged({
+      previousScrollOffsets,
+      scrollOffsets,
+    })
+  ) {
+    return false;
+  }
+  surfaceRef.current?.requestFrame("viewport");
+  return true;
+}
+
+function haveGpuFlowRetainedContentRuntimeScrollOffsetsChanged({
+  previousScrollOffsets,
+  scrollOffsets,
+}: {
+  readonly previousScrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+  readonly scrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+}): boolean {
+  if (previousScrollOffsets.size !== scrollOffsets.size) {
+    return true;
+  }
+  for (const [surfaceId, scrollOffset] of scrollOffsets) {
+    const previous = previousScrollOffsets.get(surfaceId);
+    if (
+      !previous ||
+      previous.x !== scrollOffset.x ||
+      previous.y !== scrollOffset.y
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isGpuFlowRetainedContentInteractionOptionsDisabled(
   options: GpuFlowRetainedContentInteractionOptions | null,
 ): boolean {
@@ -762,10 +748,12 @@ function getGpuFlowRetainedContentNativeVisuals({
 }) {
   return [
     ...getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces),
-    ...getGpuRetainedContentRowHoverVisuals({
-      scene,
-      target: rowHoverTarget,
-    }),
+    ...(rowHoverTarget
+      ? getGpuRetainedContentRowHoverVisuals({
+          scene,
+          target: rowHoverTarget,
+        })
+      : getGpuRetainedContentRowHoverStateVisuals({ scene })),
   ];
 }
 

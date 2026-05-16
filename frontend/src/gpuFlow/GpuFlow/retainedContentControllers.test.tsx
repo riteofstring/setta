@@ -106,6 +106,7 @@ describe("GpuFlow retained content controllers", () => {
   it("keeps unrelated retained surfaces clean when one section scrolls", () => {
     const animationFrames = installAnimationFrameStub();
     const dirtySurfaceIds: string[] = [];
+    const requestedFrames: string[] = [];
     let host: HTMLDivElement | null = null;
 
     act(() => {
@@ -119,6 +120,9 @@ describe("GpuFlow retained content controllers", () => {
           }}
           onHostChange={(element) => {
             host = element;
+          }}
+          onRequestFrame={(reason) => {
+            requestedFrames.push(reason);
           }}
         />,
       );
@@ -144,7 +148,8 @@ describe("GpuFlow retained content controllers", () => {
     });
 
     expect(wheel.defaultPrevented).toBe(true);
-    expect(dirtySurfaceIds).toEqual(["dict-a:param-content:unpinned"]);
+    expect(dirtySurfaceIds).toEqual([]);
+    expect(requestedFrames).toEqual(["viewport"]);
   });
 
   it("updates retained row hover as a native visual without dirtying page content", () => {
@@ -329,9 +334,11 @@ function RetainedContentInteractionHarness({
 function RetainedContentScrollHarness({
   onDirtySurface,
   onHostChange,
+  onRequestFrame,
 }: {
   readonly onDirtySurface: (surfaceId: string) => void;
   readonly onHostChange: (element: HTMLDivElement | null) => void;
+  readonly onRequestFrame?: ((reason: string) => void) | undefined;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const nodeLayerRef = useRef<{ scene: GpuFlowScene | undefined }>({
@@ -362,7 +369,9 @@ function RetainedContentScrollHarness({
   });
   const surfaceRef = useRef({
     getRuntime: () => null,
-    requestFrame: vi.fn(),
+    requestFrame: (reason: string) => {
+      onRequestFrame?.(reason);
+    },
     requestPaint: () => {
       markHtmlSurfaceFramePaintDirty({
         changedElements: [...nodeElementByIdRef.current.values()],

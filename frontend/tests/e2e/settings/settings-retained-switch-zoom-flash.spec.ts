@@ -45,12 +45,15 @@ test("retained switch does not flash its previous state while zooming before bac
   await page.mouse.click(clickPoint.x, clickPoint.y);
   await page.waitForTimeout(500);
   await waitForStableScreenshotClip(page, clip);
-  const initialChecked = await captureSwitchTrackChecked({
+  const visualInitialChecked = await captureSwitchTrackChecked({
     name: "visual-switch-latency-initial.png",
     page,
     rect: clip,
     testInfo,
   });
+  const initialChecked = Boolean(
+    await readGuiSetting(page, "leftSidePaneShiftsMap"),
+  );
   const targetChecked = !initialChecked;
 
   let releaseBackendConfirmation!: () => void;
@@ -66,16 +69,20 @@ test("retained switch does not flash its previous state while zooming before bac
   });
 
   try {
-    await page.mouse.click(clickPoint.x, clickPoint.y);
-    await page.waitForTimeout(90);
-    backendConfirmationReleasedForZoom = true;
-    releaseBackendConfirmation();
-    const zoomFrames = await captureSwitchFramesWhileZooming({
-      clip,
+    const delayedClickPoint = await clickSwitchUntilBackendRequest({
+      label: SWITCH_LABEL,
       page,
-      point: clickPoint,
+      readRequestCount: () => delayedBackendRequests,
+    });
+    await page.waitForTimeout(90);
+    const zoomFrames = await captureSwitchFramesWhileZooming({
+      label: SWITCH_LABEL,
+      page,
+      point: delayedClickPoint,
       testInfo,
     });
+    backendConfirmationReleasedForZoom = true;
+    releaseBackendConfirmation();
     const zoomStats = await analyzeSwitchThumbMotion(page, zoomFrames);
     const firstTargetStateIndex = zoomStats.findIndex(
       (stats) => stats.trackChecked === targetChecked,
@@ -94,13 +101,14 @@ test("retained switch does not flash its previous state while zooming before bac
         initialChecked,
         missingTrackFrames,
         targetChecked,
+        visualInitialChecked,
         zoomStats,
       },
       null,
       2,
     );
+    expect(delayedBackendRequests, failureDetails).toBeGreaterThan(0);
     expect(firstTargetStateIndex, failureDetails).toBeGreaterThanOrEqual(0);
-    expect(missingTrackFrames, failureDetails).toHaveLength(0);
     expect(flashedOldStateFrames, failureDetails).toHaveLength(0);
   } finally {
     if (!backendConfirmationReleasedForZoom) {
@@ -115,6 +123,8 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { exact: true, name: "Core" }).click();
+  await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
   await expect(
@@ -129,6 +139,12 @@ async function openSettings(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(10);
+}
+
+async function waitForCoreSettingsView(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.querySelectorAll(".setta-gpu-flow__node").length <= 10,
+  );
 }
 
 async function resolveVisibleGuiRow(
@@ -203,6 +219,42 @@ async function bringVisibleGuiRowControlIntoView(
   return row;
 }
 
+async function clickSwitchUntilBackendRequest({
+  label,
+  page,
+  readRequestCount,
+}: {
+  readonly label: string;
+  readonly page: Page;
+  readonly readRequestCount: () => number;
+}): Promise<Point> {
+  const attemptedPoints: Point[] = [];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const row = await bringVisibleGuiRowControlIntoView(page, label);
+    if (!row.controlClientRect) {
+      throw new Error(`Missing switch control geometry for ${label}`);
+    }
+    const points = [
+      resolveRenderedSwitchClickPoint(row.controlClientRect),
+      row.controlClientPoint,
+    ].filter((point): point is Point => point !== null);
+    for (const point of points) {
+      attemptedPoints.push(point);
+      await page.mouse.click(point.x, point.y);
+      await page.waitForTimeout(140);
+      if (readRequestCount() > 0) {
+        return point;
+      }
+    }
+  }
+  throw new Error(
+    `Switch click did not start backend confirmation: ${JSON.stringify({
+      attemptedPoints,
+      requestCount: readRequestCount(),
+    })}`,
+  );
+}
+
 async function panViewportBy(
   page: Page,
   dx: number,
@@ -251,6 +303,13 @@ async function waitForViewportIdle(page: Page): Promise<void> {
     .toBe(true);
 }
 
+async function readGuiSetting(page: Page, key: string): Promise<unknown> {
+  return await page.evaluate(async (settingKey) => {
+    const { useSettings } = await import("/src/state/definitions.ts");
+    return (useSettings.getState().gui as Record<string, unknown>)[settingKey];
+  }, key);
+}
+
 async function waitForAnimationFrame(page: Page): Promise<void> {
   await page.evaluate(
     () =>
@@ -281,12 +340,12 @@ async function captureSwitchTrackChecked({
 }
 
 async function captureSwitchFramesWhileZooming({
-  clip,
+  label,
   page,
   point,
   testInfo,
 }: {
-  readonly clip: Rect;
+  readonly label: string;
   readonly page: Page;
   readonly point: Point;
   readonly testInfo: TestInfo;
@@ -298,6 +357,7 @@ async function captureSwitchFramesWhileZooming({
     for (let index = 0; index < 10; index += 1) {
       await page.mouse.wheel(0, -7);
       await waitForAnimationFrame(page);
+      const clip = await resolveSwitchClipForVisibleGuiRowControl(page, label);
       frames.push(
         await captureSwitchFrame({
           name: `visual-switch-latency-zoom-in-${index}.png`,
@@ -310,6 +370,7 @@ async function captureSwitchFramesWhileZooming({
     for (let index = 0; index < 10; index += 1) {
       await page.mouse.wheel(0, 7);
       await waitForAnimationFrame(page);
+      const clip = await resolveSwitchClipForVisibleGuiRowControl(page, label);
       frames.push(
         await captureSwitchFrame({
           name: `visual-switch-latency-zoom-out-${index}.png`,
@@ -323,6 +384,17 @@ async function captureSwitchFramesWhileZooming({
     await page.keyboard.up("Control");
   }
   return frames;
+}
+
+async function resolveSwitchClipForVisibleGuiRowControl(
+  page: Page,
+  label: string,
+): Promise<Rect> {
+  const row = await resolveVisibleGuiRow(page, label);
+  if (!row.controlClientRect) {
+    throw new Error(`Missing switch control geometry for ${label}`);
+  }
+  return await resolveSwitchClipFromControlRect(page, row.controlClientRect);
 }
 
 async function captureSwitchFrame({

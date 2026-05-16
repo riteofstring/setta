@@ -94,10 +94,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     string,
     Map<string, Set<string>>
   >();
-  private readonly committedPageKeysBySurfaceWindowOrigin = new Map<
-    string,
-    Map<string, Set<string>>
-  >();
+  private readonly committedPageKeysBySurface = new Map<string, Set<string>>();
   private readonly committedPages = new Map<
     string,
     CommittedRetainedTexturePage<TResource>
@@ -118,8 +115,8 @@ export class RetainedTexturePageCache<TResource = unknown> {
       this.destroyResource?.(page.resource);
     }
     this.committedPages.clear();
+    this.committedPageKeysBySurface.clear();
     this.committedPageKeysBySurfaceWindow.clear();
-    this.committedPageKeysBySurfaceWindowOrigin.clear();
     this.pendingPages.clear();
     this.retiredPages = [];
   }
@@ -370,11 +367,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     readonly surfaceId: string;
   }): readonly CommittedRetainedTexturePage<TResource>[] {
     const keys = allowCompatibleSourceWindow
-      ? this.getIndexedPageKeys({
-          indexes: this.committedPageKeysBySurfaceWindowOrigin,
-          key: sourceWindowOriginKey(lookupSourceWindow),
-          surfaceId,
-        })
+      ? this.committedPageKeysBySurface.get(surfaceId) ?? EMPTY_PAGE_KEY_SET
       : this.getIndexedPageKeys({
           indexes: this.committedPageKeysBySurfaceWindow,
           key: rectKey(lookupSourceWindow),
@@ -399,27 +392,27 @@ export class RetainedTexturePageCache<TResource = unknown> {
   }
 
   private indexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
+    addCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurface,
+      key: page.descriptor.surfaceId,
+      pageKey: page.key,
+    });
     addNestedCommittedPageIndexKey({
       indexes: this.committedPageKeysBySurfaceWindow,
       key: rectKey(page.descriptor.sourceWindowCss),
-      page,
-    });
-    addNestedCommittedPageIndexKey({
-      indexes: this.committedPageKeysBySurfaceWindowOrigin,
-      key: sourceWindowOriginKey(page.descriptor.sourceWindowCss),
       page,
     });
   }
 
   private unindexCommittedPage(page: CommittedRetainedTexturePage<TResource>) {
+    removeCommittedPageIndexKey({
+      indexes: this.committedPageKeysBySurface,
+      key: page.descriptor.surfaceId,
+      pageKey: page.key,
+    });
     removeNestedCommittedPageIndexKey({
       indexes: this.committedPageKeysBySurfaceWindow,
       key: rectKey(page.descriptor.sourceWindowCss),
-      page,
-    });
-    removeNestedCommittedPageIndexKey({
-      indexes: this.committedPageKeysBySurfaceWindowOrigin,
-      key: sourceWindowOriginKey(page.descriptor.sourceWindowCss),
       page,
     });
   }
@@ -682,10 +675,6 @@ function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
 
 function rectKey(rect: GpuRect): string {
   return [rect.x, rect.y, rect.width, rect.height].join(":");
-}
-
-function sourceWindowOriginKey(rect: GpuRect): string {
-  return [rect.x, rect.y].join(":");
 }
 
 function rectArea(rect: GpuRect): number {

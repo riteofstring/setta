@@ -248,6 +248,8 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { exact: true, name: "Core" }).click();
+  await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
   await expect(
@@ -262,6 +264,12 @@ async function openSettings(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(10);
+}
+
+async function waitForCoreSettingsView(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.querySelectorAll(".setta-gpu-flow__node").length <= 10,
+  );
 }
 
 async function resolveVisibleGuiRow(

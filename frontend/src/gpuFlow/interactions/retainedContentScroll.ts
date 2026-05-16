@@ -56,6 +56,7 @@ class GpuRetainedContentScrollController {
   >();
   private pendingScrollOffsets: Map<string, GpuPoint> | null = null;
   private readonly pendingSurfaceIds = new Set<string>();
+  private scrollIdleFrameTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
 
   constructor(options: GpuRetainedContentScrollControllerOptions) {
@@ -76,6 +77,7 @@ class GpuRetainedContentScrollController {
       capture: true,
     });
     this.cancelPendingScrollFlush();
+    this.cancelScrollIdleFrame();
     this.pendingScrollOffsets = null;
     this.pendingScrollDiagnosticsBySurfaceId.clear();
     this.pendingSurfaceIds.clear();
@@ -172,7 +174,8 @@ class GpuRetainedContentScrollController {
       });
     }
     const commitDurationMs = nowChromeReproPerformanceMs() - commitStartedAtMs;
-    this.options.requestFrame?.("texture-upload");
+    this.options.requestFrame?.("viewport");
+    this.scheduleScrollIdleFrame();
     this.postPendingScrollFlushChromeReproEvent({
       commitDurationMs,
       diagnostics,
@@ -186,6 +189,26 @@ class GpuRetainedContentScrollController {
     }
     cancelGpuRetainedContentScrollFrame(this.pendingAnimationFrame);
     this.pendingAnimationFrame = null;
+  }
+
+  private scheduleScrollIdleFrame() {
+    this.cancelScrollIdleFrame();
+    this.scrollIdleFrameTimeout = setTimeout(() => {
+      this.scrollIdleFrameTimeout = null;
+      if (this.store.getState().viewportInteractionActive) {
+        this.scheduleScrollIdleFrame();
+        return;
+      }
+      this.options.requestFrame?.("texture-upload");
+    }, 120);
+  }
+
+  private cancelScrollIdleFrame() {
+    if (this.scrollIdleFrameTimeout === null) {
+      return;
+    }
+    clearTimeout(this.scrollIdleFrameTimeout);
+    this.scrollIdleFrameTimeout = null;
   }
 
   private recordPendingScrollDiagnostics({
@@ -269,7 +292,7 @@ class GpuRetainedContentScrollController {
       coalescedWheelCount,
       commitDurationMs: roundChromeReproMs(commitDurationMs),
       flushLatencyMs: roundChromeReproMs(flushLatencyMs),
-      requestFrameReason: "texture-upload",
+      requestFrameReason: "viewport",
       surfaceCount: surfaceIds.length,
       surfaceIds: surfaceIds.slice(0, 12),
       surfaces: diagnostics.slice(0, 8).map((diagnostic) => ({

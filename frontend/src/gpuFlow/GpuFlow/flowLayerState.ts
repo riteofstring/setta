@@ -10,6 +10,7 @@ import type {
   HtmlSurfaceSolidRoundedRectVisual,
   HtmlSurfaceVisualScene,
 } from "../htmlSurfaces/visualScene";
+import type { GpuRetainedContentRowHoverTarget } from "../retainedContentRowHover";
 import type { GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 
@@ -31,6 +32,10 @@ export type GpuFlowNodeLayerState = {
   readonly marginCssPx: number | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
+  readonly retainedContentRowHoverTarget?:
+    | GpuRetainedContentRowHoverTarget
+    | null
+    | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly viewport: GpuViewportInput;

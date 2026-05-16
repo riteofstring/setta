@@ -130,12 +130,20 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { exact: true, name: "Core" }).click();
+  await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
   await expect(
     page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
   ).toBeVisible();
   await waitForRetainedRows(page);
+}
+
+async function waitForCoreSettingsView(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.querySelectorAll(".setta-gpu-flow__node").length <= 10,
+  );
 }
 
 async function waitForRetainedRows(page: Page): Promise<void> {

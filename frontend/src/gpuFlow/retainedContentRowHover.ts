@@ -107,6 +107,38 @@ export function getGpuRetainedContentRowHoverVisuals({
   return visuals;
 }
 
+export function getGpuRetainedContentRowHoverStateVisuals({
+  scene,
+}: {
+  readonly scene: GpuFlowScene | undefined;
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  if (!scene) {
+    return [];
+  }
+  const palette = getGpuRetainedContentCanvasPalette(
+    isGpuRetainedContentRowHoverDarkMode(),
+  );
+  const visuals: HtmlSurfaceSolidRoundedRectVisual[] = [];
+  for (const surface of getGpuRetainedContentSourceSurfaces(
+    scene.contentSurfaces,
+  )) {
+    for (const row of surface.retainedScene.rows) {
+      if (!row.state.hovered) {
+        continue;
+      }
+      const visual = createGpuRetainedContentRowHoverVisual({
+        palette,
+        rowId: row.id,
+        surface,
+      });
+      if (visual) {
+        visuals.push(visual);
+      }
+    }
+  }
+  return visuals;
+}
+
 function createGpuRetainedContentRowHoverVisual({
   palette,
   rowId,
