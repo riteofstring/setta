@@ -187,8 +187,9 @@ The reusable runtime is centered on these modules:
   real DOM.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
   preview HTML overlay sources plus retained text-like snapshot source roots
-  and retained native visual inputs. Runtime scrollbar, row-hover, and
-  switch-animation native visuals are sampled in `GpuFlow/flowFrame.tsx`.
+  and retained native visual inputs. Scrollbar and row-hover native visuals are
+  sampled into the retained runtime frame; switch-animation visuals are sampled
+  in `GpuFlow/flowFrame.tsx`.
 - `GpuFlow/retainedContentControllers.ts` attaches retained-content pointer,
   drag, scroll, keyboard, scrollbar, hover, connection, and scene-port
   controllers.
@@ -268,7 +269,10 @@ the development browser does not expose the required native APIs:
 - `navigator.gpu`
 - a WebGPU adapter and device
 - a WebGPU canvas context
+- `GPUTextureUsage` constants
 - `GPUQueue.copyElementImageToTexture`
+- `GPUQueue.copyExternalImageToTexture`
+- a 2D canvas context for retained page rasterization
 - `ResizeObserver`
 
 Focused tests cover source policy, dirty tracking, renderer behavior, and
@@ -389,8 +393,8 @@ Page frame descriptors are sampled from runtime scroll offsets in
 snapshot source layer is mounted from
 `retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources` via
 `GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`. Retained page upload
-joins sampled descriptors with the current snapshot source elements by snapshot
-id and source key before copying text-like DOM into retained page textures.
+joins sampled descriptors with mounted snapshot source elements by snapshot id
+and source key before copying text-like DOM into retained page textures.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -414,11 +418,11 @@ placement logic reruns after pan or zoom. Shared app-level portal roots such as
 
 DOM islands are rendered by `GpuFlowDomIslandLayer`, which is a sibling of the
 canvas inside the GPU flow container. Each island is positioned from its
-flow-space `rect` with the current viewport transform and scaled by
-`viewport.zoom`. Visible DOM islands have pointer events enabled and include the
-no-pan/no-drag classes. Islands clipped out by retained runtime sampling are not
-published; islands outside the current viewport window are hidden with pointer
-events disabled. They are not uploaded as textures; they are the active
+flow-space `rect` with the viewport transform and scaled by `viewport.zoom`.
+Visible DOM islands have pointer events enabled and include the no-pan/no-drag
+classes. Islands clipped out by retained runtime sampling are not published;
+islands outside the viewport window are hidden with pointer events disabled.
+They are not uploaded as textures; they are the active
 browser-native surface for the edited control.
 
 ## Frame Pipeline
@@ -455,7 +459,7 @@ Each render frame follows this shape:
 6. The visual scene combines DOM textures, overlay textures, retained page
    visuals, retained scrollbar, row-hover, switch-animation, grid, edges, and
    connection-line visuals. `HtmlSurfaceRenderer.render()` draws that scene with
-   the current viewport camera.
+   the viewport camera.
 7. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
 8. Retained page post-submit maintenance defers raster, upload, and eviction
@@ -506,7 +510,7 @@ this list:
 ```
 
 Without an existing bucket, the target is the smallest bucket at least as large
-as the current zoom. With an existing bucket, `chooseStableZoomBucket()` applies
+as the viewport zoom. With an existing bucket, `chooseStableZoomBucket()` applies
 the local hysteresis window before changing buckets. The requested scale is
 `devicePixelRatio * zoomBucket`, clamped by
 `device.limits.maxTextureDimension2D`. If resolution changes while
@@ -545,8 +549,7 @@ retained page upload rather than being registered as standalone HTML visuals.
 ## WebGPU Scene Rendering
 
 `frontend/src/gpuFlow/htmlSurfaces/renderer.ts` owns WebGPU scene rendering. A
-single `HtmlSurfaceRenderer.render()` call draws the current frame in this
-order:
+single `HtmlSurfaceRenderer.render()` call draws each frame in this order:
 
 1. grid
 2. edges and connection lines
@@ -584,8 +587,8 @@ Frame and probe reports expose DOM transform counts, texture upload work,
 retained page work, edge vertex counts, and queue write summaries so pan/zoom
 verification can distinguish camera-only frames from draw-set changes.
 
-Edges are generated as CPU-side line-list buffer data from the current edge
-scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
+Edges are generated as CPU-side line-list buffer data from the edge scene and
+are drawn through a WebGPU line pipeline. Grid rendering uses a full
 screen triangle and computes the grid pattern in the fragment shader from the
 camera and grid settings.
 
@@ -597,15 +600,18 @@ computes a viewport-visible flow rectangle from the canvas size, viewport, and a
 default 128 CSS-pixel margin. Nodes with concrete width and height are included
 when their rect intersects that visible area or when their id is forced visible.
 
-Visible surfaces are sorted by `zIndex` and then source order. The same
-visibility set drives:
+Visible quads are sorted by `zIndex` and then source order before visual
+bucket construction. The renderer still draws by bucket: normal flat surfaces,
+tiled flat surfaces, page/late flat overlays, and native rounded-rect visuals
+have fixed relative passes, with `zIndex` and source order preserved inside
+each bucket. The same visibility set drives:
 
 - texture registration and upload eligibility
-- visual scene draw order
+- visual scene membership and per-bucket draw order
 - stable source host size, z-index, and passive pointer state
 - texture memory protection during eviction
 
-Top-level node DOM remains mounted even when viewport-culled. Viewport culling
+DOM section sources remain mounted even when viewport-culled. Viewport culling
 affects presentation and interaction eligibility, not React mount lifecycle.
 Retained content applies the same principle to page windows: missing or stale
 pages are scheduled for raster/upload without remounting the section body that
@@ -677,7 +683,7 @@ The retained renderer uses texture pages:
   window around the visible scroll position.
 - `retainedRuntimeFrame.ts` samples source surfaces, text-like snapshot sources,
   native DOM islands, native visuals, and retained page frame surfaces for the
-  current scene, scroll offsets, and zoom bucket.
+  scene, scroll offsets, and zoom bucket.
 - `GpuRetainedContentPageFrameSurfaces.ts` assigns content versions to the base
   surface and row-level content segments so page freshness checks do not
   rerasterize unrelated rows.
@@ -687,7 +693,7 @@ The retained renderer uses texture pages:
   retained pages to budget.
 - Text-like controls that are not actively native are rendered into
   source-local snapshot DOM by `GpuFlow/retainedTextLikeRowSnapshotSources.tsx`.
-  The retained page manager requires current snapshot source elements, copies
+  The retained page manager requires mounted snapshot source elements, copies
   them into retained page textures during page upload, and requests another
   paint if Chromium has not produced the needed element paint record yet.
 
@@ -708,13 +714,13 @@ preserves the project-canvas coordinate contract:
 
 - `transform`, `width`, `height`, `minZoom`, `maxZoom`, and `defaultZoom`
 - input state such as pan, zoom, selection, and move activation keys
-- viewport interaction flags such as `pointerPanning`, `wheelZooming`,
-  `panScrolling`, `retainedContentScrolling`, `nodeDragging`,
-  `nodeResizing`, `viewportAnimating`, and derived
-  `viewportInteractionActive`
+- viewport interaction flags such as `paneDragging`, `pointerPanning`,
+  `wheelZooming`, `panScrolling`, `retainedContentScrolling`, `nodeDragging`,
+  `nodeResizing`, and `viewportAnimating`; `viewportInteractionActive` is
+  derived from those flags except `paneDragging`
 - connection-line state
 - user-selection and selected-node bounds
-- the current GPU flow DOM node for screen-relative coordinate conversion
+- the GPU flow DOM node for screen-relative coordinate conversion
 
 `frontend/src/gpuFlow/viewportActions.ts` exposes the app-facing action surface:
 `setViewport`, `panBy`, `zoomAtScreenPoint`, `zoomBy`, `zoomTo`, `setCenter`,
@@ -759,9 +765,9 @@ container and receives project settings from `getProjectPanZoomOptions()`:
   need native scrolling or pointer behavior.
 
 Zooming at a point preserves the flow coordinate under the pointer. The
-controller computes the pointer's flow-space coordinate, clamps the next zoom to
-the viewport bounds, then adjusts `viewport.x` and `viewport.y` so the same flow
-point remains under the same screen point.
+controller computes the pointer's flow-space coordinate, clamps the target zoom
+to the viewport bounds, then adjusts `viewport.x` and `viewport.y` so the same
+flow point remains under the same screen point.
 
 ## Section Resize
 
@@ -806,11 +812,11 @@ are patched. On stop, the adapter persists positions with `updateNodePositions()
 and updates z-order with `setZIndices()` when needed.
 
 Nested sections are ordered children of a parent section. During drag,
-`previewProjectNestedNodeDrag()` resolves child move operations with
-`resolveGpuSectionSceneChildMultiMovePlan()`. The preview supports reparenting
-or reordering the dragged section group, patches the scene layout store, draws
-drag bounds, draws a drop marker, and auto-scrolls the nested viewport. On stop,
-the project adapter commits the structural move through
+`previewProjectNestedNodeDrag()` resolves child move operations through the
+nested scene child-move resolver. The preview supports reparenting or reordering
+the dragged section group, patches the scene layout store, draws drag bounds,
+draws a drop marker, and auto-scrolls the nested viewport. On stop, the project
+adapter commits the structural move through
 `moveSectionsWithBackend()` with `sectionIds`, `newParentId`, `newIndex`, and
 `positionsById: null`.
 
@@ -917,7 +923,7 @@ behavior, and form events work normally.
 
 Pointer and wheel targeting follows the rendered visual scene:
 
-1. `HtmlSurfaceHitScene` maps the client point through the current flat,
+1. `HtmlSurfaceHitScene` maps the client point through the matching flat,
    tiled-flat, mesh, or effect visual.
 2. Flat and tiled-flat surfaces use exact inverse viewport math.
 3. Mesh surfaces raycast CPU triangles and interpolate UVs.
@@ -941,7 +947,7 @@ Dirty tracking separates transform-only frames from content changes:
 
 The controller exported from `frontend/src/gpuFlow/nodeInteractionDirty.ts` and
 implemented under `frontend/src/gpuFlow/nodeInteractionDirty/` listens at
-capture phase for DOM events that imply a source texture is stale:
+DOM event capture for events that imply a source texture is stale:
 
 - custom GPU-flow dirty events
 - `beforeinput`, `input`, and `change`
