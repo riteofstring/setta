@@ -50,6 +50,30 @@ to make GPU Flow a transactional surface compositor:
 This makes "do not show blanks" and "do not block interaction frames with
 unbounded repair" core renderer invariants rather than post-facto repair logic.
 
+## Scope Discipline
+
+This refactor must be implemented as a deletion-driven vertical slice, not as a
+parallel renderer that grows beside the current retained path.
+
+The first production slice is:
+
+1. retained parameter content surface generations
+2. retained text-like snapshot generations
+3. retained section scroll as runtime motion
+4. mixed retained-scroll-plus-viewport-zoom
+5. active retained control interaction followed by pan or zoom
+
+DOM sections, edge labels, selection/resize/drag overlays, and other visual
+surfaces still belong in the final architecture, but they should migrate only
+after the retained-scroll slice proves the transaction model and after any
+replaced retained repair/publication code for that slice is deleted.
+
+Do not expand the plan by adding a fallback DOM renderer, a compatibility mode,
+a second long-lived compositor stack, or broad abstractions that are not needed
+by the current production slice. Each milestone should either move an existing
+surface into the transaction model or remove code that the transaction model has
+replaced.
+
 ## Regression Prevention Requirements
 
 Regression prevention is a hard requirement for this refactor, not a cleanup
@@ -354,6 +378,32 @@ The display transaction has only two outcomes:
 
 No path should publish a transaction that contains a true visual hole.
 
+Cold first-load has no compatible previous transaction. For cold first coverage,
+the compositor may publish only explicitly intentional non-content visuals such
+as a stable loading/background state, or it may hold canvas publication until the
+first visible coverage transaction is drawable. Cold load must not reuse the
+same "hold previous" language, because there is no previous coherent hit/visual
+state to hold.
+
+Compatible previous coverage is valid only when the previous transaction remains
+coherent for the desired surface generation. Reject compatibility when any of
+these differ in a way the coverage proof cannot explicitly map:
+
+- `surfaceId`
+- `sourceKey`
+- `contentVersion`
+- `visualVersion`
+- theme generation
+- clip chain or flow-space bounds
+- source window or content-to-texture mapping
+- text-like snapshot source generation
+- active DOM island identity or geometry
+- hit index generation
+
+Holding a previous transaction must hold previous visuals and previous hit state
+together. Do not publish a new hit index over old visuals, or old visuals with a
+new active DOM island transaction.
+
 ### Runtime Motion Path
 
 Pan, zoom, retained section scroll, and mixed gestures should update only:
@@ -463,8 +513,10 @@ should record:
 - visual sample statistics
 - failure reason
 
-The failure is intentional. Do not loosen this first test to match the existing
-renderer.
+The failure is intentional, but it must not become a permanently failing
+checked-in gate. Record the failing run and report first, then keep the spec in
+the suite with the strict target and make it pass through the refactor. Do not
+loosen this first test to match the existing renderer.
 
 ### 2. Freeze The New Surface Compositor Contract
 
@@ -492,7 +544,7 @@ Add Vitest coverage for contract rules:
 These tests may use fake surfaces and fake textures. They should not import the
 old retained page manager.
 
-### 3. Build The Unified Coverage Store
+### 3. Build The Unified Coverage Store For The Retained Scroll Slice
 
 Create a flow-space/source-space coverage index that can answer:
 
@@ -507,25 +559,16 @@ Move retained page compatibility rules and DOM surface texture compatibility
 rules into this store. Retained content can keep tiled rasterization as an
 implementation detail, but coverage proof should be compositor-level.
 
-Delete the old retained-only coverage publication path once the new store owns
-the proof.
+Start with retained parameter content and retained text-like snapshots because
+they are the weakest measured path. DOM surface texture compatibility can join
+the same store after the retained-scroll transaction proof is passing.
 
-### 4. Convert DOM Section And Overlay Textures To Surface Actors
+Deletion checkpoint:
 
-Replace direct frame-time DOM texture registration with actor generation
-updates:
+- remove the retained-only coverage publication path for the migrated retained
+  slice once the new store owns exact, compatible, rejected, and missing proof
 
-- DOM section source actor
-- edge label actor
-- selection actor
-- resize actor
-- drag preview actor
-- source-local portal actor where needed
-
-The frame path should consume actor generations and coverage. Dirty DOM source
-changes should update source generation readiness through the scheduler.
-
-### 5. Convert Retained Parameter Content To Surface Actors
+### 4. Convert Retained Parameter Content To Surface Actors
 
 Move retained parameter content from ad hoc retained runtime/page publication
 into the same actor model:
@@ -545,9 +588,37 @@ Text-like rows need row-owned passive snapshot lifecycle:
 - source readiness tracked per row snapshot generation
 - stale compatible visible snapshot remains drawable until exact snapshot lands
 
-### 6. Replace Frame Publication
+Deletion checkpoint:
 
-Refactor `GpuFlow/flowFrame.tsx` around the transaction:
+- remove migrated retained text-like snapshot readiness and publication logic
+  from the old retained page manager path instead of adapting it twice
+
+### 5. Move Retained Scroll Fully Onto The Runtime Motion Path
+
+Retained section scroll currently remains the weakest large-scene gesture. Make
+retained scroll offset changes equivalent to viewport motion before broadening
+the actor conversion to DOM sections and overlays:
+
+- update runtime scroll tuple
+- draw using existing compatible coverage
+- schedule exact newly visible coverage
+- do not rasterize or upload unbounded retained pages inside the wheel event
+- do not change native page scroll
+- keep hit projection and visible rows coherent with the published transaction
+
+This is the critical path for the 120 fps-class target and the first production
+proof that the transaction model is not just another repair layer.
+
+Deletion checkpoint:
+
+- remove pre-publish retained-scroll repair as the steady-state mechanism for
+  the migrated retained slice; missing exact coverage must be a blocked/held
+  transaction plus scheduled work, not an unbounded synchronous repair loop
+
+### 6. Replace Frame Publication For The Retained Slice
+
+Refactor `GpuFlow/flowFrame.tsx` around the transaction for migrated retained
+surfaces:
 
 1. sample runtime motion
 2. collect surface actor generations
@@ -561,19 +632,28 @@ Remove pre-publish retained repair loops as the steady-state mechanism. Missing
 visible coverage should be represented as a blocked transaction plus scheduled
 work, while the previous compatible display stays visible.
 
-### 7. Move Retained Scroll Fully Onto The Runtime Motion Path
+Deletion checkpoint:
 
-Retained section scroll currently remains the weakest large-scene gesture. Make
-retained scroll offset changes equivalent to viewport motion:
+- delete or reduce `GpuFlow/flowRetainedPageMaintenance.ts` to scheduler-only
+  follow-up work for migrated surfaces before expanding to less risky surface
+  classes
+- remove retained display-frame code paths that can publish only after
+  synchronous true-hole repair
 
-- update runtime scroll tuple
-- draw using existing compatible coverage
-- schedule exact newly visible coverage
-- do not rasterize or upload unbounded retained pages inside the wheel event
-- do not change native page scroll
-- keep hit projection and visible rows coherent with the published transaction
+### 7. Convert DOM Section And Overlay Textures To Surface Actors
 
-This is the critical path for the 120 fps-class target.
+Replace direct frame-time DOM texture registration with actor generation
+updates:
+
+- DOM section source actor
+- edge label actor
+- selection actor
+- resize actor
+- drag preview actor
+- source-local portal actor where needed
+
+The frame path should consume actor generations and coverage. Dirty DOM source
+changes should update source generation readiness through the scheduler.
 
 ### 8. Replace Interaction Projection
 
@@ -607,6 +687,10 @@ Expected deletion or heavy replacement candidates:
 
 Keep focused helpers only when they verify public behavior or pure contract
 logic.
+
+Do not defer all deletion to the final cleanup step. Each migrated surface class
+must include its own deletion checkpoint, and completion is blocked if old and
+new production publication paths remain active for the same surface.
 
 ### 10. Verification And Reports
 
@@ -657,6 +741,9 @@ The final report must include:
   and a fallback target still in the measured refresh-rate range.
 - No visible frame exposes true holes, blank retained rows, or placeholder
   bands.
+- Cold first-load behavior is explicitly represented as first-coverage loading
+  or held publication, not as "hold previous" without a previous coherent
+  transaction.
 - Interaction frames do not perform unbounded passive uploads, unbounded retained
   rasterization, or broad React/source transform churn.
 - Active DOM controls remain native and correctly aligned.
@@ -666,6 +753,8 @@ The final report must include:
   changes and follow-up fixes.
 - Replaced legacy code is removed instead of left behind as a compatibility
   path.
+- The retained-scroll vertical slice deletes the replaced retained repair and
+  retained-only publication paths before broader surface migration is accepted.
 
 ## Risks
 
@@ -675,6 +764,9 @@ The final report must include:
 - A unified coverage store can become too general. Mitigation: keep actors
   concrete and test the core contract with small fake surfaces before converting
   production paths.
+- The refactor can become a second renderer layered over the current retained
+  repair path. Mitigation: prove the retained-scroll vertical slice first and
+  make deletion checkpoints block each migrated milestone.
 - Retained text-like rows can regress if source readiness is conflated with
   texture readiness. Mitigation: track source generation, paint readiness, and
   texture readiness separately.
@@ -686,11 +778,12 @@ The final report must include:
 
 1. Add the failing observed-behavior Playwright spec and failing perf report.
 2. Add pure surface compositor contracts and contract tests.
-3. Build unified coverage store.
-4. Convert DOM section and overlay textures to actors.
-5. Convert retained parameter content and text-like snapshots to actors.
-6. Replace frame publication with transaction publish/hold semantics.
-7. Move retained scroll fully onto runtime motion.
+3. Build unified coverage store for the retained-scroll slice.
+4. Convert retained parameter content and text-like snapshots to actors.
+5. Move retained scroll fully onto runtime motion.
+6. Replace frame publication with transaction publish/hold semantics for the
+   retained slice and delete replaced retained repair/publication code.
+7. Convert DOM section and overlay textures to actors.
 8. Replace interaction projection.
-9. Delete legacy retained repair/publication code.
+9. Delete remaining legacy retained repair/publication code.
 10. Run full verification and write the before/after report.
