@@ -69,7 +69,8 @@ The hot path for viewport movement is:
 4. `HtmlSurfaceRenderer.render()` writes camera uniforms and redraws grid,
    edges, retained textures, and already-uploaded HTML surfaces.
 5. Passive texture resolution upgrades and passive uploads are deferred while
-   the viewport interaction is active.
+   viewport interaction is active and on viewport frames that are not
+   `texture-upload` frames.
 
 Pure pan and zoom frames must not call `requestPaint()`, call
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
@@ -102,7 +103,7 @@ Setta sections.
 `projectGpuFlowSceneFactory.ts` appends retained parameter content surfaces and
 DOM islands to the layout scene. `syncProjectGpuLayoutStoreFromScene()` keeps
 the GPU layout store aligned with the visible DOM-section nodes so shared
-interaction controllers can operate on the same coordinates as the renderer.
+interaction controllers operate on the same coordinates as the renderer.
 
 ## Module Map
 
@@ -350,17 +351,20 @@ pointer-events: none
 contain: layout paint style
 ```
 
-Visible and culled transform synchronization applies the passive source
-transform `translate(0px, 0px) scale(1)` unless the source is currently
-projected for pointer or wheel handoff.
+Visible transform synchronization applies the passive source transform
+`translate(0px, 0px) scale(1)` unless the source is projected for pointer or
+wheel handoff. The cached frame path rewrites only visible sources and retained
+active sources; exited inactive sources are not rewritten on every frame and are
+ignored by the visual scene outside the visible set.
 
 During passive rendering, the source DOM is capture material for textures. DOM
-transform synchronization keeps visible sources sized for html-in-canvas capture
-and parks no-longer-visible inactive sources. Active or force-visible sources
-can stay live until their handoff or retention state is released. During pointer
-or wheel handoff, the interaction projector temporarily aligns the target
-source-local point under the browser pointer and enables pointer events for that
-source. When the interaction ends, the source returns to passive capture state.
+transform synchronization keeps visible sources sized for html-in-canvas
+capture and avoids broad rewrites of inactive, no-longer-visible sources.
+Active or force-visible sources remain live while their handoff or retention
+state is active. During pointer or wheel handoff, the interaction projector
+aligns the target source-local point under the browser pointer and enables
+pointer events for that source. When the interaction ends, the source returns to
+passive capture state.
 
 Pointer and wheel handoff modifies only the targeted source:
 
@@ -374,7 +378,7 @@ sources, and retained text-like snapshot sources. Section and overlay sources
 are registered with `HtmlSurfaceTextureManager` and drawn as DOM textures.
 Retained text-like snapshot elements are tracked by source id, and retained page
 frame descriptors carry the matching snapshot ids and source keys so
-`RetainedContentTexturePageManager` can copy current snapshot DOM into retained
+`RetainedContentTexturePageManager` copies matching snapshot DOM into retained
 page textures.
 
 Page frame descriptors are sampled from runtime scroll offsets in
@@ -393,25 +397,26 @@ Portal roots are partitioned into three coordinate spaces:
 - `viewport`: roots rendered as siblings of the canvas. These are for overlays
   positioned in viewport CSS pixels, including retained-native CodeMirror
   tooltips and validation UI.
-- `flow-anchored`: a declared coordinate space for graph-positioned DOM.
-  `GpuFlow` rejects non-empty flow-anchored portal groups unless the caller
-  represents the UI as a renderer overlay or HTML surface descriptor.
+- `flow-anchored`: a coordinate space for graph-positioned DOM. `GpuFlow`
+  rejects non-empty flow-anchored portal groups; graph-positioned UI is
+  represented as a renderer overlay or HTML surface descriptor.
 
 All portal roots include the standard no-pan and no-drag classes so overlay
 interactions do not leak into canvas gestures. Custom positioned overlays use
 `autoUpdateGpuFloatingPosition()`. Primitive-owned overlays that opt into
 canvas-aware placement use `subscribeToGpuViewportReposition()` so their
 placement logic reruns after pan or zoom. Shared app-level portal roots such as
-`setta-popover-portals` can live outside `GpuFlow`; they are not declared
-through `GpuFlowPortalDescriptor`.
+`setta-popover-portals` live outside `GpuFlow`; they are not declared through
+`GpuFlowPortalDescriptor`.
 
 DOM islands are rendered by `GpuFlowDomIslandLayer`, which is a sibling of the
 canvas inside the GPU flow container. Each island is positioned from its
 flow-space `rect` with the current viewport transform and scaled by
 `viewport.zoom`. Visible DOM islands have pointer events enabled and include the
-no-pan/no-drag classes; hidden or clipped islands are parked with pointer events
-disabled. They are not uploaded as textures; they are the active
-browser-native surface for the control currently being edited.
+no-pan/no-drag classes. Islands clipped out by retained runtime sampling are not
+published; islands outside the current viewport window are hidden with pointer
+events disabled. They are not uploaded as textures; they are the active
+browser-native surface for the edited control.
 
 ## Frame Pipeline
 
@@ -450,8 +455,8 @@ Each render frame follows this shape:
    the current viewport camera.
 7. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-8. Retained page post-submit maintenance either defers work for active viewport
-   interactions with full committed coverage or calls
+8. Retained page post-submit maintenance either defers all raster, upload, and
+   eviction work while `deferResolutionUpdates` is true or calls
    `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to enqueue
    missing retained pages, rasterize and upload retained page textures within
    its own budget, upload text-like row DOM snapshots into retained page textures
@@ -460,13 +465,15 @@ Each render frame follows this shape:
 9. Frame performance reporting records render time, upload work, texture memory,
    retained page metrics, viewport state, and interaction diagnostics.
 
-Pure pan and zoom frames update the camera and redraw cached surfaces. Passive
-texture resolution upgrades and passive uploads are deferred during active
-viewport interactions. Retained page maintenance is also deferred during those
-interactions when committed page coverage already fills the visible surface; if
-the frame has uncovered retained content, the page manager can still upload the
-missing work. When the interaction burst ends, texture-upload frames catch up
-deferred work.
+Pure pan and zoom frames update the runtime viewport and redraw cached
+surfaces. Passive texture resolution upgrades and passive uploads are deferred
+while `deferResolutionUpdates` is true: whenever viewport interaction is active
+and on viewport frames that are not `texture-upload` frames. Retained page
+post-submit maintenance is also deferred on those frames: retained page raster,
+upload, and eviction work runs on idle or `texture-upload` frames. The published
+retained display frame reuses compatible committed pages and exposes true-hole
+visuals for uncovered areas while deferred work waits. Idle or texture-upload
+frames catch up deferred work.
 
 ## HTML Texture Lifecycle
 
@@ -499,9 +506,10 @@ Without an existing bucket, the target is the smallest bucket at least as large
 as the current zoom. With an existing bucket, `chooseStableZoomBucket()` applies
 the local hysteresis window before changing buckets. The requested scale is
 `devicePixelRatio * zoomBucket`, clamped by
-`device.limits.maxTextureDimension2D`. If resolution changes during an active
-viewport interaction, non-interactive resolution upgrades are deferred so wheel
-and pan bursts stay responsive.
+`device.limits.maxTextureDimension2D`. If resolution changes while
+`deferResolutionUpdates` is true, non-interactive resolution upgrades are
+deferred so wheel and pan bursts stay responsive and viewport-only frames stay
+camera-focused.
 
 Dirty work is ordered by `frontend/src/gpuFlow/dirtyTracking.ts`. Priorities are
 `interactive`, `visible`, and `prefetch`; interactive content is uploaded before
@@ -563,9 +571,9 @@ texture records with specialized vertices, indices, effect uniforms, and hit
 projector contracts.
 
 Viewport-only redraws of an unchanged visual scene write only the camera
-uniform. When pan or zoom crosses a culling boundary, the active draw set can
-change; the frame may sync newly entered or exited source hosts and the renderer
-may rewrite the flat or tiled-flat vertex buffer for the changed draw geometry.
+uniform. When pan or zoom crosses a culling boundary, the active draw set
+changes; the frame syncs newly entered or exited source hosts and the renderer
+rewrites the flat or tiled-flat vertex buffer for changed draw geometry.
 Those bounded updates are separate from content updates: they do not call
 `requestPaint()`, perform HTML texture uploads, or force React renders, and
 transform-only paint records from synced sources are ignored for dirtying.
@@ -595,8 +603,8 @@ visibility set drives:
 Top-level node DOM remains mounted even when viewport-culled. Viewport culling
 affects presentation and interaction eligibility, not React mount lifecycle.
 Retained content applies the same principle to page windows: missing or stale
-pages can be scheduled for raster/upload without remounting the section body
-that owns the retained surface.
+pages are scheduled for raster/upload without remounting the section body that
+owns the retained surface.
 
 ## Section Content Rendering
 
@@ -666,8 +674,8 @@ The retained renderer uses texture pages:
   native DOM islands, native visuals, and retained page frame surfaces for the
   current scene, scroll offsets, and zoom bucket.
 - `GpuRetainedContentPageFrameSurfaces.ts` assigns content versions to the base
-  surface and row-level content segments so page freshness can be checked
-  without rerasterizing unrelated rows.
+  surface and row-level content segments so page freshness checks do not
+  rerasterize unrelated rows.
 - `RetainedContentTexturePageManager` creates desired page descriptors, reuses
   committed pages, schedules first-visible and refinement work, rasterizes pages
   through `retainedContentPageRasterizer.ts`, uploads page textures, and evicts
@@ -696,7 +704,9 @@ preserves the project-canvas coordinate contract:
 - `transform`, `width`, `height`, `minZoom`, `maxZoom`, and `defaultZoom`
 - input state such as pan, zoom, selection, and move activation keys
 - viewport interaction flags such as `pointerPanning`, `wheelZooming`,
-  `panScrolling`, `nodeDragging`, and derived `viewportInteractionActive`
+  `panScrolling`, `retainedContentScrolling`, `nodeDragging`,
+  `nodeResizing`, `viewportAnimating`, and derived
+  `viewportInteractionActive`
 - connection-line state
 - user-selection and selected-node bounds
 - the current GPU flow DOM node for screen-relative coordinate conversion
@@ -704,10 +714,14 @@ preserves the project-canvas coordinate contract:
 `frontend/src/gpuFlow/viewportActions.ts` exposes the app-facing action surface:
 `setViewport`, `panBy`, `zoomAtScreenPoint`, `zoomBy`, `zoomTo`, `setCenter`,
 `fitView`, `screenToFlowPosition`, `flowToScreenPosition`, `getViewport`,
-`getZoom`, `resetZoom`, and `updateMapPosition`.
+`getZoom`, `requestInitialFitView`, `finishInitialFitView`,
+`setInitialFitViewDone`, `resetZoom`, `updateMapPosition`, and
+`cancelViewportTransition`.
 
-Transitions with non-zero `duration` throw. The viewport runtime does not
-include an implicit hidden transition layer.
+Viewport actions accept a bounded duration. When a `GpuFlow` runtime is
+registered, `GpuFlowViewportRuntime` owns the animated transition and renders it
+through viewport frames; without a runtime, `viewportActions.ts` uses its local
+transition scheduler. Direct pan and wheel input cancels active transitions.
 
 The core transform tuple is:
 
@@ -788,11 +802,12 @@ and updates z-order with `setZIndices()` when needed.
 
 Nested sections are ordered children of a parent section. During drag,
 `previewProjectNestedNodeDrag()` resolves child move operations with
-`resolveGpuSectionSceneChildMultiMovePlan()`. The preview can reparent or
-reorder the dragged section group, patch the scene layout store, draw drag
-bounds, draw a drop marker, and auto-scroll the nested viewport. On stop, the
-project adapter commits the structural move through `moveSectionsWithBackend()`
-with `sectionIds`, `newParentId`, `newIndex`, and `positionsById: null`.
+`resolveGpuSectionSceneChildMultiMovePlan()`. The preview supports reparenting
+or reordering the dragged section group, patches the scene layout store, draws
+drag bounds, draws a drop marker, and auto-scrolls the nested viewport. On stop,
+the project adapter commits the structural move through
+`moveSectionsWithBackend()` with `sectionIds`, `newParentId`, `newIndex`, and
+`positionsById: null`.
 
 Nested drag target resolution is scene-aware. The drop parent is selected from
 ordered child drop rects under the dragged center point, preferring deeper and
@@ -812,18 +827,17 @@ targets, tracks click-versus-drag thresholds, emits drag start/move/frame/end
 callbacks, updates hover and scrollbar visuals, and reports pointer activity in
 flow-local retained-content coordinates.
 
-Parameter drag can start when structure editing is allowed, parameter selection
+Parameter drag starts when structure editing is allowed, parameter selection
 mode is active, and the pointer starts on a row or label hit. The drag session
 records the source section, retained surface, active parameter, selected move
 set, parent map, visible children by parent, source parent, and list key. A
 filtered parameter list blocks structural moves because visible order does not
 represent the full canonical order. Edge-input parameters are not movable.
 
-Drop targets are resolved inside the same retained surface. A drop can land
-before or after a row based on pointer position relative to the row midpoint, or
-inside an empty nested parent control. Drop resolution rejects drops onto the
-moved set, drops into descendants of the moved set, invalid parents, and no-op
-moves.
+Drop targets are resolved inside the same retained surface. Drops land before
+or after a row based on pointer position relative to the row midpoint, or inside
+an empty nested parent control. Drop resolution rejects drops onto the moved
+set, drops into descendants of the moved set, invalid parents, and no-op moves.
 When hidden rows exist, the full insertion index is resolved from the visible
 insertion point so hidden children keep their canonical relative order. On drop,
 the adapter commits through `moveParamsWithBackend()`.
@@ -843,7 +857,7 @@ Parameter controls are split by commit policy:
 `projectGpuParamDomIslandGeometry.ts` computes island geometry and clips it to
 the retained surface. `projectGpuRetainedParamDomIslandRenderer.tsx` mounts the
 normal `ParamInput` or `ParamNameInput`, marks it as retained native content,
-focuses it, and can replay the original pointer activation.
+focuses it, and replays the original pointer activation when present.
 
 `ParamInput` owns the same value semantics used outside the GPU surface: pending
 local value, preview state, debounced backend updates, realtime literal emits,
@@ -870,7 +884,7 @@ state into `GpuEdgeScene`. The scene combines:
 - the active connection line
 
 Data edges use scene-derived section and retained-content handle positions.
-Agentic and workflow edges can anchor to node frames.
+Agentic and workflow edges anchor to node frames.
 `frontend/src/gpuFlow/edges/edgeGeometry.ts` builds straight or bezier geometry
 and also powers CPU hit testing. Pointer interaction on edges is handled before
 pane interaction by `frontend/src/gpuFlow/interactions/edges.ts`, which converts
@@ -940,13 +954,13 @@ Dirty marks carry source-relative rect hints where the event target provides a
 specific owning area. Large tiled surfaces use those hints to dirty and upload
 only the affected tiles. Source-owned finite CSS transitions and animations are
 tracked as bounded animation leases; they request capture frames for the owning
-surface or tile until the animation has settled.
+surface or tile through animation settlement.
 
 HTML texture upload priorities are `interactive`, `visible`, and `prefetch`.
 Content dirtiness outranks resolution-only dirtiness. Active sources and active
 overlay surfaces are protected from eviction. Retained page uploads have their
-own raster/upload/memory budget and can request additional frames independently
-from HTML source texture uploads.
+own raster/upload/memory budget and request additional frames independently from
+HTML source texture uploads.
 
 Pure pan and zoom are transform-only. Panning and zooming do not request HTML
 paints, rerender section trees, or upload every texture; transform-only paint
