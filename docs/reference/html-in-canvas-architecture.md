@@ -39,17 +39,19 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
   lists and primitive-owned popovers that subscribe to GPU viewport
   repositioning when anchored to canvas content.
 
-For DOM section and overlay sources, the renderer separates the source,
-texture, and visual records:
+For DOM section and overlay sources, the renderer separates source hosts,
+texture snapshots, and visual records:
 
-- `HtmlSurfaceSource`: the React-owned DOM host mounted as a direct child of
-  the `<canvas layoutsubtree>`.
-- `HtmlSurfaceTexture`: one full-surface texture or a tiled texture layout
-  uploaded from the source when content, size, style, animation cadence, or
-  resolution changes.
-- `HtmlSurfaceVisual`: draw metadata that maps the texture into the WebGPU
-  scene as a flat quad, tiled flat surface, mesh surface, or shader-effect
-  surface.
+- Source hosts are React-owned DOM `div` elements created by
+  `HtmlSurfaceSourceLayer` and mounted as direct children of the
+  `<canvas layoutsubtree>`.
+- `CommittedHtmlSurfaceTextureSnapshot` and `HtmlSurfaceTextureTileRecord`
+  describe one full-surface texture or a tiled texture layout uploaded from the
+  source when content, size, style, animation cadence, or resolution changes.
+- Textured `HtmlSurfaceVisual` records map committed textures into the WebGPU
+  scene as flat quads, tiled flat surfaces, mesh surfaces, or shader-effect
+  surfaces. Solid rounded-rect visuals are GPU-native records and do not carry
+  HTML textures.
 
 Project state, project settings, and backend mutations remain the canonical
 owners for section structure, dimensions, ordering, parameter values, and edge
@@ -93,7 +95,9 @@ active view layout, section records, measured sizes, project search, scroll
 offsets, type errors, parameter edit policy, and retained interaction state. The
 scene layout pass in `gpuFlow/sceneLayout.ts` resolves parent/child world
 geometry, ordered child placement, clipping, nested scroll offsets, and layout
-modes such as `none`, `vertical`, `horizontal`, and `kanban`.
+modes such as `none`, `vertical`, `horizontal`, and `kanban`. The generic scene
+type also supports `absolute`; the project adapter currently emits the modes
+above for Setta sections.
 
 `projectGpuFlowSceneFactory.ts` appends retained parameter content surfaces and
 DOM islands to the layout scene. `syncProjectGpuLayoutStoreFromScene()` keeps
@@ -139,7 +143,8 @@ The reusable runtime is centered on these modules:
   controller attachment, source layers, overlay sources, portals, DOM islands,
   and renderer callbacks.
 - `GpuFlow/flowFrame.tsx` owns per-frame orchestration for retained content
-  pages, HTML surface rendering, performance reporting, and follow-up frames.
+  pages, HTML surface rendering, performance reporting, and additional frame
+  requests.
 - `GpuSurface.tsx` creates the `<canvas layoutsubtree>` element, initializes
   WebGPU/html-in-canvas support, listens to paint and resize events, and
   coalesces frame requests.
@@ -151,9 +156,10 @@ The reusable runtime is centered on these modules:
 - `htmlSurfaces/textures.ts` owns HTML source texture records, resolution
   selection, tile uploads, upload priorities, dirty tracking, and texture
   eviction.
-- `htmlSurfaces/renderer.ts` draws grid, edges, flat surfaces, tiled surfaces,
-  mesh surfaces, shader-effect surfaces, retained page visuals, and GPU-native
-  retained visuals from cached textures.
+- `htmlSurfaces/renderer.ts` draws grid, edges, normal flat and tiled HTML
+  surfaces, mesh surfaces, shader-effect surfaces, late flat retained/page
+  overlays from cached textures, plus GPU-native retained visuals that do not
+  sample HTML textures.
 - `htmlSurfaces/visualScene.ts` groups HTML surface visuals into flat, tiled
   flat, mesh, and effect buckets for rendering and hit testing.
 - `htmlSurfaces/hitScene.ts` and `htmlSurfaces/interactionProjector.ts` map
@@ -161,10 +167,11 @@ The reusable runtime is centered on these modules:
   coordinates.
 - `htmlSurfaces/apiProbes.ts` checks html-in-canvas behavior that the runtime
   relies on, including direct-child requirements, changed-element granularity,
-  transform handling, source-subrect upload support, and animation capture.
-- `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` replace the
-  old React Flow viewport contract with a zustand-backed viewport model and
-  explicit coordinate conversion helpers.
+  transform handling, transform-only paint invalidation, source-subrect upload
+  support, hidden-source capture policy, `getElementTransform`, and worker
+  capture availability.
+- `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
+  zustand-backed viewport model and explicit coordinate conversion helpers.
 - `retainedContentFrameGeneration.ts`,
   `GpuRetainedContentPageFrameSurfaces.ts`, and
   `retainedContentTexturePageManager.ts` generate retained page frame inputs,
@@ -176,9 +183,9 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/domIslandLayer.tsx` renders active DOM islands as viewport-positioned
   real DOM.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
-  preview HTML overlay sources plus retained text-like snapshot source roots.
-  Retained scrollbar, row-hover, and switch-animation native visuals are
-  resolved in `GpuFlow/flowFrame.tsx`.
+  preview HTML overlay sources plus retained text-like snapshot source roots
+  and initial retained scrollbar visuals. Runtime scrollbar, row-hover, and
+  switch-animation native visuals are resampled in `GpuFlow/flowFrame.tsx`.
 - `GpuFlow/retainedContentControllers.ts` attaches retained-content pointer,
   drag, scroll, keyboard, scrollbar, hover, connection, and scene-port
   controllers.
@@ -213,8 +220,8 @@ runtime:
   existing project actions
 
 The renderer intentionally keeps high-level project behavior in the project
-owners while replacing the viewport and visual composition implementation
-underneath them.
+owners while implementing viewport state and visual composition in the GPU
+runtime.
 
 ## Ownership Boundaries
 
@@ -255,14 +262,16 @@ loudly if the development browser does not expose the required native APIs:
 - `CanvasRenderingContext2D.drawElementImage`, used as an html-in-canvas
   support probe
 - `navigator.gpu`
+- a WebGPU adapter and device
 - a WebGPU canvas context
 - `GPUQueue.copyElementImageToTexture`
 - `ResizeObserver`
 
 `frontend/src/gpuFlow/htmlSurfaces/apiProbes.ts` covers more detailed
 html-in-canvas behavior such as direct-child requirements, changed-element
-granularity, transform handling, source-subrect upload support, and animation
-capture behavior. There is no fallback renderer in this path.
+granularity, transform handling, transform-only invalidation, source-subrect
+upload support, hidden-source capture policy, `getElementTransform`, and worker
+capture availability. There is no fallback renderer in this path.
 
 ## DOM Sources, Portals, and DOM Islands
 
@@ -272,34 +281,64 @@ and inserts each host beside its anchor as a direct canvas child. The direct
 canvas-child shape is required for the browser to paint and upload the source
 through html-in-canvas.
 
-The runtime DOM shape is:
+The simplified project runtime DOM shape is:
 
 ```tsx
 <div className="setta-gpu-flow-root setta-light dark:setta-dark">
-  <GpuFlow className="setta-gpu-flow__pane">
-    <canvas className="setta-gpu-flow__canvas" layoutsubtree="">
-      <span data-gpu-flow-html-source-anchor="true" />
+  <div className="setta-gpu-flow setta-gpu-flow__pane">
+    <canvas
+      className="setta-gpu-flow__canvas"
+      data-gpu-flow-surface="true"
+      layoutsubtree=""
+    >
+      <span
+        data-gpu-flow-html-source-anchor="true"
+        data-gpu-flow-source-id={nodeId}
+        style={{ display: "none" }}
+      />
       <div
         className="setta-gpu-flow__html-source setta-gpu-flow__node"
+        data-gpu-flow-explicit-dirty-source="true"
         data-gpu-flow-html-source="true"
+        data-gpu-flow-node="true"
         data-gpu-flow-source-id={nodeId}
       >
         <SectionContainer sectionId={nodeId} isTopLevel={true} />
       </div>
-      <div id="setta-codemirror-tooltips" />
-      <div id="setta-popover-portals" />
-      <span data-gpu-flow-html-source-anchor="true" />
+      <div
+        id="setta-codemirror-tooltips"
+        className="setta-gpu-flow__portal-root setta-gpu-flow__portal-root--source-local"
+        data-gpu-flow-portal-root="true"
+        data-gpu-flow-portal-space="source-local"
+      />
       <div
         className="setta-gpu-flow__html-source setta-gpu-flow__edge-label-source"
         data-gpu-flow-edge-label-source="true"
+        data-gpu-flow-explicit-dirty-source="true"
         data-gpu-flow-html-source="true"
         data-gpu-flow-source-id={edgeLabelId}
       >
         <div className="setta-gpu-flow__edge-label">{edgeLabelText}</div>
       </div>
+      {/* Selection, resize, drag-preview, and retained snapshot sources
+          are more direct canvas children created by HtmlSurfaceSourceLayer. */}
     </canvas>
-    <div className="setta-gpu-flow__selection-layer" />
-  </GpuFlow>
+    <div className="setta-gpu-flow__dom-island-layer">
+      {/* Active retained native controls are viewport-positioned here. */}
+    </div>
+    <div
+      id="setta-gpu-retained-codemirror-tooltips"
+      className="setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport"
+      data-gpu-flow-portal-root="true"
+      data-gpu-flow-portal-space="viewport"
+    />
+    <div
+      id="setta-gpu-retained-param-validation"
+      className="setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport"
+      data-gpu-flow-portal-root="true"
+      data-gpu-flow-portal-space="viewport"
+    />
+  </div>
 </div>
 ```
 
@@ -309,11 +348,14 @@ Source hosts use stable base styles:
 position: absolute
 left: 0
 top: 0
-transform: translate(0px, 0px) scale(1)
 transform-origin: 0 0
 pointer-events: none
 contain: layout paint style
 ```
+
+Visible and culled transform synchronization applies the passive source
+transform `translate(0px, 0px) scale(1)` unless the source is currently
+projected for pointer or wheel handoff.
 
 During passive rendering, the source DOM is capture material for textures. DOM
 transform synchronization keeps visible sources sized for html-in-canvas capture
@@ -332,8 +374,17 @@ pointer-events: auto
 The same source-layer mechanism mounts section DOM sources, HTML overlay
 sources, and retained text-like snapshot sources. Section and overlay sources
 are registered with `HtmlSurfaceTextureManager` and drawn as DOM textures.
-Retained text-like snapshot sources are handed to
-`RetainedContentTexturePageManager` and copied into retained page textures.
+Retained text-like snapshot elements are tracked by source id, and retained page
+frame descriptors carry the matching snapshot ids and source keys so
+`RetainedContentTexturePageManager` can copy current snapshot DOM into retained
+page textures.
+
+Page frame descriptors are sampled from runtime scroll offsets in
+`GpuFlow/flowFrame.tsx`. The hidden React snapshot source layer is mounted from
+`retainedContentSnapshotScene` via `GpuFlow/flowSurface.tsx` and
+`GpuFlow/flowOverlays.tsx`. Retained page upload joins sampled descriptors with
+the current snapshot source elements by snapshot id and source key before
+copying text-like DOM into retained page textures.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -373,25 +424,26 @@ changes, attaches interaction controllers, and asks `GpuSurface` for frames.
 `paint`, `resize`, `texture-upload`, and `viewport`. A viewport-store transform
 change requests a `viewport` frame. A canvas paint event resolves changed source
 elements to owning textures and requests a `paint` frame. Exhausted upload
-budgets request follow-up `texture-upload` frames, while active retained switch
-transitions request follow-up `animation` frames.
+budgets request another `texture-upload` frame, while active retained switch
+transitions request another `animation` frame.
 
 Each render frame follows this shape:
 
 1. `renderGpuFlowNodeLayerFrame()` resolves the canvas size, active scene,
    renderer, HTML texture manager, and retained texture page manager.
 2. Retained content frame generation clips retained surfaces, resolves each
-   surface texture window, derives text-like row snapshot sources, and builds
-   retained page frame surfaces.
+   surface texture window, derives text-like row snapshot descriptors for page
+   upload, and builds retained page frame surfaces.
 3. `RetainedContentTexturePageManager.resolveFrameViewportZoomBucket()` selects
    the stable zoom bucket. `prepareFrame()` computes desired page descriptors and
    emits flat visuals for already-committed retained pages plus refinement work
    for missing or stale pages.
 4. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
-   layout, viewport, clips, forced visibility, and upload margin.
-5. The frame syncs DOM transforms for visible, active, and retained sources,
-   registers visible HTML textures, uploads dirty HTML textures within the
-   project upload budget, and builds textured DOM and overlay visuals.
+   layout, viewport, forced visibility, and upload margin. Scene clipping has
+   already been applied to the node and content-surface inputs.
+5. The frame syncs DOM transforms for visible, active, and overlay HTML
+   sources, registers visible HTML textures, uploads dirty HTML textures within
+   the project upload budget, and builds textured DOM and overlay visuals.
 6. The visual scene combines DOM textures, overlay textures, retained page
    visuals, retained scrollbar, row-hover, switch-animation, grid, edges, and
    connection-line visuals. `HtmlSurfaceRenderer.render()` draws that scene with
@@ -436,14 +488,17 @@ records. Each surface record includes:
 
 Visible HTML and overlay surfaces are registered from `renderHtmlSurfaceFrame()`
 each frame. The texture resolution policy in
-`frontend/src/gpuFlow/textureResolution.ts` chooses the smallest zoom bucket at
-least as large as the current zoom:
+`frontend/src/gpuFlow/textureResolution.ts` chooses a stable zoom bucket from
+this list:
 
 ```ts
 [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 ```
 
-The requested scale is `devicePixelRatio * zoomBucket`, clamped by
+Without an existing bucket, the target is the smallest bucket at least as large
+as the current zoom. With an existing bucket, `chooseStableZoomBucket()` applies
+the local hysteresis window before changing buckets. The requested scale is
+`devicePixelRatio * zoomBucket`, clamped by
 `device.limits.maxTextureDimension2D`. If resolution changes during an active
 viewport interaction, non-interactive resolution upgrades are deferred so wheel
 and pan bursts stay responsive.
@@ -455,7 +510,11 @@ passive visible content. Content dirtiness wins over resolution-only dirtiness.
 The project surface currently passes this HTML upload budget:
 
 ```ts
-{ maxUploads: 2, maxDurationMs: 4 }
+{
+  maxBytes: DEFAULT_HTML_SURFACE_TEXTURE_UPLOAD_BUDGET_BYTES,
+  maxDurationMs: 4,
+  maxUploads: 2,
+}
 ```
 
 `HtmlSurfaceTextureManager.uploadDirtySurfaceTextures()` requires
@@ -480,13 +539,13 @@ order:
 
 1. grid
 2. edges and connection lines
-3. retained page visuals
-4. GPU-native retained visuals such as scrollbars, row hover state, and switch
-   transitions
-5. flat HTML surfaces
-6. tiled flat HTML surfaces
-7. mesh HTML surfaces
-8. shader-effect HTML surfaces
+3. normal flat HTML surfaces
+4. tiled flat HTML surfaces
+5. mesh HTML surfaces
+6. shader-effect HTML surfaces
+7. late flat surfaces, including retained page visuals and late overlays
+8. solid rounded-rect native visuals, including retained scrollbars, row hover
+   state, and switch transitions
 
 The camera uniform stores:
 
@@ -496,12 +555,12 @@ The camera uniform stores:
 - canvas CSS width
 - canvas CSS height
 
-Flat and tiled surfaces are built in flow coordinates. The vertex shaders
-convert each flow position to screen coordinates with the viewport and then to
-clip space. Fragment shaders sample the uploaded full texture, tile texture, or
-retained page texture. Mesh and shader-effect passes use the same texture
-records with specialized vertices, indices, effect uniforms, and hit projector
-contracts.
+Flat, tiled, and late-flat surfaces are built in flow coordinates. The vertex
+shaders convert each flow position to screen coordinates with the viewport and
+then to clip space. Fragment shaders sample the uploaded full texture, tile
+texture, or retained page texture. Mesh and shader-effect passes use the same
+texture records with specialized vertices, indices, effect uniforms, and hit
+projector contracts.
 
 Viewport-only redraws of an unchanged visual scene write only the camera
 uniform. When pan or zoom crosses a culling boundary, the active draw set can
@@ -518,10 +577,11 @@ camera and grid settings.
 
 ## Visibility And Z Order
 
-`collectVisibleGpuNodeQuads()` computes a visible flow rectangle from the canvas
-size, viewport, clips, and a default 128 CSS-pixel margin. Nodes with concrete
-width and height are included when their rect intersects that visible area or
-when their id is forced visible.
+`getGpuFlowSceneDomSectionNodes()` and content-surface construction apply scene
+clip filtering before frame rendering. `collectVisibleGpuNodeQuads()` then
+computes a viewport-visible flow rectangle from the canvas size, viewport, and a
+default 128 CSS-pixel margin. Nodes with concrete width and height are included
+when their rect intersects that visible area or when their id is forced visible.
 
 Visible surfaces are sorted by `zIndex` and then source order. The same
 visibility set drives:
@@ -531,11 +591,11 @@ visibility set drives:
 - stable source host size, z-index, and passive pointer state
 - texture memory protection during eviction
 
-Top-level node DOM remains mounted even when culled. Culling affects
-presentation and interaction eligibility, not React mount lifecycle. Retained
-content applies the same principle to page windows: missing or stale pages can
-be scheduled for raster/upload without remounting the section body that owns
-the retained surface.
+Top-level node DOM remains mounted even when viewport-culled. Viewport culling
+affects presentation and interaction eligibility, not React mount lifecycle.
+Retained content applies the same principle to page windows: missing or stale
+pages can be scheduled for raster/upload without remounting the section body
+that owns the retained surface.
 
 ## Section Content Rendering
 
@@ -629,8 +689,7 @@ preserves the project-canvas coordinate contract:
 - surface coordinates are CSS pixels inside the GPU flow container
 - viewport state is `[x, y, zoom]`
 
-`frontend/src/gpuFlow/viewportStore.ts` is a zustand vanilla store that replaces
-the old React Flow viewport contract. It holds:
+`frontend/src/gpuFlow/viewportStore.ts` is a zustand vanilla store that holds:
 
 - `transform`, `width`, `height`, `minZoom`, `maxZoom`, and `defaultZoom`
 - input state such as pan, zoom, selection, and move activation keys
@@ -880,7 +939,7 @@ surface or tile until the animation has settled.
 HTML texture upload priorities are `interactive`, `visible`, and `prefetch`.
 Content dirtiness outranks resolution-only dirtiness. Active sources and active
 overlay surfaces are protected from eviction. Retained page uploads have their
-own raster/upload/memory budget and can schedule follow-up frames independently
+own raster/upload/memory budget and can request additional frames independently
 from HTML source texture uploads.
 
 Pure pan and zoom should remain transform-only. A change that makes panning or
@@ -912,7 +971,7 @@ real pointer, wheel, keyboard, focus, and text input events.
 ## Performance Evidence
 
 HTML GPU surface performance reports live under `perf/reports/frontend/`.
-Current completion evidence includes:
+Representative reports for this implementation include:
 
 - `2026-05-02_html-gpu-dense-panzoom-cdp.md`
 - `2026-05-02_html-gpu-controls-cdp.md`
@@ -920,11 +979,8 @@ Current completion evidence includes:
 - `2026-05-02_html-gpu-warped-mesh-fixture.md`
 - `2026-05-02_html-gpu-settings-zoom-tiling-artifact-after.md`
 - `2026-05-02_html-gpu-settings-switch-targeted-after.md`
-
-Historical reports from earlier renderer phases may describe superseded
-implementations. Use this reference and the active plan in
-`docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md` for the
-current architecture.
+- `2026-05-13_gpu-flow-retained-snapshot-runtime-refactor.md`
+- `2026-05-14_gpu-flow-retained-compositor-runtime-refactor.md`
 
 ## Extension Rules
 
