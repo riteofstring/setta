@@ -21,6 +21,20 @@ Previous fixes improved pieces of the lifecycle, but they did not change this co
 
 No backward-compatibility path or transitional dual implementation is required. The refactor should replace the old retained page identity and publication model directly.
 
+## Delta From Previous Work
+
+Recent retained compositor work made real progress:
+
+- The old scroll-hold/freeze publication path was removed.
+- Pending stripe placeholders were removed from normal retained publication.
+- The compositor now has exact, compatible, rejected-stale, fidelity, and true-hole vocabulary.
+- Retained hover, switch, scrollbar, and active-island paths are more scoped than before.
+- Large Settings retained visual and performance coverage now exists.
+
+The remaining failure is narrower but more fundamental: page descriptors still own too much of the visible publication decision. Source rects, page-grid shape, LOD, DPR, viewport zoom bucket, and page-derived content versions can still act like semantic identity in practice. When a new target set is computed, the compositor can expose true holes before replacement coverage exists, and the interaction deferral path can still pause the work that would repair those visible holes.
+
+This plan should therefore replace the current page-key publication model, not add another exception layer around it.
+
 ## Relevant Ideas From Example Repositories
 
 Borrow the following ideas from `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos`:
@@ -49,6 +63,17 @@ Refactor GPU Flow retained content around a transactional compositor model with 
 - Do not add heuristic stale-content fallbacks.
 - Do not make test assertions against internal counters such as retained page counts, true-hole log lines, or page keys.
 - Do not trade blanking for visibly stale wrong content. Compatibility must be typed and region-based.
+
+## Non-Acceptable Implementations
+
+The implementation is not acceptable if it only:
+
+- changes true-hole or placeholder visuals without fixing coverage ownership;
+- broadens stale-content fallback without typed region manifest proof;
+- keeps the old page-key lifecycle behind new adapters or compatibility wrappers;
+- passes tests by asserting retained logs, page counts, or true-hole counters instead of pixels and frame cadence;
+- skips visible-hole repair because `deferResolutionUpdates` or another viewport-interaction flag is active;
+- leaves page descriptors as the display compositor's authoritative source for whether a visible region is drawable.
 
 ## Regression Prevention Requirements
 
@@ -87,6 +112,7 @@ The tests should drive production UI paths through Playwright or the existing br
 - Capture a stable baseline frame after first paint.
 - Perform zoom-in, zoom-out, retained-section scrolling, pointer click or focus on visible retained text, and mixed rapid zoom/scroll/click sequences.
 - Include separate measured workloads for canvas panning, viewport zooming, and internal retained-section scrolling on an All Settings-scale scene.
+- Record the exact Chrome recording name/path that motivated the failing test, and state which observed failure class the test reproduces.
 - Record animation-frame timestamps, long tasks, screenshots or canvas crops, and viewport dimensions during the interaction window.
 - Use canvas or screenshot pixel analysis to detect large blank regions, repeated placeholder bands, or full-section near-empty frames.
 - Assert that large blank areas do not persist across multiple consecutive frames during interaction.
@@ -115,6 +141,8 @@ Add a small reusable helper for the E2E tests that records:
 
 Keep this helper generic and test-facing. It should not depend on retained-page implementation details.
 
+The baseline report must include the recording path/name, the failing test command, the visible blank-region metrics, frame pacing, long tasks, and whether the run reproduced the same multi-frame or multi-second visible-hole class as the Chrome recording.
+
 ### 3. Define Region-Level Content Identity
 
 Replace page-level semantic identity with a region-level content manifest.
@@ -132,9 +160,11 @@ The manifest should not include page-grid coordinates, viewport source rects, cu
 
 Compatibility should be explicit and typed. A candidate retained region is drawable when its manifest proves it covers the requested content-coordinate region with the same semantic content, even if it was rasterized at a different page grid, source rect, or LOD.
 
+Delete or replace page-derived semantic versions built from source rects, page-grid descriptors, LOD, DPR, viewport zoom buckets, or rasterization windows. These may remain as fidelity or resource metadata, but they must not decide semantic compatibility.
+
 ### 4. Introduce A Committed Coverage Store
 
-Create a retained drawable coverage store that owns the currently committed visible content.
+Create a retained drawable coverage store that owns the currently committed visible content. This must be an authoritative owner, not just a few new lookup helpers on the existing page cache.
 
 Responsibilities:
 
@@ -144,7 +174,7 @@ Responsibilities:
 - Keep committed coverage drawable until replacement regions are uploaded and atomically published.
 - Protect visible committed regions from eviction until replacement coverage exists or the region leaves the protection window.
 
-This store should become the compositor's source of truth for what can be drawn. The current frame target should ask for coverage; it should not directly decide to blank a page because a new page descriptor differs.
+This store should become the compositor's source of truth for what can be drawn. The display composer must ask the coverage store for drawable regions; it must not decide visibility from target page descriptors or blank a page because a new descriptor differs.
 
 ### 5. Split Target Computation From Publication
 
@@ -174,6 +204,8 @@ When a target region needs new pixels:
 
 If the replacement is obsolete by completion time, discard it loudly in debug diagnostics and keep the old committed coverage.
 
+Manifest validation at upload completion is mandatory. A replacement whose semantic manifest no longer matches the requested content must not be committed, even if it has a usable texture allocation.
+
 ### 7. Refactor Scheduling Around Visible Coverage Repair
 
 Change retained maintenance scheduling so interaction deferral only delays fidelity refinement and prefetch work.
@@ -187,6 +219,8 @@ The scheduler should prioritize:
 5. Offscreen prefetch.
 
 Visible true-hole repair must continue during zooming, scrolling, and clicking. It may be budgeted, but it should not be skipped entirely because the viewport is moving.
+
+Replace the current categorical deferral rule: `deferResolutionUpdates` must not bypass retained maintenance when the published or prepared frame contains visible uncovered regions with repairable coverage work.
 
 ### 8. Make Texture Resources Stable Across Fidelity Changes
 
@@ -218,6 +252,7 @@ The active island should be coordinated with the same coverage store rather than
 Delete or replace the old concepts that caused broad invalidation:
 
 - Page semantic versions derived from source rectangles or page-grid descriptors.
+- Page keys or publication decisions that treat LOD, DPR, viewport zoom bucket, source window, tile row/column, or pixel dimensions as semantic compatibility gates.
 - Whole-section incompatibility decisions caused by layout or LOD-only changes.
 - Interaction-time maintenance paths that return without checking visible uncovered regions.
 - Publication paths that expose target pages before drawable coverage exists.
