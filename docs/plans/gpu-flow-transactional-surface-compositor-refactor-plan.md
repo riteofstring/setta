@@ -74,6 +74,14 @@ by the current production slice. Each milestone should either move an existing
 surface into the transaction model or remove code that the transaction model has
 replaced.
 
+A retained surface is not migrated until all of these are true:
+
+- its generations are immutable
+- its coverage proof is compositor-owned
+- its hit index is transaction-owned
+- its active DOM island state is transaction-owned
+- the old retained repair/publication path no longer affects that surface
+
 ## Regression Prevention Requirements
 
 Regression prevention is a hard requirement for this refactor, not a cleanup
@@ -96,6 +104,44 @@ Tests must not pass by asserting renderer internals such as a specific manager
 method call, cache key, repair pass count, or private texture state. Pure unit
 tests may cover compositor contracts, but the browser regression gates must be
 based on user-visible behavior.
+
+### Input Responsiveness And Hold Latency Tests
+
+Frame cadence is necessary but not sufficient. The compositor must not pass
+visual-continuity tests by repeatedly holding old visuals while desired motion
+lags behind the user's input.
+
+Required input-to-display metrics:
+
+- pan input event to published viewport delta latency
+- wheel event to published retained scroll delta latency
+- switch click to visible switch-state latency
+- text-like activation to aligned DOM island latency
+- desired retained scroll offset versus published retained scroll offset
+- desired viewport versus published viewport
+
+Required transaction hold diagnostics:
+
+```ts
+type SurfaceTransactionHoldDiagnostics = {
+  readonly heldTransactionCount: number;
+  readonly heldTransactionDurationMs: number;
+  readonly heldMotionFrameCount: number;
+  readonly maxHeldMotionAgeMs: number;
+  readonly desiredScrollOffset: number | null;
+  readonly publishedScrollOffset: number | null;
+  readonly desiredViewport: { x: number; y: number; zoom: number };
+  readonly publishedViewport: { x: number; y: number; zoom: number };
+  readonly holdReason: string | null;
+  readonly blockingSurfaceIds: readonly string[];
+  readonly blockingGenerationIds: readonly string[];
+};
+```
+
+Acceptance requires retained scroll to display motion promptly. Holding a
+previous transaction is allowed to avoid holes, but a gesture cannot pass solely
+by publishing repeated frames whose retained scroll offset or viewport remains
+stale beyond the measured refresh-rate budget.
 
 ### 120 FPS-Class Performance Tests
 
@@ -138,6 +184,15 @@ than one missed frame at the measured refresh class, no repeated multi-frame
 gaps, and no repair/refinement long tasks during the gesture. A broad CI cap
 such as `45ms` p95 is not acceptable evidence for this refactor.
 
+Default CI and strict performance gates have different jobs:
+
+- default CI must enforce correctness, no blank rows, no native page scroll
+  leakage, no severe frame gaps, and no pathological hold latency
+- strict perf lab runs must enforce calibrated 120 fps-class p95/p99 targets
+  when the measured baseline supports them
+- local/report mode must always record idle baseline, hardware, browser version,
+  scene size, gesture metrics, and hold diagnostics
+
 ### Full GPU Flow-Related Suite Gate
 
 Selective test runs are useful during implementation, but they are not
@@ -179,6 +234,24 @@ Any failure in these gates blocks completion. If a fix is made after a failure,
 the relevant targeted test may be run first, but the full GPU Flow-related
 suite must be rerun before final acceptance. The final report must include the
 commands, pass/fail result, and any intentionally omitted manual-only checks.
+
+## Supported Browser Contract
+
+This architecture has no fallback renderer. Native html-in-canvas and WebGPU
+capability are product/platform requirements, not optional optimizations.
+Capability drift is release-blocking.
+
+The implementation and final report must record:
+
+- supported browser/channel
+- required flags or origin-trial state, if any
+- minimum Chromium version
+- unsupported browsers
+- expected failure UI when required APIs are unavailable
+- pinned E2E browser version
+- capability probe coverage for `layoutsubtree`, `paint`, `requestPaint()`,
+  `copyElementImageToTexture`, WebGPU adapter/device/context, and retained-page
+  upload requirements
 
 ## Evidence To Preserve
 
@@ -316,11 +389,22 @@ Each `SurfaceActor` owns:
 - visual generation id
 - texture handles or native draw commands
 - hit projection metadata
-- active interaction state
-- current, compatible previous, and pending generations
 
 The compositor consumes actors. React/project state updates create actor
 generations; they do not directly decide what a visible frame may publish.
+
+Keep transaction state out of actors. The ownership split is:
+
+- `SurfaceActor`: identity, source policy, and immutable generation production
+- `CoverageStore`: texture/page coverage entries and exact, compatible,
+  rejected, or missing proof
+- `TransactionResolver`: previous published transaction and the publish, hold,
+  or cold-first-coverage decision
+- `Scheduler`: pending work, priorities, budgets, readiness transitions, and
+  upload/raster execution
+
+Actors must not decide what is displayable. That prevents the new compositor
+from recreating the old disagreement problem with different names.
 
 ### Surface Generations
 
@@ -354,13 +438,57 @@ single coverage store:
 - coverage queries return a complete draw plan or a blocked transaction
 - compatible prior coverage is drawable while exact coverage is pending
 - true holes are never drawable
+- every coverage proof includes resource handles protected by the published or
+  held transaction
 
 Retained parameter pages can still be tiled internally, but the compositor
 should not special-case retained content as a separate publication path.
 
+The coverage store owns residency protection. Every transaction must declare
+protected texture/page handles with one of these reasons:
+
+- `published-transaction`
+- `held-previous-transaction`
+- `active-dom-island`
+- `pending-exact-coverage`
+- `interactive-source`
+
+The scheduler may not evict resources required by the currently published or
+held transaction.
+
+Coverage proof must also preserve renderer bucket semantics. A display
+transaction contains both global z-order and renderer pass/bucket order.
+Compatibility is rejected if a generation changes bucket membership in a way
+the previous transaction cannot represent.
+
 ### Publication Transactions
 
-Every visible frame resolves a `SurfaceDisplayTransaction`:
+Every visible frame resolves a `SurfaceTransactionOutcome`:
+
+```ts
+type SurfaceTransactionOutcome =
+  | { kind: "publish-exact"; transaction: SurfaceDisplayTransaction }
+  | {
+      kind: "publish-compatible";
+      transaction: SurfaceDisplayTransaction;
+      compatibilityProof: CoverageProof;
+    }
+  | {
+      kind: "hold-previous";
+      previousTransactionId: string;
+      reason: BlockReason;
+      diagnostics: SurfaceTransactionHoldDiagnostics;
+    }
+  | { kind: "block-cold-first-coverage"; reason: FirstCoverageReason }
+  | { kind: "publish-cold-placeholder"; reason: FirstCoverageReason };
+```
+
+`publish-compatible` and `hold-previous` are different outcomes.
+`publish-compatible` may draw compatible old coverage under a new coherent
+motion/hit/island transaction. `hold-previous` keeps the old visual and hit
+transaction together because the new motion frame is not publishable.
+
+Every `SurfaceDisplayTransaction` includes:
 
 - motion frame: viewport, scroll offsets, pointer handoff state, active islands
 - desired surface generations
@@ -368,23 +496,22 @@ Every visible frame resolves a `SurfaceDisplayTransaction`:
 - draw command list
 - hit index
 - active DOM island transaction
+- protected resource handles
+- global z-order and renderer pass/bucket order
 - follow-up work requests
 - diagnostics
-
-The display transaction has only two outcomes:
-
-- publish: coverage is complete and hit/DOM island state is coherent
-- hold previous: exact coverage is pending and compatible previous display is
-  still valid
 
 No path should publish a transaction that contains a true visual hole.
 
 Cold first-load has no compatible previous transaction. For cold first coverage,
-the compositor may publish only explicitly intentional non-content visuals such
-as a stable loading/background state, or it may hold canvas publication until the
-first visible coverage transaction is drawable. Cold load must not reuse the
-same "hold previous" language, because there is no previous coherent hit/visual
-state to hold.
+the outcome must be one of:
+
+- not yet publishable: canvas remains in a stable background/loading state
+- `publish-cold-placeholder`: intentional placeholder transaction
+- `publish-exact`: exact first visible coverage exists
+
+Cold load must not reuse the same "hold previous" language, because there is no
+previous coherent hit/visual state to hold.
 
 Compatible previous coverage is valid only when the previous transaction remains
 coherent for the desired surface generation. Reject compatibility when any of
@@ -401,9 +528,32 @@ these differ in a way the coverage proof cannot explicitly map:
 - active DOM island identity or geometry
 - hit index generation
 
+Every compatibility proof must answer:
+
+```ts
+type SurfaceCompatibilityProof = {
+  readonly compatibleForVisuals: boolean;
+  readonly compatibleForHitTesting: boolean;
+  readonly compatibleForActiveDomIsland: boolean;
+  readonly compatibleForMotion: boolean;
+  readonly compatibleForClipChain: boolean;
+  readonly compatibleForSourceWindow: boolean;
+  readonly rejectedCandidates: readonly {
+    readonly surfaceId: string;
+    readonly generationId: string;
+    readonly reason: string;
+  }[];
+};
+```
+
 Holding a previous transaction must hold previous visuals and previous hit state
 together. Do not publish a new hit index over old visuals, or old visuals with a
 new active DOM island transaction.
+
+Active DOM island geometry, focus identity, and hit ownership must come from the
+same published transaction as the visuals underneath it. Live value changes may
+flow through the active DOM island, but geometry and ownership must remain
+transaction-coherent.
 
 ### Runtime Motion Path
 
@@ -439,6 +589,19 @@ Use one scheduler for DOM source and retained display-list texture work:
 Interaction frames can schedule work but should only execute work that is known
 to fit the interaction budget and is needed for a publishable visible frame.
 
+### Diagnostics Budget
+
+Diagnostics must not become the next source of jank.
+
+- always-on diagnostics are cheap numeric counters
+- sampled diagnostics run at bounded low frequency
+- trace diagnostics require explicit perf/debug mode
+- broad per-frame source descriptors, row dumps, and coverage dumps are not
+  allowed in the interaction hot path
+
+Performance reports must include diagnostic overhead or enough counters to show
+diagnostics did not dominate the measured gesture.
+
 ### Interaction Projection
 
 Create a single compositor-owned interaction projector:
@@ -452,6 +615,18 @@ Create a single compositor-owned interaction projector:
 
 This replaces duplicated handoff behavior across retained controls, DOM islands,
 and overlay sources.
+
+### Accessibility And Keyboard Behavior
+
+The transaction model must preserve browser-owned behavior for active controls
+and keyboard flows around retained rows. Regression coverage must include:
+
+- keyboard navigation through retained rows
+- focus restore after pan and zoom
+- active control ARIA labels and focus visibility
+- escape, blur, and commit semantics
+- tab order around active DOM islands and portals
+- scoped axe checks for GPU Flow views
 
 ## Implementation Plan
 
@@ -490,6 +665,18 @@ The spec should:
   - no long task above `50ms`
   - no repeated multi-frame gaps during continuous pan, zoom, or retained
     section scroll input
+  - pan input produces a published viewport delta within the measured
+    refresh-rate budget
+  - retained wheel input produces a published retained-scroll delta within the
+    measured refresh-rate budget
+  - switch click produces visible switch-state change within the measured
+    refresh-rate budget
+  - text-like activation produces an aligned DOM island within the measured
+    refresh-rate budget
+  - held transaction count, held duration, held motion age, hold reason, and
+    blocking surface/generation ids are recorded
+  - desired retained scroll offset and published retained scroll offset do not
+    diverge across repeated published frames during a gesture
   - no native page scroll while the retained section owns the gesture
   - retained scroll signature changes during retained section scroll
   - retained section scroll stays in the same measured refresh-rate class as
@@ -541,6 +728,14 @@ Add Vitest coverage for contract rules:
 - active DOM island publication is blocked if its visual coverage is incoherent
 - a held transaction keeps previous hit state and previous visuals together
 - surface generation ids are immutable within one transaction
+- `publish-compatible` and `hold-previous` are distinct outcomes
+- cold first-load can only publish exact first coverage, publish a declared cold
+  placeholder, or stay not-yet-publishable
+- compatibility proof reports visual, hit, active-island, motion, clip-chain,
+  and source-window compatibility separately
+- protected texture/page handles cannot be evicted while required by a published
+  or held transaction
+- z-order and renderer bucket order are preserved in the transaction
 
 These tests may use fake surfaces and fake textures. They should not import the
 old retained page manager.
@@ -726,12 +921,22 @@ The final report must include:
 - idle/display baseline
 - hardware, OS, browser version
 - display refresh class
+- supported browser/channel, required flags or origin-trial state, unsupported
+  browsers, expected failure UI, pinned E2E browser version, and capability
+  probe result
 - scene size
 - per-gesture p50/p95/p99/max frame intervals
 - long tasks
 - repeated multi-frame gap count
+- input-to-published-motion latency for pan, retained scroll, switch state, and
+  text-like activation
+- held transaction count, duration, max held motion age, hold reasons, blocking
+  surface ids, and blocking generation ids
+- desired versus published retained scroll offset and viewport samples
 - visual sample statistics
 - native page scroll check
+- protected resource counts by reason
+- diagnostic overhead or bounded diagnostic counters
 - before/after comparison
 - full GPU Flow-related Vitest command and result
 - full GPU Flow-related Playwright command and result
@@ -750,16 +955,30 @@ The final report must include:
   a 120 Hz-capable baseline.
 - Any claim that 120 fps-class behavior is impossible includes measured proof
   and a fallback target still in the measured refresh-rate range.
+- Held transactions report count, duration, motion age, blocking reason,
+  blocking surfaces, and blocking generations.
+- Retained scroll reports desired versus published scroll offset and no gesture
+  passes solely by holding old visuals for repeated frames.
 - No visible frame exposes true holes, blank retained rows, or placeholder
   bands.
-- Cold first-load behavior is explicitly represented as first-coverage loading
-  or held publication, not as "hold previous" without a previous coherent
-  transaction.
+- Cold first-load behavior is explicitly represented as not-yet-publishable
+  first coverage, an intentional cold placeholder, or exact first coverage, not
+  as "hold previous" without a previous coherent transaction.
+- Published and held transactions protect every texture/page resource they need
+  from eviction.
+- Display transactions preserve global z-order and renderer pass/bucket order.
 - Interaction frames do not perform unbounded passive uploads, unbounded retained
   rasterization, or broad React/source transform churn.
 - Active DOM controls remain native and correctly aligned.
+- Active DOM island geometry, focus identity, and hit ownership are
+  transaction-coherent with the visuals underneath them.
 - Hit testing, focus, selection, text editing, dropdowns, color controls,
   popups, drag/drop, and edge interactions continue to work.
+- Keyboard navigation, focus restore, ARIA labels, escape/blur/commit semantics,
+  tab order, and scoped axe checks pass for GPU Flow retained interactions.
+- Transaction diagnostics are bounded and measured in the performance report.
+- Browser capability probe result and supported browser contract are included in
+  the final report.
 - The full GPU Flow-related Vitest and Playwright gates pass after all renderer
   changes and follow-up fixes.
 - Replaced legacy code is removed instead of left behind as a compatibility
@@ -773,13 +992,25 @@ The final report must include:
 
 - Holding a previous compatible transaction can produce momentary stale content
   if invalidation is wrong. Mitigation: generation ids, source keys, and
-  rejection reasons must be part of coverage proof and diagnostics.
+  rejection reasons must be part of coverage proof and diagnostics, and hold
+  latency must be measured as an interaction failure mode.
 - A unified coverage store can become too general. Mitigation: keep actors
   concrete and test the core contract with small fake surfaces before converting
   production paths.
 - The refactor can become a second renderer layered over the current retained
   repair path. Mitigation: prove the retained-scroll vertical slice first and
   make deletion checkpoints block each migrated milestone.
+- Browser capability drift can break the no-fallback runtime. Mitigation:
+  record the supported browser contract, pin the E2E browser version, and make
+  capability probe failures release-blocking.
+- Resource eviction can invalidate a held or published transaction. Mitigation:
+  require protected resource handles by transaction reason and test eviction
+  rejection.
+- Active DOM islands can move ahead of held visuals. Mitigation: make geometry,
+  focus identity, and hit ownership transaction-owned.
+- Diagnostics can become the next hot-path bottleneck. Mitigation: keep
+  always-on diagnostics numeric, sample expensive diagnostics, and require
+  explicit trace mode for broad dumps.
 - Retained text-like rows can regress if source readiness is conflated with
   texture readiness. Mitigation: track source generation, paint readiness, and
   texture readiness separately.
