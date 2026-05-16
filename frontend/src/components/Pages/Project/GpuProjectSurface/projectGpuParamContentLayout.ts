@@ -71,6 +71,7 @@ export function getProjectGpuParamContentMetrics({
   edgeOutputPortCount,
   headerHeight,
   kwargsControlsHeight,
+  pinnedContentHeight,
   pinnedRowVerticalGapHeight = 0,
   pinnedRowCount,
 }: {
@@ -78,6 +79,7 @@ export function getProjectGpuParamContentMetrics({
   readonly edgeOutputPortCount: number;
   readonly headerHeight: number;
   readonly kwargsControlsHeight: number;
+  readonly pinnedContentHeight?: number | undefined;
   readonly pinnedRowVerticalGapHeight?: number | undefined;
   readonly pinnedRowCount: number;
 }) {
@@ -88,6 +90,7 @@ export function getProjectGpuParamContentMetrics({
   const paramsFixedHeight = resolveProjectGpuParamFixedContentHeight({
     edgeInputPortCount,
     edgeOutputPortCount,
+    pinnedContentHeight,
     pinnedRowVerticalGapHeight,
     pinnedRowCount,
   });
@@ -109,11 +112,13 @@ export function getProjectGpuParamContentMetrics({
 export function resolveProjectGpuParamFixedContentHeight({
   edgeInputPortCount,
   edgeOutputPortCount,
+  pinnedContentHeight,
   pinnedRowVerticalGapHeight = 0,
   pinnedRowCount,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
+  readonly pinnedContentHeight?: number | undefined;
   readonly pinnedRowVerticalGapHeight?: number | undefined;
   readonly pinnedRowCount: number;
 }): number {
@@ -121,23 +126,28 @@ export function resolveProjectGpuParamFixedContentHeight({
     inputPortCount: edgeInputPortCount,
     outputPortCount: edgeOutputPortCount,
   });
-  const pinnedContentHeight =
+  const resolvedPinnedContentHeight =
+    pinnedContentHeight ??
     Math.max(0, pinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX +
-    Math.max(0, pinnedRowVerticalGapHeight);
-  return edgeStripHeight + pinnedContentHeight;
+      Math.max(0, pinnedRowVerticalGapHeight);
+  return edgeStripHeight + resolvedPinnedContentHeight;
 }
 
 export function resolveProjectGpuParamAutoContentHeight({
   edgeInputPortCount,
   edgeOutputPortCount,
+  pinnedContentHeight,
   pinnedRowCount,
   reserveEmptyContentHeight = true,
+  unpinnedContentHeight,
   unpinnedRowCount,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
+  readonly pinnedContentHeight?: number | undefined;
   readonly pinnedRowCount: number;
   readonly reserveEmptyContentHeight?: boolean | undefined;
+  readonly unpinnedContentHeight?: number | undefined;
   readonly unpinnedRowCount: number;
 }): number {
   const edgeStripHeight = resolveEdgeStripHeight({
@@ -149,9 +159,17 @@ export function resolveProjectGpuParamAutoContentHeight({
     pinnedRowCount > 0 && unpinnedRowCount > 0
       ? PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX
       : 0;
+  const resolvedPinnedContentHeight =
+    pinnedContentHeight ??
+    Math.max(0, pinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+  const resolvedUnpinnedContentHeight =
+    unpinnedContentHeight ??
+    Math.max(0, unpinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
   const retainedRowHeight =
     rowCount > 0 || edgeStripHeight > 0 || !reserveEmptyContentHeight
-      ? rowCount * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX + unpinnedTopGap
+      ? resolvedPinnedContentHeight +
+        resolvedUnpinnedContentHeight +
+        unpinnedTopGap
       : PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
   return edgeStripHeight + retainedRowHeight;
 }

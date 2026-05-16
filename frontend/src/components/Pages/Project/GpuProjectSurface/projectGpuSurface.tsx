@@ -1,10 +1,9 @@
 import { GpuFlow } from "gpuFlow/GpuFlow";
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 import type { GpuFlowScene } from "gpuFlow/scene";
-
-import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
@@ -100,6 +99,7 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
+import { renderProjectGpuRetainedTextLikeRowSnapshot } from "./projectGpuRetainedTextLikeRowSnapshotRenderer";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import {
   getProjectSurfaceClientDimensions,
@@ -177,6 +177,8 @@ const PROJECT_SURFACE_STYLE: CSSProperties = {
   width: "100%",
 };
 
+const ignoreProjectGpuHoveredParamTargetChange = () => undefined;
+
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dimensions = useProjectSurfaceDimensions(rootRef);
@@ -203,15 +205,12 @@ export function GpuProjectSurface() {
   useEffect(() => {
     setRetainedPasswordRevealStates(new Map());
   }, [projectConfigId]);
-  const [hoveredParamTarget, setHoveredParamTarget] =
-    useState<ProjectGpuRetainedParamTarget | null>(null);
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
     useState<ProjectGpuRetainedParamDragPreview | null>(null);
   const layoutAdapter = useProjectGpuLayoutAdapter({
     activeParamCanvasControl,
     activeParamCanvasPopup,
     activeParamDomIsland,
-    hoveredParamTarget,
     passwordRevealStates: retainedPasswordRevealStates,
     retainedParamDragPreview,
   });
@@ -352,7 +351,7 @@ export function GpuProjectSurface() {
             setActiveParamCanvasPopup(null);
           }
         }}
-        onHoveredParamTargetChange={setHoveredParamTarget}
+        onHoveredParamTargetChange={ignoreProjectGpuHoveredParamTargetChange}
         onPasswordRevealStateChange={handleRetainedPasswordRevealStateChange}
         onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
         passwordRevealStates={retainedPasswordRevealStates}
@@ -550,9 +549,8 @@ function ProjectGpuFlowLayer({
     () =>
       getProjectRetainedContentScrollOptions({
         flowInteractionKeys,
-        layoutAdapter,
       }),
-    [flowInteractionKeys, layoutAdapter],
+    [flowInteractionKeys],
   );
   const retainedContentInteractionOptions = useMemo(
     () =>
@@ -566,9 +564,9 @@ function ProjectGpuFlowLayer({
         onRetainedParamDragPreviewChange,
         passwordRevealStates,
         retainedContentScroll: {
+          applyScrollOffsets: layoutAdapter.setContentScrollOffsets,
           getScene: () => effectiveScene,
           getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-          onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
         },
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
@@ -610,9 +608,8 @@ function ProjectGpuFlowLayer({
         activeNodeIds,
         canEditStructure,
         flowInteractionKeys,
-        layoutAdapter,
       }),
-    [activeNodeIds, canEditStructure, flowInteractionKeys, layoutAdapter],
+    [activeNodeIds, canEditStructure, flowInteractionKeys],
   );
   if (!readyToRender) {
     return null;
@@ -635,9 +632,13 @@ function ProjectGpuFlowLayer({
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
+      renderRetainedTextLikeRowSnapshot={
+        renderProjectGpuRetainedTextLikeRowSnapshot
+      }
       retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}
+      retainedContentRuntimeState={layoutAdapter.retainedContentRuntimeState}
       retainedContentScroll={retainedContentScrollOptions}
       scene={effectiveScene}
       scenePortConnection={scenePortConnectionOptions}
@@ -830,15 +831,11 @@ function getProjectSceneScrollOptions({
 
 function getProjectRetainedContentScrollOptions({
   flowInteractionKeys,
-  layoutAdapter,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly layoutAdapter: ProjectGpuLayoutAdapter;
 }) {
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
-    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
-    onScrollOffsetsChange: layoutAdapter.setTransientContentScrollOffsets,
   };
 }
 
@@ -846,12 +843,10 @@ function getProjectRetainedContentKeyboardOptions({
   activeNodeIds,
   canEditStructure,
   flowInteractionKeys,
-  layoutAdapter,
 }: {
   readonly activeNodeIds: readonly string[];
   readonly canEditStructure: boolean;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly layoutAdapter: ProjectGpuLayoutAdapter;
 }) {
   return {
     disabled: () =>
@@ -864,9 +859,7 @@ function getProjectRetainedContentKeyboardOptions({
         projectState: useProjectState.getState(),
         scene,
       }),
-    getScrollOffsets: layoutAdapter.getContentScrollOffsets,
     onNavigation: (event: GpuRetainedContentKeyboardNavigationEvent) => {
-      layoutAdapter.setContentScrollOffsets(event.scrollOffsets);
       selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
     },
   };

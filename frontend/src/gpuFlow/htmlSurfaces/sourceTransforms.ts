@@ -78,9 +78,9 @@ export function createVisibleNodeDomTransformStateForQuad({
 }): GpuNodeDomTransformState {
   return createVisibleNodeDomTransformState({
     element,
-    height: quad.height,
+    height: quad.textureCssHeight ?? quad.height,
     interactive: activeIds.has(quad.nodeId),
-    width: quad.width,
+    width: quad.textureCssWidth ?? quad.width,
     zIndex: quad.zIndex,
   });
 }
@@ -273,6 +273,18 @@ export function toNodeQuad(node: GpuNodeLayout): GpuVisibleNodeQuad | null {
   return {
     height: node.height,
     nodeId: node.nodeId,
+    ...(node.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: node.textureContentKey }),
+    ...(node.textureCssHeight === undefined
+      ? {}
+      : { textureCssHeight: node.textureCssHeight }),
+    ...(node.textureCssWidth === undefined
+      ? {}
+      : { textureCssWidth: node.textureCssWidth }),
+    ...(node.textureSourceRect === undefined
+      ? {}
+      : { textureSourceRect: node.textureSourceRect }),
     width: node.width,
     x: node.x,
     y: node.y,

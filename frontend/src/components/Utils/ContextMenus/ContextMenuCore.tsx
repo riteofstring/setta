@@ -1,87 +1,116 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useEffect, useRef, useState } from "react";
+import {
+  autoUpdateGpuFloatingPosition,
+  createGpuFloatingVirtualPointReference,
+} from "gpuFlow/portals/floatingPosition";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type AriaRole,
+  type KeyboardEventHandler,
+  type ReactNode,
+} from "react";
 import { NAVBAR_HEIGHT } from "utils/constants";
 
+type ContextMenuCoreProps = {
+  readonly ariaLabel?: string | undefined;
+  readonly children: ReactNode;
+  readonly closeContextMenu: () => void;
+  readonly contentRole?: AriaRole | undefined;
+  readonly isOpen: boolean;
+  readonly onKeyDownCapture?: KeyboardEventHandler<HTMLDivElement> | undefined;
+  readonly x: number;
+  readonly y: number;
+};
+
+type FloatingPositionState = {
+  readonly left: string;
+  readonly opacity: number;
+  readonly position: "fixed";
+  readonly top: string;
+};
+
+const HIDDEN_POSITION: FloatingPositionState = {
+  left: "-9999px",
+  opacity: 0,
+  position: "fixed",
+  top: "-9999px",
+};
+
 export function ContextMenuCore({
+  ariaLabel,
   children,
+  contentRole,
   x,
   y,
   isOpen,
   closeContextMenu,
   onKeyDownCapture,
-}) {
+}: ContextMenuCoreProps) {
   const ref = useOutsideAlerter(isOpen, closeContextMenu);
-  const [position, setPosition] = useState({
-    top: -9999,
-    left: -9999,
-    opacity: 0,
-  });
-  const contentRef = useRef(null);
+  const [position, setPosition] =
+    useState<FloatingPositionState>(HIDDEN_POSITION);
+  const [contentElement, setContentElement] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const setContentRefs = useCallback(
+    (element: HTMLDivElement | null) => {
+      ref.current = element;
+      setContentElement(element);
+    },
+    [ref],
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) {
-      setPosition({ top: -9999, left: -9999, opacity: 0 });
+      setPosition(HIDDEN_POSITION);
       return;
     }
-
-    // Use requestAnimationFrame to wait for the next render cycle
-    requestAnimationFrame(() => {
-      if (contentRef.current) {
-        const menuRect = contentRef.current.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-
-        let newTop = y;
-        let newLeft = x;
-
-        // Check if menu would overflow bottom of viewport
-        if (y + menuRect.height > viewportHeight) {
-          newTop = y - menuRect.height;
-        }
-
-        // Check if menu would overflow right of viewport
-        if (x + menuRect.width > viewportWidth) {
-          newLeft = x - menuRect.width;
-        }
-
-        // Ensure menu doesn't go above navbar
-        if (newTop < NAVBAR_HEIGHT) {
-          // If opening downward would fit, open downward
-          if (y + menuRect.height <= viewportHeight) {
-            newTop = y;
-          } else {
-            // Otherwise, position just below navbar
-            newTop = NAVBAR_HEIGHT;
-          }
-        }
-
-        // Ensure menu doesn't go beyond left of viewport
-        if (newLeft < 0) {
-          newLeft = 0;
-        }
-
-        // Set final position with opacity
-        setPosition({ top: newTop, left: newLeft, opacity: 1 });
-      }
+    if (!contentElement) {
+      return;
+    }
+    return autoUpdateGpuFloatingPosition({
+      boundaryPadding: { bottom: 8, left: 8, right: 8, top: NAVBAR_HEIGHT },
+      floating: contentElement,
+      onPosition: setPosition,
+      placement: "right-start",
+      reference: createGpuFloatingVirtualPointReference({ x, y }),
     });
-  }, [x, y, isOpen]);
+  }, [contentElement, x, y, isOpen]);
+
+  const sharedContentProps = {
+    className:
+      "absolute z-10 flex max-h-[40vh] w-[clamp(5rem,_20vw,_10rem)] min-w-32 cursor-pointer flex-col overflow-y-auto rounded-md border border-solid border-setta-500/50 bg-white px-2 pb-2 pt-0 shadow-xl dark:bg-setta-900",
+    "data-testid": "context-menu-core",
+    onKeyDownCapture,
+    ref: setContentRefs,
+    style: {
+      left: position.left,
+      position: position.position,
+      top: position.top,
+      opacity: position.opacity,
+    },
+  };
+
+  if (contentRole) {
+    return isOpen ? (
+      <div
+        {...sharedContentProps}
+        aria-label={ariaLabel}
+        role={contentRole}
+        tabIndex={-1}
+      >
+        {children}
+      </div>
+    ) : null;
+  }
 
   return (
     <DropdownMenu.Root open={isOpen} modal={false}>
-      <DropdownMenu.Content
-        className="absolute z-10 flex max-h-[40vh] w-[clamp(5rem,_20vw,_10rem)] min-w-32 cursor-pointer flex-col overflow-y-auto rounded-md border border-solid border-setta-500/50 bg-white px-2 pb-2 pt-0 shadow-xl dark:bg-setta-900"
-        style={{
-          left: position.left,
-          top: position.top,
-          opacity: position.opacity,
-        }}
-        onKeyDownCapture={onKeyDownCapture}
-        ref={(element) => {
-          // Combine refs
-          ref.current = element;
-          contentRef.current = element;
-        }}
-      >
+      <DropdownMenu.Content {...sharedContentProps}>
         {children}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -89,11 +118,12 @@ export function ContextMenuCore({
 }
 
 // https://stackoverflow.com/a/42234988
-function useOutsideAlerter(isOpen, closeContextMenu) {
-  const ref = useRef(null);
+function useOutsideAlerter(isOpen: boolean, closeContextMenu: () => void) {
+  const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (ref.current && !ref.current.contains(event.target) && isOpen) {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target instanceof Node ? event.target : null;
+      if (ref.current && target && !ref.current.contains(target) && isOpen) {
         closeContextMenu();
       }
     }

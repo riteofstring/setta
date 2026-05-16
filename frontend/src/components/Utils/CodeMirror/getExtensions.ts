@@ -9,7 +9,7 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { EditorState, Prec } from "@codemirror/state";
+import { EditorState, Prec, type ChangeSpec } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -138,9 +138,7 @@ export function getExtensions({
   );
 
   if (singleLine) {
-    extensions.push(
-      EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
-    );
+    extensions.push(createSingleLineTransactionFilter());
   }
 
   if (isDisabled) {
@@ -164,6 +162,38 @@ export function getExtensions({
   extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
   return extensions;
+}
+
+function createSingleLineTransactionFilter() {
+  return EditorState.transactionFilter.of((tr) => {
+    if (!tr.docChanged) {
+      return tr;
+    }
+    const changes: ChangeSpec[] = [];
+    let normalized = false;
+    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+      const insertedText = inserted.toString();
+      const normalizedInsertedText =
+        normalizeCodeMirrorSingleLineText(insertedText);
+      if (normalizedInsertedText !== insertedText) {
+        normalized = true;
+      }
+      changes.push({
+        from: fromA,
+        insert: normalizedInsertedText,
+        to: toA,
+      });
+    });
+    if (!normalized) {
+      return tr.newDoc.lines > 1 ? [] : tr;
+    }
+    const normalizedTransaction = tr.startState.update({ changes });
+    return normalizedTransaction.newDoc.lines > 1 ? [] : { changes };
+  });
+}
+
+function normalizeCodeMirrorSingleLineText(text: string): string {
+  return text.replace(/\r\n?|\n/g, " ");
 }
 
 export function getGpuFlowCodeMirrorDirtyReason(

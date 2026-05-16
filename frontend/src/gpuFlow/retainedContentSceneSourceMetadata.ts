@@ -3,6 +3,7 @@ import type {
   GpuRetainedContentDragPreviewInput,
   GpuRetainedContentRowInput,
   GpuRetainedContentRowMetric,
+  GpuRetainedContentRowVisualBounds,
   GpuRetainedContentScene,
 } from "./retainedContentScene";
 import type { GpuRect } from "./viewportMath";
@@ -23,6 +24,7 @@ export type GpuRetainedContentSceneSourceBaseInput = {
   readonly ownerSectionId: string;
   readonly portHitSize: number;
   readonly rowHeight: number;
+  readonly rowVisualBounds: GpuRetainedContentRowVisualBounds;
   readonly rows: readonly GpuRetainedContentRowInput[];
   readonly viewportRect: GpuRect;
 };

@@ -185,7 +185,7 @@ function createGpuRetainedContentRowDrawCommands({
         labelRect,
       }),
       kind: "row-background",
-      rect: row.projectedRect,
+      rect: row.visualProjectedRect,
       rowId: row.id,
       state: row.state,
     },
@@ -535,7 +535,10 @@ function createGpuRetainedContentDragPreviewCommand({
   if (previewWidth <= 0) {
     return null;
   }
-  const previewHeight = Math.min(rowHeight, viewportRect.height);
+  const previewHeight = Math.min(
+    firstRow.height ?? rowHeight,
+    viewportRect.height,
+  );
   const x = clampNumber(
     pointerLocal.x + horizontalMargin,
     viewportRect.x + horizontalMargin,

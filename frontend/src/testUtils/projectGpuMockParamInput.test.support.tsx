@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-export type MockParamInputRenderMode =
+type MockParamInputRenderMode =
   | "button-role-div"
   | "combobox-input"
   | "explicit-button-role-target"
@@ -15,7 +15,7 @@ export type MockParamInputRenderMode =
   | "text-input"
   | "time-input";
 
-export type MockParamInputProps = {
+type MockParamInputProps = {
   focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
   paramInfoId: string;

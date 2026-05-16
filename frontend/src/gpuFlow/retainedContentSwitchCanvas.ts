@@ -11,6 +11,13 @@ type GpuRetainedContentSwitchControl = Extract<
   { kind: "switch" }
 >;
 
+export type GpuRetainedContentSwitchVisualParts = {
+  readonly thumbColor: string;
+  readonly thumbRect: GpuRect;
+  readonly trackColor: string;
+  readonly trackRect: GpuRect;
+};
+
 const SWITCH_CONTROL_INSET_X = 6;
 const SWITCH_CONTROL_INSET_Y = 5;
 const SWITCH_TRACK_LEFT_OFFSET = 8;
@@ -22,6 +29,7 @@ const SWITCH_ROW_TEXT_THUMB_INSET = 3;
 
 export function drawGpuRetainedContentSwitchControl({
   animationProgress,
+  animationTargetChecked,
   control,
   ctx,
   palette,
@@ -29,40 +37,70 @@ export function drawGpuRetainedContentSwitchControl({
   state,
 }: {
   readonly animationProgress?: number | undefined;
+  readonly animationTargetChecked?: boolean | undefined;
   readonly control: GpuRetainedContentSwitchControl;
   readonly ctx: CanvasRenderingContext2D;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  const disabled = state?.disabled ?? false;
-  const trackRect =
-    palette.textLikeVisualStyle === "row-text"
-      ? getGpuRetainedContentRowTextSwitchTrackRect(rect)
-      : getGpuRetainedContentSwitchTrackRect(rect);
-  ctx.fillStyle = getGpuRetainedContentSwitchTrackColor({
-    checked: control.checked,
-    disabled,
+  const parts = getGpuRetainedContentSwitchVisualParts({
+    animationProgress,
+    animationTargetChecked,
+    control,
     palette,
+    rect,
+    state,
   });
-  fillRoundRect(ctx, trackRect, trackRect.height / 2);
+  ctx.fillStyle = parts.trackColor;
+  fillRoundRect(ctx, parts.trackRect, parts.trackRect.height / 2);
 
+  ctx.fillStyle = parts.thumbColor;
+  fillRoundRect(ctx, parts.thumbRect, parts.thumbRect.height / 2);
+}
+
+export function getGpuRetainedContentSwitchVisualParts({
+  animationProgress,
+  animationTargetChecked,
+  control,
+  palette,
+  rect,
+  state,
+}: {
+  readonly animationProgress?: number | undefined;
+  readonly animationTargetChecked?: boolean | undefined;
+  readonly control: GpuRetainedContentSwitchControl;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}): GpuRetainedContentSwitchVisualParts {
+  const disabled = state?.disabled ?? false;
+  const rowTextStyle = palette.textLikeVisualStyle === "row-text";
+  const trackRect = rowTextStyle
+    ? getGpuRetainedContentRowTextSwitchTrackRect(rect)
+    : getGpuRetainedContentSwitchTrackRect(rect);
+  const checkedProgress = normalizeGpuRetainedContentSwitchAnimationProgress(
+    animationProgress,
+    control.checked,
+  );
   const thumbRect = getGpuRetainedContentSwitchThumbRect({
-    checkedProgress: normalizeGpuRetainedContentSwitchAnimationProgress(
-      animationProgress,
-      control.checked,
-    ),
+    checkedProgress,
     trackRect,
-    thumbInset:
-      palette.textLikeVisualStyle === "row-text"
-        ? SWITCH_ROW_TEXT_THUMB_INSET
-        : SWITCH_THUMB_INSET,
+    thumbInset: rowTextStyle ? SWITCH_ROW_TEXT_THUMB_INSET : SWITCH_THUMB_INSET,
   });
-  ctx.fillStyle = getGpuRetainedContentSwitchThumbColor({
-    disabled,
-    palette,
-  });
-  fillRoundRect(ctx, thumbRect, thumbRect.height / 2);
+  return {
+    thumbColor: getGpuRetainedContentSwitchThumbColor({
+      disabled,
+      palette,
+    }),
+    thumbRect,
+    trackColor: getGpuRetainedContentSwitchTrackColor({
+      checked: animationTargetChecked ?? control.checked,
+      disabled,
+      palette,
+    }),
+    trackRect,
+  };
 }
 
 export function getGpuRetainedContentSwitchTrackRect(rect: GpuRect): GpuRect {

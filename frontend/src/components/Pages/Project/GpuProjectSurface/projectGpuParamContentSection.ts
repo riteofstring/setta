@@ -6,6 +6,7 @@ import {
 export type ProjectGpuParamContentSectionImpl = BaseSectionImplUnion & {
   readonly codeObjVariantMap: Record<string, string>;
   readonly columnWidth?: number | null | undefined;
+  readonly configLanguage: string;
   readonly edgeInputParams: readonly string[] | null;
   readonly edgeOutputPorts: readonly { readonly id: string }[] | null;
   readonly hideUnpinnedParams: boolean;

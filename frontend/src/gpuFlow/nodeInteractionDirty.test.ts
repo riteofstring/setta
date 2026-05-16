@@ -84,6 +84,37 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
+  it("does not request texture work when the manager queues no dirty tiles", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const input = document.createElement("input");
+    nodeElement.append(input);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    textureManager.markSurfaceTextureDirty.mockReturnValue(false);
+    const requestFrame = vi.fn();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      surfaceId: "node-a",
+      priority: "interactive",
+      reason: "input",
+    });
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    detach();
+  });
+
   it("hands off a canvas-origin pointerdown to the projected source control", async () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");

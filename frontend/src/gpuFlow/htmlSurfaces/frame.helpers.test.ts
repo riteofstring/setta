@@ -4,7 +4,9 @@ import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import { type GpuHtmlSurfaceOverlayLayout, type GpuNodeLayout } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
-  HtmlSurfaceTextureRecord,
+  CommittedHtmlSurfaceTextureSnapshot,
+  HtmlSurfaceTextureLifecycleDiagnostic,
+  HtmlSurfaceTextureUploadWorkSummary,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
@@ -113,8 +115,8 @@ export class ThrowOnMapIteration<K, V> extends Map<K, V> {
 
 export function textureRecord(
   nodeId: string,
-  overrides: Partial<HtmlSurfaceTextureRecord> = {},
-): HtmlSurfaceTextureRecord {
+  overrides: Partial<CommittedHtmlSurfaceTextureSnapshot> = {},
+): CommittedHtmlSurfaceTextureSnapshot {
   return {
     lastUploadFrame: 0,
     sampler: {},
@@ -125,7 +127,7 @@ export function textureRecord(
     textureView: {},
     tiles: [],
     ...overrides,
-  } as HtmlSurfaceTextureRecord;
+  } as CommittedHtmlSurfaceTextureSnapshot;
 }
 
 export function canvasSize() {
@@ -139,7 +141,7 @@ export function canvasSize() {
 }
 
 export function createFrameTextureManager() {
-  const records = new Map<string, HtmlSurfaceTextureRecord>();
+  const records = new Map<string, CommittedHtmlSurfaceTextureSnapshot>();
   type EvictSurfaceTexturesInput = {
     readonly budgetBytes?: number | undefined;
     readonly protectedSurfaceIds?:
@@ -166,11 +168,48 @@ export function createFrameTextureManager() {
         reason: "html-surface-frame",
       };
     }),
-    getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
-    markSurfaceTextureDirty: vi.fn(),
+    getCommittedSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    getSurfaceTextureLifecycleDiagnostics: vi.fn(
+      (
+        surfaceIds?: Iterable<string>,
+      ): HtmlSurfaceTextureLifecycleDiagnostic[] =>
+        Array.from(surfaceIds ?? records.keys())
+          .map((surfaceId) => records.get(surfaceId))
+          .filter((record): record is CommittedHtmlSurfaceTextureSnapshot =>
+            Boolean(record),
+          )
+          .map((record) => ({
+            committed: {
+              clampedByMaxTexture: record.clampedByMaxTexture ?? false,
+              cssHeight: record.cssHeight ?? 0,
+              cssWidth: record.cssWidth ?? 0,
+              dirtyContent: record.dirtyContent ?? false,
+              dirtyResolution: record.dirtyResolution ?? false,
+              lastUploadFrame: record.lastUploadFrame,
+              pixelHeight: record.pixelHeight ?? 0,
+              pixelWidth: record.pixelWidth ?? 0,
+              requestedScale: record.requestedScale ?? 1,
+              resolutionScale: record.resolutionScale ?? 1,
+              textureBytes: record.textureBytes,
+              textureLayoutKind: record.textureLayout.kind,
+              tileCount: record.textureLayout.tileCount,
+              zoomBucket: record.zoomBucket ?? 1,
+            },
+            pending: null,
+            pendingResolution: null,
+            priority: record.priority ?? "visible",
+            surfaceId: record.surfaceId,
+          })),
+    ),
+    markSurfaceTextureDirty: vi.fn(() => true),
+    markSurfacesPainted: vi.fn(),
     registerSurfaceTexture: vi.fn(
-      ({ surfaceId }: { readonly surfaceId: string }) => {
-        const record = textureRecord(surfaceId) as HtmlSurfaceTextureRecord & {
+      ({
+        surfaceId,
+      }: { readonly surfaceId: string } & Record<string, unknown>) => {
+        const record = textureRecord(
+          surfaceId,
+        ) as CommittedHtmlSurfaceTextureSnapshot & {
           lastUploadFrame: number;
         };
         record.lastUploadFrame = -1;
@@ -181,8 +220,10 @@ export function createFrameTextureManager() {
     uploadDirtySurfaceTextures: vi.fn(
       ({ frame }: UploadDirtyHtmlSurfaceTexturesOptions) => {
         const uploaded = Array.from(records.values()) as Array<
-          HtmlSurfaceTextureRecord & { lastUploadFrame: number }
+          CommittedHtmlSurfaceTextureSnapshot & { lastUploadFrame: number }
         >;
+        const noUploadReason: HtmlSurfaceTextureUploadWorkSummary["noUploadReason"] =
+          uploaded.length > 0 ? null : "no-dirty-surfaces";
         uploaded.forEach((record) => {
           record.lastUploadFrame = frame;
         });
@@ -197,6 +238,19 @@ export function createFrameTextureManager() {
             (bytes, record) => bytes + record.textureBytes,
             0,
           ),
+          workSummary: {
+            deferredSurfaceCount: 0,
+            initialDirtyWorkCounts: createEmptyDirtyWorkCounts(),
+            initialDirtySurfaceCount: uploaded.length,
+            noUploadReason,
+            paintUnavailableSurfaceCount: 0,
+            remainingDirtyWorkCounts: createEmptyDirtyWorkCounts(),
+            remainingDirtySurfaceCount: 0,
+            skippedSurfaceCount: 0,
+            uploadableRemainingDirtyWorkCounts: createEmptyDirtyWorkCounts(),
+            uploadableRemainingDirtySurfaceCount: 0,
+            uploadedSurfaceCount: uploaded.length,
+          },
         };
       },
     ),
@@ -212,13 +266,32 @@ const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {
   visibleTextureCount: 0,
 };
 
+function createEmptyDirtyWorkCounts(): HtmlSurfaceTextureUploadWorkSummary["initialDirtyWorkCounts"] {
+  return {
+    animation: 0,
+    content: 0,
+    geometry: 0,
+    hover: 0,
+    resolution: 0,
+    "source-window": 0,
+  };
+}
+
 export function createFrameRenderer() {
   return {
     render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
-      drawnSurfaceIds: scene.flatSurfaces.map((surface) => surface.surfaceId),
+      drawnSurfaceIds: [
+        ...scene.flatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
+      ],
       edgeVertexCount: (edges?.length ?? 0) * 2,
-      vertexCount: scene.flatSurfaces.length * 6,
+      vertexCount:
+        (scene.flatSurfaces.length +
+          scene.tiledFlatSurfaces.length +
+          scene.solidRoundedRectSurfaces.length) *
+        6,
     })),
   };
 }

@@ -12,8 +12,12 @@ export type GpuFlowQueueCall = {
   readonly height?: number | undefined;
   readonly index: number;
   readonly method: GpuFlowQueueMethodName;
+  readonly sourceHeight?: number | undefined;
   readonly sourceInteractive?: boolean | undefined;
   readonly sourceNodeId?: string | undefined;
+  readonly sourceWidth?: number | undefined;
+  readonly sourceX?: number | undefined;
+  readonly sourceY?: number | undefined;
   readonly timestampMs: number;
   readonly width?: number | undefined;
 };
@@ -49,12 +53,18 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly skippedNodeCount: number;
+  readonly solidRoundedRectSurfaceCount: number;
   readonly textureAllocatedBytes: number;
   readonly textureCount: number;
   readonly textureLargestBytes: number;
   readonly textureVisibleBytes: number;
   readonly timestampMs: number;
   readonly uploadedNodeIds: readonly string[];
+  readonly viewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
   readonly visibleNodeCount: number;
 };
 
@@ -147,6 +157,25 @@ export async function ensureGpuFlowPerformanceQueueWrappers(
   }, GPU_FLOW_PERFORMANCE_PROBE_KEY);
 }
 
+export async function setGpuFlowPerformanceSourceMutationRecording(
+  page: Page,
+  enabled: boolean,
+): Promise<void> {
+  await page.evaluate(
+    ({ enabled, probeKey }) => {
+      const api = (
+        window as Window &
+          Record<string, { setSourceMutationRecording(enabled: boolean): void }>
+      )[probeKey];
+      if (!api) {
+        throw new Error("Setta GPU flow performance probe is not installed.");
+      }
+      api.setSourceMutationRecording(enabled);
+    },
+    { enabled, probeKey: GPU_FLOW_PERFORMANCE_PROBE_KEY },
+  );
+}
+
 export async function readGpuFlowPerformanceSnapshot(
   page: Page,
 ): Promise<GpuFlowPerformanceSnapshot> {
@@ -188,6 +217,7 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
   return [
     getGpuQueueMethod.toString(),
     recordCopyElementImageToTextureCall.toString(),
+    isCopyElementImageToTextureSourceRectCall.toString(),
     recordWriteBufferCall.toString(),
     recordSourceMutation.toString(),
     startSourceMutationObserver.toString(),
@@ -197,9 +227,11 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
+    viewportValue.toString(),
     objectValue.toString(),
     numberValue.toString(),
     arrayLength.toString(),
+    numberOrArrayLength.toString(),
     stringArray.toString(),
     `(${installGpuFlowPerformanceProbeInPage.toString()})();`,
   ].join("\n");
@@ -319,7 +351,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 1) {
+  if (existing?.version === 4) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -347,6 +379,7 @@ function installGpuFlowPerformanceProbeInPage() {
     queueCalls: [] as GpuFlowQueueCall[],
     queueWrappersInstalled: false,
     requestPaintCalls: [] as GpuFlowRequestPaintCall[],
+    sourceMutationRecording: true,
     sourceMutationObserver: null as MutationObserver | null,
     sourceMutations: [] as GpuFlowSourceMutation[],
   };
@@ -439,6 +472,14 @@ function installGpuFlowPerformanceProbeInPage() {
       state.requestPaintCalls = [];
       state.sourceMutations = [];
     },
+    setSourceMutationRecording(enabled: boolean) {
+      state.sourceMutationRecording = enabled;
+      if (enabled) {
+        startSourceMutationObserver(state);
+        return;
+      }
+      stopSourceMutationObserver(state);
+    },
     snapshot(): GpuFlowPerformanceSnapshot {
       return {
         frameCount: state.frameCount,
@@ -473,7 +514,7 @@ function installGpuFlowPerformanceProbeInPage() {
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 1,
+    version: 4,
   };
   win[probeKey] = api;
   api.installQueueWrappers();
@@ -494,18 +535,68 @@ function recordCopyElementImageToTextureCall(
   args: readonly unknown[],
 ) {
   const sourceElement = args[0] instanceof Element ? args[0] : null;
-  const sourceNode = sourceElement?.closest('[data-gpu-flow-node="true"]');
+  const sourceRectCall = isCopyElementImageToTextureSourceRectCall(args);
+  const sourceNode = sourceElement?.closest(
+    [
+      '[data-gpu-flow-node="true"]',
+      '[data-gpu-flow-html-source="true"]',
+      '[data-gpu-flow-surface="true"]',
+    ].join(","),
+  );
   state.queueCalls.push({
-    height: typeof args[2] === "number" ? args[2] : undefined,
+    height: sourceRectCall
+      ? args[6]
+      : typeof args[2] === "number"
+        ? args[2]
+        : undefined,
     index: state.queueCalls.length,
     method: "copyElementImageToTexture",
+    ...(sourceRectCall
+      ? {
+          sourceHeight: args[4],
+          sourceWidth: args[3],
+          sourceX: args[1],
+          sourceY: args[2],
+        }
+      : {}),
     sourceInteractive: sourceNode
       ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true"
       : undefined,
-    sourceNodeId: sourceNode?.getAttribute("data-id") ?? undefined,
+    sourceNodeId:
+      sourceNode?.getAttribute("data-id") ??
+      sourceNode?.getAttribute("data-gpu-flow-source-id") ??
+      sourceNode?.getAttribute("data-html-surface-id") ??
+      undefined,
     timestampMs: performance.now(),
-    width: typeof args[1] === "number" ? args[1] : undefined,
+    width: sourceRectCall
+      ? args[5]
+      : typeof args[1] === "number"
+        ? args[1]
+        : undefined,
   });
+}
+
+function isCopyElementImageToTextureSourceRectCall(
+  args: readonly unknown[],
+): args is readonly [
+  Element,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  ...unknown[],
+] {
+  return (
+    args[0] instanceof Element &&
+    typeof args[1] === "number" &&
+    typeof args[2] === "number" &&
+    typeof args[3] === "number" &&
+    typeof args[4] === "number" &&
+    typeof args[5] === "number" &&
+    typeof args[6] === "number"
+  );
 }
 
 function recordWriteBufferCall(
@@ -552,10 +643,14 @@ function recordSourceMutation(
 }
 
 function startSourceMutationObserver(state: {
+  sourceMutationRecording: boolean;
   sourceMutationObserver: MutationObserver | null;
   sourceMutations: GpuFlowSourceMutation[];
 }) {
-  if (typeof MutationObserver !== "function") {
+  if (
+    !state.sourceMutationRecording ||
+    typeof MutationObserver !== "function"
+  ) {
     return;
   }
   const start = () => {
@@ -640,27 +735,87 @@ function toNodeLayerFrameSummary(
       ? (result as Record<string, unknown>)
       : {};
   const textureMemory = objectValue(value.textureMemory);
+  const uploadDiagnostics = Array.isArray(value.uploadDiagnostics)
+    ? value.uploadDiagnostics
+    : [];
   return {
     activeNodeId:
       typeof value.activeNodeId === "string" ? value.activeNodeId : null,
     budgetExhausted: value.budgetExhausted === true,
-    drawnEdgeCount: arrayLength(value.drawnEdgeIds),
-    drawnNodeCount: arrayLength(value.drawnNodeIds),
+    drawnEdgeCount: numberOrArrayLength(
+      value.drawnEdgeCount,
+      value.drawnEdgeIds,
+    ),
+    drawnNodeCount: numberOrArrayLength(
+      value.drawnNodeCount,
+      value.drawnNodeIds,
+    ),
     edgeVertexCount:
       typeof value.edgeVertexCount === "number" ? value.edgeVertexCount : 0,
     evictedTextureBytes: numberValue(value.evictedTextureBytes),
     evictedTextureNodeIds: stringArray(value.evictedTextureNodeIds),
-    missingElementNodeCount: arrayLength(value.missingElementNodeIds),
-    missingTextureNodeCount: arrayLength(value.missingTextureNodeIds),
-    remainingDirtyNodeCount: arrayLength(value.remainingDirtyNodeIds),
-    skippedNodeCount: arrayLength(value.skippedNodeIds),
-    textureAllocatedBytes: numberValue(textureMemory.allocatedBytes),
-    textureCount: numberValue(textureMemory.textureCount),
-    textureLargestBytes: numberValue(textureMemory.largestTextureBytes),
-    textureVisibleBytes: numberValue(textureMemory.visibleBytes),
+    missingElementNodeCount: numberOrArrayLength(
+      value.missingElementNodeCount,
+      value.missingElementNodeIds,
+    ),
+    missingTextureNodeCount: numberOrArrayLength(
+      value.missingTextureNodeCount,
+      value.missingTextureNodeIds,
+    ),
+    remainingDirtyNodeCount: numberOrArrayLength(
+      value.remainingDirtyNodeCount,
+      value.remainingDirtyNodeIds,
+    ),
+    skippedNodeCount: numberOrArrayLength(
+      value.skippedNodeCount,
+      value.skippedNodeIds,
+    ),
+    solidRoundedRectSurfaceCount: numberValue(
+      value.solidRoundedRectSurfaceCount,
+    ),
+    textureAllocatedBytes:
+      numberValue(value.textureMemoryAllocatedBytes) ||
+      numberValue(textureMemory.allocatedBytes),
+    textureCount:
+      numberValue(value.textureMemoryCount) ||
+      numberValue(textureMemory.textureCount),
+    textureLargestBytes:
+      numberValue(value.textureMemoryLargestBytes) ||
+      numberValue(textureMemory.largestTextureBytes),
+    textureVisibleBytes:
+      numberValue(value.textureMemoryVisibleBytes) ||
+      numberValue(textureMemory.visibleBytes),
     timestampMs: performance.now(),
-    uploadedNodeIds: stringArray(value.uploadedNodeIds),
-    visibleNodeCount: arrayLength(value.visibleNodeIds),
+    uploadedNodeIds:
+      stringArray(value.uploadedNodeIds).length > 0
+        ? stringArray(value.uploadedNodeIds)
+        : uploadDiagnostics
+            .map((diagnostic) =>
+              diagnostic && typeof diagnostic === "object"
+                ? (diagnostic as { surfaceId?: unknown }).surfaceId
+                : null,
+            )
+            .filter(
+              (surfaceId): surfaceId is string => typeof surfaceId === "string",
+            ),
+    viewport: viewportValue(value.viewport),
+    visibleNodeCount: numberOrArrayLength(
+      value.visibleNodeCount,
+      value.visibleNodeIds,
+    ),
+  };
+}
+
+function viewportValue(value: unknown): {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+} {
+  const viewport = objectValue(value);
+  return {
+    x: numberValue(viewport.x),
+    y: numberValue(viewport.y),
+    zoom: numberValue(viewport.zoom) || 1,
   };
 }
 
@@ -676,6 +831,10 @@ function numberValue(value: unknown): number {
 
 function arrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
+}
+
+function numberOrArrayLength(count: unknown, values: unknown): number {
+  return typeof count === "number" ? count : arrayLength(values);
 }
 
 function stringArray(value: unknown): readonly string[] {

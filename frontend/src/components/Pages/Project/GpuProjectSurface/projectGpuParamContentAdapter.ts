@@ -587,8 +587,8 @@ function createProjectGpuParamRows({
     filteredRows.paramIds,
     filteredRows.requiredParamIdsToPaths,
   );
-  const selectedParamIds = new Set(sectionImpl.selectedParams ?? []);
-  const edgeInputParamIds = new Set(sectionImpl.edgeInputParams);
+  const selectedParamIds = new Set<string>(sectionImpl.selectedParams ?? []);
+  const edgeInputParamIds = new Set<string>(sectionImpl.edgeInputParams ?? []);
   const paramDuplicateIndex = buildParamDuplicateIndexIfPresent(
     projectState,
     sectionId,
@@ -623,7 +623,9 @@ function createProjectGpuParamRows({
         activeParamCanvasControl:
           retainedInteractionState.activeParamCanvasControl,
         activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
+        activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
         codeObjImpl,
+        configLanguage: sectionImpl.configLanguage,
         disabled: resolveProjectGpuRetainedParamRowDisabled({
           codeObjType: codeObjImpl.type,
           editPolicy,
@@ -697,6 +699,10 @@ function createProjectGpuParamListContentSurfaces({
       getProjectSectionSceneSearchHeight(sectionImpl),
     kwargsControlsHeight:
       getProjectSectionSceneKwargsControlsHeight(sectionImpl),
+    pinnedContentHeight: getProjectGpuParamListContentHeight(
+      listRows,
+      "pinned",
+    ),
     pinnedRowVerticalGapHeight: getProjectGpuParamListVerticalGapHeight(
       listRows,
       "pinned",
@@ -712,10 +718,7 @@ function createProjectGpuParamListContentSurfaces({
       nextLocalY,
     });
     const remainingHeight = Math.max(0, section.bodyRect.height - listLocalY);
-    const contentHeight = getGpuRetainedRowContentHeight({
-      rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
-      rows: list.rows,
-    });
+    const contentHeight = getProjectGpuParamRowsContentHeight(list.rows);
     const height = getProjectGpuParamListSurfaceHeight({
       contentHeight,
       listKey: list.key,
@@ -758,6 +761,7 @@ function createProjectGpuParamListContentSurfaces({
       id: surfaceId,
       ownerSectionId: section.sectionId,
       rect,
+      retainedScrollResetKey: surfaceId,
       retainedScene: createGpuRetainedRowContentScene({
         activePopup: getProjectGpuParamRetainedContentActivePopupInput({
           activeParamCanvasPopup,
@@ -778,6 +782,7 @@ function createProjectGpuParamListContentSurfaces({
         labelControlGap: PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+        rowVisualBounds: { width: localRect.width, x: 0 },
         rows: list.rows,
         scrollOffset,
         viewportRect,
@@ -853,6 +858,24 @@ function getProjectGpuParamListVerticalGapHeight(
         0,
       ) ?? 0
   );
+}
+
+function getProjectGpuParamListContentHeight(
+  listRows: readonly ProjectGpuParamListRows[],
+  key: ProjectGpuParamListKey,
+): number {
+  return getProjectGpuParamRowsContentHeight(
+    listRows.find((list) => list.key === key)?.rows ?? [],
+  );
+}
+
+function getProjectGpuParamRowsContentHeight(
+  rows: readonly GpuRetainedContentRowInput[],
+): number {
+  return getGpuRetainedRowContentHeight({
+    rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+    rows,
+  });
 }
 
 function getProjectGpuParamRetainedContentActivePopupInput({

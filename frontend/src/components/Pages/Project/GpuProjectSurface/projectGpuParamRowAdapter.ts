@@ -11,10 +11,7 @@ import {
   formatGpuRetainedNumericControlValue,
   snapGpuRetainedNumericControlValue,
 } from "gpuFlow/retainedContentControls";
-import type {
-  GpuRetainedContentDateCalendarDescriptor,
-  GpuRetainedContentDateCalendarMonth,
-} from "gpuFlow/retainedContentDateCalendarTypes";
+import type { GpuRetainedContentDateCalendarMonth } from "gpuFlow/retainedContentDateCalendarTypes";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDropdownChoice,
@@ -30,51 +27,29 @@ import type {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
-  buildCalendarMonthGrid,
-  resolveCalendarAnchorDate,
-} from "utils/calendarGrid";
-import {
-  parseCalendarSelectedDates,
-  resolveCalendarSummaryText,
-} from "utils/calendarSelection";
-import {
   CodeObjTypeEnum,
-  DateControlModeEnum,
-  DateSelectionModeEnum,
   DropzoneModeEnum,
-  TextParamUIConfig,
-  TimeControlModeEnum,
-  TimeDisplayFormatEnum,
   type ButtonParamCodeObjImpl,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
-  type DateParamCodeObjImpl,
-  type DateSelectionMode,
   type DropdownParamCodeObjImpl,
   type DropzoneParamCodeObjImpl,
   type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
-  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
-import {
-  formatDateForDisplay,
-  formatDateTimeForDisplay,
-  formatTimeForDisplay,
-  getLocalTodayIsoDate,
-  splitIsoDateAndTimeParts,
-} from "utils/textParamDateTime";
 import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
 import { createProjectGpuColorPickerControlDescriptor } from "./projectGpuParamColorPickerRowDescriptor";
+import { createProjectGpuDateTimeControlDescriptorIfSupported } from "./projectGpuParamDateTimeRowDescriptor";
 import { toProjectGpuParamDisplayValue } from "./projectGpuParamDisplayValue";
 import { createProjectGpuPasswordControlDescriptor } from "./projectGpuParamPasswordRowDescriptor";
+import { getProjectGpuParamTextLikePolicyRowHeight } from "./projectGpuParamRowHeight";
 import { resolveProjectGpuParamRowLabel } from "./projectGpuParamRowLabel";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
 import { getProjectGpuParamRowStatusMessages } from "./projectGpuParamRowStatusMessages";
 import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
-  validateProjectGpuDateCalendarVisibleMonth,
   type ProjectGpuRetainedParamCanvasPopupLike,
 } from "./projectGpuRetainedParamDateCalendarMonth";
 import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
@@ -90,6 +65,11 @@ type ProjectGpuRetainedParamTargetLike = {
   readonly surfaceId: string;
 };
 
+type ProjectGpuRetainedParamDomIslandTargetLike =
+  ProjectGpuRetainedParamTargetLike & {
+    readonly hitRecordId: string;
+  };
+
 type ProjectGpuParamTreeRowLike = {
   readonly depth: number;
   readonly id: string;
@@ -99,7 +79,9 @@ type ProjectGpuParamTreeRowLike = {
 export function createProjectGpuParamRowInput({
   activeParamCanvasControl,
   activeParamCanvasPopup,
+  activeParamDomIsland,
   codeObjImpl,
+  configLanguage,
   disabled,
   draggingParamIds,
   edgeInputParamIds,
@@ -123,11 +105,16 @@ export function createProjectGpuParamRowInput({
     | ProjectGpuRetainedParamCanvasPopupLike
     | null
     | undefined;
+  readonly activeParamDomIsland?:
+    | ProjectGpuRetainedParamDomIslandTargetLike
+    | null
+    | undefined;
   readonly codeObjImpl: {
     readonly defaultVal?: unknown;
     readonly type: string;
     readonly value?: unknown;
   };
+  readonly configLanguage: string;
   readonly disabled?: boolean | undefined;
   readonly draggingParamIds: ReadonlySet<string> | null;
   readonly edgeInputParamIds: ReadonlySet<string>;
@@ -169,19 +156,22 @@ export function createProjectGpuParamRowInput({
       sectionParamTypeErrors,
     }),
   );
+  const control = createProjectGpuParamControlDescriptor({
+    codeObjImpl,
+    configLanguage,
+    controlKind,
+    dateCalendarVisibleMonth,
+    isParent: row.isParent,
+    isDeploymentMode: isDeploymentMode ?? false,
+    passwordRevealStates,
+    rowId: row.id,
+    sectionId,
+  });
   return {
-    control: createProjectGpuParamControlDescriptor({
-      codeObjImpl,
-      controlKind,
-      dateCalendarVisibleMonth,
-      isParent: row.isParent,
-      isDeploymentMode: isDeploymentMode ?? false,
-      passwordRevealStates,
-      rowId: row.id,
-      sectionId,
-    }),
+    control,
     controlKind,
     depth: row.depth,
+    ...getProjectGpuParamRowHeightInput(control),
     id: row.id,
     ...resolveProjectGpuParamRowLabel({
       codeObjImpl,
@@ -194,6 +184,7 @@ export function createProjectGpuParamRowInput({
       : [],
     state: createProjectGpuParamRowState({
       activeParamCanvasControl,
+      activeParamDomIsland,
       disabled,
       draggingParamIds,
       hoveredParamTarget,
@@ -208,8 +199,19 @@ export function createProjectGpuParamRowInput({
   };
 }
 
+function getProjectGpuParamRowHeightInput(
+  control: GpuRetainedContentControlDescriptor | null,
+): Pick<GpuRetainedContentRowInput, "height"> | Record<string, never> {
+  if (control?.kind !== "text-like") {
+    return {};
+  }
+  const height = getProjectGpuParamTextLikePolicyRowHeight(control.policy);
+  return height === null ? {} : { height };
+}
+
 function createProjectGpuParamControlDescriptor({
   codeObjImpl,
+  configLanguage,
   controlKind,
   dateCalendarVisibleMonth,
   isParent,
@@ -223,6 +225,7 @@ function createProjectGpuParamControlDescriptor({
     readonly type: string;
     readonly value?: unknown;
   };
+  readonly configLanguage: string;
   readonly controlKind: string | null;
   readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
   readonly isDeploymentMode: boolean;
@@ -238,6 +241,7 @@ function createProjectGpuParamControlDescriptor({
   }
   return createProjectGpuLeafParamControlDescriptor({
     codeObjImpl,
+    configLanguage,
     controlKind,
     dateCalendarVisibleMonth,
     isDeploymentMode,
@@ -249,6 +253,7 @@ function createProjectGpuParamControlDescriptor({
 
 function createProjectGpuLeafParamControlDescriptor({
   codeObjImpl,
+  configLanguage,
   controlKind,
   dateCalendarVisibleMonth,
   isDeploymentMode,
@@ -261,6 +266,7 @@ function createProjectGpuLeafParamControlDescriptor({
     readonly type: string;
     readonly value?: unknown;
   };
+  readonly configLanguage: string;
   readonly controlKind: string;
   readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
   readonly isDeploymentMode: boolean;
@@ -273,6 +279,7 @@ function createProjectGpuLeafParamControlDescriptor({
   return (
     createProjectGpuTextLikeControlDescriptorIfSupported({
       codeObjImpl,
+      configLanguage,
       controlKind,
     }) ??
     createProjectGpuSpecializedControlDescriptorIfSupported({
@@ -374,268 +381,6 @@ function createProjectGpuSpecializedControlDescriptorIfSupported({
     });
   }
   return null;
-}
-
-function createProjectGpuDateTimeControlDescriptorIfSupported({
-  codeObjImpl,
-  controlKind,
-  dateCalendarVisibleMonth,
-}: {
-  readonly codeObjImpl: {
-    readonly defaultVal?: unknown;
-    readonly type: string;
-    readonly value?: unknown;
-  };
-  readonly controlKind: string;
-  readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
-}): GpuRetainedContentControlDescriptor | null {
-  if (
-    codeObjImpl.type !== CodeObjTypeEnum.DateParam &&
-    codeObjImpl.type !== CodeObjTypeEnum.TimeParam
-  ) {
-    return null;
-  }
-  return createProjectGpuDateTimeControlDescriptor({
-    codeObjImpl: codeObjImpl as DateParamCodeObjImpl | TimeParamCodeObjImpl,
-    controlKind,
-    dateCalendarVisibleMonth,
-  });
-}
-
-function createProjectGpuDateTimeControlDescriptor({
-  codeObjImpl,
-  controlKind,
-  dateCalendarVisibleMonth,
-}: {
-  readonly codeObjImpl: DateParamCodeObjImpl | TimeParamCodeObjImpl;
-  readonly controlKind: string;
-  readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
-}): GpuRetainedContentControlDescriptor {
-  if (codeObjImpl.type === CodeObjTypeEnum.DateParam) {
-    return createProjectGpuDateControlDescriptor({
-      codeObjImpl,
-      controlKind,
-      dateCalendarVisibleMonth,
-    });
-  }
-  return createProjectGpuTimeControlDescriptor({
-    codeObjImpl,
-    controlKind,
-  });
-}
-
-function createProjectGpuDateControlDescriptor({
-  codeObjImpl,
-  controlKind,
-  dateCalendarVisibleMonth,
-}: {
-  readonly codeObjImpl: DateParamCodeObjImpl;
-  readonly controlKind: string;
-  readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
-}): GpuRetainedContentControlDescriptor {
-  const displayValue = getProjectGpuDateControlDisplayValue(codeObjImpl);
-  const mode = getProjectGpuDateControlMode(codeObjImpl);
-  return {
-    calendar:
-      mode === "date-calendar"
-        ? createProjectGpuDateCalendarDescriptor(
-            codeObjImpl,
-            dateCalendarVisibleMonth,
-          )
-        : null,
-    defaultDisplayValue: getProjectGpuDateControlDisplayValue({
-      ...codeObjImpl,
-      value: codeObjImpl.defaultVal,
-    }),
-    displayValue,
-    kind: "date-time",
-    label: getProjectGpuDateControlLabel(codeObjImpl),
-    mode,
-    rendererFamily: controlKind,
-    summaryText: getProjectGpuDateControlSummaryText(codeObjImpl),
-    commitPolicy: mode === "date-calendar" ? "immediate" : "native-island",
-  };
-}
-
-function createProjectGpuTimeControlDescriptor({
-  codeObjImpl,
-  controlKind,
-}: {
-  readonly codeObjImpl: TimeParamCodeObjImpl;
-  readonly controlKind: string;
-}): GpuRetainedContentControlDescriptor {
-  return {
-    calendar: null,
-    defaultDisplayValue: getProjectGpuTimeControlDisplayValue({
-      ...codeObjImpl,
-      value: codeObjImpl.defaultVal,
-    }),
-    displayValue: getProjectGpuTimeControlDisplayValue(codeObjImpl),
-    kind: "date-time",
-    label:
-      codeObjImpl.timeControlMode === TimeControlModeEnum.display
-        ? "Display time"
-        : "Time input",
-    mode:
-      codeObjImpl.timeControlMode === TimeControlModeEnum.display
-        ? "time-display"
-        : "time-input",
-    rendererFamily: controlKind,
-    summaryText: null,
-    commitPolicy: "native-island",
-  };
-}
-
-function getProjectGpuDateControlDisplayValue(
-  codeObjImpl: DateParamCodeObjImpl,
-): string {
-  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  if (codeObjImpl.dateIncludesTime) {
-    return formatDateTimeForDisplay({
-      raw: value,
-      dateDisplayFormat: codeObjImpl.dateDisplayFormat,
-      timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-    });
-  }
-  return formatDateForDisplay(value, codeObjImpl.dateDisplayFormat);
-}
-
-function getProjectGpuTimeControlDisplayValue(
-  codeObjImpl: TimeParamCodeObjImpl,
-): string {
-  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  const formatted = formatTimeForDisplay(value, codeObjImpl.timeDisplayFormat);
-  return formatted.trim().length > 0 ? formatted : "--:--";
-}
-
-function getProjectGpuDateControlMode(
-  codeObjImpl: DateParamCodeObjImpl,
-): "date-calendar" | "date-input" | "date-time-input" {
-  if (codeObjImpl.dateControlMode === DateControlModeEnum.calendar) {
-    return "date-calendar";
-  }
-  return codeObjImpl.dateIncludesTime ? "date-time-input" : "date-input";
-}
-
-function getProjectGpuDateControlLabel(
-  codeObjImpl: DateParamCodeObjImpl,
-): string {
-  if (codeObjImpl.dateControlMode === DateControlModeEnum.calendar) {
-    return codeObjImpl.dateIncludesTime ? "Calendar + time" : "Calendar";
-  }
-  return codeObjImpl.dateIncludesTime ? "Date + time input" : "Date input";
-}
-
-function getProjectGpuDateControlSummaryText(
-  codeObjImpl: DateParamCodeObjImpl,
-): string | null {
-  if (codeObjImpl.dateControlMode !== DateControlModeEnum.calendar) {
-    return null;
-  }
-  const selectionMode = codeObjImpl.dateIncludesTime
-    ? DateSelectionModeEnum.single
-    : codeObjImpl.dateSelectionMode;
-  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  const selectedDates = parseCalendarSelectedDates(
-    value,
-    selectionMode,
-    codeObjImpl.dateIncludesTime,
-  );
-  return resolveCalendarSummaryText({
-    selectedDates,
-    value,
-    selectionMode,
-    includeTime: codeObjImpl.dateIncludesTime,
-    splitDateTime: splitIsoDateAndTimeParts(value),
-    dateDisplayFormat: codeObjImpl.dateDisplayFormat,
-    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-  });
-}
-
-function createProjectGpuDateCalendarDescriptor(
-  codeObjImpl: DateParamCodeObjImpl,
-  visibleMonth: GpuRetainedContentDateCalendarMonth | null,
-): GpuRetainedContentDateCalendarDescriptor {
-  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  const selectionMode = getProjectGpuDateCalendarSelectionMode(codeObjImpl);
-  const splitDateTime = splitIsoDateAndTimeParts(value);
-  const selectedDates = parseCalendarSelectedDates(
-    value,
-    selectionMode,
-    codeObjImpl.dateIncludesTime,
-  );
-  const anchor =
-    visibleMonth ?? resolveCalendarAnchorDate(selectedDates[0] ?? "");
-  validateProjectGpuDateCalendarVisibleMonth(anchor);
-  const selectedDateSet = new Set(selectedDates);
-  const todayIso = getLocalTodayIsoDate();
-  const summaryText = resolveCalendarSummaryText({
-    selectedDates,
-    value,
-    selectionMode,
-    includeTime: codeObjImpl.dateIncludesTime,
-    splitDateTime,
-    dateDisplayFormat: codeObjImpl.dateDisplayFormat,
-    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
-  });
-  return {
-    cells: buildCalendarMonthGrid({
-      year: anchor.year,
-      monthIndex: anchor.monthIndex,
-      weekStartsOn: codeObjImpl.dateCalendarWeekStart,
-    }).map((cell) => ({
-      dayOfMonth: cell.dayOfMonth,
-      inCurrentMonth: cell.inCurrentMonth,
-      isoDate: cell.isoDate,
-      selected: selectedDateSet.has(cell.isoDate),
-      today: cell.isoDate === todayIso,
-    })),
-    includeTime: codeObjImpl.dateIncludesTime,
-    month: {
-      monthIndex: anchor.monthIndex,
-      year: anchor.year,
-    },
-    monthTitle: formatProjectGpuDateCalendarMonthTitle(
-      anchor.year,
-      anchor.monthIndex,
-    ),
-    selectedDates,
-    selectedTimeValue: splitDateTime?.time24 ?? "00:00",
-    selectionMode,
-    summaryText,
-    weekdayLabels: getProjectGpuDateCalendarWeekdayLabels(
-      codeObjImpl.dateCalendarWeekStart,
-    ),
-  };
-}
-
-function getProjectGpuDateCalendarSelectionMode(
-  codeObjImpl: DateParamCodeObjImpl,
-): DateSelectionMode {
-  return codeObjImpl.dateIncludesTime
-    ? DateSelectionModeEnum.single
-    : codeObjImpl.dateSelectionMode;
-}
-
-function getProjectGpuDateCalendarWeekdayLabels(
-  weekStart: DateParamCodeObjImpl["dateCalendarWeekStart"],
-): readonly string[] {
-  const labels = TextParamUIConfig.calendarWeekdayLabelsByWeekStart[weekStart];
-  if (!labels) {
-    throw new Error(`Missing GPU retained weekday labels for ${weekStart}.`);
-  }
-  return labels;
-}
-
-function formatProjectGpuDateCalendarMonthTitle(
-  year: number,
-  monthIndex: number,
-): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
 function createProjectGpuDropdownControlDescriptor({
@@ -871,6 +616,7 @@ function isProjectGpuSwitchValueChecked(value: string): boolean {
 
 function createProjectGpuParamRowState({
   activeParamCanvasControl,
+  activeParamDomIsland,
   disabled,
   draggingParamIds,
   hoveredParamTarget,
@@ -883,6 +629,10 @@ function createProjectGpuParamRowState({
 }: {
   readonly activeParamCanvasControl?:
     | ProjectGpuRetainedParamTargetLike
+    | null
+    | undefined;
+  readonly activeParamDomIsland?:
+    | ProjectGpuRetainedParamDomIslandTargetLike
     | null
     | undefined;
   readonly disabled?: boolean | undefined;
@@ -916,36 +666,26 @@ function createProjectGpuParamRowState({
       hoveredParamTarget,
       rowTarget,
     ),
-    searchFocused: isProjectGpuParamSearchFocused({
-      projectSearch,
-      rowId,
-      sectionId,
-    }),
-    searchMatched: isProjectGpuParamSearchMatched({
-      projectSearch,
-      rowId,
-      sectionId,
-    }),
+    ...getProjectGpuParamNativeRowState(activeParamDomIsland, rowTarget),
+    ...getProjectGpuParamSearchState({ projectSearch, rowId, sectionId }),
     selected: selectedParamIds.has(rowId),
   };
 }
 
-function isProjectGpuParamSearchFocused({
-  projectSearch,
-  rowId,
-  sectionId,
-}: {
-  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
-  readonly rowId: string;
-  readonly sectionId: string;
-}): boolean {
-  const focused = projectSearch?.focused;
-  return Boolean(
-    focused && focused.sectionId === sectionId && focused.paramInfoId === rowId,
-  );
+function getProjectGpuParamNativeRowState(
+  target: ProjectGpuRetainedParamDomIslandTargetLike | null | undefined,
+  row: ProjectGpuRetainedParamTargetLike,
+) {
+  if (!target || !isProjectGpuRetainedParamTargetForRow(target, row)) {
+    return { nativeControlActive: false, nativeLabelActive: false };
+  }
+  return {
+    nativeControlActive: target.hitRecordId.startsWith("control:"),
+    nativeLabelActive: target.hitRecordId.startsWith("label:"),
+  };
 }
 
-function isProjectGpuParamSearchMatched({
+function getProjectGpuParamSearchState({
   projectSearch,
   rowId,
   sectionId,
@@ -953,11 +693,19 @@ function isProjectGpuParamSearchMatched({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly rowId: string;
   readonly sectionId: string;
-}): boolean {
-  return (
-    projectSearch?.lookup.has(createProjectSearchLookupKey(sectionId, rowId)) ??
-    false
-  );
+}) {
+  const focused = projectSearch?.focused;
+  return {
+    searchFocused: Boolean(
+      focused &&
+        focused.sectionId === sectionId &&
+        focused.paramInfoId === rowId,
+    ),
+    searchMatched:
+      projectSearch?.lookup.has(
+        createProjectSearchLookupKey(sectionId, rowId),
+      ) ?? false,
+  };
 }
 
 function isProjectGpuRetainedParamTargetForRow(

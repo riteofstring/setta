@@ -5,6 +5,9 @@ export const HTML_SURFACE_SOURCE_SELECTOR =
 
 export const HTML_SURFACE_SOURCE_ID_ATTRIBUTE = "data-gpu-flow-source-id";
 
+export const HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE =
+  "data-gpu-flow-explicit-dirty-source";
+
 export const HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE =
   "data-gpu-flow-projected-interaction";
 

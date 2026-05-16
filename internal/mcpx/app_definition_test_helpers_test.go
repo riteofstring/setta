@@ -16,17 +16,6 @@ func setTestAppDefinition(
 	appsubsystemtest.SetTestAppDefinition(t, runtime, input)
 }
 
-func mustMarshalTestRawJSON(t *testing.T, value any, field string) projectstate.RawJSON {
-	return appsubsystemtest.MustMarshalTestRawJSON(t, value, field)
-}
-
-func mustMarshalStoredAppDefinition(
-	t *testing.T,
-	definition appdefinition.AppDefinition,
-) projectstate.RawJSON {
-	return appsubsystemtest.MustMarshalStoredAppDefinition(t, definition)
-}
-
 func mustDecodeStoredAppDefinition(
 	t *testing.T,
 	raw projectstate.RawJSON,

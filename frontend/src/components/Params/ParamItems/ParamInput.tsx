@@ -22,6 +22,7 @@ import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs"
 import { ParamUI } from "../ParamUIs/ParamUI";
 import {
   commitParamInputValueChange,
+  flushPendingParamInputValueChange,
   getParamInputPreviewState,
   type ParamInputPreviewState,
 } from "./paramValueUpdates";
@@ -256,6 +257,18 @@ function _ParamInput({
     });
     setPendingValue(nextValue);
   }
+  function onTextInputBlur() {
+    if (!hasPreviewParamState || isPasswordParam) {
+      return;
+    }
+    flushPendingParamInputValueChange({
+      codeObjVariantId,
+      paramInfoId,
+      projectConfigId,
+      sectionId,
+      sectionVariantId: previewParamState.sectionVariantId,
+    });
+  }
   function onRevealPassword() {
     if (!hasPreviewParamState || !isPasswordParam || isRevealing || value) {
       return;
@@ -291,6 +304,7 @@ function _ParamInput({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onTextInputBlur={onTextInputBlur}
       onDropzoneStateless={onDropzoneStateless}
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}

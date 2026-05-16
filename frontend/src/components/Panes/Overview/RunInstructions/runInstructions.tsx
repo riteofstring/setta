@@ -134,7 +134,7 @@ export const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
 
 export const TOGGLE_THUMB_CLASSES =
-  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
+  "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-transform duration-[50ms] will-change-transform data-[state='checked']:translate-x-4 flex";
 
 export const TOGGLE_LABEL_CLASSES =
   "text-[10px] text-setta-500 dark:text-setta-400";

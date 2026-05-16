@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import type { GpuRetainedContentInteractionHit } from "./interactions/retainedContentInteraction";
 import { resolveGpuRetainedContentHitCursor } from "./retainedContentCursor";
 import {
@@ -113,7 +114,12 @@ function createHitRecord(
       >
     | undefined,
 ): GpuRetainedContentHitRecord {
-  const { kind = "control", optionIndex, optionValue, subpartKind } = input ?? {};
+  const {
+    kind = "control",
+    optionIndex,
+    optionValue,
+    subpartKind,
+  } = input ?? {};
   const hitRecord: GpuRetainedContentHitRecord = {
     id: `${kind}:param-a`,
     kind,
@@ -139,6 +145,7 @@ function textControl(): GpuRetainedContentControlDescriptor {
     displayValue: "abc",
     editorKind: "text",
     kind: "text-like",
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
   };
 }

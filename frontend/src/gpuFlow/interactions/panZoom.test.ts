@@ -2,6 +2,11 @@
 
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createGpuFlowViewportRuntime,
+  type GpuFlowViewportRuntime,
+} from "../viewportRuntime";
+import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuPanZoomController,
@@ -108,11 +113,13 @@ describe("GPU pan/zoom controller", () => {
       width: 600,
     });
     const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       requestFrame,
       store,
+      viewportRuntime,
     });
 
     const event = new WheelEvent("wheel", {
@@ -125,6 +132,8 @@ describe("GPU pan/zoom controller", () => {
     });
     element.dispatchEvent(event);
 
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    viewportRuntime.runFrame(16);
     const [x, y, zoom] = store.getState().transform;
     expect(event.defaultPrevented).toBe(true);
     expect(zoom).toBeGreaterThan(1);
@@ -137,6 +146,53 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().wheelZooming).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
+    viewportRuntime.destroy();
+  });
+
+  it("uses the attached runtime instead of an unrelated registered runtime", () => {
+    vi.useFakeTimers();
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      height: 400,
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const localRequestFrame = vi.fn();
+    const registeredRequestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, localRequestFrame);
+    const registeredRuntime = createTestViewportRuntime(
+      store,
+      registeredRequestFrame,
+    );
+    const unregister = registerGpuFlowViewportRuntime(store, registeredRuntime);
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      requestFrame: localRequestFrame,
+      store,
+      viewportRuntime,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 100,
+        clientY: 80,
+        deltaMode: 0,
+        deltaY: -100,
+      }),
+    );
+
+    expect(localRequestFrame).toHaveBeenCalledWith("viewport");
+    expect(registeredRequestFrame).not.toHaveBeenCalled();
+    viewportRuntime.runFrame(16);
+    expect(store.getState().transform[2]).toBeGreaterThan(1);
+
+    detach();
+    unregister();
+    viewportRuntime.destroy();
+    registeredRuntime.destroy();
   });
 
   it("lets pan-on-scroll own plain wheel when zoom-on-scroll is also enabled", () => {
@@ -146,12 +202,14 @@ describe("GPU pan/zoom controller", () => {
       transform: [0, 0, 1],
     });
     const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       panOnScroll: true,
       requestFrame,
       store,
+      viewportRuntime,
       zoomOnScroll: true,
     });
 
@@ -164,6 +222,8 @@ describe("GPU pan/zoom controller", () => {
       }),
     );
 
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([-5, -10, 1]);
     expect(store.getState().panScrolling).toBe(true);
     expect(store.getState().wheelZooming).toBe(false);
@@ -171,6 +231,7 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
+    viewportRuntime.destroy();
   });
 
   it("lets pinch zoom win over pan-on-scroll", () => {
@@ -182,12 +243,14 @@ describe("GPU pan/zoom controller", () => {
       width: 600,
     });
     const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: true,
       panOnScroll: true,
       requestFrame,
       store,
+      viewportRuntime,
       zoomOnPinch: true,
       zoomOnScroll: true,
     });
@@ -203,6 +266,7 @@ describe("GPU pan/zoom controller", () => {
       }),
     );
 
+    viewportRuntime.runFrame(16);
     const [x, y, zoom] = store.getState().transform;
     expect(zoom).toBeGreaterThan(1);
     expect(x).toBeCloseTo(120 - 120 * zoom);
@@ -212,6 +276,7 @@ describe("GPU pan/zoom controller", () => {
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
     detach();
+    viewportRuntime.destroy();
   });
 
   it("lets the zoom activation key win over pan-on-scroll", () => {
@@ -223,12 +288,14 @@ describe("GPU pan/zoom controller", () => {
       width: 600,
     });
     const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       panOnScroll: true,
       requestFrame,
       store,
+      viewportRuntime,
       zoomActivationKeyPressed: true,
       zoomOnScroll: false,
     });
@@ -243,6 +310,7 @@ describe("GPU pan/zoom controller", () => {
       }),
     );
 
+    viewportRuntime.runFrame(16);
     const [x, y, zoom] = store.getState().transform;
     expect(zoom).toBeGreaterThan(1);
     expect(x).toBeCloseTo(40 - 40 * zoom);
@@ -252,6 +320,7 @@ describe("GPU pan/zoom controller", () => {
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
     detach();
+    viewportRuntime.destroy();
   });
 
   it("pans by pointer movement from the background but not primary node drags", () => {
@@ -262,11 +331,13 @@ describe("GPU pan/zoom controller", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
+    const viewportRuntime = createTestViewportRuntime(store);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     dispatchPointer(node, "pointerdown", {
@@ -297,6 +368,7 @@ describe("GPU pan/zoom controller", () => {
       clientY: 17,
       pointerId: 2,
     });
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([5, 7, 1]);
     dispatchPointer(element, "pointerup", {
       button: 0,
@@ -307,6 +379,7 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
     detach();
+    viewportRuntime.destroy();
   });
 
   it("notifies the project adapter when pointer panning starts", () => {
@@ -314,6 +387,7 @@ describe("GPU pan/zoom controller", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
+    const viewportRuntime = createTestViewportRuntime(store);
     const onPointerPanStart = vi.fn();
     const detach = attachGpuPanZoomController({
       element,
@@ -321,6 +395,7 @@ describe("GPU pan/zoom controller", () => {
       onPointerPanStart,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     dispatchPointer(element, "pointerdown", {
@@ -346,6 +421,7 @@ describe("GPU pan/zoom controller", () => {
       pointerId: 1,
     });
     detach();
+    viewportRuntime.destroy();
   });
 
   it("requests viewport frames during pointer pan and defers texture upload until pan end", () => {
@@ -354,11 +430,13 @@ describe("GPU pan/zoom controller", () => {
       transform: [0, 0, 2],
     });
     const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       requestFrame,
       store,
+      viewportRuntime,
     });
 
     dispatchPointer(element, "pointerdown", {
@@ -377,6 +455,8 @@ describe("GPU pan/zoom controller", () => {
       clientY: 28,
       pointerId: 1,
     });
+    expect(store.getState().transform).toEqual([0, 0, 2]);
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([5, -2, 2]);
     expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenLastCalledWith("viewport");
@@ -400,6 +480,7 @@ describe("GPU pan/zoom controller", () => {
     expect(requestFrame).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
+    viewportRuntime.destroy();
   });
 
   it("pans primary node drags while the pan activation key is active", () => {
@@ -413,6 +494,7 @@ describe("GPU pan/zoom controller", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
+    const viewportRuntime = createTestViewportRuntime(store);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
@@ -420,6 +502,7 @@ describe("GPU pan/zoom controller", () => {
       panOnDrag: false,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     dispatchPointer(node, "pointerdown", {
@@ -434,6 +517,7 @@ describe("GPU pan/zoom controller", () => {
       clientY: 12,
       pointerId: 1,
     });
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([9, 11, 1]);
     dispatchPointer(element, "pointerup", {
       button: 0,
@@ -456,6 +540,7 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().transform).toEqual([9, 11, 1]);
     detach();
+    viewportRuntime.destroy();
   });
 
   it("does not start background panning while the selection key is active", () => {
@@ -464,11 +549,13 @@ describe("GPU pan/zoom controller", () => {
       transform: [0, 0, 1],
     });
     store.getState().setSelectionKeyPressed(true);
+    const viewportRuntime = createTestViewportRuntime(store);
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     dispatchPointer(element, "pointerdown", {
@@ -487,8 +574,19 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().transform).toEqual([0, 0, 1]);
     expect(store.getState().paneDragging).toBe(false);
     detach();
+    viewportRuntime.destroy();
   });
 });
+
+function createTestViewportRuntime(
+  store: ReturnType<typeof createGpuFlowViewportStore>,
+  requestFrame: (reason: string) => void = vi.fn(),
+): GpuFlowViewportRuntime {
+  return createGpuFlowViewportRuntime({
+    requestFrame: (reason) => requestFrame(reason),
+    store,
+  });
+}
 
 function createSurfaceElement(): HTMLElement {
   const element = document.createElement("div");

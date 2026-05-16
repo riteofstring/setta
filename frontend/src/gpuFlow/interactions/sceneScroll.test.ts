@@ -10,6 +10,7 @@ import type {
 import { resolveGpuFlowSceneLayout } from "../sceneLayout";
 import type { GpuSectionSceneScrollOffsetMap } from "../sceneScroll";
 import type { GpuPoint, GpuRect } from "../viewportMath";
+import { createGpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { attachGpuPanZoomController } from "./panZoom";
 import { attachGpuSectionSceneScrollController } from "./sceneScroll";
@@ -209,6 +210,7 @@ describe("GPU section scene scroll controller", () => {
       ["parent", { x: 0, y: 66 }],
     ]);
     const onScrollOffsetsChange = vi.fn();
+    const viewportRuntime = createGpuFlowViewportRuntime({ store });
     const cleanupScroll = attachGpuSectionSceneScrollController({
       element,
       getScene: () => scene,
@@ -222,6 +224,7 @@ describe("GPU section scene scroll controller", () => {
       panOnScroll: true,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     const event = new WheelEvent("wheel", {
@@ -239,6 +242,7 @@ describe("GPU section scene scroll controller", () => {
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 
     cleanupPan();
+    viewportRuntime.destroy();
     cleanupScroll();
   });
 
@@ -251,6 +255,10 @@ describe("GPU section scene scroll controller", () => {
       transform: [0, 0, 1],
     });
     store.getState().setViewportInteractionFlags({ panScrolling: true });
+    const viewportRuntime = createGpuFlowViewportRuntime({
+      requestFrame: vi.fn(),
+      store,
+    });
     let scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map();
     const onScrollOffsetsChange = vi.fn(
       (nextOffsets: GpuSectionSceneScrollOffsetMap) => {
@@ -270,6 +278,7 @@ describe("GPU section scene scroll controller", () => {
       panOnScroll: true,
       requestFrame: vi.fn(),
       store,
+      viewportRuntime,
     });
 
     const event = new WheelEvent("wheel", {
@@ -282,11 +291,13 @@ describe("GPU section scene scroll controller", () => {
     element.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+    viewportRuntime.runFrame(16);
     expect(store.getState().transform).toEqual([0, -15, 1]);
     expect(scrollOffsets.size).toBe(0);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 
     cleanupPan();
+    viewportRuntime.destroy();
     cleanupScroll();
   });
 });

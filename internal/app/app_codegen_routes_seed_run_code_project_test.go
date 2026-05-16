@@ -26,6 +26,7 @@ import (
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/testutil/pluginfrontend"
 	"setta/internal/watchcodecontracts"
 )
 
@@ -940,9 +941,7 @@ func installAppRepoPlugin(t *testing.T, cfg config.Config, pluginID string) {
 func materializeAppRuntimeManagedPluginFrontendAssets(t *testing.T, pluginRoot string) {
 	t.Helper()
 
-	if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot); err != nil {
-		t.Fatalf("materialize runtime-managed plugin frontend assets for %s: %v", pluginRoot, err)
-	}
+	pluginfrontend.MaterializeRuntimeManagedAssets(t, pluginRoot)
 }
 
 func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID string) {

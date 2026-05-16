@@ -48,6 +48,52 @@ describe("chooseTextureResolution", () => {
     expect(chooseZoomBucket(8)).toBe(4);
   });
 
+  it("keeps the current zoom bucket inside the hysteresis band", () => {
+    expect(
+      chooseTextureResolution({
+        cssHeight: 80,
+        cssWidth: 120,
+        currentZoomBucket: 1.5,
+        devicePixelRatio: 2,
+        maxTextureDimension2D: 4096,
+        zoom: 1.55,
+      }).zoomBucket,
+    ).toBe(1.5);
+    expect(
+      chooseTextureResolution({
+        cssHeight: 80,
+        cssWidth: 120,
+        currentZoomBucket: 1.5,
+        devicePixelRatio: 2,
+        maxTextureDimension2D: 4096,
+        zoom: 1.7,
+      }).zoomBucket,
+    ).toBe(2);
+  });
+
+  it("keeps a higher zoom bucket until zoom exits the lower hysteresis band", () => {
+    expect(
+      chooseTextureResolution({
+        cssHeight: 80,
+        cssWidth: 120,
+        currentZoomBucket: 2,
+        devicePixelRatio: 2,
+        maxTextureDimension2D: 4096,
+        zoom: 1.45,
+      }).zoomBucket,
+    ).toBe(2);
+    expect(
+      chooseTextureResolution({
+        cssHeight: 80,
+        cssWidth: 120,
+        currentZoomBucket: 2,
+        devicePixelRatio: 2,
+        maxTextureDimension2D: 4096,
+        zoom: 1.35,
+      }).zoomBucket,
+    ).toBe(1.5);
+  });
+
   it("compares texture resolution snapshots exactly", () => {
     expect(
       textureResolutionMatches(

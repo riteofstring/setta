@@ -1,3 +1,4 @@
+import { EditorState } from "@codemirror/state";
 import { describe, expect, it, vi } from "vitest";
 import {
   getExtensions,
@@ -52,6 +53,24 @@ describe("getExtensions", () => {
 
   it("omits language support when no language is provided", () => {
     expect(getExtensions({ language: null, wrapLines: false })).toHaveLength(3);
+  });
+
+  it("normalizes inserted newlines for single-line editors", () => {
+    const state = EditorState.create({
+      doc: "alpha",
+      extensions: getExtensions({
+        language: null,
+        singleLine: true,
+        wrapLines: false,
+      }),
+    });
+
+    const transaction = state.update({
+      changes: { from: state.doc.length, insert: "\nbeta\r\ngamma" },
+    });
+
+    expect(transaction.newDoc.toString()).toBe("alpha beta gamma");
+    expect(transaction.newDoc.lines).toBe(1);
   });
 
   it("classifies CodeMirror updates for GPU flow dirty texture events", () => {

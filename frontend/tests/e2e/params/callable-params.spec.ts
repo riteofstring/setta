@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
@@ -37,20 +37,28 @@ test("callable params render after set_callable", async ({ page }) => {
       sectionId,
     );
 
-    const retainedSource = getRetainedParamSource(page, sectionId);
-    await expect(retainedSource).toBeVisible({ timeout: 20000 });
-    await expect(retainedSource.locator("canvas").first()).toBeVisible();
     await expect
-      .poll(async () => {
-        const box = await retainedSource.boundingBox();
-        return Math.round(box?.width ?? 0);
-      })
+      .poll(
+        async () =>
+          (await readRetainedParamSurfaceGeometry(page, sectionId))?.rowCount ??
+          0,
+        { timeout: 20000 },
+      )
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () =>
+        Math.round(
+          (await readRetainedParamSurfaceGeometry(page, sectionId))?.width ?? 0,
+        ),
+      )
       .toBeGreaterThan(20);
     await expect
-      .poll(async () => {
-        const box = await retainedSource.boundingBox();
-        return Math.round(box?.height ?? 0);
-      })
+      .poll(async () =>
+        Math.round(
+          (await readRetainedParamSurfaceGeometry(page, sectionId))?.height ??
+            0,
+        ),
+      )
       .toBeGreaterThan(10);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
@@ -83,8 +91,14 @@ test("retained callable text params use live CodeMirror DOM while typing", async
       sectionId,
     );
 
-    const retainedSource = getRetainedParamSource(page, sectionId);
-    await expect(retainedSource).toBeVisible({ timeout: 20000 });
+    await expect
+      .poll(
+        async () =>
+          (await readRetainedParamSurfaceGeometry(page, sectionId))?.rowCount ??
+          0,
+        { timeout: 20000 },
+      )
+      .toBeGreaterThan(0);
     const island = await activateRetainedParamCodeMirror(
       page,
       sectionId,
@@ -230,12 +244,6 @@ function getFirstParamInfoId(
   return Object.keys(impl?.codeObjVariantMap ?? {})[0] ?? null;
 }
 
-function getRetainedParamSource(page: Page, sectionId: string): Locator {
-  return page.getByTestId(
-    `gpu-retained-content-source-${sectionId}:param-content:unpinned`,
-  );
-}
-
 async function activateRetainedParamCodeMirror(
   page: Page,
   sectionId: string,
@@ -254,6 +262,37 @@ async function activateRetainedParamCodeMirror(
   await page.mouse.click(point.x, point.y);
   await expect(island).toBeVisible({ timeout: 10000 });
   return island;
+}
+
+async function readRetainedParamSurfaceGeometry(
+  page: Page,
+  sectionId: string,
+): Promise<{
+  readonly height: number;
+  readonly rowCount: number;
+  readonly width: number;
+} | null> {
+  return await page.evaluate((surfaceId) => {
+    const rows = (
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+    ).filter((row) => row.surfaceId === surfaceId);
+    if (rows.length === 0) {
+      return null;
+    }
+    const left = Math.min(...rows.map((row) => row.clientRect.x));
+    const top = Math.min(...rows.map((row) => row.clientRect.y));
+    const right = Math.max(
+      ...rows.map((row) => row.clientRect.x + row.clientRect.width),
+    );
+    const bottom = Math.max(
+      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
+    );
+    return {
+      height: bottom - top,
+      rowCount: rows.length,
+      width: right - left,
+    };
+  }, `${sectionId}:param-content:unpinned`);
 }
 
 async function resolveRetainedParamControlClickPoint(

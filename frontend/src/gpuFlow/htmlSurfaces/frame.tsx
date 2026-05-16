@@ -12,19 +12,33 @@ import type {
 } from "./renderer";
 
 import type {
+  CommittedHtmlSurfaceTextureSnapshot,
+  HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
-  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureUploadDiagnostic,
+  HtmlSurfaceTextureUploadWorkSummary,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
 import {
-  createHtmlSurfaceVisualScene,
+  getActiveGpuHtmlSurfaceOverlayIds,
+  partitionGpuHtmlSurfaceOverlayQuads,
+  toGpuHtmlSurfaceOverlayNodeLayouts,
+} from "./frameOverlayLayers";
+import { createGpuNodeVisualScene } from "./frameVisualScene";
+import {
   type HtmlSurfaceFlatVisual,
-  type HtmlSurfaceTiledFlatVisual,
+  type HtmlSurfaceSolidRoundedRectVisual,
   type HtmlSurfaceVisualScene,
 } from "./visualScene";
+
+import {
+  buildHtmlSurfaceVisuals,
+  type HtmlSurfaceVisualBuildResult,
+} from "./surfaceVisuals";
+
+export { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
@@ -44,6 +58,7 @@ import {
   getVisibleFlowRect,
   normalizeGpuViewport,
   rectsIntersect,
+  type GpuRect,
   type GpuViewportInput,
 } from "../viewportMath";
 
@@ -66,6 +81,10 @@ import {
 export type GpuNodeLayout = {
   readonly height: number | null;
   readonly nodeId: string;
+  readonly textureContentKey?: string | undefined;
+  readonly textureCssHeight?: number | undefined;
+  readonly textureCssWidth?: number | undefined;
+  readonly textureSourceRect?: GpuRect | undefined;
   readonly tempZIndex?: number | undefined;
   readonly width: number | null;
   readonly x: number;
@@ -76,6 +95,10 @@ export type GpuNodeLayout = {
 export type GpuVisibleNodeQuad = {
   readonly height: number;
   readonly nodeId: string;
+  readonly textureContentKey?: string | undefined;
+  readonly textureCssHeight?: number | undefined;
+  readonly textureCssWidth?: number | undefined;
+  readonly textureSourceRect?: GpuRect | undefined;
   readonly width: number;
   readonly x: number;
   readonly y: number;
@@ -84,8 +107,13 @@ export type GpuVisibleNodeQuad = {
 
 export type GpuHtmlSurfaceOverlayLayout = {
   readonly height: number;
+  readonly layer?: "late" | "normal" | "page" | undefined;
   readonly ownerNodeId?: string | undefined;
   readonly surfaceId: string;
+  readonly textureContentKey?: string | undefined;
+  readonly textureCssHeight?: number | undefined;
+  readonly textureCssWidth?: number | undefined;
+  readonly textureSourceRect?: GpuRect | undefined;
   readonly width: number;
   readonly x: number;
   readonly y: number;
@@ -93,7 +121,7 @@ export type GpuHtmlSurfaceOverlayLayout = {
 };
 
 type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
-  readonly texture: HtmlSurfaceTextureRecord;
+  readonly texture: CommittedHtmlSurfaceTextureSnapshot;
 };
 
 type HtmlSurfaceNodeLayerProps = {
@@ -173,7 +201,8 @@ export type GpuNodeUploadBudget = Pick<
 
 type GpuNodeTextureController = Pick<
   HtmlSurfaceTextureManager,
-  | "getSurfaceTexture"
+  | "getCommittedSurfaceTexture"
+  | "getSurfaceTextureLifecycleDiagnostics"
   | "evictSurfaceTextures"
   | "markSurfaceTextureDirty"
   | "registerSurfaceTexture"
@@ -201,6 +230,12 @@ type RenderHtmlSurfaceFrameInput = {
   readonly htmlSurfaceOverlays?:
     | readonly GpuHtmlSurfaceOverlayLayout[]
     | undefined;
+  readonly htmlSurfaceNativeVisuals?:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly htmlSurfacePageVisuals?:
+    | readonly HtmlSurfaceFlatVisual[]
+    | undefined;
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
@@ -227,7 +262,9 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly skippedNodeIds: readonly string[];
   readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
+  readonly textureLifecycleDiagnostics: readonly HtmlSurfaceTextureLifecycleDiagnostic[];
   readonly uploadDiagnostics: readonly HtmlSurfaceTextureUploadDiagnostic[];
+  readonly uploadWorkSummary: HtmlSurfaceTextureUploadWorkSummary;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
   readonly visualScene: HtmlSurfaceVisualScene;
@@ -240,7 +277,7 @@ type MarkHtmlSurfaceFramePaintDirtyInput = {
   readonly ignoreDirectNodeIds?: ReadonlySet<string> | readonly string[];
   readonly textureManager: Pick<
     HtmlSurfaceTextureManager,
-    "markSurfaceTextureDirty"
+    "markSurfaceTextureDirty" | "markSurfacesPainted"
   >;
 };
 
@@ -347,6 +384,8 @@ export function renderHtmlSurfaceFrame({
   forceVisibleNodeIds,
   frame,
   grid,
+  htmlSurfaceNativeVisuals,
+  htmlSurfacePageVisuals,
   htmlSurfaceOverlays,
   marginCssPx,
   nodes,
@@ -359,7 +398,7 @@ export function renderHtmlSurfaceFrame({
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
   );
-  const activeSurfaceIds = getActiveHtmlSurfaceIds(
+  const activeSurfaceIds = getActiveGpuHtmlSurfaceOverlayIds(
     activeNodeIds,
     htmlSurfaceOverlays,
   );
@@ -379,6 +418,10 @@ export function renderHtmlSurfaceFrame({
     marginCssPx,
     overlays: htmlSurfaceOverlays,
     viewport,
+  });
+  const overlayQuads = partitionGpuHtmlSurfaceOverlayQuads({
+    overlays: htmlSurfaceOverlays,
+    quads: visibleOverlayQuads,
   });
   const visibleSurfaceQuads = [...visibleQuads, ...visibleOverlayQuads];
   const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
@@ -424,7 +467,15 @@ export function renderHtmlSurfaceFrame({
   });
   const textureResult = buildTexturedGpuNodeQuads(visibleQuads, textureManager);
   const overlayTextureResult = buildTexturedGpuNodeQuads(
-    visibleOverlayQuads,
+    overlayQuads.normalQuads,
+    textureManager,
+  );
+  const pageOverlayTextureResult = buildTexturedGpuNodeQuads(
+    overlayQuads.pageQuads,
+    textureManager,
+  );
+  const lateOverlayTextureResult = buildTexturedGpuNodeQuads(
+    overlayQuads.lateQuads,
     textureManager,
   );
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
@@ -434,11 +485,33 @@ export function renderHtmlSurfaceFrame({
     overlayTextureResult.texturedQuads.filter(
       (quad) => quad.texture.lastUploadFrame >= 0,
     );
+  const uploadedPageOverlayTexturedQuads =
+    pageOverlayTextureResult.texturedQuads.filter(
+      (quad) => quad.texture.lastUploadFrame >= 0,
+    );
+  const uploadedLateOverlayTexturedQuads =
+    lateOverlayTextureResult.texturedQuads.filter(
+      (quad) => quad.texture.lastUploadFrame >= 0,
+    );
   const visualSurfaces = mergeHtmlSurfaceVisuals(
     buildHtmlSurfaceVisuals(uploadedTexturedQuads),
     buildHtmlSurfaceVisuals(uploadedOverlayTexturedQuads),
   );
-  const visualScene = createHtmlSurfaceVisualScene(visualSurfaces);
+  const lateOverlayVisualSurfaces = buildHtmlSurfaceVisuals(
+    uploadedLateOverlayTexturedQuads,
+  );
+  const pageOverlayVisualSurfaces = buildHtmlSurfaceVisuals(
+    uploadedPageOverlayTexturedQuads,
+  );
+  const visualScene = createGpuNodeVisualScene({
+    htmlSurfaceNativeVisuals,
+    htmlSurfacePageVisuals: [
+      ...(htmlSurfacePageVisuals ?? []),
+      ...pageOverlayVisualSurfaces.flatSurfaces,
+    ],
+    htmlSurfaceLateVisuals: lateOverlayVisualSurfaces.flatSurfaces,
+    visualSurfaces,
+  });
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
@@ -459,6 +532,8 @@ export function renderHtmlSurfaceFrame({
   const uploadedSurfaceIds = uploadResult.uploaded.map(
     (record) => record.surfaceId,
   );
+  const textureLifecycleDiagnostics =
+    textureManager.getSurfaceTextureLifecycleDiagnostics(visibleSurfaceIds);
 
   return {
     activeNodeId: activeNodeId ?? null,
@@ -473,7 +548,12 @@ export function renderHtmlSurfaceFrame({
     evictedTextureBytes: evictionResult.evictedBytes,
     evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
     missingElementNodeIds,
-    missingTextureNodeIds: textureResult.missingTextureNodeIds,
+    missingTextureNodeIds: [
+      ...textureResult.missingTextureNodeIds,
+      ...overlayTextureResult.missingTextureNodeIds,
+      ...pageOverlayTextureResult.missingTextureNodeIds,
+      ...lateOverlayTextureResult.missingTextureNodeIds,
+    ],
     remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds.filter(
       (surfaceId) => nodeSurfaceIds.has(surfaceId),
     ),
@@ -482,7 +562,9 @@ export function renderHtmlSurfaceFrame({
     ),
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
+    textureLifecycleDiagnostics,
     uploadDiagnostics: uploadResult.diagnostics,
+    uploadWorkSummary: uploadResult.workSummary,
     uploadedNodeIds: uploadedSurfaceIds.filter((surfaceId) =>
       nodeSurfaceIds.has(surfaceId),
     ),
@@ -519,8 +601,8 @@ function registerVisibleGpuNodeTextures({
       continue;
     }
     textureManager.registerSurfaceTexture({
-      cssHeight: quad.height,
-      cssWidth: quad.width,
+      cssHeight: quad.textureCssHeight ?? quad.height,
+      cssWidth: quad.textureCssWidth ?? quad.width,
       ...(deferResolutionUpdates && !activeSurfaceIds.has(quad.nodeId)
         ? { deferResolution: true }
         : {}),
@@ -532,26 +614,16 @@ function registerVisibleGpuNodeTextures({
         activeSurfaceIds,
       ),
       surfaceId: quad.nodeId,
+      ...(quad.textureContentKey
+        ? { textureContentKey: quad.textureContentKey }
+        : {}),
+      ...(quad.textureSourceRect
+        ? { textureSourceRect: quad.textureSourceRect }
+        : {}),
       zoom,
     });
   }
   return missingElementNodeIds;
-}
-
-function getActiveHtmlSurfaceIds(
-  activeNodeIds: ReadonlySet<string>,
-  overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
-): ReadonlySet<string> {
-  if (activeNodeIds.size === 0) {
-    return activeNodeIds;
-  }
-  const activeSurfaceIds = new Set(activeNodeIds);
-  for (const overlay of overlays ?? []) {
-    if (overlay.ownerNodeId && activeNodeIds.has(overlay.ownerNodeId)) {
-      activeSurfaceIds.add(overlay.surfaceId);
-    }
-  }
-  return activeSurfaceIds;
 }
 
 function uploadGpuNodeTextures({
@@ -579,7 +651,7 @@ export function markHtmlSurfaceFramePaintDirty({
   ignoreDirectNodeIds,
   textureManager,
 }: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
-  const { dirtySurfaceIds, dirtySurfaceInvalidations } =
+  const { dirtySurfaceIds, dirtySurfaceInvalidations, paintedSurfaceIds } =
     resolveHtmlSurfacePaintInvalidation({
       changedElements,
       sourceElementBySurfaceId: elementByNodeId,
@@ -588,6 +660,8 @@ export function markHtmlSurfaceFramePaintDirty({
       surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
       transformOnlySourceIds: ignoreDirectNodeIds,
     });
+
+  textureManager.markSurfacesPainted(paintedSurfaceIds);
 
   for (const invalidation of dirtySurfaceInvalidations) {
     textureManager.markSurfaceTextureDirty({
@@ -644,6 +718,18 @@ export function collectVisibleGpuNodeQuads({
     .map((quad) => ({
       height: quad.height,
       nodeId: quad.nodeId,
+      ...(quad.textureCssHeight === undefined
+        ? {}
+        : { textureCssHeight: quad.textureCssHeight }),
+      ...(quad.textureCssWidth === undefined
+        ? {}
+        : { textureCssWidth: quad.textureCssWidth }),
+      ...(quad.textureContentKey === undefined
+        ? {}
+        : { textureContentKey: quad.textureContentKey }),
+      ...(quad.textureSourceRect === undefined
+        ? {}
+        : { textureSourceRect: quad.textureSourceRect }),
       width: quad.width,
       x: quad.x,
       y: quad.y,
@@ -676,29 +762,16 @@ export function collectVisibleGpuHtmlSurfaceOverlayQuads({
   });
 }
 
-function toGpuHtmlSurfaceOverlayNodeLayouts(
-  overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
-): GpuNodeLayout[] {
-  return (overlays ?? []).map((overlay) => ({
-    height: overlay.height,
-    nodeId: overlay.surfaceId,
-    width: overlay.width,
-    x: overlay.x,
-    y: overlay.y,
-    zIndex: overlay.zIndex,
-  }));
-}
-
 export function buildTexturedGpuNodeQuads(
   quads: readonly GpuVisibleNodeQuad[],
   textureSource:
-    | Pick<HtmlSurfaceTextureManager, "getSurfaceTexture">
-    | ((nodeId: string) => HtmlSurfaceTextureRecord | undefined),
+    | Pick<HtmlSurfaceTextureManager, "getCommittedSurfaceTexture">
+    | ((nodeId: string) => CommittedHtmlSurfaceTextureSnapshot | undefined),
 ): BuildTexturedGpuNodeQuadsResult {
   const getTexture =
     typeof textureSource === "function"
       ? textureSource
-      : textureSource.getSurfaceTexture.bind(textureSource);
+      : textureSource.getCommittedSurfaceTexture.bind(textureSource);
   const texturedQuads: GpuTexturedNodeQuad[] = [];
   const missingTextureNodeIds: string[] = [];
 
@@ -708,73 +781,22 @@ export function buildTexturedGpuNodeQuads(
       missingTextureNodeIds.push(quad.nodeId);
       continue;
     }
-    texturedQuads.push({ ...quad, texture });
+    texturedQuads.push({
+      ...quad,
+      texture,
+      ...(texture.textureSourceRect
+        ? { textureSourceRect: texture.textureSourceRect }
+        : {}),
+    });
   }
 
   return { missingTextureNodeIds, texturedQuads };
 }
 
-function toFlatHtmlSurfaceVisual(
-  quad: GpuTexturedNodeQuad,
-): HtmlSurfaceFlatVisual {
-  return {
-    height: quad.height,
-    kind: "flat",
-    surfaceId: quad.nodeId,
-    texture: quad.texture,
-    width: quad.width,
-    x: quad.x,
-    y: quad.y,
-    zIndex: quad.zIndex,
-  };
-}
-
-export function buildHtmlSurfaceVisuals(
-  quads: readonly GpuTexturedNodeQuad[],
-): {
-  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
-} {
-  const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
-  const tiledFlatSurfaces: HtmlSurfaceTiledFlatVisual[] = [];
-  for (const quad of quads) {
-    if (quad.texture.textureLayout?.kind === "tiled") {
-      tiledFlatSurfaces.push({
-        kind: "tiled-flat",
-        rect: {
-          height: quad.height,
-          width: quad.width,
-          x: quad.x,
-          y: quad.y,
-        },
-        surfaceId: quad.nodeId,
-        texture: quad.texture,
-        tiles: quad.texture.tiles,
-        zIndex: quad.zIndex,
-      });
-      continue;
-    }
-    flatSurfaces.push(toFlatHtmlSurfaceVisual(quad));
-  }
-  return {
-    flatSurfaces,
-    tiledFlatSurfaces,
-  };
-}
-
 function mergeHtmlSurfaceVisuals(
-  base: {
-    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
-  },
-  overlays: {
-    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
-  },
-): {
-  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
-} {
+  base: HtmlSurfaceVisualBuildResult,
+  overlays: HtmlSurfaceVisualBuildResult,
+): HtmlSurfaceVisualBuildResult {
   return {
     flatSurfaces: [...base.flatSurfaces, ...overlays.flatSurfaces],
     tiledFlatSurfaces: [

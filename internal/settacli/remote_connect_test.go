@@ -744,9 +744,7 @@ func waitForSettacliProcessExit(t *testing.T, pid int) {
 }
 
 type settacliRunResult struct {
-	stdout string
-	stderr string
-	err    error
+	err error
 }
 
 type lockedBuffer struct {
@@ -764,19 +762,6 @@ func (b *lockedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
-}
-
-func runCLIWithOSEnvAsync(cwd string, args ...string) <-chan settacliRunResult {
-	resultCh := make(chan settacliRunResult, 1)
-	go func() {
-		stdout, stderr, err := runCLIWithOSEnv(cwd, args...)
-		resultCh <- settacliRunResult{
-			stdout: stdout,
-			stderr: stderr,
-			err:    err,
-		}
-	}()
-	return resultCh
 }
 
 func runAsyncCLIWithBuffers(cwd string, stdout *lockedBuffer, stderr *lockedBuffer, args ...string) <-chan settacliRunResult {

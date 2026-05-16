@@ -24,6 +24,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
+	"setta/internal/testutil/pluginfrontend"
 )
 
 type appDeploymentIDERouteFixture struct {
@@ -862,9 +863,7 @@ func newAppDeploymentIDERouteFixture(
 			if err := plugins.CopyDirectoryTree(appDeploymentIDEProviderSourcePath(t), targetRoot); err != nil {
 				return deployments.AppProviderPackageState{}, err
 			}
-			if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
-				return deployments.AppProviderPackageState{}, err
-			}
+			pluginfrontend.MaterializeRuntimeManagedAssets(t, targetRoot)
 			return deployments.AppProviderPackageState{
 				EnabledPluginIDs: []string{ProviderPluginID},
 				PluginConfigByID: map[string]any{

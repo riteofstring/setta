@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
@@ -55,8 +56,7 @@ describe("GpuFlow", () => {
     expect(sourcePortalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
     expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
-    expect(retainedContentSourceIndex).toBeGreaterThan(canvasOpenIndex);
-    expect(retainedContentSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(retainedContentSourceIndex).toBe(-1);
     expect(viewportPortalIndex).toBeGreaterThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
     expect(markup).toContain('data-gpu-flow-portal-space="viewport"');
@@ -287,7 +287,7 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain('data-gpu-flow-source-id="stale-node-a"');
   });
 
-  it("renders scene DOM islands inside the canvas source subtree", () => {
+  it("renders scene DOM island content with the viewport transform", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         renderDomIsland={(island) => (
@@ -300,12 +300,6 @@ describe("GpuFlow", () => {
       />,
     );
 
-    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
-    const domIslandIndex = markup.indexOf('data-gpu-flow-dom-island="true"');
-    const canvasCloseIndex = markup.indexOf("</canvas>");
-
-    expect(domIslandIndex).toBeGreaterThan(canvasOpenIndex);
-    expect(domIslandIndex).toBeLessThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-dom-island="true"');
     expect(markup).toContain('data-gpu-flow-dom-island-id="island-a"');
     expect(markup).toContain(
@@ -313,7 +307,6 @@ describe("GpuFlow", () => {
     );
     expect(markup).toContain('class="setta-gpu-flow__dom-island nodrag nopan"');
     expect(markup).toContain('data-rendered-dom-island="island-a"');
-    expect(markup).not.toContain("setta-gpu-flow__dom-island-layer");
     expect(markup).toContain("left:19px");
     expect(markup).toContain("top:38px");
     expect(markup).toContain("transform:scale(1.5)");
@@ -388,6 +381,7 @@ function textLikeControlDescriptor() {
     displayValue: "",
     editorKind: "text" as const,
     kind: "text-like" as const,
+    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
     commitPolicy: "native-island" as const,
   };
@@ -415,10 +409,7 @@ function sceneWithDomIsland(): GpuFlowScene {
         ownerSectionId: "section-a",
         rect: { height: 20, width: 40, x: 10, y: 20 },
         source: {
-          hitRecordId: "control:param-a",
-          kind: "retained-content",
-          ownerRowId: "param-a",
-          surfaceId: "surface-a",
+          kind: "custom",
         },
         zIndex: 9,
       },

@@ -312,7 +312,7 @@ describe("project GPU layout adapter", () => {
       zIndex: 3,
     });
     expect(retainedScene).toMatchObject({
-      contentRect: { height: 48, width: 262, x: 0, y: 0 },
+      contentRect: { height: 96, width: 262, x: 0, y: 0 },
       ownerSectionId: "dict-a",
       rowHeight: 24,
       viewportRect: { height: 23, width: 262, x: 0, y: 0 },
@@ -374,7 +374,7 @@ describe("project GPU layout adapter", () => {
       expect.objectContaining({
         id: "child-param",
         kind: "input",
-        localPosition: { x: 0, y: 36 },
+        localPosition: { x: 0, y: 60 },
         ownerRowId: "child-param",
       }),
     ]);
@@ -541,13 +541,13 @@ describe("project GPU layout adapter", () => {
             },
             id: "callable-a-impl",
             pinnedParams: ["pinned-param"],
-            size: sectionSize({ height: 160, width: 260 }),
+            size: sectionSize({ height: 240, width: 260 }),
           }),
           parentId: null,
         },
       ],
       topLevelSections: {
-        "callable-a": { h: 160, w: 260, x: 10, y: 20, zIndex: 2 },
+        "callable-a": { h: 240, w: 260, x: 10, y: 20, zIndex: 2 },
       },
     });
     addParamToProjectState(
@@ -632,7 +632,7 @@ describe("project GPU layout adapter", () => {
     );
     expect(unpinnedSurface.rect.y).toBe(
       pinnedSurface.rect.y +
-        pinnedRetainedScene.rowHeight +
+        pinnedRetainedScene.contentRect.height +
         PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
     );
   });
@@ -707,7 +707,7 @@ describe("project GPU layout adapter", () => {
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
       KWARGS_CONTROLS_SCENE_HEIGHT_PX +
       PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
-      3 * 24;
+      3 * 72;
 
     expect(section.worldRect).toMatchObject({
       height: expectedHeight,
@@ -715,7 +715,7 @@ describe("project GPU layout adapter", () => {
       x: 10,
       y: 20,
     });
-    expect(retainedScene.contentRect.height).toBe(72);
+    expect(retainedScene.contentRect.height).toBe(216);
   });
 
   it("adds nested retained row chrome to auto-height param sections", () => {
@@ -800,7 +800,9 @@ describe("project GPU layout adapter", () => {
       KWARGS_CONTROLS_SCENE_HEIGHT_PX +
       PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX +
       4 +
-      3 * 24;
+      24 +
+      72 +
+      72;
 
     expect(section.worldRect).toMatchObject({
       height: expectedHeight,
