@@ -446,13 +446,13 @@ Do this in the same refactor series rather than leaving dormant alternate paths.
 
 Verification should happen in this order:
 
-1. Save a before-refactor baseline under `perf/` using the latest Chrome recording metrics from this plan.
-2. Confirm the new E2E tests fail on the current implementation.
-3. Implement the minimal desired/prepared/published frame publisher and make the tests pass.
-4. Run targeted frontend tests:
+0. Save a before-refactor baseline under `perf/` using the latest Chrome recording metrics from this plan.
+1. Confirm the new E2E tests fail on the current implementation.
+2. Implement the minimal desired/prepared/published frame publisher and make the tests pass.
+3. Run targeted frontend tests:
    - `pnpm -C frontend exec vitest run <relevant-unit-tests>`
    - `./scripts/run-playwright-e2e.sh <gpu-flow-retained-display-frame-spec>`
-5. Run the full GPU Flow-related test suite, not just the new regression spec:
+4. Run the full GPU Flow-related test suite, not just the new regression spec:
    - `pnpm -C frontend exec vitest run frontend/src/gpuFlow`
    - `pnpm -C frontend exec vitest run frontend/src/components/Pages/Project/gpuFlowCompatibilityFixture.test.ts frontend/src/components/Pages/Project/gpuFlowCompatibilityMatrix.test.ts`
    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow`
@@ -461,20 +461,20 @@ Verification should happen in this order:
      `frontend/tests/e2e/editor/code-section-terminal-attachment-reflow.spec.ts`,
      `frontend/tests/e2e/editor/code-section-terminal-reflow.spec.ts`,
      `frontend/tests/e2e/editor/section-config-code-path-overflow.spec.ts`.
-6. Use Chrome DevTools performance recording on the same reproduction:
+5. Use Chrome DevTools performance recording on the same reproduction:
    - Zoom into the dense section.
    - Activate a text input.
    - Scroll while focused.
    - Confirm no full-section blank frames.
    - Confirm frame gaps are reduced and visible content remains present under high zoom pressure.
-7. Run the large-scene performance gate on the All Settings-like fixture:
+6. Run the large-scene performance gate on the All Settings-like fixture:
    - Pan the canvas.
    - Zoom through the high-pressure retained content range.
    - Scroll a dense retained section while unfocused.
    - Scroll the same retained section with a text input focused.
    - Record whether the run was a true 120 Hz-capable run or a refresh-aware lower-cadence run.
-8. Save after performance reports under `perf/` as append-only notes for the implementation PR.
-9. Run `./scripts/quality/check.sh` unless the developer narrows scope.
+7. Save after performance reports under `perf/` as append-only notes for the implementation PR.
+8. Run `./scripts/quality/check.sh` unless the developer narrows scope.
 
 If a full-suite command cannot run in the local environment, record the exact blocker and residual risk in the implementation notes. Do not treat targeted passing tests as equivalent to the full GPU Flow-related suite.
 
