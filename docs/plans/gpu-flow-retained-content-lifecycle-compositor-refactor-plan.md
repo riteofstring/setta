@@ -83,7 +83,7 @@ zoom/click/rapid-interaction/large-scene visual coverage listed in Step 1 must
 exist before final verification. The third gate means targeted Vitest and
 Playwright runs are useful during development, but they are not enough before
 cleanup or handoff. The final pass must include the full related GPU Flow unit,
-integration, retained compositor, and Settings E2E coverage listed in Step 12,
+integration, retained compositor, and Settings E2E coverage listed in Step 15,
 plus the final Chrome recording and `./scripts/quality/check.sh`. Record the
 commands and results in the implementation report.
 
@@ -270,6 +270,43 @@ Initial compatibility matrix:
 | Content-coordinate rect coverage | Coverage | Partial compatible coverage is drawable. Only the uncovered remainder can become a true hole. |
 | First-load or newly exposed content-coordinate area with no compatible page | True hole | This is the only case where fallback treatment is allowed. |
 
+Semantic compatibility must be centralized behind an owner API with structured
+results. Do not scatter ad hoc checks across cache lookup, display composition,
+diagnostics, and scheduler code.
+
+```ts
+type RetainedCompatibilityResult =
+  | {
+      kind: "compatible";
+      fidelity:
+        | "exact"
+        | "lower-lod"
+        | "previous-grid"
+        | "previous-dpr-bucket";
+    }
+  | {
+      kind: "incompatible";
+      reason:
+        | "surface-mismatch"
+        | "source-version-mismatch"
+        | "row-version-mismatch"
+        | "theme-mismatch"
+        | "active-passive-state-mismatch"
+        | "content-rect-mapping-mismatch";
+    };
+
+function isSemanticallyCompatibleRetainedPage(
+  page: RetainedCommittedPage,
+  snapshot: RetainedContentSnapshot,
+  visibleRegion: ContentRect,
+): RetainedCompatibilityResult;
+```
+
+This contract is a primary correctness boundary. Over-broad compatibility can
+draw wrong rows, stale values, or stale active state. Over-narrow compatibility
+can recreate placeholder bands. Both failures should be visible in tests and
+diagnostics.
+
 ### 3. Retained Page Cache Owner
 
 Replace the current "desired page is either exact or missing" model with a
@@ -294,6 +331,52 @@ Old-page protection must be explicitly bounded. Protect only visible and
 near-visible compatible pages, report protected page count and bytes, and make
 eviction decisions from those metrics. Do not trade placeholder stripes for
 unbounded texture memory growth.
+
+Committed pages must carry a content-coordinate mapping proof of what they
+contain and how to sample it. Previous-grid and lower-LOD pages are drawable
+only if this proof lets the planner map the requested content rect to the
+texture safely.
+
+```ts
+type RetainedCommittedPage = {
+  readonly pageKey: RetainedPageKey;
+  readonly semanticIdentity: RetainedSemanticIdentity;
+  readonly contentRect: Rect;
+  readonly sourceCaptureRect: Rect;
+  readonly contentToTextureTransform: Matrix3;
+  readonly lod: RetainedLod;
+  readonly dprBucket: RetainedDprBucket;
+  readonly pageGridGeneration: string;
+};
+```
+
+Memory protection needs hard budget buckets, not only a single global cache
+limit:
+
+```ts
+type RetainedPageMemoryBudget = {
+  readonly hardMaxBytes: number;
+  readonly visibleCompatibleReserveBytes: number;
+  readonly nearVisibleCompatibleReserveBytes: number;
+  readonly activeIslandReserveBytes: number;
+  readonly trueHoleRecoveryBudgetBytes: number;
+  readonly refinementBudgetBytes: number;
+  readonly prefetchBudgetBytes: number;
+};
+```
+
+Hard memory rules:
+
+1. Offscreen prefetch cannot evict visible compatible coverage.
+2. LOD refinement cannot evict the only compatible visible page before
+   replacement coverage exists.
+3. Old-page protection expires when the region is no longer visible or
+   near-visible.
+4. If visible compatible protection exceeds budget, degrade LOD or page shape
+   before showing placeholders.
+5. If even the lowest acceptable compatible representation cannot fit within
+   hard device or memory limits, fail loudly with a specific blocker instead of
+   silently falling back to placeholders.
 
 ### 4. Coverage Planner
 
@@ -324,6 +407,34 @@ introduce new authoritative APIs named around `pendingStrip`,
 `textureReadiness`, or `publish-motion-frame-with-pending-strips`; those are
 old publication concepts to delete.
 
+The composed frame should carry an auditable coverage proof. The display
+composer may draw true-hole fallback only from `trueHoleRects`, never from exact
+target misses, upload backlog, queue state, or texture readiness labels.
+
+```ts
+type RetainedCoverageProof = {
+  readonly visibleContentRects: readonly Rect[];
+  readonly exactCoverageRects: readonly Rect[];
+  readonly compatibleCoverageRects: readonly Rect[];
+  readonly trueHoleRects: readonly Rect[];
+  readonly rejectedStaleRects: readonly {
+    readonly rect: Rect;
+    readonly reason: RetainedCompatibilityRejectReason;
+  }[];
+  readonly fidelityState:
+    | "target"
+    | "compatible-lower-lod"
+    | "compatible-previous-grid"
+    | "refining";
+};
+```
+
+Development and test builds should fail loudly if true-hole area appears for a
+stable visible region that had compatible coverage in recent frames and no
+semantic revision, source readiness, size/layout, memory, or device-limit state
+changed. In production diagnostics, report the same condition as a specific
+coverage regression.
+
 ### 5. Display Composer
 
 The display composer should build each frame from:
@@ -344,6 +455,8 @@ The current high-contrast pending stripe visuals should be removed. If a true
 hole needs a visual treatment, use the normal retained section body background
 or a subtle no-pattern fill that cannot be mistaken for row content. It should
 appear only for actual first-load/new-edge holes.
+
+The fallback visual must not contain repeated row-like horizontal structure.
 
 Changing stripe colors, opacity, or pattern alone is not a fix. The compositor
 must stop turning quality-only misses into true-hole fallback before visual
@@ -386,6 +499,11 @@ When a text-like row is clicked:
 The active island may cover its own row. It should not make unrelated rows in
 the section become true holes.
 
+On blur or detach, do not reveal passive retained content for the active row
+unless the passive page reflects the committed value. If replacement passive
+coverage is not ready, the active island or another compatible visual must keep
+covering that rect until compatible replacement coverage exists.
+
 ### 8. Scheduler Policy
 
 Replace broad "defer all retained page maintenance during viewport motion" with
@@ -400,8 +518,18 @@ work-class budgets:
 The scheduler should preserve frame pacing. It should also avoid draining only
 one tiny page per frame when a large visible region is uncovered and the frame
 budget has headroom.
+
 Interaction may throttle fidelity refinement, but it must not categorically
 starve refinement when measured frame budget is available.
+
+Visible work needs bounded progress diagnostics:
+
+- For a stable visible region with ready sources and available memory, visible
+  true-hole area must decrease within a bounded number of frames, or
+  diagnostics must identify the exact blocker.
+- For settled zoom after interaction ends, exact coverage should increase, or
+  diagnostics must identify why it cannot: source not ready, memory cap,
+  texture dimension cap, upload budget, or device limit.
 
 ### 9. Diagnostics
 
@@ -414,7 +542,9 @@ assertions:
 - lower-LOD covered area,
 - previous-grid covered area,
 - stale-content rejected area,
+- semantic compatibility rejection reasons,
 - target refinement backlog,
+- bounded-progress blocker reasons,
 - protected page count and bytes,
 - upload work by class,
 - active island transaction state.
@@ -435,7 +565,7 @@ Create at least one high-signal failing test before changing compositor
 behavior. It should fail on the current branch with the gray/white
 horizontal-line artifact. The remaining tests in this section may be added
 while the refactor is underway, but all of them must exist and pass before
-Step 12 is considered complete.
+Step 15 is considered complete.
 
 Add a Playwright spec such as:
 
@@ -547,7 +677,23 @@ The new types should make it impossible to confuse:
 - content-incompatible stale page,
 - true first-load hole.
 
-### Step 4: Refactor Page Identity Around Content Coordinates
+### Step 4: Add Semantic Identity And Compatibility Predicate
+
+Add the centralized semantic compatibility owner before changing cache or
+display-composer behavior.
+
+Implementation details to enforce:
+
+- committed pages carry semantic identity,
+- snapshots expose the semantic identity needed for compatibility checks,
+- compatibility returns structured accept/reject results,
+- rejection reasons are explicit and surfaced in diagnostics,
+- wrong-content pages are rejected before any draw-quad generation.
+
+Do not duplicate compatibility checks across downstream owners. The coverage
+planner and cache must call the same owner API.
+
+### Step 5: Add Content-Coordinate Page Mapping Proof
 
 Refactor page descriptors and cache lookup so visible motion does not change
 semantic identity.
@@ -564,7 +710,24 @@ Required behavior:
 Delete any old source-window-specific lookup paths that are no longer the
 owner. Keep only the new owner path.
 
-### Step 5: Implement The Coverage Planner
+Every committed page must carry the content-coordinate mapping proof described
+in the page-cache owner section. Add focused unit coverage that fails if a
+previous-grid or lower-LOD page can be drawn without a valid
+`contentToTextureTransform`.
+
+### Step 6: Implement Page Cache Exact Vs Compatible Lookup
+
+Replace the current exact-or-missing lookup with explicit lookup modes:
+
+- exact target lookup,
+- compatible coverage lookup,
+- refinement target generation.
+
+The compatible lookup must use the semantic compatibility predicate and page
+mapping proof. It must return structured coverage candidates, not raw pages
+that the display composer can reinterpret.
+
+### Step 7: Implement The Coverage Planner And Coverage Proof
 
 Build the planner as the only owner of exact/compatible/hole decisions.
 
@@ -580,7 +743,22 @@ For each visible content rect:
 Wrong-content pages must be rejected loudly and specifically. Do not add silent
 fallbacks for content version mismatches.
 
-### Step 6: Replace Pending Strips With True-Hole Rendering
+The planner should emit `RetainedCoverageProof` for each composed frame. Add
+unit tests for exact coverage, compatible lower-LOD coverage, previous-grid
+coverage, partial coverage subtraction, and rejected stale content.
+
+### Step 8: Wire Display Composer To Exact, Compatible, True-Hole Order
+
+The display composer should consume the coverage planner result directly:
+
+1. draw exact pages,
+2. draw compatible pages,
+3. draw true-hole fallback only from `trueHoleRects`.
+
+The display composer must not infer holes from target descriptor misses,
+texture upload backlog, queue state, or fidelity readiness.
+
+### Step 9: Replace Pending Strips With True-Hole Rendering
 
 Remove current pending stripe visuals from normal retained publication.
 
@@ -592,11 +770,12 @@ For true holes:
 
 The fallback visual must be visually distinct from row content but quiet enough
 that a transient true hole is not worse than the old freeze.
+
 This step is only valid after the planner prevents quality-only misses from
 becoming true holes. A cosmetic replacement of stripes with quieter fills does
 not satisfy the plan by itself.
 
-### Step 7: Refactor Zoom Refinement
+### Step 10: Refactor Zoom Refinement
 
 Make zoom bucket changes refinement-only for existing compatible content.
 
@@ -611,7 +790,7 @@ Implementation details to enforce:
 The display frame should publish current motion even if target LOD work is
 backlogged, without showing true-hole fallback unless no compatible page exists.
 
-### Step 8: Refactor Native Island Handoff
+### Step 11: Refactor Native Island Attach And Detach
 
 Split active native island placement from passive page replacement.
 
@@ -623,8 +802,9 @@ Implementation details to enforce:
 - Passive snapshot refresh is committed as a content transaction after coverage
   exists.
 - Clicking one row must not invalidate unrelated retained pages.
+- Blur/detach must not reveal stale passive content for the active row.
 
-### Step 9: Refactor Scheduler Work Classes
+### Step 12: Refactor Scheduler Work Classes And Memory Budgets
 
 Replace broad interaction deferral with work classes:
 
@@ -638,11 +818,16 @@ Give `visible-true-hole` a guaranteed small budget even during interaction.
 Give `visible-refinement` an opportunistic budget that preserves frame pacing.
 Let multiple small visible pages upload in a frame when the measured budget has
 room.
+
 Interaction may reduce refinement budget, but it must not impose a categorical
 "no refinement while interacting" rule when the measured frame budget has
 headroom.
 
-### Step 10: Update Diagnostics And Chrome Recording Summaries
+Implement the hard memory budget buckets in the page-cache owner section before
+enabling broad old-page protection. Add tests proving prefetch and refinement
+cannot evict the only visible compatible page.
+
+### Step 13: Update Diagnostics And Chrome Recording Summaries
 
 Update retained Chrome repro events to report the new coverage/fidelity model.
 The logs should make the new behavior auditable:
@@ -656,22 +841,25 @@ The logs should make the new behavior auditable:
 Remove obsolete hold/lag/pending-strip diagnostics after new diagnostics are in
 place.
 
-### Step 11: Remove Obsolete Tests And Update Focused Unit Coverage
+### Step 14: Remove Obsolete Tests And Update Focused Unit Coverage
 
 Update unit tests around:
 
 - page cache exact vs compatible lookup,
 - content compatibility rejection,
+- content-coordinate mapping proof,
+- composed-frame coverage proof,
 - coverage planner subtraction,
 - lower-LOD fallback draw quads,
 - old/new page generation protection,
 - native island handoff preserving passive coverage,
+- native island blur/detach preserving passive correctness,
 - scheduler work-class prioritization.
 
 Delete tests that assert the old pending-strip publication model. Do not add
 tests that only restate implementation internals.
 
-### Step 12: Run Full Verification
+### Step 15: Run Full Verification
 
 Required final verification:
 
@@ -702,6 +890,9 @@ For the final Chrome recording, report:
 - panning, zooming, section scrolling, and mixed-interaction results,
 - true-hole visible area over time,
 - compatible vs exact coverage over time,
+- semantic compatibility rejection reasons over time,
+- bounded-progress blocker reasons, if any,
+- protected compatible page count and bytes over time,
 - whether the run was on 120 Hz-capable hardware/browser settings.
 
 ## Acceptance Criteria
@@ -723,16 +914,28 @@ The refactor is complete only when:
   cadence, and explicitly reported with residual risk.
 - Large-scene performance runs have no long tasks over `50ms`, no repeated
   dropped-frame streaks, and no visible stalls.
+- Semantic compatibility is centralized in one owner API with structured
+  compatible/incompatible results and explicit rejection reasons.
+- Every committed page used for compatible drawing carries content-coordinate
+  mapping proof, and previous-grid/lower-LOD drawing uses that proof.
+- Every composed frame carries an auditable coverage proof, and true-hole
+  fallback is drawn only from `trueHoleRects`.
 - Missing target LOD pages are reported as refinement backlog, not visible
   content holes.
 - True-hole fallback appears only when no semantically compatible content page
   exists.
+- True-hole fallback has no repeated row-like horizontal structure.
 - Quality-only misses are fixed at the coverage/planner layer, not hidden by a
   quieter placeholder treatment.
 - Wrong-content pages are never drawn as fallback.
 - Old compatible pages are protected until replacement coverage exists.
 - Old-page protection is scoped to visible and near-visible content, with
   reported protected page count and bytes.
+- Protected compatible pages are governed by hard memory budget buckets, and
+  refinement or prefetch cannot evict the only visible compatible page.
+- Native island blur/detach does not reveal stale passive retained content.
+- Stable visible true holes and settled zoom refinement have bounded-progress
+  diagnostics or explicit blocker reasons.
 - Obsolete pending-strip and held-frame publication concepts are removed.
 
 ## Likely Files To Touch
