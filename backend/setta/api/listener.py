@@ -74,6 +74,7 @@ class SettaListener(
         self._project_config_id: "ID | None" = project_config_id
         self._share_session_id = share_session_id
         self._use_temporary_ids = use_temporary_ids
+        self._refresh_concurrency = refresh_concurrency
         self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._explicit_host = host is not None

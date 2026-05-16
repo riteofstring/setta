@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from setta.utils import setta_home as setta_home_module
-from setta.utils.setta_home import resolve_setta_home
+from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config_path
 
 
 def test_resolve_setta_home_delegates_to_go_path_resolution(
@@ -47,3 +47,7 @@ def test_resolve_setta_home_can_disable_env_override_delegation(
         "allow_env_non_files_overrides": False,
         "allow_profile_env_overrides": False,
     }
+
+
+def test_resolve_setta_user_config_path_appends_config_json(tmp_path: Path) -> None:
+    assert resolve_setta_user_config_path(setta_home=tmp_path) == tmp_path / "config.json"

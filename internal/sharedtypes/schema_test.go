@@ -755,6 +755,15 @@ func TestDiscoveredTypesPreferPluginOwnedAppDefinitionContracts(t *testing.T) {
 	}
 }
 
+func sharedTypesContain(types []reflect.Type, target reflect.Type) bool {
+	for _, candidate := range types {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestBuildSchemaDocumentMarksSectionSharedModifierAsObjectMap(t *testing.T) {
 	t.Parallel()
 

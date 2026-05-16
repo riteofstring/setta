@@ -11,12 +11,6 @@ import {
   type RefObject,
 } from "react";
 import {
-  isChromeReproActive,
-  nowChromeReproPerformanceMs,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
-import {
   cancelGpuAnimationFrame,
   requestGpuAnimationFrame,
 } from "./animationFrame";
@@ -40,14 +34,12 @@ import {
   getGpuNodesBounds,
   isMeasuredGpuNodeBoundsInput,
 } from "./nodeBounds";
-import { setCenter, setViewport } from "./viewportActions";
+import { setCenter } from "./viewportActions";
 import {
   getVisibleFlowRect,
-  normalizeGpuViewport,
   type GpuPoint,
   type GpuRect,
 } from "./viewportMath";
-import { getRegisteredGpuFlowViewportRuntime } from "./viewportRuntimeRegistry";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -156,11 +148,6 @@ type GpuMiniMapViewportSyncInput = {
   readonly viewportSnapshot: GpuMiniMapSelector;
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
-
-type GpuMiniMapViewportSyncTrigger =
-  | "mount"
-  | "react-props"
-  | "store-subscription";
 
 export type GpuMiniMapNodeVisual = {
   readonly id: string;
@@ -406,14 +393,11 @@ function useGpuMiniMapInteractions({
         viewScaleRef.current *
         Math.max(zoom, Math.log(zoom)) *
         (inversePan ? -1 : 1);
-      setViewport(
-        {
-          x: state.transform[0] - movementX * moveScale,
-          y: state.transform[1] - movementY * moveScale,
-          zoom,
-        },
-        { store: viewportStore },
-      );
+      state.setTransform({
+        x: state.transform[0] - movementX * moveScale,
+        y: state.transform[1] - movementY * moveScale,
+        zoom,
+      });
     };
   }, [inversePan, pannable, viewportStore, viewScaleRef]);
 
@@ -549,39 +533,27 @@ function useGpuMiniMapViewportSync({
   };
 
   useEffect(() => {
-    const apply = (trigger: GpuMiniMapViewportSyncTrigger) => {
-      const startedAtMs = nowChromeReproPerformanceMs();
+    const apply = () => {
       frameRef.current = null;
-      const viewportState = selectGpuViewportMiniMapState(viewportStore);
       const snapshot = getGpuMiniMapViewportSnapshot({
         ...inputRef.current,
-        viewportState,
+        viewportState: selectGpuViewportMiniMapState(viewportStore),
       });
       viewScaleRef.current = snapshot.viewScale;
-      const changes = applyGpuMiniMapViewportSnapshot({
+      applyGpuMiniMapViewportSnapshot({
         mask: maskRef.current,
         snapshot,
         svg: svgRef.current,
-      });
-      postGpuMiniMapViewportSyncChromeReproEvent({
-        changes,
-        durationMs: nowChromeReproPerformanceMs() - startedAtMs,
-        snapshot,
-        trigger,
-        viewportState,
-        viewportStore,
       });
     };
     const schedule = () => {
       if (frameRef.current !== null) {
         return;
       }
-      frameRef.current = requestGpuAnimationFrame(() =>
-        apply("store-subscription"),
-      );
+      frameRef.current = requestGpuAnimationFrame(apply);
     };
 
-    apply("mount");
+    apply();
     const unsubscribe = viewportStore.subscribe((state, previousState) => {
       const nextState = selectGpuViewportMiniMapStateFromStoreState(state);
       const previous =
@@ -601,21 +573,12 @@ function useGpuMiniMapViewportSync({
 
   useEffect(() => {
     viewScaleRef.current = viewportSnapshot.viewScale;
-    const startedAtMs = nowChromeReproPerformanceMs();
-    const changes = applyGpuMiniMapViewportSnapshot({
+    applyGpuMiniMapViewportSnapshot({
       mask: maskRef.current,
       snapshot: viewportSnapshot,
       svg: svgRef.current,
     });
-    postGpuMiniMapViewportSyncChromeReproEvent({
-      changes,
-      durationMs: nowChromeReproPerformanceMs() - startedAtMs,
-      snapshot: viewportSnapshot,
-      trigger: "react-props",
-      viewportState: selectGpuViewportMiniMapState(viewportStore),
-      viewportStore,
-    });
-  }, [maskRef, svgRef, viewportSnapshot, viewportStore]);
+  }, [maskRef, svgRef, viewportSnapshot]);
 
   return viewScaleRef;
 }
@@ -680,84 +643,13 @@ function applyGpuMiniMapViewportSnapshot({
   readonly mask: SVGPathElement | null;
   readonly snapshot: GpuMiniMapSelector;
   readonly svg: SVGSVGElement | null;
-}): {
-  readonly maskPathChanged: boolean;
-  readonly viewBoxChanged: boolean;
-} {
-  let maskPathChanged = false;
-  let viewBoxChanged = false;
+}) {
   if (svg && svg.getAttribute("viewBox") !== snapshot.viewBox) {
     svg.setAttribute("viewBox", snapshot.viewBox);
-    viewBoxChanged = true;
   }
   if (mask && mask.getAttribute("d") !== snapshot.maskPath) {
     mask.setAttribute("d", snapshot.maskPath);
-    maskPathChanged = true;
   }
-  return { maskPathChanged, viewBoxChanged };
-}
-
-function postGpuMiniMapViewportSyncChromeReproEvent({
-  changes,
-  durationMs,
-  snapshot,
-  trigger,
-  viewportState,
-  viewportStore,
-}: {
-  readonly changes: {
-    readonly maskPathChanged: boolean;
-    readonly viewBoxChanged: boolean;
-  };
-  readonly durationMs: number;
-  readonly snapshot: GpuMiniMapSelector;
-  readonly trigger: GpuMiniMapViewportSyncTrigger;
-  readonly viewportState: GpuMiniMapViewportState;
-  readonly viewportStore: GpuFlowViewportStoreApi;
-}) {
-  if (
-    !isChromeReproActive() ||
-    (trigger === "react-props" &&
-      !changes.maskPathChanged &&
-      !changes.viewBoxChanged)
-  ) {
-    return;
-  }
-  const liveViewport =
-    getRegisteredGpuFlowViewportRuntime(viewportStore)?.getViewport() ?? null;
-  const storeViewport = normalizeGpuViewport(viewportState.transform);
-  postChromeReproEvent("gpu-flow-minimap-viewport-sync", {
-    durationMs: roundChromeReproMs(durationMs),
-    liveRuntimeViewport: liveViewport
-      ? roundGpuMiniMapViewportForChromeRepro(liveViewport)
-      : null,
-    liveStoreDelta: liveViewport
-      ? {
-          x: roundChromeReproMs(liveViewport.x - storeViewport.x),
-          y: roundChromeReproMs(liveViewport.y - storeViewport.y),
-          zoom: roundChromeReproMs(liveViewport.zoom - storeViewport.zoom),
-        }
-      : null,
-    maskPathChanged: changes.maskPathChanged,
-    maskPathLength: snapshot.maskPath.length,
-    storeViewport: roundGpuMiniMapViewportForChromeRepro(storeViewport),
-    trigger,
-    viewBoxChanged: changes.viewBoxChanged,
-    viewBoxLength: snapshot.viewBox.length,
-    viewScale: roundChromeReproMs(snapshot.viewScale),
-  });
-}
-
-function roundGpuMiniMapViewportForChromeRepro(viewport: {
-  readonly x: number;
-  readonly y: number;
-  readonly zoom: number;
-}) {
-  return {
-    x: roundChromeReproMs(viewport.x),
-    y: roundChromeReproMs(viewport.y),
-    zoom: roundChromeReproMs(viewport.zoom),
-  };
 }
 
 function areGpuViewportMiniMapStatesEqual(

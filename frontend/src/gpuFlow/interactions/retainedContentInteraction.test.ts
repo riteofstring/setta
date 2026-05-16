@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -600,50 +599,6 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
-  it("clears hover hits while viewport interactions are active", () => {
-    const element = createHostElement();
-    const onHitPointerLeave = vi.fn();
-    const onHitPointerMove = vi.fn();
-    const store = createGpuFlowViewportStore();
-    const cleanup = attachGpuRetainedContentInteractionController({
-      element,
-      getScene: () => retainedContentScene(),
-      onHitPointerLeave,
-      onHitPointerMove,
-      shouldHandlePointerMoveHit: () => true,
-      store,
-    });
-
-    element.dispatchEvent(
-      createPointerEvent("pointermove", {
-        buttons: 0,
-        clientX: 20,
-        clientY: 14,
-        pointerId: 1,
-      }),
-    );
-    store.getState().setViewportInteractionFlags({ panScrolling: true });
-    element.dispatchEvent(
-      createPointerEvent("pointermove", {
-        buttons: 0,
-        clientX: 20,
-        clientY: 42,
-        pointerId: 1,
-      }),
-    );
-
-    expect(onHitPointerMove).toHaveBeenCalledTimes(1);
-    expect(onHitPointerMove).toHaveBeenCalledWith({
-      hit: expect.objectContaining({
-        surfaceId: "dict-a:param-content:unpinned",
-      }),
-      nativeEvent: expect.any(MouseEvent),
-    });
-    expect(onHitPointerLeave).toHaveBeenCalledTimes(1);
-
-    cleanup();
-  });
-
   it("preserves explicit retained native targets", () => {
     const element = createHostElement();
     const domIsland = document.createElement("div");
@@ -868,7 +823,6 @@ function textLikeControlDescriptor(
     displayValue,
     editorKind: "text",
     kind: "text-like",
-    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
     commitPolicy: "native-island",
   };

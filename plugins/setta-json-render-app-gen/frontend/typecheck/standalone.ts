@@ -13,7 +13,10 @@ import {
   applyAppDefinitionStructuredContentToStore,
   clearAllAppSpecPatchStreams,
 } from "../src/appSubsystemPreviewController";
-import { getRegisteredAppSubsystemPluginId } from "../src/appSubsystemPluginHost";
+import {
+  getRegisteredAppSubsystemPluginId,
+  resetRegisteredAppSubsystemPluginHost,
+} from "../src/appSubsystemPluginHost";
 
 const registration: AppSubsystemFrontendRegistration = {
   chat: {
@@ -37,3 +40,4 @@ void uploadBinary;
 void applyAppDefinitionStructuredContentToStore({ appSpec: null });
 clearAllAppSpecPatchStreams();
 void getRegisteredAppSubsystemPluginId();
+resetRegisteredAppSubsystemPluginHost();

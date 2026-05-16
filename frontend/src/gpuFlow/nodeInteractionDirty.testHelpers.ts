@@ -9,7 +9,7 @@ export function createNodeElement(nodeId: string): HTMLElement {
 
 export function createInteractionTextureManager() {
   return {
-    markSurfaceTextureDirty: vi.fn(() => true),
+    markSurfaceTextureDirty: vi.fn(),
     setSurfaceTexturePriority: vi.fn(),
   };
 }

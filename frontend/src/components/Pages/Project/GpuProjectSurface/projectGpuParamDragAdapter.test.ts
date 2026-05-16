@@ -1,7 +1,6 @@
 import type { GpuRetainedContentInteractionHit } from "gpuFlow/interactions/retainedContentInteraction";
 import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
 import type { ZustandProjectState } from "state/definitions";
-import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import {
   CodeObjTypeEnum,
   ParamNameTypeEnum,
@@ -112,27 +111,6 @@ describe("project GPU retained param drag adapter", () => {
     expect(
       resolveProjectGpuRetainedParamDropMove({
         event: retainedRowHit("child-b", { y: 150 }),
-        projectState,
-        session: session!,
-      }),
-    ).toBeNull();
-  });
-
-  it("rejects retained same-parent adjacent no-op drops", () => {
-    const projectState = projectStateWithParams({
-      rootChildren: ["param-a", "param-b", "param-c"],
-      selectedParams: ["param-b"],
-    });
-    const session = createProjectGpuRetainedParamDragSession({
-      activeParamId: "param-b",
-      projectState,
-      sectionId: "dict-a",
-      surfaceId: "dict-a:param-content:unpinned",
-    });
-
-    expect(
-      resolveProjectGpuRetainedParamDropMove({
-        event: retainedRowHit("param-a", { y: 20 }),
         projectState,
         session: session!,
       }),
@@ -349,7 +327,6 @@ function retainedTextControl(rendererFamily = "text-like") {
     displayValue: "",
     editorKind: "text" as const,
     kind: "text-like" as const,
-    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily,
   };
 }

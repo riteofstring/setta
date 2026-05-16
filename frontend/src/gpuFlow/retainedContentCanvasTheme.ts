@@ -67,7 +67,7 @@ const DARK_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   rowDraggingBackground: "rgba(51, 65, 85, 0.72)",
   rowErrorBackground: "rgba(127, 29, 29, 0.3)",
   rowFocusedBackground: "rgba(2, 132, 199, 0.22)",
-  rowHoverBackground: "rgba(30, 41, 59, 0.28)",
+  rowHoverBackground: "rgba(30, 41, 59, 0.72)",
   rowSelectedBackground: "rgba(29, 78, 216, 0.48)",
   searchFocusedRing: "rgb(74, 222, 128)",
   searchRing: "rgb(96, 165, 250)",

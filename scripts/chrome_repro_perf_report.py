@@ -31,6 +31,7 @@ class BackendRequest:
     duration_ms: float
     method: str
     path: str
+    started_at_ms: float
     status: int | None
 
 
@@ -748,6 +749,7 @@ def read_backend_requests(path: Path) -> list[BackendRequest]:
                 duration_ms=duration_ms,
                 method=method,
                 path=path_value,
+                started_at_ms=timestamp - duration_ms,
                 status=(
                     payload.get("status")
                     if isinstance(payload.get("status"), int)

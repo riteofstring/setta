@@ -4,24 +4,20 @@ import {
 } from "components/Params/paramListFiltering";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrSectionVariantId,
   getCurrShownParamIds,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
-import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
   PROJECT_GPU_PARAM_CONTENT_NESTED_BLOCK_START_GAP_PX,
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
 import type { ProjectGpuParamContentSectionImpl } from "./projectGpuParamContentSection";
-import { getProjectGpuParamRowHeightForCodeObjType } from "./projectGpuParamRowHeight";
 
 export type ProjectGpuParamRetainedListRowStats = {
   readonly endsWithNestedRow: boolean;
   readonly hasNestedBlockBottomChrome: boolean;
   readonly maxNestedDepth: number;
-  readonly contentHeight: number;
   readonly rowCount: number;
   readonly verticalGapHeight: number;
 };
@@ -121,12 +117,6 @@ export function getProjectGpuParamRetainedListRowStats({
       getProjectGpuParamRowsNeedNestedBlockBottomChrome(rows) ||
       getProjectGpuParamTreeHasMultiChildNestedBlock(tree),
     maxNestedDepth: Math.max(0, ...rows.map((row) => row.depth + 1)),
-    contentHeight: getProjectGpuParamRowsContentHeight({
-      projectState,
-      rows,
-      sectionId,
-      sectionImpl,
-    }),
     rowCount,
     verticalGapHeight: getProjectGpuParamRowsVerticalGapHeight(rows),
   };
@@ -167,51 +157,12 @@ function getProjectGpuParamFilteredRows({
 }
 
 const EMPTY_PROJECT_GPU_PARAM_RETAINED_LIST_ROW_STATS = {
-  contentHeight: 0,
   endsWithNestedRow: false,
   hasNestedBlockBottomChrome: false,
   maxNestedDepth: 0,
   rowCount: 0,
   verticalGapHeight: 0,
 } satisfies ProjectGpuParamRetainedListRowStats;
-
-function getProjectGpuParamRowsContentHeight({
-  projectState,
-  rows,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly projectState: ZustandProjectState;
-  readonly rows: readonly {
-    readonly depth: number;
-    readonly id: string;
-    readonly isParent: boolean;
-  }[];
-  readonly sectionId: string;
-  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
-}): number {
-  return rows.reduce((height, row, index) => {
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-      projectState,
-      sectionId,
-      row.id,
-      isBaseParamCodeObjImpl,
-    );
-    if (!codeObjImpl) {
-      throw new Error(
-        `Missing GPU retained param row ${row.id} in section ${sectionId}.`,
-      );
-    }
-    return (
-      height +
-      getProjectGpuParamRowVerticalGapBefore({ index, row }) +
-      getProjectGpuParamRowHeightForCodeObjType({
-        codeObjType: codeObjImpl.type,
-        configLanguage: sectionImpl.configLanguage,
-      })
-    );
-  }, 0);
-}
 
 export function getProjectGpuParamRowsVerticalGapHeight(
   rows: readonly {

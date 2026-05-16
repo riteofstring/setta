@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
-import { getGpuRetainedContentScrollbarVisuals } from "./GpuRetainedContentScrollbarVisuals";
 import type { GpuRetainedContentHitTarget } from "./retainedContentHitTest";
 import { hitTestGpuRetainedContentScene } from "./retainedContentHitTest";
-import { createGpuRetainedContentSampledSceneForSurface } from "./retainedContentRuntimeSampling";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentDrawCommand,
 } from "./retainedContentScene";
+import { applyGpuRetainedContentScrollOffsetToScene } from "./retainedContentScroll";
 import {
+  applyGpuRetainedContentScrollbarVisualStateToScene,
   createGpuRetainedContentScrollbarLayouts,
   getGpuRetainedContentScrollbarVisualTarget,
   resolveGpuRetainedContentScrollbarThumbDrag,
@@ -100,68 +99,60 @@ describe("retained content scrollbars", () => {
     expect(result.scrollOffsets.get("surface-a")?.y).toBeCloseTo(100, 3);
   });
 
-  it("renders hover and active visual state as scrollbar overlays", () => {
+  it("applies hover and active visual state to retained scrollbar commands", () => {
     const scene = sceneWithRetainedSurface();
     const thumbHit = requiredHit(scene, { x: 154, y: 12 });
     const trackHit = requiredHit(scene, { x: 154, y: 70 });
 
-    const visuals = getGpuRetainedContentScrollbarVisuals(
-      scene.contentSurfaces,
-      {
-        visualState: {
-          activeTarget: getGpuRetainedContentScrollbarVisualTarget(thumbHit),
-          hoveredTarget: getGpuRetainedContentScrollbarVisualTarget(trackHit),
-        },
+    const stateUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene,
+      visualState: {
+        activeTarget: getGpuRetainedContentScrollbarVisualTarget(thumbHit),
+        hoveredTarget: getGpuRetainedContentScrollbarVisualTarget(trackHit),
       },
-    );
+    });
 
-    expect(getScrollbarCommands(scene)[0]?.state).toBeUndefined();
-    expect(visuals).toEqual([
-      expect.objectContaining({
-        surfaceId: "surface-a:scrollbar:y:track",
-      }),
-      expect.objectContaining({
-        surfaceId: "surface-a:scrollbar:y:thumb",
-      }),
+    expect(stateUpdate?.surfaces.map((surface) => surface.id)).toEqual([
+      "surface-a",
     ]);
-
-    const clearedVisuals = getGpuRetainedContentScrollbarVisuals(
-      scene.contentSurfaces,
-      {
-        visualState: {
-          activeTarget: null,
-          hoveredTarget: null,
-        },
-      },
-    );
-
-    expect(clearedVisuals).toHaveLength(2);
     expect(getScrollbarCommands(scene)[0]?.state).toBeUndefined();
+    expect(getScrollbarCommands(stateUpdate!.scene)[0]?.state).toEqual({
+      activePart: "thumb",
+      hoveredPart: "track",
+    });
+
+    const clearUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene: stateUpdate!.scene,
+      visualState: {
+        activeTarget: null,
+        hoveredTarget: null,
+      },
+    });
+
+    expect(clearUpdate?.surfaces.map((surface) => surface.id)).toEqual([
+      "surface-a",
+    ]);
+    expect(getScrollbarCommands(clearUpdate!.scene)[0]?.state).toBeUndefined();
   });
 
-  it("preserves retained row source metadata while sampling scrollbar visuals", () => {
+  it("preserves retained row source metadata after scrollbar visual updates", () => {
     const scene = sceneWithRetainedSurface();
     const thumbHit = requiredHit(scene, { x: 154, y: 12 });
-    const surface = scene.contentSurfaces[0]!;
-    getGpuRetainedContentScrollbarVisuals(scene.contentSurfaces, {
+    const stateUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene,
       visualState: {
         activeTarget: getGpuRetainedContentScrollbarVisualTarget(thumbHit),
         hoveredTarget: null,
       },
     });
 
-    const sampledScene = createGpuRetainedContentSampledSceneForSurface({
-      scrollOffsets: new Map([["surface-a", { x: 0, y: 56 }]]),
-      surface: surface as GpuContentSurface & {
-        readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-      },
+    const scrollUpdate = applyGpuRetainedContentScrollOffsetToScene({
+      scene: stateUpdate!.scene,
+      scrollOffset: { x: 0, y: 56 },
+      surfaceId: "surface-a",
     });
 
-    expect(surface.retainedScene?.scrollOffset).toEqual({
-      x: 0,
-      y: 0,
-    });
-    expect(sampledScene.scrollOffset).toEqual({
+    expect(scrollUpdate?.surface.retainedScene.scrollOffset).toEqual({
       x: 0,
       y: 56,
     });
@@ -196,7 +187,6 @@ function retainedSurface(): GpuContentSurface {
           displayValue: `Value ${index}`,
           editorKind: "text",
           kind: "text-like",
-          policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
           rendererFamily: "text-like",
           commitPolicy: "native-island",
         },

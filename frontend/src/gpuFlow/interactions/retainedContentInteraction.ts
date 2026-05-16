@@ -8,7 +8,6 @@ import {
   hitTestGpuRetainedContentScene,
   type GpuRetainedContentHitTarget,
 } from "../retainedContentHitTest";
-import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuFlowScene } from "../scene";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
@@ -59,9 +58,6 @@ export type GpuRetainedContentInteractionControllerOptions = {
   readonly dragThresholdPx?: number | undefined;
   readonly element: HTMLElement;
   readonly getScene: () => GpuFlowScene | undefined;
-  readonly getScrollOffsets?:
-    | (() => GpuRetainedContentScrollOffsetMap)
-    | undefined;
   readonly interactionDiagnostics?:
     | GpuRetainedContentInteractionDiagnosticsRef
     | undefined;
@@ -146,15 +142,11 @@ export function hitTestGpuRetainedContentInteraction({
   element,
   event,
   getScene,
-  getScrollOffsets,
   store = gpuFlowViewportStore,
 }: {
   readonly element?: HTMLElement | undefined;
   readonly event: Pick<PointerEvent, "clientX" | "clientY">;
   readonly getScene: () => GpuFlowScene | undefined;
-  readonly getScrollOffsets?:
-    | (() => GpuRetainedContentScrollOffsetMap)
-    | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 }): GpuRetainedContentInteractionHit | null {
   const scene = getScene();
@@ -167,11 +159,7 @@ export function hitTestGpuRetainedContentInteraction({
     screenPoint,
     store.getState().transform,
   );
-  const hit = hitTestGpuRetainedContentScene({
-    point: flowPoint,
-    scrollOffsets: getScrollOffsets?.(),
-    scene,
-  });
+  const hit = hitTestGpuRetainedContentScene({ point: flowPoint, scene });
   return hit ? { ...hit, screenPoint } : null;
 }
 
@@ -288,10 +276,6 @@ class GpuRetainedContentInteractionController {
       this.updateActivePointerDrag(event, activePointer);
       return;
     }
-    if (this.store.getState().viewportInteractionActive) {
-      this.clearHover();
-      return;
-    }
     const hit = this.hitTestEvent(
       event,
       this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,
@@ -374,7 +358,6 @@ class GpuRetainedContentInteractionController {
       element: this.element,
       event,
       getScene: this.options.getScene,
-      getScrollOffsets: this.options.getScrollOffsets,
       store: this.store,
     });
     if (!hit || hitFilter?.(hit) === false) {

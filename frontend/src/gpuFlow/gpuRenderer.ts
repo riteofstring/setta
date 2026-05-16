@@ -5,7 +5,6 @@ import {
 import { GpuFlowSupportError } from "./gpuDevice";
 
 export type GpuFrameReason =
-  | "animation"
   | "init"
   | "manual"
   | "paint"

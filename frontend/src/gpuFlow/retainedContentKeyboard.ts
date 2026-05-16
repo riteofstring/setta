@@ -1,4 +1,3 @@
-import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
 import {
   clampGpuRetainedContentScrollOffset,
   type GpuRetainedContentScrollOffsetMap,
@@ -116,6 +115,7 @@ export function resolveGpuRetainedContentRowReveal({
   const nextOffset = revealGpuRetainedContentRowOffset({
     currentOffset,
     marginPx,
+    rowHeight: surface.retainedScene.rowHeight,
     rowIndex,
     surface,
   });
@@ -172,22 +172,19 @@ function resolveGpuRetainedContentKeyboardRowIndex({
 function revealGpuRetainedContentRowOffset({
   currentOffset,
   marginPx,
+  rowHeight,
   rowIndex,
   surface,
 }: {
   readonly currentOffset: GpuPoint;
   readonly marginPx: number;
+  readonly rowHeight: number;
   readonly rowIndex: number;
   readonly surface: GpuRetainedContentSurfaceWithScene;
 }): GpuPoint {
   const viewportHeight = surface.retainedScene.viewportRect.height;
-  const rowMetric = getGpuRetainedContentSceneSourceInput(surface.retainedScene)
-    ?.layout.rowMetrics[rowIndex];
-  if (!rowMetric) {
-    return currentOffset;
-  }
-  const rowStart = rowMetric.y;
-  const rowEnd = rowStart + rowMetric.height;
+  const rowStart = rowIndex * rowHeight;
+  const rowEnd = rowStart + rowHeight;
   const revealMargin = Math.min(marginPx, Math.max(0, viewportHeight / 2));
   let nextY = currentOffset.y;
   if (rowStart - revealMargin < currentOffset.y) {

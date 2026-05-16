@@ -1,14 +1,14 @@
 import type {
-  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureMemorySnapshot,
+  HtmlSurfaceTextureRecord,
 } from "./textures";
 
 type HtmlSurfaceTextureMemoryRecord = Pick<
-  CommittedHtmlSurfaceTextureSnapshot,
+  HtmlSurfaceTextureRecord,
   "surfaceId" | "textureBytes"
 > & {
   readonly pendingTextureRecord?:
-    | Pick<CommittedHtmlSurfaceTextureSnapshot, "textureBytes">
+    | Pick<HtmlSurfaceTextureRecord, "textureBytes">
     | null
     | undefined;
 };

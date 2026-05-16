@@ -21,3 +21,7 @@ export function getRegisteredAppSubsystemPluginId(): string | null {
   const pluginId = registeredAppSubsystemPluginHost?.pluginId?.trim() ?? "";
   return pluginId.length > 0 ? pluginId : null;
 }
+
+export function resetRegisteredAppSubsystemPluginHost(): void {
+  registeredAppSubsystemPluginHost = null;
+}

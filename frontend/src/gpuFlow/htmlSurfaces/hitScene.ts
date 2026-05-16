@@ -123,26 +123,19 @@ export function createHtmlSurfaceHitSceneFromVisualScene(
   scene: HtmlSurfaceVisualScene,
 ): HtmlSurfaceHitScene {
   let stackOrder = 0;
-  const flatSurfaces = scene.flatSurfaces.map((surface) =>
-    toFlatHitSurface(surface, stackOrder++),
-  );
-  const tiledFlatSurfaces = scene.tiledFlatSurfaces.map((surface) =>
-    toTiledFlatHitSurface(surface, stackOrder++),
-  );
-  const meshSurfaces = scene.meshSurfaces.map((surface) =>
-    toMeshHitSurface(surface, stackOrder++),
-  );
-  const effectSurfaces = scene.effectSurfaces.map((surface) =>
-    toEffectHitSurface(surface, stackOrder++),
-  );
-  const lateFlatSurfaces = scene.lateFlatSurfaces.map((surface) =>
-    toFlatHitSurface(surface, stackOrder++),
-  );
   return createHtmlSurfaceHitScene({
-    effectSurfaces,
-    flatSurfaces: [...flatSurfaces, ...lateFlatSurfaces],
-    meshSurfaces,
-    tiledFlatSurfaces,
+    flatSurfaces: scene.flatSurfaces.map((surface) =>
+      toFlatHitSurface(surface, stackOrder++),
+    ),
+    tiledFlatSurfaces: scene.tiledFlatSurfaces.map((surface) =>
+      toTiledFlatHitSurface(surface, stackOrder++),
+    ),
+    meshSurfaces: scene.meshSurfaces.map((surface) =>
+      toMeshHitSurface(surface, stackOrder++),
+    ),
+    effectSurfaces: scene.effectSurfaces.map((surface) =>
+      toEffectHitSurface(surface, stackOrder++),
+    ),
   });
 }
 

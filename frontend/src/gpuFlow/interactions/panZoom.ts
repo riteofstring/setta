@@ -2,8 +2,12 @@ import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { isMacOs } from "utils/utils";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
-import { zoomGpuViewportBy, type GpuPoint } from "../viewportMath";
-import type { GpuFlowViewportRuntime } from "../viewportRuntime";
+import {
+  panGpuViewport,
+  zoomGpuViewportAt,
+  zoomGpuViewportByFactor,
+} from "../viewportActions";
+import type { GpuPoint } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -30,7 +34,6 @@ export type GpuPanZoomControllerOptions = {
   readonly preventScrolling?: boolean | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
-  readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly zoomActivationKeyPressed?: boolean | undefined;
   readonly zoomOnDoubleClick?: boolean | undefined;
   readonly zoomOnPinch?: boolean | undefined;
@@ -47,15 +50,6 @@ type ActivePointerPan = {
   lastClientX: number;
   lastClientY: number;
 };
-
-type GpuPanZoomViewportRuntime = Pick<
-  GpuFlowViewportRuntime,
-  | "applyViewportCommand"
-  | "enqueuePan"
-  | "enqueueZoomByFactorAtPoint"
-  | "flushObserverSnapshot"
-  | "getViewport"
->;
 
 type ResolvedGpuPanZoomControllerOptions = {
   readonly panActivationKeyPressed: boolean | undefined;
@@ -245,7 +239,6 @@ class GpuPanZoomController {
   private readonly options: ResolvedGpuPanZoomControllerOptions;
   private panScrollTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
-  private readonly viewportRuntime: GpuFlowViewportRuntime;
   private wheelZoomTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: GpuPanZoomControllerOptions) {
@@ -253,14 +246,10 @@ class GpuPanZoomController {
     this.isMacOS = options.isMacOS ?? isMacOs();
     this.options = resolveGpuPanZoomControllerOptions(options);
     this.store = options.store ?? gpuFlowViewportStore;
-    this.viewportRuntime = options.viewportRuntime;
   }
 
   attach() {
-    this.element.addEventListener("wheel", this.onWheel, {
-      capture: true,
-      passive: false,
-    });
+    this.element.addEventListener("wheel", this.onWheel, { passive: false });
     this.element.addEventListener("pointerdown", this.onPointerDown);
     this.element.addEventListener("pointermove", this.onPointerMove);
     this.element.addEventListener("pointerup", this.onPointerEnd);
@@ -269,9 +258,7 @@ class GpuPanZoomController {
   }
 
   destroy() {
-    this.element.removeEventListener("wheel", this.onWheel, {
-      capture: true,
-    });
+    this.element.removeEventListener("wheel", this.onWheel);
     this.element.removeEventListener("pointerdown", this.onPointerDown);
     this.element.removeEventListener("pointermove", this.onPointerMove);
     this.element.removeEventListener("pointerup", this.onPointerEnd);
@@ -353,7 +340,9 @@ class GpuPanZoomController {
     if (delta.x === 0 && delta.y === 0) {
       return;
     }
-    this.getViewportRuntime().enqueuePan(delta);
+    if (panGpuViewport(delta, { store: this.store })) {
+      this.requestViewportFrame();
+    }
   };
 
   private readonly onPointerEnd = (event: PointerEvent) => {
@@ -373,17 +362,9 @@ class GpuPanZoomController {
     }
     event.preventDefault();
     const point = getEventPointRelativeToElement(event, this.element);
-    const state = this.store.getState();
-    const viewportRuntime = this.getViewportRuntime();
-    viewportRuntime.applyViewportCommand(
-      zoomGpuViewportBy({
-        factor: 2,
-        maxZoom: state.maxZoom,
-        minZoom: state.minZoom,
-        point,
-        viewport: viewportRuntime.getViewport(),
-      }),
-    );
+    if (zoomGpuViewportByFactor(2, { point, store: this.store })) {
+      this.requestViewportFrame();
+    }
   };
 
   private panFromWheel(event: WheelEvent) {
@@ -392,22 +373,35 @@ class GpuPanZoomController {
       isMacOS: this.isMacOS,
       panOnScrollMode: this.options.panOnScrollMode,
     });
-    this.getViewportRuntime().enqueuePan({
-      x: -deltaX * this.options.panOnScrollSpeed,
-      y: -deltaY * this.options.panOnScrollSpeed,
-    });
+    const changed = panGpuViewport(
+      {
+        x: -deltaX * this.options.panOnScrollSpeed,
+        y: -deltaY * this.options.panOnScrollSpeed,
+      },
+      { store: this.store },
+    );
+    if (changed) {
+      this.requestViewportFrame();
+    }
     this.startPanScrollBurst();
     this.schedulePanScrollBurstEnd();
   }
 
   private zoomFromWheel(event: WheelEvent) {
+    const currentZoom = this.store.getState().getViewport().zoom;
     const factor = event.ctrlKey && this.isMacOS ? 10 : 1;
     const wheelZoomDelta = getGpuWheelZoomDelta(event, factor);
     const point = getEventPointRelativeToElement(event, this.element);
-    this.getViewportRuntime().enqueueZoomByFactorAtPoint({
-      factor: Math.pow(2, wheelZoomDelta),
-      point,
-    });
+    const changed = zoomGpuViewportAt(
+      currentZoom * Math.pow(2, wheelZoomDelta),
+      {
+        point,
+        store: this.store,
+      },
+    );
+    if (changed) {
+      this.requestViewportFrame();
+    }
   }
 
   private shouldStartPointerPan(event: PointerEvent): boolean {
@@ -449,7 +443,6 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ wheelZooming: false });
-      this.getViewportRuntime().flushObserverSnapshot();
       this.requestTextureUploadFrame();
       this.wheelZoomTimeout = null;
     }, 180);
@@ -466,7 +459,6 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ panScrolling: false });
-      this.getViewportRuntime().flushObserverSnapshot();
       this.requestTextureUploadFrame();
       this.panScrollTimeout = null;
     }, 150);
@@ -478,7 +470,6 @@ class GpuPanZoomController {
       paneDragging: false,
       pointerPanning: false,
     });
-    this.getViewportRuntime().flushObserverSnapshot();
     this.requestTextureUploadFrame();
   }
 
@@ -496,12 +487,12 @@ class GpuPanZoomController {
     }
   }
 
-  private requestTextureUploadFrame() {
-    this.options.requestFrame?.("texture-upload");
+  private requestViewportFrame() {
+    this.options.requestFrame?.("viewport");
   }
 
-  private getViewportRuntime(): GpuPanZoomViewportRuntime {
-    return this.viewportRuntime;
+  private requestTextureUploadFrame() {
+    this.options.requestFrame?.("texture-upload");
   }
 }
 

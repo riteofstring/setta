@@ -1,6 +1,6 @@
-import type { DirtyNodeState, DirtyNodeWorkKind } from "../dirtyTracking";
+import type { DirtyNodeState } from "../dirtyTracking";
 
-import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
+import type { HtmlSurfaceTextureRecord } from "./textures";
 import type { HtmlSurfaceTextureUploadResult } from "./textureTiles";
 
 export type UploadDirtyHtmlSurfaceTexturesResult = {
@@ -9,44 +9,16 @@ export type UploadDirtyHtmlSurfaceTexturesResult = {
   readonly remainingDirtySurfaceIds: readonly string[];
   readonly skippedSurfaceIds: readonly string[];
   readonly skippedUploadBytes: number;
-  readonly uploaded: readonly CommittedHtmlSurfaceTextureSnapshot[];
+  readonly uploaded: readonly HtmlSurfaceTextureRecord[];
   readonly uploadedBytes: number;
-  readonly workSummary: HtmlSurfaceTextureUploadWorkSummary;
 };
-
-export type HtmlSurfaceTextureUploadNoWorkReason =
-  | "all-work-deferred"
-  | "budget-exhausted"
-  | "no-dirty-surfaces"
-  | "paint-unavailable"
-  | "skipped"
-  | null;
-
-export type HtmlSurfaceTextureUploadWorkSummary = {
-  readonly deferredSurfaceCount: number;
-  readonly initialDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
-  readonly initialDirtySurfaceCount: number;
-  readonly noUploadReason: HtmlSurfaceTextureUploadNoWorkReason;
-  readonly paintUnavailableSurfaceCount: number;
-  readonly remainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
-  readonly remainingDirtySurfaceCount: number;
-  readonly skippedSurfaceCount: number;
-  readonly uploadableRemainingDirtyWorkCounts: HtmlSurfaceTextureDirtyWorkCounts;
-  readonly uploadableRemainingDirtySurfaceCount: number;
-  readonly uploadedSurfaceCount: number;
-};
-
-export type HtmlSurfaceTextureDirtyWorkCounts = Record<
-  DirtyNodeWorkKind,
-  number
->;
 
 export type DirtyHtmlSurfaceUploadOutcome =
   | {
       readonly dirtyTileBytes: number;
       readonly dirtyTileCount: number;
       readonly durationMs: number;
-      readonly record: CommittedHtmlSurfaceTextureSnapshot;
+      readonly record: HtmlSurfaceTextureRecord;
       readonly upload: HtmlSurfaceTextureUploadResult;
     }
   | "deferred"
@@ -79,20 +51,7 @@ export type HtmlSurfaceTextureUploadDiagnostic = {
   readonly uploadedBytes: number;
   readonly uploadedTextureCount: number;
   readonly uploadedTileCount: number;
-  readonly workKinds: readonly DirtyNodeWorkKind[];
 };
-
-export function createHtmlSurfaceTextureDirtyWorkCounts(
-  dirtySurfaces: readonly Pick<DirtyNodeState, "workKinds">[],
-): HtmlSurfaceTextureDirtyWorkCounts {
-  const counts = createEmptyHtmlSurfaceTextureDirtyWorkCounts();
-  for (const dirtySurface of dirtySurfaces) {
-    for (const workKind of dirtySurface.workKinds) {
-      counts[workKind] += 1;
-    }
-  }
-  return counts;
-}
 
 export function createHtmlSurfaceTextureUploadDiagnostic({
   dirtySurface,
@@ -106,7 +65,7 @@ export function createHtmlSurfaceTextureUploadDiagnostic({
   readonly dirtyTileBytes: number;
   readonly dirtyTileCount: number;
   readonly durationMs: number;
-  readonly record: CommittedHtmlSurfaceTextureSnapshot;
+  readonly record: HtmlSurfaceTextureRecord;
   readonly upload: HtmlSurfaceTextureUploadResult;
 }): HtmlSurfaceTextureUploadDiagnostic {
   return {
@@ -130,17 +89,5 @@ export function createHtmlSurfaceTextureUploadDiagnostic({
     uploadedBytes: upload.uploadedBytes,
     uploadedTextureCount: upload.uploadedTextureCount,
     uploadedTileCount: upload.uploadedTileIds.length,
-    workKinds: dirtySurface.workKinds,
-  };
-}
-
-function createEmptyHtmlSurfaceTextureDirtyWorkCounts(): HtmlSurfaceTextureDirtyWorkCounts {
-  return {
-    animation: 0,
-    content: 0,
-    geometry: 0,
-    hover: 0,
-    resolution: 0,
-    "source-window": 0,
   };
 }

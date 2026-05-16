@@ -2,7 +2,7 @@ import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setParamEnteredValue } from "openapi/http";
 import {
-  dispatchOptimisticProjectStateUpdateWithResult,
+  dispatchOptimisticProjectStateUpdate,
   getCurrCodeObjVariantIfPresent,
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
@@ -36,28 +36,6 @@ type ParamBackendUpdate =
       readonly kind: "standard";
       readonly sectionVariantId: string;
     };
-
-type StandardParamPersistencePayload = {
-  readonly codeObjVariantId: string;
-  readonly paramInfoId: string;
-  readonly projectConfigId: string;
-  readonly sectionId: string;
-  readonly sectionVariantId: string;
-  readonly value: string;
-};
-
-type StandardParamPersistenceQueueEntry = {
-  inflight: boolean;
-  lastUpdatedAt: number;
-  latest: StandardParamPersistencePayload;
-  timer: ReturnType<typeof setTimeout> | null;
-};
-
-const PARAM_VALUE_PERSISTENCE_IDLE_MS = 250;
-const standardParamPersistenceQueues = new Map<
-  string,
-  StandardParamPersistenceQueueEntry
->();
 
 export function getParamInputPreviewState(
   projectState: ZustandProjectState,
@@ -122,7 +100,6 @@ export function commitParamInputValueChange({
     return nextValueString;
   }
   queueBackendParamUpdate({
-    codeObjType: previewState.codeObjType,
     nextValue: nextValueString,
     paramInfoId,
     sectionId,
@@ -165,13 +142,11 @@ function resolveBackendUpdate({
 }
 
 function queueBackendParamUpdate({
-  codeObjType,
   nextValue,
   paramInfoId,
   sectionId,
   update,
 }: {
-  readonly codeObjType: CodeObjTypeEnum;
   readonly nextValue: string;
   readonly paramInfoId: string;
   readonly sectionId: string;
@@ -189,172 +164,51 @@ function queueBackendParamUpdate({
     );
     return;
   }
-  const payload = {
-    codeObjVariantId: update.codeObjVariantId,
-    paramInfoId,
-    projectConfigId: getCurrProjectConfigId(),
+  debouncedSetParamEnteredValue(
     sectionId,
-    sectionVariantId: update.sectionVariantId,
-    value: nextValue,
-  };
-  if (isTextLikeParamPersistenceCoalesced(codeObjType)) {
-    debouncedSetParamEnteredValue(payload);
-    return;
-  }
-  void dispatchParamEnteredValuePersistence(payload);
-}
-
-function isTextLikeParamPersistenceCoalesced(
-  codeObjType: CodeObjTypeEnum,
-): boolean {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam ||
-    codeObjType === CodeObjTypeEnum.TextParam
+    update.sectionVariantId,
+    paramInfoId,
+    update.codeObjVariantId,
+    nextValue,
   );
 }
 
-function debouncedSetParamEnteredValue(
-  latest: StandardParamPersistencePayload,
-) {
-  const key = getStandardParamPersistenceKey(latest);
-  const existing = standardParamPersistenceQueues.get(key);
-  if (existing) {
-    existing.latest = latest;
-    existing.lastUpdatedAt = Date.now();
-    scheduleStandardParamPersistenceFlush(key, existing);
-    return;
-  }
-  const entry: StandardParamPersistenceQueueEntry = {
-    inflight: false,
-    lastUpdatedAt: Date.now(),
-    latest,
-    timer: null,
-  };
-  standardParamPersistenceQueues.set(key, entry);
-  scheduleStandardParamPersistenceFlush(key, entry);
-}
-
-export function flushPendingParamInputValueChange({
-  codeObjVariantId,
-  paramInfoId,
-  projectConfigId,
-  sectionId,
-  sectionVariantId,
-}: {
-  readonly codeObjVariantId: string | null;
-  readonly paramInfoId: string;
-  readonly projectConfigId: string;
-  readonly sectionId: string;
-  readonly sectionVariantId: string | null;
-}) {
-  if (!codeObjVariantId || !sectionVariantId) {
-    return;
-  }
-  const key = getStandardParamPersistenceKey({
-    codeObjVariantId,
-    paramInfoId,
-    projectConfigId,
-    sectionId,
-    sectionVariantId,
-    value: "",
-  });
-  const entry = standardParamPersistenceQueues.get(key);
-  if (!entry || entry.inflight) {
-    return;
-  }
-  if (entry.timer) {
-    clearTimeout(entry.timer);
-    entry.timer = null;
-  }
-  flushStandardParamPersistenceQueue(key, entry);
-}
-
-function getStandardParamPersistenceKey({
-  codeObjVariantId,
-  paramInfoId,
-  projectConfigId,
-  sectionId,
-  sectionVariantId,
-}: StandardParamPersistencePayload): string {
-  return [
-    projectConfigId,
-    sectionId,
-    sectionVariantId,
-    paramInfoId,
-    codeObjVariantId,
-  ].join("\u0000");
-}
-
-function scheduleStandardParamPersistenceFlush(
-  key: string,
-  entry: StandardParamPersistenceQueueEntry,
-) {
-  if (entry.timer) {
-    clearTimeout(entry.timer);
-    entry.timer = null;
-  }
-  if (entry.inflight) {
-    return;
-  }
-  const elapsedMs = Date.now() - entry.lastUpdatedAt;
-  const waitMs = Math.max(0, PARAM_VALUE_PERSISTENCE_IDLE_MS - elapsedMs);
-  entry.timer = setTimeout(() => {
-    entry.timer = null;
-    flushStandardParamPersistenceQueue(key, entry);
-  }, waitMs);
-}
-
-function flushStandardParamPersistenceQueue(
-  key: string,
-  entry: StandardParamPersistenceQueueEntry,
-) {
-  if (entry.inflight) {
-    return;
-  }
-  entry.inflight = true;
-  const payload = entry.latest;
-  void dispatchParamEnteredValuePersistence(payload).finally(() => {
-    entry.inflight = false;
-    if (entry.latest !== payload) {
-      scheduleStandardParamPersistenceFlush(key, entry);
-      return;
-    }
-    standardParamPersistenceQueues.delete(key);
-  });
-}
-
-function dispatchParamEnteredValuePersistence(
-  payload: StandardParamPersistencePayload,
-): Promise<unknown> {
-  return dispatchOptimisticProjectStateUpdateWithResult({
-    projectConfigId: payload.projectConfigId,
-    apply: (state) => {
-      setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
-        state,
-        payload.paramInfoId,
-        payload.codeObjVariantId,
-        {
-          value: payload.value,
-        },
-      );
-    },
-    send: (frontendOpId) => {
-      return callOpenAPI(
-        setParamEnteredValue({
-          body: {
-            projectConfigId: payload.projectConfigId,
-            sectionId: payload.sectionId,
-            sectionVariantId: payload.sectionVariantId,
-            paramInfoId: payload.paramInfoId,
-            value: payload.value,
-            frontendOpId,
+const debouncedSetParamEnteredValue = _.debounce(
+  (
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    codeObjVariantId: string,
+    value: string,
+  ) => {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
+          state,
+          paramInfoId,
+          codeObjVariantId,
+          {
+            value,
           },
-        } as Parameters<typeof setParamEnteredValue>[0]),
-      );
-    },
-  }).result;
-}
+        );
+      },
+      send: (frontendOpId) =>
+        callOpenAPI(
+          setParamEnteredValue({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              sectionVariantId,
+              paramInfoId,
+              value,
+              frontendOpId,
+            },
+          } as Parameters<typeof setParamEnteredValue>[0]),
+        ),
+    });
+  },
+  50,
+);
 
 const debouncedSetPasswordParamValue = _.debounce(
   (

@@ -6,7 +6,6 @@ import type {
 } from "gpuFlow/retainedContentScene";
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
-import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
@@ -99,7 +98,6 @@ export function textLikeControlDescriptor(
     displayValue,
     editorKind: "text",
     kind: "text-like",
-    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
     commitPolicy: "native-island",
   };

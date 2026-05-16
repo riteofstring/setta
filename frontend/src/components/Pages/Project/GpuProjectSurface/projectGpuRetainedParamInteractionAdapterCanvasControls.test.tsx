@@ -303,7 +303,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,
@@ -405,7 +405,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,

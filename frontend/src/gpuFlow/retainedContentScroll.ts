@@ -1,4 +1,5 @@
-import type { GpuContentSurface, GpuFlowScene } from "./scene";
+import { createGpuRetainedRowContentSceneWithScrollOffset } from "./retainedContentScene";
+import type { GpuContentSurface, GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentScrollOffsetMap = ReadonlyMap<string, GpuPoint>;
@@ -9,9 +10,10 @@ export type GpuRetainedContentScrollResult = {
   readonly surfaceId: string | null;
 };
 
-type GpuRetainedContentWheelScrollResult = GpuRetainedContentScrollResult & {
-  readonly handled: boolean;
-};
+type GpuRetainedContentWheelScrollResult =
+  GpuRetainedContentScrollResult & {
+    readonly handled: boolean;
+  };
 
 type GpuRetainedContentDragAutoScrollResult = GpuRetainedContentScrollResult;
 
@@ -37,6 +39,18 @@ export type GpuRetainedContentWheelScrollOffsetResult =
 
 type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+};
+
+type GpuRetainedContentDomIsland = GpuDomIsland & {
+  readonly source: Extract<
+    GpuDomIsland["source"],
+    { readonly kind: "retained-content" }
+  >;
+};
+
+export type GpuRetainedContentSceneScrollUpdateResult = {
+  readonly scene: GpuFlowScene;
+  readonly surface: GpuRetainedContentSurfaceWithScene;
 };
 
 const DEFAULT_RETAINED_CONTENT_DRAG_AUTO_SCROLL_MARGIN_PX = 36;
@@ -254,6 +268,155 @@ export function clampGpuRetainedContentScrollOffset({
   return {
     x: clampNumber(scrollOffset.x, 0, maxOffset.x),
     y: clampNumber(scrollOffset.y, 0, maxOffset.y),
+  };
+}
+
+export function applyGpuRetainedContentScrollOffsetToScene({
+  scene,
+  scrollOffset,
+  surfaceId,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly scrollOffset: GpuPoint;
+  readonly surfaceId: string;
+}): GpuRetainedContentSceneScrollUpdateResult | null {
+  const surfaceIndex = scene.contentSurfaces.findIndex(
+    (candidate) => candidate.id === surfaceId,
+  );
+  if (surfaceIndex < 0) {
+    return null;
+  }
+  const surface = scene.contentSurfaces[surfaceIndex];
+  if (
+    !surface ||
+    surface.renderer.kind !== "canvas-content" ||
+    !surface.retainedScene
+  ) {
+    return null;
+  }
+  const nextSurface: GpuRetainedContentSurfaceWithScene = {
+    ...surface,
+    retainedScene: createGpuRetainedRowContentSceneWithScrollOffset({
+      scene: surface.retainedScene,
+      scrollOffset,
+    }),
+  };
+  const nextSurfaces = scene.contentSurfaces.slice();
+  nextSurfaces[surfaceIndex] = nextSurface;
+  const nextDomIslands = createGpuRetainedContentDomIslandsWithScrollOffset({
+    domIslands: scene.domIslands,
+    surface: nextSurface,
+  });
+  return {
+    scene: {
+      ...scene,
+      contentSurfaces: nextSurfaces,
+      domIslands: nextDomIslands,
+    },
+    surface: nextSurface,
+  };
+}
+
+function createGpuRetainedContentDomIslandsWithScrollOffset({
+  domIslands,
+  surface,
+}: {
+  readonly domIslands: readonly GpuDomIsland[];
+  readonly surface: GpuRetainedContentSurfaceWithScene;
+}): readonly GpuDomIsland[] {
+  let changed = false;
+  const nextDomIslands: GpuDomIsland[] = [];
+  for (const island of domIslands) {
+    if (!isGpuRetainedContentDomIslandForSurface(island, surface.id)) {
+      nextDomIslands.push(island);
+      continue;
+    }
+    changed = true;
+    const nextIsland = resolveGpuRetainedContentScrolledDomIsland({
+      island,
+      surface,
+    });
+    if (nextIsland) {
+      nextDomIslands.push(nextIsland);
+    }
+  }
+  return changed ? nextDomIslands : domIslands;
+}
+
+function resolveGpuRetainedContentScrolledDomIsland({
+  island,
+  surface,
+}: {
+  readonly island: GpuRetainedContentDomIsland;
+  readonly surface: GpuRetainedContentSurfaceWithScene;
+}): GpuDomIsland | null {
+  const hit = surface.retainedScene.hitRecords.find(
+    (candidate) =>
+      candidate.id === island.source.hitRecordId &&
+      candidate.ownerRowId === island.source.ownerRowId,
+  );
+  if (!hit) {
+    return null;
+  }
+  const previousControlRect = getGpuRetainedContentDomIslandControlRect(island);
+  const nextControlRect = translateGpuRetainedContentLocalRect(
+    hit.rect,
+    surface.rect,
+  );
+  const delta = {
+    x: nextControlRect.x - previousControlRect.x,
+    y: nextControlRect.y - previousControlRect.y,
+  };
+  const movedIslandRect = {
+    ...island.rect,
+    x: island.rect.x + delta.x,
+    y: island.rect.y + delta.y,
+  };
+  const rect = intersectGpuRects(movedIslandRect, surface.clipRect);
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+  return {
+    ...island,
+    contentRect: {
+      ...island.contentRect,
+      x: nextControlRect.x - rect.x,
+      y: nextControlRect.y - rect.y,
+    },
+    rect,
+  };
+}
+
+function isGpuRetainedContentDomIslandForSurface(
+  island: GpuDomIsland,
+  surfaceId: string,
+): island is GpuRetainedContentDomIsland {
+  return (
+    island.source.kind === "retained-content" &&
+    island.source.surfaceId === surfaceId
+  );
+}
+
+function getGpuRetainedContentDomIslandControlRect(
+  island: GpuDomIsland,
+): GpuRect {
+  return {
+    height: island.contentRect.height,
+    width: island.contentRect.width,
+    x: island.rect.x + island.contentRect.x,
+    y: island.rect.y + island.contentRect.y,
+  };
+}
+
+function translateGpuRetainedContentLocalRect(
+  localRect: GpuRect,
+  parentRect: GpuRect,
+): GpuRect {
+  return {
+    height: Math.min(localRect.height, parentRect.height),
+    width: Math.min(localRect.width, parentRect.width),
+    x: parentRect.x + localRect.x,
+    y: parentRect.y + localRect.y,
   };
 }
 

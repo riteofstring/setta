@@ -6,7 +6,6 @@ import {
   createChromeReproPerfTimer,
   postChromeReproEvent,
   postChromeReproPerfEvent,
-  postMeasuredChromeReproEvent,
 } from "./chromeRepro";
 
 declare global {
@@ -19,7 +18,6 @@ describe("chromeRepro", () => {
   afterEach(() => {
     window.__SETTA_CHROME_REPRO_ACTIVE__ = false;
     vi.restoreAllMocks();
-    vi.useRealTimers();
   });
 
   it("does not post when repro capture is inactive", () => {
@@ -102,50 +100,6 @@ describe("chromeRepro", () => {
             },
           ],
         }),
-      }),
-      "*",
-    );
-  });
-
-  it("records measured event payload summaries", () => {
-    vi.useFakeTimers();
-    window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
-    const postSpy = vi.spyOn(window, "postMessage");
-
-    const metric = postMeasuredChromeReproEvent(
-      "gpu-flow-frame",
-      { frame: 1, value: "x" },
-      { buildDurationMs: 2.34 },
-    );
-
-    expect(metric).toEqual(
-      expect.objectContaining({
-        buildDurationMs: 2.3,
-        payloadBytes: expect.any(Number),
-      }),
-    );
-    expect(postSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "gpu-flow-frame",
-        payload: { frame: 1, value: "x" },
-      }),
-      "*",
-    );
-
-    vi.advanceTimersByTime(1000);
-
-    expect(postSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "chrome-repro-event-payload-summary",
-        payload: {
-          eventMetrics: [
-            expect.objectContaining({
-              buildDurationMsTotal: 2.3,
-              count: 1,
-              kind: "gpu-flow-frame",
-            }),
-          ],
-        },
       }),
       "*",
     );

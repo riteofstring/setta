@@ -1,16 +1,9 @@
-import type { Completion } from "@codemirror/autocomplete";
-import { EditorView } from "@codemirror/view";
 import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { textFieldCompletion } from "openapi/http";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import {
-  nowChromeReproPerformanceMs,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
@@ -43,9 +36,7 @@ export function TextInputCodeMirror({
   isDisabled = false,
   completionsFn,
 }) {
-  const [activationEvent, setActivationEvent] = useState<
-    "tab" | { readonly clientX: number; readonly clientY: number } | null
-  >(null);
+  const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
   const gpuFlowControl = getTextInputCodeMirrorGpuFlowControl({
@@ -61,17 +52,6 @@ export function TextInputCodeMirror({
       setActivationEvent(null);
       setRealIsInitialized(false);
     }, 0);
-    postTextInputCodeMirrorActivationChromeReproEvent({
-      defaultValueLength: (defaultVal ?? "").length,
-      gpuFlowControl,
-      isKeyName,
-      language,
-      paramInfoId,
-      phase: "blur",
-      realIsInitialized,
-      sectionId,
-      valueLength: (value ?? "").length,
-    });
     onBlur?.();
   }
   // Has to be onMouseDownCapture to avoid section outline flashing
@@ -82,18 +62,6 @@ export function TextInputCodeMirror({
       return;
     }
     if (event.button === 0) {
-      postTextInputCodeMirrorActivationChromeReproEvent({
-        defaultValueLength: (defaultVal ?? "").length,
-        event: summarizeCodeMirrorActivationMouseEvent(event),
-        gpuFlowControl,
-        isKeyName,
-        language,
-        paramInfoId,
-        phase: "request",
-        realIsInitialized,
-        sectionId,
-        valueLength: (value ?? "").length,
-      });
       setActivationEvent(event);
       if (focusActiveSectionOnMouseDown) {
         applyActiveSectionChange({ interaction: "input-focus", sectionId });
@@ -107,17 +75,6 @@ export function TextInputCodeMirror({
       return;
     }
     if (!activationEvent) {
-      postTextInputCodeMirrorActivationChromeReproEvent({
-        defaultValueLength: (defaultVal ?? "").length,
-        gpuFlowControl,
-        isKeyName,
-        language,
-        paramInfoId,
-        phase: "tab-focus-request",
-        realIsInitialized,
-        sectionId,
-        valueLength: (value ?? "").length,
-      });
       setActivationEvent("tab");
     }
   }
@@ -166,65 +123,6 @@ export function TextInputCodeMirror({
       )}
     </>
   );
-}
-
-function postTextInputCodeMirrorActivationChromeReproEvent({
-  defaultValueLength,
-  event,
-  gpuFlowControl,
-  isKeyName,
-  language,
-  paramInfoId,
-  phase,
-  realIsInitialized,
-  sectionId,
-  valueLength,
-}: {
-  readonly defaultValueLength: number;
-  readonly event?:
-    | {
-        readonly button: number;
-        readonly clientX: number;
-        readonly clientY: number;
-        readonly type: string;
-      }
-    | undefined;
-  readonly gpuFlowControl: string;
-  readonly isKeyName: boolean;
-  readonly language: string | null | undefined;
-  readonly paramInfoId: string | null | undefined;
-  readonly phase: string;
-  readonly realIsInitialized: boolean;
-  readonly sectionId: string;
-  readonly valueLength: number;
-}) {
-  postChromeReproEvent("gpu-flow-codemirror-activation", {
-    defaultValueLength,
-    event: event ?? null,
-    gpuFlowControl,
-    isKeyName,
-    language: language ?? "plain",
-    paramInfoId: paramInfoId ?? "",
-    performanceMs: roundChromeReproMs(nowChromeReproPerformanceMs()),
-    phase,
-    realIsInitialized,
-    sectionId,
-    valueLength,
-  });
-}
-
-function summarizeCodeMirrorActivationMouseEvent(event: {
-  readonly button: number;
-  readonly clientX: number;
-  readonly clientY: number;
-  readonly type: string;
-}) {
-  return {
-    button: event.button,
-    clientX: roundChromeReproMs(event.clientX),
-    clientY: roundChromeReproMs(event.clientY),
-    type: event.type,
-  };
 }
 
 function getTextInputCodeMirrorGpuFlowControl({
@@ -295,7 +193,6 @@ function CoreCodeMirror({
     onTab,
     onEscape,
   });
-  const accessibleName = isKeyName ? "Parameter name" : "Parameter value";
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
     setRealIsInitialized,
@@ -320,10 +217,7 @@ function CoreCodeMirror({
       }}
       onCreateEditor={onCreateEditor}
       theme={theme}
-      extensions={[
-        ...extensions,
-        EditorView.contentAttributes.of({ "aria-label": accessibleName }),
-      ]}
+      extensions={extensions}
       onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false} // I take care of this in getExtensions
@@ -335,28 +229,26 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
-  const fn = async (
-    fullText: string,
-    position: number,
-  ): Promise<Completion[]> => {
+  const fn = async (fullText: string, position: number) => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
       paramInfoId,
     });
     const projectConfigId = getCurrProjectConfigId();
-    const request = textFieldCompletion({
-      body: {
-        projectConfigId,
-        sectionId,
-        paramInfoId,
-        fullText,
-        position,
-      },
-    } as Parameters<typeof textFieldCompletion>[0]);
-    const res = await callOpenAPI(request as Parameters<typeof callOpenAPI>[0]);
+    const res = await callOpenAPI(
+      textFieldCompletion({
+        body: {
+          projectConfigId,
+          sectionId,
+          paramInfoId,
+          fullText,
+          position,
+        },
+      } as Parameters<typeof textFieldCompletion>[0]),
+    );
     setToNotWaiting();
     if (res200(res)) {
-      return (res.data ?? []) as Completion[];
+      return res.data;
     }
     return [];
   };

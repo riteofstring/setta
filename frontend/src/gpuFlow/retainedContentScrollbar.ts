@@ -186,6 +186,74 @@ export function getGpuRetainedContentScrollbarVisualTarget(
   };
 }
 
+export function applyGpuRetainedContentScrollbarVisualStateToScene({
+  scene,
+  visualState,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly visualState: GpuRetainedContentScrollbarVisualState;
+}): {
+  readonly scene: GpuFlowScene;
+  readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
+} | null {
+  let changed = false;
+  const changedSurfaces: GpuRetainedContentSurfaceWithScene[] = [];
+  const nextSurfaces = scene.contentSurfaces.map((surface) => {
+    if (surface.renderer.kind !== "canvas-content" || !surface.retainedScene) {
+      return surface;
+    }
+    let surfaceChanged = false;
+    const nextDrawCommands = surface.retainedScene.drawCommands.map(
+      (command) => {
+        if (command.kind !== "scrollbar") {
+          return command;
+        }
+        const nextState = createGpuRetainedContentScrollbarCommandState({
+          axis: command.axis,
+          surfaceId: surface.id,
+          visualState,
+        });
+        if (
+          areGpuRetainedContentScrollbarCommandStatesEqual(
+            command.state,
+            nextState,
+          )
+        ) {
+          return command;
+        }
+        surfaceChanged = true;
+        return {
+          ...command,
+          state: nextState,
+        };
+      },
+    );
+    if (!surfaceChanged) {
+      return surface;
+    }
+    changed = true;
+    const nextSurface: GpuRetainedContentSurfaceWithScene = {
+      ...surface,
+      retainedScene: {
+        ...surface.retainedScene,
+        drawCommands: nextDrawCommands,
+      },
+    };
+    changedSurfaces.push(nextSurface);
+    return nextSurface;
+  });
+  if (!changed) {
+    return null;
+  }
+  return {
+    scene: {
+      ...scene,
+      contentSurfaces: nextSurfaces,
+    },
+    surfaces: changedSurfaces,
+  };
+}
+
 export function resolveGpuRetainedContentScrollbarTrackClick({
   hit,
   scene,
@@ -207,7 +275,6 @@ export function resolveGpuRetainedContentScrollbarTrackClick({
   }
   const layout = getGpuRetainedContentScrollbarLayoutForAxis({
     axis: hit.hit.scrollbarAxis,
-    scrollOffsets,
     surface: context.surface,
   });
   if (!layout) {
@@ -276,7 +343,6 @@ export function resolveGpuRetainedContentScrollbarThumbDrag({
   }
   const layout = getGpuRetainedContentScrollbarLayoutForAxis({
     axis: activeHit.hit.scrollbarAxis,
-    scrollOffsets,
     surface: context.surface,
   });
   if (!layout) {
@@ -443,19 +509,15 @@ function getGpuRetainedContentScrollbarContext({
 
 function getGpuRetainedContentScrollbarLayoutForAxis({
   axis,
-  scrollOffsets,
   surface,
 }: {
   readonly axis: GpuRetainedContentScrollbarAxis;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly surface: GpuRetainedContentSurfaceWithScene;
 }): GpuRetainedContentScrollbarLayout | null {
-  const scrollOffset =
-    scrollOffsets.get(surface.id) ?? surface.retainedScene.scrollOffset;
   return (
     createGpuRetainedContentScrollbarLayouts({
       contentRect: surface.retainedScene.contentRect,
-      scrollOffset,
+      scrollOffset: surface.retainedScene.scrollOffset,
       viewportRect: surface.retainedScene.viewportRect,
     }).find((layout) => layout.axis === axis) ?? null
   );
@@ -482,6 +544,89 @@ function createGpuRetainedContentScrollbarScrollResult({
     scrollOffsets: nextOffsets,
     surfaceId,
   };
+}
+
+function createGpuRetainedContentScrollbarCommandState({
+  axis,
+  surfaceId,
+  visualState,
+}: {
+  readonly axis: GpuRetainedContentScrollbarAxis;
+  readonly surfaceId: string;
+  readonly visualState: GpuRetainedContentScrollbarVisualState;
+}): GpuRetainedContentScrollbarCommandState | undefined {
+  const hoveredTarget = visualState.hoveredTarget;
+  const activeTarget = visualState.activeTarget;
+  const hoveredPart = isGpuRetainedContentScrollbarVisualTargetForCommand(
+    hoveredTarget,
+    {
+      axis,
+      surfaceId,
+    },
+  )
+    ? hoveredTarget.part
+    : null;
+  const activePart = isGpuRetainedContentScrollbarVisualTargetForCommand(
+    activeTarget,
+    {
+      axis,
+      surfaceId,
+    },
+  )
+    ? activeTarget.part
+    : null;
+  if (!hoveredPart && !activePart) {
+    return undefined;
+  }
+  return {
+    activePart,
+    hoveredPart,
+  };
+}
+
+function isGpuRetainedContentScrollbarVisualTargetForCommand(
+  target: GpuRetainedContentScrollbarVisualTarget | null,
+  {
+    axis,
+    surfaceId,
+  }: {
+    readonly axis: GpuRetainedContentScrollbarAxis;
+    readonly surfaceId: string;
+  },
+): target is GpuRetainedContentScrollbarVisualTarget {
+  return Boolean(
+    target && target.axis === axis && target.surfaceId === surfaceId,
+  );
+}
+
+function areGpuRetainedContentScrollbarCommandStatesEqual(
+  left: GpuRetainedContentScrollbarCommandState | undefined,
+  right: GpuRetainedContentScrollbarCommandState | undefined,
+): boolean {
+  return (
+    getGpuRetainedContentScrollbarActivePart(left) ===
+      getGpuRetainedContentScrollbarActivePart(right) &&
+    getGpuRetainedContentScrollbarHoveredPart(left) ===
+      getGpuRetainedContentScrollbarHoveredPart(right)
+  );
+}
+
+function getGpuRetainedContentScrollbarActivePart(
+  state: GpuRetainedContentScrollbarCommandState | undefined,
+): GpuRetainedContentScrollbarPart | null {
+  if (!state) {
+    return null;
+  }
+  return state.activePart;
+}
+
+function getGpuRetainedContentScrollbarHoveredPart(
+  state: GpuRetainedContentScrollbarCommandState | undefined,
+): GpuRetainedContentScrollbarPart | null {
+  if (!state) {
+    return null;
+  }
+  return state.hoveredPart;
 }
 
 function unchangedGpuRetainedContentScrollbarScroll(

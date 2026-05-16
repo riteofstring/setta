@@ -1,13 +1,5 @@
 export type NodeTexturePriority = "interactive" | "visible" | "prefetch";
 
-export type DirtyNodeWorkKind =
-  | "animation"
-  | "content"
-  | "geometry"
-  | "hover"
-  | "resolution"
-  | "source-window";
-
 export type DirtyNodeReason =
   | "animation"
   | "content"
@@ -48,32 +40,16 @@ export type DirtyNodeState = {
   readonly reasons: readonly DirtyNodeReason[];
   readonly sequence: number;
   readonly sourceRect?: DirtyNodeSourceRect | undefined;
-  readonly workKinds: readonly DirtyNodeWorkKind[];
 };
 
-type MutableDirtyNodeState = Omit<DirtyNodeState, "reasons" | "workKinds"> & {
+type MutableDirtyNodeState = Omit<DirtyNodeState, "reasons"> & {
   readonly reasons: Set<DirtyNodeReason>;
-  readonly workKinds: Set<DirtyNodeWorkKind>;
 };
 
 const PRIORITY_RANK: Record<NodeTexturePriority, number> = {
   interactive: 0,
   visible: 1,
   prefetch: 2,
-};
-const DIRTY_REASON_WORK_KIND: Record<DirtyNodeReason, DirtyNodeWorkKind> = {
-  animation: "animation",
-  content: "content",
-  dimension: "geometry",
-  "first-visible": "content",
-  focus: "content",
-  input: "content",
-  paint: "content",
-  pointer: "hover",
-  resolution: "resolution",
-  scroll: "source-window",
-  selection: "content",
-  theme: "content",
 };
 
 export class DirtyNodeQueue {
@@ -179,7 +155,6 @@ function createDirtyNodeState(
     reasons: new Set(mark.reason ? [mark.reason] : []),
     sequence,
     ...(mark.sourceRect ? { sourceRect: mark.sourceRect } : {}),
-    workKinds: resolveDirtyNodeWorkKinds(mark, dirtyFlags),
   };
 }
 
@@ -196,10 +171,6 @@ function mergeDirtyNodeState(
   if (mark.reason) {
     reasons.add(mark.reason);
   }
-  const workKinds = existing.workKinds;
-  for (const workKind of resolveDirtyNodeWorkKinds(mark, dirtyFlags)) {
-    workKinds.add(workKind);
-  }
   return {
     dirtyContent: existing.dirtyContent || dirtyFlags.content,
     dirtyResolution: existing.dirtyResolution || dirtyFlags.resolution,
@@ -212,7 +183,6 @@ function mergeDirtyNodeState(
     reasons,
     sequence: existing.sequence,
     ...(sourceRect ? { sourceRect } : {}),
-    workKinds,
   };
 }
 
@@ -220,11 +190,8 @@ function resolveDirtyNodeSourceRect(
   current: DirtyNodeSourceRect | undefined,
   next: DirtyNodeSourceRect | undefined,
 ): DirtyNodeSourceRect | undefined {
-  if (!current) {
+  if (!current || !next) {
     return next;
-  }
-  if (!next) {
-    return current;
   }
   const left = Math.min(current.x, next.x);
   const top = Math.min(current.y, next.y);
@@ -251,26 +218,6 @@ function resolveDirtyMarkFlags(mark: DirtyNodeMark): DirtyMarkFlags {
   return dirtyFlags;
 }
 
-function resolveDirtyNodeWorkKinds(
-  mark: Pick<DirtyNodeMark, "reason">,
-  dirtyFlags: DirtyMarkFlags,
-): Set<DirtyNodeWorkKind> {
-  const workKinds = new Set<DirtyNodeWorkKind>();
-  if (dirtyFlags.resolution) {
-    workKinds.add("resolution");
-  }
-  if (mark.reason) {
-    workKinds.add(workKindForDirtyReason(mark.reason));
-  } else if (dirtyFlags.content) {
-    workKinds.add("content");
-  }
-  return workKinds;
-}
-
-function workKindForDirtyReason(reason: DirtyNodeReason): DirtyNodeWorkKind {
-  return DIRTY_REASON_WORK_KIND[reason];
-}
-
 function toPublicDirtyNodeState(state: MutableDirtyNodeState): DirtyNodeState {
   return {
     dirtyContent: state.dirtyContent,
@@ -281,6 +228,5 @@ function toPublicDirtyNodeState(state: MutableDirtyNodeState): DirtyNodeState {
     reasons: [...state.reasons],
     sequence: state.sequence,
     ...(state.sourceRect ? { sourceRect: state.sourceRect } : {}),
-    workKinds: [...state.workKinds],
   };
 }

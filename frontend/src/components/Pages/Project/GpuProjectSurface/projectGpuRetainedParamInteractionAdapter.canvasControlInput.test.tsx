@@ -252,7 +252,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,
@@ -344,7 +344,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,
@@ -423,7 +423,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,
@@ -526,7 +526,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef,
       zoomActivationKeyPressed: false,
@@ -651,7 +651,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef: { current: null },
       zoomActivationKeyPressed: false,
@@ -759,7 +759,7 @@ describe("project GPU retained param canvas controls", () => {
       retainedContentScroll: {
         getScene: () => EMPTY_TEST_SCENE,
         getScrollOffsets: () => new Map(),
-        applyScrollOffsets: vi.fn(),
+        onScrollOffsetsChange: vi.fn(),
       },
       retainedParamDragSessionRef,
       zoomActivationKeyPressed: false,

@@ -61,7 +61,6 @@ import {
   type ProjectGpuRetainedParamDragPreview,
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
-import { postProjectGpuRetainedParamActivationPreflightChromeReproEvent } from "./projectGpuRetainedParamActivationDiagnostics";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
 import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
@@ -90,7 +89,7 @@ import { commitProjectGpuRetainedSwitchParamClick } from "./projectGpuRetainedPa
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
   readonly getScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
-  readonly applyScrollOffsets: (
+  readonly onScrollOffsetsChange: (
     scrollOffsets: GpuRetainedContentScrollOffsetMap,
   ) => void;
 };
@@ -413,7 +412,6 @@ function handleProjectRetainedContentPointerDown(
   }
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
-  postProjectGpuRetainedParamActivationPreflightChromeReproEvent(event);
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {
@@ -558,7 +556,7 @@ function handleProjectRetainedContentDragMove(
     surfaceId: session.surfaceId,
   });
   if (scrollResult.changed) {
-    retainedContentScroll.applyScrollOffsets(scrollResult.scrollOffsets);
+    retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
   }
   onRetainedParamDragPreviewChange(
     createProjectGpuRetainedParamDragPreview({
@@ -603,7 +601,7 @@ function handleProjectRetainedContentDragFrame(
   if (!scrollResult.changed) {
     return false;
   }
-  retainedContentScroll.applyScrollOffsets(scrollResult.scrollOffsets);
+  retainedContentScroll.onScrollOffsetsChange(scrollResult.scrollOffsets);
   onRetainedParamDragPreviewChange(
     createProjectGpuRetainedParamDragPreview({
       hit: event.hit,

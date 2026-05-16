@@ -15,7 +15,6 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import deadcode_common as common
 import frontend_reports
-import go_reports
 import python_reports
 
 ROOT_DIR = common.ROOT_DIR
@@ -247,12 +246,8 @@ def build_go_reports(
     )
     discovered_mains = discover_go_main_packages()
     production_mains_set = set(production_mains)
-    tooling_mains, tooling_root_sources, unclassified_mains, tooling_warnings = (
-        discover_go_tooling_mains(
-            go_config=go_config,
-            discovered_mains=discovered_mains,
-            production_mains=production_mains,
-        )
+    tooling_mains = sorted(
+        pkg for pkg in discovered_mains if pkg not in production_mains_set
     )
     generated_globs = resolve_generated_globs(
         "go", go_config, GO_GENERATED_FALLBACK_GLOBS
@@ -261,7 +256,7 @@ def build_go_reports(
         go_config, "staticcheck_packages", DEFAULT_GO_STATICCHECK_PACKAGES
     )
 
-    warnings: list[str] = list(production_warnings) + list(tooling_warnings)
+    warnings: list[str] = list(production_warnings)
     limitations: list[str] = []
 
     unknown_prod = sorted(
@@ -300,16 +295,6 @@ def build_go_reports(
     report_paths.append(
         {"language": "go", "path": relative_path(staticcheck_test_path)}
     )
-    unclassified_main_findings, unclassified_main_path = (
-        write_go_unclassified_main_report(
-            output_dir=output_dir,
-            generated_at=generated_at,
-            unclassified_mains=unclassified_mains,
-        )
-    )
-    report_paths.append(
-        {"language": "go", "path": relative_path(unclassified_main_path)}
-    )
 
     go_findings = aggregate_go_findings(
         prod_findings=findings_by_scope["prod"],
@@ -317,7 +302,6 @@ def build_go_reports(
         tooling_findings=findings_by_scope["tooling"],
         staticcheck_findings=staticcheck_findings,
         staticcheck_test_findings=staticcheck_test_findings,
-        unclassified_main_findings=unclassified_main_findings,
     )
 
     if not tooling_mains:
@@ -337,8 +321,6 @@ def build_go_reports(
             "production_mains": sorted(production_mains),
             "production_root_sources": production_root_sources,
             "tooling_mains": tooling_mains,
-            "tooling_root_sources": tooling_root_sources,
-            "unclassified_mains": unclassified_mains,
             "build_matrix": build_matrix,
             "staticcheck_packages": staticcheck_packages,
         },
@@ -546,52 +528,6 @@ def write_go_staticcheck_test_report(
     return staticcheck_findings, path
 
 
-def write_go_unclassified_main_report(
-    output_dir: Path,
-    generated_at: str,
-    unclassified_mains: list[str],
-) -> tuple[list[dict[str, Any]], Path]:
-    findings = [
-        {
-            "language": "go",
-            "lane": "reachability",
-            "bucket": "unclassified-root",
-            "tool": "root-discovery",
-            "confidence": "medium",
-            "root_scope": "unclassified",
-            "definition_scope": "production",
-            "path": go_main_package_source_path(main_pkg),
-            "line": 1,
-            "column": 1,
-            "symbol": main_pkg,
-            "package_path": main_pkg,
-            "evidence": [
-                "discovered Go main package is not a production root",
-                "discovered Go main package is not referenced by known tooling roots",
-            ],
-        }
-        for main_pkg in unclassified_mains
-    ]
-    path = output_dir / "go-unclassified-mains.json"
-    write_json(
-        path,
-        {
-            "schema_version": SCHEMA_VERSION,
-            "generated_at": generated_at,
-            "language": "go",
-            "lane": "reachability",
-            "tool": "root-discovery",
-            "scope": "unclassified",
-            "warnings": [],
-            "limitations": [
-                "Unclassified Go mains are discovered executable packages with no production or tooling root evidence in the dead-code model."
-            ],
-            "findings": findings,
-        },
-    )
-    return findings, path
-
-
 def resolve_go_build_matrix(raw_matrix: Any) -> list[dict[str, Any]]:
     current_goos, current_goarch = current_go_platform()
     matrix = raw_matrix if isinstance(raw_matrix, list) and raw_matrix else [{}]
@@ -650,38 +586,16 @@ def discover_go_main_packages() -> list[str]:
 def discover_go_production_mains(
     go_config: dict[str, Any],
 ) -> tuple[list[str], dict[str, list[str]], list[str]]:
+    configured = go_config.get("production_mains")
+    if isinstance(configured, list) and configured:
+        normalized = sorted({str(item) for item in configured})
+        return normalized, {"config_override": normalized}, []
+
     source_paths = {
         "packaged_binaries": ROOT_DIR / "scripts" / "build_packaged_go_binaries.sh",
         "python_entrypoint": ROOT_DIR / "backend" / "setta" / "entrypoint.py",
         "source_server_wrapper": ROOT_DIR / "scripts" / "run_setta_server.sh",
     }
-    discovered_by_source, discovered_union, warnings = (
-        discover_go_cmd_packages_from_sources(source_paths)
-    )
-    configured = go_config.get("production_mains")
-    if isinstance(configured, list) and configured:
-        normalized = sorted({str(item) for item in configured})
-        discovered = sorted(discovered_union)
-        if discovered and normalized != discovered:
-            warnings.append(
-                "Configured Go production mains differ from packaging/launcher discovery: "
-                f"configured={', '.join(normalized)} discovered={', '.join(discovered)}"
-            )
-        return normalized, {"config_override": normalized}, warnings
-
-    if discovered_union:
-        return sorted(discovered_union), discovered_by_source, warnings
-
-    fallback = ["./cmd/setta", "./cmd/setta-server"]
-    warnings.append(
-        "Fell back to default Go production mains because authoritative packaging/launcher sources did not yield any cmd roots."
-    )
-    return fallback, {"fallback": fallback}, warnings
-
-
-def discover_go_cmd_packages_from_sources(
-    source_paths: dict[str, Path],
-) -> tuple[dict[str, list[str]], set[str], list[str]]:
     discovered_by_source: dict[str, list[str]] = {}
     discovered_union: set[str] = set()
     warnings: list[str] = []
@@ -697,41 +611,19 @@ def discover_go_cmd_packages_from_sources(
             discovered_by_source[source_name] = mains
             discovered_union.update(mains)
 
-    return discovered_by_source, discovered_union, warnings
+    if discovered_union:
+        return sorted(discovered_union), discovered_by_source, warnings
+
+    fallback = ["./cmd/setta", "./cmd/setta-server"]
+    warnings.append(
+        "Fell back to default Go production mains because authoritative packaging/launcher sources did not yield any cmd roots."
+    )
+    return fallback, {"fallback": fallback}, warnings
 
 
 def discover_go_cmd_packages_in_text(text: str) -> list[str]:
     matches = sorted(set(re.findall(r"\./cmd/[A-Za-z0-9._-]+", text)))
     return matches
-
-
-def discover_go_tooling_mains(
-    *,
-    go_config: dict[str, Any],
-    discovered_mains: list[str],
-    production_mains: list[str],
-) -> tuple[list[str], dict[str, list[str]], list[str], list[str]]:
-    previous = _sync_child_module(go_reports)
-    try:
-        return go_reports.discover_go_tooling_mains(
-            go_config=go_config,
-            discovered_mains=discovered_mains,
-            production_mains=production_mains,
-        )
-    finally:
-        _restore_child_module(go_reports, previous)
-
-
-def discover_go_package_references_in_text(text: str) -> list[str]:
-    return go_reports.discover_go_package_references_in_text(text)
-
-
-def go_main_package_source_path(main_pkg: str) -> str:
-    previous = _sync_child_module(go_reports)
-    try:
-        return go_reports.go_main_package_source_path(main_pkg)
-    finally:
-        _restore_child_module(go_reports, previous)
 
 
 def normalize_go_deadcode_findings(
@@ -756,7 +648,6 @@ def normalize_go_deadcode_findings(
                     "lane": "reachability",
                     "tool": "deadcode",
                     "scope": scope,
-                    "definition_scope": go_definition_scope(path),
                     "package_path": package_path,
                     "path": path,
                     "line": int(position.get("Line", 0)),
@@ -840,7 +731,6 @@ def normalize_staticcheck_findings(
                 "tool": "staticcheck",
                 "confidence": "high",
                 "root_scope": root_scope,
-                "definition_scope": go_definition_scope(path),
                 "path": path,
                 "line": int(record.get("location", {}).get("line", 0)),
                 "column": int(record.get("location", {}).get("column", 0)),
@@ -871,7 +761,6 @@ def aggregate_go_findings(
     tooling_findings: list[dict[str, Any]],
     staticcheck_findings: list[dict[str, Any]],
     staticcheck_test_findings: list[dict[str, Any]],
-    unclassified_main_findings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     aggregated: list[dict[str, Any]] = []
     test_keys = {finding_identity(finding) for finding in test_findings}
@@ -902,7 +791,6 @@ def aggregate_go_findings(
                 "tool": "deadcode",
                 "confidence": confidence,
                 "root_scope": "prod",
-                "definition_scope": finding["definition_scope"],
                 "path": finding["path"],
                 "line": finding["line"],
                 "column": finding["column"],
@@ -918,12 +806,7 @@ def aggregate_go_findings(
 
     aggregated.extend(staticcheck_findings)
     aggregated.extend(staticcheck_test_findings)
-    aggregated.extend(unclassified_main_findings)
     return dedupe_findings(aggregated)
-
-
-def go_definition_scope(path: str) -> str:
-    return "test" if path.endswith("_test.go") else "production"
 
 
 if __name__ == "__main__":

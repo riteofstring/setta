@@ -15,8 +15,6 @@ export type GpuRetainedContentRowState = {
   readonly error: boolean;
   readonly focused: boolean;
   readonly hovered: boolean;
-  readonly nativeControlActive: boolean;
-  readonly nativeLabelActive: boolean;
   readonly searchFocused: boolean;
   readonly searchMatched: boolean;
   readonly selected: boolean;
@@ -26,11 +24,6 @@ export type GpuRetainedContentLabelAppearance = {
   readonly fontFamily: "mono" | "sans";
   readonly fontWeight: "normal" | "semibold";
   readonly tone: "accent" | "default" | "muted";
-};
-
-export type GpuRetainedContentRowVisualBounds = {
-  readonly width: number;
-  readonly x: number;
 };
 
 export type GpuRetainedContentRowPortInput = {
@@ -43,15 +36,6 @@ export type GpuRetainedContentControlCommitPolicy =
   | "immediate"
   | "native-island"
   | "preview-commit";
-
-export type GpuRetainedContentTextLikeEditorPolicy = {
-  readonly editorKind: "code" | "text" | "textarea";
-  readonly language: string | null;
-  readonly linePolicy: "multiline-auto" | "multiline-fixed" | "single-line";
-  readonly maxVisibleLines: number;
-  readonly minVisibleLines: number;
-  readonly wrapLines: boolean;
-};
 
 export type GpuRetainedContentColorChoice = {
   readonly color: string;
@@ -80,7 +64,6 @@ export type GpuRetainedContentControlDescriptor =
       readonly displayValue: string;
       readonly editorKind: "code" | "text" | "textarea";
       readonly kind: "text-like";
-      readonly policy: GpuRetainedContentTextLikeEditorPolicy;
       readonly rendererFamily: string;
       readonly commitPolicy: "native-island";
     }
@@ -182,7 +165,6 @@ export type GpuRetainedContentRowInput = {
   readonly control?: GpuRetainedContentControlDescriptor | null | undefined;
   readonly controlKind: string | null;
   readonly depth: number;
-  readonly height?: number | undefined;
   readonly id: string;
   readonly label: string;
   readonly labelAppearance?:
@@ -208,8 +190,6 @@ export type GpuRetainedContentRow = {
   readonly projectedRect: GpuRect;
   readonly state: GpuRetainedContentRowState;
   readonly status: GpuRetainedContentRowStatus | null;
-  readonly visualContentRect: GpuRect;
-  readonly visualProjectedRect: GpuRect;
 };
 
 export type GpuRetainedContentVisibleRowRange = {
@@ -219,7 +199,6 @@ export type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentRowMetric = {
-  readonly height: number;
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly y: number;
@@ -352,10 +331,6 @@ export type CreateGpuRetainedRowContentSceneInput = {
   readonly ownerSectionId: string;
   readonly overscanRows?: number | undefined;
   readonly portHitSize?: number | undefined;
-  readonly rowVisualBounds?:
-    | GpuRetainedContentRowVisualBounds
-    | null
-    | undefined;
   readonly rowHeight: number;
   readonly rows: readonly GpuRetainedContentRowInput[];
   readonly scrollOffset: GpuPoint;

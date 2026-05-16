@@ -3,13 +3,10 @@ export function resolveChromeExecutablePath(): string | undefined {
 }
 
 export function resolveBrowserLaunchArgs(): string[] {
-  return uniqueBrowserArgs([
+  return [
     ...(process.platform === "darwin" ? ["--use-mock-keychain"] : []),
-    "--enable-blink-features=CanvasDrawElement",
-    "--enable-unsafe-webgpu",
-    "--enable-webgpu-developer-features",
     ...parseChromeExtraArgs(process.env.CHROME_EXTRA_ARGS),
-  ]);
+  ];
 }
 
 function parseChromeExtraArgs(value: string | undefined): string[] {
@@ -18,8 +15,4 @@ function parseChromeExtraArgs(value: string | undefined): string[] {
     return [];
   }
   return trimmed.split(/\s+/);
-}
-
-function uniqueBrowserArgs(args: readonly string[]): string[] {
-  return [...new Set(args)];
 }

@@ -263,78 +263,44 @@ async function readRetainedCanvasPixel(
   page: Page,
   target: RetainedControlTarget,
 ): Promise<Pixel> {
-  const clip = await clampScreenshotClipToViewport(page, {
-    height: 1,
-    width: 1,
-    x: target.clientRect.x + 5,
-    y:
-      target.clientRect.y +
-      Math.max(3, Math.min(target.clientRect.height - 3, 12)),
-  });
-  const screenshot = await page.screenshot({ clip });
-  return await page.evaluate(
-    async (dataUrl) => {
-      const image = new Image();
-      const loaded = new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () =>
-          reject(new Error("Failed to decode retained row screenshot."));
-      });
-      image.src = dataUrl;
-      await loaded;
-      const canvas = document.createElement("canvas");
-      canvas.width = 1;
-      canvas.height = 1;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) {
-        throw new Error("Missing retained row screenshot context.");
-      }
-      ctx.drawImage(image, 0, 0, 1, 1);
-      const data = ctx.getImageData(0, 0, 1, 1).data;
-      return {
-        a: data[3] ?? 0,
-        b: data[2] ?? 0,
-        g: data[1] ?? 0,
-        r: data[0] ?? 0,
-      };
-    },
-    `data:image/png;base64,${screenshot.toString("base64")}`,
-  );
-}
-
-async function clampScreenshotClipToViewport(
-  page: Page,
-  rect: {
-    readonly height: number;
-    readonly width: number;
-    readonly x: number;
-    readonly y: number;
-  },
-): Promise<{
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-}> {
-  return await page.evaluate((input) => {
-    const width = Math.min(
-      Math.max(1, Math.floor(input.width)),
-      Math.max(1, window.innerWidth - 1),
+  return await page.evaluate((target) => {
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      `[data-gpu-flow-source-id="${CSS.escape(target.surfaceId)}"] ` +
+        '[data-gpu-flow-retained-content-canvas="true"]',
     );
-    const height = Math.min(
-      Math.max(1, Math.floor(input.height)),
-      Math.max(1, window.innerHeight - 1),
+    if (!canvas) {
+      throw new Error(`Missing retained source canvas ${target.surfaceId}.`);
+    }
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) {
+      throw new Error(
+        `Missing retained source canvas context ${target.surfaceId}.`,
+      );
+    }
+    const scaleX = canvas.width / target.canvasCssSize.width;
+    const scaleY = canvas.height / target.canvasCssSize.height;
+    const x = Math.max(
+      0,
+      Math.min(
+        canvas.width - 1,
+        Math.floor(target.canvasSamplePoint.x * scaleX),
+      ),
     );
-    const x = Math.min(
-      Math.max(0, Math.floor(input.x)),
-      Math.max(0, window.innerWidth - width),
+    const y = Math.max(
+      0,
+      Math.min(
+        canvas.height - 1,
+        Math.floor(target.canvasSamplePoint.y * scaleY),
+      ),
     );
-    const y = Math.min(
-      Math.max(0, Math.floor(input.y)),
-      Math.max(0, window.innerHeight - height),
-    );
-    return { height, width, x, y };
-  }, rect);
+    const data = ctx.getImageData(x, y, 1, 1).data;
+    return {
+      a: data[3] ?? 0,
+      b: data[2] ?? 0,
+      g: data[1] ?? 0,
+      r: data[0] ?? 0,
+    };
+  }, target);
 }
 
 async function readFocusedRowBackgroundPixel(page: Page): Promise<Pixel> {

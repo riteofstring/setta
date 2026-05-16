@@ -1,9 +1,3 @@
-import {
-  isChromeReproActive,
-  nowChromeReproPerformanceMs,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowScene } from "../scene";
@@ -14,7 +8,7 @@ import {
   type GpuSectionSceneScrollOffsetMap,
   type GpuSectionSceneScrollResult,
 } from "../sceneScroll";
-import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
+import { screenToFlowPosition } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -92,20 +86,13 @@ class GpuSectionSceneScrollController {
     if (!parentSectionId) {
       return;
     }
-    const scrollOffsets = this.options.getScrollOffsets();
-    const resolveStartedAtMs = nowChromeReproPerformanceMs();
     const result = resolveGpuSectionSceneKeyboardScroll({
       command,
       parentSectionId,
       scene,
-      scrollOffsets,
+      scrollOffsets: this.options.getScrollOffsets(),
     });
-    this.applyScrollResult(event, result, {
-      inputKind: "keyboard",
-      previousScrollOffsets: scrollOffsets,
-      resolveDurationMs: nowChromeReproPerformanceMs() - resolveStartedAtMs,
-      scene,
-    });
+    this.applyScrollResult(event, result);
   };
 
   private readonly onWheel = (event: WheelEvent) => {
@@ -122,52 +109,22 @@ class GpuSectionSceneScrollController {
     if (!scene) {
       return;
     }
-    const scrollOffsets = this.options.getScrollOffsets();
-    const resolveStartedAtMs = nowChromeReproPerformanceMs();
     const result = resolveGpuSectionSceneWheelScroll({
       event,
       point: getWheelFlowPoint(event, this.element, this.store),
       scene,
-      scrollOffsets,
+      scrollOffsets: this.options.getScrollOffsets(),
     });
     if (!result.handled) {
       return;
     }
-    this.applyScrollResult(event, result, {
-      consumeUnchanged: true,
-      inputKind: "wheel",
-      previousScrollOffsets: scrollOffsets,
-      resolveDurationMs: nowChromeReproPerformanceMs() - resolveStartedAtMs,
-      scene,
-      wheel: {
-        deltaMode: event.deltaMode,
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        shiftKey: event.shiftKey,
-      },
-    });
+    this.applyScrollResult(event, result, { consumeUnchanged: true });
   };
 
   private applyScrollResult(
     event: KeyboardEvent | WheelEvent,
     result: GpuSectionSceneScrollResult,
-    options: {
-      readonly consumeUnchanged?: boolean | undefined;
-      readonly inputKind?: "keyboard" | "wheel" | undefined;
-      readonly previousScrollOffsets?:
-        | GpuSectionSceneScrollOffsetMap
-        | undefined;
-      readonly resolveDurationMs?: number | undefined;
-      readonly scene?: GpuFlowScene | undefined;
-      readonly wheel?:
-        | {
-            readonly deltaMode: number;
-            readonly deltaX: number;
-            readonly deltaY: number;
-            readonly shiftKey: boolean;
-          }
-        | undefined;
-    } = {},
+    options: { readonly consumeUnchanged?: boolean | undefined } = {},
   ) {
     if (!result.changed && !options.consumeUnchanged) {
       return;
@@ -175,96 +132,10 @@ class GpuSectionSceneScrollController {
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!result.changed) {
-      this.postSectionSceneScrollChromeReproEvent({
-        commitDurationMs: 0,
-        options,
-        requestFrame: false,
-        result,
-      });
       return;
     }
-    const commitStartedAtMs = nowChromeReproPerformanceMs();
     this.options.onScrollOffsetsChange(result.scrollOffsets, result);
-    const commitDurationMs = nowChromeReproPerformanceMs() - commitStartedAtMs;
     this.options.requestFrame?.("viewport");
-    this.postSectionSceneScrollChromeReproEvent({
-      commitDurationMs,
-      options,
-      requestFrame: true,
-      result,
-    });
-  }
-
-  private postSectionSceneScrollChromeReproEvent({
-    commitDurationMs,
-    options,
-    requestFrame,
-    result,
-  }: {
-    readonly commitDurationMs: number;
-    readonly options: {
-      readonly inputKind?: "keyboard" | "wheel" | undefined;
-      readonly previousScrollOffsets?:
-        | GpuSectionSceneScrollOffsetMap
-        | undefined;
-      readonly resolveDurationMs?: number | undefined;
-      readonly scene?: GpuFlowScene | undefined;
-      readonly wheel?:
-        | {
-            readonly deltaMode: number;
-            readonly deltaX: number;
-            readonly deltaY: number;
-            readonly shiftKey: boolean;
-          }
-        | undefined;
-    };
-    readonly requestFrame: boolean;
-    readonly result: GpuSectionSceneScrollResult;
-  }) {
-    if (!isChromeReproActive()) {
-      return;
-    }
-    const parentSectionId = result.parentSectionId;
-    const previousOffset =
-      parentSectionId && options.scene
-        ? options.previousScrollOffsets?.get(parentSectionId) ??
-          getSectionSceneScrollOffset(options.scene, parentSectionId)
-        : null;
-    const nextOffset =
-      parentSectionId && result.scrollOffsets.has(parentSectionId)
-        ? result.scrollOffsets.get(parentSectionId) ?? null
-        : null;
-    postChromeReproEvent("gpu-flow-section-scene-scroll", {
-      changed: result.changed,
-      commitDurationMs: roundChromeReproMs(commitDurationMs),
-      inputKind: options.inputKind ?? "unknown",
-      nextOffset: nextOffset ? roundGpuPointForChromeRepro(nextOffset) : null,
-      parentSectionId,
-      previousOffset: previousOffset
-        ? roundGpuPointForChromeRepro(previousOffset)
-        : null,
-      requestFrame,
-      requestFrameReason: requestFrame ? "viewport" : null,
-      resolveDurationMs:
-        options.resolveDurationMs === undefined
-          ? null
-          : roundChromeReproMs(options.resolveDurationMs),
-      scrollDelta:
-        previousOffset && nextOffset
-          ? {
-              x: roundChromeReproMs(nextOffset.x - previousOffset.x),
-              y: roundChromeReproMs(nextOffset.y - previousOffset.y),
-            }
-          : null,
-      wheel: options.wheel
-        ? {
-            deltaMode: options.wheel.deltaMode,
-            deltaX: roundChromeReproMs(options.wheel.deltaX),
-            deltaY: roundChromeReproMs(options.wheel.deltaY),
-            shiftKey: options.wheel.shiftKey,
-          }
-        : null,
-    });
   }
 }
 
@@ -281,23 +152,6 @@ function getWheelFlowPoint(
     },
     store.getState().transform,
   );
-}
-
-function getSectionSceneScrollOffset(
-  scene: GpuFlowScene,
-  parentSectionId: string,
-): GpuPoint {
-  return (
-    scene.sections.find((section) => section.sectionId === parentSectionId)
-      ?.scrollOffset ?? { x: 0, y: 0 }
-  );
-}
-
-function roundGpuPointForChromeRepro(point: GpuPoint): GpuPoint {
-  return {
-    x: roundChromeReproMs(point.x),
-    y: roundChromeReproMs(point.y),
-  };
 }
 
 function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {

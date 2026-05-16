@@ -13,10 +13,6 @@ import {
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
-import {
-  getGpuRetainedContentRuntimeScrollOffsets,
-  type GpuRetainedContentRuntimeState,
-} from "gpuFlow/retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
   getGpuFlowSceneDomSectionNodes,
@@ -34,7 +30,7 @@ import {
   type GpuSectionSceneScrollOffsetMap,
 } from "gpuFlow/sceneScroll";
 import type { GpuRect } from "gpuFlow/viewportMath";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import { getActiveViewModeTopLevelSections } from "state/actions/sectionInfos/codeObjectsAndLayout";
 import {
@@ -81,10 +77,6 @@ import {
 } from "./projectGpuParamContentAdapter";
 import { getProjectGpuParamFixedContentHeightForSection } from "./projectGpuParamContentHeight";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
-import {
-  useProjectGpuRetainedContentRuntimeAdapter,
-  type ProjectGpuRetainedContentScrollSetter,
-} from "./projectGpuRetainedContentRuntimeState";
 import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 import {
   getProjectGpuSceneResizePolicyContext,
@@ -121,12 +113,12 @@ export type {
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
+type ContentScrollSetter = (offsets: GpuRetainedContentScrollOffsetMap) => void;
 
 export type ProjectGpuLayoutAdapter = {
   readonly getContentScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
   readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly resolveResizePreviewScene: (
     input: ProjectGpuResizePreviewSceneInput,
   ) => GpuFlowScene;
@@ -139,7 +131,8 @@ export type ProjectGpuLayoutAdapter = {
   readonly setSceneScrollOffsets: (
     scrollOffsets: GpuSectionSceneScrollOffsetMap,
   ) => void;
-  readonly setContentScrollOffsets: ProjectGpuRetainedContentScrollSetter;
+  readonly setContentScrollOffsets: ContentScrollSetter;
+  readonly setTransientContentScrollOffsets: ContentScrollSetter;
 };
 
 type ProjectSectionSceneAspectRatioFields = {
@@ -186,7 +179,11 @@ export function useProjectGpuLayoutAdapter({
   const layoutStore = useProjectGpuLayoutStore();
   const [sceneScrollOffsets, setSceneScrollOffsets] =
     useState<GpuSectionSceneScrollOffsetMap>(() => new Map());
-  const retainedContentRuntime = useProjectGpuRetainedContentRuntimeAdapter();
+  const contentScrollOffsetsRef = useRef<GpuRetainedContentScrollOffsetMap>(
+    new Map(),
+  );
+  const [contentScrollOffsetsVersion, setContentScrollOffsetsVersion] =
+    useState(0);
   const projectState = useProjectState((state) => state);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
@@ -212,9 +209,7 @@ export function useProjectGpuLayoutAdapter({
         activeParamCanvasControl,
         activeParamCanvasPopup,
         activeParamDomIsland,
-        contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-          retainedContentRuntime.retainedContentRuntimeState,
-        ),
+        contentScrollOffsets: contentScrollOffsetsRef.current,
         paramEditPolicy: {
           canEditParams,
           canEditStructure,
@@ -233,7 +228,7 @@ export function useProjectGpuLayoutAdapter({
       activeParamCanvasPopup,
       canEditParams,
       canEditStructure,
-      retainedContentRuntime.contentScrollCommandRevision,
+      contentScrollOffsetsVersion,
       darkMode,
       hoveredParamTarget,
       passwordRevealStates,
@@ -241,7 +236,6 @@ export function useProjectGpuLayoutAdapter({
       projectSearch,
       projectState,
       retainedParamDragPreview,
-      retainedContentRuntime,
       resizeEventBySectionId,
       sceneScrollOffsets,
       sizingPolicy,
@@ -255,6 +249,23 @@ export function useProjectGpuLayoutAdapter({
     (scrollOffsets: GpuSectionSceneScrollOffsetMap) => {
       setSceneScrollOffsets(new Map(scrollOffsets));
     },
+    [],
+  );
+  const setNextContentScrollOffsets = useCallback(
+    (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
+      contentScrollOffsetsRef.current = new Map(scrollOffsets);
+      setContentScrollOffsetsVersion((version) => version + 1);
+    },
+    [],
+  );
+  const setTransientContentScrollOffsets = useCallback(
+    (scrollOffsets: GpuRetainedContentScrollOffsetMap) => {
+      contentScrollOffsetsRef.current = new Map(scrollOffsets);
+    },
+    [],
+  );
+  const getContentScrollOffsets = useCallback(
+    () => contentScrollOffsetsRef.current,
     [],
   );
   const revealSceneSection = useCallback(
@@ -289,9 +300,7 @@ export function useProjectGpuLayoutAdapter({
           activeParamCanvasControl,
           activeParamCanvasPopup,
           activeParamDomIsland,
-          contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-            retainedContentRuntime.retainedContentRuntimeState,
-          ),
+          contentScrollOffsets: contentScrollOffsetsRef.current,
           paramEditPolicy: {
             canEditParams,
             canEditStructure,
@@ -318,7 +327,6 @@ export function useProjectGpuLayoutAdapter({
       passwordRevealStates,
       projectSearch,
       projectState,
-      retainedContentRuntime,
       resizeEventBySectionId,
       retainedParamDragPreview,
       sceneScrollOffsets,
@@ -328,27 +336,28 @@ export function useProjectGpuLayoutAdapter({
   );
   return useMemo(
     () => ({
-      getContentScrollOffsets: retainedContentRuntime.getContentScrollOffsets,
+      getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
-      retainedContentRuntimeState:
-        retainedContentRuntime.retainedContentRuntimeState,
       resolveResizePreviewScene,
       revealSceneSection,
       scene,
       sceneScrollOffsets,
-      setContentScrollOffsets: retainedContentRuntime.setContentScrollOffsets,
+      setContentScrollOffsets: setNextContentScrollOffsets,
       setSceneScrollOffsets: setNextSceneScrollOffsets,
+      setTransientContentScrollOffsets,
     }),
     [
+      getContentScrollOffsets,
       layoutStore,
       nodeLayouts,
-      retainedContentRuntime,
       resolveResizePreviewScene,
       revealSceneSection,
       scene,
       sceneScrollOffsets,
+      setNextContentScrollOffsets,
       setNextSceneScrollOffsets,
+      setTransientContentScrollOffsets,
     ],
   );
 }

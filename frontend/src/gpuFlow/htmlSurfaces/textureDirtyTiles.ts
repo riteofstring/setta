@@ -1,6 +1,6 @@
 import type {
-  CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLayout,
+  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
 import {
@@ -92,7 +92,7 @@ function dirtyTextureTiles(
 }
 
 type DirtyTextureRecord = Pick<
-  CommittedHtmlSurfaceTextureSnapshot,
+  HtmlSurfaceTextureRecord,
   | "dirtyContent"
   | "dirtyResolution"
   | "lastUploadFrame"
@@ -102,7 +102,7 @@ type DirtyTextureRecord = Pick<
 > &
   Partial<
     Pick<
-      CommittedHtmlSurfaceTextureSnapshot,
+      HtmlSurfaceTextureRecord,
       "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
     >
   >;
@@ -115,121 +115,29 @@ function estimateDirtyTextureTileBytes(
   if (dirtyTiles.length === 0) {
     return 0;
   }
-  const singleUpload = resolveSingleTextureSourceRectEstimate(
-    record,
-    sourceRect,
-  );
-  if (singleUpload) {
-    return resolveTextureSourceRectUploadRegion(
-      singleUpload.record,
-      singleUpload.sourceRect,
-    ).byteLength;
-  }
-  const tiledUpload = resolveTiledTextureSourceRectEstimate(record, sourceRect);
-  if (tiledUpload) {
-    return dirtyTiles.reduce(
-      (bytes, tile) =>
-        bytes +
-        estimateTiledTextureSourceRectUploadBytes(tile, tiledUpload.sourceRect),
-      0,
-    );
+  if (
+    record &&
+    sourceRect &&
+    record.textureLayout.kind === "single" &&
+    record.dirtyContent &&
+    !record.dirtyResolution &&
+    record.lastUploadFrame >= 0 &&
+    hasTextureSourceRectUploadDimensions(record)
+  ) {
+    return resolveTextureSourceRectUploadRegion(record, sourceRect).byteLength;
   }
   return dirtyTiles.reduce((bytes, tile) => bytes + tile.textureBytes, 0);
 }
 
-type DirtyTextureRecordWithUploadDimensions = DirtyTextureRecord &
-  Required<
-    Pick<
-      CommittedHtmlSurfaceTextureSnapshot,
-      "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
-    >
-  >;
-
-function resolveSingleTextureSourceRectEstimate(
-  record: DirtyTextureRecord | undefined,
-  sourceRect: HtmlSurfaceDirtyRect | undefined,
-): {
-  readonly record: DirtyTextureRecordWithUploadDimensions;
-  readonly sourceRect: HtmlSurfaceDirtyRect;
-} | null {
-  if (
-    !record ||
-    !sourceRect ||
-    record.textureLayout.kind !== "single" ||
-    !canEstimateSourceRectUpload(record) ||
-    !hasTextureSourceRectUploadDimensions(record)
-  ) {
-    return null;
-  }
-  return { record, sourceRect };
-}
-
-function resolveTiledTextureSourceRectEstimate(
-  record: DirtyTextureRecord | undefined,
-  sourceRect: HtmlSurfaceDirtyRect | undefined,
-): {
-  readonly sourceRect: HtmlSurfaceDirtyRect;
-} | null {
-  if (
-    !record ||
-    !sourceRect ||
-    record.textureLayout.kind !== "tiled" ||
-    !canEstimateSourceRectUpload(record)
-  ) {
-    return null;
-  }
-  return { sourceRect };
-}
-
-function canEstimateSourceRectUpload(record: DirtyTextureRecord): boolean {
-  return (
-    record.dirtyContent &&
-    !record.dirtyResolution &&
-    record.lastUploadFrame >= 0
-  );
-}
-
-function estimateTiledTextureSourceRectUploadBytes(
-  tile: HtmlSurfaceTextureTileRecord,
-  sourceRect: HtmlSurfaceDirtyRect,
-): number {
-  const intersection = intersectTextureSourceRects(sourceRect, {
-    height: tile.cssHeight,
-    width: tile.cssWidth,
-    x: tile.cssX,
-    y: tile.cssY,
-  });
-  if (!intersection) {
-    return 0;
-  }
-  return resolveTextureSourceRectUploadRegion(tile, {
-    height: intersection.height,
-    width: intersection.width,
-    x: intersection.x - tile.cssX,
-    y: intersection.y - tile.cssY,
-  }).byteLength;
-}
-
-function intersectTextureSourceRects(
-  left: HtmlSurfaceDirtyRect,
-  right: HtmlSurfaceDirtyRect,
-): HtmlSurfaceDirtyRect | null {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const width = Math.max(
-    0,
-    Math.min(left.x + left.width, right.x + right.width) - x,
-  );
-  const height = Math.max(
-    0,
-    Math.min(left.y + left.height, right.y + right.height) - y,
-  );
-  return width > 0 && height > 0 ? { height, width, x, y } : null;
-}
-
 function hasTextureSourceRectUploadDimensions(
   record: DirtyTextureRecord,
-): record is DirtyTextureRecordWithUploadDimensions {
+): record is DirtyTextureRecord &
+  Required<
+    Pick<
+      HtmlSurfaceTextureRecord,
+      "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
+    >
+  > {
   return (
     record.cssHeight !== undefined &&
     record.cssWidth !== undefined &&

@@ -141,7 +141,7 @@ const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
 
 const DEFAULT_DROPZONE_WRAPPER_CLASS_NAME =
-  "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-400";
+  "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500";
 
 const DEFAULT_DROPZONE_DRAG_ACTIVE_CLASS_NAME =
   "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]";
@@ -150,7 +150,7 @@ const DEFAULT_DROPZONE_CONTROLS_ROW_CLASS_NAME =
   "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400";
 
 const DEFAULT_DROPZONE_CONTROL_BUTTON_CLASS_NAME =
-  "rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-400 dark:hover:border-setta-600 dark:hover:text-setta-300";
+  "rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300";
 
 const DEFAULT_DROPZONE_UPLOADING_TEXT_CLASS_NAME =
   "text-[10px] font-semibold uppercase tracking-widest text-setta-300";

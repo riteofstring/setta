@@ -59,8 +59,6 @@ import {
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
-import { resolveTextLikeParamEditorPolicy } from "./textLikeEditorPolicy";
-import { dummyCodeClass, realCodeClass } from "./textLikeParamCodeMirrorVisual";
 import {
   DateParamInputConfigForParam,
   TextParamDateTimeInput,
@@ -72,7 +70,6 @@ type ParamUIProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
-  onTextInputBlur?: () => void;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
@@ -243,7 +240,6 @@ function renderTextLikeParam({
   paramInfoId,
   value,
   onChange,
-  onTextInputBlur,
   onEscape,
   maybeErrorMessage,
   focusActiveSectionOnTextInput,
@@ -264,11 +260,9 @@ function renderTextLikeParam({
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
-      onBlur={onTextInputBlur}
       onEscape={onEscape}
       maybeErrorMessage={maybeErrorMessage}
       isDisabled={isDisabled}
-      codeObjType={paramUiState.codeObjType}
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
@@ -576,7 +570,6 @@ export function ParamUI({
   paramInfoId,
   value,
   onChange,
-  onTextInputBlur,
   onDropzoneStateless,
   onRevealPassword,
   isPasswordRevealPending,
@@ -620,7 +613,6 @@ export function ParamUI({
     paramInfoId,
     value,
     onChange,
-    onTextInputBlur,
     onDropzoneStateless,
     onRevealPassword,
     isPasswordRevealPending,
@@ -633,7 +625,7 @@ export function ParamUI({
     paramUiState,
     showPasswordReveal,
     passwordPlaceholder,
-    waitingForResult: Boolean(waitingForResult),
+    waitingForResult,
   } satisfies ParamUIRenderContext;
 
   const textLikeParam = renderTextLikeParam(renderContext);
@@ -655,11 +647,9 @@ function TextParamConfigured({
   value,
   defaultVal,
   onChange,
-  onBlur,
   onEscape,
   maybeErrorMessage,
   isDisabled,
-  codeObjType,
   configLanguage,
   waitingForResult,
   isSelectingParams,
@@ -671,11 +661,9 @@ function TextParamConfigured({
   value: string;
   defaultVal: string;
   onChange: ParamValueChange;
-  onBlur?: () => void;
   onEscape: () => void;
   maybeErrorMessage: string | undefined;
   isDisabled: boolean;
-  codeObjType: CodeObjType;
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
@@ -686,10 +674,6 @@ function TextParamConfigured({
     tooltipParentDivId === undefined
       ? CODEMIRROR_TOOLTIP_PARENT_ID
       : tooltipParentDivId;
-  const editorPolicy = resolveTextLikeParamEditorPolicy({
-    codeObjType,
-    configLanguage,
-  });
   return (
     <>
       <TextInputCodeMirror
@@ -699,29 +683,17 @@ function TextParamConfigured({
         value={value}
         defaultVal={defaultVal}
         onChange={onChange}
-        onBlur={onBlur}
-        onMouseDown={undefined}
         onEscape={(completionResult) => {
           if (!completionResult) {
             onEscape();
           }
         }}
-        dummyCodeClassName={dummyCodeClass(
-          Boolean(maybeErrorMessage),
-          true,
-          isDisabled,
-        )}
-        realCodeClassName={realCodeClass(Boolean(maybeErrorMessage))}
+        dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+        realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
-        singleLine={editorPolicy?.linePolicy === "single-line"}
-        wrapLines={editorPolicy?.wrapLines}
-        keyComboActions={undefined}
-        onTab={undefined}
-        color={undefined}
         isDisabled={isDisabled}
         focusActiveSectionOnMouseDown={focusActiveSectionOnTextInput}
         tooltipParentDivId={resolvedTooltipParentDivId}
-        completionsFn={undefined}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -965,7 +937,7 @@ function PasswordParamConfigured({
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
   const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-400 dark:hover:text-setta-300`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
   const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex min-w-0 items-center gap-2`;
   return (
     <>

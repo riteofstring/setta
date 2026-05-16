@@ -14,10 +14,6 @@
   pointer-events: none;
 }
 
-.setta-project-gpu-edge-layer .setta-gpu-flow__canvas {
-  pointer-events: none;
-}
-
 .setta-gpu-flow__minimap {
   background-color: #94a3b8b6 !important;
 }

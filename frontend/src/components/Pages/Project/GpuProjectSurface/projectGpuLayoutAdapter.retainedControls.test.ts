@@ -1,3 +1,4 @@
+import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
 import {
@@ -310,22 +311,18 @@ describe("project GPU layout adapter retained controls", () => {
       { focused: false, id: "parent-param" },
       { focused: false, id: "child-param" },
     ]);
-    const childRow = paramSurface?.retainedScene?.rows.find(
-      (row) => row.id === "child-param",
-    );
-    expect(childRow?.projectedRect.height).toBe(72);
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 61, width: 113, x: 0, y: 0 },
+        contentRect: { height: 24, width: 113, x: 0, y: 0 },
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
         rect: {
-          height: 36,
+          height: 24,
           width: 113,
           x: 22,
-          y: 105,
+          y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
         },
         source: {
           hitRecordId: "label:child-param",
@@ -787,7 +784,7 @@ describe("project GPU layout adapter retained controls", () => {
 
     expect(paramSurface?.retainedScene).toMatchObject({
       scrollOffset: { x: 0, y: 56 },
-      visibleRange: { endIndex: 2, rowCount: 8, startIndex: 0 },
+      visibleRange: { endIndex: 5, rowCount: 8, startIndex: 0 },
     });
     expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
       id: "param-0",

@@ -3,13 +3,11 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import {
-  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
 } from "./sourceDom";
 
 export {
-  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
   HTML_SURFACE_SOURCE_SELECTOR,
@@ -179,7 +177,6 @@ function configureHtmlSurfaceSourceElement({
     host.classList,
     preservedClassNames,
   );
-  host.setAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE, "true");
   host.dataset.gpuFlowHtmlSource = "true";
   host.setAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE, sourceId);
   setHtmlSurfaceSourceBaseStyle(host);

@@ -2,7 +2,6 @@ import {
   resolveGpuRetainedContentRowReveal,
   type GpuRetainedContentKeyboardNavigationResult,
 } from "gpuFlow/retainedContentKeyboard";
-import { getGpuRetainedContentSceneSourceInput } from "gpuFlow/retainedContentSceneSourceMetadata";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "gpuFlow/scene";
 import { setCenter } from "gpuFlow/viewportActions";
@@ -121,17 +120,13 @@ export function resolveProjectGpuRetainedParamSearchReveal({
   if (!revealResult.target) {
     return null;
   }
-  const rowCenter = resolveProjectGpuRetainedParamSearchRowCenter({
-    rowIndex: revealResult.target.rowIndex,
-    scrollOffsets: revealResult.scrollOffsets,
-    surface,
-  });
-  if (!rowCenter) {
-    return null;
-  }
   return {
     changed: revealResult.changed,
-    rowCenter,
+    rowCenter: resolveProjectGpuRetainedParamSearchRowCenter({
+      rowIndex: revealResult.target.rowIndex,
+      scrollOffsets: revealResult.scrollOffsets,
+      surface,
+    }),
     scrollOffsets: revealResult.scrollOffsets,
     surfaceId: surface.id,
     target: revealResult.target,
@@ -185,15 +180,8 @@ function resolveProjectGpuRetainedParamSearchRowCenter({
   readonly rowIndex: number;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly surface: ProjectGpuRetainedParamSearchRevealSurface;
-}): GpuPoint | null {
+}): GpuPoint {
   const retainedScene = surface.retainedScene;
-  const rowMetric =
-    getGpuRetainedContentSceneSourceInput(retainedScene)?.layout.rowMetrics[
-      rowIndex
-    ];
-  if (!rowMetric) {
-    return null;
-  }
   const scrollOffset =
     scrollOffsets.get(surface.id) ?? retainedScene.scrollOffset;
   return {
@@ -204,8 +192,8 @@ function resolveProjectGpuRetainedParamSearchRowCenter({
     y:
       surface.rect.y +
       retainedScene.viewportRect.y +
-      rowMetric.y +
-      rowMetric.height / 2 -
+      rowIndex * retainedScene.rowHeight +
+      retainedScene.rowHeight / 2 -
       scrollOffset.y,
   };
 }

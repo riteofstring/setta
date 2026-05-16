@@ -118,23 +118,13 @@ export type GpuFlowRetainedRowDebugEntry = {
   readonly canvasCssSize: { readonly height: number; readonly width: number };
   readonly canvasSamplePoint: GpuPoint;
   readonly clientRect: GpuRect;
-  readonly controlClientRect: GpuRect | null;
   readonly controlClientPoint: GpuPoint | null;
   readonly controlKind: string | null;
-  readonly labelClientPoint: GpuPoint;
   readonly ownerSectionId: string;
   readonly rowId: string;
   readonly rowLabel: string;
   readonly rowState: GpuRetainedContentRowState;
   readonly surfaceId: string;
-};
-
-export type GpuFlowVisualSurfaceDebugEntry = {
-  readonly clientRect: GpuRect;
-  readonly flowRect: GpuRect;
-  readonly kind: string;
-  readonly surfaceId: string;
-  readonly zIndex: number;
 };
 
 export function createGpuFlowInteractionDiagnosticsState(): MutableGpuFlowInteractionDiagnostics {
@@ -470,9 +460,6 @@ declare global {
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?:
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
-      | undefined;
-    __SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?:
-      | (() => readonly GpuFlowVisualSurfaceDebugEntry[])
       | undefined;
   }
 }

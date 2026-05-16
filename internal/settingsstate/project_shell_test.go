@@ -97,68 +97,6 @@ func TestBuildProjectDocumentMatchesSettingsShellContract(t *testing.T) {
 	assertSettingsProjectRoundTripsDefaults(t, settingsDocument, projectDocument)
 }
 
-func TestSettingsProjectStructuredScalarDefaultsUseCompactTextParams(t *testing.T) {
-	t.Parallel()
-
-	settingsDocument, err := DefaultDocument()
-	if err != nil {
-		t.Fatalf("new settings document: %v", err)
-	}
-
-	projectDocument, err := buildProjectDocumentWithSharedSettingsPath(settingsDocument, DefaultFileName)
-	if err != nil {
-		t.Fatalf("build settings project document: %v", err)
-	}
-	project, err := projectDocument.ProjectByID(SettingsProjectID)
-	if err != nil {
-		t.Fatalf("project by id: %v", err)
-	}
-	roundTripDocument, err := ApplySettingsProjectDocument(settingsDocument, projectDocument)
-	if err != nil {
-		t.Fatalf("apply settings project document: %v", err)
-	}
-
-	cases := []struct {
-		field              string
-		expectedStoredText string
-		expectedValue      any
-	}{
-		{field: "columnWidth", expectedStoredText: "null", expectedValue: nil},
-		{field: "edgeInputParams", expectedStoredText: "[]", expectedValue: []any{}},
-		{field: "edgeOutputPorts", expectedStoredText: "[]", expectedValue: []any{}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.field, func(t *testing.T) {
-			implID := settingsCodeObjImplID(
-				"callableSectionDefault",
-				[]string{"callableSectionDefault", tc.field},
-			)
-			impl, ok := project.CodeObjImpls[implID]
-			if !ok {
-				t.Fatalf("expected settings code object impl %q", implID)
-			}
-			if impl.Type != "TextParam" {
-				t.Fatalf("expected compact settings impl %q to use TextParam, got %q", implID, impl.Type)
-			}
-			payload := settingsProjectCodeObjImplPayload(t, impl)
-			if got := payload["type"]; got != "TextParam" {
-				t.Fatalf("expected compact settings payload %q type TextParam, got %#v", implID, got)
-			}
-			if got := settingsProjectCodeObjValue(t, project, implID); got != tc.expectedStoredText {
-				t.Fatalf("expected compact settings payload %q value %q, got %q", implID, tc.expectedStoredText, got)
-			}
-
-			roundTripSection, ok := roundTripDocument["callableSectionDefault"].(map[string]any)
-			if !ok {
-				t.Fatalf("expected callableSectionDefault round-trip object, got %#v", roundTripDocument["callableSectionDefault"])
-			}
-			if got := roundTripSection[tc.field]; !reflect.DeepEqual(got, tc.expectedValue) {
-				t.Fatalf("expected round-trip %s %#v, got %#v", tc.field, tc.expectedValue, got)
-			}
-		})
-	}
-}
-
 func assertSettingsProjectBasics(t *testing.T, project projectstate.Project) {
 	t.Helper()
 

@@ -1020,7 +1020,7 @@ export function seedTimeParamProjectState(
   );
 }
 
-function createTimeParamImpl({
+export function createTimeParamImpl({
   id,
   name,
   timeControlMode,

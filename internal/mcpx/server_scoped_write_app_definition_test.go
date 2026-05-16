@@ -9,7 +9,6 @@ import (
 	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/projectstate"
-	"setta/internal/testutil/appsubsystemtest"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -329,7 +328,7 @@ func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *
 
 	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
 	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		document = appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(document, appsubsystemtest.MustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
+		document = appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(document, mustMarshalStoredAppDefinition(t, appdefinition.AppDefinition{
 			AppSpecPath:    appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
 			AppSpecVersion: "v1",
 			CatalogID:      appspec.DefaultCatalogID,
