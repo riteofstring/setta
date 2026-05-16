@@ -49,20 +49,22 @@ owners directly and delete obsolete code as each new owner becomes authoritative
 
 This refactor is not complete unless both gates are satisfied:
 
-1. Add realistic tests that assert observed user behavior, not implementation
-   details.
-2. Run the full GPU Flow-related test suite, not only the new focused tests.
+1. Add a narrow first failing repro for the current scroll freeze/jump behavior
+   before changing compositor behavior.
+2. Run the full GPU Flow-related correctness and performance suite before
+   handoff, not only the new focused tests.
 
-The first gate means tests must use production rendering paths, realistic
-fixtures, real browser input where applicable, frame cadence measurements, and
-visual evidence such as screenshot crops or observed DOM/canvas motion. Debug
-counters can help explain failures, but they must not be the thing that makes a
-test pass.
+The first gate should be small enough to run and diagnose while the architecture
+is changing. It should use production rendering paths, realistic retained
+section content, real browser input, frame cadence measurements, and visual
+evidence such as screenshot crops or observed DOM/canvas motion. Debug counters
+can help explain failures, but they must not be the thing that makes a test
+pass.
 
 The second gate means targeted tests are useful while implementing, but they are
 not sufficient before cleanup or handoff. The final verification must include
-the full related Vitest and Playwright coverage listed in Step 8, plus
-`./scripts/quality/check.sh`.
+the full related Vitest and Playwright coverage listed in Step 8, the final
+large-scene performance gate, plus `./scripts/quality/check.sh`.
 
 ## Performance Target
 
@@ -93,6 +95,11 @@ For a capped environment, the expected result is still "near display cadence"
 with no long tasks over `50ms`, no repeated dropped-frame streaks, and no
 visible stall. The final implementation report should explicitly say whether a
 120 Hz-capable run was completed or what residual risk remains.
+
+The 120 Hz-class proof is a final performance gate, not a blocker for the first
+correctness slice. A capped local run can validate motion continuity and near
+display-cadence behavior while the compositor is being refactored, but it cannot
+close the final 120 Hz-capable performance risk by itself.
 
 ## Ideas To Borrow From The Example Repos
 
@@ -246,6 +253,16 @@ Do not include scroll-window origin in the page identity. The current
 scroll-window origin should be a rasterization input and draw transform input,
 not a cache key that invalidates fallback compatibility.
 
+Fallback compatibility after this refactor should be explicit and based on:
+
+- same surface id,
+- same source/content identity and version,
+- compatible DPR and LOD according to one named predicate,
+- rect intersection in retained content coordinates.
+
+For scroll-only motion, fallback compatibility must not require matching
+`sourceWindowCss.x` or `sourceWindowCss.y`.
+
 Current problem to remove:
 
 - A scroll change can produce a different source window.
@@ -261,6 +278,11 @@ Target behavior:
   new screen positions.
 - New leading-edge strips are queued first.
 - If strips are missing, only those strips show pending treatment.
+- A pending strip is only the newly exposed leading or trailing edge area that
+  was outside the previously visible content rect. Previously visible or
+  intersecting covered content must keep translating. If central or previously
+  covered content is missing for a scroll-only frame, development and tests
+  should fail loudly instead of widening the pending treatment.
 
 ### Motion-First Drawing
 
@@ -362,7 +384,7 @@ Do not assert implementation counters such as `scrollPublicationMode`,
 `scrollLagCssPx`, `missingPageCount`, or rejected frame counts. These counters
 can remain useful diagnostics, but they are not acceptance criteria.
 
-Add tests that measure what a user observes:
+Add the smallest failing tests that measure what a user observes:
 
 1. `retained section scroll moves continuously while texture work is pending`
    - Open Settings in All Settings/GPU Flow mode.
@@ -388,6 +410,10 @@ Add tests that measure what a user observes:
    - Include direction reversal because the recording includes scrolling down
      and back up.
 
+Add this third test before broad cleanup if it can be implemented with the same
+fixture and helper path. If it requires a separate fixture, keep it as the first
+follow-up after the initial repro is failing:
+
 3. `newly exposed retained strips may be pending but covered content keeps
    moving`
    - Start from a stable retained section.
@@ -397,6 +423,10 @@ Add tests that measure what a user observes:
      leading edge separately.
    - Assert previously visible content translates continuously.
    - Allow explicit pending treatment only in the newly exposed edge strip.
+
+The following correctness regressions are required before final handoff, but do
+not need to block the first compositor slice if the initial scroll-freeze repro
+is already failing:
 
 4. `focused retained input does not freeze surrounding section scroll`
    - Focus a text-like retained input inside a dense retained section.
@@ -410,39 +440,6 @@ Add tests that measure what a user observes:
    - Scroll a dense retained section.
    - Assert motion continuity, bounded pending strips, and no multi-frame
      disappearance of the already-covered content.
-
-Add large-scene performance tests that use an All Settings-like scene:
-
-1. `large complex scene panning targets 120 fps-class interaction`
-   - Use a realistic fixture comparable to the Settings project's All Settings
-     page.
-   - Include many nodes, retained sections, dense parameter rows, text inputs,
-     dropdowns, sliders, switches, nested rows, and enough retained content to
-     require internal scrolling.
-   - Pan the canvas for a fixed distance and duration using real pointer or
-     wheel input.
-   - Measure requestAnimationFrame cadence, p95/max frame interval, long tasks,
-     dropped-frame streaks, and visual movement continuity.
-   - Target p95 at or below `8.33ms` on 120 Hz-capable runs, or near observed
-     display cadence on capped runs with the capped cadence recorded.
-
-2. `large complex scene zooming targets 120 fps-class interaction`
-   - Use the same All Settings-like fixture.
-   - Zoom through the range that creates retained page pressure.
-   - Assert continuous visible zoom motion, no blanking of already-covered
-     retained content, no long tasks over `50ms`, and p95 frame interval within
-     the target for the observed display cadence.
-   - Allow high-resolution refinement after active zoom, but active zoom
-     interaction must not stall while refinement catches up.
-
-3. `large complex retained section scrolling targets 120 fps-class interaction`
-   - Use a dense retained section inside the same fixture.
-   - Scroll the section while unfocused and while a text-like input inside the
-     section is focused.
-   - Assert comparable cadence between focused and unfocused cases.
-   - Assert continuous section movement, no final-state jump, bounded pending
-     strips, no long tasks over `50ms`, and p95 frame interval within the target
-     for the observed display cadence.
 
 Recommended measurement helpers:
 
@@ -459,6 +456,12 @@ Expected initial failure:
   near zero while wheel input and desired scroll advance, then one large visual
   jump after coverage catches up.
 
+Do not expand this first step into the full large-scene performance suite. The
+first step is complete when the narrow scroll-continuity repro fails for the
+right reason and records enough visual/timing evidence to prove the old failure
+mode. The 120 Hz-class panning, zooming, and large-scene retained scrolling
+checks remain mandatory final gates in Step 8.
+
 ## Step 2: Replace The Frame Contracts
 
 Introduce the new contracts in frontend GPU Flow owners:
@@ -470,12 +473,28 @@ Introduce the new contracts in frontend GPU Flow owners:
 - `RetainedVisibleCoverageProof`
 - `RetainedPendingStrip`
 
-Remove tests that assert previous-frame retention for scroll-only missing
-coverage. Replace them with tests that assert motion publication with pending
-strips.
+Known current replacement targets include:
+
+- `frontend/src/gpuFlow/retainedDisplayFrame.ts`
+- `frontend/src/gpuFlow/retainedDisplayFrame.test.ts`
+- `frontend/src/gpuFlow/retainedTexturePages.ts`
+- `frontend/src/gpuFlow/retainedTexturePageGrid.ts`
+
+Remove or invert tests that assert previous-frame retention for scroll-only
+missing coverage. Replace them with tests that assert motion publication with
+pending strips.
 
 The type split should make it impossible to pass a lagging page frame's scroll
 offset to hit testing or active island placement.
+
+Implementation ordering constraint:
+
+1. First make retained pages reusable in content coordinates so existing pages
+   can cover the previously visible area after scroll.
+2. Then publish current motion with best available exact/fallback pages and
+   explicit pending strips.
+3. Then delete the atomic hold paths. Do not replace them with another gate that
+   lets texture readiness decide whether scroll motion is published.
 
 ## Step 3: Move Retained Pages To Content Coordinates
 
@@ -489,6 +508,10 @@ Refactor retained page descriptors, cache keys, coverage, and visual generation:
 
 Delete old compatibility predicates that require matching scroll-window origin
 for scroll-only fallback.
+
+The old `sourceWindowCss` value may remain as a rasterization input while
+source capture is still being refactored, but it must not participate in page
+keys, fallback compatibility, or publication decisions for scroll-only motion.
 
 ## Step 4: Make Scroll A Motion-Only Frame Update
 
@@ -542,7 +565,9 @@ Remove these concepts once the new compositor is authoritative:
 - any dual desired/prepared/published API that can leak lagging scroll geometry
   into hit testing or drawing.
 
-Keep useful diagnostics, but rename them around motion continuity:
+Keep the existing `scrollLag*` diagnostics only long enough to prove the old
+failure is gone. After the old failure is covered by user-visible tests, replace
+diagnostics around motion continuity:
 
 - visual stall duration,
 - max pending strip area,
@@ -559,6 +584,39 @@ Run focused verification first:
 - Existing retained input focus/scroll tests.
 - GPU Flow unit tests covering retained page descriptors, fallback coverage,
   visual generation, hit testing, and native island transactions.
+
+Run the final large-scene performance gate before handoff:
+
+1. `large complex scene panning targets 120 fps-class interaction`
+   - Use a realistic fixture comparable to the Settings project's All Settings
+     page.
+   - Include many nodes, retained sections, dense parameter rows, text inputs,
+     dropdowns, sliders, switches, nested rows, and enough retained content to
+     require internal scrolling.
+   - Pan the canvas for a fixed distance and duration using real pointer or
+     wheel input.
+   - Measure requestAnimationFrame cadence, p95/max frame interval, long tasks,
+     dropped-frame streaks, and visual movement continuity.
+   - Target p95 at or below `8.33ms` on 120 Hz-capable runs, or near observed
+     display cadence on capped runs with the capped cadence recorded.
+
+2. `large complex scene zooming targets 120 fps-class interaction`
+   - Use the same All Settings-like fixture.
+   - Zoom through the range that creates retained page pressure.
+   - Assert continuous visible zoom motion, no blanking of already-covered
+     retained content, no long tasks over `50ms`, and p95 frame interval within
+     the target for the observed display cadence.
+   - Allow high-resolution refinement after active zoom, but active zoom
+     interaction must not stall while refinement catches up.
+
+3. `large complex retained section scrolling targets 120 fps-class interaction`
+   - Use a dense retained section inside the same fixture.
+   - Scroll the section while unfocused and while a text-like input inside the
+     section is focused.
+   - Assert comparable cadence between focused and unfocused cases.
+   - Assert continuous section movement, no final-state jump, bounded pending
+     strips, no long tasks over `50ms`, and p95 frame interval within the target
+     for the observed display cadence.
 
 Before finishing, run the full GPU Flow-related suite. The exact list may grow
 as tests are added, but this refactor should at minimum cover:
