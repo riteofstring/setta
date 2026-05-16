@@ -22,6 +22,19 @@ The principled fix is to make the compositor transactional: desired retained sta
 
 No backward compatibility or transitional code is required. Replace the current paths directly and delete obsolete code as each new owner becomes authoritative.
 
+## Current Baseline From Latest Recording
+
+Use the latest Chrome recording as the before-refactor anchor before changing code:
+
+- Recording: `recording-20260515-092316` from `./scripts/latest-chrome-recording.sh --json`.
+- Scroll flush is not the bottleneck: 337 retained scroll flushes averaged about `0.008ms`, with a max around `0.2ms`.
+- The frame path still publishes incomplete retained page coverage: 228 GPU Flow frames had missing retained pages, 206 frames had uncovered retained rects, max missing retained pages was 94, and 191 frames exhausted the retained page budget.
+- Retained page memory pressure reached about `981MB` committed.
+- Passive text-like visibility still has transient blanking: snapshot count ranged from 132 to 403, ready passive rows dropped to zero in two snapshot events, and blank passive rows peaked at 389.
+- Recording-wide performance still shows visible risk: 52 frame-gap events averaged about `59.8ms` with a max around `258.3ms`, and 14 long tasks averaged about `89.2ms` with a max around `182ms`.
+
+Before implementation, save a compact baseline report under `perf/` that records these numbers plus the exact recording path. The refactor should improve these user-visible and publication-readiness signals, not just internal counters.
+
 ## Ideas To Borrow From The HTML-In-Canvas Examples
 
 The examples in `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` point toward a cleaner long-term model.
@@ -104,6 +117,14 @@ Introduce an explicit retained display pipeline with three separate states:
 
 The current problem is that pieces of the desired/prepared frame are leaking into the published frame. The refactor should make that impossible by construction.
 
+### Existing Layers To Reuse
+
+Do not restart the retained page infrastructure unless a failing test proves it cannot enforce the contract.
+
+Reuse and tighten the existing retained texture page manager, page grid, fallback draw-quad coverage, texture cache, upload scheduler, retained runtime frame, and runtime-frame hit testing. The new work should mainly add the explicit publication boundary and make existing readiness signals authoritative.
+
+In particular, existing `missingPageCount`, `uncoveredRectCount`, fallback draw-quad, content revision, source revision, and texture memory signals should drive publication decisions before adding new parallel state. Add new types only when they make the desired/prepared/published ownership boundary explicit.
+
 ## Non-Goals
 
 - Do not preserve old compositor APIs for compatibility.
@@ -111,6 +132,7 @@ The current problem is that pieces of the desired/prepared frame are leaking int
 - Do not add heuristic fallbacks that silently guess missing geometry or content.
 - Do not make tests assert internal debug counters as the acceptance criterion.
 - Do not solve this by reducing visible quality globally. Lower level-of-detail is acceptable only as a stable last-known-good or explicitly budgeted fallback during transient zoom.
+- Do not make the first pass pass by shrinking fixtures, masking whole retained sections, globally lowering LOD, or loosening frame budgets.
 
 ## Step 1: Add Failing User-Visible Performance Tests
 
@@ -123,7 +145,8 @@ Regression prevention has two mandatory gates:
 
 Recommended location:
 
-- `frontend/tests/e2e/gpu-flow/retained-display-frame-regression.spec.ts`
+- Prefer extending `frontend/tests/e2e/gpu-flow/retained-runtime-frame-regression.spec.ts` when the new assertions fit that focused runtime-frame coverage.
+- Create `frontend/tests/e2e/gpu-flow/retained-display-frame-regression.spec.ts` only if the display-frame publication tests would make the existing spec too broad. If a new spec is created, document the split in a short file-level comment.
 
 Recommended fixtures:
 
@@ -198,6 +221,7 @@ Instrumentation guidance:
 - Use image analysis for "mostly blank" and "content disappeared" checks.
 - Store regression recordings or compact perf reports in `perf/` as append-only artifacts when doing the implementation work.
 - Keep thresholds explicit and justified in comments near the tests.
+- Do not relax existing p95, long-task, or visual-delta budgets to make the pre-refactor implementation pass. If local refresh cadence requires refresh-aware thresholds, record the measured cadence and keep the assertion tied to that cadence.
 
 Expected initial result:
 
@@ -237,6 +261,15 @@ Publication rule:
 - If this condition is not met, keep drawing the previous published frame and continue preparing the new one.
 
 This is the central invariant. All later implementation choices should preserve it.
+
+First implementation milestone:
+
+- Add the minimal publisher before deeper source-identity, scheduler, or resource-owner rewrites.
+- `renderHtmlSurfaceFrame` must consume retained page visuals from `PublishedRetainedFrame`, not directly from `PreparedRetainedFrame.flatSurfaces`.
+- `onRetainedRuntimeFrame`, retained hit testing, active input placement, and section wheel ownership must observe the same published frame used for drawing.
+- If a prepared frame has missing visible coverage, record the rejection reason and keep the previous published frame active.
+
+This should be a structural guard, not call-site discipline. The type boundary should make it hard to accidentally pass desired or prepared state to rendering and interaction code.
 
 ## Step 3: Make Source Identity Content-Based
 
@@ -343,9 +376,9 @@ Resource policy:
 
 This should fix the recording pattern where high zoom creates a large target set, exhausts budget, and leaves the visible frame missing for multiple frames.
 
-## Step 8: Give One Owner To Pixel Buffers And Texture Lifetime
+## Step 8: Consolidate Pixel Buffers And Texture Lifetime
 
-Create a single resource owner for retained page textures.
+Consolidate retained page texture ownership under the existing retained page and texture managers. Create a new resource owner only if the current owners cannot represent the publication contract without duplicating state.
 
 Responsibilities:
 
@@ -413,12 +446,13 @@ Do this in the same refactor series rather than leaving dormant alternate paths.
 
 Verification should happen in this order:
 
-1. Confirm the new E2E tests fail on the current implementation.
-2. Implement the atomic frame contract and make the tests pass.
-3. Run targeted frontend tests:
+1. Save a before-refactor baseline under `perf/` using the latest Chrome recording metrics from this plan.
+2. Confirm the new E2E tests fail on the current implementation.
+3. Implement the minimal desired/prepared/published frame publisher and make the tests pass.
+4. Run targeted frontend tests:
    - `pnpm -C frontend exec vitest run <relevant-unit-tests>`
    - `./scripts/run-playwright-e2e.sh <gpu-flow-retained-display-frame-spec>`
-4. Run the full GPU Flow-related test suite, not just the new regression spec:
+5. Run the full GPU Flow-related test suite, not just the new regression spec:
    - `pnpm -C frontend exec vitest run frontend/src/gpuFlow`
    - `pnpm -C frontend exec vitest run frontend/src/components/Pages/Project/gpuFlowCompatibilityFixture.test.ts frontend/src/components/Pages/Project/gpuFlowCompatibilityMatrix.test.ts`
    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow`
@@ -427,20 +461,20 @@ Verification should happen in this order:
      `frontend/tests/e2e/editor/code-section-terminal-attachment-reflow.spec.ts`,
      `frontend/tests/e2e/editor/code-section-terminal-reflow.spec.ts`,
      `frontend/tests/e2e/editor/section-config-code-path-overflow.spec.ts`.
-5. Use Chrome DevTools performance recording on the same reproduction:
+6. Use Chrome DevTools performance recording on the same reproduction:
    - Zoom into the dense section.
    - Activate a text input.
    - Scroll while focused.
    - Confirm no full-section blank frames.
    - Confirm frame gaps are reduced and visible content remains present under high zoom pressure.
-6. Run the large-scene performance gate on the All Settings-like fixture:
+7. Run the large-scene performance gate on the All Settings-like fixture:
    - Pan the canvas.
    - Zoom through the high-pressure retained content range.
    - Scroll a dense retained section while unfocused.
    - Scroll the same retained section with a text input focused.
    - Record whether the run was a true 120 Hz-capable run or a refresh-aware lower-cadence run.
-7. Save before/after performance reports under `perf/` as append-only notes for the implementation PR.
-8. Run `./scripts/quality/check.sh` unless the developer narrows scope.
+8. Save after performance reports under `perf/` as append-only notes for the implementation PR.
+9. Run `./scripts/quality/check.sh` unless the developer narrows scope.
 
 If a full-suite command cannot run in the local environment, record the exact blocker and residual risk in the implementation notes. Do not treat targeted passing tests as equivalent to the full GPU Flow-related suite.
 
@@ -453,6 +487,7 @@ The refactor is complete when:
 - Focusing a text input does not blank surrounding section content.
 - Scrolling with a focused input has comparable frame cadence to scrolling without focus at the same zoom level.
 - The published frame contract is enforced by code structure, not by scattered call-site discipline.
+- `renderHtmlSurfaceFrame` does not consume retained page visuals directly from a prepared frame.
 - Hit testing, drawing, active input placement, and wheel ownership all read from `PublishedRetainedFrame`.
 - Desired or prepared frames cannot become visible until the visible coverage rule passes.
 - High zoom uses visible-first scheduling with explicit memory and texture limits.
