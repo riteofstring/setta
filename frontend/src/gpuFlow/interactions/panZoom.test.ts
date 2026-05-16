@@ -134,7 +134,7 @@ describe("GPU pan/zoom controller", () => {
 
     expect(store.getState().transform).toEqual([0, 0, 1]);
     viewportRuntime.runFrame(16);
-    const [x, y, zoom] = store.getState().transform;
+    const [x, y, zoom] = viewportRuntime.getViewportTuple();
     expect(event.defaultPrevented).toBe(true);
     expect(zoom).toBeGreaterThan(1);
     expect(x).toBeCloseTo(100 - 100 * zoom);
@@ -144,6 +144,7 @@ describe("GPU pan/zoom controller", () => {
 
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
+    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
     viewportRuntime.destroy();
@@ -187,7 +188,7 @@ describe("GPU pan/zoom controller", () => {
     expect(localRequestFrame).toHaveBeenCalledWith("viewport");
     expect(registeredRequestFrame).not.toHaveBeenCalled();
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform[2]).toBeGreaterThan(1);
+    expect(viewportRuntime.getViewportTuple()[2]).toBeGreaterThan(1);
 
     detach();
     unregister();
@@ -224,10 +225,11 @@ describe("GPU pan/zoom controller", () => {
 
     expect(store.getState().transform).toEqual([0, 0, 1]);
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([-5, -10, 1]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([-5, -10, 1]);
     expect(store.getState().panScrolling).toBe(true);
     expect(store.getState().wheelZooming).toBe(false);
     vi.advanceTimersByTime(150);
+    expect(store.getState().transform).toEqual([-5, -10, 1]);
     expect(store.getState().panScrolling).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
@@ -267,7 +269,7 @@ describe("GPU pan/zoom controller", () => {
     );
 
     viewportRuntime.runFrame(16);
-    const [x, y, zoom] = store.getState().transform;
+    const [x, y, zoom] = viewportRuntime.getViewportTuple();
     expect(zoom).toBeGreaterThan(1);
     expect(x).toBeCloseTo(120 - 120 * zoom);
     expect(y).toBeCloseTo(90 - 90 * zoom);
@@ -275,6 +277,7 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(false);
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
+    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
     detach();
     viewportRuntime.destroy();
   });
@@ -311,7 +314,7 @@ describe("GPU pan/zoom controller", () => {
     );
 
     viewportRuntime.runFrame(16);
-    const [x, y, zoom] = store.getState().transform;
+    const [x, y, zoom] = viewportRuntime.getViewportTuple();
     expect(zoom).toBeGreaterThan(1);
     expect(x).toBeCloseTo(40 - 40 * zoom);
     expect(y).toBeCloseTo(30 - 30 * zoom);
@@ -319,6 +322,7 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(false);
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
+    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
     detach();
     viewportRuntime.destroy();
   });
@@ -369,7 +373,8 @@ describe("GPU pan/zoom controller", () => {
       pointerId: 2,
     });
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([5, 7, 1]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([5, 7, 1]);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
     dispatchPointer(element, "pointerup", {
       button: 0,
       clientX: 15,
@@ -378,6 +383,7 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(store.getState().transform).toEqual([5, 7, 1]);
     detach();
     viewportRuntime.destroy();
   });
@@ -457,7 +463,8 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().transform).toEqual([0, 0, 2]);
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([5, -2, 2]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([5, -2, 2]);
+    expect(store.getState().transform).toEqual([0, 0, 2]);
     expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenLastCalledWith("viewport");
 
@@ -477,6 +484,7 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().pointerPanning).toBe(false);
+    expect(store.getState().transform).toEqual([5, -2, 2]);
     expect(requestFrame).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
@@ -518,13 +526,15 @@ describe("GPU pan/zoom controller", () => {
       pointerId: 1,
     });
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([9, 11, 1]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([9, 11, 1]);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
     dispatchPointer(element, "pointerup", {
       button: 0,
       clientX: 10,
       clientY: 12,
       pointerId: 1,
     });
+    expect(store.getState().transform).toEqual([9, 11, 1]);
 
     dispatchPointer(noPanChild, "pointerdown", {
       button: 0,

@@ -350,6 +350,9 @@ function resolveFallbackPageDrawQuads<TResource>({
     viewportZoomBucket: desiredDescriptor.viewportZoomBucket,
   });
   for (const candidate of candidates) {
+    if (!canDrawRetainedFallbackPage(candidate, desiredDescriptor)) {
+      continue;
+    }
     const result = coverRectsWithPage({
       cache,
       candidate,
@@ -378,6 +381,25 @@ function resolveFallbackPageDrawQuads<TResource>({
     staleFallbackDrawQuadCount,
     uncoveredRectsCss: uncoveredRects,
   };
+}
+
+export function canDrawRetainedFallbackPage<TResource>(
+  fallback: CommittedRetainedTexturePage<TResource>,
+  target: RetainedTexturePageDescriptor,
+): boolean {
+  const descriptor = fallback.descriptor;
+  return (
+    descriptor.surfaceId === target.surfaceId &&
+    descriptor.sourceKey === target.sourceKey &&
+    descriptor.sourceVersion === target.sourceVersion &&
+    descriptor.contentVersion === target.contentVersion &&
+    descriptor.devicePixelRatioBucket === target.devicePixelRatioBucket &&
+    sourceWindowsShareScrollOrigin(
+      descriptor.sourceWindowCss,
+      target.sourceWindowCss,
+    ) &&
+    intersectRects(descriptor.sourceRectCss, target.sourceRectCss) !== null
+  );
 }
 
 function coverRectsWithPage<TResource>({
@@ -454,6 +476,13 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
     Math.min(left.y + left.height, right.y + right.height) - y,
   );
   return width > 0 && height > 0 ? { height, width, x, y } : null;
+}
+
+function sourceWindowsShareScrollOrigin(
+  left: GpuRect,
+  right: GpuRect,
+): boolean {
+  return left.x === right.x && left.y === right.y;
 }
 
 function subtractRect(rect: GpuRect, cutout: GpuRect): readonly GpuRect[] {

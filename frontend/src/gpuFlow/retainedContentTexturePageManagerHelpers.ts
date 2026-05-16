@@ -98,3 +98,24 @@ export function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
     left.y + left.height > right.y
   );
 }
+
+export function resolveRetainedPageEvictionProtectedKeys({
+  postMaintenancePageVisualResult,
+  preparedFrame,
+  publishedProtectedPageKeys = [],
+}: {
+  readonly postMaintenancePageVisualResult: {
+    readonly protectedPageKeys: readonly string[];
+  };
+  readonly preparedFrame: Pick<
+    RetainedContentTexturePagePreparedFrame,
+    "protectedPageKeys"
+  >;
+  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
+}): readonly string[] {
+  return [
+    ...publishedProtectedPageKeys,
+    ...preparedFrame.protectedPageKeys,
+    ...postMaintenancePageVisualResult.protectedPageKeys,
+  ];
+}

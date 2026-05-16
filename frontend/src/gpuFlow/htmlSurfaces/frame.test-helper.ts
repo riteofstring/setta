@@ -10,6 +10,8 @@ import type {
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
+// These fixture builders intentionally stay positional so individual tests read like compact geometry tuples.
+// eslint-disable-next-line max-params
 export function node(
   nodeId: string,
   x: number,
@@ -28,6 +30,7 @@ export function node(
   };
 }
 
+// eslint-disable-next-line max-params
 export function surfaceOverlay(
   surfaceId: string,
   x: number,
@@ -173,33 +176,10 @@ export function createFrameTextureManager() {
       (
         surfaceIds?: Iterable<string>,
       ): HtmlSurfaceTextureLifecycleDiagnostic[] =>
-        Array.from(surfaceIds ?? records.keys())
-          .map((surfaceId) => records.get(surfaceId))
-          .filter((record): record is CommittedHtmlSurfaceTextureSnapshot =>
-            Boolean(record),
-          )
-          .map((record) => ({
-            committed: {
-              clampedByMaxTexture: record.clampedByMaxTexture ?? false,
-              cssHeight: record.cssHeight ?? 0,
-              cssWidth: record.cssWidth ?? 0,
-              dirtyContent: record.dirtyContent ?? false,
-              dirtyResolution: record.dirtyResolution ?? false,
-              lastUploadFrame: record.lastUploadFrame,
-              pixelHeight: record.pixelHeight ?? 0,
-              pixelWidth: record.pixelWidth ?? 0,
-              requestedScale: record.requestedScale ?? 1,
-              resolutionScale: record.resolutionScale ?? 1,
-              textureBytes: record.textureBytes,
-              textureLayoutKind: record.textureLayout.kind,
-              tileCount: record.textureLayout.tileCount,
-              zoomBucket: record.zoomBucket ?? 1,
-            },
-            pending: null,
-            pendingResolution: null,
-            priority: record.priority ?? "visible",
-            surfaceId: record.surfaceId,
-          })),
+        createTextureLifecycleDiagnostics({
+          records,
+          surfaceIds: surfaceIds ?? records.keys(),
+        }),
     ),
     markSurfaceTextureDirty: vi.fn(() => true),
     markSurfacesPainted: vi.fn(),
@@ -256,6 +236,52 @@ export function createFrameTextureManager() {
     ),
   };
   return manager;
+}
+
+function createTextureLifecycleDiagnostics({
+  records,
+  surfaceIds,
+}: {
+  readonly records: ReadonlyMap<string, CommittedHtmlSurfaceTextureSnapshot>;
+  readonly surfaceIds: Iterable<string>;
+}): HtmlSurfaceTextureLifecycleDiagnostic[] {
+  return Array.from(surfaceIds)
+    .map((surfaceId) => records.get(surfaceId))
+    .filter((record): record is CommittedHtmlSurfaceTextureSnapshot =>
+      Boolean(record),
+    )
+    .map(createTextureLifecycleDiagnostic);
+}
+
+function createTextureLifecycleDiagnostic(
+  record: CommittedHtmlSurfaceTextureSnapshot,
+): HtmlSurfaceTextureLifecycleDiagnostic {
+  return {
+    committed: {
+      clampedByMaxTexture: withDefault(record.clampedByMaxTexture, false),
+      cssHeight: withDefault(record.cssHeight, 0),
+      cssWidth: withDefault(record.cssWidth, 0),
+      dirtyContent: withDefault(record.dirtyContent, false),
+      dirtyResolution: withDefault(record.dirtyResolution, false),
+      lastUploadFrame: record.lastUploadFrame,
+      pixelHeight: withDefault(record.pixelHeight, 0),
+      pixelWidth: withDefault(record.pixelWidth, 0),
+      requestedScale: withDefault(record.requestedScale, 1),
+      resolutionScale: withDefault(record.resolutionScale, 1),
+      textureBytes: record.textureBytes,
+      textureLayoutKind: record.textureLayout.kind,
+      tileCount: record.textureLayout.tileCount,
+      zoomBucket: withDefault(record.zoomBucket, 1),
+    },
+    pending: null,
+    pendingResolution: null,
+    priority: withDefault(record.priority, "visible"),
+    surfaceId: record.surfaceId,
+  };
+}
+
+function withDefault<T>(value: T | undefined, fallback: T): T {
+  return value === undefined ? fallback : value;
 }
 
 const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {

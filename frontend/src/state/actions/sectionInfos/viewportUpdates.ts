@@ -164,8 +164,11 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
 }, 500);
 
 const sendViewportToBackend = _.debounce(() => {
-  if (!pendingViewportRef.opId) {
+  if (!pendingViewportRef.opId && !pendingViewportRef.hasQueuedSend) {
     return;
+  }
+  if (!pendingViewportRef.opId) {
+    pendingViewportRef.opId = addPendingOp(applyPendingViewport);
   }
   const opId = pendingViewportRef.opId;
   const snapshot = pendingViewportRef.snapshot;
@@ -234,6 +237,15 @@ export function reconcilePendingTopLevelLayout(
 export function reconcilePendingViewport(nextPending: PendingOperation[]) {
   const currentOpId = pendingViewportRef.opId;
   if (!currentOpId) {
+    if (pendingViewportRef.hasQueuedSend) {
+      const opId = createNewId();
+      pendingViewportRef.opId = opId;
+      nextPending.push({
+        opId,
+        apply: applyPendingViewport,
+        acknowledged: false,
+      });
+    }
     return;
   }
   const stillPending = nextPending.some((op) => op.opId === currentOpId);
@@ -674,7 +686,7 @@ function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
       applyViewportSnapshotToProjectState(state, viewport);
     });
   }
-  if (!pendingViewportRef.opId) {
+  if (immediate && !pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
   }
   sendViewportToBackend();

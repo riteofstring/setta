@@ -98,7 +98,7 @@ test("retained passive text editor previews stay attached during section scroll"
   expect(failures, failureDetails).toHaveLength(0);
 });
 
-test("retained passive text editor previews stay visible at close zoom", async ({
+test("high zoom retained coverage is visible-first", async ({
   page,
 }, testInfo) => {
   await openSettings(page);
@@ -226,7 +226,7 @@ test("retained passive text editor preview ink moves with its retained row durin
   expect(failures, failureDetails).toHaveLength(0);
 });
 
-test("retained active text editor wheel input scrolls the owning retained section at editor boundary", async ({
+test("focused input does not degrade section scroll cadence", async ({
   page,
 }) => {
   await openSettings(page);

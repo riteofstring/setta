@@ -184,7 +184,7 @@ test("clicking a settings switch keeps retained section content visible", async 
   expect(stats.luminanceRange, failureDetails).toBeGreaterThan(24);
 });
 
-test("fast settings zoom remains visibly responsive and does not blank content", async ({
+test("zoom does not blank visible section content", async ({
   page,
 }, testInfo) => {
   await openSettings(page);

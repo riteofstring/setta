@@ -74,7 +74,6 @@ function toGpuRetainedContentTexturePageFrameSurface(
   };
   const sourceKey = createRetainedContentTexturePageFrameSurfaceSourceKey({
     contentVersion,
-    textLikeSnapshots,
     surfaceId: surface.id,
   });
   return {
@@ -112,19 +111,13 @@ function toGpuRetainedContentTexturePageFrameSurface(
 function createRetainedContentTexturePageFrameSurfaceSourceKey({
   contentVersion,
   surfaceId,
-  textLikeSnapshots,
 }: {
   readonly contentVersion: number;
   readonly surfaceId: string;
-  readonly textLikeSnapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
 }): string {
   return JSON.stringify({
     contentVersion,
     surfaceId,
-    textLikeSnapshots: textLikeSnapshots.map((snapshot) => ({
-      rowId: snapshot.rowId,
-      sourceKey: snapshot.sourceKey,
-    })),
   });
 }
 

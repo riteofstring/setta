@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
-import { row } from "./retainedContentScene.helpers.test";
+import { row } from "./retainedContentScene.test-helper";
 
 describe("retained content scene row visual bounds", () => {
   it("uses explicit row visual bounds for row background and hit targets", () => {

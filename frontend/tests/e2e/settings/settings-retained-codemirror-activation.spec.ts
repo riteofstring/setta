@@ -115,7 +115,7 @@ test("retained settings text editors show live CodeMirror feedback before persis
   expect(backendConfirmationReleasedForTest).toBe(true);
 });
 
-test("retained settings text editor activation preserves the passive visual frame", async ({
+test("focusing a text input does not blank surrounding section content", async ({
   page,
 }, testInfo) => {
   await openSettings(page);

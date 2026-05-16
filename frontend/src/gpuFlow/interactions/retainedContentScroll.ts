@@ -12,6 +12,7 @@ import {
   type GpuRetainedContentScrollResult,
   type GpuRetainedContentWheelScrollOffsetResult,
 } from "../retainedContentScroll";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
@@ -28,6 +29,9 @@ export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
   readonly element: HTMLElement;
   readonly getScene: () => GpuFlowScene | undefined;
+  readonly getRetainedRuntimeFrame?:
+    | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
   readonly getScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
   readonly onScrollOffsetsChange: (
     scrollOffsets: GpuRetainedContentScrollOffsetMap,
@@ -97,6 +101,7 @@ class GpuRetainedContentScrollController {
     const result = resolveGpuRetainedContentWheelScrollOffset({
       event,
       point: getWheelFlowPoint(event, this.element, this.store),
+      retainedRuntimeFrame: this.resolveRetainedRuntimeFrame(),
       scene,
       scrollOffsets,
     });
@@ -125,6 +130,10 @@ class GpuRetainedContentScrollController {
     this.pendingSurfaceIds.add(result.surfaceId);
     this.schedulePendingScrollFlush();
   };
+
+  private resolveRetainedRuntimeFrame(): GpuRetainedRuntimeFrame | null {
+    return this.options.getRetainedRuntimeFrame?.() ?? null;
+  }
 
   private shouldSkipWheelEvent(event: WheelEvent): boolean {
     return (

@@ -78,6 +78,7 @@ export type GpuFlowRetainedContentScrollOptions =
   | (Omit<
       GpuRetainedContentScrollControllerOptions,
       | "element"
+      | "getRetainedRuntimeFrame"
       | "getScene"
       | "getScrollOffsets"
       | "onScrollOffsetsChange"
@@ -592,6 +593,8 @@ export function useGpuFlowRetainedContentControllers({
     return attachGpuRetainedContentScrollController({
       ...retainedContentScroll,
       element: container,
+      getRetainedRuntimeFrame: () =>
+        nodeLayerRef.current.retainedRuntimeFrame ?? null,
       getScene: () => nodeLayerRef.current.scene,
       getScrollOffsets: () =>
         getGpuRetainedContentRuntimeScrollOffsets(retainedContentRuntimeState),

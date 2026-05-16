@@ -6,7 +6,7 @@ import {
   resolveGpuRetainedContentVisibleRowRange,
   type GpuRetainedContentDrawCommand,
 } from "./retainedContentScene";
-import { calendarCells, row } from "./retainedContentScene.helpers.test";
+import { calendarCells, row } from "./retainedContentScene.test-helper";
 import { getGpuRetainedContentSceneSourceInput } from "./retainedContentSceneSourceMetadata";
 
 describe("retained content scene", () => {

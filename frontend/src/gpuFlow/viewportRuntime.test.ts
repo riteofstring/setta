@@ -56,6 +56,31 @@ describe("GpuFlow viewport runtime", () => {
     runtime.destroy();
   });
 
+  it("defers public observer snapshots while viewport interaction flags are active", () => {
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const runtime = createGpuFlowViewportRuntime({
+      observerPublishIntervalMs: 0,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    store.getState().setViewportInteractionFlags({ panScrolling: true });
+    runtime.enqueuePan({ x: 10, y: 0 });
+    runtime.runFrame(0);
+
+    expect(runtime.getViewportTuple()).toEqual([10, 0, 1]);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+
+    store.getState().setViewportInteractionFlags({ panScrolling: false });
+    runtime.flushObserverSnapshot();
+
+    expect(store.getState().transform).toEqual([10, 0, 1]);
+
+    runtime.destroy();
+  });
+
   it("routes viewport actions through the registered runtime live viewport", () => {
     const store = createGpuFlowViewportStore({
       height: 400,

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { textureRecord } from "./frame.helpers.test";
+import { textureRecord } from "./frame.test-helper";
 import { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
 
 describe("HTML surface visuals", () => {

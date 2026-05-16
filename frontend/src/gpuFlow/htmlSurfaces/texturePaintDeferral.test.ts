@@ -7,7 +7,7 @@ import {
   createGpuTextureMock,
   installTextureUsage,
   registerNode,
-} from "./textures.helpers.test";
+} from "./textures.test-helper";
 
 describe("HTML surface texture paint deferral", () => {
   afterEach(() => {

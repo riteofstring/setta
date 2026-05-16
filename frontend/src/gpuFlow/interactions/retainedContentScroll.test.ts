@@ -454,7 +454,8 @@ describe("GPU retained content scroll controller", () => {
 
     expect(event.defaultPrevented).toBe(true);
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([0, -18, 1]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([0, -18, 1]);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
     expect(store.getState().panScrolling).toBe(true);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
     animationFrames.flush();

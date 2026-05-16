@@ -5,7 +5,6 @@ import {
   type GpuEdgeInteractionEvent,
 } from "gpuFlow/interactions/edges";
 import { setViewport } from "gpuFlow/viewportActions";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createGpuFlowViewportStore,
   gpuFlowViewportStore,
@@ -51,7 +50,6 @@ export function GpuProjectEdgeLayer({
   });
   const sceneRef = useRef(edgeScene);
   sceneRef.current = edgeScene;
-  const viewport = useGpuFlowViewportStore((state) => state.transform);
   const viewportStore = useStableGpuFlowViewportStore();
   const { canEditStructure } = useShareCapabilities();
   const selectEdgeRef =
@@ -65,15 +63,14 @@ export function GpuProjectEdgeLayer({
   };
 
   useEffect(() => {
-    setViewport(
-      {
-        x: viewport[0],
-        y: viewport[1],
-        zoom: viewport[2],
-      },
-      { store: viewportStore },
-    );
-  }, [viewport, viewportStore]);
+    syncProjectGpuEdgeLayerViewport(viewportStore);
+    return gpuFlowViewportStore.subscribe((state, previousState) => {
+      if (state.transform === previousState.transform) {
+        return;
+      }
+      syncProjectGpuEdgeLayerViewport(viewportStore);
+    });
+  }, [viewportStore]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -115,7 +112,6 @@ export function GpuProjectEdgeLayer({
           panZoom={false}
           selection={false}
           style={GPU_PROJECT_EDGE_LAYER_STYLE}
-          viewport={viewport}
           viewportStore={viewportStore}
         />
       </div>
@@ -124,7 +120,20 @@ export function GpuProjectEdgeLayer({
 }
 
 function useStableGpuFlowViewportStore(): GpuFlowViewportStoreApi {
-  return useMemo(() => createGpuFlowViewportStore(), []);
+  return useMemo(
+    () =>
+      createGpuFlowViewportStore({
+        transform: gpuFlowViewportStore.getState().transform,
+      }),
+    [],
+  );
 }
 
 function noopSelectEdge() {}
+
+function syncProjectGpuEdgeLayerViewport(
+  viewportStore: GpuFlowViewportStoreApi,
+) {
+  const [x, y, zoom] = gpuFlowViewportStore.getState().transform;
+  setViewport({ x, y, zoom }, { store: viewportStore });
+}

@@ -32,7 +32,7 @@ describe("RetainedContentTexturePageManager", () => {
     ).toBe(3);
   });
 
-  it("uses large production retained pages for common visible settings surfaces", () => {
+  it("chunks common visible settings surfaces into bounded retained pages", () => {
     const fixture = createManagerFixture();
     const surface = createFrameSurface({
       contentBoundsCss: { height: 520, width: 680, x: 0, y: 0 },
@@ -64,7 +64,7 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 1,
     });
 
-    expect(firstPreparedFrame.targetDescriptors).toHaveLength(1);
+    expect(firstPreparedFrame.targetDescriptors).toHaveLength(4);
     expect(firstMaintenance.uploadCount).toBe(1);
     expect(secondPreparedFrame.drawQuadCount).toBe(1);
     expect(secondPreparedFrame.flatSurfaces).toHaveLength(1);
@@ -355,6 +355,53 @@ describe("RetainedContentTexturePageManager", () => {
     expect(replacementFrame.missingPageCount).toBe(1);
     expect(replacementFrame.postMaintenanceMissingPageCount).toBe(0);
     expect(replacementFrame.uncoveredRectCount).toBe(1);
+  });
+
+  it("protects the last published pages while a replacement frame is prepared", () => {
+    const fixture = createManagerFixture({
+      budget: {
+        maxFrameUploadedBytes: 1_000_000,
+        maxTextureMemoryBytes: 100 * 100 * 4,
+        maxUploads: 4,
+      },
+      maxPagePixelSize: 100,
+    });
+    const surface = createFrameSurface({ contentVersion: 1 });
+    const replacementSurface = createFrameSurface({
+      contentVersion: 2,
+      sourceKey: "source-b",
+      sourceVersion: 2,
+    });
+
+    renderFrame(fixture.manager, {
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const publishedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 1,
+      frame: 2,
+      surfaces: [surface],
+      viewportZoomBucket: 1,
+    });
+    const replacementFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 1,
+      frame: 3,
+      surfaces: [replacementSurface],
+      viewportZoomBucket: 1,
+    });
+    const maintenance = fixture.manager.runPostSubmitMaintenance({
+      preparedFrame: replacementFrame,
+      publishedProtectedPageKeys: publishedFrame.protectedPageKeys,
+    });
+
+    expect(publishedFrame.protectedPageKeys).toHaveLength(1);
+    expect(replacementFrame.missingPageCount).toBe(1);
+    expect(maintenance.uploadCount).toBe(1);
+    expect(maintenance.evicted.evictedKeys).toHaveLength(0);
+    expect(maintenance.memory.committedCount).toBe(2);
+    expect(fixture.textures[0]?.destroy).not.toHaveBeenCalled();
   });
 
   it("keeps unchanged row-segment pages exact when a neighboring row changes", () => {

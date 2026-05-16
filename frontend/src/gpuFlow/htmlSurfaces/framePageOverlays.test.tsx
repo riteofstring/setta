@@ -8,7 +8,7 @@ import {
   createFrameTextureManager,
   surfaceOverlay,
   textureRecord,
-} from "./frame.helpers.test";
+} from "./frame.test-helper";
 
 describe("HTML surface page overlays", () => {
   it("composes page overlays with retained page visuals before late overlays", () => {

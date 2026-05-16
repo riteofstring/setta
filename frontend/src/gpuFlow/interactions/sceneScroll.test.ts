@@ -292,7 +292,8 @@ describe("GPU section scene scroll controller", () => {
 
     expect(event.defaultPrevented).toBe(true);
     viewportRuntime.runFrame(16);
-    expect(store.getState().transform).toEqual([0, -15, 1]);
+    expect(viewportRuntime.getViewportTuple()).toEqual([0, -15, 1]);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
     expect(scrollOffsets.size).toBe(0);
     expect(onScrollOffsetsChange).not.toHaveBeenCalled();
 

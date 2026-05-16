@@ -102,7 +102,10 @@ describe("gpuFlowCompatibilityMatrix", () => {
     ).toBe("date-time");
     expect(
       matrix.get(CodeObjTypeEnum.ButtonParam)?.hasSectionParamUIRenderer,
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      matrix.get(CodeObjTypeEnum.ButtonParam)?.sectionParamUIRendererFamily,
+    ).toBe("button");
     expect(
       matrix.get(CodeObjTypeEnum.ButtonParam)?.metaControlRendererFamily,
     ).toBe("button");

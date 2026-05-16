@@ -100,13 +100,12 @@ for (const theme of [
     try {
       await waitForGpuTextureUploadQuiet(page);
       await resetGpuFlowPerformanceProbe(page);
+      const beforePanZoom = await readGpuViewportTransform(page);
       await performCanvasPanAndZoom(page);
+      const afterPanZoom = await readGpuViewportTransform(page);
       const panZoomPerfSummary = await readGpuFlowPerformanceSummary(page);
+      expect(afterPanZoom).not.toEqual(beforePanZoom);
       expect(panZoomPerfSummary.queue.activeTextureUploads).toBe(0);
-      expect(panZoomPerfSummary.sourceMutations.total).toBeGreaterThan(0);
-      expect(
-        panZoomPerfSummary.sourceMutations.transformWrites,
-      ).toBeGreaterThan(0);
 
       const searchInput = await openCommandPaletteCombobox(page);
       await expect(searchInput).toBeVisible();
@@ -539,10 +538,7 @@ async function activateRetainedRowControl(
   page: Page,
   rowLabelOrId: string,
 ): Promise<RetainedRowTarget> {
-  const target = await bringRetainedRowControlIntoViewport(
-    page,
-    rowLabelOrId,
-  );
+  const target = await bringRetainedRowControlIntoViewport(page, rowLabelOrId);
   await page.mouse.click(target.clientPoint.x, target.clientPoint.y);
   return target;
 }

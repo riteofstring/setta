@@ -1,3 +1,4 @@
+import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -144,6 +145,7 @@ function resolveGpuRetainedContentDragAutoScrollOffset({
 export function resolveGpuRetainedContentWheelScroll({
   event,
   point,
+  retainedRuntimeFrame,
   scene,
   scrollOffsets,
 }: {
@@ -152,12 +154,14 @@ export function resolveGpuRetainedContentWheelScroll({
     "deltaMode" | "deltaX" | "deltaY" | "shiftKey"
   >;
   readonly point: GpuPoint;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
   readonly scene: GpuFlowScene;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
 }): GpuRetainedContentWheelScrollResult {
   const offsetResult = resolveGpuRetainedContentWheelScrollOffset({
     event,
     point,
+    retainedRuntimeFrame,
     scene,
     scrollOffsets,
   });
@@ -183,6 +187,7 @@ export function resolveGpuRetainedContentWheelScroll({
 export function resolveGpuRetainedContentWheelScrollOffset({
   event,
   point,
+  retainedRuntimeFrame,
   scene,
   scrollOffsets,
 }: {
@@ -191,12 +196,17 @@ export function resolveGpuRetainedContentWheelScrollOffset({
     "deltaMode" | "deltaX" | "deltaY" | "shiftKey"
   >;
   readonly point: GpuPoint;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
   readonly scene: GpuFlowScene;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
 }): GpuRetainedContentWheelScrollOffsetResult {
   assertFiniteNumber("retained content wheel point x", point.x);
   assertFiniteNumber("retained content wheel point y", point.y);
-  const context = getGpuRetainedContentWheelScrollContext({ point, scene });
+  const context = getGpuRetainedContentWheelScrollContext({
+    point,
+    retainedRuntimeFrame,
+    scene,
+  });
   if (!context) {
     return unchangedGpuRetainedContentWheelScrollOffset();
   }
@@ -259,16 +269,20 @@ export function clampGpuRetainedContentScrollOffset({
 
 function getGpuRetainedContentWheelScrollContext({
   point,
+  retainedRuntimeFrame,
   scene,
 }: {
   readonly point: GpuPoint;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
   readonly scene: GpuFlowScene;
 }): {
   readonly surface: GpuContentSurface & {
     readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
   };
 } | null {
-  const candidates = scene.contentSurfaces
+  const sourceSurfaces =
+    retainedRuntimeFrame?.descriptors.hitTestSurfaces ?? scene.contentSurfaces;
+  const candidates = sourceSurfaces
     .map((surface, index) => ({ index, surface }))
     .filter(({ surface }) =>
       isGpuRetainedContentWheelScrollCandidate({ point, surface }),

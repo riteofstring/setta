@@ -10,12 +10,14 @@ import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSw
 import {
   normalizeRetainedContentTexturePageBudget,
   normalizeRetainedContentTexturePageLodScale,
+  resolveRetainedContentTexturePageTextureBudget,
 } from "./retainedContentTexturePageBudget";
 import {
   didRetainedPageVisualCoverageChange,
   isRetainedTextureWorkItemCompleteAfterPageUpload,
   rectsEqual,
   rectsIntersect,
+  resolveRetainedPageEvictionProtectedKeys,
   shouldEnqueueRemainingRefreshDescriptors,
   shouldRefreshCommittedPage,
   shouldUploadRetainedTexturePage,
@@ -44,6 +46,7 @@ import {
   getRetainedContentTextureResourceRegion,
   type RetainedContentTextureResources,
 } from "./retainedContentTextureResources";
+import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import {
   createRetainedTexturePageDescriptors,
   resolveRetainedTexturePageCoverage,
@@ -83,11 +86,11 @@ export type {
 const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxFrameRasterMs: 4,
   maxFrameUploadMs: 4,
-  maxFrameUploadedBytes: 8 * 1024 * 1024,
+  maxFrameUploadedBytes: 4 * 1024 * 1024,
   maxTextureMemoryBytes: 192 * 1024 * 1024,
-  maxUploads: 4,
+  maxUploads: 1,
 };
-const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 2048;
+const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 1024;
 
 export class RetainedContentTexturePageManager {
   private readonly budget: RetainedTextureUploadSchedulerBudget;
@@ -96,6 +99,7 @@ export class RetainedContentTexturePageManager {
   private readonly format: GPUTextureFormat;
   private readonly maxPagePixelSize: number;
   private readonly scratchCanvas: HTMLCanvasElement;
+  private readonly textureBudget: RetainedTextureBudget;
   private readonly textureAtlasStore: RetainedContentTextureAtlasStore;
   private readonly textureUsage: GPUTextureUsageFlags;
   private readonly workQueue = new RetainedTextureWorkQueue();
@@ -118,9 +122,16 @@ export class RetainedContentTexturePageManager {
     ownerDocument: Document,
     options: RetainedContentTexturePageManagerOptions = {},
   ) {
+    this.textureBudget = resolveRetainedContentTexturePageTextureBudget({
+      defaultMaxTextureMemoryBytes:
+        DEFAULT_RETAINED_PAGE_BUDGET.maxTextureMemoryBytes,
+      schedulerBudget: options.budget,
+      textureBudget: options.textureBudget,
+    });
     this.budget = normalizeRetainedContentTexturePageBudget({
       ...DEFAULT_RETAINED_PAGE_BUDGET,
       ...options.budget,
+      maxTextureMemoryBytes: this.textureBudget.hardMaxBytes,
     });
     this.cache = new RetainedTexturePageCache({
       destroyResource: destroyRetainedContentTextureResources,
@@ -265,6 +276,7 @@ export class RetainedContentTexturePageManager {
   runPostSubmitMaintenance({
     darkMode = false,
     preparedFrame,
+    publishedProtectedPageKeys,
     switchAnimations,
     textLikeSnapshotElementById = EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
     viewportInteractionActive = false,
@@ -288,6 +300,7 @@ export class RetainedContentTexturePageManager {
           textLikeSnapshotElementById,
         }),
       queue: this.workQueue,
+      textureBudget: this.textureBudget,
       viewportInteractionActive,
     });
     const postMaintenancePageVisualResult = this.createPageVisuals({
@@ -296,11 +309,12 @@ export class RetainedContentTexturePageManager {
     });
     const evicted = this.cache.evictToBudget({
       frame: preparedFrame.frame,
-      maxBytes: this.budget.maxTextureMemoryBytes,
-      protectedPageKeys: [
-        ...preparedFrame.protectedPageKeys,
-        ...postMaintenancePageVisualResult.protectedPageKeys,
-      ],
+      maxBytes: this.textureBudget.hardMaxBytes,
+      protectedPageKeys: resolveRetainedPageEvictionProtectedKeys({
+        postMaintenancePageVisualResult,
+        preparedFrame,
+        publishedProtectedPageKeys,
+      }),
     });
     if (evicted.evictedKeys.length > 0) {
       this.drawableRevision += 1;
@@ -579,6 +593,7 @@ export class RetainedContentTexturePageManager {
     readonly coverageCandidateCount: number;
     readonly mergedDrawQuadCount: number;
     readonly staleFallbackDrawQuadCount: number;
+    readonly uncoveredRectsCss: readonly GpuRect[];
     readonly uncoveredRectCount: number;
   } {
     const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
@@ -586,6 +601,7 @@ export class RetainedContentTexturePageManager {
       [];
     const protectedPageKeys = new Set<string>();
     const refinementDescriptors: RetainedTexturePageDescriptor[] = [];
+    const uncoveredRectsCss: GpuRect[] = [];
     let drawQuadCount = 0;
     let fallbackDrawQuadCount = 0;
     let coverageCandidateCount = 0;
@@ -607,6 +623,7 @@ export class RetainedContentTexturePageManager {
       mergedDrawQuadCount += coverage.mergedDrawQuadCount;
       staleFallbackDrawQuadCount += coverage.staleFallbackDrawQuadCount;
       uncoveredRectCount += coverage.uncoveredRectsCss.length;
+      uncoveredRectsCss.push(...coverage.uncoveredRectsCss);
       drawQuads.push(...coverage.drawQuads);
       drawQuadCount += coverage.drawQuads.length;
       fallbackDrawQuadCount += coverage.drawQuads.filter(
@@ -634,6 +651,7 @@ export class RetainedContentTexturePageManager {
       protectedPageKeys: [...protectedPageKeys],
       refinementDescriptors,
       staleFallbackDrawQuadCount,
+      uncoveredRectsCss,
       uncoveredRectCount,
     };
   }

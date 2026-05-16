@@ -1,3 +1,7 @@
+import {
+  normalizeRetainedTextureBudget,
+  type RetainedTextureBudget,
+} from "./retainedTextureBudget";
 import type { RetainedTextureUploadSchedulerBudget } from "./retainedTextureUploadScheduler";
 
 export function normalizeRetainedContentTexturePageBudget(
@@ -25,6 +29,26 @@ export function normalizeRetainedContentTexturePageBudget(
       budget.maxUploads,
     ),
   };
+}
+
+export function resolveRetainedContentTexturePageTextureBudget({
+  defaultMaxTextureMemoryBytes,
+  schedulerBudget,
+  textureBudget,
+}: {
+  readonly defaultMaxTextureMemoryBytes: number;
+  readonly schedulerBudget?:
+    | Partial<RetainedTextureUploadSchedulerBudget>
+    | undefined;
+  readonly textureBudget?: Partial<RetainedTextureBudget> | undefined;
+}): RetainedTextureBudget {
+  return normalizeRetainedTextureBudget({
+    hardMaxBytes:
+      textureBudget?.hardMaxBytes ??
+      schedulerBudget?.maxTextureMemoryBytes ??
+      defaultMaxTextureMemoryBytes,
+    ...textureBudget,
+  });
 }
 
 export function normalizeRetainedContentTexturePageLodScale({

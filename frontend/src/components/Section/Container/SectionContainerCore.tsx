@@ -1,4 +1,3 @@
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -170,22 +169,6 @@ function resolveSectionStyleVars(
   } satisfies SectionShellStyleVars;
 }
 
-function getSectionShellStyle(
-  sectionStyleVars: SectionShellStyleVars | undefined,
-  viewportInteractionActive: boolean,
-): SectionShellStyleVars | undefined {
-  if (!viewportInteractionActive) {
-    return sectionStyleVars;
-  }
-  return {
-    ...sectionStyleVars,
-    willChange: "transform",
-    transform: "translateZ(0)",
-    backfaceVisibility: "hidden",
-    isolation: "isolate",
-  } satisfies SectionShellStyleVars;
-}
-
 function getSectionEdgeHandleMode({
   hideAgenticEdgeHandles,
   isAttachedTerminalChild,
@@ -289,9 +272,6 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useGpuFlowViewportStore(
-    (state) => state.viewportInteractionActive,
-  );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const surfaceFillsNode = resolveOptionalSectionSurfaceFlag(
     fillSurface,
@@ -312,10 +292,7 @@ function _SectionContainerCore({
     scopeHighlightClassName,
     ...getTopLevelSectionShellSizeClassName(surfaceFillsNode),
   });
-  const sectionShellStyle = getSectionShellStyle(
-    sectionStyleVars,
-    viewportInteractionActive,
-  );
+  const sectionShellStyle = sectionStyleVars;
   const edgeHandleMode = getSectionEdgeHandleMode({
     hideAgenticEdgeHandles,
     isAttachedTerminalChild,

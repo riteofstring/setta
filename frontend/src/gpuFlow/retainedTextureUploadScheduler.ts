@@ -1,3 +1,4 @@
+import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import {
   RetainedTextureWorkQueue,
   type RetainedTextureWorkItem,
@@ -58,10 +59,12 @@ export type RunRetainedTextureUploadSchedulerInput = {
     item: RetainedTextureWorkItem,
   ) => RetainedTextureUploadWorkResult;
   readonly queue: RetainedTextureWorkQueue;
+  readonly textureBudget?: RetainedTextureBudget | undefined;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 
 type RetainedTextureUploadSchedulerProgress = {
+  prefetchUploadedBytes: number;
   rasterMs: number;
   uploadMs: number;
   uploadedBytes: number;
@@ -73,6 +76,7 @@ export function runRetainedTextureUploadScheduler({
   estimateWorkItem,
   executeWorkItem,
   queue,
+  textureBudget,
   viewportInteractionActive,
 }: RunRetainedTextureUploadSchedulerInput): RetainedTextureUploadSchedulerResult {
   const normalizedBudget = normalizeSchedulerBudget(budget);
@@ -86,6 +90,24 @@ export function runRetainedTextureUploadScheduler({
 
   for (const item of queue.orderedWorkItems(queueOptions)) {
     const estimate = normalizeWorkEstimate(estimateWorkItem(item));
+    const schedulerQueue = retainedTextureSchedulerQueueForWorkItem(item);
+    if (
+      shouldSkipPrefetchForTextureBudget({
+        estimate,
+        progress,
+        schedulerQueue,
+        textureBudget,
+      })
+    ) {
+      diagnostics.push({
+        estimate,
+        item,
+        queue: schedulerQueue,
+        reason: "budget-exhausted",
+      });
+      skippedItems.push(item);
+      continue;
+    }
     if (
       !fitsBudget(progress, estimate, normalizedBudget) &&
       !canForceRetainedTextureUploadProgress({
@@ -97,7 +119,7 @@ export function runRetainedTextureUploadScheduler({
       diagnostics.push({
         estimate,
         item,
-        queue: retainedTextureSchedulerQueueForWorkItem(item),
+        queue: schedulerQueue,
         reason: "budget-exhausted",
       });
       skippedItems.push(item);
@@ -105,7 +127,7 @@ export function runRetainedTextureUploadScheduler({
     }
 
     const result = normalizeWorkResult(executeWorkItem(item));
-    addProgress(progress, result);
+    addProgress(progress, result, schedulerQueue);
     executedItems.push(item);
     if (result.complete) {
       queue.complete(item);
@@ -114,7 +136,7 @@ export function runRetainedTextureUploadScheduler({
       diagnostics.push({
         estimate: result,
         item,
-        queue: retainedTextureSchedulerQueueForWorkItem(item),
+        queue: schedulerQueue,
         reason: "actual-budget-miss",
       });
       break;
@@ -137,6 +159,25 @@ export function runRetainedTextureUploadScheduler({
     uploadedBytes: progress.uploadedBytes,
     uploadCount: progress.uploadCount,
   };
+}
+
+function shouldSkipPrefetchForTextureBudget({
+  estimate,
+  progress,
+  schedulerQueue,
+  textureBudget,
+}: {
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly schedulerQueue: RetainedTextureSchedulerQueue;
+  readonly textureBudget: RetainedTextureBudget | undefined;
+}): boolean {
+  return (
+    schedulerQueue === "prefetch" &&
+    Boolean(textureBudget) &&
+    progress.prefetchUploadedBytes + estimate.uploadedBytes >
+      (textureBudget?.offscreenPrefetchMaxBytes ?? 0)
+  );
 }
 
 function canForceRetainedTextureUploadProgress({
@@ -187,7 +228,11 @@ function fitsBudget(
 function addProgress(
   progress: RetainedTextureUploadSchedulerProgress,
   result: RetainedTextureUploadWorkEstimate,
+  queue: RetainedTextureSchedulerQueue,
 ) {
+  if (queue === "prefetch") {
+    progress.prefetchUploadedBytes += result.uploadedBytes;
+  }
   progress.rasterMs += result.rasterMs;
   progress.uploadMs += result.uploadMs;
   progress.uploadedBytes += result.uploadedBytes;
@@ -196,6 +241,7 @@ function addProgress(
 
 function createEmptyProgress(): RetainedTextureUploadSchedulerProgress {
   return {
+    prefetchUploadedBytes: 0,
     rasterMs: 0,
     uploadMs: 0,
     uploadedBytes: 0,

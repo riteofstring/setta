@@ -28,7 +28,7 @@ const STRICT_P95_FRAME_BUDGET_MS = 8.5;
 const STRICT_P99_FRAME_BUDGET_MS = 16.7;
 const CI_P95_FRAME_BUDGET_MS = 20;
 const CI_MAX_FRAME_BUDGET_MS = 110;
-const CI_LONG_TASK_BUDGET_MS = 110;
+const CI_LONG_TASK_BUDGET_MS = 50;
 const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
 
 type FrameSamplerHandle = {
@@ -51,7 +51,23 @@ export type RetainedCompositorIntervalStats = {
 
 export type RetainedCompositorFrameSample = {
   readonly intervalsMs: readonly number[];
-  readonly longTasks: readonly { readonly durationMs: number }[];
+  readonly longTasks: readonly RetainedCompositorLongTaskSample[];
+};
+
+export type RetainedCompositorLongTaskSample = {
+  readonly attribution: readonly RetainedCompositorLongTaskAttribution[];
+  readonly durationMs: number;
+  readonly name: string;
+  readonly relativeStartTimeMs: number;
+  readonly startTimeMs: number;
+};
+
+export type RetainedCompositorLongTaskAttribution = {
+  readonly containerId: string;
+  readonly containerName: string;
+  readonly containerSrc: string;
+  readonly containerType: string;
+  readonly name: string;
 };
 
 export type RetainedCompositorGestureResult = {
@@ -59,6 +75,7 @@ export type RetainedCompositorGestureResult = {
   readonly frame: RetainedCompositorIntervalStats;
   readonly longTasks: {
     readonly count: number;
+    readonly entries: readonly RetainedCompositorLongTaskSample[];
     readonly maxDurationMs: number;
   };
 };
@@ -330,6 +347,7 @@ export async function measureRetainedCompositorGesture(
     frame: summarizeIntervals(sample.intervalsMs),
     longTasks: {
       count: sample.longTasks.length,
+      entries: sample.longTasks,
       maxDurationMs: Math.max(
         0,
         ...sample.longTasks.map((task) => task.durationMs),
@@ -395,6 +413,8 @@ export async function dispatchRetainedCompositorWheelBurst(
 export async function runNativeRetainedCompositorWheelBurst(
   page: Page,
   input: {
+    readonly ctrlKey?: boolean | undefined;
+    readonly deltaX?: number | undefined;
     readonly deltaY: number;
     readonly eventCount: number;
     readonly point: RetainedCompositorPoint;
@@ -402,12 +422,21 @@ export async function runNativeRetainedCompositorWheelBurst(
 ): Promise<readonly number[]> {
   const timestamps: number[] = [];
   await page.mouse.move(input.point.x, input.point.y);
-  for (let index = 0; index < input.eventCount; index += 1) {
-    timestamps.push(performance.now());
-    await page.mouse.wheel(0, input.deltaY);
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, GESTURE_SPACING_MS),
-    );
+  if (input.ctrlKey) {
+    await page.keyboard.down("Control");
+  }
+  try {
+    for (let index = 0; index < input.eventCount; index += 1) {
+      timestamps.push(performance.now());
+      await page.mouse.wheel(input.deltaX ?? 0, input.deltaY);
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, GESTURE_SPACING_MS),
+      );
+    }
+  } finally {
+    if (input.ctrlKey) {
+      await page.keyboard.up("Control");
+    }
   }
   return timestamps.slice(1).map((timestamp, index) => {
     const previous = timestamps[index] ?? timestamp;
@@ -479,6 +508,45 @@ export async function measureRetainedCompositorControlCadence(
   page: Page,
 ): Promise<PageRafCadence> {
   return await measurePageRafCadence(page);
+}
+
+export async function waitForRetainedCompositorGestureIdle(
+  page: Page,
+): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const longTaskCount = await countRetainedCompositorLongTasksDuringWindow(
+      page,
+      320,
+    );
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
+    if (longTaskCount === 0) {
+      return;
+    }
+  }
+}
+
+async function countRetainedCompositorLongTasksDuringWindow(
+  page: Page,
+  durationMs: number,
+): Promise<number> {
+  return await page.evaluate(async (durationMs) => {
+    if (
+      !("PerformanceObserver" in window) ||
+      !PerformanceObserver.supportedEntryTypes.includes("longtask")
+    ) {
+      await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+      return 0;
+    }
+    let longTaskCount = 0;
+    const observer = new PerformanceObserver((list) => {
+      longTaskCount += list.getEntries().length;
+    });
+    observer.observe({ entryTypes: ["longtask"] });
+    await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+    observer.disconnect();
+    return longTaskCount;
+  }, durationMs);
 }
 
 export function resolveRetainedCompositorCadenceBudget({
@@ -649,7 +717,8 @@ function summarizeIntervals(
 async function startGestureFrameSampler(page: Page): Promise<void> {
   await page.evaluate((samplerKey) => {
     const intervalsMs: number[] = [];
-    const longTasks: { durationMs: number }[] = [];
+    const longTasks: RetainedCompositorLongTaskSample[] = [];
+    const samplerStartTimeMs = performance.now();
     let previousTimestamp: number | null = null;
     let running = true;
     const observer =
@@ -657,7 +726,31 @@ async function startGestureFrameSampler(page: Page): Promise<void> {
       PerformanceObserver.supportedEntryTypes.includes("longtask")
         ? new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
-              longTasks.push({ durationMs: entry.duration });
+              const longTaskEntry =
+                entry as PerformanceEntry & {
+                  readonly attribution?: readonly {
+                    readonly containerId?: string;
+                    readonly containerName?: string;
+                    readonly containerSrc?: string;
+                    readonly containerType?: string;
+                    readonly name?: string;
+                  }[];
+                };
+              longTasks.push({
+                attribution: (longTaskEntry.attribution ?? []).map(
+                  (attribution) => ({
+                    containerId: attribution.containerId ?? "",
+                    containerName: attribution.containerName ?? "",
+                    containerSrc: attribution.containerSrc ?? "",
+                    containerType: attribution.containerType ?? "",
+                    name: attribution.name ?? "",
+                  }),
+                ),
+                durationMs: entry.duration,
+                name: entry.name,
+                relativeStartTimeMs: entry.startTime - samplerStartTimeMs,
+                startTimeMs: entry.startTime,
+              });
             }
           })
         : null;

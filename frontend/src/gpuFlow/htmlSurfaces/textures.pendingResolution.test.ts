@@ -5,7 +5,7 @@ import { HtmlSurfaceTextureManager } from "./textures";
 import {
   createGpuTextureMock,
   installTextureUsage,
-} from "./textures.helpers.test";
+} from "./textures.test-helper";
 
 function requireCommittedSurfaceTexture(
   manager: HtmlSurfaceTextureManager,

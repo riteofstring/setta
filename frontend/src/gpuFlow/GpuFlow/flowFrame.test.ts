@@ -34,23 +34,20 @@ describe("GPU flow frame helpers", () => {
     expect(nextElement.dataset.gpuFlowInteractive).toBe("true");
   });
 
-  it("keeps first-visible retained page uploads available during active viewport frames", () => {
+  it("defers retained page uploads during active viewport frames", () => {
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: true,
-        preparedFrame: { uncoveredRectCount: 0 },
       }),
     ).toBe(true);
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: true,
-        preparedFrame: { uncoveredRectCount: 1 },
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: false,
-        preparedFrame: { uncoveredRectCount: 0 },
       }),
     ).toBe(false);
   });
@@ -189,6 +186,7 @@ function retainedFrameCache({
       refinementDescriptors: [],
       staleFallbackDrawQuadCount: 0,
       targetDescriptors: [],
+      uncoveredRectsCss: [],
       uncoveredRectCount,
     },
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({

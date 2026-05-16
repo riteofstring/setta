@@ -1,7 +1,9 @@
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 
 import { getGpuRetainedContentTexturePageFrameSurfaces } from "./GpuRetainedContentPageFrameSurfaces";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
+import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface } from "./scene";
 
 describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
@@ -39,6 +41,43 @@ describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
     );
     expect(segmentVersion(firstFrame, "row-a")).not.toBe(
       segmentVersion(switchedFrame, "row-a"),
+    );
+  });
+
+  it("keeps passive source identity stable when one text row becomes a native island", () => {
+    const inactiveFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene: sceneWithSurface(
+        textLikePageSurface({ nativeControlActive: false }),
+      ),
+      scrollOffsets: new Map(),
+      scrollRevision: 1,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const activeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 2,
+      scene: sceneWithSurface(
+        textLikePageSurface({ nativeControlActive: true }),
+      ),
+      scrollOffsets: new Map(),
+      scrollRevision: 2,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const inactiveSurface = inactiveFrame.descriptors.contentPageSurfaces[0];
+    const activeSurface = activeFrame.descriptors.contentPageSurfaces[0];
+
+    expect(inactiveSurface?.sourceKey).toBe(activeSurface?.sourceKey);
+    expect(inactiveSurface?.textLikeSnapshots).toHaveLength(1);
+    expect(activeSurface?.textLikeSnapshots).toHaveLength(0);
+    expect(segmentVersion(inactiveSurface, "row-a")).not.toBe(
+      segmentVersion(activeSurface, "row-a"),
+    );
+    expect(segmentVersion(inactiveSurface, "row-b")).toBe(
+      segmentVersion(activeSurface, "row-b"),
     );
   });
 });
@@ -89,6 +128,69 @@ function pageSurface({
           id: "row-a",
           label: "Switch",
           state: hovered ? { hovered: true } : undefined,
+        },
+        {
+          controlKind: null,
+          depth: 0,
+          id: "row-b",
+          label: "Unchanged",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: rect,
+    }),
+    zIndex: 1,
+  };
+}
+
+function sceneWithSurface(surface: GpuContentSurface) {
+  return {
+    contentSurfaces: [surface],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function textLikePageSurface({
+  nativeControlActive,
+}: {
+  readonly nativeControlActive: boolean;
+}): GpuContentSurface {
+  const rect = { height: 48, width: 240, x: 0, y: 0 };
+  return {
+    clipRect: rect,
+    id: "surface-a",
+    ownerSectionId: "section-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "surface-a",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      controlWidth: 96,
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        {
+          control: {
+            commitPolicy: "native-island",
+            defaultDisplayValue: "",
+            displayValue: "alpha",
+            editorKind: "text",
+            kind: "text-like",
+            policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+            rendererFamily: "text-like",
+          },
+          controlKind: "text-like",
+          depth: 0,
+          id: "row-a",
+          label: "Text",
+          state: nativeControlActive
+            ? { controlFocused: true, nativeControlActive: true }
+            : undefined,
         },
         {
           controlKind: null,

@@ -11,14 +11,23 @@ import type {
   RetainedContentTexturePageMaintenanceResult,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
+import type { PublishedRetainedFrame } from "../retainedDisplayFrame";
 import type { RetainedTexturePageDescriptor } from "../retainedTexturePages";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuRect } from "../viewportMath";
 import type { GpuRetainedTextLikeRowSnapshotSource } from "./retainedTextLikeRowSnapshotSources";
 
 let lastRetainedContentVisualStateSignature: string | null = null;
+let lastRetainedDisplayFrameSignature: string | null = null;
 let lastRetainedTextLikeRowSnapshotSignature: string | null = null;
 let lastRetainedTextLikeRowSnapshotMaintenanceSignature: string | null = null;
+
+type GpuFlowRetainedContentSurfaceVisualCounts = {
+  nativeControlActiveTextLikeRowCount: number;
+  scrollbarCount: number;
+  switchCount: number;
+  textLikeRowCount: number;
+};
 
 export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
   frame,
@@ -64,6 +73,87 @@ export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
       frame,
       ...state,
       ...(verbose ? { surfaces } : {}),
+    },
+    {
+      buildDurationMs: nowChromeReproPerformanceMs() - buildStartedAtMs,
+    },
+  );
+}
+
+export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
+  frame,
+  preparedFrame,
+  publishedFrame,
+  viewportInteractionActive,
+}: {
+  readonly frame: number;
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly publishedFrame: PublishedRetainedFrame;
+  readonly viewportInteractionActive: boolean;
+}) {
+  if (!isChromeReproActive()) {
+    return;
+  }
+  const buildStartedAtMs = nowChromeReproPerformanceMs();
+  const verbose = isChromeReproVerboseGpuFlowActive();
+  const proof = publishedFrame.coverageProof;
+  const diagnostics = publishedFrame.diagnostics;
+  const state = {
+    activeIslandTransactionMode: diagnostics.activeIslandTransaction.mode,
+    coverageReadiness: diagnostics.coverageReadiness,
+    desiredScrollRevision: diagnostics.desiredScrollRevision,
+    fallbackPageCount: diagnostics.fallbackPageCount,
+    heldScrollFrameCount: diagnostics.scrollLag.heldFrameCount,
+    heldScrollWithoutVisiblePreparationProgressFrameCount:
+      diagnostics.scrollLag.heldWithoutVisiblePreparationProgressFrameCount,
+    missingPageCount: diagnostics.missingPageCount,
+    missingRectCount: proof.missingRects.length,
+    preparedFrameId: preparedFrame.frame,
+    publishedFrameId: publishedFrame.id,
+    publishedPreparedFrameId: diagnostics.publishedPreparedFrameId,
+    publishedScrollRevision: diagnostics.scrollLag.publishedScrollRevision,
+    rejectedFrameCount: diagnostics.rejectedFrameCount,
+    scrollLagCssPx: roundChromeReproMs(diagnostics.scrollLag.lagCssPx),
+    scrollLagCssPxPerMs: roundChromeReproMs(
+      diagnostics.scrollLag.lagCssPxPerMs,
+    ),
+    scrollLagDurationMs: roundChromeReproMs(
+      diagnostics.scrollLag.lagDurationMs,
+    ),
+    scrollPublicationMode: diagnostics.scrollPublicationMode,
+    textureReadiness: diagnostics.textureReadiness,
+    uncoveredRectCount: diagnostics.uncoveredRectCount,
+    visiblePreparationProgressCount:
+      diagnostics.scrollLag.visiblePreparationProgressCount,
+    viewportInteractionActive,
+    visibleRectCount: proof.visibleRects.length,
+  };
+  const verboseState = verbose
+    ? {
+        activeIslandTransaction: diagnostics.activeIslandTransaction,
+        fallbackRects: proof.fallbackRects
+          .slice(0, 24)
+          .map(roundGpuFlowChromeReproRect),
+        missingRects: proof.missingRects
+          .slice(0, 24)
+          .map(roundGpuFlowChromeReproRect),
+        rejectedPreparedFrameIds: proof.rejectedPreparedFrameIds.slice(-24),
+        visibleRects: proof.visibleRects
+          .slice(0, 24)
+          .map(roundGpuFlowChromeReproRect),
+      }
+    : {};
+  const signature = JSON.stringify({ ...state, ...verboseState });
+  if (signature === lastRetainedDisplayFrameSignature) {
+    return;
+  }
+  lastRetainedDisplayFrameSignature = signature;
+  postMeasuredChromeReproEvent(
+    "gpu-flow-retained-display-frame",
+    {
+      frame,
+      ...state,
+      ...verboseState,
     },
     {
       buildDurationMs: nowChromeReproPerformanceMs() - buildStartedAtMs,
@@ -699,31 +789,12 @@ function createGpuFlowRetainedContentSurfaceVisualSummary(
   if (!retainedScene) {
     return null;
   }
-  const rowById = new Map(retainedScene.rows.map((row) => [row.id, row]));
-  let nativeControlActiveTextLikeRowCount = 0;
-  let scrollbarCount = 0;
-  let switchCount = 0;
-  let textLikeRowCount = 0;
-  for (const command of retainedScene.drawCommands) {
-    if (command.kind === "scrollbar") {
-      scrollbarCount += 1;
-      continue;
-    }
-    if (command.kind !== "row-control") {
-      continue;
-    }
-    if (command.control.kind === "switch") {
-      switchCount += 1;
-      continue;
-    }
-    if (command.control.kind !== "text-like") {
-      continue;
-    }
-    textLikeRowCount += 1;
-    if (rowById.get(command.rowId)?.state.nativeControlActive) {
-      nativeControlActiveTextLikeRowCount += 1;
-    }
-  }
+  const {
+    nativeControlActiveTextLikeRowCount,
+    scrollbarCount,
+    switchCount,
+    textLikeRowCount,
+  } = summarizeGpuFlowRetainedContentSurfaceVisualCounts(retainedScene);
   if (switchCount === 0 && scrollbarCount === 0 && textLikeRowCount === 0) {
     return null;
   }
@@ -742,6 +813,50 @@ function createGpuFlowRetainedContentSurfaceVisualSummary(
     viewportRect: roundGpuFlowChromeReproRect(retainedScene.viewportRect),
     zIndex: surface.zIndex,
   };
+}
+
+function summarizeGpuFlowRetainedContentSurfaceVisualCounts(
+  retainedScene: NonNullable<GpuContentSurface["retainedScene"]>,
+): GpuFlowRetainedContentSurfaceVisualCounts {
+  const rowById = new Map(retainedScene.rows.map((row) => [row.id, row]));
+  const counts: GpuFlowRetainedContentSurfaceVisualCounts = {
+    nativeControlActiveTextLikeRowCount: 0,
+    scrollbarCount: 0,
+    switchCount: 0,
+    textLikeRowCount: 0,
+  };
+  for (const command of retainedScene.drawCommands) {
+    summarizeGpuFlowRetainedContentDrawCommand(counts, command, rowById);
+  }
+  return counts;
+}
+
+function summarizeGpuFlowRetainedContentDrawCommand(
+  counts: GpuFlowRetainedContentSurfaceVisualCounts,
+  command: GpuRetainedContentDrawCommand,
+  rowById: ReadonlyMap<
+    string,
+    NonNullable<GpuContentSurface["retainedScene"]>["rows"][number]
+  >,
+) {
+  if (command.kind === "scrollbar") {
+    counts.scrollbarCount += 1;
+    return;
+  }
+  if (command.kind !== "row-control") {
+    return;
+  }
+  if (command.control.kind === "switch") {
+    counts.switchCount += 1;
+    return;
+  }
+  if (command.control.kind !== "text-like") {
+    return;
+  }
+  counts.textLikeRowCount += 1;
+  if (rowById.get(command.rowId)?.state.nativeControlActive) {
+    counts.nativeControlActiveTextLikeRowCount += 1;
+  }
 }
 
 function createGpuFlowRetainedContentTextLikeVisualState({

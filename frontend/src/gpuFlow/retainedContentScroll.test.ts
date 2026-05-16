@@ -8,6 +8,7 @@ import {
   resolveGpuRetainedContentWheelScroll,
   resolveGpuRetainedContentWheelScrollOffset,
 } from "./retainedContentScroll";
+import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 
 describe("retained content scroll", () => {
@@ -188,6 +189,43 @@ describe("retained content scroll", () => {
       handled: true,
       scrollOffset: null,
       surfaceId: "params",
+    });
+  });
+
+  it("uses the published retained runtime frame for wheel ownership when supplied", () => {
+    const publishedSurface = retainedSurface({
+      id: "published",
+      rect: { height: 80, width: 160, x: 0, y: 0 },
+      zIndex: 1,
+    });
+    const desiredSurface = retainedSurface({
+      id: "desired",
+      rect: { height: 80, width: 160, x: 0, y: 0 },
+      zIndex: 2,
+    });
+    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene: sceneWithSurfaces([publishedSurface]),
+      scrollOffsets: new Map(),
+      scrollRevision: 1,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+
+    const result = resolveGpuRetainedContentWheelScrollOffset({
+      event: wheel({ deltaY: 24 }),
+      point: { x: 20, y: 20 },
+      retainedRuntimeFrame,
+      scene: sceneWithSurfaces([desiredSurface]),
+      scrollOffsets: new Map(),
+    });
+
+    expect(result).toEqual({
+      changed: true,
+      handled: true,
+      scrollOffset: { x: 0, y: 24 },
+      surfaceId: "published",
     });
   });
 

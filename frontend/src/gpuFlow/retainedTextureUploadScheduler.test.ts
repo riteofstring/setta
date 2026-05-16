@@ -206,6 +206,49 @@ describe("runRetainedTextureUploadScheduler", () => {
     ]);
     expect(queue.hasWork()).toBe(false);
   });
+
+  it("keeps offscreen prefetch work inside the explicit prefetch budget bucket", () => {
+    const queue = new RetainedTextureWorkQueue();
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "source-window",
+      priority: "prefetch",
+      sourceWindow: { height: 100, width: 100, x: 0, y: 0 },
+      surfaceId: "surface-a",
+    });
+    queue.enqueue({
+      contentVersion: 1,
+      kind: "source-window",
+      priority: "prefetch",
+      sourceWindow: { height: 100, width: 100, x: 0, y: 120 },
+      surfaceId: "surface-b",
+    });
+
+    const result = runRetainedTextureUploadScheduler({
+      budget: DEFAULT_BUDGET,
+      estimateWorkItem: () => SMALL_WORK,
+      executeWorkItem: () => ({ ...SMALL_WORK, complete: true }),
+      queue,
+      textureBudget: {
+        activeIslandReserveBytes: 0,
+        hardMaxBytes: DEFAULT_BUDGET.maxTextureMemoryBytes,
+        nearViewportReserveBytes: 0,
+        offscreenPrefetchMaxBytes: 600,
+        visibleReserveBytes: 0,
+      },
+    });
+
+    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-a",
+    ]);
+    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
+      "surface-b",
+    ]);
+    expect(result.diagnostics[0]).toMatchObject({
+      queue: "prefetch",
+      reason: "budget-exhausted",
+    });
+  });
 });
 
 describe("retainedTextureSchedulerQueueForWorkItem", () => {

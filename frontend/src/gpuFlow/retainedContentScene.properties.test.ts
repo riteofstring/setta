@@ -6,7 +6,7 @@ import {
   resolveGpuRetainedContentVisibleRowRange,
   type GpuRetainedContentRowInput,
 } from "./retainedContentScene";
-import { row } from "./retainedContentScene.helpers.test";
+import { row } from "./retainedContentScene.test-helper";
 
 const RETAINED_CONTENT_PROPERTY_RUNS = 100;
 

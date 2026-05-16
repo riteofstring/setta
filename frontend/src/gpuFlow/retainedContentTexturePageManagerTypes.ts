@@ -4,6 +4,7 @@ import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
+import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type { RetainedTexturePageDrawQuad } from "./retainedTexturePageGrid";
 import type { RetainedTexturePageSurfaceLayout } from "./retainedTexturePageVisuals";
 import type {
@@ -82,12 +83,14 @@ export type RetainedContentTexturePagePreparedFrame = {
   readonly refinementDescriptors: readonly RetainedTexturePageDescriptor[];
   readonly staleFallbackDrawQuadCount: number;
   readonly targetDescriptors: readonly RetainedTexturePageDescriptor[];
+  readonly uncoveredRectsCss: readonly GpuRect[];
   readonly uncoveredRectCount: number;
 };
 
 export type RetainedContentTexturePageMaintenanceInput = {
   readonly darkMode?: boolean | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
   readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
   readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
@@ -119,6 +122,7 @@ export type RetainedContentTexturePageManagerOptions = {
   readonly format?: GPUTextureFormat | undefined;
   readonly maxPagePixelSize?: number | undefined;
   readonly scratchCanvas?: HTMLCanvasElement | undefined;
+  readonly textureBudget?: Partial<RetainedTextureBudget> | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
 };
 

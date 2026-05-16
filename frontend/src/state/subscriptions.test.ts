@@ -145,7 +145,7 @@ describe("subscriptions viewport persistence", () => {
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       staleBackendViewport,
     );
-    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending).toHaveLength(0);
     expect(routeSetViewportMock).not.toHaveBeenCalled();
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
@@ -180,7 +180,7 @@ describe("subscriptions viewport persistence", () => {
     );
   });
 
-  it("queues viewport persistence without mutating project state during gestures", () => {
+  it("defers viewport persistence without mutating project state during gestures", () => {
     gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
@@ -198,7 +198,18 @@ describe("subscriptions viewport persistence", () => {
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       viewportBeforeGesture,
     );
-    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending).toHaveLength(0);
     expect(routeSetViewportMock).not.toHaveBeenCalled();
+
+    debouncedDispatchViewportUpdate.flush();
+
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(routeSetViewportMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+        viewport: { x: 30, y: 40, zoom: 1.5 },
+        frontendOpId: expect.any(String),
+      },
+    });
   });
 });

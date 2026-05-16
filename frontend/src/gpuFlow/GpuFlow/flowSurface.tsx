@@ -49,6 +49,7 @@ import {
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import type { PublishedRetainedFrame } from "../retainedDisplayFrame";
 import {
   createGpuRetainedRuntimeFrame,
   type GpuRetainedRuntimeFrame,
@@ -78,6 +79,12 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
+import {
+  createGpuFlowRetainedRuntimeFrameOverlayRenderSignature,
+  createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
+  resolveOverlayRetainedRuntimeFrame,
+  resolveSourceRetainedRuntimeFrame,
+} from "./flowRetainedRuntimeFrameSignatures";
 import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -207,6 +214,7 @@ export function GpuFlow({
     useRef<RetainedContentTexturePageManager | null>(null);
   const retainedContentFrameCacheRef =
     useRef<GpuFlowRetainedContentFrameCache | null>(null);
+  const retainedDisplayFrameRef = useRef<PublishedRetainedFrame | null>(null);
   const retainedTextLikeRowSnapshotElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );
@@ -224,7 +232,12 @@ export function GpuFlow({
     defaultRetainedContentRuntimeStateRef.current;
   const [retainedRuntimeFrame, setRetainedRuntimeFrame] =
     useState<GpuRetainedRuntimeFrame | null>(null);
-  const retainedRuntimeFrameRef = useRef<GpuRetainedRuntimeFrame | null>(null);
+  const retainedRuntimeFrameRenderSignatureRef = useRef<string | null>(null);
+  const [retainedPreparationRuntimeFrame, setRetainedPreparationRuntimeFrame] =
+    useState<GpuRetainedRuntimeFrame | null>(null);
+  const retainedPreparationRuntimeFrameRenderSignatureRef = useRef<
+    string | null
+  >(null);
   const initialRetainedRuntimeFrame = useMemo(
     () =>
       createGpuRetainedRuntimeFrame({
@@ -243,8 +256,14 @@ export function GpuFlow({
       }),
     [activeRetainedContentRuntimeState, scene, viewport, viewportRuntime],
   );
-  const overlayRetainedRuntimeFrame =
-    retainedRuntimeFrame ?? initialRetainedRuntimeFrame;
+  const overlayRetainedRuntimeFrame = resolveOverlayRetainedRuntimeFrame({
+    initialRetainedRuntimeFrame,
+    retainedRuntimeFrame,
+  });
+  const sourceRetainedRuntimeFrame = resolveSourceRetainedRuntimeFrame({
+    overlayRetainedRuntimeFrame,
+    retainedPreparationRuntimeFrame,
+  });
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
@@ -267,7 +286,7 @@ export function GpuFlow({
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
     renderRetainedTextLikeRowSnapshot,
-    retainedRuntimeFrame: overlayRetainedRuntimeFrame,
+    retainedRuntimeFrame: sourceRetainedRuntimeFrame,
     surfaceRef,
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
@@ -414,7 +433,10 @@ export function GpuFlow({
     viewportRuntime,
   ]);
   useEffect(() => {
-    retainedRuntimeFrameRef.current = null;
+    retainedDisplayFrameRef.current = null;
+    retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
+    retainedRuntimeFrameRenderSignatureRef.current = null;
+    setRetainedPreparationRuntimeFrame(null);
     setRetainedRuntimeFrame(null);
   }, [scene, activeRetainedContentRuntimeState]);
 
@@ -854,6 +876,7 @@ export function GpuFlow({
         retainedContentPageManagerRef,
         retainedContentFrameCacheRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
+        retainedDisplayFrameRef,
         retainedTextLikeRowSnapshotElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
@@ -863,15 +886,39 @@ export function GpuFlow({
         visibleNodeIdsRef,
         viewportStore,
         viewportFrame,
-        onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-          if (retainedRuntimeFrameRef.current === nextRetainedRuntimeFrame) {
+        onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
+          if (deferResolutionUpdates) {
             return;
           }
-          retainedRuntimeFrameRef.current = nextRetainedRuntimeFrame;
-          setRetainedRuntimeFrame(nextRetainedRuntimeFrame);
+          const nextSignature =
+            createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
+              nextRetainedRuntimeFrame,
+            );
+          if (
+            retainedPreparationRuntimeFrameRenderSignatureRef.current ===
+            nextSignature
+          ) {
+            return;
+          }
+          retainedPreparationRuntimeFrameRenderSignatureRef.current =
+            nextSignature;
+          setRetainedPreparationRuntimeFrame(nextRetainedRuntimeFrame);
+        },
+        onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
           callbacksRef.current.onRetainedRuntimeFrame?.(
             nextRetainedRuntimeFrame,
           );
+          const nextSignature =
+            createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
+              nextRetainedRuntimeFrame,
+            );
+          if (
+            retainedRuntimeFrameRenderSignatureRef.current === nextSignature
+          ) {
+            return;
+          }
+          retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
+          setRetainedRuntimeFrame(nextRetainedRuntimeFrame);
         },
       });
       viewportRuntime.applyOverlayTransforms();

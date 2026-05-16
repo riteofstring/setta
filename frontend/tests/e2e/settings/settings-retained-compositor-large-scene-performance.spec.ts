@@ -18,6 +18,7 @@ import {
   resolveRetainedCompositorTarget,
   resolveRetainedCompositorViewportPoint,
   runNativeRetainedCompositorWheelBurst,
+  waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
 
 test.use({
@@ -50,6 +51,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
     target.clip,
   );
 
+  await waitForRetainedCompositorGestureIdle(page);
   const pan = await measureRetainedCompositorGesture(page, () =>
     dispatchRetainedCompositorWheelBurst(page, {
       deltaY: 1,
@@ -58,6 +60,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
     }),
   );
   const afterPanViewport = await readRetainedCompositorViewport(page);
+  await waitForRetainedCompositorGestureIdle(page);
   const zoom = await measureRetainedCompositorGesture(page, () =>
     dispatchRetainedCompositorWheelBurst(page, {
       ctrlKey: true,
@@ -66,6 +69,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
       point: viewportPoint,
     }),
   );
+  await waitForRetainedCompositorGestureIdle(page);
   const retainedHoverZoom = await measureRetainedCompositorGesture(page, () =>
     dispatchRetainedCompositorWheelBurst(page, {
       ctrlKey: true,
@@ -74,6 +78,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
       point: target.point,
     }),
   );
+  await waitForRetainedCompositorGestureIdle(page);
   const retainedScroll = await measureRetainedCompositorGesture(page, () =>
     runNativeRetainedCompositorWheelBurst(page, {
       deltaY: 44,
@@ -85,6 +90,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
     page,
     target.surfaceId,
   );
+  await waitForRetainedCompositorGestureIdle(page);
   const scrollThenRetainedHoverZoom = await measureRetainedCompositorGesture(
     page,
     async () => {
@@ -181,11 +187,44 @@ test("all-settings retained compositor gestures stay within the measured cadence
   expect(retainedHoverZoom.frame.p95Ms, details).toBeLessThanOrEqual(
     Math.max(budgets.retainedHoverZoom.p95FrameBudgetMs, zoom.frame.p95Ms + 8),
   );
-  for (const [name, gesture] of Object.entries(gestures)) {
-    expectRetainedCompositorGestureWithinBudget({
-      budget: budgets[name],
-      details,
-      gesture,
-    });
-  }
+  await test.step(
+    "large complex scene panning stays within the interaction frame budget",
+    async () => {
+      expectRetainedCompositorGestureWithinBudget({
+        budget: budgets.pan,
+        details,
+        gesture: pan,
+      });
+    },
+  );
+  await test.step(
+    "large complex scene zooming stays within the interaction frame budget",
+    async () => {
+      expectRetainedCompositorGestureWithinBudget({
+        budget: budgets.zoom,
+        details,
+        gesture: zoom,
+      });
+      expectRetainedCompositorGestureWithinBudget({
+        budget: budgets.retainedHoverZoom,
+        details,
+        gesture: retainedHoverZoom,
+      });
+    },
+  );
+  await test.step(
+    "large complex retained section scrolling stays within the interaction frame budget",
+    async () => {
+      expectRetainedCompositorGestureWithinBudget({
+        budget: budgets.retainedScroll,
+        details,
+        gesture: retainedScroll,
+      });
+    },
+  );
+  expectRetainedCompositorGestureWithinBudget({
+    budget: budgets.scrollThenRetainedHoverZoom,
+    details,
+    gesture: scrollThenRetainedHoverZoom,
+  });
 });

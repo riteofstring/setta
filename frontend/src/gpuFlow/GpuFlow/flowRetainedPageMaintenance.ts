@@ -6,27 +6,24 @@ import type {
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
-  preparedFrame,
 }: {
   readonly deferResolutionUpdates: boolean;
-  readonly preparedFrame: Pick<
-    RetainedContentTexturePagePreparedFrame,
-    "uncoveredRectCount"
-  >;
 }): boolean {
-  return deferResolutionUpdates && preparedFrame.uncoveredRectCount === 0;
+  return deferResolutionUpdates;
 }
 
 export function runGpuFlowRetainedPageMaintenance({
   darkMode,
   deferResolutionUpdates,
   preparedFrame,
+  publishedProtectedPageKeys,
   retainedContentPageManager,
   textLikeSnapshotElementById,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
   readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
 }): {
@@ -35,13 +32,13 @@ export function runGpuFlowRetainedPageMaintenance({
 } {
   const deferred = shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
     deferResolutionUpdates,
-    preparedFrame,
   });
   const result = deferred
     ? retainedContentPageManager.deferPostSubmitMaintenance({ preparedFrame })
     : retainedContentPageManager.runPostSubmitMaintenance({
         darkMode,
         preparedFrame,
+        publishedProtectedPageKeys,
         // Switch transitions are composited as native visuals, so texture
         // pages cache only the static retained scene state.
         textLikeSnapshotElementById,

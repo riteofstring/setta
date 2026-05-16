@@ -84,7 +84,11 @@ type ActiveGpuViewportTransition = {
 };
 
 type GpuFlowObserverSnapshotPublishResult = {
-  readonly action: "not-requested" | "published" | "throttled";
+  readonly action:
+    | "active-interaction-deferred"
+    | "not-requested"
+    | "published"
+    | "throttled";
   readonly elapsedMs: number | null;
   readonly publishDurationMs: number | null;
 };
@@ -305,7 +309,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       const overlayStartedAtMs = performanceNow();
       this.applyOverlayTransforms();
       overlayMs = performanceNow() - overlayStartedAtMs;
-      observerSnapshotPublish = this.publishObserverSnapshot({
+      observerSnapshotPublish = this.publishObserverSnapshotWhenIdle({
         force: false,
         timestampMs,
       });
@@ -453,6 +457,26 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
         performanceNow() - publishStartedAtMs,
       ),
     };
+  }
+
+  private publishObserverSnapshotWhenIdle({
+    force,
+    timestampMs = performanceNow(),
+  }: {
+    readonly force: boolean;
+    readonly timestampMs?: number | undefined;
+  }): GpuFlowObserverSnapshotPublishResult {
+    if (this.store.getState().viewportInteractionActive) {
+      const elapsedMs = Number.isFinite(this.lastObserverPublishMs)
+        ? timestampMs - this.lastObserverPublishMs
+        : null;
+      return {
+        action: "active-interaction-deferred",
+        elapsedMs: elapsedMs === null ? null : roundChromeReproMs(elapsedMs),
+        publishDurationMs: null,
+      };
+    }
+    return this.publishObserverSnapshot({ force, timestampMs });
   }
 
   private postViewportRuntimeFrameChromeReproEvent({
