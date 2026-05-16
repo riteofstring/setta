@@ -29,10 +29,12 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
   retained page upload.
 - DOM islands: viewport-positioned real DOM siblings of the canvas for active
   native controls that need browser input behavior, such as text/code inputs,
-  textareas, password fields, date/time fields, dropzones, and parameter name
-  editing.
-- Viewport portal roots: DOM roots for tooltips, validation UI, combobox lists,
-  and primitive-owned popovers that must track the GPU viewport.
+  textareas, password fields, date/time fields, dropzones, color input
+  fallback, and parameter name editing.
+- Viewport-positioned overlay roots: `GpuFlow` viewport portals for retained
+  CodeMirror tooltips and validation UI, plus shared DOM portals for combobox
+  lists and primitive-owned popovers that subscribe to GPU viewport
+  repositioning when anchored to canvas content.
 
 Project state, project settings, and backend mutations remain the canonical
 owners for section structure, dimensions, ordering, parameter values, and edge
@@ -155,13 +157,15 @@ Support libraries have narrow jobs:
   `gpuFlow/portals/floatingPosition.ts`. The wrapper supports real references,
   virtual point/rect references, fixed positioning, offset/flip/shift/size
   middleware, and rescheduling on GPU viewport transforms.
-- Radix primitives own browser behavior for popovers, dialogs, dropdowns,
-  sliders, and switches. GPU integration supplies portal roots and viewport
-  reposition notifications when a primitive-owned popup is anchored to canvas
-  content.
+- Radix primitives own browser behavior for DOM popovers, dialogs, dropdowns,
+  sliders, and switches that remain real DOM. Retained canvas controls do not
+  delegate value state or hit testing to Radix. When a Radix popup is anchored to
+  canvas content, GPU integration supplies a portal target and viewport
+  reposition notifications.
 - Downshift owns shared combobox input, listbox, selection, and keyboard
-  semantics. GPU integration supplies the portal root and floating position
-  refresh during pan and zoom.
+  semantics for DOM comboboxes. Canvas-aware combobox lists use their configured
+  portal container plus the shared Floating UI wrapper to refresh placement
+  during pan and zoom.
 - dnd-kit owns DOM-only sortable surfaces through
   `frontend/src/forks/dnd-kit/adapter`. Section drag, section resize, retained
   parameter drag/drop, and retained parameter scroll are owned by GPU
@@ -217,15 +221,19 @@ Portal roots are partitioned into three coordinate spaces:
 
 All portal roots include the standard no-pan and no-drag classes so overlay
 interactions do not leak into canvas gestures. Custom positioned overlays use
-`autoUpdateGpuFloatingPosition()`. Primitive-owned overlays subscribe to GPU
-viewport repositioning so their placement logic reruns after pan or zoom.
+`autoUpdateGpuFloatingPosition()`. Primitive-owned overlays that opt into
+canvas-aware placement use `subscribeToGpuViewportReposition()` so their
+placement logic reruns after pan or zoom. Shared app-level portal roots such as
+`setta-popover-portals` can live outside `GpuFlow`; they are not declared
+through `GpuFlowPortalDescriptor`.
 
 DOM islands are rendered by `GpuFlowDomIslandLayer`, which is a sibling of the
 canvas inside the GPU flow container. Each island is positioned from its
 flow-space `rect` with the current viewport transform and scaled by
-`viewport.zoom`. DOM islands have pointer events enabled and no-pan/no-drag
-classes. They are not uploaded as textures; they are the active browser-native
-surface for the control currently being edited.
+`viewport.zoom`. Visible DOM islands have pointer events enabled and include the
+no-pan/no-drag classes; hidden or clipped islands are parked with pointer events
+disabled. They are not uploaded as textures; they are the active
+browser-native surface for the control currently being edited.
 
 ## Frame Pipeline
 
@@ -233,11 +241,12 @@ surface for the control currently being edited.
 `GpuFlow`. `GpuFlow` stores the active node-layer state, subscribes to viewport
 changes, attaches interaction controllers, and asks `GpuSurface` for frames.
 
-`GpuSurface` coalesces frame reasons such as `init`, `manual`, `paint`,
-`resize`, `texture-upload`, and `viewport`. A viewport-store transform change
-requests a `viewport` frame. A canvas paint event resolves changed source
+`GpuSurface` coalesces frame reasons such as `animation`, `init`, `manual`,
+`paint`, `resize`, `texture-upload`, and `viewport`. A viewport-store transform
+change requests a `viewport` frame. A canvas paint event resolves changed source
 elements to owning textures and requests a `paint` frame. Exhausted upload
-budgets request follow-up `texture-upload` frames.
+budgets request follow-up `texture-upload` frames, while active retained switch
+transitions request follow-up `animation` frames.
 
 Each render frame follows this shape:
 
@@ -246,10 +255,10 @@ Each render frame follows this shape:
 2. Retained content frame generation clips retained surfaces, resolves each
    surface texture window, derives text-like row snapshot sources, and builds
    retained page frame surfaces.
-3. `RetainedContentTexturePageManager.prepareFrame()` selects the stable zoom
-   bucket, computes desired page descriptors, and emits flat visuals for
-   already-committed retained pages plus refinement work for missing or stale
-   pages.
+3. `RetainedContentTexturePageManager.resolveFrameViewportZoomBucket()` selects
+   the stable zoom bucket. `prepareFrame()` computes desired page descriptors and
+   emits flat visuals for already-committed retained pages plus refinement work
+   for missing or stale pages.
 4. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, clips, forced visibility, and upload margin.
 5. The frame syncs DOM transforms for visible, active, and retained sources,
@@ -261,11 +270,13 @@ Each render frame follows this shape:
    the current viewport camera.
 7. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-8. `RetainedContentTexturePageManager.runPostSubmitMaintenance()` enqueues
-   missing retained pages, rasterizes and uploads retained page textures within
-   its own budget, uploads text-like row DOM snapshots into retained page
-   textures when required, evicts retained pages to budget, and reports whether
-   another frame is needed.
+8. Retained page post-submit maintenance either defers work for active viewport
+   interactions with full committed coverage or calls
+   `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to enqueue
+   missing retained pages, rasterize and upload retained page textures within
+   its own budget, upload text-like row DOM snapshots into retained page textures
+   when required, evict retained pages to budget, and report whether another
+   frame is needed.
 9. Frame performance reporting records render time, upload work, texture memory,
    retained page metrics, viewport state, and interaction diagnostics.
 
@@ -351,10 +362,10 @@ The retained renderer uses texture pages:
   through `retainedContentPageRasterizer.ts`, uploads page textures, and evicts
   retained pages to budget.
 - Text-like controls that are not actively native are rendered into
-  source-local snapshot DOM by `retainedTextLikeRowSnapshotSources.tsx`. The
-  retained page manager requires current snapshot source elements, copies them
-  into retained page textures during page upload, and requests another paint if
-  Chromium has not produced the needed element paint record yet.
+  source-local snapshot DOM by `GpuFlow/retainedTextLikeRowSnapshotSources.tsx`.
+  The retained page manager requires current snapshot source elements, copies
+  them into retained page textures during page upload, and requests another
+  paint if Chromium has not produced the needed element paint record yet.
 
 Retained scrollbars, row-hover state, and switch transitions are GPU-native
 rounded-rect visuals layered with the retained pages. Static page textures cache
@@ -556,18 +567,19 @@ a performance regression.
 
 The architecture is protected by model-level and browser-level tests:
 
-- property tests cover finite viewport coordinate conversion, zoom-at-point
-  invariants, fit-view bounds, retained visible row ranges, retained hit
-  clipping and precedence, retained texture page coverage, and parameter
-  insertion rules;
+- property and model tests under `frontend/src/gpuFlow/` cover finite viewport
+  coordinate conversion, zoom-at-point invariants, fit-view bounds, retained
+  visible row ranges, retained hit clipping and precedence, retained texture
+  page coverage, and retained scene behavior;
 - focused unit tests cover scene layout, resize previews, section drag planning,
-  portal partitioning, Floating UI virtual references, retained row diagnostics,
-  retained controls, retained page rasterization, texture work queues, and
-  retained texture page budgeting;
-- browser tests under `frontend/tests/e2e/gpu-flow/` exercise pan and zoom,
-  canvas-aware combobox and context menu placement, retained native islands,
-  scoped axe checks, retained scroll, retained popups, retained drag/drop, and
-  transform-only pan/zoom performance probes.
+  retained parameter insertion/drop planning, portal partitioning, Floating UI
+  virtual references, retained row diagnostics, retained controls, retained
+  page rasterization, texture work queues, and retained texture page budgeting;
+- browser tests under `frontend/tests/e2e/gpu-flow/` and
+  `frontend/tests/e2e/settings/` exercise canvas popup and context-menu
+  placement, retained native islands, scoped axe checks, retained scroll,
+  retained popups, retained drag/drop, retained CodeMirror activation, visual
+  regressions, and pan/zoom/scroll performance probes.
 
 When changing runtime behavior, add coverage at the owner layer. User-visible
 GPU surface changes need production-path tests and browser verification with
