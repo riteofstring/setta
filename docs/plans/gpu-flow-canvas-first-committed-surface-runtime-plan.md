@@ -43,6 +43,37 @@ zoom, retained section scroll, retained repair, or active projection through
 broad React publication is out of scope, even if the visible graph still uses
 WebGPU.
 
+## Conceptual Runtime Boundaries
+
+The existing code may keep names such as `GpuFlowCommittedSurfaceFrame` during
+implementation, but the design must separate these concepts:
+
+```text
+CommittedContentFrame
+  Stable visible content identity and readiness.
+  Answers what coherent content can be shown.
+
+LiveProjectionSample
+  Viewport transform and per-surface scroll offsets.
+  Answers where already committed content appears now.
+
+ProjectionFrame
+  Imperative application of live samples to GPU actors and the small set of
+  live DOM actors.
+  Answers what gets projected for this interaction tick.
+
+ReactSemanticSnapshot
+  Rare, throttled semantic state for declarative UI, diagnostics, and debug
+  consumers.
+  Does not publish interaction frames.
+```
+
+The broad current meaning of "committed surface frame" is part of the problem:
+it allowed motion, scroll samples, actor generations, DOM publication, and
+React state to collapse into one synchronous path. The refactor should make the
+type and module boundaries enforce the conceptual split above, even if public
+renames happen incrementally.
+
 ## What The Latest Recording Shows
 
 The latest Chrome recording is enough to identify the failure class.
@@ -263,6 +294,7 @@ Do not borrow:
 
 - full-page texture capture every frame;
 - broad DOM overlays as the primary visible representation;
+- broad hidden DOM capture trees that are invalidated during interaction;
 - fallback DOM application modes;
 - silent compatibility paths.
 
@@ -333,6 +365,62 @@ wheel scroll -> surface scroll sample -> update one surface projection
              -> schedule retained page repair/refinement if needed
 ```
 
+### HTML-In-Canvas And DOM Categories
+
+HTML-in-canvas remains useful as browser paint, capture, layout, and readiness
+infrastructure. It must not become the broad visible passive-control runtime or
+a hidden DOM graph that is dirtied during pan, zoom, or retained section scroll.
+
+Do not overcorrect by canvasifying every browser-owned source. Section bodies,
+overlay sources, and browser-owned handoff surfaces can continue to use
+HTML-in-canvas source/capture paths where appropriate. The problem is broad
+passive text-like parameter controls, not every DOM source.
+
+Target classification:
+
+```text
+DOM section sources
+  Retained as source/capture surfaces where browser rendering is appropriate.
+
+Passive parameter rows
+  Canvas/retained row structure, labels, passive value ink, and visual state.
+
+Passive text-like values
+  Canvas/retained value actors by default.
+
+Active editors/native controls
+  Real DOM, small count, readiness-gated.
+```
+
+Track these DOM categories separately:
+
+```text
+Visible live active DOM
+  Active editors, native pickers, native browser-semantic controls.
+  Small constant. Projected live only while active or semantically required.
+
+HTML-in-canvas source DOM
+  layoutsubtree children used as source/capture material.
+  Not the visible passive text-control runtime.
+
+Capture-only passive DOM, if chosen
+  Pooled, bounded, readiness-gated, and excluded from live projection.
+  Not one projected actor or live editor tree per passive visible row.
+
+Accessibility/semantic DOM, if chosen
+  Bounded or virtualized semantic exposure.
+  Must not become a full hidden XYFlow-like graph.
+```
+
+The DOM budget must report visible active DOM actors, projected DOM hosts,
+layoutsubtree source DOM, capture-only passive DOM, and semantic/offscreen DOM
+separately. It must also report layout/paint time, snapshot queue size, and the
+number of source/capture/semantic DOM nodes touched or invalidated during active
+pan, zoom, and retained section scroll.
+
+Passing the visible DOM scale guardrail is not enough if the same cost moves to
+hidden source DOM or capture DOM.
+
 ### Canvas-First Passive Text-Like Controls
 
 Passive text-like values must stop requiring a visible DOM actor for every
@@ -349,10 +437,37 @@ The new contract:
 - active detach restores a retained passive value actor after the new passive
   content generation is ready.
 
-Implementation options may include GPU text/display-list rendering or retained
-browser snapshotting for passive value ink. Pick the least broad solution that
-meets visual parity and performance. The key rule is that passive controls are
-not hundreds of React-owned visible CodeMirror DOM nodes.
+Default strategy:
+
+- ordinary single-line values should use GPU/canvas text or retained
+  display-list rendering;
+- rich multiline/code-like previews may use retained browser snapshots only
+  when pooled, cached, readiness-gated, and excluded from live projection;
+- one passive CodeMirror DOM view per visible row is never allowed.
+
+Implementation options may include GPU text/display-list rendering, retained
+browser snapshotting for passive value ink, or another canvas-first path. Pick
+the least broad solution that meets visual parity and performance. The key rule
+is that passive controls are not hundreds of React-owned visible CodeMirror DOM
+nodes, and are not hundreds of hidden live CodeMirror DOM nodes either.
+
+Passive snapshot anti-regression rule:
+
+- a passive browser snapshot source must be capture-only passive content that
+  is pooled/bounded, readiness-gated, and cached;
+- it must not mount one live CodeMirror or React DOM tree per passive visible
+  row;
+- it must not participate in per-frame projection;
+- it must not be touched, laid out, painted, captured, or uploaded for pan,
+  zoom, or retained section scroll cadence;
+- a missing snapshot holds the previous passive retained actor and never
+  publishes blank content;
+- active editing remains real DOM and does not use snapshotting as the
+  correctness path.
+
+Active CodeMirror may be real DOM. Passive CodeMirror-like display may reuse
+CodeMirror parsing or highlighting data, or a bounded capture renderer, but it
+must not mount a live editor per passive row.
 
 Native browser DOM remains required for:
 
@@ -451,6 +566,27 @@ The milestones below are the shippable boundaries. Individual phases are
 implementation slices only; they should not be treated as stable halfway
 architectures when their milestone has not passed.
 
+The first meaningful architecture checkpoint is Milestone B plus the first
+representative slice of Milestone C/D. Do not spend weeks optimizing around the
+current passive DOM-control plane before proving at least one single-line value
+and one multiline/code-like value end to end:
+
+```text
+passive retained/canvas display
+click activation
+paint-ready active DOM editor
+focus/caret/IME correctness
+wheel ownership
+blur
+passive retained restoration
+no blanking
+bounded visible/source/capture/semantic DOM budgets
+```
+
+That first slice does not need to migrate every control, but it must prove the
+hardest seam early enough to prevent the runtime publication cut from becoming
+an optimization around the wrong passive-control model.
+
 ### Milestone A: Prove And Protect The Failures
 
 Complete Phase 0 and Phase 1.
@@ -459,7 +595,8 @@ Required outcome:
 
 - baseline measurements and reproduction scope are recorded under `perf/`;
 - fail-first observed-behavior tests fail for pan/zoom cadence, retained
-  section scroll cadence/ownership, activation flicker, and passive DOM scale;
+  section scroll cadence/ownership, activation flicker, passive DOM scale, and
+  source/capture DOM interaction cost;
 - the All Settings-scale performance target is represented by tests or
   measurement guardrails.
 
@@ -484,6 +621,11 @@ Do not call Phase 2 or Phase 3 successful if section scroll can still route
 through global viewport work or if a previous coherent frame can still be
 replaced by a cold placeholder. Those are the same publication-model failure.
 
+Milestone B is necessary but not sufficient as the first architecture
+checkpoint. It must be followed immediately by the first Milestone C/D
+text-like slice described above, before broad rollout or extended performance
+tuning on the old passive DOM-control plane.
+
 ### Milestone C: Passive DOM Removal
 
 Complete Phase 4B. Phase 4A is only an internal stepping stone and is not a
@@ -493,14 +635,20 @@ Required outcome:
 
 - passive text-like value display is canvas-first and no longer requires broad
   visible DOM-control actors;
-- the DOM scale guardrail passes in an All Settings-scale scene;
+- the visible, source, capture, and semantic DOM budget guardrails pass in an
+  All Settings-scale scene;
 - active editing remains browser DOM and is readiness-gated;
+- the first migrated text-like family proves passive retained display, active
+  DOM handoff, readiness-gated swap both ways, and accessibility/semantics
+  together before broad rollout;
 - no compatibility fallback keeps the broad passive DOM-control plane alive.
 
 ### Milestone D: Active Semantics And Readiness
 
 Complete Phase 5 and the passive-value accessibility/semantics decision from
-Phase 4B.
+Phase 4B. For the first migrated text-like family, Milestone C and Milestone D
+should land together: passive retained display and active DOM handoff are one
+end-to-end behavior.
 
 Required outcome:
 
@@ -534,7 +682,13 @@ Record:
 - current p95/p99 frame gaps for pan-only, zoom-only, mixed pan/zoom, and
   retained section scroll;
 - current long-task evidence during those interactions;
-- current DOM actor counts with no active control;
+- current visible active DOM actors and projected DOM host counts with no
+  active control;
+- current layoutsubtree source DOM, capture-only passive DOM, and
+  semantic/offscreen DOM counts;
+- current layout/paint time, snapshot queue size, and source/capture/semantic
+  DOM nodes touched or invalidated during pan, zoom, and retained section
+  scroll;
 - current input activation screenshot or pixel evidence showing whether blanking
   occurs;
 - the command set used to collect the baseline.
@@ -565,13 +719,14 @@ failure output, but they are not the primary pass/fail condition.
 Do not start Phase 2 until these tests fail for the current implementation. Do
 not weaken the tests to match implementation behavior. The tests should encode
 the behavior a user sees: smooth motion, visible content, correct scroll owner,
-focus/caret correctness, and bounded browser DOM scale.
+focus/caret correctness, bounded browser DOM scale, and bounded source/capture
+DOM interaction cost.
 
 Phase gate:
 
 - at least one observed-behavior test must fail for each targeted failure class:
   pan/zoom cadence, retained section scroll cadence/ownership, activation
-  flicker, and passive DOM scale;
+  flicker, passive DOM scale, and source/capture DOM interaction cost;
 - the failing command and failure evidence must be recorded in implementation
   notes;
 - implementation refactors are blocked until this gate is satisfied.
@@ -690,7 +845,7 @@ Diagnostics to attach only on failure:
 - section offset before/after;
 - viewport transform before/after.
 
-### Test E: DOM Scale Guardrail
+### Test E: DOM And Source Scale Guardrail
 
 This is a resource-scale observed outcome, not an implementation-detail test.
 
@@ -698,16 +853,26 @@ Scenario:
 
 1. Open Settings in All Settings mode.
 2. Keep no input active.
-3. Sample the number of visible browser-editable DOM actors and total
-   projected DOM actor hosts.
+3. Sample the number of visible browser-editable DOM actors, projected DOM
+   actor hosts, layoutsubtree source DOM nodes, capture-only passive DOM nodes,
+   and semantic/offscreen DOM nodes.
+4. During pan, zoom, and retained section scroll, sample layout/paint time,
+   snapshot queue size, and the number of source/capture/semantic DOM nodes
+   touched or invalidated.
 
-Observed assertion:
+Observed assertions:
 
 - with no active control, visible browser-editable DOM actors should be near
   zero and bounded by a small constant, not proportional to all visible
-  text-like rows.
+  text-like rows;
+- source DOM, capture-only passive DOM, and semantic/offscreen DOM must stay
+  within documented budgets for an All Settings-scale scene;
+- active pan, zoom, and retained section scroll must not touch, trigger layout
+  or paint for, capture, or upload passive source/capture DOM proportional to
+  visible row count.
 
-This test exists to prevent sliding back into an XYFlow-like DOM graph.
+This test exists to prevent sliding back into an XYFlow-like DOM graph, either
+visible or hidden behind capture/source infrastructure.
 
 ## Phase 2: Introduce Committed Surface Runtime Store
 
@@ -716,14 +881,17 @@ React.
 
 Responsibilities:
 
-- hold the current committed content frame;
-- hold current live viewport and per-surface scroll samples;
+- hold the current committed content frame as a `CommittedContentFrame`
+  concept;
+- hold current live viewport and per-surface scroll samples as
+  `LiveProjectionSample` state;
+- produce `ProjectionFrame` work imperatively from live samples;
 - publish content frames only when content/projection/readiness identity
   changes;
 - project GPU and DOM actors from current live samples;
 - provide snapshots for diagnostics, tests, and debug UI;
-- expose subscription APIs for rare React consumers that need semantic state,
-  not every frame.
+- expose `ReactSemanticSnapshot` subscription APIs for rare React consumers
+  that need semantic state, not every frame.
 
 Remove `flushSync` committed-frame publication from the hot path. React should
 not be required to publish pan, zoom, retained scroll, or retained page repair.
@@ -732,6 +900,8 @@ Phase gate:
 
 - pan, zoom, retained section scroll, and retained page repair must no longer
   require `flushSync` committed-frame publication;
+- committed content, live projection, projection-frame work, and React semantic
+  snapshots are represented by separate runtime/module boundaries;
 - visible coherence must remain protected by the committed content frame;
 - if this cannot be achieved without destabilizing visible coherence, stop and
   revise the architecture before adding more layers.
@@ -779,7 +949,9 @@ without broadly changing the visible value rendering strategy.
 
 This is an implementation stepping stone only. It must not be treated as a
 stable milestone, because passive DOM actors still exist and the DOM scale
-guardrail should remain failing until Phase 4B removes them.
+guardrail should remain failing until Phase 4B removes them. The source/capture
+DOM interaction guardrail also remains relevant if this phase moves work into
+hidden DOM.
 
 Implementation requirements:
 
@@ -798,7 +970,8 @@ Phase gate:
   longer the source of broad committed-frame churn;
 - no passive-control visual parity or activation behavior regresses;
 - Phase 4B has a written implementation choice before coding begins;
-- Milestone C remains incomplete until Phase 4B passes the DOM scale guardrail.
+- Milestone C remains incomplete until Phase 4B passes the visible, source,
+  capture, and semantic DOM budget guardrails.
 
 ## Phase 4B: Replace Passive DOM Controls With Canvas-First Value Actors
 
@@ -810,10 +983,18 @@ Valid options include GPU text/display-list rendering, retained browser
 snapshotting for passive value ink, or another canvas-first path. The decision
 must explain:
 
+- why ordinary single-line values do or do not use GPU/canvas text or retained
+  display-list rendering by default;
+- why any rich multiline/code-like preview that uses retained browser
+  snapshotting cannot reasonably use GPU/canvas text or retained display-list
+  rendering;
 - why it satisfies visual parity for current text-like value states;
 - how active DOM editing replaces and restores the passive slot;
 - how paint/readiness is handled without blank publication;
 - expected performance and memory costs in an All Settings-scale scene;
+- source/capture DOM budgets, layout/paint budgets, snapshot queue limits, and
+  how many source/capture DOM nodes can be touched during pan, zoom, and
+  retained section scroll;
 - which passive values need accessibility exposure before activation;
 - whether passive accessibility is active-only, provided by a bounded offscreen
   semantic tree, or provided by another explicit model;
@@ -831,7 +1012,10 @@ Implementation requirements:
   placeholder text, error styling, search highlight, disabled state, and
   focused row styling;
 - keep row shell and value ink in the same retained content transaction;
-- keep active editor DOM as a separate readiness-gated actor.
+- keep active editor DOM as a separate readiness-gated actor;
+- prove the first migrated text-like family end to end on at least one
+  representative single-line value and one multiline/code-like value before
+  broad rollout.
 
 Do not keep the broad passive DOM-control plane as a compatibility path.
 
@@ -839,11 +1023,17 @@ Phase gate:
 
 - with no active control, visible browser-editable DOM actors are near zero and
   bounded by a small constant;
+- source DOM, capture-only passive DOM, and semantic/offscreen DOM stay within
+  documented budgets and are not touched proportional to visible row count
+  during pan, zoom, or retained section scroll;
 - passive value visual parity is covered for the states listed above;
 - the passive accessibility/semantics decision is implemented or explicitly
   accepted as active-only behavior with documented tradeoffs;
 - activation tests prove passive-to-active and active-to-passive handoff without
   blanking;
+- at least one representative single-line value and one multiline/code-like
+  value pass passive display, active DOM handoff, blur restoration, and
+  accessibility/semantics checks end to end;
 - broad passive DOM-control rendering is removed, not retained as a fallback.
 
 ## Phase 5: Build Readiness-Gated Active DOM Actors
@@ -862,13 +1052,19 @@ Required APIs:
 The active DOM actor runtime must preserve native focus/caret/selection/IME
 and must preserve wheel ownership during the activation sequence.
 
+For the first migrated text-like family, this phase should land with Phase 4B:
+passive retained value display, active DOM attach, active DOM detach, passive
+restoration, and accessibility/semantics are one end-to-end behavior.
+
 Phase gate:
 
 - activation no-flicker tests pass in normal and All Settings-scale scenes;
 - focus, caret, selection, IME-relevant DOM state, and active element ownership
   are preserved during projection changes;
 - blur restores passive retained content only after the passive generation is
-  ready.
+  ready;
+- the first migrated single-line and multiline/code-like values pass the
+  Phase 4B end-to-end handoff checks before broad rollout.
 
 ## Phase 6: Add Section Scroll Projection Path
 
@@ -962,7 +1158,10 @@ Useful diagnostics:
 - live projection frame count;
 - per-surface scroll sample revisions;
 - active DOM actor lifecycle timings;
-- passive DOM actor count;
+- visible active DOM, projected host, source DOM, capture DOM, and semantic DOM
+  counts;
+- layout/paint time, snapshot queue size, and source/capture DOM invalidation
+  counts during interaction;
 - retained page hold/repair reasons;
 - paint readiness wait time;
 - frame cadence summaries.
@@ -997,7 +1196,10 @@ Mandatory verification:
   retained section scroll in an All Settings-scale scene;
 - the new input activation no-flicker spec;
 - the new active editor wheel ownership spec;
-- the new DOM scale guardrail spec;
+- the new visible/source/capture/semantic DOM budget guardrail spec;
+- first migrated single-line and multiline/code-like value specs covering
+  passive rendering, active DOM handoff, blur restoration, and
+  accessibility/semantics;
 - focused Vitest coverage for committed runtime identity splitting;
 - focused Vitest coverage for active DOM actor readiness transactions;
 - existing retained content, committed surface frame, wheel ownership, and
@@ -1037,8 +1239,21 @@ Final notes for the implementation must include:
 - confirmation that Milestone B landed as one publication-model cut, including
   runtime-owned publication, identity splitting, per-surface section scroll,
   pan/zoom projection, and previous-coherent-frame holding;
+- evidence that `CommittedContentFrame`, `LiveProjectionSample`,
+  `ProjectionFrame`, and `ReactSemanticSnapshot` responsibilities are separated
+  in runtime/module boundaries, even if code symbols keep older names;
+- evidence that the first representative single-line and multiline/code-like
+  text-like values completed the Milestone C/D end-to-end slice before broad
+  rollout;
 - the passive value accessibility/semantics model and evidence that it does not
   recreate broad visible or per-frame projected DOM;
+- the passive value rendering strategy, including any retained browser snapshot
+  use, and evidence that snapshot sources are capture-only, pooled/bounded,
+  readiness-gated, cached, and excluded from live projection;
+- visible active DOM, projected host, layoutsubtree source DOM, capture-only
+  passive DOM, and semantic/offscreen DOM counts before/after;
+- layout/paint time, snapshot queue size, and source/capture/semantic DOM
+  invalidation counts during active pan, zoom, and retained section scroll;
 - frame cadence before/after for All Settings pan/zoom;
 - frame cadence before/after for large retained section scroll;
 - measured 120 Hz-class performance results, including p95/p99 frame gaps,
@@ -1054,6 +1269,8 @@ Final notes for the implementation must include:
 - No transitional dual publication path.
 - No XYFlow-style DOM graph.
 - No full-page HTML texture capture every frame.
+- No broad hidden passive DOM capture graph that is touched during interaction.
+- No live passive CodeMirror editor per visible row.
 - No silent fallback to blank placeholders.
 - No heuristic wheel ownership fallback.
 
@@ -1066,6 +1283,7 @@ architecture:
 - cheap live motion;
 - canvas-first passive content;
 - small, readiness-gated live DOM for browser semantics;
+- bounded source/capture/semantic DOM that is not dirtied during interaction;
 - per-surface retained scroll;
 - no activation flicker;
 - no broad React/DOM publication during high-frequency gestures.
