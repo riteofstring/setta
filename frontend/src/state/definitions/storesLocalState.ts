@@ -133,6 +133,7 @@ export const useMisc = withProjectState(
         lastMouseUpLocation: null as ScreenPoint | null,
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
+        suppressNextPaneClick: false,
         lastPaneClickLocation: { x: 0, y: 0 },
         undoOrRedoWasTriggered: false,
         isSelectingParams: false,

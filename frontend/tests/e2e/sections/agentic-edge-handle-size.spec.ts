@@ -4,6 +4,7 @@ import {
   createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
+  hoverGpuFlowNode,
   openIsolatedProject,
 } from "../helpers";
 
@@ -48,8 +49,10 @@ test.describe.serial("agentic handles", () => {
       await expect(node).toBeVisible();
 
       // Ensure the node is fully in view so hover reliably reveals the handles.
-      await page.getByRole("button", { name: "fit view" }).click();
-      await node.hover();
+      await page
+        .getByRole("button", { name: "fit view" })
+        .click({ force: true });
+      await hoverGpuFlowNode(page, node);
 
       const targetHandle = page.locator(
         `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,

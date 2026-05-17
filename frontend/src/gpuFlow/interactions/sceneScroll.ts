@@ -19,7 +19,11 @@ import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
-import { isGpuViewportWheelGestureActive } from "./wheelOwnership";
+import {
+  getGpuWheelGestureOwnershipArbiter,
+  isGpuViewportWheelGestureActive,
+  type GpuWheelGestureOwnershipArbiter,
+} from "./wheelOwnership";
 
 export type GpuSectionSceneScrollControllerOptions = {
   readonly disabled?:
@@ -39,6 +43,22 @@ export type GpuSectionSceneScrollControllerOptions = {
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
+type GpuSectionSceneWheelMetrics = {
+  readonly deltaMode: number;
+  readonly deltaX: number;
+  readonly deltaY: number;
+  readonly shiftKey: boolean;
+};
+
+type GpuSectionSceneScrollTelemetry = {
+  readonly consumeUnchanged?: boolean | undefined;
+  readonly inputKind?: "keyboard" | "wheel" | undefined;
+  readonly previousScrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
+  readonly resolveDurationMs?: number | undefined;
+  readonly scene?: GpuFlowScene | undefined;
+  readonly wheel?: GpuSectionSceneWheelMetrics | undefined;
+};
+
 export function attachGpuSectionSceneScrollController(
   options: GpuSectionSceneScrollControllerOptions,
 ): () => void {
@@ -51,11 +71,13 @@ class GpuSectionSceneScrollController {
   private readonly element: HTMLElement;
   private readonly options: GpuSectionSceneScrollControllerOptions;
   private readonly store: GpuFlowViewportStoreApi;
+  private readonly wheelOwnership: GpuWheelGestureOwnershipArbiter;
 
   constructor(options: GpuSectionSceneScrollControllerOptions) {
     this.element = options.element;
     this.options = options;
     this.store = options.store ?? gpuFlowViewportStore;
+    this.wheelOwnership = getGpuWheelGestureOwnershipArbiter(this.store);
   }
 
   attach() {
@@ -73,6 +95,10 @@ class GpuSectionSceneScrollController {
       capture: true,
     });
     this.element.removeEventListener("wheel", this.onWheel, { capture: true });
+    this.wheelOwnership.releaseOwner(
+      "ownedByRetainedSectionScroll",
+      "section-scene-scroll-controller-destroyed",
+    );
   }
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
@@ -110,11 +136,7 @@ class GpuSectionSceneScrollController {
 
   private readonly onWheel = (event: WheelEvent) => {
     if (
-      event.defaultPrevented ||
-      event.ctrlKey ||
-      this.options.disabled?.(event) ||
-      isGpuViewportWheelGestureActive(this.store) ||
-      shouldPreserveNativeWheelTarget(event)
+      shouldSkipSectionSceneWheelEvent(event, this.options.disabled, this.store)
     ) {
       return;
     }
@@ -131,6 +153,9 @@ class GpuSectionSceneScrollController {
       scrollOffsets,
     });
     if (!result.handled) {
+      return;
+    }
+    if (!this.claimWheelOwnership()) {
       return;
     }
     this.applyScrollResult(event, result, {
@@ -151,23 +176,7 @@ class GpuSectionSceneScrollController {
   private applyScrollResult(
     event: KeyboardEvent | WheelEvent,
     result: GpuSectionSceneScrollResult,
-    options: {
-      readonly consumeUnchanged?: boolean | undefined;
-      readonly inputKind?: "keyboard" | "wheel" | undefined;
-      readonly previousScrollOffsets?:
-        | GpuSectionSceneScrollOffsetMap
-        | undefined;
-      readonly resolveDurationMs?: number | undefined;
-      readonly scene?: GpuFlowScene | undefined;
-      readonly wheel?:
-        | {
-            readonly deltaMode: number;
-            readonly deltaX: number;
-            readonly deltaY: number;
-            readonly shiftKey: boolean;
-          }
-        | undefined;
-    } = {},
+    options: GpuSectionSceneScrollTelemetry = {},
   ) {
     if (!result.changed && !options.consumeUnchanged) {
       return;
@@ -202,70 +211,134 @@ class GpuSectionSceneScrollController {
     result,
   }: {
     readonly commitDurationMs: number;
-    readonly options: {
-      readonly inputKind?: "keyboard" | "wheel" | undefined;
-      readonly previousScrollOffsets?:
-        | GpuSectionSceneScrollOffsetMap
-        | undefined;
-      readonly resolveDurationMs?: number | undefined;
-      readonly scene?: GpuFlowScene | undefined;
-      readonly wheel?:
-        | {
-            readonly deltaMode: number;
-            readonly deltaX: number;
-            readonly deltaY: number;
-            readonly shiftKey: boolean;
-          }
-        | undefined;
-    };
+    readonly options: GpuSectionSceneScrollTelemetry;
     readonly requestFrame: boolean;
     readonly result: GpuSectionSceneScrollResult;
   }) {
     if (!isChromeReproActive()) {
       return;
     }
-    const parentSectionId = result.parentSectionId;
-    const previousOffset =
-      parentSectionId && options.scene
-        ? options.previousScrollOffsets?.get(parentSectionId) ??
-          getSectionSceneScrollOffset(options.scene, parentSectionId)
-        : null;
-    const nextOffset =
-      parentSectionId && result.scrollOffsets.has(parentSectionId)
-        ? result.scrollOffsets.get(parentSectionId) ?? null
-        : null;
-    postChromeReproEvent("gpu-flow-section-scene-scroll", {
-      changed: result.changed,
-      commitDurationMs: roundChromeReproMs(commitDurationMs),
-      inputKind: options.inputKind ?? "unknown",
-      nextOffset: nextOffset ? roundGpuPointForChromeRepro(nextOffset) : null,
-      parentSectionId,
-      previousOffset: previousOffset
-        ? roundGpuPointForChromeRepro(previousOffset)
-        : null,
-      requestFrame,
-      requestFrameReason: requestFrame ? "viewport" : null,
-      resolveDurationMs:
-        options.resolveDurationMs === undefined
-          ? null
-          : roundChromeReproMs(options.resolveDurationMs),
-      scrollDelta:
-        previousOffset && nextOffset
-          ? {
-              x: roundChromeReproMs(nextOffset.x - previousOffset.x),
-              y: roundChromeReproMs(nextOffset.y - previousOffset.y),
-            }
-          : null,
-      wheel: options.wheel
-        ? {
-            deltaMode: options.wheel.deltaMode,
-            deltaX: roundChromeReproMs(options.wheel.deltaX),
-            deltaY: roundChromeReproMs(options.wheel.deltaY),
-            shiftKey: options.wheel.shiftKey,
-          }
-        : null,
-    });
+    postChromeReproEvent(
+      "gpu-flow-section-scene-scroll",
+      createSectionSceneScrollChromeReproPayload({
+        commitDurationMs,
+        options,
+        requestFrame,
+        result,
+      }),
+    );
   }
+
+  private claimWheelOwnership(): boolean {
+    const ownership = this.wheelOwnership.resolveOwner({
+      candidateOwner: "ownedByRetainedSectionScroll",
+      reason: "section-scene-wheel",
+    });
+    return ownership.owner === "ownedByRetainedSectionScroll";
+  }
+}
+
+function createSectionSceneScrollChromeReproPayload({
+  commitDurationMs,
+  options,
+  requestFrame,
+  result,
+}: {
+  readonly commitDurationMs: number;
+  readonly options: GpuSectionSceneScrollTelemetry;
+  readonly requestFrame: boolean;
+  readonly result: GpuSectionSceneScrollResult;
+}) {
+  const offsets = resolveSectionSceneScrollChromeReproOffsets(result, options);
+  return {
+    changed: result.changed,
+    commitDurationMs: roundChromeReproMs(commitDurationMs),
+    inputKind: options.inputKind ?? "unknown",
+    nextOffset: roundOptionalGpuPointForChromeRepro(offsets.nextOffset),
+    parentSectionId: result.parentSectionId,
+    previousOffset: roundOptionalGpuPointForChromeRepro(offsets.previousOffset),
+    requestFrame,
+    requestFrameReason: getSectionSceneScrollRequestFrameReason(requestFrame),
+    resolveDurationMs: roundOptionalChromeReproMs(options.resolveDurationMs),
+    scrollDelta: getSectionSceneScrollDeltaForChromeRepro(offsets),
+    wheel: roundSectionSceneWheelForChromeRepro(options.wheel),
+  };
+}
+
+function resolveSectionSceneScrollChromeReproOffsets(
+  result: GpuSectionSceneScrollResult,
+  options: GpuSectionSceneScrollTelemetry,
+): {
+  readonly nextOffset: GpuPoint | null;
+  readonly previousOffset: GpuPoint | null;
+} {
+  const parentSectionId = result.parentSectionId;
+  if (!parentSectionId) {
+    return { nextOffset: null, previousOffset: null };
+  }
+  return {
+    nextOffset: result.scrollOffsets.get(parentSectionId) ?? null,
+    previousOffset: resolvePreviousSectionSceneScrollOffset(
+      parentSectionId,
+      options,
+    ),
+  };
+}
+
+function resolvePreviousSectionSceneScrollOffset(
+  parentSectionId: string,
+  options: GpuSectionSceneScrollTelemetry,
+): GpuPoint | null {
+  if (!options.scene) {
+    return null;
+  }
+  return (
+    options.previousScrollOffsets?.get(parentSectionId) ??
+    getSectionSceneScrollOffset(options.scene, parentSectionId)
+  );
+}
+
+function getSectionSceneScrollDeltaForChromeRepro({
+  nextOffset,
+  previousOffset,
+}: {
+  readonly nextOffset: GpuPoint | null;
+  readonly previousOffset: GpuPoint | null;
+}) {
+  if (!previousOffset || !nextOffset) {
+    return null;
+  }
+  return {
+    x: roundChromeReproMs(nextOffset.x - previousOffset.x),
+    y: roundChromeReproMs(nextOffset.y - previousOffset.y),
+  };
+}
+
+function roundSectionSceneWheelForChromeRepro(
+  wheel: GpuSectionSceneWheelMetrics | undefined,
+) {
+  if (!wheel) {
+    return null;
+  }
+  return {
+    deltaMode: wheel.deltaMode,
+    deltaX: roundChromeReproMs(wheel.deltaX),
+    deltaY: roundChromeReproMs(wheel.deltaY),
+    shiftKey: wheel.shiftKey,
+  };
+}
+
+function getSectionSceneScrollRequestFrameReason(
+  requestFrame: boolean,
+): GpuFrameReason | null {
+  return requestFrame ? "viewport" : null;
+}
+
+function roundOptionalChromeReproMs(value: number | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  return roundChromeReproMs(value);
 }
 
 function getWheelFlowPoint(
@@ -298,6 +371,29 @@ function roundGpuPointForChromeRepro(point: GpuPoint): GpuPoint {
     x: roundChromeReproMs(point.x),
     y: roundChromeReproMs(point.y),
   };
+}
+
+function roundOptionalGpuPointForChromeRepro(
+  point: GpuPoint | null,
+): GpuPoint | null {
+  if (!point) {
+    return null;
+  }
+  return roundGpuPointForChromeRepro(point);
+}
+
+function shouldSkipSectionSceneWheelEvent(
+  event: WheelEvent,
+  disabled: ((event: KeyboardEvent | WheelEvent) => boolean) | undefined,
+  store: GpuFlowViewportStoreApi,
+): boolean {
+  return (
+    event.defaultPrevented ||
+    event.ctrlKey ||
+    Boolean(disabled?.(event)) ||
+    isGpuViewportWheelGestureActive(store) ||
+    shouldPreserveNativeWheelTarget(event)
+  );
 }
 
 function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {

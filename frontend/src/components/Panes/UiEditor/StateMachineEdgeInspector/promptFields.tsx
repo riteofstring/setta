@@ -698,6 +698,34 @@ export function WorkflowConditionSection({
   );
 }
 
+function WorkflowPromptInputsField({
+  isDisabled,
+  promptInputsText,
+  handlePromptInputsChange,
+}: Pick<
+  WorkflowActionSectionProps,
+  "isDisabled" | "promptInputsText" | "handlePromptInputsChange"
+>) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
+      Prompt Bindings JSON
+      <textarea
+        data-testid="workflow-edge-prompt-inputs"
+        value={promptInputsText}
+        onChange={handlePromptInputsChange}
+        disabled={isDisabled}
+        placeholder={PROMPT_INPUTS_PLACEHOLDER}
+        spellCheck="false"
+        className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+      />
+      <p className="text-[11px] text-setta-500 dark:text-setta-400">
+        Edge bindings provide values for Jinja placeholders when this workflow
+        step runs.
+      </p>
+    </label>
+  );
+}
+
 export function WorkflowPromptSourceSpecificFields({
   draftEdge,
   isDisabled,
@@ -725,47 +753,61 @@ export function WorkflowPromptSourceSpecificFields({
   switch (promptSourceType) {
     case StateMachineUIConfig.promptSourceTypes.promptTemplate:
       return (
-        <IdNameCombobox
-          allItems={promptTemplateOptions}
-          value={targetAction.promptTemplateId}
-          inputDivId="workflow-edge-prompt-template"
-          onSelectedItemChange={(value) =>
-            updateDraft((current) => ({
-              ...current,
-              targetAction: {
-                ...createSendPromptAction(current.targetAction),
-                promptTemplateId: value,
-                promptSectionId: null,
-                inlinePrompt: null,
-              },
-            }))
-          }
-          isDisabled={isDisabled}
-          placeholder="Prompt template"
-          selectedItemCanBeNull
-        />
+        <>
+          <IdNameCombobox
+            allItems={promptTemplateOptions}
+            value={targetAction.promptTemplateId}
+            inputDivId="workflow-edge-prompt-template"
+            onSelectedItemChange={(value) =>
+              updateDraft((current) => ({
+                ...current,
+                targetAction: {
+                  ...createSendPromptAction(current.targetAction),
+                  promptTemplateId: value,
+                  promptSectionId: null,
+                  inlinePrompt: null,
+                },
+              }))
+            }
+            isDisabled={isDisabled}
+            placeholder="Prompt template"
+            selectedItemCanBeNull
+          />
+          <WorkflowPromptInputsField
+            isDisabled={isDisabled}
+            promptInputsText={promptInputsText}
+            handlePromptInputsChange={handlePromptInputsChange}
+          />
+        </>
       );
     case StateMachineUIConfig.promptSourceTypes.promptSection:
       return (
-        <IdNameCombobox
-          allItems={promptSectionOptions}
-          value={targetAction.promptSectionId}
-          inputDivId="workflow-edge-prompt-section"
-          onSelectedItemChange={(value) =>
-            updateDraft((current) => ({
-              ...current,
-              targetAction: {
-                ...createSendPromptAction(current.targetAction),
-                promptTemplateId: null,
-                promptSectionId: value,
-                inlinePrompt: null,
-              },
-            }))
-          }
-          isDisabled={isDisabled}
-          placeholder="Prompt section"
-          selectedItemCanBeNull
-        />
+        <>
+          <IdNameCombobox
+            allItems={promptSectionOptions}
+            value={targetAction.promptSectionId}
+            inputDivId="workflow-edge-prompt-section"
+            onSelectedItemChange={(value) =>
+              updateDraft((current) => ({
+                ...current,
+                targetAction: {
+                  ...createSendPromptAction(current.targetAction),
+                  promptTemplateId: null,
+                  promptSectionId: value,
+                  inlinePrompt: null,
+                },
+              }))
+            }
+            isDisabled={isDisabled}
+            placeholder="Prompt section"
+            selectedItemCanBeNull
+          />
+          <WorkflowPromptInputsField
+            isDisabled={isDisabled}
+            promptInputsText={promptInputsText}
+            handlePromptInputsChange={handlePromptInputsChange}
+          />
+        </>
       );
     case StateMachineUIConfig.promptSourceTypes.inline:
       return (
@@ -794,22 +836,11 @@ export function WorkflowPromptSourceSpecificFields({
       );
     default:
       return (
-        <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
-          Prompt Bindings JSON
-          <textarea
-            data-testid="workflow-edge-prompt-inputs"
-            value={promptInputsText}
-            onChange={handlePromptInputsChange}
-            disabled={isDisabled}
-            placeholder={PROMPT_INPUTS_PLACEHOLDER}
-            spellCheck="false"
-            className="min-h-[110px] resize-y rounded border border-setta-300 bg-white px-2 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-          />
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            Edge bindings provide values for Jinja placeholders when this
-            workflow step runs.
-          </p>
-        </label>
+        <WorkflowPromptInputsField
+          isDisabled={isDisabled}
+          promptInputsText={promptInputsText}
+          handlePromptInputsChange={handlePromptInputsChange}
+        />
       );
   }
 }

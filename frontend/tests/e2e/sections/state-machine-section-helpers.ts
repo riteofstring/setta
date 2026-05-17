@@ -432,6 +432,23 @@ export async function createStateMachineEdge(
   });
 }
 
+export async function createStateMachineEdgeFromFrontendConnection(
+  page: Page,
+  connection: {
+    source: string;
+    sourceHandle: string;
+    target: string;
+    targetHandle: string;
+  },
+): Promise<void> {
+  await page.evaluate(async (input) => {
+    const { createStateMachineEdgeFromConnection } = await import(
+      "/src/state/actions/stateMachineEdges.ts"
+    );
+    createStateMachineEdgeFromConnection(input);
+  }, connection);
+}
+
 export async function deleteStateMachineEdgesFromFrontend(
   page: Page,
   projectConfigId: string,
@@ -518,6 +535,7 @@ export async function readStateMachineImpl(
   type: string | null;
   machineGroupId: string | null;
   label: string | null;
+  gateType: string | null;
   maxIterations: number | null;
 }> {
   const response = await postBackend<LatestProjectStateResponse>(
@@ -533,6 +551,7 @@ export async function readStateMachineImpl(
       type: null,
       machineGroupId: null,
       label: null,
+      gateType: null,
       maxIterations: null,
     };
   }
@@ -542,6 +561,7 @@ export async function readStateMachineImpl(
       type: null,
       machineGroupId: null,
       label: null,
+      gateType: null,
       maxIterations: null,
     };
   }
@@ -559,6 +579,11 @@ export async function readStateMachineImpl(
       sectionVariant?.modifier?.label ??
       sectionCore?.sharedModifier?.label ??
       sectionImpl?.label ??
+      null,
+    gateType:
+      sectionVariant?.modifier?.gateType ??
+      sectionCore?.sharedModifier?.gateType ??
+      sectionImpl?.gateType ??
       null,
     maxIterations:
       sectionVariant?.modifier?.maxIterations ??
@@ -664,23 +689,6 @@ export async function readStateMachineEdges(
         : null,
     }),
   );
-}
-
-export async function readWorkflowEdgeStyle(
-  page: Page,
-  edgeId: string,
-): Promise<{ className: string; strokeDasharray: string }> {
-  const path = page.locator(
-    `[data-edgeid="${edgeId}"] .setta-gpu-flow__state-machine-edge-path`,
-  );
-  await expect(path).toBeVisible();
-  return path.evaluate((element) => {
-    const computed = window.getComputedStyle(element);
-    return {
-      className: element.getAttribute("class") ?? "",
-      strokeDasharray: computed.strokeDasharray,
-    };
-  });
 }
 
 export async function readStateMachineEdge(
@@ -800,6 +808,105 @@ export async function selectComboboxOption(
   await expect(input).toHaveValue(optionName);
 }
 
+async function readGpuFlowNodeScreenRect(
+  page: Page,
+  nodeId: string,
+): Promise<{ height: number; width: number; x: number; y: number } | null> {
+  return await page.evaluate(async (nodeId) => {
+    const measured =
+      (
+        window as typeof window & {
+          __settaGpuFlowNodeScreenRect?: (
+            nodeId: string,
+          ) => { height: number; width: number; x: number; y: number } | null;
+        }
+      ).__settaGpuFlowNodeScreenRect?.(nodeId) ?? null;
+    if (measured) {
+      return measured;
+    }
+
+    const { getActiveViewModeTopLevelSections } = await import(
+      "/src/state/actions/sectionInfos/codeObjectsAndLayout.ts"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const state = useProjectState.getState();
+    const layout = getActiveViewModeTopLevelSections(state)[nodeId];
+    const variantId = state.projectConfig.sectionVariantMap[nodeId];
+    const variant = variantId ? state.sectionVariants[variantId] : null;
+    const impl = variant ? state.sectionImpls[variant.impl] : null;
+    const core = state.sections[nodeId];
+    const size =
+      core?.sharedModifier?.size ?? variant?.modifier?.size ?? impl?.size;
+    const width = typeof size?.width === "number" ? size.width : 220;
+    const height = typeof size?.height === "number" ? size.height : 160;
+    const container =
+      document.querySelector<HTMLElement>(".setta-gpu-flow__pane") ??
+      document.querySelector<HTMLElement>(".setta-gpu-flow");
+    if (!layout || !container) {
+      return null;
+    }
+    const viewport = state.projectConfig.viewport ?? { x: 0, y: 0, zoom: 1 };
+    const containerRect = container.getBoundingClientRect();
+    return {
+      height: height * viewport.zoom,
+      width: width * viewport.zoom,
+      x: containerRect.left + viewport.x + layout.x * viewport.zoom,
+      y: containerRect.top + viewport.y + layout.y * viewport.zoom,
+    };
+  }, nodeId);
+}
+
+export async function expectGpuFlowSectionVisible(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await expect
+    .poll(async () => await readGpuFlowNodeScreenRect(page, sectionId), {
+      timeout: 8000,
+    })
+    .not.toBeNull();
+}
+
+export async function hoverGpuFlowSection(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  const rect = await readGpuFlowNodeScreenRect(page, sectionId);
+  if (!rect) {
+    throw new Error(`Missing GPU flow section rect for ${sectionId}.`);
+  }
+  const x = rect.x + rect.width / 2;
+  const y = rect.y + rect.height / 2;
+  const sidePanePointerStyle = await page.addStyleTag({
+    content: `
+      #OverviewPane aside.single-cell-container,
+      #OverviewPane [data-testid="overview-icon-rail"],
+      #UiEditorPane aside.single-cell-container,
+      #UiEditorPane [data-testid="ui-editor-icon-rail"] {
+        pointer-events: none !important;
+      }
+    `,
+  });
+  try {
+    await page.mouse.move(x, y);
+    await page.mouse.move(x + 1, y + 1);
+  } finally {
+    await sidePanePointerStyle.evaluate((element) => element.remove());
+  }
+}
+
+export async function setActiveSections(
+  page: Page,
+  sectionIds: readonly string[],
+): Promise<void> {
+  await page.evaluate(async (ids) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections.ts"
+    );
+    setActiveSectionIds([...ids], { syncMode: "ui-only" });
+  }, sectionIds);
+}
+
 export async function expectNodeTextWithinBounds(
   node: Locator,
   expectedText: string,
@@ -832,48 +939,6 @@ export async function expectNodeTextWithinBounds(
   expect(bounds.targetBottom).toBeLessThanOrEqual(bounds.nodeBottom);
   expect(bounds.targetLeft).toBeGreaterThanOrEqual(bounds.nodeLeft);
   expect(bounds.targetRight).toBeLessThanOrEqual(bounds.nodeRight);
-}
-
-export async function dragHandleToHandle(
-  page: Page,
-  dragStartHandle: Locator,
-  dragEndHandle: Locator,
-): Promise<void> {
-  const dragStartNodeId = await getHandleNodeId(dragStartHandle);
-  const dragStartNode = page.getByTestId(`rf__node-${dragStartNodeId}`);
-
-  await dragStartNode.hover();
-  await expect(dragStartHandle).toBeVisible();
-
-  const dragStartBox = await dragStartHandle.boundingBox();
-  if (!dragStartBox) {
-    throw new Error("Unable to resolve drag start handle bounds.");
-  }
-  await page.mouse.move(
-    dragStartBox.x + dragStartBox.width / 2,
-    dragStartBox.y + dragStartBox.height / 2,
-  );
-  await page.mouse.down();
-
-  await expect(dragEndHandle).toBeVisible();
-  const dragEndBox = await dragEndHandle.boundingBox();
-  if (!dragEndBox) {
-    throw new Error("Unable to resolve drag end handle bounds.");
-  }
-  await page.mouse.move(
-    dragEndBox.x + dragEndBox.width / 2,
-    dragEndBox.y + dragEndBox.height / 2,
-    { steps: 10 },
-  );
-  await page.mouse.up();
-}
-
-export async function getHandleNodeId(handle: Locator): Promise<string> {
-  const nodeId = await handle.getAttribute("data-nodeid");
-  if (!nodeId) {
-    throw new Error("Missing data-nodeid on edge handle.");
-  }
-  return nodeId;
 }
 
 export async function getBackend<T>(

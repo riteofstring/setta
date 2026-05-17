@@ -316,17 +316,15 @@ function createRetainedDomControlActorSnapshots({
     const flowRect = source.worldRectFlowPx;
     const ownerGeneration = generationBySurfaceId.get(source.surfaceId);
     const generationId = [
-      "retained-dom-control",
+      "dom-control",
       source.sourceId,
       source.sourceKey,
       source.lifecycleState,
       rectKey(source.worldRectFlowPx),
       ownerGeneration?.generationId ?? "owner:none",
     ].join("|");
-    const surfaceId = `retained-dom-control:${source.sourceId}`;
-    const rendererBucket: SurfaceRendererBucket = source.active
-      ? "native-control"
-      : "retained-content";
+    const surfaceId = `dom-control:${source.sourceId}`;
+    const rendererBucket: SurfaceRendererBucket = "native-control";
     const generation = createSurfaceGeneration({
       activeDomIsland: null,
       clipRect: flowRect,
@@ -339,9 +337,7 @@ function createRetainedDomControlActorSnapshots({
           Object.freeze({
             id: source.sourceId,
             rect: flowRect,
-            role: source.active
-              ? "retained-active-dom-control"
-              : "retained-passive-dom-control",
+            role: "dom-control",
           }),
         ]),
         generationId,
@@ -365,9 +361,7 @@ function createRetainedDomControlActorSnapshots({
       createSurfaceActorSnapshot({
         actor: createSurfaceActor({
           currentGenerationId: generation.generationId,
-          kind: source.active
-            ? "retained-active-dom-control"
-            : "retained-passive-dom-control",
+          kind: "dom-control",
           rendererBucket,
           sourceKey: generation.sourceKey,
           sourcePolicy: "layoutsubtree-dom",
@@ -620,11 +614,7 @@ function createRetainedProtectedResourceHandles({
     handles.set(`${handle.kind}:${handle.id}`, handle);
   }
   for (const { actor, generation } of actorSnapshots) {
-    if (
-      actor.kind !== "retained-passive-dom-control" &&
-      actor.kind !== "retained-active-dom-control" &&
-      actor.kind !== "active-dom-island"
-    ) {
+    if (actor.kind !== "dom-control" && actor.kind !== "active-dom-island") {
       continue;
     }
     const handle: SurfaceResourceHandle =

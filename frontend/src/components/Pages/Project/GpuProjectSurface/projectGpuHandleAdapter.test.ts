@@ -45,6 +45,36 @@ describe("project GPU handle adapter", () => {
     ).toBe(true);
   });
 
+  it("snaps shared chat pointer-up drops to nearby project handles", () => {
+    const props = getProjectGpuHandleConnectionProps(
+      SHARED_CHAT_EDGE_HANDLE_IDS.source,
+    );
+
+    expect(props.pointerUpSnapRadius).toBe(80);
+    expect(
+      props.isConnectionCandidateAllowed?.({
+        handleId: AGENTIC_EDGE_HANDLE_IDS.target,
+        sectionId: "section",
+        type: "target",
+      }),
+    ).toBe(true);
+  });
+
+  it("snaps workflow pointer-up drops to nearby project workflow handles", () => {
+    const props = getProjectGpuHandleConnectionProps(
+      STATE_MACHINE_EDGE_HANDLE_IDS.source,
+    );
+
+    expect(props.pointerUpSnapRadius).toBe(80);
+    expect(
+      props.isConnectionCandidateAllowed?.({
+        handleId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+        sectionId: "workflow",
+        type: "target",
+      }),
+    ).toBe(true);
+  });
+
   it("supplies project pane insets as explicit handle auto-pan metadata", () => {
     useLocalStorage.setState({
       overviewTrueWidth: 32,

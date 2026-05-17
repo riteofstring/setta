@@ -11,6 +11,26 @@
   pointer-events: none !important;
 }
 
+.setta-gpu-flow-root[data-connecting="true"] .setta-gpu-flow__html-source,
+.setta-gpu-flow__html-source[data-gpu-flow-hovered="true"] {
+  pointer-events: auto !important;
+}
+
+.setta-gpu-flow__html-source[data-gpu-flow-projected-interaction="true"],
+.setta-gpu-flow__html-source[data-gpu-flow-hovered="true"] {
+  z-index: 1000 !important;
+}
+
+.setta-gpu-flow-root[data-connecting="true"]
+  .setta-gpu-flow__html-source
+  .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__html-source[data-gpu-flow-hovered="true"]
+  .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__html-source
+  .setta-gpu-flow__handle.agentic-handle[data-gpu-flow-hovered="true"] {
+  pointer-events: all !important;
+}
+
 .setta-gpu-flow__handle {
   width: 6px;
   height: 6px;
@@ -204,6 +224,9 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
 }
 
 .setta-gpu-flow__node:hover .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__node[data-gpu-flow-hovered="true"]
+  .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__handle.agentic-handle[data-gpu-flow-hovered="true"],
 .agentic-handle-safe-zone:hover + .setta-gpu-flow__handle.agentic-handle,
 .setta-gpu-flow__handle.agentic-handle:hover {
   opacity: 1;
@@ -217,6 +240,11 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
 
 .setta-gpu-flow__node:hover
   .setta-gpu-flow__handle.agentic-handle:not(.connectable),
+.setta-gpu-flow__node[data-gpu-flow-hovered="true"]
+  .setta-gpu-flow__handle.agentic-handle:not(.connectable),
+.setta-gpu-flow__handle.agentic-handle[data-gpu-flow-hovered="true"]:not(
+    .connectable
+  ),
 .setta-gpu-flow-root[data-connecting="true"]
   .setta-gpu-flow__handle.agentic-handle:not(.connectable),
 .setta-gpu-flow__handle.agentic-handle.agentic-handle--always-visible:not(
@@ -257,6 +285,9 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
 
 .setta-gpu-flow__node:hover
   .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.setta-gpu-flow__node[data-gpu-flow-hovered="true"]
+  .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start[data-gpu-flow-hovered="true"],
 .agentic-handle-safe-zone:hover
   + .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start,
 .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,

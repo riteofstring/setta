@@ -227,4 +227,35 @@ describe("StateMachineEdgeInspector", () => {
     );
     expect(applyButton?.disabled).toBe(false);
   });
+
+  it("shows prompt bindings for prompt section send-prompt actions", async () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.stateMachineEdges[0]!.targetAction = {
+        type: "send_prompt",
+        promptTemplateId: null,
+        promptSectionId: "section-prompt",
+        inlinePrompt: null,
+        promptInputs: {
+          name: "Kevin",
+        },
+        threadStrategy: "continue_current_thread",
+        stopIfRunning: false,
+        engineConfigId: null,
+        agentProfileId: null,
+        permissionMode: null,
+        searchEnabled: null,
+      };
+    });
+    syncStoreInitialState(useProjectState);
+
+    await act(async () => {
+      root.render(<StateMachineEdgeInspector edgeId="edge-existing" />);
+    });
+
+    const promptInputs = host.querySelector(
+      '[data-testid="workflow-edge-prompt-inputs"]',
+    ) as HTMLTextAreaElement | null;
+    expect(promptInputs).not.toBeNull();
+    expect(promptInputs?.value).toBe('{\n  "name": "Kevin"\n}');
+  });
 });

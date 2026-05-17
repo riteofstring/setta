@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
@@ -10,6 +10,54 @@ import {
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
+
+async function readShownParamIds(
+  page: Page,
+  sectionId: string,
+): Promise<{ pinned: string[]; unpinned: string[] }> {
+  return await page.evaluate(async (targetSectionId) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const state = useProjectState.getState();
+    const variantId = state.projectConfig.sectionVariantMap[targetSectionId];
+    const shown = variantId ? state.shownParamIds[variantId] : null;
+    return {
+      pinned: shown?.pinned.topLevelParamIds ?? [],
+      unpinned: shown?.unpinned.topLevelParamIds ?? [],
+    };
+  }, sectionId);
+}
+
+async function readParamContentSurface(
+  page: Page,
+  sectionId: string,
+  listKey: "pinned" | "unpinned",
+): Promise<{ rowCount: number; viewportHeight: number } | null> {
+  return await page.evaluate(
+    async ({ targetListKey, targetSectionId }) => {
+      const { useLocalStorage, useProjectState } = await import(
+        "/src/state/definitions.ts"
+      );
+      const { getProjectGpuFlowScene } = await import(
+        "/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts"
+      );
+      const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+        darkMode: useLocalStorage.getState().darkMode,
+      });
+      const surface = scene.contentSurfaces.find(
+        (candidate) =>
+          candidate.id === `${targetSectionId}:param-content:${targetListKey}`,
+      );
+      if (!surface?.retainedScene) {
+        return null;
+      }
+      return {
+        rowCount: surface.retainedScene.rows.length,
+        viewportHeight: surface.retainedScene.viewportRect.height,
+      };
+    },
+    { targetListKey: listKey, targetSectionId: sectionId },
+  );
+}
 
 test("params area uses section scroll and removes pinned resize handles", async ({
   page,
@@ -31,20 +79,23 @@ test("params area uses section scroll and removes pinned resize handles", async 
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
-    const firstParam = sectionNode
-      .locator(`[id^="ParamContainer-${sectionId}-"]`)
-      .first();
-    await expect(firstParam).toBeVisible();
-
-    const paramGroup = sectionNode.locator(
-      "div.section-args-nested.overflow-y-scroll",
+    await expect
+      .poll(
+        async () => await readParamContentSurface(page, sectionId, "unpinned"),
+      )
+      .toMatchObject({
+        rowCount: expect.any(Number),
+        viewportHeight: expect.any(Number),
+      });
+    const latestSurface = await readParamContentSurface(
+      page,
+      sectionId,
+      "unpinned",
     );
-    await expect(paramGroup).toBeVisible();
-    await expect(paramGroup).toHaveCSS("overflow-y", /auto|scroll/);
-    const paramGroupHeight = await paramGroup.evaluate((el) =>
-      Math.round(el.getBoundingClientRect().height),
+    expect(latestSurface?.rowCount ?? 0).toBeGreaterThan(0);
+    expect(latestSurface?.viewportHeight ?? 0).toBeGreaterThanOrEqual(
+      minParamsHeight,
     );
-    expect(paramGroupHeight).toBeGreaterThanOrEqual(minParamsHeight);
     await expect(page.locator(".pinned-resize-handle")).toHaveCount(0);
   } finally {
     await postBackend(page, "/deleteSections", {
@@ -75,65 +126,50 @@ test("unpinned area keeps its minimum height when pinned params are present", as
     const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
-    const firstParam = sectionNode
-      .locator(`[id^="ParamContainer-${sectionId}-"]`)
-      .first();
-    await expect(firstParam).toBeVisible({ timeout: 20000 });
-    const pinnedHeader = sectionNode.locator("text=Pinned Params");
-
-    const getUnpinnedParamIds = async () => {
-      const idPrefix = `ParamContainer-${sectionId}-`;
-      return await sectionNode
-        .locator(
-          `div.section-args-nested.overflow-y-scroll > [id^="${idPrefix}"]`,
-        )
-        .evaluateAll(
-          (nodes, prefix) =>
-            nodes
-              .map((node) => node.id)
-              .filter((id) => id.startsWith(prefix))
-              .map((id) => id.slice(prefix.length)),
-          idPrefix,
-        );
-    };
-
-    if ((await pinnedHeader.count()) === 0) {
-      const unpinnedParamIds = await getUnpinnedParamIds();
-      if (unpinnedParamIds.length === 0) {
-        throw new Error("Missing unpinned params to pin.");
-      }
-      await setSectionPinnedParamsFromFrontend(page, {
-        projectConfigId,
-        sectionId,
-        pinnedParams: unpinnedParamIds,
+    const shownParamIds = await readShownParamIds(page, sectionId);
+    const availableParamIds = [
+      ...shownParamIds.pinned,
+      ...shownParamIds.unpinned,
+    ];
+    if (availableParamIds.length < 2) {
+      throw new Error("Need at least two params to keep an unpinned area.");
+    }
+    await setSectionPinnedParamsFromFrontend(page, {
+      projectConfigId,
+      sectionId,
+      pinnedParams: [availableParamIds[0]],
+    });
+    await expect(sectionNode.locator("text=Pinned Params")).toBeVisible();
+    await expect
+      .poll(async () => {
+        const latestShownParamIds = await readShownParamIds(page, sectionId);
+        return {
+          pinned: latestShownParamIds.pinned,
+          unpinnedCount: latestShownParamIds.unpinned.length,
+        };
+      })
+      .toEqual({
+        pinned: [availableParamIds[0]],
+        unpinnedCount: availableParamIds.length - 1,
       });
-      await expect(pinnedHeader).toBeVisible();
-    }
 
-    await sectionNode.hover();
-    const handle = sectionNode.locator(".section-resize-handle-bottom-right");
-    await expect(handle).toHaveCount(1);
-
-    const box = await handle.boundingBox();
-    if (!box) {
-      throw new Error("Missing resize handle bounding box.");
-    }
-
-    const startX = box.x + box.width / 2;
-    const startY = box.y + box.height / 2;
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.mouse.move(startX, startY - 400);
-    await page.mouse.up();
-
-    const unpinnedContainer = sectionNode.locator(
-      "div.section-args-nested.overflow-y-scroll",
+    await expect
+      .poll(
+        async () => await readParamContentSurface(page, sectionId, "unpinned"),
+      )
+      .toMatchObject({
+        rowCount: expect.any(Number),
+        viewportHeight: expect.any(Number),
+      });
+    const unpinnedSurface = await readParamContentSurface(
+      page,
+      sectionId,
+      "unpinned",
     );
-    await expect(unpinnedContainer).toBeVisible();
-    const unpinnedHeight = await unpinnedContainer.evaluate((el) =>
-      Math.round(el.getBoundingClientRect().height),
+    expect(unpinnedSurface?.rowCount ?? 0).toBeGreaterThan(0);
+    expect(unpinnedSurface?.viewportHeight ?? 0).toBeGreaterThanOrEqual(
+      minUnpinnedHeight,
     );
-    expect(unpinnedHeight).toBeGreaterThanOrEqual(minUnpinnedHeight);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,

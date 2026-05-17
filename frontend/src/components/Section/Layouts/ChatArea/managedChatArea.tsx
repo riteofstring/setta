@@ -1,4 +1,5 @@
 import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
+import _ from "lodash";
 
 import {
   ChatInput,

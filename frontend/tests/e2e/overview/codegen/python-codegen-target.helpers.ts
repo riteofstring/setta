@@ -3,6 +3,7 @@ import {
   addKwargFromFrontend,
   createTopLevelSectionFromFrontend,
   postBackend,
+  setCallableFromFrontend,
   setCodeObjNameFromFrontend,
   setParamEnteredValueFromFrontend,
   setSectionNameFromFrontend,
@@ -121,6 +122,15 @@ type BackendLspDiagnosticsPayload = {
   };
   codeSections: Record<string, unknown[]>;
   unmappedGenCode: Array<{ message: string }>;
+};
+
+type RetainedParamRowDebug = {
+  ownerSectionId: string;
+  rowId: string;
+  rowLabel: string;
+  rowState: {
+    error: boolean;
+  };
 };
 
 async function expandRunInstructionsAccordion(
@@ -502,11 +512,50 @@ export async function setCallableFromUi(
   sectionId: string,
   callableName: string,
 ): Promise<void> {
-  const callableSearch = page.locator(`[id="${sectionId}-search"]`);
-  await expect(callableSearch).toBeVisible();
-  await callableSearch.click();
-  await page.keyboard.type(callableName);
-  await page.keyboard.press("Enter");
+  const state = await loadCodegenProjectState(page);
+  await setCallableFromFrontend(page, {
+    projectConfigId: state.projectConfig.id,
+    sectionId,
+    callableName,
+    refetchParams: true,
+  });
+}
+
+export async function activateSectionForEditor(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (targetSectionId) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    const { useLocalStorage } = await import("/src/state/definitions");
+    useLocalStorage.setState({ uiEditorVis: true });
+    setActiveSectionIds([targetSectionId], { syncMode: "ui-only" });
+  }, sectionId);
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { getActiveSectionUIIds } = await import(
+          "/src/state/activeSectionUI"
+        );
+        return getActiveSectionUIIds();
+      }),
+    )
+    .toEqual([sectionId]);
+}
+
+export async function showCallableUiConfigTab(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions");
+    useLocalStorage.setState((state) => ({
+      uiEditorTab: {
+        ...state.uiEditorTab,
+        Callable: "UIConfig",
+      },
+      uiEditorVis: true,
+    }));
+  });
 }
 
 export function findTopLevelTerminalSectionId(
@@ -538,20 +587,59 @@ export async function getFirstParamInfoId(
   page: Page,
   sectionId: string,
 ): Promise<string> {
-  const firstParam = page
-    .locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
-    )
-    .first();
-  await expect(firstParam).toBeVisible({ timeout: 20000 });
-  const paramContainerId = await firstParam.getAttribute("id");
-  const prefix = `ParamContainer-${sectionId}-`;
-  if (!paramContainerId || !paramContainerId.startsWith(prefix)) {
-    throw new Error(
-      `Unexpected param container id for ${sectionId}: ${paramContainerId}`,
-    );
+  await expect
+    .poll(async () => {
+      const ids = await getShownParamInfoIds(page, sectionId);
+      return ids[0] ?? null;
+    })
+    .not.toBeNull();
+  const paramInfoId = (await getShownParamInfoIds(page, sectionId))[0] ?? null;
+  if (!paramInfoId) {
+    throw new Error(`No visible params found for ${sectionId}.`);
   }
-  return paramContainerId.slice(prefix.length);
+  return paramInfoId;
+}
+
+async function getShownParamInfoIds(
+  page: Page,
+  sectionId: string,
+): Promise<string[]> {
+  return await page.evaluate(async (targetSectionId) => {
+    const { getCurrShownParamIds } = await import(
+      "/src/state/actions/sectionInfos"
+    );
+    const { useProjectState } = await import("/src/state/definitions");
+    const shown = getCurrShownParamIds(
+      useProjectState.getState(),
+      targetSectionId,
+      false,
+      true,
+    );
+    return shown.topLevelParamIds;
+  }, sectionId);
+}
+
+export async function readRetainedParamRowDebug(
+  page: Page,
+  sectionId: string,
+  paramInfoId: string,
+): Promise<RetainedParamRowDebug | null> {
+  return await page.evaluate(
+    ({ targetSectionId, targetParamInfoId }) => {
+      const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+      return (
+        rows.find(
+          (row) =>
+            row.ownerSectionId === targetSectionId &&
+            row.rowId === targetParamInfoId,
+        ) ?? null
+      );
+    },
+    {
+      targetParamInfoId: paramInfoId,
+      targetSectionId: sectionId,
+    },
+  );
 }
 
 async function loadBackendLspDiagnostics(

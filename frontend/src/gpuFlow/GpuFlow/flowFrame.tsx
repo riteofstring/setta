@@ -459,6 +459,7 @@ export function renderGpuFlowNodeLayerFrame({
   viewportFrame,
   onRetainedPreparedRuntimeFrame,
   onRetainedRuntimeFrame,
+  onRetainedDisplayFrame,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -480,6 +481,18 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
   readonly onRetainedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
+    | undefined;
+  readonly onRetainedDisplayFrame?:
+    | ((
+        frame: RetainedDisplayFrame,
+        options?:
+          | {
+              readonly gpuNativeVisuals:
+                | readonly HtmlSurfaceSolidRoundedRectVisual[]
+                | undefined;
+            }
+          | undefined,
+      ) => void)
     | undefined;
   readonly onRetainedPreparedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
@@ -564,6 +577,23 @@ export function renderGpuFlowNodeLayerFrame({
   const publishedRetainedRuntimeFrame =
     publishedRetainedFrame.retainedRuntimeFrame;
   const publishedRetainedPageFrame = publishedRetainedFrame.pageFrame;
+  const switchAnimationNativeVisuals =
+    getGpuRetainedContentSwitchAnimationVisuals({
+      darkMode,
+      nowMs: renderStartedAt,
+      scrollOffsets: publishedRetainedRuntimeFrame.input.scrollOffsets,
+      scene: layer.scene,
+      switchAnimations: retainedContentSwitchAnimations,
+    });
+  const retainedRuntimeNativeVisuals =
+    publishedRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals;
+  const committedGpuNativeVisuals = combineGpuFlowHtmlSurfaceNativeVisuals(
+    retainedRuntimeNativeVisuals,
+    switchAnimationNativeVisuals,
+  );
+  onRetainedDisplayFrame?.(publishedRetainedFrame, {
+    gpuNativeVisuals: committedGpuNativeVisuals,
+  });
   postGpuFlowRetainedDisplayFrameChromeReproEvent({
     frame,
     preparedFrame: retainedPagePreparedFrame,
@@ -572,8 +602,8 @@ export function renderGpuFlowNodeLayerFrame({
   });
   postGpuFlowRetainedDomControlChromeReproEvent({
     frame,
-    preparedFrame: retainedPagePreparedFrame,
-    sources: retainedRuntimeFrame.descriptors.domControlSources,
+    preparedFrame: publishedRetainedPageFrame,
+    sources: publishedRetainedRuntimeFrame.descriptors.domControlSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   markGpuFlowRetainedContentFrameFreshnessDirty({
@@ -585,16 +615,6 @@ export function renderGpuFlowNodeLayerFrame({
     sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
-  const switchAnimationNativeVisuals =
-    getGpuRetainedContentSwitchAnimationVisuals({
-      darkMode,
-      nowMs: renderStartedAt,
-      scrollOffsets: publishedRetainedRuntimeFrame.input.scrollOffsets,
-      scene: layer.scene,
-      switchAnimations: retainedContentSwitchAnimations,
-    });
-  const retainedRuntimeNativeVisuals =
-    publishedRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals;
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -610,10 +630,7 @@ export function renderGpuFlowNodeLayerFrame({
     frame,
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
-    htmlSurfaceNativeVisuals: combineGpuFlowHtmlSurfaceNativeVisuals(
-      retainedRuntimeNativeVisuals,
-      switchAnimationNativeVisuals,
-    ),
+    htmlSurfaceNativeVisuals: committedGpuNativeVisuals,
     htmlSurfacePageVisuals: publishedRetainedPageFrame.flatSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,

@@ -23,7 +23,11 @@ import {
   GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
   isGpuRetainedContentNativeTarget,
 } from "./retainedContentInteraction";
-import { isGpuViewportWheelGestureActive } from "./wheelOwnership";
+import {
+  getGpuWheelGestureOwnershipArbiter,
+  isGpuViewportWheelGestureActive,
+  type GpuWheelGestureOwnershipArbiter,
+} from "./wheelOwnership";
 
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
@@ -63,11 +67,13 @@ class GpuRetainedContentScrollController {
   private retainedScrollInteractionActive = false;
   private scrollIdleFrameTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
+  private readonly wheelOwnership: GpuWheelGestureOwnershipArbiter;
 
   constructor(options: GpuRetainedContentScrollControllerOptions) {
     this.element = options.element;
     this.options = options;
     this.store = options.store ?? gpuFlowViewportStore;
+    this.wheelOwnership = getGpuWheelGestureOwnershipArbiter(this.store);
   }
 
   attach() {
@@ -83,6 +89,10 @@ class GpuRetainedContentScrollController {
     });
     this.cancelPendingScrollFlush();
     this.cancelScrollIdleFrame();
+    this.wheelOwnership.releaseOwner(
+      "ownedByRetainedSectionScroll",
+      "retained-scroll-controller-destroyed",
+    );
     this.setRetainedScrollInteractionActive(false);
     this.pendingScrollOffsets = null;
     this.pendingScrollDiagnosticsBySurfaceId.clear();
@@ -110,6 +120,13 @@ class GpuRetainedContentScrollController {
     const resolveDurationMs =
       nowChromeReproPerformanceMs() - resolveStartedAtMs;
     if (!result.handled) {
+      return;
+    }
+    const ownership = this.wheelOwnership.resolveOwner({
+      candidateOwner: "ownedByRetainedSectionScroll",
+      reason: "retained-section-wheel",
+    });
+    if (ownership.owner !== "ownedByRetainedSectionScroll") {
       return;
     }
     event.preventDefault();
@@ -208,6 +225,10 @@ class GpuRetainedContentScrollController {
     this.scrollIdleFrameTimeout = setTimeout(() => {
       this.scrollIdleFrameTimeout = null;
       this.setRetainedScrollInteractionActive(false);
+      this.wheelOwnership.releaseOwner(
+        "ownedByRetainedSectionScroll",
+        "retained-section-scroll-idle",
+      );
       if (this.store.getState().viewportInteractionActive) {
         this.scheduleScrollIdleFrame();
         return;

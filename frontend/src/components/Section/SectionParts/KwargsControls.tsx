@@ -1,10 +1,11 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
   addKwarg,
   deleteKwarg,
   deleteSelectedParams,
+  getLatestProjectState,
   setSectionEdgeInputs,
   setSectionParamFilter,
   setSectionPinnedParams,
@@ -15,6 +16,7 @@ import {
   getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
+  processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
   updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
@@ -47,6 +49,46 @@ type KwargsControlsProps = {
   sectionId: string;
   trackMeasuredHeight?: boolean;
 };
+
+async function refreshProjectStateAfterKwargMutation(
+  projectConfigId: string,
+): Promise<void> {
+  const response = await callOpenAPI(
+    getLatestProjectState({
+      body: {
+        projectConfigId,
+      },
+    } as Parameters<typeof getLatestProjectState>[0]),
+  );
+  if (res200(response)) {
+    processProjectStateUpdateFromBackend(response.data);
+  }
+}
+
+async function addKwargAndRefresh(payload: {
+  projectConfigId: string;
+  sectionId: string;
+}): Promise<void> {
+  const response = await callOpenAPI(
+    addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
+  );
+  if (res200(response)) {
+    await refreshProjectStateAfterKwargMutation(payload.projectConfigId);
+  }
+}
+
+async function deleteKwargAndRefresh(payload: {
+  projectConfigId: string;
+  sectionId: string;
+}): Promise<void> {
+  const response = await callOpenAPI(
+    deleteKwarg({ body: payload } as Parameters<typeof deleteKwarg>[0]),
+  );
+  if (res200(response)) {
+    await refreshProjectStateAfterKwargMutation(payload.projectConfigId);
+  }
+}
+
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -384,11 +426,7 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void callOpenAPI(
-                  deleteKwarg({ body: payload } as Parameters<
-                    typeof deleteKwarg
-                  >[0]),
-                );
+                void deleteKwargAndRefresh(payload);
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -406,9 +444,7 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void callOpenAPI(
-                  addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
-                );
+                void addKwargAndRefresh(payload);
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}

@@ -7,7 +7,11 @@ import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactio
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
 import { createHtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
-import { projectGpuFlowNodeSourceForPointerEvent } from "./sourceInteraction";
+import {
+  clearGpuFlowNodeHoverSourceProjection,
+  projectGpuFlowNodeHoverSourceForPointerEvent,
+  projectGpuFlowNodeSourceForPointerEvent,
+} from "./sourceInteraction";
 
 describe("GPU flow source interaction projection", () => {
   it("aligns active source DOM from the rendered visual scene hit projection", () => {
@@ -177,6 +181,161 @@ describe("GPU flow source interaction projection", () => {
     expect(alignSourceToClientPoint).not.toHaveBeenCalled();
   });
 
+  it("projects a hovered passive source from the rendered node hit", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const handle = createAgenticHandle("node-a");
+    const alignSourceToClientPoint = vi.fn(() => ({
+      sourceElement: source,
+      sourceId: "node-a",
+    }));
+    document.body.append(handle);
+    setRect(surface, 0, 0, 600, 400);
+
+    try {
+      const nodeId = projectGpuFlowNodeHoverSourceForPointerEvent({
+        event: new MouseEvent("pointermove", {
+          clientX: 50,
+          clientY: 20,
+        }) as PointerEvent,
+        nodeElementById: new Map([["node-a", source]]),
+        nodes: [node("node-a", 0, 0, 100, 100, 1)],
+        previousNodeId: null,
+        projector: {
+          alignSourceToClientPoint,
+          clearSource: vi.fn(),
+          destroy: vi.fn(),
+          getProjectedSourceId: vi.fn(() => null),
+        } satisfies HtmlSurfaceInteractionProjector,
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+        visualScene: createHtmlSurfaceVisualScene(),
+      });
+
+      expect(nodeId).toBe("node-a");
+      expect(source.getAttribute("data-gpu-flow-hovered")).toBe("true");
+      expect(handle.getAttribute("data-gpu-flow-hovered")).toBe("true");
+      expect(alignSourceToClientPoint).toHaveBeenCalledTimes(1);
+      expect(alignSourceToClientPoint.mock.calls[0]?.[0]).toMatchObject({
+        localX: 50,
+        localY: 20,
+        sourceElement: source,
+        sourceId: "node-a",
+        surfaceX: 50,
+        surfaceY: 20,
+      });
+    } finally {
+      handle.remove();
+    }
+  });
+
+  it("marks direct source DOM event targets as hovered without a visual hit", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const child = document.createElement("button");
+    const handle = createAgenticHandle("node-a");
+    const alignSourceToClientPoint = vi.fn();
+    source.dataset.gpuFlowNode = "true";
+    source.dataset.id = "node-a";
+    source.append(child);
+    document.body.append(handle);
+    setRect(surface, 0, 0, 600, 400);
+    const event = new MouseEvent("pointermove", {
+      clientX: 250,
+      clientY: 20,
+    }) as PointerEvent;
+    Object.defineProperty(event, "target", { value: child });
+
+    try {
+      const nodeId = projectGpuFlowNodeHoverSourceForPointerEvent({
+        event,
+        nodeElementById: new Map([["node-a", source]]),
+        nodes: [node("node-a", 0, 0, 100, 100, 1)],
+        previousNodeId: null,
+        projector: {
+          alignSourceToClientPoint,
+          clearSource: vi.fn(),
+          destroy: vi.fn(),
+          getProjectedSourceId: vi.fn(() => null),
+        } satisfies HtmlSurfaceInteractionProjector,
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+        visualScene: createHtmlSurfaceVisualScene(),
+      });
+
+      expect(nodeId).toBe("node-a");
+      expect(source.getAttribute("data-gpu-flow-hovered")).toBe("true");
+      expect(handle.getAttribute("data-gpu-flow-hovered")).toBe("true");
+      expect(alignSourceToClientPoint).not.toHaveBeenCalled();
+    } finally {
+      handle.remove();
+    }
+  });
+
+  it("keeps the hovered source while the pointer is inside its projected bridge", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const bridge = document.createElement("div");
+    source.dataset.gpuFlowNode = "true";
+    source.dataset.id = "node-a";
+    source.append(bridge);
+    const alignSourceToClientPoint = vi.fn();
+    setRect(surface, 0, 0, 600, 400);
+    const event = new MouseEvent("pointermove", {
+      clientX: 250,
+      clientY: 20,
+    }) as PointerEvent;
+    Object.defineProperty(event, "target", { value: bridge });
+
+    const nodeId = projectGpuFlowNodeHoverSourceForPointerEvent({
+      event,
+      nodeElementById: new Map([["node-a", source]]),
+      nodes: [node("node-a", 0, 0, 100, 100, 1)],
+      previousNodeId: "node-a",
+      projector: {
+        alignSourceToClientPoint,
+        clearSource: vi.fn(),
+        destroy: vi.fn(),
+        getProjectedSourceId: vi.fn(() => "node-a"),
+      } satisfies HtmlSurfaceInteractionProjector,
+      surfaceElement: surface,
+      viewport: [0, 0, 1],
+      visualScene: createHtmlSurfaceVisualScene(),
+    });
+
+    expect(nodeId).toBe("node-a");
+    expect(source.getAttribute("data-gpu-flow-hovered")).toBe("true");
+    expect(alignSourceToClientPoint).not.toHaveBeenCalled();
+  });
+
+  it("clears hovered passive source projection state", () => {
+    const source = document.createElement("div");
+    const handle = createAgenticHandle("node-a");
+    const clearSource = vi.fn();
+    source.setAttribute("data-gpu-flow-hovered", "true");
+    handle.setAttribute("data-gpu-flow-hovered", "true");
+    document.body.append(handle);
+
+    try {
+      clearGpuFlowNodeHoverSourceProjection({
+        nodeElementById: new Map([["node-a", source]]),
+        nodeId: "node-a",
+        projector: {
+          alignSourceToClientPoint: vi.fn(),
+          clearSource,
+          destroy: vi.fn(),
+          getProjectedSourceId: vi.fn(() => "node-a"),
+        } satisfies HtmlSurfaceInteractionProjector,
+      });
+
+      expect(source.hasAttribute("data-gpu-flow-hovered")).toBe(false);
+      expect(handle.hasAttribute("data-gpu-flow-hovered")).toBe(false);
+      expect(clearSource).toHaveBeenCalledWith("node-a");
+    } finally {
+      handle.remove();
+    }
+  });
+
   it("fails loudly for effect-backed active sources without a hit projector", () => {
     const surface = document.createElement("div");
     const source = document.createElement("div");
@@ -288,4 +447,11 @@ function setRect(
       y: top,
       toJSON: () => ({}),
     }) as DOMRect;
+}
+
+function createAgenticHandle(nodeId: string): HTMLElement {
+  const handle = document.createElement("div");
+  handle.className = "setta-gpu-flow__handle agentic-handle";
+  handle.setAttribute("data-nodeid", nodeId);
+  return handle;
 }

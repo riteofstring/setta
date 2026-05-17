@@ -109,14 +109,12 @@ test.describe.serial("prompt section", () => {
         page.getByTestId(`prompt-preview-tab-${created.sectionId}`),
       ).toBeVisible();
 
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
+      await clickPromptTab(page, created.sectionId, "preview");
       await expect(
         page.getByTestId(`prompt-render-preview-${created.sectionId}`),
       ).toContainText("No prompt rendered yet.");
 
-      await page
-        .getByTestId(`prompt-template-tab-${created.sectionId}`)
-        .click();
+      await clickPromptTab(page, created.sectionId, "template");
       const editorRoot = page.getByTestId(
         `prompt-template-editor-${created.sectionId}`,
       );
@@ -137,7 +135,7 @@ test.describe.serial("prompt section", () => {
           renderedText: "Hello there.",
         });
 
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
+      await clickPromptTab(page, created.sectionId, "preview");
       await expect(
         page.getByTestId(`prompt-render-preview-${created.sectionId}`),
       ).toContainText("Hello there.");
@@ -164,14 +162,12 @@ test.describe.serial("prompt section", () => {
         promptTemplateId: linkedTemplate.id,
       });
 
-      await page
-        .getByTestId(`prompt-template-tab-${created.sectionId}`)
-        .click();
+      await clickPromptTab(page, created.sectionId, "template");
       await expect(
         page.getByTestId(`prompt-linked-template-note-${created.sectionId}`),
       ).toContainText("Linked to prompt template");
 
-      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
+      await clickPromptTab(page, created.sectionId, "preview");
       const preview = page.getByTestId(
         `prompt-render-preview-${created.sectionId}`,
       );
@@ -296,11 +292,26 @@ async function fillCodeMirror(editorRoot: Locator, page: Page, value: string) {
     .locator("[contenteditable='true']")
     .first();
   await expect(contentEditable).toBeVisible();
-  await contentEditable.click();
+  await contentEditable.focus();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.press("Backspace");
   await page.keyboard.insertText(value);
   await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
+}
+
+async function clickPromptTab(
+  page: Page,
+  sectionId: string,
+  mode: "preview" | "template",
+): Promise<void> {
+  const tab = page.getByTestId(`prompt-${mode}-tab-${sectionId}`);
+  await expect(tab).toBeVisible();
+  await tab.evaluate((element) => {
+    element.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(tab).toHaveAttribute("aria-pressed", "true");
 }
 
 async function getCurrentProjectConfigId(page: Page): Promise<string> {

@@ -24,6 +24,7 @@ import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplIfPresent,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
   processProjectStateUpdateFromBackend,
@@ -146,7 +147,10 @@ async function ensureAttachedTerminalForRun(
     return null;
   }
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
+  if (!impl) {
+    return null;
+  }
   if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
@@ -163,7 +167,10 @@ function shouldRefreshProjectStateAfterRun(
     return true;
   }
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, executionSectionId);
+  const impl = getCurrEffectiveSectionImplIfPresent(state, executionSectionId);
+  if (!impl) {
+    return true;
+  }
   return isBaseCodeSectionType(impl.type);
 }
 function resolveAttachedTerminalId(

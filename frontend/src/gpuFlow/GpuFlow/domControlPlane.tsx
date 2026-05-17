@@ -45,6 +45,7 @@ type MountedDomControlPlaneHost = {
 type DomControlPlaneDiagnostics = {
   activeControlId: string | null;
   clippedControlCount: number;
+  committedFrameId: number;
   lastProjectionBatchDurationMs: number;
   mountedControlCount: number;
   projectionWriteCount: number;
@@ -65,18 +66,28 @@ const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescrip
   [];
 
 export function GpuFlowDomControlPlane({
+  committedFrameId,
   onActivate,
   renderControl,
   retainedRuntimeFrame,
   viewportStore,
   viewportRuntime,
 }: {
+  readonly committedFrameId?: number | undefined;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly renderControl: GpuFlowDomControlRenderer | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
+  const frameIds = useMemo(
+    () =>
+      resolveGpuFlowDomControlPlaneFrameIds({
+        committedFrameId,
+        retainedRuntimeFrame,
+      }),
+    [committedFrameId, retainedRuntimeFrame],
+  );
   const hostByControlIdRef = useRef(
     new Map<string, MountedDomControlPlaneHost>(),
   );
@@ -89,7 +100,10 @@ export function GpuFlowDomControlPlane({
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
   const diagnosticsRef = useRef<DomControlPlaneDiagnostics>(
-    createEmptyDomControlPlaneDiagnostics(retainedRuntimeFrame?.frameId ?? 0),
+    createEmptyDomControlPlaneDiagnostics({
+      committedFrameId: frameIds.committedFrameId,
+      runtimeFrameId: frameIds.runtimeFrameId,
+    }),
   );
 
   const controlById = useMemo(
@@ -134,14 +148,15 @@ export function GpuFlowDomControlPlane({
       applyViewport(viewport) {
         syncGpuFlowDomControlPlaneStyles({
           controls: controlsRef.current,
+          committedFrameId: frameIds.committedFrameId,
           diagnosticsRef,
           hostByControlId: hostByControlIdRef.current,
-          runtimeFrameId: retainedRuntimeFrame?.frameId ?? 0,
+          runtimeFrameId: frameIds.runtimeFrameId,
           viewport,
         });
       },
     });
-  }, [retainedRuntimeFrame?.frameId, viewportRuntime]);
+  }, [frameIds, viewportRuntime]);
 
   useLayoutEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
@@ -150,23 +165,25 @@ export function GpuFlowDomControlPlane({
       }
       syncGpuFlowDomControlPlaneStyles({
         controls: controlsRef.current,
+        committedFrameId: frameIds.committedFrameId,
         diagnosticsRef,
         hostByControlId: hostByControlIdRef.current,
-        runtimeFrameId: retainedRuntimeFrame?.frameId ?? 0,
+        runtimeFrameId: frameIds.runtimeFrameId,
         viewport: state.transform,
       });
     });
-  }, [retainedRuntimeFrame?.frameId, viewportStore]);
+  }, [frameIds, viewportStore]);
 
   useLayoutEffect(() => {
     syncGpuFlowDomControlPlaneStyles({
       controls,
+      committedFrameId: frameIds.committedFrameId,
       diagnosticsRef,
       hostByControlId: hostByControlIdRef.current,
-      runtimeFrameId: retainedRuntimeFrame?.frameId ?? 0,
+      runtimeFrameId: frameIds.runtimeFrameId,
       viewport: getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime }),
     });
-  }, [controls, retainedRuntimeFrame?.frameId, viewportRuntime]);
+  }, [controls, frameIds, viewportRuntime]);
 
   useLayoutEffect(() => {
     const view = window as typeof window & {
@@ -193,61 +210,106 @@ export function GpuFlowDomControlPlane({
     <div
       className={GPU_FLOW_DOM_CONTROL_PLANE_CLASS_NAME}
       data-gpu-flow-dom-control-plane="true"
-      data-gpu-flow-dom-control-plane-frame-id={
-        retainedRuntimeFrame?.frameId ?? 0
+      data-gpu-flow-dom-control-plane-frame-id={frameIds.runtimeFrameId}
+      data-gpu-flow-dom-control-plane-committed-frame-id={
+        frameIds.committedFrameId
       }
     >
       {controlsToMount.map((control) => {
-        const clip = getGpuFlowDomControlPlaneVisibleClip(control);
         const initialStyle = projectGpuFlowDomControlPlaneHost({
           control,
           viewport,
         });
         return (
-          <div
-            className={GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME}
-            data-gpu-flow-dom-control="true"
-            data-gpu-flow-dom-control-id={control.sourceId}
-            data-gpu-flow-dom-control-row-id={control.rowId}
-            data-gpu-flow-dom-control-section-id={control.sectionId}
-            data-gpu-flow-dom-control-surface-id={control.surfaceId}
-            data-gpu-flow-dom-control-active={control.active ? "true" : "false"}
+          <GpuFlowDomControlHost
+            control={control}
+            initialStyle={initialStyle}
             key={control.sourceId}
-            onPointerDownCapture={(event) => {
-              if (control.active || control.disabled) {
-                return;
-              }
-              onActivate?.(control, {
-                clientPoint: {
-                  x: event.clientX,
-                  y: event.clientY,
-                },
-                kind: "pointer",
-              });
-            }}
-            ref={(element) => setControlElement(control.sourceId, element)}
-            style={initialStyle}
-          >
-            <div
-              className="setta-gpu-flow__dom-control-content"
-              style={{
-                height: control.sourceRectCssPx.height,
-                left: -(clip.x - control.worldRectFlowPx.x),
-                position: "absolute",
-                top: -(clip.y - control.worldRectFlowPx.y),
-                width: control.sourceRectCssPx.width,
-              }}
-            >
-              {renderControl(control, {
-                onActivate,
-                presentation: "dom-control-plane",
-              })}
-            </div>
-          </div>
+            onActivate={onActivate}
+            renderControl={renderControl}
+            setControlElement={setControlElement}
+          />
         );
       })}
     </div>
   );
+}
+
+function GpuFlowDomControlHost({
+  control,
+  initialStyle,
+  onActivate,
+  renderControl,
+  setControlElement,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly initialStyle: ReturnType<typeof projectGpuFlowDomControlPlaneHost>;
+  readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
+  readonly renderControl: GpuFlowDomControlRenderer;
+  readonly setControlElement: (
+    controlId: string,
+    element: HTMLElement | null,
+  ) => void;
+}) {
+  const clip = getGpuFlowDomControlPlaneVisibleClip(control);
+  return (
+    <div
+      className={GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME}
+      data-gpu-flow-dom-control="true"
+      data-gpu-flow-dom-control-id={control.sourceId}
+      data-gpu-flow-dom-control-row-id={control.rowId}
+      data-gpu-flow-dom-control-section-id={control.sectionId}
+      data-gpu-flow-dom-control-surface-id={control.surfaceId}
+      data-gpu-flow-dom-control-active={control.active ? "true" : "false"}
+      onPointerDownCapture={(event) => {
+        if (control.active || control.disabled) {
+          return;
+        }
+        onActivate?.(control, {
+          clientPoint: {
+            x: event.clientX,
+            y: event.clientY,
+          },
+          kind: "pointer",
+        });
+      }}
+      ref={(element) => setControlElement(control.sourceId, element)}
+      style={initialStyle}
+    >
+      <div
+        className="setta-gpu-flow__dom-control-content"
+        style={{
+          height: control.sourceRectCssPx.height,
+          left: -(clip.x - control.worldRectFlowPx.x),
+          position: "absolute",
+          top: -(clip.y - control.worldRectFlowPx.y),
+          width: control.sourceRectCssPx.width,
+        }}
+      >
+        {renderControl(control, {
+          onActivate,
+          presentation: "dom-control-plane",
+        })}
+      </div>
+    </div>
+  );
+}
+
+function resolveGpuFlowDomControlPlaneFrameIds({
+  committedFrameId,
+  retainedRuntimeFrame,
+}: {
+  readonly committedFrameId: number | undefined;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
+}): {
+  readonly committedFrameId: number;
+  readonly runtimeFrameId: number;
+} {
+  const runtimeFrameId = retainedRuntimeFrame?.frameId ?? 0;
+  return {
+    committedFrameId: committedFrameId ?? runtimeFrameId,
+    runtimeFrameId,
+  };
 }
 
 function getLiveGpuFlowDomControlPlaneViewport({
@@ -273,7 +335,9 @@ function filterGpuFlowDomControlPlaneMountedControls({
     viewport,
   });
   return controls
-    .filter((control) => rectsIntersect(visibleFlowRect, control.worldRectFlowPx))
+    .filter((control) =>
+      rectsIntersect(visibleFlowRect, control.worldRectFlowPx),
+    )
     .sort(compareGpuFlowDomControlPlaneControls);
 }
 
@@ -289,12 +353,14 @@ function compareGpuFlowDomControlPlaneControls(
 }
 
 function syncGpuFlowDomControlPlaneStyles({
+  committedFrameId,
   controls,
   diagnosticsRef,
   hostByControlId,
   runtimeFrameId,
   viewport,
 }: {
+  readonly committedFrameId: number;
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly diagnosticsRef: MutableRefObject<DomControlPlaneDiagnostics>;
   readonly hostByControlId: ReadonlyMap<string, MountedDomControlPlaneHost>;
@@ -330,6 +396,7 @@ function syncGpuFlowDomControlPlaneStyles({
   diagnosticsRef.current = {
     activeControlId,
     clippedControlCount,
+    committedFrameId,
     lastProjectionBatchDurationMs: performance.now() - startedAt,
     mountedControlCount: hostByControlId.size,
     projectionWriteCount,
@@ -488,12 +555,17 @@ function blurFocusedDescendantBeforeUnmount(element: HTMLElement) {
   }
 }
 
-function createEmptyDomControlPlaneDiagnostics(
-  runtimeFrameId: number,
-): DomControlPlaneDiagnostics {
+function createEmptyDomControlPlaneDiagnostics({
+  committedFrameId,
+  runtimeFrameId,
+}: {
+  readonly committedFrameId: number;
+  readonly runtimeFrameId: number;
+}): DomControlPlaneDiagnostics {
   return {
     activeControlId: null,
     clippedControlCount: 0,
+    committedFrameId,
     lastProjectionBatchDurationMs: 0,
     mountedControlCount: 0,
     projectionWriteCount: 0,

@@ -14,6 +14,7 @@ import {
   resolveGpuPanOnScrollDelta,
   shouldHandleGpuWheelEvent,
 } from "./panZoom";
+import { getGpuWheelGestureOwnershipArbiter } from "./wheelOwnership";
 
 describe("GPU pan/zoom controller", () => {
   afterEach(() => {
@@ -144,7 +145,9 @@ describe("GPU pan/zoom controller", () => {
 
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
-    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
+    expect(store.getState().transform).toEqual(
+      viewportRuntime.getViewportTuple(),
+    );
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
     viewportRuntime.destroy();
@@ -236,6 +239,53 @@ describe("GPU pan/zoom controller", () => {
     viewportRuntime.destroy();
   });
 
+  it("keeps viewport wheel-pan ownership when the burst moves over a nopan target", () => {
+    vi.useFakeTimers();
+    const element = createSurfaceElement();
+    const noPanTarget = document.createElement("div");
+    noPanTarget.className = NO_PAN_CLASS_NAME;
+    element.append(noPanTarget);
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame,
+      store,
+      viewportRuntime,
+      zoomOnScroll: true,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: 20,
+      }),
+    );
+    noPanTarget.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: 30,
+      }),
+    );
+
+    viewportRuntime.runFrame(16);
+    expect(viewportRuntime.getViewportTuple()).toEqual([0, -25, 1]);
+    expect(store.getState().panScrolling).toBe(true);
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+
+    vi.advanceTimersByTime(150);
+    expect(store.getState().panScrolling).toBe(false);
+    detach();
+    viewportRuntime.destroy();
+  });
+
   it("lets pinch zoom win over pan-on-scroll", () => {
     vi.useFakeTimers();
     const element = createSurfaceElement();
@@ -277,7 +327,9 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(false);
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
-    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
+    expect(store.getState().transform).toEqual(
+      viewportRuntime.getViewportTuple(),
+    );
     detach();
     viewportRuntime.destroy();
   });
@@ -322,7 +374,54 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(false);
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
-    expect(store.getState().transform).toEqual(viewportRuntime.getViewportTuple());
+    expect(store.getState().transform).toEqual(
+      viewportRuntime.getViewportTuple(),
+    );
+    detach();
+    viewportRuntime.destroy();
+  });
+
+  it("lets activated viewport zoom preempt a stale retained scroll wheel owner", () => {
+    vi.useFakeTimers();
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      height: 400,
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const arbiter = getGpuWheelGestureOwnershipArbiter(store);
+    arbiter.resolveOwner({
+      candidateOwner: "ownedByRetainedSectionScroll",
+      reason: "retained-section-wheel",
+    });
+    const requestFrame = vi.fn();
+    const viewportRuntime = createTestViewportRuntime(store, requestFrame);
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame,
+      store,
+      viewportRuntime,
+      zoomActivationKeyPressed: true,
+      zoomOnScroll: false,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 30,
+        deltaY: -100,
+      }),
+    );
+
+    viewportRuntime.runFrame(16);
+    expect(viewportRuntime.getViewportTuple()[2]).toBeGreaterThan(1);
+    expect(arbiter.getState().owner).toBe("ownedByViewportZoom");
+    expect(store.getState().wheelZooming).toBe(true);
+    vi.advanceTimersByTime(180);
     detach();
     viewportRuntime.destroy();
   });

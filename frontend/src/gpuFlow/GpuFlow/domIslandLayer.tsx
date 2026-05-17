@@ -33,11 +33,13 @@ const GPU_FLOW_DOM_ISLAND_CLASS_NAME = [
 const GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME = "setta-gpu-flow__dom-island-layer";
 
 export function GpuFlowDomIslandLayer({
+  committedFrameId,
   renderDomIsland,
   retainedRuntimeFrame,
   viewportStore,
   viewportRuntime,
 }: {
+  readonly committedFrameId?: number | undefined;
   readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
@@ -123,6 +125,9 @@ export function GpuFlowDomIslandLayer({
   return (
     <div
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
+      data-gpu-flow-dom-island-committed-frame-id={
+        committedFrameId ?? retainedRuntimeFrame?.frameId ?? 0
+      }
       data-gpu-flow-dom-island-layer="viewport"
     >
       {domIslands.map((island) => (

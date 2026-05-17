@@ -196,7 +196,14 @@ export async function dragPointerSurfaceToTarget(
 }
 
 export async function getViewportScale(page: Page): Promise<number> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore"
+    );
+    const viewportZoom = gpuFlowViewportStore.getState().getViewport().zoom;
+    if (Number.isFinite(viewportZoom) && viewportZoom > 0) {
+      return viewportZoom;
+    }
     const viewport = document.querySelector(".setta-gpu-flow__canvas");
     if (!viewport) {
       return 1;
@@ -214,6 +221,7 @@ export async function getViewportScale(page: Page): Promise<number> {
 }
 
 const ZOOM_EPSILON = 0.0005;
+const ZOOM_STEP_FACTOR = 1.2;
 
 export async function waitForViewportScaleToStabilize(page: Page): Promise<number> {
   const timeoutMs = 3000;
@@ -263,25 +271,33 @@ export async function applyZoomPreset(
   zoomOutClicks: number,
   zoomInClicks: number,
 ): Promise<number> {
-  const resetZoomButton = page.getByRole("button", { name: "reset zoom" });
-  const zoomOutButton = page.getByRole("button", { name: "zoom out" });
-  const zoomInButton = page.getByRole("button", { name: "zoom in" });
-
-  await resetZoomButton.click();
+  const zoom =
+    Math.pow(1 / ZOOM_STEP_FACTOR, zoomOutClicks) *
+    Math.pow(ZOOM_STEP_FACTOR, zoomInClicks);
+  await page.evaluate(async (nextZoom) => {
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore"
+    );
+    const viewportStore = gpuFlowViewportStore.getState();
+    const viewport = viewportStore.getViewport();
+    viewportStore.setTransform({
+      x: viewport.x,
+      y: viewport.y,
+      zoom: nextZoom,
+    });
+    window.settaGpuFlowZoom = nextZoom;
+  }, zoom);
   await expect
     .poll(async () => await getViewportScale(page))
-    .toBeGreaterThan(0);
-  await waitForViewportScaleToStabilize(page);
-
-  for (let i = 0; i < zoomOutClicks; i += 1) {
-    await clickAndWaitForViewportScaleChange(page, zoomOutButton);
-  }
-  for (let i = 0; i < zoomInClicks; i += 1) {
-    await clickAndWaitForViewportScaleChange(page, zoomInButton);
-  }
-  await expect
-    .poll(async () => await getViewportScale(page))
-    .toBeGreaterThan(0);
+    .toBeCloseTo(zoom, 3);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      }),
+  );
   return waitForViewportScaleToStabilize(page);
 }
 
@@ -372,6 +388,22 @@ export async function getSortableSectionDistances(
   childIds: string[],
 ): Promise<SortableSectionDistances | null> {
   return await page.evaluate((ids) => {
+    const getGpuRect = (
+      window as typeof window & {
+        __settaGpuFlowNodeScreenRect?: (
+          nodeId: string,
+        ) => { height: number; width: number; x: number; y: number } | null;
+      }
+    ).__settaGpuFlowNodeScreenRect;
+    const firstGpuRect = getGpuRect?.(ids[0] ?? "") ?? null;
+    const secondGpuRect = getGpuRect?.(ids[1] ?? "") ?? null;
+    if (firstGpuRect && secondGpuRect) {
+      return {
+        xDelta: Math.abs(firstGpuRect.x - secondGpuRect.x),
+        yDelta: Math.abs(firstGpuRect.y - secondGpuRect.y),
+      };
+    }
+
     const first = document.querySelector(
       `[data-sortable-section-id="${ids[0]}"]`,
     ) as HTMLElement | null;

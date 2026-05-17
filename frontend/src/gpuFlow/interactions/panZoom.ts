@@ -8,6 +8,12 @@ import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
+import {
+  getGpuWheelGestureOwnershipArbiter,
+  isGpuViewportWheelOwner,
+  type GpuWheelGestureOwner,
+  type GpuWheelGestureOwnershipArbiter,
+} from "./wheelOwnership";
 
 export const GPU_PAN_ON_SCROLL_MODE = {
   free: "free",
@@ -143,11 +149,13 @@ export function shouldHandleGpuWheelEvent({
   zoomActivationKeyPressed,
   zoomOnPinch,
   zoomOnScroll,
+  wheelOwner = "idle",
 }: {
   readonly event: WheelEvent;
   readonly isMacOS: boolean;
   readonly panOnScroll: boolean;
   readonly preventScrolling: boolean;
+  readonly wheelOwner?: GpuWheelGestureOwner | undefined;
   readonly zoomActivationKeyPressed?: boolean | undefined;
   readonly zoomOnPinch: boolean;
   readonly zoomOnScroll: boolean;
@@ -155,12 +163,16 @@ export function shouldHandleGpuWheelEvent({
   if (!preventScrolling) {
     return false;
   }
+  if (isGpuViewportWheelOwner(wheelOwner)) {
+    return true;
+  }
   const pinchZoom = isPinchZoomWheelEvent({ event, isMacOS, zoomOnPinch });
   if (
     shouldPreserveNativeWheelTarget({
       event,
       panOnScroll,
       pinchZoom,
+      wheelOwner,
       zoomActivationKeyPressed,
     })
   ) {
@@ -181,13 +193,18 @@ function shouldPreserveNativeWheelTarget({
   event,
   panOnScroll,
   pinchZoom,
+  wheelOwner = "idle",
   zoomActivationKeyPressed,
 }: {
   readonly event: WheelEvent;
   readonly panOnScroll: boolean;
   readonly pinchZoom: boolean;
+  readonly wheelOwner?: GpuWheelGestureOwner | undefined;
   readonly zoomActivationKeyPressed?: boolean | undefined;
 }): boolean {
+  if (isGpuViewportWheelOwner(wheelOwner)) {
+    return false;
+  }
   if (isEventTargetWrappedWithClass(event, NO_WHEEL_CLASS_NAME)) {
     return !zoomActivationKeyPressed && !pinchZoom;
   }
@@ -212,6 +229,14 @@ function hasEnabledGpuWheelGesture({
 }): boolean {
   return Boolean(
     zoomActivationKeyPressed || zoomOnScroll || panOnScroll || pinchZoom,
+  );
+}
+
+function shouldViewportZoomPreemptWheelOwner(
+  owner: GpuWheelGestureOwner,
+): boolean {
+  return (
+    owner === "ownedByRetainedSectionScroll" || owner === "ownedByFocusedEditor"
   );
 }
 
@@ -246,6 +271,7 @@ class GpuPanZoomController {
   private panScrollTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
   private readonly viewportRuntime: GpuFlowViewportRuntime;
+  private readonly wheelOwnership: GpuWheelGestureOwnershipArbiter;
   private wheelZoomTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: GpuPanZoomControllerOptions) {
@@ -254,6 +280,7 @@ class GpuPanZoomController {
     this.options = resolveGpuPanZoomControllerOptions(options);
     this.store = options.store ?? gpuFlowViewportStore;
     this.viewportRuntime = options.viewportRuntime;
+    this.wheelOwnership = getGpuWheelGestureOwnershipArbiter(this.store);
   }
 
   attach() {
@@ -280,15 +307,18 @@ class GpuPanZoomController {
     this.endPointerPan();
     this.clearWheelZoomTimeout();
     this.clearPanScrollTimeout();
+    this.wheelOwnership.cancelOwner("pan-zoom-controller-destroyed");
   }
 
   private readonly onWheel = (event: WheelEvent) => {
+    const wheelOwner = this.wheelOwnership.getState().owner;
     if (
       !shouldHandleGpuWheelEvent({
         event,
         isMacOS: this.isMacOS,
         panOnScroll: this.options.panOnScroll,
         preventScrolling: this.options.preventScrolling,
+        wheelOwner,
         zoomActivationKeyPressed: this.options.zoomActivationKeyPressed,
         zoomOnPinch: this.options.zoomOnPinch,
         zoomOnScroll: this.options.zoomOnScroll,
@@ -309,16 +339,40 @@ class GpuPanZoomController {
       pinchZoom ||
       Boolean(this.options.zoomActivationKeyPressed) ||
       (!this.options.panOnScroll && this.options.zoomOnScroll);
+    const ownership = this.resolveWheelOwnership({
+      wheelOwner,
+      zoomRequested,
+    });
 
-    if (zoomRequested) {
+    if (ownership.owner === "ownedByViewportZoom") {
       this.startWheelZoomBurst();
       this.zoomFromWheel(event);
       this.scheduleWheelZoomBurstEnd();
       return;
     }
 
-    this.panFromWheel(event);
+    if (ownership.owner === "ownedByViewportPan") {
+      this.panFromWheel(event);
+    }
   };
+
+  private resolveWheelOwnership({
+    wheelOwner,
+    zoomRequested,
+  }: {
+    readonly wheelOwner: GpuWheelGestureOwner;
+    readonly zoomRequested: boolean;
+  }) {
+    if (zoomRequested && shouldViewportZoomPreemptWheelOwner(wheelOwner)) {
+      this.wheelOwnership.cancelOwner("viewport-zoom-wheel-preempted-owner");
+    }
+    return this.wheelOwnership.resolveOwner({
+      candidateOwner: zoomRequested
+        ? "ownedByViewportZoom"
+        : "ownedByViewportPan",
+      reason: zoomRequested ? "viewport-zoom-wheel" : "viewport-pan-wheel",
+    });
+  }
 
   private readonly onPointerDown = (event: PointerEvent) => {
     if (!this.shouldStartPointerPan(event)) {
@@ -449,6 +503,10 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ wheelZooming: false });
+      this.wheelOwnership.releaseOwner(
+        "ownedByViewportZoom",
+        "viewport-zoom-burst-timeout",
+      );
       this.getViewportRuntime().flushObserverSnapshot();
       this.requestTextureUploadFrame();
       this.wheelZoomTimeout = null;
@@ -466,6 +524,10 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ panScrolling: false });
+      this.wheelOwnership.releaseOwner(
+        "ownedByViewportPan",
+        "viewport-pan-burst-timeout",
+      );
       this.getViewportRuntime().flushObserverSnapshot();
       this.requestTextureUploadFrame();
       this.panScrollTimeout = null;

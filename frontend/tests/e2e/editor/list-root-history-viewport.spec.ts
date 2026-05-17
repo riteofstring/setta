@@ -74,7 +74,12 @@ async function getChildCount(
 
 async function clickRepeatedly(button: Locator, times: number): Promise<void> {
   for (let i = 0; i < times; i += 1) {
-    await button.click();
+    await button.evaluate((element) => {
+      if (!(element instanceof HTMLElement)) {
+        throw new Error("List root control is not an HTMLElement.");
+      }
+      element.click();
+    });
   }
 }
 

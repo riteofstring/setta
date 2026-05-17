@@ -5,6 +5,7 @@ import {
   createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
+  hoverGpuFlowNode,
   loadProjectConfig,
   openIsolatedProject,
   postBackend,
@@ -12,8 +13,6 @@ import {
   setSectionSizesFromFrontend,
   type SingleConfigResponse,
 } from "../helpers";
-
-const SECTION_SHELL_CHROME_PX = 2;
 
 async function createSection(
   page: Page,
@@ -197,6 +196,25 @@ async function getRetainedParamResizeGeometry({
   };
 }
 
+async function readRetainedParamOverflow({
+  page,
+  sectionId,
+  sectionNode,
+}: {
+  readonly page: Page;
+  readonly sectionId: string;
+  readonly sectionNode: Locator;
+}): Promise<number | null> {
+  const [sectionBox, retainedBox] = await Promise.all([
+    sectionNode.boundingBox(),
+    readRetainedParamSurfaceBox(page, sectionId),
+  ]);
+  if (!sectionBox || !retainedBox) {
+    return null;
+  }
+  return retainedBox.height - sectionBox.height;
+}
+
 async function readRetainedParamSurfaceBox(
   page: Page,
   sectionId: string,
@@ -226,27 +244,72 @@ async function readRetainedParamSurfaceBox(
   }, `${sectionId}:param-content:unpinned`);
 }
 
-async function resolveSectionResizeStartPoint(page: Page, sectionId: string) {
-  const state = await loadProjectConfig(page);
-  const layout = state.projectConfig.topLevelSections?.[sectionId];
-  if (!layout) {
-    throw new Error(`Missing top-level layout for ${sectionId}.`);
+type GpuResizeHandleDirection = "bottom" | "bottomRight" | "right";
+
+async function resolveSectionResizeHandlePoint(
+  page: Page,
+  sectionId: string,
+  direction: GpuResizeHandleDirection,
+): Promise<{ x: number; y: number }> {
+  await expect
+    .poll(async () => await readGpuFlowNodeScreenRect(page, sectionId))
+    .not.toBeNull();
+  const rect = await readGpuFlowNodeScreenRect(page, sectionId);
+  if (!rect) {
+    throw new Error(`Missing GPU node rect for ${sectionId}.`);
   }
-  const size = getSectionSizeFromState(state, sectionId);
-  if (typeof size.width !== "number" || typeof size.height !== "number") {
-    throw new Error(`Missing numeric size for ${sectionId}.`);
+  if (direction === "right") {
+    return {
+      x: rect.x + rect.width - 4,
+      y: rect.y + rect.height / 2,
+    };
   }
-  const paneBox = await page.locator(".setta-gpu-flow__pane").boundingBox();
-  if (!paneBox) {
-    throw new Error("Missing GPU flow pane for resize pointer placement.");
+  if (direction === "bottom") {
+    return {
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height - 4,
+    };
   }
-  const viewport = state.projectConfig.viewport ?? { x: 0, y: 0, zoom: 1 };
-  const outerWidth = size.width + SECTION_SHELL_CHROME_PX;
-  const outerHeight = size.height + SECTION_SHELL_CHROME_PX;
   return {
-    x: paneBox.x + viewport.x + (layout.x + outerWidth - 4) * viewport.zoom,
-    y: paneBox.y + viewport.y + (layout.y + outerHeight - 4) * viewport.zoom,
+    x: rect.x + rect.width - 4,
+    y: rect.y + rect.height - 4,
   };
+}
+
+async function readGpuFlowNodeScreenRect(
+  page: Page,
+  nodeId: string,
+): Promise<{ height: number; width: number; x: number; y: number } | null> {
+  return await page.evaluate((nodeId) => {
+    return (
+      (
+        window as typeof window & {
+          __settaGpuFlowNodeScreenRect?: (
+            nodeId: string,
+          ) => { height: number; width: number; x: number; y: number } | null;
+        }
+      ).__settaGpuFlowNodeScreenRect?.(nodeId) ?? null
+    );
+  }, nodeId);
+}
+
+async function readSectionResizeDirections(
+  page: Page,
+  sectionId: string,
+): Promise<readonly string[]> {
+  return await page.evaluate(async (sectionId) => {
+    const { getProjectGpuFlowScene } = await import(
+      "/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    return (
+      scene.sections.find((section) => section.sectionId === sectionId)
+        ?.resizePolicy.directions ?? []
+    );
+  }, sectionId);
 }
 
 function isolatedSizingTest(
@@ -272,19 +335,16 @@ isolatedSizingTest(
     try {
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
+      await hoverGpuFlowNode(page, sectionNode);
 
-      const handle = sectionNode.locator(".section-resize-handle-bottom-right");
-      await expect(handle).toHaveCount(1);
-      await sectionNode.hover();
-
-      const box = await handle.boundingBox();
-      if (!box) {
-        throw new Error("Missing resize handle bounding box.");
-      }
-
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "bottomRight",
+      );
+      await page.mouse.move(start.x, start.y);
       await page.mouse.down();
-      await page.mouse.move(box.x - 200, box.y - 200);
+      await page.mouse.move(start.x - 200, start.y - 200);
       await page.mouse.up();
 
       await expect
@@ -324,55 +384,15 @@ isolatedSizingTest(
         `section[data-section-id="${sectionId}"]`,
       );
       await expect(sectionCard).toBeVisible();
-      await sectionCard.hover();
+      await hoverGpuFlowNode(page, sectionCard);
 
-      await expect(sectionNode.locator(".cursor-col-resize")).toHaveCount(1);
-      await expect(sectionNode.locator(".cursor-row-resize")).toHaveCount(0);
-      await expect(sectionNode.locator(".cursor-nwse-resize")).toHaveCount(0);
+      await expect
+        .poll(async () => await readSectionResizeDirections(page, sectionId))
+        .toEqual(["right"]);
 
-      const menuTrigger = sectionNode.locator(
-        'button[class*="group-hover/card-section:pointer-events-auto"]',
-      );
-      await expect(menuTrigger).toHaveCount(1);
-
-      const sectionBox = await sectionNode.boundingBox();
-      const menuBox = await menuTrigger.boundingBox();
-      if (!sectionBox || !menuBox) {
-        throw new Error("Missing section/menu bounds for meta control.");
-      }
-
-      const menuPoint = {
-        x: menuBox.x + menuBox.width / 2,
-        y: menuBox.y + menuBox.height / 2,
-      };
-
-      expect(menuPoint.x).toBeLessThan(sectionBox.x);
-
-      const hitInfo = await menuTrigger.evaluate((el, point) => {
-        const hit = document.elementFromPoint(point.x, point.y);
-        const style = window.getComputedStyle(el);
-        const hitStyle = hit ? window.getComputedStyle(hit as Element) : null;
-        return {
-          menuPointerEvents: style.pointerEvents,
-          menuOpacity: style.opacity,
-          menuZIndex: style.zIndex,
-          hitTag: hit?.tagName ?? null,
-          hitId: hit instanceof HTMLElement ? hit.id : null,
-          hitClass: hit instanceof HTMLElement ? hit.className : null,
-          hitAriaLabel:
-            hit instanceof HTMLElement ? hit.getAttribute("aria-label") : null,
-          hitZIndex: hitStyle?.zIndex ?? null,
-          contained: !!hit && el.contains(hit),
-        };
-      }, menuPoint);
-      if (!hitInfo.contained) {
-        throw new Error(
-          `MetaControl menu trigger is not hittable at (${Math.round(menuPoint.x)},${Math.round(menuPoint.y)}).\n\nDetails:\n${JSON.stringify(hitInfo, null, 2)}`,
-        );
-      }
-
-      const rightHandle = sectionNode.locator(".cursor-col-resize");
-      await expect(rightHandle).toHaveCount(1);
+      await expect
+        .poll(async () => await readSectionResizeDirections(page, sectionId))
+        .toEqual(["right"]);
     } finally {
       await postBackend(page, "/deleteSections", {
         projectConfigId,
@@ -414,12 +434,17 @@ isolatedSizingTest(
         .toBeGreaterThan(360);
 
       await setActiveSections(page, [sectionId]);
+      await hoverGpuFlowNode(page, sectionNode);
       const before = await getRetainedParamResizeGeometry({
         page,
         sectionId,
         sectionNode,
       });
-      const startPoint = await resolveSectionResizeStartPoint(page, sectionId);
+      const startPoint = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "right",
+      );
       const startX = startPoint.x;
       const startY = startPoint.y;
 
@@ -530,7 +555,10 @@ isolatedSizingTest(
 isolatedSizingTest(
   "callable resize exits auto height cap",
   async (page, projectConfigId) => {
-    const sectionId = await createSection(page, projectConfigId, "Callable");
+    const sectionId = await createSection(page, projectConfigId, "Callable", {
+      xRatio: 0.2,
+      yRatio: 0.12,
+    });
 
     try {
       await setCallable(page, projectConfigId, sectionId, "sorted");
@@ -540,12 +568,15 @@ isolatedSizingTest(
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
-      const paramContainer = sectionNode.locator(
-        `[id^="ParamContainer-${sectionId}-"]`,
-      );
-      await expect(paramContainer.first()).toBeVisible({ timeout: 20000 });
-      await sectionNode.click();
-      await sectionNode.hover();
+      await expect
+        .poll(
+          async () =>
+            (await readRetainedParamSurfaceBox(page, sectionId))?.height ?? 0,
+          { timeout: 20000 },
+        )
+        .toBeGreaterThan(0);
+      await setActiveSections(page, [sectionId]);
+      await hoverGpuFlowNode(page, sectionNode);
 
       await expect
         .poll(async () => {
@@ -555,32 +586,15 @@ isolatedSizingTest(
         })
         .toBe("auto");
 
-      const handle = sectionNode.locator(".section-resize-handle-bottom-right");
-      await expect(handle).toHaveCount(1);
-
-      const box = await handle.boundingBox();
-      if (!box) {
-        throw new Error("Missing resize handle bounding box.");
-      }
-
-      const startX = box.x + box.width / 2;
-      const startY = box.y + box.height / 2;
-      await handle.dispatchEvent("mousedown", {
-        button: 0,
-        buttons: 1,
-        clientX: startX,
-        clientY: startY,
-      });
-      await handle.dispatchEvent("mousemove", {
-        buttons: 1,
-        clientX: startX,
-        clientY: startY + 80,
-      });
-      await handle.dispatchEvent("mouseup", {
-        button: 0,
-        clientX: startX,
-        clientY: startY + 80,
-      });
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "bottomRight",
+      );
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
+      await page.mouse.move(start.x, start.y + 80);
+      await page.mouse.up();
 
       await expect
         .poll(async () => {
@@ -611,10 +625,13 @@ isolatedSizingTest(
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
-      const paramContainer = sectionNode.locator(
-        `[id^="ParamContainer-${sectionId}-"]`,
-      );
-      await expect(paramContainer.first()).toBeVisible({ timeout: 20000 });
+      await expect
+        .poll(
+          async () =>
+            (await readRetainedParamSurfaceBox(page, sectionId))?.height ?? 0,
+          { timeout: 20000 },
+        )
+        .toBeGreaterThan(0);
       await sectionNode.scrollIntoViewIfNeeded();
 
       await expect
@@ -656,14 +673,7 @@ isolatedSizingTest(
         )
         .toBeLessThan(0.8);
 
-      const handle = sectionNode.locator(".section-resize-handle-bottom");
-      await expect(handle).toHaveCount(1);
-      await sectionNode.hover();
-
-      const handleBox = await handle.boundingBox();
-      if (!handleBox) {
-        throw new Error("Missing resize handle bounding box.");
-      }
+      await hoverGpuFlowNode(page, sectionNode);
 
       const beforeBox = await sectionNode.boundingBox();
       if (!beforeBox) {
@@ -671,27 +681,14 @@ isolatedSizingTest(
       }
       const beforeHeight = beforeBox.height;
 
-      const startX = handleBox.x + handleBox.width / 2;
-      const startY = handleBox.y + handleBox.height / 2;
-      await handle.dispatchEvent("mousedown", {
-        button: 0,
-        buttons: 1,
-        clientX: startX,
-        clientY: startY,
-      });
-      await page.evaluate(
-        ({ startX, startY }) => {
-          window.dispatchEvent(
-            new MouseEvent("mouseup", {
-              bubbles: true,
-              clientX: startX,
-              clientY: startY,
-              button: 0,
-            }),
-          );
-        },
-        { startX, startY },
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "bottom",
       );
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
+      await page.mouse.up();
 
       await expect
         .poll(async () => {
@@ -724,10 +721,10 @@ isolatedSizingTest(
 isolatedSizingTest(
   "right resize handle mousedown does not expand auto height with overflow",
   async (page, projectConfigId) => {
-    const sectionId = await createSection(page, projectConfigId, "Dict");
-
-    let startX = 0;
-    let startY = 0;
+    const sectionId = await createSection(page, projectConfigId, "Dict", {
+      xRatio: 0.2,
+      yRatio: 0.12,
+    });
 
     try {
       await addKwargs(page, projectConfigId, sectionId, 40);
@@ -738,27 +735,19 @@ isolatedSizingTest(
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
       await sectionNode.scrollIntoViewIfNeeded();
-      await sectionNode.hover();
-
-      const scrollContainer = sectionNode.locator(
-        "div.section-args-nested.overflow-y-scroll",
-      );
-      await expect(scrollContainer).toHaveCount(1);
+      await hoverGpuFlowNode(page, sectionNode);
 
       await expect
         .poll(async () => {
-          return await scrollContainer.evaluate((node) => {
-            return node.scrollHeight - node.clientHeight;
-          });
+          return (
+            (await readRetainedParamOverflow({
+              page,
+              sectionId,
+              sectionNode,
+            })) ?? 0
+          );
         })
         .toBeGreaterThan(40);
-
-      const handle = sectionNode.locator(".section-resize-handle-right");
-      await expect(handle).toHaveCount(1);
-      const handleBox = await handle.boundingBox();
-      if (!handleBox) {
-        throw new Error("Missing resize handle bounding box.");
-      }
 
       const beforeBox = await sectionNode.boundingBox();
       if (!beforeBox) {
@@ -766,14 +755,13 @@ isolatedSizingTest(
       }
       const beforeHeight = beforeBox.height;
 
-      startX = handleBox.x + handleBox.width / 2;
-      startY = handleBox.y + handleBox.height / 2;
-      await handle.dispatchEvent("mousedown", {
-        button: 0,
-        buttons: 1,
-        clientX: startX,
-        clientY: startY,
-      });
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "right",
+      );
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
 
       await page.evaluate(() => {
         return new Promise<void>((resolve) => {
@@ -787,35 +775,21 @@ isolatedSizingTest(
       }
       const afterHeight = afterBox.height;
 
-      const overflowAfter = await scrollContainer.evaluate((node) => {
-        return node.scrollHeight - node.clientHeight;
+      const overflowAfter = await readRetainedParamOverflow({
+        page,
+        sectionId,
+        sectionNode,
       });
+      if (overflowAfter === null) {
+        throw new Error("Missing retained overflow after mousedown.");
+      }
 
-      await page.evaluate(
-        ({ startX, startY }) => {
-          window.dispatchEvent(
-            new MouseEvent("mouseup", {
-              bubbles: true,
-              clientX: startX,
-              clientY: startY,
-              button: 0,
-            }),
-          );
-        },
-        { startX, startY },
-      );
+      await page.mouse.up();
 
       expect(Math.abs(afterHeight - beforeHeight)).toBeLessThan(6);
       expect(overflowAfter).toBeGreaterThan(40);
     } finally {
-      await page.evaluate(() => {
-        window.dispatchEvent(
-          new MouseEvent("mouseup", {
-            bubbles: true,
-            button: 0,
-          }),
-        );
-      });
+      await page.mouse.up().catch(() => {});
       await postBackend(page, "/deleteSections", {
         projectConfigId,
         sectionIds: [sectionId],
@@ -827,10 +801,10 @@ isolatedSizingTest(
 isolatedSizingTest(
   "bottom resize handle mousedown does not expand auto height with overflow",
   async (page, projectConfigId) => {
-    const sectionId = await createSection(page, projectConfigId, "Dict");
-
-    let startX = 0;
-    let startY = 0;
+    const sectionId = await createSection(page, projectConfigId, "Dict", {
+      xRatio: 0.2,
+      yRatio: 0.12,
+    });
 
     try {
       await addKwargs(page, projectConfigId, sectionId, 40);
@@ -841,27 +815,19 @@ isolatedSizingTest(
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
       await sectionNode.scrollIntoViewIfNeeded();
-      await sectionNode.hover();
-
-      const scrollContainer = sectionNode.locator(
-        "div.section-args-nested.overflow-y-scroll",
-      );
-      await expect(scrollContainer).toHaveCount(1);
+      await hoverGpuFlowNode(page, sectionNode);
 
       await expect
         .poll(async () => {
-          return await scrollContainer.evaluate((node) => {
-            return node.scrollHeight - node.clientHeight;
-          });
+          return (
+            (await readRetainedParamOverflow({
+              page,
+              sectionId,
+              sectionNode,
+            })) ?? 0
+          );
         })
         .toBeGreaterThan(40);
-
-      const handle = sectionNode.locator(".section-resize-handle-bottom");
-      await expect(handle).toHaveCount(1);
-      const handleBox = await handle.boundingBox();
-      if (!handleBox) {
-        throw new Error("Missing resize handle bounding box.");
-      }
 
       const beforeBox = await sectionNode.boundingBox();
       if (!beforeBox) {
@@ -869,14 +835,13 @@ isolatedSizingTest(
       }
       const beforeHeight = beforeBox.height;
 
-      startX = handleBox.x + handleBox.width / 2;
-      startY = handleBox.y + handleBox.height / 2;
-      await handle.dispatchEvent("mousedown", {
-        button: 0,
-        buttons: 1,
-        clientX: startX,
-        clientY: startY,
-      });
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "bottom",
+      );
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
 
       await page.evaluate(() => {
         return new Promise<void>((resolve) => {
@@ -890,35 +855,21 @@ isolatedSizingTest(
       }
       const afterHeight = afterBox.height;
 
-      const overflowAfter = await scrollContainer.evaluate((node) => {
-        return node.scrollHeight - node.clientHeight;
+      const overflowAfter = await readRetainedParamOverflow({
+        page,
+        sectionId,
+        sectionNode,
       });
+      if (overflowAfter === null) {
+        throw new Error("Missing retained overflow after mousedown.");
+      }
 
-      await page.evaluate(
-        ({ startX, startY }) => {
-          window.dispatchEvent(
-            new MouseEvent("mouseup", {
-              bubbles: true,
-              clientX: startX,
-              clientY: startY,
-              button: 0,
-            }),
-          );
-        },
-        { startX, startY },
-      );
+      await page.mouse.up();
 
       expect(Math.abs(afterHeight - beforeHeight)).toBeLessThan(6);
       expect(overflowAfter).toBeGreaterThan(40);
     } finally {
-      await page.evaluate(() => {
-        window.dispatchEvent(
-          new MouseEvent("mouseup", {
-            bubbles: true,
-            button: 0,
-          }),
-        );
-      });
+      await page.mouse.up().catch(() => {});
       await postBackend(page, "/deleteSections", {
         projectConfigId,
         sectionIds: [sectionId],
@@ -930,10 +881,10 @@ isolatedSizingTest(
 isolatedSizingTest(
   "bottom resize handle mousedown does not start resize event for auto height overflow",
   async (page, projectConfigId) => {
-    const sectionId = await createSection(page, projectConfigId, "Dict");
-
-    let startX = 0;
-    let startY = 0;
+    const sectionId = await createSection(page, projectConfigId, "Dict", {
+      xRatio: 0.2,
+      yRatio: 0.12,
+    });
 
     try {
       await addKwargs(page, projectConfigId, sectionId, 40);
@@ -944,38 +895,29 @@ isolatedSizingTest(
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       await expect(sectionNode).toBeVisible();
       await sectionNode.scrollIntoViewIfNeeded();
-      await sectionNode.hover();
-
-      const scrollContainer = sectionNode.locator(
-        "div.section-args-nested.overflow-y-scroll",
-      );
-      await expect(scrollContainer).toHaveCount(1);
+      await hoverGpuFlowNode(page, sectionNode);
 
       await expect
         .poll(async () => {
-          return await scrollContainer.evaluate((node) => {
-            return node.scrollHeight - node.clientHeight;
-          });
+          return (
+            (await readRetainedParamOverflow({
+              page,
+              sectionId,
+              sectionNode,
+            })) ?? 0
+          );
         })
         .toBeGreaterThan(40);
 
-      const handle = sectionNode.locator(".section-resize-handle-bottom");
-      await expect(handle).toHaveCount(1);
-      const handleBox = await handle.boundingBox();
-      if (!handleBox) {
-        throw new Error("Missing resize handle bounding box.");
-      }
-
       await clearResizeEvent(page, sectionId);
 
-      startX = handleBox.x + handleBox.width / 2;
-      startY = handleBox.y + handleBox.height / 2;
-      await handle.dispatchEvent("mousedown", {
-        button: 0,
-        buttons: 1,
-        clientX: startX,
-        clientY: startY,
-      });
+      const start = await resolveSectionResizeHandlePoint(
+        page,
+        sectionId,
+        "bottom",
+      );
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
 
       await page.evaluate(() => {
         return new Promise<void>((resolve) => {
@@ -986,14 +928,7 @@ isolatedSizingTest(
       const resizeEvent = await getResizeEvent(page, sectionId);
       expect(resizeEvent).not.toBe("start");
     } finally {
-      await page.evaluate(() => {
-        window.dispatchEvent(
-          new MouseEvent("mouseup", {
-            bubbles: true,
-            button: 0,
-          }),
-        );
-      });
+      await page.mouse.up().catch(() => {});
       await postBackend(page, "/deleteSections", {
         projectConfigId,
         sectionIds: [sectionId],

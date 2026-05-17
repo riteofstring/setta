@@ -18,6 +18,7 @@ import {
   createCodeParamCodeObjImpl,
   createCore,
   createProjectConfig,
+  createSectionCapabilities,
   createSingleConfig,
   createSingletonSections,
   createVariant,
@@ -27,6 +28,48 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 describe("processProjectStateUpdateFromBackend", () => {
+  it("publishes backend updates when only section capabilities change", () => {
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+    });
+    const baseProjectState = createSingleConfig({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+      sectionCapabilities: {},
+    });
+    useProjectState.setState(baseProjectState);
+    usePendingOperations.setState({ pending: [] });
+
+    processProjectStateUpdateFromBackend({
+      projectState: createSingleConfig({
+        ...baseProjectState,
+        sectionCapabilities: {
+          "code-section": createSectionCapabilities({
+            canRun: true,
+            runDisabledReason: null,
+          }),
+        },
+      }),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(
+      useProjectState.getState().sectionCapabilities["code-section"]?.canRun,
+    ).toBe(true);
+  });
+
   it("applies viewport updates to the react flow store", () => {
     const sectionId = "section-1";
     const viewModeId = "view-1";

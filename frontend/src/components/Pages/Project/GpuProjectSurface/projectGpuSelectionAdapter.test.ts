@@ -32,6 +32,7 @@ import {
   handleProjectNodeDragFrame,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
+  handleProjectSelectionChange,
   handleProjectSelectionDragStart,
   handleProjectSelectionDragStop,
   handleProjectSelectionKeyboardNudge,
@@ -234,6 +235,64 @@ describe("GPU project selection adapter", () => {
       tempZIndex: 1,
       zIndex: 1,
     });
+  });
+
+  it("suppresses the follow-up pane click after a completed selection rectangle", () => {
+    setActiveSectionUIIds(["section-a"]);
+
+    handleProjectSelectionChange({
+      active: true,
+      phase: "end",
+      rect: {
+        height: 20,
+        startX: 0,
+        startY: 0,
+        width: 20,
+        x: 0,
+        y: 0,
+      },
+      selectedNodeIds: ["section-a"],
+    });
+
+    expect(useMisc.getState().suppressNextPaneClick).toBe(true);
+  });
+
+  it("does not suppress pane clicks after an empty selection rectangle", () => {
+    handleProjectSelectionChange({
+      active: true,
+      phase: "end",
+      rect: {
+        height: 20,
+        startX: 0,
+        startY: 0,
+        width: 20,
+        x: 0,
+        y: 0,
+      },
+      selectedNodeIds: [],
+    });
+
+    expect(useMisc.getState().suppressNextPaneClick).toBe(false);
+  });
+
+  it("clears stale pane-click suppression when a new selection starts", () => {
+    useMisc.setState({ suppressNextPaneClick: true });
+
+    handleProjectSelectionChange({
+      active: false,
+      phase: "start",
+      rect: {
+        height: 0,
+        startX: 0,
+        startY: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+      },
+      selectedNodeIds: [],
+    });
+
+    expect(useMisc.getState().suppressNextPaneClick).toBe(false);
   });
 
   it("keeps Setta direct pane drag policy in the project adapter", () => {
@@ -938,10 +997,7 @@ function createMovementProjectStateRecords(): MovementProjectStateRecords {
   };
 }
 
-function movementTopLevelSection(
-  section: MovementSectionInput,
-  index: number,
-) {
+function movementTopLevelSection(section: MovementSectionInput, index: number) {
   return {
     h: section.topLevelHeight ?? 160,
     w: section.topLevelWidth ?? 200,

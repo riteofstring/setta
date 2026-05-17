@@ -13,6 +13,10 @@ import {
 } from "openapi/http";
 import { useEffect, useState } from "react";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
+import {
+  binaryPayloadToArrayBuffer,
+  type BinaryPayload,
+} from "utils/binaryPayload";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4000;
@@ -23,7 +27,7 @@ type FileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
 >;
 type FileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserFileContentResponse>;
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<BinaryPayload>;
 
 export type SelectedPreviewFile = {
   name: string;
@@ -175,7 +179,7 @@ async function loadTextPreview(
       );
     }
     const text = new TextDecoder().decode(
-      await binaryResponse.data.arrayBuffer(),
+      await binaryPayloadToArrayBuffer(binaryResponse.data),
     );
     const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
     return {

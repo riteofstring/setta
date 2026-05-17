@@ -238,6 +238,7 @@ function createProjectNodeResizeOptionsFromSources({
     onNodeResize: (change: GpuNodeResizeChange) => {
       sessionRef.current.resizeAttempted = true;
       sessionRef.current.doubleClickPending = false;
+      ensureProjectNodeHeightResizeStarted(change, sessionRef);
       patchProjectNodeResizeSceneLayout({
         change,
         layoutStore: getLayoutStore(),
@@ -538,11 +539,23 @@ function startProjectNodeResize(
     sectionId: change.nodeId,
     startSectionSize: { ...impl.size },
   };
-  promoteProjectNodeAutoSize(change, sessionRef);
-  if (isHeightResizeDirection(direction)) {
-    sessionRef.current.resizeStarted = true;
-    setProjectSectionResizeEvent(change.nodeId, "start");
+}
+
+function ensureProjectNodeHeightResizeStarted(
+  change: GpuNodeResizeChange,
+  sessionRef: MutableRefObject<ProjectNodeResizeSession>,
+) {
+  const direction = change.direction as ResizeHandleDirection;
+  if (
+    sessionRef.current.sectionId !== change.nodeId ||
+    sessionRef.current.resizeStarted ||
+    !isHeightResizeDirection(direction)
+  ) {
+    return;
   }
+  promoteProjectNodeAutoSize(change, sessionRef);
+  sessionRef.current.resizeStarted = true;
+  setProjectSectionResizeEvent(change.nodeId, "start");
 }
 
 function promoteProjectNodeAutoSize(

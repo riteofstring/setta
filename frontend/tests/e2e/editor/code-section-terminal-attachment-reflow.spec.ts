@@ -12,6 +12,7 @@ import {
   ensureTerminalAcceptsInput,
   expectDetachedTerminalHeaderLayout,
   focusTerminalAndType,
+  getEmbeddedTerminalHost,
   getTerminalLastResize,
   getTerminalOutputBuffer,
   getTerminalRowsSnapshot,
@@ -53,9 +54,7 @@ test("detached terminal accepts input", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,
@@ -132,9 +131,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,
@@ -324,9 +321,7 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,

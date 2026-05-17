@@ -51,15 +51,19 @@ import {
   findGpuNodeIdForEventTarget,
   isGpuNodePersistentFocusEventTarget,
 } from "./nodeTargetLookup";
+import { isGpuNodePersistentFocusOwnedByNode } from "./persistentFocusOwnership";
+import { createGpuNodeProjectedHoverSourceController } from "./projectedHoverSource";
 
 export function createGpuNodeInteractionDirtyController({
   cancelAnimationFrame,
   clearProjectedInteraction,
+  clearProjectedHoverInteraction,
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
   now,
   onStateChange,
+  projectHoverInteraction,
   projectPointerInteraction,
   requestAnimationFrame,
   requestFrame,
@@ -81,6 +85,10 @@ export function createGpuNodeInteractionDirtyController({
   let pointerInteractionNodeId: string | null = null;
   let pointerInteractionTarget: Element | null = null;
   let releaseAfterUploadNodeId: string | null = null;
+  const projectedHoverSources = createGpuNodeProjectedHoverSourceController({
+    clearProjectedHoverInteraction,
+    projectHoverInteraction,
+  });
   const animationCaptureLeases =
     createHtmlSurfaceAnimationCaptureLeaseController({
       ...(cancelAnimationFrame ? { cancelAnimationFrame } : {}),
@@ -180,6 +188,7 @@ export function createGpuNodeInteractionDirtyController({
     nodeId: string,
     eventTarget?: EventTarget | null | undefined,
   ) {
+    projectedHoverSources.clear();
     hoverInteractionNodeId = null;
     hoverInteractionTarget = null;
     pointerInteractionNodeId = nodeId;
@@ -282,6 +291,7 @@ export function createGpuNodeInteractionDirtyController({
 
     event.preventDefault();
     event.stopImmediatePropagation();
+    projectedHoverSources.clear();
     beginInteractiveNode(
       handoffTarget.nodeId,
       "scroll",
@@ -361,6 +371,7 @@ export function createGpuNodeInteractionDirtyController({
   function cancelPointerInteraction() {
     pendingPointerHandoffClick = null;
     clearTrustedPointerHandoffClickSuppression();
+    projectedHoverSources.clear();
     releasePointerInteraction();
     releaseResizeHandleHoverInteraction();
   }
@@ -621,7 +632,7 @@ export function createGpuNodeInteractionDirtyController({
 
   function handleFocusOut(event: FocusEvent) {
     const nodeId = findGpuNodeIdForEventTarget(event.target, elementByNodeId());
-    if (nodeId && isNodePersistentFocusTarget(nodeId, event.relatedTarget)) {
+    if (nodeId && hasPersistentFocusForNode(nodeId, event.relatedTarget)) {
       return;
     }
     if (nodeId && nodeId === focusedPersistentNodeId) {
@@ -699,6 +710,10 @@ export function createGpuNodeInteractionDirtyController({
           resolvePointerHandoffTarget,
           setHoverCursor,
           surfaceElement: canvas,
+        });
+        projectedHoverSources.update(event, {
+          dispatchingPointerHandoff,
+          pointerInteractionNodeId,
         });
         updateResizeHandleHoverInteraction(event, handoffTarget);
       };
@@ -840,7 +855,9 @@ export function createGpuNodeInteractionDirtyController({
       );
       canvas.addEventListener(
         "pointerleave",
-        () => setHoverCursor(null),
+        () => {
+          setHoverCursor(null);
+        },
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -876,6 +893,7 @@ export function createGpuNodeInteractionDirtyController({
         abortController.abort();
         canvas.style.cursor = originalCursor;
         clearTrustedPointerHandoffClickSuppression();
+        projectedHoverSources.clear();
         animationCaptureLeases.destroy();
       };
     },
@@ -891,6 +909,7 @@ export function createGpuNodeInteractionDirtyController({
         hoverInteractionNodeId = null;
         hoverInteractionTarget = null;
       }
+      projectedHoverSources.clear(nodeId);
       if (focusedPersistentNodeId === nodeId) {
         focusedPersistentNodeId = null;
       }
@@ -962,30 +981,16 @@ export function createGpuNodeInteractionDirtyController({
     );
   }
 
-  function hasPersistentFocusForNode(nodeId: string): boolean {
-    const activeElement = getNodeOwnerDocumentActiveElement(nodeId);
-    return isNodePersistentFocusTarget(nodeId, activeElement);
-  }
-
-  function getNodeOwnerDocumentActiveElement(nodeId: string): Element | null {
-    const nodeElement = elementByNodeId().get(nodeId);
-    return nodeElement?.ownerDocument.activeElement ?? null;
-  }
-
-  function isNodePersistentFocusTarget(
+  function hasPersistentFocusForNode(
     nodeId: string,
-    target: EventTarget | Node | null,
+    target?: EventTarget | Node | null,
   ): boolean {
-    if (focusedPersistentNodeId !== nodeId) {
-      return false;
-    }
     const nodeElement = elementByNodeId().get(nodeId);
-    const element = toElement(target);
-    return Boolean(
-      nodeElement &&
-        element &&
-        (nodeElement === element || nodeElement.contains(element)) &&
-        isGpuNodePersistentFocusEventTarget(element),
-    );
+    return isGpuNodePersistentFocusOwnedByNode({
+      focusedPersistentNodeId,
+      nodeElement,
+      nodeId,
+      target: target ?? nodeElement?.ownerDocument.activeElement ?? null,
+    });
   }
 }

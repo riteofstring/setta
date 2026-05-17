@@ -39,6 +39,12 @@ export type GpuNodeInteractionDirtyControllerOptions = {
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
   readonly now?: (() => number) | undefined;
+  readonly clearProjectedHoverInteraction?:
+    | ((nodeId: string) => void)
+    | undefined;
+  readonly projectHoverInteraction?:
+    | ((event: PointerEvent, previousNodeId: string | null) => string | null)
+    | undefined;
   readonly projectPointerInteraction?:
     | ((nodeId: string, event: PointerEvent) => void)
     | undefined;

@@ -106,6 +106,23 @@ describe("GPU project pane event handlers", () => {
     );
   });
 
+  it("consumes the suppressed pane click after marquee selection", () => {
+    const { root, surface } = createProjectPaneFixture();
+    setViewportDomNode(root);
+    const previousPaneClickLocation = useMisc.getState().lastPaneClickLocation;
+    useMisc.setState({ suppressNextPaneClick: true });
+
+    handleProjectPaneClick(
+      createMouseEvent(surface, { clientX: 130, clientY: 90 }),
+    );
+
+    expect(mocks.applyActiveSectionChange).not.toHaveBeenCalled();
+    expect(useMisc.getState().suppressNextPaneClick).toBe(false);
+    expect(useMisc.getState().lastPaneClickLocation).toEqual(
+      previousPaneClickLocation,
+    );
+  });
+
   it("opens pane context menus only from true background targets", () => {
     const { surface } = createProjectPaneFixture();
     const event = createMouseEvent(surface, { clientX: 40, clientY: 50 });

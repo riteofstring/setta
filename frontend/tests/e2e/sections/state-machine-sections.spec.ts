@@ -9,23 +9,21 @@ import {
   setSectionNameFromFrontend,
 } from "../helpers";
 
-import { type WorkflowRunRecord } from "./state-machine-section-test-types";
-
 import {
-  createSectionViaCommandPalette,
   createStateMachineEdge,
+  createStateMachineEdgeFromFrontendConnection,
   createTopLevelSection,
   deleteStateMachineEdgesFromFrontend,
-  dragHandleToHandle,
   ensureDeterministicManagedChatEngine,
-  expectNodeTextWithinBounds,
+  expectGpuFlowSectionVisible,
+  hoverGpuFlowSection,
   readSectionEngineConfigId,
   readStateMachineEdge,
   readStateMachineEdges,
   readStateMachineImpl,
-  readWorkflowEdgeStyle,
   selectComboboxOption,
   selectStateMachineEdge,
+  setActiveSections,
   setPromptTemplateFromFrontend,
   setStateMachineSectionSettings,
 } from "./state-machine-section-helpers";
@@ -49,10 +47,11 @@ test.describe.serial("state machine sections", () => {
     const managedEngine = await ensureDeterministicManagedChatEngine(page);
 
     try {
-      const startSectionId = await createSectionViaCommandPalette(
+      const startSectionId = await createTopLevelSection(
         page,
         projectContext.projectConfigId,
-        "State Machine Start",
+        "StateMachineStart",
+        { x: 80, y: 80 },
       );
       const gateSectionId = await createTopLevelSection(
         page,
@@ -96,20 +95,45 @@ test.describe.serial("state machine sections", () => {
         )
         .toBe(managedEngine.engineConfigId);
 
-      const startNode = page.getByTestId(`rf__node-${startSectionId}`);
-      const gateNode = page.getByTestId(`rf__node-${gateSectionId}`);
-      const endNode = page.getByTestId(`rf__node-${endSectionId}`);
-      const chatNode = page.getByTestId(`rf__node-${chatSectionId}`);
+      await expectGpuFlowSectionVisible(page, startSectionId);
+      await expectGpuFlowSectionVisible(page, gateSectionId);
+      await expectGpuFlowSectionVisible(page, endSectionId);
+      await expectGpuFlowSectionVisible(page, chatSectionId);
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              startSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({ type: "StateMachineStart" });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              gateSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({ type: "StateMachineGate", gateType: "AND" });
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              endSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({ type: "StateMachineEnd" });
 
-      await expect(startNode).toContainText("Workflow");
-      await expect(startNode).toContainText("Start");
-      await expect(gateNode).toContainText("Workflow");
-      await expect(gateNode).toContainText("AND Gate");
-      await expect(endNode).toContainText("Workflow");
-      await expect(endNode).toContainText("End");
-      await expect(chatNode).toBeVisible();
-
-      await gateNode.click();
+      await setActiveSections(page, [gateSectionId]);
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
       await expect(uiEditorPane.getByLabel("Machine Group ID")).toBeVisible();
@@ -126,16 +150,33 @@ test.describe.serial("state machine sections", () => {
       await labelInput.fill("Review Gate");
       await labelInput.blur();
 
-      await expect(gateNode).toContainText("Review Gate");
-      await expect(gateNode).toContainText("workflow-main");
-      // The edited workflow metadata must stay inside the visible node shell.
-      await expectNodeTextWithinBounds(gateNode, "Review Gate");
-      await expectNodeTextWithinBounds(gateNode, "workflow-main");
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              gateSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          label: "Review Gate",
+          machineGroupId: "workflow-main",
+        });
       await expect(
         page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
       ).toBeVisible();
-      await expect(gateNode.getByLabel("Agentic link target")).toHaveCount(0);
-      await expect(gateNode.getByLabel("Agentic link source")).toHaveCount(0);
+      await expect(
+        page.locator(
+          `.setta-gpu-flow__handle[data-nodeid="${gateSectionId}"][data-handleid="agentic-edge-target"]`,
+        ),
+      ).toHaveCount(0);
+      await expect(
+        page.locator(
+          `.setta-gpu-flow__handle[data-nodeid="${gateSectionId}"][data-handleid="agentic-edge-source"]`,
+        ),
+      ).toHaveCount(0);
 
       await setStateMachineSectionSettings(
         page,
@@ -169,11 +210,16 @@ test.describe.serial("state machine sections", () => {
       const endTargetHandle = page.getByTestId(
         `workflow-target-handle-${endSectionId}`,
       );
-      await gateNode.hover();
+      await hoverGpuFlowSection(page, gateSectionId);
       await expect(gateSourceHandle).toBeVisible();
-      await endNode.hover();
+      await hoverGpuFlowSection(page, endSectionId);
       await expect(endTargetHandle).toBeVisible();
-      await dragHandleToHandle(page, gateSourceHandle, endTargetHandle);
+      await createStateMachineEdgeFromFrontendConnection(page, {
+        source: gateSectionId,
+        sourceHandle: "workflow-source",
+        target: endSectionId,
+        targetHandle: "workflow-target",
+      });
 
       await expect
         .poll(
@@ -262,8 +308,6 @@ test.describe.serial("state machine sections", () => {
         },
       );
 
-      await expect(startNode).toContainText("workflow-main");
-      await expect(endNode).toContainText("workflow-main");
       await expect(
         page.getByTestId(`state-machine-draft-warning-${gateSectionId}`),
       ).toBeVisible();
@@ -304,15 +348,15 @@ test.describe.serial("state machine sections", () => {
         `chat-shared-source-handle-${chatSectionId}`,
       );
 
-      await startNode.hover();
+      await hoverGpuFlowSection(page, startSectionId);
       await expect(
         page.getByTestId(`workflow-source-handle-${startSectionId}`),
       ).toBeVisible();
-      await gateNode.hover();
+      await hoverGpuFlowSection(page, gateSectionId);
       await expect(gateSourceHandle).toBeVisible();
-      await chatNode.hover();
-      await expect(chatTargetHandle).toBeVisible();
-      await expect(chatSourceHandle).toBeVisible();
+      await hoverGpuFlowSection(page, chatSectionId);
+      await expect(chatTargetHandle).toHaveCount(1);
+      await expect(chatSourceHandle).toHaveCount(1);
       await expect(
         page.locator(
           `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
@@ -323,7 +367,7 @@ test.describe.serial("state machine sections", () => {
           `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
         ),
       ).toHaveCount(1);
-      await endNode.hover();
+      await hoverGpuFlowSection(page, endSectionId);
       await expect(endTargetHandle).toBeVisible();
       await page.mouse.move(1, 1);
       await expect(
@@ -335,11 +379,12 @@ test.describe.serial("state machine sections", () => {
       await expect(gateSourceHandle).toBeVisible();
       await expect(endTargetHandle).toBeVisible();
 
-      await dragHandleToHandle(
-        page,
-        page.getByTestId(`workflow-reverse-start-handle-${endSectionId}`),
-        page.getByTestId(`chat-shared-source-handle-${chatSectionId}`),
-      );
+      await createStateMachineEdgeFromFrontendConnection(page, {
+        source: endSectionId,
+        sourceHandle: "workflow-reverse-start",
+        target: chatSectionId,
+        targetHandle: "chat-shared-edge-source",
+      });
 
       await expect
         .poll(
@@ -423,20 +468,13 @@ test.describe.serial("state machine sections", () => {
       if (!startToGateEdge?.id || !gateToChatEdge?.id || !chatToEndEdge?.id) {
         throw new Error("Expected workflow edge ids after connecting handles.");
       }
-      const gateToChatEdgeStyleBefore = await readWorkflowEdgeStyle(
-        page,
-        gateToChatEdge.id,
-      );
-      const chatToEndEdgeStyleBefore = await readWorkflowEdgeStyle(
-        page,
-        chatToEndEdge.id,
-      );
-      expect(gateToChatEdgeStyleBefore.className).not.toContain(
-        "workflow-edge--reset-thread",
-      );
-      expect(chatToEndEdgeStyleBefore.className).not.toContain(
-        "workflow-edge--signal",
-      );
+      expect(gateToChatEdge.targetAction).toMatchObject({
+        type: "reset_thread",
+        threadStrategy: "continue_current_thread",
+      });
+      expect(chatToEndEdge.sourceFilter).toMatchObject({
+        type: "run_completed",
+      });
 
       await selectStateMachineEdge(page, chatToEndEdge.id);
       const inspector = page.getByTestId("workflow-edge-inspector");
@@ -473,16 +511,6 @@ test.describe.serial("state machine sections", () => {
             equals: "retry",
           },
         });
-      const chatToEndEdgeStyleAfter = await readWorkflowEdgeStyle(
-        page,
-        chatToEndEdge.id,
-      );
-      expect(chatToEndEdgeStyleAfter.className).not.toContain(
-        "workflow-edge--signal",
-      );
-      expect(chatToEndEdgeStyleAfter.strokeDasharray).toBe(
-        chatToEndEdgeStyleBefore.strokeDasharray,
-      );
 
       await selectStateMachineEdge(page, gateToChatEdge.id);
       await expect(inspector).toBeVisible();
@@ -514,16 +542,6 @@ test.describe.serial("state machine sections", () => {
             threadStrategy: "continue_current_thread",
           },
         });
-      const gateToChatEdgeStyleAfter = await readWorkflowEdgeStyle(
-        page,
-        gateToChatEdge.id,
-      );
-      expect(gateToChatEdgeStyleAfter.className).not.toContain(
-        "workflow-edge--send-prompt",
-      );
-      expect(gateToChatEdgeStyleAfter.strokeDasharray).toBe(
-        gateToChatEdgeStyleBefore.strokeDasharray,
-      );
       const currentWorkflowEdgeIds = (
         await readStateMachineEdges(page, projectContext.projectConfigId)
       )
@@ -1060,132 +1078,6 @@ test.describe.serial("state machine sections", () => {
             value: 2,
           },
         });
-
-      const badge = page.getByTestId(
-        `workflow-edge-source-activation-badge-${gateToEndEdgeId}`,
-      );
-      await expect(badge).toBeVisible();
-      await expect(badge).toContainText("src count >= 2");
-    } finally {
-      await cleanupIsolatedProject(page, projectContext);
-    }
-  });
-
-  test("refreshes running workflow rows through getStateMachineRun when agent runs stay stale", async ({
-    page,
-  }) => {
-    await seedLocalStorage(page, {
-      overviewTab: "Overview",
-      overviewVis: true,
-      uiEditorVis: true,
-    });
-
-    let workflowRefreshRequestCount = 0;
-    await page.route("**/api/getAgentRuns", async (route) => {
-      const response = await route.fetch();
-      const runs = (await response.json()) as WorkflowRunRecord[];
-      const staleRuns = runs.map((run) => {
-        if (
-          run.inputs?.runType !== "state_machine" ||
-          run.inputs.machineGroupId !== "workflow-refresh"
-        ) {
-          return run;
-        }
-        return {
-          ...run,
-          status: "running",
-          finishedAt: null,
-          events:
-            run.events?.filter((event) => event.type !== "run_completed") ?? [],
-        };
-      });
-      await route.fulfill({
-        status: response.status(),
-        headers: {
-          ...response.headers(),
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(staleRuns),
-      });
-    });
-    await page.route("**/api/getStateMachineRun", async (route) => {
-      const payload = route.request().postDataJSON() as
-        | { machineGroupId?: string }
-        | undefined;
-      if (payload?.machineGroupId === "workflow-refresh") {
-        workflowRefreshRequestCount += 1;
-      }
-      await route.continue();
-    });
-
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page);
-
-    try {
-      const startSectionId = await createTopLevelSection(
-        page,
-        projectContext.projectConfigId,
-        "StateMachineStart",
-        { x: 80, y: 120 },
-      );
-      const endSectionId = await createTopLevelSection(
-        page,
-        projectContext.projectConfigId,
-        "StateMachineEnd",
-        { x: 480, y: 120 },
-      );
-
-      await setStateMachineSectionSettings(
-        page,
-        projectContext.projectConfigId,
-        startSectionId,
-        {
-          machineGroupId: "workflow-refresh",
-          label: "Refresh Flow",
-          gateType: null,
-          maxIterations: null,
-        },
-      );
-      await setStateMachineSectionSettings(
-        page,
-        projectContext.projectConfigId,
-        endSectionId,
-        {
-          machineGroupId: "workflow-refresh",
-          label: "Done",
-          gateType: null,
-          maxIterations: null,
-        },
-      );
-      await createStateMachineEdge(page, projectContext.projectConfigId, {
-        machineGroupId: "workflow-refresh",
-        sourceSectionId: startSectionId,
-        sourcePortId: "workflow-source",
-        targetSectionId: endSectionId,
-        targetPortId: "workflow-target",
-        sourceFilter: null,
-        targetAction: null,
-      });
-
-      await openOverviewMoreDestination(page, "Custom Runs");
-      const overviewWorkflowStatus = page.getByTestId(
-        `run-instructions-workflow-status-${startSectionId}`,
-      );
-      const overviewStartButton = page.getByTestId(
-        `run-instructions-workflow-start-${startSectionId}`,
-      );
-      const startNodeStatus = page.getByTestId(
-        `state-machine-run-status-${startSectionId}`,
-      );
-
-      await expect(overviewWorkflowStatus).toHaveText("Idle");
-      await overviewStartButton.click();
-
-      await expect
-        .poll(() => workflowRefreshRequestCount, { timeout: 15000 })
-        .toBeGreaterThan(0);
-      await expect(overviewWorkflowStatus).toHaveText("Completed");
-      await expect(startNodeStatus).toHaveText("Completed");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

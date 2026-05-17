@@ -26,6 +26,10 @@ export function handleProjectPaneClick(event: ReactMouseEvent<HTMLDivElement>) {
   if (gpuFlowViewportStore.getState().userSelectionActive) {
     return;
   }
+  if (useMisc.getState().suppressNextPaneClick) {
+    useMisc.setState({ suppressNextPaneClick: false });
+    return;
+  }
   applyActiveSectionChange({ interaction: "pane-click" });
   useMisc.setState({
     lastPaneClickLocation: screenToFlowPosition({

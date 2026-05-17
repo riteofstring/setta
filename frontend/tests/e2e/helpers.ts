@@ -1603,6 +1603,64 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
   return null;
 }
 
+export async function disableCanvasSidePanePointerInterception(
+  page: Page,
+): Promise<void> {
+  await page.addStyleTag({
+    content: `
+      #OverviewPane aside.single-cell-container,
+      #OverviewPane [data-testid="overview-icon-rail"],
+      #OverviewPane [data-testid="overview-tab-content-shell"],
+      #UiEditorPane aside.single-cell-container,
+      #UiEditorPane [data-testid="ui-editor-icon-rail"],
+      #UiEditorPane [data-testid="ui-editor-tab-content-shell"] {
+        pointer-events: none !important;
+      }
+    `,
+  });
+}
+
+export async function hoverGpuFlowNode(
+  page: Page,
+  node: Locator,
+): Promise<void> {
+  await expect(node).toBeVisible();
+  const box = await getGpuFlowNodeScreenRect(node);
+  if (!box) {
+    throw new Error("Unable to resolve GPU flow node bounds for hover.");
+  }
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const nudgeX = Math.min(1, Math.max(0.25, box.width / 8));
+  const nudgeY = Math.min(1, Math.max(0.25, box.height / 8));
+  await page.mouse.move(x, y);
+  await page.mouse.move(x + nudgeX, y + nudgeY);
+}
+
+export async function getGpuFlowNodeScreenRect(
+  node: Locator,
+): Promise<{ height: number; width: number; x: number; y: number } | null> {
+  const gpuBox = await node.evaluate((element) => {
+    const nodeId =
+      element.getAttribute("data-id") ??
+      element.getAttribute("data-section-id") ??
+      null;
+    if (!nodeId) {
+      return null;
+    }
+    return (
+      (
+        window as typeof window & {
+          __settaGpuFlowNodeScreenRect?: (
+            nodeId: string,
+          ) => { height: number; width: number; x: number; y: number } | null;
+        }
+      ).__settaGpuFlowNodeScreenRect?.(nodeId) ?? null
+    );
+  });
+  return gpuBox ?? (await node.boundingBox());
+}
+
 export async function postBackend<T>(
   page: Page,
   path: string,

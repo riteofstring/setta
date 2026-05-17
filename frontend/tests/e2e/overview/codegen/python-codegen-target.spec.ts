@@ -18,6 +18,7 @@ import {
   setSectionSizesFromFrontend,
 } from "../../helpers";
 import {
+  activateSectionForEditor,
   createMetaControlCodeParamSection,
   createSectionVariantFromFrontend,
   type CreateTopLevelSectionResponse,
@@ -34,11 +35,13 @@ import {
   loadLatestCodegenProjectState,
   openCodegenAccordions,
   READY_SELECTOR,
+  readRetainedParamRowDebug,
   setCallableFromUi,
   setGenCodePrefixFromFrontend,
   setGenCodeSuffixFromFrontend,
   setParamValueFromFrontend,
   setSectionVariantFromFrontend,
+  showCallableUiConfigTab,
 } from "./python-codegen-target.helpers";
 
 test("python codegen toggle persists and reconciles the generated code section", async ({
@@ -241,10 +244,9 @@ test("generated python updates for callable and param changes and reports missin
     await setCallableFromUi(page, sectionId, "math.sqrt");
 
     const paramInfoId = await getFirstParamInfoId(page, sectionId);
-    const paramContainer = page.locator(
-      `[id="ParamContainer-${sectionId}-${paramInfoId}"]`,
-    );
-    await expect(paramContainer).toBeVisible();
+    await expect
+      .poll(() => readRetainedParamRowDebug(page, sectionId, paramInfoId))
+      .not.toBeNull();
 
     await expect(generatedCodeContent).toContainText("math.sqrt");
     const generatedCodeAfterCallable =
@@ -263,8 +265,11 @@ test("generated python updates for callable and param changes and reports missin
       .toMatch(/argument|parameter/i);
 
     await expect
-      .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
-      .toMatch(/bg-red-200/);
+      .poll(async () =>
+        (await readRetainedParamRowDebug(page, sectionId, paramInfoId))
+          ?.rowState.error ?? false,
+      )
+      .toBe(true);
 
     await setParamValueFromFrontend(page, {
       projectConfigId: projectContext.projectConfigId,
@@ -291,8 +296,11 @@ test("generated python updates for callable and param changes and reports missin
       .toBeNull();
 
     await expect
-      .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
-      .not.toMatch(/bg-red-200/);
+      .poll(async () =>
+        (await readRetainedParamRowDebug(page, sectionId, paramInfoId))
+          ?.rowState.error ?? false,
+      )
+      .toBe(false);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -330,7 +338,7 @@ test("generated python updates when switching callable section variants", async 
       `.setta-gpu-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
-    await sectionNode.click();
+    await activateSectionForEditor(page, sectionId);
 
     const originalVariantId = (await loadCodegenProjectState(page))
       .projectConfig.sectionVariantMap[sectionId];
@@ -433,13 +441,14 @@ test("generated python import fixes auto-refetch callable params without manual 
       )
       .toBeNull();
 
-    const firstParam = page
-      .locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+    await expect
+      .poll(
+        async () =>
+          (await readRetainedParamRowDebug(page, sectionId, paramInfoId))
+            ?.rowLabel ?? null,
       )
-      .first();
-    await expect(firstParam).toBeVisible({ timeout: 20000 });
-    await expect(firstParam.locator(".section-key").first()).toHaveText(/x/i);
+      .toMatch(/x/i);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -466,10 +475,8 @@ test("ui config does not crash when callable params appear and the callable is r
       .first();
     await expect(sectionChrome).toBeVisible();
 
-    await sectionChrome.click();
-    const uiConfigTab = page.getByTestId("ui-editor-tab-ui-config");
-    await expect(uiConfigTab).toBeVisible();
-    await uiConfigTab.click();
+    await activateSectionForEditor(page, sectionId);
+    await showCallableUiConfigTab(page);
 
     await setCallableFromUi(page, sectionId, "math.sqrt");
     await setGenCodePrefixFromFrontend(
@@ -480,8 +487,8 @@ test("ui config does not crash when callable params appear and the callable is r
 
     const paramInfoId = await getFirstParamInfoId(page, sectionId);
     await expect(
-      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
-    ).toBeVisible();
+      await readRetainedParamRowDebug(page, sectionId, paramInfoId),
+    ).not.toBeNull();
 
     const latestState = await loadCodegenProjectState(page);
     const generatedSectionId = latestState.singletonSections.GenPythonCode;
@@ -489,16 +496,15 @@ test("ui config does not crash when callable params appear and the callable is r
       throw new Error("Expected generated python singleton section.");
     }
 
-    await page
-      .locator(`.setta-gpu-flow__node[data-id="${generatedSectionId}"]`)
-      .click();
-    await sectionChrome.click();
+    await activateSectionForEditor(page, generatedSectionId);
+    await activateSectionForEditor(page, sectionId);
+    await showCallableUiConfigTab(page);
 
     await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
     await expect(page.locator("#UiEditorPane")).toBeVisible();
     await expect(
-      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
-    ).toBeVisible();
+      await readRetainedParamRowDebug(page, sectionId, paramInfoId),
+    ).not.toBeNull();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -525,10 +531,8 @@ test("ui config shows the current callable param type and applies slider selecti
       .first();
     await expect(sectionChrome).toBeVisible();
 
-    await sectionChrome.click();
-    const uiConfigTab = page.getByTestId("ui-editor-tab-ui-config");
-    await expect(uiConfigTab).toBeVisible();
-    await uiConfigTab.click();
+    await activateSectionForEditor(page, sectionId);
+    await showCallableUiConfigTab(page);
 
     await setCallableFromUi(page, sectionId, "math.sqrt");
     await setGenCodePrefixFromFrontend(
@@ -539,11 +543,11 @@ test("ui config shows the current callable param type and applies slider selecti
 
     const paramInfoId = await getFirstParamInfoId(page, sectionId);
     await expect(
-      sectionNode.locator(`[id="ParamContainer-${sectionId}-${paramInfoId}"]`),
-    ).toBeVisible();
+      await readRetainedParamRowDebug(page, sectionId, paramInfoId),
+    ).not.toBeNull();
 
-    await sectionChrome.click();
-    await uiConfigTab.click();
+    await activateSectionForEditor(page, sectionId);
+    await showCallableUiConfigTab(page);
     await expect(page.locator("#UiEditorPane")).toContainText("x");
 
     const uiTypeInput = page

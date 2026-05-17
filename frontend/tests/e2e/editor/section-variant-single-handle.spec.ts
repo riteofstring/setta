@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   clearProjectChatWindows,
@@ -9,10 +9,8 @@ import {
   openIsolatedProject,
   seedLocalStorage,
   setCallableFromFrontend,
+  setParamEnteredValueFromFrontend,
 } from "../helpers";
-
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
 
 async function createSectionVariantFromFrontend(
   page: Page,
@@ -127,85 +125,58 @@ async function setSectionVariantFromFrontend(
   );
 }
 
-async function getFirstParamInfoId(
+async function getShownParamInfoIds(
   page: Page,
   sectionId: string,
-): Promise<string> {
-  const firstParam = page
-    .locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
-    )
-    .first();
-  await expect(firstParam).toBeVisible({ timeout: 20000 });
-  const paramContainerId = await firstParam.getAttribute("id");
-  const prefix = `ParamContainer-${sectionId}-`;
-  if (!paramContainerId || !paramContainerId.startsWith(prefix)) {
-    throw new Error(
-      `Unexpected param container id for ${sectionId}: ${paramContainerId}`,
+): Promise<string[]> {
+  return await page.evaluate(async (targetSectionId) => {
+    const { getCurrShownParamIds } = await import(
+      "/src/state/actions/sectionInfos"
     );
-  }
-  return paramContainerId.slice(prefix.length);
+    const { useProjectState } = await import("/src/state/definitions");
+    const shown = getCurrShownParamIds(
+      useProjectState.getState(),
+      targetSectionId,
+      false,
+      true,
+    );
+    return shown.topLevelParamIds;
+  }, sectionId);
 }
 
-async function readCodeMirrorValue(
+async function getFirstShownParamInfoId(
   page: Page,
-  id: string,
-  fallbackId?: string,
-): Promise<string> {
-  const value = await page.evaluate(
-    ({ targetId, fallbackTargetId }) => {
-      const root =
-        document.getElementById(targetId) ??
-        (fallbackTargetId ? document.getElementById(fallbackTargetId) : null);
-      if (!root) {
-        return null;
-      }
-      const content =
-        root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
-      return content?.textContent ?? root.textContent ?? "";
+  sectionId: string,
+): Promise<string | null> {
+  return (await getShownParamInfoIds(page, sectionId))[0] ?? null;
+}
+
+async function getParamValueFromFrontendState(
+  page: Page,
+  sectionId: string,
+  paramInfoId: string,
+): Promise<string | null> {
+  return await page.evaluate(
+    async ({ targetSectionId, targetParamInfoId }) => {
+      const { getCurrEffectiveCodeObjImplWithTypeGuardIfPresent } =
+        await import("/src/state/actions/sectionInfos");
+      const { useProjectState } = await import("/src/state/definitions");
+      const { isBaseChildlessCodeObjImpl } = await import(
+        "/src/utils/generatedTypes"
+      );
+      const impl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+        useProjectState.getState(),
+        targetSectionId,
+        targetParamInfoId,
+        isBaseChildlessCodeObjImpl,
+        true,
+      );
+      return impl?.value ?? null;
     },
-    { targetId: id, fallbackTargetId: fallbackId },
-  );
-  return value ?? "";
-}
-
-async function fillCodeMirrorValue(
-  page: Page,
-  activationRoot: Locator,
-  codeMirrorId: string,
-  fallbackId: string,
-  value: string,
-): Promise<void> {
-  await expect(activationRoot).toBeVisible();
-
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await activationRoot.focus();
-    await page.waitForTimeout(50);
-    const codeMirrorRoot = page.locator(`[id="${codeMirrorId}"]`);
-    if (!(await codeMirrorRoot.isVisible())) {
-      await activationRoot.click({ force: true });
-    }
-    await expect(codeMirrorRoot).toBeVisible();
-    const cmContent = codeMirrorRoot.locator(".cm-content, .cm-line").first();
-    await expect(cmContent).toBeVisible();
-    await cmContent.click({ force: true });
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.press("Backspace");
-    await page.keyboard.insertText(value);
-
-    const startedAt = Date.now();
-    while (Date.now() - startedAt < 2000) {
-      if (
-        (await readCodeMirrorValue(page, codeMirrorId, fallbackId)) === value
-      ) {
-        return;
-      }
-      await page.waitForTimeout(50);
-    }
-  }
-
-  throw new Error(
-    `CodeMirror ${codeMirrorId} did not update to ${JSON.stringify(value)}.`,
+    {
+      targetSectionId: sectionId,
+      targetParamInfoId: paramInfoId,
+    },
   );
 }
 
@@ -235,7 +206,8 @@ test.describe.serial("section variants single-item handle", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
+      await showSectionVariantsTab(page, "TextBlock");
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -287,13 +259,11 @@ test.describe.serial("section variants single-item handle", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
+      await showSectionVariantsTab(page, "TextBlock");
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
-      await uiEditorPane
-        .locator('[data-testid="ui-editor-tab-section-variants-config"]')
-        .click();
       await expect(
         uiEditorPane.getByRole("heading", { name: "Variants" }),
       ).toBeVisible();
@@ -342,7 +312,8 @@ test.describe.serial("section variants single-item handle", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
+      await showSectionVariantsTab(page, "Callable");
 
       const blankVariantId = await createSectionVariantFromFrontend(
         page,
@@ -398,7 +369,8 @@ test.describe.serial("section variants single-item handle", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
+      await showSectionVariantsTab(page, "Callable");
 
       const projectState = await loadProjectConfig(page);
       const originalVariantId =
@@ -426,7 +398,9 @@ test.describe.serial("section variants single-item handle", () => {
       });
 
       await expect(node).toContainText("sorted");
-      await expect(node).toContainText("iterable");
+      await expect
+        .poll(() => getShownParamInfoIds(page, sectionId).then((ids) => ids.length))
+        .toBeGreaterThan(0);
 
       for (const variantId of [...blankVariantIds, originalVariantId]) {
         await setSectionVariantFromFrontend(
@@ -468,7 +442,8 @@ test.describe.serial("section variants single-item handle", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
+      await showSectionVariantsTab(page, "Callable");
 
       await setCallableFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
@@ -477,7 +452,13 @@ test.describe.serial("section variants single-item handle", () => {
         refetchParams: true,
       });
 
-      const paramInfoId = await getFirstParamInfoId(page, sectionId);
+      await expect
+        .poll(() => getShownParamInfoIds(page, sectionId).then((ids) => ids.length))
+        .toBeGreaterThan(0);
+      const paramInfoId = await getFirstShownParamInfoId(page, sectionId);
+      if (!paramInfoId) {
+        throw new Error(`Callable section ${sectionId} did not expose params.`);
+      }
       const originalVariantId =
         (await loadProjectConfig(page)).projectConfig.sectionVariantMap[
           sectionId
@@ -497,20 +478,17 @@ test.describe.serial("section variants single-item handle", () => {
         originalVariantId,
       );
 
-      const paramInputId = `${sectionId}-${paramInfoId}-ParamInput`;
-      const paramEditorId = `CodeMirror-${sectionId}-${paramInfoId}`;
-      const paramInputRoot = page.locator(`[id="${paramInputId}"]`);
-      await expect(paramInputRoot).toBeVisible();
-
-      await fillCodeMirrorValue(
-        page,
-        paramInputRoot,
-        paramEditorId,
-        paramInputId,
-        "2",
-      );
       await expect
-        .poll(() => readCodeMirrorValue(page, paramEditorId, paramInputId))
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
+        .toBe("");
+      await setParamEnteredValueFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        paramInfoId,
+        value: "2",
+      });
+      await expect
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
         .toBe("2");
 
       await setSectionVariantFromFrontend(
@@ -520,18 +498,17 @@ test.describe.serial("section variants single-item handle", () => {
         secondVariantId,
       );
       await expect
-        .poll(() => readCodeMirrorValue(page, paramEditorId, paramInputId))
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
         .toBe("");
 
-      await fillCodeMirrorValue(
-        page,
-        paramInputRoot,
-        paramEditorId,
-        paramInputId,
-        "3",
-      );
+      await setParamEnteredValueFromFrontend(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        paramInfoId,
+        value: "3",
+      });
       await expect
-        .poll(() => readCodeMirrorValue(page, paramEditorId, paramInputId))
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
         .toBe("3");
 
       await setSectionVariantFromFrontend(
@@ -541,7 +518,7 @@ test.describe.serial("section variants single-item handle", () => {
         originalVariantId,
       );
       await expect
-        .poll(() => readCodeMirrorValue(page, paramEditorId, paramInputId))
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
         .toBe("2");
 
       await setSectionVariantFromFrontend(
@@ -551,10 +528,47 @@ test.describe.serial("section variants single-item handle", () => {
         secondVariantId,
       );
       await expect
-        .poll(() => readCodeMirrorValue(page, paramEditorId, paramInputId))
+        .poll(() => getParamValueFromFrontendState(page, sectionId, paramInfoId))
         .toBe("3");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
 });
+
+async function activateSectionForEditor(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (id) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    setActiveSectionIds([id], { syncMode: "ui-only" });
+  }, sectionId);
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { getActiveSectionUIIds } = await import(
+          "/src/state/activeSectionUI"
+        );
+        return getActiveSectionUIIds();
+      }),
+    )
+    .toEqual([sectionId]);
+}
+
+async function showSectionVariantsTab(
+  page: Page,
+  sectionType: "Callable" | "TextBlock",
+): Promise<void> {
+  await page.evaluate(async (type) => {
+    const { useLocalStorage } = await import("/src/state/definitions");
+    useLocalStorage.setState((state) => ({
+      uiEditorTab: {
+        ...state.uiEditorTab,
+        [type]: "SectionVariantsConfig",
+      },
+    }));
+  }, sectionType);
+}

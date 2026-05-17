@@ -86,6 +86,7 @@ export type GpuFlowInteractionDiagnostics = {
   readonly activeDomIsland: GpuFlowElementDiagnostics | null;
   readonly activeMode: GpuFlowInteractionMode;
   readonly activeResizeNodeId: string | null;
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceDebugEntry | null;
   readonly activeRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly hoveredRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly lastPointer: GpuFlowPointerDiagnostics | null;
@@ -113,6 +114,30 @@ export type GpuFlowInteractionDiagnostics = {
     readonly viewportInteractionActive: boolean;
     readonly wheelZooming: boolean;
   };
+};
+
+export type GpuFlowCommittedSurfaceDebugEntry = {
+  readonly actorCount: number;
+  readonly blockingActorIds: readonly string[];
+  readonly canvasRetainedFrameId: number;
+  readonly clipChainRevision: string;
+  readonly debugSnapshotFrameId: number;
+  readonly displayFrameId: number;
+  readonly displayCompletenessStatus: string;
+  readonly domControlActorCount: number;
+  readonly domControlCommittedFrameId: number;
+  readonly domIslandActorCount: number;
+  readonly domIslandCommittedFrameId: number;
+  readonly gpuNativeVisualActorCount: number;
+  readonly gpuNativeVisualCommittedFrameId: number;
+  readonly hitGenerationId: string;
+  readonly htmlTextureActorCount: number;
+  readonly htmlTextureOverlayCommittedFrameId: number;
+  readonly projectedVisibleNonemptyDomControlCount: number;
+  readonly retainedScrollRevision: number;
+  readonly retainedPageActorCount: number;
+  readonly sceneRevision: number;
+  readonly visibleNonemptyDomControlCount: number;
 };
 
 export type GpuFlowRetainedRowDebugEntry = {
@@ -155,12 +180,17 @@ export function createGpuFlowInteractionDiagnosticsState(): MutableGpuFlowIntera
 
 export function createGpuFlowInteractionDiagnosticsSnapshot({
   activeResizeNodeId,
+  committedSurfaceFrame = null,
   diagnostics,
   nodeInteractionActiveNodeId,
   ownerDocument,
   viewportState,
 }: {
   readonly activeResizeNodeId: string | null;
+  readonly committedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceDebugEntry
+    | null
+    | undefined;
   readonly diagnostics: MutableGpuFlowInteractionDiagnostics;
   readonly nodeInteractionActiveNodeId: string | null;
   readonly ownerDocument: Document | null;
@@ -178,6 +208,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
       viewportState,
     }),
     activeResizeNodeId,
+    committedSurfaceFrame,
     activeRetainedHit: diagnostics.activeRetainedHit,
     hoveredRetainedHit: diagnostics.hoveredRetainedHit,
     lastPointer: diagnostics.lastPointer,

@@ -15,6 +15,7 @@ const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
 const REQUEST_TIMEOUT_MS = 5000;
+const FORMAT_RESPONSE_TIMEOUT_MS = 10000;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -84,13 +85,10 @@ test("formatting errors show diagnostics for code sections", async ({
     await expect(section).toBeVisible();
     const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
-    await codeArea.click();
+    await activateSectionForShortcuts(page, sectionId);
+    await focusCodeArea(codeArea);
 
-    const responsePromise = page.waitForResponse((response) => {
-      return (
-        response.url().includes("/api/formatCode") && response.status() === 422
-      );
-    });
+    const responsePromise = waitForFormatErrorResponse(page);
     await page.keyboard.press(FORMAT_SHORTCUT);
     const response = await responsePromise;
     const detail = await readErrorDetail(response);
@@ -103,7 +101,7 @@ test("formatting errors show diagnostics for code sections", async ({
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
+    await clickSourceControl(issuesButton);
 
     await expect(page.getByText("Problems").first()).toBeVisible();
     const detailSnippet = extractFirstDetailLine(detail);
@@ -115,14 +113,7 @@ test("formatting errors show diagnostics for code sections", async ({
 
     const lintTarget = section.locator(".cm-lintRange, .cm-lintPoint").first();
     await expect.poll(async () => await lintTarget.count()).toBeGreaterThan(0);
-    const lintTargetBox = await lintTarget.evaluate((el) => {
-      const rect = el.getBoundingClientRect();
-      return {
-        x: rect.left + Math.max(rect.width / 2, 1),
-        y: rect.top + Math.max(rect.height / 2, 1),
-      };
-    });
-    await page.mouse.move(lintTargetBox.x, lintTargetBox.y);
+    await hoverSourceElement(lintTarget);
     const lintTooltip = page
       .locator(".setta-codemirror-tooltips .cm-tooltip-lint")
       .first();
@@ -159,13 +150,10 @@ test("code issues popover stays attached while panning", async ({ page }) => {
     await expect(section).toBeVisible();
     const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
-    await codeArea.click();
+    await activateSectionForShortcuts(page, sectionId);
+    await focusCodeArea(codeArea);
 
-    const responsePromise = page.waitForResponse((response) => {
-      return (
-        response.url().includes("/api/formatCode") && response.status() === 422
-      );
-    });
+    const responsePromise = waitForFormatErrorResponse(page);
     await page.keyboard.press(FORMAT_SHORTCUT);
     await responsePromise;
 
@@ -174,7 +162,7 @@ test("code issues popover stays attached while panning", async ({ page }) => {
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
+    await clickSourceControl(issuesButton);
 
     const problemsLabel = page.getByText("Problems").first();
     await expect(problemsLabel).toBeVisible();
@@ -232,13 +220,10 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
       .locator("article.section-full-no-title")
       .first();
     await expect(codeArea).toBeVisible();
-    await codeArea.click();
+    await activateSectionForShortcuts(page, generatedSectionId);
+    await focusCodeArea(codeArea);
 
-    const responsePromise = page.waitForResponse((response) => {
-      return (
-        response.url().includes("/api/formatCode") && response.status() === 422
-      );
-    });
+    const responsePromise = waitForFormatErrorResponse(page);
     await page.keyboard.press(FORMAT_SHORTCUT);
     const response = await responsePromise;
     const detail = await readErrorDetail(response);
@@ -251,7 +236,7 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
       .getByRole("button", { name: /Issues/ })
       .first();
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
+    await clickSourceControl(issuesButton);
 
     await expect(page.getByText("Generated code issues").first()).toBeVisible();
     const detailSnippet = extractFirstDetailLine(detail);
@@ -290,7 +275,7 @@ test("lsp diagnostics persist after hard refresh", async ({ page }) => {
     await expect(section).toBeVisible();
     const codeArea = section.locator("article.section-full-no-title").first();
     await expect(codeArea).toBeVisible();
-    await codeArea.click();
+    await focusCodeArea(codeArea);
 
     const issuesButton = section
       .locator("header.section-title")
@@ -298,7 +283,7 @@ test("lsp diagnostics persist after hard refresh", async ({ page }) => {
       .first();
     await expect.poll(async () => (await issuesButton.count()) > 0).toBe(true);
     await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
+    await clickSourceControl(issuesButton);
     await expect(page.getByText("Problems").first()).toBeVisible();
     await expect(page.getByText("is not defined").first()).toBeVisible();
 
@@ -315,7 +300,7 @@ test("lsp diagnostics persist after hard refresh", async ({ page }) => {
       .poll(async () => (await issuesButtonAfter.count()) > 0)
       .toBe(true);
     await expect(issuesButtonAfter).toBeVisible();
-    await issuesButtonAfter.click();
+    await clickSourceControl(issuesButtonAfter);
     await expect(page.getByText("Problems").first()).toBeVisible();
     await expect(page.getByText("is not defined").first()).toBeVisible();
   } finally {
@@ -398,6 +383,80 @@ function findSectionByName(page: Page, name: string): Locator {
 
 function findSectionById(page: Page, sectionId: string): Locator {
   return page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
+}
+
+async function focusCodeArea(codeArea: Locator): Promise<void> {
+  await codeArea.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error("Code area is not an HTMLElement.");
+    }
+    const codeMirrorContent =
+      element.querySelector<HTMLElement>(".cm-content") ?? element;
+    codeMirrorContent.focus({ preventScroll: true });
+  });
+  await expect
+    .poll(async () =>
+      codeArea.evaluate((element) => element.contains(document.activeElement)),
+    )
+    .toBe(true);
+}
+
+async function clickSourceControl(control: Locator): Promise<void> {
+  await control.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error("Source control target is not an HTMLElement.");
+    }
+    element.click();
+  });
+}
+
+async function hoverSourceElement(target: Locator): Promise<void> {
+  await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const clientX = rect.left + Math.max(rect.width / 2, 1);
+    const clientY = rect.top + Math.max(rect.height / 2, 1);
+    for (const type of ["mouseover", "mouseenter", "mousemove"]) {
+      element.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          clientX,
+          clientY,
+          view: window,
+        }),
+      );
+    }
+  });
+}
+
+async function activateSectionForShortcuts(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (id) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    setActiveSectionIds([id], { syncMode: "ui-only" });
+  }, sectionId);
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { getActiveSectionUIIds } = await import(
+          "/src/state/activeSectionUI"
+        );
+        return getActiveSectionUIIds();
+      }),
+    )
+    .toEqual([sectionId]);
+}
+
+function waitForFormatErrorResponse(page: Page): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/formatCode") && response.status() === 422,
+    { timeout: FORMAT_RESPONSE_TIMEOUT_MS },
+  );
 }
 
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {

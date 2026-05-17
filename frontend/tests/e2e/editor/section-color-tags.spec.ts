@@ -53,7 +53,7 @@ test.describe.serial("section color tags", () => {
         .locator(`section[data-section-id="${sectionId}"]`)
         .first();
       await expect(sectionChrome).toBeVisible();
-      await sectionChrome.dispatchEvent("click");
+      await activateSectionForEditor(page, sectionId);
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -138,7 +138,7 @@ test.describe.serial("section color tags", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -238,7 +238,7 @@ test.describe.serial("section color tags", () => {
         `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(nodeAfter).toBeVisible();
-      await nodeAfter.click();
+      await activateSectionForEditor(page, sectionId);
       await expect(
         nodeAfter.locator(
           'header.section-title span[title="Color tag: #3b82f6"]',
@@ -297,4 +297,26 @@ async function clearProjectChatWindows(page: Page): Promise<void> {
     replaceProjectChatWindowingState(createProjectChatWindowingState());
   });
   await expect(page.getByTestId("project-chat-floating-window")).toHaveCount(0);
+}
+
+async function activateSectionForEditor(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (id) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    setActiveSectionIds([id], { syncMode: "ui-only" });
+  }, sectionId);
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { getActiveSectionUIIds } = await import(
+          "/src/state/activeSectionUI"
+        );
+        return getActiveSectionUIIds();
+      }),
+    )
+    .toEqual([sectionId]);
 }

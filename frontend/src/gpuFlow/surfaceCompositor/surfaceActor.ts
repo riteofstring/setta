@@ -9,8 +9,7 @@ import type {
 export type SurfaceActorKind =
   | "dom-section"
   | "retained-parameter-content"
-  | "retained-passive-dom-control"
-  | "retained-active-dom-control"
+  | "dom-control"
   | "edge-label"
   | "selection-overlay"
   | "resize-overlay"

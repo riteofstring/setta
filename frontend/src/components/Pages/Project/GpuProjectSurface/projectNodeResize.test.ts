@@ -17,6 +17,7 @@ import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topL
 import {
   useNodeInternals,
   useProjectState,
+  useResizeEvent,
   useSettings,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -848,5 +849,54 @@ describe("project GPU node resize adapter", () => {
     const impl = useProjectState.getState().sectionImpls[implId];
     expect(impl?.size.height).toBe("auto");
     expect(setSectionSizes).not.toHaveBeenCalled();
+  });
+
+  it("defers height resize events until the section actually resizes", () => {
+    resetProjectStores();
+    seedProjectState(
+      createSectionSize({
+        height: "auto",
+        width: 200,
+      }) as unknown as NonNullable<CreateChatSectionImplOptions["size"]>,
+    );
+    const sessionRef = { current: createProjectNodeResizeSession() };
+    const options = createProjectNodeResizeOptions({
+      canEditLayout: true,
+      flowInteractionKeys: {
+        panActivationKeyPressed: false,
+        selectionKeyPressed: false,
+        zoomActivationKeyPressed: false,
+      },
+      isFollowTransitioning: false,
+      sessionRef,
+    });
+    const startWidth = toTopLevelSectionOuterDimension(200);
+    const startHeight = toTopLevelSectionOuterDimension(120);
+
+    options.onNodeResizeStart(
+      createResizeChange({
+        direction: "bottom",
+        phase: "start",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: startHeight,
+      }),
+    );
+
+    expect(useResizeEvent.getState().resizeEvent[sectionId]).toBeUndefined();
+
+    options.onNodeResize(
+      createResizeChange({
+        direction: "bottom",
+        phase: "resize",
+        startHeight,
+        startWidth,
+        width: startWidth,
+        height: startHeight + 80,
+      }),
+    );
+
+    expect(useResizeEvent.getState().resizeEvent[sectionId]).toBe("start");
   });
 });

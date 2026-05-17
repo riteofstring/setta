@@ -1,8 +1,10 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
 
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
+  type GpuFlowCommittedSurfaceDebugEntry,
   type GpuFlowRetainedRowDebugEntry,
   type GpuFlowVisualSurfaceDebugEntry,
   type MutableGpuFlowInteractionDiagnostics,
@@ -56,6 +58,7 @@ export function useGpuFlowDebugGlobals<
   activeResizeNodeIdRef,
   containerRef,
   getViewport,
+  getCommittedSurfaceFrame,
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
@@ -65,6 +68,9 @@ export function useGpuFlowDebugGlobals<
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly containerRef: RefObject<HTMLElement | null>;
   readonly getViewport: () => GpuViewportTuple;
+  readonly getCommittedSurfaceFrame?:
+    | (() => GpuFlowCommittedSurfaceFrame | null)
+    | undefined;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<TNodeLayer>;
@@ -81,6 +87,9 @@ export function useGpuFlowDebugGlobals<
     const getSnapshot = () =>
       createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
+        committedSurfaceFrame: toCommittedSurfaceDebugEntry(
+          getCommittedSurfaceFrame?.() ?? null,
+        ),
         diagnostics: interactionDiagnosticsRef.current,
         nodeInteractionActiveNodeId:
           nodeInteractionRef.current?.getActiveNodeId() ?? null,
@@ -126,12 +135,48 @@ export function useGpuFlowDebugGlobals<
     activeResizeNodeIdRef,
     containerRef,
     getViewport,
+    getCommittedSurfaceFrame,
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
     retainedContentRuntimeState,
     viewportStore,
   ]);
+}
+
+function toCommittedSurfaceDebugEntry(
+  frame: GpuFlowCommittedSurfaceFrame | null,
+): GpuFlowCommittedSurfaceDebugEntry | null {
+  if (!frame) {
+    return null;
+  }
+  return {
+    actorCount: frame.diagnostics.actorCount,
+    blockingActorIds: frame.displayCompleteness.blockingActorIds,
+    canvasRetainedFrameId: frame.coherence.canvasRetainedFrameId,
+    clipChainRevision: frame.coherence.clipChainRevision,
+    debugSnapshotFrameId: frame.coherence.debugSnapshotFrameId,
+    displayFrameId: frame.displayFrameId,
+    displayCompletenessStatus: frame.displayCompleteness.status,
+    domControlActorCount: frame.diagnostics.domControlActorCount,
+    domControlCommittedFrameId: frame.coherence.domControlCommittedFrameId,
+    domIslandActorCount: frame.diagnostics.domIslandActorCount,
+    domIslandCommittedFrameId: frame.coherence.domIslandCommittedFrameId,
+    gpuNativeVisualActorCount: frame.diagnostics.gpuNativeVisualActorCount,
+    gpuNativeVisualCommittedFrameId:
+      frame.coherence.gpuNativeVisualCommittedFrameId,
+    hitGenerationId: frame.coherence.hitGenerationId,
+    htmlTextureActorCount: frame.diagnostics.htmlTextureActorCount,
+    htmlTextureOverlayCommittedFrameId:
+      frame.coherence.htmlTextureOverlayCommittedFrameId,
+    projectedVisibleNonemptyDomControlCount:
+      frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
+    retainedScrollRevision: frame.coherence.retainedScrollRevision,
+    retainedPageActorCount: frame.diagnostics.retainedPageActorCount,
+    sceneRevision: frame.sceneRevision,
+    visibleNonemptyDomControlCount:
+      frame.displayCompleteness.visibleNonemptyDomControlCount,
+  };
 }
 
 function createGpuFlowVisualSurfacesDebugSnapshot({

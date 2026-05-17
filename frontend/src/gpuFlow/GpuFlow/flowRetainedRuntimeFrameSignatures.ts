@@ -39,23 +39,3 @@ export function createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
     })),
   });
 }
-
-export function resolveOverlayRetainedRuntimeFrame({
-  initialRetainedRuntimeFrame,
-  retainedRuntimeFrame,
-}: {
-  readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
-}): GpuRetainedRuntimeFrame {
-  return retainedRuntimeFrame ?? initialRetainedRuntimeFrame;
-}
-
-export function resolveSourceRetainedRuntimeFrame({
-  overlayRetainedRuntimeFrame,
-  retainedPreparationRuntimeFrame,
-}: {
-  readonly overlayRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
-  readonly retainedPreparationRuntimeFrame: GpuRetainedRuntimeFrame | null;
-}): GpuRetainedRuntimeFrame {
-  return retainedPreparationRuntimeFrame ?? overlayRetainedRuntimeFrame;
-}

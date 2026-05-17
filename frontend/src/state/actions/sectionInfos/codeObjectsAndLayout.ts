@@ -288,6 +288,7 @@ function getComparableProjectState(
     artifactGroups: state.artifactGroups,
     pluginData: state.pluginData,
     projectConfig: state.projectConfig,
+    sectionCapabilities: state.sectionCapabilities,
     singletonSections: state.singletonSections,
     parentSectionMap: state.parentSectionMap,
     shownParamIds: state.shownParamIds,

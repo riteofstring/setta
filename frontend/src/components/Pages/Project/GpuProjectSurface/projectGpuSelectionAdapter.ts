@@ -163,6 +163,7 @@ export function handleProjectSelectionChange(
   change: ProjectGpuSelectionChange,
 ) {
   if (change.phase === "start") {
+    useMisc.setState({ suppressNextPaneClick: false });
     applyActiveSectionChange(
       { interaction: "selection-rect", selectedIds: [] },
       { syncMode: "ui-only" },
@@ -179,10 +180,13 @@ export function handleProjectSelectionChange(
     );
     return;
   }
-  if (change.phase === "end" && change.active) {
+  if (change.phase === "end") {
     setActiveSectionIds(getActiveSectionUIIds(), {
       forceDurableSync: true,
     });
+    if (change.active && change.selectedNodeIds.length > 0) {
+      useMisc.setState({ suppressNextPaneClick: true });
+    }
   }
 }
 

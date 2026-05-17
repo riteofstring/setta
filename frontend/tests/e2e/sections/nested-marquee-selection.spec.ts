@@ -3,6 +3,7 @@ import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   createTopLevelSectionFromFrontend,
+  disableCanvasSidePanePointerInterception,
   ensureAppReady,
   moveSectionsFromFrontend,
   openIsolatedProject,
@@ -13,6 +14,7 @@ type ImplType = "Group" | "Code";
 test("marquee selection includes nested group children", async ({ page }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await disableCanvasSidePanePointerInterception(page);
 
   try {
     const groupId = await createTopLevelSection(
@@ -27,7 +29,7 @@ test("marquee selection includes nested group children", async ({ page }) => {
     );
 
     await placeSections(page, projectContext.projectConfigId, {
-      [groupId]: { x: 420, y: 120 },
+      [groupId]: { x: 120, y: 120 },
       [childId]: { x: 80, y: 120 },
     });
     await moveSectionsFromFrontend(page, {
@@ -45,23 +47,20 @@ test("marquee selection includes nested group children", async ({ page }) => {
       .toEqual([]);
 
     const pane = page.locator(".setta-gpu-flow__pane").first();
-    const childSection = page
-      .locator(`section[data-section-id="${childId}"]`)
-      .first();
 
     await expect(pane).toBeVisible();
-    await expect(childSection).toBeVisible();
+    await waitForGpuFlowNodeScreenRect(page, groupId);
+    const childBox = await waitForGpuFlowNodeScreenRect(page, childId);
 
     const paneBox = await pane.boundingBox();
-    const childBox = await childSection.boundingBox();
-    if (!paneBox || !childBox) {
+    if (!paneBox) {
       throw new Error("Missing bounds for nested marquee selection test.");
     }
 
-    // Start on empty pane space just left of the nested child so the pane owns
-    // the drag gesture, then sweep a box that fully covers the child only.
-    const startX = Math.max(paneBox.x + 16, childBox.x - 56);
-    const startY = Math.max(paneBox.y + 16, childBox.y - 12);
+    // Start on empty pane space so the pane owns the drag gesture, then sweep
+    // a box that fully covers the nested child.
+    const startX = paneBox.x + 16;
+    const startY = Math.max(paneBox.y + 16, childBox.y - 24);
     const endX = Math.min(
       paneBox.x + paneBox.width - 16,
       childBox.x + childBox.width + 12,
@@ -71,16 +70,7 @@ test("marquee selection includes nested group children", async ({ page }) => {
       childBox.y + childBox.height + 12,
     );
 
-    // Hold the selection modifier so the pane uses marquee selection.
-    await page.keyboard.down("Shift");
-    try {
-      await page.mouse.move(startX, startY);
-      await page.mouse.down();
-      await page.mouse.move(endX, endY, { steps: 16 });
-      await page.mouse.up();
-    } finally {
-      await page.keyboard.up("Shift");
-    }
+    await dragSelectionBox(page, { endX, endY, startX, startY, steps: 16 });
 
     await expect
       .poll(async () => {
@@ -100,6 +90,7 @@ test("marquee selection ignores far-away unmeasured top-level nodes when DOM bou
 }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await disableCanvasSidePanePointerInterception(page);
 
   try {
     const sectionId = await createTopLevelSection(
@@ -112,12 +103,9 @@ test("marquee selection ignores far-away unmeasured top-level nodes when DOM bou
     });
 
     const pane = page.locator(".setta-gpu-flow__pane").first();
-    const section = page
-      .locator(`section[data-section-id="${sectionId}"]`)
-      .first();
 
     await expect(pane).toBeVisible();
-    await expect(section).toBeVisible();
+    await waitForGpuFlowNodeScreenRect(page, sectionId);
     await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
 
     await page.evaluate(async (targetSectionId) => {
@@ -146,15 +134,7 @@ test("marquee selection ignores far-away unmeasured top-level nodes when DOM bou
     const endX = paneBox.x + paneBox.width - 32;
     const endY = paneBox.y + paneBox.height - 32;
 
-    await page.keyboard.down("Shift");
-    try {
-      await page.mouse.move(startX, startY);
-      await page.mouse.down();
-      await page.mouse.move(endX, endY, { steps: 12 });
-      await page.mouse.up();
-    } finally {
-      await page.keyboard.up("Shift");
-    }
+    await dragSelectionBox(page, { endX, endY, startX, startY, steps: 12 });
 
     await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
   } finally {
@@ -167,6 +147,7 @@ test("marquee selection ignores zero-width node internals when DOM bounds do not
 }) => {
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  await disableCanvasSidePanePointerInterception(page);
 
   try {
     const sectionId = await createTopLevelSection(
@@ -179,12 +160,9 @@ test("marquee selection ignores zero-width node internals when DOM bounds do not
     });
 
     const pane = page.locator(".setta-gpu-flow__pane").first();
-    const section = page
-      .locator(`section[data-section-id="${sectionId}"]`)
-      .first();
 
     await expect(pane).toBeVisible();
-    await expect(section).toBeVisible();
+    await waitForGpuFlowNodeScreenRect(page, sectionId);
     await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
 
     await page.evaluate(async (targetSectionId) => {
@@ -213,15 +191,7 @@ test("marquee selection ignores zero-width node internals when DOM bounds do not
     const endX = paneBox.x + paneBox.width - 32;
     const endY = paneBox.y + paneBox.height - 32;
 
-    await page.keyboard.down("Shift");
-    try {
-      await page.mouse.move(startX, startY);
-      await page.mouse.down();
-      await page.mouse.move(endX, endY, { steps: 12 });
-      await page.mouse.up();
-    } finally {
-      await page.keyboard.up("Shift");
-    }
+    await dragSelectionBox(page, { endX, endY, startX, startY, steps: 12 });
 
     await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
   } finally {
@@ -274,4 +244,89 @@ async function readFrontendActiveIds(page: Page): Promise<string[]> {
     );
     return [...useActiveSectionUI.getState().activeIds];
   });
+}
+
+type GpuFlowNodeScreenRect = {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+};
+
+async function readGpuFlowNodeScreenRect(
+  page: Page,
+  nodeId: string,
+): Promise<GpuFlowNodeScreenRect | null> {
+  return await page.evaluate((nodeId) => {
+    return (
+      (
+        window as typeof window & {
+          __settaGpuFlowNodeScreenRect?: (
+            nodeId: string,
+          ) => GpuFlowNodeScreenRect | null;
+        }
+      ).__settaGpuFlowNodeScreenRect?.(nodeId) ?? null
+    );
+  }, nodeId);
+}
+
+async function waitForGpuFlowNodeScreenRect(
+  page: Page,
+  nodeId: string,
+): Promise<GpuFlowNodeScreenRect> {
+  await expect
+    .poll(async () => {
+      const rect = await readGpuFlowNodeScreenRect(page, nodeId);
+      return rect === null || rect.width <= 0 || rect.height <= 0
+        ? null
+        : {
+            height: Math.round(rect.height),
+            width: Math.round(rect.width),
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+          };
+    })
+    .not.toBeNull();
+
+  const rect = await readGpuFlowNodeScreenRect(page, nodeId);
+  if (rect === null || rect.width <= 0 || rect.height <= 0) {
+    throw new Error(`Missing GPU flow node screen rect for ${nodeId}.`);
+  }
+  return rect;
+}
+
+async function dragSelectionBox(
+  page: Page,
+  input: {
+    readonly endX: number;
+    readonly endY: number;
+    readonly startX: number;
+    readonly startY: number;
+    readonly steps: number;
+  },
+): Promise<void> {
+  await setGpuFlowSelectionKeyPressed(page, true);
+  try {
+    await page.mouse.move(input.startX, input.startY);
+    await page.mouse.down();
+    await page.mouse.move(input.endX, input.endY, { steps: input.steps });
+    await page.mouse.up();
+  } finally {
+    await setGpuFlowSelectionKeyPressed(page, false);
+  }
+}
+
+async function setGpuFlowSelectionKeyPressed(
+  page: Page,
+  pressed: boolean,
+): Promise<void> {
+  await page.evaluate(async (pressed) => {
+    const { activateSelectionKeyPressed, deactivateSelectionKeyPressed } =
+      await import("/src/state/actions/keyActivations/tabAndModeActions.ts");
+    if (pressed) {
+      activateSelectionKeyPressed();
+    } else {
+      deactivateSelectionKeyPressed();
+    }
+  }, pressed);
 }

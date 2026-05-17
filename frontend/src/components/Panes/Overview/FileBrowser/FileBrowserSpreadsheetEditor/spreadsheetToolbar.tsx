@@ -39,6 +39,10 @@ import {
 import { useListRef } from "react-window";
 
 import { uploadBinaryPayload } from "utils/binaryUpload";
+import {
+  binaryPayloadToUint8Array,
+  type BinaryPayload,
+} from "utils/binaryPayload";
 
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 
@@ -71,7 +75,7 @@ export type FileBrowserFileStatRouteResponse =
 type WriteFileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserWriteFileContentResponse>;
 
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<BinaryPayload>;
 
 export type SpreadsheetDraft = {
   path: string;
@@ -148,7 +152,7 @@ export async function loadSpreadsheetDraft(
   }
   const parsed = await parseSpreadsheetBytes(
     path,
-    new Uint8Array(await binaryResponse.data.arrayBuffer()),
+    await binaryPayloadToUint8Array(binaryResponse.data),
   );
   return {
     status: "success",
