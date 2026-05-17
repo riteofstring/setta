@@ -128,6 +128,7 @@ Strict local target on hardware/browser setups capable of measuring 120 Hz or hi
 CI or 60 Hz-capped environments cannot prove 120 fps. They still must run the same scenarios with hardware-aware reporting:
 
 - record the display/browser rAF cadence baseline before the gesture
+- record the measured baseline and lane classification in the perf artifact or report, for example `strict-120hz` or `refresh-aware`
 - assert the gesture stays close to the measured baseline rather than introducing large additional stalls
 - report strict 120 fps deltas in failure details even when the environment cannot satisfy them
 - never use a loose performance budget to hide visible blanking, input drift, or incorrect scroll ownership
@@ -177,7 +178,9 @@ Requirements:
 - Pan and zoom update projected control transforms without waiting for React state changes.
 - Section scroll updates only controls in that section.
 - Active focused controls remain projected to the same flow rect as their passive state.
-- A focused control that is scrolled or panned out of view is clipped or blurred according to explicit product behavior; it must never remain screen-fixed.
+- A focused control that remains partially inside its owning section clip stays focused and clipped.
+- A focused control is explicitly blurred before unmount when its owning section/control leaves the mounted viewport plus overscan window.
+- A focused control must never remain screen-fixed while its owning row or section moves.
 
 The projection source of truth should be stable flow-space geometry plus the current live viewport transform. A sampled `viewportRectCssPx` must not be the long-lived positioning authority.
 
@@ -213,14 +216,31 @@ Old concepts to remove or stop depending on:
 - Page publication states that allow a visible control to fall back to a previous blank frame.
 - Preparation filters that can exclude correctness-critical visible controls because source counts exceed a budget.
 
+Current deletion inventory for the old correctness path:
+
+- `frontend/src/gpuFlow/retainedContentTexturePageDomControlTextures.ts` should be deleted or reduced to unrelated texture utilities.
+- `frontend/src/gpuFlow/retainedDomControlScene.ts` should lose passive texture, previous-frame, cold-blank, and texture-upload publication concepts for visible DOM-owned controls.
+- `frontend/src/gpuFlow/GpuFlow/retainedDomControlSources.tsx` should stop owning visible retained controls and active overlay reparenting.
+- `domControlTextures` should be removed from retained content page frame surfaces and retained page descriptors.
+- Existing retained text-like behavior tests should stop requiring `GPUQueue.copyElementImageToTexture`, retained DOM-control source readiness, or retained publication state names.
+
 If a later performance pass proves bitmap snapshots are needed for far-offscreen or non-interactive previews, that should be a separate per-control atlas feature with its own plan and tests. It must not be the initial correctness path for visible editable controls.
 
 ## Work Plan
 
+### Implementation Phasing Guardrail
+The final state must not ship a dual correctness path. Temporary construction overlap is allowed only inside this milestone while the new plane is being wired, and every overlapping old path must be deleted before acceptance.
+
+Use this order:
+
+1. Add the failing behavior tests and capture a red run against the current implementation.
+2. Build the DOM control plane beside the existing retained surface so the app can keep running while the plane is wired.
+3. Route text-like controls through the plane, then delete the retained DOM-control texture correctness path in the same milestone.
+
 ### 1. Create Failing Behavior Tests First
 Add Playwright tests that reproduce the exact observed user failures before any production refactor. These tests should fail against the current implementation.
 
-Create a new spec such as `frontend/tests/e2e/settings/settings-retained-dom-control-observed-regressions.spec.ts`.
+Create `frontend/tests/e2e/settings/settings-retained-dom-control-observed-regressions.spec.ts`.
 
 The tests must assert user-observable behavior, not implementation details:
 
@@ -253,7 +273,7 @@ The tests must assert user-observable behavior, not implementation details:
 
 These tests may use row debug helpers only to find target rows and user-facing geometry. The pass/fail assertions should be based on screenshots, DOM focus/bounding boxes, and frame cadence.
 
-Before implementation begins, run the new spec and capture the failing output. Store screenshots and failure details in normal Playwright output. Do not weaken the tests to match current behavior.
+Before implementation begins, run the new spec and capture the failing output. Store screenshots and failure details in normal Playwright output, and cite the red run in the implementation notes. Do not weaken the tests to match current behavior.
 
 ### 2. Define The Control Plane Contract
 Introduce explicit frontend types for the DOM control plane.
@@ -344,6 +364,7 @@ The mounted DOM count check is allowed as a resource guardrail, but it should no
 Once the behavior tests pass:
 
 - Remove old retained DOM-control source/snapshot modules that are no longer called.
+- Update or delete retained text-like behavior tests that assert texture uploads, retained source readiness, or retained publication state names instead of user-observable behavior.
 - Remove diagnostics that only describe the deleted texture snapshot path.
 - Add concise diagnostics for the new plane:
   - mounted control count
@@ -395,6 +416,7 @@ Final implementation notes must include:
 - Input focus does not cause large retained page upload churn or poor frame cadence.
 - Visible DOM control count scales with the viewport, not total project/settings size.
 - The old DOM-control texture-in-retained-page correctness path is removed, not kept behind a compatibility branch.
+- No retained text-like behavior test requires DOM-control texture uploads, retained source readiness, or retained publication state names to pass.
 - The new behavior tests fail on the current implementation and pass after the refactor.
 - Large All Settings-sized pan, zoom, retained-hover zoom, and retained section scroll meet the 120 fps-class strict local target, or have an explicit trace-backed fixed fallback budget in the same range.
 - The full GPU Flow-related test suite listed in Verification has run cleanly, or each non-clean result has documented evidence showing it is unrelated to GPU Flow.
