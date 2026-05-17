@@ -31,6 +31,35 @@ describe("GpuFlow viewport runtime", () => {
     runtime.destroy();
   });
 
+  it("can project overlays through a published sample without mutating the live viewport", () => {
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const runtime = createGpuFlowViewportRuntime({
+      requestFrame: vi.fn(),
+      store,
+    });
+    const projectedViewports: unknown[] = [];
+    runtime.registerOverlayManager({
+      applyViewport(viewport) {
+        projectedViewports.push(viewport);
+      },
+    });
+
+    runtime.enqueuePan({ x: 10, y: 0 });
+    runtime.runFrame(16);
+    runtime.applyOverlayTransforms([0, 0, 1]);
+
+    expect(runtime.getViewportTuple()).toEqual([10, 0, 1]);
+    expect(projectedViewports).toEqual([
+      [0, 0, 1],
+      [10, 0, 1],
+      [0, 0, 1],
+    ]);
+
+    runtime.destroy();
+  });
+
   it("keeps public observer snapshots bounded during active input", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],

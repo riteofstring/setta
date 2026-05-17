@@ -34,7 +34,7 @@ type GpuFlowViewportRuntimeOptions = {
 };
 
 export type GpuFlowViewportRuntime = {
-  applyOverlayTransforms(): void;
+  applyOverlayTransforms(viewport?: GpuViewportInput | undefined): void;
   applyViewportCommand(
     viewport: GpuViewportInput,
     options?: GpuViewportRuntimeCommandOptions,
@@ -337,9 +337,10 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     };
   }
 
-  applyOverlayTransforms(): void {
+  applyOverlayTransforms(viewport: GpuViewportInput = this.viewport): void {
+    const overlayViewport = gpuViewportToTuple(viewport);
     for (const manager of this.overlayManagers) {
-      manager.applyViewport(this.viewport);
+      manager.applyViewport(overlayViewport);
     }
   }
 

@@ -244,7 +244,6 @@ export function GpuFlowDomControlPlane({
     refreshProjectedControls();
     return viewportRuntime.registerOverlayManager({
       applyViewport(viewport) {
-        refreshProjectedControls(viewport);
         projectionManagerRef.current.project({
           committedFrameId: frameIds.committedFrameId,
           controlById: controlByIdRef.current,
@@ -272,7 +271,6 @@ export function GpuFlowDomControlPlane({
       if (state.transform === previousState.transform) {
         return;
       }
-      refreshProjectedControls(state.transform);
       projectionManagerRef.current.project({
         committedFrameId: frameIds.committedFrameId,
         controlById: controlByIdRef.current,
@@ -287,12 +285,7 @@ export function GpuFlowDomControlPlane({
         },
       });
     });
-  }, [
-    frameIds,
-    getRetainedScrollOffset,
-    refreshProjectedControls,
-    viewportStore,
-  ]);
+  }, [frameIds, getRetainedScrollOffset, viewportStore]);
 
   useLayoutEffect(() => {
     refreshProjectedControls();

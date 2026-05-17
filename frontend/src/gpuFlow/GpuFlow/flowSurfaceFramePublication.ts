@@ -152,7 +152,9 @@ export function renderGpuFlowSurfaceFrame({
     surfaceRef: input.surfaceRef,
     visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
   });
-  viewportRuntime.applyOverlayTransforms();
+  viewportRuntime.applyOverlayTransforms(
+    input.visibleProjectionStateRef.current?.sample.viewport,
+  );
   input.callbacksRef.current.onFrame?.(runtime, event);
 }
 
