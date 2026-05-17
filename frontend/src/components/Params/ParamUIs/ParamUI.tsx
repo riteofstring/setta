@@ -1,6 +1,5 @@
 import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
 import { shouldShowPasswordReveal } from "@setta/app-subsystem-frontend-sdk";
-import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -10,7 +9,6 @@ import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -59,8 +57,10 @@ import {
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
-import { resolveTextLikeParamEditorPolicy } from "./textLikeEditorPolicy";
-import { dummyCodeClass, realCodeClass } from "./textLikeParamCodeMirrorVisual";
+import {
+  TextParamConfigured,
+  type ParamUITextInputInitialActivationEvent,
+} from "./TextParamConfigured";
 import {
   DateParamInputConfigForParam,
   TextParamDateTimeInput,
@@ -77,9 +77,12 @@ type ParamUIProps = {
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
   focusActiveSectionOnTextInput?: boolean;
+  textInputInitialActivationEvent?: ParamUITextInputInitialActivationEvent | null;
   maybeErrorMessage?: string;
   tooltipParentDivId?: string | null | undefined;
 };
+
+export type { ParamUITextInputInitialActivationEvent } from "./TextParamConfigured";
 
 type ParamUIState = {
   codeObjType: CodeObjType;
@@ -247,6 +250,7 @@ function renderTextLikeParam({
   onEscape,
   maybeErrorMessage,
   focusActiveSectionOnTextInput,
+  textInputInitialActivationEvent,
   tooltipParentDivId,
   isDisabled,
   isSelectingParams,
@@ -273,6 +277,7 @@ function renderTextLikeParam({
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
       focusActiveSectionOnTextInput={focusActiveSectionOnTextInput ?? true}
+      textInputInitialActivationEvent={textInputInitialActivationEvent}
       tooltipParentDivId={tooltipParentDivId}
     />
   );
@@ -581,6 +586,7 @@ export function ParamUI({
   onRevealPassword,
   isPasswordRevealPending,
   focusActiveSectionOnTextInput,
+  textInputInitialActivationEvent,
   maybeErrorMessage,
   tooltipParentDivId,
 }: ParamUIProps) {
@@ -625,6 +631,7 @@ export function ParamUI({
     onRevealPassword,
     isPasswordRevealPending,
     focusActiveSectionOnTextInput,
+    textInputInitialActivationEvent,
     maybeErrorMessage,
     tooltipParentDivId,
     isDisabled,
@@ -647,90 +654,6 @@ export function ParamUI({
   }
 
   return renderSpecializedParam(renderContext);
-}
-
-function TextParamConfigured({
-  sectionId,
-  paramInfoId,
-  value,
-  defaultVal,
-  onChange,
-  onBlur,
-  onEscape,
-  maybeErrorMessage,
-  isDisabled,
-  codeObjType,
-  configLanguage,
-  waitingForResult,
-  isSelectingParams,
-  focusActiveSectionOnTextInput,
-  tooltipParentDivId,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  defaultVal: string;
-  onChange: ParamValueChange;
-  onBlur?: () => void;
-  onEscape: () => void;
-  maybeErrorMessage: string | undefined;
-  isDisabled: boolean;
-  codeObjType: CodeObjType;
-  configLanguage: string;
-  waitingForResult: boolean;
-  isSelectingParams: boolean;
-  focusActiveSectionOnTextInput: boolean;
-  tooltipParentDivId: string | null | undefined;
-}) {
-  const resolvedTooltipParentDivId =
-    tooltipParentDivId === undefined
-      ? CODEMIRROR_TOOLTIP_PARENT_ID
-      : tooltipParentDivId;
-  const editorPolicy = resolveTextLikeParamEditorPolicy({
-    codeObjType,
-    configLanguage,
-  });
-  return (
-    <>
-      <TextInputCodeMirror
-        dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={value}
-        defaultVal={defaultVal}
-        onChange={onChange}
-        onBlur={onBlur}
-        onMouseDown={undefined}
-        onEscape={(completionResult) => {
-          if (!completionResult) {
-            onEscape();
-          }
-        }}
-        dummyCodeClassName={dummyCodeClass(
-          Boolean(maybeErrorMessage),
-          true,
-          isDisabled,
-        )}
-        realCodeClassName={realCodeClass(Boolean(maybeErrorMessage))}
-        language={configLanguage}
-        singleLine={editorPolicy?.linePolicy === "single-line"}
-        wrapLines={editorPolicy?.wrapLines}
-        keyComboActions={undefined}
-        onTab={undefined}
-        color={undefined}
-        isDisabled={isDisabled}
-        focusActiveSectionOnMouseDown={focusActiveSectionOnTextInput}
-        tooltipParentDivId={resolvedTooltipParentDivId}
-        completionsFn={undefined}
-      />
-      {waitingForResult && (
-        <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
-      )}
-      <span
-        className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
-      />
-    </>
-  );
 }
 
 function TextParamDateTimeConfigured({

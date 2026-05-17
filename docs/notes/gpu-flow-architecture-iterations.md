@@ -570,6 +570,37 @@ hot-path viewport and retained-scroll motion. Prepared frames can queue
 retained work and candidate actor generations, but they do not independently
 drive visible DOM or replace coherent content with startup placeholders.
 
+## Iteration 17: Split Content Publication From Projection
+
+The content-projection refactor corrected the interim canvas-first text path
+and hardened viewport/retained-scroll frame ownership.
+
+The important changes were:
+
+- readable text-like retained parameter rows are DOM-owned again; passive
+  values render through projected `DummyCodeMirror` browser DOM and active
+  editing renders `ParamInput` in the same committed DOM-control host;
+- canvas retained row drawing still owns labels, row chrome, focus treatment,
+  hover, clipping, hit testing, scrollbars, and final GPU composition, but it
+  no longer draws text-like value pixels for DOM-owned controls;
+- `GpuFlowCommittedSurfaceFrame` now carries publishability diagnostics,
+  actor-family generation ids, text coverage proof, projection horizon
+  diagnostics, and coherence checks for retained pages, DOM controls, DOM
+  islands, HTML texture actors, native visuals, and hit/debug state;
+- viewport and retained-scroll reasons route to a draw-only projection frame
+  over the previous committed display when possible. That frame redraws cached
+  resources and projects mounted DOM actors without sampling retained runtime
+  frames, resolving retained page frames, resolving display transactions,
+  creating committed content frames, publishing React semantic state, or
+  uploading passive textures;
+- retained-scroll projection remaps committed retained page visuals only for
+  surfaces whose live scroll offset changed, while unchanged surfaces reuse the
+  committed flat visuals;
+- the DOM-control plane mounts a bounded readable actor set, keeps hidden
+  low-LOD mounts limited, disables pointer events for passive display actors,
+  projects only mounted hosts on viewport frames, and samples live retained
+  scroll offsets so passive browser text stays attached during section scroll.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -588,24 +619,23 @@ After these iterations, GPU Flow has these major boundaries:
   retained texture pages.
 - GPU-native retained visuals handle scrollbars, row hover, and switch
   transitions without dirtying static retained pages for every visual tick.
-- Passive text-like retained values are canvas-owned in the migrated
-  committed-runtime path; browser DOM is reserved for active editing and other
-  controls whose semantics should remain native.
+- Readable passive and active text-like retained values are browser-owned DOM
+  actors in the DOM-control plane; canvas retained drawing owns row chrome but
+  not text-like value pixels.
 - `GpuFlowDomControlPlane` and DOM islands preserve browser-owned semantics for
-  active text editing, non-text-like retained controls, and editable labels
-  that should not be emulated by canvas.
+  text editing, non-text-like retained controls, and editable labels that
+  should not be emulated by canvas.
 - `surfaceCompositor/` provides the shared actor, generation, coverage,
   transaction, diagnostics, protected-resource, and follow-up-work vocabulary.
 - `GpuFlowCommittedSurfaceFrame` is the visible commit boundary that ties
   retained pages, DOM controls, DOM islands, HTML texture actors, GPU-native
   visuals, hit testing, debug snapshots, retained scroll samples, and
   completeness diagnostics to one frame.
-- `GpuFlowCommittedSurfaceRuntime` owns committed content publication and
-  exposes React semantic snapshots; live projection samples can advance without
-  independently advancing React-visible committed content.
-- The viewport transform remains live so pan and zoom can project already
-  committed actors without waiting for React render, retained publication, or
-  texture upload.
+- Committed surface frames own content publication; live projection samples can
+  advance without independently advancing React-visible committed content.
+- The viewport and retained-scroll transforms remain live so pan, zoom, and
+  retained section scroll can project already committed actors without waiting
+  for React render, retained publication, or texture upload.
 
 ## Design Direction
 
@@ -628,8 +658,10 @@ The branch moved GPU Flow in these directions:
 10. From independently advanced visible layers to one committed surface frame.
 11. From React-owned committed publication to a runtime-owned committed
     content frame with separate live projection samples.
-12. From passive visible DOM controls back toward canvas-owned retained
-    rendering, with native DOM reserved for active/browser-semantic paths.
+12. From a combined content/projection path to draw-only projection frames for
+    viewport and retained-scroll reasons.
+13. From canvas-drawn text-like passive values back to browser-owned readable
+    DOM actors with explicit committed-frame coverage proof.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those

@@ -27,6 +27,7 @@ import {
 
 import {
   createGpuFlowFramePerformanceEvent,
+  type GpuFlowFramePhaseDiagnostics,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
 import {
@@ -63,6 +64,10 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
+import {
+  resolveActiveGpuFlowNodeId,
+  resolveGpuFlowNodeInteractionActiveNodeId,
+} from "./flowFrameInteractionState";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
@@ -85,7 +90,7 @@ import {
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
 
-function resolveRenderableGpuFlowLayerFrameInput({
+export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
@@ -309,6 +314,10 @@ function resolveGpuFlowRetainedContentFrame({
   readonly sceneRevision: number;
   readonly viewportZoomBucket: number;
 }): {
+  readonly phaseDiagnostics: Pick<
+    GpuFlowFramePhaseDiagnostics,
+    "retainedPageFrameMs" | "retainedRuntimeFrameMs"
+  >;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 } {
@@ -338,6 +347,7 @@ function resolveGpuFlowRetainedContentFrame({
       allowCoveredRefinementBacklog: deferResolutionUpdates,
     })
   ) {
+    const retainedRuntimeFrameStart = performance.now();
     const retainedRuntimeFrame =
       cachedFrame.nativeVisualSignature === nativeVisualSignature
         ? cachedFrame.retainedRuntimeFrame
@@ -350,10 +360,14 @@ function resolveGpuFlowRetainedContentFrame({
             scrollRevisions,
             viewportZoomBucket,
           });
+    const retainedRuntimeFrameMs =
+      performance.now() - retainedRuntimeFrameStart;
+    const retainedPageFrameStart = performance.now();
     const preparedFrame = {
       ...cachedFrame.preparedFrame,
       frame,
     };
+    const retainedPageFrameMs = performance.now() - retainedPageFrameStart;
     retainedContentFrameCacheRef.current = {
       ...cachedFrame,
       nativeVisualSignature,
@@ -361,11 +375,16 @@ function resolveGpuFlowRetainedContentFrame({
       retainedRuntimeFrame,
     };
     return {
+      phaseDiagnostics: {
+        retainedPageFrameMs,
+        retainedRuntimeFrameMs,
+      },
       preparedFrame,
       retainedRuntimeFrame,
     };
   }
 
+  const retainedRuntimeFrameStart = performance.now();
   const retainedRuntimeFrame = createGpuFlowRetainedRuntimeFrameForLayer({
     devicePixelRatio,
     frame,
@@ -375,12 +394,15 @@ function resolveGpuFlowRetainedContentFrame({
     scrollRevisions,
     viewportZoomBucket,
   });
+  const retainedRuntimeFrameMs = performance.now() - retainedRuntimeFrameStart;
+  const retainedPageFrameStart = performance.now();
   const preparedFrame = retainedContentPageManager.prepareFrame({
     devicePixelRatio,
     frame,
     surfaces: retainedRuntimeFrame.descriptors.contentPageSurfaces,
     viewportZoomBucket,
   });
+  const retainedPageFrameMs = performance.now() - retainedPageFrameStart;
   retainedContentFrameCacheRef.current = {
     contentSurfaces,
     devicePixelRatio,
@@ -392,7 +414,14 @@ function resolveGpuFlowRetainedContentFrame({
     nativeVisualSignature,
     viewportZoomBucket,
   };
-  return { preparedFrame, retainedRuntimeFrame };
+  return {
+    phaseDiagnostics: {
+      retainedPageFrameMs,
+      retainedRuntimeFrameMs,
+    },
+    preparedFrame,
+    retainedRuntimeFrame,
+  };
 }
 
 function createGpuFlowRetainedRuntimeFrameForLayer({
@@ -527,12 +556,19 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
+  let committedContentPublishMs = 0;
+  let diagnosticsMs = 0;
+  let htmlSurfaceFrameMs = 0;
+  let retainedDisplayTransactionMs = 0;
+  let retainedPageMaintenanceMs = 0;
   const darkMode = isGpuFlowFrameDarkMode(runtime.canvas);
+  const visualStateDiagnosticsStart = performance.now();
   postGpuFlowRetainedContentVisualStateChromeReproEvent({
     frame,
     scene: layer.scene,
     viewportInteractionActive: deferResolutionUpdates,
   });
+  diagnosticsMs += performance.now() - visualStateDiagnosticsStart;
   const runtimeScrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
     retainedContentRuntimeState,
   );
@@ -568,6 +604,7 @@ export function renderGpuFlowNodeLayerFrame({
     onRetainedPreparedRuntimeFrame,
     retainedRuntimeFrame,
   );
+  const retainedDisplayTransactionStart = performance.now();
   const retainedDisplayOutcome = resolveRetainedDisplayFrameTransaction({
     allowColdPlaceholder: retainedDisplayFrameRef.current === null,
     nowMs: renderStartedAt,
@@ -577,6 +614,8 @@ export function renderGpuFlowNodeLayerFrame({
     }),
     previous: retainedDisplayFrameRef.current,
   });
+  retainedDisplayTransactionMs +=
+    performance.now() - retainedDisplayTransactionStart;
   if (retainedDisplayOutcome.kind === "block-cold-first-coverage") {
     surfaceRef.current?.requestFrame("texture-upload");
     return;
@@ -600,9 +639,12 @@ export function renderGpuFlowNodeLayerFrame({
     retainedRuntimeNativeVisuals,
     switchAnimationNativeVisuals,
   );
+  const committedContentPublishStart = performance.now();
   onRetainedDisplayFrame?.(publishedRetainedFrame, {
     gpuNativeVisuals: committedGpuNativeVisuals,
   });
+  committedContentPublishMs += performance.now() - committedContentPublishStart;
+  const retainedDiagnosticsStart = performance.now();
   postGpuFlowRetainedDisplayFrameChromeReproEvent({
     frame,
     preparedFrame: retainedPagePreparedFrame,
@@ -615,6 +657,7 @@ export function renderGpuFlowNodeLayerFrame({
     sources: publishedRetainedRuntimeFrame.descriptors.domControlSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
+  diagnosticsMs += performance.now() - retainedDiagnosticsStart;
   markGpuFlowRetainedContentFrameFreshnessDirty({
     deferResolutionUpdates,
     frame,
@@ -624,6 +667,7 @@ export function renderGpuFlowNodeLayerFrame({
     sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
+  const htmlSurfaceFrameStart = performance.now();
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({
       activeResizeNodeIdRef,
@@ -649,6 +693,8 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
+  htmlSurfaceFrameMs += performance.now() - htmlSurfaceFrameStart;
+  const retainedPageMaintenanceStart = performance.now();
   const retainedPageMaintenance =
     resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       darkMode,
@@ -668,6 +714,7 @@ export function renderGpuFlowNodeLayerFrame({
     sourceSurfaces: retainedRuntimeFrame.descriptors.sourceSurfaces,
     switchAnimations: retainedContentSwitchAnimations,
   });
+  retainedPageMaintenanceMs += performance.now() - retainedPageMaintenanceStart;
   const switchAnimationNeedsFollowUpFrame =
     hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
       nowMs: renderStartedAt,
@@ -692,6 +739,20 @@ export function renderGpuFlowNodeLayerFrame({
       viewportState: viewportStore.getState(),
     }),
     layerResult: combinedLayerResult,
+    phaseDiagnostics: {
+      committedContentPublishMs,
+      diagnosticsMs,
+      domTextActorProjectionMs: 0,
+      frameMode: "content",
+      htmlSurfaceFrameMs,
+      projectionSurfaceResolveMs: 0,
+      retainedDisplayTransactionMs,
+      retainedPageFrameMs: retainedFrame.phaseDiagnostics.retainedPageFrameMs,
+      retainedPageMaintenanceMs,
+      retainedRuntimeFrameMs:
+        retainedFrame.phaseDiagnostics.retainedRuntimeFrameMs,
+      schedulingMs: 0,
+    },
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: combineGpuFlowRetainedTexturePageMetrics({
       retainedDisplayFrame: publishedRetainedFrame,
@@ -736,12 +797,6 @@ function resolveGpuFlowRetainedContentRowHoverTarget(
   layer: GpuFlowNodeLayerState,
 ): GpuFlowNodeLayerState["retainedContentRowHoverTarget"] | null {
   return layer.retainedContentRowHoverTarget ?? null;
-}
-
-function resolveGpuFlowNodeInteractionActiveNodeId(
-  nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
-): string | null {
-  return nodeInteractionRef.current?.getActiveNodeId() ?? null;
 }
 
 function notifyGpuFlowRetainedRuntimeFrame(
@@ -819,26 +874,14 @@ function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {
   );
 }
 
-function resolveActiveGpuFlowNodeId({
-  activeResizeNodeIdRef,
-  nodeInteractionRef,
-}: {
-  readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
-  readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
-}): string | null {
-  return (
-    nodeInteractionRef.current?.getActiveNodeId() ??
-    activeResizeNodeIdRef.current
-  );
-}
-
-function reportGpuFlowNodeLayerFramePerformance({
+export function reportGpuFlowNodeLayerFramePerformance({
   callbacksRef,
   deferResolutionUpdates,
   frame,
   frameReasons,
   interactionDiagnostics,
   layerResult,
+  phaseDiagnostics,
   renderDurationMs,
   retainedTexturePages,
   viewport,
@@ -852,8 +895,11 @@ function reportGpuFlowNodeLayerFramePerformance({
     typeof createGpuFlowInteractionDiagnosticsSnapshot
   >;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
+  readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
   readonly renderDurationMs: number;
-  readonly retainedTexturePages: GpuFlowRetainedTexturePageFrameMetrics;
+  readonly retainedTexturePages:
+    | GpuFlowRetainedTexturePageFrameMetrics
+    | undefined;
   readonly viewport: GpuFlowNodeLayerState["viewport"];
   readonly viewportFrame: boolean;
 }) {
@@ -872,6 +918,7 @@ function reportGpuFlowNodeLayerFramePerformance({
       frameReasons,
       interactionDiagnostics,
       layerResult,
+      phaseDiagnostics,
       renderDurationMs,
       retainedTexturePages,
       viewport,
@@ -880,7 +927,7 @@ function reportGpuFlowNodeLayerFramePerformance({
   );
 }
 
-function updateGpuFlowNodeLayerFrameState({
+export function updateGpuFlowNodeLayerFrameState({
   callbacksRef,
   layerResult,
   nodeInteractionRef,

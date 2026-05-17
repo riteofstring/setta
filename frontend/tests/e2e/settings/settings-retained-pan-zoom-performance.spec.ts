@@ -34,13 +34,14 @@ const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const GESTURE_EVENT_SPACING_MS = 8;
 const ZOOM_WHEEL_DELTA_Y = -0.25;
-const PAN_ZOOM_P95_FRAME_BUDGET_MS = 20;
-const CAPPED_P95_FRAME_BUDGET_SLACK_MS = 10;
+const PAN_ZOOM_P95_FRAME_BUDGET_MS = 8.5;
+const PAN_ZOOM_CAPPED_P95_FRAME_BUDGET_MS = 20;
+const CAPPED_P95_FRAME_BUDGET_SLACK_MS = 4;
 const CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
-// Keep p95 strict; isolated max/long-task samples include Playwright/Chrome
-// scheduling gaps in this CDP-dispatched gesture harness.
-const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 110;
-const PAN_ZOOM_LONG_TASK_BUDGET_MS = 110;
+const STRICT_GESTURE_EVENT_P95_BUDGET_MS = 9;
+const STRICT_RAF_P95_BUDGET_MS = 10;
+const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 50;
+const PAN_ZOOM_LONG_TASK_BUDGET_MS = 50;
 const TEXT_ROW_TARGET = {
   rowId: "settings-codeobj__gui__gui__maxZoom",
   surfaceId: "settings-section__gui" + SETTINGS_PARAM_CONTENT_SUFFIX,
@@ -133,6 +134,7 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
     await resolveCanvasClip(page),
   );
   const beforeRows = await captureVisibleRetainedRowVisuals(page);
+  const beforeZoomRafCadence = await measurePageRafCadence(page);
 
   await resetGpuFlowPerformanceProbe(page);
   const zoomGesture = await runWheelZoomBurst(page, {
@@ -149,6 +151,7 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
   );
   const zoomRows = await captureVisibleRetainedRowVisuals(page);
 
+  const beforePanRafCadence = await measurePageRafCadence(page);
   await resetGpuFlowPerformanceProbe(page);
   const panGesture = await runWheelPanBurst(page, {
     eventCount: 128,
@@ -167,6 +170,14 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
 
   const zoomStats = summarizeMeasuredFrames(zoomSnapshot);
   const panStats = summarizeMeasuredFrames(panSnapshot);
+  const zoomP95BudgetMs = resolveCappedP95FrameBudget({
+    gesture: zoomGesture,
+    rafCadence: beforeZoomRafCadence,
+  });
+  const panP95BudgetMs = resolveCappedP95FrameBudget({
+    gesture: panGesture,
+    rafCadence: beforePanRafCadence,
+  });
   const zoomRenderedViewport = readLatestRenderedViewport(zoomSnapshot);
   const panRenderedViewport = readLatestRenderedViewport(panSnapshot);
   const viewportRuntimeDebug = await readViewportRuntimeDebug(page);
@@ -187,7 +198,12 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
       },
       viewport: { afterPan, afterZoom, before },
       viewportRuntimeDebug,
+      budgets: { panP95BudgetMs, zoomP95BudgetMs },
       panStats,
+      rafCadence: {
+        beforePan: beforePanRafCadence,
+        beforeZoom: beforeZoomRafCadence,
+      },
       zoomStats,
     },
     null,
@@ -227,13 +243,13 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
     details,
   ).toBe(true);
   expect(zoomStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
-    PAN_ZOOM_P95_FRAME_BUDGET_MS,
+    zoomP95BudgetMs,
   );
   expect(zoomStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
     PAN_ZOOM_MAX_FRAME_BUDGET_MS,
   );
   expect(panStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
-    PAN_ZOOM_P95_FRAME_BUDGET_MS,
+    panP95BudgetMs,
   );
   expect(panStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
     PAN_ZOOM_MAX_FRAME_BUDGET_MS,
@@ -407,6 +423,7 @@ test("viewport gesture continues while minimap and debug observers are active", 
   const point = await resolveCanvasGesturePoint(page);
   await page.mouse.move(point.x, point.y);
   const before = await readViewportSample(page);
+  const rafCadence = await measurePageRafCadence(page);
   await resetGpuFlowPerformanceProbe(page);
   const gesture = await runWheelPanBurst(page, {
     eventCount: 128,
@@ -418,8 +435,17 @@ test("viewport gesture continues while minimap and debug observers are active", 
   const after = await readViewportSample(page);
   const rows = await captureVisibleRetainedRowVisuals(page);
   const stats = summarizeMeasuredFrames(snapshot);
+  const p95BudgetMs = resolveCappedP95FrameBudget({ gesture, rafCadence });
   const details = JSON.stringify(
-    { after, before, gesture, rows, stats },
+    {
+      after,
+      before,
+      budget: { p95BudgetMs },
+      gesture,
+      rafCadence,
+      rows,
+      stats,
+    },
     null,
     2,
   );
@@ -430,9 +456,7 @@ test("viewport gesture continues while minimap and debug observers are active", 
     rows.every((row) => row.nonblankRatio > 0.01),
     details,
   ).toBe(true);
-  expect(stats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
-    PAN_ZOOM_P95_FRAME_BUDGET_MS,
-  );
+  expect(stats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(p95BudgetMs);
   expect(stats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
     PAN_ZOOM_MAX_FRAME_BUDGET_MS,
   );
@@ -600,7 +624,10 @@ async function waitForGestureEventSpacing(): Promise<void> {
 
 function summarizeMeasuredFrames(snapshot: GpuFlowPerformanceSnapshot) {
   const raw = summarizeIntervals(snapshot.frameIntervalsMs);
-  const warmupCount = Math.min(10, snapshot.frameIntervalsMs.length);
+  const warmupCount =
+    snapshot.frameIntervalsMs.length >= 80
+      ? Math.min(10, snapshot.frameIntervalsMs.length)
+      : 0;
   const excludingWarmup = summarizeIntervals(
     snapshot.frameIntervalsMs.slice(warmupCount),
   );
@@ -655,11 +682,18 @@ function resolveCappedP95FrameBudget({
     [...gesture.eventSpacingMs].sort((left, right) => left - right),
     0.95,
   );
-  return Math.max(
+  const measuredBudgetMs = Math.max(
     PAN_ZOOM_P95_FRAME_BUDGET_MS,
     rafCadence.p95Ms + CAPPED_P95_FRAME_BUDGET_SLACK_MS,
     gestureP95Ms + CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
   );
+  if (
+    rafCadence.p95Ms <= STRICT_RAF_P95_BUDGET_MS &&
+    gestureP95Ms <= STRICT_GESTURE_EVENT_P95_BUDGET_MS
+  ) {
+    return measuredBudgetMs;
+  }
+  return Math.max(PAN_ZOOM_CAPPED_P95_FRAME_BUDGET_MS, measuredBudgetMs);
 }
 
 function countByString(values: readonly string[]): Record<string, number> {

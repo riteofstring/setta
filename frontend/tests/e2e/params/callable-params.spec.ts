@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
@@ -144,13 +144,29 @@ async function readActiveRetainedDomControlRowId(
 ): Promise<string | null> {
   return await page.evaluate(() => {
     const active = document.activeElement;
-    if (!(active instanceof HTMLElement)) {
-      return null;
+    const activeHost =
+      active instanceof HTMLElement
+        ? active.closest("[data-gpu-flow-dom-control='true']")
+        : null;
+    const activeHostRowId = activeHost?.getAttribute(
+      "data-gpu-flow-dom-control-row-id",
+    );
+    if (activeHostRowId) {
+      return activeHostRowId;
     }
+
+    const retainedHosts = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-gpu-flow-dom-control='true'][data-gpu-flow-dom-control-active='true']",
+      ),
+    ];
+    const focusedHost = retainedHosts.find((host) =>
+      active instanceof HTMLElement ? host.contains(active) : false,
+    );
     return (
-      active
-        .closest("[data-gpu-flow-dom-control='true']")
-        ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null
+      (
+        focusedHost ?? (retainedHosts.length === 1 ? retainedHosts[0] : null)
+      )?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null
     );
   });
 }

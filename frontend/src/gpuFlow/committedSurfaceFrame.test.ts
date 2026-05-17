@@ -33,11 +33,33 @@ describe("GPU Flow committed surface frame", () => {
         projectionReadiness: "ready",
         retainedScrollRevision: 3,
         rowId: "param-a",
+        actorFamily: "text-like-dom-control",
+        accessibilityProjection: "browser-dom",
+        activationPolicy: "activate-to-edit",
+        textCoverageProof: expect.objectContaining({
+          projectionCoverage: "exact-live-dom",
+          rendererSource: "browser-dom",
+          role: "text-like",
+        }),
         wheelPolicy: "retained-scroll-or-editor-scroll",
       }),
     );
     expect(frame.displayCompleteness.status).toBe("complete");
     expect(frame.displayCompleteness.visibleNonemptyDomControlCount).toBe(1);
+    expect(frame.publishability).toEqual(
+      expect.objectContaining({
+        status: "startup",
+        textActorCount: 1,
+        textActorExactCoverageCount: 1,
+        visibleNonemptyTextActorCount: 1,
+      }),
+    );
+    expect(frame.projectionHorizon.textActorCoverage).toEqual({
+      exactLiveDomActorIds: [
+        "retained-dom-control:dict-a:param-content:unpinned:param-a",
+      ],
+      trueHoleActorIds: [],
+    });
   });
 
   it("promotes retained flat HTML textures into committed surface actors", () => {

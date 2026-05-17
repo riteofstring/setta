@@ -22,16 +22,19 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GESTURE_SPACING_MS = 8;
-const STRICT_LOCAL_120HZ =
-  process.env.SETTA_RETAINED_COMPOSITOR_STRICT_120HZ === "1";
 const STRICT_P95_FRAME_BUDGET_MS = 8.5;
 const STRICT_P99_FRAME_BUDGET_MS = 16.7;
 const STRICT_BASELINE_P50_FRAME_BUDGET_MS = 8.5;
 const STRICT_BASELINE_P95_FRAME_BUDGET_MS = 10;
-const CI_P95_FRAME_BUDGET_MS = 20;
-const CI_MAX_FRAME_BUDGET_MS = 110;
-const CI_LONG_TASK_BUDGET_MS = 55;
-const CI_SLOW_FRAME_RATIO_BUDGET = 0.24;
+const STRICT_GESTURE_EVENT_P95_BUDGET_MS = 9;
+const CAPPED_MAX_FRAME_BUDGET_MS = 50;
+const CAPPED_LONG_TASK_BUDGET_MS = 50;
+const CAPPED_FRAME_TIMER_JITTER_EPSILON_MS = 0.5;
+// The capped lane is selected only after the control RAF sample proves this
+// browser/display path is not measuring a 120 Hz cadence. Keep the hard
+// frame-gap and long-task budgets strict, but allow occasional 60 Hz frame
+// quantization from native wheel delivery and post-gesture upload maintenance.
+const CAPPED_SLOW_FRAME_RATIO_BUDGET = 0.16;
 const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
 
 type FrameSamplerHandle = {
@@ -340,10 +343,14 @@ export async function resolveRetainedCompositorViewportPoint(
 export async function measureRetainedCompositorGesture(
   page: Page,
   operation: () => Promise<readonly number[]>,
+  options: { readonly settleMs?: number | undefined } = {},
 ): Promise<RetainedCompositorGestureResult> {
   await startGestureFrameSampler(page);
   const eventSpacingMs = await operation();
-  await page.waitForTimeout(180);
+  const settleMs = options.settleMs ?? 180;
+  if (settleMs > 0) {
+    await page.waitForTimeout(settleMs);
+  }
   const sample = await stopGestureFrameSampler(page);
   return {
     eventSpacing: summarizeIntervals(eventSpacingMs),
@@ -560,8 +567,8 @@ export function resolveRetainedCompositorCadenceBudget({
   readonly eventSpacing: RetainedCompositorIntervalStats;
 }): RetainedCompositorCadenceBudget {
   if (
-    STRICT_LOCAL_120HZ &&
-    retainedCompositorCanMeasureStrictLocal120Hz(controlCadence)
+    retainedCompositorCanMeasureStrictLocal120Hz(controlCadence) &&
+    retainedCompositorCanMeasureStrictGestureCadence(eventSpacing)
   ) {
     return {
       lane: "local-120hz",
@@ -573,16 +580,16 @@ export function resolveRetainedCompositorCadenceBudget({
     };
   }
   return {
-    lane: STRICT_LOCAL_120HZ ? "refresh-aware" : "ci-capped",
-    longTaskBudgetMs: CI_LONG_TASK_BUDGET_MS,
-    maxFrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
+    lane: "ci-capped",
+    longTaskBudgetMs: CAPPED_LONG_TASK_BUDGET_MS,
+    maxFrameBudgetMs: CAPPED_MAX_FRAME_BUDGET_MS,
     p95FrameBudgetMs: Math.max(
-      CI_P95_FRAME_BUDGET_MS,
+      STRICT_P95_FRAME_BUDGET_MS,
       controlCadence.p95Ms + 4,
       eventSpacing.p95Ms + 4,
     ),
-    p99FrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
-    slowFrameRatioBudget: CI_SLOW_FRAME_RATIO_BUDGET,
+    p99FrameBudgetMs: CAPPED_MAX_FRAME_BUDGET_MS,
+    slowFrameRatioBudget: CAPPED_SLOW_FRAME_RATIO_BUDGET,
   };
 }
 
@@ -593,6 +600,12 @@ function retainedCompositorCanMeasureStrictLocal120Hz(
     controlCadence.p50Ms <= STRICT_BASELINE_P50_FRAME_BUDGET_MS &&
     controlCadence.p95Ms <= STRICT_BASELINE_P95_FRAME_BUDGET_MS
   );
+}
+
+function retainedCompositorCanMeasureStrictGestureCadence(
+  eventSpacing: RetainedCompositorIntervalStats,
+): boolean {
+  return eventSpacing.p95Ms <= STRICT_GESTURE_EVENT_P95_BUDGET_MS;
 }
 
 export function expectRetainedCompositorGestureWithinBudget({
@@ -611,9 +624,11 @@ export function expectRetainedCompositorGestureWithinBudget({
   expect(gesture.frame.p99Ms, details).toBeLessThanOrEqual(
     budget.p99FrameBudgetMs,
   );
-  expect(gesture.frame.maxMs, details).toBeLessThanOrEqual(
-    budget.maxFrameBudgetMs,
-  );
+  const maxFrameBudgetMs =
+    budget.lane === "ci-capped"
+      ? budget.maxFrameBudgetMs + CAPPED_FRAME_TIMER_JITTER_EPSILON_MS
+      : budget.maxFrameBudgetMs;
+  expect(gesture.frame.maxMs, details).toBeLessThanOrEqual(maxFrameBudgetMs);
   expect(gesture.frame.slowFrameRatio, details).toBeLessThanOrEqual(
     budget.slowFrameRatioBudget,
   );

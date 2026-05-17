@@ -19,7 +19,10 @@ import {
   LiteralDependencyValue,
 } from "utils/generatedTypes";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
-import { ParamUI } from "../ParamUIs/ParamUI";
+import {
+  ParamUI,
+  type ParamUITextInputInitialActivationEvent,
+} from "../ParamUIs/ParamUI";
 import {
   commitParamInputValueChange,
   flushPendingParamInputValueChange,
@@ -32,6 +35,10 @@ type ParamInputProps = {
   paramInfoId: string;
   focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
+  textInputInitialActivationEvent?:
+    | ParamUITextInputInitialActivationEvent
+    | null
+    | undefined;
   tooltipParentDivId?: string | null | undefined;
 };
 
@@ -217,6 +224,7 @@ function _ParamInput({
   paramInfoId,
   focusActiveSectionOnTextInput,
   maybeErrorMessage,
+  textInputInitialActivationEvent,
   tooltipParentDivId,
 }: ParamInputProps) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -309,6 +317,7 @@ function _ParamInput({
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}
       focusActiveSectionOnTextInput={focusActiveSectionOnTextInput}
+      textInputInitialActivationEvent={textInputInitialActivationEvent}
       maybeErrorMessage={maybeErrorMessage}
       tooltipParentDivId={tooltipParentDivId}
     />

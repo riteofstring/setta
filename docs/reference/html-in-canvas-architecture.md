@@ -40,10 +40,9 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
 - DOM islands: viewport-positioned real DOM siblings of the canvas for active
   native controls such as password fields, date/time fields, dropzones, color
   input fallback, editable parameter labels, and the project adapter's current
-  active text-like parameter editors. Current project text-like parameter rows
-  are canvas-owned while passive; activation marks the retained row
-  `nativeControlActive`, suppresses retained text value drawing, and mounts
-  `ParamInput` through this island path.
+  active browser-owned parameter controls. Text-like retained parameter rows are
+  DOM-owned for readable passive and active states through the DOM-control
+  plane; activation renders `ParamInput` in the committed control host.
 - Viewport-positioned overlay roots: `GpuFlow` viewport portals for retained
   CodeMirror tooltips and validation UI, plus shared DOM portals for combobox
   lists and primitive-owned popovers that subscribe to GPU viewport
@@ -456,9 +455,9 @@ layers.
 DOM-owned text-like retained controls use the same committed actor host for
 passive and active DOM-plane rendering: passive controls are viewport-projected
 `DummyCodeMirror` display hosts, while active controls render `ParamInput`,
-focus normally, and replay pointer activation when present. Current project
-text-like parameter descriptors are canvas-owned while passive and use
-`GpuFlowDomIslandLayer` for active `ParamInput` editors instead.
+focus normally, and replay pointer activation when present. Canvas retained row
+drawing owns the row shell, label, focus treatment, hover, and clipping, but it
+does not draw text-like value pixels for DOM-owned controls.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -508,7 +507,19 @@ event resolves changed source elements to owning textures and requests a
 Exhausted upload budgets request another `texture-upload` frame, while active
 retained switch transitions request another `animation` frame.
 
-Each render frame follows this shape:
+Viewport and retained-section scroll frames first try the draw-only projection
+path. When a committed display frame exists and the frame reasons are only
+`viewport` or `retained-scroll`, `renderGpuFlowNodeLayerProjectionFrame()` uses
+the already-published retained display, committed DOM-control descriptors, and
+live viewport/retained-scroll sample. It redraws cached GPU resources and
+imperatively projects mounted DOM controls/islands. It does not sample a new
+retained runtime frame, resolve retained page frames, resolve retained display
+transactions, create a new committed surface frame, publish React semantic
+state, or register/upload passive HTML textures. Retained-scroll projection
+only remaps committed retained page visuals for surfaces whose scroll offset
+changed; other retained page visuals are reused from the committed display.
+
+Content, paint, upload, and maintenance frames follow this shape:
 
 1. `renderGpuFlowNodeLayerFrame()` resolves the canvas size, active scene,
    renderer, HTML texture manager, and retained texture page manager.

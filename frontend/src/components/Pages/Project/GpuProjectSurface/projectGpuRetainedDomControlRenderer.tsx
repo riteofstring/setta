@@ -113,6 +113,14 @@ function ProjectGpuActiveRetainedDomControl({
           sectionId={source.sectionId}
           paramInfoId={source.rowId}
           focusActiveSectionOnTextInput={false}
+          textInputInitialActivationEvent={
+            source.activation
+              ? {
+                  clientX: source.activation.clientPoint.x,
+                  clientY: source.activation.clientPoint.y,
+                }
+              : null
+          }
           tooltipParentDivId={PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}
         />
       </div>

@@ -4,11 +4,7 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "../activeNodeTargeting";
 import { type GpuCanvasSize } from "../gpuRenderer";
-import {
-  GpuSurface,
-  type GpuSurfaceHandle,
-  type GpuSurfaceProps,
-} from "../GpuSurface";
+import { type GpuSurfaceHandle, type GpuSurfaceProps } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCache,
   createGpuNodeDomTransformSyncCache,
@@ -30,16 +26,10 @@ import { attachGpuPanZoomController } from "../interactions/panZoom";
 import { attachGpuSectionSceneScrollController } from "../interactions/sceneScroll";
 import { attachGpuSelectionController } from "../interactions/selection";
 import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
-import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
 import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
 } from "../nodeInteractionDirty";
-import {
-  assertGpuFlowPortalGroupsRenderable,
-  GpuFlowPortalLayer,
-  partitionGpuFlowPortals,
-} from "../portals/portalManager";
 import {
   createGpuRetainedContentRuntimeState,
   getGpuRetainedContentRuntimeScrollOffsets,
@@ -51,12 +41,9 @@ import type { RetainedContentTexturePageManager } from "../retainedContentTextur
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { getGpuFlowSceneDomSectionNodes } from "../scene";
-import { GpuFlowSceneContext } from "../sceneContext";
 import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { gpuFlowViewportStore } from "../viewportStore";
 import { useGpuFlowCommittedSurfaceFrameState } from "./committedSurfaceFrameState";
-import { GpuFlowDomControlPlane } from "./domControlPlane";
-import { GpuFlowDomIslandLayer } from "./domIslandLayer";
 import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
@@ -74,6 +61,10 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
 import {
+  renderGpuFlowNodeLayerProjectionFrame,
+  shouldRenderGpuFlowProjectionOnlyFrame,
+} from "./flowProjectionFrame";
+import {
   createGpuFlowRetainedRuntimeFrameOverlayRenderSignature,
   createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
 } from "./flowRetainedRuntimeFrameSignatures";
@@ -89,7 +80,7 @@ import {
   type GpuFlowCallbacks,
   type GpuFlowProps,
 } from "./flowSurfaceTypes";
-import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
@@ -216,6 +207,11 @@ export function GpuFlow({
   );
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ?? defaultRetainedContentRuntimeState;
+  const getRetainedDomControlScrollOffset = useCallback(
+    (surfaceId: string) =>
+      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ?? null,
+    [activeRetainedContentRuntimeState],
+  );
   const retainedRuntimeFrameRenderSignatureRef = useRef<string | null>(null);
   const retainedPreparationRuntimeFrameRenderSignatureRef = useRef<
     string | null
@@ -853,74 +849,101 @@ export function GpuFlow({
       const deferResolutionUpdates =
         viewportStore.getState().viewportInteractionActive ||
         (viewportFrame && !textureUploadFrame);
-      renderGpuFlowNodeLayerFrame({
-        callbacksRef,
-        canvasSizeRef,
-        deferResolutionUpdates,
-        frameReasons: event.reasons,
-        frameRef,
-        activeResizeNodeIdRef,
-        interactionDiagnosticsRef,
-        nodeElementByIdRef,
-        nodeDomTransformSyncCacheRef,
-        nodeInteractionRef,
-        nodeLayerRef,
-        htmlSurfaceRendererRef,
-        retainedContentPageManagerRef,
-        retainedContentFrameCacheRef,
-        retainedContentRuntimeState: activeRetainedContentRuntimeState,
-        retainedDisplayFrameRef,
-        retainedContentSwitchAnimations,
-        runtime,
-        surfaceRef,
-        textureManagerRef,
-        transformOnlyPaintNodeIdsRef,
-        visibleNodeIdsRef,
-        viewportStore,
-        viewportFrame,
-        onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-          const previousScrollRevision =
-            retainedPreparationRuntimeFrameScrollRevisionRef.current ??
-            initialRetainedRuntimeFrame.input.scrollRevision;
-          if (
-            deferResolutionUpdates &&
-            nextRetainedRuntimeFrame.input.scrollRevision ===
-              previousScrollRevision
-          ) {
-            return;
-          }
-          const nextSignature =
-            createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
+      const renderedProjectionOnlyFrame =
+        shouldRenderGpuFlowProjectionOnlyFrame(event.reasons) &&
+        renderGpuFlowNodeLayerProjectionFrame({
+          callbacksRef,
+          canvasSizeRef,
+          frameReasons: event.reasons,
+          frameRef,
+          activeResizeNodeIdRef,
+          interactionDiagnosticsRef,
+          nodeElementByIdRef,
+          nodeDomTransformSyncCacheRef,
+          nodeInteractionRef,
+          nodeLayerRef,
+          htmlSurfaceRendererRef,
+          retainedContentPageManagerRef,
+          retainedDisplayFrameRef,
+          retainedContentRuntimeState: activeRetainedContentRuntimeState,
+          runtime,
+          surfaceRef,
+          textureManagerRef,
+          transformOnlyPaintNodeIdsRef,
+          visibleNodeIdsRef,
+          viewportStore,
+          viewportFrame,
+        });
+      if (!renderedProjectionOnlyFrame) {
+        renderGpuFlowNodeLayerFrame({
+          callbacksRef,
+          canvasSizeRef,
+          deferResolutionUpdates,
+          frameReasons: event.reasons,
+          frameRef,
+          activeResizeNodeIdRef,
+          interactionDiagnosticsRef,
+          nodeElementByIdRef,
+          nodeDomTransformSyncCacheRef,
+          nodeInteractionRef,
+          nodeLayerRef,
+          htmlSurfaceRendererRef,
+          retainedContentPageManagerRef,
+          retainedContentFrameCacheRef,
+          retainedContentRuntimeState: activeRetainedContentRuntimeState,
+          retainedDisplayFrameRef,
+          retainedContentSwitchAnimations,
+          runtime,
+          surfaceRef,
+          textureManagerRef,
+          transformOnlyPaintNodeIdsRef,
+          visibleNodeIdsRef,
+          viewportStore,
+          viewportFrame,
+          onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
+            const previousScrollRevision =
+              retainedPreparationRuntimeFrameScrollRevisionRef.current ??
+              initialRetainedRuntimeFrame.input.scrollRevision;
+            if (
+              deferResolutionUpdates &&
+              nextRetainedRuntimeFrame.input.scrollRevision ===
+                previousScrollRevision
+            ) {
+              return;
+            }
+            const nextSignature =
+              createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
+                nextRetainedRuntimeFrame,
+              );
+            if (
+              retainedPreparationRuntimeFrameRenderSignatureRef.current ===
+              nextSignature
+            ) {
+              return;
+            }
+            retainedPreparationRuntimeFrameRenderSignatureRef.current =
+              nextSignature;
+            retainedPreparationRuntimeFrameScrollRevisionRef.current =
+              nextRetainedRuntimeFrame.input.scrollRevision;
+          },
+          onRetainedDisplayFrame: publishCommittedSurfaceFrame,
+          onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
+            callbacksRef.current.onRetainedRuntimeFrame?.(
               nextRetainedRuntimeFrame,
             );
-          if (
-            retainedPreparationRuntimeFrameRenderSignatureRef.current ===
-            nextSignature
-          ) {
-            return;
-          }
-          retainedPreparationRuntimeFrameRenderSignatureRef.current =
-            nextSignature;
-          retainedPreparationRuntimeFrameScrollRevisionRef.current =
-            nextRetainedRuntimeFrame.input.scrollRevision;
-        },
-        onRetainedDisplayFrame: publishCommittedSurfaceFrame,
-        onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-          callbacksRef.current.onRetainedRuntimeFrame?.(
-            nextRetainedRuntimeFrame,
-          );
-          const nextSignature =
-            createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
-              nextRetainedRuntimeFrame,
-            );
-          if (
-            retainedRuntimeFrameRenderSignatureRef.current === nextSignature
-          ) {
-            return;
-          }
-          retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
-        },
-      });
+            const nextSignature =
+              createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
+                nextRetainedRuntimeFrame,
+              );
+            if (
+              retainedRuntimeFrameRenderSignatureRef.current === nextSignature
+            ) {
+              return;
+            }
+            retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
+          },
+        });
+      }
       viewportRuntime.applyOverlayTransforms();
       callbacksRef.current.onFrame?.(runtime, event);
     },
@@ -933,12 +956,6 @@ export function GpuFlow({
       viewportStore,
     ],
   );
-  const nodeLayerElement = renderGpuFlowNodeLayerElement({
-    nodeClassName,
-    nodes,
-    onNodeElementChange: handleNodeElementChange,
-    renderNode,
-  });
   useGpuFlowSelectionDragLayer({
     containerRef,
     layoutStore,
@@ -946,55 +963,38 @@ export function GpuFlow({
     selectionDrag,
     viewportStore,
   });
-  const portalGroups = partitionGpuFlowPortals(portals);
-  assertGpuFlowPortalGroupsRenderable(portalGroups);
-  const visibleRetainedRuntimeFrame =
-    visibleCommittedSurfaceFrame.retainedRuntimeFrame;
   return (
-    <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
-      <GpuFlowSceneContext.Provider value={sceneContextValue}>
-        <div
-          className={className}
-          data-tab-scope="canvas"
-          ref={containerRef}
-          style={style}
-          tabIndex={selectionDrag ? -1 : undefined}
-        >
-          <GpuSurface
-            className={surfaceClassName}
-            deviceOptions={deviceOptions}
-            onFrame={handleFrame}
-            onPaint={handlePaint}
-            onReady={handleReady}
-            onResize={handleResize}
-            ref={surfaceRef}
-          >
-            {nodeLayerElement}
-            {children}
-            <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
-            {edgeLabelSourceElement}
-            {selectionOverlaySourceElement}
-            {nodeResizeOverlaySourceElement}
-            {nodeDragPreviewSourceElement}
-          </GpuSurface>
-          <GpuFlowDomControlPlane
-            committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
-            onActivate={onDomControlActivation}
-            renderControl={renderRetainedDomControl}
-            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
-            viewportStore={viewportStore}
-            viewportRuntime={viewportRuntime}
-          />
-          <GpuFlowDomIslandLayer
-            committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
-            renderDomIsland={renderDomIsland}
-            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
-            viewportStore={viewportStore}
-            viewportRuntime={viewportRuntime}
-          />
-          <GpuFlowPortalLayer portals={portalGroups.viewport} />
-        </div>
-      </GpuFlowSceneContext.Provider>
-    </GpuFlowLayoutStoreContext.Provider>
+    <GpuFlowSurfaceView
+      className={className}
+      containerRef={containerRef}
+      deviceOptions={deviceOptions}
+      edgeLabelSourceElement={edgeLabelSourceElement}
+      getRetainedDomControlScrollOffset={getRetainedDomControlScrollOffset}
+      handleFrame={handleFrame}
+      handlePaint={handlePaint}
+      handleReady={handleReady}
+      handleResize={handleResize}
+      layoutStore={layoutStore}
+      nodeClassName={nodeClassName}
+      nodeDragPreviewSourceElement={nodeDragPreviewSourceElement}
+      nodeResizeOverlaySourceElement={nodeResizeOverlaySourceElement}
+      nodes={nodes}
+      onNodeElementChange={handleNodeElementChange}
+      onDomControlActivation={onDomControlActivation}
+      portals={portals}
+      renderDomIsland={renderDomIsland}
+      renderNode={renderNode}
+      renderRetainedDomControl={renderRetainedDomControl}
+      sceneContextValue={sceneContextValue}
+      selectionDrag={selectionDrag}
+      selectionOverlaySourceElement={selectionOverlaySourceElement}
+      style={style}
+      surfaceClassName={surfaceClassName}
+      surfaceRef={surfaceRef}
+      viewportRuntime={viewportRuntime}
+      viewportStore={viewportStore}
+      visibleCommittedSurfaceFrame={visibleCommittedSurfaceFrame}
+      children={children}
+    />
   );
 }

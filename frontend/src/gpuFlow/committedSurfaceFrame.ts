@@ -1,3 +1,10 @@
+import {
+  assertGpuFlowContentFramePublishability,
+  assertGpuFlowProjectionHorizon,
+  createGpuFlowContentFramePublishability,
+  createGpuFlowProjectionHorizon,
+  isGpuFlowCommittedTextActor,
+} from "./committedSurfaceFrameProjection";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
@@ -16,9 +23,27 @@ type GpuFlowCommittedSurfaceActorKind =
   | "html-texture"
   | "gpu-native-visual";
 
-type GpuFlowCommittedSurfaceActorGeneration = {
+type GpuFlowCommittedSurfaceActorFamily =
+  | GpuFlowCommittedSurfaceActorKind
+  | "text-like-dom-control";
+
+type GpuFlowCommittedSurfaceTextCoverageProof = {
+  readonly accessibilityProjection: "browser-dom";
+  readonly activationPolicy: "activate-to-edit" | "active-editing";
+  readonly projectionCoverage: "exact-live-dom" | "true-hole";
+  readonly rendererFamily: string;
+  readonly rendererSource: "browser-dom";
+  readonly role: "text-like";
+  readonly semanticGenerationId: string;
+  readonly visualGenerationId: string;
+};
+
+export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly active: boolean;
+  readonly accessibilityProjection: "browser-dom" | "none";
+  readonly activationPolicy: "activate-to-edit" | "active-editing" | "none";
   readonly actorId: string;
+  readonly actorFamily: GpuFlowCommittedSurfaceActorFamily;
   readonly clipChainRevision: string;
   readonly clipRect: GpuRect;
   readonly contentGenerationId: string;
@@ -41,9 +66,12 @@ type GpuFlowCommittedSurfaceActorGeneration = {
   } | null;
   readonly retainedScrollRevision: number;
   readonly rowId: string | null;
+  readonly semanticGenerationId: string;
   readonly sourceRect: GpuRect;
+  readonly textCoverageProof: GpuFlowCommittedSurfaceTextCoverageProof | null;
   readonly valueStyleRevision: string | null;
   readonly visibleNonempty: boolean;
+  readonly visualGenerationId: string;
   readonly wheelPolicy:
     | "none"
     | "viewport-pan"
@@ -52,11 +80,41 @@ type GpuFlowCommittedSurfaceActorGeneration = {
   readonly zOrder: number;
 };
 
-type GpuFlowCommittedSurfaceCompleteness = {
+type GpuFlowCommittedSurfaceActorGenerationInput = Omit<
+  GpuFlowCommittedSurfaceActorGeneration,
+  | "accessibilityProjection"
+  | "activationPolicy"
+  | "actorFamily"
+  | "semanticGenerationId"
+  | "textCoverageProof"
+  | "visualGenerationId"
+> &
+  Partial<
+    Pick<
+      GpuFlowCommittedSurfaceActorGeneration,
+      | "accessibilityProjection"
+      | "activationPolicy"
+      | "actorFamily"
+      | "semanticGenerationId"
+      | "textCoverageProof"
+      | "visualGenerationId"
+    >
+  >;
+
+export type GpuFlowCommittedSurfaceCompleteness = {
   readonly blockingActorIds: readonly string[];
   readonly projectedVisibleNonemptyDomControlCount: number;
   readonly status: "blocked" | "complete" | "startup";
   readonly visibleNonemptyDomControlCount: number;
+};
+
+export type GpuFlowContentFramePublishability = {
+  readonly blockingActorIds: readonly string[];
+  readonly status: "blocked" | "publishable" | "startup";
+  readonly textActorCount: number;
+  readonly textActorExactCoverageCount: number;
+  readonly transactionOutcome: string;
+  readonly visibleNonemptyTextActorCount: number;
 };
 
 type GpuFlowCommittedSurfaceCoherence = {
@@ -71,6 +129,27 @@ type GpuFlowCommittedSurfaceCoherence = {
   readonly retainedScrollRevision: number;
 };
 
+export type GpuFlowProjectionHorizon = {
+  readonly retainedScrollSurfaces: readonly {
+    readonly actorCount: number;
+    readonly committedScrollOffset: {
+      readonly x: number;
+      readonly y: number;
+    } | null;
+    readonly surfaceId: string;
+    readonly textActorCount: number;
+    readonly visibleNonemptyTextActorCount: number;
+  }[];
+  readonly textActorCoverage: {
+    readonly exactLiveDomActorIds: readonly string[];
+    readonly trueHoleActorIds: readonly string[];
+  };
+  readonly viewport: {
+    readonly anchorFrameId: number;
+    readonly mode: "transform-only";
+  };
+};
+
 export type GpuFlowCommittedSurfaceFrame = {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly coherence: GpuFlowCommittedSurfaceCoherence;
@@ -81,11 +160,15 @@ export type GpuFlowCommittedSurfaceFrame = {
     readonly gpuNativeVisualActorCount: number;
     readonly htmlTextureActorCount: number;
     readonly retainedPageActorCount: number;
+    readonly textActorCount: number;
+    readonly textActorExactCoverageCount: number;
     readonly transactionOutcome: string;
   };
   readonly displayCompleteness: GpuFlowCommittedSurfaceCompleteness;
   readonly displayFrameId: number;
   readonly id: number;
+  readonly projectionHorizon: GpuFlowProjectionHorizon;
+  readonly publishability: GpuFlowContentFramePublishability;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly sceneRevision: number;
@@ -203,6 +286,22 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
       "GPU Flow committed surface frame has unprojected visible nonempty DOM controls.",
     );
   }
+  assertGpuFlowContentFramePublishability(
+    frame.publishability,
+    createGpuFlowContentFramePublishability({
+      actorGenerations: frame.actorGenerations,
+      displayCompleteness: expectedCompleteness,
+      startup: frame.retainedDisplayFrame === null,
+      transactionOutcome: frame.diagnostics.transactionOutcome,
+    }),
+  );
+  assertGpuFlowProjectionHorizon(
+    frame.projectionHorizon,
+    createGpuFlowProjectionHorizon({
+      actorGenerations: frame.actorGenerations,
+      displayFrameId: frame.displayFrameId,
+    }),
+  );
 }
 
 function freezeCommittedSurfaceFrame({
@@ -221,6 +320,16 @@ function freezeCommittedSurfaceFrame({
   const displayCompleteness = createGpuFlowCommittedSurfaceCompleteness({
     actorGenerations,
     startup: retainedDisplayFrame === null,
+  });
+  const publishability = createGpuFlowContentFramePublishability({
+    actorGenerations,
+    displayCompleteness,
+    startup: retainedDisplayFrame === null,
+    transactionOutcome,
+  });
+  const projectionHorizon = createGpuFlowProjectionHorizon({
+    actorGenerations,
+    displayFrameId,
   });
   const clipChainRevision = createCommittedClipChainRevision({
     actorGenerations,
@@ -258,11 +367,19 @@ function freezeCommittedSurfaceFrame({
       retainedPageActorCount: actorGenerations.filter(
         (actor) => actor.kind === "retained-page",
       ).length,
+      textActorCount: actorGenerations.filter(isGpuFlowCommittedTextActor)
+        .length,
+      textActorExactCoverageCount: actorGenerations.filter(
+        (actor) =>
+          actor.textCoverageProof?.projectionCoverage === "exact-live-dom",
+      ).length,
       transactionOutcome,
     }),
     displayCompleteness,
     displayFrameId,
     id: displayFrameId,
+    projectionHorizon,
+    publishability,
     retainedDisplayFrame,
     retainedRuntimeFrame,
     sceneRevision: retainedRuntimeFrame.input.sceneRevision,
@@ -452,9 +569,29 @@ function domControlToActor({
     control.lifecycleState,
     projected ? "projected" : "clipped",
   ].join("|");
+  const visualGenerationId = [
+    "text-like-dom-visual",
+    control.sourceId,
+    control.valueStyleRevision,
+    control.viewportSampleRevision,
+  ].join("|");
+  const semanticGenerationId = [
+    "text-like-dom-semantic",
+    control.sourceId,
+    control.value,
+    control.defaultValue,
+    control.disabled,
+    control.error,
+  ].join("|");
+  const activationPolicy = control.active
+    ? ("active-editing" as const)
+    : ("activate-to-edit" as const);
   return freezeActor({
     active: control.active,
+    accessibilityProjection: "browser-dom",
+    activationPolicy,
     actorId: control.sourceId,
+    actorFamily: "text-like-dom-control",
     clipChainRevision: control.clipChainRevision,
     clipRect: control.sectionClipRectFlowPx,
     contentGenerationId,
@@ -478,9 +615,21 @@ function domControlToActor({
     retainedScrollOffset: control.sectionScrollOffset,
     retainedScrollRevision,
     rowId: control.rowId,
+    semanticGenerationId,
     sourceRect: control.sourceRectCssPx,
+    textCoverageProof: {
+      accessibilityProjection: "browser-dom",
+      activationPolicy,
+      projectionCoverage: projected ? "exact-live-dom" : "true-hole",
+      rendererFamily: control.rendererFamily,
+      rendererSource: "browser-dom",
+      role: control.role,
+      semanticGenerationId,
+      visualGenerationId,
+    },
     valueStyleRevision: control.valueStyleRevision,
     visibleNonempty: control.value.length > 0,
+    visualGenerationId,
     wheelPolicy: control.interactionPolicy.wheel,
     zOrder: control.zOrder,
   });
@@ -732,16 +881,28 @@ function getGpuFlowCommittedSurfaceActorScrollRevision({
 }
 
 function freezeActor(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowCommittedSurfaceActorGenerationInput,
 ): GpuFlowCommittedSurfaceActorGeneration {
+  const visualGenerationId =
+    actor.visualGenerationId ?? actor.contentGenerationId;
+  const semanticGenerationId =
+    actor.semanticGenerationId ?? actor.contentGenerationId;
   return Object.freeze({
     ...actor,
+    accessibilityProjection: actor.accessibilityProjection ?? "none",
+    activationPolicy: actor.activationPolicy ?? "none",
+    actorFamily: actor.actorFamily ?? actor.kind,
     clipRect: freezeRect(actor.clipRect),
     flowRect: freezeRect(actor.flowRect),
     retainedScrollOffset: actor.retainedScrollOffset
       ? Object.freeze({ ...actor.retainedScrollOffset })
       : null,
+    semanticGenerationId,
     sourceRect: freezeRect(actor.sourceRect),
+    textCoverageProof: actor.textCoverageProof
+      ? Object.freeze({ ...actor.textCoverageProof })
+      : null,
+    visualGenerationId,
   });
 }
 

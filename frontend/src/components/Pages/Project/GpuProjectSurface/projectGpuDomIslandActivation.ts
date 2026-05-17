@@ -312,8 +312,10 @@ function dispatchProjectGpuDomIslandMouseActivationTarget(
   if (!shouldMouseActivateProjectGpuDomIslandTarget(target)) {
     return false;
   }
+  const MouseEventConstructor =
+    target.ownerDocument.defaultView?.MouseEvent ?? MouseEvent;
   target.dispatchEvent(
-    new MouseEvent("mousedown", {
+    new MouseEventConstructor("mousedown", {
       bubbles: true,
       button: 0,
       buttons: 1,

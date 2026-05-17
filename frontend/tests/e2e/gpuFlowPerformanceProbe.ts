@@ -59,9 +59,30 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly edgeVertexCount: number;
   readonly evictedTextureBytes: number;
   readonly evictedTextureNodeIds: readonly string[];
+  readonly frameReasons: readonly string[];
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
+  readonly phaseDiagnostics: {
+    readonly committedContentPublishMs: number;
+    readonly diagnosticsMs: number;
+    readonly domTextActorProjectionMs: number;
+    readonly frameMode: string;
+    readonly htmlSurfaceFrameMs: number;
+    readonly projectionSurfaceResolveMs: number;
+    readonly retainedDisplayTransactionMs: number;
+    readonly retainedPageFrameMs: number;
+    readonly retainedPageMaintenanceMs: number;
+    readonly retainedRuntimeFrameMs: number;
+    readonly schedulingMs: number;
+  };
   readonly remainingDirtyNodeCount: number;
+  readonly retainedTexturePageCoverageCandidateCount: number;
+  readonly retainedTexturePageDrawQuadCount: number;
+  readonly retainedTexturePageRasterMs: number;
+  readonly retainedTexturePageTargetDescriptorCount: number;
+  readonly retainedTexturePageTransactionOutcome: string;
+  readonly retainedTexturePageUploadCount: number;
+  readonly retainedTexturePageUploadMs: number;
   readonly skippedNodeCount: number;
   readonly solidRoundedRectSurfaceCount: number;
   readonly textureAllocatedBytes: number;
@@ -238,6 +259,7 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
+    phaseDiagnosticsValue.toString(),
     viewportValue.toString(),
     objectValue.toString(),
     numberValue.toString(),
@@ -362,7 +384,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 4) {
+  if (existing?.version === 5) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -525,7 +547,7 @@ function installGpuFlowPerformanceProbeInPage() {
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 4,
+    version: 5,
   };
   win[probeKey] = api;
   api.installQueueWrappers();
@@ -746,6 +768,7 @@ function toNodeLayerFrameSummary(
       ? (result as Record<string, unknown>)
       : {};
   const textureMemory = objectValue(value.textureMemory);
+  const phaseDiagnostics = phaseDiagnosticsValue(value.phaseDiagnostics);
   const uploadDiagnostics = Array.isArray(value.uploadDiagnostics)
     ? value.uploadDiagnostics
     : [];
@@ -765,6 +788,7 @@ function toNodeLayerFrameSummary(
       typeof value.edgeVertexCount === "number" ? value.edgeVertexCount : 0,
     evictedTextureBytes: numberValue(value.evictedTextureBytes),
     evictedTextureNodeIds: stringArray(value.evictedTextureNodeIds),
+    frameReasons: stringArray(value.frameReasons),
     missingElementNodeCount: numberOrArrayLength(
       value.missingElementNodeCount,
       value.missingElementNodeIds,
@@ -773,10 +797,29 @@ function toNodeLayerFrameSummary(
       value.missingTextureNodeCount,
       value.missingTextureNodeIds,
     ),
+    phaseDiagnostics,
     remainingDirtyNodeCount: numberOrArrayLength(
       value.remainingDirtyNodeCount,
       value.remainingDirtyNodeIds,
     ),
+    retainedTexturePageCoverageCandidateCount: numberValue(
+      value.retainedTexturePageCoverageCandidateCount,
+    ),
+    retainedTexturePageDrawQuadCount: numberValue(
+      value.retainedTexturePageDrawQuadCount,
+    ),
+    retainedTexturePageRasterMs: numberValue(value.retainedTexturePageRasterMs),
+    retainedTexturePageTargetDescriptorCount: numberValue(
+      value.retainedTexturePageTargetDescriptorCount,
+    ),
+    retainedTexturePageTransactionOutcome:
+      typeof value.retainedTexturePageTransactionOutcome === "string"
+        ? value.retainedTexturePageTransactionOutcome
+        : "",
+    retainedTexturePageUploadCount: numberValue(
+      value.retainedTexturePageUploadCount,
+    ),
+    retainedTexturePageUploadMs: numberValue(value.retainedTexturePageUploadMs),
     skippedNodeCount: numberOrArrayLength(
       value.skippedNodeCount,
       value.skippedNodeIds,
@@ -850,6 +893,44 @@ function toNodeLayerFrameSummary(
       value.visibleNodeCount,
       value.visibleNodeIds,
     ),
+  };
+}
+
+function phaseDiagnosticsValue(value: unknown): {
+  readonly committedContentPublishMs: number;
+  readonly diagnosticsMs: number;
+  readonly domTextActorProjectionMs: number;
+  readonly frameMode: string;
+  readonly htmlSurfaceFrameMs: number;
+  readonly projectionSurfaceResolveMs: number;
+  readonly retainedDisplayTransactionMs: number;
+  readonly retainedPageFrameMs: number;
+  readonly retainedPageMaintenanceMs: number;
+  readonly retainedRuntimeFrameMs: number;
+  readonly schedulingMs: number;
+} {
+  const diagnostics = objectValue(value);
+  return {
+    committedContentPublishMs: numberValue(
+      diagnostics.committedContentPublishMs,
+    ),
+    diagnosticsMs: numberValue(diagnostics.diagnosticsMs),
+    domTextActorProjectionMs: numberValue(diagnostics.domTextActorProjectionMs),
+    frameMode:
+      typeof diagnostics.frameMode === "string" ? diagnostics.frameMode : "",
+    htmlSurfaceFrameMs: numberValue(diagnostics.htmlSurfaceFrameMs),
+    projectionSurfaceResolveMs: numberValue(
+      diagnostics.projectionSurfaceResolveMs,
+    ),
+    retainedDisplayTransactionMs: numberValue(
+      diagnostics.retainedDisplayTransactionMs,
+    ),
+    retainedPageFrameMs: numberValue(diagnostics.retainedPageFrameMs),
+    retainedPageMaintenanceMs: numberValue(
+      diagnostics.retainedPageMaintenanceMs,
+    ),
+    retainedRuntimeFrameMs: numberValue(diagnostics.retainedRuntimeFrameMs),
+    schedulingMs: numberValue(diagnostics.schedulingMs),
   };
 }
 

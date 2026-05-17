@@ -474,11 +474,11 @@ async function activateAndEditTextLikeIsland(
     target,
   });
   const island = page.locator(container.selector);
+  const editor = island.locator(selector).first();
+  await expect(editor).toBeVisible();
   await expectScopedAxeClean(page, {
     include: container.selector,
   });
-  const editor = island.locator(selector).first();
-  await expect(editor).toBeVisible();
   await editor.fill(value);
   if (await isFormValueEditor(editor)) {
     await expect(editor).toHaveValue(value);

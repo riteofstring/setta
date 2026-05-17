@@ -7,11 +7,6 @@ import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 import type { GpuCanvasSize } from "../gpuRenderer";
 
 import type {
-  RenderHtmlSurfacesInput,
-  RenderHtmlSurfacesResult,
-} from "./renderer";
-
-import type {
   CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureManager,
@@ -60,20 +55,22 @@ import {
 
 import {
   getVisibleFlowRect,
-  normalizeGpuViewport,
   rectsIntersect,
   type GpuRect,
   type GpuViewportInput,
 } from "../viewportMath";
 
 import {
-  syncGpuNodeDomTransforms,
-  syncGpuNodeDomTransformsFromQuads,
-} from "./frameDomTransformSync";
+  evictHtmlSurfaceFrameTextures,
+  renderHtmlSurfaceVisualScene,
+  resolveHtmlSurfaceFrameTextureWork,
+  syncHtmlSurfaceFrameDomTransforms,
+  type GpuNodeSurfaceRenderTarget,
+  type GpuNodeTextureController,
+} from "./frameRenderWork";
 import {
   mergeNodeIdSets,
   normalizeNodeIdSet,
-  resolveVisibleNodeTexturePriority,
   setGpuNodeBaseStyle,
   setStyleValue,
   toNodeQuad,
@@ -187,20 +184,6 @@ export type GpuNodeUploadBudget = Pick<
   "maxBytes" | "maxDurationMs" | "maxUploads" | "now"
 >;
 
-type GpuNodeTextureController = Pick<
-  HtmlSurfaceTextureManager,
-  | "getCommittedSurfaceTexture"
-  | "getSurfaceTextureLifecycleDiagnostics"
-  | "evictSurfaceTextures"
-  | "markSurfaceTextureDirty"
-  | "registerSurfaceTexture"
-  | "uploadDirtySurfaceTextures"
->;
-
-type GpuNodeSurfaceRenderTarget = {
-  render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
-};
-
 type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
@@ -230,6 +213,7 @@ type RenderHtmlSurfaceFrameInput = {
   readonly renderer: GpuNodeSurfaceRenderTarget;
   readonly domTransformCache?: GpuNodeDomTransformSyncCache | undefined;
   readonly textureManager: GpuNodeTextureController;
+  readonly textureWorkMode?: "content" | "projection" | undefined;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
 };
@@ -377,6 +361,7 @@ export function renderHtmlSurfaceFrame({
   nodeTextureMemoryBudgetBytes,
   renderer,
   textureManager,
+  textureWorkMode = "content",
   uploadBudget,
   viewport,
 }: RenderHtmlSurfaceFrameInput): RenderHtmlSurfaceFrameResult {
@@ -414,43 +399,31 @@ export function renderHtmlSurfaceFrame({
     visibleSurfaceQuads.map((quad) => quad.nodeId),
   );
 
-  const domTransformResult = domTransformCache
-    ? syncGpuNodeDomTransformsFromQuads({
-        activeNodeIds,
-        cache: domTransformCache,
-        elementByNodeId,
-        retainNodeIds: retainedNodeIds,
-        visibleQuads: visibleSurfaceQuads,
-        viewport,
-      })
-    : syncGpuNodeDomTransforms({
-        activeNodeIds,
-        elementByNodeId,
-        nodes: [
-          ...nodes,
-          ...toGpuHtmlSurfaceOverlayNodeLayouts(htmlSurfaceOverlays),
-        ],
-        visibleNodeIds: visibleSurfaceIds,
-        viewport,
-      });
-
-  const missingElementNodeIds = registerVisibleGpuNodeTextures({
-    activeSurfaceIds,
-    deferResolutionUpdates,
-    devicePixelRatio: canvasSize.devicePixelRatio,
+  const domTransformResult = syncHtmlSurfaceFrameDomTransforms({
+    activeNodeIds,
+    domTransformCache,
     elementByNodeId,
-    frame,
-    quads: visibleSurfaceQuads,
-    textureManager,
+    htmlSurfaceOverlays,
+    nodes,
+    retainedNodeIds,
     viewport,
-  }).filter((nodeId) => nodeSurfaceIds.has(nodeId));
-  const uploadResult = uploadGpuNodeTextures({
-    activeSurfaceIds,
-    deferResolutionUpdates,
-    frame,
-    textureManager,
-    uploadBudget,
+    visibleSurfaceIds,
+    visibleSurfaceQuads,
   });
+  const { missingElementNodeIds, uploadResult } =
+    resolveHtmlSurfaceFrameTextureWork({
+      activeSurfaceIds,
+      canvasSize,
+      deferResolutionUpdates,
+      elementByNodeId,
+      frame,
+      nodeSurfaceIds,
+      textureManager,
+      textureWorkMode,
+      uploadBudget,
+      viewport,
+      visibleSurfaceQuads,
+    });
   const textureResult = buildTexturedGpuNodeQuads(visibleQuads, textureManager);
   const overlayTextureResult = buildTexturedGpuNodeQuads(
     overlayQuads.normalQuads,
@@ -512,21 +485,21 @@ export function renderHtmlSurfaceFrame({
     htmlSurfaceLateVisuals: lateOverlayVisualSurfaces.flatSurfaces,
     visualSurfaces,
   });
-  const renderResult = renderer.render({
+  const renderResult = renderHtmlSurfaceVisualScene({
     canvasSize,
     clearColor,
-    ...(edgePalette === undefined ? {} : { edgePalette }),
-    ...(edges === undefined ? {} : { edges }),
-    ...(grid === undefined ? {} : { grid }),
+    edgePalette,
+    edges,
+    grid,
+    renderer,
     scene: visualScene,
     viewport,
   });
-  const evictionResult = textureManager.evictSurfaceTextures({
-    ...(nodeTextureMemoryBudgetBytes === undefined
-      ? {}
-      : { budgetBytes: nodeTextureMemoryBudgetBytes }),
-    protectedSurfaceIds: retainedNodeIds,
-    reason: "html-surface-frame",
+  const evictionResult = evictHtmlSurfaceFrameTextures({
+    nodeTextureMemoryBudgetBytes,
+    retainedNodeIds,
+    textureManager,
+    textureWorkMode,
     visibleSurfaceIds,
   });
   const uploadedSurfaceIds = uploadResult.uploaded.map(
@@ -579,57 +552,6 @@ export function renderHtmlSurfaceFrame({
     visibleNodeIds: [...visibleNodeIds],
     visualScene,
   };
-}
-
-function registerVisibleGpuNodeTextures({
-  activeSurfaceIds,
-  deferResolutionUpdates,
-  devicePixelRatio,
-  elementByNodeId,
-  frame,
-  quads,
-  textureManager,
-  viewport,
-}: {
-  readonly activeSurfaceIds: ReadonlySet<string>;
-  readonly deferResolutionUpdates: boolean | undefined;
-  readonly devicePixelRatio: number;
-  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
-  readonly frame: number;
-  readonly quads: readonly GpuVisibleNodeQuad[];
-  readonly textureManager: GpuNodeTextureController;
-  readonly viewport: GpuViewportInput;
-}): string[] {
-  const missingElementNodeIds: string[] = [];
-  const zoom = normalizeGpuViewport(viewport).zoom;
-  for (const quad of quads) {
-    const element = elementByNodeId.get(quad.nodeId);
-    if (!element) {
-      missingElementNodeIds.push(quad.nodeId);
-      continue;
-    }
-    textureManager.registerSurfaceTexture({
-      cssHeight: quad.textureCssHeight ?? quad.height,
-      cssWidth: quad.textureCssWidth ?? quad.width,
-      ...(deferResolutionUpdates ? { deferResolution: true } : {}),
-      devicePixelRatio,
-      element,
-      frame,
-      priority: resolveVisibleNodeTexturePriority(
-        quad.nodeId,
-        activeSurfaceIds,
-      ),
-      surfaceId: quad.nodeId,
-      ...(quad.textureContentKey
-        ? { textureContentKey: quad.textureContentKey }
-        : {}),
-      ...(quad.textureSourceRect
-        ? { textureSourceRect: quad.textureSourceRect }
-        : {}),
-      zoom,
-    });
-  }
-  return missingElementNodeIds;
 }
 
 function toHtmlSurfaceActorLayouts(
@@ -730,32 +652,6 @@ function createHtmlSurfaceTextureSnapshotMap({
     textureBySurfaceId.set(quad.nodeId, texture);
   }
   return textureBySurfaceId;
-}
-
-function uploadGpuNodeTextures({
-  activeSurfaceIds,
-  deferResolutionUpdates,
-  frame,
-  textureManager,
-  uploadBudget,
-}: {
-  readonly activeSurfaceIds: ReadonlySet<string>;
-  readonly deferResolutionUpdates: boolean | undefined;
-  readonly frame: number;
-  readonly textureManager: GpuNodeTextureController;
-  readonly uploadBudget: GpuNodeUploadBudget | undefined;
-}) {
-  return textureManager.uploadDirtySurfaceTextures({
-    frame,
-    ...(deferResolutionUpdates
-      ? {
-          deferPassiveUploads: true,
-          deferResolutionOnly: true,
-          deferSurfaceIds: activeSurfaceIds,
-        }
-      : {}),
-    ...uploadBudget,
-  });
 }
 
 export function markHtmlSurfaceFramePaintDirty({

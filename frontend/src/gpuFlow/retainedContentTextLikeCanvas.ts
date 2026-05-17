@@ -96,7 +96,7 @@ function drawTextLikeValue({
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  if (shouldSkipTextLikeValue(state, outer)) {
+  if (shouldSkipTextLikeValue(control, state, outer)) {
     return;
   }
   const textRect = resolveTextLikeTextRect(outer, palette);
@@ -147,11 +147,15 @@ function drawTextLikeValue({
 }
 
 function shouldSkipTextLikeValue(
+  control: Extract<GpuRetainedContentControlDescriptor, { kind: "text-like" }>,
   state: GpuRetainedContentRowState | undefined,
   outer: GpuRect,
 ): boolean {
   return Boolean(
-    state?.nativeControlActive || outer.width <= 0 || outer.height <= 0,
+    control.renderOwner === "dom-owned" ||
+      state?.nativeControlActive ||
+      outer.width <= 0 ||
+      outer.height <= 0,
   );
 }
 

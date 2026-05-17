@@ -10,12 +10,27 @@ export type GpuFlowFramePerformanceInput = {
   readonly frameReasons: readonly GpuFrameReason[];
   readonly interactionDiagnostics?: GpuFlowInteractionDiagnostics | undefined;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
+  readonly phaseDiagnostics?: GpuFlowFramePhaseDiagnostics | undefined;
   readonly renderDurationMs: number;
   readonly retainedTexturePages?:
     | GpuFlowRetainedTexturePageFrameMetrics
     | undefined;
   readonly viewport: GpuViewportInput;
   readonly viewportFrame: boolean;
+};
+
+export type GpuFlowFramePhaseDiagnostics = {
+  readonly committedContentPublishMs: number;
+  readonly diagnosticsMs: number;
+  readonly domTextActorProjectionMs: number;
+  readonly frameMode: "content" | "projection";
+  readonly htmlSurfaceFrameMs: number;
+  readonly projectionSurfaceResolveMs: number;
+  readonly retainedDisplayTransactionMs: number;
+  readonly retainedPageFrameMs: number;
+  readonly retainedPageMaintenanceMs: number;
+  readonly retainedRuntimeFrameMs: number;
+  readonly schedulingMs: number;
 };
 
 export type GpuFlowRetainedTexturePageFrameMetrics = {
@@ -117,6 +132,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly interactionDiagnostics: GpuFlowInteractionDiagnostics | null;
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
+  readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
   readonly remainingDirtyNodeCount: number;
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageCoverageCandidateCount: number;
@@ -209,6 +225,7 @@ export function createGpuFlowFramePerformanceEvent({
   frameReasons,
   interactionDiagnostics,
   layerResult,
+  phaseDiagnostics,
   renderDurationMs,
   retainedTexturePages,
   viewport,
@@ -240,6 +257,11 @@ export function createGpuFlowFramePerformanceEvent({
     interactionDiagnostics: interactionDiagnostics ?? null,
     missingElementNodeCount: layerResult.missingElementNodeIds.length,
     missingTextureNodeCount: layerResult.missingTextureNodeIds.length,
+    phaseDiagnostics:
+      phaseDiagnostics ??
+      createEmptyGpuFlowFramePhaseDiagnostics({
+        frameMode: deferResolutionUpdates ? "projection" : "content",
+      }),
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,
     ...retainedTexturePageFields,
     skippedNodeCount: layerResult.skippedNodeIds.length,
@@ -292,6 +314,26 @@ export function createGpuFlowFramePerformanceEvent({
     },
     viewportFrame,
     visibleNodeCount: layerResult.visibleNodeIds.length,
+  };
+}
+
+function createEmptyGpuFlowFramePhaseDiagnostics({
+  frameMode,
+}: {
+  readonly frameMode: GpuFlowFramePhaseDiagnostics["frameMode"];
+}): GpuFlowFramePhaseDiagnostics {
+  return {
+    committedContentPublishMs: 0,
+    diagnosticsMs: 0,
+    domTextActorProjectionMs: 0,
+    frameMode,
+    htmlSurfaceFrameMs: 0,
+    projectionSurfaceResolveMs: 0,
+    retainedDisplayTransactionMs: 0,
+    retainedPageFrameMs: 0,
+    retainedPageMaintenanceMs: 0,
+    retainedRuntimeFrameMs: 0,
+    schedulingMs: 0,
   };
 }
 

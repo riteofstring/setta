@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 
 import type { GpuFlowScene } from "./scene";
 
-type GpuFlowSceneContextValue = {
+export type GpuFlowSceneContextValue = {
   readonly getScene: () => GpuFlowScene | null | undefined;
 };
 

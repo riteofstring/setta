@@ -24,12 +24,10 @@ const READY_SELECTOR = ".setta-gpu-flow__pane";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const RETAINED_SCROLLBAR_TEXTURE_SUFFIX = ":scrollbar";
-const SCROLL_P95_FRAME_BUDGET_MS = 20;
-const CAPPED_SCROLL_P95_FRAME_BUDGET_SLACK_MS = 10;
+const SCROLL_P95_FRAME_BUDGET_MS = 8.5;
+const CAPPED_SCROLL_P95_FRAME_BUDGET_SLACK_MS = 4;
 const CAPPED_SCROLL_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
-// Native wheel dispatch through Playwright/CDP can produce isolated scheduling
-// gaps in capped headless browsers; keep p95 strict and cap only the max sample.
-const SCROLL_MAX_FRAME_BUDGET_MS = 110;
+const SCROLL_MAX_FRAME_BUDGET_MS = 50;
 
 test("all-settings retained section wheel scrolling does not refill the texture backlog", async ({
   page,

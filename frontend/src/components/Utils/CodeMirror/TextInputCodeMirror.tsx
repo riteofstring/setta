@@ -4,7 +4,7 @@ import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { textFieldCompletion } from "openapi/http";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
   nowChromeReproPerformanceMs,
@@ -18,6 +18,11 @@ import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
+
+export type TextInputCodeMirrorInitialActivationEvent =
+  | "tab"
+  | { readonly clientX: number; readonly clientY: number };
+
 export function TextInputCodeMirror({
   sectionId,
   paramInfoId,
@@ -42,11 +47,17 @@ export function TextInputCodeMirror({
   isKeyName = false,
   isDisabled = false,
   completionsFn,
+  initialActivationEvent,
 }) {
-  const [activationEvent, setActivationEvent] = useState<
-    "tab" | { readonly clientX: number; readonly clientY: number } | null
-  >(null);
-  const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const {
+    activationEvent,
+    realIsInitialized,
+    setActivationEvent,
+    setRealIsInitialized,
+  } = useTextInputCodeMirrorActivationState({
+    initialActivationEvent,
+    isDisabled,
+  });
   const theme = useCodeMirrorStyle(color);
   const gpuFlowControl = getTextInputCodeMirrorGpuFlowControl({
     isKeyName,
@@ -58,8 +69,10 @@ export function TextInputCodeMirror({
     // blocking other inputs on blur
     // https://github.com/uiwjs/react-codemirror/issues/677
     setTimeout(() => {
-      setActivationEvent(null);
-      setRealIsInitialized(false);
+      if (!initialActivationEvent) {
+        setActivationEvent(null);
+        setRealIsInitialized(false);
+      }
     }, 0);
     postTextInputCodeMirrorActivationChromeReproEvent({
       defaultValueLength: (defaultVal ?? "").length,
@@ -166,6 +179,100 @@ export function TextInputCodeMirror({
       )}
     </>
   );
+}
+
+function useTextInputCodeMirrorActivationState({
+  initialActivationEvent,
+  isDisabled,
+}: {
+  readonly initialActivationEvent:
+    | TextInputCodeMirrorInitialActivationEvent
+    | null
+    | undefined;
+  readonly isDisabled: boolean;
+}) {
+  const initialActivationKey =
+    getEnabledTextInputCodeMirrorInitialActivationKey({
+      event: initialActivationEvent,
+      isDisabled,
+    });
+  const [activationEvent, setActivationEvent] =
+    useState<TextInputCodeMirrorInitialActivationEvent | null>(() =>
+      initialActivationKey ? initialActivationEvent : null,
+    );
+  const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const consumedInitialActivationKeyRef = useRef<string | null>(
+    initialActivationKey,
+  );
+  const initialActivationClientX =
+    getTextInputCodeMirrorInitialActivationCoordinate(
+      initialActivationEvent,
+      "clientX",
+    );
+  const initialActivationClientY =
+    getTextInputCodeMirrorInitialActivationCoordinate(
+      initialActivationEvent,
+      "clientY",
+    );
+
+  useEffect(() => {
+    const activationKey = getEnabledTextInputCodeMirrorInitialActivationKey({
+      event: initialActivationEvent,
+      isDisabled,
+    });
+    if (!activationKey) {
+      return;
+    }
+    if (consumedInitialActivationKeyRef.current === activationKey) {
+      return;
+    }
+    consumedInitialActivationKeyRef.current = activationKey;
+    setActivationEvent(initialActivationEvent ?? null);
+  }, [
+    initialActivationClientX,
+    initialActivationClientY,
+    initialActivationEvent,
+    isDisabled,
+  ]);
+
+  return {
+    activationEvent,
+    realIsInitialized,
+    setActivationEvent,
+    setRealIsInitialized,
+  };
+}
+
+function getEnabledTextInputCodeMirrorInitialActivationKey({
+  event,
+  isDisabled,
+}: {
+  readonly event: TextInputCodeMirrorInitialActivationEvent | null | undefined;
+  readonly isDisabled: boolean;
+}): string | null {
+  if (isDisabled || !event) {
+    return null;
+  }
+  return getTextInputCodeMirrorInitialActivationKey(event);
+}
+
+function getTextInputCodeMirrorInitialActivationKey(
+  event: TextInputCodeMirrorInitialActivationEvent,
+): string {
+  if (event === "tab") {
+    return "tab";
+  }
+  return `pointer:${event.clientX}:${event.clientY}`;
+}
+
+function getTextInputCodeMirrorInitialActivationCoordinate(
+  event: TextInputCodeMirrorInitialActivationEvent | null | undefined,
+  coordinate: "clientX" | "clientY",
+): number | null {
+  if (!event || event === "tab") {
+    return null;
+  }
+  return event[coordinate];
 }
 
 function postTextInputCodeMirrorActivationChromeReproEvent({

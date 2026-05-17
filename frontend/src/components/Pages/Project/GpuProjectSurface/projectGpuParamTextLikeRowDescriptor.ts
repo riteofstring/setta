@@ -29,7 +29,7 @@ export function createProjectGpuTextLikeControlDescriptorIfSupported({
     editorKind: policy.editorKind,
     kind: "text-like",
     policy,
-    renderOwner: "canvas-owned",
+    renderOwner: "dom-owned",
     rendererFamily: controlKind,
     commitPolicy: "native-island",
   };

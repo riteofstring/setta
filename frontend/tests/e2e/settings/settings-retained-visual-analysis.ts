@@ -1,5 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 
+export {
+  compareScreenshotSimilarity,
+  type ScreenshotSimilarityStats,
+} from "./settings-retained-screenshot-similarity";
+
 export type Point = {
   readonly x: number;
   readonly y: number;

@@ -113,9 +113,29 @@ describe("retained content text-like canvas", () => {
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
   });
+
+  it("leaves dom-owned text value pixels to the browser renderer", () => {
+    const ctx = createCanvasContextRecorder();
+    const palette = getGpuRetainedContentCanvasPalette(false);
+
+    drawGpuRetainedContentTextLikeControl({
+      control: textLikeControl("sample", "dom-owned"),
+      ctx,
+      palette,
+      rect: { height: 28, width: 140, x: 0, y: 0 },
+      state: undefined,
+    });
+
+    expect(ctx.fillText).not.toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
+  });
 });
 
-function textLikeControl(displayValue: string) {
+function textLikeControl(
+  displayValue: string,
+  renderOwner?: "canvas-owned" | "dom-owned",
+) {
   return {
     defaultDisplayValue: "",
     displayValue,
@@ -129,6 +149,7 @@ function textLikeControl(displayValue: string) {
       minVisibleLines: 1,
       wrapLines: false,
     },
+    ...(renderOwner ? { renderOwner } : {}),
     rendererFamily: "text",
     commitPolicy: "native-island" as const,
   };

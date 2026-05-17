@@ -3,9 +3,12 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 import {
   analyzeCodeMirrorTextInkBounds,
+  compareScreenshotSimilarity,
   type Point,
   type Rect,
   type RetainedRowDebugEntry,
+  type ScreenshotSimilarityStats,
+  type TextInkBounds,
 } from "./settings-retained-visual-analysis";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -53,6 +56,7 @@ test("all-settings retained text-like row values are visible before click and th
   page,
 }, testInfo) => {
   await openAllSettings(page);
+  await installStableCodeMirrorVisualComparisonStyle(page);
 
   for (const target of TEXT_LIKE_ROW_TARGETS) {
     await centerRetainedSurface(page, target.surfaceId);
@@ -74,13 +78,14 @@ test("all-settings retained text-like row values are visible before click and th
     }
 
     const passiveClip = await resolveControlScreenshotClip(page, row);
-    const { ink: passiveInk } = await waitForCodeMirrorTextInkFrame({
-      name: `${rowTarget.rowId}-passive-before-click.png`,
-      page,
-      rect: passiveClip,
-      searchRect: row.controlClientRect ?? passiveClip,
-      testInfo,
-    });
+    const { frame: passiveFrame, ink: passiveInk } =
+      await waitForCodeMirrorTextInkFrame({
+        name: `${rowTarget.rowId}-passive-before-click.png`,
+        page,
+        rect: passiveClip,
+        searchRect: row.controlClientRect ?? passiveClip,
+        testInfo,
+      });
     const passiveDiagnostics = await readRetainedTextLikeRowDiagnostics(
       page,
       rowTarget,
@@ -132,6 +137,7 @@ test("all-settings retained text-like row values are visible before click and th
     await expect
       .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
       .toContain(row.rowId);
+    await installStableCodeMirrorVisualComparisonStyle(page);
     await waitForAnimationFrame(page);
     const activeGeometry = await readActiveEditorGeometry(
       page,
@@ -159,22 +165,116 @@ test("all-settings retained text-like row values are visible before click and th
     expect(Math.abs(activeGeometry.widthDelta), activeDetails).toBeLessThan(2);
     expect(Math.abs(activeGeometry.heightDelta), activeDetails).toBeLessThan(9);
     expect(activeInk?.pixelCount ?? 0, activeDetails).toBeGreaterThan(0);
+    const passiveActiveSimilarity = await compareScreenshotSimilarity(page, {
+      actual: passiveFrame,
+      expected: activeFrame,
+    });
+    expectTextLikeVisualParity({
+      actual: passiveInk,
+      context: {
+        activeGeometry,
+        activeInk,
+        passiveActiveSimilarity,
+        passiveInk,
+        row,
+        target: rowTarget,
+      },
+      expected: activeInk,
+      similarity: passiveActiveSimilarity,
+    });
 
     await blurActiveEditor(page);
-    const { ink: blurInk } = await waitForCodeMirrorTextInkFrame({
-      name: `${rowTarget.rowId}-after-blur.png`,
-      page,
-      rect: passiveClip,
-      searchRect: row.controlClientRect,
-      testInfo,
-    });
+    const { frame: blurFrame, ink: blurInk } =
+      await waitForCodeMirrorTextInkFrame({
+        name: `${rowTarget.rowId}-after-blur.png`,
+        page,
+        rect: passiveClip,
+        searchRect: row.controlClientRect,
+        testInfo,
+      });
     await expect.poll(() => readActiveCodeMirrorId(page)).toBeNull();
     expect(
       blurInk?.pixelCount ?? 0,
       JSON.stringify({ blurInk, passiveInk, row, target: rowTarget }, null, 2),
     ).toBeGreaterThan(0);
+    const blurActiveSimilarity = await compareScreenshotSimilarity(page, {
+      actual: blurFrame,
+      expected: activeFrame,
+    });
+    expectTextLikeVisualParity({
+      actual: blurInk,
+      context: {
+        activeGeometry,
+        activeInk,
+        blurActiveSimilarity,
+        blurInk,
+        passiveInk,
+        row,
+        target: rowTarget,
+      },
+      expected: activeInk,
+      similarity: blurActiveSimilarity,
+    });
   }
 });
+
+function expectTextLikeVisualParity({
+  actual,
+  context,
+  expected,
+  similarity,
+}: {
+  readonly actual: TextInkBounds | null;
+  readonly context: unknown;
+  readonly expected: TextInkBounds | null;
+  readonly similarity: ScreenshotSimilarityStats;
+}) {
+  const details = JSON.stringify(context, null, 2);
+  expect(actual, details).not.toBeNull();
+  expect(expected, details).not.toBeNull();
+  if (!actual || !expected) {
+    return;
+  }
+  expect(Math.abs(actual.x - expected.x), details).toBeLessThanOrEqual(3);
+  expect(
+    Math.abs(actual.centerY - expected.centerY),
+    details,
+  ).toBeLessThanOrEqual(2.5);
+  expect(
+    Math.abs(actual.height - expected.height),
+    details,
+  ).toBeLessThanOrEqual(4);
+  expect(similarity.changedPixelRatio, details).toBeLessThanOrEqual(0.18);
+  expect(similarity.meanDelta, details).toBeLessThanOrEqual(12);
+  expect(similarity.p95Delta, details).toBeLessThanOrEqual(42);
+}
+
+async function installStableCodeMirrorVisualComparisonStyle(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    if (document.getElementById("gpu-flow-retained-text-visual-comparison")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "gpu-flow-retained-text-visual-comparison";
+    style.textContent = `
+      .cm-cursorLayer,
+      .cm-selectionLayer {
+        opacity: 0 !important;
+      }
+      .cm-activeLine {
+        background: transparent !important;
+      }
+      [data-gpu-flow-retained-dom-control-content="true"] .section-value {
+        border-color: transparent !important;
+        box-shadow: none !important;
+        outline: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  });
+}
 
 async function openAllSettings(page: Page): Promise<void> {
   await releaseModifierKeys(page);

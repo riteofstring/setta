@@ -68,11 +68,9 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
     sample.diagnostics?.visibleControlRectCount ?? 0,
     details,
   ).toBeLessThanOrEqual(8);
-  const domControlPlaneActive =
-    (sample.committed?.domControlActorCount ?? 0) > 0 ||
-    (sample.diagnostics?.mountedControlCount ?? 0) > 0 ||
+  const domControlPlaneVisible =
     (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
-  if (domControlPlaneActive) {
+  if (domControlPlaneVisible) {
     expect(sample.planeCommittedFrameId, details).toBe(
       sample.committed?.domControlCommittedFrameId,
     );
@@ -87,10 +85,9 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
     sample.committed?.displayFrameId,
   );
   expect(sample.committed?.displayCompletenessStatus, details).toBe("complete");
-  expect(
-    sample.committed?.domControlActorCount ?? 0,
-    details,
-  ).toBeLessThanOrEqual(8);
+  expect(sample.committed?.domControlActorCount ?? 0, details).toBeGreaterThan(
+    8,
+  );
   expect(
     sample.committed?.projectedVisibleNonemptyDomControlCount,
     details,
