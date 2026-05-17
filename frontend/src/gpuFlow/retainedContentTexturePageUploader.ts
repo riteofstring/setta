@@ -1,4 +1,5 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
+import { startGpuFlowPerformanceMeasure } from "./gpuFlowPerformanceMarks";
 import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
@@ -65,7 +66,15 @@ export function uploadRetainedContentTexturePage({
     );
   }
   const pending = cache.stagePendingPage({ descriptor, frame });
-  const rasterStartedAt = performance.now();
+  const finishRasterMeasure = startGpuFlowPerformanceMeasure(
+    "retained-page-raster",
+    {
+      frame,
+      pixelHeight: descriptor.pixelHeight,
+      pixelWidth: descriptor.pixelWidth,
+      surfaceId: descriptor.surfaceId,
+    },
+  );
   const rasterResult = rasterizeGpuRetainedContentPage({
     canvas: scratchCanvas,
     ctx,
@@ -80,7 +89,7 @@ export function uploadRetainedContentTexturePage({
     surfaceId: descriptor.surfaceId,
     switchAnimations,
   });
-  const rasterMs = performance.now() - rasterStartedAt;
+  const rasterMs = finishRasterMeasure();
   const resource = createRetainedContentTextureResources({
     atlasStore: textureAtlasStore,
     descriptor,
@@ -89,7 +98,15 @@ export function uploadRetainedContentTexturePage({
     textureUsage,
   });
   const textureRegion = getRetainedContentTextureResourceRegion(resource);
-  const uploadStartedAt = performance.now();
+  const finishUploadMeasure = startGpuFlowPerformanceMeasure(
+    "retained-page-upload",
+    {
+      frame,
+      pixelHeight: descriptor.pixelHeight,
+      pixelWidth: descriptor.pixelWidth,
+      surfaceId: descriptor.surfaceId,
+    },
+  );
   device.queue.copyExternalImageToTexture(
     { source: scratchCanvas },
     {
@@ -101,12 +118,23 @@ export function uploadRetainedContentTexturePage({
       width: descriptor.pixelWidth,
     },
   );
-  const uploadMs = performance.now() - uploadStartedAt;
-  cache.commitPendingPage({
-    frame,
-    key: pending.key,
-    resource,
-  });
+  const uploadMs = finishUploadMeasure();
+  const finishCommitMeasure = startGpuFlowPerformanceMeasure(
+    "retained-page-atlas-commit",
+    {
+      frame,
+      surfaceId: descriptor.surfaceId,
+    },
+  );
+  try {
+    cache.commitPendingPage({
+      frame,
+      key: pending.key,
+      resource,
+    });
+  } finally {
+    finishCommitMeasure();
+  }
   return {
     complete: true,
     drawableChanged: true,

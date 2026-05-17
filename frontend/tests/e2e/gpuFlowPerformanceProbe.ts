@@ -41,6 +41,13 @@ export type GpuFlowLongTask = {
   readonly startTimeMs: number;
 };
 
+export type GpuFlowPerformanceMeasure = {
+  readonly detail: unknown;
+  readonly durationMs: number;
+  readonly name: string;
+  readonly startTimeMs: number;
+};
+
 export type GpuFlowUploadDiagnosticProbeSummary = {
   readonly dirtyContent: boolean;
   readonly dirtyResolution: boolean;
@@ -119,6 +126,7 @@ export type GpuFlowPerformanceSnapshot = {
   readonly installedAtMs: number;
   readonly longTasks: readonly GpuFlowLongTask[];
   readonly nodeLayerFrames: readonly GpuFlowNodeLayerFrameProbeSummary[];
+  readonly performanceMeasures: readonly GpuFlowPerformanceMeasure[];
   readonly queueCalls: readonly GpuFlowQueueCall[];
   readonly queueWrappersInstalled: boolean;
   readonly requestPaintCalls: readonly GpuFlowRequestPaintCall[];
@@ -400,7 +408,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 5) {
+  if (existing?.version === 6) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -425,6 +433,8 @@ function installGpuFlowPerformanceProbeInPage() {
     longTaskObserver: null as PerformanceObserver | null,
     longTasks: [] as GpuFlowLongTask[],
     nodeLayerFrames: [] as GpuFlowNodeLayerFrameProbeSummary[],
+    performanceMeasureObserver: null as PerformanceObserver | null,
+    performanceMeasures: [] as GpuFlowPerformanceMeasure[],
     queueCalls: [] as GpuFlowQueueCall[],
     queueWrappersInstalled: false,
     requestPaintCalls: [] as GpuFlowRequestPaintCall[],
@@ -474,6 +484,26 @@ function installGpuFlowPerformanceProbeInPage() {
     });
     state.longTaskObserver.observe({ entryTypes: ["longtask"] });
   }
+  if (
+    typeof PerformanceObserver === "function" &&
+    PerformanceObserver.supportedEntryTypes.includes("measure")
+  ) {
+    state.performanceMeasureObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (!entry.name.startsWith("setta.gpuFlow.")) {
+          continue;
+        }
+        state.performanceMeasures.push({
+          detail: (entry as PerformanceEntry & { readonly detail?: unknown })
+            .detail,
+          durationMs: entry.duration,
+          name: entry.name,
+          startTimeMs: entry.startTime,
+        });
+      }
+    });
+    state.performanceMeasureObserver.observe({ entryTypes: ["measure"] });
+  }
 
   const api = {
     installQueueWrappers() {
@@ -517,6 +547,7 @@ function installGpuFlowPerformanceProbeInPage() {
       state.lastFrameTimestampMs = null;
       state.longTasks = [];
       state.nodeLayerFrames = [];
+      state.performanceMeasures = [];
       state.queueCalls = [];
       state.requestPaintCalls = [];
       state.sourceMutations = [];
@@ -536,6 +567,7 @@ function installGpuFlowPerformanceProbeInPage() {
         installedAtMs: state.installedAtMs,
         longTasks: [...state.longTasks],
         nodeLayerFrames: [...state.nodeLayerFrames],
+        performanceMeasures: [...state.performanceMeasures],
         queueCalls: [...state.queueCalls],
         queueWrappersInstalled: state.queueWrappersInstalled,
         requestPaintCalls: [...state.requestPaintCalls],
@@ -560,10 +592,11 @@ function installGpuFlowPerformanceProbeInPage() {
         }
       }
       state.longTaskObserver?.disconnect();
+      state.performanceMeasureObserver?.disconnect();
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 5,
+    version: 6,
   };
   win[probeKey] = api;
   api.installQueueWrappers();

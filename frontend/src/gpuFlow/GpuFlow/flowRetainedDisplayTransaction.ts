@@ -2,6 +2,7 @@ import type {
   RetainedContentTexturePageManager,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import {
   createRetainedDisplayFrameInput,
   resolveRetainedDisplayFrameTransaction,
@@ -232,7 +233,13 @@ function resolveRetainedPageMaintenanceBeforePublishWithTiming({
   readonly previousRetainedDisplayFrame: RetainedDisplayFrame;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
-  const start = performance.now();
+  const finishMeasure = startGpuFlowPerformanceMeasure(
+    "retained-prepublish-maintenance",
+    {
+      frame: preparedFrame.frame,
+      previousDisplayFrameId: previousRetainedDisplayFrame.id,
+    },
+  );
   const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
     darkMode,
     deferResolutionUpdates,
@@ -241,8 +248,9 @@ function resolveRetainedPageMaintenanceBeforePublishWithTiming({
       previousRetainedDisplayFrame.pageFrame.protectedPageKeys,
     retainedContentPageManager,
   });
+  const elapsedMs = finishMeasure();
   return {
-    elapsedMs: performance.now() - start,
+    elapsedMs,
     maintenance,
     preparedFrame: maintenance?.result.repairedPreparedFrame ?? preparedFrame,
   };
@@ -261,7 +269,14 @@ function resolveRetainedDisplayTransactionWithTiming({
   readonly retainedPagePreparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): RetainedDisplayTransactionTiming {
-  const start = performance.now();
+  const finishMeasure = startGpuFlowPerformanceMeasure(
+    "retained-display-transaction",
+    {
+      allowColdPlaceholder,
+      frame: retainedPagePreparedFrame.frame,
+      previousDisplayFrameId: previousRetainedDisplayFrame?.id ?? null,
+    },
+  );
   const outcome = resolveRetainedDisplayFrameTransaction({
     allowColdPlaceholder,
     nowMs,
@@ -271,8 +286,9 @@ function resolveRetainedDisplayTransactionWithTiming({
     }),
     previous: previousRetainedDisplayFrame,
   });
+  const elapsedMs = finishMeasure();
   return {
-    elapsedMs: performance.now() - start,
+    elapsedMs,
     outcome,
   };
 }

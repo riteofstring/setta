@@ -1,4 +1,5 @@
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
+import { measureGpuFlowPerformance } from "./gpuFlowPerformanceMarks";
 import {
   RetainedTextureWorkQueue,
   retainedTextureWorkLaneForWorkItem,
@@ -141,7 +142,7 @@ export function runRetainedTextureUploadScheduler({
     deadlineMs,
   });
 
-  for (const item of queue.orderedWorkItems(queueOptions)) {
+  for (const item of orderRetainedTextureWorkItems(queue, queueOptions)) {
     const context = createRetainedTextureSchedulerWorkContext({
       estimateWorkItem,
       item,
@@ -196,8 +197,10 @@ export function runRetainedTextureUploadScheduler({
     }
   }
 
-  const remainingUploadableWorkCount =
-    queue.orderedWorkItems(queueOptions).length;
+  const remainingUploadableWorkCount = orderRetainedTextureWorkItems(
+    queue,
+    queueOptions,
+  ).length;
 
   return {
     budget: normalizedBudget,
@@ -214,6 +217,19 @@ export function runRetainedTextureUploadScheduler({
     uploadedBytes: progress.uploadedBytes,
     uploadCount: progress.uploadCount,
   };
+}
+
+function orderRetainedTextureWorkItems(
+  queue: RetainedTextureWorkQueue,
+  queueOptions: RetainedTextureWorkQueueOptions,
+): readonly RetainedTextureWorkItem[] {
+  return measureGpuFlowPerformance(
+    "retained-work-queue-ordering",
+    {
+      viewportInteractionActive: Boolean(queueOptions.viewportInteractionActive),
+    },
+    () => queue.orderedWorkItems(queueOptions),
+  );
 }
 
 function createRetainedTextureWorkQueueOptions({

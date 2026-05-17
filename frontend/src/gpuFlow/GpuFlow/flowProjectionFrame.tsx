@@ -5,6 +5,7 @@ import { type GpuCanvasSize, type GpuFrameReason } from "../gpuRenderer";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import { getGpuRetainedContentSourceSurfaces } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import {
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
@@ -157,7 +158,13 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
   const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
-  const projectionSurfaceResolveStart = performance.now();
+  const finishProjectionResolveMeasure = startGpuFlowPerformanceMeasure(
+    "projection-surface-resolve",
+    {
+      frame,
+      transactionId: projectionTransaction.id,
+    },
+  );
   const { heldPreviousProjection, retainedProjectionFrame, transaction } =
     resolveGpuFlowProjectionFrameTransaction({
       frameReasons,
@@ -181,8 +188,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
         transaction.sample.retainedScrollOffsets.get(surfaceId) ?? null,
       overlays: layer.edgeLabelSurfaces,
     });
-  const projectionSurfaceResolveMs =
-    performance.now() - projectionSurfaceResolveStart;
+  const projectionSurfaceResolveMs = finishProjectionResolveMeasure();
   const htmlSurfaceFrameStart = performance.now();
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: resolveActiveGpuFlowNodeId({

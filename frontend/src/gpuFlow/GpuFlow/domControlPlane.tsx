@@ -9,6 +9,7 @@ import {
 import { flushSync } from "react-dom";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type {
   GpuRetainedDomControlActivation,
   GpuRetainedDomControlSourceDescriptor,
@@ -273,17 +274,36 @@ export function GpuFlowDomControlPlane({
         return;
       }
       hostByControlIdRef.current.set(controlId, { controlId, element });
-      syncGpuFlowDomControlPlaneElementStyle({
-        control,
-        element,
-        getRetainedScrollOffset,
-        viewport: getLiveGpuFlowDomControlPlaneViewport({
-          viewportRuntime,
-          viewportStore,
-        }),
-      });
+      const finishMeasure = startGpuFlowPerformanceMeasure(
+        "dom-control-host-assignment",
+        {
+          committedFrameId: frameIds.committedFrameId,
+          controlId,
+          runtimeFrameId: frameIds.runtimeFrameId,
+        },
+      );
+      try {
+        syncGpuFlowDomControlPlaneElementStyle({
+          control,
+          element,
+          getRetainedScrollOffset,
+          viewport: getLiveGpuFlowDomControlPlaneViewport({
+            viewportRuntime,
+            viewportStore,
+          }),
+        });
+      } finally {
+        finishMeasure();
+      }
     },
-    [controlById, getRetainedScrollOffset, viewportRuntime, viewportStore],
+    [
+      controlById,
+      frameIds.committedFrameId,
+      frameIds.runtimeFrameId,
+      getRetainedScrollOffset,
+      viewportRuntime,
+      viewportStore,
+    ],
   );
 
   useLayoutEffect(() => {
@@ -310,18 +330,30 @@ export function GpuFlowDomControlPlane({
             refreshProjectedControls(viewport);
           });
         }
-        projectionManagerRef.current.project({
-          committedFrameId: frameIds.committedFrameId,
-          controlById: controlByIdRef.current,
-          diagnosticsRef,
-          getRetainedScrollOffset,
-          hostByControlId: hostByControlIdRef.current,
-          runtimeFrameId: frameIds.runtimeFrameId,
-          viewport,
-          viewportSize: getGpuFlowDomControlPlaneViewportSize({
-            viewportStore,
-          }),
-        });
+        const finishMeasure = startGpuFlowPerformanceMeasure(
+          "dom-control-projection",
+          {
+            committedFrameId: frameIds.committedFrameId,
+            hostCount: hostByControlIdRef.current.size,
+            runtimeFrameId: frameIds.runtimeFrameId,
+          },
+        );
+        try {
+          projectionManagerRef.current.project({
+            committedFrameId: frameIds.committedFrameId,
+            controlById: controlByIdRef.current,
+            diagnosticsRef,
+            getRetainedScrollOffset,
+            hostByControlId: hostByControlIdRef.current,
+            runtimeFrameId: frameIds.runtimeFrameId,
+            viewport,
+            viewportSize: getGpuFlowDomControlPlaneViewportSize({
+              viewportStore,
+            }),
+          });
+        } finally {
+          finishMeasure();
+        }
       },
     });
   }, [
@@ -338,39 +370,63 @@ export function GpuFlowDomControlPlane({
       if (state.transform === previousState.transform) {
         return;
       }
-      projectionManagerRef.current.project({
-        committedFrameId: frameIds.committedFrameId,
-        controlById: controlByIdRef.current,
-        diagnosticsRef,
-        getRetainedScrollOffset,
-        hostByControlId: hostByControlIdRef.current,
-        runtimeFrameId: frameIds.runtimeFrameId,
-        viewport: state.transform,
-        viewportSize: {
-          height: state.height,
-          width: state.width,
+      const finishMeasure = startGpuFlowPerformanceMeasure(
+        "dom-control-projection",
+        {
+          committedFrameId: frameIds.committedFrameId,
+          hostCount: hostByControlIdRef.current.size,
+          runtimeFrameId: frameIds.runtimeFrameId,
         },
-      });
+      );
+      try {
+        projectionManagerRef.current.project({
+          committedFrameId: frameIds.committedFrameId,
+          controlById: controlByIdRef.current,
+          diagnosticsRef,
+          getRetainedScrollOffset,
+          hostByControlId: hostByControlIdRef.current,
+          runtimeFrameId: frameIds.runtimeFrameId,
+          viewport: state.transform,
+          viewportSize: {
+            height: state.height,
+            width: state.width,
+          },
+        });
+      } finally {
+        finishMeasure();
+      }
     });
   }, [frameIds, getRetainedScrollOffset, viewportStore]);
 
   useLayoutEffect(() => {
     refreshProjectedControls();
-    projectionManagerRef.current.project({
-      committedFrameId: frameIds.committedFrameId,
-      controlById,
-      diagnosticsRef,
-      getRetainedScrollOffset,
-      hostByControlId: hostByControlIdRef.current,
-      runtimeFrameId: frameIds.runtimeFrameId,
-      viewport: getLiveGpuFlowDomControlPlaneViewport({
-        viewportRuntime,
-        viewportStore,
-      }),
-      viewportSize: getGpuFlowDomControlPlaneViewportSize({
-        viewportStore,
-      }),
-    });
+    const finishMeasure = startGpuFlowPerformanceMeasure(
+      "dom-control-projection",
+      {
+        committedFrameId: frameIds.committedFrameId,
+        hostCount: hostByControlIdRef.current.size,
+        runtimeFrameId: frameIds.runtimeFrameId,
+      },
+    );
+    try {
+      projectionManagerRef.current.project({
+        committedFrameId: frameIds.committedFrameId,
+        controlById,
+        diagnosticsRef,
+        getRetainedScrollOffset,
+        hostByControlId: hostByControlIdRef.current,
+        runtimeFrameId: frameIds.runtimeFrameId,
+        viewport: getLiveGpuFlowDomControlPlaneViewport({
+          viewportRuntime,
+          viewportStore,
+        }),
+        viewportSize: getGpuFlowDomControlPlaneViewportSize({
+          viewportStore,
+        }),
+      });
+    } finally {
+      finishMeasure();
+    }
   }, [
     controlById,
     frameIds,

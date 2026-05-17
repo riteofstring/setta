@@ -129,6 +129,7 @@ describe("GPU flow interaction latency probe helpers", () => {
         { durationMs: 80, name: "self", startTimeMs: 220 },
       ],
       nodeLayerFrames: [],
+      performanceMeasures: [],
       queueCalls: [
         {
           height: 80,

@@ -1,4 +1,5 @@
 import type { NodeTexturePriority } from "./dirtyTracking";
+import { startGpuFlowPerformanceMeasure } from "./gpuFlowPerformanceMarks";
 import { getHtmlSurfaceTextureUsage } from "./htmlSurfaces/textureManagerHelpers";
 import {
   getGpuRetainedContentCanvasPalette,
@@ -275,12 +276,21 @@ export class RetainedContentTexturePageManager {
       this.targetLodScale = nextTargetLodScale;
     }
 
+    const finishVisibleTargetMeasure = startGpuFlowPerformanceMeasure(
+      "retained-visible-targets",
+      {
+        frame,
+        surfaceCount: surfaces.length,
+        viewportZoomBucket,
+      },
+    );
     const visibleRegionTargets = createRetainedVisibleRegionTargets({
       devicePixelRatioBucket: this.devicePixelRatioBucket,
       lodScale: this.targetLodScale,
       surfaces,
       viewportZoomBucket: this.viewportZoomBucket ?? 0,
     });
+    finishVisibleTargetMeasure();
     return {
       ...this.createVisibleCoverageFrame({
         frame,
@@ -299,15 +309,34 @@ export class RetainedContentTexturePageManager {
     switchAnimations,
     viewportInteractionActive = false,
   }: RetainedContentTexturePageMaintenanceInput): RetainedContentTexturePageMaintenanceResult {
-    this.enqueueMissingReplacementPages(
-      preparedFrame.replacementDescriptors,
-      preparedFrame.frame,
-      preserveFirstVisibleSourceRects,
-      refreshFirstVisiblePages,
+    const finishQueueMeasure = startGpuFlowPerformanceMeasure(
+      "retained-work-queue-coalescing",
+      {
+        frame: preparedFrame.frame,
+        replacementDescriptorCount: preparedFrame.replacementDescriptors.length,
+      },
     );
+    try {
+      this.enqueueMissingReplacementPages(
+        preparedFrame.replacementDescriptors,
+        preparedFrame.frame,
+        preserveFirstVisibleSourceRects,
+        refreshFirstVisiblePages,
+      );
+    } finally {
+      finishQueueMeasure();
+    }
     this.maintenanceUploadedDrawCommandCount = 0;
     const queuedWorkCountBeforeUpload = this.workQueue.size;
     const palette = getGpuRetainedContentCanvasPalette(darkMode);
+    const finishSchedulerMeasure = startGpuFlowPerformanceMeasure(
+      "retained-work-scheduler",
+      {
+        frame: preparedFrame.frame,
+        queuedWorkCount: queuedWorkCountBeforeUpload,
+        viewportInteractionActive,
+      },
+    );
     const uploadResult = runRetainedTextureUploadScheduler({
       budget: this.budget,
       deadlineMs: this.budget.maxFrameRasterMs + this.budget.maxFrameUploadMs,
@@ -332,11 +361,19 @@ export class RetainedContentTexturePageManager {
       textureBudget: this.textureBudget,
       viewportInteractionActive,
     });
+    finishSchedulerMeasure();
     const postMaintenancePageVisualResult =
       this.createPostMaintenanceCoverageFrame({
         preparedFrame,
         uploadCount: uploadResult.uploadCount,
       });
+    const finishEvictionMeasure = startGpuFlowPerformanceMeasure(
+      "retained-texture-eviction",
+      {
+        frame: preparedFrame.frame,
+        maxBytes: this.textureBudget.hardMaxBytes,
+      },
+    );
     const evicted = this.cache.evictToBudget({
       frame: preparedFrame.frame,
       maxBytes: this.textureBudget.hardMaxBytes,
@@ -346,6 +383,7 @@ export class RetainedContentTexturePageManager {
         publishedProtectedPageKeys,
       }),
     });
+    finishEvictionMeasure();
     if (evicted.evictedKeys.length > 0) {
       this.drawableRevision += 1;
     }
@@ -599,13 +637,24 @@ export class RetainedContentTexturePageManager {
     readonly frame: number;
     readonly visibleRegionTargets: RetainedContentTexturePagePreparedFrame["visibleRegionTargets"];
   }): RetainedContentTexturePageVisibleCoverageFrame {
-    return createRetainedContentTexturePageVisibleCoverageFrame({
-      cache: this.cache,
-      createPageDescriptors: (input) => this.createPageDescriptors(input),
-      frame,
-      frameSurfaceById: this.frameSurfaceById,
-      visibleRegionTargets,
-    });
+    const finishMeasure = startGpuFlowPerformanceMeasure(
+      "retained-visible-coverage-planning",
+      {
+        frame,
+        targetCount: visibleRegionTargets.length,
+      },
+    );
+    try {
+      return createRetainedContentTexturePageVisibleCoverageFrame({
+        cache: this.cache,
+        createPageDescriptors: (input) => this.createPageDescriptors(input),
+        frame,
+        frameSurfaceById: this.frameSurfaceById,
+        visibleRegionTargets,
+      });
+    } finally {
+      finishMeasure();
+    }
   }
 
   private updateProjectionHorizonGeneration({

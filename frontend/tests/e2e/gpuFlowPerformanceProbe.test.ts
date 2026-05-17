@@ -31,6 +31,7 @@ describe("GPU flow performance probe helpers", () => {
         nodeLayerFrame({ drawnNodeCount: 2, uploadedNodeIds: ["node-a"] }),
         nodeLayerFrame({ drawnNodeCount: 3, uploadedNodeIds: [] }),
       ],
+      performanceMeasures: [],
       queueCalls: [
         {
           height: 80,

@@ -18,6 +18,7 @@ DEFAULT_SETTLE_UPLOAD_BUDGET_BYTES = 8 * BYTES_PER_MIB
 DEFAULT_HELD_PREVIOUS_MS = 120.0
 FINISH_LINE_MARKER_KIND = "gpu-flow-finish-line-marker"
 FINISH_LINE_START_MARKER_NAMES = frozenset({"finish-line-start", "start"})
+GPU_FLOW_MEASURE_PREFIX = "setta.gpuFlow."
 
 
 def main() -> int:
@@ -138,12 +139,26 @@ def analyze_recording(artifact_dir: Path, budgets: dict[str, Any]) -> dict[str, 
             if (timestamp := to_number(event.get("timestampMs"))) is not None
             and timestamp >= analysis_start_ms
         ]
+    performance_measures = [
+        row["event"]
+        for row in performance_rows
+        if row.get("event", {}).get("type") == "performance-measure"
+        or row.get("event", {}).get("entryType") == "measure"
+    ]
+    if analysis_start_ms is not None:
+        performance_measures = [
+            event
+            for event in performance_measures
+            if (timestamp := to_number(event.get("timestampMs"))) is not None
+            and timestamp >= analysis_start_ms
+        ]
     return analyze_frames(
         analysis_start_ms=analysis_start_ms,
         budgets=budgets,
         created_at=session.get("createdAt"),
         finalized_at=session.get("finalizedAt"),
         longtasks=longtasks,
+        performance_measures=performance_measures,
         source=str(artifact_dir),
         source_kind="chrome-repro",
         timestamped_frames=frames,
@@ -170,12 +185,18 @@ def analyze_playwright_snapshot(
         if isinstance(frame, dict)
     ]
     longtasks = payload.get("longTasks")
+    performance_measures = payload.get("performanceMeasures")
+    if not isinstance(performance_measures, list):
+        performance_measures = payload.get("measures")
     return analyze_frames(
         analysis_start_ms=None,
         budgets=budgets,
         created_at=None,
         finalized_at=None,
         longtasks=longtasks if isinstance(longtasks, list) else [],
+        performance_measures=performance_measures
+        if isinstance(performance_measures, list)
+        else [],
         source=str(snapshot_path),
         source_kind="playwright-snapshot",
         timestamped_frames=timestamped_frames,
@@ -189,11 +210,13 @@ def analyze_frames(
     created_at: Any,
     finalized_at: Any,
     longtasks: list[dict[str, Any]],
+    performance_measures: list[dict[str, Any]],
     source: str,
     source_kind: str,
     timestamped_frames: list[dict[str, Any]],
 ) -> dict[str, Any]:
     frames = [entry["frame"] for entry in timestamped_frames]
+    runtime_measures = normalize_gpu_flow_measures(performance_measures)
     viewport_spans = find_interaction_spans(timestamped_frames)
     retained_after_settle = summarize_retained_after_settle_windows(
         timestamped_frames,
@@ -221,6 +244,7 @@ def analyze_frames(
     longtask_summaries = summarize_longtasks(
         longtasks=longtasks,
         max_long_task_ms=float(budgets["maxLongTaskMs"]),
+        runtime_measures=runtime_measures,
         timestamped_frames=timestamped_frames,
     )
     cold_placeholders = [
@@ -306,6 +330,7 @@ def analyze_frames(
             "retainedUploadCount": sum(
                 retained_upload_count(frame) for frame in frames
             ),
+            "runtimeMeasureCount": len(runtime_measures),
             "transactionOutcomes": dict(
                 Counter(
                     str(frame.get("retainedTexturePageTransactionOutcome") or "none")
@@ -324,6 +349,9 @@ def analyze_frames(
             "projectionViolations": projection_violations[:20],
             "retainedAfterSettleWindows": retained_after_settle,
             "retainedBudgetMisses": retained_budget_misses[:40],
+            "runtimeMeasurePhases": dict(
+                Counter(measure["phase"] for measure in runtime_measures)
+            ),
             "trueHolePublications": true_hole_publications[:20],
             "viewportInteractionSpans": viewport_spans,
         },
@@ -353,10 +381,70 @@ def find_finish_line_analysis_start_ms(
     return None
 
 
+def normalize_gpu_flow_measures(
+    performance_measures: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    measures = []
+    for event in performance_measures:
+        name = event.get("name")
+        if not isinstance(name, str) or not name.startswith(GPU_FLOW_MEASURE_PREFIX):
+            continue
+        start_time_ms = to_number(event.get("startTimeMs"))
+        duration_ms = to_number(event.get("durationMs"))
+        if start_time_ms is None or duration_ms is None:
+            continue
+        detail = event.get("detail")
+        detail = detail if isinstance(detail, dict) else {}
+        phase = detail.get("phase")
+        if not isinstance(phase, str):
+            phase = parse_gpu_flow_measure_phase(name)
+        measures.append(
+            {
+                "detail": detail,
+                "durationMs": duration_ms,
+                "endTimeMs": start_time_ms + duration_ms,
+                "frame": parse_nullable_int(detail.get("frame"))
+                or parse_measure_int_field(name, "frame"),
+                "name": name,
+                "phase": phase,
+                "startTimeMs": start_time_ms,
+            }
+        )
+    return measures
+
+
+def parse_gpu_flow_measure_phase(name: str) -> str:
+    rest = name.removeprefix(GPU_FLOW_MEASURE_PREFIX)
+    return rest.split(" ", 1)[0] if rest else "unknown"
+
+
+def parse_measure_int_field(name: str, field: str) -> int | None:
+    prefix = f"{field}="
+    for part in name.split(" ")[1:]:
+        if not part.startswith(prefix):
+            continue
+        try:
+            return int(float(part.removeprefix(prefix)))
+        except ValueError:
+            return None
+    return None
+
+
+def parse_nullable_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return None
+
+
 def summarize_longtasks(
     *,
     longtasks: list[dict[str, Any]],
     max_long_task_ms: float,
+    runtime_measures: list[dict[str, Any]],
     timestamped_frames: list[dict[str, Any]],
 ) -> dict[str, Any]:
     summaries = []
@@ -364,14 +452,31 @@ def summarize_longtasks(
     for event in longtasks:
         duration_ms = number_value(event.get("durationMs"))
         timestamp_ms = to_number(event.get("timestampMs"))
+        start_time_ms = to_number(event.get("startTimeMs"))
+        end_time_ms = (
+            start_time_ms + duration_ms if start_time_ms is not None else None
+        )
+        overlapping_measures = find_overlapping_gpu_flow_measures(
+            runtime_measures=runtime_measures,
+            start_time_ms=start_time_ms,
+            end_time_ms=end_time_ms,
+        )
+        nearby_measures = find_nearby_gpu_flow_measures(
+            runtime_measures=runtime_measures,
+            start_time_ms=start_time_ms,
+        )
         nearest = nearest_frame(timestamped_frames, timestamp_ms)
         summary = {
             "attribution": event.get("attribution")
             if isinstance(event.get("attribution"), list)
             else [],
             "durationMs": duration_ms,
+            "endTimeMs": end_time_ms,
             "name": event.get("name"),
             "nearestFrame": nearest,
+            "nearbyGpuFlowMeasures": nearby_measures,
+            "overlappingGpuFlowMeasures": overlapping_measures,
+            "startTimeMs": start_time_ms,
             "timestampMs": timestamp_ms,
         }
         summaries.append(summary)
@@ -393,6 +498,14 @@ def summarize_longtasks(
 
 
 def longtask_overlaps_gpu_flow_work(task: dict[str, Any]) -> bool:
+    overlapping_measures = task.get("overlappingGpuFlowMeasures")
+    if isinstance(overlapping_measures, list) and overlapping_measures:
+        durations = [
+            number_value(measure.get("durationMs"))
+            for measure in overlapping_measures
+            if isinstance(measure, dict)
+        ]
+        return max(durations, default=0) >= 8 or sum(durations) >= 25
     nearest = task.get("nearestFrame")
     if not isinstance(nearest, dict):
         return True
@@ -407,6 +520,48 @@ def longtask_overlaps_gpu_flow_work(task: dict[str, Any]) -> bool:
     if not phase_durations:
         return True
     return max(phase_durations) >= 8 or sum(phase_durations) >= 25
+
+
+def find_overlapping_gpu_flow_measures(
+    *,
+    runtime_measures: list[dict[str, Any]],
+    start_time_ms: float | None,
+    end_time_ms: float | None,
+) -> list[dict[str, Any]]:
+    if start_time_ms is None or end_time_ms is None:
+        return []
+    return [
+        summarize_gpu_flow_measure(measure)
+        for measure in runtime_measures
+        if measure["startTimeMs"] < end_time_ms and measure["endTimeMs"] > start_time_ms
+    ][:20]
+
+
+def find_nearby_gpu_flow_measures(
+    *,
+    runtime_measures: list[dict[str, Any]],
+    start_time_ms: float | None,
+) -> list[dict[str, Any]]:
+    if start_time_ms is None:
+        return []
+    candidates = [
+        {
+            **summarize_gpu_flow_measure(measure),
+            "distanceMs": round(abs(measure["startTimeMs"] - start_time_ms), 3),
+        }
+        for measure in runtime_measures
+    ]
+    return sorted(candidates, key=lambda measure: measure["distanceMs"])[:8]
+
+
+def summarize_gpu_flow_measure(measure: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "durationMs": round(number_value(measure.get("durationMs")), 3),
+        "frame": measure.get("frame"),
+        "name": measure.get("name"),
+        "phase": measure.get("phase"),
+        "startTimeMs": round(number_value(measure.get("startTimeMs")), 3),
+    }
 
 
 def nearest_frame(
@@ -715,10 +870,12 @@ def append_markdown_long_tasks(lines: list[str], details: dict[str, Any]) -> Non
     lines.extend(["", "## Long Tasks", ""])
     for task in details["longtasks"]["gpuFlowOverBudget"][:10]:
         nearest = task.get("nearestFrame") or {}
+        measures = task.get("overlappingGpuFlowMeasures") or []
         lines.append(
             "- "
             f"{task['durationMs']} ms near `{nearest.get('dominantPhase', 'unattributed')}` "
-            f"frame `{(nearest.get('frame') or {}).get('frame')}`"
+            f"frame `{(nearest.get('frame') or {}).get('frame')}` "
+            f"overlapping measures `{summarize_measure_names(measures)}`"
         )
     if not details["longtasks"]["gpuFlowOverBudget"]:
         lines.append("- none")
@@ -726,14 +883,35 @@ def append_markdown_long_tasks(lines: list[str], details: dict[str, Any]) -> Non
     lines.extend(["", "## Outside-GPU Long Tasks", ""])
     for task in outside_longtasks[:10]:
         nearest = task.get("nearestFrame") or {}
+        nearby_measures = task.get("nearbyGpuFlowMeasures") or []
         lines.append(
             "- "
             f"{task['durationMs']} ms near frame "
             f"`{(nearest.get('frame') or {}).get('frame')}` with GPU phases "
-            f"`{nearest.get('phaseDiagnostics', {})}`"
+            f"`{nearest.get('phaseDiagnostics', {})}` and nearby measures "
+            f"`{summarize_measure_names(nearby_measures)}`"
         )
     if not outside_longtasks:
         lines.append("- none")
+    lines.extend(["", "## Runtime Measures", ""])
+    runtime_measure_phases = details.get("runtimeMeasurePhases", {})
+    if runtime_measure_phases:
+        append_markdown_key_values(lines, runtime_measure_phases)
+    else:
+        lines.append("- none")
+
+
+def summarize_measure_names(measures: Any) -> list[str]:
+    if not isinstance(measures, list):
+        return []
+    values = []
+    for measure in measures[:5]:
+        if not isinstance(measure, dict):
+            continue
+        values.append(
+            f"{measure.get('phase')}@{measure.get('durationMs')}ms"
+        )
+    return values
 
 
 def append_markdown_retained_budget_misses(

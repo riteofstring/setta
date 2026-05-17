@@ -19,6 +19,7 @@ import {
 } from "../gpuRenderer";
 
 import { type GpuSurfaceHandle } from "../GpuSurface";
+import { startGpuFlowFramePerformanceMeasure as startFrameMeasure } from "../gpuFlowPerformanceMarks";
 
 import {
   type GpuNodeInteractionDirtyController,
@@ -354,7 +355,11 @@ function resolveGpuFlowRetainedContentFrame({
       allowCoveredRefinementBacklog: deferResolutionUpdates,
     })
   ) {
-    const retainedRuntimeFrameStart = performance.now();
+    const finishRetainedRuntimeFrameMeasure = startFrameMeasure(
+      "retained-runtime-frame",
+      frame,
+      { cacheHit: true },
+    );
     const retainedRuntimeFrame =
       shouldReuseGpuFlowRetainedRuntimeFrameForSample({
         cachedFrame,
@@ -373,14 +378,17 @@ function resolveGpuFlowRetainedContentFrame({
             viewport,
             viewportZoomBucket,
           });
-    const retainedRuntimeFrameMs =
-      performance.now() - retainedRuntimeFrameStart;
-    const retainedPageFrameStart = performance.now();
+    const retainedRuntimeFrameMs = finishRetainedRuntimeFrameMeasure();
+    const finishRetainedPageFrameMeasure = startFrameMeasure(
+      "retained-page-frame",
+      frame,
+      { cacheHit: true },
+    );
     const preparedFrame = {
       ...cachedFrame.preparedFrame,
       frame,
     };
-    const retainedPageFrameMs = performance.now() - retainedPageFrameStart;
+    const retainedPageFrameMs = finishRetainedPageFrameMeasure();
     retainedContentFrameCacheRef.current = {
       ...cachedFrame,
       nativeVisualSignature,
@@ -388,16 +396,17 @@ function resolveGpuFlowRetainedContentFrame({
       retainedRuntimeFrame,
     };
     return {
-      phaseDiagnostics: {
-        retainedPageFrameMs,
-        retainedRuntimeFrameMs,
-      },
+      phaseDiagnostics: { retainedPageFrameMs, retainedRuntimeFrameMs },
       preparedFrame,
       retainedRuntimeFrame,
     };
   }
 
-  const retainedRuntimeFrameStart = performance.now();
+  const finishRetainedRuntimeFrameMeasure = startFrameMeasure(
+    "retained-runtime-frame",
+    frame,
+    { cacheHit: false },
+  );
   const retainedRuntimeFrame = createGpuFlowRetainedRuntimeFrameForLayer({
     canvasSize,
     devicePixelRatio,
@@ -409,15 +418,19 @@ function resolveGpuFlowRetainedContentFrame({
     viewport,
     viewportZoomBucket,
   });
-  const retainedRuntimeFrameMs = performance.now() - retainedRuntimeFrameStart;
-  const retainedPageFrameStart = performance.now();
+  const retainedRuntimeFrameMs = finishRetainedRuntimeFrameMeasure();
+  const finishRetainedPageFrameMeasure = startFrameMeasure(
+    "retained-page-frame",
+    frame,
+    { cacheHit: false },
+  );
   const preparedFrame = retainedContentPageManager.prepareFrame({
     devicePixelRatio,
     frame,
     surfaces: retainedRuntimeFrame.descriptors.contentPageSurfaces,
     viewportZoomBucket,
   });
-  const retainedPageFrameMs = performance.now() - retainedPageFrameStart;
+  const retainedPageFrameMs = finishRetainedPageFrameMeasure();
   retainedContentFrameCacheRef.current = {
     contentSurfaces,
     devicePixelRatio,
@@ -434,10 +447,7 @@ function resolveGpuFlowRetainedContentFrame({
     },
   };
   return {
-    phaseDiagnostics: {
-      retainedPageFrameMs,
-      retainedRuntimeFrameMs,
-    },
+    phaseDiagnostics: { retainedPageFrameMs, retainedRuntimeFrameMs },
     preparedFrame,
     retainedRuntimeFrame,
   };
@@ -677,14 +687,18 @@ export function renderGpuFlowNodeLayerFrame({
     retainedRuntimeNativeVisuals,
     switchAnimationNativeVisuals,
   );
-  const committedContentPublishStart = performance.now();
+  const finishCommittedPublishMeasure = startFrameMeasure(
+    "committed-surface-frame-publication",
+    frame,
+    { retainedDisplayFrameId: publishedRetainedFrame.id },
+  );
   const publishedCommittedSurfaceFrame = onRetainedDisplayFrame?.(
     publishedRetainedFrame,
     {
       gpuNativeVisuals: committedGpuNativeVisuals,
     },
   );
-  committedContentPublishMs += performance.now() - committedContentPublishStart;
+  committedContentPublishMs += finishCommittedPublishMeasure();
   const retainedDiagnosticsStart = performance.now();
   postGpuFlowRetainedDisplayFrameChromeReproEvent({
     frame,
