@@ -75,9 +75,14 @@ import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
 } from "./flowFrameInteractionState";
+import {
+  combineGpuFlowHtmlSurfaceNativeVisuals,
+  createGpuFlowRetainedContentNativeVisualSignature,
+} from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
+  shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
 import {
@@ -284,23 +289,6 @@ function requestRemainingGpuFlowFrame({
   }
 }
 
-function combineGpuFlowHtmlSurfaceNativeVisuals(
-  baseVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[] | null | undefined,
-  ...visualGroups: readonly (readonly HtmlSurfaceSolidRoundedRectVisual[])[]
-): readonly HtmlSurfaceSolidRoundedRectVisual[] | undefined {
-  const transientVisuals = visualGroups.flat();
-  if (!baseVisuals?.length && transientVisuals.length === 0) {
-    return undefined;
-  }
-  if (!baseVisuals?.length) {
-    return transientVisuals;
-  }
-  if (transientVisuals.length === 0) {
-    return baseVisuals;
-  }
-  return [...baseVisuals, ...transientVisuals];
-}
-
 export function nextFrame(frameRef: MutableRefObject<number>): number {
   frameRef.current += 1;
   return frameRef.current;
@@ -317,6 +305,7 @@ function resolveGpuFlowRetainedContentFrame({
   retainedContentRuntimeState,
   sceneRevision,
   layer,
+  viewport,
   viewportZoomBucket,
 }: {
   readonly canvasSize: GpuCanvasSize;
@@ -329,6 +318,7 @@ function resolveGpuFlowRetainedContentFrame({
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly sceneRevision: number;
+  readonly viewport: GpuFlowLiveProjectionSample["viewport"];
   readonly viewportZoomBucket: number;
 }): {
   readonly phaseDiagnostics: Pick<
@@ -370,7 +360,11 @@ function resolveGpuFlowRetainedContentFrame({
   ) {
     const retainedRuntimeFrameStart = performance.now();
     const retainedRuntimeFrame =
-      cachedFrame.nativeVisualSignature === nativeVisualSignature
+      shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        cachedFrame,
+        nativeVisualSignature,
+        viewport,
+      })
         ? cachedFrame.retainedRuntimeFrame
         : createGpuFlowRetainedRuntimeFrameForLayer({
             canvasSize,
@@ -380,6 +374,7 @@ function resolveGpuFlowRetainedContentFrame({
             scrollOffsets,
             scrollRevision,
             scrollRevisions,
+            viewport,
             viewportZoomBucket,
           });
     const retainedRuntimeFrameMs =
@@ -415,6 +410,7 @@ function resolveGpuFlowRetainedContentFrame({
     scrollOffsets,
     scrollRevision,
     scrollRevisions,
+    viewport,
     viewportZoomBucket,
   });
   const retainedRuntimeFrameMs = performance.now() - retainedRuntimeFrameStart;
@@ -459,6 +455,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   scrollOffsets,
   scrollRevision,
   scrollRevisions,
+  viewport,
   viewportZoomBucket,
 }: {
   readonly canvasSize: GpuCanvasSize;
@@ -468,6 +465,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scrollRevision: number;
   readonly scrollRevisions: ReadonlyMap<string, number>;
+  readonly viewport: GpuFlowLiveProjectionSample["viewport"];
   readonly viewportZoomBucket: number;
 }): GpuRetainedRuntimeFrame {
   return createGpuRetainedRuntimeFrame({
@@ -479,7 +477,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
     scrollOffsets,
     scrollRevision,
     scrollRevisions,
-    viewport: layer.viewport,
+    viewport,
     viewportSize: {
       height: canvasSize.cssHeight,
       width: canvasSize.cssWidth,
@@ -488,17 +486,9 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   });
 }
 
-function createGpuFlowRetainedContentNativeVisualSignature(
-  layer: GpuFlowNodeLayerState,
-): string {
-  return JSON.stringify({
-    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
-    scrollbarVisualState: layer.retainedContentScrollbarVisualState ?? null,
-  });
-}
-
 export {
   shouldReuseGpuFlowRetainedContentFrameCache,
+  shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
 export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRetainedPageMaintenance";
@@ -623,7 +613,7 @@ export function renderGpuFlowNodeLayerFrame({
   const viewportZoomBucket =
     resources.retainedContentPageManager.resolveFrameViewportZoomBucket({
       viewportInteractionActive: deferResolutionUpdates,
-      zoom: normalizeGpuViewport(layer.viewport).zoom,
+      zoom: normalizeGpuViewport(liveProjectionSample.viewport).zoom,
     });
   const retainedSceneInput = createGpuFlowRetainedContentFrameSceneInput(
     layer.scene,
@@ -639,6 +629,7 @@ export function renderGpuFlowNodeLayerFrame({
     retainedContentPageManager: resources.retainedContentPageManager,
     retainedContentRuntimeState,
     sceneRevision: retainedSceneInput.sceneRevision,
+    viewport: liveProjectionSample.viewport,
     viewportZoomBucket,
   });
   let retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
@@ -756,7 +747,7 @@ export function renderGpuFlowNodeLayerFrame({
     renderer: resources.htmlSurfaceRenderer,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
-    viewport: layer.viewport,
+    viewport: liveProjectionSample.viewport,
   });
   htmlSurfaceFrameMs += performance.now() - htmlSurfaceFrameStart;
   const retainedPageMaintenanceStart = performance.now();
@@ -823,7 +814,7 @@ export function renderGpuFlowNodeLayerFrame({
       retainedDisplayFrame: publishedRetainedFrame,
       retainedPageResult,
     }),
-    viewport: layer.viewport,
+    viewport: liveProjectionSample.viewport,
     viewportFrame,
   });
   updateGpuFlowNodeLayerFrameState({
@@ -836,7 +827,7 @@ export function renderGpuFlowNodeLayerFrame({
     surfaceRef,
     switchAnimationFollowUpFrame: switchAnimationNeedsFollowUpFrame,
     transformOnlyPaintNodeIdsRef,
-    viewport: layer.viewport,
+    viewport: liveProjectionSample.viewport,
     viewportFrame,
     visibleNodeIdsRef,
   });

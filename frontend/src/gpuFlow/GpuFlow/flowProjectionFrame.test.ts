@@ -13,7 +13,7 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
-  assertGpuFlowProjectionOnlyFrameWork,
+  assertGpuFlowMotionProjectionFrameWork,
   isGpuFlowRetainedProjectionSurfaceCovered,
   resolveGpuFlowProjectionFrameTransaction,
 } from "./flowProjectionFrame";
@@ -41,39 +41,43 @@ describe("GPU flow projection frame coverage", () => {
 
   it("rejects uploads and resource churn during projection-only frames", () => {
     expect(() =>
-      assertGpuFlowProjectionOnlyFrameWork({
-        frameReasons: ["viewport"],
+      assertGpuFlowMotionProjectionFrameWork({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),
+        projectionLane: "motion",
+        transactionKind: "motion-projection",
       }),
     ).toThrow(/forbidden content work/);
 
     expect(() =>
-      assertGpuFlowProjectionOnlyFrameWork({
-        frameReasons: ["texture-upload"],
+      assertGpuFlowMotionProjectionFrameWork({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),
+        projectionLane: "maintenance",
+        transactionKind: "content-publication",
       }),
     ).not.toThrow();
 
     expect(() =>
-      assertGpuFlowProjectionOnlyFrameWork({
-        frameReasons: ["retained-scroll", "paint", "texture-upload"],
+      assertGpuFlowMotionProjectionFrameWork({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),
+        projectionLane: "motion",
+        transactionKind: "motion-projection",
       }),
     ).toThrow(/forbidden content work/);
 
     expect(() =>
-      assertGpuFlowProjectionOnlyFrameWork({
-        frameReasons: ["retained-scroll", "paint", "texture-upload"],
+      assertGpuFlowMotionProjectionFrameWork({
         layerResult: projectionLayerResult({
           remainingDirtyNodeIds: ["node-a"],
           skippedNodeIds: ["node-a"],
         }),
+        projectionLane: "motion",
+        transactionKind: "held-previous",
       }),
     ).not.toThrow();
   });
@@ -218,9 +222,9 @@ function retainedPages(
 
 function projectionLayerResult(
   overrides: Partial<
-    Parameters<typeof assertGpuFlowProjectionOnlyFrameWork>[0]["layerResult"]
+    Parameters<typeof assertGpuFlowMotionProjectionFrameWork>[0]["layerResult"]
   > = {},
-): Parameters<typeof assertGpuFlowProjectionOnlyFrameWork>[0]["layerResult"] {
+): Parameters<typeof assertGpuFlowMotionProjectionFrameWork>[0]["layerResult"] {
   return {
     budgetExhausted: false,
     deferredNodeIds: [],

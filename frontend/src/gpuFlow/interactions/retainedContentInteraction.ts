@@ -587,11 +587,13 @@ class GpuRetainedContentInteractionController {
     activePointer: ActiveRetainedContentPointer,
   ): GpuRetainedContentDragEvent {
     const screenPoint = getEventPointRelativeToElement(event, this.element);
+    const visibleProjectionState = this.options.getVisibleProjectionState?.();
     return {
       activeHit: activePointer.startHit,
       flowPoint: screenToFlowPosition(
         screenPoint,
-        this.store.getState().transform,
+        visibleProjectionState?.sample.viewport ??
+          this.store.getState().transform,
       ),
       hit: this.hitTestEvent(event, this.getDragMoveHitFilter()),
       nativeEvent: event,

@@ -1,6 +1,7 @@
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
+import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
 export type GpuFlowRetainedContentFrameCache = {
   readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
@@ -53,6 +54,24 @@ export function shouldReuseGpuFlowRetainedContentFrameCache({
   ].every(Boolean);
 }
 
+export function shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+  cachedFrame,
+  nativeVisualSignature,
+  viewport,
+}: {
+  readonly cachedFrame: GpuFlowRetainedContentFrameCache;
+  readonly nativeVisualSignature: string;
+  readonly viewport: GpuViewportInput;
+}): boolean {
+  return (
+    cachedFrame.nativeVisualSignature === nativeVisualSignature &&
+    areGpuFlowProjectionViewportsEqual(
+      cachedFrame.retainedRuntimeFrame.input.viewport,
+      viewport,
+    )
+  );
+}
+
 function retainedFrameViewportSizeMatches(
   cachedFrame: GpuFlowRetainedContentFrameCache,
   viewportSize: { readonly height: number; readonly width: number } | undefined,
@@ -63,6 +82,19 @@ function retainedFrameViewportSizeMatches(
   return (
     cachedFrame.viewportSize.height === viewportSize.height &&
     cachedFrame.viewportSize.width === viewportSize.width
+  );
+}
+
+function areGpuFlowProjectionViewportsEqual(
+  left: GpuViewportInput,
+  right: GpuViewportInput,
+): boolean {
+  const normalizedLeft = normalizeGpuViewport(left);
+  const normalizedRight = normalizeGpuViewport(right);
+  return (
+    normalizedLeft.x === normalizedRight.x &&
+    normalizedLeft.y === normalizedRight.y &&
+    normalizedLeft.zoom === normalizedRight.zoom
   );
 }
 

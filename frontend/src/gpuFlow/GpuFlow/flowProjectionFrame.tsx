@@ -22,10 +22,11 @@ import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionDebugState,
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  isGpuFlowMotionFrameReason,
   type GpuFlowHeldPreviousProjection,
+  type GpuFlowProjectionLane,
   type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
+  type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
@@ -52,12 +53,6 @@ import {
 } from "./flowFrameInteractionState";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
-
-export function shouldRenderGpuFlowProjectionOnlyFrame(
-  reasons: readonly GpuFrameReason[],
-): boolean {
-  return reasons.length > 0 && reasons.some(isGpuFlowMotionFrameReason);
-}
 
 type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -208,9 +203,10 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     uploadBudget: layer.uploadBudget,
     viewport: projectionViewport,
   });
-  assertGpuFlowProjectionOnlyFrameWork({
-    frameReasons,
+  assertGpuFlowMotionProjectionFrameWork({
     layerResult,
+    projectionLane: transaction.lane,
+    transactionKind: transaction.kind,
   });
   const htmlSurfaceFrameMs = performance.now() - htmlSurfaceFrameStart;
   reportGpuFlowNodeLayerFramePerformance({
@@ -274,11 +270,11 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   };
 }
 
-export function assertGpuFlowProjectionOnlyFrameWork({
-  frameReasons,
+export function assertGpuFlowMotionProjectionFrameWork({
   layerResult,
+  projectionLane,
+  transactionKind,
 }: {
-  readonly frameReasons: readonly GpuFrameReason[];
   readonly layerResult: Pick<
     RenderHtmlSurfaceFrameResult,
     | "budgetExhausted"
@@ -290,8 +286,14 @@ export function assertGpuFlowProjectionOnlyFrameWork({
     | "skippedNodeIds"
     | "uploadedNodeIds"
   >;
+  readonly projectionLane: GpuFlowProjectionLane;
+  readonly transactionKind: GpuFlowProjectionTransactionKind;
 }): void {
-  if (!shouldRenderGpuFlowProjectionOnlyFrame(frameReasons)) {
+  if (
+    projectionLane !== "motion" ||
+    (transactionKind !== "motion-projection" &&
+      transactionKind !== "held-previous")
+  ) {
     return;
   }
   const blockedWork = {
@@ -310,7 +312,7 @@ export function assertGpuFlowProjectionOnlyFrameWork({
     })
   ) {
     throw new Error(
-      `GPU Flow projection-only frame performed forbidden content work: ${JSON.stringify(
+      `GPU Flow motion projection frame performed forbidden content work: ${JSON.stringify(
         blockedWork,
       )}`,
     );

@@ -8,6 +8,7 @@ import type { GpuRect } from "../viewportMath";
 import {
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
   shouldReuseGpuFlowRetainedContentFrameCache,
+  shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
@@ -161,6 +162,25 @@ describe("GPU flow frame helpers", () => {
         sceneRevision: 7,
         scrollRevision: 3,
         viewportZoomBucket: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it("rebuilds retained runtime frame metadata when the projection sample viewport changes", () => {
+    const cachedFrame = retainedFrameCache({});
+
+    expect(
+      shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        cachedFrame,
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
+        viewport: [0, 0, 1],
+      }),
+    ).toBe(true);
+    expect(
+      shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        cachedFrame,
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
+        viewport: [40, 0, 1],
       }),
     ).toBe(false);
   });

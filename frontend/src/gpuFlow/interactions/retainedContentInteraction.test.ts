@@ -347,6 +347,84 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("maps retained drag flow points through the visible projection sample", () => {
+    const element = createHostElement();
+    const scene = retainedContentScene();
+    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene,
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame,
+    });
+    const visibleProjectionState = createGpuFlowVisibleProjectionState({
+      committedFrame,
+      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: committedFrame.displayFrameId,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["viewport"],
+        sample: {
+          cssViewport: { height: 120, width: 240 },
+          devicePixelRatio: 1,
+          gestureOwner: "idle",
+          id: 4,
+          retainedScrollDelta: new Map(),
+          retainedScrollOffsets: new Map(),
+          retainedScrollRevision: 0,
+          retainedScrollVelocityCssPxPerMs: new Map(),
+          timestamp: 4,
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportDelta: { x: 0, y: 0, zoom: 0 },
+          viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
+        },
+      }),
+    });
+    const store = createGpuFlowViewportStore({
+      transform: [100, 0, 1],
+    });
+    const onHitDragMove = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getRetainedRuntimeFrame: () => retainedRuntimeFrame,
+      getScene: () => scene,
+      getVisibleProjectionState: () => visibleProjectionState,
+      onHitDragMove,
+      shouldHandleDragMoveHit: (hit) => hit.hit.kind === "row",
+      shouldStartDrag: (hit) => hit.hit.kind === "row",
+      store,
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 116,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 1,
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+
+    expect(onHitDragMove).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flowPoint: { x: 116, y: 42 },
+      }),
+    );
+
+    cleanup();
+  });
+
   it("emits retained drag frames from the latest pointer position", () => {
     vi.useFakeTimers();
     const element = createHostElement();
