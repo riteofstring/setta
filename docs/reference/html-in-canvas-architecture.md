@@ -4,10 +4,12 @@ This document is the complete reference for Setta's project-level
 HTML-in-canvas architecture and the lower-level WebGPU HTML surface renderer.
 DOM section bodies remain real React DOM sources for browser-owned content,
 focus, editor behavior, and hit testing during handoff, while retained parameter
-rows are rendered from project-owned retained scenes. The visible project
-surface is composed by WebGPU from cached HTML textures and retained canvas
-textures. Interaction projects source DOM under the browser pointer; it does not
-make the source DOM the visible rendering path.
+rows are rendered from project-owned retained scenes plus viewport-positioned
+DOM controls for browser-owned text-like values. The visible project surface is
+composed by WebGPU from cached HTML textures and retained canvas textures, with
+DOM control and island layers over the canvas for controls that must remain
+browser-owned. Interaction projects source DOM under the browser pointer; it
+does not make the source DOM the visible rendering path.
 
 The project entrypoint is
 `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuSurface.tsx`.
@@ -28,11 +30,12 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
   retained page textures in the WebGPU frame.
 - HTML overlay sources: DOM sources for edge labels, selection visuals, resize
   affordances, and drag previews.
-- Retained DOM-control sources: DOM for browser-owned retained text-like
-  controls. Passive source hosts remain in the canvas layout subtree and are
-  copied into retained DOM-control texture slots during retained page upload;
-  active text-like sources are projected to the viewport from the same
-  descriptor by moving the host into the GPU flow container.
+- Retained DOM-control plane: viewport-positioned real DOM for browser-owned
+  retained text-like controls. Passive hosts render `DummyCodeMirror` display
+  DOM and active hosts render `ParamInput` from the same sampled descriptor.
+  The retained page rasterizer draws only the canvas-owned text-like shell and
+  active/selected underline; text-like values are not copied into retained page
+  textures.
 - DOM islands: viewport-positioned real DOM siblings of the canvas for active
   native controls such as password fields, date/time fields, dropzones, color
   input fallback, and editable parameter labels. Text-like retained controls
@@ -137,7 +140,7 @@ The project integration is centered on these modules:
   files map project parameter implementations to retained row and control
   descriptors.
 - `projectGpuRetainedDomControlRenderer.tsx` renders passive and active
-  text-like retained DOM-control sources with `DummyCodeMirror` or `ParamInput`.
+  text-like retained DOM-plane controls with `DummyCodeMirror` or `ParamInput`.
 - `projectGpuRetainedParamDomIslandRenderer.tsx` renders active retained native
   DOM islands for non-text-like controls and editable labels.
 - `projectGpuRetainedParamInteractionAdapter.tsx` maps retained hit records to
@@ -187,13 +190,12 @@ The reusable runtime is centered on these modules:
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
-  `GpuFlow/flowRetainedPreparationRuntimeFrame.ts`, `retainedDisplayFrame.ts`,
-  `GpuFlow/flowRetainedPageMaintenance.ts`, and
+  `retainedDisplayFrame.ts`, `GpuFlow/flowRetainedPageMaintenance.ts`, and
   `retainedContentTexturePageManager.ts` sample retained runtime frames, derive
-  retained page frame inputs, optionally narrow snapshot sources for preparation
-  work, resolve retained display transactions, run post-submit first-visible and
-  refinement maintenance, page-rasterize retained scenes, cache committed
-  retained pages, and schedule retained texture upload work.
+  retained page frame inputs and DOM-control descriptors, resolve retained
+  display transactions, run post-submit first-visible and refinement
+  maintenance, page-rasterize retained scenes, cache committed retained pages,
+  and schedule retained texture upload work.
 - `surfaceCompositor/*` provides the shared actor, generation, coverage,
   transaction, and diagnostics model used to decide whether retained surfaces
   publish exact/compatible coverage, hold previous coverage, publish a cold
@@ -206,14 +208,16 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/domIslandLayer.tsx` renders active DOM islands as viewport-positioned
   real DOM.
 - `GpuFlow/retainedDomControlSources.tsx` derives retained text-like
-  DOM-control source descriptors from sampled retained runtime frames, mounts
-  passive source hosts in the canvas layout subtree, and projects active source
-  hosts into the GPU flow container.
+  DOM-control plane descriptors from retained hit-test surfaces sampled into
+  retained runtime frames.
+- `GpuFlow/domControlPlane.tsx` mounts visible retained text-like controls in a
+  viewport-positioned DOM layer, clips them to the retained surface, projects
+  them through the current viewport, and renders passive or active controls
+  from the descriptor lifecycle state.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
-  preview HTML overlay sources plus retained DOM-control source roots and
-  retained native visual inputs. Scrollbar and row-hover native visuals are
-  sampled into the retained runtime frame; switch-animation visuals are sampled
-  in `GpuFlow/flowFrame.tsx`.
+  preview HTML overlay sources plus retained native visual inputs. Scrollbar
+  and row-hover native visuals are sampled into the retained runtime frame;
+  switch-animation visuals are sampled in `GpuFlow/flowFrame.tsx`.
 - `GpuFlow/retainedContentControllers.ts` attaches retained-content pointer,
   drag, scroll, keyboard, scrollbar, hover, connection, and scene-port
   controllers.
@@ -241,7 +245,7 @@ runtime:
 - keeps CodeMirror tooltips and Setta popover portals in the correct canvas,
   viewport, or app-level portal root
 - renders selected-node bounds, resize handles, edge labels, retained popups,
-  drag previews, retained DOM-control sources, and native DOM islands through
+  drag previews, retained DOM-plane controls, and native DOM islands through
   the owner surface for each UI class
 - forwards pane clicks, context menus, file drops, node drags, resize commits,
   selection commits, parameter value commits, and connection edits into
@@ -351,9 +355,22 @@ The simplified project runtime DOM shape is:
       >
         <div className="setta-gpu-flow__edge-label">{edgeLabelText}</div>
       </div>
-      {/* Selection, resize, drag-preview, and retained snapshot sources
+      {/* Selection, resize, and drag-preview overlay sources
           are more direct canvas children created by HtmlSurfaceSourceLayer. */}
     </canvas>
+    <div
+      className="setta-gpu-flow__dom-control-plane"
+      data-gpu-flow-dom-control-plane="true"
+    >
+      <div
+        className="setta-gpu-flow__dom-control"
+        data-gpu-flow-dom-control="true"
+        data-gpu-flow-dom-control-id={retainedDomControlId}
+        data-gpu-flow-dom-control-active="false"
+      >
+        {/* Passive DummyCodeMirror or active ParamInput for text-like controls. */}
+      </div>
+    </div>
     <div className="setta-gpu-flow__dom-island-layer">
       {/* Active retained native controls are viewport-positioned here. */}
     </div>
@@ -406,26 +423,21 @@ transform: translate(surfaceX - localX, surfaceY - localY)
 pointer-events: auto
 ```
 
-The same source-layer mechanism mounts section DOM sources, HTML overlay
-sources, and retained DOM-control sources. Section and overlay sources are
-registered with `HtmlSurfaceTextureManager` and drawn as DOM textures. Retained
-DOM-control elements are tracked by source id, and retained page frame
-descriptors carry matching source ids and source keys so
-`RetainedContentTexturePageManager` copies matching passive DOM-control sources
-into retained page textures.
+The source-layer mechanism mounts section DOM sources and HTML overlay sources.
+Those sources are registered with `HtmlSurfaceTextureManager` and drawn as DOM
+textures. Retained DOM-control descriptors are sampled from retained hit-test
+surfaces in `createGpuRetainedRuntimeFrame()` and mounted by
+`GpuFlowDomControlPlane`, which is a sibling of the canvas rather than a canvas
+layout-subtree child.
 
-Page frame descriptors are sampled from runtime scroll offsets in
-`GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. The hidden React
-DOM-control source layer is mounted from the source retained runtime frame via
-`GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`; frame preparation can
-narrow that source list to descriptors needed for current first-visible or
-snapshot-refinement work. Retained page upload joins sampled descriptors with
-mounted snapshot source elements by snapshot id and source key before copying
-text-like DOM into retained page textures. When a text-like retained control is
-active, `GpuFlow/retainedDomControlSources.tsx` uses the same descriptor to move
-that source host from the passive layout subtree into the GPU flow container,
-position it with `viewportRectCssPx`, remove inertness, and enable pointer
-events. This active projection is separate from `GpuFlowDomIslandLayer`.
+Retained page descriptors are sampled from runtime scroll offsets in
+`GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. Retained page
+upload rasterizes the retained scene to a scratch 2D canvas and uploads it with
+`GPUQueue.copyExternalImageToTexture()`. Text-like retained controls use the
+same descriptor for passive and active DOM-plane rendering: passive controls are
+viewport-projected `DummyCodeMirror` display hosts, while active controls render
+`ParamInput`, focus normally, and replay pointer activation when present. This
+DOM-control plane is separate from `GpuFlowDomIslandLayer`.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -476,41 +488,38 @@ Each render frame follows this shape:
    renderer, HTML texture manager, and retained texture page manager.
 2. `createGpuRetainedRuntimeFrame()` samples retained content from runtime
    scroll offsets, clips retained surfaces, resolves each surface texture window,
-   derives text-like row snapshot descriptors for page upload, and builds
-   retained page frame surfaces.
+   derives text-like DOM-control plane descriptors, samples native DOM islands
+   and native visuals, and builds retained page frame surfaces.
 3. `RetainedContentTexturePageManager.resolveFrameViewportZoomBucket()` selects
    the stable zoom bucket. `prepareFrame()` computes desired page descriptors,
    committed-page draw regions, replacement and refinement work descriptors, and
    any true-hole count for pages that are required for first-visible coverage.
-4. `createGpuFlowRetainedPreparationRuntimeFrame()` may narrow text-like
-   snapshot sources when the prepared frame has true holes or snapshot
-   refinements and the source set is large. The retained page frame is prepared
-   again when that preparation runtime frame changes.
-5. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
+4. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
    transaction. Exact or compatible coverage publishes; missing coverage holds
    the previous retained display when one exists, or publishes a cold placeholder
    for a cold surface. Published retained transactions do not contain true-hole
    coverage.
-6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
+5. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
-7. The frame syncs DOM transforms for visible, active, and overlay HTML
+6. The frame syncs DOM transforms for visible, active, and overlay HTML
    sources, registers visible HTML textures, uploads dirty HTML textures within
    the project upload budget, and builds textured DOM and overlay visuals.
-8. The visual scene combines DOM textures, overlay textures, retained page
+7. The visual scene combines DOM textures, overlay textures, retained page
    visuals, retained scrollbar, row-hover, switch-animation, grid, edges, and
    connection-line visuals. `HtmlSurfaceRenderer.render()` draws that scene with
    the viewport camera.
-9. HTML textures are evicted according to visibility, protected active ids, and
+8. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-10. Retained page maintenance after the display transaction defers passive
+9. Retained page maintenance after the display transaction defers passive
     refinement while `deferResolutionUpdates` is true and committed pages cover
     the frame, or calls
     `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to enqueue
     missing first-visible and refinement pages, rasterize and upload retained
-    page textures within its own budget, upload text-like row DOM snapshots into
-    retained page textures when required, evict retained pages to budget, and
+    page textures within its own budget, evict retained pages to budget, and
     report whether another frame is needed.
+10. `GpuFlowDomControlPlane` and `GpuFlowDomIslandLayer` project their sampled
+    descriptors through the current viewport as real DOM siblings of the canvas.
 11. Frame performance reporting records render time, upload work, texture memory,
     retained page metrics, viewport state, and interaction diagnostics.
 
@@ -585,11 +594,12 @@ tracks uploaded bytes, skipped bytes, remaining dirty surfaces, and exhausted
 budget state.
 
 Retained parameter content has a separate texture lifecycle. The retained page
-manager rasterizes retained scenes into page textures, uploads those pages on
-its own budget, and evicts retained pages independently from HTML source
-textures. Passive retained DOM-control source DOM is copied into retained page
-textures during retained page upload rather than being registered as standalone
-HTML visuals.
+manager rasterizes retained scenes into page textures with a scratch 2D canvas,
+uploads those pages with `GPUQueue.copyExternalImageToTexture`, and evicts
+retained pages independently from HTML source textures. Text-like retained
+control values are not part of retained page textures; the page texture contains
+the retained row shell while `GpuFlowDomControlPlane` renders passive and active
+browser-owned text-like DOM above the canvas.
 
 ## WebGPU Scene Rendering
 
@@ -733,23 +743,21 @@ The retained renderer uses texture pages:
 - `GpuRetainedContentSurfaces.tsx` clips retained surfaces and resolves a cache
   window around the visible scroll position.
 - `retainedRuntimeFrame.ts` samples source surfaces, retained DOM-control
-  sources, native DOM islands for non-migrated control families, native visuals,
-  and retained page frame surfaces for the scene, scroll offsets, and zoom
-  bucket.
+  sources, native DOM islands for DOM-owned non-text-like controls, native
+  visuals, and retained page frame surfaces for the scene, scroll offsets, and
+  zoom bucket.
 - `GpuRetainedContentPageFrameSurfaces.ts` assigns content versions to the base
-  surface and row-level content segments, and maps passive DOM-control sources
-  into per-page DOM-control texture slots so page freshness checks do not
+  surface and row-level content segments so page freshness checks do not
   rerasterize unrelated rows.
 - `RetainedContentTexturePageManager` creates desired page descriptors, reuses
   committed pages, schedules first-visible and refinement work, rasterizes pages
   through `retainedContentPageRasterizer.ts`, uploads page textures, and evicts
   retained pages to budget.
-- DOM-owned retained controls are rendered by
-  `GpuFlow/retainedDomControlSources.tsx`. Passive source hosts are inert,
-  `aria-hidden`, pointer-disabled, and copied into retained DOM-control texture
-  slots during page upload. Active text-like controls use the same source
-  descriptor projected to `viewportRectCssPx`; only that active projected host
-  removes inertness and enables pointer events.
+- DOM-owned text-like controls are described by
+  `GpuFlow/retainedDomControlSources.tsx` and rendered by
+  `GpuFlow/domControlPlane.tsx`. Passive hosts render `DummyCodeMirror` display
+  DOM and active hosts render `ParamInput`; both are clipped to the retained
+  surface and projected through the viewport as real DOM.
 - Text-like retained controls are explicitly excluded from `GpuDomIslandLayer`.
   Non-text-like DOM-owned families such as native date/time, password,
   dropzone, and label editing use DOM islands.
@@ -891,7 +899,7 @@ drag persistence flows through `projectGpuSelectionAdapter.ts`.
 
 Retained parameter interaction uses retained-content hit records. The runtime
 controller hit tests retained scenes, preserves active browser-owned targets
-for native DOM islands and projected retained DOM-control sources, tracks
+for native DOM islands and retained DOM-control plane hosts, tracks
 click-versus-drag thresholds, emits drag start/move/frame/end callbacks,
 updates hover and scrollbar visuals, and reports pointer activity in flow-local
 retained-content coordinates.
@@ -920,18 +928,18 @@ Parameter controls are split by commit policy:
 - `preview-commit`: range controls such as sliders and rotaries preview during
   pointer, keyboard, or wheel interaction and commit when the interaction ends.
 - `native-island`: browser-owned controls. Text-like controls activate through
-  retained DOM-control source projection and use passive retained DOM-control
-  textures when inactive. Password entry, dropzones, native date/time fields,
-  color input fallback, and editable parameter labels use `GpuDomIslandLayer`.
+  retained DOM-control plane projection and render passive display DOM when
+  inactive. Password entry, dropzones, native date/time fields, color input
+  fallback, and editable parameter labels use `GpuDomIslandLayer`.
 
 `projectGpuParamDomIslandGeometry.ts` computes island geometry for non-text-like
 controls and editable labels and clips it to the retained surface.
 `projectGpuRetainedParamDomIslandRenderer.tsx` mounts the normal `ParamInput`
 or `ParamNameInput`, marks it as retained native content, focuses it, and
 replays the original pointer activation when present. Text-like controls use
-`projectGpuRetainedDomControlRenderer.tsx`; the passive source renders
-`DummyCodeMirror`, while the active projected source renders `ParamInput` in the
-same retained DOM-control host.
+`projectGpuRetainedDomControlRenderer.tsx`; the passive DOM-plane host renders
+`DummyCodeMirror`, while the active DOM-plane host renders `ParamInput` from the
+same retained DOM-control descriptor.
 
 `ParamInput` owns the same value semantics used outside the GPU surface for
 browser-owned control paths: pending local value, preview state, debounced
@@ -982,9 +990,8 @@ action.
 
 Section hits use the GPU layout, HTML surface visual scene, and source
 interaction projector. Retained parameter hits use retained scene hit records.
-DOM island targets and active projected retained DOM-control sources are
-preserved so browser focus, selection, file/dropzone behavior, and form events
-work normally.
+DOM island targets and retained DOM-control plane targets are preserved so
+browser focus, selection, file/dropzone behavior, and form events work normally.
 
 Pointer and wheel targeting follows the rendered visual scene:
 
