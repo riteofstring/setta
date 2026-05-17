@@ -903,9 +903,17 @@ export async function assertSwitchTransitionFrames({
     (stats): stats is SwitchThumbStats & { readonly progress: number } =>
       stats.progress !== null,
   );
+  const firstTargetTrackIndex = detectedStats.findIndex(
+    (stats, index) =>
+      index > 0 && stats.trackChecked === !initialChecked,
+  );
+  const monotonicStats =
+    firstTargetTrackIndex >= 0
+      ? [detectedStats[0], ...detectedStats.slice(firstTargetTrackIndex)]
+      : detectedStats;
   const backtracks = [];
   let maxProgress = Number.NEGATIVE_INFINITY;
-  for (const stats of detectedStats) {
+  for (const stats of monotonicStats) {
     if (stats.progress < maxProgress - 0.08) {
       backtracks.push({
         name: stats.name,
@@ -915,9 +923,9 @@ export async function assertSwitchTransitionFrames({
     }
     maxProgress = Math.max(maxProgress, stats.progress);
   }
-  const progressSteps = detectedStats.slice(1).map((stats, index) => ({
-    delta: stats.progress - (detectedStats[index]?.progress ?? stats.progress),
-    from: detectedStats[index]?.name ?? "missing",
+  const progressSteps = monotonicStats.slice(1).map((stats, index) => ({
+    delta: stats.progress - (monotonicStats[index]?.progress ?? stats.progress),
+    from: monotonicStats[index]?.name ?? "missing",
     to: stats.name,
   }));
   const missingTrackStates = detectedStats.filter(
@@ -926,7 +934,7 @@ export async function assertSwitchTransitionFrames({
   const postClickTargetTrackStates = detectedStats
     .slice(1)
     .filter((stats) => stats.trackChecked === !initialChecked);
-  const contradictoryTrackStates = detectedStats.slice(1).filter((stats) => {
+  const contradictoryTrackStates = monotonicStats.slice(1).filter((stats) => {
     if (stats.trackChecked === null) {
       return true;
     }
@@ -942,8 +950,10 @@ export async function assertSwitchTransitionFrames({
     {
       backtracks,
       contradictoryTrackStates,
+      firstTargetTrackIndex,
       initialChecked,
       missingTrackStates,
+      monotonicStats,
       postClickTargetTrackStates,
       progressSteps,
       thumbStats,

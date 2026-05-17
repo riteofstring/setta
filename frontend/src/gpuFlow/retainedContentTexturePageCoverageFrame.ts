@@ -134,13 +134,54 @@ function createReplacementRequestDescriptors({
     });
     for (const descriptor of descriptors) {
       const descriptorKey = retainedTexturePageKey(descriptor);
-      descriptorsByKey.set(descriptorKey, {
+      const nextDescriptor = {
         descriptor,
         replacementRequest: request,
-      });
+      };
+      const existingDescriptor = descriptorsByKey.get(descriptorKey);
+      descriptorsByKey.set(
+        descriptorKey,
+        selectRetainedContentTexturePageReplacementDescriptor({
+          current: existingDescriptor,
+          next: nextDescriptor,
+        }),
+      );
     }
   }
   return [...descriptorsByKey.values()];
+}
+
+export function selectRetainedContentTexturePageReplacementDescriptor({
+  current,
+  next,
+}: {
+  readonly current:
+    | RetainedContentTexturePageReplacementDescriptor
+    | undefined;
+  readonly next: RetainedContentTexturePageReplacementDescriptor;
+}): RetainedContentTexturePageReplacementDescriptor {
+  if (!current) {
+    return next;
+  }
+  return retainedReplacementRequestPriorityRank(next.replacementRequest) <
+    retainedReplacementRequestPriorityRank(current.replacementRequest)
+    ? next
+    : current;
+}
+
+function retainedReplacementRequestPriorityRank(
+  request: RetainedReplacementRequest,
+): number {
+  switch (request.priority) {
+    case "interactive":
+      return 0;
+    case "visible-hole":
+      return 1;
+    case "visible-refinement":
+      return 2;
+    case "prefetch":
+      return 3;
+  }
 }
 
 function resolveVisibleCoverageFidelityState(

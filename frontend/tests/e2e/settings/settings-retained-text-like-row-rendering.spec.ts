@@ -184,15 +184,17 @@ test("all-settings retained text-like row values are visible before click and th
     });
 
     await blurActiveEditor(page);
+    await expect.poll(() => readActiveCodeMirrorId(page)).toBeNull();
+    await waitForAnimationFrame(page);
     const { frame: blurFrame, ink: blurInk } =
       await waitForCodeMirrorTextInkFrame({
+        expectedInk: activeInk,
         name: `${rowTarget.rowId}-after-blur.png`,
         page,
         rect: passiveClip,
-        searchRect: row.controlClientRect,
+        searchRect: resolveTextInkSearchRect(activeInk, row.controlClientRect),
         testInfo,
       });
-    await expect.poll(() => readActiveCodeMirrorId(page)).toBeNull();
     expect(
       blurInk?.pixelCount ?? 0,
       JSON.stringify({ blurInk, passiveInk, row, target: rowTarget }, null, 2),
@@ -883,12 +885,14 @@ async function releaseModifierKeys(page: Page): Promise<void> {
 }
 
 async function waitForCodeMirrorTextInkFrame({
+  expectedInk,
   name,
   page,
   rect,
   searchRect,
   testInfo,
 }: {
+  readonly expectedInk?: TextInkBounds | null | undefined;
   readonly name: string;
   readonly page: Page;
   readonly rect: Rect;
@@ -911,7 +915,10 @@ async function waitForCodeMirrorTextInkFrame({
       screenshot: latestFrame,
       searchRect,
     });
-    if ((latestInk?.pixelCount ?? 0) > 0) {
+    if (
+      (latestInk?.pixelCount ?? 0) > 0 &&
+      (!expectedInk || isTextLikeInkNearExpected(latestInk, expectedInk))
+    ) {
       await attachScreenshot(testInfo, name, latestFrame);
       return { frame: latestFrame, ink: latestInk };
     }
@@ -920,6 +927,45 @@ async function waitForCodeMirrorTextInkFrame({
   const fallbackFrame = latestFrame ?? (await page.screenshot({ clip: rect }));
   await attachScreenshot(testInfo, name, fallbackFrame);
   return { frame: fallbackFrame, ink: latestInk };
+}
+
+function isTextLikeInkNearExpected(
+  actual: TextInkBounds | null,
+  expected: TextInkBounds,
+): boolean {
+  if (!actual) {
+    return false;
+  }
+  return (
+    Math.abs(actual.x - expected.x) <= 3 &&
+    Math.abs(actual.centerY - expected.centerY) <= 2.5 &&
+    Math.abs(actual.height - expected.height) <= 4
+  );
+}
+
+function resolveTextInkSearchRect(
+  ink: TextInkBounds | null,
+  fallback: Rect,
+): Rect {
+  if (!ink) {
+    return fallback;
+  }
+  const paddingX = 8;
+  const paddingY = 6;
+  const x = Math.max(fallback.x, ink.x - paddingX);
+  const y = Math.max(fallback.y, ink.y - paddingY);
+  return {
+    height: Math.min(
+      Math.max(1, fallback.y + fallback.height - y),
+      Math.max(1, ink.height + paddingY * 2),
+    ),
+    width: Math.min(
+      Math.max(1, fallback.x + fallback.width - x),
+      Math.max(1, ink.width + paddingX * 2),
+    ),
+    x,
+    y,
+  };
 }
 
 async function screenshotClip({

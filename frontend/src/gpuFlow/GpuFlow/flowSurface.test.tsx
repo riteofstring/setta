@@ -12,6 +12,7 @@ import {
 } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
+import { shouldDeferGpuFlowResolutionUpdates } from "./flowSurfaceFramePublication";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 
 describe("GpuFlow", () => {
@@ -222,6 +223,33 @@ describe("GpuFlow", () => {
     expect(resizeSourceIndex).toBeLessThan(canvasCloseIndex);
     expect(markup).not.toContain("section-resize-handle");
     expect(markup).not.toContain("data-resize-direction");
+  });
+
+  it("defers retained resolution work during motion-settling publication frames", () => {
+    expect(
+      shouldDeferGpuFlowResolutionUpdates({
+        lane: "content",
+        schedulerState: "motion-settling",
+        viewportFrame: false,
+        viewportInteractionActive: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferGpuFlowResolutionUpdates({
+        lane: "maintenance",
+        schedulerState: "idle",
+        viewportFrame: true,
+        viewportInteractionActive: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferGpuFlowResolutionUpdates({
+        lane: "content",
+        schedulerState: "content-catchup",
+        viewportFrame: false,
+        viewportInteractionActive: false,
+      }),
+    ).toBe(false);
   });
 
   it("prefers subscribed layout store geometry over matching scene snapshot nodes", () => {

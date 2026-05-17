@@ -17,6 +17,7 @@ import {
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
+import { createGpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import type {
   GpuFlowRetainedContentNodeLayerState,
@@ -295,9 +296,13 @@ function RetainedContentInteractionHarness({
   const retainedContentPageManagerRef =
     useRef<GpuFlowRetainedContentPageManager | null>({
       markSurfaceContentDirty: vi.fn(() => true),
-    });
+  });
   const textureManagerRef = useRef(null);
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
+  const viewportRuntime = useMemo(
+    () => createGpuFlowViewportRuntime({ store: viewportStore }),
+    [viewportStore],
+  );
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
@@ -330,8 +335,11 @@ function RetainedContentInteractionHarness({
     scenePortConnection: false,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   });
+
+  useEffect(() => () => viewportRuntime.destroy(), [viewportRuntime]);
 
   return (
     <div
@@ -397,6 +405,10 @@ function RetainedContentScrollHarness({
     },
   });
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
+  const viewportRuntime = useMemo(
+    () => createGpuFlowViewportRuntime({ store: viewportStore }),
+    [viewportStore],
+  );
   const retainedContentPageManagerRef =
     useRef<GpuFlowRetainedContentPageManager | null>({
       markSurfaceContentDirty: ({ surfaceId }) => {
@@ -431,8 +443,11 @@ function RetainedContentScrollHarness({
     scenePortConnection: false,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   });
+
+  useEffect(() => () => viewportRuntime.destroy(), [viewportRuntime]);
 
   return (
     <div
@@ -538,8 +553,12 @@ function RetainedContentHoverHarness({
         }
         return markDirtyResult;
       },
-    });
+  });
   const viewportStore = useMemo(() => createGpuFlowViewportStore(), []);
+  const viewportRuntime = useMemo(
+    () => createGpuFlowViewportRuntime({ store: viewportStore }),
+    [viewportStore],
+  );
   const switchAnimations = useMemo(
     () => createGpuRetainedContentSwitchAnimationStore(),
     [],
@@ -567,8 +586,11 @@ function RetainedContentHoverHarness({
     scenePortConnection: false,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   });
+
+  useEffect(() => () => viewportRuntime.destroy(), [viewportRuntime]);
 
   useEffect(() => {
     onReadNativeVisuals?.(

@@ -49,9 +49,26 @@ def test_finish_line_report_filters_to_finish_line_marker(tmp_path: Path) -> Non
     module = _load_finish_line_report_module()
     artifact_dir = create_recording(
         tmp_path,
-        app_state_rows=[finish_line_marker(sequence_number=1, timestamp_ms=1_000)],
+        app_state_rows=[
+            gpu_flow_frame(
+                sequence_number=1,
+                timestamp_ms=900,
+                frame=content_frame(frame_id=1),
+            ),
+            finish_line_marker(sequence_number=2, timestamp_ms=1_000),
+            gpu_flow_frame(
+                sequence_number=3,
+                timestamp_ms=1_020,
+                frame=content_frame(frame_id=2),
+            ),
+            gpu_flow_frame(
+                sequence_number=4,
+                timestamp_ms=1_040,
+                frame=motion_projection_frame(frame_id=3),
+            ),
+        ],
         performance_rows=[
-            longtask_event(sequence_number=2, timestamp_ms=900, duration_ms=75),
+            longtask_event(sequence_number=5, timestamp_ms=900, duration_ms=75),
         ],
     )
 
@@ -67,18 +84,64 @@ def test_finish_line_report_filters_to_finish_line_marker(tmp_path: Path) -> Non
 
     assert report["analysisWindowKind"] == "finish-line-marker"
     assert report["analysisStartTimestampMs"] == 1_000
+    assert report["summary"]["frameCount"] == 2
     assert report["summary"]["longtaskCount"] == 0
     assert report["failures"]["browserLongTaskCount"] == 0
     assert report["failures"]["finishLineMarkerMissingCount"] == 0
+    assert report["failures"]["finishLineWindowIncompleteCount"] == 0
+
+
+def test_finish_line_report_fails_empty_finish_line_window(
+    tmp_path: Path,
+) -> None:
+    module = _load_finish_line_report_module()
+    artifact_dir = create_recording(
+        tmp_path,
+        app_state_rows=[finish_line_marker(sequence_number=1, timestamp_ms=1_000)],
+        performance_rows=[],
+    )
+
+    report = module.analyze_recording(
+        artifact_dir=artifact_dir,
+        budgets={
+            "maxHeldPreviousMs": 120,
+            "maxLongTaskMs": 50,
+            "settleUploadBudgetBytes": 8 * 1024 * 1024,
+            "settleWindowMs": 1000,
+        },
+    )
+
+    assert report["summary"]["frameCount"] == 0
+    assert report["incompleteRecording"] is False
+    assert report["failures"]["finishLineMarkerMissingCount"] == 0
+    assert report["failures"]["finishLineWindowIncompleteCount"] == 1
+    assert report["details"]["finishLineCompleteness"]["missingReasons"] == [
+        "no-gpu-flow-frames-after-marker",
+        "no-content-frames-after-marker",
+        "no-motion-projection-frames-after-marker",
+        "no-interaction-active-frames-after-marker",
+    ]
 
 
 def test_finish_line_report_fails_raw_browser_long_tasks(tmp_path: Path) -> None:
     module = _load_finish_line_report_module()
     artifact_dir = create_recording(
         tmp_path,
-        app_state_rows=[finish_line_marker(sequence_number=1, timestamp_ms=1_000)],
+        app_state_rows=[
+            finish_line_marker(sequence_number=1, timestamp_ms=1_000),
+            gpu_flow_frame(
+                sequence_number=2,
+                timestamp_ms=1_020,
+                frame=content_frame(frame_id=1),
+            ),
+            gpu_flow_frame(
+                sequence_number=3,
+                timestamp_ms=1_040,
+                frame=motion_projection_frame(frame_id=2),
+            ),
+        ],
         performance_rows=[
-            longtask_event(sequence_number=2, timestamp_ms=1_100, duration_ms=75),
+            longtask_event(sequence_number=4, timestamp_ms=1_100, duration_ms=75),
         ],
     )
 
@@ -94,6 +157,7 @@ def test_finish_line_report_fails_raw_browser_long_tasks(tmp_path: Path) -> None
 
     assert report["summary"]["longtaskCount"] == 1
     assert report["failures"]["browserLongTaskCount"] == 1
+    assert report["failures"]["finishLineWindowIncompleteCount"] == 0
     assert report["failures"]["longTaskCount"] == 1
     assert report["failureCount"] > 0
 
@@ -127,6 +191,36 @@ def finish_line_marker(sequence_number: int, timestamp_ms: int) -> dict:
         "gpu-flow-finish-line-marker",
         {"name": "finish-line-start"},
     )
+
+
+def gpu_flow_frame(sequence_number: int, timestamp_ms: int, frame: dict) -> dict:
+    return app_state_event(
+        sequence_number,
+        timestamp_ms,
+        "gpu-flow-frame",
+        frame,
+    )
+
+
+def content_frame(frame_id: int) -> dict:
+    return {
+        "frame": frame_id,
+        "frameReasons": ["settings-open"],
+        "phaseDiagnostics": {"frameMode": "content"},
+        "projectionDiagnostics": {},
+        "retainedTexturePageTransactionOutcome": "publish-exact",
+    }
+
+
+def motion_projection_frame(frame_id: int) -> dict:
+    return {
+        "deferResolutionUpdates": True,
+        "frame": frame_id,
+        "frameReasons": ["viewport"],
+        "phaseDiagnostics": {"frameMode": "projection"},
+        "projectionDiagnostics": {"lane": "motion"},
+        "retainedTexturePageTransactionOutcome": "none",
+    }
 
 
 def app_state_event(

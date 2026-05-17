@@ -5,7 +5,10 @@ import type {
   RetainedContentTexturePageManager,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
-import { resolveGpuFlowRetainedPageMaintenanceBeforePublish } from "./flowRetainedPageMaintenance";
+import {
+  resolveGpuFlowRetainedPageMaintenanceAfterPublish,
+  resolveGpuFlowRetainedPageMaintenanceBeforePublish,
+} from "./flowRetainedPageMaintenance";
 
 describe("GPU flow retained page maintenance", () => {
   it("repairs visible true holes before the retained display transaction", () => {
@@ -41,6 +44,36 @@ describe("GPU flow retained page maintenance", () => {
     expect(callCount).toBe(2);
     expect(protectedKeysByCall).toEqual([["previous-page"], ["previous-page"]]);
     expect(maintenance?.result.repairedPreparedFrame.trueHoleRectCount).toBe(0);
+  });
+
+  it("repairs covered replacement debt before the retained display transaction", () => {
+    const frame = retainedPreparedFrame({
+      refinementPageCount: 1,
+      replacementDescriptorCount: 1,
+      trueHoleRectCount: 0,
+    });
+    const repairedFrame = retainedPreparedFrame({ trueHoleRectCount: 0 });
+    let callCount = 0;
+    const manager = retainedPageManager({
+      runPostSubmitMaintenance: ({ preparedFrame }) => {
+        callCount += 1;
+        return retainedMaintenanceResult({
+          preparedFrame,
+          repairedPreparedFrame: repairedFrame,
+        });
+      },
+    });
+
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+      darkMode: false,
+      deferResolutionUpdates: true,
+      preparedFrame: frame,
+      previousProtectedPageKeys: [],
+      retainedContentPageManager: manager,
+    });
+
+    expect(callCount).toBe(1);
+    expect(maintenance?.result.repairedPreparedFrame).toBe(repairedFrame);
   });
 
   it("honors the configured pre-publish repair pass limit", () => {
@@ -99,6 +132,53 @@ describe("GPU flow retained page maintenance", () => {
     expect(callCount).toBe(1);
     expect(maintenance?.result.repairedPreparedFrame.trueHoleRectCount).toBe(1);
   });
+
+  it("can force post-submit maintenance deferral for held previous coverage", () => {
+    const frame = retainedPreparedFrame({ trueHoleRectCount: 1 });
+    let deferredCallCount = 0;
+    let repairCallCount = 0;
+    const manager = {
+      deferPostSubmitMaintenance: ({
+        preparedFrame,
+      }: {
+        readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+      }) => {
+        deferredCallCount += 1;
+        return retainedMaintenanceResult({
+          preparedFrame,
+          repairedPreparedFrame: preparedFrame,
+        });
+      },
+      runPostSubmitMaintenance: ({
+        preparedFrame,
+      }: Parameters<
+        RetainedContentTexturePageManager["runPostSubmitMaintenance"]
+      >[0]) => {
+        repairCallCount += 1;
+        return retainedMaintenanceResult({
+          preparedFrame,
+          repairedPreparedFrame: retainedPreparedFrame({
+            trueHoleRectCount: 0,
+          }),
+        });
+      },
+    } as RetainedContentTexturePageManager;
+
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceAfterPublish({
+      darkMode: false,
+      deferResolutionUpdates: true,
+      existingMaintenance: null,
+      forceDeferPostSubmitMaintenance: true,
+      preparedFrame: frame,
+      publishedProtectedPageKeys: [],
+      retainedContentPageManager: manager,
+    });
+
+    expect(deferredCallCount).toBe(1);
+    expect(repairCallCount).toBe(0);
+    expect(maintenance.deferred).toBe(true);
+    expect(maintenance.result.repairedPreparedFrame).toBe(frame);
+  });
 });
 
 function retainedPageManager({
@@ -112,12 +192,20 @@ function retainedPageManager({
 }
 
 function retainedPreparedFrame({
+  refinementPageCount = 0,
+  replacementDescriptorCount = 0,
   trueHoleRectCount,
 }: {
+  readonly refinementPageCount?: number | undefined;
+  readonly replacementDescriptorCount?: number | undefined;
   readonly trueHoleRectCount: number;
 }): RetainedContentTexturePagePreparedFrame {
   return {
-    replacementDescriptors: [],
+    refinementPageCount,
+    replacementDescriptors: Array.from(
+      { length: replacementDescriptorCount },
+      () => ({}),
+    ) as RetainedContentTexturePagePreparedFrame["replacementDescriptors"],
     trueHoleRectCount,
   } as RetainedContentTexturePagePreparedFrame;
 }

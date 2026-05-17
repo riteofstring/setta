@@ -102,17 +102,19 @@ export function createProjectGpuFlowSceneFromLayoutScene(
     sections: layoutScene.sections,
     typeErrors: options.typeErrors,
   });
+  const domIslands = createProjectGpuParamDomIslands({
+    activeParamDomIsland: options.activeParamDomIsland,
+    contentSurfaces: paramContentSurfaces,
+    editPolicy: paramEditPolicy,
+    projectState,
+  });
+  const contentSurfaces = createGpuFlowContentSurfacesFromSections(
+    layoutScene.sections,
+    paramContentSurfaces,
+  );
   return {
     ...layoutScene,
-    domIslands: createProjectGpuParamDomIslands({
-      activeParamDomIsland: options.activeParamDomIsland,
-      contentSurfaces: paramContentSurfaces,
-      editPolicy: paramEditPolicy,
-      projectState,
-    }),
-    contentSurfaces: createGpuFlowContentSurfacesFromSections(
-      layoutScene.sections,
-      paramContentSurfaces,
-    ),
+    domIslands,
+    contentSurfaces,
   };
 }

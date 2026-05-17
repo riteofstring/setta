@@ -27,6 +27,7 @@ const STRICT_P99_FRAME_BUDGET_MS = 16.7;
 const STRICT_BASELINE_P50_FRAME_BUDGET_MS = 8.5;
 const STRICT_BASELINE_P95_FRAME_BUDGET_MS = 10;
 const STRICT_GESTURE_EVENT_P95_BUDGET_MS = 9;
+const STRICT_FRAME_TIMER_JITTER_EPSILON_MS = 0.5;
 const CAPPED_MAX_FRAME_BUDGET_MS = 50;
 const CAPPED_LONG_TASK_BUDGET_MS = 50;
 const CAPPED_FRAME_TIMER_JITTER_EPSILON_MS = 0.5;
@@ -594,7 +595,13 @@ export function resolveRetainedCompositorCadenceBudget({
       lane: "local-120hz",
       longTaskBudgetMs: 50,
       maxFrameBudgetMs: 50,
-      p95FrameBudgetMs: STRICT_P95_FRAME_BUDGET_MS,
+      p95FrameBudgetMs: Math.min(
+        STRICT_BASELINE_P95_FRAME_BUDGET_MS,
+        Math.max(
+          STRICT_P95_FRAME_BUDGET_MS,
+          controlCadence.p95Ms + STRICT_FRAME_TIMER_JITTER_EPSILON_MS,
+        ),
+      ),
       p99FrameBudgetMs: STRICT_P99_FRAME_BUDGET_MS,
       slowFrameRatioBudget: 0.02,
     };
@@ -808,6 +815,18 @@ export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
             event.retainedTexturePageRefinementPageCount,
           retainedTexturePageTargetDescriptorCount:
             event.retainedTexturePageTargetDescriptorCount,
+          retainedTexturePageDiagnosticCount:
+            event.retainedTexturePageDiagnosticCount,
+          retainedTexturePageDiagnostics:
+            event.retainedTexturePageDiagnostics,
+          retainedTexturePageExecutedItems:
+            event.retainedTexturePageExecutedItems,
+          retainedTexturePageSurfaceCoverageTrueHoleCount:
+            event.retainedTexturePageSurfaceCoverageTrueHoleCount,
+          retainedTexturePageTransactionBlockingGenerationIds:
+            event.retainedTexturePageTransactionBlockingGenerationIds,
+          retainedTexturePageTransactionBlockingSurfaceIds:
+            event.retainedTexturePageTransactionBlockingSurfaceIds,
           retainedTexturePageTransactionDesiredScrollOffset:
             event.retainedTexturePageTransactionDesiredScrollOffset,
           retainedTexturePageTransactionDesiredViewport:

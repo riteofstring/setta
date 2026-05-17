@@ -556,10 +556,31 @@ function addReplacementRequest(
   requests: Map<string, RetainedReplacementRequest>,
   request: RetainedReplacementRequest,
 ): void {
-  requests.set(
-    replacementRequestKeyString(request.key),
-    Object.freeze(request),
-  );
+  const requestKey = replacementRequestKeyString(request.key);
+  const existing = requests.get(requestKey);
+  if (
+    existing &&
+    replacementRequestPriorityRank(existing) <=
+      replacementRequestPriorityRank(request)
+  ) {
+    return;
+  }
+  requests.set(requestKey, Object.freeze(request));
+}
+
+function replacementRequestPriorityRank(
+  request: RetainedReplacementRequest,
+): number {
+  switch (request.priority) {
+    case "interactive":
+      return 0;
+    case "visible-hole":
+      return 1;
+    case "visible-refinement":
+      return 2;
+    case "prefetch":
+      return 3;
+  }
 }
 
 function createReplacementRequestKey(

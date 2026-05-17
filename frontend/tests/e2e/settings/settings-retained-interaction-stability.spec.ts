@@ -106,6 +106,7 @@ test("hovering a settings row highlights the full visible row width", async ({
   });
 
   await page.mouse.move(target.labelClientPoint.x, target.labelClientPoint.y);
+  await waitForRetainedHoverVisual(page, target);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
   const after = await screenshotClip({
@@ -385,6 +386,26 @@ async function moveAwayFromRetainedRows(page: Page): Promise<void> {
   await page.mouse.move(Math.max(1, box.x - 8), Math.max(1, box.y - 8));
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+}
+
+async function waitForRetainedHoverVisual(
+  page: Page,
+  target: RetainedRowTarget,
+): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate((target) => {
+          const hoverSurfaceId = `${target.surfaceId}:row-hover:${target.rowId}`;
+          return (
+            window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.().some(
+              (surface) => surface.surfaceId === hoverSurfaceId,
+            ) ?? false
+          );
+        }, target),
+      { timeout: 2_000 },
+    )
+    .toBe(true);
 }
 
 async function waitForAnimationFrame(page: Page): Promise<void> {

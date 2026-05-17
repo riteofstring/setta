@@ -232,6 +232,11 @@ def analyze_frames(
     frames = [entry["frame"] for entry in timestamped_frames]
     runtime_measures = normalize_gpu_flow_measures(performance_measures)
     viewport_spans = find_interaction_spans(timestamped_frames)
+    completeness = summarize_finish_line_completeness(
+        analysis_window_kind=analysis_window_kind,
+        finish_line_marker_missing=finish_line_marker_missing,
+        frames=frames,
+    )
     retained_after_settle = summarize_retained_after_settle_windows(
         timestamped_frames,
         viewport_spans=viewport_spans,
@@ -305,6 +310,9 @@ def analyze_frames(
         "browserLongTaskCount": len(longtasks),
         "coldPlaceholderPublicationCount": len(cold_placeholders),
         "finishLineMarkerMissingCount": 1 if finish_line_marker_missing else 0,
+        "finishLineWindowIncompleteCount": (
+            1 if completeness["incomplete"] else 0
+        ),
         "gpuFlowLongTaskCount": len(longtask_summaries["gpuFlowOverBudget"]),
         "heldPreviousOverBudgetCount": len(held_previous_over_budget),
         "interactionNonRepairUploadCount": len(interaction_upload_violations),
@@ -361,6 +369,7 @@ def analyze_frames(
         },
         "details": {
             "coldPlaceholders": cold_placeholders[:20],
+            "finishLineCompleteness": completeness,
             "heldPreviousOverBudget": held_previous_over_budget[:20],
             "interactionUploadViolations": interaction_upload_violations[:20],
             "longtasks": longtask_summaries,
@@ -376,6 +385,40 @@ def analyze_frames(
             "trueHolePublications": true_hole_publications[:20],
             "viewportInteractionSpans": viewport_spans,
         },
+    }
+
+
+def summarize_finish_line_completeness(
+    *,
+    analysis_window_kind: str,
+    finish_line_marker_missing: bool,
+    frames: list[dict[str, Any]],
+) -> dict[str, Any]:
+    frame_count = len(frames)
+    content_frame_count = sum(1 for frame in frames if frame_mode(frame) == "content")
+    interaction_active_frame_count = sum(
+        1 for frame in frames if is_interaction_active(frame)
+    )
+    projection_frame_count = sum(
+        1 for frame in frames if is_motion_projection_frame(frame)
+    )
+    missing_reasons: list[str] = []
+    if analysis_window_kind == "finish-line-marker" and not finish_line_marker_missing:
+        if frame_count == 0:
+            missing_reasons.append("no-gpu-flow-frames-after-marker")
+        if content_frame_count == 0:
+            missing_reasons.append("no-content-frames-after-marker")
+        if projection_frame_count == 0:
+            missing_reasons.append("no-motion-projection-frames-after-marker")
+        if interaction_active_frame_count == 0:
+            missing_reasons.append("no-interaction-active-frames-after-marker")
+    return {
+        "contentFrameCount": content_frame_count,
+        "frameCount": frame_count,
+        "incomplete": bool(missing_reasons),
+        "interactionActiveFrameCount": interaction_active_frame_count,
+        "missingReasons": missing_reasons,
+        "projectionFrameCount": projection_frame_count,
     }
 
 

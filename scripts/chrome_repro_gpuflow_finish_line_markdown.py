@@ -24,6 +24,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(["", "## Failures", ""])
     append_markdown_key_values(lines, report["failures"])
     details = report["details"]
+    append_markdown_finish_line_completeness(lines, details)
     append_markdown_long_tasks(lines, details)
     append_markdown_retained_budget_misses(lines, details)
     append_markdown_post_settle_uploads(lines, details)
@@ -33,6 +34,17 @@ def render_markdown(report: dict[str, Any]) -> str:
 def append_markdown_key_values(lines: list[str], values: dict[str, Any]) -> None:
     for key, value in sorted(values.items()):
         lines.append(f"- {key}: `{value}`")
+
+
+def append_markdown_finish_line_completeness(
+    lines: list[str], details: dict[str, Any]
+) -> None:
+    lines.extend(["", "## Finish-Line Completeness", ""])
+    completeness = details.get("finishLineCompleteness", {})
+    if isinstance(completeness, dict):
+        append_markdown_key_values(lines, completeness)
+        return
+    lines.append("- unavailable")
 
 
 def append_markdown_long_tasks(lines: list[str], details: dict[str, Any]) -> None:

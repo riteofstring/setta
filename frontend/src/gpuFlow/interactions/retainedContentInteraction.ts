@@ -139,6 +139,7 @@ type SuppressedRetainedContentClick = {
 };
 
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
+const MAX_DEFERRED_RETAINED_CONTENT_HOVER_FRAME_RETRIES = 120;
 export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-dom-island="true"]',
   '[data-gpu-flow-dom-control="true"]',
@@ -261,6 +262,13 @@ class GpuRetainedContentInteractionController {
   private activePointer: ActiveRetainedContentPointer | null = null;
   private dragAnimationFrame: number | null = null;
   private hoveredHitKey: string | null = null;
+  private deferredHoverAnimationFrame: number | null = null;
+  private deferredHoverPointerMove:
+    | {
+        readonly nativeEvent: PointerEvent;
+        readonly retryCount: number;
+      }
+    | null = null;
   private suppressNextClick: SuppressedRetainedContentClick | null = null;
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentInteractionControllerOptions;
@@ -293,6 +301,10 @@ class GpuRetainedContentInteractionController {
     this.element.addEventListener("pointerleave", this.onPointerLeave, {
       capture: true,
     });
+    this.element.addEventListener("wheel", this.onWheel, {
+      capture: true,
+      passive: true,
+    });
     this.element.addEventListener("click", this.onClick, {
       capture: true,
     });
@@ -313,9 +325,11 @@ class GpuRetainedContentInteractionController {
       true,
     );
     this.element.removeEventListener("pointerleave", this.onPointerLeave, true);
+    this.element.removeEventListener("wheel", this.onWheel, true);
     this.element.removeEventListener("click", this.onClick, true);
     this.activePointer = null;
     this.suppressNextClick = null;
+    this.cancelDeferredHoverReplay();
     this.cancelDragFrameLoop();
     this.clearHover();
     this.clearInteractionDiagnostics();
@@ -372,19 +386,11 @@ class GpuRetainedContentInteractionController {
     }
     if (this.store.getState().viewportInteractionActive) {
       this.clearHover();
+      this.scheduleDeferredHoverReplay(event);
       return;
     }
-    const hit = this.hitTestEvent(
-      event,
-      this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,
-    );
-    const nextHoveredHitKey = hit ? getRetainedContentHitKey(hit) : null;
-    if (this.hoveredHitKey === nextHoveredHitKey) {
-      return;
-    }
-    this.hoveredHitKey = nextHoveredHitKey;
-    this.setHoveredRetainedHitDiagnostics(hit);
-    this.options.onHitPointerMove?.({ hit, nativeEvent: event });
+    this.cancelDeferredHoverReplay();
+    this.emitPointerMoveHover(event);
   };
 
   private readonly onPointerUp = (event: PointerEvent) => {
@@ -428,6 +434,12 @@ class GpuRetainedContentInteractionController {
 
   private readonly onPointerLeave = (event: PointerEvent) => {
     this.recordPointerDiagnostics(event);
+    this.cancelDeferredHoverReplay();
+    this.clearHover();
+  };
+
+  private readonly onWheel = () => {
+    this.cancelDeferredHoverReplay();
     this.clearHover();
   };
 
@@ -481,6 +493,78 @@ class GpuRetainedContentInteractionController {
     this.hoveredHitKey = null;
     this.setHoveredRetainedHitDiagnostics(null);
     this.options.onHitPointerLeave?.();
+  }
+
+  private emitPointerMoveHover(event: PointerEvent) {
+    const hit = this.hitTestEvent(
+      event,
+      this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,
+    );
+    const nextHoveredHitKey = hit ? getRetainedContentHitKey(hit) : null;
+    this.hoveredHitKey = nextHoveredHitKey;
+    this.setHoveredRetainedHitDiagnostics(hit);
+    this.options.onHitPointerMove?.({ hit, nativeEvent: event });
+  }
+
+  private scheduleDeferredHoverReplay(event: PointerEvent) {
+    this.deferredHoverPointerMove = {
+      nativeEvent: event,
+      retryCount: this.deferredHoverPointerMove?.retryCount ?? 0,
+    };
+    if (this.deferredHoverAnimationFrame !== null) {
+      return;
+    }
+    this.deferredHoverAnimationFrame = requestRetainedContentAnimationFrame(
+      this.element,
+      this.flushDeferredHoverReplay,
+    );
+  }
+
+  private readonly flushDeferredHoverReplay = () => {
+    this.deferredHoverAnimationFrame = null;
+    const pending = this.deferredHoverPointerMove;
+    if (!pending) {
+      return;
+    }
+    if (this.activePointer) {
+      this.deferredHoverPointerMove = null;
+      return;
+    }
+    if (this.shouldSkipPointerEvent(pending.nativeEvent)) {
+      this.deferredHoverPointerMove = null;
+      return;
+    }
+    if (this.store.getState().viewportInteractionActive) {
+      if (
+        pending.retryCount >=
+        MAX_DEFERRED_RETAINED_CONTENT_HOVER_FRAME_RETRIES
+      ) {
+        this.deferredHoverPointerMove = null;
+        return;
+      }
+      this.deferredHoverPointerMove = {
+        nativeEvent: pending.nativeEvent,
+        retryCount: pending.retryCount + 1,
+      };
+      this.deferredHoverAnimationFrame = requestRetainedContentAnimationFrame(
+        this.element,
+        this.flushDeferredHoverReplay,
+      );
+      return;
+    }
+    this.deferredHoverPointerMove = null;
+    this.emitPointerMoveHover(pending.nativeEvent);
+  };
+
+  private cancelDeferredHoverReplay() {
+    if (this.deferredHoverAnimationFrame !== null) {
+      cancelRetainedContentAnimationFrame(
+        this.element,
+        this.deferredHoverAnimationFrame,
+      );
+    }
+    this.deferredHoverAnimationFrame = null;
+    this.deferredHoverPointerMove = null;
   }
 
   private updateActivePointerDrag(
@@ -729,6 +813,22 @@ class GpuRetainedContentInteractionController {
     diagnostics.hoveredRetainedHit = null;
     diagnostics.pointerCapture = null;
   }
+}
+
+function requestRetainedContentAnimationFrame(
+  element: HTMLElement,
+  callback: FrameRequestCallback,
+): number {
+  const view = element.ownerDocument.defaultView ?? window;
+  return view.requestAnimationFrame(callback);
+}
+
+function cancelRetainedContentAnimationFrame(
+  element: HTMLElement,
+  handle: number,
+) {
+  const view = element.ownerDocument.defaultView ?? window;
+  view.cancelAnimationFrame(handle);
 }
 
 function getRetainedContentHitKey(

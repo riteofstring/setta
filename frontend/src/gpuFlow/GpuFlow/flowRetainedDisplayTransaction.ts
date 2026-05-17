@@ -10,7 +10,13 @@ import {
 } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 
-import { resolveGpuFlowRetainedPageMaintenanceBeforePublish } from "./flowRetainedPageMaintenance";
+import {
+  hasGpuFlowRetainedPreparedFramePrePublishRepairDebt,
+  resolveGpuFlowRetainedPageMaintenanceBeforePublish,
+} from "./flowRetainedPageMaintenance";
+
+const MAX_RETAINED_DISPLAY_PRE_PUBLISH_REPAIR_PASSES = 2;
+const MAX_DEFERRED_RETAINED_DISPLAY_HOLD_MS = 50;
 
 type RetainedDisplayOutcome = ReturnType<
   typeof resolveRetainedDisplayFrameTransaction
@@ -66,6 +72,7 @@ export function resolveGpuFlowRetainedDisplayPublication({
   const initialMaintenance = resolveInitialPrePublishRetainedPageMaintenance({
     darkMode,
     deferResolutionUpdates,
+    nowMs,
     preparedFrame,
     previousRetainedDisplayFrame,
     retainedContentPageManager,
@@ -98,17 +105,27 @@ export function resolveGpuFlowRetainedDisplayPublication({
 function resolveInitialPrePublishRetainedPageMaintenance({
   darkMode,
   deferResolutionUpdates,
+  nowMs,
   preparedFrame,
   previousRetainedDisplayFrame,
   retainedContentPageManager,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
+  readonly nowMs: number;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
-  if (preparedFrame.trueHoleRectCount === 0) {
+  const canHoldPreviousDuringDeferredResolution =
+    deferResolutionUpdates &&
+    canDeferRetainedDisplayRepairWithPreviousFrame({
+      nowMs,
+      previousRetainedDisplayFrame,
+    });
+  const hasPrePublishRepairDebt =
+    hasGpuFlowRetainedPreparedFramePrePublishRepairDebt(preparedFrame);
+  if (!hasPrePublishRepairDebt || canHoldPreviousDuringDeferredResolution) {
     return {
       elapsedMs: 0,
       maintenance: null,
@@ -118,13 +135,35 @@ function resolveInitialPrePublishRetainedPageMaintenance({
   return resolveRetainedPageMaintenanceBeforePublishWithTiming({
     darkMode,
     deferResolutionUpdates,
-    maxPasses: previousRetainedDisplayFrame === null ? 1 : undefined,
+    maxPasses: MAX_RETAINED_DISPLAY_PRE_PUBLISH_REPAIR_PASSES,
     preparedFrame,
     previousRetainedDisplayFrame,
     previousProtectedPageKeys:
       previousRetainedDisplayFrame?.pageFrame.protectedPageKeys ?? [],
     retainedContentPageManager,
   });
+}
+
+function canDeferRetainedDisplayRepairWithPreviousFrame({
+  nowMs,
+  previousRetainedDisplayFrame,
+}: {
+  readonly nowMs: number;
+  readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
+}): boolean {
+  if (!previousRetainedDisplayFrame) {
+    return false;
+  }
+  if (
+    previousRetainedDisplayFrame.diagnostics.transactionOutcome ===
+    "hold-previous"
+  ) {
+    return false;
+  }
+  return (
+    nowMs - previousRetainedDisplayFrame.diagnostics.publishedAtMs <=
+    MAX_DEFERRED_RETAINED_DISPLAY_HOLD_MS
+  );
 }
 
 function resolveHeldPreviousRetainedDisplayRepairPublication({
@@ -160,10 +199,14 @@ function resolveHeldPreviousRetainedDisplayRepairPublication({
   if (previousRetainedDisplayFrame === null) {
     return null;
   }
+  if (deferResolutionUpdates) {
+    return null;
+  }
   const repairMaintenance =
     resolveRetainedPageMaintenanceBeforePublishWithTiming({
       darkMode,
       deferResolutionUpdates,
+      maxPasses: MAX_RETAINED_DISPLAY_PRE_PUBLISH_REPAIR_PASSES,
       preparedFrame: retainedPagePreparedFrame,
       previousRetainedDisplayFrame,
       previousProtectedPageKeys:

@@ -7,6 +7,7 @@ import {
   EMPTY_GPU_FLOW_LAYOUT_NODES,
   useGpuFlowLayoutStoreNodes,
 } from "gpuFlow/layoutHooks";
+import { startGpuFlowPerformanceMeasure } from "gpuFlow/gpuFlowPerformanceMarks";
 import {
   gpuFlowLayoutStore,
   type GpuFlowLayoutChange,
@@ -23,7 +24,6 @@ import {
   type GpuFlowScene,
   type GpuPortAnchorDescriptor,
   type GpuSectionContentRendererDescriptor,
-  type GpuSectionSceneChildLayout,
   type GpuSectionSceneLayoutMode,
   type GpuSectionSceneNode,
   type GpuSectionSceneResizePolicy,
@@ -73,12 +73,26 @@ import {
   type ProjectGpuFlowSceneOptions,
   type ProjectGpuResizePreviewSceneInput,
 } from "./projectGpuFlowSceneFactory";
+import {
+  cacheProjectGpuFlowScene,
+  claimProjectGpuFlowPrewarmKey,
+  createProjectGpuFlowPrewarmKey,
+  createProjectGpuFlowSceneCacheKey,
+  getCachedProjectGpuFlowScene,
+  prewarmProjectGpuFlowSceneCache,
+} from "./projectGpuLayoutSceneCache";
 import { getProjectGpuLayoutNode } from "./projectGpuLayoutNodeAdapter";
 import {
   type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
+import {
+  createProjectNestedSectionInitialLocalRect,
+  DEFAULT_PROJECT_GPU_NESTED_SECTION_HEIGHT,
+  DEFAULT_PROJECT_GPU_NESTED_SECTION_WIDTH,
+  getProjectSectionSceneChildLayout,
+} from "./projectGpuNestedSectionLayout";
 import { getProjectGpuParamFixedContentHeightForSection } from "./projectGpuParamContentHeight";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 import {
@@ -148,12 +162,6 @@ type ProjectSectionSceneAspectRatioFields = {
   readonly aspectRatioExtraWidth?: number | null | undefined;
 };
 let projectGpuLayoutStoreSyncSubscriberCount = 0;
-const DEFAULT_NESTED_SECTION_WIDTH = 250;
-const DEFAULT_NESTED_SECTION_HEIGHT = 150;
-const NESTED_VERTICAL_SECTION_GAP_PX = 8;
-const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
-const NESTED_KANBAN_SECTION_GAP_PX = 12;
-const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
 type OptionalParamCanvasPopup =
   | ProjectGpuActiveParamCanvasPopup
@@ -194,50 +202,51 @@ export function useProjectGpuLayoutAdapter({
   const typeErrors = useTypeErrors((state) => state.errors);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const { canEditParams, canEditStructure } = useShareCapabilities();
+  const paramEditPolicy = useMemo(
+    () => ({
+      canEditParams,
+      canEditStructure,
+      isDeploymentMode,
+    }),
+    [canEditParams, canEditStructure, isDeploymentMode],
+  );
   const projectSearchFocused = useProjectSearch((state) => state.focused);
   const projectSearchLookup = useProjectSearch((state) => state.lookup);
   const projectSearch = useMemo(
     () => ({ focused: projectSearchFocused, lookup: projectSearchLookup }),
     [projectSearchFocused, projectSearchLookup],
   );
-  const scene = useMemo(
-    () =>
-      getProjectGpuFlowScene(projectState, {
-        darkMode,
-        resizePolicyContext: {
-          resizeEventBySectionId,
-          sizingPolicy,
-        },
-        revision: getProjectGpuSceneRevision(projectState),
-        activeParamCanvasControl,
-        activeParamCanvasPopup,
-        activeParamDomIsland,
-        contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-          retainedContentRuntime.retainedContentRuntimeState,
-        ),
-        paramEditPolicy: {
-          canEditParams,
-          canEditStructure,
-          isDeploymentMode,
-        },
-        hoveredParamTarget,
-        passwordRevealStates,
-        projectSearch,
-        retainedParamDragPreview,
-        scrollOffsets: sceneScrollOffsets,
-        typeErrors,
-      }),
+  const sceneOptions = useMemo<ProjectGpuFlowSceneOptions>(
+    () => ({
+      darkMode,
+      resizePolicyContext: {
+        resizeEventBySectionId,
+        sizingPolicy,
+      },
+      revision: getProjectGpuSceneRevision(projectState),
+      activeParamCanvasControl,
+      activeParamCanvasPopup,
+      activeParamDomIsland,
+      contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+        retainedContentRuntime.retainedContentRuntimeState,
+      ),
+      paramEditPolicy,
+      hoveredParamTarget,
+      passwordRevealStates,
+      projectSearch,
+      retainedParamDragPreview,
+      scrollOffsets: sceneScrollOffsets,
+      typeErrors,
+    }),
     [
       activeParamCanvasControl,
       activeParamDomIsland,
       activeParamCanvasPopup,
-      canEditParams,
-      canEditStructure,
       retainedContentRuntime.contentScrollCommandRevision,
       darkMode,
       hoveredParamTarget,
       passwordRevealStates,
-      isDeploymentMode,
+      paramEditPolicy,
       projectSearch,
       projectState,
       retainedParamDragPreview,
@@ -248,6 +257,30 @@ export function useProjectGpuLayoutAdapter({
       typeErrors,
     ],
   );
+  const scene = useMemo(
+    () => getProjectGpuFlowScene(projectState, sceneOptions),
+    [projectState, sceneOptions],
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const prewarmKey = createProjectGpuFlowPrewarmKey(
+      projectState,
+      sceneOptions,
+    );
+    if (!claimProjectGpuFlowPrewarmKey(prewarmKey)) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      prewarmProjectGpuFlowSceneCache(
+        projectState,
+        sceneOptions,
+        getProjectGpuFlowScene,
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [projectState, sceneOptions]);
   useProjectGpuLayoutStoreSceneSync(layoutStore, scene);
   const nodeLayouts =
     useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
@@ -292,11 +325,7 @@ export function useProjectGpuLayoutAdapter({
           contentScrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
             retainedContentRuntime.retainedContentRuntimeState,
           ),
-          paramEditPolicy: {
-            canEditParams,
-            canEditStructure,
-            isDeploymentMode,
-          },
+          paramEditPolicy,
           hoveredParamTarget,
           passwordRevealStates,
           projectSearch,
@@ -310,11 +339,9 @@ export function useProjectGpuLayoutAdapter({
       activeParamCanvasControl,
       activeParamCanvasPopup,
       activeParamDomIsland,
-      canEditParams,
-      canEditStructure,
       darkMode,
       hoveredParamTarget,
-      isDeploymentMode,
+      paramEditPolicy,
       passwordRevealStates,
       projectSearch,
       projectState,
@@ -374,6 +401,23 @@ export function getProjectGpuFlowScene(
   projectState: ZustandProjectState,
   options: ProjectGpuFlowSceneOptions,
 ): GpuFlowScene {
+  const cacheKey = createProjectGpuFlowSceneCacheKey(projectState, options);
+  const cachedScene = getCachedProjectGpuFlowScene(cacheKey);
+  if (cachedScene) {
+    const finishMeasure = startGpuFlowPerformanceMeasure(
+      "project-scene-cache-hit",
+      {
+        activeViewModeId: projectState.projectConfig.activeViewModeId,
+        revision: options.revision ?? 0,
+      },
+    );
+    finishMeasure();
+    return cachedScene;
+  }
+  const finishMeasure = startGpuFlowPerformanceMeasure("project-scene-build", {
+    activeViewModeId: projectState.projectConfig.activeViewModeId,
+    revision: options.revision ?? 0,
+  });
   const sections: GpuSectionSceneNode[] = [];
   const seenSectionIds = new Set<string>();
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
@@ -452,11 +496,14 @@ export function getProjectGpuFlowScene(
     revision: options.revision ?? 0,
     sections,
   });
-  return createProjectGpuFlowSceneFromLayoutScene(
+  const scene = createProjectGpuFlowSceneFromLayoutScene(
     projectState,
     options,
     layoutScene,
   );
+  cacheProjectGpuFlowScene({ key: cacheKey, scene });
+  finishMeasure();
+  return scene;
 }
 
 function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
@@ -847,63 +894,6 @@ function isProjectListRootSectionImpl(
   return sectionImpl.type === SectionTypeEnum.ListRoot;
 }
 
-function createProjectNestedSectionInitialLocalRect({
-  parentLayoutMode,
-  sectionImpl,
-}: {
-  readonly parentLayoutMode: GpuSectionSceneLayoutMode;
-  readonly sectionImpl: BaseSectionImplUnion;
-}): GpuRect {
-  return {
-    ...getProjectNestedSectionSceneSize(sectionImpl, parentLayoutMode),
-    x: 0,
-    y: 0,
-  };
-}
-
-function getProjectNestedSectionSceneSize(
-  sectionImpl: BaseSectionImplUnion,
-  layoutMode: GpuSectionSceneLayoutMode,
-): { readonly height: number; readonly width: number } {
-  return {
-    height: resolveProjectSectionSceneDimension(
-      sectionImpl.size.height,
-      DEFAULT_NESTED_SECTION_HEIGHT,
-    ),
-    width: resolveProjectSectionSceneDimension(
-      sectionImpl.size.width,
-      layoutMode === "kanban"
-        ? NESTED_KANBAN_SECTION_WIDTH_PX
-        : DEFAULT_NESTED_SECTION_WIDTH,
-    ),
-  };
-}
-
-function getProjectNestedSectionGap(
-  layoutMode: GpuSectionSceneLayoutMode,
-): number {
-  if (layoutMode === "kanban") {
-    return NESTED_KANBAN_SECTION_GAP_PX;
-  }
-  if (layoutMode === "horizontal") {
-    return NESTED_HORIZONTAL_SECTION_GAP_PX;
-  }
-  return NESTED_VERTICAL_SECTION_GAP_PX;
-}
-
-function getProjectSectionSceneChildLayout(
-  layoutMode: GpuSectionSceneLayoutMode,
-): GpuSectionSceneChildLayout {
-  const gap = getProjectNestedSectionGap(layoutMode);
-  if (layoutMode === "horizontal" || layoutMode === "kanban") {
-    return { gap: { x: gap, y: 0 } };
-  }
-  if (layoutMode === "vertical") {
-    return { gap: { x: 0, y: gap } };
-  }
-  return { gap: { x: 0, y: 0 } };
-}
-
 function createRectFromTopLevelLayoutNode({
   layout,
   node,
@@ -932,14 +922,14 @@ function createRectFromTopLevelLayoutNode({
       getPositiveTopLevelLayoutDimension(layout.h) ??
       resolveProjectSectionSceneDimension(
         sectionImpl.size.height,
-        DEFAULT_NESTED_SECTION_HEIGHT,
+        DEFAULT_PROJECT_GPU_NESTED_SECTION_HEIGHT,
       ),
     width:
       node.width ??
       getPositiveTopLevelLayoutDimension(layout.w) ??
       resolveProjectSectionSceneDimension(
         sectionImpl.size.width,
-        DEFAULT_NESTED_SECTION_WIDTH,
+        DEFAULT_PROJECT_GPU_NESTED_SECTION_WIDTH,
       ),
     x: node.x,
     y: node.y,

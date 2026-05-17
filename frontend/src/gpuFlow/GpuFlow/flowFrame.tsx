@@ -762,6 +762,7 @@ export function renderGpuFlowNodeLayerFrame({
       darkMode,
       deferResolutionUpdates,
       existingMaintenance: prePublishRetainedPageMaintenance,
+      forceDeferPostSubmitMaintenance: deferResolutionUpdates,
       preparedFrame: retainedPagePreparedFrame,
       publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
       retainedContentPageManager: resources.retainedContentPageManager,

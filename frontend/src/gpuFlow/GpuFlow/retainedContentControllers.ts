@@ -278,6 +278,9 @@ export function useGpuFlowRetainedContentControllers({
         };
       }
       if (!targetChanged) {
+        if (nextTarget) {
+          surfaceRef.current?.requestFrame("manual");
+        }
         return;
       }
       updateGpuFlowRetainedContentRuntimeNativeVisuals({
