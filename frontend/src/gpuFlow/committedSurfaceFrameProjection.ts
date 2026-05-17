@@ -112,7 +112,7 @@ export function createGpuFlowProjectionHorizon({
     viewport: Object.freeze({
       anchorFrameId: displayFrameId,
       mode: "transform-only",
-      overscanCssPx: 0,
+      overscanCssPx: GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
       preparedBounds: null,
     }),
   });

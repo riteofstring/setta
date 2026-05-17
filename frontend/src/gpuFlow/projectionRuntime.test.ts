@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import {
   createGpuFlowLiveProjectionSampler,
+  createGpuFlowProjectionHorizonObligations,
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisiblePublicationScheduler,
   getGpuFlowVisiblePublicationDebtReason,
@@ -94,7 +96,53 @@ describe("GPU Flow projection runtime", () => {
       x: 0,
       y: 12,
     });
+    expect(sample.retainedScrollDelta.get("surface-a")).toEqual({
+      x: 0,
+      y: 0,
+    });
+    expect(sample.retainedScrollVelocityCssPxPerMs.get("surface-a")).toEqual({
+      x: 0,
+      y: 0,
+    });
     expect(sample.viewport).toEqual({ x: 1, y: 2, zoom: 1.5 });
+    expect(sample.viewportDelta).toEqual({ x: 0, y: 0, zoom: 0 });
+  });
+
+  it("records live projection sample motion deltas and velocities", () => {
+    const sampler = createGpuFlowLiveProjectionSampler();
+    const retainedState = createGpuRetainedContentRuntimeState();
+    retainedState.scrollOffsets.set("surface-a", { x: 0, y: 12 });
+    sampler.capture({
+      canvasSize: null,
+      gestureOwner: "idle",
+      retainedContentRuntimeState: retainedState,
+      timestamp: 10,
+      viewport: { x: 1, y: 2, zoom: 1 },
+    });
+    retainedState.scrollOffsets.set("surface-a", { x: 4, y: 28 });
+
+    const sample = sampler.capture({
+      canvasSize: null,
+      gestureOwner: "ownedByRetainedSectionScroll",
+      retainedContentRuntimeState: retainedState,
+      timestamp: 18,
+      viewport: { x: 9, y: 6, zoom: 1.25 },
+    });
+
+    expect(sample.retainedScrollDelta.get("surface-a")).toEqual({
+      x: 4,
+      y: 16,
+    });
+    expect(sample.retainedScrollVelocityCssPxPerMs.get("surface-a")).toEqual({
+      x: 0.5,
+      y: 2,
+    });
+    expect(sample.viewportDelta).toEqual({ x: 8, y: 4, zoom: 0.25 });
+    expect(sample.viewportVelocityCssPxPerMs).toEqual({
+      x: 1,
+      y: 0.5,
+      zoom: 0.03125,
+    });
   });
 
   it("binds transaction identity to the committed frame and projection sample", () => {
@@ -111,7 +159,116 @@ describe("GPU Flow projection runtime", () => {
     expect(transaction.committedFrameId).toBe(42);
     expect(transaction.sample.id).toBe(17);
   });
+
+  it("uses the content probe knob to prevent starvation during continuous motion", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler({
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 2,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+    });
+    for (let index = 0; index < 2; index += 1) {
+      const motion = scheduler.selectFrame({
+        hasCommittedContentFrame: true,
+        rawReasons: ["retained-scroll", "paint"],
+        sample: liveSample(index + 1),
+        timestamp: index + 1,
+        viewportInteractionActive: true,
+      });
+      expect(motion.lane).toBe("motion");
+      scheduler.completeFrame(motion);
+    }
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: true,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt.motion).toBe(true);
+  });
+
+  it("keeps projection horizon obligations concrete and lane-scoped", () => {
+    const obligations = createGpuFlowProjectionHorizonObligations({
+      committedFrame: committedFrameForObligations(),
+      sample: liveSample(9),
+    });
+
+    expect(obligations.visible).toEqual([
+      expect.objectContaining({
+        acceptableCoverage: ["live"],
+        actorId: "actor-live",
+        blockedReason: null,
+        deadlineMs: 9,
+        kind: "visible",
+        surfaceId: "surface-a",
+      }),
+      expect.objectContaining({
+        acceptableCoverage: ["blocked-awaiting-browser-visual"],
+        actorId: "actor-blocked",
+        blockedReason: "snapshot-pending",
+      }),
+    ]);
+    expect(obligations.nearFuture).toEqual([
+      expect.objectContaining({
+        acceptableCoverage: ["blocked-awaiting-live-host"],
+        actorId: "actor-near-future-blocked",
+        blockedReason: "live-dom-budget",
+        deadlineMs: 129,
+        kind: "near-future",
+      }),
+    ]);
+  });
 });
+
+function committedFrameForObligations(): GpuFlowCommittedSurfaceFrame {
+  return {
+    actorGenerations: [
+      {
+        actorId: "actor-live",
+        ownerSurfaceId: "surface-a",
+        projectionReadiness: "ready",
+        textCoverageProof: {
+          projectionCoverage: "exact-live-dom",
+        },
+      },
+      {
+        actorId: "actor-blocked",
+        ownerSurfaceId: "surface-a",
+        projectionReadiness: "not-required",
+        textCoverageProof: {
+          projectionCoverage: "blocked-awaiting-browser-visual",
+          readinessReason: "snapshot-pending",
+        },
+      },
+      {
+        actorId: "actor-near-future-blocked",
+        ownerSurfaceId: "surface-a",
+        projectionReadiness: "not-required",
+        textCoverageProof: {
+          projectionCoverage: "blocked-awaiting-live-host",
+          readinessReason: "live-dom-budget",
+        },
+      },
+    ],
+    projectionHorizon: {
+      obligations: {
+        activePinnedActorIds: [],
+        maintenanceActorIds: [],
+        nearFutureActorIds: ["actor-near-future-blocked"],
+        visibleActorIds: ["actor-live", "actor-blocked"],
+      },
+    },
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
 
 function liveSample(id: number) {
   return {
@@ -119,9 +276,13 @@ function liveSample(id: number) {
     devicePixelRatio: 1,
     gestureOwner: "idle" as const,
     id,
+    retainedScrollDelta: new Map(),
     retainedScrollOffsets: new Map(),
     retainedScrollRevision: 0,
+    retainedScrollVelocityCssPxPerMs: new Map(),
     timestamp: id,
     viewport: { x: 0, y: 0, zoom: 1 },
+    viewportDelta: { x: 0, y: 0, zoom: 0 },
+    viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
   };
 }

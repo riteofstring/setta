@@ -879,12 +879,20 @@ describe("GPU retained content interaction controller", () => {
       devicePixelRatio: 1,
       gestureOwner: "ownedByRetainedSectionScroll" as const,
       id: 7,
+      retainedScrollDelta: new Map([
+        ["dict-a:param-content:unpinned", { x: 0, y: 28 }],
+      ]),
       retainedScrollOffsets: new Map([
         ["dict-a:param-content:unpinned", { x: 0, y: 28 }],
       ]),
       retainedScrollRevision: 1,
+      retainedScrollVelocityCssPxPerMs: new Map([
+        ["dict-a:param-content:unpinned", { x: 0, y: 0 }],
+      ]),
       timestamp: 7,
       viewport: { x: 0, y: 0, zoom: 1 },
+      viewportDelta: { x: 0, y: 0, zoom: 0 },
+      viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
     };
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
       committedFrame,

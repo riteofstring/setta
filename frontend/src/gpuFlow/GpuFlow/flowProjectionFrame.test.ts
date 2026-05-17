@@ -168,12 +168,16 @@ function liveSample({
     devicePixelRatio: 1,
     gestureOwner: "idle",
     id,
+    retainedScrollDelta: new Map([["surface-a", { x: 0, y: retainedScrollY }]]),
     retainedScrollOffsets: new Map([
       ["surface-a", { x: 0, y: retainedScrollY }],
     ]),
     retainedScrollRevision: id,
+    retainedScrollVelocityCssPxPerMs: new Map([["surface-a", { x: 0, y: 0 }]]),
     timestamp: id,
     viewport: { x: 0, y: 0, zoom: 1 },
+    viewportDelta: { x: 0, y: 0, zoom: 0 },
+    viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
   };
 }
 

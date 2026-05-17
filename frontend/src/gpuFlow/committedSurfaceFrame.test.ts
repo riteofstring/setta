@@ -62,6 +62,7 @@ describe("GPU Flow committed surface frame", () => {
     expect(
       frame.projectionHorizon.actorFamilyCoverage.domControlActorIds,
     ).toEqual(["retained-dom-control:dict-a:param-content:unpinned:param-a"]);
+    expect(frame.projectionHorizon.viewport.overscanCssPx).toBe(720);
     expect(frame.projectionHorizon.textActorCoverage).toEqual({
       blockedAwaitingBrowserVisualActorIds: [],
       blockedAwaitingLiveHostActorIds: [],
