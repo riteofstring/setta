@@ -24,6 +24,7 @@ import {
   syncGpuFlowDomControlPlaneElementStyle,
   type GpuFlowDomControlPlaneDiagnostics,
   type GpuFlowDomControlPlaneMountedHost,
+  type GpuFlowDomControlProjectionAssignment,
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlaneProjection";
 import {
@@ -63,9 +64,33 @@ const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescrip
   [];
 
 type GpuFlowDomControlProjectedControls = {
+  readonly assignments: readonly GpuFlowDomControlProjectionAssignment[];
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly sourceRevision: string;
 };
+
+type GpuFlowDomControlCoverageDebugAttributes = {
+  readonly "data-gpu-flow-dom-control-compatibility-reason": string;
+  readonly "data-gpu-flow-dom-control-coverage-reason": GpuFlowDomControlProjectionAssignment["reason"];
+  readonly "data-gpu-flow-dom-control-coverage-state": GpuFlowDomControlProjectionAssignment["coverageState"];
+  readonly "data-gpu-flow-dom-control-projection-phase": GpuFlowDomControlProjectionAssignment["phase"];
+};
+
+const DEFAULT_ACTIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES: GpuFlowDomControlCoverageDebugAttributes =
+  Object.freeze({
+    "data-gpu-flow-dom-control-compatibility-reason": "",
+    "data-gpu-flow-dom-control-coverage-reason": "active-pinned",
+    "data-gpu-flow-dom-control-coverage-state": "live",
+    "data-gpu-flow-dom-control-projection-phase": "project",
+  });
+
+const DEFAULT_PASSIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES: GpuFlowDomControlCoverageDebugAttributes =
+  Object.freeze({
+    "data-gpu-flow-dom-control-compatibility-reason": "",
+    "data-gpu-flow-dom-control-coverage-reason": "visible-live",
+    "data-gpu-flow-dom-control-coverage-state": "live",
+    "data-gpu-flow-dom-control-projection-phase": "project",
+  });
 
 export function GpuFlowDomControlPlane({
   committedFrameId,
@@ -156,6 +181,20 @@ export function GpuFlowDomControlPlane({
     projectedControls.sourceRevision === projectionSourceRevision
       ? projectedControls.controls
       : initialControlsToMount.controls;
+  const assignmentsToMount =
+    projectedControls.sourceRevision === projectionSourceRevision
+      ? projectedControls.assignments
+      : initialControlsToMount.assignments;
+  const assignmentByControlId = useMemo(
+    () =>
+      new Map(
+        assignmentsToMount.map((assignment) => [
+          assignment.control.sourceId,
+          assignment,
+        ]),
+      ),
+    [assignmentsToMount],
+  );
   const controlsToMountRef = useRef(controlsToMount);
   controlsToMountRef.current = controlsToMount;
   const refreshProjectedControls = useCallback(
@@ -182,20 +221,25 @@ export function GpuFlowDomControlPlane({
             : controlsToMountRef.current;
         if (
           current.sourceRevision === projectionSourceRevision &&
-          areGpuFlowDomControlProjectedControlsEqual(
-            currentControls,
-            nextProjectedControls.controls,
-          )
+          areGpuFlowDomControlProjectedControlsEqual({
+            leftAssignments: current.assignments,
+            leftControls: currentControls,
+            rightAssignments: nextProjectedControls.assignments,
+            rightControls: nextProjectedControls.controls,
+          })
         ) {
           return current;
         }
         if (
-          areGpuFlowDomControlProjectedControlsEqual(
-            currentControls,
-            nextProjectedControls.controls,
-          )
+          areGpuFlowDomControlProjectedControlsEqual({
+            leftAssignments: current.assignments,
+            leftControls: currentControls,
+            rightAssignments: nextProjectedControls.assignments,
+            rightControls: nextProjectedControls.controls,
+          })
         ) {
           return {
+            assignments: nextProjectedControls.assignments,
             controls: currentControls,
             sourceRevision: projectionSourceRevision,
           };
@@ -349,8 +393,10 @@ export function GpuFlowDomControlPlane({
           getRetainedScrollOffset,
           viewport,
         });
+        const assignment = assignmentByControlId.get(control.sourceId);
         return (
           <GpuFlowDomControlHost
+            assignment={assignment}
             control={control}
             getRetainedScrollOffset={getRetainedScrollOffset}
             initialStyle={initialStyle}
@@ -366,6 +412,7 @@ export function GpuFlowDomControlPlane({
 }
 
 function GpuFlowDomControlHost({
+  assignment,
   control,
   getRetainedScrollOffset,
   initialStyle,
@@ -373,6 +420,7 @@ function GpuFlowDomControlHost({
   renderControl,
   setControlElement,
 }: {
+  readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly getRetainedScrollOffset:
     | GpuFlowRetainedScrollOffsetGetter
@@ -390,6 +438,10 @@ function GpuFlowDomControlHost({
     getRetainedScrollOffset,
   });
   const clip = geometry.visibleClipFlowPx;
+  const coverageDebugAttributes = getGpuFlowDomControlCoverageDebugAttributes({
+    assignment,
+    active: control.active,
+  });
   return (
     <div
       aria-hidden={
@@ -411,6 +463,7 @@ function GpuFlowDomControlHost({
       data-gpu-flow-dom-control-section-id={control.sectionId}
       data-gpu-flow-dom-control-surface-id={control.surfaceId}
       data-gpu-flow-dom-control-active={control.active ? "true" : "false"}
+      {...coverageDebugAttributes}
       onPointerDownCapture={(event) => {
         if (control.active || control.disabled) {
           return;
@@ -443,6 +496,29 @@ function GpuFlowDomControlHost({
       </div>
     </div>
   );
+}
+
+function getGpuFlowDomControlCoverageDebugAttributes({
+  active,
+  assignment,
+}: {
+  readonly active: boolean;
+  readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
+}): GpuFlowDomControlCoverageDebugAttributes {
+  if (!assignment) {
+    return active
+      ? DEFAULT_ACTIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES
+      : DEFAULT_PASSIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES;
+  }
+  const compatibilityProof = assignment.compatibilityProof;
+  return {
+    "data-gpu-flow-dom-control-compatibility-reason": compatibilityProof
+      ? compatibilityProof.reasonCode
+      : "",
+    "data-gpu-flow-dom-control-coverage-reason": assignment.reason,
+    "data-gpu-flow-dom-control-coverage-state": assignment.coverageState,
+    "data-gpu-flow-dom-control-projection-phase": assignment.phase,
+  };
 }
 
 function resolveGpuFlowDomControlPlaneFrameIds({
@@ -492,6 +568,7 @@ function resolveGpuFlowDomControlProjectedControls({
     viewportSize,
   });
   return {
+    assignments,
     controls: projectionManager.promote(assignments),
     sourceRevision,
   };
@@ -521,16 +598,65 @@ function createGpuFlowDomControlProjectionSourceRevision({
   });
 }
 
-function areGpuFlowDomControlProjectedControlsEqual(
-  left: readonly GpuRetainedDomControlSourceDescriptor[],
-  right: readonly GpuRetainedDomControlSourceDescriptor[],
-): boolean {
-  if (left.length !== right.length) {
+function areGpuFlowDomControlProjectedControlsEqual({
+  leftAssignments,
+  leftControls,
+  rightAssignments,
+  rightControls,
+}: {
+  readonly leftAssignments: readonly GpuFlowDomControlProjectionAssignment[];
+  readonly leftControls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly rightAssignments: readonly GpuFlowDomControlProjectionAssignment[];
+  readonly rightControls: readonly GpuRetainedDomControlSourceDescriptor[];
+}): boolean {
+  if (leftControls.length !== rightControls.length) {
     return false;
   }
-  return left.every(
-    (control, index) => control.sourceId === right[index]?.sourceId,
+  const leftAssignmentByControlId =
+    createGpuFlowDomControlProjectionAssignmentMap(leftAssignments);
+  const rightAssignmentByControlId =
+    createGpuFlowDomControlProjectionAssignmentMap(rightAssignments);
+  return leftControls.every(
+    (control, index) =>
+      control.sourceId === rightControls[index]?.sourceId &&
+      areGpuFlowDomControlProjectionAssignmentsEqual(
+        leftAssignmentByControlId.get(control.sourceId),
+        rightAssignmentByControlId.get(control.sourceId),
+      ),
   );
+}
+
+function createGpuFlowDomControlProjectionAssignmentMap(
+  assignments: readonly GpuFlowDomControlProjectionAssignment[],
+): ReadonlyMap<string, GpuFlowDomControlProjectionAssignment> {
+  return new Map(
+    assignments.map((assignment) => [assignment.control.sourceId, assignment]),
+  );
+}
+
+function areGpuFlowDomControlProjectionAssignmentsEqual(
+  left: GpuFlowDomControlProjectionAssignment | undefined,
+  right: GpuFlowDomControlProjectionAssignment | undefined,
+): boolean {
+  return (
+    createGpuFlowDomControlProjectionAssignmentEqualityKey(left) ===
+    createGpuFlowDomControlProjectionAssignmentEqualityKey(right)
+  );
+}
+
+function createGpuFlowDomControlProjectionAssignmentEqualityKey(
+  assignment: GpuFlowDomControlProjectionAssignment | undefined,
+): string {
+  if (!assignment) {
+    return "";
+  }
+  const compatibilityProof = assignment.compatibilityProof;
+  return JSON.stringify([
+    assignment.coverageState,
+    assignment.phase,
+    assignment.reason,
+    compatibilityProof ? compatibilityProof.reasonCode : "",
+  ]);
 }
 
 function blurFocusedDescendantBeforeUnmount(element: HTMLElement) {

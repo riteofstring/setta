@@ -10,6 +10,7 @@ import {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
 } from "./domControlPlane";
+import { createGpuFlowDomControlProjectionManager } from "./domControlPlaneProjection";
 
 describe("GPU flow DOM control plane", () => {
   it("mounts visible readable retained DOM controls before overscan controls", () => {
@@ -186,7 +187,102 @@ describe("GPU flow DOM control plane", () => {
       "row-150",
     ]);
   });
+
+  it("uses bounded compatible-previous coverage for a live host with proof", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+    const manager = createGpuFlowDomControlProjectionManager();
+    const initialAssignments = manager.prepare({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+    manager.promote(initialAssignments);
+
+    const firstCarry = manager.prepare({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: -5000, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+    const row0FirstCarry = assignmentForRow(firstCarry, "row-0");
+
+    expect(row0FirstCarry).toMatchObject({
+      coverageState: "compatible-previous",
+      phase: "project",
+      reason: "compatible-previous-proof",
+    });
+    expect(row0FirstCarry?.compatibilityProof?.reasonCode).toBe(
+      "same-value-and-geometry",
+    );
+    manager.promote(firstCarry);
+
+    const secondCarry = manager.prepare({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: -5000, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+    expect(assignmentForRow(secondCarry, "row-0")?.coverageState).toBe(
+      "compatible-previous",
+    );
+    manager.promote(secondCarry);
+
+    const exhaustedCarry = manager.prepare({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: -5000, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(assignmentForRow(exhaustedCarry, "row-0")).toMatchObject({
+      compatibilityProof: null,
+      coverageState: "blocked-awaiting-live-host",
+      reason: "live-host-overflow",
+    });
+  });
+
+  it("rejects compatible-previous coverage when value identity changes", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+    const changedControls = controls.map((control) =>
+      control.rowId === "row-0" ? { ...control, value: "changed" } : control,
+    );
+    const manager = createGpuFlowDomControlProjectionManager();
+    manager.promote(
+      manager.prepare({
+        controls,
+        getRetainedScrollOffset: undefined,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportSize: { height: 60, width: 400 },
+      }),
+    );
+
+    const assignments = manager.prepare({
+      controls: changedControls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: -5000, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(assignmentForRow(assignments, "row-0")).toMatchObject({
+      compatibilityProof: null,
+      coverageState: "blocked-awaiting-live-host",
+    });
+  });
 });
+
+function assignmentForRow(
+  assignments: ReturnType<
+    ReturnType<typeof createGpuFlowDomControlProjectionManager>["prepare"]
+  >,
+  rowId: string,
+) {
+  return assignments.find((assignment) => assignment.control.rowId === rowId);
+}
 
 function domControl({
   active = false,

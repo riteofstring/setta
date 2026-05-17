@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
 
+import type { GpuFlowTextControlCompatibilityProof } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import {
   flowToScreenPosition,
@@ -8,6 +9,11 @@ import {
   type GpuRect,
   type GpuViewportInput,
 } from "../viewportMath";
+import {
+  createGpuFlowDomControlPromotedRepresentationMap,
+  resolveGpuFlowDomControlCompatiblePreviousAssignments,
+  type GpuFlowDomControlPromotedRepresentation,
+} from "./domControlPlaneCompatibility";
 import {
   getGpuFlowDomControlPlaneViewportCanvasSize,
   type GpuFlowDomControlPlaneViewportSize,
@@ -33,6 +39,7 @@ export type GpuFlowDomControlPlaneMountedHost = {
 };
 
 export type GpuFlowDomControlProjectionAssignment = {
+  readonly compatibilityProof: GpuFlowTextControlCompatibilityProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageState:
     | "blocked-awaiting-browser-visual"
@@ -102,9 +109,16 @@ export type GpuFlowDomControlProjectionManager = {
 };
 
 export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlProjectionManager {
+  let promotedRepresentationByControlId = new Map<
+    string,
+    GpuFlowDomControlPromotedRepresentation
+  >();
   return {
     prepare(input) {
-      return resolveGpuFlowDomControlPlaneProjectionAssignments(input);
+      return resolveGpuFlowDomControlCompatiblePreviousAssignments({
+        assignments: resolveGpuFlowDomControlPlaneProjectionAssignments(input),
+        promotedRepresentationByControlId,
+      });
     },
     project(input) {
       syncGpuFlowDomControlPlaneStyles(input);
@@ -117,6 +131,11 @@ export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlPro
             assignment.coverageState === "compatible-previous",
         )
         .map((assignment) => assignment.control);
+      promotedRepresentationByControlId =
+        createGpuFlowDomControlPromotedRepresentationMap({
+          assignments,
+          previousRepresentationByControlId: promotedRepresentationByControlId,
+        });
       return controls;
     },
   };
@@ -327,6 +346,7 @@ function createGpuFlowDomControlProjectionAssignment({
 }): GpuFlowDomControlProjectionAssignment {
   if (mountedControlIds.has(control.sourceId)) {
     return {
+      compatibilityProof: null,
       control,
       coverageState: "live",
       phase: "project",
@@ -337,6 +357,7 @@ function createGpuFlowDomControlProjectionAssignment({
   switch (control.visualPolicy) {
     case "snapshot":
       return {
+        compatibilityProof: null,
         control,
         coverageState: "snapshot",
         phase: "promote",
@@ -345,6 +366,7 @@ function createGpuFlowDomControlProjectionAssignment({
       };
     case "blocked-awaiting-browser-visual":
       return {
+        compatibilityProof: null,
         control,
         coverageState: "blocked-awaiting-browser-visual",
         phase: "prepare",
@@ -353,6 +375,7 @@ function createGpuFlowDomControlProjectionAssignment({
       };
     case "live-dom":
       return {
+        compatibilityProof: null,
         control,
         coverageState: "blocked-awaiting-live-host",
         phase: "prepare",
@@ -361,6 +384,7 @@ function createGpuFlowDomControlProjectionAssignment({
       };
     case "outside-viewport":
       return {
+        compatibilityProof: null,
         control,
         coverageState: "blocked-awaiting-live-host",
         phase: "prepare",
@@ -369,6 +393,7 @@ function createGpuFlowDomControlProjectionAssignment({
       };
     case "clipped-empty":
       return {
+        compatibilityProof: null,
         control,
         coverageState: "true-hole",
         phase: "prepare",

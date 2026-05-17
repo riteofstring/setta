@@ -5,6 +5,8 @@ import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlaneProject
 export type GpuFlowDomControlProjectionKnobs = {
   readonly directionalHorizonMaxCssPx: number;
   readonly directionalHorizonMultiplier: number;
+  readonly maxCompatiblePreviousControls: number;
+  readonly maxCompatiblePreviousFrames: number;
   readonly maxOverscanMountedControls: number;
   readonly maxReadableMountedControls: number;
   readonly minVisibleScreenHeightCssPx: number;
@@ -17,6 +19,8 @@ export const DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS: GpuFlowDomControlPro
   Object.freeze({
     directionalHorizonMaxCssPx: 2160,
     directionalHorizonMultiplier: 2,
+    maxCompatiblePreviousControls: 8,
+    maxCompatiblePreviousFrames: 2,
     maxOverscanMountedControls: 8,
     maxReadableMountedControls: 24,
     minVisibleScreenHeightCssPx: 8,
