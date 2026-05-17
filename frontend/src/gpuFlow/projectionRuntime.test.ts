@@ -20,6 +20,8 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveSample(1);
 
+    expect(Object.isFrozen(scheduler.getKnobs())).toBe(true);
+
     const mixed = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "paint", "texture-upload"],
@@ -97,6 +99,15 @@ describe("GPU Flow projection runtime", () => {
 
     expect(sample.id).toBe(1);
     expect(sample.cssViewport).toEqual({ height: 600, width: 800 });
+    expect(Object.isFrozen(sample)).toBe(true);
+    expect(Object.isFrozen(sample.retainedScrollOffsets)).toBe(true);
+    expect(Object.isFrozen(sample.retainedScrollOffsets.get("surface-a"))).toBe(
+      true,
+    );
+    expect("set" in sample.retainedScrollOffsets).toBe(false);
+    expect([...sample.retainedScrollOffsets]).toEqual([
+      ["surface-a", { x: 0, y: 12 }],
+    ]);
     expect(sample.retainedScrollOffsets.get("surface-a")).toEqual({
       x: 0,
       y: 12,

@@ -6,6 +6,7 @@ import type {
   GpuFlowHeldPreviousProjectionDebugState,
 } from "./projectionHeldPrevious";
 import { createGpuFlowHeldPreviousDebugState } from "./projectionHeldPrevious";
+import { createGpuFlowReadonlyMap } from "./projectionReadonlyMap";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
@@ -349,6 +350,7 @@ export function createGpuFlowVisiblePublicationScheduler({
 }: {
   readonly knobs?: GpuFlowProjectionSchedulerKnobs | undefined;
 } = {}): GpuFlowVisiblePublicationScheduler {
+  const schedulerKnobs = Object.freeze({ ...knobs });
   let contentDebt = false;
   let maintenanceDebt = false;
   let motionDebt = false;
@@ -377,9 +379,9 @@ export function createGpuFlowVisiblePublicationScheduler({
   function shouldProbeGpuFlowProjectionContentDebt(): boolean {
     return (
       contentDebt &&
-      knobs.maxContentInterleaveMs > 0 &&
+      schedulerKnobs.maxContentInterleaveMs > 0 &&
       consecutiveMotionFrames >=
-        knobs.maxConsecutiveMotionFramesBeforeContentProbe
+        schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe
     );
   }
 
@@ -394,7 +396,7 @@ export function createGpuFlowVisiblePublicationScheduler({
   ): boolean {
     return (
       lastMotionAtMs !== null &&
-      timestamp - lastMotionAtMs <= knobs.motionSettleWindowMs
+      timestamp - lastMotionAtMs <= schedulerKnobs.motionSettleWindowMs
     );
   }
 
@@ -419,7 +421,7 @@ export function createGpuFlowVisiblePublicationScheduler({
       }
     },
     getKnobs() {
-      return knobs;
+      return schedulerKnobs;
     },
     selectFrame({
       hasCommittedContentFrame,
@@ -950,22 +952,14 @@ function freezeLiveProjectionSample(
   return Object.freeze({
     ...sample,
     cssViewport: Object.freeze({ ...sample.cssViewport }),
-    retainedScrollDelta: new Map(
-      [...sample.retainedScrollDelta.entries()].map(([surfaceId, offset]) => [
-        surfaceId,
-        Object.freeze({ ...offset }),
-      ]),
+    retainedScrollDelta: freezeGpuFlowProjectionScrollOffsetMap(
+      sample.retainedScrollDelta,
     ),
-    retainedScrollOffsets: new Map(
-      [...sample.retainedScrollOffsets.entries()].map(([surfaceId, offset]) => [
-        surfaceId,
-        Object.freeze({ ...offset }),
-      ]),
+    retainedScrollOffsets: freezeGpuFlowProjectionScrollOffsetMap(
+      sample.retainedScrollOffsets,
     ),
-    retainedScrollVelocityCssPxPerMs: new Map(
-      [...sample.retainedScrollVelocityCssPxPerMs.entries()].map(
-        ([surfaceId, offset]) => [surfaceId, Object.freeze({ ...offset })],
-      ),
+    retainedScrollVelocityCssPxPerMs: freezeGpuFlowProjectionScrollOffsetMap(
+      sample.retainedScrollVelocityCssPxPerMs,
     ),
     viewport: Object.freeze({
       x: viewport.x,
@@ -977,4 +971,15 @@ function freezeLiveProjectionSample(
       ...sample.viewportVelocityCssPxPerMs,
     }),
   });
+}
+
+function freezeGpuFlowProjectionScrollOffsetMap(
+  offsets: GpuRetainedContentScrollOffsetMap,
+): GpuRetainedContentScrollOffsetMap {
+  return createGpuFlowReadonlyMap(
+    [...offsets.entries()].map(([surfaceId, offset]) => [
+      surfaceId,
+      Object.freeze({ ...offset }),
+    ]),
+  );
 }
