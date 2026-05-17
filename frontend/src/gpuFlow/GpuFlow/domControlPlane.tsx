@@ -29,14 +29,12 @@ export type GpuFlowDomControlActivationHandler = (
   activation: GpuRetainedDomControlActivation,
 ) => void;
 
-export type GpuFlowDomControlRenderContext = {
-  readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
-  readonly presentation: "dom-control-plane";
-};
-
 export type GpuFlowDomControlRenderer = (
   control: GpuRetainedDomControlSourceDescriptor,
-  context: GpuFlowDomControlRenderContext,
+  context: {
+    readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
+    readonly presentation: "dom-control-plane";
+  },
 ) => ReactNode;
 
 type MountedDomControlPlaneHost = {
