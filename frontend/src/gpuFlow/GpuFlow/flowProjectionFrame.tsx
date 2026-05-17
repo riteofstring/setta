@@ -68,7 +68,7 @@ type GpuFlowProjectionFrameTransaction = {
   readonly transaction: GpuFlowProjectionTransaction;
 };
 
-export type RenderGpuFlowNodeLayerProjectionFrameResult =
+type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
       readonly rendered: false;
     }

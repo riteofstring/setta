@@ -142,7 +142,7 @@ export type GpuFlowRetainedTexturePageDiagnosticMetrics =
     readonly reason: string;
   };
 
-export type GpuFlowFrameProjectionDiagnostics = {
+type GpuFlowFrameProjectionDiagnostics = {
   readonly committedFrameId: number | null;
   readonly gestureOwner: GpuWheelGestureOwner | null;
   readonly heldPreviousDurationMs: number;

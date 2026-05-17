@@ -77,7 +77,7 @@ type RetainedTextureUploadSchedulerResult = {
   readonly uploadCount: number;
 };
 
-export type RetainedTextureSchedulerQueue =
+type RetainedTextureSchedulerQueue =
   | "interactive"
   | "visible"
   | "prefetch";

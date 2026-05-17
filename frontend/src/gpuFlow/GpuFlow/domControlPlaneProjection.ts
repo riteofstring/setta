@@ -31,7 +31,6 @@ import {
 } from "./domControlPlaneProjectionPrimitives";
 export {
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS,
-  type GpuFlowDomControlProjectionKnobs,
 } from "./domControlProjectionHorizon";
 
 export type GpuFlowRetainedScrollOffsetGetter = (
@@ -82,7 +81,7 @@ const GPU_FLOW_DOM_CONTROL_MAX_MOUNTED_CONTROLS =
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxReadableMountedControls +
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxOverscanMountedControls;
 
-export type GpuFlowDomControlProjectionManager = {
+type GpuFlowDomControlProjectionManager = {
   prepare(input: {
     readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
     readonly getRetainedScrollOffset:
@@ -513,7 +512,7 @@ function compareGpuFlowDomControlPlaneControls(
   );
 }
 
-export function syncGpuFlowDomControlPlaneStyles({
+function syncGpuFlowDomControlPlaneStyles({
   committedFrameId,
   controlById,
   diagnosticsRef,

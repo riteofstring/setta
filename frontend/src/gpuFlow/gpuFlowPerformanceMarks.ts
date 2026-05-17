@@ -1,4 +1,4 @@
-export type GpuFlowPerformanceMeasureDetail = Readonly<
+type GpuFlowPerformanceMeasureDetail = Readonly<
   Record<string, boolean | number | string | null | undefined>
 >;
 

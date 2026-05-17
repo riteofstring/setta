@@ -2,7 +2,7 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import type { GpuRect } from "../viewportMath";
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlaneProjection";
 
-export type GpuFlowDomControlProjectionKnobs = {
+type GpuFlowDomControlProjectionKnobs = {
   readonly directionalHorizonMaxCssPx: number;
   readonly directionalHorizonMultiplier: number;
   readonly maxCompatiblePreviousControls: number;

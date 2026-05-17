@@ -1,6 +1,6 @@
 # GPU Flow Architecture Iterations
 
-Date: 2026-05-18
+Date: 2026-05-19
 
 This note summarizes the GPU Flow architecture work on this branch since it
 forked from `go-rewrite`. The branch point is:
@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 861 commits from 2026-04-28 through 2026-05-18. Not every
+That range contains 894 commits from 2026-04-28 through 2026-05-19. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -611,6 +611,104 @@ The important changes were:
   display actors, and live retained scroll offsets keep browser-rendered text
   attached during section scroll.
 
+## Iteration 18: Make Projection Runtime Motion-First And Obligated
+
+Representative commits:
+
+- `eaaea93bf` Implement GPU Flow projection runtime
+- `98df8d44b` Complete GPU Flow projection state wiring
+- `56c3f2c55` Implement GPU flow projection host horizon
+- `510089ceb` Finalize GPU Flow projection hold coherence
+- `bd04fb8ce` Implement GPU Flow projection runtime obligations
+- `542ebd15d` Implement motion-first GPU Flow projection runtime
+- `cfcf61200` Implement GPU Flow DOM projection horizon
+- `4707c320a` gpu-flow: guard projection publication completion
+- `cc9ce10d5` Tighten GPU Flow projection transaction authority
+- `10aec7b48` Implement GPU flow projection compatibility proofs
+- `36bc09199` Add GPU flow projection transaction diagnostics
+- `2453ae28b` Honor GPU Flow projection interleave budgets
+
+The first projection split still left too much implicit behavior in the frame
+loop. Mixed reasons such as `retained-scroll + paint + texture-upload` could
+fall back to content publication, and DOM-control readiness could still depend
+on a React/content commit even while canvas motion projected forward.
+
+This iteration made projection a first-class runtime contract:
+
+- every visible frame starts from an immutable live projection sample carrying
+  viewport state, retained scroll offsets and deltas, motion velocities, canvas
+  size, device pixel ratio, and the current wheel gesture owner;
+- the visible publication scheduler chooses a `content`, `maintenance`,
+  `motion`, or `idle` lane and keeps debt queued until the selected lane
+  actually publishes a visible frame;
+- motion projection frames redraw already committed actors and project mounted
+  DOM actors, but reject retained runtime sampling, display transactions,
+  texture uploads, committed content publication, and other content work;
+- held-previous projection transactions preserve the previous committed frame,
+  hit projection, DOM transform batch, activation mapping, and debug identity
+  together, with explicit age and frame-count budgets;
+- projection horizon obligations classify visible, active-pinned, near-future,
+  and maintenance actors with acceptable coverage states rather than relying on
+  a binary "ready" flag;
+- DOM-control projection gained a bounded directional horizon, live promotion
+  from retained scroll samples, compatible-previous proofs, and mounted-host
+  budgets so readable controls can be prepared before a React commit catches
+  up;
+- projection transaction diagnostics now carry committed frame id, sample id,
+  transaction id, transaction kind, lane, held-previous state, and gesture owner
+  through canvas, DOM-control projection, frame performance events, and
+  Playwright probes.
+
+The architectural shift is that projection is no longer just a fast draw path.
+It is an obligated transaction system: motion can lead, content and
+maintenance remain accountable debt, and every visible projection has a
+diagnosable reason why its browser-owned and GPU-owned actors are exact,
+compatible, blocked, or held.
+
+## Iteration 19: Finish The Retained Settings Runtime
+
+Representative commits:
+
+- `75fe3a934` Complete GPU Flow retained settings runtime
+- `175749438` Add GPU Flow runtime measure attribution
+- `ddc3b7745` Implement retained settings GPU flow finish line
+- `232eb3885` Finish retained settings runtime flow
+
+The Settings surface became the stress case for the whole architecture: large
+retained scenes, many readable text-like controls, nested sections, active DOM
+islands, retained scroll, viewport zoom, hover, page repair, and upload
+budgets all exercised the same frame loop.
+
+The finish-line work tightened the runtime around that surface:
+
+- retained display publication now performs bounded pre-publish maintenance and
+  held-previous repair before publishing, while rejecting cold placeholders for
+  visible retained content;
+- retained page work carries projection-horizon generations, estimated
+  raster/upload cost, queue identity, stale-work rejection, and executed-work
+  metrics so repair and refinement are separable from hot motion;
+- DOM-control hosts mount progressively in large scenes, with active and
+  visible controls prioritized and passive controls deferred without breaking
+  projection compatibility;
+- the project GPU layout adapter gained a small scene cache and view-mode
+  prewarm path so scene derivation does not dominate Settings runtime frames;
+- nested section layout sizing and gap rules were pulled into focused project
+  helpers instead of being folded into the adapter;
+- runtime performance marks attribute committed-surface publication,
+  DOM-control host assignment, DOM-control projection, projection-surface
+  resolve, retained display transactions, retained page frames, page raster,
+  page upload, work scheduling, and texture eviction;
+- Chrome repro reporting now treats projection content work, cold placeholder
+  publication, true-hole publication, held-previous over-budget frames,
+  retained budget misses, post-settle upload spikes, and missing projection
+  diagnostics as finish-line failures.
+
+The result is a concrete runtime contract for the retained Settings path:
+motion-heavy frames should publish as projection frames, content frames should
+publish exact or compatible retained coverage, retained repair should happen
+under explicit budgets, and the performance probe should be able to explain
+where every GPU Flow millisecond went.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -645,6 +743,18 @@ After these iterations, GPU Flow has these major boundaries:
   completeness diagnostics to one frame.
 - Committed surface frames own content publication; live projection samples can
   advance without independently advancing React-visible committed content.
+- `projectionRuntime.ts` owns immutable live projection samples, projection
+  transactions, held-previous debug state, and projection horizon obligations.
+- `projectionScheduler.ts` arbitrates content, maintenance, and motion lanes,
+  and only clears publication debt after the chosen lane actually publishes.
+- DOM-control projection is bounded by a directional horizon, mounted-host
+  budgets, and compatible-previous proofs, so browser-owned readable controls
+  can stay visually continuous through retained scroll and viewport motion.
+- Retained display publication includes pre-publish page maintenance and
+  bounded held-previous repair before a retained display frame becomes visible.
+- GPU Flow runtime measurements now attribute projection, content publication,
+  retained page work, DOM-control projection, scheduling, and eviction phases
+  to the frame performance stream and Chrome repro reports.
 - The viewport and retained-scroll transforms remain live so pan, zoom, and
   retained section scroll can project already committed actors without waiting
   for React render, retained publication, or texture upload.
@@ -676,13 +786,20 @@ The branch moved GPU Flow in these directions:
     DOM actors with explicit committed-frame coverage proof.
 14. From live-only passive text actors to bounded browser-rendered snapshot
     artifacts for excess visible passive controls.
+15. From projection as an optimization to motion/content/maintenance
+    publication lanes with transaction identity and accountable debt.
+16. From current-frame DOM-control readiness to horizon-prepared,
+    compatibility-proven browser actors.
+17. From retained Settings as a bug-fixing target to a measured finish-line
+    runtime with phase attribution and explicit failure budgets.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
 decisions have been made in code. The ongoing pressure is tightening the
 commit boundary so every new visual or interactive surface declares its owner,
 generation, coverage proof, projection policy, and interaction ownership
-explicitly.
+explicitly, then proving that contract in the frame performance stream as the
+same rules spread beyond the Settings stress path.
 
 ## Verification Trail
 
@@ -706,9 +823,19 @@ Useful reports from this branch:
 - [Committed surface actor refactor strict sample](../../perf/reports/frontend/2026-05-17_gpu-flow-committed-surface-actor-refactor-strict.jsonl)
 - [GPU Flow canvas-first committed surface runtime](../../perf/reports/frontend/2026-05-18_gpu-flow-canvas-first-committed-surface-runtime.md)
 - [GPU Flow content projection runtime refactor after report](../../perf/reports/gpu-flow-content-projection-runtime-after-20260518.md)
+- [GPU Flow principled projection runtime after report](../../perf/reports/gpu-flow-principled-projection-runtime-after-20260518.md)
+- [GPU Flow held-previous projection report](../../perf/reports/gpu-flow-principled-projection-runtime-held-previous-20260519.md)
+- [GPU Flow projection publication completion guard](../../perf/reports/gpu-flow-principled-projection-runtime-publication-completion-20260519.md)
+- [GPU Flow principled projection runtime verification](../../perf/reports/gpu-flow-principled-projection-runtime-verification-20260519.md)
+- [GPU Flow DOM-control projection horizon](../../perf/reports/gpu-flow-dom-control-projection-horizon-20260519.md)
+- [GPU Flow projection transaction diagnostics](../../perf/reports/frontend/2026-05-19_gpu-flow-projection-transaction-diagnostics.md)
+- [GPU Flow retained settings finish-line after](../../perf/reports/frontend/2026-05-19_gpu-flow-retained-settings-finish-line-after.md)
+- [GPU Flow retained settings runtime measures](../../perf/reports/frontend/2026-05-19_gpu-flow-retained-settings-runtime-measures-after.md)
+- [GPU Flow retained settings runtime finish line](../../perf/reports/gpu-flow-retained-settings-runtime-finish-line-20260519.md)
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more
 observed-behavior regression coverage, and clearer separation between live
 viewport motion, retained section scroll projection, retained texture work, DOM
-projection, and committed visible frames.
+projection, committed visible frames, projection transaction debt, and retained
+finish-line budgets.

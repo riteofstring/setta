@@ -37,7 +37,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 >[1];
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 
-export type RenderGpuFlowSurfaceFrameInput = Omit<
+type RenderGpuFlowSurfaceFrameInput = Omit<
   GpuFlowNodeLayerFrameInput,
   | "deferResolutionUpdates"
   | "frameReasons"

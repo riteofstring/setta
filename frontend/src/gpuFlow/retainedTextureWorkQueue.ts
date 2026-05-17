@@ -2,7 +2,7 @@ import type { NodeTexturePriority } from "./dirtyTracking";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedTextureWorkKind =
+type RetainedTextureWorkKind =
   | "animation-rect"
   | "content-rect"
   | "first-visible"

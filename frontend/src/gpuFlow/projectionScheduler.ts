@@ -4,7 +4,7 @@ import type {
   GpuFlowProjectionLane,
 } from "./projectionRuntime";
 
-export type GpuFlowProjectionSchedulerState =
+type GpuFlowProjectionSchedulerState =
   | "content-catchup"
   | "idle"
   | "maintenance-drain"
@@ -38,13 +38,13 @@ export type GpuFlowVisiblePublicationDecision = {
   readonly schedulerState: GpuFlowProjectionSchedulerState;
 };
 
-export type GpuFlowVisiblePublicationDebt = {
+type GpuFlowVisiblePublicationDebt = {
   readonly content: boolean;
   readonly maintenance: boolean;
   readonly motion: boolean;
 };
 
-export type GpuFlowVisiblePublicationCompletion = {
+type GpuFlowVisiblePublicationCompletion = {
   readonly debt: GpuFlowVisiblePublicationDebt;
   readonly published: boolean;
 };
@@ -363,11 +363,11 @@ function getGpuFlowVisiblePublicationDebt(
   return "debt" in debtOrDecision ? debtOrDecision.debt : debtOrDecision;
 }
 
-export function isGpuFlowMotionFrameReason(reason: GpuFrameReason): boolean {
+function isGpuFlowMotionFrameReason(reason: GpuFrameReason): boolean {
   return reason === "retained-scroll" || reason === "viewport";
 }
 
-export function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
+function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
   return (
     reason === "animation" ||
     reason === "init" ||
@@ -377,8 +377,6 @@ export function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
   );
 }
 
-export function isGpuFlowMaintenanceFrameReason(
-  reason: GpuFrameReason,
-): boolean {
+function isGpuFlowMaintenanceFrameReason(reason: GpuFrameReason): boolean {
   return reason === "texture-upload";
 }

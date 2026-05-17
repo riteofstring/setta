@@ -221,7 +221,7 @@ export function shouldResolveRetainedTextureWorkItemForSurface({
   );
 }
 
-export function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
+function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
   return (
     left.x < right.x + right.width &&
     left.x + left.width > right.x &&

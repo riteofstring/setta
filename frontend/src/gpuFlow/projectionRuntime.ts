@@ -34,21 +34,15 @@ export {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
-  isGpuFlowContentFrameReason,
-  isGpuFlowMaintenanceFrameReason,
-  isGpuFlowMotionFrameReason,
 } from "./projectionScheduler";
 export type {
   GpuFlowProjectionSchedulerKnobs,
-  GpuFlowProjectionSchedulerState,
-  GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDebt,
   GpuFlowVisiblePublicationDecision,
 } from "./projectionScheduler";
 
 export type GpuFlowProjectionLane = "content" | "maintenance" | "motion";
 
-export type GpuFlowProjectionCoverageState =
+type GpuFlowProjectionCoverageState =
   | "blocked-awaiting-browser-visual"
   | "blocked-awaiting-live-host"
   | "compatible-previous"
@@ -56,7 +50,7 @@ export type GpuFlowProjectionCoverageState =
   | "snapshot"
   | "true-hole";
 
-export type GpuFlowProjectionHorizonObligationKind =
+type GpuFlowProjectionHorizonObligationKind =
   | "active-pinned"
   | "maintenance"
   | "near-future"
@@ -90,7 +84,7 @@ export type GpuFlowLiveProjectionSample = {
   };
 };
 
-export type GpuFlowProjectionHorizonObligation = {
+type GpuFlowProjectionHorizonObligation = {
   readonly acceptableCoverage: readonly GpuFlowProjectionCoverageState[];
   readonly actorId: string;
   readonly blockedReason: string | null;
@@ -99,7 +93,7 @@ export type GpuFlowProjectionHorizonObligation = {
   readonly surfaceId: string;
 };
 
-export type GpuFlowProjectionHorizonObligationList = {
+type GpuFlowProjectionHorizonObligationList = {
   readonly activePinned: readonly GpuFlowProjectionHorizonObligation[];
   readonly maintenance: readonly GpuFlowProjectionHorizonObligation[];
   readonly nearFuture: readonly GpuFlowProjectionHorizonObligation[];
@@ -124,30 +118,6 @@ export type GpuFlowTextControlCompatibilityProof = {
   readonly semanticGenerationId: string;
   readonly visualGenerationId: string;
 };
-
-export type GpuFlowTextureCompatibilityProof = {
-  readonly clipChainRevision: string;
-  readonly pageGeneration: string;
-  readonly reasonCode:
-    | "compatible-retained-scroll-remap"
-    | "same-page-generation"
-    | "same-source-window";
-  readonly retainedScrollCompatible: boolean;
-  readonly sourceWindowCompatible: boolean;
-  readonly surfaceId: string;
-  readonly visualEpoch: string;
-  readonly zoomBucketCompatible: boolean;
-};
-
-export type GpuFlowCompatibilityProof =
-  | {
-      readonly actorKind: "retained-page" | "texture";
-      readonly proof: GpuFlowTextureCompatibilityProof;
-    }
-  | {
-      readonly actorKind: "text-control";
-      readonly proof: GpuFlowTextControlCompatibilityProof;
-    };
 
 export type GpuFlowProjectionTransactionKind =
   | "content-publication"

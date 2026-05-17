@@ -78,8 +78,8 @@ The hot path for viewport movement is:
 4. `HtmlSurfaceRenderer.render()` writes camera uniforms and redraws grid,
    edges, retained textures, and already-uploaded HTML surfaces.
 5. Passive texture resolution upgrades and passive uploads are deferred while
-   viewport interaction is active and on viewport frames that are not
-   `texture-upload` frames.
+   `deferResolutionUpdates` is true: during active viewport interaction, on
+   viewport frames, and on non-idle motion-settling lanes.
 
 Pan and zoom frames whose visible surfaces are already covered by committed
 textures do not call `requestPaint()`, upload HTML source textures with
@@ -87,8 +87,9 @@ textures do not call `requestPaint()`, upload HTML source textures with
 every source transform. Retained display publication is guarded by the
 committed surface transaction model: exact or compatible retained coverage can
 publish, missing coverage holds the previous coherent visible frame when one
-exists, and prepared retained frames may queue follow-up work without
-independently advancing visible DOM-control actors.
+exists, and cold first coverage blocks publication in the project path until a
+`texture-upload` frame catches up. Prepared retained frames may queue follow-up
+work without independently advancing visible DOM-control actors.
 
 ## Scene Model
 
@@ -165,9 +166,17 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/flowSurface.tsx` owns runtime composition, frame scheduling hooks,
   controller attachment, source layers, overlay sources, portals, DOM islands,
   and renderer callbacks.
+- `GpuFlow/flowSurfaceFramePublication.ts` owns visible publication lane
+  selection, live projection sampling, motion projection dispatch, content and
+  maintenance publication dispatch, debt re-requesting, and motion-settling
+  deferral.
 - `GpuFlow/flowFrame.tsx` owns per-frame orchestration for retained content
   pages, HTML surface rendering, performance reporting, and additional frame
   requests.
+- `GpuFlow/flowProjectionFrame.tsx` redraws committed retained/page/HTML
+  surfaces for motion-only projection frames, remaps retained scroll visuals
+  when committed coverage allows it, and holds a previous projection when the
+  requested projection would expose missing retained coverage.
 - `GpuSurface.tsx` creates the `<canvas layoutsubtree>` element, initializes
   WebGPU/html-in-canvas support, listens to paint and resize events, and
   coalesces frame requests.
@@ -193,6 +202,13 @@ The reusable runtime is centered on these modules:
   summary helpers used by focused browser capability tests.
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
+- `projectionRuntime.ts` and `projectionScheduler.ts` define live projection
+  samples, projection transactions, held-previous projection diagnostics, and
+  the motion/content/maintenance visible-publication scheduler.
+- `committedSurfaceFrame.ts`, `committedSurfaceTextActor.ts`, and
+  `committedSurfaceFrameProjection.ts` define the committed visible frame,
+  actor generations, text coverage proofs, DOM-control completeness, content
+  publishability, and projection-horizon obligations.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
   `retainedDisplayFrame.ts`, `retainedNativeIslandTransactions.ts`,
   `GpuFlow/flowRetainedPageMaintenance.ts`, and
@@ -203,8 +219,9 @@ The reusable runtime is centered on these modules:
   cache committed retained pages, and schedule retained texture upload work.
 - `surfaceCompositor/*` provides the shared actor, generation, coverage,
   transaction, and diagnostics model used to decide whether retained surfaces
-  publish exact/compatible coverage, hold previous coverage, publish a cold
-  placeholder, and record follow-up work diagnostics.
+  publish exact/compatible coverage, hold previous coverage, optionally publish
+  a cold placeholder when a caller explicitly allows it, and record follow-up
+  work diagnostics.
 - `retainedContentFrameGeneration.ts` is a test-only descriptor-generation
   facade and throws outside the test environment.
 - `retainedContentScene.ts` and related retained-content modules build retained
@@ -215,10 +232,18 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/retainedDomControlSources.tsx` derives retained text-like
   DOM-control plane descriptors from retained hit-test surfaces sampled into
   retained runtime frames for rows whose control descriptor is DOM-owned.
+- `GpuFlow/retainedDomControlSnapshotSources.tsx` mounts bounded capture-only
+  DOM-control snapshot sources and exposes them as `dom-control` page overlays.
 - `GpuFlow/domControlPlane.tsx` mounts visible DOM-owned retained text-like
   controls in a viewport-positioned DOM layer, clips them to the retained
   surface, projects them through the current viewport, and renders passive or
   active controls from the descriptor lifecycle state.
+- `GpuFlow/domControlPlaneProjection.ts`,
+  `GpuFlow/domControlProjectionHorizon.ts`,
+  `GpuFlow/domControlPlaneCompatibility.ts`, and
+  `GpuFlow/domControlPlaneProgressiveMount.ts` select live DOM-control hosts,
+  compute directional projection horizons, carry compatible-previous coverage,
+  and progressively mount selected hosts.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
   preview HTML overlay sources plus retained native visual inputs. Scrollbar
   and row-hover native visuals are sampled into the retained runtime frame;
@@ -458,18 +483,33 @@ browser rendering. Readable passive controls are viewport-projected
 bounded snapshot source lane rendered by
 `GpuRetainedDomControlSnapshotSourceLayer`. Those snapshot sources are
 browser-rendered `DummyCodeMirror` DOM captured through the normal HTML surface
-texture path and composed as `dom-control` page overlays. When the project
-marks a text-like row active, the retained runtime samples an active
-DOM-control descriptor and the project adapter also publishes the active
+texture path and composed as `dom-control` page overlays.
+
+The retained runtime first assigns each text-like descriptor a visual policy:
+`live-dom`, `snapshot`, `blocked-awaiting-browser-visual`,
+`outside-viewport`, or `clipped-empty`. `GpuFlowDomControlPlane` then applies
+the live-host projection budget: large scenes can mount up to 24 readable live
+hosts and 8 overscan live hosts, while scenes of 64 controls or fewer mount all
+eligible controls. Compatible-previous coverage can carry a bounded set of
+previous live representations across frames. React host creation is separately
+progressive: normal mode starts with the active and viewport-visible priority
+set, up to 32 controls with a minimum batch of 4, then adds batches of 4. When
+`window.__SETTA_CHROME_REPRO_ACTIVE__` is true, the current code treats that
+flag as a rendering policy input: it starts with only active-priority controls,
+up to 8, and adds one host per delayed batch after 8 seconds.
+
+When the project marks a text-like row active, the retained runtime samples an
+active DOM-control descriptor and the project adapter also publishes the active
 browser editor as an active DOM island from `activeParamDomIsland`. Canvas
 retained row drawing owns the row shell, label, focus treatment, hover, and
 clipping, but it does not draw text-like value pixels for DOM-owned controls.
 Each committed text actor carries separate visual and semantic generation ids,
 a canonical browser-rendered snapshot cache-key revision, and an explicit
 coverage proof (`exact-live-dom`, `exact-snapshot`, `compatible-previous`,
-`blocked-awaiting-browser-visual`, or `true-hole`). Passive readable hosts are
-visual-only DOM (`aria-hidden`, not focusable, non-selectable, and activated
-through retained hit handling); active hosts expose the real browser editor.
+`blocked-awaiting-browser-visual`, `blocked-awaiting-live-host`, or
+`true-hole`). Passive readable hosts are visual-only DOM (`aria-hidden`, not
+focusable, non-selectable, and activated through retained hit handling); active
+hosts expose the real browser editor.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -534,7 +574,11 @@ state, or register/upload passive HTML textures. Retained-scroll projection
 only remaps committed retained page visuals for surfaces whose scroll offset
 changed; other retained page visuals are reused from the committed display.
 Content and maintenance work remain queued as debt and drain after motion has
-settled or through bounded content probes during continuous motion.
+settled or through bounded content probes during continuous motion. During the
+motion-settling window, content or maintenance lanes can be selected, but
+`shouldDeferGpuFlowResolutionUpdates()` still keeps passive resolution work
+deferred. If debt remains after a non-motion settling frame, `GpuFlow`
+re-requests it after a delayed settle-window timer.
 
 Content, paint, upload, and maintenance frames follow this shape:
 
@@ -550,11 +594,14 @@ Content, paint, upload, and maintenance frames follow this shape:
    any true-hole count for pages that are required for first-visible coverage.
 4. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
    transaction. Exact or compatible coverage publishes; missing coverage holds
-   the previous retained display when one exists, or blocks/publishes a whole
-   retained placeholder for a cold surface. Published `RetainedDisplayFrame`
-   diagnostics record active native-island `none`, `attach`, `survive`,
-   `commit-detach`, and `replace` transitions; held frames keep the previous
-   native-island publication.
+   the previous retained display when one exists. In the project frame path,
+   missing cold first coverage returns `block-cold-first-coverage` and requests
+   a `texture-upload` frame. The lower-level retained transaction can publish a
+   cold placeholder only when a caller explicitly allows it; `GpuFlow` passes
+   `allowColdPlaceholder: false`. Published `RetainedDisplayFrame` diagnostics
+   record active native-island `none`, `attach`, `survive`, `commit-detach`,
+   and `replace` transitions; held frames keep the previous native-island
+   publication.
    Published retained transactions do not contain true-hole coverage.
 5. `createGpuFlowCommittedSurfaceFrame()` wraps the published retained display
    in the visible committed surface frame. The committed frame id drives the
@@ -591,10 +638,14 @@ Content, paint, upload, and maintenance frames follow this shape:
 
 Pure pan and zoom frames update the runtime viewport and redraw cached
 surfaces. Passive texture resolution upgrades and passive uploads are deferred
-while `deferResolutionUpdates` is true: whenever viewport interaction is active
-and on viewport frames that are not `texture-upload` frames. Retained display
-transactions never publish true-hole coverage: they publish exact or compatible
-coverage, hold the previous retained display, or publish a cold placeholder.
+while `deferResolutionUpdates` is true: during active viewport interaction, on
+viewport frames, and on non-idle motion-settling lanes. Maintenance debt is
+re-requested as `texture-upload` and may be delayed during motion-settling.
+Retained display transactions never publish true-hole coverage: in the project
+path they publish exact or compatible coverage, hold the previous retained
+display, or block cold first coverage until retained texture uploads catch up.
+The lower-level retained transaction API can publish a cold placeholder only
+when a caller opts in.
 Visible true-hole work is not passively deferred, so post-submit retained
 maintenance keeps first-visible page uploads active until coverage catches up.
 When compatible committed pages already cover the frame, post-submit retained

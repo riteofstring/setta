@@ -839,7 +839,7 @@ function hasGpuRetainedDomControlClip(
   );
 }
 
-export function getGpuRetainedDomControlVisibleClipFlowPx(
+function getGpuRetainedDomControlVisibleClipFlowPx(
   control: Pick<
     GpuRetainedDomControlSourceDescriptor,
     "sectionClipRectFlowPx" | "worldRectFlowPx"
