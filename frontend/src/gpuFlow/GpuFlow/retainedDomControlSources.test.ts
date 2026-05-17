@@ -255,6 +255,72 @@ describe("getGpuRetainedDomControlSources", () => {
     );
   });
 
+  it("recreates DOM-control snapshot texture content when a snapshot-backed value changes", () => {
+    const firstFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 4,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const firstSnapshotSource =
+      firstFrame.descriptors.domControlSources.find(
+        (source) => source.visualPolicy === "snapshot",
+      );
+    if (!firstSnapshotSource) {
+      throw new Error("Expected a snapshot-backed DOM control source.");
+    }
+
+    const nextFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 5,
+      scene: scene({
+        rowCount: 80,
+        surfaceHeight: 80 * 24,
+        valueOverrides: {
+          [firstSnapshotSource.rowId]: "changed snapshot value",
+        },
+      }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const nextSnapshotSource = nextFrame.descriptors.domControlSources.find(
+      (source) => source.sourceId === firstSnapshotSource.sourceId,
+    );
+    if (!nextSnapshotSource) {
+      throw new Error("Expected changed snapshot source to remain present.");
+    }
+
+    expect(nextSnapshotSource.visualPolicy).toBe("snapshot");
+    expect(nextSnapshotSource.snapshotSurfaceId).toBe(
+      firstSnapshotSource.snapshotSurfaceId,
+    );
+    expect(nextSnapshotSource.snapshotCacheKeyRevision).not.toBe(
+      firstSnapshotSource.snapshotCacheKeyRevision,
+    );
+    expect(
+      getGpuRetainedDomControlSnapshotSurfaceLayouts([nextSnapshotSource])[0],
+    ).toEqual(
+      expect.objectContaining({
+        surfaceId: firstSnapshotSource.snapshotSurfaceId,
+        textureContentKey: nextSnapshotSource.snapshotCacheKeyRevision,
+      }),
+    );
+
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: nextFrame,
+    });
+    expect(
+      committedFrame.projectionHorizon.textActorCoverage.exactSnapshotActorIds,
+    ).toContain(nextSnapshotSource.sourceId);
+  });
+
   it("keeps visible text overflow blocked by browser visual readiness, not live-host readiness", () => {
     const runtimeFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
@@ -289,12 +355,14 @@ function scene({
   rowCount = 2,
   scrollY = 0,
   surfaceHeight = 48,
+  valueOverrides = {},
 }: {
   readonly activeSecondRow?: boolean | undefined;
   readonly firstValue?: string | undefined;
   readonly rowCount?: number | undefined;
   readonly scrollY?: number | undefined;
   readonly surfaceHeight?: number | undefined;
+  readonly valueOverrides?: Readonly<Record<string, string>> | undefined;
 } = {}): GpuFlowScene {
   const retainedScene = createGpuRetainedRowContentScene({
     controlWidth: 80,
@@ -302,11 +370,12 @@ function scene({
     ownerSectionId: "section-a",
     rowHeight: 24,
     rows: Array.from({ length: rowCount }, (_, index) =>
-      row(
-        `param-${String.fromCharCode(97 + index)}`,
-        index === 0 ? firstValue : `value-${index}`,
-        activeSecondRow && index === 1,
-      ),
+      createSceneRow({
+        activeSecondRow,
+        firstValue,
+        index,
+        valueOverrides,
+      }),
     ),
     scrollOffset: { x: 0, y: scrollY },
     viewportRect: { height: surfaceHeight, width: 200, x: 0, y: 0 },
@@ -328,6 +397,25 @@ function scene({
     revision: 1,
     sections: [],
   };
+}
+
+function createSceneRow({
+  activeSecondRow,
+  firstValue,
+  index,
+  valueOverrides,
+}: {
+  readonly activeSecondRow: boolean;
+  readonly firstValue: string;
+  readonly index: number;
+  readonly valueOverrides: Readonly<Record<string, string>>;
+}): GpuRetainedContentRowInput {
+  const id = `param-${String.fromCharCode(97 + index)}`;
+  return row(
+    id,
+    valueOverrides[id] ?? (index === 0 ? firstValue : `value-${index}`),
+    activeSecondRow && index === 1,
+  );
 }
 
 function row(

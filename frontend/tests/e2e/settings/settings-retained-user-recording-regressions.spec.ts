@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import {
   installGpuFlowPerformanceProbe,
@@ -132,6 +132,52 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   }
 });
 
+test("Chrome repro capture flag does not change retained Settings visible publication", async ({
+  page,
+}, testInfo) => {
+  const normal = await captureChromeReproParitySample({
+    label: "normal",
+    page,
+    testInfo,
+  });
+  await page.addInitScript(() => {
+    (
+      window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean }
+    ).__SETTA_CHROME_REPRO_ACTIVE__ = true;
+  });
+  const recorder = await captureChromeReproParitySample({
+    label: "recorder",
+    page,
+    testInfo,
+  });
+  const details = JSON.stringify({ normal, recorder }, null, 2);
+
+  expect(normal.chromeReproActive, details).toBe(false);
+  expect(recorder.chromeReproActive, details).toBe(true);
+  expect(normal.placeholderStats.nonblankRatio, details).toBeGreaterThan(0.02);
+  expect(recorder.placeholderStats.nonblankRatio, details).toBeGreaterThan(
+    0.02,
+  );
+  expect(normal.placeholderStats.highConfidencePlaceholder, details).toBe(false);
+  expect(recorder.placeholderStats.highConfidencePlaceholder, details).toBe(
+    false,
+  );
+  expect(recorder.committed, details).toEqual(normal.committed);
+  expect(recorder.diagnostics?.visibleControlRectCount, details).toBe(
+    normal.diagnostics?.visibleControlRectCount,
+  );
+  expect(
+    recorder.diagnostics?.mountedControlCount ?? 0,
+    details,
+  ).toBeGreaterThanOrEqual(
+    recorder.diagnostics?.visibleControlRectCount ?? 0,
+  );
+  expect(
+    normal.diagnostics?.mountedControlCount ?? 0,
+    details,
+  ).toBeGreaterThanOrEqual(normal.diagnostics?.visibleControlRectCount ?? 0);
+});
+
 test("viewport and retained-scroll gestures do not perform content work on projection frames", async ({
   page,
 }) => {
@@ -245,6 +291,75 @@ async function readRetainedRowCount(page: Page): Promise<number> {
   return await page.evaluate(
     () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
   );
+}
+
+async function captureChromeReproParitySample({
+  label,
+  page,
+  testInfo,
+}: {
+  readonly label: string;
+  readonly page: Page;
+  readonly testInfo: TestInfo;
+}) {
+  await openAllSettingsForRetainedCompositor(page);
+  await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
+  await waitForAnimationFrame(page);
+  const target = await resolveRetainedCompositorTarget(
+    page,
+    SECTION_SIZING_SURFACE_ID,
+  );
+  const screenshot = await page.screenshot({
+    clip: target.clip,
+    path: testInfo.outputPath(`chrome-repro-parity-${label}.png`),
+  });
+  const placeholderStats = await analyzeHorizontalPlaceholderBands(page, {
+    screenshot,
+  });
+  const runtime = await page.evaluate(() => {
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const committed = snapshot?.committedSurfaceFrame ?? null;
+    const diagnostics =
+      (
+        window as typeof window & {
+          __settaGpuFlowDomControlPlaneDiagnostics?: () => {
+            readonly committedFrameId: number;
+            readonly mountedControlCount: number;
+            readonly runtimeFrameId: number;
+            readonly visibleControlRectCount: number;
+          };
+        }
+      ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null;
+    return {
+      chromeReproActive:
+        (
+          window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean }
+        ).__SETTA_CHROME_REPRO_ACTIVE__ === true,
+      committed: committed
+        ? {
+            domControlActorCount: committed.domControlActorCount,
+            projectedVisibleNonemptyDomControlCount:
+              committed.projectedVisibleNonemptyDomControlCount,
+            publishabilityKind: committed.publishabilityKind,
+            publishabilityReason: committed.publishabilityReason,
+            textActorBlockedAwaitingBrowserVisualCount:
+              committed.projectionHorizon
+                .textActorBlockedAwaitingBrowserVisualCount,
+            textActorExactCoverageCount:
+              committed.projectionHorizon.textActorExactCoverageCount,
+            textActorTrueHoleCount:
+              committed.projectionHorizon.textActorTrueHoleCount,
+            visibleNonemptyDomControlCount:
+              committed.visibleNonemptyDomControlCount,
+          }
+        : null,
+      diagnostics,
+    };
+  });
+  return {
+    ...runtime,
+    placeholderStats,
+  };
 }
 
 async function resolveCanvasClip(page: Page): Promise<Rect> {

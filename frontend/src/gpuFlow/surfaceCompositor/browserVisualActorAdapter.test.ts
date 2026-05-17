@@ -4,6 +4,7 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import {
   createBrowserVisualSurfaceTransactionFragment,
   createDomControlBrowserVisualActor,
+  createDomIslandBrowserVisualActor,
 } from "./browserVisualActorAdapter";
 
 describe("browser visual actor adapter", () => {
@@ -66,24 +67,76 @@ describe("browser visual actor adapter", () => {
       }),
     ]);
   });
+
+  it("keeps DOM-control and DOM-island z-order and clipping in one transaction fragment", () => {
+    const control = createDomControlBrowserVisualActor(
+      domControl({
+        clipRect: { height: 18, width: 120, x: 12, y: 14 },
+        sourceId: "source-control",
+        value: "hello",
+        worldRect: { height: 24, width: 180, x: 8, y: 12 },
+        zOrder: 3,
+      }),
+    );
+    const island = createDomIslandBrowserVisualActor({
+      clipOwnerId: "section-a",
+      contentRect: { height: 32, width: 160, x: 0, y: 0 },
+      id: "island-a",
+      kind: "retained-content-control",
+      ownerSectionId: "section-a",
+      rect: { height: 32, width: 160, x: 24, y: 18 },
+      source: { kind: "custom" },
+      zIndex: 9,
+    });
+    const fragment = createBrowserVisualSurfaceTransactionFragment([
+      control,
+      island,
+    ]);
+
+    expect(fragment.zOrder).toEqual([control.surfaceId, island.surfaceId]);
+    expect(fragment.visibleRects).toEqual([control.flowRect, island.flowRect]);
+    expect(fragment.activeIslands).toEqual([island.island]);
+    expect(fragment.exactCoverage).toEqual([
+      expect.objectContaining({
+        coverageRect: control.flowRect,
+        surfaceId: control.surfaceId,
+        zIndex: 3,
+      }),
+      expect.objectContaining({
+        coverageRect: island.flowRect,
+        surfaceId: island.surfaceId,
+        zIndex: 9,
+      }),
+    ]);
+    expect(control.clipRect).toEqual({ height: 18, width: 120, x: 12, y: 14 });
+    expect(island.clipRect).toEqual(island.flowRect);
+  });
 });
 
 function domControl({
+  clipRect,
   snapshotSurfaceId = null,
+  sourceId = "source-a",
   value = "",
   visualPolicy = "live-dom",
+  worldRect,
+  zOrder = 2,
 }: {
+  readonly clipRect?: GpuRetainedDomControlSourceDescriptor["clipRectSurfaceCssPx"];
   readonly snapshotSurfaceId?: string | null | undefined;
+  readonly sourceId?: string | undefined;
   readonly value?: string | undefined;
   readonly visualPolicy?:
     | GpuRetainedDomControlSourceDescriptor["visualPolicy"]
     | undefined;
+  readonly worldRect?: GpuRetainedDomControlSourceDescriptor["worldRectFlowPx"];
+  readonly zOrder?: number | undefined;
 }): GpuRetainedDomControlSourceDescriptor {
   const rect = { height: 24, width: 180, x: 4, y: 8 };
   return {
     active: false,
     clipChainRevision: "clip",
-    clipRectSurfaceCssPx: rect,
+    clipRectSurfaceCssPx: clipRect ?? rect,
     controlId: "control-a",
     defaultValue: "",
     disabled: false,
@@ -95,13 +148,13 @@ function domControl({
     },
     snapshotCacheKeyRevision: "snapshot-key",
     snapshotSurfaceId,
-    sourceId: "source-a",
+    sourceId,
     sourceKey: "source-key",
     sourceRectCssPx: { height: 24, width: 180, x: 0, y: 0 },
     value,
     valueStyleRevision: "value-style",
     visualPolicy,
-    worldRectFlowPx: rect,
-    zOrder: 2,
+    worldRectFlowPx: worldRect ?? rect,
+    zOrder,
   } as GpuRetainedDomControlSourceDescriptor;
 }

@@ -1,6 +1,9 @@
+import base64
 import json
+import struct
 import subprocess
 import sys
+import zlib
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -162,6 +165,116 @@ def test_finish_line_report_fails_raw_browser_long_tasks(tmp_path: Path) -> None
     assert report["failureCount"] > 0
 
 
+def test_finish_line_report_requires_browser_visual_evidence(
+    tmp_path: Path,
+) -> None:
+    module = _load_finish_line_report_module()
+    artifact_dir = create_recording(
+        tmp_path,
+        app_state_rows=[
+            finish_line_marker(sequence_number=1, timestamp_ms=1_000),
+            gpu_flow_frame(
+                sequence_number=2,
+                timestamp_ms=1_020,
+                frame=content_frame(frame_id=1),
+            ),
+            gpu_flow_frame(
+                sequence_number=3,
+                timestamp_ms=1_040,
+                frame=motion_projection_frame(frame_id=2),
+            ),
+        ],
+        performance_rows=[],
+    )
+
+    report = module.analyze_recording(
+        artifact_dir=artifact_dir,
+        budgets=default_budgets(),
+    )
+
+    assert report["failures"]["visualEvidenceMissingCount"] == 1
+    assert report["failureCount"] > 0
+
+
+def test_finish_line_report_accepts_alternative_nonblank_clip_raster(
+    tmp_path: Path,
+) -> None:
+    module = _load_finish_line_report_module()
+    artifact_dir = create_recording(
+        tmp_path,
+        app_state_rows=[
+            finish_line_marker(sequence_number=1, timestamp_ms=1_000),
+            browser_visual_evidence_event(
+                sequence_number=2,
+                timestamp_ms=1_010,
+                raster_data_url=png_data_url(nonblank=True),
+            ),
+            gpu_flow_frame(
+                sequence_number=3,
+                timestamp_ms=1_020,
+                frame=content_frame(frame_id=1),
+            ),
+            gpu_flow_frame(
+                sequence_number=4,
+                timestamp_ms=1_040,
+                frame=motion_projection_frame(frame_id=2),
+            ),
+        ],
+        performance_rows=[],
+    )
+
+    report = module.analyze_recording(
+        artifact_dir=artifact_dir,
+        budgets=default_budgets(),
+    )
+
+    assert report["details"]["visualEvidence"]["pixelSourceCount"] == 1
+    assert report["details"]["visualEvidence"]["screenshotCount"] == 0
+    assert report["failures"]["visualEvidenceBlankTextClipCount"] == 0
+    assert report["failures"]["visualEvidenceScreenshotMissingCount"] == 0
+    assert report["failures"]["visualEvidenceTextClipMissingCount"] == 0
+    assert report["failureCount"] == 0
+
+
+def test_finish_line_report_fails_blank_browser_visual_text_clip(
+    tmp_path: Path,
+) -> None:
+    module = _load_finish_line_report_module()
+    artifact_dir = create_recording(
+        tmp_path,
+        app_state_rows=[
+            finish_line_marker(sequence_number=1, timestamp_ms=1_000),
+            browser_visual_evidence_event(
+                sequence_number=2,
+                timestamp_ms=1_010,
+                raster_data_url=png_data_url(nonblank=False),
+            ),
+            gpu_flow_frame(
+                sequence_number=3,
+                timestamp_ms=1_020,
+                frame=content_frame(frame_id=1),
+            ),
+            gpu_flow_frame(
+                sequence_number=4,
+                timestamp_ms=1_040,
+                frame=motion_projection_frame(frame_id=2),
+            ),
+        ],
+        performance_rows=[],
+    )
+
+    report = module.analyze_recording(
+        artifact_dir=artifact_dir,
+        budgets=default_budgets(),
+    )
+
+    assert report["failures"]["visualEvidenceBlankTextClipCount"] == 1
+    assert report["details"]["visualEvidence"]["blankTextClips"][0]["rowId"] == (
+        "row-a"
+    )
+    assert report["failureCount"] > 0
+
+
 def create_recording(
     tmp_path: Path,
     *,
@@ -184,6 +297,15 @@ def create_recording(
     return artifact_dir
 
 
+def default_budgets() -> dict:
+    return {
+        "maxHeldPreviousMs": 120,
+        "maxLongTaskMs": 50,
+        "settleUploadBudgetBytes": 8 * 1024 * 1024,
+        "settleWindowMs": 1000,
+    }
+
+
 def finish_line_marker(sequence_number: int, timestamp_ms: int) -> dict:
     return app_state_event(
         sequence_number,
@@ -199,6 +321,45 @@ def gpu_flow_frame(sequence_number: int, timestamp_ms: int, frame: dict) -> dict
         timestamp_ms,
         "gpu-flow-frame",
         frame,
+    )
+
+
+def browser_visual_evidence_event(
+    sequence_number: int,
+    timestamp_ms: int,
+    raster_data_url: str,
+) -> dict:
+    return app_state_event(
+        sequence_number,
+        timestamp_ms,
+        "gpu-flow-browser-visual-evidence",
+        {
+            "alternativePixelSource": "clip-raster",
+            "clips": [
+                {
+                    "active": False,
+                    "clip": {"height": 4, "width": 12, "x": 0, "y": 0},
+                    "coverageState": "live",
+                    "expectedTextLength": 5,
+                    "raster": {
+                        "dataUrl": raster_data_url,
+                        "height": 4,
+                        "source": "test-raster",
+                        "width": 12,
+                    },
+                    "rowId": "row-a",
+                    "sourceId": "source-a",
+                    "surfaceId": "surface-a",
+                }
+            ],
+            "devicePixelRatio": 1,
+            "evidenceId": "evidence-a",
+            "hostCount": 1,
+            "triggerKind": "test",
+            "viewport": {"height": 4, "width": 12},
+            "visibleHostCount": 1,
+            "visibleNonemptyHostCount": 1,
+        },
     )
 
 
@@ -253,6 +414,34 @@ def longtask_event(sequence_number: int, timestamp_ms: int, duration_ms: int) ->
             "timestampMs": timestamp_ms,
         },
     }
+
+
+def png_data_url(*, nonblank: bool) -> str:
+    width = 12
+    height = 4
+    pixels = bytearray()
+    for y in range(height):
+        pixels.append(0)
+        for x in range(width):
+            ink = nonblank and 2 <= x <= 9 and 1 <= y <= 2
+            pixels.extend((0, 0, 0, 255) if ink else (255, 255, 255, 255))
+    payload = png_chunk(
+        b"IHDR",
+        struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0),
+    )
+    payload += png_chunk(b"IDAT", zlib.compress(bytes(pixels)))
+    payload += png_chunk(b"IEND", b"")
+    encoded = base64.b64encode(b"\x89PNG\r\n\x1a\n" + payload).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def png_chunk(kind: bytes, data: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )
 
 
 def write_ndjson(path: Path, rows: list[dict]) -> None:

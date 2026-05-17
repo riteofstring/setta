@@ -255,39 +255,29 @@ describe("GPU Flow committed surface frame", () => {
     );
   });
 
-  it("rejects visible nonempty DOM-control actors that are not projected", () => {
-    const frame = createGpuFlowStartupCommittedSurfaceFrame({
-      retainedRuntimeFrame: createRuntimeFrame({ frameId: 5 }),
+  it("represents blocked visible DOM-control actors as typed publishability", () => {
+    const retainedRuntimeFrame = createBlockedRuntimeFrame({ frameId: 5 });
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 5,
+        retainedRuntimeFrame,
+      }),
     });
-    const blockingActor = frame.actorGenerations.find(
-      (actor) => actor.kind === "dom-control",
-    );
-    if (!blockingActor) {
-      throw new Error("Missing DOM-control actor.");
-    }
-    const blocked: GpuFlowCommittedSurfaceFrame = {
-      ...frame,
-      actorGenerations: [
-        {
-          ...blockingActor,
-          mountReadiness: "not-required",
-          projectionReadiness: "not-required",
-        },
-        ...frame.actorGenerations.filter(
-          (actor) => actor.actorId !== blockingActor.actorId,
-        ),
-      ],
-      displayCompleteness: {
-        blockingActorIds: [blockingActor.actorId],
-        projectedVisibleNonemptyDomControlCount: 0,
-        status: "startup",
-        visibleNonemptyDomControlCount: 1,
-      },
-    };
 
-    expect(() => assertGpuFlowCommittedSurfaceFrameCoherent(blocked)).toThrow(
-      /unprojected visible nonempty DOM controls/,
+    expect(() => assertGpuFlowCommittedSurfaceFrameCoherent(frame)).not.toThrow();
+    expect(frame.displayCompleteness.status).toBe("blocked");
+    expect(frame.displayCompleteness.blockingActorIds.length).toBeGreaterThan(0);
+    expect(frame.publishability).toEqual(
+      expect.objectContaining({
+        kind: "hold-previous",
+        reason: "visible-dom-control-not-projected",
+        status: "blocked",
+      }),
     );
+    expect(
+      frame.projectionHorizon.textActorCoverage
+        .blockedAwaitingBrowserVisualActorIds.length,
+    ).toBeGreaterThan(0);
   });
 
   it("reports typed publishability and retained-scroll horizon diagnostics", () => {
@@ -336,6 +326,23 @@ function createRuntimeFrame({
       ["dict-a:param-content:unpinned", scrollRevision],
     ]),
     viewport,
+    viewportZoomBucket: 1,
+  });
+}
+
+function createBlockedRuntimeFrame({
+  frameId,
+}: {
+  readonly frameId: number;
+}) {
+  return createGpuRetainedRuntimeFrame({
+    devicePixelRatioBucket: 1,
+    frameId,
+    scene: sceneWithManyRetainedRows(),
+    scrollOffsets: new Map(),
+    scrollRevision: frameId,
+    viewport: [0, 0, 1],
+    viewportSize: { height: 3_200, width: 320 },
     viewportZoomBucket: 1,
   });
 }
@@ -406,6 +413,16 @@ function sceneWithRetainedContentSurface(value: string): GpuFlowScene {
   };
 }
 
+function sceneWithManyRetainedRows(): GpuFlowScene {
+  return {
+    contentSurfaces: [retainedContentSurfaceWithRows(120)],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
 function retainedContentSurface(value: string): GpuContentSurface {
   const rect = { height: 120, width: 240, x: 10, y: 20 };
   return {
@@ -443,5 +460,37 @@ function retainedContentSurface(value: string): GpuContentSurface {
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 2,
+  };
+}
+
+function retainedContentSurfaceWithRows(rowCount: number): GpuContentSurface {
+  const rect = { height: rowCount * 28, width: 240, x: 10, y: 20 };
+  return {
+    ...retainedContentSurface("hello"),
+    clipRect: rect,
+    rect,
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "dict-a:param-content:unpinned",
+      ownerSectionId: "dict-a",
+      rowHeight: 28,
+      rows: Array.from({ length: rowCount }, (_, index) => ({
+        control: {
+          defaultDisplayValue: "",
+          displayValue: `value-${index}`,
+          editorKind: "text" as const,
+          kind: "text-like" as const,
+          policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+          renderOwner: "dom-owned" as const,
+          rendererFamily: "text-like",
+          commitPolicy: "native-island" as const,
+        },
+        controlKind: "text-like" as const,
+        depth: 0,
+        id: `param-${index}`,
+        label: `Param ${index}`,
+      })),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
   };
 }

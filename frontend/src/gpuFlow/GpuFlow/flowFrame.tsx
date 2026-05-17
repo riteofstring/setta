@@ -6,7 +6,6 @@ import {
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
-  type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 
@@ -27,11 +26,7 @@ import {
 } from "../nodeInteractionDirty";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import {
-  createGpuFlowFramePerformanceEvent,
-  type GpuFlowFramePhaseDiagnostics,
-  type GpuFlowRetainedTexturePageFrameMetrics,
-} from "../framePerformance";
+import { type GpuFlowFramePhaseDiagnostics } from "../framePerformance";
 import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
@@ -43,7 +38,6 @@ import {
 import {
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionDebugState,
   type GpuFlowProjectionLane,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -77,7 +71,12 @@ import {
   combineGpuFlowHtmlSurfaceNativeVisuals,
   createGpuFlowRetainedContentNativeVisualSignature,
 } from "./flowFrameVisuals";
+import { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import {
+  reportGpuFlowNodeLayerFramePerformance,
+  updateGpuFlowNodeLayerFrameState,
+} from "./flowFrameLifecycle";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
@@ -103,7 +102,6 @@ import {
   EMPTY_GPU_NODE_LAYOUTS,
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
-import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnlyPaintNodes";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 
@@ -259,31 +257,6 @@ function setGpuFlowNodeInteractionElementState(
 ) {
   element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
   element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
-}
-
-function completeGpuNodeInteractionFrame(
-  nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
-  layerResult: RenderHtmlSurfaceFrameResult,
-) {
-  nodeInteractionRef.current?.completeFrame(layerResult);
-}
-
-function requestRemainingGpuFlowFrame({
-  layerResult,
-  retainedTexturePageFollowUpFrame,
-  switchAnimationFollowUpFrame,
-  surfaceRef,
-}: {
-  readonly layerResult: RenderHtmlSurfaceFrameResult;
-  readonly retainedTexturePageFollowUpFrame: boolean;
-  readonly switchAnimationFollowUpFrame: boolean;
-  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-}) {
-  if (layerResult.budgetExhausted || retainedTexturePageFollowUpFrame) {
-    surfaceRef.current?.requestFrame("texture-upload");
-  } else if (switchAnimationFollowUpFrame) {
-    surfaceRef.current?.requestFrame("animation");
-  }
 }
 
 export function nextFrame(frameRef: MutableRefObject<number>): number {
@@ -713,6 +686,26 @@ export function renderGpuFlowNodeLayerFrame({
     viewportInteractionActive: deferResolutionUpdates,
   });
   diagnosticsMs += performance.now() - retainedDiagnosticsStart;
+  const committedSurfacePublicationGate =
+    resolveGpuFlowCommittedSurfacePublicationGate({
+      committedGpuNativeVisuals,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      publicationLane,
+      publishedCommittedSurfaceFrame,
+      publishedRetainedFrame,
+      previousRetainedDisplayFrame,
+      retainedDisplayFrameRef,
+      runtimeCanvas: runtime.canvas,
+      surfaceRef,
+    });
+  if (committedSurfacePublicationGate.kind === "blocked") {
+    return null;
+  }
+  if (committedSurfacePublicationGate.kind === "held-previous") {
+    return committedSurfacePublicationGate.visibleProjectionState;
+  }
   markGpuFlowRetainedContentFrameFreshnessDirty({
     deferResolutionUpdates,
     frame,
@@ -891,109 +884,4 @@ function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {
     canvas.closest(".dark") ??
       canvas.ownerDocument.documentElement.closest(".dark"),
   );
-}
-
-export function reportGpuFlowNodeLayerFramePerformance({
-  callbacksRef,
-  deferResolutionUpdates,
-  frame,
-  frameReasons,
-  interactionDiagnostics,
-  layerResult,
-  phaseDiagnostics,
-  projectionDebugState,
-  renderDurationMs,
-  retainedTexturePages,
-  viewport,
-  viewportFrame,
-}: {
-  readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
-  readonly deferResolutionUpdates: boolean;
-  readonly frame: number;
-  readonly frameReasons: readonly GpuFrameReason[];
-  readonly interactionDiagnostics: ReturnType<
-    typeof createGpuFlowInteractionDiagnosticsSnapshot
-  >;
-  readonly layerResult: RenderHtmlSurfaceFrameResult;
-  readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
-  readonly projectionDebugState?: GpuFlowProjectionDebugState | undefined;
-  readonly renderDurationMs: number;
-  readonly retainedTexturePages:
-    | GpuFlowRetainedTexturePageFrameMetrics
-    | undefined;
-  readonly viewport: GpuFlowNodeLayerState["viewport"];
-  readonly viewportFrame: boolean;
-}) {
-  const framePerformanceReporter =
-    callbacksRef.current.framePerformanceReporter;
-  if (
-    !framePerformanceReporter ||
-    framePerformanceReporter.isEnabled?.() === false
-  ) {
-    return;
-  }
-  framePerformanceReporter.onFrame(
-    createGpuFlowFramePerformanceEvent({
-      deferResolutionUpdates,
-      frame,
-      frameReasons,
-      interactionDiagnostics,
-      layerResult,
-      phaseDiagnostics,
-      projectionDebugState,
-      renderDurationMs,
-      retainedTexturePages,
-      viewport,
-      viewportFrame,
-    }),
-  );
-}
-
-export function updateGpuFlowNodeLayerFrameState({
-  callbacksRef,
-  layerResult,
-  nodeInteractionRef,
-  nodeLayerRef,
-  retainedRuntimeFrame,
-  retainedTexturePageFollowUpFrame,
-  surfaceRef,
-  switchAnimationFollowUpFrame,
-  transformOnlyPaintNodeIdsRef,
-  viewport,
-  viewportFrame,
-  visibleNodeIdsRef,
-}: {
-  readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
-  readonly layerResult: RenderHtmlSurfaceFrameResult;
-  readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
-  readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-  readonly retainedTexturePageFollowUpFrame: boolean;
-  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-  readonly switchAnimationFollowUpFrame: boolean;
-  readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
-  readonly viewport: GpuFlowNodeLayerState["viewport"];
-  readonly viewportFrame: boolean;
-  readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
-}) {
-  markTransformOnlyPaintNodesForViewportFrame({
-    layerResult,
-    transformOnlyPaintNodeIdsRef,
-    viewportFrame,
-  });
-  nodeLayerRef.current = {
-    ...nodeLayerRef.current,
-    retainedRuntimeFrame,
-    visualScene: layerResult.visualScene,
-    visualSceneViewport: viewport,
-  };
-  visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
-  completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
-  callbacksRef.current.onNodeLayerFrame?.(layerResult);
-  requestRemainingGpuFlowFrame({
-    layerResult,
-    retainedTexturePageFollowUpFrame,
-    surfaceRef,
-    switchAnimationFollowUpFrame,
-  });
 }

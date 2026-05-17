@@ -384,11 +384,6 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
     frame.displayCompleteness,
     expectedCompleteness,
   );
-  if (expectedCompleteness.blockingActorIds.length > 0) {
-    throw new Error(
-      "GPU Flow committed surface frame has unprojected visible nonempty DOM controls.",
-    );
-  }
   assertGpuFlowContentFramePublishability(
     frame.publishability,
     createGpuFlowContentFramePublishability({

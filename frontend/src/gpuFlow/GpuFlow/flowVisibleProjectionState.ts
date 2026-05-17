@@ -20,6 +20,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   committedGpuNativeVisuals,
   frameReasons,
   heldPreviousProjectionState,
+  heldPreviousReason = "retained-display-coverage-missing",
   liveProjectionSample,
   publicationLane,
   publishedCommittedSurfaceFrame,
@@ -31,6 +32,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
     | undefined;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly heldPreviousReason?: string | undefined;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly publicationLane: Extract<
     GpuFlowProjectionLane,
@@ -40,24 +42,26 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   readonly publishedRetainedFrame: RetainedDisplayFrame;
   readonly retainedDisplayOutcomeKind: string;
 }): GpuFlowVisibleProjectionState {
-  const heldPrevious =
-    retainedDisplayOutcomeKind === "hold-previous"
-      ? heldPreviousProjectionState
-      : null;
-  const visibleCommittedFrame =
-    heldPrevious?.committedFrame ??
-    publishedCommittedSurfaceFrame ??
-    createGpuFlowCommittedSurfaceFrame({
-      gpuNativeVisuals: committedGpuNativeVisuals,
-      retainedDisplayFrame: publishedRetainedFrame,
-    });
+  const heldPrevious = getGpuFlowHeldPreviousProjectionState({
+    heldPreviousProjectionState,
+    retainedDisplayOutcomeKind,
+  });
+  const visibleCommittedFrame = getGpuFlowVisibleCommittedSurfaceFrame({
+    committedGpuNativeVisuals,
+    heldPrevious,
+    publishedCommittedSurfaceFrame,
+    publishedRetainedFrame,
+  });
   const transaction: GpuFlowProjectionTransaction =
     createGpuFlowProjectionTransactionForCommittedFrameId({
       committedFrameId: visibleCommittedFrame.displayFrameId,
-      kind: heldPrevious ? "held-previous" : "content-publication",
+      kind: getGpuFlowProjectionTransactionKind(heldPrevious),
       lane: publicationLane,
       rawReasons: frameReasons,
-      sample: heldPrevious?.sample ?? liveProjectionSample,
+      sample: getGpuFlowProjectionTransactionSample({
+        heldPrevious,
+        liveProjectionSample,
+      }),
     });
   return createGpuFlowVisibleProjectionState({
     committedFrame: visibleCommittedFrame,
@@ -66,10 +70,64 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
           heldTransaction: transaction,
           knobs: DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
           previousVisibleProjectionState: heldPrevious,
-          reason: "retained-display-coverage-missing",
+          reason: heldPreviousReason,
           requestedSample: liveProjectionSample,
         })
       : null,
     transaction,
   });
+}
+
+function getGpuFlowHeldPreviousProjectionState({
+  heldPreviousProjectionState,
+  retainedDisplayOutcomeKind,
+}: {
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly retainedDisplayOutcomeKind: string;
+}): GpuFlowVisibleProjectionState | null {
+  if (retainedDisplayOutcomeKind !== "hold-previous") {
+    return null;
+  }
+  return heldPreviousProjectionState;
+}
+
+function getGpuFlowVisibleCommittedSurfaceFrame({
+  committedGpuNativeVisuals,
+  heldPrevious,
+  publishedCommittedSurfaceFrame,
+  publishedRetainedFrame,
+}: {
+  readonly committedGpuNativeVisuals:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly heldPrevious: GpuFlowVisibleProjectionState | null;
+  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly publishedRetainedFrame: RetainedDisplayFrame;
+}): GpuFlowCommittedSurfaceFrame {
+  if (heldPrevious) {
+    return heldPrevious.committedFrame;
+  }
+  if (publishedCommittedSurfaceFrame) {
+    return publishedCommittedSurfaceFrame;
+  }
+  return createGpuFlowCommittedSurfaceFrame({
+    gpuNativeVisuals: committedGpuNativeVisuals,
+    retainedDisplayFrame: publishedRetainedFrame,
+  });
+}
+
+function getGpuFlowProjectionTransactionKind(
+  heldPrevious: GpuFlowVisibleProjectionState | null,
+): GpuFlowProjectionTransaction["kind"] {
+  return heldPrevious ? "held-previous" : "content-publication";
+}
+
+function getGpuFlowProjectionTransactionSample({
+  heldPrevious,
+  liveProjectionSample,
+}: {
+  readonly heldPrevious: GpuFlowVisibleProjectionState | null;
+  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+}): GpuFlowLiveProjectionSample {
+  return heldPrevious?.sample ?? liveProjectionSample;
 }

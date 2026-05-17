@@ -66,6 +66,9 @@ export function useGpuFlowCommittedSurfaceFrameState({
         gpuNativeVisuals: options?.gpuNativeVisuals,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
+      if (nextCommittedSurfaceFrame.publishability.kind !== "publishable") {
+        return nextCommittedSurfaceFrame;
+      }
       committedSurfaceRuntimeRef.current.publishCommittedContentFrame(
         nextCommittedSurfaceFrame,
       );

@@ -44,10 +44,12 @@ import type { GpuRect } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   nextFrame,
-  reportGpuFlowNodeLayerFramePerformance,
   resolveRenderableGpuFlowLayerFrameInput,
-  updateGpuFlowNodeLayerFrameState,
 } from "./flowFrame";
+import {
+  reportGpuFlowNodeLayerFramePerformance,
+  updateGpuFlowNodeLayerFrameState,
+} from "./flowFrameLifecycle";
 import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
