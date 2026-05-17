@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import {
   createGpuRetainedRowContentScene,
@@ -305,6 +306,8 @@ function RetainedContentInteractionHarness({
     () => createGpuRetainedContentRuntimeState(),
     [],
   );
+  const visibleProjectionStateRef =
+    useRef<GpuFlowVisibleProjectionState | null>(null);
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -321,6 +324,7 @@ function RetainedContentInteractionHarness({
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
     retainedContentRuntimeState,
+    visibleProjectionStateRef,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
@@ -408,6 +412,8 @@ function RetainedContentScrollHarness({
     () => createGpuRetainedContentRuntimeState(),
     [],
   );
+  const visibleProjectionStateRef =
+    useRef<GpuFlowVisibleProjectionState | null>(null);
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -419,6 +425,7 @@ function RetainedContentScrollHarness({
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
     retainedContentRuntimeState,
+    visibleProjectionStateRef,
     retainedContentScroll: {},
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,
@@ -541,6 +548,8 @@ function RetainedContentHoverHarness({
     () => createGpuRetainedContentRuntimeState(),
     [],
   );
+  const visibleProjectionStateRef =
+    useRef<GpuFlowVisibleProjectionState | null>(null);
 
   useGpuFlowRetainedContentControllers({
     containerRef,
@@ -552,6 +561,7 @@ function RetainedContentHoverHarness({
     retainedContentKeyboard: false,
     retainedContentPageManagerRef,
     retainedContentRuntimeState,
+    visibleProjectionStateRef,
     retainedContentScroll: false,
     retainedContentSwitchAnimations: switchAnimations,
     scenePortConnection: false,

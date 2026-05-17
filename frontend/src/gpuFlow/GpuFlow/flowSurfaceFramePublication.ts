@@ -8,11 +8,13 @@ import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnersh
 import {
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionTransaction,
+  createGpuFlowVisibleProjectionState,
   createGpuFlowVisiblePublicationScheduler,
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
+  type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -36,6 +38,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   GpuFlowNodeLayerFrameInput,
   | "deferResolutionUpdates"
   | "frameReasons"
+  | "heldPreviousProjectionState"
   | "liveProjectionSample"
   | "onRetainedDisplayFrame"
   | "onRetainedPreparedRuntimeFrame"
@@ -63,6 +66,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   >;
   readonly runtime: GpuFlowRuntime;
   readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
+  readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visiblePublicationSchedulerRef: MutableRefObject<
     ReturnType<typeof createGpuFlowVisiblePublicationScheduler>
   >;
@@ -177,7 +181,6 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   liveProjectionSample,
   nodeLayerRef,
   publicationDecision,
-  retainedContentRuntimeState,
   runtime,
   visibleCommittedSurfaceFrame,
   viewportFrame,
@@ -194,7 +197,16 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   if (publicationDecision.lane !== "motion") {
     return false;
   }
-  return renderGpuFlowNodeLayerProjectionFrame({
+  const committedFrame =
+    committedSurfaceFrameRef.current ?? visibleCommittedSurfaceFrame;
+  const projectionTransaction = createGpuFlowProjectionTransaction({
+    committedFrame,
+    kind: "motion-projection",
+    lane: "motion",
+    rawReasons: event.reasons,
+    sample: liveProjectionSample,
+  });
+  const rendered = renderGpuFlowNodeLayerProjectionFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
     callbacksRef: input.callbacksRef,
     canvasSizeRef: input.canvasSizeRef,
@@ -205,18 +217,10 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     nodeDomTransformSyncCacheRef: input.nodeDomTransformSyncCacheRef,
     nodeInteractionRef: input.nodeInteractionRef,
     nodeLayerRef,
-    projectionTransaction: createGpuFlowProjectionTransaction({
-      committedFrame:
-        committedSurfaceFrameRef.current ?? visibleCommittedSurfaceFrame,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: event.reasons,
-      sample: liveProjectionSample,
-    }),
+    projectionTransaction,
     htmlSurfaceRendererRef: input.htmlSurfaceRendererRef,
     retainedContentPageManagerRef: input.retainedContentPageManagerRef,
     retainedDisplayFrameRef: input.retainedDisplayFrameRef,
-    retainedContentRuntimeState,
     runtime,
     surfaceRef: input.surfaceRef,
     textureManagerRef: input.textureManagerRef,
@@ -225,6 +229,14 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     viewportStore,
     viewportFrame,
   });
+  if (rendered) {
+    input.visibleProjectionStateRef.current =
+      createGpuFlowVisibleProjectionState({
+        committedFrame,
+        transaction: projectionTransaction,
+      });
+  }
+  return rendered;
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({
@@ -258,7 +270,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   ) {
     return;
   }
-  renderGpuFlowNodeLayerFrame({
+  const visibleProjectionState = renderGpuFlowNodeLayerFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
     callbacksRef: input.callbacksRef,
     canvasSizeRef: input.canvasSizeRef,
@@ -276,6 +288,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     retainedContentRuntimeState,
     retainedDisplayFrameRef: input.retainedDisplayFrameRef,
     retainedContentSwitchAnimations: input.retainedContentSwitchAnimations,
+    heldPreviousProjectionState: input.visibleProjectionStateRef.current,
     liveProjectionSample,
     publicationLane: getGpuFlowContentPublicationLane(publicationDecision.lane),
     runtime,
@@ -324,6 +337,9 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
     },
   });
+  if (visibleProjectionState) {
+    input.visibleProjectionStateRef.current = visibleProjectionState;
+  }
 }
 
 function shouldPublishGpuFlowContentFrame(

@@ -25,6 +25,7 @@ import {
   type GpuNodeInteractionState,
 } from "../nodeInteractionDirty";
 
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowFramePerformanceEvent,
   type GpuFlowFramePhaseDiagnostics,
@@ -40,10 +41,9 @@ import {
 } from "../interactionDiagnostics";
 import {
   applyGpuFlowProjectionDebugAttributes,
-  createGpuFlowProjectionDebugState,
-  createGpuFlowProjectionTransactionForCommittedFrameId,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
+  type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
@@ -103,6 +103,7 @@ import {
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
 import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnlyPaintNodes";
+import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -521,6 +522,7 @@ export function renderGpuFlowNodeLayerFrame({
   retainedDisplayFrameRef,
   retainedContentSwitchAnimations,
   retainedContentFrameCacheRef,
+  heldPreviousProjectionState,
   liveProjectionSample,
   publicationLane,
   surfaceRef,
@@ -551,6 +553,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly publicationLane: Extract<
     GpuFlowProjectionLane,
@@ -569,7 +572,7 @@ export function renderGpuFlowNodeLayerFrame({
                 | undefined;
             }
           | undefined,
-      ) => void)
+      ) => GpuFlowCommittedSurfaceFrame | void)
     | undefined;
   readonly onRetainedPreparedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
@@ -580,7 +583,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportFrame: boolean;
-}) {
+}): GpuFlowVisibleProjectionState | null {
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,
     nodeLayerRef,
@@ -590,7 +593,7 @@ export function renderGpuFlowNodeLayerFrame({
     textureManagerRef,
   });
   if (!frameInput) {
-    return;
+    return null;
   }
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
@@ -677,7 +680,7 @@ export function renderGpuFlowNodeLayerFrame({
     performance.now() - retainedDisplayTransactionStart;
   if (retainedDisplayOutcome.kind === "block-cold-first-coverage") {
     surfaceRef.current?.requestFrame("texture-upload");
-    return;
+    return null;
   }
   const publishedRetainedFrame = retainedDisplayOutcome.frame;
   retainedDisplayFrameRef.current = publishedRetainedFrame;
@@ -699,9 +702,12 @@ export function renderGpuFlowNodeLayerFrame({
     switchAnimationNativeVisuals,
   );
   const committedContentPublishStart = performance.now();
-  onRetainedDisplayFrame?.(publishedRetainedFrame, {
-    gpuNativeVisuals: committedGpuNativeVisuals,
-  });
+  const publishedCommittedSurfaceFrame = onRetainedDisplayFrame?.(
+    publishedRetainedFrame,
+    {
+      gpuNativeVisuals: committedGpuNativeVisuals,
+    },
+  );
   committedContentPublishMs += performance.now() - committedContentPublishStart;
   const retainedDiagnosticsStart = performance.now();
   postGpuFlowRetainedDisplayFrameChromeReproEvent({
@@ -834,25 +840,26 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
-  const projectionTransaction =
-    createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: publishedRetainedFrame.id,
-      kind:
-        retainedDisplayOutcome.kind === "hold-previous"
-          ? "held-previous"
-          : "content-publication",
-      lane: publicationLane,
-      rawReasons: frameReasons,
-      sample: liveProjectionSample,
+  const visibleProjectionState =
+    createGpuFlowVisibleProjectionStateForRetainedPublication({
+      committedGpuNativeVisuals,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      publicationLane,
+      publishedCommittedSurfaceFrame,
+      publishedRetainedFrame,
+      retainedDisplayOutcomeKind: retainedDisplayOutcome.kind,
     });
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtime.canvas,
-    debugState: createGpuFlowProjectionDebugState(projectionTransaction),
+    debugState: visibleProjectionState.debugState,
   });
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedRuntimeFrame,
     publishedRetainedRuntimeFrame,
   );
+  return visibleProjectionState;
 }
 
 function createGpuFlowRetainedContentFrameSceneInput(

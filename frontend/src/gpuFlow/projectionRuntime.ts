@@ -147,6 +147,13 @@ export type GpuFlowProjectionDebugState = {
   readonly transactionKind: GpuFlowProjectionTransactionKind;
 };
 
+export type GpuFlowVisibleProjectionState = {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly debugState: GpuFlowProjectionDebugState;
+  readonly sample: GpuFlowLiveProjectionSample;
+  readonly transaction: GpuFlowProjectionTransaction;
+};
+
 export type GpuFlowProjectionSchedulerKnobs = {
   readonly maxConsecutiveMotionFramesBeforeContentProbe: number;
   readonly maxContentInterleaveMs: number;
@@ -412,6 +419,21 @@ export function createGpuFlowProjectionDebugState(
     projectionSampleId: transaction.sample.id,
     projectionTransactionId: transaction.id,
     transactionKind: transaction.kind,
+  });
+}
+
+export function createGpuFlowVisibleProjectionState({
+  committedFrame,
+  transaction,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly transaction: GpuFlowProjectionTransaction;
+}): GpuFlowVisibleProjectionState {
+  return Object.freeze({
+    committedFrame,
+    debugState: createGpuFlowProjectionDebugState(transaction),
+    sample: transaction.sample,
+    transaction,
   });
 }
 

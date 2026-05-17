@@ -22,10 +22,6 @@ import {
   isGpuFlowMotionFrameReason,
   type GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
-import {
-  getGpuRetainedContentRuntimeScrollOffsets,
-  type GpuRetainedContentRuntimeState,
-} from "../retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type {
   RetainedContentTexturePageFrameSurface,
@@ -85,7 +81,6 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
   retainedDisplayFrameRef,
-  retainedContentRuntimeState,
   runtime,
   surfaceRef,
   textureManagerRef,
@@ -108,7 +103,6 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly runtime: GpuFlowRuntime;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -141,7 +135,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     ? projectGpuFlowRetainedDisplayFrameFlatSurfaces({
         layer,
         retainedDisplayFrame,
-        retainedContentRuntimeState,
+        scrollOffsets: projectionTransaction.sample.retainedScrollOffsets,
       })
     : {
         flatSurfaces: retainedDisplayFrame.flatSurfaces,
@@ -305,12 +299,12 @@ function hasGpuFlowProjectionOnlyForbiddenContentWork({
 
 function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   layer,
-  retainedContentRuntimeState,
   retainedDisplayFrame,
+  scrollOffsets,
 }: {
   readonly layer: GpuFlowNodeLayerState;
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
 }): GpuFlowRetainedProjectionFrame {
   if (!layer.scene) {
     return {
@@ -318,9 +312,6 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
       needsRetainedPageMaintenance: false,
     };
   }
-  const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
-    retainedContentRuntimeState,
-  );
   const changedSurfaceIds = getGpuFlowRetainedProjectionChangedSurfaceIds({
     currentScrollOffsets: scrollOffsets,
     retainedDisplayFrame,

@@ -3,6 +3,11 @@
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleProjectionState,
+} from "../projectionRuntime";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
@@ -848,6 +853,68 @@ describe("GPU retained content interaction controller", () => {
         id: "row:param-1",
         kind: "row",
         ownerRowId: "param-1",
+      },
+      localPoint: { x: 116, y: 42 },
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+  });
+
+  it("hit tests retained content through the visible projection sample", () => {
+    const element = createHostElement();
+    const scene = retainedContentScene();
+    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene,
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame,
+    });
+    const projectionSample = {
+      cssViewport: { height: 120, width: 240 },
+      devicePixelRatio: 1,
+      gestureOwner: "ownedByRetainedSectionScroll" as const,
+      id: 7,
+      retainedScrollOffsets: new Map([
+        ["dict-a:param-content:unpinned", { x: 0, y: 28 }],
+      ]),
+      retainedScrollRevision: 1,
+      timestamp: 7,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    };
+    const visibleProjectionState = createGpuFlowVisibleProjectionState({
+      committedFrame,
+      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: committedFrame.displayFrameId,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: projectionSample,
+      }),
+    });
+
+    const hit = hitTestGpuRetainedContentInteraction({
+      element,
+      event: createPointerEvent("pointermove", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+      getRetainedRuntimeFrame: () => retainedRuntimeFrame,
+      getScene: () => retainedContentScene(),
+      getVisibleProjectionState: () => visibleProjectionState,
+      store: createGpuFlowViewportStore(),
+    });
+
+    expect(hit).toMatchObject({
+      hit: {
+        id: "row:param-2",
+        kind: "row",
+        ownerRowId: "param-2",
       },
       localPoint: { x: 116, y: 42 },
       surfaceId: "dict-a:param-content:unpinned",

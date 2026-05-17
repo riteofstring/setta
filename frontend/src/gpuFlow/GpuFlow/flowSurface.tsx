@@ -33,6 +33,7 @@ import {
 import {
   createGpuFlowLiveProjectionSampler,
   createGpuFlowVisiblePublicationScheduler,
+  type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
@@ -201,9 +202,15 @@ export function GpuFlow({
   const visiblePublicationSchedulerRef = useRef(
     createGpuFlowVisiblePublicationScheduler(),
   );
+  const visibleProjectionStateRef =
+    useRef<GpuFlowVisibleProjectionState | null>(null);
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) =>
-      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ?? null,
+      visibleProjectionStateRef.current?.sample.retainedScrollOffsets.get(
+        surfaceId,
+      ) ??
+      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ??
+      null,
     [activeRetainedContentRuntimeState],
   );
   const retainedRuntimeFrameRenderSignatureRef = useRef<string | null>(null);
@@ -415,6 +422,7 @@ export function GpuFlow({
       return;
     }
     retainedDisplayFrameRef.current = null;
+    visibleProjectionStateRef.current = null;
     resetCommittedSurfaceFrame();
     retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
@@ -462,6 +470,7 @@ export function GpuFlow({
     retainedContentKeyboard,
     retainedContentPageManagerRef,
     retainedContentRuntimeState: activeRetainedContentRuntimeState,
+    visibleProjectionStateRef,
     retainedContentScroll,
     retainedContentSwitchAnimations,
     scenePortConnection,
@@ -856,6 +865,7 @@ export function GpuFlow({
         transformOnlyPaintNodeIdsRef,
         visibleCommittedSurfaceFrame,
         visibleNodeIdsRef,
+        visibleProjectionStateRef,
         visiblePublicationSchedulerRef,
         viewportRuntime,
         viewportStore,

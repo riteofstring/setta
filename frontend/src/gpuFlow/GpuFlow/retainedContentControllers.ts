@@ -24,6 +24,7 @@ import {
   type GpuScenePortConnectionControllerOptions,
 } from "../interactions/scenePortConnection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   areGpuRetainedContentRowHoverTargetsEqual,
   type GpuRetainedContentRowHoverTarget,
@@ -55,7 +56,11 @@ export type GpuFlowRetainedContentConnectionOptions =
   | false
   | Omit<
       GpuRetainedContentConnectionControllerOptions,
-      "element" | "getScene" | "layoutStore" | "store"
+      | "element"
+      | "getScene"
+      | "getVisibleProjectionState"
+      | "layoutStore"
+      | "store"
     >
   | undefined;
 
@@ -67,6 +72,7 @@ export type GpuFlowRetainedContentInteractionOptions =
       | "getScene"
       | "getRetainedRuntimeFrame"
       | "getScrollOffsets"
+      | "getVisibleProjectionState"
       | "interactionDiagnostics"
       | "requestFrame"
       | "store"
@@ -126,6 +132,7 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentPageManagerRef: MutableRefObject<GpuFlowRetainedContentPageManager | null>;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly scenePortConnection: GpuFlowScenePortConnectionOptions;
@@ -145,6 +152,7 @@ export function useGpuFlowRetainedContentControllers({
   retainedContentKeyboard,
   retainedContentPageManagerRef,
   retainedContentRuntimeState,
+  visibleProjectionStateRef,
   retainedContentScroll,
   retainedContentSwitchAnimations,
   scenePortConnection,
@@ -179,6 +187,7 @@ export function useGpuFlowRetainedContentControllers({
       element: container,
       getRetainedRuntimeFrame: () =>
         nodeLayerRef.current.retainedRuntimeFrame ?? null,
+      getVisibleProjectionState: () => visibleProjectionStateRef.current,
       getScene: () => nodeLayerRef.current.scene,
       layoutStore,
       store: viewportStore,
@@ -188,6 +197,7 @@ export function useGpuFlowRetainedContentControllers({
     layoutStore,
     nodeLayerRef,
     retainedContentConnection,
+    visibleProjectionStateRef,
     viewportStore,
   ]);
 
@@ -314,6 +324,7 @@ export function useGpuFlowRetainedContentControllers({
         getScene: () => nodeLayerRef.current.scene,
         getRetainedRuntimeFrame: () =>
           nodeLayerRef.current.retainedRuntimeFrame ?? null,
+        getVisibleProjectionState: () => visibleProjectionStateRef.current,
         getScrollOffsets: () =>
           getGpuRetainedContentRuntimeScrollOffsets(
             retainedContentRuntimeState,
@@ -536,6 +547,7 @@ export function useGpuFlowRetainedContentControllers({
     nodeElementByIdRef,
     surfaceRef,
     textureManagerRef,
+    visibleProjectionStateRef,
     viewportStore,
   ]);
 

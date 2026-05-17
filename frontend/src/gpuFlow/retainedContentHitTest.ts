@@ -106,6 +106,28 @@ export function hitTestGpuRetainedContentRuntimeFrame({
   });
 }
 
+export function hitTestGpuRetainedContentProjectedRuntimeFrame({
+  frame,
+  point,
+  scrollOffsets,
+}: {
+  readonly frame: GpuRetainedRuntimeFrame;
+  readonly point: GpuPoint;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+}): GpuRetainedContentHitTarget | null {
+  return hitTestGpuRetainedContentSurfaces({
+    contentSurfaceCount: frame.descriptors.sourceSurfaces.length,
+    point,
+    surfaces: frame.descriptors.hitTestSurfaces.map((surface) => ({
+      ...surface,
+      retainedScene: createGpuRetainedContentSampledSceneForSurface({
+        scrollOffsets,
+        surface,
+      }),
+    })),
+  });
+}
+
 function hitTestGpuRetainedContentSurfaces({
   contentSurfaceCount,
   point,

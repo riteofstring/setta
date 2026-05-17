@@ -4,7 +4,9 @@ import {
   toGpuFlowRetainedHitDiagnostics,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
+  hitTestGpuRetainedContentProjectedRuntimeFrame,
   hitTestGpuRetainedContentRuntimeFrame,
   hitTestGpuRetainedContentScene,
   type GpuRetainedContentHitTarget,
@@ -66,6 +68,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
     | undefined;
   readonly getRetainedRuntimeFrame?:
     | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
+  readonly getVisibleProjectionState?:
+    | (() => GpuFlowVisibleProjectionState | null | undefined)
     | undefined;
   readonly interactionDiagnostics?:
     | GpuRetainedContentInteractionDiagnosticsRef
@@ -153,6 +158,7 @@ export function hitTestGpuRetainedContentInteraction({
   getScene,
   getRetainedRuntimeFrame,
   getScrollOffsets,
+  getVisibleProjectionState,
   store = gpuFlowViewportStore,
 }: {
   readonly element?: HTMLElement | undefined;
@@ -164,25 +170,53 @@ export function hitTestGpuRetainedContentInteraction({
   readonly getScrollOffsets?:
     | (() => GpuRetainedContentScrollOffsetMap)
     | undefined;
+  readonly getVisibleProjectionState?:
+    | (() => GpuFlowVisibleProjectionState | null | undefined)
+    | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 }): GpuRetainedContentInteractionHit | null {
-  const scene = getScene();
-  const domNode = element ?? store.getState().domNode;
-  if (!scene || !domNode) {
+  const context = resolveGpuRetainedContentInteractionHitContext({
+    element,
+    getScene,
+    store,
+  });
+  if (!context) {
     return null;
   }
-  const screenPoint = getEventPointRelativeToElement(event, domNode);
+  const screenPoint = getEventPointRelativeToElement(event, context.domNode);
+  const visibleProjectionState = getVisibleProjectionState?.() ?? null;
   const flowPoint = screenToFlowPosition(
     screenPoint,
-    store.getState().transform,
+    visibleProjectionState?.sample.viewport ?? store.getState().transform,
   );
   const hit = hitTestGpuRetainedContentInteractionFrame({
     getRetainedRuntimeFrame,
     getScrollOffsets,
     point: flowPoint,
-    scene,
+    scene: context.scene,
+    visibleProjectionState,
   });
   return hit ? { ...hit, screenPoint } : null;
+}
+
+function resolveGpuRetainedContentInteractionHitContext({
+  element,
+  getScene,
+  store,
+}: {
+  readonly element: HTMLElement | undefined;
+  readonly getScene: () => GpuFlowScene | undefined;
+  readonly store: GpuFlowViewportStoreApi;
+}): {
+  readonly domNode: HTMLElement;
+  readonly scene: GpuFlowScene;
+} | null {
+  const scene = getScene();
+  const domNode = element ?? store.getState().domNode;
+  if (!scene || !domNode) {
+    return null;
+  }
+  return { domNode, scene };
 }
 
 function hitTestGpuRetainedContentInteractionFrame({
@@ -190,6 +224,7 @@ function hitTestGpuRetainedContentInteractionFrame({
   getScrollOffsets,
   point,
   scene,
+  visibleProjectionState,
 }: {
   readonly getRetainedRuntimeFrame?:
     | (() => GpuRetainedRuntimeFrame | null | undefined)
@@ -199,7 +234,15 @@ function hitTestGpuRetainedContentInteractionFrame({
     | undefined;
   readonly point: GpuPoint;
   readonly scene: GpuFlowScene;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuRetainedContentHitTarget | null {
+  if (visibleProjectionState) {
+    return hitTestGpuRetainedContentProjectedRuntimeFrame({
+      frame: visibleProjectionState.committedFrame.retainedRuntimeFrame,
+      point,
+      scrollOffsets: visibleProjectionState.sample.retainedScrollOffsets,
+    });
+  }
   if (getRetainedRuntimeFrame) {
     const frame = getRetainedRuntimeFrame();
     return frame
@@ -414,6 +457,7 @@ class GpuRetainedContentInteractionController {
       getScene: this.options.getScene,
       getRetainedRuntimeFrame: this.options.getRetainedRuntimeFrame,
       getScrollOffsets: this.options.getScrollOffsets,
+      getVisibleProjectionState: this.options.getVisibleProjectionState,
       store: this.store,
     });
     if (!hit || hitFilter?.(hit) === false) {

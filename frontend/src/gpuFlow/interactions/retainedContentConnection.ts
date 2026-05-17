@@ -8,6 +8,7 @@ import type {
 import { handlePointerDown } from "../Handle/handler";
 import type { ValidConnectionFunc } from "../Handle/utils";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuRetainedContentPortAnchor } from "../retainedContentScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
@@ -57,6 +58,9 @@ export type GpuRetainedContentConnectionControllerOptions =
     readonly getRetainedRuntimeFrame?:
       | (() => GpuRetainedRuntimeFrame | null | undefined)
       | undefined;
+    readonly getVisibleProjectionState?:
+      | (() => GpuFlowVisibleProjectionState | null | undefined)
+      | undefined;
     readonly getScene: () => GpuFlowScene | null | undefined;
     readonly layoutStore: GpuFlowLayoutStoreApi;
   };
@@ -75,6 +79,7 @@ export function hitTestGpuRetainedContentConnection({
   element,
   event,
   getRetainedRuntimeFrame,
+  getVisibleProjectionState,
   getScene,
   store = gpuFlowViewportStore,
 }: {
@@ -82,6 +87,9 @@ export function hitTestGpuRetainedContentConnection({
   readonly event: Pick<PointerEvent, "clientX" | "clientY" | "target">;
   readonly getRetainedRuntimeFrame?:
     | (() => GpuRetainedRuntimeFrame | null | undefined)
+    | undefined;
+  readonly getVisibleProjectionState?:
+    | (() => GpuFlowVisibleProjectionState | null | undefined)
     | undefined;
   readonly getScene: () => GpuFlowScene | null | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
@@ -93,6 +101,7 @@ export function hitTestGpuRetainedContentConnection({
     element,
     event,
     getRetainedRuntimeFrame,
+    getVisibleProjectionState,
     getScene: () => getScene() ?? undefined,
     store,
   });
@@ -129,6 +138,9 @@ class GpuRetainedContentConnectionController {
   private readonly getRetainedRuntimeFrame:
     | (() => GpuRetainedRuntimeFrame | null | undefined)
     | undefined;
+  private readonly getVisibleProjectionState:
+    | (() => GpuFlowVisibleProjectionState | null | undefined)
+    | undefined;
   private readonly getScene: () => GpuFlowScene | null | undefined;
   private readonly isConnectionCandidateAllowed:
     | ((
@@ -150,6 +162,7 @@ class GpuRetainedContentConnectionController {
     this.disabled = options.disabled;
     this.element = options.element;
     this.getRetainedRuntimeFrame = options.getRetainedRuntimeFrame;
+    this.getVisibleProjectionState = options.getVisibleProjectionState;
     this.getScene = options.getScene;
     this.isConnectionCandidateAllowed = options.isConnectionCandidateAllowed;
     this.isValidConnection = options.isValidConnection ?? alwaysValidConnection;
@@ -180,6 +193,7 @@ class GpuRetainedContentConnectionController {
       element: this.element,
       event,
       getRetainedRuntimeFrame: this.getRetainedRuntimeFrame,
+      getVisibleProjectionState: this.getVisibleProjectionState,
       getScene: this.getScene,
       store: this.store,
     });
