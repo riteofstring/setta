@@ -44,6 +44,8 @@ export type BrowserVisualActorCoverageExemptionReason =
 
 export type BrowserVisualActorRepresentationKind =
   | "active-editor"
+  | "blocked"
+  | "compatible-previous"
   | "live-host"
   | "passive-live-display"
   | "passive-snapshot";
@@ -56,6 +58,53 @@ export type BrowserVisualActorCoverageState =
   | "exact-snapshot-ready"
   | "live-host-ready"
   | "true-hole";
+
+export type BrowserActorId = string;
+export type DomIslandId = string;
+export type HostId = string;
+export type SnapshotId = string;
+export type TransactionId = string;
+
+export type BrowserActorBlockedReason =
+  | "clipped-empty"
+  | "live-dom-budget"
+  | "missing-browser-visual"
+  | "snapshot-pending";
+
+export type BrowserTextActorRepresentation =
+  | {
+      readonly actorId: BrowserActorId;
+      readonly hostId: HostId;
+      readonly kind: "passive-live-display";
+    }
+  | {
+      readonly actorId: BrowserActorId;
+      readonly kind: "passive-snapshot";
+      readonly snapshotId: SnapshotId;
+    }
+  | {
+      readonly actorId: BrowserActorId;
+      readonly hostId: HostId;
+      readonly islandId: DomIslandId;
+      readonly kind: "active-editor";
+    }
+  | {
+      readonly actorId: BrowserActorId;
+      readonly kind: "compatible-previous";
+      readonly previousTransactionId: TransactionId;
+    }
+  | {
+      readonly actorId: BrowserActorId;
+      readonly kind: "blocked";
+      readonly reason: BrowserActorBlockedReason;
+    };
+
+export type BrowserVisualActorCompatiblePreviousProof = {
+  readonly previousTransactionId: TransactionId;
+  readonly previousVisualGenerationId: string;
+  readonly reasonCode: string;
+  readonly resourceHandles: readonly SurfaceResourceHandle[];
+};
 
 export type BrowserVisualActor = {
   readonly activationClass:
@@ -87,6 +136,7 @@ export type BrowserVisualActor = {
   readonly island: SurfaceActiveDomIslandGeneration | null;
   readonly nonemptyReason: BrowserVisualActorNonemptyReason | null;
   readonly rendererBucket: SurfaceRendererBucket;
+  readonly representation: BrowserTextActorRepresentation | null;
   readonly representationKind: BrowserVisualActorRepresentationKind | null;
   readonly resourceHandles: readonly SurfaceResourceHandle[];
   readonly semanticGenerationId: string;
@@ -132,7 +182,14 @@ type BrowserVisualSurfaceTransactionAccumulator = {
 
 export function createDomControlBrowserVisualActor(
   control: GpuRetainedDomControlSourceDescriptor,
+  options: {
+    readonly compatiblePreviousProof?:
+      | BrowserVisualActorCompatiblePreviousProof
+      | null
+      | undefined;
+  } = {},
 ): BrowserVisualActor {
+  const compatiblePreviousProof = options.compatiblePreviousProof ?? null;
   const visibilityReason = getDomControlVisibilityReason(control);
   const nonemptyReason = getDomControlNonemptyReason(control);
   const coverageRequired = getDomControlCoverageRequired({
@@ -144,6 +201,7 @@ export function createDomControlBrowserVisualActor(
     ? null
     : getDomControlCoverageExemption(visibilityReason);
   const coverageState = getDomControlCoverageState({
+    compatiblePreviousProof,
     control,
     coverageRequired: coverageRequired.required,
   });
@@ -151,7 +209,13 @@ export function createDomControlBrowserVisualActor(
     control,
     coverageState,
   });
+  const representation = createDomControlTextActorRepresentation({
+    compatiblePreviousProof,
+    control,
+    coverageState,
+  });
   const resourceHandles = getBrowserVisualActorResourceHandles({
+    compatiblePreviousProof,
     control,
     coverageState,
   });
@@ -202,6 +266,7 @@ export function createDomControlBrowserVisualActor(
     island: null,
     nonemptyReason,
     rendererBucket: "native-control",
+    representation,
     representationKind,
     resourceHandles,
     semanticGenerationId,
@@ -274,6 +339,7 @@ export function createDomIslandBrowserVisualActor(
     island: activeIsland,
     nonemptyReason: coverage.nonemptyReason,
     rendererBucket: "native-control",
+    representation: null,
     representationKind: coverage.representationKind,
     resourceHandles: coverage.resourceHandles,
     semanticGenerationId,
@@ -300,16 +366,21 @@ function createDomIslandBrowserVisualCoverage({
   | "coverageRequired"
   | "coverageState"
   | "nonemptyReason"
+  | "representation"
   | "representationKind"
   | "resourceHandles"
   | "visibilityReason"
 > {
   if (!visible) {
     return Object.freeze({
-      coverageExemption: { reason: "clipped-empty" },
-      coverageRequired: { reason: "none", required: false },
+      coverageExemption: Object.freeze({ reason: "clipped-empty" as const }),
+      coverageRequired: Object.freeze({
+        reason: "none" as const,
+        required: false,
+      }),
       coverageState: "coverage-exempt",
       nonemptyReason: null,
+      representation: null,
       representationKind: null,
       resourceHandles: Object.freeze([]),
       visibilityReason: "clipped-empty",
@@ -317,12 +388,16 @@ function createDomIslandBrowserVisualCoverage({
   }
   return Object.freeze({
     coverageExemption: null,
-    coverageRequired: { reason: "native-dom-island", required: true },
+    coverageRequired: Object.freeze({
+      reason: "native-dom-island" as const,
+      required: true,
+    }),
     coverageState: "live-host-ready",
     nonemptyReason: "semantic-required-visible",
+    representation: null,
     representationKind: "live-host",
     resourceHandles: Object.freeze([
-      { id: island.id, kind: "native-dom-island" },
+      Object.freeze({ id: island.id, kind: "native-dom-island" as const }),
     ]),
     visibilityReason: "visible",
   });
@@ -625,15 +700,29 @@ function getDomControlCoverageExemption(
 }
 
 function getDomControlCoverageState({
+  compatiblePreviousProof,
   control,
   coverageRequired,
 }: {
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageRequired: boolean;
 }): BrowserVisualActorCoverageState {
   if (!coverageRequired) {
     return "coverage-exempt";
   }
+  if (
+    compatiblePreviousProof &&
+    canUseDomControlCompatiblePreviousCoverage(control)
+  ) {
+    return "compatible-previous-ready";
+  }
+  return getDomControlCoverageStateForVisualPolicy(control);
+}
+
+function getDomControlCoverageStateForVisualPolicy(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserVisualActorCoverageState {
   switch (control.visualPolicy) {
     case "live-dom":
       return "live-host-ready";
@@ -650,6 +739,15 @@ function getDomControlCoverageState({
   }
 }
 
+function canUseDomControlCompatiblePreviousCoverage(
+  control: GpuRetainedDomControlSourceDescriptor,
+): boolean {
+  return (
+    control.visualPolicy === "blocked-awaiting-browser-visual" ||
+    (control.visualPolicy === "snapshot" && !control.snapshotSurfaceId)
+  );
+}
+
 function getDomControlRepresentationKind({
   control,
   coverageState,
@@ -657,8 +755,18 @@ function getDomControlRepresentationKind({
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageState: BrowserVisualActorCoverageState;
 }): BrowserVisualActorRepresentationKind | null {
-  if (coverageState === "coverage-exempt" || coverageState === "true-hole") {
+  if (coverageState === "coverage-exempt") {
     return null;
+  }
+  if (coverageState === "compatible-previous-ready") {
+    return "compatible-previous";
+  }
+  if (
+    coverageState === "blocked-awaiting-live-host" ||
+    coverageState === "blocked-awaiting-snapshot" ||
+    coverageState === "true-hole"
+  ) {
+    return "blocked";
   }
   if (control.active) {
     return "active-editor";
@@ -669,33 +777,164 @@ function getDomControlRepresentationKind({
   return "passive-live-display";
 }
 
-function getBrowserVisualActorResourceHandles({
+function createDomControlTextActorRepresentation({
+  compatiblePreviousProof,
+  control,
+  coverageState,
+}: {
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly coverageState: BrowserVisualActorCoverageState;
+}): BrowserTextActorRepresentation | null {
+  if (coverageState === "coverage-exempt") {
+    return null;
+  }
+  if (coverageState === "live-host-ready") {
+    return createLiveHostDomControlTextActorRepresentation(control);
+  }
+  if (coverageState === "exact-snapshot-ready") {
+    return createSnapshotDomControlTextActorRepresentation(control);
+  }
+  if (coverageState === "compatible-previous-ready") {
+    return createCompatiblePreviousDomControlTextActorRepresentation({
+      compatiblePreviousProof,
+      control,
+    });
+  }
+  return createBlockedDomControlTextActorRepresentation({
+    control,
+    reason: getBlockedDomControlTextActorRepresentationReason({
+      control,
+      coverageState,
+    }),
+  });
+}
+
+function createSnapshotDomControlTextActorRepresentation(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserTextActorRepresentation {
+  return Object.freeze({
+    actorId: control.sourceId,
+    kind: "passive-snapshot",
+    snapshotId:
+      control.snapshotSurfaceId ??
+      `missing-snapshot:${control.snapshotCacheKeyRevision}`,
+  });
+}
+
+function createCompatiblePreviousDomControlTextActorRepresentation({
+  compatiblePreviousProof,
+  control,
+}: {
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+}): BrowserTextActorRepresentation {
+  return Object.freeze({
+    actorId: control.sourceId,
+    kind: "compatible-previous",
+    previousTransactionId:
+      compatiblePreviousProof?.previousTransactionId ?? "unknown",
+  });
+}
+
+function getBlockedDomControlTextActorRepresentationReason({
   control,
   coverageState,
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageState: BrowserVisualActorCoverageState;
-}): readonly SurfaceResourceHandle[] {
-  switch (coverageState) {
-    case "live-host-ready":
-      return Object.freeze([{ id: control.sourceId, kind: "source" }]);
-    case "exact-snapshot-ready":
-      return Object.freeze([
-        {
-          id: [
-            control.snapshotSurfaceId,
-            control.snapshotCacheKeyRevision,
-          ].join(":"),
-          kind: "texture",
-        },
-      ]);
-    case "blocked-awaiting-live-host":
-    case "blocked-awaiting-snapshot":
-    case "compatible-previous-ready":
-    case "coverage-exempt":
-    case "true-hole":
-      return Object.freeze([]);
+}): BrowserActorBlockedReason {
+  if (coverageState === "blocked-awaiting-live-host") {
+    return "live-dom-budget";
   }
+  if (coverageState === "blocked-awaiting-snapshot") {
+    return "snapshot-pending";
+  }
+  return getDomControlTrueHoleBlockedReason(control);
+}
+
+function createLiveHostDomControlTextActorRepresentation(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserTextActorRepresentation {
+  if (control.active) {
+    return Object.freeze({
+      actorId: control.sourceId,
+      hostId: createDomControlHostId(control),
+      islandId: control.layerSlot,
+      kind: "active-editor",
+    });
+  }
+  return Object.freeze({
+    actorId: control.sourceId,
+    hostId: createDomControlHostId(control),
+    kind: "passive-live-display",
+  });
+}
+
+function createBlockedDomControlTextActorRepresentation({
+  control,
+  reason,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly reason: BrowserActorBlockedReason;
+}): BrowserTextActorRepresentation {
+  return Object.freeze({
+    actorId: control.sourceId,
+    kind: "blocked",
+    reason,
+  });
+}
+
+function getDomControlTrueHoleBlockedReason(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserActorBlockedReason {
+  return control.visualPolicy === "clipped-empty"
+    ? "clipped-empty"
+    : "missing-browser-visual";
+}
+
+function createDomControlHostId(
+  control: GpuRetainedDomControlSourceDescriptor,
+): HostId {
+  return `dom-control-host:${control.sourceId}`;
+}
+
+function getBrowserVisualActorResourceHandles({
+  compatiblePreviousProof,
+  control,
+  coverageState,
+}: {
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly coverageState: BrowserVisualActorCoverageState;
+}): readonly SurfaceResourceHandle[] {
+  if (coverageState === "live-host-ready") {
+    return Object.freeze([{ id: control.sourceId, kind: "source" }]);
+  }
+  if (coverageState === "exact-snapshot-ready") {
+    return createDomControlSnapshotResourceHandles(control);
+  }
+  if (coverageState === "compatible-previous-ready") {
+    return Object.freeze(
+      compatiblePreviousProof?.resourceHandles.map((handle) =>
+        Object.freeze({ ...handle }),
+      ) ?? [],
+    );
+  }
+  return Object.freeze([]);
+}
+
+function createDomControlSnapshotResourceHandles(
+  control: GpuRetainedDomControlSourceDescriptor,
+): readonly SurfaceResourceHandle[] {
+  return Object.freeze([
+    {
+      id: [control.snapshotSurfaceId, control.snapshotCacheKeyRevision].join(
+        ":",
+      ),
+      kind: "texture",
+    },
+  ]);
 }
 
 function freezeBrowserVisualActor(

@@ -3,24 +3,54 @@ import type {
   GpuFlowCommittedSurfaceTextCoverageProof,
   GpuFlowTextActorActivationPolicy,
 } from "./committedSurfaceFrame";
+import { createGpuFlowDomControlCompatiblePreviousProof } from "./GpuFlow/domControlPlaneCompatibility";
 import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
-import { createDomControlBrowserVisualActor } from "./surfaceCompositor/browserVisualActorAdapter";
+import {
+  createDomControlBrowserVisualActor,
+  type BrowserVisualActor,
+  type BrowserVisualActorCompatiblePreviousProof,
+} from "./surfaceCompositor/browserVisualActorAdapter";
 import type { GpuRect } from "./viewportMath";
+
+type DomControlActorOptions = {
+  readonly previousCommittedSurfaceActors?:
+    | readonly GpuFlowCommittedSurfaceActorGeneration[]
+    | null;
+  readonly previousRetainedRuntimeFrame?: GpuRetainedRuntimeFrame | null;
+  readonly previousTransactionId?: string | null;
+};
 
 export function createDomControlActors(
   retainedRuntimeFrame: GpuRetainedRuntimeFrame,
+  options: DomControlActorOptions = {},
 ): readonly GpuFlowCommittedSurfaceActorGeneration[] {
+  const previousControlById = createPreviousDomControlMap(
+    options.previousRetainedRuntimeFrame,
+  );
+  const previousActorById = createPreviousDomControlActorMap(
+    options.previousCommittedSurfaceActors,
+  );
   return Object.freeze(
     retainedRuntimeFrame.descriptors.domControlSources.map((control) =>
-      domControlToActor({ control }),
+      domControlToActor({
+        compatiblePreviousProof: createDomControlCompatiblePreviousCoverage({
+          control,
+          previousActor: previousActorById.get(control.sourceId),
+          previousControl: previousControlById.get(control.sourceId),
+          previousTransactionId: options.previousTransactionId ?? null,
+        }),
+        control,
+      }),
     ),
   );
 }
 
 function domControlToActor({
+  compatiblePreviousProof,
   control,
 }: {
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
 }): GpuFlowCommittedSurfaceActorGeneration {
   const projected = isProjectedDomControl(control);
@@ -49,7 +79,11 @@ function domControlToActor({
     control,
     projected,
   });
-  const browserVisual = createDomControlBrowserVisualActor(control);
+  const browserVisual = createDomControlBrowserVisualActor(control, {
+    compatiblePreviousProof,
+  });
+  const browserVisualCoverageReady =
+    isDomControlBrowserVisualCoverageReady(browserVisual);
   return freezeDomControlActor({
     active: control.active,
     accessibilityProjection: "browser-dom",
@@ -72,10 +106,16 @@ function domControlToActor({
     kind: "dom-control",
     layoutProjectionGenerationId,
     liveMotionSampleId: control.viewportSampleRevision,
-    mountReadiness: hasProjectionVisual ? "ready" : "not-required",
+    mountReadiness:
+      hasProjectionVisual || browserVisualCoverageReady
+        ? "ready"
+        : "not-required",
     ownerSurfaceId: control.surfaceId,
     pointerEvents: getDomControlPointerEvents({ control, projected }),
-    projectionReadiness: hasProjectionVisual ? "ready" : "not-required",
+    projectionReadiness:
+      hasProjectionVisual || browserVisualCoverageReady
+        ? "ready"
+        : "not-required",
     readinessGenerationId,
     retainedScrollOffset: control.sectionScrollOffset,
     retainedScrollRevision,
@@ -84,6 +124,7 @@ function domControlToActor({
     sourceRect: control.sourceRectCssPx,
     textCoverageProof: createDomControlTextCoverageProof({
       activationPolicy,
+      compatiblePreviousProof,
       control,
       projected,
       semanticGenerationId,
@@ -96,6 +137,130 @@ function domControlToActor({
     wheelPolicy: control.interactionPolicy.wheel,
     zOrder: control.zOrder,
   });
+}
+
+function createPreviousDomControlMap(
+  retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined,
+): ReadonlyMap<string, GpuRetainedDomControlSourceDescriptor> {
+  return new Map(
+    retainedRuntimeFrame?.descriptors.domControlSources.map((control) => [
+      control.sourceId,
+      control,
+    ]) ?? [],
+  );
+}
+
+function createDomControlCompatiblePreviousCoverage({
+  control,
+  previousActor,
+  previousControl,
+  previousTransactionId,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly previousActor: GpuFlowCommittedSurfaceActorGeneration | undefined;
+  readonly previousControl: GpuRetainedDomControlSourceDescriptor | undefined;
+  readonly previousTransactionId: string | null;
+}): BrowserVisualActorCompatiblePreviousProof | null {
+  if (
+    !previousControl ||
+    !isCommittedDomControlCompatiblePreviousSourceReady(previousActor) ||
+    !previousTransactionId ||
+    !canUseCommittedDomControlCompatiblePreviousCoverage(control)
+  ) {
+    return null;
+  }
+  const proof = createGpuFlowDomControlCompatiblePreviousProof({
+    current: control,
+    previous: previousControl,
+  });
+  if (!proof) {
+    return null;
+  }
+  return Object.freeze({
+    previousTransactionId,
+    previousVisualGenerationId:
+      createDomControlVisualGenerationId(previousControl),
+    reasonCode: proof.reasonCode,
+    resourceHandles: Object.freeze(
+      previousActor.browserVisual.resourceHandles.map((handle) =>
+        Object.freeze({ ...handle }),
+      ),
+    ),
+  });
+}
+
+function createPreviousDomControlActorMap(
+  actors: readonly GpuFlowCommittedSurfaceActorGeneration[] | null | undefined,
+): ReadonlyMap<string, GpuFlowCommittedSurfaceActorGeneration> {
+  return new Map(
+    actors
+      ?.filter((actor) => actor.kind === "dom-control")
+      .map((actor) => [actor.actorId, actor]) ?? [],
+  );
+}
+
+function isCommittedDomControlCompatiblePreviousSourceReady(
+  actor: GpuFlowCommittedSurfaceActorGeneration | undefined,
+): actor is GpuFlowCommittedSurfaceActorGeneration & {
+  readonly browserVisual: NonNullable<
+    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
+  >;
+} {
+  return Boolean(
+    actor &&
+      actor.browserVisual &&
+      actor.browserVisual.coverageRequired.required &&
+      actor.mountReadiness === "ready" &&
+      actor.projectionReadiness === "ready" &&
+      actor.browserVisual.resourceHandles.length > 0 &&
+      isCommittedDomControlCompatiblePreviousCoverageReady(
+        actor.textCoverageProof?.projectionCoverage,
+      ) &&
+      isCommittedDomControlCompatiblePreviousBrowserVisualReady(
+        actor.browserVisual.coverageState,
+      ),
+  );
+}
+
+function isCommittedDomControlCompatiblePreviousCoverageReady(
+  coverage:
+    | GpuFlowCommittedSurfaceTextCoverageProof["projectionCoverage"]
+    | undefined,
+): boolean {
+  return (
+    coverage === "exact-live-dom" ||
+    coverage === "exact-snapshot" ||
+    coverage === "compatible-previous"
+  );
+}
+
+function isCommittedDomControlCompatiblePreviousBrowserVisualReady(
+  coverageState: BrowserVisualActor["coverageState"],
+): boolean {
+  return (
+    coverageState === "live-host-ready" ||
+    coverageState === "exact-snapshot-ready" ||
+    coverageState === "compatible-previous-ready"
+  );
+}
+
+function canUseCommittedDomControlCompatiblePreviousCoverage(
+  control: GpuRetainedDomControlSourceDescriptor,
+): boolean {
+  return (
+    control.visualPolicy === "blocked-awaiting-browser-visual" ||
+    (control.visualPolicy === "snapshot" && !control.snapshotSurfaceId)
+  );
+}
+
+function isDomControlBrowserVisualCoverageReady(
+  browserVisual: BrowserVisualActor,
+): boolean {
+  return (
+    browserVisual.coverageState === "live-host-ready" ||
+    browserVisual.coverageState === "exact-snapshot-ready" ||
+    browserVisual.coverageState === "compatible-previous-ready"
+  );
 }
 
 function isProjectedDomControl(
@@ -204,12 +369,14 @@ function getDomControlActivationPolicy(
 
 function createDomControlTextCoverageProof({
   activationPolicy,
+  compatiblePreviousProof,
   control,
   projected,
   semanticGenerationId,
   visualGenerationId,
 }: {
   readonly activationPolicy: GpuFlowTextActorActivationPolicy;
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly projected: boolean;
   readonly semanticGenerationId: string;
@@ -235,11 +402,16 @@ function createDomControlTextCoverageProof({
       readinessReason: "clipped-empty",
     };
   }
-  return createProjectedDomControlTextCoverageProof({ base, control });
+  return createProjectedDomControlTextCoverageProof({
+    base,
+    compatiblePreviousProof,
+    control,
+  });
 }
 
 function createProjectedDomControlTextCoverageProof({
   base,
+  compatiblePreviousProof,
   control,
 }: {
   readonly base: Omit<
@@ -249,8 +421,20 @@ function createProjectedDomControlTextCoverageProof({
     | "readinessReason"
     | "snapshotSurfaceId"
   >;
+  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
 }): GpuFlowCommittedSurfaceTextCoverageProof {
+  if (
+    compatiblePreviousProof &&
+    canUseCommittedDomControlCompatiblePreviousCoverage(control)
+  ) {
+    return {
+      ...base,
+      previousVisualGenerationId:
+        compatiblePreviousProof.previousVisualGenerationId,
+      projectionCoverage: "compatible-previous",
+    };
+  }
   switch (control.visualPolicy) {
     case "live-dom":
       return {

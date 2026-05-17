@@ -68,6 +68,42 @@ describe("browser visual actor adapter", () => {
     ]);
   });
 
+  it("publishes compatible previous DOM-control coverage through shared compatible entries", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        value: "hello",
+        visualPolicy: "blocked-awaiting-browser-visual",
+      }),
+      {
+        compatiblePreviousProof: {
+          previousTransactionId: "transaction-a",
+          previousVisualGenerationId: "visual-a",
+          reasonCode: "same-value-and-geometry",
+          resourceHandles: [{ id: "source-a", kind: "source" }],
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageState: "compatible-previous-ready",
+        representation: expect.objectContaining({
+          kind: "compatible-previous",
+          previousTransactionId: "transaction-a",
+        }),
+        representationKind: "compatible-previous",
+      }),
+    );
+    expect(fragment.compatibleCoverage).toEqual([
+      expect.objectContaining({
+        fidelity: "compatible",
+        resourceHandles: [expect.objectContaining({ kind: "source" })],
+      }),
+    ]);
+    expect(fragment.trueHoleRects).toEqual([]);
+  });
+
   it("keeps DOM-control and DOM-island z-order and clipping in one transaction fragment", () => {
     const control = createDomControlBrowserVisualActor(
       domControl({

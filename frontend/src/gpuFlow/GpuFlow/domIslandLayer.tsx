@@ -3,27 +3,23 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
-import {
-  applyHtmlSurfaceActiveDomIslandProjection,
-  hideHtmlSurfaceActiveDomIslandProjection,
-  projectHtmlSurfaceActiveDomIsland,
-} from "../htmlSurfaces/interactionProjector";
+import { projectHtmlSurfaceActiveDomIsland } from "../htmlSurfaces/interactionProjector";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
-import {
-  getVisibleFlowRect,
-  normalizeGpuViewport,
-  type GpuViewportInput,
-  type GpuViewportTuple,
-} from "../viewportMath";
+import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
-import { useGpuFlowCommittedSurfaceLayerFrame } from "./committedSurfaceLayerFrame";
+import {
+  createGpuFlowBrowserVisualActorRuntime,
+  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  type GpuFlowBrowserVisualActorRuntime,
+} from "./browserVisualActorRuntime";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
 
@@ -49,96 +45,86 @@ export function GpuFlowDomIslandLayer({
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
-  const committedSurfaceFrame = useGpuFlowCommittedSurfaceLayerFrame(
-    committedSurfaceRuntime,
+  const fallbackRuntimeRef = useRef<GpuFlowBrowserVisualActorRuntime | null>(
+    null,
   );
-  const layerCommittedFrameId =
-    committedSurfaceFrame?.displayFrameId ?? committedFrameId;
-  const layerRetainedRuntimeFrame =
-    committedSurfaceFrame?.retainedRuntimeFrame ?? retainedRuntimeFrame;
-  const elementByIdRef = useRef(new Map<string, HTMLElement>());
-  const domIslands = useMemo(
-    () => layerRetainedRuntimeFrame?.descriptors.nativeDomIslands ?? [],
-    [layerRetainedRuntimeFrame],
+  const browserVisualRuntime = useMemo(() => {
+    if (committedSurfaceRuntime) {
+      return getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      );
+    }
+    fallbackRuntimeRef.current ??= createGpuFlowBrowserVisualActorRuntime();
+    return fallbackRuntimeRef.current;
+  }, [committedSurfaceRuntime]);
+  const snapshot = useSyncExternalStore(
+    browserVisualRuntime.subscribe.bind(browserVisualRuntime),
+    browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
+    browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
   );
-  const domIslandsRef = useRef(domIslands);
-  domIslandsRef.current = domIslands;
-  const domIslandById = useMemo(
-    () => new Map(domIslands.map((island) => [island.id, island])),
-    [domIslands],
-  );
+  const domIslands = snapshot.domIslands.islands;
+  const frameIds = snapshot.frameIds;
 
   const setDomIslandElement = useCallback(
     (islandId: string, element: HTMLElement | null) => {
-      if (!element) {
-        elementByIdRef.current.delete(islandId);
-        return;
-      }
-      elementByIdRef.current.set(islandId, element);
-      const island = domIslandById.get(islandId);
-      if (island) {
-        syncGpuFlowDomIslandElementStyle({
-          element,
-          island,
-          viewport: getLiveGpuFlowDomIslandViewport({
-            viewportRuntime,
-          }),
-        });
-      }
+      browserVisualRuntime.setDomIslandElement({ element, islandId });
     },
-    [domIslandById, viewportRuntime],
+    [browserVisualRuntime],
   );
+
+  useLayoutEffect(() => {
+    browserVisualRuntime.setCommittedSurfaceSource({
+      committedFrameId,
+      committedSurfaceRuntime,
+      retainedRuntimeFrame,
+    });
+  }, [
+    browserVisualRuntime,
+    committedFrameId,
+    committedSurfaceRuntime,
+    retainedRuntimeFrame,
+  ]);
+
+  useLayoutEffect(() => {
+    browserVisualRuntime.setDomIslandProjectionEnvironment({
+      viewportRuntime,
+      viewportStore,
+    });
+  }, [browserVisualRuntime, viewportRuntime, viewportStore]);
 
   useLayoutEffect(() => {
     return viewportRuntime.registerOverlayManager({
       applyViewport(viewport) {
-        syncGpuFlowDomIslandLayerStyles({
-          elementById: elementByIdRef.current,
-          islands: domIslandsRef.current,
-          viewport,
-        });
+        browserVisualRuntime.projectDomIslands(viewport);
       },
     });
-  }, [viewportRuntime]);
+  }, [browserVisualRuntime, viewportRuntime]);
 
   useLayoutEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
       if (state.transform === previousState.transform) {
         return;
       }
-      syncGpuFlowDomIslandLayerStyles({
-        elementById: elementByIdRef.current,
-        islands: domIslandsRef.current,
-        viewport: state.transform,
-      });
+      browserVisualRuntime.projectDomIslands(state.transform);
     });
-  }, [viewportStore]);
+  }, [browserVisualRuntime, viewportStore]);
 
   useLayoutEffect(() => {
-    syncGpuFlowDomIslandLayerStyles({
-      elementById: elementByIdRef.current,
-      islands: domIslands,
-      viewport: getLiveGpuFlowDomIslandViewport({
-        viewportRuntime,
-      }),
-    });
-  }, [domIslands, viewportRuntime, viewportStore]);
+    browserVisualRuntime.projectDomIslands();
+  }, [browserVisualRuntime, domIslands]);
 
-  if (!shouldRenderGpuFlowDomIslandLayer({ domIslands, renderDomIsland })) {
+  const renderDomIslandContent = renderDomIsland;
+  if (!renderDomIslandContent || domIslands.length === 0) {
     return null;
   }
 
   const normalizedViewport = normalizeGpuViewport(
-    getLiveGpuFlowDomIslandViewport({
-      viewportRuntime,
-    }),
+    viewportRuntime.getViewportTuple(),
   );
   return (
     <div
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
-      data-gpu-flow-dom-island-committed-frame-id={
-        layerCommittedFrameId ?? layerRetainedRuntimeFrame?.frameId ?? 0
-      }
+      data-gpu-flow-dom-island-committed-frame-id={frameIds.committedFrameId}
       data-gpu-flow-dom-island-layer="viewport"
     >
       {domIslands.map((island) => (
@@ -154,52 +140,11 @@ export function GpuFlowDomIslandLayer({
             viewport: normalizedViewport,
           })}
         >
-          {renderDomIsland(island)}
+          {renderDomIslandContent(island)}
         </div>
       ))}
     </div>
   );
-}
-
-function shouldRenderGpuFlowDomIslandLayer({
-  domIslands,
-  renderDomIsland,
-}: {
-  readonly domIslands: readonly GpuDomIsland[];
-  readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
-}): boolean {
-  return Boolean(renderDomIsland) && domIslands.length > 0;
-}
-
-function getLiveGpuFlowDomIslandViewport({
-  viewportRuntime,
-}: {
-  readonly viewportRuntime: GpuFlowViewportRuntime;
-}): GpuViewportTuple {
-  return viewportRuntime.getViewportTuple();
-}
-
-function syncGpuFlowDomIslandElementStyle({
-  element,
-  island,
-  viewport,
-}: {
-  readonly element: HTMLElement;
-  readonly island: GpuDomIsland;
-  readonly viewport: GpuViewportInput;
-}) {
-  applyHtmlSurfaceActiveDomIslandProjection({
-    element,
-    projection: projectHtmlSurfaceActiveDomIsland({
-      flowRect: island.rect,
-      viewport,
-      zIndex: island.zIndex,
-    }),
-  });
-}
-
-function hideGpuFlowDomIslandElement(element: HTMLElement) {
-  hideHtmlSurfaceActiveDomIslandProjection(element);
 }
 
 function getGpuFlowDomIslandInitialStyle({
@@ -214,49 +159,4 @@ function getGpuFlowDomIslandInitialStyle({
     viewport,
     zIndex: island.zIndex,
   });
-}
-
-function syncGpuFlowDomIslandLayerStyles({
-  elementById,
-  islands,
-  viewport,
-}: {
-  readonly elementById: ReadonlyMap<string, HTMLElement>;
-  readonly islands: readonly GpuDomIsland[];
-  readonly viewport: GpuViewportInput;
-}) {
-  const visibleFlowRect = getVisibleFlowRect({
-    canvasHeight: window.innerHeight,
-    canvasWidth: window.innerWidth,
-    marginCssPx: 128,
-    viewport,
-  });
-  for (const island of islands) {
-    const element = elementById.get(island.id);
-    if (!element) {
-      continue;
-    }
-    if (!rectsIntersect(visibleFlowRect, island.rect)) {
-      hideGpuFlowDomIslandElement(element);
-      element.style.pointerEvents = "none";
-      continue;
-    }
-    syncGpuFlowDomIslandElementStyle({
-      element,
-      island,
-      viewport,
-    });
-  }
-}
-
-function rectsIntersect(
-  left: GpuDomIsland["rect"],
-  right: GpuDomIsland["rect"],
-): boolean {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
 }

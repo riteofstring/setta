@@ -62,8 +62,11 @@ export function useGpuFlowCommittedSurfaceFrameState({
           }
         | undefined,
     ): GpuFlowCommittedSurfaceFrame => {
+      const previousCommittedSurfaceFrame =
+        committedSurfaceRuntimeRef.current.getCommittedContentFrame();
       const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
         gpuNativeVisuals: options?.gpuNativeVisuals,
+        previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
       if (nextCommittedSurfaceFrame.publishability.kind !== "publishable") {

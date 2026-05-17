@@ -83,7 +83,9 @@ export type GpuFlowCommittedSurfaceBrowserVisualContract = Pick<
   | "coverageRequired"
   | "coverageState"
   | "nonemptyReason"
+  | "representation"
   | "representationKind"
+  | "resourceHandles"
   | "visibilityReason"
 >;
 
@@ -278,10 +280,15 @@ export type GpuFlowCommittedSurfaceFrame = {
 
 export function createGpuFlowCommittedSurfaceFrame({
   gpuNativeVisuals,
+  previousCommittedSurfaceFrame,
   retainedDisplayFrame,
 }: {
   readonly gpuNativeVisuals?:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly previousCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
     | undefined;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): GpuFlowCommittedSurfaceFrame {
@@ -292,7 +299,21 @@ export function createGpuFlowCommittedSurfaceFrame({
       retainedRuntimeFrame,
       surfaces: retainedDisplayFrame.flatSurfaces,
     }),
-    ...createDomControlActors(retainedRuntimeFrame),
+    ...createDomControlActors(
+      retainedRuntimeFrame,
+      previousCommittedSurfaceFrame
+        ? {
+            previousCommittedSurfaceActors:
+              previousCommittedSurfaceFrame.actorGenerations,
+            previousRetainedRuntimeFrame:
+              previousCommittedSurfaceFrame.retainedRuntimeFrame,
+            previousTransactionId:
+              createGpuFlowCommittedSurfacePreviousTransactionId(
+                previousCommittedSurfaceFrame,
+              ),
+          }
+        : {},
+    ),
     ...createDomIslandActors(retainedRuntimeFrame),
     ...createGpuNativeVisualActors({
       retainedRuntimeFrame,
@@ -877,6 +898,17 @@ function getGpuFlowCommittedSurfaceActorScrollRevision({
   );
 }
 
+function createGpuFlowCommittedSurfacePreviousTransactionId(
+  frame: GpuFlowCommittedSurfaceFrame,
+): string {
+  return [
+    "committed-surface",
+    frame.displayFrameId,
+    frame.coherence.hitGenerationId,
+    frame.diagnostics.transactionOutcome,
+  ].join("|");
+}
+
 function freezeActor(
   actor: GpuFlowCommittedSurfaceActorGenerationInput,
 ): GpuFlowCommittedSurfaceActorGeneration {
@@ -932,6 +964,9 @@ function freezeBrowserVisualContract(
       ? Object.freeze({ ...contract.coverageExemption })
       : null,
     coverageRequired: Object.freeze({ ...contract.coverageRequired }),
+    resourceHandles: Object.freeze(
+      contract.resourceHandles.map((handle) => Object.freeze({ ...handle })),
+    ),
   });
 }
 

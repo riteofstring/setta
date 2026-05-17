@@ -112,7 +112,7 @@ function isPromotedDomControlRepresentation(
   );
 }
 
-function createGpuFlowDomControlCompatiblePreviousProof({
+export function createGpuFlowDomControlCompatiblePreviousProof({
   current,
   previous,
 }: {
