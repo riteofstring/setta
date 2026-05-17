@@ -269,8 +269,8 @@ function createProjectedDomControlTextCoverageProof({
     case "blocked-awaiting-browser-visual":
       return {
         ...base,
-        projectionCoverage: "blocked-awaiting-live-host",
-        readinessReason: "live-dom-budget",
+        projectionCoverage: "blocked-awaiting-browser-visual",
+        readinessReason: "snapshot-pending",
       };
     case "outside-viewport":
       return {

@@ -17,11 +17,10 @@ import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   createEmptyDomControlPlaneDiagnostics,
-  filterGpuFlowDomControlPlaneMountedControls,
+  createGpuFlowDomControlProjectionManager,
   projectGpuFlowDomControlPlaneGeometry,
   projectGpuFlowDomControlPlaneHost,
   syncGpuFlowDomControlPlaneElementStyle,
-  syncGpuFlowDomControlPlaneStyles,
   type GpuFlowDomControlPlaneDiagnostics,
   type GpuFlowDomControlPlaneMountedHost,
   type GpuFlowRetainedScrollOffsetGetter,
@@ -90,6 +89,9 @@ export function GpuFlowDomControlPlane({
   const hostByControlIdRef = useRef(
     new Map<string, GpuFlowDomControlPlaneMountedHost>(),
   );
+  const projectionManagerRef = useRef(
+    createGpuFlowDomControlProjectionManager(),
+  );
   const controls = useMemo(
     () =>
       retainedRuntimeFrame?.descriptors.domControlSources ??
@@ -110,8 +112,8 @@ export function GpuFlowDomControlPlane({
   const controlByIdRef = useRef(controlById);
   controlByIdRef.current = controlById;
   const controlsToMount = useMemo(
-    () =>
-      filterGpuFlowDomControlPlaneMountedControls({
+    () => {
+      const assignments = projectionManagerRef.current.prepare({
         controls,
         getRetainedScrollOffset,
         viewport: getLiveGpuFlowDomControlPlaneViewport({
@@ -121,7 +123,9 @@ export function GpuFlowDomControlPlane({
         viewportSize: getGpuFlowDomControlPlaneViewportSize({
           viewportStore,
         }),
-      }),
+      });
+      return projectionManagerRef.current.promote(assignments);
+    },
     [controls, getRetainedScrollOffset, viewportRuntime, viewportStore],
   );
 
@@ -156,7 +160,7 @@ export function GpuFlowDomControlPlane({
   useLayoutEffect(() => {
     return viewportRuntime.registerOverlayManager({
       applyViewport(viewport) {
-        syncGpuFlowDomControlPlaneStyles({
+        projectionManagerRef.current.project({
           committedFrameId: frameIds.committedFrameId,
           controlById: controlByIdRef.current,
           diagnosticsRef,
@@ -177,7 +181,7 @@ export function GpuFlowDomControlPlane({
       if (state.transform === previousState.transform) {
         return;
       }
-      syncGpuFlowDomControlPlaneStyles({
+      projectionManagerRef.current.project({
         committedFrameId: frameIds.committedFrameId,
         controlById: controlByIdRef.current,
         diagnosticsRef,
@@ -194,7 +198,7 @@ export function GpuFlowDomControlPlane({
   }, [frameIds, getRetainedScrollOffset, viewportStore]);
 
   useLayoutEffect(() => {
-    syncGpuFlowDomControlPlaneStyles({
+    projectionManagerRef.current.project({
       committedFrameId: frameIds.committedFrameId,
       controlById,
       diagnosticsRef,

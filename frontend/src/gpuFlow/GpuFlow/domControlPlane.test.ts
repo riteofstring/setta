@@ -26,7 +26,7 @@ describe("GPU flow DOM control plane", () => {
     expect(mounted.length).toBeGreaterThan(24);
     expect(mounted.length).toBeLessThanOrEqual(32);
     expect(mounted.map((control) => control.rowId)).toContain("row-12");
-    expect(mounted.map((control) => control.rowId)).not.toContain("row-34");
+    expect(mounted.map((control) => control.rowId)).not.toContain("row-60");
   });
 
   it("keeps active retained DOM controls mounted outside the inactive budget", () => {
@@ -111,6 +111,21 @@ describe("GPU flow DOM control plane", () => {
 
     expect(mounted.map((control) => control.rowId)).toContain("row-0");
     expect(mounted.map((control) => control.rowId)).not.toContain("row-12");
+  });
+
+  it("prepares near-future live hosts inside the retained projection horizon", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+
+    const mounted = filterGpuFlowDomControlPlaneMountedControls({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(mounted.map((control) => control.rowId)).toContain("row-8");
   });
 
   it("keeps small-scene live DOM controls mounted across projection-only viewport moves", () => {

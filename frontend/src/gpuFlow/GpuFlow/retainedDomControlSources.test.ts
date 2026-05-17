@@ -4,6 +4,7 @@ import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetained
 import { describe, expect, it } from "vitest";
 
 import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import { createDomControlActors } from "../committedSurfaceTextActor";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
@@ -194,6 +195,33 @@ describe("getGpuRetainedDomControlSources", () => {
         layer: "page",
         surfaceId: snapshotSources[0]?.snapshotSurfaceId,
         textureContentKey: snapshotSources[0]?.snapshotCacheKeyRevision,
+      }),
+    );
+  });
+
+  it("keeps visible text overflow blocked by browser visual readiness, not live-host readiness", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 3,
+      scene: scene({ rowCount: 120, surfaceHeight: 120 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 3_200, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const blockedSource = runtimeFrame.descriptors.domControlSources.find(
+      (source) => source.visualPolicy === "blocked-awaiting-browser-visual",
+    );
+    const blockedActor = createDomControlActors(runtimeFrame).find(
+      (actor) => actor.actorId === blockedSource?.sourceId,
+    );
+
+    expect(blockedSource).toBeTruthy();
+    expect(blockedActor?.textCoverageProof).toEqual(
+      expect.objectContaining({
+        projectionCoverage: "blocked-awaiting-browser-visual",
+        readinessReason: "snapshot-pending",
       }),
     );
   });

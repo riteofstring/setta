@@ -27,6 +27,7 @@ export type GpuFlowDomControlProjectionAssignment = {
   readonly coverageState:
     | "blocked-awaiting-browser-visual"
     | "blocked-awaiting-live-host"
+    | "compatible-previous"
     | "live"
     | "snapshot"
     | "true-hole";
@@ -36,6 +37,7 @@ export type GpuFlowDomControlProjectionAssignment = {
     | "active-pinned"
     | "browser-visual-pending"
     | "clipped-empty"
+    | "compatible-previous-proof"
     | "live-host-overflow"
     | "near-future-live"
     | "snapshot-promoted"
@@ -53,11 +55,67 @@ export type GpuFlowDomControlPlaneDiagnostics = {
   visibleControlRectCount: number;
 };
 
-const GPU_FLOW_DOM_CONTROL_OVERSCAN_CSS_PX = 160;
+const GPU_FLOW_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX = 720;
 const GPU_FLOW_DOM_CONTROL_MIN_VISIBLE_SCREEN_HEIGHT_CSS_PX = 8;
 const GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS = 8;
 const GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS = 24;
 const GPU_FLOW_DOM_CONTROL_SMALL_SCENE_LOW_LOD_CONTROL_LIMIT = 64;
+const GPU_FLOW_DOM_CONTROL_MAX_MOUNTED_CONTROLS =
+  GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS +
+  GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS;
+
+export type GpuFlowDomControlProjectionManager = {
+  prepare(input: {
+    readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+    readonly getRetainedScrollOffset:
+      | GpuFlowRetainedScrollOffsetGetter
+      | undefined;
+    readonly viewport: GpuViewportInput;
+    readonly viewportSize?: GpuFlowDomControlPlaneViewportSize | undefined;
+  }): readonly GpuFlowDomControlProjectionAssignment[];
+  project(input: {
+    readonly committedFrameId: number;
+    readonly controlById: ReadonlyMap<
+      string,
+      GpuRetainedDomControlSourceDescriptor
+    >;
+    readonly diagnosticsRef: MutableRefObject<GpuFlowDomControlPlaneDiagnostics>;
+    readonly getRetainedScrollOffset:
+      | GpuFlowRetainedScrollOffsetGetter
+      | undefined;
+    readonly hostByControlId: ReadonlyMap<
+      string,
+      GpuFlowDomControlPlaneMountedHost
+    >;
+    readonly runtimeFrameId: number;
+    readonly viewport: GpuViewportInput;
+    readonly viewportSize: GpuFlowDomControlPlaneViewportSize;
+  }): void;
+  promote(
+    assignments: readonly GpuFlowDomControlProjectionAssignment[],
+  ): readonly GpuRetainedDomControlSourceDescriptor[];
+};
+
+export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlProjectionManager {
+  return {
+    prepare(input) {
+      return resolveGpuFlowDomControlPlaneProjectionAssignments(input);
+    },
+    project(input) {
+      syncGpuFlowDomControlPlaneStyles(input);
+    },
+    promote(assignments) {
+      const controls = assignments
+        .filter(
+          (assignment) =>
+            assignment.coverageState === "live" ||
+            assignment.coverageState === "compatible-previous",
+        )
+        .map((assignment) => assignment.control);
+      return controls;
+    },
+  };
+}
 
 export function filterGpuFlowDomControlPlaneMountedControls({
   controls,
@@ -125,7 +183,7 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
   const overscanFlowRect = getVisibleFlowRect({
     canvasHeight: canvasSize.height,
     canvasWidth: canvasSize.width,
-    marginCssPx: GPU_FLOW_DOM_CONTROL_OVERSCAN_CSS_PX,
+    marginCssPx: GPU_FLOW_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX,
     viewport,
   });
   const candidates = mountEligibleControls
@@ -162,6 +220,10 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
   const inactiveCandidates = candidates.filter(
     (candidate) => !activeControlIds.has(candidate.control.sourceId),
   );
+  const inactiveLiveBudget = Math.max(
+    0,
+    GPU_FLOW_DOM_CONTROL_MAX_MOUNTED_CONTROLS - activeControlIds.size,
+  );
   const readableControls = inactiveCandidates
     .filter((candidate) => candidate.readableAtViewport)
     .sort(
@@ -169,7 +231,13 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
         left.distanceToViewportCenter - right.distanceToViewportCenter ||
         compareGpuFlowDomControlPlaneControls(left.control, right.control),
     )
-    .slice(0, GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS)
+    .slice(
+      0,
+      Math.min(
+        GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS,
+        inactiveLiveBudget,
+      ),
+    )
     .map((candidate) => candidate.control);
   const readableControlIds = new Set(
     readableControls.map((control) => control.sourceId),
@@ -185,7 +253,13 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
         left.distanceToViewportCenter - right.distanceToViewportCenter ||
         compareGpuFlowDomControlPlaneControls(left.control, right.control),
     )
-    .slice(0, GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS)
+    .slice(
+      0,
+      Math.min(
+        GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS,
+        Math.max(0, inactiveLiveBudget - readableControls.length),
+      ),
+    )
     .map((candidate) => candidate.control);
   const mountedControlIds = new Set(
     [...activeControls, ...readableControls, ...overscanControls].map(
@@ -420,7 +494,7 @@ export function syncGpuFlowDomControlPlaneStyles({
   const visibleFlowRect = getVisibleFlowRect({
     canvasHeight: canvasSize.height,
     canvasWidth: canvasSize.width,
-    marginCssPx: GPU_FLOW_DOM_CONTROL_OVERSCAN_CSS_PX,
+    marginCssPx: GPU_FLOW_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX,
     viewport,
   });
   for (const host of hostByControlId.values()) {

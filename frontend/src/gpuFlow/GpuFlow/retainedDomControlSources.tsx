@@ -47,12 +47,13 @@ type GpuRetainedDomControlSourceOptions = {
   readonly scrollRevision?: number | undefined;
 };
 
-const GPU_RETAINED_DOM_CONTROL_OVERSCAN_CSS_PX = 160;
+const GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX = 720;
 const GPU_RETAINED_DOM_CONTROL_MIN_VISIBLE_SCREEN_HEIGHT_CSS_PX = 8;
 const GPU_RETAINED_DOM_CONTROL_MAX_OVERSCAN_LIVE_ACTORS = 8;
 const GPU_RETAINED_DOM_CONTROL_MAX_READABLE_LIVE_ACTORS = 24;
 const GPU_RETAINED_DOM_CONTROL_MAX_SNAPSHOT_ACTORS = 64;
 const GPU_RETAINED_DOM_CONTROL_SMALL_SCENE_LIVE_LIMIT = 64;
+const GPU_RETAINED_DOM_CONTROL_MAX_LIVE_ACTORS = 32;
 
 export function getGpuRetainedDomControlSources(
   scene: GpuFlowScene | undefined,
@@ -555,7 +556,7 @@ function createGpuRetainedDomControlVisualCandidates({
   const overscanFlowRect = getVisibleFlowRect({
     canvasHeight: options.viewportSize.height,
     canvasWidth: options.viewportSize.width,
-    marginCssPx: GPU_RETAINED_DOM_CONTROL_OVERSCAN_CSS_PX,
+    marginCssPx: GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX,
     viewport,
   });
   return sources
@@ -591,12 +592,21 @@ function createGpuRetainedDomControlLiveSourceIds({
   const inactiveCandidates = candidates.filter(
     (candidate) => !candidate.control.active,
   );
+  const inactiveLiveBudget = Math.max(0, GPU_RETAINED_DOM_CONTROL_MAX_LIVE_ACTORS - liveSourceIds.size);
+  const readableLiveBudget = Math.min(
+    GPU_RETAINED_DOM_CONTROL_MAX_READABLE_LIVE_ACTORS,
+    inactiveLiveBudget,
+  );
   addGpuRetainedDomControlCandidateSourceIds(
     liveSourceIds,
     inactiveCandidates
       .filter((candidate) => candidate.readableAtViewport)
       .sort(compareGpuRetainedDomControlVisualCandidates)
-      .slice(0, GPU_RETAINED_DOM_CONTROL_MAX_READABLE_LIVE_ACTORS),
+      .slice(0, readableLiveBudget),
+  );
+  const overscanLiveBudget = Math.min(
+    GPU_RETAINED_DOM_CONTROL_MAX_OVERSCAN_LIVE_ACTORS,
+    Math.max(0, GPU_RETAINED_DOM_CONTROL_MAX_LIVE_ACTORS - liveSourceIds.size),
   );
   addGpuRetainedDomControlCandidateSourceIds(
     liveSourceIds,
@@ -607,7 +617,7 @@ function createGpuRetainedDomControlLiveSourceIds({
           !liveSourceIds.has(candidate.control.sourceId),
       )
       .sort(compareGpuRetainedDomControlVisualCandidates)
-      .slice(0, GPU_RETAINED_DOM_CONTROL_MAX_OVERSCAN_LIVE_ACTORS),
+      .slice(0, overscanLiveBudget),
   );
   return liveSourceIds;
 }
