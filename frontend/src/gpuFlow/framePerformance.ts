@@ -2,6 +2,11 @@ import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
 import type { HtmlSurfaceTextureDirtyWorkCounts } from "./htmlSurfaces/textureUploadDiagnostics";
 import type { GpuFlowInteractionDiagnostics } from "./interactionDiagnostics";
+import type {
+  GpuFlowProjectionDebugState,
+  GpuFlowProjectionLane,
+  GpuFlowProjectionTransactionKind,
+} from "./projectionRuntime";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
 export type GpuFlowFramePerformanceInput = {
@@ -11,6 +16,7 @@ export type GpuFlowFramePerformanceInput = {
   readonly interactionDiagnostics?: GpuFlowInteractionDiagnostics | undefined;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly phaseDiagnostics?: GpuFlowFramePhaseDiagnostics | undefined;
+  readonly projectionDebugState?: GpuFlowProjectionDebugState | undefined;
   readonly renderDurationMs: number;
   readonly retainedTexturePages?:
     | GpuFlowRetainedTexturePageFrameMetrics
@@ -79,6 +85,19 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly uploadMs: number;
 };
 
+export type GpuFlowFrameProjectionDiagnostics = {
+  readonly committedFrameId: number | null;
+  readonly heldPreviousDurationMs: number;
+  readonly heldPreviousFrameCount: number;
+  readonly heldPreviousOverBudget: boolean;
+  readonly heldPreviousReason: string | null;
+  readonly heldPreviousRequestedSampleId: number | null;
+  readonly lane: GpuFlowProjectionLane | null;
+  readonly sampleId: number | null;
+  readonly transactionId: string | null;
+  readonly transactionKind: GpuFlowProjectionTransactionKind | null;
+};
+
 export type GpuFlowFrameUploadDiagnostic = {
   readonly cssHeight: number;
   readonly cssWidth: number;
@@ -133,6 +152,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
+  readonly projectionDiagnostics: GpuFlowFrameProjectionDiagnostics;
   readonly remainingDirtyNodeCount: number;
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageCoverageCandidateCount: number;
@@ -226,6 +246,7 @@ export function createGpuFlowFramePerformanceEvent({
   interactionDiagnostics,
   layerResult,
   phaseDiagnostics,
+  projectionDebugState,
   renderDurationMs,
   retainedTexturePages,
   viewport,
@@ -262,6 +283,8 @@ export function createGpuFlowFramePerformanceEvent({
       createEmptyGpuFlowFramePhaseDiagnostics({
         frameMode: deferResolutionUpdates ? "projection" : "content",
       }),
+    projectionDiagnostics:
+      createGpuFlowFrameProjectionDiagnostics(projectionDebugState),
     remainingDirtyNodeCount: layerResult.remainingDirtyNodeIds.length,
     ...retainedTexturePageFields,
     skippedNodeCount: layerResult.skippedNodeIds.length,
@@ -314,6 +337,37 @@ export function createGpuFlowFramePerformanceEvent({
     },
     viewportFrame,
     visibleNodeCount: layerResult.visibleNodeIds.length,
+  };
+}
+
+function createGpuFlowFrameProjectionDiagnostics(
+  debugState: GpuFlowProjectionDebugState | undefined,
+): GpuFlowFrameProjectionDiagnostics {
+  if (!debugState) {
+    return {
+      committedFrameId: null,
+      heldPreviousDurationMs: 0,
+      heldPreviousFrameCount: 0,
+      heldPreviousOverBudget: false,
+      heldPreviousReason: null,
+      heldPreviousRequestedSampleId: null,
+      lane: null,
+      sampleId: null,
+      transactionId: null,
+      transactionKind: null,
+    };
+  }
+  return {
+    committedFrameId: debugState.committedFrameId,
+    heldPreviousDurationMs: debugState.heldPreviousDurationMs,
+    heldPreviousFrameCount: debugState.heldPreviousFrameCount,
+    heldPreviousOverBudget: debugState.heldPreviousOverBudget,
+    heldPreviousReason: debugState.heldPreviousReason,
+    heldPreviousRequestedSampleId: debugState.heldPreviousRequestedSampleId,
+    lane: debugState.lane,
+    sampleId: debugState.projectionSampleId,
+    transactionId: debugState.projectionTransactionId,
+    transactionKind: debugState.transactionKind,
   };
 }
 

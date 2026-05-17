@@ -35,6 +35,18 @@ describe("framePerformance", () => {
       frame: 7,
       frameReasons: ["paint", "texture-upload"],
       interactionDiagnostics: null,
+      projectionDiagnostics: {
+        committedFrameId: null,
+        heldPreviousDurationMs: 0,
+        heldPreviousFrameCount: 0,
+        heldPreviousOverBudget: false,
+        heldPreviousReason: null,
+        heldPreviousRequestedSampleId: null,
+        lane: null,
+        sampleId: null,
+        transactionId: null,
+        transactionKind: null,
+      },
       remainingDirtyNodeCount: 2,
       textureMemoryAllocatedBytes: 4096,
       textureMemoryBeforeEvictionAllocatedBytes: 8192,
@@ -265,6 +277,43 @@ describe("framePerformance", () => {
       retainedTexturePageUploadedDrawCommandCount: 12,
       retainedTexturePageUploadCount: 2,
       retainedTexturePageUploadMs: 0.75,
+    });
+  });
+
+  it("reports projection transaction diagnostics", () => {
+    const event = createGpuFlowFramePerformanceEvent({
+      deferResolutionUpdates: true,
+      frame: 12,
+      frameReasons: ["retained-scroll", "paint"],
+      layerResult: createLayerResult(),
+      projectionDebugState: {
+        committedFrameId: 42,
+        heldPreviousDurationMs: 18,
+        heldPreviousFrameCount: 2,
+        heldPreviousOverBudget: true,
+        heldPreviousReason: "retained-projection-coverage-missing",
+        heldPreviousRequestedSampleId: 9,
+        lane: "motion",
+        projectionSampleId: 7,
+        projectionTransactionId: "held-previous:content-42:sample-7",
+        transactionKind: "held-previous",
+      },
+      renderDurationMs: 1,
+      viewport: [0, 0, 1],
+      viewportFrame: false,
+    });
+
+    expect(event.projectionDiagnostics).toEqual({
+      committedFrameId: 42,
+      heldPreviousDurationMs: 18,
+      heldPreviousFrameCount: 2,
+      heldPreviousOverBudget: true,
+      heldPreviousReason: "retained-projection-coverage-missing",
+      heldPreviousRequestedSampleId: 9,
+      lane: "motion",
+      sampleId: 7,
+      transactionId: "held-previous:content-42:sample-7",
+      transactionKind: "held-previous",
     });
   });
 });

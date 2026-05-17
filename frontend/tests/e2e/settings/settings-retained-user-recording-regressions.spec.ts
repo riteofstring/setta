@@ -142,8 +142,17 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   const violatingFrames = projectionFrames.filter(
     hasProjectionFrameContentWork,
   );
+  const missingProjectionDiagnostics = projectionFrames.filter(
+    (frame) =>
+      frame.projectionDiagnostics.committedFrameId === null ||
+      frame.projectionDiagnostics.lane !== "motion" ||
+      frame.projectionDiagnostics.sampleId === null ||
+      frame.projectionDiagnostics.transactionId === null ||
+      frame.projectionDiagnostics.transactionKind === null,
+  );
   const details = JSON.stringify(
     {
+      missingProjectionDiagnostics,
       projectionFrames,
       projectionFrameCount: projectionFrames.length,
       violatingFrames,
@@ -157,6 +166,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   });
 
   expect(projectionFrames.length, details).toBeGreaterThan(0);
+  expect(missingProjectionDiagnostics, details).toEqual([]);
   expect(violatingFrames, details).toEqual([]);
 });
 

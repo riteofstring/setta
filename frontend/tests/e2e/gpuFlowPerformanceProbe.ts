@@ -75,6 +75,18 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
     readonly retainedRuntimeFrameMs: number;
     readonly schedulingMs: number;
   };
+  readonly projectionDiagnostics: {
+    readonly committedFrameId: number | null;
+    readonly heldPreviousDurationMs: number;
+    readonly heldPreviousFrameCount: number;
+    readonly heldPreviousOverBudget: boolean;
+    readonly heldPreviousReason: string | null;
+    readonly heldPreviousRequestedSampleId: number | null;
+    readonly lane: string | null;
+    readonly sampleId: number | null;
+    readonly transactionId: string | null;
+    readonly transactionKind: string | null;
+  };
   readonly remainingDirtyNodeCount: number;
   readonly retainedTexturePageCoverageCandidateCount: number;
   readonly retainedTexturePageDrawQuadCount: number;
@@ -259,10 +271,13 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
+    projectionDiagnosticsValue.toString(),
     phaseDiagnosticsValue.toString(),
     viewportValue.toString(),
     objectValue.toString(),
     numberValue.toString(),
+    nullableNumberValue.toString(),
+    nullableStringValue.toString(),
     arrayLength.toString(),
     numberOrArrayLength.toString(),
     stringArray.toString(),
@@ -798,6 +813,9 @@ function toNodeLayerFrameSummary(
       value.missingTextureNodeIds,
     ),
     phaseDiagnostics,
+    projectionDiagnostics: projectionDiagnosticsValue(
+      value.projectionDiagnostics,
+    ),
     remainingDirtyNodeCount: numberOrArrayLength(
       value.remainingDirtyNodeCount,
       value.remainingDirtyNodeIds,
@@ -896,6 +914,35 @@ function toNodeLayerFrameSummary(
   };
 }
 
+function projectionDiagnosticsValue(value: unknown): {
+  readonly committedFrameId: number | null;
+  readonly heldPreviousDurationMs: number;
+  readonly heldPreviousFrameCount: number;
+  readonly heldPreviousOverBudget: boolean;
+  readonly heldPreviousReason: string | null;
+  readonly heldPreviousRequestedSampleId: number | null;
+  readonly lane: string | null;
+  readonly sampleId: number | null;
+  readonly transactionId: string | null;
+  readonly transactionKind: string | null;
+} {
+  const diagnostics = objectValue(value);
+  return {
+    committedFrameId: nullableNumberValue(diagnostics.committedFrameId),
+    heldPreviousDurationMs: numberValue(diagnostics.heldPreviousDurationMs),
+    heldPreviousFrameCount: numberValue(diagnostics.heldPreviousFrameCount),
+    heldPreviousOverBudget: diagnostics.heldPreviousOverBudget === true,
+    heldPreviousReason: nullableStringValue(diagnostics.heldPreviousReason),
+    heldPreviousRequestedSampleId: nullableNumberValue(
+      diagnostics.heldPreviousRequestedSampleId,
+    ),
+    lane: nullableStringValue(diagnostics.lane),
+    sampleId: nullableNumberValue(diagnostics.sampleId),
+    transactionId: nullableStringValue(diagnostics.transactionId),
+    transactionKind: nullableStringValue(diagnostics.transactionKind),
+  };
+}
+
 function phaseDiagnosticsValue(value: unknown): {
   readonly committedContentPublishMs: number;
   readonly diagnosticsMs: number;
@@ -955,6 +1002,14 @@ function objectValue(value: unknown): Record<string, unknown> {
 
 function numberValue(value: unknown): number {
   return typeof value === "number" ? value : 0;
+}
+
+function nullableNumberValue(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+function nullableStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function arrayLength(value: unknown): number {

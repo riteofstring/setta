@@ -42,6 +42,7 @@ import {
 import {
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowLiveProjectionSample,
+  type GpuFlowProjectionDebugState,
   type GpuFlowProjectionLane,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -781,6 +782,17 @@ export function renderGpuFlowNodeLayerFrame({
     ...layerResult,
     budgetExhausted: layerResult.budgetExhausted,
   };
+  const visibleProjectionState =
+    createGpuFlowVisibleProjectionStateForRetainedPublication({
+      committedGpuNativeVisuals,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      publicationLane,
+      publishedCommittedSurfaceFrame,
+      publishedRetainedFrame,
+      retainedDisplayOutcomeKind: retainedDisplayOutcome.kind,
+    });
   reportGpuFlowNodeLayerFramePerformance({
     callbacksRef,
     deferResolutionUpdates,
@@ -809,6 +821,7 @@ export function renderGpuFlowNodeLayerFrame({
         retainedFrame.phaseDiagnostics.retainedRuntimeFrameMs,
       schedulingMs: 0,
     },
+    projectionDebugState: visibleProjectionState.debugState,
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: combineGpuFlowRetainedTexturePageMetrics({
       retainedDisplayFrame: publishedRetainedFrame,
@@ -831,17 +844,6 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
-  const visibleProjectionState =
-    createGpuFlowVisibleProjectionStateForRetainedPublication({
-      committedGpuNativeVisuals,
-      frameReasons,
-      heldPreviousProjectionState,
-      liveProjectionSample,
-      publicationLane,
-      publishedCommittedSurfaceFrame,
-      publishedRetainedFrame,
-      retainedDisplayOutcomeKind: retainedDisplayOutcome.kind,
-    });
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtime.canvas,
     debugState: visibleProjectionState.debugState,
@@ -893,6 +895,7 @@ export function reportGpuFlowNodeLayerFramePerformance({
   interactionDiagnostics,
   layerResult,
   phaseDiagnostics,
+  projectionDebugState,
   renderDurationMs,
   retainedTexturePages,
   viewport,
@@ -907,6 +910,7 @@ export function reportGpuFlowNodeLayerFramePerformance({
   >;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
+  readonly projectionDebugState?: GpuFlowProjectionDebugState | undefined;
   readonly renderDurationMs: number;
   readonly retainedTexturePages:
     | GpuFlowRetainedTexturePageFrameMetrics
@@ -930,6 +934,7 @@ export function reportGpuFlowNodeLayerFramePerformance({
       interactionDiagnostics,
       layerResult,
       phaseDiagnostics,
+      projectionDebugState,
       renderDurationMs,
       retainedTexturePages,
       viewport,

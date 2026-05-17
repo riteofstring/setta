@@ -208,6 +208,10 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     projectionLane: transaction.lane,
     transactionKind: transaction.kind,
   });
+  const projectionDebugState = createGpuFlowProjectionDebugState(
+    transaction,
+    heldPreviousProjection,
+  );
   const htmlSurfaceFrameMs = performance.now() - htmlSurfaceFrameStart;
   reportGpuFlowNodeLayerFramePerformance({
     callbacksRef,
@@ -236,6 +240,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       retainedRuntimeFrameMs: 0,
       schedulingMs: 0,
     },
+    projectionDebugState,
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: undefined,
     viewport: projectionViewport,
@@ -258,10 +263,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   });
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtime.canvas,
-    debugState: createGpuFlowProjectionDebugState(
-      transaction,
-      heldPreviousProjection,
-    ),
+    debugState: projectionDebugState,
   });
   return {
     heldPreviousProjection,
