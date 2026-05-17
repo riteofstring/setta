@@ -36,7 +36,7 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
-test("focused retained DOM input follows its owning section during pan and zoom", async ({
+test("focused retained text-like editor follows its owning section during pan and zoom", async ({
   page,
 }) => {
   await openObservedRegressionSettings(page);
@@ -68,7 +68,7 @@ test("focused retained DOM input follows its owning section during pan and zoom"
   expectTrackingDeltasWithinTolerance(afterZoom, details);
 });
 
-test("retained DOM input values remain visible before click after section scroll", async ({
+test("canvas-first retained text-like values remain visible before click after section scroll", async ({
   page,
 }, testInfo) => {
   await openObservedRegressionSettings(page);
@@ -108,7 +108,7 @@ test("retained DOM input values remain visible before click after section scroll
   );
 });
 
-test("clicking a retained DOM input does not blank surrounding retained content", async ({
+test("clicking a retained text-like value does not blank surrounding retained content", async ({
   page,
 }, testInfo) => {
   await openObservedRegressionSettings(page);
@@ -153,7 +153,7 @@ test("clicking a retained DOM input does not blank surrounding retained content"
   ).toBeGreaterThan(before.stats.nonblankRatio * 0.55);
 });
 
-test("retained DOM input interaction preserves frame cadence and mounted control scale", async ({
+test("retained text-like interaction preserves frame cadence and keeps passive DOM scale bounded", async ({
   page,
 }) => {
   await openObservedRegressionSettings(page);
@@ -198,14 +198,8 @@ test("retained DOM input interaction preserves frame cadence and mounted control
     2,
   );
 
-  expect(beforeCounts.mountedControlCount, details).toBeGreaterThan(0);
-  expect(afterCounts.mountedControlCount, details).toBeGreaterThan(0);
-  expect(afterCounts.mountedControlCount, details).toBeLessThan(
-    afterCounts.totalSurfaceLogicalRowCount,
-  );
-  expect(afterCounts.mountedControlCount, details).toBeLessThanOrEqual(
-    afterCounts.visibleTextLikeRowCount + 24,
-  );
+  expect(beforeCounts.mountedControlCount, details).toBeLessThanOrEqual(2);
+  expect(afterCounts.mountedControlCount, details).toBeLessThanOrEqual(2);
   expect(gesture.frame.count, details).toBeGreaterThan(6);
   expect(gesture.frame.p95Ms, details).toBeLessThanOrEqual(
     budget.p95FrameBudgetMs,
@@ -268,7 +262,7 @@ async function activateObservedRetainedEditor(
     }
   }
   throw new Error(
-    `Could not activate retained DOM editor: ${JSON.stringify(
+    `Could not activate retained text-like editor: ${JSON.stringify(
       await readDomControlActivationDiagnostics(page, row),
       null,
       2,
@@ -341,23 +335,6 @@ async function scrollTargetTextRowIntoView(page: Page): Promise<
     await waitForAnimationFrame(page);
   }
   return await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID);
-}
-
-function createDomControlHostSelector(input: {
-  readonly rowId: string;
-  readonly surfaceId: string;
-}): string {
-  return [
-    "[data-gpu-flow-dom-control='true']",
-    `[data-gpu-flow-dom-control-surface-id='${cssAttributeEscape(
-      input.surfaceId,
-    )}']`,
-    `[data-gpu-flow-dom-control-row-id='${cssAttributeEscape(input.rowId)}']`,
-  ].join("");
-}
-
-function cssAttributeEscape(value: string): string {
-  return value.replace(/['\\]/g, "\\$&");
 }
 
 async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
@@ -516,8 +493,7 @@ async function findVisibleTextLikeRow(
             row.controlClientRect !== null &&
             row.controlClientRect.width > 8 &&
             row.controlClientRect.height > 8 &&
-            rectIntersectsUsableViewport(row.controlClientRect) &&
-            hasProjectedDomControlHost(row),
+            rectIntersectsUsableViewport(row.controlClientRect),
         )
         .sort(
           (left, right) => left.controlClientRect.y - right.controlClientRect.y,
@@ -531,24 +507,6 @@ async function findVisibleTextLikeRow(
           rect.x < window.innerWidth &&
           rect.y < window.innerHeight - 88
         );
-      }
-
-      function hasProjectedDomControlHost(row: RetainedRowDebugEntry): boolean {
-        return Boolean(
-          document.querySelector(
-            [
-              "[data-gpu-flow-dom-control='true']",
-              `[data-gpu-flow-dom-control-surface-id='${cssEscape(
-                row.surfaceId,
-              )}']`,
-              `[data-gpu-flow-dom-control-row-id='${cssEscape(row.rowId)}']`,
-            ].join(""),
-          ),
-        );
-      }
-
-      function cssEscape(value: string): string {
-        return value.replace(/['\\]/g, "\\$&");
       }
     },
     { rowId: options.rowId, surfaceId },

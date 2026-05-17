@@ -88,6 +88,52 @@ export async function readRetainedDiagnostics(
   });
 }
 
+export async function resolveRetainedSurfaceWheelPoint(
+  page: Page,
+  surfaceId: string,
+): Promise<{ readonly x: number; readonly y: number }> {
+  return await page.evaluate((targetSurfaceId) => {
+    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter(
+        (row) =>
+          row.surfaceId === targetSurfaceId &&
+          row.clientRect.width > 8 &&
+          row.clientRect.height > 8 &&
+          row.clientRect.x + row.clientRect.width > 0 &&
+          row.clientRect.y + row.clientRect.height > 0 &&
+          row.clientRect.x < window.innerWidth &&
+          row.clientRect.y < window.innerHeight,
+      )
+      .sort((left, right) => left.clientRect.y - right.clientRect.y);
+    if (rows.length === 0) {
+      throw new Error(
+        `Missing visible retained surface rows ${targetSurfaceId}.`,
+      );
+    }
+    const row = rows[Math.floor(rows.length / 2)] ?? rows[0];
+    return {
+      x: Math.min(
+        window.innerWidth - 4,
+        Math.max(4, row.clientRect.x + row.clientRect.width * 0.65),
+      ),
+      y: Math.min(
+        window.innerHeight - 4,
+        Math.max(4, row.clientRect.y + row.clientRect.height / 2),
+      ),
+    };
+  }, surfaceId);
+}
+
+export async function readRetainedRowClientY(
+  page: Page,
+  rowId: string,
+): Promise<number | null> {
+  return await page.evaluate((rowId) => {
+    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    return rows.find((row) => row.rowId === rowId)?.clientRect.y ?? null;
+  }, rowId);
+}
+
 export function percentile(
   values: readonly number[],
   percentileValue: number,

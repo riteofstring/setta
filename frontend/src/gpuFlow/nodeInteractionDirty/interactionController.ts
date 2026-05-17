@@ -969,6 +969,9 @@ export function createGpuNodeInteractionDirtyController({
     ) {
       return true;
     }
+    if (result.deferredNodeIds?.includes(activeNodeId)) {
+      return false;
+    }
     return !result.uploadedNodeIds.includes(activeNodeId);
   }
 

@@ -151,7 +151,7 @@ describe("GpuFlow retained content controllers", () => {
 
     expect(wheel.defaultPrevented).toBe(true);
     expect(dirtySurfaceIds).toEqual([]);
-    expect(requestedFrames).toEqual(["viewport"]);
+    expect(requestedFrames).toEqual(["retained-scroll"]);
   });
 
   it("updates retained row hover as a native visual without dirtying page content", () => {

@@ -124,6 +124,12 @@ export function getGpuRetainedContentRuntimeScrollRevision(
   return revision;
 }
 
+export function getGpuRetainedContentRuntimeScrollRevisions(
+  state: GpuRetainedContentRuntimeState,
+): ReadonlyMap<string, number> {
+  return new Map(state.scrollRevisions);
+}
+
 export function syncGpuRetainedContentRuntimeStateForScene({
   scene,
   state,

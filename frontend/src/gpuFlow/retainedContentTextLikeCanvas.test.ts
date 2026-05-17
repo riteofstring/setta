@@ -4,7 +4,7 @@ import { getGpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 
 describe("retained content text-like canvas", () => {
-  it("leaves inactive row-text editor value pixels to the DOM control plane", () => {
+  it("draws inactive row-text editor value pixels on the retained canvas", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -16,14 +16,14 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith("sample", 0, 16, 180);
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
     expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
   });
 
-  it("draws row-text focus chrome without drawing editor value pixels", () => {
+  it("draws row-text focus chrome and editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -48,11 +48,16 @@ describe("retained content text-like canvas", () => {
       },
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(ctx.stroke).toHaveBeenCalled();
   });
 
-  it("draws boxed chrome without drawing editor value pixels", () => {
+  it("draws boxed chrome and editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(false);
 
@@ -64,7 +69,47 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(ctx.fill).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
+  });
+
+  it("holds passive value pixels while active DOM owns native editing", () => {
+    const ctx = createCanvasContextRecorder();
+    const palette = getGpuRetainedContentCanvasPalette(false);
+
+    drawGpuRetainedContentTextLikeControl({
+      control: textLikeControl("sample"),
+      ctx,
+      palette,
+      rect: { height: 28, width: 140, x: 0, y: 0 },
+      state: {
+        controlFocused: true,
+        disabled: false,
+        domControlActivation: null,
+        dragging: false,
+        error: false,
+        focused: false,
+        hovered: false,
+        nativeControlActive: true,
+        nativeLabelActive: false,
+        searchFocused: false,
+        searchMatched: false,
+        selected: false,
+      },
+    });
+
+    expect(ctx.fillText).not.toHaveBeenCalledWith(
+      "sample",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
   });

@@ -14,6 +14,7 @@ import {
   setRect,
   setScrollMetrics,
 } from "./nodeInteractionDirty.testHelpers";
+import type { GpuNodeInteractionDirtyControllerOptions } from "./nodeInteractionDirty/interactionTypes";
 
 describe("gpu node interaction dirty tracking", () => {
   afterEach(() => {
@@ -346,7 +347,11 @@ describe("gpu node interaction dirty tracking", () => {
     const textureManager = createInteractionTextureManager();
     const clearProjectedInteraction = vi.fn();
     const requestFrame = vi.fn();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
+    const resolvePointerHandoffTarget = vi.fn<
+      NonNullable<
+        GpuNodeInteractionDirtyControllerOptions["resolvePointerHandoffTarget"]
+      >
+    >(() => ({
       descriptor,
       nodeId: "node-a",
     }));
@@ -449,7 +454,11 @@ describe("gpu node interaction dirty tracking", () => {
       throw new Error("Expected handoff target descriptors");
     }
     const textureManager = createInteractionTextureManager();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
+    const resolvePointerHandoffTarget = vi.fn<
+      NonNullable<
+        GpuNodeInteractionDirtyControllerOptions["resolvePointerHandoffTarget"]
+      >
+    >(() => ({
       descriptor: buttonDescriptor,
       nodeId: "node-a",
     }));
@@ -1139,6 +1148,40 @@ describe("gpu node interaction dirty tracking", () => {
       uploadedNodeIds: ["node-a"],
     });
     expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+  });
+
+  it("releases a no-longer-owned interaction when its upload was deliberately deferred", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const switchInput = document.createElement("button");
+    switchInput.setAttribute("role", "switch");
+    nodeElement.append(switchInput);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    switchInput.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    controller.completeFrame({
+      budgetExhausted: false,
+      deferredNodeIds: ["node-a"],
+      remainingDirtyNodeIds: ["node-a"],
+      uploadedNodeIds: [],
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenLastCalledWith(
+      "node-a",
+      "visible",
+    );
 
     detach();
   });

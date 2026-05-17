@@ -10,6 +10,7 @@ import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 export type GpuNodeInteractionFrameResult = {
   readonly budgetExhausted: boolean;
+  readonly deferredNodeIds?: readonly string[] | undefined;
   readonly remainingDirtyNodeIds: readonly string[];
   readonly uploadedNodeIds: readonly string[];
 };

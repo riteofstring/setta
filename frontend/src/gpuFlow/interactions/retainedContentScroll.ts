@@ -203,7 +203,7 @@ class GpuRetainedContentScrollController {
       });
     }
     const commitDurationMs = nowChromeReproPerformanceMs() - commitStartedAtMs;
-    this.options.requestFrame?.("viewport");
+    this.options.requestFrame?.("retained-scroll");
     this.scheduleScrollIdleFrame();
     this.postPendingScrollFlushChromeReproEvent({
       commitDurationMs,
@@ -336,7 +336,7 @@ class GpuRetainedContentScrollController {
       coalescedWheelCount,
       commitDurationMs: roundChromeReproMs(commitDurationMs),
       flushLatencyMs: roundChromeReproMs(flushLatencyMs),
-      requestFrameReason: "viewport",
+      requestFrameReason: "retained-scroll",
       surfaceCount: surfaceIds.length,
       surfaceIds: surfaceIds.slice(0, 12),
       surfaces: diagnostics.slice(0, 8).map((diagnostic) => ({

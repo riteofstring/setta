@@ -6,6 +6,7 @@ import type { HtmlSurfaceTextureUploadResult } from "./textureTiles";
 export type UploadDirtyHtmlSurfaceTexturesResult = {
   readonly budgetExhausted: boolean;
   readonly diagnostics: readonly HtmlSurfaceTextureUploadDiagnostic[];
+  readonly deferredSurfaceIds: readonly string[];
   readonly remainingDirtySurfaceIds: readonly string[];
   readonly skippedSurfaceIds: readonly string[];
   readonly skippedUploadBytes: number;
@@ -94,6 +95,60 @@ export function createHtmlSurfaceTextureDirtyWorkCounts(
   return counts;
 }
 
+export function createHtmlSurfaceTextureUploadWorkSummary({
+  initialDirtySurfaces,
+  paintUnavailableSurfaceCount,
+  remainingDirtySurfaces,
+  skippedSurfaceCount,
+  uploadableRemainingDirtySurfaces,
+  uploadedSurfaceCount,
+}: {
+  readonly initialDirtySurfaces: readonly DirtyNodeState[];
+  readonly paintUnavailableSurfaceCount: number;
+  readonly remainingDirtySurfaces: readonly DirtyNodeState[];
+  readonly skippedSurfaceCount: number;
+  readonly uploadableRemainingDirtySurfaces: readonly DirtyNodeState[];
+  readonly uploadedSurfaceCount: number;
+}): HtmlSurfaceTextureUploadWorkSummary {
+  const initialDirtySurfaceCount = initialDirtySurfaces.length;
+  const remainingDirtySurfaceCount = remainingDirtySurfaces.length;
+  const uploadableRemainingDirtySurfaceCount =
+    uploadableRemainingDirtySurfaces.length;
+  const deferredSurfaceCount = Math.max(
+    0,
+    remainingDirtySurfaceCount -
+      uploadableRemainingDirtySurfaceCount -
+      paintUnavailableSurfaceCount,
+  );
+  const noUploadReason = resolveTextureUploadNoWorkReason({
+    deferredSurfaceCount,
+    initialDirtySurfaceCount,
+    paintUnavailableSurfaceCount,
+    skippedSurfaceCount,
+    uploadableRemainingDirtySurfaceCount,
+    uploadedSurfaceCount,
+  });
+
+  return {
+    deferredSurfaceCount,
+    initialDirtyWorkCounts:
+      createHtmlSurfaceTextureDirtyWorkCounts(initialDirtySurfaces),
+    initialDirtySurfaceCount,
+    noUploadReason,
+    paintUnavailableSurfaceCount,
+    remainingDirtyWorkCounts: createHtmlSurfaceTextureDirtyWorkCounts(
+      remainingDirtySurfaces,
+    ),
+    remainingDirtySurfaceCount,
+    skippedSurfaceCount,
+    uploadableRemainingDirtyWorkCounts: createHtmlSurfaceTextureDirtyWorkCounts(
+      uploadableRemainingDirtySurfaces,
+    ),
+    uploadableRemainingDirtySurfaceCount,
+    uploadedSurfaceCount,
+  };
+}
+
 export function createHtmlSurfaceTextureUploadDiagnostic({
   dirtySurface,
   dirtyTileBytes,
@@ -132,6 +187,43 @@ export function createHtmlSurfaceTextureUploadDiagnostic({
     uploadedTileCount: upload.uploadedTileIds.length,
     workKinds: dirtySurface.workKinds,
   };
+}
+
+function resolveTextureUploadNoWorkReason({
+  deferredSurfaceCount,
+  initialDirtySurfaceCount,
+  paintUnavailableSurfaceCount,
+  skippedSurfaceCount,
+  uploadableRemainingDirtySurfaceCount,
+  uploadedSurfaceCount,
+}: Pick<
+  HtmlSurfaceTextureUploadWorkSummary,
+  | "deferredSurfaceCount"
+  | "initialDirtySurfaceCount"
+  | "paintUnavailableSurfaceCount"
+  | "skippedSurfaceCount"
+  | "uploadableRemainingDirtySurfaceCount"
+  | "uploadedSurfaceCount"
+>): HtmlSurfaceTextureUploadNoWorkReason {
+  if (uploadedSurfaceCount > 0) {
+    return null;
+  }
+  if (initialDirtySurfaceCount === 0) {
+    return "no-dirty-surfaces";
+  }
+  if (paintUnavailableSurfaceCount > 0) {
+    return "paint-unavailable";
+  }
+  if (uploadableRemainingDirtySurfaceCount > 0) {
+    return "budget-exhausted";
+  }
+  if (deferredSurfaceCount > 0) {
+    return "all-work-deferred";
+  }
+  if (skippedSurfaceCount > 0) {
+    return "skipped";
+  }
+  return null;
 }
 
 function createEmptyHtmlSurfaceTextureDirtyWorkCounts(): HtmlSurfaceTextureDirtyWorkCounts {

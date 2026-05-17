@@ -18,7 +18,6 @@ import {
 import type { GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
 import type { MutableRefObject } from "react";
-import { flushSync } from "react-dom";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
   createAgenticEdgeFromConnection,
@@ -414,20 +413,18 @@ function handleProjectRetainedContentPointerDown(
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
   postProjectGpuRetainedParamActivationPreflightChromeReproEvent(event);
-  flushSync(() => {
-    onActiveParamDomIslandChange({
-      activation: {
-        clientPoint: {
-          x: event.nativeEvent.clientX,
-          y: event.nativeEvent.clientY,
-        },
-        kind: "pointer",
+  onActiveParamDomIslandChange({
+    activation: {
+      clientPoint: {
+        x: event.nativeEvent.clientX,
+        y: event.nativeEvent.clientY,
       },
-      hitRecordId: event.hit.id,
-      paramInfoId: event.hit.ownerRowId,
-      sectionId: event.ownerSectionId,
-      surfaceId: event.surfaceId,
-    });
+      kind: "pointer",
+    },
+    hitRecordId: event.hit.id,
+    paramInfoId: event.hit.ownerRowId,
+    sectionId: event.ownerSectionId,
+    surfaceId: event.surfaceId,
   });
 }
 

@@ -40,6 +40,7 @@ import {
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
+  getGpuRetainedContentRuntimeScrollRevisions,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
@@ -318,6 +319,9 @@ function resolveGpuFlowRetainedContentFrame({
   const scrollRevision = getGpuRetainedContentRuntimeScrollRevision(
     retainedContentRuntimeState,
   );
+  const scrollRevisions = getGpuRetainedContentRuntimeScrollRevisions(
+    retainedContentRuntimeState,
+  );
   const nativeVisualSignature =
     createGpuFlowRetainedContentNativeVisualSignature(layer);
   const pageDrawableRevision = retainedContentPageManager.getDrawableRevision();
@@ -343,6 +347,7 @@ function resolveGpuFlowRetainedContentFrame({
             layer,
             scrollOffsets,
             scrollRevision,
+            scrollRevisions,
             viewportZoomBucket,
           });
     const preparedFrame = {
@@ -367,6 +372,7 @@ function resolveGpuFlowRetainedContentFrame({
     layer,
     scrollOffsets,
     scrollRevision,
+    scrollRevisions,
     viewportZoomBucket,
   });
   const preparedFrame = retainedContentPageManager.prepareFrame({
@@ -395,6 +401,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   layer,
   scrollOffsets,
   scrollRevision,
+  scrollRevisions,
   viewportZoomBucket,
 }: {
   readonly devicePixelRatio: number;
@@ -402,6 +409,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   readonly layer: GpuFlowNodeLayerState;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scrollRevision: number;
+  readonly scrollRevisions: ReadonlyMap<string, number>;
   readonly viewportZoomBucket: number;
 }): GpuRetainedRuntimeFrame {
   return createGpuRetainedRuntimeFrame({
@@ -412,6 +420,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
     scrollbarVisualState: layer.retainedContentScrollbarVisualState,
     scrollOffsets,
     scrollRevision,
+    scrollRevisions,
     viewport: layer.viewport,
     viewportZoomBucket,
   });
@@ -560,7 +569,7 @@ export function renderGpuFlowNodeLayerFrame({
     retainedRuntimeFrame,
   );
   const retainedDisplayOutcome = resolveRetainedDisplayFrameTransaction({
-    allowColdPlaceholder: true,
+    allowColdPlaceholder: retainedDisplayFrameRef.current === null,
     nowMs: renderStartedAt,
     prepared: createRetainedDisplayFrameInput({
       pageFrame: retainedPagePreparedFrame,

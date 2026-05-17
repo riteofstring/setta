@@ -210,6 +210,7 @@ export function createFrameTextureManager() {
         });
         return {
           budgetExhausted: false,
+          deferredSurfaceIds: [],
           diagnostics: [],
           remainingDirtySurfaceIds: [],
           skippedSurfaceIds: [],

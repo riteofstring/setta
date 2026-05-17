@@ -158,7 +158,7 @@ describe("rasterizeGpuRetainedContentPage", () => {
     );
   });
 
-  it("draws deterministic passive text-like row labels without DOM-owned values", () => {
+  it("draws deterministic passive text-like row labels and canvas-owned values", () => {
     const canvas = { height: 1, width: 1 } as HTMLCanvasElement;
     const ctx = createCanvasContextRecorder();
 
@@ -201,6 +201,7 @@ describe("rasterizeGpuRetainedContentPage", () => {
               wrapLines: false,
             },
             rendererFamily: "text",
+            renderOwner: "canvas-owned",
             commitPolicy: "native-island",
           },
           controlKind: "text-like",
@@ -220,7 +221,7 @@ describe("rasterizeGpuRetainedContentPage", () => {
       expect.any(Number),
       expect.any(Number),
     );
-    expect(ctx.fillText).not.toHaveBeenCalledWith(
+    expect(ctx.fillText).toHaveBeenCalledWith(
       "42",
       expect.any(Number),
       expect.any(Number),

@@ -9,6 +9,7 @@ export type GpuFrameReason =
   | "init"
   | "manual"
   | "paint"
+  | "retained-scroll"
   | "resize"
   | "texture-upload"
   | "viewport";

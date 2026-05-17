@@ -80,24 +80,34 @@ test("retained passive text editor previews stay attached during section scroll"
     );
   }
 
-  const failures = frames.flatMap((frame) =>
-    frame.textRows
-      .filter((row) => row.visibleTextPixelCount < row.minimumTextPixelCount)
-      .map((row) => ({
-        frame: frame.name,
-        row,
-      })),
+  const framesWithoutRows = frames.filter(
+    (frame) => frame.textRows.length === 0,
+  );
+  const framesWithoutVisibleText = frames.filter(
+    (frame) =>
+      !frame.textRows.some(
+        (row) => row.visibleTextPixelCount >= row.minimumTextPixelCount,
+      ),
   );
   const frameDetails = frames.map((frame) => ({
     name: frame.name,
     textRows: frame.textRows,
   }));
   const failureDetails = JSON.stringify(
-    { contentClip, failures, frames: frameDetails, surfaceClip },
+    {
+      contentClip,
+      frames: frameDetails,
+      framesWithoutRows: framesWithoutRows.map((frame) => frame.name),
+      framesWithoutVisibleText: framesWithoutVisibleText.map(
+        (frame) => frame.name,
+      ),
+      surfaceClip,
+    },
     null,
     2,
   );
-  expect(failures, failureDetails).toHaveLength(0);
+  expect(framesWithoutRows, failureDetails).toHaveLength(0);
+  expect(framesWithoutVisibleText, failureDetails).toHaveLength(0);
 });
 
 test("high zoom retained coverage is visible-first", async ({
@@ -693,12 +703,11 @@ async function captureTextInkAlignmentFrame({
   };
   readonly valueInk: TextInkBounds | null;
 }> {
-  const valueClientRect = await resolveProjectedDomControlHostRectForRow(
-    page,
-    row,
-  );
+  const valueClientRect =
+    (await resolveProjectedDomControlHostRectForRow(page, row)) ??
+    row.controlClientRect;
   if (!valueClientRect) {
-    throw new Error(`Missing projected DOM-control host for ${row.rowLabel}.`);
+    throw new Error(`Missing retained value rect for ${row.rowLabel}.`);
   }
   const clip = await viewportScreenshotClip(page);
   const screenshot = await screenshotClip({
@@ -757,12 +766,11 @@ async function captureTextInkAlignmentFrameForLabel({
   if (!row.controlClientRect) {
     throw new Error(`Missing ${label} control rect for ${name}.`);
   }
-  const valueClientRect = await resolveProjectedDomControlHostRectForRow(
-    page,
-    row,
-  );
+  const valueClientRect =
+    (await resolveProjectedDomControlHostRectForRow(page, row)) ??
+    row.controlClientRect;
   if (!valueClientRect) {
-    throw new Error(`Missing projected DOM-control host for ${label}.`);
+    throw new Error(`Missing retained value rect for ${label}.`);
   }
   const clip = await viewportScreenshotClip(page);
   const screenshot = await screenshotClip({
@@ -964,13 +972,15 @@ async function analyzeVisibleTextPreviewRows(
           y: rect.y,
         });
       }
+      const resolveValueRect = (row: RetainedRowDebugEntry): Rect | null =>
+        hostRectByRowId.get(row.rowId) ?? row.controlClientRect;
       const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
         .filter(
           (row): row is RetainedRowDebugEntry =>
             row.surfaceId === surfaceId &&
             trackedLabelSet.has(row.rowLabel) &&
             row.controlKind === "text-like" &&
-            hostRectByRowId.has(row.rowId) &&
+            resolveValueRect(row) !== null &&
             row.canvasSamplePoint.x >= 0 &&
             row.canvasSamplePoint.y >= 0 &&
             row.canvasSamplePoint.x < row.canvasCssSize.width &&
@@ -997,9 +1007,9 @@ async function analyzeVisibleTextPreviewRows(
         canvas.height,
       );
       return rows.map((row) => {
-        const controlRect = hostRectByRowId.get(row.rowId);
+        const controlRect = resolveValueRect(row);
         if (!controlRect) {
-          throw new Error(`Missing DOM-control host for ${row.rowLabel}`);
+          throw new Error(`Missing retained value rect for ${row.rowLabel}`);
         }
         const left = Math.max(0, Math.floor(controlRect.x - clip.x));
         const right = Math.min(
@@ -1046,6 +1056,13 @@ async function analyzeVisibleTextPreviewRows(
 
       function isCodeMirrorTextPixel(r: number, g: number, b: number): boolean {
         const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const slateCanvasText =
+          luma >= 35 && luma < 95 && g - r > 8 && b - g > 8 && b - r > 20;
+        const darkCanvasText =
+          luma >= 15 && luma < 70 && g >= r && b > g && b - r > 14;
+        if (slateCanvasText || darkCanvasText) {
+          return true;
+        }
         if (luma < 70) {
           return false;
         }

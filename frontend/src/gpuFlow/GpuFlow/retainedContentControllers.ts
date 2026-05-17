@@ -674,7 +674,7 @@ function requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
   ) {
     return false;
   }
-  surfaceRef.current?.requestFrame("viewport");
+  surfaceRef.current?.requestFrame("retained-scroll");
   return true;
 }
 

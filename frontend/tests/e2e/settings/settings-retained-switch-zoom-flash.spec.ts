@@ -32,18 +32,24 @@ test("retained switch does not flash its previous state while zooming before bac
   page,
 }, testInfo) => {
   await openSettings(page);
+  const originalChecked = Boolean(
+    await readGuiSetting(page, "leftSidePaneShiftsMap"),
+  );
   const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_LABEL);
-  await performCloseZoom(page, zoomTarget.labelClientPoint);
+  await performCloseZoom(
+    page,
+    zoomTarget.controlClientPoint ?? zoomTarget.labelClientPoint,
+  );
   const row = await bringVisibleGuiRowControlIntoView(page, SWITCH_LABEL);
   if (!row.controlClientPoint || !row.controlClientRect) {
     throw new Error(`Missing switch control geometry for ${SWITCH_LABEL}`);
   }
   const controlRect = row.controlClientRect;
-  const clickPoint = resolveRenderedSwitchClickPoint(controlRect);
+  const clickPoint = await resolveSwitchClickPoint(page, row);
   const clip = await resolveSwitchClipFromControlRect(page, controlRect);
   await waitForStableScreenshotClip(page, clip);
   await page.mouse.click(clickPoint.x, clickPoint.y);
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(750);
   await waitForStableScreenshotClip(page, clip);
   const visualInitialChecked = await captureSwitchTrackChecked({
     name: "visual-switch-latency-initial.png",
@@ -61,9 +67,11 @@ test("retained switch does not flash its previous state while zooming before bac
     releaseBackendConfirmation = resolve;
   });
   let delayedBackendRequests = 0;
+  const delayedBackendBodies: unknown[] = [];
   let backendConfirmationReleasedForZoom = false;
   await page.route("**/setParamEnteredValue", async (route) => {
     delayedBackendRequests += 1;
+    delayedBackendBodies.push(route.request().postDataJSON());
     await backendConfirmationReleased;
     await route.continue();
   });
@@ -97,6 +105,7 @@ test("retained switch does not flash its previous state while zooming before bac
     const failureDetails = JSON.stringify(
       {
         debugState,
+        delayedBackendBodies,
         delayedBackendRequests,
         flashedOldStateFrames,
         firstTargetStateIndex,
@@ -127,7 +136,9 @@ test("retained switch does not flash its previous state while zooming before bac
         )
         .toBe(targetChecked);
     }
+    await restoreSwitchSetting(page, SWITCH_LABEL, originalChecked);
     await waitForViewportIdle(page);
+    await releaseModifierKeys(page);
     await page.unroute("**/setParamEnteredValue");
   }
 });
@@ -224,16 +235,14 @@ async function bringVisibleGuiRowControlIntoView(
     }
     await panViewportBy(
       page,
-      row.controlClientPoint.x > viewport.width - 96
-        ? -320
-        : row.controlClientPoint.x < 96
-          ? 320
-          : 0,
-      row.controlClientPoint.y > viewport.height - 96
-        ? -180
-        : row.controlClientPoint.y < 96
-          ? 180
-          : 0,
+      row.controlClientPoint.x > viewport.width - 96 ||
+        row.controlClientPoint.x < 96
+        ? viewport.width / 2 - row.controlClientPoint.x
+        : 0,
+      row.controlClientPoint.y > viewport.height - 96 ||
+        row.controlClientPoint.y < 96
+        ? viewport.height / 2 - row.controlClientPoint.y
+        : 0,
     );
     row = await resolveVisibleGuiRow(page, label);
   }
@@ -253,12 +262,44 @@ async function clickSwitchUntilBackendRequest({
   if (!row.controlClientRect) {
     throw new Error(`Missing switch control geometry for ${label}`);
   }
-  const point = resolveRenderedSwitchClickPoint(row.controlClientRect);
+  const point = await resolveSwitchClickPoint(page, row);
+  await page.mouse.click(point.x, point.y);
+  try {
+    await expect
+      .poll(readRequestCount, { intervals: [10, 20, 40], timeout: 1_000 })
+      .toBeGreaterThan(0);
+  } catch (error) {
+    const debugState = await readSwitchClickDebugState(page, label, point);
+    throw new Error(
+      `Switch click did not reach backend: ${JSON.stringify(
+        debugState,
+        null,
+        2,
+      )}`,
+      { cause: error },
+    );
+  }
+  return point;
+}
+
+async function restoreSwitchSetting(
+  page: Page,
+  label: string,
+  checked: boolean,
+): Promise<void> {
+  const current = Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap"));
+  if (current === checked) {
+    return;
+  }
+  const row = await bringVisibleGuiRowControlIntoView(page, label);
+  const point = await resolveSwitchClickPoint(page, row);
   await page.mouse.click(point.x, point.y);
   await expect
-    .poll(readRequestCount, { intervals: [10, 20, 40], timeout: 1_000 })
-    .toBeGreaterThan(0);
-  return point;
+    .poll(
+      async () => Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+      { timeout: 5_000 },
+    )
+    .toBe(checked);
 }
 
 async function panViewportBy(
@@ -266,17 +307,18 @@ async function panViewportBy(
   dx: number,
   dy: number,
 ): Promise<void> {
-  const canvas = page.locator(".setta-gpu-flow__canvas").first();
-  const box = await canvas.boundingBox();
-  if (!box) {
-    throw new Error("Missing GPU flow canvas bounds.");
-  }
-  const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(start.x + dx, start.y + dy, { steps: 8 });
-  await page.mouse.up();
-  await page.waitForTimeout(100);
+  await page.evaluate(
+    async (delta) => {
+      const [{ panGpuViewport }, { gpuFlowViewportStore }] = await Promise.all([
+        import("/src/gpuFlow/viewportActions.ts"),
+        import("/src/gpuFlow/viewportStore.ts"),
+      ]);
+      panGpuViewport(delta, { store: gpuFlowViewportStore });
+    },
+    { x: dx, y: dy },
+  );
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 async function readViewportZoom(page: Page): Promise<number> {
@@ -321,6 +363,13 @@ async function waitForAnimationFrame(page: Page): Promise<void> {
     () =>
       new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
   );
+}
+
+async function releaseModifierKeys(page: Page): Promise<void> {
+  await page.keyboard.up("Control");
+  await page.keyboard.up("Meta");
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("Alt");
 }
 
 async function captureSwitchTrackChecked({
@@ -434,6 +483,52 @@ async function readSwitchDebugState(page: Page, label: string) {
   );
 }
 
+async function readSwitchClickDebugState(
+  page: Page,
+  label: string,
+  point: Point,
+) {
+  return await page.evaluate(
+    ({ label, point, surfaceId }) => {
+      const element = document.elementFromPoint(point.x, point.y);
+      const elementSummary =
+        element instanceof HTMLElement
+          ? {
+              className: element.className,
+              gpuFlowCanvas: element.getAttribute("data-gpu-flow-canvas"),
+              gpuFlowPortalRoot: element.getAttribute(
+                "data-gpu-flow-portal-root",
+              ),
+              gpuFlowRetainedNative: element.getAttribute(
+                "data-gpu-flow-retained-content-native",
+              ),
+              id: element.id,
+              tagName: element.tagName,
+              testId: element.getAttribute("data-testid"),
+            }
+          : null;
+      const rows = (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+      ).filter(
+        (row): row is RetainedRowDebugEntry =>
+          row.surfaceId === surfaceId && row.rowLabel === label,
+      );
+      const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
+      const visuals = (
+        window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []
+      ).filter((surface) => surface.surfaceId.includes("switch-animation"));
+      return {
+        element: elementSummary,
+        point,
+        rows,
+        snapshot,
+        visuals,
+      };
+    },
+    { label, point, surfaceId: GUI_CONTENT_SURFACE_ID },
+  );
+}
+
 async function resolveSwitchAnimationTrackClip(
   page: Page,
   row: RetainedRowDebugEntry,
@@ -461,6 +556,59 @@ async function resolveSwitchAnimationTrackClip(
     x: trackRect.x + trackRect.width / 2 - SWITCH_CLIP_WIDTH / 2,
     y: trackRect.y + trackRect.height / 2 - SWITCH_CLIP_HEIGHT / 2,
   });
+}
+
+async function resolveSwitchClickPoint(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<Point> {
+  if (!row.controlClientRect) {
+    throw new Error(`Missing switch control geometry for ${row.rowLabel}`);
+  }
+  const renderedPoint = await resolveRenderedSwitchClickPoint(
+    page,
+    row.controlClientRect,
+  );
+  if (await isGpuFlowSurfacePoint(page, renderedPoint, row)) {
+    return renderedPoint;
+  }
+  if (!row.controlClientPoint) {
+    return renderedPoint;
+  }
+  const visiblePoint = {
+    x: Math.min(
+      row.controlClientRect.x + row.controlClientRect.width - 2,
+      Math.max(row.controlClientRect.x + 2, row.controlClientPoint.x + 12),
+    ),
+    y: row.controlClientPoint.y,
+  };
+  return (await isGpuFlowSurfacePoint(page, visiblePoint, row))
+    ? visiblePoint
+    : renderedPoint;
+}
+
+async function isGpuFlowSurfacePoint(
+  page: Page,
+  point: Point,
+  row: RetainedRowDebugEntry,
+): Promise<boolean> {
+  return await page.evaluate(
+    ({ candidate, ownerSectionId, surfaceId }) => {
+      const element = document.elementFromPoint(candidate.x, candidate.y);
+      const source = element?.closest("[data-gpu-flow-source-id]");
+      const sourceId = source?.getAttribute("data-gpu-flow-source-id") ?? null;
+      return Boolean(
+        element?.closest(".setta-gpu-flow__canvas") ||
+          sourceId === ownerSectionId ||
+          sourceId === surfaceId,
+      );
+    },
+    {
+      candidate: point,
+      ownerSectionId: row.ownerSectionId,
+      surfaceId: row.surfaceId,
+    },
+  );
 }
 
 async function captureSwitchFrame({
@@ -512,10 +660,14 @@ async function resolveSwitchClipFromControlRect(
   });
 }
 
-function resolveRenderedSwitchClickPoint(rect: Rect): Point {
+async function resolveRenderedSwitchClickPoint(
+  page: Page,
+  rect: Rect,
+): Promise<Point> {
+  const zoom = await readViewportZoom(page);
   return {
-    x: rect.x + Math.min(rect.width / 2, SWITCH_TRACK_CENTER_OFFSET_X),
-    y: rect.y + Math.min(rect.height / 2, SWITCH_TRACK_CENTER_OFFSET_Y),
+    x: rect.x + Math.min(rect.width / 2, SWITCH_TRACK_CENTER_OFFSET_X * zoom),
+    y: rect.y + Math.min(rect.height / 2, SWITCH_TRACK_CENTER_OFFSET_Y * zoom),
   };
 }
 

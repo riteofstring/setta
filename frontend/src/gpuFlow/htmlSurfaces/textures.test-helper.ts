@@ -1,6 +1,29 @@
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
 import { HtmlSurfaceTextureManager } from "./textures";
+
+export function requireCommittedSurfaceTexture(
+  manager: HtmlSurfaceTextureManager,
+  surfaceId: string,
+) {
+  const record = manager.getCommittedSurfaceTexture(surfaceId);
+  expect(record).toBeDefined();
+  if (!record) {
+    throw new Error(`Missing committed surface texture ${surfaceId}.`);
+  }
+  return record;
+}
+
+export function emptyDirtyWorkCounts() {
+  return {
+    animation: 0,
+    content: 0,
+    geometry: 0,
+    hover: 0,
+    resolution: 0,
+    "source-window": 0,
+  };
+}
 
 export function createHtmlInCanvasCanvas(): HtmlInCanvasCanvas {
   const canvas = document.createElement("canvas") as HtmlInCanvasCanvas;

@@ -73,7 +73,6 @@ test("all-settings retained text-like row values are visible before click and th
       expect(scrollSteps).toBeGreaterThan(0);
     }
 
-    await waitForRetainedDomControlSource(page, rowTarget);
     const passiveClip = await resolveControlScreenshotClip(page, row);
     const { ink: passiveInk } = await waitForCodeMirrorTextInkFrame({
       name: `${rowTarget.rowId}-passive-before-click.png`,
@@ -178,6 +177,7 @@ test("all-settings retained text-like row values are visible before click and th
 });
 
 async function openAllSettings(page: Page): Promise<void> {
+  await releaseModifierKeys(page);
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -187,6 +187,8 @@ async function openAllSettings(page: Page): Promise<void> {
   await page.waitForFunction(
     () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
   );
+  await page.getByRole("button", { name: "fit view" }).click();
+  await waitForViewportIdle(page);
   await expect
     .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
     .toBeGreaterThan(50);
@@ -212,27 +214,30 @@ async function centerRetainedSurface(
     const paneRect = pane.getBoundingClientRect();
     const left = Math.min(...rows.map((row) => row.clientRect.x));
     const top = Math.min(...rows.map((row) => row.clientRect.y));
-    const bottom = Math.max(
-      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
-    );
     const flowLeft = (left - paneRect.left - transform.x) / transform.zoom;
     const flowTop = (top - paneRect.top - transform.y) / transform.zoom;
-    const flowHeight = Math.max(
-      firstRow.canvasCssSize.height,
-      (bottom - top) / transform.zoom,
-    );
+    const flowHeight = firstRow.canvasCssSize.height;
     const zoom = 1;
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
+    const [{ getRegisteredGpuFlowViewportRuntime }, { gpuFlowViewportStore }] =
+      await Promise.all([
+        import("/src/gpuFlow/viewportRuntimeRegistry.ts"),
+        import("/src/gpuFlow/viewportStore.ts"),
+      ]);
     const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({
+    const viewport = {
       x:
         paneRect.width * 0.5 -
         (flowLeft + firstRow.canvasCssSize.width / 2) * zoom,
       y: paneRect.height * 0.48 - (flowTop + flowHeight / 2) * zoom,
       zoom,
-    });
+    };
+    const runtime = getRegisteredGpuFlowViewportRuntime(gpuFlowViewportStore);
+    if (runtime) {
+      runtime.applyViewportCommand(viewport, { durationMs: 0 });
+      runtime.flushObserverSnapshot();
+    } else {
+      viewportStore.setTransform(viewport);
+    }
     viewportStore.setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
@@ -242,6 +247,41 @@ async function centerRetainedSurface(
   }, surfaceId);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+  await waitForRetainedSurfaceVisualViewport(page, surfaceId);
+}
+
+async function waitForRetainedSurfaceVisualViewport(
+  page: Page,
+  surfaceId: string,
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate((targetSurfaceId) => {
+          const surface = window
+            .__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.()
+            .find(
+              (entry) =>
+                entry.surfaceId.includes(targetSurfaceId) &&
+                (entry.kind === "flat" ||
+                  entry.kind === "late-flat" ||
+                  entry.kind === "tiled-flat") &&
+                entry.clientRect.width > 16 &&
+                entry.clientRect.height > 16,
+            );
+          if (!surface) {
+            return false;
+          }
+          return (
+            surface.clientRect.x + surface.clientRect.width > 0 &&
+            surface.clientRect.y + surface.clientRect.height > 0 &&
+            surface.clientRect.x < window.innerWidth &&
+            surface.clientRect.y < window.innerHeight
+          );
+        }, surfaceId),
+      { timeout: 5_000 },
+    )
+    .toBe(true);
 }
 
 async function scrollRetainedSurfaceToTop(
@@ -538,8 +578,6 @@ async function readRetainedTextLikeRowDiagnostics(
   target: TextLikeRowTarget,
 ): Promise<unknown> {
   return await page.evaluate((target) => {
-    const selector = createDomControlHostSelector(target);
-    const element = document.querySelector<HTMLElement>(selector);
     const planeDiagnostics =
       (
         window as typeof window & {
@@ -555,84 +593,20 @@ async function readRetainedTextLikeRowDiagnostics(
     );
     return {
       retainedRowFound: Boolean(row),
-      domControlHost:
-        element === null
-          ? null
-          : {
-              active: element.dataset.gpuFlowDomControlActive === "true",
-              childElementCount: element.childElementCount,
-              className: element.className,
-              clientHeight: element.clientHeight,
-              clientWidth: element.clientWidth,
-              controlId: element.dataset.gpuFlowDomControlId ?? null,
-              rect: toPlainRect(element.getBoundingClientRect()),
-              style: {
-                display: element.style.display,
-                pointerEvents: element.style.pointerEvents,
-                transform: element.style.transform,
-              },
-              textContent: element.textContent,
-            },
+      passiveDomControlHostCount: document.querySelectorAll(
+        [
+          "[data-gpu-flow-dom-control='true']",
+          `[data-gpu-flow-dom-control-surface-id='${cssEscape(
+            target.surfaceId,
+          )}']`,
+          `[data-gpu-flow-dom-control-row-id='${cssEscape(target.rowId)}']`,
+        ].join(""),
+      ).length,
       planeDiagnostics,
       visualSurfaces: visualSurfaces
         .filter((surface) => surface.surfaceId.includes(target.surfaceId))
         .slice(0, 12),
     };
-
-    function toPlainRect(rect: DOMRect): Rect {
-      return {
-        height: rect.height,
-        width: rect.width,
-        x: rect.x,
-        y: rect.y,
-      };
-    }
-
-    function createDomControlHostSelector(input: TextLikeRowTarget): string {
-      return [
-        "[data-gpu-flow-dom-control='true']",
-        `[data-gpu-flow-dom-control-surface-id='${cssEscape(input.surfaceId)}']`,
-        `[data-gpu-flow-dom-control-row-id='${cssEscape(input.rowId)}']`,
-      ].join("");
-    }
-
-    function cssEscape(value: string): string {
-      return value.replace(/['\\]/g, "\\$&");
-    }
-  }, target);
-}
-
-async function waitForRetainedDomControlSource(
-  page: Page,
-  target: TextLikeRowTarget,
-): Promise<void> {
-  await expect
-    .poll(() => readRetainedDomControlSourceReady(page, target), {
-      timeout: 5_000,
-    })
-    .toBe(true);
-}
-
-async function readRetainedDomControlSourceReady(
-  page: Page,
-  target: TextLikeRowTarget,
-): Promise<boolean> {
-  return await page.evaluate((target) => {
-    const selector = [
-      "[data-gpu-flow-dom-control='true']",
-      `[data-gpu-flow-dom-control-surface-id='${cssEscape(target.surfaceId)}']`,
-      `[data-gpu-flow-dom-control-row-id='${cssEscape(target.rowId)}']`,
-    ].join("");
-    const element = document.querySelector<HTMLElement>(selector);
-    if (!element) {
-      return false;
-    }
-    return (
-      element.offsetParent !== null &&
-      element.getBoundingClientRect().width > 0 &&
-      element.getBoundingClientRect().height > 0 &&
-      element.textContent !== null
-    );
 
     function cssEscape(value: string): string {
       return value.replace(/['\\]/g, "\\$&");
@@ -716,6 +690,13 @@ async function waitForAnimationFrame(page: Page): Promise<void> {
     () =>
       new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
   );
+}
+
+async function releaseModifierKeys(page: Page): Promise<void> {
+  await page.keyboard.up("Control");
+  await page.keyboard.up("Meta");
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("Alt");
 }
 
 async function waitForCodeMirrorTextInkFrame({

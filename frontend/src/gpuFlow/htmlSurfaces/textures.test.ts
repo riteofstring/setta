@@ -1,41 +1,26 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HtmlSurfaceTextureManager } from "./textures";
 import {
   createGpuTextureMock,
   createHtmlInCanvasCanvas,
+  emptyDirtyWorkCounts,
   installTextureUsage,
   registerNode,
+  requireCommittedSurfaceTexture,
 } from "./textures.test-helper";
 
-function requireCommittedSurfaceTexture(
-  manager: HtmlSurfaceTextureManager,
-  surfaceId: string,
-) {
-  const record = manager.getCommittedSurfaceTexture(surfaceId);
-  expect(record).toBeDefined();
-  return record!;
-}
-
-function emptyDirtyWorkCounts() {
-  return {
-    animation: 0,
-    content: 0,
-    geometry: 0,
-    hover: 0,
-    resolution: 0,
-    "source-window": 0,
-  };
-}
-
 describe("HtmlSurfaceTextureManager", () => {
+  beforeEach(() => {
+    installTextureUsage();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
   it("creates a DPR-aware texture and uploads the element with the native WebGPU API", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
     const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
@@ -114,7 +99,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("tiles oversized surfaces and uploads each source subrect into its own texture", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -193,7 +177,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("uploads single-texture dirty source rects into the existing texture origin", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -278,7 +261,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("does not request paint or retain paint deferral when no dirty tile is queued", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
@@ -333,7 +315,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("marks and uploads only tiled source rect owners after the initial upload", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -424,7 +405,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("spends tiled full-surface dirtiness under the upload budget one tile at a time", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -498,7 +478,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("spends tiled first-visible uploads under the upload budget before exposing the record", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -564,7 +543,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("tiles default high-zoom surfaces with scaled source subrect uploads", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureDimension2D: 4096,
@@ -626,7 +604,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("keeps the old texture until a resolution upgrade is uploaded", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -680,7 +657,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("defers zoom resolution upgrades while viewport interaction is active", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -737,7 +713,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("keeps zoom resolution stable inside the bucket hysteresis band", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -768,7 +743,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("keeps queued resolution-only uploads out of active viewport frames", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -811,8 +785,52 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps queued interactive resolution-only uploads out of active viewport frames", () => {
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const element = document.createElement("div");
+
+    manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      priority: "interactive",
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 2,
+      priority: "interactive",
+      surfaceId: "node-a",
+      zoom: 1.4,
+    });
+
+    const deferred = manager.uploadDirtySurfaceTextures({
+      deferResolutionOnly: true,
+      frame: 3,
+    });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: ["node-a"],
+      uploaded: [],
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps passive first-visible uploads out of active viewport frames", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
     const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
@@ -851,7 +869,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("stages tiled resolution upgrades under budget before replacing the old texture", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -942,7 +959,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("keeps the committed source rect while a source-window upload is pending", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureTileDimension2D: 128,
@@ -993,7 +1009,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("retargets a source rect without upload when the texture content key is unchanged", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
@@ -1034,7 +1049,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("defers existing passive content uploads during active viewport frames", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
 
@@ -1077,7 +1091,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("keeps dirty surfaces queued when Chromium has not cached a paint record yet", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
     const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
@@ -1132,7 +1145,6 @@ describe("HtmlSurfaceTextureManager", () => {
   });
 
   it("defers explicit nodes without reporting exhausted upload budget", () => {
-    installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
 

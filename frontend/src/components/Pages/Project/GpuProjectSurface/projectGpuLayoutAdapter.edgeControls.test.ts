@@ -384,7 +384,7 @@ describe("project GPU layout adapter edge and retained control state", () => {
     );
   });
 
-  it("marks active text-like retained param controls for projected DOM-control sources", () => {
+  it("marks active text-like retained param controls for projected DOM islands", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -491,7 +491,23 @@ describe("project GPU layout adapter edge and retained control state", () => {
         nativeControlActive: true,
       },
     ]);
-    expect(scene.domIslands).toEqual([]);
+    expect(scene.domIslands).toEqual([
+      expect.objectContaining({
+        activation: {
+          clientPoint: { x: 190, y: 62 },
+          kind: "pointer",
+        },
+        id: "param-control:dict-a:child-param",
+        kind: "retained-content-control",
+        ownerSectionId: "dict-a",
+        source: {
+          hitRecordId: "control:child-param",
+          kind: "retained-content",
+          ownerRowId: "child-param",
+          surfaceId: "dict-a:param-content:unpinned",
+        },
+      }),
+    ]);
   });
 
   it("keeps canvas-owned retained controls out of row focus state", () => {

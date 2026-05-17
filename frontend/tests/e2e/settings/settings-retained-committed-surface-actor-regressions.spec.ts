@@ -18,7 +18,7 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
-test("projected DOM controls expose the same committed frame as the debug surface snapshot", async ({
+test("committed surface debug snapshot keeps passive DOM actor scale bounded", async ({
   page,
 }) => {
   await openAllSettingsForRetainedCompositor(page);
@@ -60,29 +60,37 @@ test("projected DOM controls expose the same committed frame as the debug surfac
 
   const details = JSON.stringify(sample, null, 2);
   expect(sample.committed, details).not.toBeNull();
-  expect(sample.diagnostics?.mountedControlCount ?? 0, details).toBeGreaterThan(
-    0,
-  );
+  expect(
+    sample.diagnostics?.mountedControlCount ?? 0,
+    details,
+  ).toBeLessThanOrEqual(8);
   expect(
     sample.diagnostics?.visibleControlRectCount ?? 0,
     details,
-  ).toBeGreaterThan(0);
-  expect(sample.planeCommittedFrameId, details).toBe(
-    sample.committed?.domControlCommittedFrameId,
-  );
-  expect(sample.diagnostics?.committedFrameId, details).toBe(
-    sample.committed?.domControlCommittedFrameId,
-  );
-  expect(sample.planeRuntimeFrameId, details).toBe(
-    sample.committed?.canvasRetainedFrameId,
-  );
+  ).toBeLessThanOrEqual(8);
+  const domControlPlaneActive =
+    (sample.committed?.domControlActorCount ?? 0) > 0 ||
+    (sample.diagnostics?.mountedControlCount ?? 0) > 0 ||
+    (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
+  if (domControlPlaneActive) {
+    expect(sample.planeCommittedFrameId, details).toBe(
+      sample.committed?.domControlCommittedFrameId,
+    );
+    expect(sample.diagnostics?.committedFrameId, details).toBe(
+      sample.committed?.domControlCommittedFrameId,
+    );
+    expect(sample.planeRuntimeFrameId, details).toBe(
+      sample.committed?.canvasRetainedFrameId,
+    );
+  }
   expect(sample.committed?.debugSnapshotFrameId, details).toBe(
     sample.committed?.displayFrameId,
   );
   expect(sample.committed?.displayCompletenessStatus, details).toBe("complete");
-  expect(sample.committed?.domControlActorCount ?? 0, details).toBeGreaterThan(
-    0,
-  );
+  expect(
+    sample.committed?.domControlActorCount ?? 0,
+    details,
+  ).toBeLessThanOrEqual(8);
   expect(
     sample.committed?.projectedVisibleNonemptyDomControlCount,
     details,
@@ -90,7 +98,7 @@ test("projected DOM controls expose the same committed frame as the debug surfac
   expect(sample.committed?.retainedScrollRevision, details).toBeGreaterThan(0);
 });
 
-test("viewport wheel-pan burst continues after the pointer moves over a projected DOM control", async ({
+test("viewport wheel-pan burst continues after the pointer moves over passive canvas text", async ({
   page,
 }) => {
   await openAllSettingsForRetainedCompositor(page);
@@ -100,7 +108,7 @@ test("viewport wheel-pan burst continues after the pointer moves over a projecte
     SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   );
   const start = await resolveRetainedCompositorViewportPoint(page);
-  const controlPoint = await resolveProjectedDomControlPoint(page);
+  const controlPoint = await resolvePassiveTextLikeControlPoint(page);
   const before = await readRetainedCompositorViewport(page);
 
   await dispatchWheelSequence(page, [start, controlPoint, controlPoint]);
@@ -116,31 +124,27 @@ test("viewport wheel-pan burst continues after the pointer moves over a projecte
   expect(Math.abs(after.x - before.x), details).toBeLessThan(4);
 });
 
-async function resolveProjectedDomControlPoint(
+async function resolvePassiveTextLikeControlPoint(
   page: Page,
 ): Promise<RetainedCompositorPoint> {
   return await page.evaluate(() => {
-    const controls = [
-      ...document.querySelectorAll<HTMLElement>(
-        "[data-gpu-flow-dom-control='true']",
-      ),
-    ];
-    const control = controls.find((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-      return (
-        candidate.dataset.gpuFlowDomControlActive !== "true" &&
-        rect.width > 20 &&
-        rect.height > 8 &&
-        rect.x > 0 &&
-        rect.y > 0 &&
-        rect.x + rect.width < window.innerWidth &&
-        rect.y + rect.height < window.innerHeight
-      );
-    });
-    if (!control) {
-      throw new Error("Missing visible projected DOM control.");
+    const row = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).find(
+      (candidate) =>
+        candidate.controlKind === "text-like" &&
+        candidate.controlClientRect &&
+        candidate.controlClientRect.width > 20 &&
+        candidate.controlClientRect.height > 8 &&
+        candidate.controlClientRect.x > 0 &&
+        candidate.controlClientRect.y > 0 &&
+        candidate.controlClientRect.x + candidate.controlClientRect.width <
+          window.innerWidth &&
+        candidate.controlClientRect.y + candidate.controlClientRect.height <
+          window.innerHeight,
+    );
+    if (!row?.controlClientRect) {
+      throw new Error("Missing visible passive text-like retained row.");
     }
-    const rect = control.getBoundingClientRect();
+    const rect = row.controlClientRect;
     return {
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,

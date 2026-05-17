@@ -132,6 +132,59 @@ describe("GPU Flow committed surface frame", () => {
     );
   });
 
+  it("keeps viewport-only motion out of the committed render signature", () => {
+    const first = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({
+        frameId: 8,
+        scrollRevision: 3,
+        scrollY: 12,
+        viewport: [0, 0, 1],
+      }),
+    });
+    const second = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({
+        frameId: 9,
+        scrollRevision: 3,
+        scrollY: 12,
+        viewport: [40, -20, 1.25],
+      }),
+    });
+
+    expect(createGpuFlowCommittedSurfaceFrameRenderSignature(first)).toBe(
+      createGpuFlowCommittedSurfaceFrameRenderSignature(second),
+    );
+  });
+
+  it("splits passive actor content identity from retained scroll projection identity", () => {
+    const first = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({
+        frameId: 8,
+        scrollRevision: 3,
+        scrollY: 12,
+      }),
+    });
+    const second = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({
+        frameId: 9,
+        scrollRevision: 4,
+        scrollY: 18,
+      }),
+    });
+    const firstControl = first.actorGenerations.find(
+      (actor) => actor.kind === "dom-control",
+    );
+    const secondControl = second.actorGenerations.find(
+      (actor) => actor.kind === "dom-control",
+    );
+
+    expect(firstControl?.contentGenerationId).toBe(
+      secondControl?.contentGenerationId,
+    );
+    expect(firstControl?.layoutProjectionGenerationId).not.toBe(
+      secondControl?.layoutProjectionGenerationId,
+    );
+  });
+
   it("rejects visible frame id drift across committed surface families", () => {
     const frame = createGpuFlowStartupCommittedSurfaceFrame({
       retainedRuntimeFrame: createRuntimeFrame({ frameId: 4 }),
@@ -187,20 +240,29 @@ describe("GPU Flow committed surface frame", () => {
 
 function createRuntimeFrame({
   frameId,
+  scrollRevision = frameId,
+  scrollY = frameId,
   value = "hello",
+  viewport = [0, 0, 1],
 }: {
   readonly frameId: number;
+  readonly scrollRevision?: number | undefined;
+  readonly scrollY?: number | undefined;
   readonly value?: string | undefined;
+  readonly viewport?: [number, number, number] | undefined;
 }) {
   return createGpuRetainedRuntimeFrame({
     devicePixelRatioBucket: 1,
     frameId,
     scene: sceneWithRetainedContentSurface(value),
     scrollOffsets: new Map([
-      ["dict-a:param-content:unpinned", { x: 0, y: frameId }],
+      ["dict-a:param-content:unpinned", { x: 0, y: scrollY }],
     ]),
-    scrollRevision: frameId,
-    viewport: [0, 0, 1],
+    scrollRevision,
+    scrollRevisions: new Map([
+      ["dict-a:param-content:unpinned", scrollRevision],
+    ]),
+    viewport,
     viewportZoomBucket: 1,
   });
 }
@@ -227,7 +289,7 @@ function fakeRetainedDisplayFrame({
         id: `retained-hit:${id}`,
       },
     },
-  } as RetainedDisplayFrame;
+  } as unknown as RetainedDisplayFrame;
 }
 
 function flatHtmlSurface(surfaceId: string): HtmlSurfaceFlatVisual {

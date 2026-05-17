@@ -50,6 +50,7 @@ function assertGpuRetainedDomControlSceneOnlyAccessAllowed() {
 export function getGpuRetainedDomControlSourcesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
   options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   } = {},
@@ -62,6 +63,7 @@ export function getGpuRetainedDomControlSourcesFromSourceSurfaces(
 export function getGpuRetainedDomControlSourcesFromHitTestSurfaces(
   surfaces: readonly GpuRetainedContentSurface[],
   options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   } = {},
@@ -74,6 +76,7 @@ export function getGpuRetainedDomControlSourcesFromHitTestSurfaces(
 function getGpuRetainedDomControlSourcesForHitTestSurface(
   surface: GpuRetainedContentSurface,
   options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   },
@@ -139,6 +142,7 @@ function getGpuRetainedDomControlSourcesForHitTestSurface(
 function getGpuRetainedDomControlSourcesForSurface(
   surface: GpuRetainedContentSourceSurface,
   options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   },
@@ -194,6 +198,7 @@ function createGpuRetainedDomControlSourceForRow({
   readonly liveRowsById: ReadonlyMap<string, GpuRetainedContentRow>;
   readonly liveSourceInput: GpuRetainedContentSceneSourceInput;
   readonly options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   };
@@ -294,6 +299,7 @@ function createGpuRetainedDomControlSourceBase({
   readonly liveControlRectSurfaceCssPx: GpuRect;
   readonly liveRow: GpuRetainedContentRow;
   readonly options: {
+    readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
     readonly viewport?: GpuViewportInput | undefined;
     readonly scrollRevision?: number | undefined;
   };
@@ -363,7 +369,8 @@ function createGpuRetainedDomControlSourceBase({
     sectionClipRectFlowPx,
     sectionId: surface.ownerSectionId,
     sectionScrollOffset,
-    sectionScrollRevision: options.scrollRevision ?? 0,
+    sectionScrollRevision:
+      options.scrollRevisions?.get(surface.id) ?? options.scrollRevision ?? 0,
     sourceId,
     sourceRectCssPx,
     surfaceId: surface.id,

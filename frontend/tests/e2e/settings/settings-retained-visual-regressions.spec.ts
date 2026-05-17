@@ -14,7 +14,10 @@ import {
   type SwitchFrame,
 } from "./settings-retained-visual-analysis";
 import {
+  clampScreenshotClip,
+  clampScreenshotClipToViewport,
   screenshotClip,
+  waitForAnimationFrame,
   waitForStableScreenshotClip,
 } from "./settings-retained-visual-regression-helpers";
 
@@ -142,7 +145,10 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
   await openSettings(page);
   const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
   await performCloseZoom(page, zoomTarget.labelClientPoint);
-  const row = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
+  const row = await bringVisibleGuiRowLabelIntoView(
+    page,
+    SWITCH_ANIMATION_LABEL,
+  );
   await moveAwayFromRetainedRows(page);
   const labelSampleRect = resolveHoverContrastLabelSampleRect(row);
   const clip = clampScreenshotClip(labelSampleRect);
@@ -191,7 +197,10 @@ test("retained switch click animates the thumb monotonically", async ({
 }, testInfo) => {
   await openSettings(page);
   const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
-  await performCloseZoom(page, zoomTarget.labelClientPoint);
+  await performCloseZoom(
+    page,
+    zoomTarget.controlClientPoint ?? zoomTarget.labelClientPoint,
+  );
   const row = await bringVisibleGuiRowControlIntoView(
     page,
     SWITCH_ANIMATION_LABEL,
@@ -210,7 +219,7 @@ test("retained switch click animates the thumb monotonically", async ({
       `Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`,
     );
   }
-  let clickPoint = resolveRenderedSwitchClickPoint(controlRect);
+  let clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
   if (initialChecked) {
     await page.mouse.click(clickPoint.x, clickPoint.y);
     await page.waitForTimeout(320);
@@ -229,7 +238,7 @@ test("retained switch click animates the thumb monotonically", async ({
         `Missing unchecked switch control rect for ${SWITCH_ANIMATION_LABEL}`,
       );
     }
-    clickPoint = resolveRenderedSwitchClickPoint(controlRect);
+    clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
     initialChecked = false;
   }
   const clip = await resolveSwitchClipFromControlRect(page, controlRect);
@@ -828,7 +837,10 @@ async function bringVisibleGuiRowControlIntoView(
   label: string,
 ): Promise<RetainedRowDebugEntry> {
   let row = await resolveVisibleGuiRow(page, label);
-  let controlPoint = resolveVisibleGuiRowSwitchInteractionPoint(row);
+  let controlPoint = await resolveVisibleGuiRowSwitchInteractionPoint(
+    page,
+    row,
+  );
   if (!controlPoint) {
     return row;
   }
@@ -847,8 +859,10 @@ async function bringVisibleGuiRowControlIntoView(
     }
     await translateViewportBy(page, viewport.width / 2 - controlPoint.x, 0);
     const nextRow = await resolveVisibleGuiRow(page, label);
-    const nextControlPoint =
-      resolveVisibleGuiRowSwitchInteractionPoint(nextRow);
+    const nextControlPoint = await resolveVisibleGuiRowSwitchInteractionPoint(
+      page,
+      nextRow,
+    );
     if (nextControlPoint) {
       row = nextRow;
       controlPoint = nextControlPoint;
@@ -857,11 +871,46 @@ async function bringVisibleGuiRowControlIntoView(
   return row;
 }
 
-function resolveVisibleGuiRowSwitchInteractionPoint(
+async function bringVisibleGuiRowLabelIntoView(
+  page: Page,
+  label: string,
+): Promise<RetainedRowDebugEntry> {
+  let row = await resolveVisibleGuiRow(page, label);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const viewport = await page.evaluate(() => ({
+      height: window.innerHeight,
+      width: window.innerWidth,
+    }));
+    if (
+      row.labelClientPoint.x > 96 &&
+      row.labelClientPoint.x < viewport.width - 96 &&
+      row.labelClientPoint.y > 96 &&
+      row.labelClientPoint.y < viewport.height - 96
+    ) {
+      return row;
+    }
+    await translateViewportBy(
+      page,
+      row.labelClientPoint.x > viewport.width - 96 ||
+        row.labelClientPoint.x < 96
+        ? viewport.width / 2 - row.labelClientPoint.x
+        : 0,
+      row.labelClientPoint.y > viewport.height - 96 ||
+        row.labelClientPoint.y < 96
+        ? viewport.height / 2 - row.labelClientPoint.y
+        : 0,
+    );
+    row = await resolveVisibleGuiRow(page, label);
+  }
+  return row;
+}
+
+async function resolveVisibleGuiRowSwitchInteractionPoint(
+  page: Page,
   row: RetainedRowDebugEntry,
-): Point | null {
+): Promise<Point | null> {
   return row.controlClientRect
-    ? resolveRenderedSwitchClickPoint(row.controlClientRect)
+    ? await resolveRenderedSwitchClickPoint(page, row.controlClientRect)
     : row.controlClientPoint;
 }
 
@@ -975,13 +1024,6 @@ async function waitForViewportIdle(page: Page): Promise<void> {
       { timeout: 5_000 },
     )
     .toBe(true);
-}
-
-async function waitForAnimationFrame(page: Page): Promise<void> {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  );
 }
 
 async function captureSwitchFrame({
@@ -1121,15 +1163,6 @@ function resolveHoverContrastLabelSampleRect(row: RetainedRowDebugEntry): Rect {
   };
 }
 
-function clampScreenshotClip(rect: Rect): Rect {
-  return {
-    height: Math.max(1, Math.floor(rect.height)),
-    width: Math.max(1, Math.floor(rect.width)),
-    x: Math.max(0, Math.floor(rect.x)),
-    y: Math.max(0, Math.floor(rect.y)),
-  };
-}
-
 async function resolveSwitchClipFromControlRect(
   page: Page,
   rect: Rect,
@@ -1147,35 +1180,17 @@ async function resolveSwitchClipFromControlRect(
   });
 }
 
-function resolveRenderedSwitchClickPoint(rect: Rect): Point {
-  return {
-    x: rect.x + Math.min(rect.width / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_X),
-    y:
-      rect.y + Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y),
-  };
-}
-
-async function clampScreenshotClipToViewport(
+async function resolveRenderedSwitchClickPoint(
   page: Page,
   rect: Rect,
-): Promise<Rect> {
-  return await page.evaluate((input) => {
-    const width = Math.min(
-      Math.max(1, Math.floor(input.width)),
-      Math.max(1, window.innerWidth - 1),
-    );
-    const height = Math.min(
-      Math.max(1, Math.floor(input.height)),
-      Math.max(1, window.innerHeight - 1),
-    );
-    const x = Math.min(
-      Math.max(0, Math.floor(input.x)),
-      Math.max(0, window.innerWidth - width),
-    );
-    const y = Math.min(
-      Math.max(0, Math.floor(input.y)),
-      Math.max(0, window.innerHeight - height),
-    );
-    return { height, width, x, y };
-  }, rect);
+): Promise<Point> {
+  const zoom = await readViewportZoom(page);
+  return {
+    x:
+      rect.x +
+      Math.min(rect.width / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_X * zoom),
+    y:
+      rect.y +
+      Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y * zoom),
+  };
 }

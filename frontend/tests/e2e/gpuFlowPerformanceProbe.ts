@@ -41,6 +41,16 @@ export type GpuFlowLongTask = {
   readonly startTimeMs: number;
 };
 
+export type GpuFlowUploadDiagnosticProbeSummary = {
+  readonly dirtyContent: boolean;
+  readonly dirtyResolution: boolean;
+  readonly priority: string;
+  readonly reasons: readonly string[];
+  readonly surfaceId: string;
+  readonly uploadedTextureCount: number;
+  readonly workKinds: readonly string[];
+};
+
 export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
@@ -59,6 +69,7 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly textureLargestBytes: number;
   readonly textureVisibleBytes: number;
   readonly timestampMs: number;
+  readonly uploadDiagnostics: readonly GpuFlowUploadDiagnosticProbeSummary[];
   readonly uploadedNodeIds: readonly string[];
   readonly viewport: {
     readonly x: number;
@@ -786,6 +797,42 @@ function toNodeLayerFrameSummary(
       numberValue(value.textureMemoryVisibleBytes) ||
       numberValue(textureMemory.visibleBytes),
     timestampMs: performance.now(),
+    uploadDiagnostics: uploadDiagnostics
+      .map((diagnostic) =>
+        diagnostic && typeof diagnostic === "object"
+          ? {
+              dirtyContent:
+                (diagnostic as { dirtyContent?: unknown }).dirtyContent ===
+                true,
+              dirtyResolution:
+                (diagnostic as { dirtyResolution?: unknown })
+                  .dirtyResolution === true,
+              priority:
+                typeof (diagnostic as { priority?: unknown }).priority ===
+                "string"
+                  ? (diagnostic as { priority: string }).priority
+                  : "",
+              reasons: stringArray(
+                (diagnostic as { reasons?: unknown }).reasons,
+              ),
+              surfaceId:
+                typeof (diagnostic as { surfaceId?: unknown }).surfaceId ===
+                "string"
+                  ? (diagnostic as { surfaceId: string }).surfaceId
+                  : "",
+              uploadedTextureCount: numberValue(
+                (diagnostic as { uploadedTextureCount?: unknown })
+                  .uploadedTextureCount,
+              ),
+              workKinds: stringArray(
+                (diagnostic as { workKinds?: unknown }).workKinds,
+              ),
+            }
+          : null,
+      )
+      .filter((diagnostic): diagnostic is GpuFlowUploadDiagnosticProbeSummary =>
+        Boolean(diagnostic),
+      ),
     uploadedNodeIds:
       stringArray(value.uploadedNodeIds).length > 0
         ? stringArray(value.uploadedNodeIds)

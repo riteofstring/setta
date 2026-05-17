@@ -21,16 +21,20 @@ type GpuFlowCommittedSurfaceActorGeneration = {
   readonly actorId: string;
   readonly clipChainRevision: string;
   readonly clipRect: GpuRect;
+  readonly contentGenerationId: string;
   readonly controlId: string | null;
   readonly focusIdentity: string | null;
   readonly flowRect: GpuRect;
   readonly generationId: string;
   readonly islandId: string | null;
   readonly kind: GpuFlowCommittedSurfaceActorKind;
+  readonly layoutProjectionGenerationId: string;
+  readonly liveMotionSampleId: string;
   readonly mountReadiness: "not-required" | "ready";
   readonly ownerSurfaceId: string;
   readonly pointerEvents: "auto" | "none";
   readonly projectionReadiness: "not-required" | "ready";
+  readonly readinessGenerationId: string;
   readonly retainedScrollOffset: {
     readonly x: number;
     readonly y: number;
@@ -101,13 +105,13 @@ export function createGpuFlowCommittedSurfaceFrame({
   const actorGenerations = Object.freeze([
     ...createRetainedPageActors(retainedDisplayFrame.surfaceActorSnapshots),
     ...createHtmlTextureActors({
-      retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
+      retainedRuntimeFrame,
       surfaces: retainedDisplayFrame.flatSurfaces,
     }),
     ...createDomControlActors(retainedRuntimeFrame),
     ...createDomIslandActors(retainedRuntimeFrame),
     ...createGpuNativeVisualActors({
-      retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
+      retainedRuntimeFrame,
       visuals:
         gpuNativeVisuals ??
         retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
@@ -133,7 +137,7 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
     ...createDomControlActors(retainedRuntimeFrame),
     ...createDomIslandActors(retainedRuntimeFrame),
     ...createGpuNativeVisualActors({
-      retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
+      retainedRuntimeFrame,
       visuals: retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
     }),
   ]);
@@ -154,10 +158,10 @@ export function createGpuFlowCommittedSurfaceFrameRenderSignature(
   return JSON.stringify({
     actorGenerations: frame.actorGenerations.map((actor) => [
       actor.actorId,
-      actor.generationId,
-      actor.clipChainRevision,
+      actor.contentGenerationId,
+      actor.layoutProjectionGenerationId,
+      actor.readinessGenerationId,
     ]),
-    retainedScrollRevision: frame.coherence.retainedScrollRevision,
     sceneRevision: frame.sceneRevision,
   });
 }
@@ -278,16 +282,27 @@ function createRetainedPageActors(
           actorId: actor.surfaceId,
           clipChainRevision: generation.generationId,
           clipRect: generation.clipRect,
+          contentGenerationId: generation.generationId,
           controlId: null,
           focusIdentity: null,
           flowRect: generation.flowRect,
           generationId: generation.generationId,
           islandId: null,
           kind: "retained-page",
+          layoutProjectionGenerationId: [
+            "retained-page-layout",
+            actor.surfaceId,
+            rectKey(generation.flowRect),
+            rectKey(generation.clipRect),
+            rectKey(generation.sourceWindow.sourceRect),
+            generation.zIndex,
+          ].join("|"),
+          liveMotionSampleId: "not-sampled",
           mountReadiness: "not-required",
           ownerSurfaceId: actor.surfaceId,
           pointerEvents: "none",
           projectionReadiness: "not-required",
+          readinessGenerationId: "ready",
           retainedScrollOffset: null,
           retainedScrollRevision: 0,
           rowId: null,
@@ -302,17 +317,17 @@ function createRetainedPageActors(
 }
 
 function createHtmlTextureActors({
-  retainedScrollRevision,
+  retainedRuntimeFrame,
   surfaces,
 }: {
-  readonly retainedScrollRevision: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly surfaces: readonly HtmlSurfaceFlatVisual[];
 }): readonly GpuFlowCommittedSurfaceActorGeneration[] {
   return Object.freeze(
     surfaces.map((surface, index) =>
       htmlTextureToActor({
         index,
-        retainedScrollRevision,
+        retainedRuntimeFrame,
         surface,
       }),
     ),
@@ -321,11 +336,11 @@ function createHtmlTextureActors({
 
 function htmlTextureToActor({
   index,
-  retainedScrollRevision,
+  retainedRuntimeFrame,
   surface,
 }: {
   readonly index: number;
-  readonly retainedScrollRevision: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly surface: HtmlSurfaceFlatVisual;
 }): GpuFlowCommittedSurfaceActorGeneration {
   const flowRect = {
@@ -335,30 +350,48 @@ function htmlTextureToActor({
     y: surface.y,
   };
   const sourceRect = getHtmlTextureSourceRect(surface);
+  const retainedScrollRevision = getGpuFlowCommittedSurfaceActorScrollRevision({
+    retainedRuntimeFrame,
+    surfaceId: surface.surfaceId,
+  });
+  const contentGenerationId = [
+    "html-texture-content",
+    surface.surfaceId,
+    surface.texture.textureContentKey ?? "content:unknown",
+    surface.texture.zoomBucket,
+  ].join("|");
+  const layoutProjectionGenerationId = [
+    "html-texture-layout",
+    surface.surfaceId,
+    index,
+    rectKey(flowRect),
+    rectKey(sourceRect),
+    retainedScrollRevision,
+    surface.zIndex,
+  ].join("|");
   return freezeActor({
     active: false,
     actorId: `${surface.surfaceId}:html-texture:${index}`,
     clipChainRevision: surface.surfaceId,
     clipRect: flowRect,
+    contentGenerationId,
     controlId: null,
     focusIdentity: null,
     flowRect,
     generationId: [
-      "html-texture",
-      surface.surfaceId,
-      index,
-      surface.texture.textureContentKey ?? "content:unknown",
-      surface.texture.zoomBucket,
-      rectKey(flowRect),
-      rectKey(sourceRect),
-      retainedScrollRevision,
+      contentGenerationId,
+      layoutProjectionGenerationId,
+      "ready",
     ].join("|"),
     islandId: null,
     kind: "html-texture",
+    layoutProjectionGenerationId,
+    liveMotionSampleId: "not-sampled",
     mountReadiness: "not-required",
     ownerSurfaceId: surface.surfaceId,
     pointerEvents: "none",
     projectionReadiness: "not-required",
+    readinessGenerationId: "ready",
     retainedScrollOffset: null,
     retainedScrollRevision,
     rowId: null,
@@ -386,47 +419,62 @@ function createDomControlActors(
 ): readonly GpuFlowCommittedSurfaceActorGeneration[] {
   return Object.freeze(
     retainedRuntimeFrame.descriptors.domControlSources.map((control) =>
-      domControlToActor({
-        control,
-        retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
-      }),
+      domControlToActor({ control }),
     ),
   );
 }
 
 function domControlToActor({
   control,
-  retainedScrollRevision,
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
-  readonly retainedScrollRevision: number;
 }): GpuFlowCommittedSurfaceActorGeneration {
   const projected =
     control.clipRectSurfaceCssPx.width > 0 &&
     control.clipRectSurfaceCssPx.height > 0;
+  const retainedScrollRevision = control.sectionScrollRevision;
+  const contentGenerationId = [
+    "dom-control-content",
+    control.sourceId,
+    control.sourceKey,
+    control.valueStyleRevision,
+  ].join("|");
+  const layoutProjectionGenerationId = [
+    "dom-control-layout",
+    control.sourceId,
+    control.clipChainRevision,
+    control.geometryRevision,
+    retainedScrollRevision,
+  ].join("|");
+  const readinessGenerationId = [
+    "dom-control-readiness",
+    control.sourceId,
+    control.lifecycleState,
+    projected ? "projected" : "clipped",
+  ].join("|");
   return freezeActor({
     active: control.active,
     actorId: control.sourceId,
     clipChainRevision: control.clipChainRevision,
     clipRect: control.sectionClipRectFlowPx,
+    contentGenerationId,
     controlId: control.controlId,
     focusIdentity: control.active ? control.sourceId : null,
     flowRect: control.worldRectFlowPx,
     generationId: [
-      "dom-control",
-      control.sourceId,
-      control.sourceKey,
-      control.valueStyleRevision,
-      control.lifecycleState,
-      control.clipChainRevision,
-      retainedScrollRevision,
+      contentGenerationId,
+      layoutProjectionGenerationId,
+      readinessGenerationId,
     ].join("|"),
     islandId: null,
     kind: "dom-control",
+    layoutProjectionGenerationId,
+    liveMotionSampleId: control.viewportSampleRevision,
     mountReadiness: projected ? "ready" : "not-required",
     ownerSurfaceId: control.surfaceId,
     pointerEvents: projected ? "auto" : "none",
     projectionReadiness: projected ? "ready" : "not-required",
+    readinessGenerationId,
     retainedScrollOffset: control.sectionScrollOffset,
     retainedScrollRevision,
     rowId: control.rowId,
@@ -445,7 +493,7 @@ function createDomIslandActors(
     retainedRuntimeFrame.descriptors.nativeDomIslands.map((island) =>
       domIslandToActor({
         island,
-        retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
+        retainedRuntimeFrame,
       }),
     ),
   );
@@ -453,32 +501,63 @@ function createDomIslandActors(
 
 function domIslandToActor({
   island,
-  retainedScrollRevision,
+  retainedRuntimeFrame,
 }: {
   readonly island: GpuDomIsland;
-  readonly retainedScrollRevision: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): GpuFlowCommittedSurfaceActorGeneration {
+  const ownerSurfaceId =
+    island.source.kind === "retained-content"
+      ? island.source.surfaceId
+      : island.clipOwnerId;
+  const retainedScrollRevision = getGpuFlowCommittedSurfaceActorScrollRevision({
+    retainedRuntimeFrame,
+    surfaceId: ownerSurfaceId,
+  });
+  const contentGenerationId = [
+    "dom-island-content",
+    island.id,
+    island.kind,
+    island.source.kind === "retained-content"
+      ? island.source.ownerRowId
+      : "custom",
+  ].join("|");
+  const layoutProjectionGenerationId = [
+    "dom-island-layout",
+    island.id,
+    island.clipOwnerId,
+    rectKey(island.rect),
+    rectKey(island.contentRect),
+    retainedScrollRevision,
+  ].join("|");
+  const readinessGenerationId = [
+    "dom-island-readiness",
+    island.id,
+    "ready",
+  ].join("|");
   return freezeActor({
     active: true,
     actorId: island.id,
     clipChainRevision: island.clipOwnerId,
     clipRect: island.rect,
+    contentGenerationId,
     controlId: null,
     focusIdentity: island.id,
     flowRect: island.rect,
     generationId: [
-      "dom-island",
-      island.id,
-      island.clipOwnerId,
-      rectKey(island.rect),
-      retainedScrollRevision,
+      contentGenerationId,
+      layoutProjectionGenerationId,
+      readinessGenerationId,
     ].join("|"),
     islandId: island.id,
     kind: "dom-island",
+    layoutProjectionGenerationId,
+    liveMotionSampleId: "not-sampled",
     mountReadiness: "ready",
-    ownerSurfaceId: island.clipOwnerId,
+    ownerSurfaceId,
     pointerEvents: "auto",
     projectionReadiness: "ready",
+    readinessGenerationId,
     retainedScrollOffset: null,
     retainedScrollRevision,
     rowId: null,
@@ -491,17 +570,17 @@ function domIslandToActor({
 }
 
 function createGpuNativeVisualActors({
-  retainedScrollRevision,
+  retainedRuntimeFrame,
   visuals,
 }: {
-  readonly retainedScrollRevision: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly visuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
 }): readonly GpuFlowCommittedSurfaceActorGeneration[] {
   return Object.freeze(
     visuals.map((visual, index) =>
       gpuNativeVisualToActor({
         index,
-        retainedScrollRevision,
+        retainedRuntimeFrame,
         visual,
       }),
     ),
@@ -510,36 +589,54 @@ function createGpuNativeVisualActors({
 
 function gpuNativeVisualToActor({
   index,
-  retainedScrollRevision,
+  retainedRuntimeFrame,
   visual,
 }: {
   readonly index: number;
-  readonly retainedScrollRevision: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly visual: HtmlSurfaceSolidRoundedRectVisual;
 }): GpuFlowCommittedSurfaceActorGeneration {
+  const retainedScrollRevision = getGpuFlowCommittedSurfaceActorScrollRevision({
+    retainedRuntimeFrame,
+    surfaceId: visual.surfaceId,
+  });
+  const contentGenerationId = [
+    "gpu-native-visual-content",
+    visual.surfaceId,
+    visual.radius,
+    colorKey(visual.color),
+  ].join("|");
+  const layoutProjectionGenerationId = [
+    "gpu-native-visual-layout",
+    visual.surfaceId,
+    index,
+    rectKey(visual.rect),
+    retainedScrollRevision,
+    visual.zIndex,
+  ].join("|");
   return freezeActor({
     active: false,
     actorId: `${visual.surfaceId}:native-visual:${index}`,
     clipChainRevision: visual.surfaceId,
     clipRect: visual.rect,
+    contentGenerationId,
     controlId: null,
     focusIdentity: null,
     flowRect: visual.rect,
     generationId: [
-      "gpu-native-visual",
-      visual.surfaceId,
-      index,
-      rectKey(visual.rect),
-      visual.radius,
-      colorKey(visual.color),
-      retainedScrollRevision,
+      contentGenerationId,
+      layoutProjectionGenerationId,
+      "ready",
     ].join("|"),
     islandId: null,
     kind: "gpu-native-visual",
+    layoutProjectionGenerationId,
+    liveMotionSampleId: "not-sampled",
     mountReadiness: "not-required",
     ownerSurfaceId: visual.surfaceId,
     pointerEvents: "none",
     projectionReadiness: "not-required",
+    readinessGenerationId: "ready",
     retainedScrollOffset: null,
     retainedScrollRevision,
     rowId: null,
@@ -616,9 +713,22 @@ function createCommittedClipChainRevision({
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): string {
   return [
-    retainedRuntimeFrame.input.scrollRevision,
-    ...actorGenerations.map((actor) => actor.clipChainRevision),
+    retainedRuntimeFrame.input.sceneRevision,
+    ...actorGenerations.map((actor) => actor.layoutProjectionGenerationId),
   ].join("|");
+}
+
+function getGpuFlowCommittedSurfaceActorScrollRevision({
+  retainedRuntimeFrame,
+  surfaceId,
+}: {
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+  readonly surfaceId: string;
+}): number {
+  return (
+    retainedRuntimeFrame.input.scrollRevisions.get(surfaceId) ??
+    retainedRuntimeFrame.input.scrollRevision
+  );
 }
 
 function freezeActor(

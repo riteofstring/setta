@@ -1,12 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import {
   createGpuFlowCommittedSurfaceFrame,
-  createGpuFlowCommittedSurfaceFrameRenderSignature,
   createGpuFlowStartupCommittedSurfaceFrame,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
+import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -16,12 +15,9 @@ export function useGpuFlowCommittedSurfaceFrameState({
 }: {
   readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }) {
-  const [committedSurfaceFrame, setCommittedSurfaceFrame] =
-    useState<GpuFlowCommittedSurfaceFrame | null>(null);
   const committedSurfaceFrameRef = useRef<GpuFlowCommittedSurfaceFrame | null>(
     null,
   );
-  const committedSurfaceFrameRenderSignatureRef = useRef<string | null>(null);
   const startupCommittedSurfaceFrame = useMemo(
     () =>
       createGpuFlowStartupCommittedSurfaceFrame({
@@ -29,14 +25,30 @@ export function useGpuFlowCommittedSurfaceFrameState({
       }),
     [initialRetainedRuntimeFrame],
   );
-  const visibleCommittedSurfaceFrame =
-    committedSurfaceFrame ?? startupCommittedSurfaceFrame;
+  const committedSurfaceRuntimeRef = useRef(
+    createGpuFlowCommittedSurfaceRuntime(startupCommittedSurfaceFrame),
+  );
+  committedSurfaceRuntimeRef.current.setStartupFrame(
+    startupCommittedSurfaceFrame,
+  );
+  const semanticSnapshot = useSyncExternalStore(
+    committedSurfaceRuntimeRef.current.subscribeReactSemanticSnapshot.bind(
+      committedSurfaceRuntimeRef.current,
+    ),
+    committedSurfaceRuntimeRef.current.getReactSemanticSnapshot.bind(
+      committedSurfaceRuntimeRef.current,
+    ),
+    committedSurfaceRuntimeRef.current.getReactSemanticSnapshot.bind(
+      committedSurfaceRuntimeRef.current,
+    ),
+  );
+  const visibleCommittedSurfaceFrame = semanticSnapshot.frame;
   committedSurfaceFrameRef.current = visibleCommittedSurfaceFrame;
 
   const resetCommittedSurfaceFrame = useCallback(() => {
-    committedSurfaceFrameRef.current = null;
-    committedSurfaceFrameRenderSignatureRef.current = null;
-    setCommittedSurfaceFrame(null);
+    committedSurfaceRuntimeRef.current.resetCommittedContentFrame();
+    committedSurfaceFrameRef.current =
+      committedSurfaceRuntimeRef.current.getCommittedContentFrame();
   }, []);
 
   const publishCommittedSurfaceFrame = useCallback(
@@ -54,16 +66,9 @@ export function useGpuFlowCommittedSurfaceFrameState({
         gpuNativeVisuals: options?.gpuNativeVisuals,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
-      const nextSignature = createGpuFlowCommittedSurfaceFrameRenderSignature(
+      committedSurfaceRuntimeRef.current.publishCommittedContentFrame(
         nextCommittedSurfaceFrame,
       );
-      if (committedSurfaceFrameRenderSignatureRef.current === nextSignature) {
-        return;
-      }
-      committedSurfaceFrameRenderSignatureRef.current = nextSignature;
-      flushSync(() => {
-        setCommittedSurfaceFrame(nextCommittedSurfaceFrame);
-      });
       committedSurfaceFrameRef.current = nextCommittedSurfaceFrame;
     },
     [],

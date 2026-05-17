@@ -348,9 +348,6 @@ function getProjectGpuParamDomIslandResolvedRecord({
   ) {
     return null;
   }
-  if (hit.kind === "control" && row.control?.kind === "text-like") {
-    return null;
-  }
   const geometry = getProjectGpuParamDomIslandGeometry({
     clipRect: surface.clipRect,
     controlKind: hit.kind === "control" ? row.controlKind : null,

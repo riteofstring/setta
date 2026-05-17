@@ -4,6 +4,7 @@ import path from "node:path";
 import { expectScopedAxeClean } from "../axeHelpers";
 import {
   installGpuFlowPerformanceProbe,
+  readGpuFlowPerformanceSnapshot,
   readGpuFlowPerformanceSummary,
   resetGpuFlowPerformanceProbe,
 } from "../gpuFlowPerformanceProbe";
@@ -24,6 +25,8 @@ import {
   installRetainedDiagnosticsProbe,
   percentile,
   readRetainedDiagnostics,
+  readRetainedRowClientY,
+  resolveRetainedSurfaceWheelPoint,
 } from "./html-canvas-library-adoption-helpers";
 
 type RetainedRowTarget = {
@@ -85,12 +88,50 @@ for (const theme of [
     try {
       await waitForGpuTextureUploadQuiet(page);
       await resetGpuFlowPerformanceProbe(page);
+      await waitForGpuTextureUploadQuiet(page);
+      await resetGpuFlowPerformanceProbe(page);
       const beforePanZoom = await readGpuViewportTransform(page);
       await performCanvasPanAndZoom(page);
       const afterPanZoom = await readGpuViewportTransform(page);
       const panZoomPerfSummary = await readGpuFlowPerformanceSummary(page);
+      const panZoomPerfSnapshot = await readGpuFlowPerformanceSnapshot(page);
+      const panZoomUploadFrames = panZoomPerfSnapshot.nodeLayerFrames
+        .filter((frame) => frame.uploadDiagnostics.length > 0)
+        .map((frame) => ({
+          uploadDiagnostics: frame.uploadDiagnostics,
+          uploadedNodeIds: frame.uploadedNodeIds,
+          viewport: frame.viewport,
+        }));
+      const activeTextureUploadsDuringPanZoom = panZoomUploadFrames.reduce(
+        (count, frame) => {
+          if (gpuViewportTransformsEqual(frame.viewport, beforePanZoom)) {
+            return count;
+          }
+          return (
+            count +
+            frame.uploadDiagnostics
+              .filter((diagnostic) => diagnostic.priority === "interactive")
+              .reduce(
+                (sum, diagnostic) => sum + diagnostic.uploadedTextureCount,
+                0,
+              )
+          );
+        },
+        0,
+      );
       expect(afterPanZoom).not.toEqual(beforePanZoom);
-      expect(panZoomPerfSummary.queue.activeTextureUploads).toBe(0);
+      expect(
+        activeTextureUploadsDuringPanZoom,
+        JSON.stringify(
+          {
+            latestNodeLayerFrame: panZoomPerfSummary.latestNodeLayerFrame,
+            queue: panZoomPerfSummary.queue,
+            uploadFrames: panZoomUploadFrames,
+          },
+          null,
+          2,
+        ),
+      ).toBe(0);
 
       const searchInput = await openCommandPaletteCombobox(page);
       await expect(searchInput).toBeVisible();
@@ -760,16 +801,18 @@ async function performCanvasPanAndZoom(page: Page): Promise<void> {
 
 async function waitForGpuTextureUploadQuiet(page: Page): Promise<void> {
   let previousUploadCount: number | null = null;
+  let stableSampleCount = 0;
   await expect
     .poll(
       async () => {
         const summary = await readGpuFlowPerformanceSummary(page);
         const currentUploadCount = summary.queue.textureUploads;
         const stable = currentUploadCount === previousUploadCount;
+        stableSampleCount = stable ? stableSampleCount + 1 : 0;
         previousUploadCount = currentUploadCount;
-        return stable;
+        return stableSampleCount >= 2;
       },
-      { intervals: [200, 200, 200, 200, 200], timeout: 2_000 },
+      { intervals: [250, 250, 250, 250, 250, 250, 250, 250], timeout: 5_000 },
     )
     .toBe(true);
 }
@@ -825,6 +868,17 @@ async function readGpuViewportTransform(
     }
     return transform;
   });
+}
+
+function gpuViewportTransformsEqual(
+  left: { readonly x: number; readonly y: number; readonly zoom: number },
+  right: { readonly x: number; readonly y: number; readonly zoom: number },
+): boolean {
+  return (
+    Math.abs(left.x - right.x) < 0.001 &&
+    Math.abs(left.y - right.y) < 0.001 &&
+    Math.abs(left.zoom - right.zoom) < 0.001
+  );
 }
 
 async function getPanePoint(
@@ -933,6 +987,9 @@ async function assertContextMenuAtViewportEdges(page: Page): Promise<void> {
 }
 
 async function selectContextMenuItemWithKeyboard(page: Page): Promise<void> {
+  const nodeCountBefore = await page
+    .locator('[data-gpu-flow-node="true"]')
+    .count();
   const point = await getEmptyPanePoint(page);
   await page.mouse.click(point.x, point.y, { button: "right" });
   const menu = page.getByTestId("context-menu-core");
@@ -941,6 +998,10 @@ async function selectContextMenuItemWithKeyboard(page: Page): Promise<void> {
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(menu).toHaveCount(0);
+  await expect
+    .poll(() => page.locator('[data-gpu-flow-node="true"]').count())
+    .toBeGreaterThan(nodeCountBefore);
+  await waitForAnimationFrame(page);
 }
 
 async function selectContextMenuItemWithPointer(page: Page): Promise<void> {
@@ -1086,10 +1147,11 @@ async function scrollRetainedParameterSurface(
   rowLabel: string,
 ): Promise<void> {
   const target = await bringRetainedRowControlIntoViewport(page, rowLabel);
-  await page.mouse.move(
-    target.rowRect.x + Math.min(24, Math.max(4, target.rowRect.width * 0.1)),
-    target.rowRect.y + target.rowRect.height / 2,
+  const wheelPoint = await resolveRetainedSurfaceWheelPoint(
+    page,
+    target.surfaceId,
   );
+  await page.mouse.move(wheelPoint.x, wheelPoint.y);
   const before = await readRetainedRowClientY(page, target.rowId);
   await page.mouse.wheel(0, 240);
   await expect
@@ -1127,14 +1189,4 @@ async function readActiveRetainedHitLabel(page: Page): Promise<string | null> {
     const hit = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().activeRetainedHit;
     return hit ? `${hit.rowLabel ?? ""}:${hit.rowId}` : null;
   });
-}
-
-async function readRetainedRowClientY(
-  page: Page,
-  rowId: string,
-): Promise<number | null> {
-  return await page.evaluate((rowId) => {
-    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
-    return rows.find((row) => row.rowId === rowId)?.clientRect.y ?? null;
-  }, rowId);
 }

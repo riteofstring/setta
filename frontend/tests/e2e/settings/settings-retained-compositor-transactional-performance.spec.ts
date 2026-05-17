@@ -422,7 +422,7 @@ async function readActiveDomControlHostRect(
   readonly y: number;
 } | null> {
   return await page.evaluate((target) => {
-    const host = [
+    const domControlHost = [
       ...document.querySelectorAll('[data-gpu-flow-dom-control="true"]'),
     ].find(
       (element): element is HTMLElement =>
@@ -433,6 +433,16 @@ async function readActiveDomControlHostRect(
         element.getAttribute("data-gpu-flow-dom-control-surface-id") ===
           target.surfaceId,
     );
+    const domIslandHost = [
+      ...document.querySelectorAll(
+        '[data-gpu-flow-dom-island-kind="retained-content-control"] [data-gpu-project-param-dom-island="true"]',
+      ),
+    ].find(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement &&
+        element.getAttribute("data-param-id") === target.rowId,
+    );
+    const host = domControlHost ?? domIslandHost;
     if (!host || getComputedStyle(host).display === "none") {
       return null;
     }

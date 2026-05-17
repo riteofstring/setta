@@ -608,11 +608,13 @@ describe("HTML surface frame helpers", () => {
     });
     expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
       deferPassiveUploads: true,
+      deferResolutionOnly: true,
+      deferSurfaceIds: expect.any(Set),
       frame: 1,
     });
   });
 
-  it("keeps retained overlays owned by active nodes at active resolution during interactions", () => {
+  it("defers active-node resolution upgrades during interactions while preserving interactive priority", () => {
     const sectionElement = document.createElement("div");
     const retainedElement = document.createElement("div");
     const elements = new Map([
@@ -661,8 +663,8 @@ describe("HTML surface frame helpers", () => {
       priority: "interactive",
       surfaceId: "section-a:param-content:unpinned",
     });
-    expect(sectionCall).not.toHaveProperty("deferResolution");
-    expect(retainedCall).not.toHaveProperty("deferResolution");
+    expect(sectionCall).toHaveProperty("deferResolution", true);
+    expect(retainedCall).toHaveProperty("deferResolution", true);
   });
 
   it("keeps active node GPU quads rendered during interaction", () => {

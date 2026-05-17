@@ -67,6 +67,10 @@ import {
 } from "../viewportMath";
 
 import {
+  syncGpuNodeDomTransforms,
+  syncGpuNodeDomTransformsFromQuads,
+} from "./frameDomTransformSync";
+import {
   mergeNodeIdSets,
   normalizeNodeIdSet,
   resolveVisibleNodeTexturePriority,
@@ -75,10 +79,6 @@ import {
   toNodeQuad,
   toRect,
 } from "./sourceTransforms";
-import {
-  syncGpuNodeDomTransforms,
-  syncGpuNodeDomTransformsFromQuads,
-} from "./frameDomTransformSync";
 
 export {
   clearGpuNodeDomTransformSyncCache,
@@ -244,6 +244,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly edgeVertexCount: number;
   readonly evictedTextureBytes: number;
   readonly evictedTextureNodeIds: readonly string[];
+  readonly deferredNodeIds: readonly string[];
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
@@ -444,6 +445,7 @@ export function renderHtmlSurfaceFrame({
     viewport,
   }).filter((nodeId) => nodeSurfaceIds.has(nodeId));
   const uploadResult = uploadGpuNodeTextures({
+    activeSurfaceIds,
     deferResolutionUpdates,
     frame,
     textureManager,
@@ -545,6 +547,9 @@ export function renderHtmlSurfaceFrame({
     edgeVertexCount: renderResult.edgeVertexCount,
     evictedTextureBytes: evictionResult.evictedBytes,
     evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
+    deferredNodeIds: uploadResult.deferredSurfaceIds.filter((surfaceId) =>
+      nodeSurfaceIds.has(surfaceId),
+    ),
     missingElementNodeIds,
     missingTextureNodeIds: [
       ...textureResult.missingTextureNodeIds,
@@ -606,9 +611,7 @@ function registerVisibleGpuNodeTextures({
     textureManager.registerSurfaceTexture({
       cssHeight: quad.textureCssHeight ?? quad.height,
       cssWidth: quad.textureCssWidth ?? quad.width,
-      ...(deferResolutionUpdates && !activeSurfaceIds.has(quad.nodeId)
-        ? { deferResolution: true }
-        : {}),
+      ...(deferResolutionUpdates ? { deferResolution: true } : {}),
       devicePixelRatio,
       element,
       frame,
@@ -730,11 +733,13 @@ function createHtmlSurfaceTextureSnapshotMap({
 }
 
 function uploadGpuNodeTextures({
+  activeSurfaceIds,
   deferResolutionUpdates,
   frame,
   textureManager,
   uploadBudget,
 }: {
+  readonly activeSurfaceIds: ReadonlySet<string>;
   readonly deferResolutionUpdates: boolean | undefined;
   readonly frame: number;
   readonly textureManager: GpuNodeTextureController;
@@ -742,7 +747,13 @@ function uploadGpuNodeTextures({
 }) {
   return textureManager.uploadDirtySurfaceTextures({
     frame,
-    ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
+    ...(deferResolutionUpdates
+      ? {
+          deferPassiveUploads: true,
+          deferResolutionOnly: true,
+          deferSurfaceIds: activeSurfaceIds,
+        }
+      : {}),
     ...uploadBudget,
   });
 }

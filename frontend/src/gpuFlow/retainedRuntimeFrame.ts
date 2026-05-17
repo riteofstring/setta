@@ -26,6 +26,7 @@ type GpuRetainedRuntimeFrameInputSnapshot = {
   readonly sceneRevision: number;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scrollRevision: number;
+  readonly scrollRevisions: ReadonlyMap<string, number>;
   readonly viewport: GpuViewportInput;
   readonly viewportZoomBucket: number;
 };
@@ -62,6 +63,7 @@ type CreateGpuRetainedRuntimeFrameInput = {
     | undefined;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scrollRevision: number;
+  readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
   readonly rowHoverTarget?: GpuRetainedContentRowHoverTarget | null | undefined;
   readonly viewport: GpuViewportInput;
   readonly viewportZoomBucket: number;
@@ -74,6 +76,7 @@ export function createGpuRetainedRuntimeFrame({
   scrollbarVisualState,
   scrollOffsets,
   scrollRevision,
+  scrollRevisions,
   rowHoverTarget = null,
   viewport,
   viewportZoomBucket,
@@ -101,6 +104,7 @@ export function createGpuRetainedRuntimeFrame({
   const domControlSources = freezeArray(
     getGpuRetainedDomControlSourcesFromHitTestSurfaces(hitTestSurfaces, {
       scrollRevision,
+      scrollRevisions,
       viewport,
     }),
   );
@@ -158,6 +162,7 @@ export function createGpuRetainedRuntimeFrame({
       sceneRevision: scene?.revision ?? 0,
       scrollOffsets: new Map(scrollOffsets),
       scrollRevision,
+      scrollRevisions: new Map(scrollRevisions ?? []),
       viewport,
       viewportZoomBucket,
     }),

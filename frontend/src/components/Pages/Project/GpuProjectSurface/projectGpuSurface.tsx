@@ -24,7 +24,6 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
-import { flushSync } from "react-dom";
 
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
@@ -633,17 +632,15 @@ function ProjectGpuFlowLayer({
   const handleDomControlActivation =
     useCallback<GpuFlowDomControlActivationHandler>(
       (control, activation) => {
-        flushSync(() => {
-          onActiveParamDomIslandChange({
-            activation: {
-              clientPoint: activation.clientPoint,
-              kind: "pointer",
-            },
-            hitRecordId: `control:${control.rowId}`,
-            paramInfoId: control.rowId,
-            sectionId: control.sectionId,
-            surfaceId: control.surfaceId,
-          });
+        onActiveParamDomIslandChange({
+          activation: {
+            clientPoint: activation.clientPoint,
+            kind: "pointer",
+          },
+          hitRecordId: `control:${control.rowId}`,
+          paramInfoId: control.rowId,
+          sectionId: control.sectionId,
+          surfaceId: control.surfaceId,
         });
       },
       [onActiveParamDomIslandChange],

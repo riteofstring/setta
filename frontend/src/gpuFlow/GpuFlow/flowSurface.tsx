@@ -44,6 +44,7 @@ import {
   createGpuRetainedContentRuntimeState,
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
+  getGpuRetainedContentRuntimeScrollRevisions,
 } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
@@ -235,6 +236,9 @@ export function GpuFlow({
         scrollRevision: getGpuRetainedContentRuntimeScrollRevision(
           activeRetainedContentRuntimeState,
         ),
+        scrollRevisions: getGpuRetainedContentRuntimeScrollRevisions(
+          activeRetainedContentRuntimeState,
+        ),
         viewport: viewport ?? viewportRuntime.getViewportTuple(),
         viewportZoomBucket: 1,
       }),
@@ -419,11 +423,14 @@ export function GpuFlow({
     nodeLayerRef,
   });
   useEffect(() => {
+    if (scene) {
+      return;
+    }
     retainedDisplayFrameRef.current = null;
     resetCommittedSurfaceFrame();
     retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
-  }, [activeRetainedContentRuntimeState, resetCommittedSurfaceFrame, scene]);
+  }, [resetCommittedSurfaceFrame, scene]);
 
   useEffect(() => {
     if (!nodeResizeEnabled) {
@@ -941,7 +948,8 @@ export function GpuFlow({
   });
   const portalGroups = partitionGpuFlowPortals(portals);
   assertGpuFlowPortalGroupsRenderable(portalGroups);
-
+  const visibleRetainedRuntimeFrame =
+    visibleCommittedSurfaceFrame.retainedRuntimeFrame;
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
       <GpuFlowSceneContext.Provider value={sceneContextValue}>
@@ -973,18 +981,14 @@ export function GpuFlow({
             committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
             onActivate={onDomControlActivation}
             renderControl={renderRetainedDomControl}
-            retainedRuntimeFrame={
-              visibleCommittedSurfaceFrame.retainedRuntimeFrame
-            }
+            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />
           <GpuFlowDomIslandLayer
             committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
             renderDomIsland={renderDomIsland}
-            retainedRuntimeFrame={
-              visibleCommittedSurfaceFrame.retainedRuntimeFrame
-            }
+            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />
