@@ -167,23 +167,8 @@ format_counter() {
 
 write_implementer_prompt() {
   local prompt_file="$1"
-  local latest_verifier_result_file="$2"
 
-  cat > "${prompt_file}" <<EOF
-/goal Fully implement ${plan_file}. Commit your work when you're finished.
-
-If the /goal line is not treated specially by this non-interactive Codex session,
-treat it as the complete goal for this session.
-
-Plan doc:
-${plan_file}
-
-Before changing files, read the plan doc and AGENTS.md. If this file exists,
-read the latest verifier result and address the gaps it reports:
-${latest_verifier_result_file}
-
-Commit your work before finishing. Do not ask for follow-up.
-EOF
+  printf "/goal Fully implement %s. Commit your work when you're finished.\n" "${plan_file}" > "${prompt_file}"
 }
 
 write_verifier_prompt() {
@@ -393,7 +378,7 @@ implementer_prompt_file="${state_dir}/implementer-prompt.md"
 verifier_prompt_file="${state_dir}/verifier-prompt.md"
 latest_verifier_result_file="${state_dir}/latest-verifier-result.md"
 
-write_implementer_prompt "${implementer_prompt_file}" "${latest_verifier_result_file}"
+write_implementer_prompt "${implementer_prompt_file}"
 write_verifier_prompt "${verifier_prompt_file}"
 
 log_info "Plan: ${plan_file}"
@@ -420,7 +405,7 @@ while [[ "${iterations}" -eq 0 || "${cycle}" -le "${iterations}" ]]; do
   cycle_dir="${output_dir}/cycle-${cycle_label}"
   mkdir -p "${cycle_dir}"
 
-  write_implementer_prompt "${implementer_prompt_file}" "${latest_verifier_result_file}"
+  write_implementer_prompt "${implementer_prompt_file}"
 
   log_info "Cycle ${cycle_label}: implementation step"
   run_codex_step_until_success "${cycle_dir}" "implement" "${implementer_prompt_file}"
