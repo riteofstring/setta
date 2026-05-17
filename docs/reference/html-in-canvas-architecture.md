@@ -28,15 +28,15 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
   retained page textures in the WebGPU frame.
 - HTML overlay sources: DOM sources for edge labels, selection visuals, resize
   affordances, and drag previews.
-- Retained DOM-control sources: source-local DOM for browser-owned retained
-  controls. Passive sources are copied into retained DOM-control texture slots
-  during retained page upload; active text-like sources are projected to the
-  viewport from the same descriptor.
+- Retained DOM-control sources: DOM for browser-owned retained text-like
+  controls. Passive source hosts remain in the canvas layout subtree and are
+  copied into retained DOM-control texture slots during retained page upload;
+  active text-like sources are projected to the viewport from the same
+  descriptor by moving the host into the GPU flow container.
 - DOM islands: viewport-positioned real DOM siblings of the canvas for active
-  native controls that have not yet migrated to retained DOM-control sources,
-  such as password fields, date/time fields, dropzones, color input fallback,
-  and parameter name editing. Text-like retained controls are excluded from this
-  path.
+  native controls such as password fields, date/time fields, dropzones, color
+  input fallback, and editable parameter labels. Text-like retained controls
+  are excluded from this path.
 - Viewport-positioned overlay roots: `GpuFlow` viewport portals for retained
   CodeMirror tooltips and validation UI, plus shared DOM portals for combobox
   lists and primitive-owned popovers that subscribe to GPU viewport
@@ -131,14 +131,19 @@ The project integration is centered on these modules:
 - `projectGpuNodeRenderer.tsx` renders each DOM section source with
   `SectionContainer`.
 - `projectGpuParamContentAdapter.ts` creates retained parameter surfaces,
-  retained row scenes, and active parameter DOM island descriptors.
+  retained row scenes, active parameter DOM island descriptors, and row state
+  that drives text-like retained DOM-control activation.
 - `projectGpuParamRowAdapter.ts` and the `projectGpuParam*RowDescriptor.ts`
   files map project parameter implementations to retained row and control
   descriptors.
+- `projectGpuRetainedDomControlRenderer.tsx` renders passive and active
+  text-like retained DOM-control sources with `DummyCodeMirror` or `ParamInput`.
+- `projectGpuRetainedParamDomIslandRenderer.tsx` renders active retained native
+  DOM islands for non-text-like controls and editable labels.
 - `projectGpuRetainedParamInteractionAdapter.tsx` maps retained hit records to
-  project actions, parameter value commits, canvas popups, native DOM island
-  activation, range-control drags, retained drag previews, and retained edge
-  connections.
+  project actions, parameter value commits, canvas popups, retained
+  DOM-control activation, native DOM island activation, range-control drags,
+  retained drag previews, and retained edge connections.
 - `projectGpuParamDragAdapter.ts` resolves retained parameter structural moves.
 - `projectGpuPortalAdapter.ts` declares source-local and viewport portal roots
   used by CodeMirror, retained-native tooltips, and validation UI.
@@ -200,6 +205,10 @@ The reusable runtime is centered on these modules:
   anchors, and control geometry.
 - `GpuFlow/domIslandLayer.tsx` renders active DOM islands as viewport-positioned
   real DOM.
+- `GpuFlow/retainedDomControlSources.tsx` derives retained text-like
+  DOM-control source descriptors from sampled retained runtime frames, mounts
+  passive source hosts in the canvas layout subtree, and projects active source
+  hosts into the GPU flow container.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
   preview HTML overlay sources plus retained DOM-control source roots and
   retained native visual inputs. Scrollbar and row-hover native visuals are
@@ -232,8 +241,8 @@ runtime:
 - keeps CodeMirror tooltips and Setta popover portals in the correct canvas,
   viewport, or app-level portal root
 - renders selected-node bounds, resize handles, edge labels, retained popups,
-  drag previews, and native DOM islands through the owner surface for each UI
-  class
+  drag previews, retained DOM-control sources, and native DOM islands through
+  the owner surface for each UI class
 - forwards pane clicks, context menus, file drops, node drags, resize commits,
   selection commits, parameter value commits, and connection edits into
   existing project actions
@@ -412,7 +421,11 @@ DOM-control source layer is mounted from the source retained runtime frame via
 narrow that source list to descriptors needed for current first-visible or
 snapshot-refinement work. Retained page upload joins sampled descriptors with
 mounted snapshot source elements by snapshot id and source key before copying
-text-like DOM into retained page textures.
+text-like DOM into retained page textures. When a text-like retained control is
+active, `GpuFlow/retainedDomControlSources.tsx` uses the same descriptor to move
+that source host from the passive layout subtree into the GPU flow container,
+position it with `viewportRectCssPx`, remove inertness, and enable pointer
+events. This active projection is separate from `GpuFlowDomIslandLayer`.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -441,7 +454,8 @@ Visible DOM islands have pointer events enabled and include the no-pan/no-drag
 classes. Islands clipped out by retained runtime sampling are not published;
 islands outside the viewport window are hidden with pointer events disabled.
 They are not uploaded as textures; they are the active
-browser-native surface for the edited control.
+browser-native surface for non-text-like retained controls and editable labels
+that still use `GpuDomIsland` descriptors.
 
 ## Frame Pipeline
 
@@ -736,10 +750,9 @@ The retained renderer uses texture pages:
   slots during page upload. Active text-like controls use the same source
   descriptor projected to `viewportRectCssPx`; only that active projected host
   removes inertness and enables pointer events.
-- Text-like retained controls are explicitly excluded from the old viewport
-  sibling DOM-island path. Non-text-like DOM-owned families such as native
-  date/time, password, dropzone, and label editing may continue using DOM
-  islands until their own migration slice.
+- Text-like retained controls are explicitly excluded from `GpuDomIslandLayer`.
+  Non-text-like DOM-owned families such as native date/time, password,
+  dropzone, and label editing use DOM islands.
 
 Retained scrollbars, row-hover state, and switch transitions are GPU-native
 rounded-rect visuals layered with the retained pages. Static page textures cache
@@ -877,10 +890,11 @@ drag persistence flows through `projectGpuSelectionAdapter.ts`.
 ## Parameter Interactions and Inputs
 
 Retained parameter interaction uses retained-content hit records. The runtime
-controller hit tests retained scenes, preserves active native DOM island
-targets, tracks click-versus-drag thresholds, emits drag start/move/frame/end
-callbacks, updates hover and scrollbar visuals, and reports pointer activity in
-flow-local retained-content coordinates.
+controller hit tests retained scenes, preserves active browser-owned targets
+for native DOM islands and projected retained DOM-control sources, tracks
+click-versus-drag thresholds, emits drag start/move/frame/end callbacks,
+updates hover and scrollbar visuals, and reports pointer activity in flow-local
+retained-content coordinates.
 
 Parameter drag starts when structure editing is enabled, parameter selection
 mode is active, and the pointer starts on a row or label hit. The drag session
@@ -905,19 +919,25 @@ Parameter controls are split by commit policy:
   actions, and dropzone attachment delete actions.
 - `preview-commit`: range controls such as sliders and rotaries preview during
   pointer, keyboard, or wheel interaction and commit when the interaction ends.
-- `native-island`: text-like controls, password entry, dropzones, date/time
-  fields, color input fallback, and editable parameter labels mount a real DOM
-  island for browser-native editing.
+- `native-island`: browser-owned controls. Text-like controls activate through
+  retained DOM-control source projection and use passive retained DOM-control
+  textures when inactive. Password entry, dropzones, native date/time fields,
+  color input fallback, and editable parameter labels use `GpuDomIslandLayer`.
 
-`projectGpuParamDomIslandGeometry.ts` computes island geometry and clips it to
-the retained surface. `projectGpuRetainedParamDomIslandRenderer.tsx` mounts the
-normal `ParamInput` or `ParamNameInput`, marks it as retained native content,
-focuses it, and replays the original pointer activation when present.
+`projectGpuParamDomIslandGeometry.ts` computes island geometry for non-text-like
+controls and editable labels and clips it to the retained surface.
+`projectGpuRetainedParamDomIslandRenderer.tsx` mounts the normal `ParamInput`
+or `ParamNameInput`, marks it as retained native content, focuses it, and
+replays the original pointer activation when present. Text-like controls use
+`projectGpuRetainedDomControlRenderer.tsx`; the passive source renders
+`DummyCodeMirror`, while the active projected source renders `ParamInput` in the
+same retained DOM-control host.
 
-`ParamInput` owns the same value semantics used outside the GPU surface: pending
-local value, preview state, debounced backend updates, realtime literal emits,
-password reveal, dropzone file state, date/time values, disabled state, and
-error state. Standard value commits flow through
+`ParamInput` owns the same value semantics used outside the GPU surface for
+browser-owned control paths: pending local value, preview state, debounced
+backend updates, realtime literal emits, password reveal, dropzone file state,
+date/time values, disabled state, and error state. Standard value commits flow
+through
 `commitParamInputValueChange()` and the OpenAPI project update path. The
 HTML-in-canvas layer owns interaction routing and rendering, not a parallel
 parameter value model.
@@ -962,8 +982,9 @@ action.
 
 Section hits use the GPU layout, HTML surface visual scene, and source
 interaction projector. Retained parameter hits use retained scene hit records.
-DOM island targets are preserved so browser focus, selection, file/dropzone
-behavior, and form events work normally.
+DOM island targets and active projected retained DOM-control sources are
+preserved so browser focus, selection, file/dropzone behavior, and form events
+work normally.
 
 Pointer and wheel targeting follows the rendered visual scene:
 
@@ -1035,6 +1056,7 @@ The architecture is protected by model-level and browser-level tests:
   page rasterization, texture work queues, and retained texture page budgeting;
 - browser tests under `frontend/tests/e2e/gpu-flow/` and
   `frontend/tests/e2e/settings/` exercise canvas popup and context-menu
-  placement, retained native islands, scoped axe checks, retained scroll,
-  retained popups, retained drag/drop, retained CodeMirror activation, visual
-  regressions, and pan/zoom/scroll performance probes.
+  placement, retained native islands, retained DOM-control projection, scoped
+  axe checks, retained scroll, retained popups, retained drag/drop, retained
+  CodeMirror activation, visual regressions, and pan/zoom/scroll performance
+  probes.
