@@ -1,3 +1,4 @@
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
@@ -5,6 +6,7 @@ import {
   createRetainedCommittedPageLifecycle,
   createRetainedRegionTargetFromDescriptor,
 } from "./retainedContentLifecycle";
+import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
@@ -298,6 +300,47 @@ describe("retained display frame publisher", () => {
       }),
     ).toThrow(/committed visual epoch coverage/);
   });
+
+  it("blocks first publication when visible browser text actors have no representation coverage", () => {
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      prepared: preparedFrame({
+        scene: sceneWithTextRows(100),
+        viewportSize: { height: 3000, width: 400 },
+      }),
+      previous: null,
+    });
+
+    expect(outcome.kind).toBe("block-cold-first-coverage");
+  });
+
+  it("holds previous coverage when visible browser text actor coverage is blocked", () => {
+    const previous = publishRetainedDisplayFrame({
+      prepared: preparedFrame({
+        frame: 1,
+        scene: sceneWithTextRows(12),
+        viewportSize: { height: 360, width: 400 },
+      }),
+      previous: null,
+    });
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      nowMs: 20,
+      prepared: preparedFrame({
+        frame: 2,
+        scene: sceneWithTextRows(100),
+        viewportSize: { height: 3000, width: 400 },
+      }),
+      previous,
+    });
+
+    expect(outcome.kind).toBe("hold-previous");
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.diagnostics.blockingSurfaceIds.some((surfaceId) =>
+            surfaceId.startsWith("dom-control:"),
+          )
+        : false,
+    ).toBe(true);
+  });
 });
 
 function preparedFrame({
@@ -305,19 +348,25 @@ function preparedFrame({
   frame = 1,
   refinementPageCount,
   nativeDomIslands = [],
+  scene,
   scrollOffsets = new Map(),
   visibleRegionTargets = [],
+  viewportSize,
   trueHoleRectsCss = [],
 }: {
   readonly drawRegions?: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
   readonly frame?: number | undefined;
   readonly refinementPageCount?: number | undefined;
   readonly nativeDomIslands?: readonly GpuDomIsland[] | undefined;
+  readonly scene?: GpuFlowScene | undefined;
   readonly scrollOffsets?: ReadonlyMap<
     string,
     { readonly x: number; readonly y: number }
   >;
   readonly visibleRegionTargets?: readonly RetainedTexturePageDescriptor[];
+  readonly viewportSize?:
+    | { readonly height: number; readonly width: number }
+    | undefined;
   readonly trueHoleRectsCss?: readonly GpuRect[];
 }) {
   const resolvedRefinementPageCount = resolvePreparedFrameRefinementPageCount({
@@ -328,13 +377,10 @@ function preparedFrame({
   const visibleTargets = visibleRegionTargets.map(
     visibleRegionTargetFromDescriptor,
   );
-  const fidelityState = drawRegions.some(
-    (region) => region.coverageKind === "compatible",
-  )
-    ? "compatible-lower-lod"
-    : trueHoleRectsCss.length > 0
-      ? "refining"
-      : "target";
+  const fidelityState = resolvePreparedFrameFidelityState({
+    drawRegions,
+    trueHoleRectsCss,
+  });
   const pageFrame: RetainedContentTexturePagePreparedFrame = {
     coveragePlan: testCoveragePlan({
       drawRegions,
@@ -369,13 +415,27 @@ function preparedFrame({
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
       frameId: frame,
-      scene: sceneWithNativeDomIslands(nativeDomIslands),
+      scene: scene ?? sceneWithNativeDomIslands(nativeDomIslands),
       scrollOffsets,
       scrollRevision: frame,
       viewport: [0, 0, 1],
+      viewportSize,
       viewportZoomBucket: 1,
     }),
   });
+}
+
+function resolvePreparedFrameFidelityState({
+  drawRegions,
+  trueHoleRectsCss,
+}: {
+  readonly drawRegions: readonly RetainedDrawRegion<RetainedContentTextureResources>[];
+  readonly trueHoleRectsCss: readonly GpuRect[];
+}): RetainedContentTexturePagePreparedFrame["fidelityState"] {
+  if (drawRegions.some((region) => region.coverageKind === "compatible")) {
+    return "compatible-lower-lod";
+  }
+  return trueHoleRectsCss.length > 0 ? "refining" : "target";
 }
 
 function resolvePreparedFrameRefinementPageCount({
@@ -511,6 +571,52 @@ function nativeIsland(id: string): GpuDomIsland {
     rect: { height: 16, width: 32, x: 4, y: 8 },
     source: { kind: "custom" },
     zIndex: 1,
+  };
+}
+
+function sceneWithTextRows(rowCount: number): GpuFlowScene {
+  const rect = { height: rowCount * 28, width: 360, x: 0, y: 0 };
+  return {
+    contentSurfaces: [
+      {
+        clipRect: rect,
+        id: "surface",
+        ownerSectionId: "section",
+        rect,
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "surface",
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: "surface",
+          ownerSectionId: "section",
+          rowHeight: 28,
+          rows: Array.from({ length: rowCount }, (_, index) => ({
+            control: {
+              commitPolicy: "native-island",
+              defaultDisplayValue: "",
+              displayValue: `value-${index}`,
+              editorKind: "text" as const,
+              kind: "text-like" as const,
+              policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+              rendererFamily: "text-like",
+              renderOwner: "dom-owned" as const,
+            },
+            controlKind: "text-like" as const,
+            depth: 0,
+            id: `param-${index}`,
+            label: `Param ${index}`,
+          })),
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: rect,
+        }),
+        zIndex: 0,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }
 

@@ -138,6 +138,7 @@ async function openSettings(page: Page): Promise<void> {
     page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
   ).toBeVisible();
   await waitForRetainedRows(page);
+  await normalizeViewportForPanOwnership(page);
 }
 
 async function waitForCoreSettingsView(page: Page): Promise<void> {
@@ -156,6 +157,53 @@ async function waitForRetainedRows(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(10);
+}
+
+async function normalizeViewportForPanOwnership(page: Page): Promise<void> {
+  await page.evaluate(
+    async ({ surfaceId }) => {
+      const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+      const target =
+        rows.find(
+          (row) =>
+            row.surfaceId === surfaceId && row.rowLabel === "Pan On Drag",
+        ) ?? rows.find((row) => row.surfaceId === surfaceId);
+      const pane = document.querySelector(".setta-gpu-flow__pane");
+      const transform =
+        window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
+      if (!target || !pane || !transform) {
+        throw new Error("Missing retained pan ownership viewport target.");
+      }
+      const paneRect = pane.getBoundingClientRect();
+      const flowPoint = {
+        x:
+          (target.labelClientPoint.x - paneRect.left - transform.x) /
+          transform.zoom,
+        y:
+          (target.labelClientPoint.y - paneRect.top - transform.y) /
+          transform.zoom,
+      };
+      const zoom = 0.5;
+      const { gpuFlowViewportStore } = await import(
+        "/src/gpuFlow/viewportStore.ts"
+      );
+      gpuFlowViewportStore.getState().setTransform({
+        x: paneRect.width * 0.62 - flowPoint.x * zoom,
+        y: paneRect.height * 0.42 - flowPoint.y * zoom,
+        zoom,
+      });
+    },
+    { surfaceId: GUI_CONTENT_SURFACE_ID },
+  );
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
+  await waitForViewportIdle(page);
+}
+
+async function waitForAnimationFrame(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
 }
 
 async function resolveVisibleGuiSurfaceClip(page: Page): Promise<Rect> {

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
+import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type {
   GpuRetainedDomControlActivation,
@@ -32,10 +33,7 @@ import {
   getGpuFlowDomControlPlaneViewportSize,
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
-import {
-  isGpuFlowChromeReproActive,
-  useProgressiveGpuFlowDomControls,
-} from "./domControlPlaneProgressiveMount";
+import { useGpuFlowCommittedSurfaceLayerFrame } from "./committedSurfaceLayerFrame";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
@@ -100,6 +98,7 @@ const DEFAULT_PASSIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES: GpuFlowDomControlCo
 
 export function GpuFlowDomControlPlane({
   committedFrameId,
+  committedSurfaceRuntime,
   getRetainedScrollOffset,
   onActivate,
   renderControl,
@@ -108,6 +107,7 @@ export function GpuFlowDomControlPlane({
   viewportRuntime,
 }: {
   readonly committedFrameId?: number | undefined;
+  readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
   readonly getRetainedScrollOffset:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
@@ -117,13 +117,20 @@ export function GpuFlowDomControlPlane({
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
+  const committedSurfaceFrame = useGpuFlowCommittedSurfaceLayerFrame(
+    committedSurfaceRuntime,
+  );
+  const layerCommittedFrameId =
+    committedSurfaceFrame?.displayFrameId ?? committedFrameId;
+  const layerRetainedRuntimeFrame =
+    committedSurfaceFrame?.retainedRuntimeFrame ?? retainedRuntimeFrame;
   const frameIds = useMemo(
     () =>
       resolveGpuFlowDomControlPlaneFrameIds({
-        committedFrameId,
-        retainedRuntimeFrame,
+        committedFrameId: layerCommittedFrameId,
+        retainedRuntimeFrame: layerRetainedRuntimeFrame,
       }),
-    [committedFrameId, retainedRuntimeFrame],
+    [layerCommittedFrameId, layerRetainedRuntimeFrame],
   );
   const hostByControlIdRef = useRef(
     new Map<string, GpuFlowDomControlPlaneMountedHost>(),
@@ -133,9 +140,9 @@ export function GpuFlowDomControlPlane({
   );
   const controls = useMemo(
     () =>
-      retainedRuntimeFrame?.descriptors.domControlSources ??
+      layerRetainedRuntimeFrame?.descriptors.domControlSources ??
       EMPTY_DOM_CONTROL_DESCRIPTORS,
-    [retainedRuntimeFrame],
+    [layerRetainedRuntimeFrame],
   );
   const projectionSourceRevision = useMemo(
     () =>
@@ -144,10 +151,6 @@ export function GpuFlowDomControlPlane({
         frameIds,
       }),
     [controls, frameIds],
-  );
-  const progressiveMountRevision = useMemo(
-    () => createGpuFlowDomControlProgressiveMountRevision({ controls }),
-    [controls],
   );
   const diagnosticsRef = useRef<GpuFlowDomControlPlaneDiagnostics>(
     createEmptyDomControlPlaneDiagnostics({
@@ -193,12 +196,6 @@ export function GpuFlowDomControlPlane({
     projectedControls.sourceRevision === projectionSourceRevision
       ? projectedControls.controls
       : initialControlsToMount.controls;
-  const deferPassiveDomControlMounting = isGpuFlowChromeReproActive();
-  const progressiveControlsToMount = useProgressiveGpuFlowDomControls({
-    controls: controlsToMount,
-    deferPassiveMounting: deferPassiveDomControlMounting,
-    sourceRevision: progressiveMountRevision,
-  });
   const assignmentsToMount =
     projectedControls.sourceRevision === projectionSourceRevision
       ? projectedControls.assignments
@@ -515,7 +512,7 @@ export function GpuFlowDomControlPlane({
         frameIds.committedFrameId
       }
     >
-      {progressiveControlsToMount.map((control) => {
+      {controlsToMount.map((control) => {
         const initialStyle = projectGpuFlowDomControlPlaneHost({
           control,
           getRetainedScrollOffset,
@@ -807,22 +804,6 @@ function createGpuFlowDomControlProjectionSourceRevision({
     ]),
     runtimeFrameId: frameIds.runtimeFrameId,
   });
-}
-
-function createGpuFlowDomControlProgressiveMountRevision({
-  controls,
-}: {
-  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-}): string {
-  return JSON.stringify(
-    controls.map((control) => [
-      control.sourceId,
-      control.sourceKey,
-      control.active,
-      control.visualPolicy,
-      control.snapshotCacheKeyRevision,
-    ]),
-  );
 }
 
 function areGpuFlowDomControlProjectedControlsEqual({

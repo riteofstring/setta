@@ -5,6 +5,7 @@ import type {
 } from "./committedSurfaceFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
+import { createDomControlBrowserVisualActor } from "./surfaceCompositor/browserVisualActorAdapter";
 import type { GpuRect } from "./viewportMath";
 
 export function createDomControlActors(
@@ -48,12 +49,14 @@ function domControlToActor({
     control,
     projected,
   });
+  const browserVisual = createDomControlBrowserVisualActor(control);
   return freezeDomControlActor({
     active: control.active,
     accessibilityProjection: "browser-dom",
     activationPolicy,
     actorFamily: "text-like-dom-control",
     actorId: control.sourceId,
+    browserVisual,
     clipChainRevision: control.clipChainRevision,
     clipRect: control.sectionClipRectFlowPx,
     contentGenerationId,

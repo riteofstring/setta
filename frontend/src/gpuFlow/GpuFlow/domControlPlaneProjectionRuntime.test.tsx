@@ -9,6 +9,8 @@ import {
   GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
   type GpuRetainedDomControlSourceDescriptor,
 } from "../retainedDomControlScene";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuViewportInput, GpuViewportTuple } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
@@ -23,6 +25,8 @@ describe("GPU flow DOM control projection runtime", () => {
       act(() => root?.unmount());
       root = null;
     }
+    delete (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
+      .__SETTA_CHROME_REPRO_ACTIVE__;
     document.body.replaceChildren();
   });
 
@@ -66,7 +70,123 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(mountedBefore.length).toBeGreaterThan(0);
     expect(mountedRowIds()).toEqual(mountedBefore);
   });
+
+  it("uses identical DOM-control host selection when Chrome repro capture is active", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+    const normalMounted = renderMountedRowIds({
+      controls,
+      chromeReproActive: false,
+    });
+
+    if (root) {
+      act(() => root?.unmount());
+      root = null;
+    }
+    document.body.replaceChildren();
+
+    const recorderMounted = renderMountedRowIds({
+      controls,
+      chromeReproActive: true,
+    });
+
+    expect(recorderMounted.length).toBeGreaterThan(0);
+    expect(recorderMounted).toEqual(normalMounted);
+  });
+
+  it("tracks committed-frame store updates when React semantic rendering dedupes", () => {
+    const firstControls = [domControl({ index: 0 })];
+    const nextControls = [domControl({ index: 1 })];
+    const firstRuntimeFrame = retainedRuntimeFrame(firstControls, 1);
+    const nextRuntimeFrame = retainedRuntimeFrame(nextControls, 2);
+    const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
+      committedSurfaceFrame({
+        displayFrameId: 1,
+        retainedRuntimeFrame: firstRuntimeFrame,
+      }),
+    );
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+
+    act(() => {
+      root?.render(
+        <GpuFlowDomControlPlane
+          committedFrameId={1}
+          committedSurfaceRuntime={committedSurfaceRuntime}
+          getRetainedScrollOffset={undefined}
+          onActivate={undefined}
+          renderControl={(control) => (
+            <input data-row-id={control.rowId} readOnly value={control.value} />
+          )}
+          retainedRuntimeFrame={firstRuntimeFrame}
+          viewportRuntime={viewportRuntime}
+          viewportStore={viewportStore}
+        />,
+      );
+    });
+    expect(mountedRowIds()).toEqual(["row-0"]);
+
+    act(() => {
+      committedSurfaceRuntime.publishCommittedContentFrame(
+        committedSurfaceFrame({
+          displayFrameId: 2,
+          retainedRuntimeFrame: nextRuntimeFrame,
+        }),
+      );
+    });
+
+    expect(mountedRowIds()).toEqual(["row-1"]);
+    expect(
+      document.querySelector<HTMLElement>(
+        "[data-gpu-flow-dom-control-plane='true']",
+      )?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
+    ).toBe("2");
+  });
 });
+
+function renderMountedRowIds({
+  chromeReproActive,
+  controls,
+}: {
+  readonly chromeReproActive: boolean;
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+}): readonly string[] {
+  (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
+    .__SETTA_CHROME_REPRO_ACTIVE__ = chromeReproActive;
+  const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+  const viewportStore = createGpuFlowViewportStore({
+    height: 60,
+    transform: [0, 0, 1],
+    width: 400,
+  });
+  const host = document.body.appendChild(document.createElement("div"));
+  root = createRoot(host);
+
+  act(() => {
+    root?.render(
+      <GpuFlowDomControlPlane
+        committedFrameId={1}
+        getRetainedScrollOffset={undefined}
+        onActivate={undefined}
+        renderControl={(control) => (
+          <input data-row-id={control.rowId} readOnly value={control.value} />
+        )}
+        retainedRuntimeFrame={retainedRuntimeFrame(controls)}
+        viewportRuntime={viewportRuntime}
+        viewportStore={viewportStore}
+      />,
+    );
+  });
+
+  return mountedRowIds();
+}
 
 function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,
@@ -106,13 +226,29 @@ function normalizeViewportTuple(viewport: GpuViewportInput): GpuViewportTuple {
 
 function retainedRuntimeFrame(
   controls: readonly GpuRetainedDomControlSourceDescriptor[],
+  frameId = 1,
 ): GpuRetainedRuntimeFrame {
   return {
     descriptors: {
       domControlSources: controls,
     },
-    frameId: 1,
+    frameId,
   } as GpuRetainedRuntimeFrame;
+}
+
+function committedSurfaceFrame({
+  displayFrameId,
+  retainedRuntimeFrame,
+}: {
+  readonly displayFrameId: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+}): GpuFlowCommittedSurfaceFrame {
+  return {
+    actorGenerations: [],
+    displayFrameId,
+    retainedRuntimeFrame,
+    sceneRevision: 1,
+  } as GpuFlowCommittedSurfaceFrame;
 }
 
 function mountedRowIds(): readonly string[] {

@@ -12,8 +12,28 @@ from typing import Any
 
 try:
     from chrome_repro_gpuflow_finish_line_markdown import render_markdown
+    from chrome_repro_gpuflow_visual_evidence import (
+        empty_browser_visual_evidence_summary,
+        load_json_object,
+        number_value,
+        read_ndjson,
+        render_output,
+        string_list,
+        summarize_browser_visual_evidence,
+        to_number,
+    )
 except ModuleNotFoundError:
     from scripts.chrome_repro_gpuflow_finish_line_markdown import render_markdown
+    from scripts.chrome_repro_gpuflow_visual_evidence import (
+        empty_browser_visual_evidence_summary,
+        load_json_object,
+        number_value,
+        read_ndjson,
+        render_output,
+        string_list,
+        summarize_browser_visual_evidence,
+        to_number,
+    )
 
 BYTES_PER_MIB = 1024 * 1024
 DEFAULT_LONG_TASK_MS = 50.0
@@ -62,7 +82,12 @@ def main() -> int:
     args = parser.parse_args()
 
     report = analyze_source(args)
-    output = render_output(report, emit_json=args.json, emit_markdown=args.markdown)
+    output = render_output(
+        report,
+        emit_json=args.json,
+        emit_markdown=args.markdown,
+        markdown_renderer=render_markdown,
+    )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(output, encoding="utf-8")
@@ -156,6 +181,10 @@ def analyze_recording(artifact_dir: Path, budgets: dict[str, Any]) -> dict[str, 
             if (timestamp := to_number(event.get("timestampMs"))) is not None
             and timestamp >= analysis_start_ms
         ]
+    visual_evidence = summarize_browser_visual_evidence(
+        app_state_rows=app_state_rows,
+        analysis_start_ms=analysis_start_ms,
+    )
     return analyze_frames(
         analysis_start_ms=analysis_start_ms,
         analysis_window_kind=(
@@ -172,6 +201,7 @@ def analyze_recording(artifact_dir: Path, budgets: dict[str, Any]) -> dict[str, 
         source=str(artifact_dir),
         source_kind="chrome-repro",
         timestamped_frames=frames,
+        visual_evidence=visual_evidence,
     )
 
 
@@ -198,6 +228,7 @@ def analyze_playwright_snapshot(
     performance_measures = payload.get("performanceMeasures")
     if not isinstance(performance_measures, list):
         performance_measures = payload.get("measures")
+    visual_evidence = payload.get("browserVisualEvidence")
     return analyze_frames(
         analysis_start_ms=None,
         analysis_window_kind="playwright-snapshot",
@@ -212,6 +243,9 @@ def analyze_playwright_snapshot(
         source=str(snapshot_path),
         source_kind="playwright-snapshot",
         timestamped_frames=timestamped_frames,
+        visual_evidence=(
+            visual_evidence if isinstance(visual_evidence, dict) else None
+        ),
     )
 
 
@@ -228,14 +262,17 @@ def analyze_frames(
     source: str,
     source_kind: str,
     timestamped_frames: list[dict[str, Any]],
+    visual_evidence: dict[str, Any] | None,
 ) -> dict[str, Any]:
     frames = [entry["frame"] for entry in timestamped_frames]
     runtime_measures = normalize_gpu_flow_measures(performance_measures)
     viewport_spans = find_interaction_spans(timestamped_frames)
+    visual_evidence = visual_evidence or empty_browser_visual_evidence_summary()
     completeness = summarize_finish_line_completeness(
         analysis_window_kind=analysis_window_kind,
         finish_line_marker_missing=finish_line_marker_missing,
         frames=frames,
+        visual_evidence=visual_evidence,
     )
     retained_after_settle = summarize_retained_after_settle_windows(
         timestamped_frames,
@@ -305,6 +342,7 @@ def analyze_frames(
         if not isinstance(frame.get("phaseDiagnostics"), dict)
         or not isinstance(frame.get("projectionDiagnostics"), dict)
     ]
+    require_visual_evidence = source_kind == "chrome-repro"
 
     failures = {
         "browserLongTaskCount": len(longtasks),
@@ -326,6 +364,27 @@ def analyze_frames(
             1 for frame in frames if frame.get("retainedTexturePageBudgetExhausted")
         ),
         "trueHolePublicationCount": len(true_hole_publications),
+        "visualEvidenceBlankTextClipCount": len(
+            visual_evidence["blankTextClips"]
+        ),
+        "visualEvidenceMissingCount": (
+            1 if require_visual_evidence and visual_evidence["eventCount"] == 0 else 0
+        ),
+        "visualEvidenceScreenshotMissingCount": (
+            1
+            if require_visual_evidence
+            and visual_evidence["eventCount"] > 0
+            and visual_evidence["screenshotCount"] == 0
+            and visual_evidence["pixelSourceCount"] == 0
+            else 0
+        ),
+        "visualEvidenceTextClipMissingCount": (
+            1
+            if require_visual_evidence
+            and visual_evidence["eventCount"] > 0
+            and visual_evidence["textClipCount"] == 0
+            else 0
+        ),
     }
     failure_count = sum(
         value for key, value in failures.items() if key != "longTaskCount" and value > 0
@@ -383,6 +442,7 @@ def analyze_frames(
                 Counter(measure["phase"] for measure in runtime_measures)
             ),
             "trueHolePublications": true_hole_publications[:20],
+            "visualEvidence": visual_evidence,
             "viewportInteractionSpans": viewport_spans,
         },
     }
@@ -393,6 +453,7 @@ def summarize_finish_line_completeness(
     analysis_window_kind: str,
     finish_line_marker_missing: bool,
     frames: list[dict[str, Any]],
+    visual_evidence: dict[str, Any],
 ) -> dict[str, Any]:
     frame_count = len(frames)
     content_frame_count = sum(1 for frame in frames if frame_mode(frame) == "content")
@@ -402,15 +463,20 @@ def summarize_finish_line_completeness(
     projection_frame_count = sum(
         1 for frame in frames if is_motion_projection_frame(frame)
     )
+    visual_evidence_window = (
+        number_value(visual_evidence.get("pixelSourceCount")) > 0
+        and number_value(visual_evidence.get("textClipCount")) > 0
+        and len(visual_evidence.get("blankTextClips") or []) == 0
+    )
     missing_reasons: list[str] = []
     if analysis_window_kind == "finish-line-marker" and not finish_line_marker_missing:
-        if frame_count == 0:
+        if frame_count == 0 and not visual_evidence_window:
             missing_reasons.append("no-gpu-flow-frames-after-marker")
-        if content_frame_count == 0:
+        if content_frame_count == 0 and not visual_evidence_window:
             missing_reasons.append("no-content-frames-after-marker")
-        if projection_frame_count == 0:
+        if projection_frame_count == 0 and not visual_evidence_window:
             missing_reasons.append("no-motion-projection-frames-after-marker")
-        if interaction_active_frame_count == 0:
+        if interaction_active_frame_count == 0 and not visual_evidence_window:
             missing_reasons.append("no-interaction-active-frames-after-marker")
     return {
         "contentFrameCount": content_frame_count,
@@ -419,12 +485,14 @@ def summarize_finish_line_completeness(
         "interactionActiveFrameCount": interaction_active_frame_count,
         "missingReasons": missing_reasons,
         "projectionFrameCount": projection_frame_count,
+        "visualEvidenceWindow": visual_evidence_window,
     }
 
 
 def find_finish_line_analysis_start_ms(
     app_state_rows: list[dict[str, Any]],
 ) -> float | None:
+    latest_timestamp_ms: float | None = None
     for row in app_state_rows:
         event = row.get("event")
         if not isinstance(event, dict):
@@ -441,8 +509,8 @@ def find_finish_line_analysis_start_ms(
             continue
         timestamp_ms = to_number(event.get("timestampMs"))
         if timestamp_ms is not None:
-            return timestamp_ms
-    return None
+            latest_timestamp_ms = timestamp_ms
+    return latest_timestamp_ms
 
 
 def normalize_gpu_flow_measures(
@@ -920,61 +988,6 @@ def projection_held_previous_ms(frame: dict[str, Any]) -> float:
     if isinstance(projection, dict):
         return number_value(projection.get("heldPreviousDurationMs"))
     return 0.0
-
-
-def render_output(
-    report: dict[str, Any], *, emit_json: bool, emit_markdown: bool
-) -> str:
-    if not emit_json and not emit_markdown:
-        emit_markdown = True
-    if emit_json and emit_markdown:
-        raise ValueError("Use only one of --json or --markdown.")
-    if emit_json:
-        return json.dumps(report, indent=2, sort_keys=True)
-    return render_markdown(report)
-
-
-def load_json_object(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        value = json.load(handle)
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected JSON object in {path}.")
-    return value
-
-
-def read_ndjson(path: Path) -> list[dict[str, Any]]:
-    rows = []
-    if not path.exists():
-        return rows
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            text = line.strip()
-            if not text:
-                continue
-            value = json.loads(text)
-            if isinstance(value, dict):
-                rows.append(value)
-    return rows
-
-
-def string_list(value: Any) -> list[str]:
-    return (
-        [item for item in value if isinstance(item, str)]
-        if isinstance(value, list)
-        else []
-    )
-
-
-def to_number(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    return None
-
-
-def number_value(value: Any) -> float:
-    return to_number(value) or 0.0
 
 
 def mib(value: int) -> float:

@@ -3,6 +3,12 @@ import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { RetainedDrawRegion } from "../retainedVisibleCoveragePlanner";
 import { normalizeGpuViewport, type GpuRect } from "../viewportMath";
 import {
+  createBrowserVisualSurfaceTransactionFragment,
+  createDomControlBrowserVisualActor,
+  createDomIslandBrowserVisualActor,
+  type BrowserVisualSurfaceTransactionFragment,
+} from "./browserVisualActorAdapter";
+import {
   createSurfaceActor,
   createSurfaceActorSnapshot,
   type SurfaceActorSnapshot,
@@ -18,7 +24,6 @@ import {
 } from "./surfaceCoverage";
 import {
   createSurfaceGeneration,
-  type SurfaceActiveDomIslandGeneration,
   type SurfaceGeneration,
   type SurfaceRendererBucket,
 } from "./surfaceGeneration";
@@ -70,21 +75,16 @@ export function createRetainedSurfaceTransactionSnapshot({
       generation,
     ]),
   );
-  const domControlActorSnapshots = createRetainedDomControlActorSnapshots({
-    generationBySurfaceId,
-    retainedRuntimeFrame,
-  });
-  const activeIslandSnapshot = createRetainedActiveIslandSnapshot({
-    generationBySurfaceId,
+  const browserVisualFragment = createRetainedBrowserVisualFragment({
     retainedRuntimeFrame,
   });
   const actorSnapshots = Object.freeze([
     ...retainedContentActorSnapshots,
-    ...domControlActorSnapshots,
-    ...activeIslandSnapshot.actorSnapshots,
+    ...browserVisualFragment.actorSnapshots,
   ]);
   const coverageProof = createRetainedSurfaceCoverageProof({
     actorSnapshots,
+    browserVisualFragment,
     generationBySurfaceId,
     pageFrame,
   });
@@ -92,8 +92,8 @@ export function createRetainedSurfaceTransactionSnapshot({
     actorSnapshots,
     transaction: Object.freeze({
       activeDomIslandTransaction: Object.freeze({
-        islands: activeIslandSnapshot.activeIslands,
-        mode: activeIslandSnapshot.activeIslands.length > 0 ? "attach" : "none",
+        islands: browserVisualFragment.activeIslands,
+        mode: browserVisualFragment.activeIslands.length > 0 ? "attach" : "none",
       }),
       coverageProof,
       desiredSurfaceGenerations: Object.freeze(
@@ -125,7 +125,7 @@ export function createRetainedSurfaceTransactionSnapshot({
       }),
       id,
       motionFrame: Object.freeze({
-        activeIslands: activeIslandSnapshot.activeIslands,
+        activeIslands: browserVisualFragment.activeIslands,
         retainedScrollOffset: firstRetainedScrollOffset(
           retainedRuntimeFrame.input.scrollOffsets,
         ),
@@ -304,219 +304,73 @@ function createRetainedContentSurfaceGeneration({
   });
 }
 
-function createRetainedDomControlActorSnapshots({
-  generationBySurfaceId,
+function createRetainedBrowserVisualFragment({
   retainedRuntimeFrame,
 }: {
-  readonly generationBySurfaceId: ReadonlyMap<string, SurfaceGeneration>;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): readonly SurfaceActorSnapshot[] {
-  const snapshots: SurfaceActorSnapshot[] = [];
-  for (const source of retainedRuntimeFrame.descriptors.domControlSources) {
-    const flowRect = source.worldRectFlowPx;
-    const ownerGeneration = generationBySurfaceId.get(source.surfaceId);
-    const generationId = [
-      "dom-control",
-      source.sourceId,
-      source.sourceKey,
-      source.lifecycleState,
-      rectKey(source.worldRectFlowPx),
-      ownerGeneration?.generationId ?? "owner:none",
-    ].join("|");
-    const surfaceId = `dom-control:${source.sourceId}`;
-    const rendererBucket: SurfaceRendererBucket = "native-control";
-    const generation = createSurfaceGeneration({
-      activeDomIsland: null,
-      clipRect: flowRect,
-      contentVersion: source.sourceKey,
-      fidelity: "exact",
-      flowRect,
-      generationId,
-      hitIndex: {
-        entries: Object.freeze([
-          Object.freeze({
-            id: source.sourceId,
-            rect: flowRect,
-            role: "dom-control",
-          }),
-        ]),
-        generationId,
-      },
-      paintReadiness: "ready",
-      rendererBucket,
-      sourceKey: source.sourceKey,
-      sourceWindow: {
-        contentToTextureKey: [
-          source.sourceKey,
-          rectKey(source.sourceRectCssPx),
-        ].join("|"),
-        sourceRect: source.sourceRectCssPx,
-      },
-      surfaceId,
-      textureReadiness: "ready",
-      visualVersion: source.sourceKey,
-      zIndex: source.zOrder,
-    });
-    snapshots.push(
-      createSurfaceActorSnapshot({
-        actor: createSurfaceActor({
-          currentGenerationId: generation.generationId,
-          kind: "dom-control",
-          rendererBucket,
-          sourceKey: generation.sourceKey,
-          sourcePolicy: "layoutsubtree-dom",
-          surfaceId,
-        }),
-        generation,
-      }),
-    );
-  }
-  return Object.freeze(snapshots);
-}
-
-function createRetainedActiveIslandSnapshot({
-  generationBySurfaceId,
-  retainedRuntimeFrame,
-}: {
-  readonly generationBySurfaceId: ReadonlyMap<string, SurfaceGeneration>;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): {
-  readonly activeIslands: readonly SurfaceActiveDomIslandGeneration[];
-  readonly actorSnapshots: readonly SurfaceActorSnapshot[];
-} {
-  const activeIslands: SurfaceActiveDomIslandGeneration[] = [];
-  const actorSnapshots: SurfaceActorSnapshot[] = [];
-  for (const island of retainedRuntimeFrame.descriptors.nativeDomIslands) {
-    const ownerGeneration = generationBySurfaceId.get(island.clipOwnerId);
-    if (ownerGeneration) {
-      activeIslands.push(
-        createRetainedActiveIslandGeneration({
-          generationId: ownerGeneration.generationId,
-          ownerSurfaceId: ownerGeneration.surfaceId,
-          rect: island.rect,
-          islandId: island.id,
-        }),
-      );
-      continue;
-    }
-    const surfaceId = `active-dom-island:${island.id}`;
-    const generationId = [
-      "active-dom-island",
-      island.id,
-      island.clipOwnerId,
-      rectKey(island.rect),
-    ].join("|");
-    const activeIsland = createRetainedActiveIslandGeneration({
-      generationId,
-      islandId: island.id,
-      ownerSurfaceId: surfaceId,
-      rect: island.rect,
-    });
-    const generation = createSurfaceGeneration({
-      activeDomIsland: activeIsland,
-      clipRect: island.rect,
-      contentVersion: island.id,
-      fidelity: "exact",
-      flowRect: island.rect,
-      generationId,
-      hitIndex: {
-        entries: Object.freeze([
-          Object.freeze({
-            id: island.id,
-            rect: island.rect,
-            role: "active-dom-island",
-          }),
-        ]),
-        generationId,
-      },
-      paintReadiness: "ready",
-      rendererBucket: "native-control",
-      sourceKey: island.id,
-      sourceWindow: {
-        contentToTextureKey: [island.id, rectKey(island.rect)].join("|"),
-        sourceRect: island.rect,
-      },
-      surfaceId,
-      textureReadiness: "ready",
-      visualVersion: island.id,
-      zIndex: island.zIndex,
-    });
-    actorSnapshots.push(
-      createSurfaceActorSnapshot({
-        actor: createSurfaceActor({
-          currentGenerationId: generationId,
-          kind: "active-dom-island",
-          rendererBucket: "native-control",
-          sourceKey: generation.sourceKey,
-          sourcePolicy: "layoutsubtree-dom",
-          surfaceId,
-        }),
-        generation,
-      }),
-    );
-    activeIslands.push(activeIsland);
-  }
-  return {
-    activeIslands: Object.freeze(activeIslands),
-    actorSnapshots: Object.freeze(actorSnapshots),
-  };
-}
-
-function createRetainedActiveIslandGeneration({
-  generationId,
-  islandId,
-  ownerSurfaceId,
-  rect,
-}: {
-  readonly generationId: string;
-  readonly islandId: string;
-  readonly ownerSurfaceId: string;
-  readonly rect: GpuRect;
-}): SurfaceActiveDomIslandGeneration {
-  return Object.freeze({
-    focusIdentity: islandId,
-    generationId,
-    islandId,
-    ownerSurfaceId,
-    rect: Object.freeze({ ...rect }),
-  });
+}): BrowserVisualSurfaceTransactionFragment {
+  return createBrowserVisualSurfaceTransactionFragment([
+    ...retainedRuntimeFrame.descriptors.domControlSources.map(
+      createDomControlBrowserVisualActor,
+    ),
+    ...retainedRuntimeFrame.descriptors.nativeDomIslands.map(
+      createDomIslandBrowserVisualActor,
+    ),
+  ]);
 }
 
 function createRetainedSurfaceCoverageProof({
   actorSnapshots,
+  browserVisualFragment,
   generationBySurfaceId,
   pageFrame,
 }: {
   readonly actorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly browserVisualFragment: BrowserVisualSurfaceTransactionFragment;
   readonly generationBySurfaceId: ReadonlyMap<string, SurfaceGeneration>;
   readonly pageFrame: RetainedContentTexturePagePreparedFrame;
 }): SurfaceCoverageProof {
-  const entries = pageFrame.drawRegions.map((region) =>
+  const retainedEntries = pageFrame.drawRegions.map((region) =>
     retainedDrawRegionToCoverageEntry({ generationBySurfaceId, region }),
   );
+  const entries = [
+    ...retainedEntries,
+    ...browserVisualFragment.exactCoverage,
+    ...browserVisualFragment.compatibleCoverage,
+  ];
   const exactCoverage = entries.filter((entry) => entry.fidelity === "exact");
   const compatibleCoverage = entries.filter(
     (entry) => entry.fidelity === "compatible",
   );
-  const trueHoleRects = createRetainedSurfaceTrueHoleRects(pageFrame);
-  const blockingSurfaceIds = createRetainedSurfaceBlockingSurfaceIds({
+  const retainedTrueHoleRects = createRetainedSurfaceTrueHoleRects(pageFrame);
+  const trueHoleRects = Object.freeze([
+    ...retainedTrueHoleRects,
+    ...browserVisualFragment.trueHoleRects,
+  ]);
+  const retainedBlockingSurfaceIds = createRetainedSurfaceBlockingSurfaceIds({
     pageFrame,
-    trueHoleRects,
+    trueHoleRects: retainedTrueHoleRects,
   });
-  const blockingGenerationIds = blockingSurfaceIds.map(
+  const retainedBlockingGenerationIds = retainedBlockingSurfaceIds.map(
     (surfaceId) =>
       generationBySurfaceId.get(surfaceId)?.generationId ??
       `retained-missing:${surfaceId}`,
   );
   const protectedResourceHandles = createRetainedProtectedResourceHandles({
-    actorSnapshots,
+    browserVisualFragment,
     entries,
     pageFrame,
   });
   const drawCommands = createSortedRetainedDrawCommands(entries);
   return createSurfaceCoverageProof({
-    blockingGenerationIds,
-    blockingSurfaceIds,
+    blockingGenerationIds: [
+      ...retainedBlockingGenerationIds,
+      ...browserVisualFragment.blockingGenerationIds,
+    ],
+    blockingSurfaceIds: [
+      ...retainedBlockingSurfaceIds,
+      ...browserVisualFragment.blockingSurfaceIds,
+    ],
     compatibilityProof: createRetainedCompatibilityProof({
       generationBySurfaceId,
       pageFrame,
@@ -531,7 +385,8 @@ function createRetainedSurfaceCoverageProof({
     trueHoleRects,
     visibleRects: actorSnapshots
       .filter(({ actor }) => actor.kind === "retained-parameter-content")
-      .map(({ generation }) => generation.flowRect),
+      .map(({ generation }) => generation.flowRect)
+      .concat(browserVisualFragment.visibleRects),
     zOrder: uniqueOrdered(drawCommands.map((command) => command.surfaceId)),
   });
 }
@@ -595,15 +450,18 @@ function createRetainedCompatibilityProof({
 }
 
 function createRetainedProtectedResourceHandles({
-  actorSnapshots,
+  browserVisualFragment,
   entries,
   pageFrame,
 }: {
-  readonly actorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly browserVisualFragment: BrowserVisualSurfaceTransactionFragment;
   readonly entries: readonly SurfaceCoverageEntry[];
   readonly pageFrame: RetainedContentTexturePagePreparedFrame;
 }): readonly ProtectedSurfaceResourceHandle[] {
-  const handles = new Map<string, SurfaceResourceHandle>();
+  const handles = new Map<
+    string,
+    SurfaceResourceHandle | ProtectedSurfaceResourceHandle
+  >();
   for (const entry of entries) {
     for (const handle of entry.resourceHandles) {
       handles.set(`${handle.kind}:${handle.id}`, handle);
@@ -613,14 +471,7 @@ function createRetainedProtectedResourceHandles({
     const handle = retainedPageResourceHandle(pageKey);
     handles.set(`${handle.kind}:${handle.id}`, handle);
   }
-  for (const { actor, generation } of actorSnapshots) {
-    if (actor.kind !== "dom-control" && actor.kind !== "active-dom-island") {
-      continue;
-    }
-    const handle: SurfaceResourceHandle =
-      actor.kind === "active-dom-island"
-        ? { id: generation.sourceKey, kind: "native-dom-island" }
-        : { id: generation.sourceKey, kind: "source" };
+  for (const handle of browserVisualFragment.protectedResourceHandles) {
     handles.set(`${handle.kind}:${handle.id}`, handle);
   }
   return Object.freeze(
@@ -628,11 +479,13 @@ function createRetainedProtectedResourceHandles({
       Object.freeze({
         ...handle,
         reason:
-          handle.kind === "source"
-            ? "interactive-source"
-            : handle.kind === "native-dom-island"
-              ? "active-dom-island"
-              : "published-transaction",
+          "reason" in handle
+            ? handle.reason
+            : handle.kind === "source"
+              ? "interactive-source"
+              : handle.kind === "native-dom-island"
+                ? "active-dom-island"
+                : "published-transaction",
       }),
     ),
   );

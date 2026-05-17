@@ -13,12 +13,15 @@ type GpuFlowReactSemanticSnapshot = {
 
 type GpuFlowCommittedSurfaceRuntimeListener = () => void;
 
-type GpuFlowCommittedSurfaceRuntime = {
+export type GpuFlowCommittedSurfaceRuntime = {
   getCommittedContentFrame(): GpuFlowCommittedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
   publishCommittedContentFrame(frame: GpuFlowCommittedContentFrame): boolean;
   resetCommittedContentFrame(): void;
   setStartupFrame(frame: GpuFlowCommittedContentFrame): void;
+  subscribeCommittedContentFrame(
+    listener: GpuFlowCommittedSurfaceRuntimeListener,
+  ): () => void;
   subscribeReactSemanticSnapshot(
     listener: GpuFlowCommittedSurfaceRuntimeListener,
   ): () => void;
@@ -34,6 +37,8 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   implements GpuFlowCommittedSurfaceRuntime
 {
   private currentFrame: GpuFlowCommittedContentFrame | null = null;
+  private readonly committedFrameListeners =
+    new Set<GpuFlowCommittedSurfaceRuntimeListener>();
   private readonly listeners =
     new Set<GpuFlowCommittedSurfaceRuntimeListener>();
   private publishCount = 0;
@@ -58,6 +63,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
       createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
     if (this.semanticSnapshot.renderSignature === renderSignature) {
       this.currentFrame = frame;
+      this.emitCommittedFrame();
       return false;
     }
     this.currentFrame = frame;
@@ -67,6 +73,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
       publishCount: this.publishCount,
       renderSignature,
     };
+    this.emitCommittedFrame();
     this.emit();
     return true;
   }
@@ -75,10 +82,12 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     this.currentFrame = null;
     this.publishCount += 1;
     this.semanticSnapshot = this.createSemanticSnapshot(this.startupFrame);
+    this.emitCommittedFrame();
     this.emit();
   }
 
   setStartupFrame(frame: GpuFlowCommittedContentFrame): void {
+    const previousStartupFrame = this.startupFrame;
     this.startupFrame = frame;
     if (this.currentFrame) {
       return;
@@ -86,12 +95,25 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     const renderSignature =
       createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
     if (this.semanticSnapshot.renderSignature === renderSignature) {
+      if (previousStartupFrame !== frame) {
+        this.emitCommittedFrame();
+      }
       return;
     }
     this.semanticSnapshot = {
       frame,
       publishCount: this.publishCount,
       renderSignature,
+    };
+    this.emitCommittedFrame();
+  }
+
+  subscribeCommittedContentFrame(
+    listener: GpuFlowCommittedSurfaceRuntimeListener,
+  ): () => void {
+    this.committedFrameListeners.add(listener);
+    return () => {
+      this.committedFrameListeners.delete(listener);
     };
   }
 
@@ -116,6 +138,12 @@ class DefaultGpuFlowCommittedSurfaceRuntime
 
   private emit(): void {
     for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
+  private emitCommittedFrame(): void {
+    for (const listener of this.committedFrameListeners) {
       listener();
     }
   }

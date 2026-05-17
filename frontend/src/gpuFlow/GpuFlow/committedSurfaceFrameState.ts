@@ -77,6 +77,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
 
   return {
     committedSurfaceFrameRef,
+    committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
     publishCommittedSurfaceFrame,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,

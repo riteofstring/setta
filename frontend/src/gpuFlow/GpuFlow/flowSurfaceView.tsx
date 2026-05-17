@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode, type RefObject } from "react";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
@@ -30,6 +31,7 @@ const GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX = 360;
 export function GpuFlowSurfaceView({
   children,
   className,
+  committedSurfaceRuntime,
   containerRef,
   deviceOptions,
   edgeLabelSourceElement,
@@ -62,6 +64,7 @@ export function GpuFlowSurfaceView({
 }: {
   readonly children: ReactNode;
   readonly className: string;
+  readonly committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime;
   readonly containerRef: RefObject<HTMLDivElement | null>;
   readonly deviceOptions: GpuFlowProps["deviceOptions"];
   readonly edgeLabelSourceElement: ReactNode;
@@ -144,6 +147,7 @@ export function GpuFlowSurfaceView({
           </GpuSurface>
           <GpuFlowDomControlPlane
             committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
+            committedSurfaceRuntime={committedSurfaceRuntime}
             getRetainedScrollOffset={getRetainedDomControlScrollOffset}
             onActivate={onDomControlActivation}
             renderControl={renderRetainedDomControl}
@@ -153,6 +157,7 @@ export function GpuFlowSurfaceView({
           />
           <GpuFlowDomIslandLayer
             committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
+            committedSurfaceRuntime={committedSurfaceRuntime}
             renderDomIsland={renderDomIsland}
             retainedRuntimeFrame={visibleRetainedRuntimeFrame}
             viewportStore={viewportStore}

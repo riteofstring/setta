@@ -245,6 +245,7 @@ async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await disableMinimapIfEnabled(page);
   await page.getByRole("button", { exact: true, name: "Core" }).click();
   await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
@@ -261,6 +262,19 @@ async function openSettings(page: Page): Promise<void> {
       { timeout: 10_000 },
     )
     .toBeGreaterThan(10);
+  await scrollGuiRowIntoView(page, MAX_ZOOM_LABEL);
+}
+
+async function disableMinimapIfEnabled(page: Page): Promise<void> {
+  const minimapToggle = page.getByRole("button", { name: "toggle minimap" });
+  if ((await minimapToggle.count()) === 0) {
+    return;
+  }
+  if ((await minimapToggle.first().getAttribute("aria-pressed")) !== "true") {
+    return;
+  }
+  await minimapToggle.first().click();
+  await waitForAnimationFrame(page);
 }
 
 async function waitForCoreSettingsView(page: Page): Promise<void> {
@@ -292,6 +306,77 @@ async function resolveVisibleGuiRow(
     throw new Error(`Missing visible retained GUI row ${label}`);
   }
   return row;
+}
+
+async function scrollGuiRowIntoView(page: Page, label: string): Promise<void> {
+  for (let index = 0; index < 16; index += 1) {
+    const scroll = await page.evaluate(
+      ({ label, surfaceId }) => {
+        const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+        const surfaceRows = rows.filter(
+          (row): row is RetainedRowDebugEntry => row.surfaceId === surfaceId,
+        );
+        const target = surfaceRows.find((row) => row.rowLabel === label);
+        if (!target) {
+          return null;
+        }
+        if (
+          target.clientRect.width > 16 &&
+          target.clientRect.height > 8 &&
+          target.clientRect.y < window.innerHeight &&
+          target.clientRect.y + target.clientRect.height > 0
+        ) {
+          return { kind: "visible" as const };
+        }
+        const visibleRow = surfaceRows.find(
+          (row) =>
+            row.clientRect.width > 16 &&
+            row.clientRect.height > 8 &&
+            row.labelClientPoint.y > 0 &&
+            row.labelClientPoint.y < window.innerHeight,
+        );
+        if (!visibleRow) {
+          return null;
+        }
+        const targetAboveViewport = target.clientRect.y < 0;
+        return {
+          deltaY: targetAboveViewport ? -240 : 240,
+          kind: "scroll" as const,
+          point: visibleRow.labelClientPoint,
+        };
+      },
+      { label, surfaceId: GUI_CONTENT_SURFACE_ID },
+    );
+    if (scroll?.kind === "visible") {
+      return;
+    }
+    if (!scroll) {
+      await waitForAnimationFrame(page);
+      continue;
+    }
+    await page.mouse.move(scroll.point.x, scroll.point.y);
+    await page.mouse.wheel(0, scroll.deltaY);
+    await waitForAnimationFrame(page);
+  }
+  await expect
+    .poll(async () => {
+      const rows = await page.evaluate(
+        ({ label, surfaceId }) => {
+          return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).some(
+            (row): row is RetainedRowDebugEntry =>
+              row.surfaceId === surfaceId &&
+              row.rowLabel === label &&
+              row.clientRect.width > 16 &&
+              row.clientRect.height > 8 &&
+              row.clientRect.y < window.innerHeight &&
+              row.clientRect.y + row.clientRect.height > 0,
+          );
+        },
+        { label, surfaceId: GUI_CONTENT_SURFACE_ID },
+      );
+      return rows;
+    })
+    .toBe(true);
 }
 
 async function readGuiSetting(page: Page, key: "maxZoom"): Promise<unknown> {

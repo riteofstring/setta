@@ -26,6 +26,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     details = report["details"]
     append_markdown_finish_line_completeness(lines, details)
     append_markdown_long_tasks(lines, details)
+    append_markdown_visual_evidence(lines, details)
     append_markdown_retained_budget_misses(lines, details)
     append_markdown_post_settle_uploads(lines, details)
     return "\n".join(lines) + "\n"
@@ -107,6 +108,33 @@ def append_markdown_retained_budget_misses(
         )
     if not details["retainedBudgetMisses"]:
         lines.append("- none")
+
+
+def append_markdown_visual_evidence(
+    lines: list[str], details: dict[str, Any]
+) -> None:
+    lines.extend(["", "## Browser Visual Evidence", ""])
+    evidence = details.get("visualEvidence")
+    if not isinstance(evidence, dict):
+        lines.append("- unavailable")
+        return
+    lines.append(f"- events: `{evidence.get('eventCount')}`")
+    lines.append(f"- screenshots: `{evidence.get('screenshotCount')}`")
+    lines.append(f"- pixel sources: `{evidence.get('pixelSourceCount')}`")
+    lines.append(f"- text clips: `{evidence.get('textClipCount')}`")
+    blank_clips = evidence.get("blankTextClips")
+    if isinstance(blank_clips, list) and blank_clips:
+        lines.append("- blank text clips:")
+        for clip in blank_clips[:10]:
+            if not isinstance(clip, dict):
+                continue
+            lines.append(
+                "  - "
+                f"row `{clip.get('rowId')}` ink `{clip.get('inkPixelCount')}` "
+                f"coverage `{clip.get('coverageState')}`"
+            )
+        return
+    lines.append("- blank text clips: `0`")
 
 
 def append_markdown_post_settle_uploads(

@@ -6,8 +6,18 @@ const FRAME_GAP_INTERACTION_WINDOW_MS = 1500;
 const FRAME_GAP_EVENT_THROTTLE_MS = 100;
 const EVENT_TIMING_DURATION_THRESHOLD_MS = 16;
 const PERFORMANCE_ATTRIBUTION_LIMIT = 5;
+const GPU_FLOW_BROWSER_VISUAL_EVIDENCE_KIND =
+  "gpu-flow-browser-visual-evidence";
+const GPU_FLOW_RETAINED_DOM_CONTROLS_KIND = "gpu-flow-retained-dom-controls";
+const GPU_FLOW_BROWSER_VISUAL_SCREENSHOT_SOURCE =
+  "setta.chrome-repro-recorder/browser-visual-screenshot";
+const GPU_FLOW_VISUAL_EVIDENCE_CLIP_LIMIT = 16;
 const lastScrollEventByTarget = new WeakMap();
 let frameGapMonitorStarted = false;
+let gpuFlowBrowserVisualEvidenceAutoStarted = false;
+let gpuFlowBrowserVisualEvidenceAutoSent = false;
+let gpuFlowBrowserVisualEvidenceAutoPending = false;
+let gpuFlowBrowserVisualEvidenceScreenshot = null;
 let frameGapInteractionUntilMs = 0;
 let lastAnimationFrameTimestampMs = null;
 let lastFrameGapSentAtMs = 0;
@@ -225,6 +235,17 @@ function sendEvent(payload) {
   }
 }
 
+function sendAppState(kind, payload) {
+  sendEvent({
+    type: "app-state",
+    timestampMs: nowTimestampMs(),
+    kind,
+    payload,
+    url: window.location.href,
+    title: document.title,
+  });
+}
+
 function sendEventAfterCurrentEvent(getPayload) {
   const schedule =
     typeof queueMicrotask === "function"
@@ -406,6 +427,329 @@ function startFrameGapMonitor() {
   window.requestAnimationFrame(recordAnimationFrameGap);
 }
 
+function createVisualEvidenceId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `visual-evidence-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isPngDataUrl(value) {
+  return (
+    typeof value === "string" &&
+    value.startsWith("data:image/png;base64,") &&
+    value.length > "data:image/png;base64,".length
+  );
+}
+
+function storeGpuFlowBrowserVisualEvidenceScreenshot(payload) {
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
+  if (!isPngDataUrl(payload.dataUrl)) {
+    return;
+  }
+  gpuFlowBrowserVisualEvidenceScreenshot = {
+    capturedAt:
+      typeof payload.capturedAt === "string"
+        ? payload.capturedAt
+        : new Date().toISOString(),
+    dataUrl: payload.dataUrl,
+    source: "cdp-page-message",
+    url: window.location.href,
+    viewportOriginDevicePx:
+      payload.viewportOriginDevicePx &&
+      typeof payload.viewportOriginDevicePx === "object"
+        ? payload.viewportOriginDevicePx
+        : undefined,
+    viewportScale: payload.viewportScale,
+  };
+}
+
+function resolveGpuFlowBrowserVisualEvidenceScreenshot() {
+  if (
+    !gpuFlowBrowserVisualEvidenceScreenshot ||
+    gpuFlowBrowserVisualEvidenceScreenshot.url !== window.location.href
+  ) {
+    return undefined;
+  }
+  return {
+    capturedAt: gpuFlowBrowserVisualEvidenceScreenshot.capturedAt,
+    dataUrl: gpuFlowBrowserVisualEvidenceScreenshot.dataUrl,
+    source: gpuFlowBrowserVisualEvidenceScreenshot.source,
+    viewportOriginDevicePx:
+      gpuFlowBrowserVisualEvidenceScreenshot.viewportOriginDevicePx,
+    viewportScale: gpuFlowBrowserVisualEvidenceScreenshot.viewportScale,
+  };
+}
+
+function intersectViewportRect(rect) {
+  const x = Math.max(0, rect.left);
+  const y = Math.max(0, rect.top);
+  const right = Math.min(window.innerWidth, rect.right);
+  const bottom = Math.min(window.innerHeight, rect.bottom);
+  return {
+    height: Math.max(0, bottom - y),
+    width: Math.max(0, right - x),
+    x,
+    y,
+  };
+}
+
+function readElementTextLength(element) {
+  const values = [];
+  for (const field of element.querySelectorAll("input, textarea, select")) {
+    if (
+      field instanceof HTMLInputElement ||
+      field instanceof HTMLTextAreaElement ||
+      field instanceof HTMLSelectElement
+    ) {
+      values.push(field.value);
+    }
+  }
+  const text = values.join(" ") || element.textContent || "";
+  return text.replace(/\s+/g, " ").trim().length;
+}
+
+const GPU_FLOW_VISUAL_RASTER_STYLE_PROPERTIES = [
+  "align-items",
+  "background",
+  "background-color",
+  "border",
+  "border-radius",
+  "box-sizing",
+  "color",
+  "display",
+  "font",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "height",
+  "justify-content",
+  "letter-spacing",
+  "line-height",
+  "margin",
+  "overflow",
+  "padding",
+  "text-align",
+  "text-overflow",
+  "white-space",
+  "width",
+];
+
+function copyRasterCloneStyle(source, target) {
+  const computed = window.getComputedStyle(source);
+  for (const property of GPU_FLOW_VISUAL_RASTER_STYLE_PROPERTIES) {
+    target.style.setProperty(property, computed.getPropertyValue(property));
+  }
+  target.style.position = "static";
+  target.style.transform = "none";
+}
+
+function cloneElementForRaster(source) {
+  const clone = source.cloneNode(false);
+  if (source instanceof Element && clone instanceof Element) {
+    copyRasterCloneStyle(source, clone);
+    if (source instanceof HTMLInputElement && clone instanceof HTMLInputElement) {
+      clone.setAttribute("value", source.value);
+    }
+    if (
+      source instanceof HTMLTextAreaElement &&
+      clone instanceof HTMLTextAreaElement
+    ) {
+      clone.textContent = source.value;
+    }
+  }
+  for (const child of source.childNodes) {
+    clone.appendChild(
+      child.nodeType === Node.ELEMENT_NODE
+        ? cloneElementForRaster(child)
+        : child.cloneNode(true),
+    );
+  }
+  return clone;
+}
+
+function loadRasterImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const timeoutId = window.setTimeout(
+      () => reject(new Error("clip raster image load timed out")),
+      1000,
+    );
+    image.onload = () => {
+      window.clearTimeout(timeoutId);
+      resolve(image);
+    };
+    image.onerror = () => {
+      window.clearTimeout(timeoutId);
+      reject(new Error("clip raster image failed to load"));
+    };
+    image.src = dataUrl;
+  });
+}
+
+async function rasterizeGpuFlowVisualEvidenceHost(host, clip) {
+  const width = Math.max(1, Math.ceil(clip.width));
+  const height = Math.max(1, Math.ceil(clip.height));
+  const clone = cloneElementForRaster(host);
+  if (clone instanceof Element) {
+    clone.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+    clone.style.width = `${width}px`;
+    clone.style.height = `${height}px`;
+  }
+  const html = new XMLSerializer().serializeToString(clone);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+  const image = await loadRasterImage(
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.ceil(width * window.devicePixelRatio));
+  canvas.height = Math.max(1, Math.ceil(height * window.devicePixelRatio));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("clip raster canvas context unavailable");
+  }
+  context.scale(window.devicePixelRatio, window.devicePixelRatio);
+  context.drawImage(image, 0, 0);
+  return {
+    dataUrl: canvas.toDataURL("image/png"),
+    height,
+    source: "svg-foreign-object-clone",
+    width,
+  };
+}
+
+async function withGpuFlowVisualClipRaster(host, clipEntry) {
+  if (clipEntry.expectedTextLength <= 0) {
+    return clipEntry;
+  }
+  try {
+    return {
+      ...clipEntry,
+      raster: await rasterizeGpuFlowVisualEvidenceHost(host, clipEntry.clip),
+    };
+  } catch (error) {
+    return {
+      ...clipEntry,
+      raster: {
+        error: error instanceof Error ? error.message : String(error),
+        source: "svg-foreign-object-clone",
+      },
+    };
+  }
+}
+
+async function collectGpuFlowBrowserVisualEvidence(triggerKind) {
+  const hosts = Array.from(
+    document.querySelectorAll('[data-gpu-flow-dom-control="true"]'),
+  ).filter((element) => element instanceof HTMLElement);
+  const clips = [];
+  const clipHosts = [];
+  let visibleHostCount = 0;
+  let visibleNonemptyHostCount = 0;
+  for (const host of hosts) {
+    const rect = host.getBoundingClientRect();
+    const clip = intersectViewportRect(rect);
+    const visible = clip.width > 1 && clip.height > 1;
+    if (!visible) {
+      continue;
+    }
+    visibleHostCount += 1;
+    const textLength = readElementTextLength(host);
+    if (textLength > 0) {
+      visibleNonemptyHostCount += 1;
+    }
+    if (clips.length >= GPU_FLOW_VISUAL_EVIDENCE_CLIP_LIMIT) {
+      continue;
+    }
+    const clipEntry = {
+      active: host.getAttribute("data-gpu-flow-dom-control-active") === "true",
+      clip,
+      coverageState:
+        host.getAttribute("data-gpu-flow-dom-control-coverage-state") ?? null,
+      expectedTextLength: textLength,
+      rowId: host.getAttribute("data-gpu-flow-dom-control-row-id"),
+      sourceId: host.getAttribute("data-gpu-flow-dom-control-id"),
+      surfaceId: host.getAttribute("data-gpu-flow-dom-control-surface-id"),
+    };
+    clips.push(clipEntry);
+    clipHosts.push(host);
+  }
+  if (hosts.length === 0 && triggerKind !== GPU_FLOW_RETAINED_DOM_CONTROLS_KIND) {
+    return null;
+  }
+  const clipsWithRasters = await Promise.all(
+    clips.map((clipEntry, index) =>
+      withGpuFlowVisualClipRaster(clipHosts[index], clipEntry),
+    ),
+  );
+  return {
+    alternativePixelSource: "clip-raster",
+    devicePixelRatio: window.devicePixelRatio,
+    evidenceId: createVisualEvidenceId(),
+    hostCount: hosts.length,
+    screenshot: resolveGpuFlowBrowserVisualEvidenceScreenshot(),
+    triggerKind,
+    url: window.location.href,
+    viewport: {
+      height: window.innerHeight,
+      width: window.innerWidth,
+    },
+    visibleHostCount,
+    visibleNonemptyHostCount,
+    clips: clipsWithRasters,
+  };
+}
+
+async function maybeSendGpuFlowBrowserVisualEvidence(triggerKind) {
+  const automaticTrigger = triggerKind === "auto-visible-dom-controls";
+  if (
+    automaticTrigger &&
+    (gpuFlowBrowserVisualEvidenceAutoSent ||
+      gpuFlowBrowserVisualEvidenceAutoPending)
+  ) {
+    return false;
+  }
+  if (automaticTrigger) {
+    gpuFlowBrowserVisualEvidenceAutoPending = true;
+  }
+  try {
+    const evidence = await collectGpuFlowBrowserVisualEvidence(triggerKind);
+    if (!evidence || evidence.visibleNonemptyHostCount === 0) {
+      return false;
+    }
+    if (automaticTrigger) {
+      gpuFlowBrowserVisualEvidenceAutoSent = true;
+    }
+    sendAppState(GPU_FLOW_BROWSER_VISUAL_EVIDENCE_KIND, evidence);
+    return true;
+  } finally {
+    if (automaticTrigger) {
+      gpuFlowBrowserVisualEvidenceAutoPending = false;
+    }
+  }
+}
+
+function startGpuFlowBrowserVisualEvidenceAutoCapture() {
+  if (gpuFlowBrowserVisualEvidenceAutoStarted) {
+    return;
+  }
+  gpuFlowBrowserVisualEvidenceAutoStarted = true;
+  let attempts = 0;
+  const intervalId = window.setInterval(() => {
+    attempts += 1;
+    void maybeSendGpuFlowBrowserVisualEvidence(
+      "auto-visible-dom-controls",
+    ).then((sent) => {
+      if (sent || attempts >= 45) {
+        window.clearInterval(intervalId);
+      }
+    });
+  }, 1000);
+}
+
 function injectPageRuntime() {
   const target = document.head || document.documentElement;
   if (
@@ -443,6 +787,11 @@ window.addEventListener(
       return;
     }
 
+    if (event.data.source === GPU_FLOW_BROWSER_VISUAL_SCREENSHOT_SOURCE) {
+      storeGpuFlowBrowserVisualEvidenceScreenshot(event.data.payload);
+      return;
+    }
+
     if (event.data.source === APP_STATE_SOURCE) {
       sendEvent({
         type: "app-state",
@@ -455,6 +804,9 @@ window.addEventListener(
         url: window.location.href,
         title: document.title,
       });
+      if (event.data.kind === GPU_FLOW_RETAINED_DOM_CONTROLS_KIND) {
+        void maybeSendGpuFlowBrowserVisualEvidence(event.data.kind);
+      }
     }
   },
   true,
@@ -462,12 +814,14 @@ window.addEventListener(
 
 if (document.documentElement) {
   injectPageRuntime();
+  startGpuFlowBrowserVisualEvidenceAutoCapture();
 } else {
   document.addEventListener(
     "readystatechange",
     () => {
       if (document.documentElement) {
         injectPageRuntime();
+        startGpuFlowBrowserVisualEvidenceAutoCapture();
       }
     },
     { once: true },

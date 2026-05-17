@@ -239,11 +239,16 @@ The reusable runtime is centered on these modules:
   surface, projects them through the current viewport, and renders passive or
   active controls from the descriptor lifecycle state.
 - `GpuFlow/domControlPlaneProjection.ts`,
-  `GpuFlow/domControlProjectionHorizon.ts`,
-  `GpuFlow/domControlPlaneCompatibility.ts`, and
-  `GpuFlow/domControlPlaneProgressiveMount.ts` select live DOM-control hosts,
-  compute directional projection horizons, carry compatible-previous coverage,
-  and progressively mount selected hosts.
+  `GpuFlow/domControlProjectionHorizon.ts`, and
+  `GpuFlow/domControlPlaneCompatibility.ts` select live DOM-control hosts,
+  compute directional projection horizons, and carry compatible-previous
+  coverage.
+- `GpuFlow/committedSurfaceRuntime.ts` publishes every committed content frame
+  to browser visual layers, even when React semantic rendering is deduped for a
+  transform-only frame.
+- `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
+  and DOM islands into `BrowserVisualActor` surface transaction fragments with
+  exact, compatible, blocked, exempt, or true-hole coverage.
 - `GpuFlow/flowOverlays.tsx` gathers edge label, selection, resize, and drag
   preview HTML overlay sources plus retained native visual inputs. Scrollbar
   and row-hover native visuals are sampled into the retained runtime frame;
@@ -491,12 +496,11 @@ The retained runtime first assigns each text-like descriptor a visual policy:
 the live-host projection budget: large scenes can mount up to 24 readable live
 hosts and 8 overscan live hosts, while scenes of 64 controls or fewer mount all
 eligible controls. Compatible-previous coverage can carry a bounded set of
-previous live representations across frames. React host creation is separately
-progressive: normal mode starts with the active and viewport-visible priority
-set, up to 32 controls with a minimum batch of 4, then adds batches of 4. When
-`window.__SETTA_CHROME_REPRO_ACTIVE__` is true, the current code treats that
-flag as a rendering policy input: it starts with only active-priority controls,
-up to 8, and adds one host per delayed batch after 8 seconds.
+previous live representations across frames. Browser visual layers subscribe to
+`GpuFlowCommittedSurfaceRuntime.subscribeCommittedContentFrame`, so DOM-control
+and DOM-island projection follows the latest committed content frame even when
+React skips a semantic rerender. Chrome repro mode records screenshot-backed
+browser visual evidence, but it is not a rendering policy input.
 
 When the project marks a text-like row active, the retained runtime samples an
 active DOM-control descriptor and the project adapter also publishes the active

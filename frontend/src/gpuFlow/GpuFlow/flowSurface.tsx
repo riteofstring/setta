@@ -241,6 +241,7 @@ export function GpuFlow({
     initialRetainedRuntimeFrame.input.scrollRevision;
   const {
     committedSurfaceFrameRef,
+    committedSurfaceRuntime,
     publishCommittedSurfaceFrame,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
@@ -892,6 +893,7 @@ export function GpuFlow({
   return (
     <GpuFlowSurfaceView
       className={className}
+      committedSurfaceRuntime={committedSurfaceRuntime}
       containerRef={containerRef}
       deviceOptions={deviceOptions}
       edgeLabelSourceElement={edgeLabelSourceElement}

@@ -36,6 +36,17 @@ describe("GPU Flow committed surface frame", () => {
         actorFamily: "text-like-dom-control",
         accessibilityProjection: "browser-dom",
         activationPolicy: "requires-current-visual",
+        browserVisual: expect.objectContaining({
+          coverageExemption: null,
+          coverageRequired: {
+            reason: "value-text",
+            required: true,
+          },
+          coverageState: "live-host-ready",
+          nonemptyReason: "value-text",
+          representationKind: "passive-live-display",
+          visibilityReason: "visible",
+        }),
         textCoverageProof: expect.objectContaining({
           activationPolicy: "requires-current-visual",
           focusable: false,

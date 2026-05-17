@@ -7,6 +7,7 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
+import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import {
   applyHtmlSurfaceActiveDomIslandProjection,
   hideHtmlSurfaceActiveDomIslandProjection,
@@ -22,6 +23,7 @@ import {
 } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import { useGpuFlowCommittedSurfaceLayerFrame } from "./committedSurfaceLayerFrame";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
 
@@ -34,21 +36,30 @@ const GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME = "setta-gpu-flow__dom-island-layer";
 
 export function GpuFlowDomIslandLayer({
   committedFrameId,
+  committedSurfaceRuntime,
   renderDomIsland,
   retainedRuntimeFrame,
   viewportStore,
   viewportRuntime,
 }: {
   readonly committedFrameId?: number | undefined;
+  readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
   readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
+  const committedSurfaceFrame = useGpuFlowCommittedSurfaceLayerFrame(
+    committedSurfaceRuntime,
+  );
+  const layerCommittedFrameId =
+    committedSurfaceFrame?.displayFrameId ?? committedFrameId;
+  const layerRetainedRuntimeFrame =
+    committedSurfaceFrame?.retainedRuntimeFrame ?? retainedRuntimeFrame;
   const elementByIdRef = useRef(new Map<string, HTMLElement>());
   const domIslands = useMemo(
-    () => retainedRuntimeFrame?.descriptors.nativeDomIslands ?? [],
-    [retainedRuntimeFrame],
+    () => layerRetainedRuntimeFrame?.descriptors.nativeDomIslands ?? [],
+    [layerRetainedRuntimeFrame],
   );
   const domIslandsRef = useRef(domIslands);
   domIslandsRef.current = domIslands;
@@ -113,7 +124,7 @@ export function GpuFlowDomIslandLayer({
     });
   }, [domIslands, viewportRuntime, viewportStore]);
 
-  if (!renderDomIsland || domIslands.length === 0) {
+  if (!shouldRenderGpuFlowDomIslandLayer({ domIslands, renderDomIsland })) {
     return null;
   }
 
@@ -126,7 +137,7 @@ export function GpuFlowDomIslandLayer({
     <div
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
       data-gpu-flow-dom-island-committed-frame-id={
-        committedFrameId ?? retainedRuntimeFrame?.frameId ?? 0
+        layerCommittedFrameId ?? layerRetainedRuntimeFrame?.frameId ?? 0
       }
       data-gpu-flow-dom-island-layer="viewport"
     >
@@ -148,6 +159,16 @@ export function GpuFlowDomIslandLayer({
       ))}
     </div>
   );
+}
+
+function shouldRenderGpuFlowDomIslandLayer({
+  domIslands,
+  renderDomIsland,
+}: {
+  readonly domIslands: readonly GpuDomIsland[];
+  readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
+}): boolean {
+  return Boolean(renderDomIsland) && domIslands.length > 0;
 }
 
 function getLiveGpuFlowDomIslandViewport({

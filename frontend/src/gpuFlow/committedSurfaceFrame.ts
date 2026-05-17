@@ -13,6 +13,10 @@ import type {
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuDomIsland } from "./scene";
+import {
+  createDomIslandBrowserVisualActor,
+  type BrowserVisualActor,
+} from "./surfaceCompositor/browserVisualActorAdapter";
 import type { SurfaceActorSnapshot } from "./surfaceCompositor/surfaceActor";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
@@ -73,12 +77,23 @@ export type GpuFlowCommittedSurfaceTextCoverageProof =
       readonly readinessReason: "clipped-empty" | "missing-browser-visual";
     });
 
+export type GpuFlowCommittedSurfaceBrowserVisualContract = Pick<
+  BrowserVisualActor,
+  | "coverageExemption"
+  | "coverageRequired"
+  | "coverageState"
+  | "nonemptyReason"
+  | "representationKind"
+  | "visibilityReason"
+>;
+
 export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly active: boolean;
   readonly accessibilityProjection: "browser-dom" | "none";
   readonly activationPolicy: GpuFlowTextActorActivationPolicy | "none";
   readonly actorId: string;
   readonly actorFamily: GpuFlowCommittedSurfaceActorFamily;
+  readonly browserVisual: GpuFlowCommittedSurfaceBrowserVisualContract | null;
   readonly clipChainRevision: string;
   readonly clipRect: GpuRect;
   readonly contentGenerationId: string;
@@ -121,6 +136,7 @@ type GpuFlowCommittedSurfaceActorGenerationInput = Omit<
   | "accessibilityProjection"
   | "activationPolicy"
   | "actorFamily"
+  | "browserVisual"
   | "semanticGenerationId"
   | "textCoverageProof"
   | "textSnapshotCacheKeyRevision"
@@ -132,6 +148,7 @@ type GpuFlowCommittedSurfaceActorGenerationInput = Omit<
       | "accessibilityProjection"
       | "activationPolicy"
       | "actorFamily"
+      | "browserVisual"
       | "semanticGenerationId"
       | "textCoverageProof"
       | "textSnapshotCacheKeyRevision"
@@ -328,6 +345,8 @@ export function createGpuFlowCommittedSurfaceFrameRenderSignature(
       actor.contentGenerationId,
       actor.layoutProjectionGenerationId,
       actor.readinessGenerationId,
+      actor.browserVisual?.coverageState ?? "none",
+      actor.browserVisual?.coverageRequired.required ?? false,
     ]),
     sceneRevision: frame.sceneRevision,
   });
@@ -636,6 +655,7 @@ function domIslandToActor({
   readonly island: GpuDomIsland;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): GpuFlowCommittedSurfaceActorGeneration {
+  const browserVisual = createDomIslandBrowserVisualActor(island);
   const ownerSurfaceId =
     island.source.kind === "retained-content"
       ? island.source.surfaceId
@@ -668,6 +688,7 @@ function domIslandToActor({
   return freezeActor({
     active: true,
     actorId: island.id,
+    browserVisual,
     clipChainRevision: island.clipOwnerId,
     clipRect: island.rect,
     contentGenerationId,
@@ -873,18 +894,49 @@ function freezeActor(
     accessibilityProjection: actor.accessibilityProjection ?? "none",
     activationPolicy: actor.activationPolicy ?? "none",
     actorFamily: actor.actorFamily ?? actor.kind,
+    browserVisual: freezeOptionalBrowserVisualContract(actor.browserVisual),
     clipRect: freezeRect(actor.clipRect),
     flowRect: freezeRect(actor.flowRect),
-    retainedScrollOffset: actor.retainedScrollOffset
-      ? Object.freeze({ ...actor.retainedScrollOffset })
-      : null,
+    retainedScrollOffset: freezeOptionalRetainedScrollOffset(
+      actor.retainedScrollOffset,
+    ),
     semanticGenerationId,
     sourceRect: freezeRect(actor.sourceRect),
-    textCoverageProof: actor.textCoverageProof
-      ? Object.freeze({ ...actor.textCoverageProof })
-      : null,
+    textCoverageProof: freezeOptionalTextCoverageProof(actor.textCoverageProof),
     textSnapshotCacheKeyRevision: actor.textSnapshotCacheKeyRevision ?? null,
     visualGenerationId,
+  });
+}
+
+function freezeOptionalBrowserVisualContract(
+  contract: GpuFlowCommittedSurfaceActorGenerationInput["browserVisual"],
+): GpuFlowCommittedSurfaceBrowserVisualContract | null {
+  return contract ? freezeBrowserVisualContract(contract) : null;
+}
+
+function freezeOptionalRetainedScrollOffset(
+  retainedScrollOffset: GpuFlowCommittedSurfaceActorGenerationInput["retainedScrollOffset"],
+): GpuFlowCommittedSurfaceActorGeneration["retainedScrollOffset"] {
+  return retainedScrollOffset
+    ? Object.freeze({ ...retainedScrollOffset })
+    : null;
+}
+
+function freezeOptionalTextCoverageProof(
+  textCoverageProof: GpuFlowCommittedSurfaceActorGenerationInput["textCoverageProof"],
+): GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"] {
+  return textCoverageProof ? Object.freeze({ ...textCoverageProof }) : null;
+}
+
+function freezeBrowserVisualContract(
+  contract: GpuFlowCommittedSurfaceBrowserVisualContract,
+): GpuFlowCommittedSurfaceBrowserVisualContract {
+  return Object.freeze({
+    ...contract,
+    coverageExemption: contract.coverageExemption
+      ? Object.freeze({ ...contract.coverageExemption })
+      : null,
+    coverageRequired: Object.freeze({ ...contract.coverageRequired }),
   });
 }
 
