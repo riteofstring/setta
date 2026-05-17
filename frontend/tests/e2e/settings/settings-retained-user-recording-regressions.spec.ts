@@ -137,7 +137,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
 
   const snapshot = await readGpuFlowPerformanceSnapshot(page);
   const projectionFrames = snapshot.nodeLayerFrames.filter((frame) =>
-    isPureProjectionFrame(frame),
+    isMotionProjectionFrame(frame),
   );
   const violatingFrames = projectionFrames.filter(
     hasProjectionFrameContentWork,
@@ -181,12 +181,13 @@ function hasProjectionFrameContentWork(
   );
 }
 
-function isPureProjectionFrame(
+function isMotionProjectionFrame(
   frame: GpuFlowNodeLayerFrameProbeSummary,
 ): boolean {
   return (
+    frame.phaseDiagnostics.frameMode === "projection" &&
     frame.frameReasons.length > 0 &&
-    frame.frameReasons.every(
+    frame.frameReasons.some(
       (reason) => reason === "viewport" || reason === "retained-scroll",
     )
   );

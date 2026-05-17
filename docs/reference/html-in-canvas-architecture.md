@@ -518,17 +518,23 @@ event resolves changed source elements to owning textures and requests a
 Exhausted upload budgets request another `texture-upload` frame, while active
 retained switch transitions request another `animation` frame.
 
-Viewport and retained-section scroll frames first try the draw-only projection
-path. When a committed display frame exists and the frame reasons are only
-`viewport` or `retained-scroll`, `renderGpuFlowNodeLayerProjectionFrame()` uses
-the already-published retained display, committed DOM-control descriptors, and
-live viewport/retained-scroll sample. It redraws cached GPU resources and
+Visible publication is lane-owned rather than reason-owned. `GpuSurface` still
+coalesces raw frame reasons for diagnostics, but `GpuFlow` classifies the next
+visible frame as `motion`, `content`, `maintenance`, or idle before publishing.
+When a committed display frame exists and any unpresented `viewport` or
+`retained-scroll` sample is pending, the motion lane runs first even if the same
+frame also carries `paint`, `manual`, or `texture-upload` debt.
+`renderGpuFlowNodeLayerProjectionFrame()` uses the already-published retained
+display, committed DOM-control descriptors, and one immutable live
+viewport/retained-scroll sample. It redraws cached GPU resources and
 imperatively projects mounted DOM controls/islands. It does not sample a new
 retained runtime frame, resolve retained page frames, resolve retained display
 transactions, create a new committed surface frame, publish React semantic
 state, or register/upload passive HTML textures. Retained-scroll projection
 only remaps committed retained page visuals for surfaces whose scroll offset
 changed; other retained page visuals are reused from the committed display.
+Content and maintenance work remain queued as debt and drain after motion has
+settled or through bounded content probes during continuous motion.
 
 Content, paint, upload, and maintenance frames follow this shape:
 
