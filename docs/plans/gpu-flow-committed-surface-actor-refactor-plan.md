@@ -6,9 +6,11 @@ Replace the current partial DOM-control overlay with a single committed surface 
 
 The current direction over the past six days is directionally right: visible text-like controls should be real DOM, not retained texture snapshots, and focus/caret/selection/IME should stay on the browser's native path. The implementation is still not principled enough. We now have a `GpuFlowDomControlPlane`, but it is still fed from a retained source frame that can differ from the retained frame actually published to the canvas. Wheel ownership is still partly decided from the current event target, so a pan gesture can change behavior when the pointer moves over a projected control.
 
-The principled fix is to make retained GPU pages, projected DOM controls, DOM islands, hit testing, clipping, scroll samples, and interaction ownership publish from one coherent display transaction.
+The principled fix is to make retained GPU pages, projected DOM controls, DOM islands, HTML texture actors/overlays, GPU-native visual actors, hit testing, clipping, scroll samples, and interaction ownership publish from one coherent visible-output transaction.
 
-There should be one committed frame for what the user sees and interacts with. Prepared frames can exist, but they must not independently drive visible DOM while the canvas is showing another retained frame.
+This is a targeted overhaul of the visible-frame ownership boundary, not a rewrite of the whole rendering architecture. Keep cached WebGPU composition, retained page coverage proof, camera-only pan/zoom, real DOM semantics for text, and explicit runtime sampling. The missing abstraction is one coherent visible publication boundary across the surface families that are already in the system.
+
+There should be one committed content frame for what the user sees and interacts with, plus a live viewport motion sample for hot-path pan/zoom projection. Prepared frames can exist, but they must not independently drive visible DOM while the canvas is showing another retained frame.
 
 No backward compatibility, dual path, compatibility flag, or transitional retained DOM-control texture fallback is part of this plan.
 
@@ -27,13 +29,13 @@ Not done yet:
 
 - `GpuFlowDomControlPlane` is rendered from `sourceRetainedRuntimeFrame`, which can use `retainedPreparationRuntimeFrame`.
 - Retained canvas content is rendered from `publishedRetainedRuntimeFrame`, after `resolveRetainedDisplayFrameTransaction` may hold a previous frame or publish a cold placeholder.
-- DOM controls, DOM islands, retained pages, and hit testing are not guaranteed to share one committed display-frame id.
+- DOM controls, DOM islands, retained pages, HTML texture actors/overlays, GPU-native visuals, and hit testing are not guaranteed to share one committed display-frame id.
 - Retained DOM-control actor snapshots still model passive controls as retained-content/layoutsubtree actors instead of true DOM surface actors.
 - Wheel pan/zoom can still be interrupted by `.nopan` event targets during a gesture.
 - Visible DOM-control completeness is not yet a first-class display transaction requirement.
 - Existing tests did not capture the exact observed failure strongly enough, so new red tests are required.
 
-This will be progress because it changes the ownership boundary, not just the rendering mechanism. The current DOM control plane is an overlay beside the retained compositor. The refactor makes it a first-class committed surface actor within the compositor contract.
+This will be progress because it changes the ownership boundary, not just the rendering mechanism. The current DOM control plane is an overlay beside the retained compositor. The refactor makes it a first-class committed surface actor within the compositor contract while preserving the existing multi-surface rendering model.
 
 ## Current Failure Model
 
@@ -129,6 +131,42 @@ The main thing not to borrow is full-page HTML texture capture every frame. Sett
 
 ## Target Architecture
 
+### Ownership Stack
+
+The target is the existing multi-surface architecture with a stronger visible publication boundary:
+
+```text
+Project owners
+  own canonical data, values, dimensions, structure, persistence
+
+GpuFlowScene
+  describes renderable project state
+
+Runtime sampling
+  samples transient viewport, retained scroll, hover, active/focus state
+
+Committed surface frame
+  owns coherent visible actor generations:
+    retained page actors
+    DOM control actors
+    DOM island actors
+    HTML texture actors and overlays
+    GPU-native visual actors
+    hit generation
+    clip-chain revision
+    z-order
+    retained scroll sample
+    interaction owner state
+    completeness status
+
+Renderer and DOM actor runtime
+  project committed actors through the current viewport transform
+
+Post-submit maintenance
+  prepares future generations, uploads textures, refines retained pages,
+  and schedules work without independently updating visible DOM
+```
+
 ### One Committed Display Frame
 
 Introduce a single committed GPU Flow display-frame contract, for example `GpuFlowCommittedSurfaceFrame`.
@@ -137,11 +175,14 @@ It owns:
 
 - display frame id
 - scene revision
-- viewport revision and viewport state
+- committed actor geometry and source windows
+- viewport sample used to build coverage and diagnostics
 - retained scroll revision and offsets
 - retained GPU page actors
 - projected DOM-control actors
 - native DOM island actors
+- HTML texture actors and viewport/section overlays where applicable
+- GPU-native visual actors
 - hit-test generation
 - clip-chain revision
 - z-order
@@ -149,7 +190,40 @@ It owns:
 - display completeness status
 - diagnostics
 
-Only this committed frame may drive visible canvas content, projected DOM controls, DOM islands, hit testing, and debug snapshots. Prepared frames may build work queues and candidates, but they do not update visible DOM.
+Only this committed frame may drive visible canvas content, projected DOM controls, DOM islands, HTML texture actors/overlays, GPU-native visuals, hit testing, and debug snapshots. Prepared frames may build work queues and candidates, but they do not update visible DOM.
+
+The first implementation may harden retained pages, DOM controls, and DOM islands first. The contract still needs to be the single visible GPU Flow surface frame, not a retained-only subframe that leaves HTML section textures, overlays, or GPU-native visuals free to advance from a separately sampled generation.
+
+### Committed Content Vs Live Motion
+
+Do not make every pan/zoom frame wait for retained publication, DOM actor publication, React render, or texture upload. The committed frame owns content coherence; the viewport transform remains a live motion sample.
+
+Use this split:
+
+- committed content frame: scene revision, actor generations, retained scroll sample, clip chain, z-order, value/style revision, hit generation, completeness
+- live motion sample: current viewport transform used to project already-committed actors and redraw cached surfaces
+
+Required projection invariant:
+
+```text
+visible DOM rect =
+  project(committed actor geometry,
+          committed retained scroll sample,
+          committed clip chain,
+          current viewport transform)
+```
+
+Forbidden projection invariant:
+
+```text
+visible DOM rect =
+  project(prepared actor geometry,
+          prepared retained scroll sample,
+          current viewport transform)
+  while retained canvas structure shows another committed frame
+```
+
+Pan and zoom should remain camera/projection hot-path work when coverage is already available. Retained scroll, actor geometry, value/style revisions, clip-chain revisions, hit-test generations, and interaction ownership must be committed coherently.
 
 ### Surface Actor Generations
 
@@ -158,7 +232,7 @@ Model every visible projected thing as a surface actor generation.
 Each generation includes:
 
 - stable actor id
-- kind: `retained-page`, `dom-control`, `dom-island`, or similar
+- kind: `retained-page`, `dom-control`, `dom-island`, `html-texture`, `gpu-native-visual`, or similar
 - owning retained surface id
 - row/control/island id when relevant
 - flow-space rect
@@ -176,9 +250,9 @@ The compositor commits a coherent set of actor generations. If a new retained sc
 
 ### DOM Control Actor Runtime
 
-Replace the current React-driven `GpuFlowDomControlPlane` contract with a compositor-owned DOM actor runtime.
+Replace the current React-driven `GpuFlowDomControlPlane` host/projection contract with a compositor-owned DOM actor runtime. Do not replace the existing React/project input model for values and behavior.
 
-Responsibilities:
+Compositor DOM actor runtime owns:
 
 - Mount only visible and near-visible DOM controls.
 - Keep mounted count proportional to visible rows plus bounded overscan.
@@ -189,17 +263,18 @@ Responsibilities:
 - Preserve native focus, selection, IME, clipboard, and accessibility behavior.
 - Expose actor diagnostics for recording and failure attachments.
 
-Required invariant:
+React/project input layer owns:
 
-```text
-visible DOM rect = project(committed flow rect, committed scroll sample, live viewport transform, committed clip chain)
-```
+- current value and entered value state
+- disabled/error state
+- `ParamInput` behavior
+- passive `DummyCodeMirror` behavior where it remains appropriate
+- CodeMirror behavior
+- validation UI
+- debounced commits and persistence
+- password reveal and parameter-specific input behavior
 
-Forbidden invariant:
-
-```text
-visible DOM rect = project(prepared frame rect, live viewport) while retained canvas shows a previous published frame
-```
+The runtime owns where and when the host exists. It must not invent a parallel parameter input model.
 
 ### Structural Retained Pages
 
@@ -242,7 +317,17 @@ This targets the focus flash, active handoff blanking, and inactive-vs-active un
 
 ### Wheel Gesture Ownership Arbiter
 
-Replace target-by-target wheel branching with a latched wheel gesture owner.
+Replace target-by-target wheel branching with a latched wheel gesture owner implemented as a small explicit state machine.
+
+States:
+
+- `idle`
+- `ownedByViewportPan`
+- `ownedByViewportZoom`
+- `ownedByRetainedSectionScroll`
+- `ownedByFocusedEditor`
+- `ownedByNativePage`
+- `cooldown`
 
 The first wheel event in a burst decides the owner:
 
@@ -259,6 +344,7 @@ Rules:
 - A focused multiline editor consumes wheel only when it can scroll in the wheel direction.
 - Clipped, hidden, or parked DOM actors cannot own wheel or pointer events.
 - Ownership changes are logged as gesture events, not inferred indirectly from event target changes.
+- Burst timeout, cooldown, ctrl/meta/pinch behavior, shift-wheel behavior, high-resolution trackpad deltas, and owner cancellation on focus/visibility changes are explicit transitions.
 
 ### Frame Completeness
 
@@ -270,6 +356,13 @@ Rules:
 - A missing visible control is a frame hole.
 - A cold placeholder cannot be a success state for a visible nonempty control.
 - If DOM projection is late, block the first cold frame or hold the previous coherent display frame.
+
+No-previous-frame startup rule:
+
+- If no previous coherent frame exists, do not publish partial retained rows with missing nonempty visible DOM controls.
+- Synchronously create and project the minimal visible DOM actor set if possible.
+- If the minimal visible DOM actor set cannot be created, publish a whole-surface loading or skeleton state instead of row-level holes.
+- Do not use an indefinite hold with no visible frame as the startup strategy.
 
 ### Performance Model
 
@@ -353,7 +446,7 @@ Do not move this baseline step after implementation. Before/after evidence is on
 
 Work in this order:
 
-1. Commit-frame contract and tests.
+1. Commit-frame contract and model tests.
 2. Visible-output routing to the committed frame.
 3. DOM-control surface actor generations.
 4. DOM actor runtime.
@@ -449,6 +542,18 @@ The committed-frame invariant must be explicit and test-covered. For any visible
 
 Prepared retained frames may have different ids and revisions, but they are not visible-output ids.
 
+Add model/property tests for the resolver and ownership invariants. These tests are allowed to assert model state directly because they protect the architecture boundary; they do not replace the observed-behavior Playwright tests.
+
+Required model tests:
+
+- A prepared frame newer than the published frame cannot advance DOM actors alone.
+- When a retained scroll sample changes, retained pages and DOM actors commit together or both hold the previous coherent generation.
+- A missing visible nonempty DOM actor makes the transaction incomplete unless a previous coherent actor is held with the previous coherent canvas frame.
+- With no previous coherent frame, missing visible nonempty DOM actors produce a whole-surface loading/skeleton state or block publication, not row-level holes.
+- Clip-chain revision, hit generation, pointer eligibility, and DOM actor projection readiness share the same committed revision.
+- Wheel ownership remains latched inside an active burst even when event targets change.
+- Focus or visibility changes cancel or transition wheel ownership through an explicit state-machine path.
+
 ### 3. Move Visible Output To The Committed Boundary
 
 Refactor `frontend/src/gpuFlow/GpuFlow/flowFrame.tsx` and `frontend/src/gpuFlow/GpuFlow/flowSurface.tsx`.
@@ -458,9 +563,12 @@ Requirements:
 - Visible canvas content consumes the committed frame.
 - Projected DOM controls consume the same committed frame.
 - DOM islands consume the same committed frame.
+- HTML texture actors and viewport/section overlays consume the same committed frame where they are part of visible GPU Flow output.
+- GPU-native visual actors consume the same committed frame where they affect visible retained content.
 - Hit testing and debug snapshots expose the same committed frame id.
 - `sourceRetainedRuntimeFrame` cannot drive visible DOM when it differs from the published retained frame.
 - Prepared retained frames can build work, but not visible DOM output.
+- The current viewport transform remains live for projection and redraw of already-committed actors.
 
 `sourceRetainedRuntimeFrame` may continue to exist only for preparation and source-work scheduling. It must not feed visible DOM controls, visible DOM islands, hit testing, or debug snapshots. Acceptance requires a targeted grep review showing that visible-output call sites no longer consume `sourceRetainedRuntimeFrame` or preparation-frame descriptors.
 
@@ -489,6 +597,7 @@ Requirements:
 - batched style writes
 - no layout reads during pan/zoom
 - diagnostics for mounted actors, visible actors, clipped actors, projection duration, style writes, and layout reads
+- React/project input components continue to own value, validation, CodeMirror, `ParamInput`, and commit behavior
 
 This runtime should replace the current `GpuFlowDomControlPlane` once it owns the complete DOM actor lifecycle.
 
@@ -507,7 +616,7 @@ Requirements:
 
 ### 7. Rewrite Wheel Ownership
 
-Add a shared wheel gesture ownership arbiter.
+Add a shared wheel gesture ownership arbiter with the explicit states from the Target Architecture section.
 
 Expected write area:
 
@@ -522,6 +631,8 @@ Delete or rewrite tests that assert `.nopan` wins over an already-owned viewport
 - `.nopan` can prevent the first wheel event from becoming viewport pan ownership when no owner is active.
 - once viewport pan owns the burst, projected `.nopan` controls cannot interrupt that burst.
 - retained section scroll and focused editor scroll can own a burst only when the arbiter selects them on the first eligible event.
+- focused editor ownership requires "can scroll in this direction" for the incoming wheel delta.
+- ctrl/meta/pinch, shift-wheel, trackpad-resolution deltas, timeout, cooldown, focus changes, and actor visibility changes are state-machine transitions.
 - ownership changes are observable in gesture diagnostics.
 
 ### 8. Make Scroll And Clip Coherence Transactional
@@ -537,7 +648,15 @@ Never advance DOM controls to a new section scroll sample while row labels, sepa
 
 ### 9. Delete The Old Correctness Path
 
-After the behavior tests pass, remove dead compatibility code rather than preserving it.
+After the committed boundary is real and the behavior tests pass, remove dead compatibility code rather than preserving it.
+
+Do not delete the old correctness code until all of these are true:
+
+1. Committed frame ids drive visible canvas content, projected DOM controls, DOM islands, HTML texture actors/overlays, GPU-native visuals where applicable, hit testing, debug snapshots, and retained scroll samples.
+2. Visible nonempty DOM actors participate in display completeness.
+3. Scroll/clip coherence tests fail before the refactor and pass after.
+4. Wheel ownership tests fail before the refactor and pass after.
+5. Performance probes show no new per-frame React render, retained paint, texture upload, or layout-read hot path for pan/zoom.
 
 Remove or rewrite:
 
@@ -564,7 +683,8 @@ The reference must describe the new committed surface actor architecture:
 
 - projected DOM-control actors are the correctness path for visible text-like retained controls
 - retained GPU pages reserve structural control rects but do not own text-like value pixels, caret, selection, or IME visuals
-- committed surface frames drive canvas content, projected DOM controls, DOM islands, hit testing, debug snapshots, and retained scroll samples
+- committed surface frames drive canvas content, projected DOM controls, DOM islands, HTML texture actors/overlays, GPU-native visual actors, hit testing, debug snapshots, and retained scroll samples
+- live viewport transform remains the hot-path motion sample for projecting already-committed actors during pan/zoom
 - prepared retained frames can schedule work but cannot independently drive visible DOM
 - retained DOM-control texture/snapshot correctness paths are removed
 
@@ -628,11 +748,15 @@ If a broad command must be sharded, document every shard and run all shards. Do 
 - Clicking a text-like input does not flash, blank surrounding content, or publish a visible placeholder band.
 - Passive and active text-like control extents match within visual tolerance.
 - Focused controls follow pan, zoom, and retained section scroll.
-- DOM controls and retained GPU pages are sampled from one committed display frame.
-- Canvas retained frame id, DOM-control committed frame id, DOM island committed frame id, hit-test generation id, debug snapshot frame id, retained scroll revision, and clip-chain revision are coherent for visible output.
+- DOM controls, DOM islands, retained GPU pages, HTML texture actors/overlays, GPU-native visual actors, hit testing, debug snapshots, retained scroll samples, and clip chains are sampled from one committed display frame where they affect visible output.
+- Current viewport transform remains live for pan/zoom projection of already-committed actors.
+- Canvas retained frame id, DOM-control committed frame id, DOM island committed frame id, HTML texture/overlay committed frame id, GPU-native visual committed frame id, hit-test generation id, debug snapshot frame id, retained scroll revision, and clip-chain revision are coherent for visible output.
 - Visible nonempty DOM controls are display-frame completeness requirements.
+- If no previous coherent frame exists, missing visible nonempty DOM controls produce a whole-surface loading/skeleton state or block publication, not row-level holes.
 - Mounted DOM actor count scales with viewport plus overscan, not total settings size.
 - Pan/zoom projection does not require React rerendering or large retained texture uploads per frame.
+- Wheel ownership is implemented as an explicit state machine with latched ownership during bursts.
+- Model tests cover committed-frame coherence, DOM actor completeness, clip/hit revision coherence, and wheel ownership latching.
 - The old retained DOM-control texture correctness path is removed.
 - `sourceRetainedRuntimeFrame` does not drive visible DOM controls, visible DOM islands, hit testing, or debug snapshots.
 - `docs/reference/html-in-canvas-architecture.md` describes the committed surface actor path and no longer documents retained DOM-control texture slots as the normal text-like correctness path.
@@ -647,3 +771,6 @@ If a broad command must be sharded, document every shard and run all shards. Do 
 - No tests whose primary pass condition is an implementation detail.
 - No full-page HTML texture capture for normal Setta retained section input rendering.
 - No broad rewrite of unrelated app UI.
+- No whole-system rendering rewrite beyond the visible-output commit boundary.
+- No permanent DOM island for every retained setting row.
+- No canvas-emulated text editing for text-like controls.
