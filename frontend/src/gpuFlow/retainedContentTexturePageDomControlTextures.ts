@@ -11,12 +11,9 @@ import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomContro
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedContentTexturePageDomControlTexture =
-  GpuRetainedDomControlTextureDescriptor;
-
 type RetainedContentTexturePageDomControlTextureSurface = {
   readonly domControlTextures?:
-    | readonly RetainedContentTexturePageDomControlTexture[]
+    | readonly GpuRetainedDomControlTextureDescriptor[]
     | undefined;
 };
 
@@ -84,7 +81,7 @@ export function uploadRetainedContentTexturePageDomControlTextures({
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly queue: GPUQueue;
   readonly resource: RetainedContentTextureResources;
-  readonly domControlTextures: readonly RetainedContentTexturePageDomControlTexture[];
+  readonly domControlTextures: readonly GpuRetainedDomControlTextureDescriptor[];
 }): boolean {
   if (domControlTextures.length === 0) {
     return true;
@@ -122,7 +119,7 @@ function uploadRetainedContentTexturePageDomControlTexture({
   readonly element: HTMLElement | undefined;
   readonly queue: GpuQueueWithElementUpload;
   readonly resource: RetainedContentTextureResources;
-  readonly texture: RetainedContentTexturePageDomControlTexture;
+  readonly texture: GpuRetainedDomControlTextureDescriptor;
 }): boolean {
   if (!isDomControlTextureElementCurrent(element, texture)) {
     throw new Error(
@@ -174,7 +171,7 @@ export function resolveRetainedContentTexturePageDomControlTextures({
   readonly surface:
     | RetainedContentTexturePageDomControlTextureSurface
     | undefined;
-}): readonly RetainedContentTexturePageDomControlTexture[] {
+}): readonly GpuRetainedDomControlTextureDescriptor[] {
   if (!surface?.domControlTextures?.length) {
     return [];
   }
@@ -208,7 +205,7 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
 
 function isDomControlTextureElementCurrent(
   element: HTMLElement | undefined,
-  texture: RetainedContentTexturePageDomControlTexture,
+  texture: GpuRetainedDomControlTextureDescriptor,
 ): element is HTMLElement {
   return (
     element !== undefined &&
@@ -242,7 +239,7 @@ function resolveDomControlTexturePageCopy({
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly overlap: GpuRect;
   readonly resource: RetainedContentTextureResources;
-  readonly texture: RetainedContentTexturePageDomControlTexture;
+  readonly texture: GpuRetainedDomControlTextureDescriptor;
 }): {
   readonly destinationX: number;
   readonly destinationY: number;

@@ -5,7 +5,7 @@ export type GpuRetainedContentControlRenderOwner =
   | "dom-owned"
   | "gpu-native";
 
-export type RetainedDomControlLifecycleState =
+type RetainedDomControlLifecycleState =
   | "unmounted"
   | "mounted-paint-pending"
   | "passive-texture-pending"
@@ -16,7 +16,7 @@ export type RetainedDomControlLifecycleState =
   | "detaching"
   | "parked";
 
-export type RetainedDomControlLayerSlot =
+type RetainedDomControlLayerSlot =
   | "structural-base"
   | "passive-dom-control"
   | "structural-foreground"
@@ -24,7 +24,7 @@ export type RetainedDomControlLayerSlot =
   | "active-projected-source"
   | "native-overlay";
 
-export type GpuRetainedDomControlInteractionPolicy = {
+type GpuRetainedDomControlInteractionPolicy = {
   readonly click: "activate";
   readonly drag: "viewport-pan-or-text-selection";
   readonly focus: "active-only";
@@ -84,14 +84,14 @@ export type GpuRetainedDomControlTextureDescriptor = {
   readonly textureRectDevicePx: GpuRect;
 };
 
-export type GpuRetainedDomControlPublishedVisual =
+type GpuRetainedDomControlPublishedVisual =
   | "none"
   | "previous-coherent-frame"
   | "passive-dom-control-texture"
   | "live-projected-source"
   | "diagnosed-cold-blank";
 
-export type GpuRetainedDomControlPublicationDecision =
+type GpuRetainedDomControlPublicationDecision =
   | "none"
   | "passive-texture"
   | "live-projected-source"
