@@ -143,7 +143,7 @@ If 120 fps-class performance is not achievable after the refactor, the fallback 
 ## Target Architecture
 
 ### DOM Control Plane
-Add a `GpuFlowDomControlPlane` responsible for visible DOM-owned controls.
+Add a `GpuFlowDomControlPlane` responsible for visible DOM-owned controls. This should be the first slice of a more general DOM projection plane that can absorb DOM islands later, but the first milestone is only DOM-owned text-like controls.
 
 Responsibilities:
 
@@ -155,6 +155,38 @@ Responsibilities:
 - Expose debug snapshots for row geometry, active focus, clip rects, and frame cadence.
 
 The control plane replaces the retained DOM-control source layer as the visible user-facing layer.
+
+### Surface Actor Contract
+The DOM control plane must be a first-class surface actor, not only an overlay div beside the retained compositor.
+
+Model either each visible DOM control or each retained surface's visible DOM-control set as a surface actor generation with:
+
+- geometry revision
+- value/style revision
+- clip-chain revision
+- retained section scroll revision
+- viewport sample revision
+- z-order and layer membership
+- focus/active state
+- mount status
+- projection status
+
+The DOM control plane and retained page plane must be sampled from the same retained runtime frame. A frame that draws retained rows from one scroll/clip sample and DOM controls from another recreates the current class of bugs in a different layer.
+
+Surface actor diagnostics should make the sampled generation visible: actor id, owning retained surface id, runtime frame id, geometry revision, clip-chain revision, scroll revision, active control id, and projection completion state.
+
+### Visible Control Completeness
+A visible nonempty DOM-owned control descriptor is part of frame correctness.
+
+Rules:
+
+- If a visible nonempty DOM-owned control descriptor exists, the frame is visually complete only when that control has a mounted/projected host or an explicit nonblank lightweight representation inside the same host contract.
+- Missing visible DOM controls are correctness holes, similar to visible retained coverage holes.
+- A missing visible control must not be treated as a cosmetic late mount.
+- A previous coherent blank, cold blank, or retained placeholder is not a valid success state for a visible nonempty control.
+- If virtualization is late, hold the last visually valid DOM projection briefly or force the mount/projection before accepting the frame as visually complete.
+
+The repair path for this hole is DOM mount/projection, not retained texture upload.
 
 ### Structural GPU Content
 Retained GPU content pages keep rendering:
@@ -184,16 +216,53 @@ Requirements:
 
 The projection source of truth should be stable flow-space geometry plus the current live viewport transform. A sampled `viewportRectCssPx` must not be the long-lived positioning authority.
 
+Required positioning invariant:
+
+```text
+screen rect = project(flow rect, live viewport transform, live section scroll, live clip chain)
+```
+
+Forbidden positioning authority:
+
+```text
+screen rect = last sampled viewportRectCssPx
+```
+
+The sampled runtime frame may carry geometry and revisions, but the projection manager must combine that geometry with the current viewport, section scroll, and clip chain when applying CSS transforms.
+
+### Clipping And Hit Ownership
+DOM controls must obey the same visible geometry that the user sees in the GPU scene.
+
+Required clip owners:
+
+- viewport
+- owning section content rect
+- retained section scroll window
+- nested parent clip chain
+- zoom-scaled transforms
+- z-order boundaries
+
+Pointer ownership must be derivable from the rendered frame:
+
+- Pointer events inside projected and unclipped control rects go directly to DOM.
+- Pointer events outside projected control rects use GPU retained hit records.
+- A clipped-out control must not intercept pointer events.
+- A hidden, parked, or unmounted passive control must not be focusable, tabbable, or exposed as a duplicate accessibility target.
+
 ### Rendering And Activation
 Visible text-like controls should be real DOM before click, not blank retained texture placeholders.
 
 Rules:
 
 - A user can see the current value before clicking.
+- One stable host owns each visible control.
+- Passive display and active editing swap inside that stable projected host.
 - Clicking focuses the already-positioned DOM control or swaps to a heavier editor inside the same projected host without moving the host.
 - If a heavy editor such as CodeMirror is lazy-mounted on activation, the lightweight visible state remains in place until the editor is ready.
 - Passive and active renderers must share one visual contract. Do not keep an unrelated passive dummy renderer that can drift from the active editor.
 - Activation must not reparent the focused host into a different coordinate system.
+- Focus must not change the clipping model.
+- Passive and active states must not use separate source keys for the same visible control.
 
 ### Large DOM Handling
 The control plane must be virtualized.
@@ -290,11 +359,16 @@ Required contract fields:
 - Active/focused state.
 - Disabled/error state.
 - Z-order.
+- Geometry revision.
+- Value/style revision.
+- Clip-chain revision.
+- Viewport sample revision.
+- Mount/projection status.
 
 The contract should be derived from existing Go-owned/runtime section data where possible. Do not add parallel Python or TypeScript mirrors for data that already has an owner.
 
-### 3. Build The Projected DOM Control Layer
-Add the mounted control layer beside the existing canvas and DOM island layers.
+### 3. Build The Projected DOM Control Surface Actor
+Add the mounted control layer beside the existing canvas and DOM island layers, but wire it as a sampled surface actor with explicit generation diagnostics.
 
 Implementation requirements:
 
@@ -303,8 +377,11 @@ Implementation requirements:
 - Subscribe to viewport runtime/store updates.
 - Update transforms on pan/zoom without React re-render.
 - Clip controls to section content bounds.
+- Apply the full clip chain before enabling pointer events.
 - Virtualize by visible rect plus overscan.
 - Keep DOM order stable for accessibility and predictable tab behavior.
+- Sample DOM-control descriptors and retained pages from the same retained runtime frame.
+- Treat missing visible nonempty controls as visual completeness failures.
 
 The projection manager should be the only place that writes positioning styles for DOM controls.
 
@@ -359,6 +436,20 @@ Required checks:
 - Mounted DOM control count stays proportional to visible rows, not total settings rows.
 
 The mounted DOM count check is allowed as a resource guardrail, but it should not assert internal retained texture implementation details.
+
+DOM-plane perf artifacts must also report:
+
+- mounted visible controls
+- mounted overscan controls
+- newly mounted controls per frame
+- unmounted controls per frame
+- projection style writes per frame
+- projection batch duration
+- layout reads per frame, ideally zero during pan and zoom
+- focus-preserving offscreen controls
+- controls clipped by each clip owner
+
+These counters are diagnostics and perf artifacts by default. Promote one to a hard assertion only when it describes an observed resource outcome, such as mounted controls scaling with visible rows instead of total scene rows.
 
 ### 8. Delete Dead Code And Tighten Diagnostics
 Once the behavior tests pass:
@@ -415,6 +506,11 @@ Final implementation notes must include:
 - A focused input follows its owning section during pan, zoom, and retained section scroll.
 - Input focus does not cause large retained page upload churn or poor frame cadence.
 - Visible DOM control count scales with the viewport, not total project/settings size.
+- Missing visible nonempty DOM-owned controls are treated as visual completeness failures, not cosmetic late mounts.
+- The DOM control plane and retained page plane are sampled from the same retained runtime frame.
+- Focused controls keep one stable projected host and never switch coordinate systems on activation.
+- Controls follow live viewport, live retained section scroll, and live clip-chain projection.
+- Clipped-out controls do not intercept pointer events or remain focusable.
 - The old DOM-control texture-in-retained-page correctness path is removed, not kept behind a compatibility branch.
 - No retained text-like behavior test requires DOM-control texture uploads, retained source readiness, or retained publication state names to pass.
 - The new behavior tests fail on the current implementation and pass after the refactor.
