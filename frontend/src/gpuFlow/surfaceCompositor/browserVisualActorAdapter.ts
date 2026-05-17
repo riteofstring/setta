@@ -21,16 +21,16 @@ import {
   type SurfaceRendererBucket,
 } from "./surfaceGeneration";
 
-export type BrowserVisualActorKind = "dom-control" | "dom-island";
+type BrowserVisualActorKind = "dom-control" | "dom-island";
 
-export type BrowserVisualActorVisibilityReason =
+type BrowserVisualActorVisibilityReason =
   | "blocked"
   | "clipped-empty"
   | "hidden-by-policy"
   | "outside-viewport"
   | "visible";
 
-export type BrowserVisualActorNonemptyReason =
+type BrowserVisualActorNonemptyReason =
   | "active-editor"
   | "native-control-affordance"
   | "placeholder-text"
@@ -38,13 +38,13 @@ export type BrowserVisualActorNonemptyReason =
   | "semantic-required-visible"
   | "value-text";
 
-export type BrowserVisualActorCoverageExemptionReason =
+type BrowserVisualActorCoverageExemptionReason =
   | "clipped-empty"
   | "hidden-by-policy"
   | "not-browser-owned"
   | "outside-viewport";
 
-export type BrowserVisualActorRepresentationKind =
+type BrowserVisualActorRepresentationKind =
   | "active-editor"
   | "blocked"
   | "compatible-previous"
@@ -69,11 +69,11 @@ export type BrowserVisualActorRepresentationReadiness = {
   readonly resourceHandles?: readonly SurfaceResourceHandle[] | undefined;
 };
 
-export type BrowserActorId = string;
-export type DomIslandId = string;
+type BrowserActorId = string;
+type DomIslandId = string;
 export type HostId = string;
-export type SnapshotId = string;
-export type TransactionId = string;
+type SnapshotId = string;
+type TransactionId = string;
 
 export type BrowserActorBlockedReason =
   | "clipped-empty"
@@ -565,7 +565,7 @@ function applyBrowserVisualCoverageEntry({
   }
 }
 
-export function createBrowserVisualActorSnapshot(
+function createBrowserVisualActorSnapshot(
   actor: BrowserVisualActor,
 ): SurfaceActorSnapshot {
   const generation = createBrowserVisualSurfaceGeneration(actor);

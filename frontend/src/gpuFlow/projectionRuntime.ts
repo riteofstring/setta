@@ -25,10 +25,7 @@ export {
   setProjectionDebugAttributes,
 } from "./projectionDebugAttributes";
 export { createGpuFlowHeldPreviousProjection } from "./projectionHeldPrevious";
-export type {
-  GpuFlowHeldPreviousProjection,
-  GpuFlowHeldPreviousProjectionDebugState,
-} from "./projectionHeldPrevious";
+export type { GpuFlowHeldPreviousProjection } from "./projectionHeldPrevious";
 export {
   createGpuFlowVisiblePublicationScheduler,
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,

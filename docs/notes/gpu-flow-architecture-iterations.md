@@ -1,6 +1,6 @@
 # GPU Flow Architecture Iterations
 
-Date: 2026-05-19
+Date: 2026-05-20
 
 This note summarizes the GPU Flow architecture work on this branch since it
 forked from `go-rewrite`. The branch point is:
@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 894 commits from 2026-04-28 through 2026-05-19. Not every
+That range contains 900 commits from 2026-04-28 through 2026-05-20. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -709,6 +709,63 @@ publish exact or compatible retained coverage, retained repair should happen
 under explicit budgets, and the performance probe should be able to explain
 where every GPU Flow millisecond went.
 
+## Iteration 20: Unify Browser-Owned Visual Actors
+
+Representative commits:
+
+- `efabf200a` Add browser visual actor runtime plan
+- `aff777088` Implement browser visual actor runtime
+- `c243af2e3` Implement GPU Flow browser visual actor runtime
+- `4b49c2115` Implement browser visual actor runtime
+- `1f76c0ee9` Implement GPU flow browser visual actor runtime
+- `a4b4965e0` Implement browser visual actor runtime
+
+The retained Settings finish line exposed one remaining split: committed
+surface frames could describe DOM-control coverage while the actual
+browser-owned layer was still mounted, parked, or projected by separate
+React-visible paths. The May 20 work turned DOM controls and DOM islands into
+one browser visual actor family that participates in the same surface
+transaction as retained pages and native visuals.
+
+The implementation adds `GpuFlowBrowserVisualActorRuntime` and
+`surfaceCompositor/browserVisualActorAdapter.ts`.
+
+Key changes:
+
+- browser-owned actors now declare visibility, nonempty reason, coverage
+  requirement, coverage exemption, representation kind, activation class,
+  clip-chain membership, and resource handles before publication;
+- DOM-control and DOM-island actors adapt into shared `SurfaceActor`,
+  `SurfaceGeneration`, coverage proof, draw-command, protected-resource, and
+  z-order fragments instead of using a separate browser-only completeness
+  path;
+- representation readiness is explicit: live host, exact browser-rendered
+  snapshot, compatible previous, blocked awaiting live host, blocked awaiting
+  snapshot, true hole, or typed coverage exemption;
+- passive display, passive snapshot, active editor, compatible previous, and
+  blocked states are variants of one canonical browser actor identity for
+  text-like retained controls;
+- the browser visual runtime subscribes to the committed surface runtime
+  outside React semantic deduplication, stages DOM-control host assignments,
+  snapshot-source controls, DOM-island elements, projection transforms, and
+  offscreen parking from the committed content frame;
+- committed surface publication now gates on actual browser visual readiness,
+  requests follow-up texture-upload work when browser coverage is missing,
+  holds previous coherent projection when that is the valid outcome, and fails
+  loudly for true-hole browser visual coverage;
+- starvation diagnostics record blocked actor ids, required representation,
+  pending work id, age, blocked frame count, visible actor count, and whether
+  the frame blocked or held previous;
+- Chrome repro mode remains instrumentation and visual evidence collection,
+  not a rendering policy input.
+
+This iteration tightened the commit boundary from "the descriptor says a
+browser control should be visible" to "the published transaction proves the
+actual browser representation the user will see and hit is live, exact
+snapshot, compatible previous, or explicitly blocked." It also made browser
+visual evidence part of the finish-line reports, so descriptor counts cannot
+mask blank text-like controls.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -735,12 +792,24 @@ After these iterations, GPU Flow has these major boundaries:
 - `GpuFlowDomControlPlane` and DOM islands preserve browser-owned semantics for
   text editing, non-text-like retained controls, and editable labels that
   should not be emulated by canvas.
+- `GpuFlowBrowserVisualActorRuntime` owns browser-owned visible
+  representations for DOM controls and DOM islands: live host assignment,
+  browser-rendered snapshot source coverage, compatible-previous records,
+  projection transforms, offscreen parking, and readiness diagnostics.
 - `surfaceCompositor/` provides the shared actor, generation, coverage,
   transaction, diagnostics, protected-resource, and follow-up-work vocabulary.
+- `surfaceCompositor/browserVisualActorAdapter.ts` adapts DOM-control and
+  DOM-island actors into that shared vocabulary, so browser-owned visual
+  coverage participates in the same transaction as retained pages and native
+  visuals.
 - `GpuFlowCommittedSurfaceFrame` is the visible commit boundary that ties
   retained pages, DOM controls, DOM islands, HTML texture actors, GPU-native
   visuals, hit testing, debug snapshots, retained scroll samples, and
   completeness diagnostics to one frame.
+- `GpuFlow/flowCommittedSurfacePublication.ts` gates committed surface
+  publication on actual browser visual actor readiness and records starvation
+  when visible nonempty browser-owned actors cannot produce live, snapshot, or
+  compatible-previous coverage.
 - Committed surface frames own content publication; live projection samples can
   advance without independently advancing React-visible committed content.
 - `projectionRuntime.ts` owns immutable live projection samples, projection
@@ -792,14 +861,21 @@ The branch moved GPU Flow in these directions:
     compatibility-proven browser actors.
 17. From retained Settings as a bug-fixing target to a measured finish-line
     runtime with phase attribution and explicit failure budgets.
+18. From DOM-control and DOM-island-specific visibility paths to a shared
+    browser visual actor runtime.
+19. From descriptor-count completeness to actual browser representation
+    coverage: live host, exact snapshot, compatible previous, blocked, or true
+    hole.
+20. From Chrome recording as an accidental rendering-policy input to Chrome
+    recording as screenshot-backed browser visual evidence.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
 decisions have been made in code. The ongoing pressure is tightening the
 commit boundary so every new visual or interactive surface declares its owner,
-generation, coverage proof, projection policy, and interaction ownership
-explicitly, then proving that contract in the frame performance stream as the
-same rules spread beyond the Settings stress path.
+generation, representation coverage, projection policy, and interaction
+ownership explicitly, then proving that contract in the frame performance
+stream as the same rules spread beyond the Settings stress path.
 
 ## Verification Trail
 
@@ -832,10 +908,12 @@ Useful reports from this branch:
 - [GPU Flow retained settings finish-line after](../../perf/reports/frontend/2026-05-19_gpu-flow-retained-settings-finish-line-after.md)
 - [GPU Flow retained settings runtime measures](../../perf/reports/frontend/2026-05-19_gpu-flow-retained-settings-runtime-measures-after.md)
 - [GPU Flow retained settings runtime finish line](../../perf/reports/gpu-flow-retained-settings-runtime-finish-line-20260519.md)
+- [GPU Flow browser visual finish-line report](../../perf/gpu-flow-browser-visual-finish-line-report.md)
+- [GPU Flow browser visual actor runtime finish-line report](../../perf/gpu-flow-browser-visual-actor-runtime-finish-line-20260520.md)
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more
 observed-behavior regression coverage, and clearer separation between live
 viewport motion, retained section scroll projection, retained texture work, DOM
-projection, committed visible frames, projection transaction debt, and retained
-finish-line budgets.
+projection, browser visual representation coverage, committed visible frames,
+projection transaction debt, and retained finish-line budgets.

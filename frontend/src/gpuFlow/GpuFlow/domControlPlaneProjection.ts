@@ -29,7 +29,6 @@ import {
   getGpuFlowDomControlProjectionHorizonFlowRect,
   getGpuFlowDomControlProjectionScrollVector,
 } from "./domControlProjectionHorizon";
-export { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
 
 export type GpuFlowRetainedScrollOffsetGetter = (
   surfaceId: string,

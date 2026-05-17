@@ -11,10 +11,7 @@ import type {
   GpuFlowBrowserVisualActorRuntimeFrameIds,
   GpuFlowBrowserVisualActorRuntimeSnapshot,
 } from "./browserVisualActorRuntime";
-import type {
-  GpuFlowDomControlProjectionAssignment,
-  GpuFlowRetainedScrollOffsetGetter,
-} from "./domControlPlaneProjection";
+import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
 
 const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
@@ -130,7 +127,7 @@ export function areBrowserVisualActorRuntimeSnapshotsEqual(
   );
 }
 
-export function areDomControlListsEqual(
+function areDomControlListsEqual(
   left: readonly GpuRetainedDomControlSourceDescriptor[],
   right: readonly GpuRetainedDomControlSourceDescriptor[],
 ): boolean {
@@ -139,29 +136,6 @@ export function areDomControlListsEqual(
     left.every((control, index) =>
       areDomControlDescriptorsEqual(control, right[index]),
     )
-  );
-}
-
-export function createGpuFlowDomControlRetainedScrollProjectionSignature({
-  controls,
-  getRetainedScrollOffset,
-}: {
-  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly getRetainedScrollOffset:
-    | GpuFlowRetainedScrollOffsetGetter
-    | undefined;
-}): string {
-  if (!getRetainedScrollOffset) {
-    return "";
-  }
-  const surfaceIds = [
-    ...new Set(controls.map((control) => control.surfaceId)),
-  ].sort((left, right) => left.localeCompare(right));
-  return JSON.stringify(
-    surfaceIds.map((surfaceId) => {
-      const offset = getRetainedScrollOffset(surfaceId);
-      return [surfaceId, offset?.x ?? null, offset?.y ?? null];
-    }),
   );
 }
 

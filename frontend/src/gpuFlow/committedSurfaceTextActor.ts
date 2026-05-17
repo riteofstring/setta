@@ -26,7 +26,7 @@ export type DomControlActorOptions = {
   > | null;
 };
 
-export type DomControlActorSet = {
+type DomControlActorSet = {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly browserVisualActors: readonly BrowserVisualActor[];
 };

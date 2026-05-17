@@ -37,10 +37,7 @@ export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
 } from "./domControlPlaneProjection";
-export type {
-  GpuFlowDomControlProjectionAssignment,
-  GpuFlowRetainedScrollOffsetGetter,
-} from "./domControlPlaneProjection";
+export type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlaneProjection";
 
 export type GpuFlowDomControlActivationHandler = (
   control: GpuRetainedDomControlSourceDescriptor,
@@ -552,7 +549,10 @@ function getGpuFlowDomControlCoverageDebugAttributes({
 
 function hasGpuFlowDomControlEditorFocus(element: HTMLElement): boolean {
   const activeElement = element.ownerDocument.activeElement;
-  if (!(activeElement instanceof HTMLElement) || !element.contains(activeElement)) {
+  if (
+    !(activeElement instanceof HTMLElement) ||
+    !element.contains(activeElement)
+  ) {
     return false;
   }
   const control = activeElement.closest<HTMLElement>("[data-gpu-flow-control]");
@@ -578,7 +578,8 @@ function getGpuFlowDomControlEditorFocusTarget(
 ): HTMLElement | null {
   const control = element.querySelector<HTMLElement>("[data-gpu-flow-control]");
   return (
-    control?.querySelector<HTMLElement>(".cm-content[contenteditable='true']") ??
-    control
+    control?.querySelector<HTMLElement>(
+      ".cm-content[contenteditable='true']",
+    ) ?? control
   );
 }

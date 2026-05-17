@@ -134,8 +134,10 @@ The project integration is centered on these modules:
   preview scene resolution.
 - `projectGpuFlowSceneFactory.ts` attaches retained parameter content surfaces
   and active DOM islands to a resolved section layout scene.
-- `projectGpuNodeRenderer.tsx` renders each DOM section source with
-  `SectionContainer`.
+- `projectGpuNodeRenderer.tsx` renders DOM section sources with
+  `SectionContainer` for standard section bodies and a lightweight retained
+  section shell for sections whose parameter rows are rendered by retained
+  content surfaces.
 - `projectGpuParamContentAdapter.ts` creates retained parameter surfaces,
   retained row scenes, active parameter DOM island descriptors, and row state
   that drives retained native-control activation.
@@ -242,9 +244,14 @@ The reusable runtime is centered on these modules:
   `GpuFlow/domControlPlaneCompatibility.ts` select live DOM-control hosts,
   compute directional projection horizons, and carry compatible-previous
   coverage.
-- `GpuFlow/committedSurfaceRuntime.ts` publishes every committed content frame
+- `committedSurfaceRuntime.ts` publishes every committed content frame
   to browser visual layers, even when React semantic rendering is deduped for a
   transform-only frame.
+- `GpuFlow/flowCommittedSurfacePublication.ts` gates committed surface
+  publication on browser visual actor readiness, requests follow-up
+  `texture-upload` frames when live or snapshot coverage is missing, holds the
+  previous projection when compatible coverage exists, and fails loudly on
+  true-hole browser visual coverage.
 - `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
   and DOM islands into `BrowserVisualActor` surface transaction fragments with
   exact, compatible, blocked, exempt, or true-hole coverage.
@@ -269,7 +276,8 @@ The reusable runtime is centered on these modules:
 `GpuProjectSurface` wires the reusable GPU flow runtime to Setta's project
 runtime:
 
-- renders each DOM section source as `SectionContainer`
+- renders DOM section sources as `SectionContainer` or, for retained-parameter
+  sections, the lightweight retained section shell
 - observes section element resizes and writes section dimensions through the
   project dimension update path
 - mirrors GUI settings for zoom bounds, grid style, pan behavior, zoom
@@ -372,7 +380,11 @@ The simplified project runtime DOM shape is:
         data-gpu-flow-node="true"
         data-gpu-flow-source-id={nodeId}
       >
-        <SectionContainer sectionId={nodeId} isTopLevel={true} />
+        {retainedContentSection ? (
+          <ProjectGpuRetainedSectionSourceShell sectionId={nodeId} isTopLevel={true} />
+        ) : (
+          <SectionContainer sectionId={nodeId} isTopLevel={true} />
+        )}
       </div>
       <div
         id="setta-codemirror-tooltips"
@@ -407,8 +419,9 @@ The simplified project runtime DOM shape is:
       </div>
     </div>
     <div className="setta-gpu-flow__dom-island-layer">
-      {/* Active retained native controls and text-like active editors are
-          viewport-positioned here. */}
+      {/* Active retained native controls and editable labels are
+          viewport-positioned here. DOM-owned text-like active editors use the
+          DOM-control plane above. */}
     </div>
     <div
       id="setta-gpu-retained-codemirror-tooltips"
@@ -543,11 +556,13 @@ Visible DOM islands have pointer events enabled and include the no-pan/no-drag
 classes. Islands clipped out by retained runtime sampling are not published;
 islands outside the viewport window are hidden with pointer events disabled.
 They are not uploaded as textures; they are the active browser-native surface
-for retained controls and editable labels that use `GpuDomIsland` descriptors,
-including text-like active editors. If a prepared retained frame would detach
-or replace an active island while passive retained texture coverage has true
-holes, the retained display transaction holds the previous visible frame so the
-active native island does not reveal an incoherent passive row.
+for non-text retained controls and editable labels that use `GpuDomIsland`
+descriptors. DOM-owned text-like active editors remain in the DOM-control
+plane under the same actor identity used for their passive representation. If a
+prepared retained frame would detach or replace an active island while passive
+retained texture coverage has true holes, the retained display transaction
+holds the previous visible frame so the active native island does not reveal an
+incoherent passive row.
 
 ## Frame Pipeline
 
@@ -614,7 +629,11 @@ Content, paint, upload, and maintenance frames follow this shape:
    texture actors, retained native visuals, hit generation, debug snapshots,
    retained scroll revision, and clip-chain revision. Visible DOM-control
    completeness, text actor coverage proof, snapshot cache-key revision, and
-   text activation policy are recorded on this boundary.
+   text activation policy are recorded on this boundary. The committed-surface
+   publication gate then publishes the frame only when browser visual actors are
+   ready, holds a compatible previous projection when possible, requests
+   `texture-upload` work for missing browser visuals, and throws on true-hole
+   browser visual coverage.
 6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
@@ -822,18 +841,21 @@ Each section scene node includes:
 
 Once the scene is resolved, `getGpuFlowSceneDomSectionNodes()` selects
 renderable in-clip `dom-section` nodes; viewport visibility is resolved later by
-`collectVisibleGpuNodeQuads()`. `renderProjectGpuNode()` renders each selected
-source as:
+`collectVisibleGpuNodeQuads()`. `renderProjectGpuNode()` renders standard
+sources as:
 
 ```tsx
 <SectionContainer sectionId={node.nodeId} isTopLevel={...} />
 ```
 
+For sections that own retained parameter content, `renderProjectGpuNode()` uses
+`ProjectGpuRetainedSectionSourceShell` instead, so the DOM source supplies the
+section shell while retained content surfaces render the parameter rows.
 `SectionContainer` applies project visibility rules, wraps the section in
 `GpuSceneSectionContainer`, and renders `SectionContainerCore` for standard
-section bodies. Parameter-owning bodies render their section chrome and
-body-specific UI with `renderParamRows={false}`; retained parameter content
-surfaces render the parameter rows.
+section bodies. When a standard parameter-owning body is rendered through that
+path, it uses `renderParamRows={false}`; retained parameter content surfaces
+render the parameter rows.
 
 ## Retained Parameter Content Rendering
 
@@ -1086,10 +1108,10 @@ Parameter controls are split by commit policy:
   `DummyCodeMirror` DOM actors and route active editing by marking the sampled
   DOM-control descriptor active for the same canonical actor. Password entry,
   dropzones, native date/time fields, color input fallback, and editable
-  parameter labels use `GpuDomIslandLayer`.
+  parameter labels use `GpuFlowDomIslandLayer`.
 
 `projectGpuParamDomIslandGeometry.ts` computes island geometry for controls and
-editable labels that use `GpuDomIslandLayer` and clips it to the retained
+editable labels that use `GpuFlowDomIslandLayer` and clips it to the retained
 surface.
 `projectGpuRetainedParamDomIslandRenderer.tsx` mounts the normal `ParamInput`
 for native non-text retained controls or `ParamNameInput` for editable labels,
