@@ -164,7 +164,6 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(false);
   });
-
 });
 
 function retainedFrameCache({
@@ -226,6 +225,7 @@ function retainedFrameCache({
     }),
     sceneRevision: 7,
     scrollRevision: 3,
+    viewportSize: { height: 600, width: 800 },
     viewportZoomBucket: 1,
   };
 }

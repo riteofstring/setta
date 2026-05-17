@@ -49,7 +49,7 @@ export function combineGpuFlowRetainedTexturePageMetrics({
     targetDescriptorCount: retainedPageResult.targetDescriptorCount,
     ...transactionMetrics,
     transactionOutcome: retainedDisplayFrame.diagnostics.transactionOutcome,
-    trueHoleRectCount: retainedPageResult.trueHoleRectCount,
+    trueHoleRectCount: retainedDisplayFrame.diagnostics.trueHoleRectCount,
     uploadedBytes: retainedPageResult.uploadedBytes,
     uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
     uploadCount: retainedPageResult.uploadCount,

@@ -8,6 +8,8 @@ type GpuFlowRetainedPageMaintenanceRun = ReturnType<
   typeof runGpuFlowRetainedPageMaintenance
 >;
 
+const MAX_PRE_PUBLISH_TRUE_HOLE_REPAIR_PASSES = 2;
+
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
   preparedFrame,
@@ -60,6 +62,43 @@ function runGpuFlowRetainedPageMaintenance({
   return { deferred, result };
 }
 
+export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+  darkMode,
+  deferResolutionUpdates,
+  preparedFrame,
+  previousProtectedPageKeys,
+  retainedContentPageManager,
+}: {
+  readonly darkMode: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly previousProtectedPageKeys: readonly string[];
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+}): GpuFlowRetainedPageMaintenanceRun | null {
+  let currentFrame = preparedFrame;
+  let maintenance: GpuFlowRetainedPageMaintenanceRun | null = null;
+  for (
+    let pass = 0;
+    pass < MAX_PRE_PUBLISH_TRUE_HOLE_REPAIR_PASSES &&
+    currentFrame.trueHoleRectCount > 0;
+    pass += 1
+  ) {
+    const nextMaintenance = runGpuFlowRetainedPageMaintenance({
+      darkMode,
+      deferResolutionUpdates,
+      preparedFrame: currentFrame,
+      publishedProtectedPageKeys: previousProtectedPageKeys,
+      retainedContentPageManager,
+    });
+    maintenance = nextMaintenance;
+    currentFrame = nextMaintenance.result.repairedPreparedFrame;
+    if (!didGpuFlowRetainedPageMaintenanceAdvance(nextMaintenance)) {
+      break;
+    }
+  }
+  return maintenance;
+}
+
 export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   darkMode,
   deferResolutionUpdates,
@@ -84,5 +123,14 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       publishedProtectedPageKeys,
       retainedContentPageManager,
     })
+  );
+}
+
+function didGpuFlowRetainedPageMaintenanceAdvance(
+  maintenance: GpuFlowRetainedPageMaintenanceRun,
+): boolean {
+  return (
+    maintenance.result.executedItemCount > 0 ||
+    maintenance.result.uploadCount > 0
   );
 }

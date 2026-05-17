@@ -1,7 +1,10 @@
 import type { NodeTexturePriority } from "../dirtyTracking";
 
 import { HTML_SURFACE_PASSIVE_TRANSFORM } from "./interactionProjector";
-import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
+import {
+  HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
+  HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
+} from "./sourceDom";
 
 import { resolveGpuNodeZIndex } from "../nodeZIndex";
 
@@ -67,7 +70,7 @@ function createVisibleNodeDomTransformState({
     transform: resolveStableGpuNodeSourceTransform(element, projected),
     visible: "true",
     width: `${width}px`,
-    zIndex: String(zIndex),
+    zIndex: getGpuNodeSourceZIndex({ element, zIndex }),
   };
 }
 
@@ -187,6 +190,19 @@ function isProjectedGpuNodeSourceInteraction(element: HTMLElement): boolean {
     element.getAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE) ===
     "true"
   );
+}
+
+function getGpuNodeSourceZIndex({
+  element,
+  zIndex,
+}: {
+  readonly element: HTMLElement;
+  readonly zIndex: number;
+}): string {
+  return element.getAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE) ===
+    "true"
+    ? "-1"
+    : String(zIndex);
 }
 
 export function setStyleValue(

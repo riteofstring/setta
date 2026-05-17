@@ -8,6 +8,7 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
+  type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
@@ -54,6 +55,19 @@ export function shouldRenderGpuFlowProjectionOnlyFrame(
     )
   );
 }
+
+type GpuFlowRetainedProjectionFrame = {
+  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly needsRetainedPageMaintenance: boolean;
+};
+
+type GpuFlowRetainedProjectionVisualsBySurfaceId = {
+  readonly missingCoverageSurfaceIds: ReadonlySet<string>;
+  readonly projectedVisualsBySurfaceId: ReadonlyMap<
+    string,
+    readonly HtmlSurfaceFlatVisual[]
+  >;
+};
 
 export function renderGpuFlowNodeLayerProjectionFrame({
   activeResizeNodeIdRef,
@@ -120,13 +134,17 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   const renderStartedAt = performance.now();
   const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
   const projectionSurfaceResolveStart = performance.now();
-  const retainedPageVisuals = frameReasons.includes("retained-scroll")
+  const retainedProjectionFrame = frameReasons.includes("retained-scroll")
     ? projectGpuFlowRetainedDisplayFrameFlatSurfaces({
         layer,
         retainedDisplayFrame,
         retainedContentRuntimeState,
       })
-    : retainedDisplayFrame.flatSurfaces;
+    : {
+        flatSurfaces: retainedDisplayFrame.flatSurfaces,
+        needsRetainedPageMaintenance: false,
+      };
+  const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
   const projectionSurfaceResolveMs =
     performance.now() - projectionSurfaceResolveStart;
   const htmlSurfaceFrameStart = performance.now();
@@ -156,6 +174,10 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     textureWorkMode: "projection",
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
+  });
+  assertGpuFlowProjectionOnlyFrameWork({
+    frameReasons,
+    layerResult,
   });
   const htmlSurfaceFrameMs = performance.now() - htmlSurfaceFrameStart;
   reportGpuFlowNodeLayerFramePerformance({
@@ -196,7 +218,8 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     nodeInteractionRef,
     nodeLayerRef,
     retainedRuntimeFrame,
-    retainedTexturePageFollowUpFrame: false,
+    retainedTexturePageFollowUpFrame:
+      retainedProjectionFrame.needsRetainedPageMaintenance,
     surfaceRef,
     switchAnimationFollowUpFrame: false,
     transformOnlyPaintNodeIdsRef,
@@ -207,6 +230,76 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   return true;
 }
 
+export function assertGpuFlowProjectionOnlyFrameWork({
+  frameReasons,
+  layerResult,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly layerResult: Pick<
+    RenderHtmlSurfaceFrameResult,
+    | "budgetExhausted"
+    | "deferredNodeIds"
+    | "evictedTextureBytes"
+    | "evictedTextureNodeIds"
+    | "missingElementNodeIds"
+    | "remainingDirtyNodeIds"
+    | "skippedNodeIds"
+    | "uploadedNodeIds"
+  >;
+}): void {
+  if (!shouldRenderGpuFlowProjectionOnlyFrame(frameReasons)) {
+    return;
+  }
+  const blockedWork = {
+    deferredNodeIds: layerResult.deferredNodeIds,
+    evictedTextureBytes: layerResult.evictedTextureBytes,
+    evictedTextureNodeIds: layerResult.evictedTextureNodeIds,
+    missingElementNodeIds: layerResult.missingElementNodeIds,
+    remainingDirtyNodeIds: layerResult.remainingDirtyNodeIds,
+    skippedNodeIds: layerResult.skippedNodeIds,
+    uploadedNodeIds: layerResult.uploadedNodeIds,
+  };
+  if (
+    hasGpuFlowProjectionOnlyForbiddenContentWork({
+      budgetExhausted: layerResult.budgetExhausted,
+      blockedWork,
+    })
+  ) {
+    throw new Error(
+      `GPU Flow projection-only frame performed forbidden content work: ${JSON.stringify(
+        blockedWork,
+      )}`,
+    );
+  }
+}
+
+function hasGpuFlowProjectionOnlyForbiddenContentWork({
+  blockedWork,
+  budgetExhausted,
+}: {
+  readonly blockedWork: {
+    readonly deferredNodeIds: readonly string[];
+    readonly evictedTextureBytes: number;
+    readonly evictedTextureNodeIds: readonly string[];
+    readonly missingElementNodeIds: readonly string[];
+    readonly remainingDirtyNodeIds: readonly string[];
+    readonly skippedNodeIds: readonly string[];
+    readonly uploadedNodeIds: readonly string[];
+  };
+  readonly budgetExhausted: boolean;
+}): boolean {
+  return [
+    budgetExhausted,
+    blockedWork.evictedTextureBytes > 0,
+    blockedWork.deferredNodeIds.length > 0,
+    blockedWork.evictedTextureNodeIds.length > 0,
+    blockedWork.missingElementNodeIds.length > 0,
+    blockedWork.remainingDirtyNodeIds.length > 0,
+    blockedWork.skippedNodeIds.length > 0,
+    blockedWork.uploadedNodeIds.length > 0,
+  ].some(Boolean);
+}
+
 function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   layer,
   retainedContentRuntimeState,
@@ -215,9 +308,12 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   readonly layer: GpuFlowNodeLayerState;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
-}): readonly HtmlSurfaceFlatVisual[] {
+}): GpuFlowRetainedProjectionFrame {
   if (!layer.scene) {
-    return retainedDisplayFrame.flatSurfaces;
+    return {
+      flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      needsRetainedPageMaintenance: false,
+    };
   }
   const scrollOffsets = getGpuRetainedContentRuntimeScrollOffsets(
     retainedContentRuntimeState,
@@ -227,9 +323,12 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
     retainedDisplayFrame,
   });
   if (changedSurfaceIds.size === 0) {
-    return retainedDisplayFrame.flatSurfaces;
+    return {
+      flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      needsRetainedPageMaintenance: false,
+    };
   }
-  const projectedVisualsBySurfaceId =
+  const { missingCoverageSurfaceIds, projectedVisualsBySurfaceId } =
     createGpuFlowRetainedProjectionVisualsBySurfaceId({
       changedSurfaceIds,
       layerScene: layer.scene,
@@ -237,13 +336,19 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
       scrollOffsets,
     });
   if (projectedVisualsBySurfaceId.size === 0) {
-    return retainedDisplayFrame.flatSurfaces;
+    return {
+      flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      needsRetainedPageMaintenance: missingCoverageSurfaceIds.size > 0,
+    };
   }
-  return mergeGpuFlowRetainedProjectionFlatSurfaces({
-    changedSurfaceIds,
-    projectedVisualsBySurfaceId,
-    retainedDisplayFrame,
-  });
+  return {
+    flatSurfaces: mergeGpuFlowRetainedProjectionFlatSurfaces({
+      changedSurfaceIds,
+      projectedVisualsBySurfaceId,
+      retainedDisplayFrame,
+    }),
+    needsRetainedPageMaintenance: missingCoverageSurfaceIds.size > 0,
+  };
 }
 
 function createGpuFlowRetainedProjectionVisualsBySurfaceId({
@@ -256,7 +361,7 @@ function createGpuFlowRetainedProjectionVisualsBySurfaceId({
   readonly layerScene: GpuFlowScene;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-}): ReadonlyMap<string, readonly HtmlSurfaceFlatVisual[]> {
+}): GpuFlowRetainedProjectionVisualsBySurfaceId {
   const viewportZoomBucket =
     retainedDisplayFrame.retainedRuntimeFrame.input.viewportZoomBucket;
   const sourceSurfaces = getGpuRetainedContentSourceSurfaces(
@@ -283,9 +388,20 @@ function createGpuFlowRetainedProjectionVisualsBySurfaceId({
     string,
     readonly HtmlSurfaceFlatVisual[]
   >();
+  const missingCoverageSurfaceIds = new Set<string>();
   for (const surface of currentSurfaces) {
     const pages = pagesBySurfaceId.get(surface.surfaceId);
     if (!pages) {
+      missingCoverageSurfaceIds.add(surface.surfaceId);
+      continue;
+    }
+    if (
+      !isGpuFlowRetainedProjectionSurfaceCovered({
+        pages,
+        surface,
+      })
+    ) {
+      missingCoverageSurfaceIds.add(surface.surfaceId);
       continue;
     }
     projectedVisualsBySurfaceId.set(
@@ -296,7 +412,10 @@ function createGpuFlowRetainedProjectionVisualsBySurfaceId({
       }),
     );
   }
-  return projectedVisualsBySurfaceId;
+  return {
+    missingCoverageSurfaceIds,
+    projectedVisualsBySurfaceId,
+  };
 }
 
 function collectGpuFlowRetainedProjectionPagesBySurfaceId({
@@ -379,13 +498,88 @@ function mergeGpuFlowRetainedProjectionFlatSurfaces({
       visuals.push(visual);
       continue;
     }
+    const projectedVisuals = projectedVisualsBySurfaceId.get(visual.surfaceId);
+    if (!projectedVisuals) {
+      visuals.push(visual);
+      continue;
+    }
     if (projectedSurfaceIds.has(visual.surfaceId)) {
       continue;
     }
     projectedSurfaceIds.add(visual.surfaceId);
-    visuals.push(...(projectedVisualsBySurfaceId.get(visual.surfaceId) ?? []));
+    visuals.push(...projectedVisuals);
   }
   return visuals.length > 0 ? visuals : retainedDisplayFrame.flatSurfaces;
+}
+
+export function isGpuFlowRetainedProjectionSurfaceCovered({
+  pages,
+  surface,
+}: {
+  readonly pages: ReadonlyMap<
+    string,
+    RetainedDisplayFrame["drawRegions"][number]["page"]
+  >;
+  readonly surface: RetainedContentTexturePageFrameSurface;
+}): boolean {
+  let missingRects: readonly GpuRect[] = [surface.visibleSourceRectCss];
+  for (const page of pages.values()) {
+    missingRects = missingRects.flatMap((missing) =>
+      subtractGpuFlowProjectionRect(missing, page.descriptor.sourceRectCss),
+    );
+    if (missingRects.length === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function subtractGpuFlowProjectionRect(
+  target: GpuRect,
+  covered: GpuRect,
+): readonly GpuRect[] {
+  const overlap = intersectGpuFlowProjectionRects(target, covered);
+  if (!overlap) {
+    return [target];
+  }
+  const rects: GpuRect[] = [];
+  const targetRight = target.x + target.width;
+  const targetBottom = target.y + target.height;
+  const overlapRight = overlap.x + overlap.width;
+  const overlapBottom = overlap.y + overlap.height;
+  if (overlap.y > target.y) {
+    rects.push({
+      height: overlap.y - target.y,
+      width: target.width,
+      x: target.x,
+      y: target.y,
+    });
+  }
+  if (overlapBottom < targetBottom) {
+    rects.push({
+      height: targetBottom - overlapBottom,
+      width: target.width,
+      x: target.x,
+      y: overlapBottom,
+    });
+  }
+  if (overlap.x > target.x) {
+    rects.push({
+      height: overlap.height,
+      width: overlap.x - target.x,
+      x: target.x,
+      y: overlap.y,
+    });
+  }
+  if (overlapRight < targetRight) {
+    rects.push({
+      height: overlap.height,
+      width: targetRight - overlapRight,
+      x: overlapRight,
+      y: overlap.y,
+    });
+  }
+  return rects.filter((rect) => rect.width > 0 && rect.height > 0);
 }
 
 function getGpuFlowRetainedProjectionChangedSurfaceIds({

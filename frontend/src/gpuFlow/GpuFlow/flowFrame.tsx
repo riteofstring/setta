@@ -75,7 +75,6 @@ import {
 } from "./flowRetainedContentFrameCache";
 import {
   markGpuFlowRetainedContentFrameFreshnessDirty,
-  sampleGpuFlowRetainedContentSwitchAnimationSurface,
   settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces,
 } from "./flowRetainedContentFreshness";
 import {
@@ -83,7 +82,14 @@ import {
   postGpuFlowRetainedDisplayFrameChromeReproEvent,
   postGpuFlowRetainedDomControlChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
-import { resolveGpuFlowRetainedPageMaintenanceAfterPublish } from "./flowRetainedPageMaintenance";
+import {
+  resolveGpuFlowRetainedPageMaintenanceAfterPublish,
+  resolveGpuFlowRetainedPageMaintenanceBeforePublish,
+} from "./flowRetainedPageMaintenance";
+import {
+  hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces,
+  syncGpuFlowRetainedContentSwitchAnimationSurfaces,
+} from "./flowRetainedSwitchAnimationFrame";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -292,6 +298,7 @@ export function nextFrame(frameRef: MutableRefObject<number>): number {
 }
 
 function resolveGpuFlowRetainedContentFrame({
+  canvasSize,
   contentSurfaces,
   deferResolutionUpdates,
   devicePixelRatio,
@@ -303,6 +310,7 @@ function resolveGpuFlowRetainedContentFrame({
   layer,
   viewportZoomBucket,
 }: {
+  readonly canvasSize: GpuCanvasSize;
   readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
   readonly deferResolutionUpdates: boolean;
   readonly devicePixelRatio: number;
@@ -343,6 +351,10 @@ function resolveGpuFlowRetainedContentFrame({
       pageDrawableRevision,
       sceneRevision,
       scrollRevision,
+      viewportSize: {
+        height: canvasSize.cssHeight,
+        width: canvasSize.cssWidth,
+      },
       viewportZoomBucket,
       allowCoveredRefinementBacklog: deferResolutionUpdates,
     })
@@ -352,6 +364,7 @@ function resolveGpuFlowRetainedContentFrame({
       cachedFrame.nativeVisualSignature === nativeVisualSignature
         ? cachedFrame.retainedRuntimeFrame
         : createGpuFlowRetainedRuntimeFrameForLayer({
+            canvasSize,
             devicePixelRatio,
             frame,
             layer,
@@ -386,6 +399,7 @@ function resolveGpuFlowRetainedContentFrame({
 
   const retainedRuntimeFrameStart = performance.now();
   const retainedRuntimeFrame = createGpuFlowRetainedRuntimeFrameForLayer({
+    canvasSize,
     devicePixelRatio,
     frame,
     layer,
@@ -413,6 +427,10 @@ function resolveGpuFlowRetainedContentFrame({
     scrollRevision,
     nativeVisualSignature,
     viewportZoomBucket,
+    viewportSize: {
+      height: canvasSize.cssHeight,
+      width: canvasSize.cssWidth,
+    },
   };
   return {
     phaseDiagnostics: {
@@ -425,6 +443,7 @@ function resolveGpuFlowRetainedContentFrame({
 }
 
 function createGpuFlowRetainedRuntimeFrameForLayer({
+  canvasSize,
   devicePixelRatio,
   frame,
   layer,
@@ -433,6 +452,7 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   scrollRevisions,
   viewportZoomBucket,
 }: {
+  readonly canvasSize: GpuCanvasSize;
   readonly devicePixelRatio: number;
   readonly frame: number;
   readonly layer: GpuFlowNodeLayerState;
@@ -451,6 +471,10 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
     scrollRevision,
     scrollRevisions,
     viewport: layer.viewport,
+    viewportSize: {
+      height: canvasSize.cssHeight,
+      width: canvasSize.cssWidth,
+    },
     viewportZoomBucket,
   });
 }
@@ -587,6 +611,7 @@ export function renderGpuFlowNodeLayerFrame({
     layer.scene,
   );
   const retainedFrame = resolveGpuFlowRetainedContentFrame({
+    canvasSize,
     contentSurfaces: retainedSceneInput.contentSurfaces,
     deferResolutionUpdates,
     devicePixelRatio: canvasSize.devicePixelRatio,
@@ -604,15 +629,34 @@ export function renderGpuFlowNodeLayerFrame({
     onRetainedPreparedRuntimeFrame,
     retainedRuntimeFrame,
   );
+  const previousRetainedDisplayFrame = retainedDisplayFrameRef.current;
+  const prePublishMaintenanceStart = performance.now();
+  const prePublishRetainedPageMaintenance =
+    previousRetainedDisplayFrame &&
+    retainedPagePreparedFrame.trueHoleRectCount > 0
+      ? resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+          darkMode,
+          deferResolutionUpdates,
+          preparedFrame: retainedPagePreparedFrame,
+          previousProtectedPageKeys:
+            previousRetainedDisplayFrame.pageFrame.protectedPageKeys,
+          retainedContentPageManager: resources.retainedContentPageManager,
+        })
+      : null;
+  if (prePublishRetainedPageMaintenance) {
+    retainedPagePreparedFrame =
+      prePublishRetainedPageMaintenance.result.repairedPreparedFrame;
+  }
+  retainedPageMaintenanceMs += performance.now() - prePublishMaintenanceStart;
   const retainedDisplayTransactionStart = performance.now();
   const retainedDisplayOutcome = resolveRetainedDisplayFrameTransaction({
-    allowColdPlaceholder: retainedDisplayFrameRef.current === null,
+    allowColdPlaceholder: previousRetainedDisplayFrame === null,
     nowMs: renderStartedAt,
     prepared: createRetainedDisplayFrameInput({
       pageFrame: retainedPagePreparedFrame,
       retainedRuntimeFrame,
     }),
-    previous: retainedDisplayFrameRef.current,
+    previous: previousRetainedDisplayFrame,
   });
   retainedDisplayTransactionMs +=
     performance.now() - retainedDisplayTransactionStart;
@@ -699,7 +743,7 @@ export function renderGpuFlowNodeLayerFrame({
     resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       darkMode,
       deferResolutionUpdates,
-      existingMaintenance: null,
+      existingMaintenance: prePublishRetainedPageMaintenance,
       preparedFrame: retainedPagePreparedFrame,
       publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
       retainedContentPageManager: resources.retainedContentPageManager,
@@ -804,67 +848,6 @@ function notifyGpuFlowRetainedRuntimeFrame(
   frame: GpuRetainedRuntimeFrame,
 ) {
   callback?.(frame);
-}
-
-function syncGpuFlowRetainedContentSwitchAnimationSurfaces({
-  nowMs,
-  scrollOffsets,
-  scene,
-  switchAnimations,
-}: {
-  readonly nowMs: number;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly scene: GpuFlowScene | undefined;
-  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-}) {
-  if (!scene) {
-    return;
-  }
-  for (const surface of scene.contentSurfaces) {
-    if (!isGpuFlowRetainedContentSwitchAnimationSurface(surface)) {
-      continue;
-    }
-    const sampledSurface = sampleGpuFlowRetainedContentSwitchAnimationSurface({
-      scrollOffsets,
-      surface,
-    });
-    switchAnimations.syncSurface(sampledSurface, nowMs);
-  }
-}
-
-function hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
-  nowMs,
-  scene,
-  switchAnimations,
-}: {
-  readonly nowMs: number;
-  readonly scene: GpuFlowScene | undefined;
-  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-}): boolean {
-  if (!scene) {
-    return false;
-  }
-  let hasActiveSurface = false;
-  for (const surface of scene.contentSurfaces) {
-    if (
-      !isGpuFlowRetainedContentSwitchAnimationSurface(surface) ||
-      !switchAnimations.hasActiveSurface(surface.id, nowMs)
-    ) {
-      continue;
-    }
-    hasActiveSurface = true;
-  }
-  return hasActiveSurface;
-}
-
-function isGpuFlowRetainedContentSwitchAnimationSurface(
-  surface: GpuContentSurface,
-): surface is GpuContentSurface & {
-  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-} {
-  return (
-    surface.renderer.kind === "canvas-content" && Boolean(surface.retainedScene)
-  );
 }
 
 function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {

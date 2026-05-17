@@ -19,10 +19,15 @@ import {
   normalizeGpuViewport,
   type GpuRect,
   type GpuViewportInput,
-  type GpuViewportTuple,
 } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import {
+  getGpuFlowDomControlPlaneViewportCanvasSize,
+  getGpuFlowDomControlPlaneViewportSize,
+  getLiveGpuFlowDomControlPlaneViewport,
+  type GpuFlowDomControlPlaneViewportSize,
+} from "./domControlPlaneViewport";
 
 export type GpuFlowDomControlActivationHandler = (
   control: GpuRetainedDomControlSourceDescriptor,
@@ -65,9 +70,9 @@ const GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME = [
   NO_PAN_CLASS_NAME,
 ].join(" ");
 const GPU_FLOW_DOM_CONTROL_OVERSCAN_CSS_PX = 160;
-const GPU_FLOW_DOM_CONTROL_MIN_MOUNT_SCREEN_HEIGHT_CSS_PX = 18;
 const GPU_FLOW_DOM_CONTROL_MIN_VISIBLE_SCREEN_HEIGHT_CSS_PX = 8;
-const GPU_FLOW_DOM_CONTROL_MAX_LOW_LOD_MOUNTED_CONTROLS = 8;
+const GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS = 8;
+const GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS = 24;
 const GPU_FLOW_DOM_CONTROL_SMALL_SCENE_LOW_LOD_CONTROL_LIMIT = 64;
 
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
@@ -125,9 +130,15 @@ export function GpuFlowDomControlPlane({
       filterGpuFlowDomControlPlaneMountedControls({
         controls,
         getRetainedScrollOffset,
-        viewport: getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime }),
+        viewport: getLiveGpuFlowDomControlPlaneViewport({
+          viewportRuntime,
+          viewportStore,
+        }),
+        viewportSize: getGpuFlowDomControlPlaneViewportSize({
+          viewportStore,
+        }),
       }),
-    [controls, getRetainedScrollOffset, viewportRuntime],
+    [controls, getRetainedScrollOffset, viewportRuntime, viewportStore],
   );
 
   const setControlElement = useCallback(
@@ -149,10 +160,13 @@ export function GpuFlowDomControlPlane({
         control,
         element,
         getRetainedScrollOffset,
-        viewport: getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime }),
+        viewport: getLiveGpuFlowDomControlPlaneViewport({
+          viewportRuntime,
+          viewportStore,
+        }),
       });
     },
-    [controlById, getRetainedScrollOffset, viewportRuntime],
+    [controlById, getRetainedScrollOffset, viewportRuntime, viewportStore],
   );
 
   useLayoutEffect(() => {
@@ -166,10 +180,13 @@ export function GpuFlowDomControlPlane({
           hostByControlId: hostByControlIdRef.current,
           runtimeFrameId: frameIds.runtimeFrameId,
           viewport,
+          viewportSize: getGpuFlowDomControlPlaneViewportSize({
+            viewportStore,
+          }),
         });
       },
     });
-  }, [frameIds, getRetainedScrollOffset, viewportRuntime]);
+  }, [frameIds, getRetainedScrollOffset, viewportRuntime, viewportStore]);
 
   useLayoutEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
@@ -184,6 +201,10 @@ export function GpuFlowDomControlPlane({
         hostByControlId: hostByControlIdRef.current,
         runtimeFrameId: frameIds.runtimeFrameId,
         viewport: state.transform,
+        viewportSize: {
+          height: state.height,
+          width: state.width,
+        },
       });
     });
   }, [frameIds, getRetainedScrollOffset, viewportStore]);
@@ -196,9 +217,21 @@ export function GpuFlowDomControlPlane({
       getRetainedScrollOffset,
       hostByControlId: hostByControlIdRef.current,
       runtimeFrameId: frameIds.runtimeFrameId,
-      viewport: getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime }),
+      viewport: getLiveGpuFlowDomControlPlaneViewport({
+        viewportRuntime,
+        viewportStore,
+      }),
+      viewportSize: getGpuFlowDomControlPlaneViewportSize({
+        viewportStore,
+      }),
     });
-  }, [controlById, frameIds, getRetainedScrollOffset, viewportRuntime]);
+  }, [
+    controlById,
+    frameIds,
+    getRetainedScrollOffset,
+    viewportRuntime,
+    viewportStore,
+  ]);
 
   useLayoutEffect(() => {
     const view = window as typeof window & {
@@ -219,7 +252,7 @@ export function GpuFlowDomControlPlane({
   }
 
   const viewport = normalizeGpuViewport(
-    getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime }),
+    getLiveGpuFlowDomControlPlaneViewport({ viewportRuntime, viewportStore }),
   );
   return (
     <div
@@ -279,10 +312,22 @@ function GpuFlowDomControlHost({
   const clip = geometry.visibleClipFlowPx;
   return (
     <div
+      aria-hidden={
+        control.visualSemantics.accessibility === "visual-only-aria-hidden"
+          ? true
+          : undefined
+      }
       className={GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME}
       data-gpu-flow-dom-control="true"
       data-gpu-flow-dom-control-id={control.sourceId}
+      data-gpu-flow-dom-control-focusable={
+        control.visualSemantics.focusable ? "true" : "false"
+      }
+      data-gpu-flow-dom-control-pointer-semantics={
+        control.visualSemantics.pointer
+      }
       data-gpu-flow-dom-control-row-id={control.rowId}
+      data-gpu-flow-dom-control-selectable={control.visualSemantics.selectable}
       data-gpu-flow-dom-control-section-id={control.sectionId}
       data-gpu-flow-dom-control-surface-id={control.surfaceId}
       data-gpu-flow-dom-control-active={control.active ? "true" : "false"}
@@ -337,73 +382,99 @@ function resolveGpuFlowDomControlPlaneFrameIds({
   };
 }
 
-function getLiveGpuFlowDomControlPlaneViewport({
-  viewportRuntime,
-}: {
-  readonly viewportRuntime: GpuFlowViewportRuntime;
-}): GpuViewportTuple {
-  return viewportRuntime.getViewportTuple();
-}
-
-function filterGpuFlowDomControlPlaneMountedControls({
+export function filterGpuFlowDomControlPlaneMountedControls({
   controls,
   getRetainedScrollOffset,
   viewport,
+  viewportSize,
 }: {
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly getRetainedScrollOffset:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
   readonly viewport: GpuViewportInput;
+  readonly viewportSize?: GpuFlowDomControlPlaneViewportSize | undefined;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
-  const canvasSize = getGpuFlowDomControlPlaneViewportCanvasSize();
+  const canvasSize = getGpuFlowDomControlPlaneViewportCanvasSize(viewportSize);
   const normalizedViewport = normalizeGpuViewport(viewport);
-  const visibleFlowRect = getVisibleFlowRect({
+  const mountEligibleControls = controls.filter(
+    (control) => control.active || control.visualPolicy === "live-dom",
+  );
+  if (
+    controls.length <= GPU_FLOW_DOM_CONTROL_SMALL_SCENE_LOW_LOD_CONTROL_LIMIT
+  ) {
+    return [...mountEligibleControls].sort(
+      compareGpuFlowDomControlPlaneControls,
+    );
+  }
+  const viewportFlowRect = getVisibleFlowRect({
+    canvasHeight: canvasSize.height,
+    canvasWidth: canvasSize.width,
+    viewport,
+  });
+  const overscanFlowRect = getVisibleFlowRect({
     canvasHeight: canvasSize.height,
     canvasWidth: canvasSize.width,
     marginCssPx: GPU_FLOW_DOM_CONTROL_OVERSCAN_CSS_PX,
     viewport,
   });
-  const candidates = controls
+  const candidates = mountEligibleControls
     .map((control) => {
       const geometry = projectGpuFlowDomControlPlaneGeometry({
         control,
         getRetainedScrollOffset,
       });
-      if (!rectsIntersect(visibleFlowRect, geometry.worldRectFlowPx)) {
+      if (!rectsIntersect(overscanFlowRect, geometry.worldRectFlowPx)) {
         return null;
       }
       return {
         control,
         distanceToViewportCenter: getGpuFlowDomControlPlaneDistanceToCenter({
           geometry,
-          visibleFlowRect,
+          visibleFlowRect: viewportFlowRect,
         }),
-        renderable: isGpuFlowDomControlPlaneControlMountedAtViewport({
-          control,
-          geometry,
-          viewport: normalizedViewport,
-        }),
+        readableAtViewport:
+          rectsIntersect(viewportFlowRect, geometry.worldRectFlowPx) &&
+          isGpuFlowDomControlPlaneControlVisibleAtViewport({
+            control,
+            geometry,
+            viewport: normalizedViewport,
+          }),
       };
     })
     .filter((candidate) => candidate !== null);
-  const renderableControls = candidates
-    .filter((candidate) => candidate.renderable)
+  const activeControls = candidates
+    .filter((candidate) => candidate.control.active)
     .map((candidate) => candidate.control);
-  const lowLodLimit =
-    candidates.length <= GPU_FLOW_DOM_CONTROL_SMALL_SCENE_LOW_LOD_CONTROL_LIMIT
-      ? candidates.length
-      : GPU_FLOW_DOM_CONTROL_MAX_LOW_LOD_MOUNTED_CONTROLS;
-  const lowLodControls = candidates
-    .filter((candidate) => !candidate.renderable && !candidate.control.active)
+  const inactiveCandidates = candidates.filter(
+    (candidate) => !candidate.control.active,
+  );
+  const readableControls = inactiveCandidates
+    .filter((candidate) => candidate.readableAtViewport)
     .sort(
       (left, right) =>
         left.distanceToViewportCenter - right.distanceToViewportCenter ||
         compareGpuFlowDomControlPlaneControls(left.control, right.control),
     )
-    .slice(0, lowLodLimit)
+    .slice(0, GPU_FLOW_DOM_CONTROL_MAX_READABLE_MOUNTED_CONTROLS)
     .map((candidate) => candidate.control);
-  return [...renderableControls, ...lowLodControls].sort(
+  const readableControlIds = new Set(
+    readableControls.map((control) => control.sourceId),
+  );
+  const overscanControls = inactiveCandidates
+    .filter(
+      (candidate) =>
+        !candidate.readableAtViewport &&
+        !readableControlIds.has(candidate.control.sourceId),
+    )
+    .sort(
+      (left, right) =>
+        left.distanceToViewportCenter - right.distanceToViewportCenter ||
+        compareGpuFlowDomControlPlaneControls(left.control, right.control),
+    )
+    .slice(0, GPU_FLOW_DOM_CONTROL_MAX_OVERSCAN_MOUNTED_CONTROLS)
+    .map((candidate) => candidate.control);
+  return [...activeControls, ...readableControls, ...overscanControls].sort(
     compareGpuFlowDomControlPlaneControls,
   );
 }
@@ -449,6 +520,7 @@ function syncGpuFlowDomControlPlaneStyles({
   hostByControlId,
   runtimeFrameId,
   viewport,
+  viewportSize,
 }: {
   readonly committedFrameId: number;
   readonly controlById: ReadonlyMap<
@@ -462,9 +534,10 @@ function syncGpuFlowDomControlPlaneStyles({
   readonly hostByControlId: ReadonlyMap<string, MountedDomControlPlaneHost>;
   readonly runtimeFrameId: number;
   readonly viewport: GpuViewportInput;
+  readonly viewportSize: GpuFlowDomControlPlaneViewportSize;
 }) {
   const startedAt = performance.now();
-  const canvasSize = getGpuFlowDomControlPlaneViewportCanvasSize();
+  const canvasSize = getGpuFlowDomControlPlaneViewportCanvasSize(viewportSize);
   const normalizedViewport = normalizeGpuViewport(viewport);
   let clippedControlCount = 0;
   let projectionWriteCount = 0;
@@ -536,7 +609,10 @@ function syncGpuFlowDomControlPlaneControlProjection({
     control,
     getRetainedScrollOffset,
   });
-  if (!rectsIntersect(visibleFlowRect, geometry.worldRectFlowPx)) {
+  if (
+    !control.active &&
+    !rectsIntersect(visibleFlowRect, geometry.worldRectFlowPx)
+  ) {
     return {
       ...emptyGpuFlowDomControlPlaneProjectionResult(),
       projectionWriteCount: hideGpuFlowDomControlPlaneElement(host.element),
@@ -594,16 +670,6 @@ function isGpuFlowDomControlPlaneClipPartial({
     visibleClipFlowPx.width !== worldRectFlowPx.width ||
     visibleClipFlowPx.height !== worldRectFlowPx.height
   );
-}
-
-function getGpuFlowDomControlPlaneViewportCanvasSize(): {
-  readonly height: number;
-  readonly width: number;
-} {
-  if (typeof window === "undefined") {
-    return { height: 0, width: 0 };
-  }
-  return { height: window.innerHeight, width: window.innerWidth };
 }
 
 function syncGpuFlowDomControlPlaneElementStyle({
@@ -680,31 +746,6 @@ function projectGpuFlowDomControlPlaneHost({
     width: clip.width,
     zIndex: control.zOrder,
   };
-}
-
-function isGpuFlowDomControlPlaneControlMountedAtViewport({
-  control,
-  geometry,
-  viewport,
-}: {
-  readonly control: Pick<GpuRetainedDomControlSourceDescriptor, "active">;
-  readonly geometry: Pick<
-    ReturnType<typeof projectGpuFlowDomControlPlaneGeometry>,
-    "visibleClipFlowPx"
-  >;
-  readonly viewport: ReturnType<typeof normalizeGpuViewport>;
-}): boolean {
-  if (control.active) {
-    return (
-      geometry.visibleClipFlowPx.width > 0 &&
-      geometry.visibleClipFlowPx.height > 0
-    );
-  }
-  return isGpuFlowDomControlPlanePassiveRenderableAtViewport({
-    geometry,
-    minScreenHeightCssPx: GPU_FLOW_DOM_CONTROL_MIN_MOUNT_SCREEN_HEIGHT_CSS_PX,
-    viewport,
-  });
 }
 
 function isGpuFlowDomControlPlaneControlVisibleAtViewport({

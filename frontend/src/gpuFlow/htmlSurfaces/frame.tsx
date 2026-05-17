@@ -117,7 +117,11 @@ export type GpuVisibleNodeQuad = {
 export type GpuHtmlSurfaceOverlayLayout = {
   readonly actorKind: Extract<
     SurfaceActorKind,
-    "drag-overlay" | "edge-label" | "resize-overlay" | "selection-overlay"
+    | "dom-control"
+    | "drag-overlay"
+    | "edge-label"
+    | "resize-overlay"
+    | "selection-overlay"
   >;
   readonly height: number;
   readonly layer?: "late" | "normal" | "page" | undefined;
@@ -372,7 +376,8 @@ export function renderHtmlSurfaceFrame({
     activeNodeIds,
     htmlSurfaceOverlays,
   );
-  const retainedNodeIds = mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds);
+  const retainedNodeIds =
+    mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds) ?? new Set<string>();
   const nodeSurfaceIds = new Set(nodes.map((node) => node.nodeId));
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
@@ -623,6 +628,8 @@ function htmlSurfaceOverlayRendererBucket(
   switch (quad.actorKind) {
     case "drag-overlay":
       return "drag-overlay";
+    case "dom-control":
+      return "native-control";
     case "edge-label":
       return "edge-label";
     case "resize-overlay":

@@ -28,6 +28,10 @@ type GpuRetainedRuntimeFrameInputSnapshot = {
   readonly scrollRevision: number;
   readonly scrollRevisions: ReadonlyMap<string, number>;
   readonly viewport: GpuViewportInput;
+  readonly viewportSize: {
+    readonly height: number;
+    readonly width: number;
+  } | null;
   readonly viewportZoomBucket: number;
 };
 
@@ -66,6 +70,9 @@ type CreateGpuRetainedRuntimeFrameInput = {
   readonly scrollRevisions?: ReadonlyMap<string, number> | undefined;
   readonly rowHoverTarget?: GpuRetainedContentRowHoverTarget | null | undefined;
   readonly viewport: GpuViewportInput;
+  readonly viewportSize?:
+    | { readonly height: number; readonly width: number }
+    | undefined;
   readonly viewportZoomBucket: number;
 };
 
@@ -79,6 +86,7 @@ export function createGpuRetainedRuntimeFrame({
   scrollRevisions,
   rowHoverTarget = null,
   viewport,
+  viewportSize,
   viewportZoomBucket,
 }: CreateGpuRetainedRuntimeFrameInput): GpuRetainedRuntimeFrame {
   const sourceSurfaces = freezeArray(
@@ -103,9 +111,12 @@ export function createGpuRetainedRuntimeFrame({
   );
   const domControlSources = freezeArray(
     getGpuRetainedDomControlSourcesFromHitTestSurfaces(hitTestSurfaces, {
+      devicePixelRatioBucket,
       scrollRevision,
       scrollRevisions,
       viewport,
+      viewportSize,
+      viewportZoomBucket,
     }),
   );
   const nativeDomIslands = freezeArray(
@@ -164,6 +175,7 @@ export function createGpuRetainedRuntimeFrame({
       scrollRevision,
       scrollRevisions: new Map(scrollRevisions ?? []),
       viewport,
+      viewportSize: viewportSize ? Object.freeze({ ...viewportSize }) : null,
       viewportZoomBucket,
     }),
   });

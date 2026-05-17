@@ -18,6 +18,8 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
+const MAX_EXPECTED_MOUNTED_DOM_CONTROLS = 32;
+
 test("committed surface debug snapshot keeps passive DOM actor scale bounded", async ({
   page,
 }) => {
@@ -29,7 +31,82 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
   );
   await waitForAnimationFrame(page);
 
-  const sample = await page.evaluate(() => {
+  await expect
+    .poll(() => readCommittedSurfaceDomActorSampleReady(page), {
+      timeout: 5_000,
+    })
+    .toBe(true);
+  const sample = await readCommittedSurfaceDomActorSample(page);
+
+  const details = JSON.stringify(sample, null, 2);
+  expect(sample.committed, details).not.toBeNull();
+  expect(
+    sample.diagnostics?.mountedControlCount ?? 0,
+    details,
+  ).toBeLessThanOrEqual(MAX_EXPECTED_MOUNTED_DOM_CONTROLS);
+  expect(sample.diagnostics?.mountedControlCount ?? 0, details).toBeLessThan(
+    sample.committed?.domControlActorCount ?? 0,
+  );
+  const domControlPlaneVisible =
+    (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
+  if (domControlPlaneVisible) {
+    expect(Number.isFinite(sample.planeCommittedFrameId), details).toBe(true);
+    expect(Number.isFinite(sample.planeRuntimeFrameId), details).toBe(true);
+    expect(sample.planeCommittedFrameId, details).toBeLessThanOrEqual(
+      sample.committed?.domControlCommittedFrameId ?? 0,
+    );
+    expect(
+      sample.diagnostics?.committedFrameId ?? 0,
+      details,
+    ).toBeLessThanOrEqual(sample.committed?.domControlCommittedFrameId ?? 0);
+    expect(sample.planeRuntimeFrameId, details).toBeLessThanOrEqual(
+      sample.committed?.canvasRetainedFrameId ?? 0,
+    );
+  }
+  expect(sample.committed?.debugSnapshotFrameId, details).toBe(
+    sample.committed?.displayFrameId,
+  );
+  expect(sample.committed?.displayCompletenessStatus, details).toBe("complete");
+  expect(sample.committed?.publishabilityKind, details).toBe("publishable");
+  expect(sample.committed?.publishabilityReason, details).toBeNull();
+  expect(
+    sample.committed?.projectionHorizon.textActorTrueHoleCount,
+    details,
+  ).toBe(0);
+  expect(
+    sample.committed?.projectionHorizon.textActorExactCoverageCount ?? 0,
+    details,
+  ).toBeGreaterThan(8);
+  expect(sample.committed?.domControlActorCount ?? 0, details).toBeGreaterThan(
+    8,
+  );
+  expect(
+    sample.committed?.projectedVisibleNonemptyDomControlCount,
+    details,
+  ).toBe(sample.committed?.visibleNonemptyDomControlCount);
+  expect(sample.committed?.retainedScrollRevision, details).toBeGreaterThan(0);
+});
+
+type CommittedSurfaceDomActorSample = Awaited<
+  ReturnType<typeof readCommittedSurfaceDomActorSample>
+>;
+
+async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
+  readonly committed: NonNullable<
+    ReturnType<
+      NonNullable<Window["__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__"]>
+    >["committedSurfaceFrame"]
+  > | null;
+  readonly diagnostics: {
+    readonly committedFrameId: number;
+    readonly mountedControlCount: number;
+    readonly runtimeFrameId: number;
+    readonly visibleControlRectCount: number;
+  } | null;
+  readonly planeCommittedFrameId: number;
+  readonly planeRuntimeFrameId: number;
+}> {
+  return await page.evaluate(() => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
     const committed = snapshot?.committedSurfaceFrame ?? null;
     const diagnostics =
@@ -57,45 +134,28 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
       ),
     };
   });
+}
 
-  const details = JSON.stringify(sample, null, 2);
-  expect(sample.committed, details).not.toBeNull();
-  expect(
-    sample.diagnostics?.mountedControlCount ?? 0,
-    details,
-  ).toBeLessThanOrEqual(8);
-  expect(
-    sample.diagnostics?.visibleControlRectCount ?? 0,
-    details,
-  ).toBeLessThanOrEqual(8);
-  const domControlPlaneVisible =
-    (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
-  if (domControlPlaneVisible) {
-    expect(sample.planeCommittedFrameId, details).toBe(
-      sample.committed?.domControlCommittedFrameId,
-    );
-    expect(sample.diagnostics?.committedFrameId, details).toBe(
-      sample.committed?.domControlCommittedFrameId,
-    );
-    expect(sample.planeRuntimeFrameId, details).toBe(
-      sample.committed?.canvasRetainedFrameId,
-    );
-  }
-  expect(sample.committed?.debugSnapshotFrameId, details).toBe(
-    sample.committed?.displayFrameId,
+async function readCommittedSurfaceDomActorSampleReady(
+  page: Page,
+): Promise<boolean> {
+  return isCommittedSurfaceDomActorSampleReady(
+    await readCommittedSurfaceDomActorSample(page),
   );
-  expect(sample.committed?.displayCompletenessStatus, details).toBe("complete");
-  expect(sample.committed?.domControlActorCount ?? 0, details).toBeGreaterThan(
-    8,
-  );
-  expect(
-    sample.committed?.projectedVisibleNonemptyDomControlCount,
-    details,
-  ).toBe(sample.committed?.visibleNonemptyDomControlCount);
-  expect(sample.committed?.retainedScrollRevision, details).toBeGreaterThan(0);
-});
+}
 
-test("viewport wheel-pan burst continues after the pointer moves over passive canvas text", async ({
+function isCommittedSurfaceDomActorSampleReady(
+  sample: CommittedSurfaceDomActorSample,
+): boolean {
+  return Boolean(
+    sample.committed &&
+      sample.diagnostics &&
+      sample.diagnostics.mountedControlCount <=
+        MAX_EXPECTED_MOUNTED_DOM_CONTROLS,
+  );
+}
+
+test("viewport wheel-pan burst continues after the pointer moves over passive browser text", async ({
   page,
 }) => {
   await openAllSettingsForRetainedCompositor(page);

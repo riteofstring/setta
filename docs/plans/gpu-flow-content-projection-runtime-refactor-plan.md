@@ -2,9 +2,9 @@
 
 Date: 2026-05-18
 
-Status: proposed. This supersedes the deleted canvas-first committed surface
-runtime plan. The first implementation step is fail-first observed-behavior
-coverage.
+Status: implemented. This supersedes the deleted canvas-first committed
+surface runtime plan. The first implementation step was fail-first
+observed-behavior coverage.
 
 ## Problem
 

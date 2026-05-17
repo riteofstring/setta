@@ -11,6 +11,7 @@ export type GpuFlowRetainedContentFrameCache = {
   readonly sceneRevision: number;
   readonly scrollRevision: number;
   readonly nativeVisualSignature: string;
+  readonly viewportSize: { readonly height: number; readonly width: number };
   readonly viewportZoomBucket: number;
 };
 
@@ -22,6 +23,7 @@ export function shouldReuseGpuFlowRetainedContentFrameCache({
   pageDrawableRevision,
   sceneRevision,
   scrollRevision,
+  viewportSize,
   viewportZoomBucket,
 }: {
   readonly allowCoveredRefinementBacklog?: boolean | undefined;
@@ -31,19 +33,36 @@ export function shouldReuseGpuFlowRetainedContentFrameCache({
   readonly pageDrawableRevision: number;
   readonly sceneRevision: number;
   readonly scrollRevision: number;
+  readonly viewportSize?:
+    | { readonly height: number; readonly width: number }
+    | undefined;
   readonly viewportZoomBucket: number;
 }): boolean {
-  return (
-    cachedFrame.contentSurfaces === contentSurfaces &&
-    cachedFrame.devicePixelRatio === devicePixelRatio &&
-    cachedFrame.pageDrawableRevision === pageDrawableRevision &&
+  return [
+    cachedFrame.contentSurfaces === contentSurfaces,
+    cachedFrame.devicePixelRatio === devicePixelRatio,
+    cachedFrame.pageDrawableRevision === pageDrawableRevision,
     hasReusableGpuFlowRetainedPageCoverage({
       allowCoveredRefinementBacklog,
       cachedFrame,
-    }) &&
-    cachedFrame.sceneRevision === sceneRevision &&
-    cachedFrame.scrollRevision === scrollRevision &&
-    cachedFrame.viewportZoomBucket === viewportZoomBucket
+    }),
+    cachedFrame.sceneRevision === sceneRevision,
+    cachedFrame.scrollRevision === scrollRevision,
+    retainedFrameViewportSizeMatches(cachedFrame, viewportSize),
+    cachedFrame.viewportZoomBucket === viewportZoomBucket,
+  ].every(Boolean);
+}
+
+function retainedFrameViewportSizeMatches(
+  cachedFrame: GpuFlowRetainedContentFrameCache,
+  viewportSize: { readonly height: number; readonly width: number } | undefined,
+): boolean {
+  if (viewportSize === undefined) {
+    return true;
+  }
+  return (
+    cachedFrame.viewportSize.height === viewportSize.height &&
+    cachedFrame.viewportSize.width === viewportSize.width
   );
 }
 

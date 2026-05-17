@@ -32,6 +32,7 @@ import {
   toVisibleQuad,
 } from "./frame.test-helper";
 import {
+  HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
 } from "./sourceDom";
@@ -399,6 +400,32 @@ describe("HTML surface frame helpers", () => {
     expect(result.skippedNodeIds).toEqual([]);
     expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(element.style.zIndex).toBe("7");
+  });
+
+  it("keeps capture-only source hosts behind visible canvas content", () => {
+    const element = document.createElement("div");
+    element.setAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE, "true");
+    const cache = createGpuNodeDomTransformSyncCache();
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["snapshot-source", element]]),
+      visibleQuads: [
+        {
+          height: 24,
+          nodeId: "snapshot-source",
+          width: 120,
+          x: 10,
+          y: 20,
+          zIndex: 42,
+        },
+      ],
+      viewport: [0, 0, 1],
+    });
+
+    expect(element.style.height).toBe("24px");
+    expect(element.style.width).toBe("120px");
+    expect(element.style.zIndex).toBe("-1");
   });
 
   it("rewrites DOM hit-target dimensions when node geometry changes", () => {

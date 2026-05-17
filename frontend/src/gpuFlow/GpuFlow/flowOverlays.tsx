@@ -12,9 +12,11 @@ import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
+import type { GpuFlowProps } from "./flowSurfaceTypes";
 import { useGpuFlowNodeDragPreviewSources } from "./nodeDragPreviewOverlay";
 import { useGpuFlowNodeResizeOverlaySources } from "./nodeResizeOverlay";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
+import { useGpuFlowRetainedDomControlSnapshotSources } from "./retainedDomControlSnapshotSources";
 import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 type GpuFlowOverlaySources = {
@@ -23,6 +25,7 @@ type GpuFlowOverlaySources = {
   readonly htmlSurfaceOverlays: readonly GpuHtmlSurfaceOverlayLayout[];
   readonly nodeDragPreviewSourceElement: ReactNode;
   readonly nodeResizeOverlaySourceElement: ReactNode;
+  readonly retainedDomControlSnapshotSourceElement: ReactNode;
   readonly selectionOverlaySourceElement: ReactNode;
 };
 
@@ -33,6 +36,7 @@ export function useGpuFlowOverlaySources({
   nodeElementByIdRef,
   nodes,
   primaryNodeId,
+  renderRetainedDomControl,
   retainedRuntimeFrame,
   surfaceRef,
   textureManagerRef,
@@ -45,6 +49,7 @@ export function useGpuFlowOverlaySources({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodes: readonly GpuFlowLayoutNode[] | undefined;
   readonly primaryNodeId: string | null;
+  readonly renderRetainedDomControl: GpuFlowProps["renderRetainedDomControl"];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -62,6 +67,18 @@ export function useGpuFlowOverlaySources({
     });
   const { retainedContentNativeVisuals } = useGpuFlowRetainedContentSources({
     retainedRuntimeFrame,
+  });
+  const {
+    retainedDomControlSnapshotSourceElement,
+    retainedDomControlSnapshotSurfaces,
+  } = useGpuFlowRetainedDomControlSnapshotSources({
+    nodeDomTransformSyncCacheRef,
+    nodeElementByIdRef,
+    renderControl: renderRetainedDomControl,
+    retainedRuntimeFrame,
+    surfaceRef,
+    textureManagerRef,
+    transformOnlyPaintNodeIdsRef,
   });
   const { nodeDragPreviewSourceElement, nodeDragPreviewSurfaces } =
     useGpuFlowNodeDragPreviewSources({
@@ -96,6 +113,7 @@ export function useGpuFlowOverlaySources({
   const htmlSurfaceOverlays = useMemo(
     () => [
       ...edgeLabelSurfaces,
+      ...retainedDomControlSnapshotSurfaces,
       ...selectionOverlaySurfaces,
       ...nodeResizeOverlaySurfaces,
       ...nodeDragPreviewSurfaces,
@@ -104,6 +122,7 @@ export function useGpuFlowOverlaySources({
       edgeLabelSurfaces,
       nodeDragPreviewSurfaces,
       nodeResizeOverlaySurfaces,
+      retainedDomControlSnapshotSurfaces,
       selectionOverlaySurfaces,
     ],
   );
@@ -114,6 +133,7 @@ export function useGpuFlowOverlaySources({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
+    retainedDomControlSnapshotSourceElement,
     selectionOverlaySourceElement,
   };
 }

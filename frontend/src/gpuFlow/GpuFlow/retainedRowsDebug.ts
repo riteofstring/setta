@@ -171,6 +171,27 @@ function toCommittedSurfaceDebugEntry(
       frame.coherence.htmlTextureOverlayCommittedFrameId,
     projectedVisibleNonemptyDomControlCount:
       frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
+    projectionHorizon: {
+      retainedScrollSurfaceCount:
+        frame.projectionHorizon.retainedScrollSurfaces.length,
+      textActorBlockedAwaitingBrowserVisualCount:
+        frame.projectionHorizon.textActorCoverage
+          .blockedAwaitingBrowserVisualActorIds.length,
+      textActorCompatiblePreviousCount:
+        frame.projectionHorizon.textActorCoverage.compatiblePreviousActorIds
+          .length,
+      textActorExactCoverageCount:
+        frame.projectionHorizon.textActorCoverage.exactLiveDomActorIds.length +
+        frame.projectionHorizon.textActorCoverage.exactSnapshotActorIds.length,
+      textActorExactSnapshotCount:
+        frame.projectionHorizon.textActorCoverage.exactSnapshotActorIds.length,
+      textActorTrueHoleCount:
+        frame.projectionHorizon.textActorCoverage.trueHoleActorIds.length,
+      viewportOverscanCssPx: frame.projectionHorizon.viewport.overscanCssPx,
+    },
+    publishabilityKind: frame.publishability.kind,
+    publishabilityReason:
+      "reason" in frame.publishability ? frame.publishability.reason : null,
     retainedScrollRevision: frame.coherence.retainedScrollRevision,
     retainedPageActorCount: frame.diagnostics.retainedPageActorCount,
     sceneRevision: frame.sceneRevision,

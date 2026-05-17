@@ -65,7 +65,7 @@ test("focused retained text-like editor follows its owning section during pan an
   expectTrackingDeltasWithinTolerance(afterZoom, details);
 });
 
-test("canvas-first retained text-like values remain visible before click after section scroll", async ({
+test("browser-derived retained text-like values remain visible before click after section scroll", async ({
   page,
 }, testInfo) => {
   await openObservedRegressionSettings(page);

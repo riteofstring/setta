@@ -25,6 +25,50 @@ type GpuRetainedDomControlInteractionPolicy = {
   readonly wheel: "retained-scroll-or-editor-scroll";
 };
 
+export type GpuRetainedTextSnapshotCacheKey = {
+  readonly appThemeRevision: string;
+  readonly codeMirrorThemeRevision: string;
+  readonly cssStyleRevision: string;
+  readonly defaultValue: string;
+  readonly devicePixelRatioBucket: number;
+  readonly disabled: boolean;
+  readonly editorExtensionGeneration: string;
+  readonly editorKind: "code" | "text" | "textarea";
+  readonly error: boolean;
+  readonly fontGeneration: string;
+  readonly language: string | null;
+  readonly linePolicy: "multiline-auto" | "multiline-fixed" | "single-line";
+  readonly measuredLayoutMode: "multiline" | "single-line";
+  readonly placeholder: string;
+  readonly rendererFamily: string;
+  readonly sourceHeight: number;
+  readonly sourceWidth: number;
+  readonly syntaxGeneration: string;
+  readonly value: string;
+  readonly wrapLines: boolean;
+  readonly zoomBucket: number;
+};
+
+export type GpuRetainedDomControlVisualSemantics = {
+  readonly accessibility: "active-browser-editor" | "visual-only-aria-hidden";
+  readonly focusable: boolean;
+  readonly pointer: "active-browser-editor" | "retained-activation-model";
+  readonly selectable: "browser-editor" | "none";
+};
+
+export type GpuRetainedDomControlProjectionVisibility =
+  | "viewport-visible"
+  | "overscan-visible"
+  | "outside-viewport"
+  | "clipped-empty";
+
+export type GpuRetainedDomControlVisualPolicy =
+  | "live-dom"
+  | "snapshot"
+  | "blocked-awaiting-browser-visual"
+  | "outside-viewport"
+  | "clipped-empty";
+
 export type GpuRetainedDomControlActivation = {
   readonly clientPoint: {
     readonly x: number;
@@ -65,12 +109,18 @@ export type GpuRetainedDomControlSourceDescriptor = {
   readonly sourceId: string;
   readonly sourceKey: string;
   readonly sourceRectCssPx: GpuRect;
+  readonly projectionVisibility: GpuRetainedDomControlProjectionVisibility;
+  readonly snapshotSurfaceId: string | null;
   readonly surfaceId: string;
   readonly value: string;
+  readonly snapshotCacheKey: GpuRetainedTextSnapshotCacheKey;
+  readonly snapshotCacheKeyRevision: string;
   readonly valueStyleKey: string;
   readonly valueStyleRevision: string;
   readonly viewportRectCssPx: GpuRect;
   readonly viewportSampleRevision: string;
+  readonly visualPolicy: GpuRetainedDomControlVisualPolicy;
+  readonly visualSemantics: GpuRetainedDomControlVisualSemantics;
   readonly worldRectFlowPx: GpuRect;
   readonly wrapLines: boolean;
   readonly zOrder: number;

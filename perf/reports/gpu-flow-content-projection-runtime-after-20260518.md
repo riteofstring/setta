@@ -83,4 +83,56 @@ cost from content publish and maintenance work.
 - `frontend/tests/e2e/settings/settings-retained-compositor-large-scene-performance.spec.ts`
 - `frontend/tests/e2e/settings/settings-retained-pan-zoom-performance.spec.ts`
 - `frontend/tests/e2e/settings/settings-retained-scroll-performance.spec.ts`
-- Full retained/GPU Settings shard: `46 passed`, `1` manual Chrome trace skipped.
+- Full retained/GPU Settings shard: `55 passed`, `1` manual Chrome trace skipped.
+
+## 2026-05-18 Contract Addendum
+
+The committed text actor contract was tightened after the initial after report:
+
+- text actor coverage proof is now a typed union covering `exact-live-dom`,
+  `exact-snapshot`, `compatible-previous`, `blocked-awaiting-browser-visual`,
+  and `true-hole`;
+- text actor visual generation now includes the browser-rendered snapshot cache
+  key revision, so value changes cannot keep a stale visual generation id;
+- snapshot cache keys carry value, placeholder, disabled/error state,
+  line/wrap/editor policy, CSS size, DPR, zoom bucket, theme/style/font/syntax
+  generation fields, and measured layout mode;
+- passive DOM-control actors declare visual-only accessibility, focus,
+  pointer, and selection semantics;
+- excess visible passive text actors are now classified into a bounded
+  browser-rendered snapshot lane. Snapshot sources mount `DummyCodeMirror` DOM,
+  use the canonical snapshot cache-key revision as the HTML texture content
+  key, and publish committed text actors as `exact-snapshot` coverage instead
+  of live DOM or canvas-drawn text;
+- projection-only frames now assert that viewport/retained-scroll reasons do
+  not perform upload, eviction, missing-source registration, or dirty-resource
+  work.
+
+Focused verification after this addendum:
+
+- `pnpm -C frontend exec vitest run src/gpuFlow/committedSurfaceFrame.test.ts src/gpuFlow/GpuFlow/retainedDomControlSources.test.ts src/gpuFlow/GpuFlow/domControlPlane.test.ts`
+  passed (`18` tests).
+- `pnpm -C frontend exec vitest run src/gpuFlow/GpuFlow/retainedDomControlSources.test.ts src/gpuFlow/committedSurfaceFrame.test.ts src/gpuFlow/GpuFlow/domControlPlane.test.ts src/gpuFlow/GpuFlow/flowFrame.test.ts src/gpuFlow/GpuFlow/flowProjectionFrame.test.ts src/gpuFlow/htmlSurfaces/frame.test.tsx`
+  passed (`57` tests).
+- `pnpm -C frontend exec vitest run src/gpuFlow/GpuFlow/flowProjectionFrame.test.ts`
+  passed (`2` tests).
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-dom-control-observed-regressions.spec.ts frontend/tests/e2e/settings/settings-retained-committed-surface-actor-regressions.spec.ts frontend/tests/e2e/settings/settings-retained-compositor-cadence.spec.ts`
+  passed (`8` tests).
+- `pnpm -C frontend exec vitest run src/gpuFlow` passed (`123` files, `802`
+  tests).
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/GpuProjectSurface`
+  passed (`27` files, `163` tests).
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/callable-params.spec.ts`
+  passed (`2` tests), covering retained callable text editor activation outside
+  the Settings surface.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow` passed (`6`
+  tests).
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings` passed (`55`
+  tests, `1` manual Chrome trace skipped).
+- `./scripts/quality/check.sh` passed after splitting the DOM-control viewport
+  helpers out of the main plane file.
+- CDP visual check passed for retained text-like DOM-control/snapshot
+  projection on `/settings` at `1600x1400`: `exactCoverage=39`,
+  `exactSnapshot=7`, `blocked=223`, `domControlHosts=32`, snapshot capture
+  hosts behind canvas content with `z-index=-1`. Screenshot:
+  `tmp/gpu-flow-retained-dom-control-snapshot-cdp-after.png`.

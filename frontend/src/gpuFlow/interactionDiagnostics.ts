@@ -134,6 +134,17 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly htmlTextureActorCount: number;
   readonly htmlTextureOverlayCommittedFrameId: number;
   readonly projectedVisibleNonemptyDomControlCount: number;
+  readonly projectionHorizon: {
+    readonly textActorBlockedAwaitingBrowserVisualCount: number;
+    readonly textActorCompatiblePreviousCount: number;
+    readonly retainedScrollSurfaceCount: number;
+    readonly textActorExactCoverageCount: number;
+    readonly textActorExactSnapshotCount: number;
+    readonly textActorTrueHoleCount: number;
+    readonly viewportOverscanCssPx: number;
+  };
+  readonly publishabilityKind: string;
+  readonly publishabilityReason: string | null;
   readonly retainedScrollRevision: number;
   readonly retainedPageActorCount: number;
   readonly sceneRevision: number;

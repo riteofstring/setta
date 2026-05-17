@@ -38,6 +38,7 @@ export function GpuFlowSurfaceView({
   nodeClassName,
   nodeDragPreviewSourceElement,
   nodeResizeOverlaySourceElement,
+  retainedDomControlSnapshotSourceElement,
   nodes,
   onNodeElementChange,
   onDomControlActivation,
@@ -69,8 +70,11 @@ export function GpuFlowSurfaceView({
   readonly nodeClassName: GpuFlowProps["nodeClassName"];
   readonly nodeDragPreviewSourceElement: ReactNode;
   readonly nodeResizeOverlaySourceElement: ReactNode;
+  readonly retainedDomControlSnapshotSourceElement: ReactNode;
   readonly nodes: readonly GpuNodeLayout[];
-  readonly onNodeElementChange: GpuFlowProps["onNodeElementChange"];
+  readonly onNodeElementChange: NonNullable<
+    GpuFlowProps["onNodeElementChange"]
+  >;
   readonly onDomControlActivation: GpuFlowProps["onDomControlActivation"];
   readonly portals: GpuFlowProps["portals"];
   readonly renderDomIsland: GpuFlowProps["renderDomIsland"];
@@ -119,6 +123,7 @@ export function GpuFlowSurfaceView({
             {children}
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
+            {retainedDomControlSnapshotSourceElement}
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}

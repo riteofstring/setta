@@ -30,16 +30,10 @@ import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
 } from "../nodeInteractionDirty";
-import {
-  createGpuRetainedContentRuntimeState,
-  getGpuRetainedContentRuntimeScrollOffsets,
-  getGpuRetainedContentRuntimeScrollRevision,
-  getGpuRetainedContentRuntimeScrollRevisions,
-} from "../retainedContentRuntimeState";
+import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { getGpuFlowSceneDomSectionNodes } from "../scene";
 import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { gpuFlowViewportStore } from "../viewportStore";
@@ -57,6 +51,7 @@ import {
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
+import { createInitialGpuFlowRetainedRuntimeFrame } from "./flowInitialRetainedRuntimeFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
@@ -221,24 +216,20 @@ export function GpuFlow({
   >(null);
   const initialRetainedRuntimeFrame = useMemo(
     () =>
-      createGpuRetainedRuntimeFrame({
-        devicePixelRatioBucket:
-          typeof window === "undefined" ? 1 : window.devicePixelRatio,
-        frameId: 0,
+      createInitialGpuFlowRetainedRuntimeFrame({
+        retainedContentRuntimeState: activeRetainedContentRuntimeState,
         scene,
-        scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-          activeRetainedContentRuntimeState,
-        ),
-        scrollRevision: getGpuRetainedContentRuntimeScrollRevision(
-          activeRetainedContentRuntimeState,
-        ),
-        scrollRevisions: getGpuRetainedContentRuntimeScrollRevisions(
-          activeRetainedContentRuntimeState,
-        ),
-        viewport: viewport ?? viewportRuntime.getViewportTuple(),
-        viewportZoomBucket: 1,
+        viewport,
+        viewportRuntime,
+        viewportStore,
       }),
-    [activeRetainedContentRuntimeState, scene, viewport, viewportRuntime],
+    [
+      activeRetainedContentRuntimeState,
+      scene,
+      viewport,
+      viewportRuntime,
+      viewportStore,
+    ],
   );
   retainedPreparationRuntimeFrameScrollRevisionRef.current ??=
     initialRetainedRuntimeFrame.input.scrollRevision;
@@ -263,6 +254,7 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
+    retainedDomControlSnapshotSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
     edgeScene,
@@ -271,6 +263,7 @@ export function GpuFlow({
     nodeElementByIdRef,
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
+    renderRetainedDomControl,
     retainedRuntimeFrame: overlayRetainedRuntimeFrame,
     surfaceRef,
     textureManagerRef,
@@ -978,7 +971,10 @@ export function GpuFlow({
       nodeClassName={nodeClassName}
       nodeDragPreviewSourceElement={nodeDragPreviewSourceElement}
       nodeResizeOverlaySourceElement={nodeResizeOverlaySourceElement}
-      nodes={nodes}
+      retainedDomControlSnapshotSourceElement={
+        retainedDomControlSnapshotSourceElement
+      }
+      nodes={nodes ?? EMPTY_GPU_NODE_LAYOUTS}
       onNodeElementChange={handleNodeElementChange}
       onDomControlActivation={onDomControlActivation}
       portals={portals}

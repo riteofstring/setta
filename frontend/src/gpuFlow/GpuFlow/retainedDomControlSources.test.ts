@@ -3,13 +3,18 @@
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 
+import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
-import { getGpuRetainedDomControlSources } from "./retainedDomControlSources";
+import { getGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
+import {
+  getGpuRetainedDomControlSnapshotSurfaceId,
+  getGpuRetainedDomControlSources,
+} from "./retainedDomControlSources";
 
 describe("getGpuRetainedDomControlSources", () => {
   it("derives DOM-plane descriptors from retained row geometry", () => {
@@ -27,6 +32,19 @@ describe("getGpuRetainedDomControlSources", () => {
         linePolicy: "single-line",
         rowId: "param-a",
         sectionId: "section-a",
+        snapshotCacheKey: expect.objectContaining({
+          appThemeRevision: "setta-app-theme:inherited",
+          codeMirrorThemeRevision:
+            "setta-codemirror-theme:use-code-mirror-style",
+          cssStyleRevision: expect.any(String),
+          devicePixelRatioBucket: 1,
+          editorExtensionGeneration: "text|single-line|nowrap",
+          fontGeneration: "document-fonts:runtime",
+          measuredLayoutMode: "single-line",
+          syntaxGeneration: "python",
+          value: "alpha",
+          zoomBucket: 1,
+        }),
         sourceId: "retained-dom-control:surface-a:param-a",
         sourceRectCssPx: {
           height: 24,
@@ -34,8 +52,16 @@ describe("getGpuRetainedDomControlSources", () => {
           x: 0,
           y: 0,
         },
+        snapshotSurfaceId: null,
         surfaceId: "surface-a",
         value: "alpha",
+        visualPolicy: "live-dom",
+        visualSemantics: {
+          accessibility: "visual-only-aria-hidden",
+          focusable: false,
+          pointer: "retained-activation-model",
+          selectable: "none",
+        },
         viewportRectCssPx: {
           height: 24,
           width: 80,
@@ -87,7 +113,7 @@ describe("getGpuRetainedDomControlSources", () => {
 
   it("projects DOM-plane descriptor geometry through the retained runtime viewport", () => {
     const runtimeFrame = createGpuRetainedRuntimeFrame({
-      devicePixelRatioBucket: 1,
+      devicePixelRatioBucket: 2,
       frameId: 1,
       scene: scene({ activeSecondRow: true, rowCount: 2 }),
       scrollOffsets: new Map(),
@@ -105,6 +131,71 @@ describe("getGpuRetainedDomControlSources", () => {
       x: 265,
       y: 95,
     });
+    expect(source?.snapshotCacheKey).toEqual(
+      expect.objectContaining({
+        devicePixelRatioBucket: 2,
+        zoomBucket: 2,
+      }),
+    );
+  });
+
+  it("classifies excess visible passive rows as bounded browser snapshot actors", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 2,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const sources = runtimeFrame.descriptors.domControlSources;
+    const liveSources = sources.filter(
+      (source) => source.visualPolicy === "live-dom",
+    );
+    const snapshotSources = sources.filter(
+      (source) => source.visualPolicy === "snapshot",
+    );
+
+    expect(liveSources.length).toBeGreaterThanOrEqual(24);
+    expect(liveSources.length).toBeLessThanOrEqual(32);
+    expect(snapshotSources.length).toBeGreaterThan(0);
+    expect(liveSources.length + snapshotSources.length).toBe(80);
+    expect(snapshotSources[0]).toEqual(
+      expect.objectContaining({
+        projectionVisibility: "viewport-visible",
+        snapshotSurfaceId: getGpuRetainedDomControlSnapshotSurfaceId(
+          snapshotSources[0]!,
+        ),
+      }),
+    );
+
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: runtimeFrame,
+    });
+    expect(committedFrame.projectionHorizon.textActorCoverage).toEqual(
+      expect.objectContaining({
+        exactLiveDomActorIds: expect.arrayContaining(
+          liveSources.map((source) => source.sourceId),
+        ),
+        exactSnapshotActorIds: expect.arrayContaining(
+          snapshotSources.map((source) => source.sourceId),
+        ),
+      }),
+    );
+    expect(committedFrame.diagnostics.textActorExactCoverageCount).toBe(80);
+
+    expect(
+      getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources)[0],
+    ).toEqual(
+      expect.objectContaining({
+        actorKind: "dom-control",
+        layer: "page",
+        surfaceId: snapshotSources[0]?.snapshotSurfaceId,
+        textureContentKey: snapshotSources[0]?.snapshotCacheKeyRevision,
+      }),
+    );
   });
 });
 
@@ -113,11 +204,13 @@ function scene({
   firstValue = "alpha",
   rowCount = 2,
   scrollY = 0,
+  surfaceHeight = 48,
 }: {
   readonly activeSecondRow?: boolean | undefined;
   readonly firstValue?: string | undefined;
   readonly rowCount?: number | undefined;
   readonly scrollY?: number | undefined;
+  readonly surfaceHeight?: number | undefined;
 } = {}): GpuFlowScene {
   const retainedScene = createGpuRetainedRowContentScene({
     controlWidth: 80,
@@ -132,15 +225,15 @@ function scene({
       ),
     ),
     scrollOffset: { x: 0, y: scrollY },
-    viewportRect: { height: 48, width: 200, x: 0, y: 0 },
+    viewportRect: { height: surfaceHeight, width: 200, x: 0, y: 0 },
   });
   return {
     contentSurfaces: [
       {
-        clipRect: { height: 200, width: 200, x: 0, y: 0 },
+        clipRect: { height: surfaceHeight, width: 200, x: 0, y: 0 },
         id: "surface-a",
         ownerSectionId: "section-a",
-        rect: { height: 48, width: 200, x: 10, y: 20 },
+        rect: { height: surfaceHeight, width: 200, x: 10, y: 20 },
         renderer: { kind: "canvas-content", surfaceId: "surface-a" },
         retainedScene,
         zIndex: 7,

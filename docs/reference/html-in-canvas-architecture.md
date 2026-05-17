@@ -453,11 +453,22 @@ together. Prepared retained runtime frames can schedule work and diagnostics,
 but they do not independently update the visible DOM-control or DOM-island
 layers.
 DOM-owned text-like retained controls use the same committed actor host for
-passive and active DOM-plane rendering: passive controls are viewport-projected
-`DummyCodeMirror` display hosts, while active controls render `ParamInput`,
-focus normally, and replay pointer activation when present. Canvas retained row
-drawing owns the row shell, label, focus treatment, hover, and clipping, but it
-does not draw text-like value pixels for DOM-owned controls.
+passive and active browser rendering. Readable passive controls are
+viewport-projected `DummyCodeMirror` display hosts, while excess visible
+passive controls enter a bounded snapshot source lane rendered by
+`GpuRetainedDomControlSnapshotSourceLayer`. Those snapshot sources are
+browser-rendered `DummyCodeMirror` DOM captured through the normal HTML
+surface texture path and composed as `dom-control` page overlays. Active
+controls render `ParamInput`, focus normally, and replay pointer activation
+when present. Canvas retained row drawing owns the row shell, label, focus
+treatment, hover, and clipping, but it does not draw text-like value pixels for
+DOM-owned controls.
+Each committed text actor carries separate visual and semantic generation ids,
+a canonical browser-rendered snapshot cache-key revision, and an explicit
+coverage proof (`exact-live-dom`, `exact-snapshot`, `compatible-previous`,
+`blocked-awaiting-browser-visual`, or `true-hole`). Passive readable hosts are
+visual-only DOM (`aria-hidden`, not focusable, non-selectable, and activated
+through retained hit handling); active hosts expose the real browser editor.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -544,7 +555,8 @@ Content, paint, upload, and maintenance frames follow this shape:
    canvas retained frame, projected DOM controls, DOM islands, retained HTML
    texture actors, retained native visuals, hit generation, debug snapshots,
    retained scroll revision, and clip-chain revision. Visible DOM-control
-   completeness is recorded on this boundary.
+   completeness, text actor coverage proof, snapshot cache-key revision, and
+   text activation policy are recorded on this boundary.
 6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
@@ -645,13 +657,11 @@ Retained parameter content has a separate texture lifecycle. The retained page
 manager rasterizes retained scenes into page textures with a scratch 2D canvas,
 uploads those pages with `GPUQueue.copyExternalImageToTexture`, and evicts
 retained pages independently from HTML source textures. Retained page
-rasterization does not special-case `renderOwner`; it draws the retained row
-commands that are present in the scene. Text-like retained values are skipped
-only while the row state is `nativeControlActive`, so current project text-like
-rows draw passive values into retained pages and replace those value pixels with
-an active DOM island during editing. DOM-owned text-like descriptors, when
-present, are additionally projected by committed DOM-control actors above the
-canvas.
+rasterization draws retained row commands for row structure, labels, non-text
+controls, and chrome. Text-like value pixels are excluded from retained page
+rasterization: passive readable text is projected by committed DOM-control
+actors above the canvas, and active editing renders `ParamInput` through the
+same committed host.
 
 ## WebGPU Scene Rendering
 
@@ -787,9 +797,11 @@ DOM-owned, or GPU-native. `createGpuRetainedRowContentScene()` turns those row
 inputs into structural draw commands, hit records, popup records, scrollbar
 commands, row order, visible row ranges, and control descriptors. The retained
 page rasterizer filters scrollbar commands because scrollbars are drawn as
-overlay-owned native visuals. Text-like controls are drawn by
-`retainedContentTextLikeCanvas.ts`; value text is skipped only when the row is
-`nativeControlActive`.
+overlay-owned native visuals. Text-like control chrome can be drawn by
+`retainedContentTextLikeCanvas.ts`, but text-like value pixels are not drawn by
+the retained canvas. Readable passive text values are browser-rendered
+`DummyCodeMirror` actors in the DOM-control plane, and active editing swaps the
+same committed host to `ParamInput`.
 
 The retained renderer uses texture pages:
 
@@ -820,11 +832,12 @@ The retained renderer uses texture pages:
   DOM and active hosts render `ParamInput` in the same committed projected host;
   both are clipped to the retained surface and projected through the live
   viewport as real DOM.
-- Current project text-like parameter descriptors set `renderOwner` to
-  `"canvas-owned"` and `commitPolicy` to `"native-island"`, so they are drawn
-  into retained pages while passive and use `GpuDomIslandLayer` for active
-  editing. Other DOM-owned families such as native date/time, password,
-  dropzone, native color fallback, and label editing also use DOM islands.
+- Current project text-like parameter descriptors are DOM-owned readable
+  controls. They publish committed DOM-control actors with explicit text
+  coverage proof, so passive and active text pixels come from browser DOM rather
+  than custom canvas text metrics. Other DOM-owned families such as native
+  date/time, password, dropzone, native color fallback, and label editing use
+  DOM islands.
 
 Retained scrollbars, row-hover state, and switch transitions are GPU-native
 rounded-rect visuals layered with the retained pages. Static page textures cache
@@ -1003,11 +1016,10 @@ Parameter controls are split by commit policy:
 - `preview-commit`: range controls such as sliders and rotaries preview during
   pointer, keyboard, or wheel interaction and commit when the interaction ends.
 - `native-island`: browser-owned controls. Current project text-like controls
-  draw passive values in retained pages and activate through
-  `GpuDomIslandLayer`; DOM-owned text-like descriptors in the reusable runtime
-  activate through committed DOM-control actor projection. Password entry,
-  dropzones, native date/time fields, color input fallback, and editable
-  parameter labels use `GpuDomIslandLayer`.
+  publish passive `DummyCodeMirror` DOM actors and activate `ParamInput`
+  through committed DOM-control actor projection. Password entry, dropzones,
+  native date/time fields, color input fallback, and editable parameter labels
+  use `GpuDomIslandLayer`.
 
 `projectGpuParamDomIslandGeometry.ts` computes island geometry for controls and
 editable labels that use `GpuDomIslandLayer` and clips it to the retained

@@ -35,11 +35,15 @@ describe("GPU Flow committed surface frame", () => {
         rowId: "param-a",
         actorFamily: "text-like-dom-control",
         accessibilityProjection: "browser-dom",
-        activationPolicy: "activate-to-edit",
+        activationPolicy: "requires-current-visual",
         textCoverageProof: expect.objectContaining({
+          activationPolicy: "requires-current-visual",
+          focusable: false,
+          pointerSemantics: "retained-activation-model",
           projectionCoverage: "exact-live-dom",
           rendererSource: "browser-dom",
           role: "text-like",
+          selectable: "none",
         }),
         wheelPolicy: "retained-scroll-or-editor-scroll",
       }),
@@ -48,16 +52,23 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.displayCompleteness.visibleNonemptyDomControlCount).toBe(1);
     expect(frame.publishability).toEqual(
       expect.objectContaining({
+        kind: "publishable",
         status: "startup",
         textActorCount: 1,
         textActorExactCoverageCount: 1,
         visibleNonemptyTextActorCount: 1,
       }),
     );
+    expect(
+      frame.projectionHorizon.actorFamilyCoverage.domControlActorIds,
+    ).toEqual(["retained-dom-control:dict-a:param-content:unpinned:param-a"]);
     expect(frame.projectionHorizon.textActorCoverage).toEqual({
+      blockedAwaitingBrowserVisualActorIds: [],
+      compatiblePreviousActorIds: [],
       exactLiveDomActorIds: [
         "retained-dom-control:dict-a:param-content:unpinned:param-a",
       ],
+      exactSnapshotActorIds: [],
       trueHoleActorIds: [],
     });
   });
@@ -151,6 +162,13 @@ describe("GPU Flow committed surface frame", () => {
 
     expect(createGpuFlowCommittedSurfaceFrameRenderSignature(first)).not.toBe(
       createGpuFlowCommittedSurfaceFrameRenderSignature(second),
+    );
+    expect(
+      first.actorGenerations.find((actor) => actor.kind === "dom-control")
+        ?.visualGenerationId,
+    ).not.toBe(
+      second.actorGenerations.find((actor) => actor.kind === "dom-control")
+        ?.visualGenerationId,
     );
   });
 
@@ -256,6 +274,26 @@ describe("GPU Flow committed surface frame", () => {
 
     expect(() => assertGpuFlowCommittedSurfaceFrameCoherent(blocked)).toThrow(
       /unprojected visible nonempty DOM controls/,
+    );
+  });
+
+  it("reports typed publishability and retained-scroll horizon diagnostics", () => {
+    const frame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({ frameId: 6 }),
+    });
+
+    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.projectionHorizon.retainedScrollSurfaces[0]).toEqual(
+      expect.objectContaining({
+        preparedScrollRange: {
+          x: { max: 0, min: 0 },
+          y: { max: 6, min: 6 },
+        },
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+    );
+    expect(frame.projectionHorizon.textActorCoverage.trueHoleActorIds).toEqual(
+      [],
     );
   });
 });

@@ -662,6 +662,8 @@ The branch moved GPU Flow in these directions:
     viewport and retained-scroll reasons.
 13. From canvas-drawn text-like passive values back to browser-owned readable
     DOM actors with explicit committed-frame coverage proof.
+14. From live-only passive text actors to bounded browser-rendered snapshot
+    artifacts for excess visible passive controls.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
@@ -691,6 +693,7 @@ Useful reports from this branch:
 - [GPU Flow DOM control plane refactor after report](../../perf/reports/gpu-flow-dom-control-plane-refactor-after-20260517.md)
 - [Committed surface actor refactor strict sample](../../perf/reports/frontend/2026-05-17_gpu-flow-committed-surface-actor-refactor-strict.jsonl)
 - [GPU Flow canvas-first committed surface runtime](../../perf/reports/frontend/2026-05-18_gpu-flow-canvas-first-committed-surface-runtime.md)
+- [GPU Flow content projection runtime refactor after report](../../perf/reports/gpu-flow-content-projection-runtime-after-20260518.md)
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more

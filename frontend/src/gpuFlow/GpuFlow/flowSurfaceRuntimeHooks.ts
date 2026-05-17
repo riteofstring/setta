@@ -18,6 +18,7 @@ import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
+import { normalizeGpuViewport } from "../viewportMath";
 import {
   createGpuFlowViewportRuntime,
   type GpuFlowViewportRuntime,
@@ -89,7 +90,11 @@ export function useGpuFlowNodeScreenRectDebug({
       if (!container || !node || node.width === null || node.height === null) {
         return null;
       }
-      const [viewportX, viewportY, zoom] = nodeLayerRef.current.viewport;
+      const {
+        x: viewportX,
+        y: viewportY,
+        zoom,
+      } = normalizeGpuViewport(nodeLayerRef.current.viewport);
       const containerRect = container.getBoundingClientRect();
       return {
         height: node.height * zoom,
