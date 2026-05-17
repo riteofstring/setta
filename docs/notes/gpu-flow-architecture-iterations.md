@@ -6,7 +6,7 @@ This note summarizes the GPU Flow architecture work from the last six days of
 commits, reviewed with:
 
 ```sh
-git log --since='6 days ago'
+git log --since='2026-05-11 00:00'
 ```
 
 It is a narrative companion to
@@ -215,21 +215,21 @@ The result is a cleaner split:
 - diagnostics explain publication outcomes without relying on renderer internals
   as the public contract.
 
-## Iteration 7: Revisit Text-Like Control Ownership
+## Iteration 7: Move Text-Like Controls Onto A DOM Plane
 
 Representative commits:
 
 - `ba99f7387` Implement retained DOM control rendering
 - `39a482577` docs: plan GPU Flow DOM control plane refactor
 - `b6b0d85a7` docs: tighten GPU Flow DOM control plane plan
-- `5a43c0a3a` docs: update html in canvas architecture
+- `63ea9305b` Implement GPU Flow DOM control plane
 
 Text-like retained controls have been the hardest boundary. They need browser
 text editing semantics, but retained content wants cached, page-rasterized
 visuals.
 
-The implemented step moved from canvas-drawn text-like snapshots to retained
-DOM-control sources:
+The first implementation step moved from canvas-drawn text-like snapshots to
+retained DOM-control sources:
 
 - passive text-like control DOM is mounted as source material;
 - retained page upload copies those DOM controls into page texture slots;
@@ -240,20 +240,61 @@ DOM-control sources:
 
 That improved the ownership model compared with hand-rendered text-like canvas
 approximations, but it still kept visible passive controls on a retained texture
-correctness path. The latest
-[DOM control plane plan](../plans/gpu-flow-dom-control-plane-refactor-plan.md)
-is the architectural response to the remaining failure mode: DOM source state
-can be correct while copied retained pixels are blank or stale.
+correctness path.
 
-The planned direction is now clearer:
+The implemented DOM-control plane removed that correctness path for visible
+text-like controls:
 
-- retained GPU pages should render section structure, labels, rows,
-  decorations, canvas-owned controls, scrollbars, and GPU-native visuals;
-- visible DOM-owned text-like controls should render as projected real DOM;
-- focus, typing, caret, selection, IME, accessibility, and native input events
-  should stay on the DOM path;
-- retained page publication should stop treating DOM-control texture snapshots
-  as the correctness path for visible editable controls.
+- `GpuFlowDomControlPlane` became a real viewport-positioned sibling of the
+  canvas;
+- passive controls render as projected `DummyCodeMirror` display hosts, while
+  active controls render `ParamInput` from the same descriptor family;
+- retained page rasterization keeps the structural row shell, control slot, and
+  active/selected underline, but no longer owns text-like value pixels;
+- the old retained DOM-control texture slot path was deleted instead of kept as
+  a fallback;
+- observed-regression coverage was added around retained DOM-control blanking,
+  scroll, activation, visual parity, and performance-sensitive settings paths.
+
+This made the browser the visible correctness path for text-like value pixels,
+caret, selection, IME, focus, and accessibility. The retained GPU path still
+owns the surrounding row structure and canvas-native controls.
+
+## Iteration 8: Name The Remaining Commit Boundary
+
+Representative commits:
+
+- `30c3cd672` docs: plan committed gpu flow surface actors
+- `d8f756b54` docs: tighten committed gpu flow surface actor plan
+- `c60e80a21` docs: update html-in-canvas architecture
+
+The DOM-control plane fixed the texture-copy problem, but it exposed a more
+general compositor problem: visible layers can still be sampled from different
+generations. A retained page can hold a previous coherent display frame while a
+DOM control layer advances to a prepared frame, or a wheel gesture can cross a
+projected `.nopan` control and change ownership mid-burst.
+
+The latest architecture iteration is therefore the
+[committed surface actor plan](../plans/gpu-flow-committed-surface-actor-refactor-plan.md).
+It reframes the next step around one committed display transaction:
+
+- retained GPU pages, projected DOM controls, DOM islands, hit testing, debug
+  snapshots, retained scroll samples, clipping, z-order, and interaction owner
+  state should be driven by one committed surface frame;
+- prepared frames may queue retained page work and candidate actor generations,
+  but they must not independently drive visible DOM;
+- visible DOM controls become first-class surface actors with mount,
+  projection, clip-chain, value/style, focus, and pointer/wheel policy in their
+  generation;
+- retained pages keep structural content and canvas-native visuals, while
+  text-like value pixels, caret, selection, and IME visuals remain DOM-owned;
+- a visible nonempty DOM-control actor is a display completeness requirement,
+  not an optional overlay beside the retained compositor.
+
+This is not complete implementation yet. It is the architectural correction that
+follows from the last six days: the system needs one committed frame for what
+the user sees and interacts with, not a retained transaction plus a separately
+advanced DOM-control overlay.
 
 ## Current Architecture After These Iterations
 
@@ -270,17 +311,23 @@ GPU Flow now has these major architectural boundaries:
   retained texture pages.
 - GPU-native retained visuals handle scrollbars, row hover, and switch
   transitions without dirtying static retained pages for every visual tick.
-- DOM islands and active retained DOM controls preserve browser-owned semantics
-  for controls that should not be emulated by canvas.
+- `GpuFlowDomControlPlane` renders visible text-like retained controls as real
+  DOM, while retained pages render their surrounding row structure and
+  canvas-owned shell.
+- DOM islands preserve browser-owned semantics for non-text-like controls and
+  editable labels that should not be emulated by canvas.
 - The retained display path publishes through explicit transaction and coverage
   proof, not through opportunistic page repair.
 - `surfaceCompositor/` gives the runtime a shared vocabulary for actors,
   generations, coverage, protected resources, draw order, hit indexes, and
   follow-up work.
+- The committed surface actor plan is the current target for making retained
+  pages, DOM controls, DOM islands, hit testing, debug snapshots, scroll
+  samples, and wheel ownership consume the same committed frame.
 
 ## Design Direction
 
-The six-day arc moved GPU Flow in five important ways:
+The six-day arc moved GPU Flow in seven important ways:
 
 1. From canvas-owned everything to ownership by interaction semantics.
 2. From scene mutation during interactions to sampled runtime frames.
@@ -288,12 +335,16 @@ The six-day arc moved GPU Flow in five important ways:
 4. From pre-publish repair to publishable transactions plus scheduler-owned
    maintenance.
 5. From retained-only compositor rules to generalized surface actor rules.
+6. From copied retained text-like snapshots to visible projected DOM controls.
+7. From independently advanced visible layers toward one committed surface
+   frame.
 
-The remaining pressure is text-like controls. The architecture has enough
-transaction and coverage machinery to avoid publishing incoherent retained
-frames, but live editable controls are still better modeled as DOM-owned visual
-surfaces than as copied retained page pixels. The DOM control plane plan is the
-next iteration that follows from the commit history.
+The remaining pressure is no longer whether text-like controls should be DOM
+owned. That decision has been made in code. The pressure is coherence: the DOM
+control plane, DOM islands, retained pages, hit testing, scroll samples, and
+wheel gesture owner need to be published from the same committed frame. The
+committed surface actor plan is the next iteration that follows from the commit
+history.
 
 ## Verification Trail
 
@@ -303,6 +354,7 @@ Useful reports from this run:
 - [GPU Flow scroll-first retained compositor refactor](../../perf/reports/frontend/2026-05-15_gpu-flow-scroll-first-retained-compositor-refactor.md)
 - [GPU Flow transactional retained compositor](../../perf/reports/frontend/2026-05-15_gpu-flow-transactional-retained-compositor.md)
 - [GPU Flow transactional surface compositor after report](../../perf/reports/gpu-flow-transactional-surface-compositor-after-20260516.md)
+- [GPU Flow DOM control plane refactor after report](../../perf/reports/gpu-flow-dom-control-plane-refactor-after-20260517.md)
 
 These reports show the same architectural progression from a different angle:
 fewer hidden publication decisions, more explicit diagnostics, and regression
