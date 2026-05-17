@@ -15,7 +15,7 @@ type HtmlSurfaceInteractionProjectionInput = {
   readonly surfaceY: number;
 };
 
-export type HtmlSurfaceInteractionTarget = {
+type HtmlSurfaceInteractionTarget = {
   readonly localX: number;
   readonly localY: number;
   readonly sourceElement: HTMLElement;
@@ -39,7 +39,7 @@ export type HtmlSurfaceInteractionProjector = {
   getProjectedSourceId(): string | null;
 };
 
-export type HtmlSurfaceActiveDomIslandProjection = {
+type HtmlSurfaceActiveDomIslandProjection = {
   readonly display: string;
   readonly height: number;
   readonly left: number;

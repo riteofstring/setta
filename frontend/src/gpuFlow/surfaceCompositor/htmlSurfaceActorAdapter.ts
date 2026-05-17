@@ -35,7 +35,7 @@ export type HtmlSurfaceActorLayout = {
   readonly zIndex: number;
 };
 
-export type HtmlSurfaceActorSnapshot = {
+type HtmlSurfaceActorSnapshot = {
   readonly actor: SurfaceActor;
   readonly generation: SurfaceGeneration;
 };
@@ -47,7 +47,7 @@ export type HtmlSurfaceCompositorTextureSnapshot = {
   readonly textureSourceRect?: GpuRect | undefined;
 };
 
-export type HtmlSurfaceActorCoverageSnapshot = {
+type HtmlSurfaceActorCoverageSnapshot = {
   readonly actorSnapshots: readonly HtmlSurfaceActorSnapshot[];
   readonly coverageProof: SurfaceCoverageProof;
 };
@@ -90,7 +90,7 @@ export function createHtmlSurfaceActorCoverageSnapshot({
   });
 }
 
-export function createHtmlSurfaceActorSnapshot({
+function createHtmlSurfaceActorSnapshot({
   actorKind,
   layout,
 }: {

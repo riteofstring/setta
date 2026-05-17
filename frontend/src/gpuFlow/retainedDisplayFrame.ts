@@ -128,7 +128,7 @@ type RetainedFrameTransaction = {
   readonly previous: RetainedDisplayFrame | null;
 };
 
-export type RetainedDisplayFrameOutcome =
+type RetainedDisplayFrameOutcome =
   | { readonly frame: RetainedDisplayFrame; readonly kind: "publish-exact" }
   | {
       readonly frame: RetainedDisplayFrame;

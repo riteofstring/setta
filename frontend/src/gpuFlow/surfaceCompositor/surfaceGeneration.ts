@@ -3,12 +3,12 @@ import type { GpuRect } from "../viewportMath";
 export type SurfaceId = string;
 export type SurfaceGenerationId = string;
 export type SurfaceSourceKey = string;
-export type SurfaceContentVersion = number | string;
-export type SurfaceVisualVersion = number | string;
+type SurfaceContentVersion = number | string;
+type SurfaceVisualVersion = number | string;
 
-export type SurfaceReadiness = "missing" | "pending" | "ready";
+type SurfaceReadiness = "missing" | "pending" | "ready";
 
-export type SurfaceFidelity =
+type SurfaceFidelity =
   | "exact"
   | "compatible"
   | "compatible-lower-lod"
@@ -25,17 +25,17 @@ export type SurfaceRendererBucket =
   | "drag-overlay"
   | "native-control";
 
-export type SurfaceSourceWindow = {
+type SurfaceSourceWindow = {
   readonly sourceRect: GpuRect;
   readonly contentToTextureKey: string;
 };
 
-export type SurfaceHitIndex = {
+type SurfaceHitIndex = {
   readonly generationId: SurfaceGenerationId;
   readonly entries: readonly SurfaceHitIndexEntry[];
 };
 
-export type SurfaceHitIndexEntry = {
+type SurfaceHitIndexEntry = {
   readonly id: string;
   readonly rect: GpuRect;
   readonly role: string;

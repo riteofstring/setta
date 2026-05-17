@@ -20,7 +20,7 @@ import {
 } from "./surfaceGeneration";
 import type { SurfaceWorkRequest } from "./surfaceScheduler";
 
-export type SurfaceMotionFrame = {
+type SurfaceMotionFrame = {
   readonly activeIslands: readonly SurfaceActiveDomIslandGeneration[];
   readonly retainedScrollOffset: number | null;
   readonly viewport: {
@@ -38,17 +38,17 @@ export type SurfaceDrawCommand = {
   readonly zIndex: number;
 };
 
-export type SurfaceTransactionHitIndex = {
+type SurfaceTransactionHitIndex = {
   readonly generationIds: readonly SurfaceGenerationId[];
   readonly id: string;
 };
 
-export type SurfaceActiveDomIslandTransaction = {
+type SurfaceActiveDomIslandTransaction = {
   readonly islands: readonly SurfaceActiveDomIslandGeneration[];
   readonly mode: "attach" | "hold-previous" | "none";
 };
 
-export type SurfaceDisplayTransactionDiagnostics = {
+type SurfaceDisplayTransactionDiagnostics = {
   readonly hold: SurfaceTransactionHoldDiagnostics | null;
   readonly publishedAtMs: number;
 };
@@ -68,18 +68,18 @@ export type SurfaceDisplayTransaction = {
   readonly zOrder: readonly SurfaceId[];
 };
 
-export type SurfaceTransactionBlockReason =
+type SurfaceTransactionBlockReason =
   | "active-dom-island-incoherent"
   | "coverage-missing"
   | "generation-incoherent"
   | "render-order-incoherent";
 
-export type SurfaceFirstCoverageReason =
+type SurfaceFirstCoverageReason =
   | "coverage-missing"
   | "not-yet-paint-ready"
   | "texture-missing";
 
-export type SurfaceTransactionOutcome =
+type SurfaceTransactionOutcome =
   | {
       readonly kind: "publish-exact";
       readonly transaction: SurfaceDisplayTransaction;
@@ -205,13 +205,13 @@ export function selectPublishedSurfaceTransaction({
   return null;
 }
 
-export function assertSurfaceDisplayTransactionPublishable(
+function assertSurfaceDisplayTransactionPublishable(
   transaction: Pick<SurfaceDisplayTransaction, "coverageProof">,
 ): void {
   assertSurfaceCoverageHasNoTrueHoles(transaction.coverageProof);
 }
 
-export function assertSurfaceGenerationIdsStable(
+function assertSurfaceGenerationIdsStable(
   generations: readonly SurfaceGeneration[],
 ): void {
   const generationIdBySurfaceId = new Map<SurfaceId, SurfaceGenerationId>();
@@ -226,7 +226,7 @@ export function assertSurfaceGenerationIdsStable(
   }
 }
 
-export function assertSurfaceTransactionRenderOrder(
+function assertSurfaceTransactionRenderOrder(
   transaction: Pick<
     SurfaceDisplayTransaction,
     "drawCommands" | "rendererBuckets" | "zOrder"

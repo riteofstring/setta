@@ -46,7 +46,7 @@ const RETAINED_COMPATIBILITY_PROOF: SurfaceCompatibilityProof = Object.freeze({
   rejectedCandidates: Object.freeze([]),
 });
 
-export type RetainedSurfaceTransactionSnapshot = {
+type RetainedSurfaceTransactionSnapshot = {
   readonly actorSnapshots: readonly SurfaceActorSnapshot[];
   readonly transaction: SurfaceDisplayTransaction;
 };

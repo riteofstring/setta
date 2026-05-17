@@ -7,7 +7,7 @@ import {
   type SurfaceRendererBucket,
 } from "./surfaceGeneration";
 
-export type SurfaceCoverageFidelity = "exact" | "compatible";
+type SurfaceCoverageFidelity = "exact" | "compatible";
 
 export type SurfaceResourceProtectionReason =
   | "published-transaction"
