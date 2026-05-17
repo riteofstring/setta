@@ -24,7 +24,7 @@ export function resolveGpuFlowDomControlCompatiblePreviousAssignments({
   return assignments.map((assignment) => {
     if (
       remainingCompatiblePreviousBudget <= 0 ||
-      assignment.coverageState !== "blocked-awaiting-live-host"
+      !canUseGpuFlowDomControlCompatiblePreviousCoverage(assignment)
     ) {
       return assignment;
     }
@@ -50,6 +50,15 @@ export function resolveGpuFlowDomControlCompatiblePreviousAssignments({
       reason: "compatible-previous-proof",
     };
   });
+}
+
+function canUseGpuFlowDomControlCompatiblePreviousCoverage(
+  assignment: GpuFlowDomControlProjectionAssignment,
+): boolean {
+  return (
+    assignment.coverageState === "blocked-awaiting-browser-visual" ||
+    assignment.coverageState === "blocked-awaiting-live-host"
+  );
 }
 
 export function createGpuFlowDomControlPromotedRepresentationMap({

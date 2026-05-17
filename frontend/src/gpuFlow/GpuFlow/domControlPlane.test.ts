@@ -273,6 +273,44 @@ describe("GPU flow DOM control plane", () => {
       coverageState: "blocked-awaiting-live-host",
     });
   });
+
+  it("uses compatible-previous coverage while a browser visual is pending", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+    const manager = createGpuFlowDomControlProjectionManager();
+    manager.promote(
+      manager.prepare({
+        controls,
+        getRetainedScrollOffset: undefined,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportSize: { height: 60, width: 400 },
+      }),
+    );
+
+    const assignments = manager.prepare({
+      controls: controls.map((control) =>
+        control.rowId === "row-0"
+          ? {
+              ...control,
+              visualPolicy: "blocked-awaiting-browser-visual",
+            }
+          : control,
+      ),
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(assignmentForRow(assignments, "row-0")).toMatchObject({
+      compatibilityProof: expect.objectContaining({
+        reasonCode: "same-value-and-geometry",
+      }),
+      coverageState: "compatible-previous",
+      phase: "project",
+      reason: "compatible-previous-proof",
+    });
+  });
 });
 
 function assignmentForRow(
