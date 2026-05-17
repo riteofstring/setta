@@ -218,6 +218,8 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     nodeInteractionRef: input.nodeInteractionRef,
     nodeLayerRef,
     projectionTransaction,
+    projectionSchedulerKnobs:
+      input.visiblePublicationSchedulerRef.current.getKnobs(),
     heldPreviousProjectionState: input.visibleProjectionStateRef.current,
     htmlSurfaceRendererRef: input.htmlSurfaceRendererRef,
     retainedContentPageManagerRef: input.retainedContentPageManagerRef,
@@ -239,6 +241,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     input.visibleProjectionStateRef.current =
       createGpuFlowVisibleProjectionState({
         committedFrame: visibleCommittedFrame,
+        heldPreviousProjection: rendered.heldPreviousProjection,
         transaction: rendered.transaction,
       });
   }

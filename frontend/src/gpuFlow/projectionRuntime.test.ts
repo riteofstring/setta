@@ -1,12 +1,17 @@
+/* @vitest-environment jsdom */
+
 import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import {
+  createGpuFlowHeldPreviousProjection,
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionHorizonObligations,
   createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleProjectionState,
   createGpuFlowVisiblePublicationScheduler,
   getGpuFlowVisiblePublicationDebtReason,
+  setProjectionDebugAttributes,
 } from "./projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "./retainedContentRuntimeState";
 
@@ -226,6 +231,67 @@ describe("GPU Flow projection runtime", () => {
         kind: "near-future",
       }),
     ]);
+  });
+
+  it("exposes held-previous diagnostics on visible debug attributes", () => {
+    const previousTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: 42,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample(4),
+      });
+    const previousState = createGpuFlowVisibleProjectionState({
+      committedFrame: {
+        coherence: {
+          hitGenerationId: "hit-42",
+        },
+        displayFrameId: 42,
+      } as GpuFlowCommittedSurfaceFrame,
+      transaction: previousTransaction,
+    });
+    const heldTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: 42,
+        kind: "held-previous",
+        lane: "motion",
+        rawReasons: ["retained-scroll", "paint"],
+        sample: liveSample(4),
+      });
+    const heldPreviousProjection = createGpuFlowHeldPreviousProjection({
+      heldTransaction,
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 6,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 0,
+        maxHeldPreviousMs: 5,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+      previousVisibleProjectionState: previousState,
+      reason: "retained-projection-coverage-missing",
+      requestedSample: liveSample(12),
+    });
+    const heldState = createGpuFlowVisibleProjectionState({
+      committedFrame: previousState.committedFrame,
+      heldPreviousProjection,
+      transaction: heldTransaction,
+    });
+    const element = document.createElement("div");
+
+    setProjectionDebugAttributes(element, heldState.debugState);
+
+    expect(element.dataset.gpuFlowHeldPreviousFrameCount).toBe("1");
+    expect(element.dataset.gpuFlowHeldPreviousDurationMs).toBe("0");
+    expect(element.dataset.gpuFlowHeldPreviousOverBudget).toBe("true");
+    expect(element.dataset.gpuFlowHeldPreviousReason).toBe(
+      "retained-projection-coverage-missing",
+    );
+    expect(element.dataset.gpuFlowHeldPreviousRequestedSampleId).toBe("12");
+    expect(element.dataset.gpuFlowProjectionTransactionKind).toBe(
+      "held-previous",
+    );
   });
 });
 

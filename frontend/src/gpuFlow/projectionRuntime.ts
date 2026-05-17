@@ -1,6 +1,11 @@
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import type { GpuCanvasSize, GpuFrameReason } from "./gpuRenderer";
 import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
+import type {
+  GpuFlowHeldPreviousProjection,
+  GpuFlowHeldPreviousProjectionDebugState,
+} from "./projectionHeldPrevious";
+import { createGpuFlowHeldPreviousDebugState } from "./projectionHeldPrevious";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
@@ -12,6 +17,16 @@ import {
   type GpuRect,
   type GpuViewportInput,
 } from "./viewportMath";
+
+export {
+  applyGpuFlowProjectionDebugAttributes,
+  setProjectionDebugAttributes,
+} from "./projectionDebugAttributes";
+export { createGpuFlowHeldPreviousProjection } from "./projectionHeldPrevious";
+export type {
+  GpuFlowHeldPreviousProjection,
+  GpuFlowHeldPreviousProjectionDebugState,
+} from "./projectionHeldPrevious";
 
 export type GpuFlowProjectionLane = "content" | "maintenance" | "motion";
 
@@ -123,19 +138,6 @@ export type GpuFlowCompatibilityProof =
       readonly proof: GpuFlowTextControlCompatibilityProof;
     };
 
-export type GpuFlowHeldPreviousProjection = {
-  readonly activationMappingId: string;
-  readonly canvasDrawStateId: string;
-  readonly committedFrameId: number;
-  readonly debugStateId: string;
-  readonly domTransformBatchId: string;
-  readonly heldAtMs: DOMHighResTimeStamp;
-  readonly hitProjectionId: string;
-  readonly previousTransactionId: GpuFlowProjectionTransactionId;
-  readonly projectionSampleId: number;
-  readonly reason: string;
-};
-
 export type GpuFlowProjectionTransactionKind =
   | "content-publication"
   | "held-previous"
@@ -157,11 +159,12 @@ export type GpuFlowProjectionDebugState = {
   readonly projectionSampleId: number;
   readonly projectionTransactionId: GpuFlowProjectionTransactionId;
   readonly transactionKind: GpuFlowProjectionTransactionKind;
-};
+} & GpuFlowHeldPreviousProjectionDebugState;
 
 export type GpuFlowVisibleProjectionState = {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly debugState: GpuFlowProjectionDebugState;
+  readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly sample: GpuFlowLiveProjectionSample;
   readonly transaction: GpuFlowProjectionTransaction;
 };
@@ -199,6 +202,7 @@ export type GpuFlowVisiblePublicationDecision = {
 
 type GpuFlowVisiblePublicationScheduler = {
   completeFrame(decision: GpuFlowVisiblePublicationDecision): void;
+  getKnobs(): GpuFlowProjectionSchedulerKnobs;
   selectFrame(input: {
     readonly hasCommittedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
@@ -413,6 +417,9 @@ export function createGpuFlowVisiblePublicationScheduler({
         case "idle":
           break;
       }
+    },
+    getKnobs() {
+      return knobs;
     },
     selectFrame({
       hasCommittedContentFrame,
@@ -633,9 +640,15 @@ export function createGpuFlowProjectionTransactionForCommittedFrameId({
 
 export function createGpuFlowProjectionDebugState(
   transaction: GpuFlowProjectionTransaction,
+  heldPreviousProjection?: GpuFlowHeldPreviousProjection | null,
 ): GpuFlowProjectionDebugState {
+  const heldPreviousDebugState = createGpuFlowHeldPreviousDebugState({
+    heldPreviousProjection,
+    transactionKind: transaction.kind,
+  });
   return Object.freeze({
     committedFrameId: transaction.committedFrameId,
+    ...heldPreviousDebugState,
     lane: transaction.lane,
     projectionSampleId: transaction.sample.id,
     projectionTransactionId: transaction.id,
@@ -645,47 +658,25 @@ export function createGpuFlowProjectionDebugState(
 
 export function createGpuFlowVisibleProjectionState({
   committedFrame,
+  heldPreviousProjection = null,
   transaction,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly heldPreviousProjection?: GpuFlowHeldPreviousProjection | null;
   readonly transaction: GpuFlowProjectionTransaction;
 }): GpuFlowVisibleProjectionState {
+  const visibleHeldPreviousProjection =
+    transaction.kind === "held-previous" ? heldPreviousProjection : null;
   return Object.freeze({
     committedFrame,
-    debugState: createGpuFlowProjectionDebugState(transaction),
+    debugState: createGpuFlowProjectionDebugState(
+      transaction,
+      visibleHeldPreviousProjection,
+    ),
+    heldPreviousProjection: visibleHeldPreviousProjection,
     sample: transaction.sample,
     transaction,
   });
-}
-
-export function applyGpuFlowProjectionDebugAttributes({
-  canvas,
-  debugState,
-}: {
-  readonly canvas: HTMLCanvasElement;
-  readonly debugState: GpuFlowProjectionDebugState;
-}): void {
-  setProjectionDebugAttributes(canvas, debugState);
-  const root = canvas.ownerDocument.querySelector<HTMLElement>(
-    "[data-gpu-flow-dom-control-plane='true']",
-  );
-  if (root) {
-    setProjectionDebugAttributes(root, debugState);
-  }
-}
-
-export function setProjectionDebugAttributes(
-  element: HTMLElement,
-  debugState: GpuFlowProjectionDebugState,
-): void {
-  element.dataset.gpuFlowCommittedFrameId = String(debugState.committedFrameId);
-  element.dataset.gpuFlowProjectionLane = debugState.lane;
-  element.dataset.gpuFlowProjectionSampleId = String(
-    debugState.projectionSampleId,
-  );
-  element.dataset.gpuFlowProjectionTransactionId =
-    debugState.projectionTransactionId;
-  element.dataset.gpuFlowProjectionTransactionKind = debugState.transactionKind;
 }
 
 export function hasGpuFlowVisiblePublicationDebt(

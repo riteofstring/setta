@@ -5,10 +5,13 @@ import {
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
+  type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
@@ -48,14 +51,25 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
       gpuNativeVisuals: committedGpuNativeVisuals,
       retainedDisplayFrame: publishedRetainedFrame,
     });
-  return createGpuFlowVisibleProjectionState({
-    committedFrame: visibleCommittedFrame,
-    transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
+  const transaction: GpuFlowProjectionTransaction =
+    createGpuFlowProjectionTransactionForCommittedFrameId({
       committedFrameId: visibleCommittedFrame.displayFrameId,
       kind: heldPrevious ? "held-previous" : "content-publication",
       lane: publicationLane,
       rawReasons: frameReasons,
       sample: heldPrevious?.sample ?? liveProjectionSample,
-    }),
+    });
+  return createGpuFlowVisibleProjectionState({
+    committedFrame: visibleCommittedFrame,
+    heldPreviousProjection: heldPrevious
+      ? createGpuFlowHeldPreviousProjection({
+          heldTransaction: transaction,
+          knobs: DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+          previousVisibleProjectionState: heldPrevious,
+          reason: "retained-display-coverage-missing",
+          requestedSample: liveProjectionSample,
+        })
+      : null,
+    transaction,
   });
 }
