@@ -112,7 +112,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
   };
 }
 
-export function getGpuRetainedDomControlSnapshotSources(
+function getGpuRetainedDomControlSnapshotSources(
   controls: readonly GpuRetainedDomControlSourceDescriptor[] | undefined,
 ): readonly GpuRetainedDomControlSourceDescriptor[] {
   return (controls ?? []).filter(

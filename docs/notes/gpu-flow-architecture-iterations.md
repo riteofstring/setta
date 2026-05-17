@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 858 commits from 2026-04-28 through 2026-05-18. Not every
+That range contains 861 commits from 2026-04-28 through 2026-05-18. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -572,14 +572,21 @@ drive visible DOM or replace coherent content with startup placeholders.
 
 ## Iteration 17: Split Content Publication From Projection
 
+Representative commits:
+
+- `226dac66f` Refine GPU Flow committed runtime boundaries
+- `52943beb4` Refactor GPU flow projection runtime
+- `bdb1f9659` Implement GPU Flow projection runtime refactor
+
 The content-projection refactor corrected the interim canvas-first text path
 and hardened viewport/retained-scroll frame ownership.
 
 The important changes were:
 
 - readable text-like retained parameter rows are DOM-owned again; passive
-  values render through projected `DummyCodeMirror` browser DOM and active
-  editing renders `ParamInput` in the same committed DOM-control host;
+  values render through projected `DummyCodeMirror` browser DOM or snapshot
+  sources, and active editing stays browser-owned through sampled active
+  descriptors and the project DOM-island activation path;
 - canvas retained row drawing still owns labels, row chrome, focus treatment,
   hover, clipping, hit testing, scrollbars, and final GPU composition, but it
   no longer draws text-like value pixels for DOM-owned controls;
@@ -596,10 +603,13 @@ The important changes were:
 - retained-scroll projection remaps committed retained page visuals only for
   surfaces whose live scroll offset changed, while unchanged surfaces reuse the
   committed flat visuals;
-- the DOM-control plane mounts a bounded readable actor set, keeps hidden
-  low-LOD mounts limited, disables pointer events for passive display actors,
-  projects only mounted hosts on viewport frames, and samples live retained
-  scroll offsets so passive browser text stays attached during section scroll.
+- the DOM-control plane separates live browser text actors from capture-only
+  snapshot sources. Bounded visible actors are mounted and projected as real
+  DOM; excess readable passive controls render browser DOM into HTML-surface
+  snapshot textures with `exact-snapshot` coverage;
+- hidden low-LOD mounts stay bounded, pointer events stay disabled for passive
+  display actors, and live retained scroll offsets keep browser-rendered text
+  attached during section scroll.
 
 ## Current Architecture
 
@@ -619,9 +629,11 @@ After these iterations, GPU Flow has these major boundaries:
   retained texture pages.
 - GPU-native retained visuals handle scrollbars, row hover, and switch
   transitions without dirtying static retained pages for every visual tick.
-- Readable passive and active text-like retained values are browser-owned DOM
-  actors in the DOM-control plane; canvas retained drawing owns row chrome but
-  not text-like value pixels.
+- Readable passive text-like retained values are browser-owned DOM-control
+  actors: live projected hosts when budgeted, or browser-rendered snapshot
+  source textures when live projection is not available. Active text-like
+  editing stays browser-owned through active descriptors and the DOM-island
+  path. Canvas retained drawing owns row chrome but not text-like value pixels.
 - `GpuFlowDomControlPlane` and DOM islands preserve browser-owned semantics for
   text editing, non-text-like retained controls, and editable labels that
   should not be emulated by canvas.

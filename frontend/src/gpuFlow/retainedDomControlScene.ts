@@ -56,13 +56,13 @@ export type GpuRetainedDomControlVisualSemantics = {
   readonly selectable: "browser-editor" | "none";
 };
 
-export type GpuRetainedDomControlProjectionVisibility =
+type GpuRetainedDomControlProjectionVisibility =
   | "viewport-visible"
   | "overscan-visible"
   | "outside-viewport"
   | "clipped-empty";
 
-export type GpuRetainedDomControlVisualPolicy =
+type GpuRetainedDomControlVisualPolicy =
   | "live-dom"
   | "snapshot"
   | "blocked-awaiting-browser-visual"

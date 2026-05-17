@@ -142,7 +142,7 @@ export type GpuFlowCommittedSurfaceCompleteness = {
   readonly visibleNonemptyDomControlCount: number;
 };
 
-export type GpuFlowCoverageBlockReason =
+type GpuFlowCoverageBlockReason =
   | "text-actor-true-hole"
   | "visible-dom-control-not-projected";
 
