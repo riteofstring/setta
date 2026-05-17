@@ -8,6 +8,7 @@ import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll"
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
 import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuContentSurface } from "./scene";
+import type { GpuViewportInput } from "./viewportMath";
 
 type GpuRetainedContentFrameGeneration = {
   readonly contentPageSurfaces: readonly RetainedContentTexturePageFrameSurface[];
@@ -19,10 +20,16 @@ type GpuRetainedContentFrameGeneration = {
 export function createGpuRetainedContentFrameGeneration({
   contentSurfaces,
   scrollOffsets,
+  viewport,
+  viewportSize,
   viewportZoomBucket,
 }: {
   readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly viewport?: GpuViewportInput | undefined;
+  readonly viewportSize?:
+    | { readonly height: number; readonly width: number }
+    | undefined;
   readonly viewportZoomBucket: number;
 }): GpuRetainedContentFrameGeneration {
   assertGpuRetainedContentFrameGenerationSceneOnlyAccessAllowed();
@@ -36,6 +43,11 @@ export function createGpuRetainedContentFrameGeneration({
     contentPageSurfaces:
       getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
         sourceSurfaces,
+        {
+          viewport,
+          viewportSize,
+          viewportZoomBucket,
+        },
       ),
     domControlSources,
     sourceSurfaces,

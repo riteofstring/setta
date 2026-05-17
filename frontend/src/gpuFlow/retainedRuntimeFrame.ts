@@ -100,6 +100,8 @@ export function createGpuRetainedRuntimeFrame({
     getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
       sourceSurfaces,
       {
+        viewport,
+        viewportSize,
         viewportZoomBucket,
       },
     ),

@@ -137,7 +137,7 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(queue.hasWork()).toBe(false);
   });
 
-  it("allows bounded visible LOD refinement during viewport interaction", () => {
+  it("keeps visible LOD refinement queued during viewport interaction", () => {
     const queue = new RetainedTextureWorkQueue();
     queue.enqueue({
       contentVersion: 1,
@@ -155,14 +155,12 @@ describe("runRetainedTextureUploadScheduler", () => {
       viewportInteractionActive: true,
     });
 
-    expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
-      "surface-a",
-    ]);
+    expect(result.executedItems).toEqual([]);
     expect(result.budgetExhausted).toBe(false);
-    expect(queue.hasWork()).toBe(false);
+    expect(queue.hasWork()).toBe(true);
   });
 
-  it("limits visible LOD refinement during viewport interaction through the refinement budget", () => {
+  it("does not report active-motion refinement as uploadable budget pressure", () => {
     const queue = new RetainedTextureWorkQueue();
     queue.enqueue({
       contentVersion: 1,
@@ -184,13 +182,8 @@ describe("runRetainedTextureUploadScheduler", () => {
     });
 
     expect(result.executedItems).toEqual([]);
-    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
-      "surface-a",
-    ]);
-    expect(result.diagnostics[0]).toMatchObject({
-      reason: "budget-exhausted",
-      queue: "visible",
-    });
+    expect(result.skippedItems).toEqual([]);
+    expect(result.diagnostics).toEqual([]);
     expect(queue.hasWork()).toBe(true);
   });
 
@@ -277,9 +270,8 @@ describe("runRetainedTextureUploadScheduler", () => {
       "visible-1",
       "visible-2",
     ]);
-    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
-      "refinement",
-    ]);
+    expect(result.skippedItems).toEqual([]);
+    expect(queue.hasWork()).toBe(true);
   });
 
   it("keeps offscreen prefetch work inside the explicit prefetch budget bucket", () => {
@@ -413,9 +405,8 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(result.executedItems.map((item) => item.surfaceId)).toEqual([
       "visible",
     ]);
-    expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
-      "refinement",
-    ]);
+    expect(result.skippedItems).toEqual([]);
+    expect(queue.hasWork()).toBe(true);
   });
 });
 

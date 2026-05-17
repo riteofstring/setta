@@ -232,14 +232,25 @@ describe("getGpuRetainedDomControlSources", () => {
     );
     expect(committedFrame.diagnostics.textActorExactCoverageCount).toBe(80);
 
-    expect(
-      getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources)[0],
-    ).toEqual(
+    const firstSnapshotLayout =
+      getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources)[0];
+    expect(firstSnapshotLayout).toEqual(
       expect.objectContaining({
         actorKind: "dom-control",
         layer: "page",
         surfaceId: snapshotSources[0]?.snapshotSurfaceId,
         textureContentKey: snapshotSources[0]?.snapshotCacheKeyRevision,
+      }),
+    );
+    expect(
+      getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources, {
+        getRetainedScrollOffset: (surfaceId) =>
+          surfaceId === snapshotSources[0]?.surfaceId ? { x: 0, y: -4 } : null,
+      })[0],
+    ).toEqual(
+      expect.objectContaining({
+        textureSourceRect: firstSnapshotLayout?.textureSourceRect,
+        y: (firstSnapshotLayout?.y ?? 0) + 4,
       }),
     );
   });

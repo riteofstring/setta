@@ -8,7 +8,7 @@ type GpuFlowRetainedPageMaintenanceRun = ReturnType<
   typeof runGpuFlowRetainedPageMaintenance
 >;
 
-const MAX_PRE_PUBLISH_TRUE_HOLE_REPAIR_PASSES = 2;
+const MAX_PRE_PUBLISH_REPAIR_PASSES = 4;
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
@@ -79,8 +79,8 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
   let maintenance: GpuFlowRetainedPageMaintenanceRun | null = null;
   for (
     let pass = 0;
-    pass < MAX_PRE_PUBLISH_TRUE_HOLE_REPAIR_PASSES &&
-    currentFrame.trueHoleRectCount > 0;
+    pass < MAX_PRE_PUBLISH_REPAIR_PASSES &&
+    shouldRepairGpuFlowRetainedPreparedFrameBeforePublish(currentFrame);
     pass += 1
   ) {
     const nextMaintenance = runGpuFlowRetainedPageMaintenance({
@@ -97,6 +97,18 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
     }
   }
   return maintenance;
+}
+
+function shouldRepairGpuFlowRetainedPreparedFrameBeforePublish(
+  preparedFrame: Pick<
+    RetainedContentTexturePagePreparedFrame,
+    "replacementDescriptors" | "trueHoleRectCount"
+  >,
+): boolean {
+  return (
+    preparedFrame.trueHoleRectCount > 0 ||
+    preparedFrame.replacementDescriptors.length > 0
+  );
 }
 
 export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({

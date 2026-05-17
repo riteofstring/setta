@@ -2,7 +2,7 @@ import type { NodeTexturePriority } from "./dirtyTracking";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-type RetainedTextureWorkKind =
+export type RetainedTextureWorkKind =
   | "animation-rect"
   | "content-rect"
   | "first-visible"
@@ -11,12 +11,19 @@ type RetainedTextureWorkKind =
   | "lod-refinement"
   | "source-window";
 
+export type RetainedTextureWorkLane =
+  | "cleanup"
+  | "prefetch"
+  | "visible-refinement"
+  | "visible-repair";
+
 type RetainedTextureSourceWindow = GpuRect;
 
 type RetainedTextureWorkItemInput = {
   readonly contentVersion: number;
   readonly createdFrame?: number | undefined;
   readonly kind: RetainedTextureWorkKind;
+  readonly projectionHorizonGeneration?: number | undefined;
   readonly priority?: NodeTexturePriority | undefined;
   readonly refreshCommittedPage?: boolean | undefined;
   readonly sourceRect?: GpuRect | undefined;
@@ -31,6 +38,7 @@ export type RetainedTextureWorkItem = {
   readonly contentVersion: number;
   readonly createdFrame: number;
   readonly kind: RetainedTextureWorkKind;
+  readonly projectionHorizonGeneration?: number | undefined;
   readonly priority: NodeTexturePriority;
   readonly refreshCommittedPage: boolean;
   readonly sequence: number;
@@ -115,6 +123,20 @@ export class RetainedTextureWorkQueue {
     return canceledCount;
   }
 
+  cancelWork(
+    predicate: (item: RetainedTextureWorkItem) => boolean = () => true,
+  ): number {
+    let canceledCount = 0;
+    for (const [key, item] of this.items) {
+      if (!predicate(item)) {
+        continue;
+      }
+      this.items.delete(key);
+      canceledCount += 1;
+    }
+    return canceledCount;
+  }
+
   enqueue(input: RetainedTextureWorkItemInput): RetainedTextureWorkItem {
     const item = this.normalizeWorkItem(input);
     const key = workItemCoalescingKey(item);
@@ -164,6 +186,7 @@ export class RetainedTextureWorkQueue {
       ),
       createdFrame: input.createdFrame ?? 0,
       kind: input.kind,
+      projectionHorizonGeneration: input.projectionHorizonGeneration,
       priority: input.priority ?? "visible",
       refreshCommittedPage: input.refreshCommittedPage ?? false,
       sequence: this.sequence,
@@ -238,7 +261,10 @@ function coalesceWorkItems(
   next: RetainedTextureWorkItem,
 ): RetainedTextureWorkItem {
   const sourceRect =
-    existing.sourceRect && next.sourceRect
+    existing.sourceRect &&
+    next.sourceRect &&
+    existing.sourceRectCoalescing === "union" &&
+    next.sourceRectCoalescing === "union"
       ? unionRects(existing.sourceRect, next.sourceRect)
       : existing.sourceRect ?? next.sourceRect;
   return {
@@ -276,10 +302,19 @@ function isWorkItemUploadable(
   if (!options.viewportInteractionActive) {
     return true;
   }
-  if (item.priority === "interactive") {
-    return true;
+  return retainedTextureWorkLaneForWorkItem(item) === "visible-repair";
+}
+
+export function retainedTextureWorkLaneForWorkItem(
+  item: Pick<RetainedTextureWorkItem, "kind" | "priority">,
+): RetainedTextureWorkLane {
+  if (item.priority === "prefetch" || item.kind === "source-window") {
+    return "prefetch";
   }
-  return !(item.kind === "source-window" && item.priority === "prefetch");
+  if (item.kind === "lod-refinement") {
+    return "visible-refinement";
+  }
+  return "visible-repair";
 }
 
 function workItemCoalescingKey(item: RetainedTextureWorkItem): string {
@@ -295,6 +330,7 @@ function workItemCoalescingKey(item: RetainedTextureWorkItem): string {
     item.sourceWindow ? rectKey(item.sourceWindow) : "window:none",
     item.targetLod ?? "lod:none",
     item.visualEpochKind ?? "base",
+    item.projectionHorizonGeneration ?? "horizon:none",
   ].join("|");
 }
 

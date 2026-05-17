@@ -523,7 +523,7 @@ test("retained scrollbar renders as one coherent vertical control", async ({
   page,
 }, testInfo) => {
   await openSettings(page);
-  await dragGuiScrollbarDown(page);
+  await wheelGuiContentDown(page);
   const rows = await resolveVisibleGuiRows(page, [
     "Pan On Scroll Mode",
     "Pan On Scroll Speed",
@@ -535,12 +535,7 @@ test("retained scrollbar renders as one coherent vertical control", async ({
   );
   await page.waitForTimeout(60);
   const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
-  const scrollbarClip = clampScreenshotClip({
-    height: surfaceClip.height,
-    width: 18,
-    x: surfaceClip.x + surfaceClip.width - 20,
-    y: surfaceClip.y,
-  });
+  const scrollbarClip = await resolveVisibleGuiScrollbarClip(page);
   const screenshot = await screenshotClip({
     name: "visual-scrollbar-coherent.png",
     page,
@@ -556,7 +551,7 @@ test("retained scrollbar renders as one coherent vertical control", async ({
   );
   expect(stats.visibleColumnCount, failureDetails).toBeGreaterThan(2);
   expect(stats.maxColumnCoverage, failureDetails).toBeGreaterThan(0.82);
-  expect(stats.duplicateColumnCount, failureDetails).toBeLessThanOrEqual(4);
+  expect(stats.visibleColumnBandCount, failureDetails).toBeLessThanOrEqual(2);
 });
 
 async function openSettings(page: Page): Promise<void> {
@@ -728,37 +723,45 @@ async function moveAwayFromRetainedRows(page: Page): Promise<void> {
   await page.waitForTimeout(100);
 }
 
-async function dragGuiScrollbarDown(page: Page): Promise<void> {
-  const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
-  const start = {
-    x: surfaceClip.x + surfaceClip.width - 8,
-    y: surfaceClip.y + Math.min(84, surfaceClip.height * 0.35),
-  };
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  await page.mouse.move(
-    start.x,
-    start.y + Math.min(140, surfaceClip.height * 0.45),
-    {
-      steps: 8,
-    },
-  );
-  await page.mouse.up();
-  await page.waitForTimeout(120);
-  await expect
-    .poll(async () => {
-      const rows = await page.evaluate((surfaceId) => {
-        return (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
-          (row): row is RetainedRowDebugEntry =>
-            row.surfaceId === surfaceId &&
-            row.rowLabel === "Section Tag Color Choices" &&
-            row.clientRect.y > 0 &&
-            row.clientRect.y < window.innerHeight,
-        ).length;
-      }, GUI_CONTENT_SURFACE_ID);
-      return rows;
-    })
-    .toBeGreaterThan(0);
+async function resolveVisibleGuiScrollbarClip(page: Page): Promise<Rect> {
+  const rect = await page.evaluate((surfaceId) => {
+    const scrollbarSurfaces = (
+      window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []
+    )
+      .filter(
+        (surface) =>
+          surface.kind === "solid-rounded-rect" &&
+          surface.surfaceId.startsWith(`${surfaceId}:scrollbar:y:`) &&
+          surface.clientRect.width > 2 &&
+          surface.clientRect.height > 2 &&
+          surface.clientRect.x + surface.clientRect.width > 0 &&
+          surface.clientRect.y + surface.clientRect.height > 0 &&
+          surface.clientRect.x < window.innerWidth &&
+          surface.clientRect.y < window.innerHeight,
+      )
+      .map((surface) => ({
+        clientRect: surface.clientRect,
+        surfaceId: surface.surfaceId,
+      }));
+    const track = scrollbarSurfaces.find(
+      (surface) => surface.surfaceId === `${surfaceId}:scrollbar:y:track`,
+    );
+    if (!track) {
+      throw new Error(
+        `Missing visible GUI retained scrollbar track. ${JSON.stringify({
+          scrollbarSurfaces,
+        })}`,
+      );
+    }
+    const x = track.clientRect.x - 5;
+    return {
+      height: track.clientRect.height,
+      width: Math.max(18, track.clientRect.width + 10),
+      x,
+      y: track.clientRect.y,
+    };
+  }, GUI_CONTENT_SURFACE_ID);
+  return clampScreenshotClip(rect);
 }
 
 async function wheelGuiContentDown(page: Page): Promise<void> {

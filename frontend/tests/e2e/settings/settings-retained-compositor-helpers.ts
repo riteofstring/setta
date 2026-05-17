@@ -454,6 +454,15 @@ export async function runNativeRetainedCompositorWheelBurst(
   });
 }
 
+export async function warmRetainedCompositorNativeWheelTarget(
+  page: Page,
+  point: RetainedCompositorPoint,
+): Promise<void> {
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.wheel(0, 1);
+  await waitForRetainedCompositorGestureIdle(page);
+}
+
 export async function captureRetainedCompositorVisualStats(
   page: Page,
   clip: Rect,

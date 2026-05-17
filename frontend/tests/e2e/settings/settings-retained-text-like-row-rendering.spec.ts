@@ -312,12 +312,23 @@ async function centerRetainedSurface(
       throw new Error(`Missing retained surface ${targetSurfaceId}.`);
     }
     const paneRect = pane.getBoundingClientRect();
-    const left = Math.min(...rows.map((row) => row.clientRect.x));
-    const top = Math.min(...rows.map((row) => row.clientRect.y));
-    const flowLeft = (left - paneRect.left - transform.x) / transform.zoom;
-    const flowTop = (top - paneRect.top - transform.y) / transform.zoom;
-    const flowHeight = firstRow.canvasCssSize.height;
+    const minClientX = Math.min(...rows.map((row) => row.clientRect.x));
+    const minClientY = Math.min(...rows.map((row) => row.clientRect.y));
+    const maxClientY = Math.max(
+      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
+    );
+    const flowLeft =
+      (minClientX - paneRect.left - transform.x) / transform.zoom;
+    const flowTop = (minClientY - paneRect.top - transform.y) / transform.zoom;
+    const visibleFlowHeight = Math.max(
+      firstRow.canvasCssSize.height,
+      (maxClientY - minClientY) / transform.zoom,
+    );
     const zoom = 1;
+    const flowCenter = {
+      x: flowLeft + firstRow.canvasCssSize.width / 2,
+      y: flowTop + visibleFlowHeight / 2,
+    };
     const [{ getRegisteredGpuFlowViewportRuntime }, { gpuFlowViewportStore }] =
       await Promise.all([
         import("/src/gpuFlow/viewportRuntimeRegistry.ts"),
@@ -325,10 +336,8 @@ async function centerRetainedSurface(
       ]);
     const viewportStore = gpuFlowViewportStore.getState();
     const viewport = {
-      x:
-        paneRect.width * 0.5 -
-        (flowLeft + firstRow.canvasCssSize.width / 2) * zoom,
-      y: paneRect.height * 0.48 - (flowTop + flowHeight / 2) * zoom,
+      x: paneRect.width * 0.5 - flowCenter.x * zoom,
+      y: paneRect.height * 0.48 - flowCenter.y * zoom,
       zoom,
     };
     const runtime = getRegisteredGpuFlowViewportRuntime(gpuFlowViewportStore);
@@ -354,34 +363,108 @@ async function waitForRetainedSurfaceVisualViewport(
   page: Page,
   surfaceId: string,
 ): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate((targetSurfaceId) => {
-          const surface = window
-            .__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.()
-            .find(
-              (entry) =>
-                entry.surfaceId.includes(targetSurfaceId) &&
-                (entry.kind === "flat" ||
-                  entry.kind === "late-flat" ||
-                  entry.kind === "tiled-flat") &&
-                entry.clientRect.width > 16 &&
-                entry.clientRect.height > 16,
+  const deadline = Date.now() + 5_000;
+  let latestState: unknown = null;
+  while (Date.now() < deadline) {
+    latestState = await page.evaluate((targetSurfaceId) => {
+      const visualSurfaces =
+        window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [];
+      const visibleRows = (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+      )
+        .filter(
+          (row): row is RetainedRowDebugEntry =>
+            row.surfaceId === targetSurfaceId &&
+            row.clientRect.width > 8 &&
+            row.clientRect.height > 8 &&
+            row.clientRect.x + row.clientRect.width > 0 &&
+            row.clientRect.y + row.clientRect.height > 0 &&
+            row.clientRect.x < window.innerWidth &&
+            row.clientRect.y < window.innerHeight,
+        )
+        .map((row) => ({
+          clientRect: row.clientRect,
+          controlClientRect: row.controlClientRect,
+          controlKind: row.controlKind,
+          rowId: row.rowId,
+          surfaceId: row.surfaceId,
+        }))
+        .slice(0, 12);
+      const matchingSurfaces = visualSurfaces
+        .filter(
+          (entry) =>
+            entry.surfaceId.includes(targetSurfaceId) &&
+            (entry.kind === "flat" ||
+              entry.kind === "late-flat" ||
+              entry.kind === "tiled-flat") &&
+            entry.clientRect.width > 16 &&
+            entry.clientRect.height > 16,
+        )
+        .map((entry) => ({
+          clientRect: entry.clientRect,
+          flowRect: entry.flowRect,
+          kind: entry.kind,
+          surfaceId: entry.surfaceId,
+        }));
+      const visibleSurface = matchingSurfaces.find(
+        (entry) =>
+          entry.clientRect.x + entry.clientRect.width > 0 &&
+          entry.clientRect.y + entry.clientRect.height > 0 &&
+          entry.clientRect.x < window.innerWidth &&
+          entry.clientRect.y < window.innerHeight,
+      );
+      return {
+        matchingSurfaces,
+        nearestSurfaces: visualSurfaces
+          .filter(
+            (entry) =>
+              (entry.kind === "flat" ||
+                entry.kind === "late-flat" ||
+                entry.kind === "tiled-flat") &&
+              entry.clientRect.width > 16 &&
+              entry.clientRect.height > 16,
+          )
+          .map((entry) => ({
+            clientRect: entry.clientRect,
+            flowRect: entry.flowRect,
+            kind: entry.kind,
+            surfaceId: entry.surfaceId,
+          }))
+          .sort((left, right) => {
+            return (
+              Math.abs(left.clientRect.x) +
+              Math.abs(left.clientRect.y) -
+              Math.abs(right.clientRect.x) -
+              Math.abs(right.clientRect.y)
             );
-          if (!surface) {
-            return false;
-          }
-          return (
-            surface.clientRect.x + surface.clientRect.width > 0 &&
-            surface.clientRect.y + surface.clientRect.height > 0 &&
-            surface.clientRect.x < window.innerWidth &&
-            surface.clientRect.y < window.innerHeight
-          );
-        }, surfaceId),
-      { timeout: 5_000 },
-    )
-    .toBe(true);
+          })
+          .slice(0, 8),
+        targetSurfaceId,
+        viewport: {
+          height: window.innerHeight,
+          width: window.innerWidth,
+        },
+        visible: visibleRows.length > 0 || Boolean(visibleSurface),
+        visibleRows,
+      };
+    }, surfaceId);
+    if (
+      latestState &&
+      typeof latestState === "object" &&
+      "visible" in latestState &&
+      latestState.visible
+    ) {
+      return;
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(
+    `Retained surface ${surfaceId} did not enter the visual viewport. ${JSON.stringify(
+      latestState,
+      null,
+      2,
+    )}`,
+  );
 }
 
 async function scrollRetainedSurfaceToTop(

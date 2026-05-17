@@ -36,6 +36,16 @@ import type {
   RetainedContentTexturePagePreparedFrame,
   RetainedContentTexturePageReplacementDescriptor,
 } from "./retainedContentTexturePageManagerTypes";
+import {
+  RetainedTexturePageWorkCostEstimator,
+  createRetainedTextureProjectionHorizonSignature,
+  isRetainedTextureWorkStaleForProjectionHorizon,
+  retainedFirstVisibleSurfaceEpochKey,
+  retainedTextureDescriptorSourceRectCoalescing,
+  retainedTextureWorkProjectionHorizonGeneration,
+  shouldResolveRetainedTextureWorkItemForSurface,
+  sortReplacementDescriptorsForRepair,
+} from "./retainedContentTexturePageManagerWork";
 import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
   RetainedContentTextureAtlasStore,
@@ -50,7 +60,6 @@ import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import { createRetainedTexturePageDescriptors } from "./retainedTexturePageGrid";
 import {
   RetainedTexturePageCache,
-  estimatePageByteSize,
   retainedTexturePageKey,
   type RetainedTexturePageDescriptor,
 } from "./retainedTexturePages";
@@ -93,6 +102,8 @@ export class RetainedContentTexturePageManager {
   private readonly textureAtlasStore: RetainedContentTextureAtlasStore;
   private readonly textureUsage: GPUTextureUsageFlags;
   private readonly workQueue = new RetainedTextureWorkQueue();
+  private readonly workCostEstimator =
+    new RetainedTexturePageWorkCostEstimator();
   private readonly contentIdentityResolver =
     new RetainedTexturePageContentIdentityResolver();
   private drawableRevision = 0;
@@ -104,6 +115,8 @@ export class RetainedContentTexturePageManager {
     RetainedContentTexturePageFrameSurface
   >();
   private devicePixelRatioBucket = 1;
+  private projectionHorizonGeneration = 0;
+  private projectionHorizonSignature = "";
   private viewportZoomBucket: number | null = null;
   private targetLodScale = 1;
 
@@ -150,10 +163,13 @@ export class RetainedContentTexturePageManager {
     this.cache.clear();
     this.textureAtlasStore.destroy();
     this.workQueue.clear();
+    this.workCostEstimator.clear();
     this.frameSurfaceById.clear();
     this.contentIdentityResolver.clear();
     this.drawableRevision += 1;
     this.devicePixelRatioBucket = 1;
+    this.projectionHorizonGeneration = 0;
+    this.projectionHorizonSignature = "";
     this.viewportZoomBucket = null;
     this.targetLodScale = 1;
     this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
@@ -243,6 +259,11 @@ export class RetainedContentTexturePageManager {
     this.frameSurfaceById = new Map(
       surfaces.map((surface) => [surface.surfaceId, surface]),
     );
+    this.updateProjectionHorizonGeneration({
+      devicePixelRatio,
+      surfaces,
+      viewportZoomBucket,
+    });
     const nextTargetLodScale = normalizeRetainedContentTexturePageLodScale({
       devicePixelRatio,
       viewportZoomBucket,
@@ -289,6 +310,7 @@ export class RetainedContentTexturePageManager {
     const palette = getGpuRetainedContentCanvasPalette(darkMode);
     const uploadResult = runRetainedTextureUploadScheduler({
       budget: this.budget,
+      deadlineMs: this.budget.maxFrameRasterMs + this.budget.maxFrameUploadMs,
       estimateWorkItem: (item) => this.estimateWorkItem(item),
       executeWorkItem: (item) =>
         this.executeWorkItem({
@@ -304,13 +326,7 @@ export class RetainedContentTexturePageManager {
         prefetchMaxBytes: this.textureBudget.offscreenPrefetchMaxBytes,
         refinementMaxBytes: this.textureBudget.nearViewportReserveBytes,
         visibleCoverageReserveBytes: this.textureBudget.visibleReserveBytes,
-        visibleEdgeMaxUploads: Math.max(
-          this.budget.maxUploads,
-          Math.ceil(
-            this.textureBudget.visibleReserveBytes /
-              Math.max(1, this.budget.maxFrameUploadedBytes),
-          ),
-        ),
+        visibleEdgeMaxUploads: this.budget.maxUploads,
       },
       queue: this.workQueue,
       textureBudget: this.textureBudget,
@@ -410,7 +426,9 @@ export class RetainedContentTexturePageManager {
     refreshFirstVisiblePages: boolean,
   ) {
     this.cancelStaleFirstVisibleReplacementWork(replacementDescriptors);
-    for (const replacementDescriptor of replacementDescriptors) {
+    for (const replacementDescriptor of sortReplacementDescriptorsForRepair(
+      replacementDescriptors,
+    )) {
       this.enqueueMissingReplacementPage(
         replacementDescriptor,
         frame,
@@ -539,7 +557,6 @@ export class RetainedContentTexturePageManager {
     descriptors,
     frame,
     kind,
-    preserveFirstVisibleSourceRects = false,
     priority,
     refreshCommittedPage,
     targetLod,
@@ -558,12 +575,15 @@ export class RetainedContentTexturePageManager {
         createdFrame: frame,
         kind,
         priority,
+        projectionHorizonGeneration:
+          retainedTextureWorkProjectionHorizonGeneration({
+            generation: this.projectionHorizonGeneration,
+            kind,
+          }),
         refreshCommittedPage,
         sourceRect: descriptor.sourceRectCss,
         sourceRectCoalescing:
-          preserveFirstVisibleSourceRects && kind === "first-visible"
-            ? "exact"
-            : "union",
+          retainedTextureDescriptorSourceRectCoalescing(kind),
         sourceWindow: descriptor.sourceWindowCss,
         surfaceId: descriptor.surfaceId,
         visualEpochKind: descriptor.visualEpochKind ?? "base",
@@ -586,6 +606,35 @@ export class RetainedContentTexturePageManager {
       frameSurfaceById: this.frameSurfaceById,
       visibleRegionTargets,
     });
+  }
+
+  private updateProjectionHorizonGeneration({
+    devicePixelRatio,
+    surfaces,
+    viewportZoomBucket,
+  }: {
+    readonly devicePixelRatio: number;
+    readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
+    readonly viewportZoomBucket: number;
+  }) {
+    const nextSignature = createRetainedTextureProjectionHorizonSignature({
+      devicePixelRatio,
+      surfaces,
+      viewportZoomBucket,
+    });
+    if (nextSignature === this.projectionHorizonSignature) {
+      return;
+    }
+    this.projectionHorizonSignature = nextSignature;
+    this.projectionHorizonGeneration += 1;
+    const currentGeneration = this.projectionHorizonGeneration;
+    this.workQueue.cancelWork((item) =>
+      isRetainedTextureWorkStaleForProjectionHorizon({
+        currentGeneration,
+        item,
+        surfaces,
+      }),
+    );
   }
 
   private createPostMaintenanceCoverageFrame({
@@ -614,12 +663,17 @@ export class RetainedContentTexturePageManager {
     readonly uploadCount: number;
   } {
     const descriptor = this.resolveWorkItemDescriptors(item)[0];
-    return {
-      rasterMs: 0,
-      uploadMs: 0,
-      uploadedBytes: descriptor ? estimatePageByteSize(descriptor) : 0,
-      uploadCount: descriptor ? 1 : 0,
-    };
+    const surface = descriptor
+      ? this.frameSurfaceById.get(descriptor.surfaceId)
+      : undefined;
+    return descriptor && surface
+      ? this.workCostEstimator.estimate({ descriptor, surface })
+      : {
+          rasterMs: 0,
+          uploadMs: 0,
+          uploadedBytes: 0,
+          uploadCount: 0,
+        };
   }
 
   private executeWorkItem({
@@ -655,10 +709,7 @@ export class RetainedContentTexturePageManager {
     if (!surface) {
       return [];
     }
-    if (
-      item.sourceWindow &&
-      !rectsEqual(item.sourceWindow, surface.sourceWindowCss)
-    ) {
+    if (!shouldResolveRetainedTextureWorkItemForSurface({ item, surface })) {
       return [];
     }
     const visibleSourceRectCss =
@@ -668,12 +719,25 @@ export class RetainedContentTexturePageManager {
       sourceRect: visibleSourceRectCss,
       surface,
       visualEpochKind: item.visualEpochKind,
-    }).filter(
-      (descriptor) =>
-        descriptor.contentVersion === item.contentVersion &&
-        (shouldRefreshCommittedPage(item) ||
-          !this.cache.getCommittedPage(retainedTexturePageKey(descriptor))),
+    }).filter((descriptor) =>
+      this.shouldUploadDescriptorForWorkItem({ descriptor, item }),
     );
+  }
+
+  private shouldUploadDescriptorForWorkItem({
+    descriptor,
+    item,
+  }: {
+    readonly descriptor: RetainedTexturePageDescriptor;
+    readonly item: RetainedTextureWorkItem;
+  }): boolean {
+    if (descriptor.contentVersion !== item.contentVersion) {
+      return false;
+    }
+    if (shouldRefreshCommittedPage(item)) {
+      return true;
+    }
+    return !this.cache.getCommittedPage(retainedTexturePageKey(descriptor));
   }
 
   private resolvePageDescriptorsForSurfaceRect({
@@ -716,6 +780,7 @@ export class RetainedContentTexturePageManager {
     readonly uploadedBytes: number;
     readonly uploadMs: number;
   } {
+    const surface = this.frameSurfaceById.get(descriptor.surfaceId);
     const result = uploadRetainedContentTexturePage({
       cache: this.cache,
       descriptor,
@@ -732,6 +797,14 @@ export class RetainedContentTexturePageManager {
     this.maintenanceUploadedDrawCommandCount += result.drawnCommandCount;
     if (result.drawableChanged) {
       this.drawableRevision += 1;
+    }
+    if (surface && result.uploadCount > 0) {
+      this.workCostEstimator.record({
+        descriptor,
+        rasterMs: result.rasterMs,
+        surface,
+        uploadMs: result.uploadMs,
+      });
     }
     return {
       complete: result.complete,
@@ -786,13 +859,6 @@ export class RetainedContentTexturePageManager {
       this.retiredResourceDrainRequestedFrame = Number.NEGATIVE_INFINITY;
     }
   }
-}
-
-function retainedFirstVisibleSurfaceEpochKey({
-  surfaceId,
-  visualEpochKind,
-}: Pick<RetainedTextureWorkItem, "surfaceId" | "visualEpochKind">): string {
-  return `${surfaceId}:${visualEpochKind ?? "base"}`;
 }
 
 function createRetainedContentTextureAtlasStore({

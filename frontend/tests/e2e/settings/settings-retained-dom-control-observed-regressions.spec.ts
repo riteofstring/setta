@@ -1,6 +1,11 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import {
+  installGpuFlowPerformanceProbe,
+  readGpuFlowPerformanceSnapshot,
+  resetGpuFlowPerformanceProbe,
+} from "../gpuFlowPerformanceProbe";
+import {
   SETTINGS_PARAM_CONTENT_SUFFIX,
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
@@ -190,6 +195,84 @@ test("retained text-like interaction keeps passive DOM scale bounded", async ({
   expect(eventSpacing.length, details).toBeGreaterThan(6);
 });
 
+test("visible retained DOM controls share canvas transaction and stay aligned through motion", async ({
+  page,
+}) => {
+  await installGpuFlowPerformanceProbe(page);
+  await openObservedRegressionSettings(page);
+  let row = await scrollTargetTextRowIntoView(page);
+  const before = await readDomControlCoherenceSample(page, row);
+
+  await resetGpuFlowPerformanceProbe(page);
+  await dispatchRetainedCompositorWheelBurst(page, {
+    deltaY: 8,
+    eventCount: 6,
+    point: retainedRowSectionScrollPoint(row),
+  });
+  await waitForAnimationFrame(page);
+  row = await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID, {
+    rowId: row.rowId,
+  });
+  const duringScroll = await readDomControlCoherenceSample(page, row);
+  await waitForViewportIdle(page);
+  const afterScroll = await readDomControlCoherenceSample(page, row);
+
+  await applyViewportTransformDelta(page, { zoomFactor: 1.08 });
+  await waitForAnimationFrame(page);
+  row = await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID, {
+    rowId: row.rowId,
+  });
+  const duringZoom = await readDomControlCoherenceSample(page, row);
+  await waitForViewportIdle(page);
+  const afterZoom = await readDomControlCoherenceSample(page, row);
+
+  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await waitForAnimationFrame(page);
+  const afterClick = await readDomControlCoherenceSample(page, row);
+  const snapshot = await readGpuFlowPerformanceSnapshot(page);
+  const motionProjectionViolations = snapshot.nodeLayerFrames
+    .filter(
+      (frame) =>
+        frame.phaseDiagnostics.frameMode === "projection" &&
+        frame.projectionDiagnostics.lane === "motion",
+    )
+    .filter(
+      (frame) =>
+        frame.retainedTexturePageUploadCount > 0 ||
+        frame.retainedTexturePageRasterMs > 0 ||
+        frame.phaseDiagnostics.retainedPageMaintenanceMs > 0,
+    );
+  const samples = {
+    afterClick,
+    afterScroll,
+    afterZoom,
+    before,
+    duringScroll,
+    duringZoom,
+  };
+  const details = JSON.stringify(
+    { motionProjectionViolations, samples },
+    null,
+    2,
+  );
+
+  for (const sample of Object.values(samples)) {
+    expect(sample.canvasTransactionId, details).toBe(sample.planeTransactionId);
+    expect(sample.hostTextLength, details).toBeGreaterThan(0);
+    expect(sample.coverageState, details).not.toBe("true-hole");
+    expect(sample.rectDelta.x, details).toBeLessThanOrEqual(4);
+    expect(sample.rectDelta.y, details).toBeLessThanOrEqual(6);
+    expect(sample.rectDelta.width, details).toBeLessThanOrEqual(4);
+    expect(sample.rectDelta.height, details).toBeLessThanOrEqual(6);
+  }
+  expect(afterClick.activeEditorId, details).toContain(row.rowId);
+  expect(afterClick.active, details).toBe("true");
+  expect(afterClick.canvasTransactionId, details).toBe(
+    afterClick.planeTransactionId,
+  );
+  expect(motionProjectionViolations, details).toEqual([]);
+});
+
 async function openObservedRegressionSettings(page: Page): Promise<void> {
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
@@ -276,6 +359,105 @@ async function readDomControlHostRect(
       x: rect.x,
       y: rect.y,
     };
+
+    function cssEscape(value: string): string {
+      return value.replace(/['\\]/g, "\\$&");
+    }
+  }, row);
+}
+
+async function readDomControlCoherenceSample(
+  page: Page,
+  row: RetainedRowDebugEntry & {
+    readonly controlClientPoint: { readonly x: number; readonly y: number };
+    readonly controlClientRect: Rect;
+  },
+): Promise<{
+  readonly active: string | null;
+  readonly activeEditorId: string | null;
+  readonly canvasTransactionId: string | null;
+  readonly coverageState: string | null;
+  readonly elementAtPointControlId: string | null;
+  readonly focusable: string | null;
+  readonly hostId: string | null;
+  readonly hostRect: Rect;
+  readonly hostTextLength: number;
+  readonly planeTransactionId: string | null;
+  readonly pointerSemantics: string | null;
+  readonly rectDelta: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  };
+  readonly rowControlRect: Rect;
+}> {
+  return await page.evaluate(({ rowId, surfaceId }) => {
+    const selector = [
+      "[data-gpu-flow-dom-control='true']",
+      `[data-gpu-flow-dom-control-surface-id='${cssEscape(surfaceId)}']`,
+      `[data-gpu-flow-dom-control-row-id='${cssEscape(rowId)}']`,
+    ].join("");
+    const host = document.querySelector<HTMLElement>(selector);
+    const canvas = document.querySelector<HTMLElement>(
+      ".setta-gpu-flow__canvas",
+    );
+    const plane = document.querySelector<HTMLElement>(
+      "[data-gpu-flow-dom-control-plane='true']",
+    );
+    const row = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).find(
+      (candidate) =>
+        candidate.surfaceId === surfaceId && candidate.rowId === rowId,
+    );
+    if (!host || !row?.controlClientRect) {
+      throw new Error(`Missing DOM-control coherence sample for ${rowId}.`);
+    }
+    const hostRect = toPlainRect(host.getBoundingClientRect());
+    const rowControlRect = row.controlClientRect;
+    const elementAtPoint = document.elementFromPoint(
+      rowControlRect.x + Math.min(12, rowControlRect.width / 2),
+      rowControlRect.y + rowControlRect.height / 2,
+    );
+    const activeElement = document.activeElement;
+    return {
+      active: host.dataset.gpuFlowDomControlActive ?? null,
+      activeEditorId:
+        activeElement instanceof Element
+          ? activeElement
+              .closest("[data-gpu-flow-control]")
+              ?.getAttribute("data-gpu-flow-control") ?? null
+          : null,
+      canvasTransactionId: canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
+      coverageState: host.dataset.gpuFlowDomControlCoverageState ?? null,
+      elementAtPointControlId:
+        elementAtPoint instanceof Element
+          ? elementAtPoint
+              .closest("[data-gpu-flow-dom-control]")
+              ?.getAttribute("data-gpu-flow-dom-control-id") ?? null
+          : null,
+      focusable: host.dataset.gpuFlowDomControlFocusable ?? null,
+      hostId: host.dataset.gpuFlowDomControlId ?? null,
+      hostRect,
+      hostTextLength: (host.textContent ?? "").trim().length,
+      planeTransactionId: plane?.dataset.gpuFlowProjectionTransactionId ?? null,
+      pointerSemantics: host.dataset.gpuFlowDomControlPointerSemantics ?? null,
+      rectDelta: {
+        height: Math.abs(hostRect.height - rowControlRect.height),
+        width: Math.abs(hostRect.width - rowControlRect.width),
+        x: Math.abs(hostRect.x - rowControlRect.x),
+        y: Math.abs(hostRect.y - rowControlRect.y),
+      },
+      rowControlRect,
+    };
+
+    function toPlainRect(rect: DOMRect): Rect {
+      return {
+        height: rect.height,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      };
+    }
 
     function cssEscape(value: string): string {
       return value.replace(/['\\]/g, "\\$&");

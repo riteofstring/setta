@@ -19,6 +19,7 @@ import {
   resolveRetainedCompositorTarget,
   resolveRetainedCompositorViewportPoint,
   runNativeRetainedCompositorWheelBurst,
+  warmRetainedCompositorNativeWheelTarget,
   waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
 
@@ -152,6 +153,7 @@ test("retained section scroll and immediate retained-hover zoom preserve scroll 
     target.clip,
   );
   await waitForRetainedCompositorGestureIdle(page);
+  await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const scrollThenZoom = await measureRetainedCompositorGesture(
     page,
     async () => {

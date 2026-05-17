@@ -91,11 +91,26 @@ describe("GPU flow DOM control plane", () => {
     ).toEqual(
       new Map([
         ["row-0", "live"],
-        ["row-1", "snapshot"],
+        ["row-1", "live"],
         ["row-2", "blocked-awaiting-browser-visual"],
         ["row-3", "true-hole"],
       ]),
     );
+  });
+
+  it("promotes snapshot controls to live hosts during retained scroll projection", () => {
+    const assignments = resolveGpuFlowDomControlPlaneProjectionAssignments({
+      controls: [domControl({ index: 4, visualPolicy: "snapshot" })],
+      getRetainedScrollOffset: () => ({ x: 0, y: 28 }),
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(assignmentForRow(assignments, "row-4")).toMatchObject({
+      coverageState: "live",
+      phase: "project",
+      reason: "visible-live",
+    });
   });
 
   it("uses the provided viewport size for deterministic candidate selection", () => {

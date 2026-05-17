@@ -19,6 +19,7 @@ import type {
   RetainedTextureUploadSchedulerBudget,
   RetainedTextureUploadSchedulerDiagnostic,
 } from "./retainedTextureUploadScheduler";
+import type { RetainedTextureWorkItem } from "./retainedTextureWorkQueue";
 import type {
   RetainedDrawRegion,
   RetainedReplacementRequest,
@@ -129,6 +130,7 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly executedItemCount: number;
+  readonly executedItems: readonly RetainedTextureWorkItem[];
   readonly compatibleDrawQuadCount: number;
   readonly fidelityState: RetainedFidelityState;
   readonly mergedDrawQuadCount: number;
@@ -140,6 +142,7 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
   readonly repairedPreparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly remainingUploadableWorkCount: number;
   readonly skippedItemCount: number;
+  readonly skippedItems: readonly RetainedTextureWorkItem[];
   readonly rejectedStaleRectCount: number;
   readonly targetDescriptorCount: number;
   readonly trueHoleRectCount: number;

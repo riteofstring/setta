@@ -329,6 +329,7 @@ function isDomControlMountEligible(
   return (
     control.active ||
     control.visualPolicy === "live-dom" ||
+    control.visualPolicy === "snapshot" ||
     control.visualPolicy === "outside-viewport"
   );
 }

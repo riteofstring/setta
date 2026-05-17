@@ -13,12 +13,22 @@ import type {
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
 import type { GpuContentSurface } from "./scene";
-import type { GpuRect } from "./viewportMath";
+import {
+  getVisibleFlowRect,
+  type GpuRect,
+  type GpuViewportInput,
+} from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly viewport?: GpuViewportInput | undefined;
+  readonly viewportSize?:
+    | { readonly height: number; readonly width: number }
+    | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
+
+const RETAINED_CONTENT_PAGE_FRAME_VIEWPORT_MARGIN_CSS_PX = 64;
 
 const contentVersions = new Map<string, number>();
 let nextContentVersion = 1;
@@ -47,16 +57,28 @@ export function getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
   options: GpuRetainedContentPageFrameSurfaceOptions = {},
 ): readonly RetainedContentTexturePageFrameSurface[] {
-  return surfaces.map((surface) =>
-    toGpuRetainedContentTexturePageFrameSurface(surface, options),
-  );
+  return surfaces
+    .map((surface) =>
+      toGpuRetainedContentTexturePageFrameSurface(surface, options),
+    )
+    .filter(
+      (surface): surface is RetainedContentTexturePageFrameSurface =>
+        Boolean(surface),
+    );
 }
 
 function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
   options: GpuRetainedContentPageFrameSurfaceOptions,
-): RetainedContentTexturePageFrameSurface {
+): RetainedContentTexturePageFrameSurface | null {
   void options.viewportZoomBucket;
+  const visibleFlowRect = resolveGpuRetainedContentPageFrameFlowRect({
+    options,
+    surface,
+  });
+  if (!visibleFlowRect) {
+    return null;
+  }
   const contentVersion = getBaseContentVersion(surface.retainedScene);
   const sourceWindowCss = {
     height: surface.textureWindow.cacheViewportRect.height,
@@ -64,8 +86,20 @@ function toGpuRetainedContentTexturePageFrameSurface(
     x: surface.textureWindow.cacheScrollOffset.x,
     y: surface.textureWindow.cacheScrollOffset.y,
   };
+  const visibleTextureSourceRect = {
+    height: visibleFlowRect.height,
+    width: visibleFlowRect.width,
+    x:
+      surface.textureWindow.sourceRect.x +
+      visibleFlowRect.x -
+      surface.rect.x,
+    y:
+      surface.textureWindow.sourceRect.y +
+      visibleFlowRect.y -
+      surface.rect.y,
+  };
   const visibleContentRectCss = toRetainedContentRectCss({
-    rect: surface.textureWindow.sourceRect,
+    rect: visibleTextureSourceRect,
     viewportRect: surface.textureWindow.cacheViewportRect,
     windowOrigin: sourceWindowCss,
   });
@@ -89,12 +123,12 @@ function toGpuRetainedContentTexturePageFrameSurface(
     contentSegments: createContentSegments(surface.retainedScene),
     contentVersion,
     layout: {
-      height: surface.rect.height,
+      height: visibleFlowRect.height,
       surfaceId: surface.id,
       textureSourceRect: visibleContentRectCss,
-      width: surface.rect.width,
-      x: surface.rect.x,
-      y: surface.rect.y,
+      width: visibleFlowRect.width,
+      x: visibleFlowRect.x,
+      y: visibleFlowRect.y,
       zIndex: surface.zIndex,
     },
     rasterScene: createGpuRetainedRowContentSceneWithScrollWindow({
@@ -108,6 +142,43 @@ function toGpuRetainedContentTexturePageFrameSurface(
     surfaceId: surface.id,
     visibleSourceRectCss: visibleContentRectCss,
   };
+}
+
+function resolveGpuRetainedContentPageFrameFlowRect({
+  options,
+  surface,
+}: {
+  readonly options: GpuRetainedContentPageFrameSurfaceOptions;
+  readonly surface: GpuRetainedContentSourceSurface;
+}): GpuRect | null {
+  if (!options.viewport || !options.viewportSize) {
+    return surface.rect;
+  }
+  const viewportFlowRect = getVisibleFlowRect({
+    canvasHeight: options.viewportSize.height,
+    canvasWidth: options.viewportSize.width,
+    marginCssPx: RETAINED_CONTENT_PAGE_FRAME_VIEWPORT_MARGIN_CSS_PX,
+    viewport: options.viewport,
+  });
+  const visibleRect = intersectRetainedPageFrameRects(
+    surface.rect,
+    viewportFlowRect,
+  );
+  return visibleRect.width > 0 && visibleRect.height > 0 ? visibleRect : null;
+}
+
+function intersectRetainedPageFrameRects(left: GpuRect, right: GpuRect): GpuRect {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const width = Math.max(
+    0,
+    Math.min(left.x + left.width, right.x + right.width) - x,
+  );
+  const height = Math.max(
+    0,
+    Math.min(left.y + left.height, right.y + right.height) - y,
+  );
+  return { height, width, x, y };
 }
 
 function toRetainedContentRectCss({

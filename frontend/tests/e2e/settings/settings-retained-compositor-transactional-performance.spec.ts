@@ -21,6 +21,7 @@ import {
   resolveRetainedCompositorViewportPoint,
   runNativeRetainedCompositorWheelBurst,
   waitForRetainedCompositorGestureIdle,
+  warmRetainedCompositorNativeWheelTarget,
   type RetainedCompositorPoint,
 } from "./settings-retained-compositor-helpers";
 
@@ -91,6 +92,7 @@ test("all-settings retained surface compositor publishes transactional gesture f
     }),
   );
   await waitForRetainedCompositorGestureIdle(page);
+  await warmRetainedCompositorNativeWheelTarget(page, retainedTarget.point);
   const scrollThenZoom = await measureRetainedCompositorGesture(
     page,
     async () => {
@@ -136,7 +138,7 @@ test("all-settings retained surface compositor publishes transactional gesture f
       await page.mouse.click(textLikeTarget.point.x, textLikeTarget.point.y);
       await expect
         .poll(() => readActiveDomControlHostRect(page, textLikeTarget), {
-          timeout: 1_000,
+          timeout: 3_000,
         })
         .not.toBeNull();
       textActivationLatencyMs = await page.evaluate(

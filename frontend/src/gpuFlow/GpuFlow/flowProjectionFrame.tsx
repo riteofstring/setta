@@ -53,6 +53,7 @@ import {
 } from "./flowFrameInteractionState";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
+import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 
 type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -173,6 +174,13 @@ export function renderGpuFlowNodeLayerProjectionFrame({
         retainedRuntimeFrame
       : retainedRuntimeFrame;
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
+  const htmlSurfaceOverlays =
+    projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+      controls: projectionRetainedRuntimeFrame.descriptors.domControlSources,
+      getRetainedScrollOffset: (surfaceId) =>
+        transaction.sample.retainedScrollOffsets.get(surfaceId) ?? null,
+      overlays: layer.edgeLabelSurfaces,
+    });
   const projectionSurfaceResolveMs =
     performance.now() - projectionSurfaceResolveStart;
   const htmlSurfaceFrameStart = performance.now();
@@ -190,7 +198,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,
     grid: layer.grid,
-    htmlSurfaceOverlays: layer.edgeLabelSurfaces,
+    htmlSurfaceOverlays,
     htmlSurfaceNativeVisuals:
       projectionRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
     htmlSurfacePageVisuals: retainedPageVisuals,

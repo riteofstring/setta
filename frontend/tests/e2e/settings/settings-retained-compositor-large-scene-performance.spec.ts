@@ -20,6 +20,7 @@ import {
   resolveRetainedCompositorTarget,
   resolveRetainedCompositorViewportPoint,
   runNativeRetainedCompositorWheelBurst,
+  warmRetainedCompositorNativeWheelTarget,
   waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
 import {
@@ -143,6 +144,7 @@ test("all-settings retained compositor gestures stay within the measured cadence
     }),
   );
   await waitForRetainedCompositorGestureIdle(page);
+  await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const scrollThenRetainedHoverZoom = await measureRetainedCompositorGesture(
     page,
     async () => {

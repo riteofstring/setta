@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { ensureAppReady } from "../helpers";
+import { analyzeTextPreviewValueColumnPixelCount } from "./settings-retained-codemirror-visual-analysis";
 import {
   analyzeCodeMirrorTextInkBounds,
   analyzeRetainedLabelTextInkBounds,
@@ -85,6 +86,7 @@ test("retained passive text editor previews stay attached during section scroll"
   );
   const framesWithoutVisibleText = frames.filter(
     (frame) =>
+      frame.visibleValueTextPixelCount < 1 &&
       !frame.textRows.some(
         (row) => row.visibleTextPixelCount >= row.minimumTextPixelCount,
       ),
@@ -92,6 +94,7 @@ test("retained passive text editor previews stay attached during section scroll"
   const frameDetails = frames.map((frame) => ({
     name: frame.name,
     textRows: frame.textRows,
+    visibleValueTextPixelCount: frame.visibleValueTextPixelCount,
   }));
   const failureDetails = JSON.stringify(
     {
@@ -666,6 +669,7 @@ async function captureTextPreviewScrollFrame({
 }): Promise<{
   readonly name: string;
   readonly textRows: readonly TextPreviewRowStats[];
+  readonly visibleValueTextPixelCount: number;
 }> {
   const screenshot = await screenshotClip({
     name: `visual-scroll-text-preview-${name}.png`,
@@ -673,12 +677,19 @@ async function captureTextPreviewScrollFrame({
     rect,
     testInfo,
   });
-  return {
-    name,
-    textRows: await analyzeVisibleTextPreviewRows(page, {
+  const [textRows, visibleValueTextPixelCount] = await Promise.all([
+    analyzeVisibleTextPreviewRows(page, {
       clip: rect,
       screenshot,
     }),
+    analyzeTextPreviewValueColumnPixelCount(page, {
+      screenshot,
+    }),
+  ]);
+  return {
+    name,
+    textRows,
+    visibleValueTextPixelCount,
   };
 }
 

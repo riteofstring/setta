@@ -1,7 +1,9 @@
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import {
   RetainedTextureWorkQueue,
+  retainedTextureWorkLaneForWorkItem,
   type RetainedTextureWorkItem,
+  type RetainedTextureWorkLane,
   type RetainedTextureWorkQueueOptions,
 } from "./retainedTextureWorkQueue";
 
@@ -44,8 +46,12 @@ type RetainedTextureUploadWorkResult = RetainedTextureUploadWorkEstimate & {
 export type RetainedTextureUploadSchedulerDiagnostic = {
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
+  readonly lane: RetainedTextureWorkLane;
   readonly queue: RetainedTextureSchedulerQueue;
-  readonly reason: "budget-exhausted" | "actual-budget-miss";
+  readonly reason:
+    | "actual-budget-miss"
+    | "budget-exhausted"
+    | "deadline-exhausted";
 };
 
 type RetainedTextureUploadSchedulerResult = {
@@ -65,12 +71,14 @@ type RetainedTextureSchedulerQueue = "interactive" | "visible" | "prefetch";
 
 type RunRetainedTextureUploadSchedulerInput = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly deadlineMs?: number | undefined;
   readonly estimateWorkItem: (
     item: RetainedTextureWorkItem,
   ) => RetainedTextureUploadWorkEstimate;
   readonly executeWorkItem: (
     item: RetainedTextureWorkItem,
   ) => RetainedTextureUploadWorkResult;
+  readonly now?: (() => number) | undefined;
   readonly pageWorkBudget?: Partial<RetainedPageWorkBudget> | undefined;
   readonly queue: RetainedTextureWorkQueue;
   readonly textureBudget?: RetainedTextureBudget | undefined;
@@ -87,10 +95,24 @@ type RetainedTextureUploadSchedulerProgress = {
   visibleEdgeUploadCount: number;
 };
 
+type RetainedTextureSchedulerWorkContext = {
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+  readonly lane: RetainedTextureWorkLane;
+  readonly schedulerQueue: RetainedTextureSchedulerQueue;
+};
+
+type RetainedTextureSchedulerSkip = {
+  readonly diagnostic: RetainedTextureUploadSchedulerDiagnostic;
+  readonly stop: boolean;
+};
+
 export function runRetainedTextureUploadScheduler({
   budget,
+  deadlineMs,
   estimateWorkItem,
   executeWorkItem,
+  now = defaultRetainedTextureSchedulerNow,
   pageWorkBudget,
   queue,
   textureBudget,
@@ -106,61 +128,70 @@ export function runRetainedTextureUploadScheduler({
     pageWorkBudget: normalizedPageWorkBudget,
     schedulerBudget: normalizedBudget,
   });
-  const queueOptions: RetainedTextureWorkQueueOptions = {
-    viewportInteractionActive: viewportInteractionActive ?? false,
-  };
+  const queueOptions = createRetainedTextureWorkQueueOptions({
+    viewportInteractionActive,
+  });
   const progress = createEmptyProgress();
   const diagnostics: RetainedTextureUploadSchedulerDiagnostic[] = [];
   const executedItems: RetainedTextureWorkItem[] = [];
   const skippedItems: RetainedTextureWorkItem[] = [];
+  const startedAtMs = now();
+  const hardDeadlineMs = resolveRetainedTextureHardDeadlineMs({
+    budget: normalizedBudget,
+    deadlineMs,
+  });
 
   for (const item of queue.orderedWorkItems(queueOptions)) {
-    const estimate = normalizeWorkEstimate(estimateWorkItem(item));
-    const schedulerQueue = retainedTextureSchedulerQueueForWorkItem(item);
-    if (
-      shouldSkipRetainedTextureWorkItem({
-        budget: normalizedBudget,
-        estimate,
-        item,
-        pageWorkBudget: normalizedPageWorkBudget,
-        progress,
-        retainedSchedulerBudgets,
-        schedulerQueue,
-        textureBudget,
-      })
-    ) {
-      diagnostics.push(
-        createRetainedTextureBudgetExhaustedDiagnostic({
-          estimate,
-          item,
-          schedulerQueue,
-        }),
-      );
+    const context = createRetainedTextureSchedulerWorkContext({
+      estimateWorkItem,
+      item,
+    });
+    const preExecutionSkip = resolveRetainedTexturePreExecutionSkip({
+      budget: normalizedBudget,
+      context,
+      hardDeadlineMs,
+      now,
+      pageWorkBudget: normalizedPageWorkBudget,
+      progress,
+      retainedSchedulerBudgets,
+      startedAtMs,
+      textureBudget,
+    });
+    if (preExecutionSkip) {
+      diagnostics.push(preExecutionSkip.diagnostic);
       skippedItems.push(item);
+      if (preExecutionSkip.stop) {
+        break;
+      }
       continue;
     }
 
     const result = normalizeWorkResult(executeWorkItem(item));
-    addProgress(progress, result, item, schedulerQueue);
+    addProgress(progress, result, item, context.schedulerQueue);
     executedItems.push(item);
     if (result.complete) {
       queue.complete(item);
     }
+    const postExecutionBudgetMiss = createRetainedTextureActualBudgetMiss({
+      budget: normalizedBudget,
+      context,
+      pageWorkBudget: normalizedPageWorkBudget,
+      progress,
+      result,
+      retainedSchedulerBudgets,
+    });
+    if (postExecutionBudgetMiss) {
+      diagnostics.push(postExecutionBudgetMiss);
+      break;
+    }
     if (
-      !fitsBudget(createEmptyProgress(), progress, normalizedBudget) &&
-      !fitsVisibleRepairBudget(
+      shouldStopRetainedTextureSchedulerForDeadline({
+        hardDeadlineMs,
+        now,
         progress,
-        normalizedBudget,
-        normalizedPageWorkBudget,
-        retainedSchedulerBudgets,
-      )
+        startedAtMs,
+      })
     ) {
-      diagnostics.push({
-        estimate: result,
-        item,
-        queue: schedulerQueue,
-        reason: "actual-budget-miss",
-      });
       break;
     }
   }
@@ -170,8 +201,10 @@ export function runRetainedTextureUploadScheduler({
 
   return {
     budget: normalizedBudget,
-    budgetExhausted:
-      skippedItems.length > 0 || remainingUploadableWorkCount > 0,
+    budgetExhausted: hasRetainedTextureBudgetExhaustion({
+      remainingUploadableWorkCount,
+      skippedItems,
+    }),
     diagnostics,
     executedItems,
     remainingUploadableWorkCount,
@@ -183,10 +216,176 @@ export function runRetainedTextureUploadScheduler({
   };
 }
 
+function createRetainedTextureWorkQueueOptions({
+  viewportInteractionActive,
+}: {
+  readonly viewportInteractionActive: boolean | undefined;
+}): RetainedTextureWorkQueueOptions {
+  return {
+    viewportInteractionActive: Boolean(viewportInteractionActive),
+  };
+}
+
+function resolveRetainedTextureHardDeadlineMs({
+  budget,
+  deadlineMs,
+}: {
+  readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly deadlineMs: number | undefined;
+}): number {
+  if (deadlineMs !== undefined) {
+    return deadlineMs;
+  }
+  return Math.max(0, budget.maxFrameRasterMs + budget.maxFrameUploadMs);
+}
+
+function hasRetainedTextureBudgetExhaustion({
+  remainingUploadableWorkCount,
+  skippedItems,
+}: {
+  readonly remainingUploadableWorkCount: number;
+  readonly skippedItems: readonly RetainedTextureWorkItem[];
+}): boolean {
+  return skippedItems.length > 0 || remainingUploadableWorkCount > 0;
+}
+
+function createRetainedTextureSchedulerWorkContext({
+  estimateWorkItem,
+  item,
+}: {
+  readonly estimateWorkItem: (
+    item: RetainedTextureWorkItem,
+  ) => RetainedTextureUploadWorkEstimate;
+  readonly item: RetainedTextureWorkItem;
+}): RetainedTextureSchedulerWorkContext {
+  return {
+    estimate: normalizeWorkEstimate(estimateWorkItem(item)),
+    item,
+    lane: retainedTextureWorkLaneForWorkItem(item),
+    schedulerQueue: retainedTextureSchedulerQueueForWorkItem(item),
+  };
+}
+
+function resolveRetainedTexturePreExecutionSkip({
+  budget,
+  context,
+  hardDeadlineMs,
+  now,
+  pageWorkBudget,
+  progress,
+  retainedSchedulerBudgets,
+  startedAtMs,
+  textureBudget,
+}: {
+  readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly context: RetainedTextureSchedulerWorkContext;
+  readonly hardDeadlineMs: number;
+  readonly now: () => number;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
+  readonly startedAtMs: number;
+  readonly textureBudget: RetainedTextureBudget | undefined;
+}): RetainedTextureSchedulerSkip | null {
+  if (
+    shouldStopRetainedTextureSchedulerForDeadline({
+      hardDeadlineMs,
+      now,
+      progress,
+      startedAtMs,
+    })
+  ) {
+    return createRetainedTextureSchedulerSkip({
+      context,
+      reason: "deadline-exhausted",
+      stop: true,
+    });
+  }
+  if (
+    shouldSkipRetainedTextureWorkItem({
+      budget,
+      estimate: context.estimate,
+      item: context.item,
+      lane: context.lane,
+      pageWorkBudget,
+      progress,
+      retainedSchedulerBudgets,
+      schedulerQueue: context.schedulerQueue,
+      textureBudget,
+    })
+  ) {
+    return createRetainedTextureSchedulerSkip({
+      context,
+      reason: "budget-exhausted",
+      stop: false,
+    });
+  }
+  return null;
+}
+
+function createRetainedTextureSchedulerSkip({
+  context,
+  reason,
+  stop,
+}: {
+  readonly context: RetainedTextureSchedulerWorkContext;
+  readonly reason: "budget-exhausted" | "deadline-exhausted";
+  readonly stop: boolean;
+}): RetainedTextureSchedulerSkip {
+  return {
+    diagnostic: createRetainedTextureBudgetExhaustedDiagnostic({
+      estimate: context.estimate,
+      item: context.item,
+      lane: context.lane,
+      reason,
+      schedulerQueue: context.schedulerQueue,
+    }),
+    stop,
+  };
+}
+
+function createRetainedTextureActualBudgetMiss({
+  budget,
+  context,
+  pageWorkBudget,
+  progress,
+  result,
+  retainedSchedulerBudgets,
+}: {
+  readonly budget: RetainedTextureUploadSchedulerBudget;
+  readonly context: RetainedTextureSchedulerWorkContext;
+  readonly pageWorkBudget: RetainedPageWorkBudget;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly result: RetainedTextureUploadWorkResult;
+  readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
+}): RetainedTextureUploadSchedulerDiagnostic | null {
+  if (fitsBudget(createEmptyProgress(), progress, budget)) {
+    return null;
+  }
+  if (
+    fitsVisibleRepairBudget(
+      progress,
+      budget,
+      pageWorkBudget,
+      retainedSchedulerBudgets,
+    )
+  ) {
+    return null;
+  }
+  return {
+    estimate: result,
+    item: context.item,
+    lane: context.lane,
+    queue: context.schedulerQueue,
+    reason: "actual-budget-miss",
+  };
+}
+
 function shouldSkipRetainedTextureWorkItem({
   budget,
   estimate,
   item,
+  lane,
   pageWorkBudget,
   progress,
   retainedSchedulerBudgets,
@@ -196,12 +395,16 @@ function shouldSkipRetainedTextureWorkItem({
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
+  readonly lane: RetainedTextureWorkLane;
   readonly pageWorkBudget: RetainedPageWorkBudget;
   readonly progress: RetainedTextureUploadSchedulerProgress;
   readonly retainedSchedulerBudgets: RetainedSchedulerBudgets;
   readonly schedulerQueue: RetainedTextureSchedulerQueue;
   readonly textureBudget: RetainedTextureBudget | undefined;
 }): boolean {
+  if (lane === "cleanup") {
+    return true;
+  }
   if (
     shouldSkipNonVisibleWorkForPageBudget({
       estimate,
@@ -240,18 +443,41 @@ function shouldSkipRetainedTextureWorkItem({
 function createRetainedTextureBudgetExhaustedDiagnostic({
   estimate,
   item,
+  lane,
+  reason,
   schedulerQueue,
 }: {
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
+  readonly lane: RetainedTextureWorkLane;
+  readonly reason: "budget-exhausted" | "deadline-exhausted";
   readonly schedulerQueue: RetainedTextureSchedulerQueue;
 }): RetainedTextureUploadSchedulerDiagnostic {
   return {
     estimate,
     item,
+    lane,
     queue: schedulerQueue,
-    reason: "budget-exhausted",
+    reason,
   };
+}
+
+function shouldStopRetainedTextureSchedulerForDeadline({
+  hardDeadlineMs,
+  now,
+  progress,
+  startedAtMs,
+}: {
+  readonly hardDeadlineMs: number;
+  readonly now: () => number;
+  readonly progress: RetainedTextureUploadSchedulerProgress;
+  readonly startedAtMs: number;
+}): boolean {
+  return (
+    hardDeadlineMs <= 0 ||
+    progress.rasterMs + progress.uploadMs >= hardDeadlineMs ||
+    now() - startedAtMs >= hardDeadlineMs
+  );
 }
 
 function shouldSkipPrefetchForTextureBudget({
@@ -637,6 +863,10 @@ function normalizeWorkEstimate(
       estimate.uploadCount,
     ),
   };
+}
+
+function defaultRetainedTextureSchedulerNow(): number {
+  return typeof performance === "undefined" ? Date.now() : performance.now();
 }
 
 function normalizeFiniteNonNegativeNumber(name: string, value: number): number {

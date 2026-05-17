@@ -177,6 +177,14 @@ test("settings retained controls and text editors stay local to the row", async 
   await expect
     .poll(async () => (await readGpuFlowDebugSnapshot(page))?.activeMode)
     .not.toBe("retained-content");
+
+  await page.mouse.click(
+    panOnDragTarget.clientPoint.x,
+    panOnDragTarget.clientPoint.y,
+  );
+  await expect
+    .poll(async () => Boolean(await readGuiSetting(page, "panOnDrag")))
+    .toBe(initialPanOnDrag);
 });
 
 async function resolveRetainedControlTarget(

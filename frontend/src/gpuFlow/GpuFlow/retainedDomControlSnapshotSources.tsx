@@ -22,13 +22,13 @@ import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowDomControlRenderer } from "./domControlPlane";
-import {
-  getGpuRetainedDomControlSnapshotSurfaceId,
-  getGpuRetainedDomControlVisibleClipFlowPx,
-} from "./retainedDomControlSources";
+import { projectGpuFlowDomControlPlaneGeometry } from "./domControlPlaneProjection";
+import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
 
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__dom-control-snapshot-source";
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX =
+  "retained-dom-control-snapshot:";
 
 export function useGpuFlowRetainedDomControlSnapshotSources({
   nodeDomTransformSyncCacheRef,
@@ -123,8 +123,71 @@ function getGpuRetainedDomControlSnapshotSources(
 
 export function getGpuRetainedDomControlSnapshotSurfaceLayouts(
   controls: readonly GpuRetainedDomControlSourceDescriptor[],
+  options: {
+    readonly getRetainedScrollOffset?:
+      | ((
+          surfaceId: string,
+        ) => { readonly x: number; readonly y: number } | null)
+      | undefined;
+  } = {},
 ): readonly GpuHtmlSurfaceOverlayLayout[] {
-  return controls.map(toGpuRetainedDomControlSnapshotSurfaceLayout);
+  return controls.map((control) =>
+    toGpuRetainedDomControlSnapshotSurfaceLayout(control, options),
+  );
+}
+
+export function projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+  controls,
+  getRetainedScrollOffset,
+  overlays,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly getRetainedScrollOffset:
+    | ((surfaceId: string) => { readonly x: number; readonly y: number } | null)
+    | undefined;
+  readonly overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined;
+}): readonly GpuHtmlSurfaceOverlayLayout[] | undefined {
+  const snapshotLayouts = getGpuRetainedDomControlSnapshotSurfaceLayouts(
+    controls.filter(
+      (control) =>
+        control.visualPolicy === "snapshot" && control.snapshotSurfaceId,
+    ),
+    {
+      getRetainedScrollOffset,
+    },
+  );
+  if (snapshotLayouts.length === 0) {
+    return overlays;
+  }
+  const snapshotLayoutBySurfaceId = new Map(
+    snapshotLayouts.map((layout) => [layout.surfaceId, layout]),
+  );
+  const includedSurfaceIds = new Set<string>();
+  const projectedOverlays = (overlays ?? []).flatMap((overlay) => {
+    const snapshotLayout = snapshotLayoutBySurfaceId.get(overlay.surfaceId);
+    if (!snapshotLayout) {
+      return isGpuRetainedDomControlSnapshotOverlay(overlay) ? [] : [overlay];
+    }
+    includedSurfaceIds.add(snapshotLayout.surfaceId);
+    return [snapshotLayout];
+  });
+  for (const snapshotLayout of snapshotLayouts) {
+    if (!includedSurfaceIds.has(snapshotLayout.surfaceId)) {
+      projectedOverlays.push(snapshotLayout);
+    }
+  }
+  return projectedOverlays;
+}
+
+function isGpuRetainedDomControlSnapshotOverlay(
+  overlay: GpuHtmlSurfaceOverlayLayout,
+): boolean {
+  return (
+    overlay.actorKind === "dom-control" &&
+    overlay.surfaceId.startsWith(
+      GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX,
+    )
+  );
 }
 
 function GpuRetainedDomControlSnapshotSourceLayer({
@@ -198,8 +261,19 @@ function GpuRetainedDomControlSnapshotSource({
 
 function toGpuRetainedDomControlSnapshotSurfaceLayout(
   control: GpuRetainedDomControlSourceDescriptor,
+  options: {
+    readonly getRetainedScrollOffset?:
+      | ((
+          surfaceId: string,
+        ) => { readonly x: number; readonly y: number } | null)
+      | undefined;
+  },
 ): GpuHtmlSurfaceOverlayLayout {
-  const clip = getGpuRetainedDomControlVisibleClipFlowPx(control);
+  const geometry = projectGpuFlowDomControlPlaneGeometry({
+    control,
+    getRetainedScrollOffset: options.getRetainedScrollOffset,
+  });
+  const clip = geometry.visibleClipFlowPx;
   return {
     actorKind: "dom-control",
     height: clip.height,
@@ -211,8 +285,8 @@ function toGpuRetainedDomControlSnapshotSurfaceLayout(
     textureSourceRect: {
       height: clip.height,
       width: clip.width,
-      x: clip.x - control.worldRectFlowPx.x,
-      y: clip.y - control.worldRectFlowPx.y,
+      x: clip.x - geometry.worldRectFlowPx.x,
+      y: clip.y - geometry.worldRectFlowPx.y,
     },
     width: clip.width,
     x: clip.x,

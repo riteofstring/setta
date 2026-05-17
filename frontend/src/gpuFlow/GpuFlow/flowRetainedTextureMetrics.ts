@@ -1,6 +1,14 @@
-import type { GpuFlowRetainedTexturePageFrameMetrics } from "../framePerformance";
+import type {
+  GpuFlowRetainedTexturePageDiagnosticMetrics,
+  GpuFlowRetainedTexturePageFrameMetrics,
+  GpuFlowRetainedTexturePageWorkItemMetrics,
+} from "../framePerformance";
 import type { RetainedContentTexturePageMaintenanceResult } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import {
+  retainedTextureWorkLaneForWorkItem,
+  type RetainedTextureWorkItem,
+} from "../retainedTextureWorkQueue";
 import { normalizeGpuViewport } from "../viewportMath";
 
 export function combineGpuFlowRetainedTexturePageMetrics({
@@ -25,6 +33,9 @@ export function combineGpuFlowRetainedTexturePageMetrics({
     budgetExhausted: retainedPageResult.budgetExhausted,
     coverageCandidateCount: retainedPageResult.coverageCandidateCount,
     diagnosticCount: retainedPageResult.diagnostics.length,
+    diagnostics: retainedPageResult.diagnostics.map(
+      createRetainedTexturePageDiagnosticMetrics,
+    ),
     drawQuadCount: retainedPageResult.drawQuadCount,
     evictedBytes: retainedPageResult.evicted.evictedBytes,
     evictedCount: retainedPageResult.evicted.evictedKeys.length,
@@ -54,6 +65,43 @@ export function combineGpuFlowRetainedTexturePageMetrics({
     uploadedDrawCommandCount: retainedPageResult.uploadedDrawCommandCount,
     uploadCount: retainedPageResult.uploadCount,
     uploadMs: retainedPageResult.uploadMs,
+    executedItems: retainedPageResult.executedItems.map(
+      createRetainedTexturePageWorkItemMetrics,
+    ),
+  };
+}
+
+function createRetainedTexturePageDiagnosticMetrics(
+  diagnostic: RetainedContentTexturePageMaintenanceResult["diagnostics"][number],
+): GpuFlowRetainedTexturePageDiagnosticMetrics {
+  return {
+    ...createRetainedTexturePageWorkItemMetrics(diagnostic.item),
+    estimate: {
+      rasterMs: diagnostic.estimate.rasterMs,
+      uploadedBytes: diagnostic.estimate.uploadedBytes,
+      uploadCount: diagnostic.estimate.uploadCount,
+      uploadMs: diagnostic.estimate.uploadMs,
+    },
+    lane: diagnostic.lane,
+    queue: diagnostic.queue,
+    reason: diagnostic.reason,
+  };
+}
+
+function createRetainedTexturePageWorkItemMetrics(
+  item: RetainedTextureWorkItem,
+): GpuFlowRetainedTexturePageWorkItemMetrics {
+  return {
+    contentVersion: item.contentVersion,
+    kind: item.kind,
+    lane: retainedTextureWorkLaneForWorkItem(item),
+    priority: item.priority,
+    projectionHorizonGeneration: item.projectionHorizonGeneration ?? null,
+    sourceRect: item.sourceRect ? { ...item.sourceRect } : null,
+    sourceWindow: item.sourceWindow ? { ...item.sourceWindow } : null,
+    surfaceId: item.surfaceId,
+    targetLod: item.targetLod ?? null,
+    visualEpochKind: item.visualEpochKind ?? null,
   };
 }
 

@@ -276,7 +276,7 @@ describe("RetainedContentTexturePageManager", () => {
       viewportZoomBucket: 2,
     });
 
-    expect(zoomFrame.uploadCount).toBe(1);
+    expect(zoomFrame.uploadCount).toBe(0);
     expect(zoomFrame.flatSurfaces).toHaveLength(1);
     expect(zoomFrame.refinementPageCount).toBe(4);
     expect(

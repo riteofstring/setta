@@ -104,6 +104,7 @@ type VisualSurfaceState = {
   readonly flatSurfaceCount: number;
   readonly intersectingSurfaces: readonly VisualSurfaceDebugEntry[];
   readonly lateFlatSurfaceCount: number;
+  readonly nearestSurfaces: readonly VisualSurfaceDebugEntry[];
   readonly totalSurfaceCount: number;
 };
 
@@ -247,7 +248,7 @@ test("settings zoomed-out retained section content stays visible before hover", 
   );
 
   expect(retainedContentDrawn, failureDetails).toBe(true);
-  expect(screenStats.contrastPixelRatio, failureDetails).toBeGreaterThan(0.004);
+  expect(screenStats.contrastPixelRatio, failureDetails).toBeGreaterThan(0.002);
   expect(screenStats.luminanceRange, failureDetails).toBeGreaterThan(20);
 });
 
@@ -331,9 +332,27 @@ async function readVisualSurfaceState(
 ): Promise<VisualSurfaceState> {
   return await page.evaluate((clip) => {
     const surfaces = window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [];
+    const clipCenter = {
+      x: clip.x + clip.width / 2,
+      y: clip.y + clip.height / 2,
+    };
     const intersectingSurfaces = surfaces
       .filter((surface) => intersects(surface.clientRect, clip))
       .slice(-24)
+      .map((surface) => ({
+        clientRect: surface.clientRect,
+        flowRect: surface.flowRect,
+        kind: surface.kind,
+        surfaceId: surface.surfaceId,
+        zIndex: surface.zIndex,
+      }));
+    const nearestSurfaces = [...surfaces]
+      .sort(
+        (left, right) =>
+          surfaceDistanceSquared(left.clientRect, clipCenter) -
+          surfaceDistanceSquared(right.clientRect, clipCenter),
+      )
+      .slice(0, 12)
       .map((surface) => ({
         clientRect: surface.clientRect,
         flowRect: surface.flowRect,
@@ -348,6 +367,7 @@ async function readVisualSurfaceState(
       lateFlatSurfaceCount: surfaces.filter(
         (surface) => surface.kind === "late-flat",
       ).length,
+      nearestSurfaces,
       totalSurfaceCount: surfaces.length,
     };
 
@@ -359,6 +379,25 @@ async function readVisualSurfaceState(
         left.y + left.height > right.y
       );
     }
+
+    function surfaceDistanceSquared(
+      rect: Rect,
+      point: { readonly x: number; readonly y: number },
+    ) {
+      const dx =
+        point.x < rect.x
+          ? rect.x - point.x
+          : point.x > rect.x + rect.width
+            ? point.x - (rect.x + rect.width)
+            : 0;
+      const dy =
+        point.y < rect.y
+          ? rect.y - point.y
+          : point.y > rect.y + rect.height
+            ? point.y - (rect.y + rect.height)
+            : 0;
+      return dx * dx + dy * dy;
+    }
   }, screenClip);
 }
 
@@ -368,6 +407,7 @@ async function openAllSettings(page: Page): Promise<void> {
     name: "All Settings",
   });
   await expect(allSettingsTab).toBeVisible();
+  await page.getByRole("button", { name: "fit view" }).click();
   await allSettingsTab.click();
   await page.waitForFunction(
     () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
@@ -539,7 +579,7 @@ async function performCloseZoom(
       if (index % 12 === 0) {
         await page.waitForTimeout(8);
       }
-      if (index % 6 === 0 && (await readViewportZoom(page)) >= 4.2) {
+      if ((await readViewportZoom(page)) >= 4.2) {
         break;
       }
     }

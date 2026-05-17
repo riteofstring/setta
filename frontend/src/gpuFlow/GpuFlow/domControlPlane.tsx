@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type {
@@ -197,6 +198,7 @@ export function GpuFlowDomControlPlane({
   );
   const controlsToMountRef = useRef(controlsToMount);
   controlsToMountRef.current = controlsToMount;
+  const retainedScrollProjectionSignatureRef = useRef("");
   const refreshProjectedControls = useCallback(
     (
       viewport = getLiveGpuFlowDomControlPlaneViewport({
@@ -285,9 +287,29 @@ export function GpuFlowDomControlPlane({
   );
 
   useLayoutEffect(() => {
+    retainedScrollProjectionSignatureRef.current =
+      createGpuFlowDomControlRetainedScrollProjectionSignature({
+        controls,
+        getRetainedScrollOffset,
+      });
     refreshProjectedControls();
     return viewportRuntime.registerOverlayManager({
       applyViewport(viewport) {
+        const retainedScrollProjectionSignature =
+          createGpuFlowDomControlRetainedScrollProjectionSignature({
+            controls,
+            getRetainedScrollOffset,
+          });
+        if (
+          retainedScrollProjectionSignature !==
+          retainedScrollProjectionSignatureRef.current
+        ) {
+          retainedScrollProjectionSignatureRef.current =
+            retainedScrollProjectionSignature;
+          flushSync(() => {
+            refreshProjectedControls(viewport);
+          });
+        }
         projectionManagerRef.current.project({
           committedFrameId: frameIds.committedFrameId,
           controlById: controlByIdRef.current,
@@ -303,6 +325,7 @@ export function GpuFlowDomControlPlane({
       },
     });
   }, [
+    controls,
     frameIds,
     getRetainedScrollOffset,
     refreshProjectedControls,
@@ -519,6 +542,29 @@ function getGpuFlowDomControlCoverageDebugAttributes({
     "data-gpu-flow-dom-control-coverage-state": assignment.coverageState,
     "data-gpu-flow-dom-control-projection-phase": assignment.phase,
   };
+}
+
+function createGpuFlowDomControlRetainedScrollProjectionSignature({
+  controls,
+  getRetainedScrollOffset,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly getRetainedScrollOffset:
+    | GpuFlowRetainedScrollOffsetGetter
+    | undefined;
+}): string {
+  if (!getRetainedScrollOffset) {
+    return "";
+  }
+  const surfaceIds = [
+    ...new Set(controls.map((control) => control.surfaceId)),
+  ].sort((left, right) => left.localeCompare(right));
+  return JSON.stringify(
+    surfaceIds.map((surfaceId) => {
+      const offset = getRetainedScrollOffset(surfaceId);
+      return [surfaceId, offset?.x ?? null, offset?.y ?? null];
+    }),
+  );
 }
 
 function resolveGpuFlowDomControlPlaneFrameIds({

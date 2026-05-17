@@ -84,6 +84,10 @@ export function useGpuFlowDebugGlobals<
     const getLiveViewport = () =>
       getRegisteredGpuFlowViewportRuntime(viewportStore)?.getViewportTuple() ??
       getViewport();
+    const getVisualSceneViewport = () =>
+      nodeLayerRef.current.visualSceneViewport ??
+      nodeLayerRef.current.viewport ??
+      getLiveViewport();
     const getSnapshot = () =>
       createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
@@ -104,15 +108,12 @@ export function useGpuFlowDebugGlobals<
         container: containerRef.current,
         retainedContentRuntimeState,
         scene: nodeLayerRef.current.scene,
-        viewport: getLiveViewport(),
+        viewport: getVisualSceneViewport(),
       });
     const getVisualSurfaces = () =>
       createGpuFlowVisualSurfacesDebugSnapshot({
         container: containerRef.current,
-        viewport:
-          nodeLayerRef.current.visualSceneViewport ??
-          nodeLayerRef.current.viewport ??
-          getLiveViewport(),
+        viewport: getVisualSceneViewport(),
         visualScene: nodeLayerRef.current.visualScene,
       });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
@@ -358,19 +359,42 @@ function createGpuFlowRetainedSurfaceDebugEntries({
     surface,
     clipBounds,
   );
-  return sampledRetainedScene.rows.map((row) =>
-    createGpuFlowRetainedRowDebugEntry({
-      clipBounds,
-      context,
-      controlHit: findGpuFlowRetainedRowControlHit(
-        sampledRetainedScene.hitRecords,
-        row.id,
-      ),
-      row,
-      sampledRetainedScene,
-      sourceClipOffset,
-      surface,
-    }),
+  return sampledRetainedScene.rows
+    .filter((row) => retainedRowLabelPointInsideClipBounds(row, surface, clipBounds))
+    .map((row) =>
+      createGpuFlowRetainedRowDebugEntry({
+        clipBounds,
+        context,
+        controlHit: findGpuFlowRetainedRowControlHit(
+          sampledRetainedScene.hitRecords,
+          row.id,
+        ),
+        row,
+        sampledRetainedScene,
+        sourceClipOffset,
+        surface,
+      }),
+    );
+}
+
+function retainedRowLabelPointInsideClipBounds(
+  row: GpuRetainedContentRow,
+  surface: GpuContentSurface,
+  clipBounds: GpuFlowSurfaceClipBounds,
+): boolean {
+  const labelPoint = {
+    x:
+      surface.rect.x +
+      row.projectedRect.x +
+      Math.max(0, row.depth) * 14 +
+      32,
+    y: surface.rect.y + row.projectedRect.y + row.projectedRect.height / 2,
+  };
+  return (
+    labelPoint.x >= clipBounds.x &&
+    labelPoint.x <= clipBounds.right &&
+    labelPoint.y >= clipBounds.y &&
+    labelPoint.y <= clipBounds.bottom
   );
 }
 

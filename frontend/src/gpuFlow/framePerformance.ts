@@ -44,6 +44,7 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly budgetExhausted: boolean;
   readonly coverageCandidateCount: number;
   readonly diagnosticCount: number;
+  readonly diagnostics: readonly GpuFlowRetainedTexturePageDiagnosticMetrics[];
   readonly drawQuadCount: number;
   readonly evictedBytes: number;
   readonly evictedCount: number;
@@ -84,7 +85,43 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly uploadedDrawCommandCount: number;
   readonly uploadCount: number;
   readonly uploadMs: number;
+  readonly executedItems: readonly GpuFlowRetainedTexturePageWorkItemMetrics[];
 };
+
+export type GpuFlowRetainedTexturePageWorkItemMetrics = {
+  readonly contentVersion: number;
+  readonly kind: string;
+  readonly lane: string;
+  readonly priority: string;
+  readonly projectionHorizonGeneration: number | null;
+  readonly sourceRect: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  } | null;
+  readonly sourceWindow: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  } | null;
+  readonly surfaceId: string;
+  readonly targetLod: number | null;
+  readonly visualEpochKind: string | null;
+};
+
+export type GpuFlowRetainedTexturePageDiagnosticMetrics =
+  GpuFlowRetainedTexturePageWorkItemMetrics & {
+    readonly estimate: {
+      readonly rasterMs: number;
+      readonly uploadedBytes: number;
+      readonly uploadCount: number;
+      readonly uploadMs: number;
+    };
+    readonly queue: string;
+    readonly reason: string;
+  };
 
 export type GpuFlowFrameProjectionDiagnostics = {
   readonly committedFrameId: number | null;
@@ -159,6 +196,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageBudgetExhausted: boolean;
   readonly retainedTexturePageCoverageCandidateCount: number;
   readonly retainedTexturePageDiagnosticCount: number;
+  readonly retainedTexturePageDiagnostics: readonly GpuFlowRetainedTexturePageDiagnosticMetrics[];
   readonly retainedTexturePageDrawQuadCount: number;
   readonly retainedTexturePageEvictedBytes: number;
   readonly retainedTexturePageEvictedCount: number;
@@ -199,6 +237,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageUploadedDrawCommandCount: number;
   readonly retainedTexturePageUploadCount: number;
   readonly retainedTexturePageUploadMs: number;
+  readonly retainedTexturePageExecutedItems: readonly GpuFlowRetainedTexturePageWorkItemMetrics[];
   readonly skippedNodeCount: number;
   readonly solidRoundedRectSurfaceCount: number;
   readonly surfaceActorGenerationCount: number;
@@ -402,6 +441,7 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageBudgetExhausted"
   | "retainedTexturePageCoverageCandidateCount"
   | "retainedTexturePageDiagnosticCount"
+  | "retainedTexturePageDiagnostics"
   | "retainedTexturePageDrawQuadCount"
   | "retainedTexturePageEvictedBytes"
   | "retainedTexturePageEvictedCount"
@@ -434,12 +474,14 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageUploadedDrawCommandCount"
   | "retainedTexturePageUploadCount"
   | "retainedTexturePageUploadMs"
+  | "retainedTexturePageExecutedItems"
 > {
   if (!retainedTexturePages) {
     return {
       retainedTexturePageBudgetExhausted: false,
       retainedTexturePageCoverageCandidateCount: 0,
       retainedTexturePageDiagnosticCount: 0,
+      retainedTexturePageDiagnostics: [],
       retainedTexturePageDrawQuadCount: 0,
       retainedTexturePageEvictedBytes: 0,
       retainedTexturePageEvictedCount: 0,
@@ -472,6 +514,7 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageUploadedDrawCommandCount: 0,
       retainedTexturePageUploadCount: 0,
       retainedTexturePageUploadMs: 0,
+      retainedTexturePageExecutedItems: [],
     };
   }
   return {
@@ -479,6 +522,7 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageCoverageCandidateCount:
       retainedTexturePages.coverageCandidateCount,
     retainedTexturePageDiagnosticCount: retainedTexturePages.diagnosticCount,
+    retainedTexturePageDiagnostics: retainedTexturePages.diagnostics,
     retainedTexturePageDrawQuadCount: retainedTexturePages.drawQuadCount,
     retainedTexturePageEvictedBytes: retainedTexturePages.evictedBytes,
     retainedTexturePageEvictedCount: retainedTexturePages.evictedCount,
@@ -537,6 +581,7 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePages.uploadedDrawCommandCount,
     retainedTexturePageUploadCount: retainedTexturePages.uploadCount,
     retainedTexturePageUploadMs: retainedTexturePages.uploadMs,
+    retainedTexturePageExecutedItems: retainedTexturePages.executedItems,
   };
 }
 

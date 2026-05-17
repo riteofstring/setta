@@ -60,6 +60,7 @@ export function createRetainedContentTexturePageMaintenanceResult({
     drawQuadCount: preparedFrame.drawQuadCount,
     evicted,
     executedItemCount: uploadResult.executedItems.length,
+    executedItems: uploadResult.executedItems,
     fidelityState: preparedFrame.fidelityState,
     memory,
     mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
@@ -67,6 +68,7 @@ export function createRetainedContentTexturePageMaintenanceResult({
       uploadResult.budgetExhausted ||
       committedRefinementChangedDrawableCoverage ||
       committedMissingPageCoverage ||
+      queuedWorkCount > 0 ||
       remainingTrueHoleCoverage,
     postMaintenanceRefinementPageCount:
       postMaintenancePageVisualResult.refinementPageCount,
@@ -78,6 +80,7 @@ export function createRetainedContentTexturePageMaintenanceResult({
     remainingUploadableWorkCount: uploadResult.remainingUploadableWorkCount,
     repairedPreparedFrame: postMaintenancePageVisualResult,
     skippedItemCount: uploadResult.skippedItems.length,
+    skippedItems: uploadResult.skippedItems,
     targetDescriptorCount: preparedFrame.refinementDescriptors.length,
     trueHoleRectCount: preparedFrame.trueHoleRectCount,
     trueHoleVisuals: preparedFrame.trueHoleVisuals,
@@ -109,6 +112,7 @@ export function createDeferredRetainedContentTexturePageMaintenanceResult({
       remainingBytes: memory.committedBytes,
     },
     executedItemCount: 0,
+    executedItems: [],
     fidelityState: preparedFrame.fidelityState,
     memory,
     mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
@@ -122,6 +126,7 @@ export function createDeferredRetainedContentTexturePageMaintenanceResult({
     remainingUploadableWorkCount: 0,
     repairedPreparedFrame: preparedFrame,
     skippedItemCount: 0,
+    skippedItems: [],
     targetDescriptorCount: preparedFrame.refinementDescriptors.length,
     trueHoleRectCount: preparedFrame.trueHoleRectCount,
     trueHoleVisuals: preparedFrame.trueHoleVisuals,

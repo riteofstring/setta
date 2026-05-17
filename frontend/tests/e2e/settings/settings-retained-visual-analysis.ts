@@ -75,6 +75,7 @@ export type ScrollbarStats = {
   readonly duplicateColumnCount: number;
   readonly maxColumnCoverage: number;
   readonly primaryColumnCoverage: number;
+  readonly visibleColumnBandCount: number;
   readonly visibleColumnCount: number;
 };
 
@@ -1156,6 +1157,18 @@ export async function analyzeVerticalScrollbar(
       const visibleColumns = columnCoverage.filter(
         (coverage) => coverage > 0.25,
       );
+      let visibleColumnBandCount = 0;
+      let inVisibleColumnBand = false;
+      for (const coverage of columnCoverage) {
+        if (coverage > 0.25) {
+          if (!inVisibleColumnBand) {
+            visibleColumnBandCount += 1;
+          }
+          inVisibleColumnBand = true;
+          continue;
+        }
+        inVisibleColumnBand = false;
+      }
       const duplicateColumnCount = columnCoverage.filter(
         (coverage) => coverage > 0.72,
       ).length;
@@ -1166,6 +1179,7 @@ export async function analyzeVerticalScrollbar(
         primaryColumnCoverage:
           sorted.slice(0, 8).reduce((total, coverage) => total + coverage, 0) /
           8,
+        visibleColumnBandCount,
         visibleColumnCount: visibleColumns.length,
       };
     },
