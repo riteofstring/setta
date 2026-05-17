@@ -27,9 +27,12 @@ describe("GPU flow DOM control projection runtime", () => {
   });
 
   it("projects mounted hosts on viewport motion without React mount selection", () => {
-    const controls = Array.from({ length: 100 }, (_, index) =>
-      domControl({ index }),
-    );
+    const controls = [
+      domControl({ active: true, index: 0 }),
+      ...Array.from({ length: 99 }, (_, index) =>
+        domControl({ index: index + 1 }),
+      ),
+    ];
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
     const viewportStore = createGpuFlowViewportStore({
       height: 60,
@@ -121,8 +124,10 @@ function mountedRowIds(): readonly string[] {
 }
 
 function domControl({
+  active = false,
   index,
 }: {
+  readonly active?: boolean | undefined;
   readonly index: number;
 }): GpuRetainedDomControlSourceDescriptor {
   const rect = { height: 24, width: 273, x: 0, y: index * 28 };
@@ -150,7 +155,7 @@ function domControl({
     zoomBucket: 1,
   };
   return {
-    active: false,
+    active,
     clipChainRevision: "clip",
     clipRectSurfaceCssPx: rect,
     controlId: `control-${index}`,
@@ -163,7 +168,7 @@ function domControl({
     interactionPolicy: GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
     language: null,
     layerSlot: "dom-control-plane",
-    lifecycleState: "passive-projected",
+    lifecycleState: active ? "active" : "passive-projected",
     linePolicy: "single-line",
     maxVisibleLines: 1,
     minVisibleLines: 1,

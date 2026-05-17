@@ -46,6 +46,13 @@ describe("runRetainedTextureUploadScheduler", () => {
       uploadCount: 1,
       uploadedBytes: 400,
     });
+    expect(result.executedItems[0]).toMatchObject({
+      actual: SMALL_WORK,
+      estimate: SMALL_WORK,
+      lane: "visible-repair",
+      queue: "visible",
+      surfaceId: "surface-a",
+    });
     expect(queue.hasWork()).toBe(false);
   });
 
@@ -313,7 +320,7 @@ describe("runRetainedTextureUploadScheduler", () => {
     ]);
     expect(result.diagnostics[0]).toMatchObject({
       queue: "prefetch",
-      reason: "budget-exhausted",
+      reason: "deferred-frame-slice",
     });
   });
 
@@ -358,6 +365,11 @@ describe("runRetainedTextureUploadScheduler", () => {
     expect(result.skippedItems.map((item) => item.surfaceId)).toEqual([
       "refinement",
       "prefetch",
+    ]);
+    expect(result.budgetExhausted).toBe(false);
+    expect(result.diagnostics.map((diagnostic) => diagnostic.reason)).toEqual([
+      "deferred-frame-slice",
+      "deferred-frame-slice",
     ]);
   });
 

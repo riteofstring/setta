@@ -10,6 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    from chrome_repro_gpuflow_finish_line_markdown import render_markdown
+except ModuleNotFoundError:
+    from scripts.chrome_repro_gpuflow_finish_line_markdown import render_markdown
 
 BYTES_PER_MIB = 1024 * 1024
 DEFAULT_LONG_TASK_MS = 50.0
@@ -154,9 +158,15 @@ def analyze_recording(artifact_dir: Path, budgets: dict[str, Any]) -> dict[str, 
         ]
     return analyze_frames(
         analysis_start_ms=analysis_start_ms,
+        analysis_window_kind=(
+            "finish-line-marker"
+            if analysis_start_ms is not None
+            else "full-recording-marker-missing"
+        ),
         budgets=budgets,
         created_at=session.get("createdAt"),
         finalized_at=session.get("finalizedAt"),
+        finish_line_marker_missing=analysis_start_ms is None,
         longtasks=longtasks,
         performance_measures=performance_measures,
         source=str(artifact_dir),
@@ -176,9 +186,9 @@ def analyze_playwright_snapshot(
         raise ValueError("Snapshot JSON must contain nodeLayerFrames or frames.")
     timestamped_frames = [
         {
-            "timestampMs": to_number(frame.get("timestampMs"))
-            if isinstance(frame, dict)
-            else None,
+            "timestampMs": (
+                to_number(frame.get("timestampMs")) if isinstance(frame, dict) else None
+            ),
             "frame": frame,
         }
         for frame in frame_values
@@ -190,13 +200,15 @@ def analyze_playwright_snapshot(
         performance_measures = payload.get("measures")
     return analyze_frames(
         analysis_start_ms=None,
+        analysis_window_kind="playwright-snapshot",
         budgets=budgets,
         created_at=None,
         finalized_at=None,
+        finish_line_marker_missing=False,
         longtasks=longtasks if isinstance(longtasks, list) else [],
-        performance_measures=performance_measures
-        if isinstance(performance_measures, list)
-        else [],
+        performance_measures=(
+            performance_measures if isinstance(performance_measures, list) else []
+        ),
         source=str(snapshot_path),
         source_kind="playwright-snapshot",
         timestamped_frames=timestamped_frames,
@@ -206,9 +218,11 @@ def analyze_playwright_snapshot(
 def analyze_frames(
     *,
     analysis_start_ms: float | None,
+    analysis_window_kind: str,
     budgets: dict[str, Any],
     created_at: Any,
     finalized_at: Any,
+    finish_line_marker_missing: bool,
     longtasks: list[dict[str, Any]],
     performance_measures: list[dict[str, Any]],
     source: str,
@@ -288,10 +302,13 @@ def analyze_frames(
     ]
 
     failures = {
+        "browserLongTaskCount": len(longtasks),
         "coldPlaceholderPublicationCount": len(cold_placeholders),
+        "finishLineMarkerMissingCount": 1 if finish_line_marker_missing else 0,
+        "gpuFlowLongTaskCount": len(longtask_summaries["gpuFlowOverBudget"]),
         "heldPreviousOverBudgetCount": len(held_previous_over_budget),
         "interactionNonRepairUploadCount": len(interaction_upload_violations),
-        "longTaskCount": len(longtask_summaries["gpuFlowOverBudget"]),
+        "longTaskCount": len(longtasks),
         "missingPhaseProjectionFieldCount": len(missing_phase_projection_fields),
         "missingRetainedDiagnosticDetailCount": len(missing_retained_diagnostics),
         "postSettleUploadSpikeCount": len(post_settle_spikes),
@@ -302,9 +319,12 @@ def analyze_frames(
         ),
         "trueHolePublicationCount": len(true_hole_publications),
     }
-    failure_count = sum(value for value in failures.values() if value > 0)
+    failure_count = sum(
+        value for key, value in failures.items() if key != "longTaskCount" and value > 0
+    )
 
     return {
+        "analysisWindowKind": analysis_window_kind,
         "budgets": budgets,
         "analysisStartTimestampMs": analysis_start_ms,
         "createdAt": created_at,
@@ -312,6 +332,7 @@ def analyze_frames(
         "failures": failures,
         "finalizedAt": finalized_at,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "incompleteRecording": finish_line_marker_missing,
         "source": source,
         "sourceKind": source_kind,
         "summary": {
@@ -453,9 +474,7 @@ def summarize_longtasks(
         duration_ms = number_value(event.get("durationMs"))
         timestamp_ms = to_number(event.get("timestampMs"))
         start_time_ms = to_number(event.get("startTimeMs"))
-        end_time_ms = (
-            start_time_ms + duration_ms if start_time_ms is not None else None
-        )
+        end_time_ms = start_time_ms + duration_ms if start_time_ms is not None else None
         overlapping_measures = find_overlapping_gpu_flow_measures(
             runtime_measures=runtime_measures,
             start_time_ms=start_time_ms,
@@ -467,9 +486,11 @@ def summarize_longtasks(
         )
         nearest = nearest_frame(timestamped_frames, timestamp_ms)
         summary = {
-            "attribution": event.get("attribution")
-            if isinstance(event.get("attribution"), list)
-            else [],
+            "attribution": (
+                event.get("attribution")
+                if isinstance(event.get("attribution"), list)
+                else []
+            ),
             "durationMs": duration_ms,
             "endTimeMs": end_time_ms,
             "name": event.get("name"),
@@ -586,9 +607,11 @@ def nearest_frame(
         "dominantPhase": dominant_phase(frame),
         "frame": summarize_frame_identity(frame),
         "frameReasons": string_list(frame.get("frameReasons")),
-        "phaseDiagnostics": frame.get("phaseDiagnostics")
-        if isinstance(frame.get("phaseDiagnostics"), dict)
-        else {},
+        "phaseDiagnostics": (
+            frame.get("phaseDiagnostics")
+            if isinstance(frame.get("phaseDiagnostics"), dict)
+            else {}
+        ),
     }
 
 
@@ -754,8 +777,40 @@ def summarize_frame_identity(frame: dict[str, Any]) -> dict[str, Any]:
         "frame": int(number_value(frame.get("frame"))),
         "frameMode": frame_mode(frame),
         "frameReasons": string_list(frame.get("frameReasons")),
+        "heldPreviousDurationMs": (
+            projection.get("heldPreviousDurationMs")
+            if isinstance(projection, dict)
+            else None
+        ),
+        "heldPreviousFrameCount": (
+            projection.get("heldPreviousFrameCount")
+            if isinstance(projection, dict)
+            else None
+        ),
+        "heldPreviousReason": (
+            projection.get("heldPreviousReason")
+            if isinstance(projection, dict)
+            else None
+        ),
+        "heldPreviousRequestedSampleId": (
+            projection.get("heldPreviousRequestedSampleId")
+            if isinstance(projection, dict)
+            else None
+        ),
+        "projectionSampleId": (
+            projection.get("sampleId") if isinstance(projection, dict) else None
+        ),
         "projectionTransactionId": (
             projection.get("transactionId") if isinstance(projection, dict) else None
+        ),
+        "retainedTransactionBlockingGenerationIds": string_list(
+            frame.get("retainedTexturePageTransactionBlockingGenerationIds")
+        ),
+        "retainedTransactionBlockingSurfaceIds": string_list(
+            frame.get("retainedTexturePageTransactionBlockingSurfaceIds")
+        ),
+        "retainedTransactionHoldReason": frame.get(
+            "retainedTexturePageTransactionHoldReason"
         ),
         "retainedTransactionOutcome": frame.get(
             "retainedTexturePageTransactionOutcome"
@@ -834,115 +889,6 @@ def render_output(
     if emit_json:
         return json.dumps(report, indent=2, sort_keys=True)
     return render_markdown(report)
-
-
-def render_markdown(report: dict[str, Any]) -> str:
-    lines = [
-        "# GPU Flow Retained Settings Finish-Line Report",
-        "",
-        f"- Generated: {report['generatedAt']}",
-        f"- Source: `{report['source']}`",
-        f"- Source kind: `{report['sourceKind']}`",
-        f"- Analysis start timestamp: `{report['analysisStartTimestampMs']}`",
-        f"- Status: {'FAIL' if report['failureCount'] else 'PASS'}",
-        "",
-        "## Summary",
-        "",
-    ]
-    append_markdown_key_values(lines, report["summary"])
-    lines.extend(["", "## Budgets", ""])
-    append_markdown_key_values(lines, report["budgets"])
-    lines.extend(["", "## Failures", ""])
-    append_markdown_key_values(lines, report["failures"])
-    details = report["details"]
-    append_markdown_long_tasks(lines, details)
-    append_markdown_retained_budget_misses(lines, details)
-    append_markdown_post_settle_uploads(lines, details)
-    return "\n".join(lines) + "\n"
-
-
-def append_markdown_key_values(lines: list[str], values: dict[str, Any]) -> None:
-    for key, value in sorted(values.items()):
-        lines.append(f"- {key}: `{value}`")
-
-
-def append_markdown_long_tasks(lines: list[str], details: dict[str, Any]) -> None:
-    lines.extend(["", "## Long Tasks", ""])
-    for task in details["longtasks"]["gpuFlowOverBudget"][:10]:
-        nearest = task.get("nearestFrame") or {}
-        measures = task.get("overlappingGpuFlowMeasures") or []
-        lines.append(
-            "- "
-            f"{task['durationMs']} ms near `{nearest.get('dominantPhase', 'unattributed')}` "
-            f"frame `{(nearest.get('frame') or {}).get('frame')}` "
-            f"overlapping measures `{summarize_measure_names(measures)}`"
-        )
-    if not details["longtasks"]["gpuFlowOverBudget"]:
-        lines.append("- none")
-    outside_longtasks = details["longtasks"].get("outsideGpuFlowOverBudget", [])
-    lines.extend(["", "## Outside-GPU Long Tasks", ""])
-    for task in outside_longtasks[:10]:
-        nearest = task.get("nearestFrame") or {}
-        nearby_measures = task.get("nearbyGpuFlowMeasures") or []
-        lines.append(
-            "- "
-            f"{task['durationMs']} ms near frame "
-            f"`{(nearest.get('frame') or {}).get('frame')}` with GPU phases "
-            f"`{nearest.get('phaseDiagnostics', {})}` and nearby measures "
-            f"`{summarize_measure_names(nearby_measures)}`"
-        )
-    if not outside_longtasks:
-        lines.append("- none")
-    lines.extend(["", "## Runtime Measures", ""])
-    runtime_measure_phases = details.get("runtimeMeasurePhases", {})
-    if runtime_measure_phases:
-        append_markdown_key_values(lines, runtime_measure_phases)
-    else:
-        lines.append("- none")
-
-
-def summarize_measure_names(measures: Any) -> list[str]:
-    if not isinstance(measures, list):
-        return []
-    values = []
-    for measure in measures[:5]:
-        if not isinstance(measure, dict):
-            continue
-        values.append(
-            f"{measure.get('phase')}@{measure.get('durationMs')}ms"
-        )
-    return values
-
-
-def append_markdown_retained_budget_misses(
-    lines: list[str], details: dict[str, Any]
-) -> None:
-    lines.extend(["", "## Retained Budget Misses", ""])
-    for miss in details["retainedBudgetMisses"][:20]:
-        lines.append(
-            "- "
-            f"frame `{miss.get('frame')}` `{miss.get('reason')}` "
-            f"`{miss.get('lane')}` `{miss.get('kind')}` "
-            f"surface `{miss.get('surfaceId')}` bytes "
-            f"`{(miss.get('estimate') or {}).get('uploadedBytes')}`"
-        )
-    if not details["retainedBudgetMisses"]:
-        lines.append("- none")
-
-
-def append_markdown_post_settle_uploads(
-    lines: list[str], details: dict[str, Any]
-) -> None:
-    lines.extend(["", "## Post-Settle Retained Uploads", ""])
-    for window in details["retainedAfterSettleWindows"]:
-        lines.append(
-            "- "
-            f"start `{round(window['startTimestampMs'], 3)}`: "
-            f"{window['uploadedBytes']} bytes ({window['uploadedMiB']} MiB), "
-            f"{window['uploadCount']} uploads"
-        )
-    if not details["retainedAfterSettleWindows"]:
-        lines.append("- none")
 
 
 def load_json_object(path: Path) -> dict[str, Any]:

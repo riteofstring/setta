@@ -476,6 +476,7 @@ export function GpuFlow({
     scenePortConnection,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   });
 

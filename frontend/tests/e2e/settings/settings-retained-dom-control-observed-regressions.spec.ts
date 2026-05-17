@@ -201,7 +201,7 @@ test("visible retained DOM controls share canvas transaction and stay aligned th
   await installGpuFlowPerformanceProbe(page);
   await openObservedRegressionSettings(page);
   let row = await scrollTargetTextRowIntoView(page);
-  const before = await readDomControlCoherenceSample(page, row);
+  const before = await waitForDomControlCoherenceSample(page, row);
 
   await resetGpuFlowPerformanceProbe(page);
   await dispatchRetainedCompositorWheelBurst(page, {
@@ -213,22 +213,22 @@ test("visible retained DOM controls share canvas transaction and stay aligned th
   row = await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID, {
     rowId: row.rowId,
   });
-  const duringScroll = await readDomControlCoherenceSample(page, row);
+  const duringScroll = await waitForDomControlCoherenceSample(page, row);
   await waitForViewportIdle(page);
-  const afterScroll = await readDomControlCoherenceSample(page, row);
+  const afterScroll = await waitForDomControlCoherenceSample(page, row);
 
   await applyViewportTransformDelta(page, { zoomFactor: 1.08 });
   await waitForAnimationFrame(page);
   row = await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID, {
     rowId: row.rowId,
   });
-  const duringZoom = await readDomControlCoherenceSample(page, row);
+  const duringZoom = await waitForDomControlCoherenceSample(page, row);
   await waitForViewportIdle(page);
-  const afterZoom = await readDomControlCoherenceSample(page, row);
+  const afterZoom = await waitForDomControlCoherenceSample(page, row);
 
   await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
   await waitForAnimationFrame(page);
-  const afterClick = await readDomControlCoherenceSample(page, row);
+  const afterClick = await waitForDomControlCoherenceSample(page, row);
   const snapshot = await readGpuFlowPerformanceSnapshot(page);
   const motionProjectionViolations = snapshot.nodeLayerFrames
     .filter(
@@ -366,6 +366,27 @@ async function readDomControlHostRect(
   }, row);
 }
 
+async function waitForDomControlCoherenceSample(
+  page: Page,
+  row: RetainedRowDebugEntry & {
+    readonly controlClientPoint: { readonly x: number; readonly y: number };
+    readonly controlClientRect: Rect;
+  },
+): ReturnType<typeof readDomControlCoherenceSample> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    try {
+      return await readDomControlCoherenceSample(page, row);
+    } catch (error) {
+      lastError = error;
+      await waitForAnimationFrame(page);
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Missing DOM-control coherence sample.");
+}
+
 async function readDomControlCoherenceSample(
   page: Page,
   row: RetainedRowDebugEntry & {
@@ -427,7 +448,8 @@ async function readDomControlCoherenceSample(
               .closest("[data-gpu-flow-control]")
               ?.getAttribute("data-gpu-flow-control") ?? null
           : null,
-      canvasTransactionId: canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
+      canvasTransactionId:
+        canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
       coverageState: host.dataset.gpuFlowDomControlCoverageState ?? null,
       elementAtPointControlId:
         elementAtPoint instanceof Element

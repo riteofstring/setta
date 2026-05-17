@@ -1,5 +1,5 @@
-import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import { measureGpuFlowPerformance } from "./gpuFlowPerformanceMarks";
+import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import {
   RetainedTextureWorkQueue,
   retainedTextureWorkLaneForWorkItem,
@@ -44,6 +44,13 @@ type RetainedTextureUploadWorkResult = RetainedTextureUploadWorkEstimate & {
   readonly complete: boolean;
 };
 
+export type RetainedTextureUploadExecutedWorkItem = RetainedTextureWorkItem & {
+  readonly actual: RetainedTextureUploadWorkEstimate;
+  readonly estimate: RetainedTextureUploadWorkEstimate;
+  readonly lane: RetainedTextureWorkLane;
+  readonly queue: RetainedTextureSchedulerQueue;
+};
+
 export type RetainedTextureUploadSchedulerDiagnostic = {
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
@@ -52,14 +59,16 @@ export type RetainedTextureUploadSchedulerDiagnostic = {
   readonly reason:
     | "actual-budget-miss"
     | "budget-exhausted"
-    | "deadline-exhausted";
+    | "deadline-exhausted"
+    | "deferred-deadline-yield"
+    | "deferred-frame-slice";
 };
 
 type RetainedTextureUploadSchedulerResult = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
   readonly budgetExhausted: boolean;
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
-  readonly executedItems: readonly RetainedTextureWorkItem[];
+  readonly executedItems: readonly RetainedTextureUploadExecutedWorkItem[];
   readonly remainingUploadableWorkCount: number;
   readonly rasterMs: number;
   readonly skippedItems: readonly RetainedTextureWorkItem[];
@@ -68,7 +77,10 @@ type RetainedTextureUploadSchedulerResult = {
   readonly uploadCount: number;
 };
 
-type RetainedTextureSchedulerQueue = "interactive" | "visible" | "prefetch";
+export type RetainedTextureSchedulerQueue =
+  | "interactive"
+  | "visible"
+  | "prefetch";
 
 type RunRetainedTextureUploadSchedulerInput = {
   readonly budget: RetainedTextureUploadSchedulerBudget;
@@ -134,7 +146,7 @@ export function runRetainedTextureUploadScheduler({
   });
   const progress = createEmptyProgress();
   const diagnostics: RetainedTextureUploadSchedulerDiagnostic[] = [];
-  const executedItems: RetainedTextureWorkItem[] = [];
+  const executedItems: RetainedTextureUploadExecutedWorkItem[] = [];
   const skippedItems: RetainedTextureWorkItem[] = [];
   const startedAtMs = now();
   const hardDeadlineMs = resolveRetainedTextureHardDeadlineMs({
@@ -169,7 +181,12 @@ export function runRetainedTextureUploadScheduler({
 
     const result = normalizeWorkResult(executeWorkItem(item));
     addProgress(progress, result, item, context.schedulerQueue);
-    executedItems.push(item);
+    executedItems.push(
+      createRetainedTextureUploadExecutedWorkItem({
+        context,
+        result,
+      }),
+    );
     if (result.complete) {
       queue.complete(item);
     }
@@ -197,25 +214,46 @@ export function runRetainedTextureUploadScheduler({
     }
   }
 
-  const remainingUploadableWorkCount = orderRetainedTextureWorkItems(
+  const remainingUploadableWork = orderRetainedTextureWorkItems(
     queue,
     queueOptions,
-  ).length;
+  );
 
   return {
     budget: normalizedBudget,
     budgetExhausted: hasRetainedTextureBudgetExhaustion({
-      remainingUploadableWorkCount,
+      remainingUploadableWork,
       skippedItems,
     }),
     diagnostics,
     executedItems,
-    remainingUploadableWorkCount,
+    remainingUploadableWorkCount: remainingUploadableWork.length,
     rasterMs: progress.rasterMs,
     skippedItems,
     uploadMs: progress.uploadMs,
     uploadedBytes: progress.uploadedBytes,
     uploadCount: progress.uploadCount,
+  };
+}
+
+function createRetainedTextureUploadExecutedWorkItem({
+  context,
+  result,
+}: {
+  readonly context: RetainedTextureSchedulerWorkContext;
+  readonly result: RetainedTextureUploadWorkResult;
+}): RetainedTextureUploadExecutedWorkItem {
+  return {
+    ...context.item,
+    actual: {
+      rasterMs: result.rasterMs,
+      uploadedBytes: result.uploadedBytes,
+      uploadCount: result.uploadCount,
+      uploadMs: result.uploadMs,
+    },
+    estimate: context.estimate,
+    lane: context.lane,
+    queue: context.schedulerQueue,
   };
 }
 
@@ -226,7 +264,9 @@ function orderRetainedTextureWorkItems(
   return measureGpuFlowPerformance(
     "retained-work-queue-ordering",
     {
-      viewportInteractionActive: Boolean(queueOptions.viewportInteractionActive),
+      viewportInteractionActive: Boolean(
+        queueOptions.viewportInteractionActive,
+      ),
     },
     () => queue.orderedWorkItems(queueOptions),
   );
@@ -256,13 +296,15 @@ function resolveRetainedTextureHardDeadlineMs({
 }
 
 function hasRetainedTextureBudgetExhaustion({
-  remainingUploadableWorkCount,
+  remainingUploadableWork,
   skippedItems,
 }: {
-  readonly remainingUploadableWorkCount: number;
+  readonly remainingUploadableWork: readonly RetainedTextureWorkItem[];
   readonly skippedItems: readonly RetainedTextureWorkItem[];
 }): boolean {
-  return skippedItems.length > 0 || remainingUploadableWorkCount > 0;
+  return [...skippedItems, ...remainingUploadableWork].some(
+    isRetainedTextureBlockingRepairWork,
+  );
 }
 
 function createRetainedTextureSchedulerWorkContext({
@@ -353,11 +395,29 @@ function createRetainedTextureSchedulerSkip({
       estimate: context.estimate,
       item: context.item,
       lane: context.lane,
-      reason,
+      reason: resolveRetainedTextureSkipDiagnosticReason({
+        lane: context.lane,
+        reason,
+      }),
       schedulerQueue: context.schedulerQueue,
     }),
     stop,
   };
+}
+
+function resolveRetainedTextureSkipDiagnosticReason({
+  lane,
+  reason,
+}: {
+  readonly lane: RetainedTextureWorkLane;
+  readonly reason: "budget-exhausted" | "deadline-exhausted";
+}): RetainedTextureUploadSchedulerDiagnostic["reason"] {
+  if (lane === "visible-repair") {
+    return reason;
+  }
+  return reason === "deadline-exhausted"
+    ? "deferred-deadline-yield"
+    : "deferred-frame-slice";
 }
 
 function createRetainedTextureActualBudgetMiss({
@@ -466,7 +526,7 @@ function createRetainedTextureBudgetExhaustedDiagnostic({
   readonly estimate: RetainedTextureUploadWorkEstimate;
   readonly item: RetainedTextureWorkItem;
   readonly lane: RetainedTextureWorkLane;
-  readonly reason: "budget-exhausted" | "deadline-exhausted";
+  readonly reason: RetainedTextureUploadSchedulerDiagnostic["reason"];
   readonly schedulerQueue: RetainedTextureSchedulerQueue;
 }): RetainedTextureUploadSchedulerDiagnostic {
   return {
@@ -646,6 +706,12 @@ function fitsBudget(
       budget.maxFrameUploadedBytes &&
     current.uploadCount + next.uploadCount <= budget.maxUploads
   );
+}
+
+function isRetainedTextureBlockingRepairWork(
+  item: RetainedTextureWorkItem,
+): boolean {
+  return retainedTextureWorkLaneForWorkItem(item) === "visible-repair";
 }
 
 function addProgress(

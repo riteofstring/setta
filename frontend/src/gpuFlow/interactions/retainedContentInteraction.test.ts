@@ -734,6 +734,10 @@ describe("GPU retained content interaction controller", () => {
     domIsland.dataset.gpuFlowDomIsland = "true";
     const domIslandInput = document.createElement("input");
     domIsland.append(domIslandInput);
+    const domControl = document.createElement("div");
+    domControl.dataset.gpuFlowDomControl = "true";
+    const domControlInput = document.createElement("input");
+    domControl.append(domControlInput);
     const explicitNativeTarget = document.createElement("div");
     explicitNativeTarget.dataset.gpuFlowRetainedContentNative = "true";
     const explicitNativeButton = document.createElement("button");
@@ -743,7 +747,7 @@ describe("GPU retained content interaction controller", () => {
     portalRoot.dataset.gpuFlowRetainedContentNative = "true";
     const portalOption = document.createElement("button");
     portalRoot.append(portalOption);
-    element.append(domIsland, explicitNativeTarget, portalRoot);
+    element.append(domIsland, domControl, explicitNativeTarget, portalRoot);
     const onHitClick = vi.fn();
     const onPointerDownMiss = vi.fn();
     const cleanup = attachGpuRetainedContentInteractionController({
@@ -756,6 +760,7 @@ describe("GPU retained content interaction controller", () => {
 
     const preservedTargets = [
       domIslandInput,
+      domControlInput,
       explicitNativeButton,
       portalOption,
     ];

@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react";
+import { useMemo, type ReactNode, type RefObject } from "react";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
@@ -13,6 +13,7 @@ import {
   GpuFlowSceneContext,
   type GpuFlowSceneContextValue,
 } from "../sceneContext";
+import { getVisibleFlowRect, rectsIntersect } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
@@ -22,6 +23,9 @@ import {
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
 import type { GpuFlowProps } from "./flowSurfaceTypes";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+
+const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE = 1;
+const GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX = 360;
 
 export function GpuFlowSurfaceView({
   children,
@@ -90,10 +94,20 @@ export function GpuFlowSurfaceView({
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
 }) {
+  const priorityNodeIds = useMemo(
+    () =>
+      resolveGpuFlowPrioritySourceNodeIds({
+        nodes,
+        viewportStore,
+      }),
+    [nodes, viewportStore],
+  );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
     nodes,
     onNodeElementChange,
+    priorityNodeIds,
+    progressiveBatchSize: GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE,
     renderNode,
   });
   const portalGroups = partitionGpuFlowPortals(portals);
@@ -149,4 +163,49 @@ export function GpuFlowSurfaceView({
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
   );
+}
+
+function resolveGpuFlowPrioritySourceNodeIds({
+  nodes,
+  viewportStore,
+}: {
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly viewportStore: GpuFlowViewportStoreApi;
+}): readonly string[] {
+  if (nodes.length === 0) {
+    return [];
+  }
+  const viewportState = viewportStore.getState();
+  if (viewportState.width <= 0 || viewportState.height <= 0) {
+    return nodes
+      .slice(0, GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE)
+      .map((node) => node.nodeId);
+  }
+  const visibleRect = getVisibleFlowRect({
+    canvasHeight: viewportState.height,
+    canvasWidth: viewportState.width,
+    marginCssPx: GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX,
+    viewport: viewportState.getViewport(),
+  });
+  const priorityIds: string[] = [];
+  for (const node of nodes) {
+    if (node.width === null || node.height === null) {
+      continue;
+    }
+    if (
+      rectsIntersect(visibleRect, {
+        height: node.height,
+        width: node.width,
+        x: node.x,
+        y: node.y,
+      })
+    ) {
+      priorityIds.push(node.nodeId);
+    }
+  }
+  return priorityIds.length > 0
+    ? priorityIds
+    : nodes
+        .slice(0, GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE)
+        .map((node) => node.nodeId);
 }

@@ -162,6 +162,42 @@ describe("GPU section scene scroll controller", () => {
     },
   );
 
+  it("skips section wheel handling while the viewport zoom key is active", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = scrollableScene();
+    let scrollOffsets: GpuSectionSceneScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuSectionSceneScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const store = createGpuFlowViewportStore();
+    store.getState().setZoomActivationKeyPressed(true);
+    const cleanup = attachGpuSectionSceneScrollController({
+      element,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 30,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(scrollOffsets.size).toBe(0);
+
+    cleanup();
+  });
+
   it("consumes section boundary wheel events without scroll updates", () => {
     const element = document.createElement("div");
     document.body.append(element);

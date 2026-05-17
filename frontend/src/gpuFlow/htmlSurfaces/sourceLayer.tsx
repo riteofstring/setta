@@ -1,4 +1,11 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { createPortal } from "react-dom";
 
@@ -31,6 +38,11 @@ type HtmlSurfaceSourceLayerProps<TSource> = {
     | ((sourceId: string, element: HTMLElement | null) => void)
     | undefined;
   readonly preservedClassNames?: readonly string[] | undefined;
+  readonly prioritySourceIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly progressiveBatchSize?: number | undefined;
   readonly renderSource: (source: TSource) => ReactNode;
   readonly sourceClassName?: string | undefined;
   readonly sources: readonly TSource[];
@@ -49,13 +61,34 @@ export function HtmlSurfaceSourceLayer<TSource>({
   getSourceId,
   onSourceElementChange,
   preservedClassNames,
+  prioritySourceIds,
+  progressiveBatchSize,
   renderSource,
   sourceClassName = HTML_SURFACE_SOURCE_CLASS_NAME,
   sources,
 }: HtmlSurfaceSourceLayerProps<TSource>) {
+  const orderedSources = useMemo(
+    () => orderHtmlSurfaceSources({ getSourceId, prioritySourceIds, sources }),
+    [getSourceId, prioritySourceIds, sources],
+  );
+  const prioritySourceCount = useMemo(
+    () =>
+      countPriorityHtmlSurfaceSources({
+        getSourceId,
+        prioritySourceIds,
+        sources: orderedSources,
+      }),
+    [getSourceId, orderedSources, prioritySourceIds],
+  );
+  const renderSources = useProgressiveHtmlSurfaceSources({
+    getSourceId,
+    minimumInitialSourceCount: prioritySourceCount,
+    progressiveBatchSize,
+    sources: orderedSources,
+  });
   return (
     <>
-      {sources.map((source) => {
+      {renderSources.map((source) => {
         const sourceId = getSourceId(source);
         return (
           <HtmlSurfaceSourceChild
@@ -72,6 +105,169 @@ export function HtmlSurfaceSourceLayer<TSource>({
       })}
     </>
   );
+}
+
+function orderHtmlSurfaceSources<TSource>({
+  getSourceId,
+  prioritySourceIds,
+  sources,
+}: {
+  readonly getSourceId: (source: TSource) => string;
+  readonly prioritySourceIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly sources: readonly TSource[];
+}): readonly TSource[] {
+  const priorityIds = normalizeSourceIdSet(prioritySourceIds);
+  if (!priorityIds || priorityIds.size === 0 || sources.length <= 1) {
+    return sources;
+  }
+  const prioritySources: TSource[] = [];
+  const remainingSources: TSource[] = [];
+  for (const source of sources) {
+    if (priorityIds.has(getSourceId(source))) {
+      prioritySources.push(source);
+    } else {
+      remainingSources.push(source);
+    }
+  }
+  return [...prioritySources, ...remainingSources];
+}
+
+function useProgressiveHtmlSurfaceSources<TSource>({
+  getSourceId,
+  minimumInitialSourceCount,
+  progressiveBatchSize,
+  sources,
+}: {
+  readonly getSourceId: (source: TSource) => string;
+  readonly minimumInitialSourceCount: number;
+  readonly progressiveBatchSize?: number | undefined;
+  readonly sources: readonly TSource[];
+}): readonly TSource[] {
+  const batchSize = normalizeProgressiveBatchSize(progressiveBatchSize);
+  const sourceKey = useMemo(
+    () => sources.map(getSourceId).join("\u001f"),
+    [getSourceId, sources],
+  );
+  const initialLimit =
+    batchSize === null
+      ? sources.length
+      : Math.min(
+          sources.length,
+          Math.max(batchSize, minimumInitialSourceCount),
+        );
+  const [progress, setProgress] = useState(() => ({
+    limit: initialLimit,
+    sourceKey,
+  }));
+  const renderLimit =
+    progress.sourceKey === sourceKey ? progress.limit : initialLimit;
+
+  useEffect(() => {
+    if (progress.sourceKey !== sourceKey || progress.limit > sources.length) {
+      setProgress({ limit: initialLimit, sourceKey });
+    }
+  }, [initialLimit, progress.limit, progress.sourceKey, sourceKey, sources]);
+
+  useEffect(() => {
+    if (batchSize === null || renderLimit >= sources.length) {
+      return;
+    }
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+      setProgress((current) => {
+        const currentLimit =
+          current.sourceKey === sourceKey ? current.limit : initialLimit;
+        return {
+          limit: Math.min(sources.length, currentLimit + batchSize),
+          sourceKey,
+        };
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [batchSize, initialLimit, renderLimit, sourceKey, sources]);
+  useProgressiveHtmlSurfaceSourceHeartbeat(
+    batchSize !== null && renderLimit < sources.length,
+  );
+
+  return renderLimit >= sources.length
+    ? sources
+    : sources.slice(0, renderLimit);
+}
+
+function useProgressiveHtmlSurfaceSourceHeartbeat(active: boolean) {
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+    let cancelled = false;
+    let frame = 0;
+    const schedule = () => {
+      frame = window.requestAnimationFrame(() => {
+        if (!cancelled) {
+          schedule();
+        }
+      });
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [active]);
+}
+
+function normalizeSourceIdSet(
+  sourceIds: ReadonlySet<string> | readonly string[] | undefined,
+): ReadonlySet<string> | null {
+  if (!sourceIds) {
+    return null;
+  }
+  return sourceIds instanceof Set ? sourceIds : new Set(sourceIds);
+}
+
+function countPriorityHtmlSurfaceSources<TSource>({
+  getSourceId,
+  prioritySourceIds,
+  sources,
+}: {
+  readonly getSourceId: (source: TSource) => string;
+  readonly prioritySourceIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly sources: readonly TSource[];
+}): number {
+  const priorityIds = normalizeSourceIdSet(prioritySourceIds);
+  if (!priorityIds || priorityIds.size === 0) {
+    return 0;
+  }
+  let count = 0;
+  for (const source of sources) {
+    if (!priorityIds.has(getSourceId(source))) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function normalizeProgressiveBatchSize(
+  progressiveBatchSize: number | undefined,
+): number | null {
+  if (progressiveBatchSize === undefined) {
+    return null;
+  }
+  const batchSize = Math.floor(progressiveBatchSize);
+  return batchSize > 0 ? batchSize : null;
 }
 
 function HtmlSurfaceSourceChild<TSource>({

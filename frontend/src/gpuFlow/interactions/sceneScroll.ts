@@ -390,6 +390,7 @@ function shouldSkipSectionSceneWheelEvent(
   return (
     event.defaultPrevented ||
     event.ctrlKey ||
+    store.getState().zoomActivationKeyPressed ||
     Boolean(disabled?.(event)) ||
     isGpuViewportWheelGestureActive(store) ||
     shouldPreserveNativeWheelTarget(event)

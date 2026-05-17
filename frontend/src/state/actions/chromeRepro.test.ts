@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createChromeReproPerfTimer,
   postChromeReproEvent,
+  postChromeReproFinishLineMarker,
   postChromeReproPerfEvent,
   postMeasuredChromeReproEvent,
 } from "./chromeRepro";
@@ -67,6 +68,23 @@ describe("chromeRepro", () => {
         kind: "perf-websocket-message",
         payload: {
           durationMs: 12,
+        },
+      }),
+      "*",
+    );
+  });
+
+  it("posts explicit GPU Flow finish-line markers", () => {
+    window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
+    const postSpy = vi.spyOn(window, "postMessage");
+
+    postChromeReproFinishLineMarker();
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "gpu-flow-finish-line-marker",
+        payload: {
+          name: "finish-line-start",
         },
       }),
       "*",

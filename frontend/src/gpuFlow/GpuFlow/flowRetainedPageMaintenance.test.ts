@@ -43,6 +43,36 @@ describe("GPU flow retained page maintenance", () => {
     expect(maintenance?.result.repairedPreparedFrame.trueHoleRectCount).toBe(0);
   });
 
+  it("honors the configured pre-publish repair pass limit", () => {
+    const frames = [
+      retainedPreparedFrame({ trueHoleRectCount: 1 }),
+      retainedPreparedFrame({ trueHoleRectCount: 1 }),
+      retainedPreparedFrame({ trueHoleRectCount: 0 }),
+    ];
+    let callCount = 0;
+    const manager = retainedPageManager({
+      runPostSubmitMaintenance: ({ preparedFrame }) => {
+        callCount += 1;
+        return retainedMaintenanceResult({
+          preparedFrame,
+          repairedPreparedFrame: frames[callCount] ?? preparedFrame,
+        });
+      },
+    });
+
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+      darkMode: false,
+      deferResolutionUpdates: true,
+      maxPasses: 1,
+      preparedFrame: frames[0],
+      previousProtectedPageKeys: [],
+      retainedContentPageManager: manager,
+    });
+
+    expect(callCount).toBe(1);
+    expect(maintenance?.result.repairedPreparedFrame.trueHoleRectCount).toBe(1);
+  });
+
   it("stops pre-publish repair when maintenance cannot advance", () => {
     const frame = retainedPreparedFrame({ trueHoleRectCount: 1 });
     let callCount = 0;
@@ -87,6 +117,7 @@ function retainedPreparedFrame({
   readonly trueHoleRectCount: number;
 }): RetainedContentTexturePagePreparedFrame {
   return {
+    replacementDescriptors: [],
     trueHoleRectCount,
   } as RetainedContentTexturePagePreparedFrame;
 }

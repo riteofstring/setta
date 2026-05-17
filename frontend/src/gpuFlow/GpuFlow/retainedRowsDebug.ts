@@ -88,6 +88,21 @@ export function useGpuFlowDebugGlobals<
       nodeLayerRef.current.visualSceneViewport ??
       nodeLayerRef.current.viewport ??
       getLiveViewport();
+    const setViewport = (viewport: GpuViewportInput) => {
+      viewportStore.getState().setFitViewInitializationState({
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+        fitViewOnInitOptions: undefined,
+      });
+      const viewportRuntime =
+        getRegisteredGpuFlowViewportRuntime(viewportStore);
+      if (viewportRuntime) {
+        viewportRuntime.applyViewportCommand(viewport);
+        viewportRuntime.flushObserverSnapshot();
+        return;
+      }
+      viewportStore.getState().setTransform(viewport);
+    };
     const getSnapshot = () =>
       createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
@@ -118,6 +133,7 @@ export function useGpuFlowDebugGlobals<
       });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
+    window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ = setViewport;
     window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
     return () => {
       if (window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ === getSnapshot) {
@@ -125,6 +141,9 @@ export function useGpuFlowDebugGlobals<
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ === getRetainedRows) {
         delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__;
+      }
+      if (window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ === setViewport) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
       }
       if (
         window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ === getVisualSurfaces
@@ -360,7 +379,9 @@ function createGpuFlowRetainedSurfaceDebugEntries({
     clipBounds,
   );
   return sampledRetainedScene.rows
-    .filter((row) => retainedRowLabelPointInsideClipBounds(row, surface, clipBounds))
+    .filter((row) =>
+      retainedRowLabelPointInsideClipBounds(row, surface, clipBounds),
+    )
     .map((row) =>
       createGpuFlowRetainedRowDebugEntry({
         clipBounds,
@@ -383,11 +404,7 @@ function retainedRowLabelPointInsideClipBounds(
   clipBounds: GpuFlowSurfaceClipBounds,
 ): boolean {
   const labelPoint = {
-    x:
-      surface.rect.x +
-      row.projectedRect.x +
-      Math.max(0, row.depth) * 14 +
-      32,
+    x: surface.rect.x + row.projectedRect.x + Math.max(0, row.depth) * 14 + 32,
     y: surface.rect.y + row.projectedRect.y + row.projectedRect.height / 2,
   };
   return (

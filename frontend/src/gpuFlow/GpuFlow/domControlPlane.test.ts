@@ -10,7 +10,10 @@ import {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
 } from "./domControlPlane";
-import { createGpuFlowDomControlProjectionManager } from "./domControlPlaneProjection";
+import {
+  createGpuFlowDomControlProjectionManager,
+  projectGpuFlowDomControlPlaneHost,
+} from "./domControlPlaneProjection";
 
 describe("GPU flow DOM control plane", () => {
   it("mounts visible readable retained DOM controls before overscan controls", () => {
@@ -325,6 +328,27 @@ describe("GPU flow DOM control plane", () => {
       phase: "project",
       reason: "compatible-previous-proof",
     });
+  });
+
+  it("lets mounted passive retained-activation controls receive pointer activation", () => {
+    const projection = projectGpuFlowDomControlPlaneHost({
+      control: domControl({ index: 0 }),
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+
+    expect(projection.pointerEvents).toBe("auto");
+  });
+
+  it("suspends passive retained-activation pointer targets during zoom-key gestures", () => {
+    const projection = projectGpuFlowDomControlPlaneHost({
+      control: domControl({ index: 0 }),
+      getRetainedScrollOffset: undefined,
+      suspendPassivePointerActivation: true,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+
+    expect(projection.pointerEvents).toBe("none");
   });
 });
 

@@ -7,13 +7,16 @@ import type {
   RetainedTexturePageCacheSnapshot,
   RetainedTexturePageEvictionResult,
 } from "./retainedTexturePages";
-import type { RetainedTextureUploadSchedulerDiagnostic } from "./retainedTextureUploadScheduler";
+import type {
+  RetainedTextureUploadExecutedWorkItem,
+  RetainedTextureUploadSchedulerDiagnostic,
+} from "./retainedTextureUploadScheduler";
 import type { RetainedTextureWorkItem } from "./retainedTextureWorkQueue";
 
 type RetainedContentTexturePageUploadResult = {
   readonly budgetExhausted: boolean;
   readonly diagnostics: readonly RetainedTextureUploadSchedulerDiagnostic[];
-  readonly executedItems: readonly RetainedTextureWorkItem[];
+  readonly executedItems: readonly RetainedTextureUploadExecutedWorkItem[];
   readonly rasterMs: number;
   readonly remainingUploadableWorkCount: number;
   readonly skippedItems: readonly RetainedTextureWorkItem[];

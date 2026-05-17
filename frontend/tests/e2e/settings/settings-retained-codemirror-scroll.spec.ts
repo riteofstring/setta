@@ -197,6 +197,7 @@ test("retained passive text editor preview ink moves with its retained row durin
   for (let index = 0; index < 6; index += 1) {
     await page.mouse.wheel(0, 24);
     await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
     frames.push(
       await captureTextInkAlignmentFrameForLabel({
         label: SCROLL_TEXT_PREVIEW_LABEL,

@@ -51,10 +51,7 @@ test("retained settings text editors show live CodeMirror feedback before persis
   });
 
   try {
-    await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-    await expect
-      .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
-      .toContain(row.rowId);
+    await clickRetainedRowUntilActiveEditor(page, row);
 
     await page.keyboard.press(selectAllShortcut());
     await waitForAnimationFrame(page);
@@ -360,6 +357,37 @@ async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
         ?.getAttribute("data-gpu-flow-control") ?? null
     );
   });
+}
+
+async function clickRetainedRowUntilActiveEditor(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<void> {
+  if (!row.controlClientPoint) {
+    throw new Error(`Missing retained control point for ${row.rowLabel}.`);
+  }
+  const deadlineMs = Date.now() + 5_000;
+  let activeEditorState: Awaited<
+    ReturnType<typeof readActiveEditorState>
+  > | null = null;
+  while (Date.now() < deadlineMs) {
+    await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+    await waitForAnimationFrame(page);
+    activeEditorState = await readActiveEditorState(
+      page,
+      row.controlClientPoint,
+    );
+    if (
+      activeEditorState.activeEditorId?.includes(row.rowId) &&
+      activeEditorState.elementAtControlPoint?.insideActiveEditor
+    ) {
+      return;
+    }
+  }
+  expect(activeEditorState?.activeEditorId).toContain(row.rowId);
+  expect(activeEditorState?.elementAtControlPoint?.insideActiveEditor).toBe(
+    true,
+  );
 }
 
 async function readActiveEditorState(

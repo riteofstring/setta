@@ -1,8 +1,8 @@
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type {
   RetainedContentTexturePageManager,
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
-import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import {
   createRetainedDisplayFrameInput,
   resolveRetainedDisplayFrameTransaction,
@@ -71,7 +71,7 @@ export function resolveGpuFlowRetainedDisplayPublication({
     retainedContentPageManager,
   });
   const initialTransaction = resolveRetainedDisplayTransactionWithTiming({
-    allowColdPlaceholder: previousRetainedDisplayFrame === null,
+    allowColdPlaceholder: false,
     nowMs,
     previousRetainedDisplayFrame,
     retainedPagePreparedFrame: initialMaintenance.preparedFrame,
@@ -108,7 +108,7 @@ function resolveInitialPrePublishRetainedPageMaintenance({
   readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
-  if (!previousRetainedDisplayFrame || preparedFrame.trueHoleRectCount === 0) {
+  if (preparedFrame.trueHoleRectCount === 0) {
     return {
       elapsedMs: 0,
       maintenance: null,
@@ -118,8 +118,11 @@ function resolveInitialPrePublishRetainedPageMaintenance({
   return resolveRetainedPageMaintenanceBeforePublishWithTiming({
     darkMode,
     deferResolutionUpdates,
+    maxPasses: previousRetainedDisplayFrame === null ? 1 : undefined,
     preparedFrame,
     previousRetainedDisplayFrame,
+    previousProtectedPageKeys:
+      previousRetainedDisplayFrame?.pageFrame.protectedPageKeys ?? [],
     retainedContentPageManager,
   });
 }
@@ -163,6 +166,8 @@ function resolveHeldPreviousRetainedDisplayRepairPublication({
       deferResolutionUpdates,
       preparedFrame: retainedPagePreparedFrame,
       previousRetainedDisplayFrame,
+      previousProtectedPageKeys:
+        previousRetainedDisplayFrame.pageFrame.protectedPageKeys,
       retainedContentPageManager,
     });
   if (!didRetainedPageMaintenanceAdvance(repairMaintenance.maintenance)) {
@@ -223,29 +228,33 @@ function createRetainedDisplayPublicationResult({
 function resolveRetainedPageMaintenanceBeforePublishWithTiming({
   darkMode,
   deferResolutionUpdates,
+  maxPasses,
   preparedFrame,
   previousRetainedDisplayFrame,
+  previousProtectedPageKeys,
   retainedContentPageManager,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
+  readonly maxPasses?: number | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly previousRetainedDisplayFrame: RetainedDisplayFrame;
+  readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly previousProtectedPageKeys: readonly string[];
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
   const finishMeasure = startGpuFlowPerformanceMeasure(
     "retained-prepublish-maintenance",
     {
       frame: preparedFrame.frame,
-      previousDisplayFrameId: previousRetainedDisplayFrame.id,
+      previousDisplayFrameId: previousRetainedDisplayFrame?.id ?? null,
     },
   );
   const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
     darkMode,
     deferResolutionUpdates,
+    maxPasses,
     preparedFrame,
-    previousProtectedPageKeys:
-      previousRetainedDisplayFrame.pageFrame.protectedPageKeys,
+    previousProtectedPageKeys,
     retainedContentPageManager,
   });
   const elapsedMs = finishMeasure();

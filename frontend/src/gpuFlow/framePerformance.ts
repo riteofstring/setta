@@ -1,8 +1,8 @@
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
 import type { HtmlSurfaceTextureDirtyWorkCounts } from "./htmlSurfaces/textureUploadDiagnostics";
-import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
 import type { GpuFlowInteractionDiagnostics } from "./interactionDiagnostics";
+import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
 import type {
   GpuFlowProjectionDebugState,
   GpuFlowProjectionLane,
@@ -62,6 +62,8 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly surfaceCoverageProtectedResourceCount: number;
   readonly surfaceCoverageTrueHoleCount: number;
   readonly targetDescriptorCount: number;
+  readonly transactionBlockingGenerationIds: readonly string[];
+  readonly transactionBlockingSurfaceIds: readonly string[];
   readonly transactionDesiredScrollOffset: number | null;
   readonly transactionDesiredViewport: {
     readonly x: number;
@@ -85,7 +87,7 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly uploadedDrawCommandCount: number;
   readonly uploadCount: number;
   readonly uploadMs: number;
-  readonly executedItems: readonly GpuFlowRetainedTexturePageWorkItemMetrics[];
+  readonly executedItems: readonly GpuFlowRetainedTexturePageExecutedWorkItemMetrics[];
 };
 
 export type GpuFlowRetainedTexturePageWorkItemMetrics = {
@@ -110,6 +112,23 @@ export type GpuFlowRetainedTexturePageWorkItemMetrics = {
   readonly targetLod: number | null;
   readonly visualEpochKind: string | null;
 };
+
+export type GpuFlowRetainedTexturePageExecutedWorkItemMetrics =
+  GpuFlowRetainedTexturePageWorkItemMetrics & {
+    readonly actual: {
+      readonly rasterMs: number;
+      readonly uploadedBytes: number;
+      readonly uploadCount: number;
+      readonly uploadMs: number;
+    };
+    readonly estimate: {
+      readonly rasterMs: number;
+      readonly uploadedBytes: number;
+      readonly uploadCount: number;
+      readonly uploadMs: number;
+    };
+    readonly queue: string;
+  };
 
 export type GpuFlowRetainedTexturePageDiagnosticMetrics =
   GpuFlowRetainedTexturePageWorkItemMetrics & {
@@ -214,6 +233,8 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageSurfaceCoverageProtectedResourceCount: number;
   readonly retainedTexturePageSurfaceCoverageTrueHoleCount: number;
   readonly retainedTexturePageTargetDescriptorCount: number;
+  readonly retainedTexturePageTransactionBlockingGenerationIds: readonly string[];
+  readonly retainedTexturePageTransactionBlockingSurfaceIds: readonly string[];
   readonly retainedTexturePageTransactionDesiredScrollOffset: number | null;
   readonly retainedTexturePageTransactionDesiredViewport: {
     readonly x: number;
@@ -237,7 +258,7 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageUploadedDrawCommandCount: number;
   readonly retainedTexturePageUploadCount: number;
   readonly retainedTexturePageUploadMs: number;
-  readonly retainedTexturePageExecutedItems: readonly GpuFlowRetainedTexturePageWorkItemMetrics[];
+  readonly retainedTexturePageExecutedItems: readonly GpuFlowRetainedTexturePageExecutedWorkItemMetrics[];
   readonly skippedNodeCount: number;
   readonly solidRoundedRectSurfaceCount: number;
   readonly surfaceActorGenerationCount: number;
@@ -459,6 +480,8 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageSurfaceCoverageProtectedResourceCount"
   | "retainedTexturePageSurfaceCoverageTrueHoleCount"
   | "retainedTexturePageTargetDescriptorCount"
+  | "retainedTexturePageTransactionBlockingGenerationIds"
+  | "retainedTexturePageTransactionBlockingSurfaceIds"
   | "retainedTexturePageTransactionDesiredScrollOffset"
   | "retainedTexturePageTransactionDesiredViewport"
   | "retainedTexturePageTransactionHeldMotionFrameCount"
@@ -499,6 +522,8 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageSurfaceCoverageProtectedResourceCount: 0,
       retainedTexturePageSurfaceCoverageTrueHoleCount: 0,
       retainedTexturePageTargetDescriptorCount: 0,
+      retainedTexturePageTransactionBlockingGenerationIds: [],
+      retainedTexturePageTransactionBlockingSurfaceIds: [],
       retainedTexturePageTransactionDesiredScrollOffset: null,
       retainedTexturePageTransactionDesiredViewport: { x: 0, y: 0, zoom: 1 },
       retainedTexturePageTransactionHeldMotionFrameCount: 0,
@@ -552,6 +577,12 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePages.surfaceCoverageTrueHoleCount,
     retainedTexturePageTargetDescriptorCount:
       retainedTexturePages.targetDescriptorCount,
+    retainedTexturePageTransactionBlockingGenerationIds: [
+      ...retainedTexturePages.transactionBlockingGenerationIds,
+    ],
+    retainedTexturePageTransactionBlockingSurfaceIds: [
+      ...retainedTexturePages.transactionBlockingSurfaceIds,
+    ],
     retainedTexturePageTransactionDesiredScrollOffset:
       retainedTexturePages.transactionDesiredScrollOffset,
     retainedTexturePageTransactionDesiredViewport: {

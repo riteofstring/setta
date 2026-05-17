@@ -7,12 +7,19 @@ import {
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
-import { deleteViewMode, persistViewModeSortOrder } from "./viewModes";
+import {
+  deleteViewMode,
+  persistActiveViewMode,
+  persistViewModeSortOrder,
+} from "./viewModes";
 const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 const routeDeleteViewModeMock = vi.fn();
+const routeSetActiveViewModeMock = vi.fn();
 const routeSetViewModeSortOrderMock = vi.fn();
 vi.mock("openapi/http", () => ({
   deleteViewMode: (...args: unknown[]) => routeDeleteViewModeMock(...args),
+  setActiveViewMode: (...args: unknown[]) =>
+    routeSetActiveViewModeMock(...args),
   setViewModeSortOrder: (...args: unknown[]) =>
     routeSetViewModeSortOrderMock(...args),
 }));
@@ -88,9 +95,67 @@ describe("view mode canonical mutations", () => {
   beforeEach(() => {
     resetProjectStores();
     routeDeleteViewModeMock.mockReset();
+    routeSetActiveViewModeMock.mockReset();
     routeSetViewModeSortOrderMock.mockReset();
     callOpenAPIMock.mockClear();
     usePendingOperations.setState({ pending: [] });
+  });
+  it("selects the active view mode optimistically and reconciles with the backend project config", async () => {
+    const initialProjectConfig = createStateWithViewModes();
+    initialProjectConfig.viewModes["beta-id"] = createViewMode({
+      ...initialProjectConfig.viewModes["beta-id"],
+      topLevelSections: {
+        "section-1": { x: 44, y: 55 },
+      },
+      viewport: { x: 4, y: 5, zoom: 6 },
+      viewportInitialized: false,
+    });
+    useProjectState.setState({
+      projectConfig: initialProjectConfig,
+    });
+    routeSetActiveViewModeMock.mockResolvedValue({
+      data: {
+        projectConfig: createProjectConfig({
+          ...initialProjectConfig,
+          activeViewModeId: "beta-id",
+          topLevelSections: {
+            "section-1": { x: 44, y: 55 },
+          },
+          viewport: { x: 4, y: 5, zoom: 6 },
+          viewportInitialized: false,
+        }),
+      },
+      status: 200,
+      hasResponse: true,
+    });
+    persistActiveViewMode("project-id", "beta-id");
+    expect(useProjectState.getState().projectConfig.activeViewModeId).toBe(
+      "beta-id",
+    );
+    expect(useProjectState.getState().projectConfig.topLevelSections).toEqual({
+      "section-1": { x: 44, y: 55 },
+    });
+    expect(
+      useProjectState.getState().projectConfig.viewModes["alpha-id"]
+        ?.topLevelSections,
+    ).toEqual({
+      "section-1": { position: { x: 10, y: 20 } },
+    });
+    await flushOptimisticMutation();
+    expect(routeSetActiveViewModeMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-id",
+        activeViewModeId: "beta-id",
+        frontendOpId: expect.any(String),
+      },
+    });
+    const projectConfig = useProjectState.getState().projectConfig;
+    expect(projectConfig.activeViewModeId).toBe("beta-id");
+    expect(projectConfig.topLevelSections).toEqual({
+      "section-1": { x: 44, y: 55 },
+    });
+    expect(projectConfig.viewport).toEqual({ x: 4, y: 5, zoom: 6 });
+    expect(projectConfig.viewportInitialized).toBe(false);
   });
   it("waits for the backend project config when reordering view modes", async () => {
     useProjectState.setState({

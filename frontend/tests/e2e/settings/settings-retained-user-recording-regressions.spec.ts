@@ -54,14 +54,29 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   const controlCadence = await measurePageRafCadence(page);
 
   await resetGpuFlowPerformanceProbe(page);
-  await page.getByRole("button", { exact: true, name: "All Settings" }).click();
-  await expect
-    .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
-    .toBeGreaterThan(50);
-  await waitForAnimationFrame(page);
-  await waitForAnimationFrame(page);
+  await startMeasurementRafHeartbeat(page);
+  let snapshot: Awaited<
+    ReturnType<typeof readGpuFlowPerformanceSnapshot>
+  > | null = null;
+  try {
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
+    await page
+      .getByRole("button", { exact: true, name: "All Settings" })
+      .click();
+    await expect
+      .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
+      .toBeGreaterThan(50);
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
 
-  const snapshot = await readGpuFlowPerformanceSnapshot(page);
+    snapshot = await readGpuFlowPerformanceSnapshot(page);
+  } finally {
+    await stopMeasurementRafHeartbeat(page);
+  }
+  if (!snapshot) {
+    throw new Error("Missing GPU Flow performance snapshot.");
+  }
   const canvasClip = await resolveCanvasClip(page);
   const screenshot = await page.screenshot({
     clip: canvasClip,
@@ -248,6 +263,31 @@ async function resolveCanvasGesturePoint(page: Page): Promise<{
       x: rect.x + rect.width * 0.54,
       y: rect.y + rect.height * 0.52,
     };
+  });
+}
+
+async function startMeasurementRafHeartbeat(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const win = window as Window & {
+      __settaRetainedSettingsRafHeartbeatActive?: boolean;
+    };
+    win.__settaRetainedSettingsRafHeartbeatActive = true;
+    const tick = () => {
+      if (win.__settaRetainedSettingsRafHeartbeatActive) {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+async function stopMeasurementRafHeartbeat(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as Window & {
+        __settaRetainedSettingsRafHeartbeatActive?: boolean;
+      }
+    ).__settaRetainedSettingsRafHeartbeatActive = false;
   });
 }
 

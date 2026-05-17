@@ -147,6 +147,17 @@ export async function openAllSettingsForRetainedCompositor(
   await waitForAnimationFrame(page);
 }
 
+export async function markGpuFlowRetainedSettingsFinishLineStart(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { postChromeReproFinishLineMarker } = await import(
+      "/src/state/actions/chromeRepro.ts"
+    );
+    postChromeReproFinishLineMarker();
+  });
+}
+
 export async function centerRetainedCompositorSurface(
   page: Page,
   surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
@@ -693,12 +704,18 @@ export async function readRetainedCompositorRowCount(
 
 export async function readRetainedCompositorSceneSummary(page: Page): Promise<{
   readonly controlKinds: readonly string[];
+  readonly mountedNodeCount: number;
   readonly nodeCount: number;
   readonly retainedRowCount: number;
   readonly surfaceCount: number;
 }> {
   return await page.evaluate(() => {
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    const mountedNodeCount = document.querySelectorAll(
+      ".setta-gpu-flow__node",
+    ).length;
+    const retainedNodeCount = new Set(rows.map((row) => row.ownerSectionId))
+      .size;
     return {
       controlKinds: [
         ...new Set(
@@ -707,7 +724,8 @@ export async function readRetainedCompositorSceneSummary(page: Page): Promise<{
             .filter((kind): kind is string => Boolean(kind)),
         ),
       ].sort((left, right) => left.localeCompare(right)),
-      nodeCount: document.querySelectorAll(".setta-gpu-flow__node").length,
+      mountedNodeCount,
+      nodeCount: Math.max(mountedNodeCount, retainedNodeCount),
       retainedRowCount: rows.length,
       surfaceCount: new Set(rows.map((row) => row.surfaceId)).size,
     };

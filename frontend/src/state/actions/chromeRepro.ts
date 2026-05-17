@@ -27,6 +27,12 @@ export function postChromeReproEvent(
   );
 }
 
+export function postChromeReproFinishLineMarker(
+  name: "finish-line-start" | "start" = "finish-line-start",
+): void {
+  postChromeReproEvent("gpu-flow-finish-line-marker", { name });
+}
+
 export function postMeasuredChromeReproEvent(
   kind: string,
   payload: Record<string, unknown>,

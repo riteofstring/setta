@@ -65,21 +65,24 @@ function runGpuFlowRetainedPageMaintenance({
 export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
   darkMode,
   deferResolutionUpdates,
+  maxPasses = MAX_PRE_PUBLISH_REPAIR_PASSES,
   preparedFrame,
   previousProtectedPageKeys,
   retainedContentPageManager,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
+  readonly maxPasses?: number | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly previousProtectedPageKeys: readonly string[];
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): GpuFlowRetainedPageMaintenanceRun | null {
   let currentFrame = preparedFrame;
   let maintenance: GpuFlowRetainedPageMaintenanceRun | null = null;
+  const repairPassCount = Math.max(0, Math.floor(maxPasses));
   for (
     let pass = 0;
-    pass < MAX_PRE_PUBLISH_REPAIR_PASSES &&
+    pass < repairPassCount &&
     shouldRepairGpuFlowRetainedPreparedFrameBeforePublish(currentFrame);
     pass += 1
   ) {

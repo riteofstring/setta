@@ -141,6 +141,7 @@ type SuppressedRetainedContentClick = {
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
 export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-dom-island="true"]',
+  '[data-gpu-flow-dom-control="true"]',
   '[data-gpu-flow-retained-content-native="true"]',
 ] as const;
 

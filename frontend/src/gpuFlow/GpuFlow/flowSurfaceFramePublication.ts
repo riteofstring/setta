@@ -353,7 +353,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   });
   if (visibleProjectionState) {
     input.visibleProjectionStateRef.current = visibleProjectionState;
-    return true;
+    return visibleProjectionState.transaction.kind !== "held-previous";
   }
   return false;
 }

@@ -16,6 +16,7 @@ import type {
 } from "./retainedTexturePages";
 import type { RetainedTexturePageSurfaceLayout } from "./retainedTexturePageVisuals";
 import type {
+  RetainedTextureUploadExecutedWorkItem,
   RetainedTextureUploadSchedulerBudget,
   RetainedTextureUploadSchedulerDiagnostic,
 } from "./retainedTextureUploadScheduler";
@@ -130,7 +131,7 @@ export type RetainedContentTexturePageMaintenanceResult = Omit<
   readonly coverageCandidateCount: number;
   readonly drawQuadCount: number;
   readonly executedItemCount: number;
-  readonly executedItems: readonly RetainedTextureWorkItem[];
+  readonly executedItems: readonly RetainedTextureUploadExecutedWorkItem[];
   readonly compatibleDrawQuadCount: number;
   readonly fidelityState: RetainedFidelityState;
   readonly mergedDrawQuadCount: number;

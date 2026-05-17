@@ -29,6 +29,11 @@ import {
   type GpuWheelGestureOwnershipArbiter,
 } from "./wheelOwnership";
 
+const GPU_RETAINED_CONTENT_WHEEL_NATIVE_TARGET_SELECTORS = [
+  '[data-gpu-flow-dom-island="true"]',
+  '[data-gpu-flow-retained-content-native="true"]',
+] as const;
+
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
   readonly element: HTMLElement;
@@ -159,6 +164,7 @@ class GpuRetainedContentScrollController {
     return (
       event.defaultPrevented ||
       event.ctrlKey ||
+      this.store.getState().zoomActivationKeyPressed ||
       Boolean(this.options.disabled?.(event)) ||
       isGpuViewportWheelGestureActive(this.store) ||
       shouldPreserveNativeWheelTarget(event)
@@ -477,7 +483,7 @@ function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {
   return isGpuRetainedContentNativeTarget(target, [
     `.${NO_WHEEL_CLASS_NAME}`,
     '[data-gpu-flow-wheel-target="true"]',
-    ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
+    ...GPU_RETAINED_CONTENT_WHEEL_NATIVE_TARGET_SELECTORS,
   ]);
 }
 

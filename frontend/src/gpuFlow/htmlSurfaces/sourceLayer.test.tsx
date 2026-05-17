@@ -53,9 +53,9 @@ describe("HtmlSurfaceSourceLayer", () => {
     expect(sourceElement.getAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE)).toBe(
       "source-a",
     );
-    expect(sourceElement.classList.contains(HTML_SURFACE_SOURCE_CLASS_NAME)).toBe(
-      true,
-    );
+    expect(
+      sourceElement.classList.contains(HTML_SURFACE_SOURCE_CLASS_NAME),
+    ).toBe(true);
     expect(sourceElement.style.contain).toBe("layout paint style");
     expect(sourceElement.style.left).toBe("0px");
     expect(sourceElement.style.pointerEvents).toBe("none");
@@ -165,6 +165,63 @@ describe("HtmlSurfaceSourceLayer", () => {
     );
     expect(sourceElement.style.visibility).toBe("");
     expect(sourceElement.style.zIndex).toBe("12");
+
+    act(() => root.unmount());
+    canvas.remove();
+  });
+
+  it("prioritizes selected sources and mounts the remaining sources in frame batches", () => {
+    const canvas = document.createElement("canvas");
+    document.body.append(canvas);
+    const root = createRoot(canvas);
+    const elements = new Map<string, HTMLElement>();
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    act(() => {
+      root.render(
+        <HtmlSurfaceSourceLayer
+          getSourceId={(source: TestSource) => source.id}
+          onSourceElementChange={(sourceId, element) => {
+            if (element) {
+              elements.set(sourceId, element);
+              return;
+            }
+            elements.delete(sourceId);
+          }}
+          prioritySourceIds={["source-c"]}
+          progressiveBatchSize={2}
+          renderSource={(source: TestSource) => <span>{source.label}</span>}
+          sources={[
+            { id: "source-a", label: "A" },
+            { id: "source-b", label: "B" },
+            { id: "source-c", label: "C" },
+            { id: "source-d", label: "D" },
+          ]}
+        />,
+      );
+    });
+
+    expect([...elements.keys()]).toEqual(["source-c", "source-a"]);
+    expect(elements.has("source-b")).toBe(false);
+    expect(elements.has("source-d")).toBe(false);
+
+    const firstFrame = frameCallbacks.shift();
+    if (!firstFrame) {
+      throw new Error("Expected a progressive source frame.");
+    }
+    act(() => firstFrame(16));
+
+    expect([...elements.keys()]).toEqual([
+      "source-c",
+      "source-a",
+      "source-b",
+      "source-d",
+    ]);
 
     act(() => root.unmount());
     canvas.remove();

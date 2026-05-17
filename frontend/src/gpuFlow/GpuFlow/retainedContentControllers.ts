@@ -45,6 +45,7 @@ import {
   type GpuRetainedContentScrollbarVisualTarget,
 } from "../retainedContentScrollbar";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   type GpuFlowRetainedContentNodeLayerState,
@@ -138,6 +139,7 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly scenePortConnection: GpuFlowScenePortConnectionOptions;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<GpuFlowRetainedContentTextureManager | null>;
+  readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
 
@@ -158,6 +160,7 @@ export function useGpuFlowRetainedContentControllers({
   scenePortConnection,
   surfaceRef,
   textureManagerRef,
+  viewportRuntime,
   viewportStore,
 }: GpuFlowRetainedContentControllerOptions) {
   const retainedContentInteractionRef = useRef(retainedContentInteraction);
@@ -570,6 +573,7 @@ export function useGpuFlowRetainedContentControllers({
           result: event,
           state: retainedContentRuntimeState,
         });
+        viewportRuntime.applyOverlayTransforms();
         retainedContentKeyboard.onNavigation(event);
         requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
           previousScrollOffsets: new Map(),
@@ -591,6 +595,7 @@ export function useGpuFlowRetainedContentControllers({
     retainedContentSwitchAnimations,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   ]);
 
@@ -615,6 +620,7 @@ export function useGpuFlowRetainedContentControllers({
           result,
           state: retainedContentRuntimeState,
         });
+        viewportRuntime.applyOverlayTransforms();
         retainedContentScroll.onScrollOffsetsCommit?.(scrollOffsets, result);
       },
       requestFrame: (reason) => {
@@ -633,6 +639,7 @@ export function useGpuFlowRetainedContentControllers({
     retainedContentPageManagerRef,
     surfaceRef,
     textureManagerRef,
+    viewportRuntime,
     viewportStore,
   ]);
 

@@ -5,6 +5,7 @@ import {
 } from "@setta/app-subsystem-frontend-sdk";
 import {
   deleteViewMode as deleteViewModeRequest,
+  setActiveViewMode,
   setViewModeSortOrder,
 } from "openapi/http";
 import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
@@ -16,6 +17,9 @@ type ProjectConfigMutationPayload = {
 };
 type ProjectConfigMutationRouteResponse =
   ResponseDataAndStatus<ProjectConfigMutationPayload>;
+type ProjectTopLevelSectionLayouts =
+  ZustandProjectState["projectConfig"]["topLevelSections"];
+type ProjectViewport = ZustandProjectState["projectConfig"]["viewport"];
 function applyAcknowledgedViewModeProjectConfig(
   state: ZustandProjectState,
   acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
@@ -100,6 +104,84 @@ export function persistViewModeSortOrder(
       ),
   });
 }
+
+export function persistActiveViewMode(
+  projectConfigId: string,
+  activeViewModeId: string,
+): void {
+  dispatchOptimisticViewModeMutation({
+    apply: (state) => applyOptimisticActiveViewMode(state, activeViewModeId),
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      callOpenAPI(
+        setActiveViewMode({
+          body: {
+            projectConfigId: nextProjectConfigId,
+            activeViewModeId,
+            frontendOpId,
+          },
+        } as Parameters<typeof setActiveViewMode>[0]),
+      ),
+  });
+}
+
+function applyOptimisticActiveViewMode(
+  state: ZustandProjectState,
+  activeViewModeId: string,
+): void {
+  const projectConfig = state.projectConfig;
+  const currentViewModeId = projectConfig.activeViewModeId;
+  const nextViewMode = projectConfig.viewModes[activeViewModeId];
+  if (!nextViewMode) {
+    throw new Error(`Active view mode ${activeViewModeId} not found.`);
+  }
+  if (currentViewModeId) {
+    const currentViewMode = projectConfig.viewModes[currentViewModeId];
+    if (currentViewMode) {
+      currentViewMode.topLevelSections = cloneProjectTopLevelSectionLayouts(
+        projectConfig.topLevelSections,
+      );
+      currentViewMode.viewport = cloneProjectViewport(projectConfig.viewport);
+      currentViewMode.viewportInitialized = projectConfig.viewportInitialized;
+    }
+  }
+
+  // Latency path for tab selection: mirror Go Project.SetActiveViewMode so the
+  // backend acknowledgement usually does not force a second GPU scene rebuild.
+  let nextLayouts = cloneProjectTopLevelSectionLayouts(
+    nextViewMode.topLevelSections,
+  );
+  if (Object.keys(nextLayouts).length === 0) {
+    nextLayouts = cloneProjectTopLevelSectionLayouts(
+      projectConfig.topLevelSections,
+    );
+    nextViewMode.topLevelSections =
+      cloneProjectTopLevelSectionLayouts(nextLayouts);
+  }
+  projectConfig.topLevelSections =
+    cloneProjectTopLevelSectionLayouts(nextLayouts);
+  projectConfig.viewport = cloneProjectViewport(nextViewMode.viewport ?? null);
+  projectConfig.viewportInitialized = nextViewMode.viewportInitialized ?? false;
+  projectConfig.activeViewModeId = activeViewModeId;
+}
+
+function cloneProjectTopLevelSectionLayouts(
+  layouts: ProjectTopLevelSectionLayouts | undefined,
+): ProjectTopLevelSectionLayouts {
+  return Object.fromEntries(
+    Object.entries(layouts ?? {}).map(([sectionId, layout]) => [
+      sectionId,
+      { ...layout },
+    ]),
+  );
+}
+
+function cloneProjectViewport(
+  viewport: ProjectViewport | undefined,
+): ProjectViewport {
+  return viewport ? { ...viewport } : null;
+}
+
 export function deleteViewMode(
   projectConfigId: string,
   viewModeId: string,

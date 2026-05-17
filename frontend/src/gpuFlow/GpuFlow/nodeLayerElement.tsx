@@ -9,6 +9,8 @@ export function renderGpuFlowNodeLayerElement({
   nodeClassName,
   nodes,
   onNodeElementChange,
+  priorityNodeIds,
+  progressiveBatchSize,
   renderNode,
 }: {
   readonly nodeClassName: string | undefined;
@@ -17,6 +19,11 @@ export function renderGpuFlowNodeLayerElement({
     nodeId: string,
     element: HTMLElement | null,
   ) => void;
+  readonly priorityNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly progressiveBatchSize?: number | undefined;
   readonly renderNode: ((node: GpuNodeLayout) => ReactNode) | undefined;
 }) {
   if (!nodes && !renderNode) {
@@ -35,6 +42,8 @@ export function renderGpuFlowNodeLayerElement({
       className={nodeClassName}
       nodes={nodes}
       onNodeElementChange={onNodeElementChange}
+      priorityNodeIds={priorityNodeIds}
+      progressiveBatchSize={progressiveBatchSize}
       renderNode={renderNode}
     />
   );

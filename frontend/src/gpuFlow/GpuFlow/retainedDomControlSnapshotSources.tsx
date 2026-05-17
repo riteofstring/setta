@@ -29,6 +29,7 @@ const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__dom-control-snapshot-source";
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX =
   "retained-dom-control-snapshot:";
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_BATCH_SIZE = 2;
 
 export function useGpuFlowRetainedDomControlSnapshotSources({
   nodeDomTransformSyncCacheRef,
@@ -213,6 +214,7 @@ function GpuRetainedDomControlSnapshotSourceLayer({
       }
       getSourceId={getGpuRetainedDomControlSnapshotSourceId}
       onSourceElementChange={onSnapshotElementChange}
+      progressiveBatchSize={GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_BATCH_SIZE}
       renderSource={(source) => (
         <GpuRetainedDomControlSnapshotSource
           onSnapshotDraw={onSnapshotDraw}

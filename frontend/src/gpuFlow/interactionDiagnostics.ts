@@ -8,6 +8,7 @@ import {
   normalizeGpuViewport,
   type GpuPoint,
   type GpuRect,
+  type GpuViewportInput,
 } from "./viewportMath";
 import type { GpuFlowViewportStore } from "./viewportStore";
 
@@ -518,6 +519,9 @@ declare global {
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?:
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
+      | undefined;
+    __SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__?:
+      | ((viewport: GpuViewportInput) => void)
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?:
       | (() => readonly GpuFlowVisualSurfaceDebugEntry[])

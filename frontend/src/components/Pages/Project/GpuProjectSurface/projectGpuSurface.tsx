@@ -6,17 +6,13 @@ import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interact
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 import type { GpuRetainedRuntimeFrame } from "gpuFlow/retainedRuntimeFrame";
 import type { GpuFlowScene } from "gpuFlow/scene";
-
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
-
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
-
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-
 import _ from "lodash";
-
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -24,39 +20,30 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
-
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
 import { selectOnlyParam } from "state/actions/params/moveParams";
-
 import {
   getActiveSectionUIIds,
   useActiveSectionUI,
 } from "state/activeSectionUI";
-
 import {
   useAIFollow,
   useLocalStorage,
   useMisc,
   useProjectState,
 } from "state/definitions";
-
 import { useShareCapabilities } from "state/hooks/share";
-
 import { useTabScope } from "utils/focusManager";
-
 import { AgenticScopeHighlightsUpdater } from "../AgenticScopeHighlightsUpdater";
-
 import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "../gpuProjectEdgeScene";
-
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
-
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
 import { useProjectGpuActiveParamCanvasPopupDismissal } from "./projectGpuActiveParamCanvasPopupDismissal";
 import {
@@ -74,6 +61,7 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import {
+  getProjectRetainedContentSectionIds,
   getProjectSceneSectionById,
   renderProjectGpuNode,
 } from "./projectGpuNodeRenderer";
@@ -334,6 +322,7 @@ export function GpuProjectSurface() {
     >
       <AgenticScopeHighlightsUpdater />
       <ProjectGpuFlowLayer
+        activeParamDomIsland={activeParamDomIsland}
         canEditStructure={canEditStructure}
         darkMode={darkMode}
         flowInteractionKeys={flowInteractionKeys}
@@ -393,6 +382,7 @@ type RetainedParamDragPreviewChange = (
 ) => void;
 
 function ProjectGpuFlowLayer({
+  activeParamDomIsland,
   canEditStructure,
   canEditLayout,
   darkMode,
@@ -412,6 +402,7 @@ function ProjectGpuFlowLayer({
   showAgenticEdges,
   showDataEdges,
 }: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland | null;
   readonly canEditStructure: boolean;
   readonly canEditLayout: boolean;
   readonly darkMode: boolean;
@@ -436,7 +427,10 @@ function ProjectGpuFlowLayer({
     useRef<ProjectGpuRetainedParamDragSession | null>(null);
   const [resizePreviewScene, setResizePreviewScene] =
     useState<GpuFlowScene | null>(null);
-  const effectiveScene = resizePreviewScene ?? layoutAdapter.scene;
+  const deferredCommittedScene = useDeferredValue(layoutAdapter.scene);
+  const effectiveScene =
+    resizePreviewScene ??
+    (activeParamDomIsland ? layoutAdapter.scene : deferredCommittedScene);
   useEffect(() => {
     if (
       resizePreviewScene &&
@@ -456,6 +450,10 @@ function ProjectGpuFlowLayer({
   );
   const sceneSectionById = useMemo(
     () => getProjectSceneSectionById(effectiveScene),
+    [effectiveScene],
+  );
+  const retainedContentSectionIds = useMemo(
+    () => getProjectRetainedContentSectionIds(effectiveScene),
     [effectiveScene],
   );
   const edgeScene = useProjectGpuEdgeScene({
@@ -666,7 +664,9 @@ function ProjectGpuFlowLayer({
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
       portals={portals}
-      renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
+      renderNode={(node) =>
+        renderProjectGpuNode(node, sceneSectionById, retainedContentSectionIds)
+      }
       renderDomIsland={renderProjectGpuDomIsland}
       renderRetainedDomControl={renderProjectGpuRetainedDomControl}
       retainedContentConnection={retainedContentConnectionOptions}

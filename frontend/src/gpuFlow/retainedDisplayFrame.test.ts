@@ -279,6 +279,15 @@ describe("retained display frame publisher", () => {
   it("rejects an initial frame that has no committed visual epoch coverage", () => {
     const descriptor = pageDescriptor();
     const missingRect = { height: 64, width: 64, x: 0, y: 0 };
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      prepared: preparedFrame({
+        visibleRegionTargets: [descriptor],
+        trueHoleRectsCss: [missingRect],
+      }),
+      previous: null,
+    });
+
+    expect(outcome.kind).toBe("block-cold-first-coverage");
     expect(() =>
       publishRetainedDisplayFrame({
         prepared: preparedFrame({

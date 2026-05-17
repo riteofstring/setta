@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  applyProjectMutationsFromFrontend,
+  ensureAppReady,
+  setParamEnteredValueFromFrontend,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -37,9 +41,16 @@ type GpuFlowDebugSnapshot = {
   readonly activeMode: string;
   readonly pointerCapture: { readonly active: boolean } | null;
   readonly viewport: {
+    readonly nodeResizing?: boolean;
     readonly nodesSelectionBounds: unknown;
+    readonly retainedContentScrolling?: boolean;
+    readonly viewportAnimating?: boolean;
+    readonly viewportInteractionActive?: boolean;
+    readonly wheelZooming?: boolean;
   };
 };
+
+type TopLevelSectionsSnapshot = Record<string, unknown>;
 
 type GpuFlowRetainedRowDebugEntry = {
   readonly canvasCssSize: { readonly height: number; readonly width: number };
@@ -54,11 +65,19 @@ type GpuFlowRetainedRowDebugEntry = {
     readonly x: number;
     readonly y: number;
   } | null;
+  readonly labelClientPoint: {
+    readonly x: number;
+    readonly y: number;
+  };
   readonly rowId: string;
   readonly rowLabel: string;
   readonly rowState: {
     readonly controlFocused?: boolean;
     readonly focused?: boolean;
+  };
+  readonly surfaceScrollOffset: {
+    readonly x: number;
+    readonly y: number;
   };
   readonly surfaceId: string;
 };
@@ -78,113 +97,155 @@ test("settings retained controls and text editors stay local to the row", async 
   const initialLeftPaneShift = Boolean(
     await readGuiSetting(page, "leftSidePaneShiftsMap"),
   );
-  const leftPaneTarget = await resolveRetainedControlTarget(
-    page,
-    "Left Side Pane Shifts Map",
-  );
-  await page.mouse.click(
-    leftPaneTarget.clientPoint.x,
-    leftPaneTarget.clientPoint.y,
-  );
-
-  await expect
-    .poll(async () =>
-      Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
-    )
-    .toBe(!initialLeftPaneShift);
-  await expect
-    .poll(() => pixelDistanceFromFocusedRowBackground(page, leftPaneTarget))
-    .toBeGreaterThan(18);
-  await expect
-    .poll(() => readRetainedRowFocused(page, leftPaneTarget))
-    .toBe(false);
-  await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
-  await expect
-    .poll(async () => (await readGpuFlowDebugSnapshot(page))?.activeMode)
-    .not.toBe("retained-content");
-  await expect
-    .poll(
-      async () =>
-        (await readGpuFlowDebugSnapshot(page))?.pointerCapture?.active ?? false,
-    )
-    .toBe(false);
-
-  await page.mouse.click(
-    leftPaneTarget.clientPoint.x,
-    leftPaneTarget.clientPoint.y,
-  );
-  await expect
-    .poll(async () =>
-      Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
-    )
-    .toBe(initialLeftPaneShift);
-
-  const maxZoomTarget = await resolveRetainedControlTarget(page, "Max Zoom");
-  await page.mouse.click(
-    maxZoomTarget.clientPoint.x,
-    maxZoomTarget.clientPoint.y,
-  );
-  await expect
-    .poll(() => readActiveGpuFlowControl(page))
-    .toContain(maxZoomTarget.rowId);
-  await expect
-    .poll(() => pixelDistanceFromFocusedRowBackground(page, maxZoomTarget))
-    .toBeGreaterThan(18);
-  await expect
-    .poll(() => readRetainedRowFocused(page, maxZoomTarget))
-    .toBe(false);
-  await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
-
-  await page.keyboard.press(selectAllShortcut());
-  await page.keyboard.type("12");
-  await expect
-    .poll(async () => Number(await readGuiSetting(page, "maxZoom")))
-    .toBe(12);
-  await expect
-    .poll(() => readActiveGpuFlowControl(page))
-    .toContain(maxZoomTarget.rowId);
-
-  await page.keyboard.press(selectAllShortcut());
-  await page.keyboard.type("10");
-  await expect
-    .poll(async () => Number(await readGuiSetting(page, "maxZoom")))
-    .toBe(10);
-
-  await page.mouse.move(
-    leftPaneTarget.clientPoint.x,
-    leftPaneTarget.clientPoint.y,
-  );
-  await page.mouse.wheel(0, 160);
-  await dragGuiSectionResizeHandle(page);
-
+  const initialMaxZoom = Number(await readGuiSetting(page, "maxZoom"));
   const initialPanOnDrag = Boolean(await readGuiSetting(page, "panOnDrag"));
-  const panOnDragTarget = await resolveRetainedControlTarget(
-    page,
-    "Pan On Drag",
-  );
-  await page.mouse.click(
-    panOnDragTarget.clientPoint.x,
-    panOnDragTarget.clientPoint.y,
-  );
+  const initialTopLevelSections = await readTopLevelSections(page);
+  let leftPaneTarget: RetainedControlTarget | null = null;
+  let maxZoomTarget: RetainedControlTarget | null = null;
+  let panOnDragTarget: RetainedControlTarget | null = null;
+  let guiSectionResizeDelta: { x: number; y: number } | null = null;
 
-  await expect
-    .poll(async () => Boolean(await readGuiSetting(page, "panOnDrag")))
-    .toBe(!initialPanOnDrag);
-  await expect
-    .poll(() => readRetainedRowFocused(page, panOnDragTarget))
-    .toBe(false);
-  await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
-  await expect
-    .poll(async () => (await readGpuFlowDebugSnapshot(page))?.activeMode)
-    .not.toBe("retained-content");
+  try {
+    leftPaneTarget = await resolveRetainedControlTarget(
+      page,
+      "Left Side Pane Shifts Map",
+    );
+    await page.mouse.click(
+      leftPaneTarget.clientPoint.x,
+      leftPaneTarget.clientPoint.y,
+    );
 
-  await page.mouse.click(
-    panOnDragTarget.clientPoint.x,
-    panOnDragTarget.clientPoint.y,
-  );
-  await expect
-    .poll(async () => Boolean(await readGuiSetting(page, "panOnDrag")))
-    .toBe(initialPanOnDrag);
+    await expect
+      .poll(async () =>
+        Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+      )
+      .toBe(!initialLeftPaneShift);
+    await expect
+      .poll(() => pixelDistanceFromFocusedRowBackground(page, leftPaneTarget))
+      .toBeGreaterThan(18);
+    await expect
+      .poll(() => readRetainedRowFocused(page, leftPaneTarget))
+      .toBe(false);
+    await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
+    await expect
+      .poll(async () => (await readGpuFlowDebugSnapshot(page))?.activeMode)
+      .not.toBe("retained-content");
+    await expect
+      .poll(
+        async () =>
+          (await readGpuFlowDebugSnapshot(page))?.pointerCapture?.active ??
+          false,
+      )
+      .toBe(false);
+
+    await page.mouse.click(
+      leftPaneTarget.clientPoint.x,
+      leftPaneTarget.clientPoint.y,
+    );
+    await expect
+      .poll(async () =>
+        Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+      )
+      .toBe(initialLeftPaneShift);
+
+    maxZoomTarget = await resolveRetainedControlTarget(page, "Max Zoom");
+    await page.mouse.click(
+      maxZoomTarget.clientPoint.x,
+      maxZoomTarget.clientPoint.y,
+    );
+    await expect
+      .poll(() => readActiveGpuFlowControl(page))
+      .toContain(maxZoomTarget.rowId);
+    await expect
+      .poll(() => pixelDistanceFromFocusedRowBackground(page, maxZoomTarget))
+      .toBeGreaterThan(18);
+    await expect
+      .poll(() => readRetainedRowFocused(page, maxZoomTarget))
+      .toBe(false);
+    await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
+
+    await page.keyboard.press(selectAllShortcut());
+    await page.keyboard.type("12");
+    await expect
+      .poll(async () => Number(await readGuiSetting(page, "maxZoom")))
+      .toBe(12);
+    await expect
+      .poll(() => readActiveGpuFlowControl(page))
+      .toContain(maxZoomTarget.rowId);
+
+    await page.keyboard.press(selectAllShortcut());
+    await page.keyboard.type("10");
+    await expect
+      .poll(async () => Number(await readGuiSetting(page, "maxZoom")))
+      .toBe(10);
+
+    await page.mouse.move(
+      leftPaneTarget.clientPoint.x,
+      leftPaneTarget.clientPoint.y,
+    );
+    await scrollGuiContentRowIntoView(page, "Pan On Drag");
+    await waitForGpuFlowIdle(page);
+    guiSectionResizeDelta = { x: 24, y: 18 };
+    await dragGuiSectionResizeHandle(page, guiSectionResizeDelta);
+    await waitForGpuFlowIdle(page);
+
+    panOnDragTarget = await resolveRetainedControlTarget(page, "Pan On Drag");
+    await clickRetainedControlUntilGuiSetting(
+      page,
+      panOnDragTarget,
+      "panOnDrag",
+      !initialPanOnDrag,
+    );
+    await expect
+      .poll(() => readRetainedRowFocused(page, panOnDragTarget))
+      .toBe(false);
+    await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
+    await expect
+      .poll(async () => (await readGpuFlowDebugSnapshot(page))?.activeMode)
+      .not.toBe("retained-content");
+
+    panOnDragTarget = await resolveRetainedControlTarget(page, "Pan On Drag");
+    await clickRetainedControlUntilGuiSetting(
+      page,
+      panOnDragTarget,
+      "panOnDrag",
+      initialPanOnDrag,
+    );
+  } finally {
+    if (guiSectionResizeDelta) {
+      await dragGuiSectionResizeHandle(page, {
+        x: -guiSectionResizeDelta.x,
+        y: -guiSectionResizeDelta.y,
+      });
+      await settleDebouncedTopLevelLayoutWrite(page);
+      await restoreTopLevelSections(page, initialTopLevelSections);
+    }
+    await resetGuiContentScrollToTop(page);
+    if (leftPaneTarget) {
+      await restoreGuiSetting(
+        page,
+        "leftSidePaneShiftsMap",
+        leftPaneTarget.rowId,
+        initialLeftPaneShift,
+      );
+    }
+    if (panOnDragTarget) {
+      await restoreGuiSetting(
+        page,
+        "panOnDrag",
+        panOnDragTarget.rowId,
+        initialPanOnDrag,
+      );
+    }
+    if (maxZoomTarget) {
+      await restoreGuiSetting(
+        page,
+        "maxZoom",
+        maxZoomTarget.rowId,
+        initialMaxZoom,
+      );
+    }
+  }
 });
 
 async function resolveRetainedControlTarget(
@@ -194,12 +255,14 @@ async function resolveRetainedControlTarget(
   return await page.evaluate(
     ({ guiContentSurfaceId, label }) => {
       const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
-      const row =
-        (rows as readonly GpuFlowRetainedRowDebugEntry[]).find(
+      const matchingRows = (rows as readonly GpuFlowRetainedRowDebugEntry[])
+        .filter(
           (candidate) =>
             candidate.surfaceId === guiContentSurfaceId &&
             candidate.rowLabel === label,
-        ) ?? null;
+        )
+        .filter(isVisibleRetainedRow);
+      const row = matchingRows[0] ?? null;
       if (!row) {
         throw new Error(`Missing retained settings row ${label}.`);
       }
@@ -216,6 +279,17 @@ async function resolveRetainedControlTarget(
         rowState: row.rowState,
         surfaceId: row.surfaceId,
       };
+
+      function isVisibleRetainedRow(
+        candidate: GpuFlowRetainedRowDebugEntry,
+      ): boolean {
+        return (
+          candidate.clientRect.x + candidate.clientRect.width > 0 &&
+          candidate.clientRect.x < window.innerWidth &&
+          candidate.clientRect.y + candidate.clientRect.height > 0 &&
+          candidate.clientRect.y < window.innerHeight
+        );
+      }
     },
     { guiContentSurfaceId: GUI_CONTENT_SURFACE_ID, label },
   );
@@ -231,6 +305,79 @@ async function readGuiSetting(
     const { useSettings } = await import("/src/state/definitions.ts");
     return (useSettings.getState().gui as Record<string, unknown>)[key];
   }, key);
+}
+
+async function readTopLevelSections(
+  page: Page,
+): Promise<TopLevelSectionsSnapshot> {
+  return await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    return JSON.parse(
+      JSON.stringify(useProjectState.getState().projectConfig.topLevelSections),
+    ) as TopLevelSectionsSnapshot;
+  });
+}
+
+async function restoreTopLevelSections(
+  page: Page,
+  topLevelSections: TopLevelSectionsSnapshot,
+): Promise<void> {
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId: "settings",
+    operations: [
+      {
+        operationName: "setTopLevelSectionLayout",
+        body: {
+          topLevelSections,
+          frontendOpId: null,
+        },
+      },
+    ],
+  });
+}
+
+async function restoreGuiSetting(
+  page: Page,
+  key: GuiSettingKey,
+  rowId: string,
+  value: boolean | number,
+): Promise<void> {
+  if (String(await readGuiSetting(page, key)) === String(value)) {
+    return;
+  }
+  await setParamEnteredValueFromFrontend(page, {
+    projectConfigId: "settings",
+    sectionId: GUI_SECTION_ID,
+    paramInfoId: rowId,
+    value: String(value),
+  });
+  await expect
+    .poll(async () => String(await readGuiSetting(page, key)))
+    .toBe(String(value));
+}
+
+async function clickRetainedControlUntilGuiSetting(
+  page: Page,
+  target: RetainedControlTarget,
+  key: GuiSettingKey,
+  expectedValue: boolean,
+): Promise<void> {
+  const deadlineMs = Date.now() + 5_000;
+  let value = Boolean(await readGuiSetting(page, key));
+  let currentTarget = target;
+  while (Date.now() < deadlineMs) {
+    currentTarget = await resolveRetainedControlTarget(page, target.label);
+    await page.mouse.click(
+      currentTarget.clientPoint.x,
+      currentTarget.clientPoint.y,
+    );
+    await page.waitForTimeout(50);
+    value = Boolean(await readGuiSetting(page, key));
+    if (value === expectedValue) {
+      return;
+    }
+  }
+  expect(value).toBe(expectedValue);
 }
 
 async function readRetainedRowFocused(
@@ -416,7 +563,10 @@ function selectAllShortcut(): string {
   return process.platform === "darwin" ? "Meta+A" : "Control+A";
 }
 
-async function dragGuiSectionResizeHandle(page: Page): Promise<void> {
+async function dragGuiSectionResizeHandle(
+  page: Page,
+  delta: { readonly x: number; readonly y: number },
+): Promise<void> {
   const guiNode = page.locator(
     `.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`,
   );
@@ -430,6 +580,121 @@ async function dragGuiSectionResizeHandle(page: Page): Promise<void> {
   };
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(start.x + 24, start.y + 18, { steps: 6 });
+  await page.mouse.move(start.x + delta.x, start.y + delta.y, { steps: 6 });
   await page.mouse.up();
+}
+
+async function waitForGpuFlowIdle(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(() => {
+          const viewport =
+            window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport ?? null;
+          return Boolean(
+            viewport &&
+              !viewport.nodeResizing &&
+              !viewport.retainedContentScrolling &&
+              !viewport.viewportAnimating &&
+              !viewport.viewportInteractionActive &&
+              !viewport.wheelZooming,
+          );
+        }),
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+}
+
+async function resetGuiContentScrollToTop(page: Page): Promise<void> {
+  for (let index = 0; index < 12; index += 1) {
+    const scrollY = await readGuiContentScrollY(page);
+    if (scrollY <= 1) {
+      return;
+    }
+    const point = await resolveVisibleGuiContentPoint(page);
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.wheel(0, -160);
+    await page.waitForTimeout(16);
+  }
+  await expect.poll(() => readGuiContentScrollY(page)).toBeLessThanOrEqual(1);
+}
+
+async function readGuiContentScrollY(page: Page): Promise<number> {
+  return await page.evaluate((surfaceId) => {
+    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    const row = (rows as readonly GpuFlowRetainedRowDebugEntry[]).find(
+      (candidate) => candidate.surfaceId === surfaceId,
+    );
+    return row?.surfaceScrollOffset.y ?? 0;
+  }, GUI_CONTENT_SURFACE_ID);
+}
+
+async function scrollGuiContentRowIntoView(
+  page: Page,
+  label: string,
+): Promise<void> {
+  for (let index = 0; index < 8; index += 1) {
+    if (await hasVisibleGuiContentRow(page, label)) {
+      return;
+    }
+    const point = await resolveVisibleGuiContentPoint(page);
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.wheel(0, 160);
+    await page.waitForTimeout(24);
+  }
+  await expect.poll(() => hasVisibleGuiContentRow(page, label)).toBe(true);
+}
+
+async function hasVisibleGuiContentRow(
+  page: Page,
+  label: string,
+): Promise<boolean> {
+  return await page.evaluate(
+    ({ label, surfaceId }) => {
+      const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+      return (rows as readonly GpuFlowRetainedRowDebugEntry[]).some(
+        (candidate) =>
+          candidate.surfaceId === surfaceId &&
+          candidate.rowLabel === label &&
+          candidate.clientRect.x + candidate.clientRect.width > 0 &&
+          candidate.clientRect.x < window.innerWidth &&
+          candidate.clientRect.y + candidate.clientRect.height > 0 &&
+          candidate.clientRect.y < window.innerHeight,
+      );
+    },
+    { label, surfaceId: GUI_CONTENT_SURFACE_ID },
+  );
+}
+
+async function resolveVisibleGuiContentPoint(
+  page: Page,
+): Promise<{ readonly x: number; readonly y: number }> {
+  return await page.evaluate((surfaceId) => {
+    const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    const row = (rows as readonly GpuFlowRetainedRowDebugEntry[]).find(
+      (candidate) =>
+        candidate.surfaceId === surfaceId &&
+        candidate.labelClientPoint.y > 0 &&
+        candidate.labelClientPoint.y < window.innerHeight,
+    );
+    if (!row) {
+      throw new Error("Missing visible GUI retained row for scroll reset.");
+    }
+    return row.labelClientPoint;
+  }, GUI_CONTENT_SURFACE_ID);
+}
+
+async function settleDebouncedTopLevelLayoutWrite(page: Page): Promise<void> {
+  const layoutWrite = page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/setTopLevelSectionLayout") &&
+        response.status() >= 200 &&
+        response.status() < 300,
+      { timeout: 2_000 },
+    )
+    .catch(() => null);
+  await page.waitForTimeout(650);
+  await layoutWrite;
 }

@@ -1,5 +1,6 @@
 import type {
   GpuFlowRetainedTexturePageDiagnosticMetrics,
+  GpuFlowRetainedTexturePageExecutedWorkItemMetrics,
   GpuFlowRetainedTexturePageFrameMetrics,
   GpuFlowRetainedTexturePageWorkItemMetrics,
 } from "../framePerformance";
@@ -66,7 +67,7 @@ export function combineGpuFlowRetainedTexturePageMetrics({
     uploadCount: retainedPageResult.uploadCount,
     uploadMs: retainedPageResult.uploadMs,
     executedItems: retainedPageResult.executedItems.map(
-      createRetainedTexturePageWorkItemMetrics,
+      createRetainedTexturePageExecutedWorkItemMetrics,
     ),
   };
 }
@@ -105,6 +106,27 @@ function createRetainedTexturePageWorkItemMetrics(
   };
 }
 
+function createRetainedTexturePageExecutedWorkItemMetrics(
+  item: RetainedContentTexturePageMaintenanceResult["executedItems"][number],
+): GpuFlowRetainedTexturePageExecutedWorkItemMetrics {
+  return {
+    ...createRetainedTexturePageWorkItemMetrics(item),
+    actual: {
+      rasterMs: item.actual.rasterMs,
+      uploadedBytes: item.actual.uploadedBytes,
+      uploadCount: item.actual.uploadCount,
+      uploadMs: item.actual.uploadMs,
+    },
+    estimate: {
+      rasterMs: item.estimate.rasterMs,
+      uploadedBytes: item.estimate.uploadedBytes,
+      uploadCount: item.estimate.uploadCount,
+      uploadMs: item.estimate.uploadMs,
+    },
+    queue: item.queue,
+  };
+}
+
 function createRetainedTextureTransactionMetrics({
   publishedScrollOffset,
   publishedViewport,
@@ -117,6 +139,8 @@ function createRetainedTextureTransactionMetrics({
   GpuFlowRetainedTexturePageFrameMetrics,
   | "transactionDesiredScrollOffset"
   | "transactionDesiredViewport"
+  | "transactionBlockingGenerationIds"
+  | "transactionBlockingSurfaceIds"
   | "transactionHeldMotionFrameCount"
   | "transactionHeldTransactionCount"
   | "transactionHeldTransactionDurationMs"
@@ -128,6 +152,8 @@ function createRetainedTextureTransactionMetrics({
   const holdDiagnostics = retainedDisplayFrame.diagnostics.holdDiagnostics;
   if (!holdDiagnostics) {
     return {
+      transactionBlockingGenerationIds: [],
+      transactionBlockingSurfaceIds: [],
       transactionDesiredScrollOffset: publishedScrollOffset,
       transactionDesiredViewport: publishedViewport,
       transactionHeldMotionFrameCount: 0,
@@ -140,6 +166,10 @@ function createRetainedTextureTransactionMetrics({
     };
   }
   return {
+    transactionBlockingGenerationIds: [
+      ...holdDiagnostics.blockingGenerationIds,
+    ],
+    transactionBlockingSurfaceIds: [...holdDiagnostics.blockingSurfaceIds],
     transactionDesiredScrollOffset: holdDiagnostics.desiredScrollOffset,
     transactionDesiredViewport: holdDiagnostics.desiredViewport,
     transactionHeldMotionFrameCount: holdDiagnostics.heldMotionFrameCount,

@@ -336,6 +336,41 @@ describe("GPU retained content scroll controller", () => {
     },
   );
 
+  it("skips retained wheel handling while the viewport zoom key is active", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const onScrollOffsetsChange = vi.fn(
+      (nextOffsets: GpuRetainedContentScrollOffsetMap) => {
+        scrollOffsets = nextOffsets;
+      },
+    );
+    const store = createGpuFlowViewportStore();
+    store.getState().setZoomActivationKeyPressed(true);
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange,
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onScrollOffsetsChange).not.toHaveBeenCalled();
+    expect(scrollOffsets.size).toBe(0);
+
+    cleanup();
+  });
+
   it("consumes retained boundary wheel events without flushing scroll updates", () => {
     const animationFrames = installAnimationFrameStub();
     const element = document.createElement("div");
@@ -514,6 +549,44 @@ describe("GPU retained content scroll controller", () => {
       cleanup();
     },
   );
+
+  it("hands off passive DOM-control wheel targets to retained scrolling", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    const { root, target } = createMarkedWheelTarget(
+      "data-gpu-flow-dom-control",
+      "div",
+    );
+    element.append(root);
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    target.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+
+    cleanup();
+  });
 
   it("hands off CodeMirror native wheel events to retained scrolling when the editor cannot scroll", () => {
     const animationFrames = installAnimationFrameStub();

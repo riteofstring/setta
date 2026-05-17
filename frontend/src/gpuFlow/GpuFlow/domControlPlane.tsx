@@ -6,7 +6,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { flushSync } from "react-dom";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
@@ -33,6 +32,10 @@ import {
   getGpuFlowDomControlPlaneViewportSize,
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
+import {
+  isGpuFlowChromeReproActive,
+  useProgressiveGpuFlowDomControls,
+} from "./domControlPlaneProgressiveMount";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
@@ -62,6 +65,7 @@ const GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME = [
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
 ].join(" ");
+const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT = 64;
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
   [];
 
@@ -141,12 +145,18 @@ export function GpuFlowDomControlPlane({
       }),
     [controls, frameIds],
   );
+  const progressiveMountRevision = useMemo(
+    () => createGpuFlowDomControlProgressiveMountRevision({ controls }),
+    [controls],
+  );
   const diagnosticsRef = useRef<GpuFlowDomControlPlaneDiagnostics>(
     createEmptyDomControlPlaneDiagnostics({
       committedFrameId: frameIds.committedFrameId,
       runtimeFrameId: frameIds.runtimeFrameId,
     }),
   );
+  const [suspendPassivePointerActivation, setSuspendPassivePointerActivation] =
+    useState(() => viewportStore.getState().zoomActivationKeyPressed);
 
   const controlById = useMemo(
     () => new Map(controls.map((control) => [control.sourceId, control])),
@@ -183,6 +193,12 @@ export function GpuFlowDomControlPlane({
     projectedControls.sourceRevision === projectionSourceRevision
       ? projectedControls.controls
       : initialControlsToMount.controls;
+  const deferPassiveDomControlMounting = isGpuFlowChromeReproActive();
+  const progressiveControlsToMount = useProgressiveGpuFlowDomControls({
+    controls: controlsToMount,
+    deferPassiveMounting: deferPassiveDomControlMounting,
+    sourceRevision: progressiveMountRevision,
+  });
   const assignmentsToMount =
     projectedControls.sourceRevision === projectionSourceRevision
       ? projectedControls.assignments
@@ -247,7 +263,15 @@ export function GpuFlowDomControlPlane({
             sourceRevision: projectionSourceRevision,
           };
         }
-        return nextProjectedControls;
+        return {
+          assignments: nextProjectedControls.assignments,
+          controls: mergeGpuFlowDomControlProjectedControls({
+            controlById: controlByIdRef.current,
+            currentControls,
+            nextControls: nextProjectedControls.controls,
+          }),
+          sourceRevision: projectionSourceRevision,
+        };
       });
     },
     [
@@ -260,7 +284,11 @@ export function GpuFlowDomControlPlane({
   );
 
   const setControlElement = useCallback(
-    (controlId: string, element: HTMLElement | null) => {
+    (
+      control: GpuRetainedDomControlSourceDescriptor,
+      element: HTMLElement | null,
+    ) => {
+      const controlId = control.sourceId;
       if (!element) {
         const mounted = hostByControlIdRef.current.get(controlId);
         if (mounted) {
@@ -269,11 +297,11 @@ export function GpuFlowDomControlPlane({
         hostByControlIdRef.current.delete(controlId);
         return;
       }
-      const control = controlById.get(controlId);
-      if (!control) {
-        return;
-      }
-      hostByControlIdRef.current.set(controlId, { controlId, element });
+      hostByControlIdRef.current.set(controlId, {
+        control,
+        controlId,
+        element,
+      });
       const finishMeasure = startGpuFlowPerformanceMeasure(
         "dom-control-host-assignment",
         {
@@ -287,6 +315,7 @@ export function GpuFlowDomControlPlane({
           control,
           element,
           getRetainedScrollOffset,
+          suspendPassivePointerActivation,
           viewport: getLiveGpuFlowDomControlPlaneViewport({
             viewportRuntime,
             viewportStore,
@@ -297,14 +326,26 @@ export function GpuFlowDomControlPlane({
       }
     },
     [
-      controlById,
       frameIds.committedFrameId,
       frameIds.runtimeFrameId,
       getRetainedScrollOffset,
+      suspendPassivePointerActivation,
       viewportRuntime,
       viewportStore,
     ],
   );
+
+  useLayoutEffect(() => {
+    return viewportStore.subscribe((state, previousState) => {
+      if (
+        state.zoomActivationKeyPressed ===
+        previousState.zoomActivationKeyPressed
+      ) {
+        return;
+      }
+      setSuspendPassivePointerActivation(state.zoomActivationKeyPressed);
+    });
+  }, [viewportStore]);
 
   useLayoutEffect(() => {
     retainedScrollProjectionSignatureRef.current =
@@ -326,9 +367,7 @@ export function GpuFlowDomControlPlane({
         ) {
           retainedScrollProjectionSignatureRef.current =
             retainedScrollProjectionSignature;
-          flushSync(() => {
-            refreshProjectedControls(viewport);
-          });
+          refreshProjectedControls(viewport);
         }
         const finishMeasure = startGpuFlowPerformanceMeasure(
           "dom-control-projection",
@@ -346,6 +385,7 @@ export function GpuFlowDomControlPlane({
             getRetainedScrollOffset,
             hostByControlId: hostByControlIdRef.current,
             runtimeFrameId: frameIds.runtimeFrameId,
+            suspendPassivePointerActivation,
             viewport,
             viewportSize: getGpuFlowDomControlPlaneViewportSize({
               viewportStore,
@@ -361,6 +401,7 @@ export function GpuFlowDomControlPlane({
     frameIds,
     getRetainedScrollOffset,
     refreshProjectedControls,
+    suspendPassivePointerActivation,
     viewportRuntime,
     viewportStore,
   ]);
@@ -386,6 +427,7 @@ export function GpuFlowDomControlPlane({
           getRetainedScrollOffset,
           hostByControlId: hostByControlIdRef.current,
           runtimeFrameId: frameIds.runtimeFrameId,
+          suspendPassivePointerActivation,
           viewport: state.transform,
           viewportSize: {
             height: state.height,
@@ -396,7 +438,12 @@ export function GpuFlowDomControlPlane({
         finishMeasure();
       }
     });
-  }, [frameIds, getRetainedScrollOffset, viewportStore]);
+  }, [
+    frameIds,
+    getRetainedScrollOffset,
+    suspendPassivePointerActivation,
+    viewportStore,
+  ]);
 
   useLayoutEffect(() => {
     refreshProjectedControls();
@@ -416,6 +463,7 @@ export function GpuFlowDomControlPlane({
         getRetainedScrollOffset,
         hostByControlId: hostByControlIdRef.current,
         runtimeFrameId: frameIds.runtimeFrameId,
+        suspendPassivePointerActivation,
         viewport: getLiveGpuFlowDomControlPlaneViewport({
           viewportRuntime,
           viewportStore,
@@ -432,6 +480,7 @@ export function GpuFlowDomControlPlane({
     frameIds,
     getRetainedScrollOffset,
     refreshProjectedControls,
+    suspendPassivePointerActivation,
     viewportRuntime,
     viewportStore,
   ]);
@@ -466,10 +515,11 @@ export function GpuFlowDomControlPlane({
         frameIds.committedFrameId
       }
     >
-      {controlsToMount.map((control) => {
+      {progressiveControlsToMount.map((control) => {
         const initialStyle = projectGpuFlowDomControlPlaneHost({
           control,
           getRetainedScrollOffset,
+          suspendPassivePointerActivation,
           viewport,
         });
         const assignment = assignmentByControlId.get(control.sourceId);
@@ -487,6 +537,65 @@ export function GpuFlowDomControlPlane({
         );
       })}
     </div>
+  );
+}
+
+function mergeGpuFlowDomControlProjectedControls({
+  controlById,
+  currentControls,
+  nextControls,
+}: {
+  readonly controlById: ReadonlyMap<
+    string,
+    GpuRetainedDomControlSourceDescriptor
+  >;
+  readonly currentControls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly nextControls: readonly GpuRetainedDomControlSourceDescriptor[];
+}): readonly GpuRetainedDomControlSourceDescriptor[] {
+  if (currentControls.length === 0) {
+    return nextControls;
+  }
+  const merged: GpuRetainedDomControlSourceDescriptor[] = [];
+  const seen = new Set<string>();
+  for (const control of nextControls) {
+    merged.push(control);
+    seen.add(control.sourceId);
+  }
+  for (const previousControl of currentControls) {
+    if (merged.length >= GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT) {
+      break;
+    }
+    if (seen.has(previousControl.sourceId)) {
+      continue;
+    }
+    const currentControl = controlById.get(previousControl.sourceId);
+    if (!currentControl) {
+      continue;
+    }
+    const retainedControl = canRetainPreviousGpuFlowDomControlDescriptor({
+      currentControl,
+      previousControl,
+    })
+      ? previousControl
+      : currentControl;
+    merged.push(retainedControl);
+    seen.add(retainedControl.sourceId);
+  }
+  return merged;
+}
+
+function canRetainPreviousGpuFlowDomControlDescriptor({
+  currentControl,
+  previousControl,
+}: {
+  readonly currentControl: GpuRetainedDomControlSourceDescriptor;
+  readonly previousControl: GpuRetainedDomControlSourceDescriptor;
+}): boolean {
+  return (
+    currentControl.sourceKey === previousControl.sourceKey &&
+    currentControl.snapshotCacheKeyRevision ===
+      previousControl.snapshotCacheKeyRevision &&
+    currentControl.active === previousControl.active
   );
 }
 
@@ -508,7 +617,7 @@ function GpuFlowDomControlHost({
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly renderControl: GpuFlowDomControlRenderer;
   readonly setControlElement: (
-    controlId: string,
+    control: GpuRetainedDomControlSourceDescriptor,
     element: HTMLElement | null,
   ) => void;
 }) {
@@ -555,7 +664,7 @@ function GpuFlowDomControlHost({
           kind: "pointer",
         });
       }}
-      ref={(element) => setControlElement(control.sourceId, element)}
+      ref={(element) => setControlElement(control, element)}
       style={initialStyle}
     >
       <div
@@ -698,6 +807,22 @@ function createGpuFlowDomControlProjectionSourceRevision({
     ]),
     runtimeFrameId: frameIds.runtimeFrameId,
   });
+}
+
+function createGpuFlowDomControlProgressiveMountRevision({
+  controls,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+}): string {
+  return JSON.stringify(
+    controls.map((control) => [
+      control.sourceId,
+      control.sourceKey,
+      control.active,
+      control.visualPolicy,
+      control.snapshotCacheKeyRevision,
+    ]),
+  );
 }
 
 function areGpuFlowDomControlProjectedControlsEqual({
