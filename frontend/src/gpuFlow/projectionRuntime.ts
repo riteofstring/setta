@@ -379,6 +379,7 @@ export function createGpuFlowVisiblePublicationScheduler({
   function shouldProbeGpuFlowProjectionContentDebt(): boolean {
     return (
       contentDebt &&
+      !motionDebt &&
       schedulerKnobs.maxContentInterleaveMs > 0 &&
       consecutiveMotionFrames >=
         schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe

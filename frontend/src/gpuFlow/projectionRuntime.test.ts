@@ -176,7 +176,7 @@ describe("GPU Flow projection runtime", () => {
     expect(transaction.sample.id).toBe(17);
   });
 
-  it("uses the content probe knob to prevent starvation during continuous motion", () => {
+  it("keeps unpresented motion ahead of content probes during continuous motion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
@@ -207,9 +207,44 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
+    expect(catchup.schedulerState).toBe("motion-active");
+    expect(catchup.lane).toBe("motion");
+    expect(catchup.debt.content).toBe(true);
+  });
+
+  it("uses the content probe knob when motion has no unpresented sample", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler({
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 2,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+    });
+    for (let index = 0; index < 2; index += 1) {
+      const motion = scheduler.selectFrame({
+        hasCommittedContentFrame: true,
+        rawReasons: ["retained-scroll", "paint"],
+        sample: liveSample(index + 1),
+        timestamp: index + 1,
+        viewportInteractionActive: true,
+      });
+      scheduler.completeFrame(motion);
+    }
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: true,
+    });
+
     expect(catchup.schedulerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
-    expect(catchup.debt.motion).toBe(true);
+    expect(catchup.debt.motion).toBe(false);
   });
 
   it("keeps projection horizon obligations concrete and lane-scoped", () => {
