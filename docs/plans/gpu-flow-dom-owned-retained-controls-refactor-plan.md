@@ -292,7 +292,7 @@ Because no backward compatibility is required:
 
 Run focused verification after each major phase:
 
-- `pnpm -C frontend exec vitest run frontend/src/gpuFlow/<focused-tests>`
+- `pnpm -C frontend exec vitest run src/gpuFlow/<focused-tests>`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-input-activation-visual.spec.ts`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-input-activation-cadence.spec.ts`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-input-pan-ownership.spec.ts`
@@ -301,11 +301,11 @@ Run focused verification after each major phase:
 
 Before landing the refactor, run the full GPU Flow-related regression suite, not only the new focused tests:
 
-- `pnpm -C frontend exec vitest run frontend/src/gpuFlow`
-- `pnpm -C frontend exec vitest run frontend/tests/e2e/gpuFlowPerformanceProbe.test.ts frontend/tests/e2e/gpuFlowVisualParityProbe.test.ts frontend/tests/e2e/gpuFlowLargeGraphStressFixture.test.ts`
+- `pnpm -C frontend exec vitest run src/gpuFlow`
+- `pnpm -C frontend exec vitest run tests/e2e/gpuFlowPerformanceProbe.test.ts tests/e2e/gpuFlowVisualParityProbe.test.ts tests/e2e/gpuFlowLargeGraphStressFixture.test.ts tests/e2e/gpuFlowInteractionLatencyProbe.test.ts`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings`
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor`
-- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpuFlowVisualParityProbe.test.ts frontend/tests/e2e/gpuFlowInteractionLatencyProbe.test.ts frontend/tests/e2e/gpuFlowLargeGraphStressFixture.test.ts frontend/tests/e2e/gpuFlowPerformanceProbe.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/gpu-flow`
 - `SETTA_RETAINED_COMPOSITOR_STRICT_120HZ=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-retained-compositor-large-scene-performance.spec.ts frontend/tests/e2e/settings/settings-retained-large-scene-120hz-performance.spec.ts`
 - `./scripts/quality/check.sh`
 
