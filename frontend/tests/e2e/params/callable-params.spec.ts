@@ -112,19 +112,7 @@ test("retained callable text params use live CodeMirror DOM while typing", async
 
     const typedValue = '"README.md"';
     await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const active = document.activeElement;
-          if (!(active instanceof HTMLElement)) {
-            return null;
-          }
-          return (
-            active
-              .closest("[data-gpu-project-param-dom-island='true']")
-              ?.getAttribute("data-param-id") ?? null
-          );
-        }),
-      )
+      .poll(() => readActiveRetainedDomControlRowId(page))
       .toBe(paramInfoId);
     await page.keyboard.press(
       process.platform === "darwin" ? "Meta+A" : "Control+A",
@@ -136,32 +124,36 @@ test("retained callable text params use live CodeMirror DOM while typing", async
       .poll(() => readCodeMirrorValue(page, editorRoot))
       .toBe(typedValue);
     await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const active = document.activeElement;
-          if (!(active instanceof HTMLElement)) {
-            return null;
-          }
-          return (
-            active
-              .closest("[data-gpu-project-param-dom-island='true']")
-              ?.getAttribute("data-param-id") ?? null
-          );
-        }),
-      )
+      .poll(() => readActiveRetainedDomControlRowId(page))
       .toBe(paramInfoId);
     await expect(island).toHaveAttribute(
-      "data-gpu-flow-retained-content-native",
+      "data-gpu-flow-dom-control-active",
       "true",
     );
     await expect(island).toHaveAttribute(
-      "data-gpu-project-param-dom-island-editor",
-      "codemirror-dom",
+      "data-gpu-flow-dom-control-row-id",
+      paramInfoId,
     );
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+async function readActiveRetainedDomControlRowId(
+  page: Page,
+): Promise<string | null> {
+  return await page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) {
+      return null;
+    }
+    return (
+      active
+        .closest("[data-gpu-flow-dom-control='true']")
+        ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null
+    );
+  });
+}
 
 type LatestProjectStateResponse = {
   projectState?: {
@@ -249,11 +241,16 @@ async function activateRetainedParamCodeMirror(
   sectionId: string,
   paramInfoId: string,
 ): Promise<Locator> {
-  const island = page
-    .locator(
-      `[data-gpu-project-param-dom-island="true"][data-section-id="${sectionId}"][data-param-id="${paramInfoId}"]`,
-    )
-    .first();
+  const island = page.locator(
+    [
+      '[data-gpu-flow-dom-control="true"]',
+      '[data-gpu-flow-dom-control-active="true"]',
+      `[data-gpu-flow-dom-control-surface-id="${cssAttributeEscape(
+        `${sectionId}:param-content:unpinned`,
+      )}"]`,
+      `[data-gpu-flow-dom-control-row-id="${cssAttributeEscape(paramInfoId)}"]`,
+    ].join(""),
+  );
   const point = await resolveRetainedParamControlClickPoint(
     page,
     sectionId,
@@ -262,6 +259,10 @@ async function activateRetainedParamCodeMirror(
   await page.mouse.click(point.x, point.y);
   await expect(island).toBeVisible({ timeout: 10000 });
   return island;
+}
+
+function cssAttributeEscape(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
 }
 
 async function readRetainedParamSurfaceGeometry(

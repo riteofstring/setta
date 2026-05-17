@@ -62,6 +62,7 @@ import {
 } from "../viewportRuntime";
 import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { gpuFlowViewportStore } from "../viewportStore";
+import { GpuFlowDomControlPlane } from "./domControlPlane";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
 import {
   resolveGpuFlowEdgeDrawInputs,
@@ -97,14 +98,8 @@ import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
-import {
-  getGpuFlowSelectionDragPrimaryNodeId,
-  useGpuFlowSelectionDragLayer,
-} from "./selectionDragLayer";
-import {
-  clearGpuFlowNodeElement,
-  projectGpuFlowNodeSourceForPointerEvent,
-} from "./sourceInteraction";
+import { getGpuFlowSelectionDragPrimaryNodeId, useGpuFlowSelectionDragLayer } from "./selectionDragLayer";
+import { clearGpuFlowNodeElement, projectGpuFlowNodeSourceForPointerEvent } from "./sourceInteraction";
 
 export function GpuFlow({
   children,
@@ -125,6 +120,7 @@ export function GpuFlow({
   nodeDrag,
   nodeResize,
   onFrame,
+  onDomControlActivation,
   onNodeElementChange,
   onNodeLayerFrame,
   onPaint,
@@ -215,9 +211,6 @@ export function GpuFlow({
   const retainedContentFrameCacheRef =
     useRef<GpuFlowRetainedContentFrameCache | null>(null);
   const retainedDisplayFrameRef = useRef<RetainedDisplayFrame | null>(null);
-  const retainedDomControlElementByIdRef = useRef(
-    new Map<string, HTMLElement>(),
-  );
   const [retainedContentSwitchAnimations] = useState(() =>
     createGpuRetainedContentSwitchAnimationStore(),
   );
@@ -238,6 +231,9 @@ export function GpuFlow({
   const retainedPreparationRuntimeFrameRenderSignatureRef = useRef<
     string | null
   >(null);
+  const retainedPreparationRuntimeFrameScrollRevisionRef = useRef<
+    number | null
+  >(null);
   const initialRetainedRuntimeFrame = useMemo(
     () =>
       createGpuRetainedRuntimeFrame({
@@ -256,6 +252,8 @@ export function GpuFlow({
       }),
     [activeRetainedContentRuntimeState, scene, viewport, viewportRuntime],
   );
+  retainedPreparationRuntimeFrameScrollRevisionRef.current ??=
+    initialRetainedRuntimeFrame.input.scrollRevision;
   const overlayRetainedRuntimeFrame = resolveOverlayRetainedRuntimeFrame({
     initialRetainedRuntimeFrame,
     retainedRuntimeFrame,
@@ -275,17 +273,14 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
-    retainedDomControlSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
     edgeScene,
     layoutStore,
-    retainedDomControlElementByIdRef,
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
-    renderRetainedDomControl,
     retainedRuntimeFrame: sourceRetainedRuntimeFrame,
     surfaceRef,
     textureManagerRef,
@@ -403,7 +398,6 @@ export function GpuFlow({
       nodes,
       nodeTextureMemoryBudgetBytes,
       retainedContentPageManagerRef,
-      retainedDomControlElementByIdRef,
       scene,
       sourceInteractionProjector,
       surfaceRef,
@@ -621,7 +615,6 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
-      retainedDomControlElementByIdRef.current.clear();
       destroyNodeLayerResources(
         textureManagerRef,
         htmlSurfaceRendererRef,
@@ -877,7 +870,6 @@ export function GpuFlow({
         retainedContentFrameCacheRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
         retainedDisplayFrameRef,
-        retainedDomControlElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
         surfaceRef,
@@ -887,7 +879,14 @@ export function GpuFlow({
         viewportStore,
         viewportFrame,
         onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-          if (deferResolutionUpdates) {
+          const previousScrollRevision =
+            retainedPreparationRuntimeFrameScrollRevisionRef.current ??
+            initialRetainedRuntimeFrame.input.scrollRevision;
+          if (
+            deferResolutionUpdates &&
+            nextRetainedRuntimeFrame.input.scrollRevision ===
+              previousScrollRevision
+          ) {
             return;
           }
           const nextSignature =
@@ -902,6 +901,8 @@ export function GpuFlow({
           }
           retainedPreparationRuntimeFrameRenderSignatureRef.current =
             nextSignature;
+          retainedPreparationRuntimeFrameScrollRevisionRef.current =
+            nextRetainedRuntimeFrame.input.scrollRevision;
           setRetainedPreparationRuntimeFrame(nextRetainedRuntimeFrame);
         },
         onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
@@ -926,6 +927,7 @@ export function GpuFlow({
     },
     [
       activeRetainedContentRuntimeState,
+      initialRetainedRuntimeFrame,
       retainedContentSwitchAnimations,
       viewportRuntime,
       viewportStore,
@@ -973,8 +975,14 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
-            {retainedDomControlSourceElement}
           </GpuSurface>
+          <GpuFlowDomControlPlane
+            onActivate={onDomControlActivation}
+            renderControl={renderRetainedDomControl}
+            retainedRuntimeFrame={sourceRetainedRuntimeFrame}
+            viewportStore={viewportStore}
+            viewportRuntime={viewportRuntime}
+          />
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}
             retainedRuntimeFrame={overlayRetainedRuntimeFrame}

@@ -72,7 +72,6 @@ export function createRetainedSurfaceTransactionSnapshot({
   );
   const domControlActorSnapshots = createRetainedDomControlActorSnapshots({
     generationBySurfaceId,
-    pageFrame,
     retainedRuntimeFrame,
   });
   const activeIslandSnapshot = createRetainedActiveIslandSnapshot({
@@ -307,35 +306,21 @@ function createRetainedContentSurfaceGeneration({
 
 function createRetainedDomControlActorSnapshots({
   generationBySurfaceId,
-  pageFrame,
   retainedRuntimeFrame,
 }: {
   readonly generationBySurfaceId: ReadonlyMap<string, SurfaceGeneration>;
-  readonly pageFrame: RetainedContentTexturePagePreparedFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): readonly SurfaceActorSnapshot[] {
-  const targetsBySurfaceId = groupVisibleTargetsBySurfaceId(pageFrame);
   const snapshots: SurfaceActorSnapshot[] = [];
   for (const source of retainedRuntimeFrame.descriptors.domControlSources) {
-    const target = targetsBySurfaceId
-      .get(source.surfaceId)
-      ?.find((candidate) =>
-        rectsIntersect(candidate.contentRect, source.textureRectCssPx),
-      );
-    if (!target) {
-      continue;
-    }
-    const flowRect = retainedContentRectToFlowRect({
-      contentRect: source.textureRectCssPx,
-      surfaceLayout: target.surfaceLayout,
-    });
+    const flowRect = source.worldRectFlowPx;
     const ownerGeneration = generationBySurfaceId.get(source.surfaceId);
     const generationId = [
       "retained-dom-control",
       source.sourceId,
       source.sourceKey,
       source.lifecycleState,
-      rectKey(source.textureRectCssPx),
+      rectKey(source.worldRectFlowPx),
       ownerGeneration?.generationId ?? "owner:none",
     ].join("|");
     const surfaceId = `retained-dom-control:${source.sourceId}`;
@@ -367,14 +352,14 @@ function createRetainedDomControlActorSnapshots({
       sourceWindow: {
         contentToTextureKey: [
           source.sourceKey,
-          rectKey(source.textureRectCssPx),
+          rectKey(source.sourceRectCssPx),
         ].join("|"),
-        sourceRect: source.textureRectCssPx,
+        sourceRect: source.sourceRectCssPx,
       },
       surfaceId,
       textureReadiness: "ready",
       visualVersion: source.sourceKey,
-      zIndex: target.zLayer,
+      zIndex: source.zOrder,
     });
     snapshots.push(
       createSurfaceActorSnapshot({

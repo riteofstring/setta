@@ -12,18 +12,11 @@ import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
-import type {
-  GpuRetainedDomControlSourceDescriptor,
-  GpuRetainedDomControlTextureDescriptor,
-} from "./retainedDomControlScene";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
-  readonly domControlSources?:
-    | readonly GpuRetainedDomControlSourceDescriptor[]
-    | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
 
@@ -63,10 +56,7 @@ function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
   options: GpuRetainedContentPageFrameSurfaceOptions,
 ): RetainedContentTexturePageFrameSurface {
-  const domControlTextures = createDomControlTextures({
-    sources: options.domControlSources ?? [],
-    surfaceId: surface.id,
-  });
+  void options.viewportZoomBucket;
   const contentVersion = getBaseContentVersion(surface.retainedScene);
   const sourceWindowCss = {
     height: surface.textureWindow.cacheViewportRect.height,
@@ -116,7 +106,6 @@ function toGpuRetainedContentTexturePageFrameSurface(
     sourceVersion: contentVersion,
     sourceWindowCss,
     surfaceId: surface.id,
-    domControlTextures,
     visibleSourceRectCss: visibleContentRectCss,
   };
 }
@@ -149,25 +138,6 @@ function createRetainedContentTexturePageFrameSurfaceSourceKey({
     contentVersion,
     surfaceId,
   });
-}
-
-function createDomControlTextures({
-  sources,
-  surfaceId,
-}: {
-  readonly sources: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly surfaceId: string;
-}): readonly GpuRetainedDomControlTextureDescriptor[] {
-  return sources
-    .filter((source) => source.surfaceId === surfaceId && !source.active)
-    .map((source) => ({
-      controlRectSurfaceCssPx: source.controlRectSurfaceCssPx,
-      rectCss: source.textureRectCssPx,
-      rowId: source.rowId,
-      sourceId: source.sourceId,
-      sourceKey: source.sourceKey,
-      textureRectDevicePx: source.textureRectDevicePx,
-    }));
 }
 
 function getContentVersion(signature: string): number {

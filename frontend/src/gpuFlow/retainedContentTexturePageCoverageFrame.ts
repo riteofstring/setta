@@ -43,8 +43,6 @@ export function createRetainedContentTexturePageVisibleCoverageFrame({
   createPageDescriptors,
   frame,
   frameSurfaceById,
-  snapshotBlockedSurfaceSequenceById,
-  snapshotUnavailablePageKeys,
   visibleRegionTargets,
 }: {
   readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
@@ -54,8 +52,6 @@ export function createRetainedContentTexturePageVisibleCoverageFrame({
     string,
     RetainedContentTexturePageFrameSurface
   >;
-  readonly snapshotBlockedSurfaceSequenceById: ReadonlyMap<string, number>;
-  readonly snapshotUnavailablePageKeys: ReadonlySet<string>;
   readonly visibleRegionTargets: RetainedContentTexturePagePreparedFrame["visibleRegionTargets"];
 }): RetainedContentTexturePageVisibleCoverageFrame {
   const coveragePlan = planRetainedVisibleCoverage({
@@ -67,8 +63,6 @@ export function createRetainedContentTexturePageVisibleCoverageFrame({
     createPageDescriptors,
     frameSurfaceById,
     replacementRequests: coveragePlan.replacementRequests,
-    snapshotBlockedSurfaceSequenceById,
-    snapshotUnavailablePageKeys,
   });
   const refinementDescriptors = replacementDescriptors.map(
     ({ descriptor }) => descriptor,
@@ -115,8 +109,6 @@ function createReplacementRequestDescriptors({
   createPageDescriptors,
   frameSurfaceById,
   replacementRequests,
-  snapshotBlockedSurfaceSequenceById,
-  snapshotUnavailablePageKeys,
 }: {
   readonly createPageDescriptors: RetainedTexturePageDescriptorFactory;
   readonly frameSurfaceById: ReadonlyMap<
@@ -124,8 +116,6 @@ function createReplacementRequestDescriptors({
     RetainedContentTexturePageFrameSurface
   >;
   readonly replacementRequests: readonly RetainedReplacementRequest[];
-  readonly snapshotBlockedSurfaceSequenceById: ReadonlyMap<string, number>;
-  readonly snapshotUnavailablePageKeys: ReadonlySet<string>;
 }): readonly RetainedContentTexturePageReplacementDescriptor[] {
   const descriptorsByKey = new Map<
     string,
@@ -140,21 +130,13 @@ function createReplacementRequestDescriptors({
       lodScale: request.target.fidelity.lodScale,
       sourceRect: request.target.contentRect,
       surface,
-      visualEpochKind:
-        request.reason === "true-hole" ? "base" : "snapshot-exact",
+      visualEpochKind: "base",
     });
     for (const descriptor of descriptors) {
       const descriptorKey = retainedTexturePageKey(descriptor);
-      if (snapshotUnavailablePageKeys.has(descriptorKey)) {
-        continue;
-      }
-      const snapshotBlockSequence =
-        snapshotBlockedSurfaceSequenceById.get(descriptor.surfaceId) ?? null;
       descriptorsByKey.set(descriptorKey, {
         descriptor,
         replacementRequest: request,
-        snapshotBlockSequence,
-        snapshotRequired: snapshotBlockSequence !== null,
       });
     }
   }

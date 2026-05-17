@@ -7,7 +7,6 @@ import type {
 type GpuFlowRetainedPageMaintenanceRun = ReturnType<
   typeof runGpuFlowRetainedPageMaintenance
 >;
-const MAX_INTERACTION_VISIBLE_SNAPSHOT_EXACT_REPLACEMENTS = 8;
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
@@ -19,38 +18,7 @@ export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
     "replacementDescriptors" | "trueHoleRectCount"
   >;
 }): boolean {
-  return (
-    deferResolutionUpdates &&
-    preparedFrame.trueHoleRectCount === 0 &&
-    !hasVisibleSnapshotExactReplacement(preparedFrame)
-  );
-}
-
-function hasVisibleSnapshotExactReplacement(
-  preparedFrame: Pick<
-    RetainedContentTexturePagePreparedFrame,
-    "replacementDescriptors"
-  >,
-): boolean {
-  let replacementCount = 0;
-  for (const {
-    descriptor,
-    replacementRequest,
-  } of preparedFrame.replacementDescriptors) {
-    if (
-      descriptor.visualEpochKind !== "snapshot-exact" ||
-      replacementRequest.priority !== "visible-refinement"
-    ) {
-      continue;
-    }
-    replacementCount += 1;
-    if (
-      replacementCount > MAX_INTERACTION_VISIBLE_SNAPSHOT_EXACT_REPLACEMENTS
-    ) {
-      return false;
-    }
-  }
-  return replacementCount > 0;
+  return deferResolutionUpdates && preparedFrame.trueHoleRectCount === 0;
 }
 
 function runGpuFlowRetainedPageMaintenance({
@@ -60,7 +28,6 @@ function runGpuFlowRetainedPageMaintenance({
   publishedProtectedPageKeys,
   retainedContentPageManager,
   refreshFirstVisiblePages = false,
-  domControlElementById,
   preserveFirstVisibleSourceRects = false,
 }: {
   readonly darkMode: boolean;
@@ -70,7 +37,6 @@ function runGpuFlowRetainedPageMaintenance({
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly domControlElementById: ReadonlyMap<string, HTMLElement>;
 }): {
   readonly deferred: boolean;
   readonly result: RetainedContentTexturePageMaintenanceResult;
@@ -89,7 +55,6 @@ function runGpuFlowRetainedPageMaintenance({
         refreshFirstVisiblePages,
         // Switch transitions are composited as native visuals, so texture
         // pages cache only the static retained scene state.
-        domControlElementById,
         viewportInteractionActive: deferResolutionUpdates,
       });
   return { deferred, result };
@@ -102,7 +67,6 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   preparedFrame,
   publishedProtectedPageKeys,
   retainedContentPageManager,
-  domControlElementById,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
@@ -110,7 +74,6 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly publishedProtectedPageKeys: readonly string[];
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly domControlElementById: ReadonlyMap<string, HTMLElement>;
 }): GpuFlowRetainedPageMaintenanceRun {
   return (
     existingMaintenance ??
@@ -120,7 +83,6 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       preparedFrame,
       publishedProtectedPageKeys,
       retainedContentPageManager,
-      domControlElementById,
     })
   );
 }

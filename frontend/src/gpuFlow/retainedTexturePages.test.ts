@@ -33,7 +33,7 @@ function page(
 }
 
 describe("retainedTexturePageKey", () => {
-  it("keys pages by surface, content version, CSS source rect, LOD, tile, and visual epoch", () => {
+  it("keys pages by surface, content version, CSS source rect, LOD, and tile", () => {
     const descriptor = page({
       contentVersion: 7,
       lodScale: 2,
@@ -46,14 +46,6 @@ describe("retainedTexturePageKey", () => {
 
     expect(retainedTexturePageKey(descriptor)).toBe(
       "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1:base",
-    );
-    expect(
-      retainedTexturePageKey({
-        ...descriptor,
-        visualEpochKind: "snapshot-exact",
-      }),
-    ).toBe(
-      "surface:7:1:source-a:64:128:128:128:scale=2:1024:256:256:2:4:1:1:snapshot-exact",
     );
   });
 

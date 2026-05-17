@@ -6,7 +6,7 @@ import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { GpuContentSurface } from "./scene";
 
 describe("createGpuRetainedContentFrameGeneration", () => {
-  it("attaches text-like row snapshots to the owning retained content page surface", () => {
+  it("describes DOM-owned text-like rows without attaching retained texture snapshots", () => {
     const generation = createGpuRetainedContentFrameGeneration({
       contentSurfaces: [surface()],
       viewportZoomBucket: 1,
@@ -15,13 +15,20 @@ describe("createGpuRetainedContentFrameGeneration", () => {
     expect(generation.sourceSurfaces).toHaveLength(1);
     expect(generation.contentPageSurfaces).toHaveLength(1);
     expect(generation.domControlSources).toHaveLength(1);
-    expect(generation.contentPageSurfaces[0]?.domControlTextures).toEqual([
+    expect(generation.contentPageSurfaces[0]).not.toHaveProperty(
+      "domControlTextures",
+    );
+    expect(generation.domControlSources[0]).toEqual(
       expect.objectContaining({
-        rectCss: generation.domControlSources[0]?.textureRectCssPx,
         rowId: "param-a",
-        sourceId: generation.domControlSources[0]?.sourceId,
+        sourceId: "retained-dom-control:surface-a:param-a",
+        value: "alpha",
+        worldRectFlowPx: expect.objectContaining({
+          x: 130,
+          y: 8,
+        }),
       }),
-    ]);
+    );
   });
 });
 

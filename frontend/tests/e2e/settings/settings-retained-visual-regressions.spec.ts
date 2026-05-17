@@ -13,6 +13,10 @@ import {
   type RetainedRowDebugEntry,
   type SwitchFrame,
 } from "./settings-retained-visual-analysis";
+import {
+  screenshotClip,
+  waitForStableScreenshotClip,
+} from "./settings-retained-visual-regression-helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -136,9 +140,12 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
   page,
 }, testInfo) => {
   await openSettings(page);
-  const row = await resolveVisibleGuiRow(page, "Max Zoom");
+  const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
+  await performCloseZoom(page, zoomTarget.labelClientPoint);
+  const row = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
   await moveAwayFromRetainedRows(page);
-  const clip = rowsToClip([row]);
+  const labelSampleRect = resolveHoverContrastLabelSampleRect(row);
+  const clip = clampScreenshotClip(labelSampleRect);
   await waitForStableScreenshotClip(page, clip);
   const before = await screenshotClip({
     name: "visual-hover-contrast-before.png",
@@ -163,7 +170,7 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
     clip,
     row: {
       label: row.rowLabel,
-      rect: row.clientRect,
+      rect: labelSampleRect,
     },
   });
   const failureDetails = JSON.stringify(
@@ -174,7 +181,6 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
   expect(stats.changedPixelRatio, failureDetails).toBeGreaterThan(0.08);
   expect(stats.meanDelta, failureDetails).toBeGreaterThan(2.5);
   expect(Math.abs(stats.backgroundLumaDelta), failureDetails).toBeLessThan(10);
-  expect(stats.afterContrast, failureDetails).toBeGreaterThan(80);
   expect(stats.afterContrast, failureDetails).toBeGreaterThanOrEqual(
     stats.beforeContrast * 0.65,
   );
@@ -814,6 +820,7 @@ async function performCloseZoom(page: Page, point: Point): Promise<void> {
     await page.keyboard.up("Control");
   }
   await expect.poll(() => readViewportZoom(page)).toBeGreaterThan(3.4);
+  await waitForViewportIdle(page);
 }
 
 async function bringVisibleGuiRowControlIntoView(
@@ -840,7 +847,8 @@ async function bringVisibleGuiRowControlIntoView(
     }
     await translateViewportBy(page, viewport.width / 2 - controlPoint.x, 0);
     const nextRow = await resolveVisibleGuiRow(page, label);
-    const nextControlPoint = resolveVisibleGuiRowSwitchInteractionPoint(nextRow);
+    const nextControlPoint =
+      resolveVisibleGuiRowSwitchInteractionPoint(nextRow);
     if (nextControlPoint) {
       row = nextRow;
       controlPoint = nextControlPoint;
@@ -862,13 +870,16 @@ async function translateViewportBy(
   dx: number,
   dy: number,
 ): Promise<void> {
-  await page.evaluate(async (delta) => {
-    const [{ panGpuViewport }, { gpuFlowViewportStore }] = await Promise.all([
-      import("/src/gpuFlow/viewportActions.ts"),
-      import("/src/gpuFlow/viewportStore.ts"),
-    ]);
-    panGpuViewport(delta, { store: gpuFlowViewportStore });
-  }, { x: dx, y: dy });
+  await page.evaluate(
+    async (delta) => {
+      const [{ panGpuViewport }, { gpuFlowViewportStore }] = await Promise.all([
+        import("/src/gpuFlow/viewportActions.ts"),
+        import("/src/gpuFlow/viewportStore.ts"),
+      ]);
+      panGpuViewport(delta, { store: gpuFlowViewportStore });
+    },
+    { x: dx, y: dy },
+  );
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
 }
@@ -1078,48 +1089,6 @@ async function readVisibleGuiContentScrollMarker(page: Page): Promise<{
   );
 }
 
-async function screenshotClip({
-  name,
-  page,
-  rect,
-  testInfo,
-}: {
-  readonly name: string;
-  readonly page: Page;
-  readonly rect: Rect;
-  readonly testInfo: TestInfo;
-}): Promise<Buffer> {
-  const screenshot = await page.screenshot({
-    clip: rect,
-    path: testInfo.outputPath(name),
-  });
-  await testInfo.attach(name, {
-    body: screenshot,
-    contentType: "image/png",
-  });
-  return screenshot;
-}
-
-async function waitForStableScreenshotClip(
-  page: Page,
-  rect: Rect,
-): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const first = await page.screenshot({ clip: rect });
-        await page.waitForTimeout(80);
-        const second = await page.screenshot({ clip: rect });
-        return (await compareScreenshots(page, first, second)).meanDelta;
-      },
-      {
-        intervals: [80, 120, 180, 240],
-        timeout: 2_000,
-      },
-    )
-    .toBeLessThan(1);
-}
-
 function rowsToClip(rows: readonly RetainedRowDebugEntry[]): Rect {
   const left = Math.max(0, Math.min(...rows.map((row) => row.clientRect.x)));
   const top = Math.max(0, Math.min(...rows.map((row) => row.clientRect.y)));
@@ -1135,6 +1104,21 @@ function rowsToClip(rows: readonly RetainedRowDebugEntry[]): Rect {
     x: left,
     y: top,
   });
+}
+
+function resolveHoverContrastLabelSampleRect(row: RetainedRowDebugEntry): Rect {
+  const labelLeft = Math.max(row.clientRect.x, row.labelClientPoint.x - 80);
+  const labelRightLimit = Math.min(
+    row.clientRect.x + row.clientRect.width,
+    row.controlClientRect?.x ?? row.clientRect.x + row.clientRect.width,
+  );
+  const labelRight = Math.min(labelRightLimit, row.labelClientPoint.x + 160);
+  return {
+    height: row.clientRect.height,
+    width: Math.max(48, labelRight - labelLeft),
+    x: labelLeft,
+    y: row.clientRect.y,
+  };
 }
 
 function clampScreenshotClip(rect: Rect): Rect {

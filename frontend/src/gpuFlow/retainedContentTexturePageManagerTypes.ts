@@ -7,7 +7,6 @@ import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
-import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type {
   RetainedTexturePageCacheSnapshot,
@@ -41,9 +40,6 @@ export type RetainedContentTexturePageFrameSurface = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly domControlTextures?:
-    | readonly GpuRetainedDomControlTextureDescriptor[]
-    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -90,8 +86,6 @@ type RetainedContentTexturePageFrameResult = {
 export type RetainedContentTexturePageReplacementDescriptor = {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly replacementRequest: RetainedReplacementRequest;
-  readonly snapshotBlockSequence: number | null;
-  readonly snapshotRequired: boolean;
 };
 
 export type RetainedContentTexturePagePreparedFrame = {
@@ -125,7 +119,6 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
-  readonly domControlElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 

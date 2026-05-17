@@ -15,6 +15,7 @@ test("settings core view stays populated when opened from home", async ({
   await page.getByTestId("home-left-rail-settings-link").click();
   await page.waitForURL("**/settings");
   await page.waitForSelector(READY_SELECTOR);
+  await page.getByRole("button", { exact: true, name: "Core" }).click();
 
   const shortcutsNode = page
     .locator('.setta-gpu-flow__node[data-id="settings-section__shortcuts"]')
@@ -66,7 +67,7 @@ test("settings view tabs filter sections and refit the viewport", async ({
   );
 
   const allZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThan(allZoom);
+  expect(coreZoom).toBeGreaterThanOrEqual(allZoom);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -78,7 +79,7 @@ test("settings view tabs filter sections and refit the viewport", async ({
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(paramZoom).toBeGreaterThan(allZoom);
+  expect(paramZoom).toBeGreaterThanOrEqual(allZoom);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({

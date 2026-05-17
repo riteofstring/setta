@@ -44,7 +44,7 @@ describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
     );
   });
 
-  it("keeps passive source identity stable when one text row becomes a native island", () => {
+  it("keeps retained page identity independent from DOM-owned text control activation", () => {
     const inactiveFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
       frameId: 1,
@@ -71,8 +71,8 @@ describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
     const activeSurface = activeFrame.descriptors.contentPageSurfaces[0];
 
     expect(inactiveSurface?.sourceKey).toBe(activeSurface?.sourceKey);
-    expect(inactiveSurface?.domControlTextures).toHaveLength(1);
-    expect(activeSurface?.domControlTextures).toHaveLength(0);
+    expect(inactiveSurface).not.toHaveProperty("domControlTextures");
+    expect(activeSurface).not.toHaveProperty("domControlTextures");
     expect(segmentVersion(inactiveSurface, "row-a")).not.toBe(
       segmentVersion(activeSurface, "row-a"),
     );

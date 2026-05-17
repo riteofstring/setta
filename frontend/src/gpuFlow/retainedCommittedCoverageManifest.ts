@@ -11,7 +11,6 @@ import type {
   RetainedFidelityMetadata,
   RetainedRegionCompatibility,
   RetainedRegionContentSegment,
-  RetainedRegionDomControlTexture,
   RetainedRegionManifest,
   RetainedRegionTarget,
 } from "./retainedCommittedCoverageStore";
@@ -24,7 +23,6 @@ type RetainedCompatibilityRejectReason = Extract<
 
 type RetainedContentProofKeys = {
   readonly segmentKeys: readonly string[];
-  readonly snapshotKeys: readonly string[];
 };
 
 type RetainedManifestContentCompatibility =
@@ -84,18 +82,7 @@ export function retainedManifestContentMatchesForRect({
   ) {
     return "mismatch";
   }
-  if (
-    sortedStringsEqual(candidateProof.snapshotKeys, targetProof.snapshotKeys)
-  ) {
-    return "exact";
-  }
-  if (
-    candidateProof.snapshotKeys.length === 0 &&
-    targetProof.snapshotKeys.length > 0
-  ) {
-    return "deterministic-base";
-  }
-  return "mismatch";
+  return "exact";
 }
 
 export function areRetainedRegionTargetsEquivalent(
@@ -167,14 +154,6 @@ export function freezeRegionManifest(
       ),
     ),
     contentRect: freezeRect(manifest.contentRect),
-    domControlTextures: Object.freeze(
-      (manifest.domControlTextures ?? []).map((snapshot) =>
-        Object.freeze({
-          ...snapshot,
-          rectCss: freezeRect(snapshot.rectCss),
-        }),
-      ),
-    ),
   });
 }
 
@@ -206,7 +185,6 @@ function retainedManifestContentProofMatches(
   return [
     left.contentVersion === right.contentVersion,
     contentSegmentsEqual(left.contentSegments, right.contentSegments),
-    domControlTexturesEqual(left.domControlTextures, right.domControlTextures),
   ].every(Boolean);
 }
 
@@ -234,10 +212,6 @@ function retainedContentProofKeysForRect(
       manifest.contentSegments ?? [],
       coverageRect,
     ),
-    snapshotKeys: domControlTextureKeysForRect(
-      manifest.domControlTextures ?? [],
-      coverageRect,
-    ),
   };
 }
 
@@ -252,15 +226,13 @@ function retainedContentProofPairHasKeys(
 }
 
 function retainedContentProofHasKeys(proof: RetainedContentProofKeys): boolean {
-  return proof.segmentKeys.length > 0 || proof.snapshotKeys.length > 0;
+  return proof.segmentKeys.length > 0;
 }
 
 function retainedManifestHasStructuredContentProof(
   manifest: RetainedRegionManifest,
 ): boolean {
-  return Boolean(
-    manifest.contentSegments?.length || manifest.domControlTextures?.length,
-  );
+  return Boolean(manifest.contentSegments?.length);
 }
 
 function contentSegmentKeysForRect(
@@ -270,19 +242,6 @@ function contentSegmentKeysForRect(
   return segments
     .filter((segment) => intersectRects(segment.rectCss, coverageRect))
     .map((segment) => `${segment.id}:${segment.contentVersion}`)
-    .sort();
-}
-
-function domControlTextureKeysForRect(
-  snapshots: readonly RetainedRegionDomControlTexture[],
-  coverageRect: GpuRect,
-): readonly string[] {
-  return snapshots
-    .filter((snapshot) => intersectRects(snapshot.rectCss, coverageRect))
-    .map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}`,
-    )
     .sort();
 }
 
@@ -300,28 +259,6 @@ function contentSegmentsEqual(
     rightSegments.map(
       (segment) =>
         `${segment.id}:${segment.contentVersion}:${rectKey(segment.rectCss)}`,
-    ),
-  );
-}
-
-function domControlTexturesEqual(
-  left: readonly RetainedRegionDomControlTexture[] | undefined,
-  right: readonly RetainedRegionDomControlTexture[] | undefined,
-): boolean {
-  const leftSnapshots = left ?? [];
-  const rightSnapshots = right ?? [];
-  return sortedStringsEqual(
-    leftSnapshots.map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}:${rectKey(
-          snapshot.rectCss,
-        )}`,
-    ),
-    rightSnapshots.map(
-      (snapshot) =>
-        `${snapshot.rowId}:${snapshot.sourceId}:${snapshot.sourceKey}:${rectKey(
-          snapshot.rectCss,
-        )}`,
     ),
   );
 }

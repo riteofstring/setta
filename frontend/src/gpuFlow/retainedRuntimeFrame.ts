@@ -1,4 +1,4 @@
-import { getGpuRetainedDomControlSourcesFromSourceSurfaces } from "./GpuFlow/retainedDomControlSources";
+import { getGpuRetainedDomControlSourcesFromHitTestSurfaces } from "./GpuFlow/retainedDomControlSources";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "./GpuRetainedContentPageFrameSurfaces";
 import { getGpuRetainedContentScrollbarVisualsFromSourceSurfaces } from "./GpuRetainedContentScrollbarVisuals";
 import {
@@ -84,16 +84,10 @@ export function createGpuRetainedRuntimeFrame({
       viewportZoomBucket,
     }),
   );
-  const domControlSources = freezeArray(
-    getGpuRetainedDomControlSourcesFromSourceSurfaces(sourceSurfaces, {
-      viewport,
-    }),
-  );
   const contentPageSurfaces = freezeArray(
     getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
       sourceSurfaces,
       {
-        domControlSources,
         viewportZoomBucket,
       },
     ),
@@ -102,6 +96,12 @@ export function createGpuRetainedRuntimeFrame({
     createGpuRetainedRuntimeFrameHitTestSurfaces({
       scene,
       scrollOffsets,
+    }),
+  );
+  const domControlSources = freezeArray(
+    getGpuRetainedDomControlSourcesFromHitTestSurfaces(hitTestSurfaces, {
+      scrollRevision,
+      viewport,
     }),
   );
   const nativeDomIslands = freezeArray(

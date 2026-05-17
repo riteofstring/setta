@@ -24,9 +24,16 @@ describe("createGpuRetainedRuntimeFrame", () => {
     expect(sourceSurface?.textureWindow.sourceRect.y).toBe(240);
     expect(pageSurface?.visibleSourceRectCss.y).toBe(240);
     expect(pageSurface?.sourceKey).toContain('"surfaceId":"surface-a"');
+    expect(pageSurface).not.toHaveProperty("domControlTextures");
     expect(
-      pageSurface?.domControlTextures?.map((snapshot) => snapshot.rowId),
+      frame.descriptors.domControlSources.map((source) => source.rowId),
     ).toContain("param-10");
+    expect(frame.descriptors.domControlSources[0]).toEqual(
+      expect.objectContaining({
+        sectionScrollRevision: 3,
+        surfaceId: "surface-a",
+      }),
+    );
 
     expect(frame.descriptors.nativeDomIslands[0]).toEqual(
       expect.objectContaining({

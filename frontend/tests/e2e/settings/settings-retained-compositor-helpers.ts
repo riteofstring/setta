@@ -26,6 +26,8 @@ const STRICT_LOCAL_120HZ =
   process.env.SETTA_RETAINED_COMPOSITOR_STRICT_120HZ === "1";
 const STRICT_P95_FRAME_BUDGET_MS = 8.5;
 const STRICT_P99_FRAME_BUDGET_MS = 16.7;
+const STRICT_BASELINE_P50_FRAME_BUDGET_MS = 8.5;
+const STRICT_BASELINE_P95_FRAME_BUDGET_MS = 10;
 const CI_P95_FRAME_BUDGET_MS = 20;
 const CI_MAX_FRAME_BUDGET_MS = 110;
 const CI_LONG_TASK_BUDGET_MS = 55;
@@ -82,7 +84,7 @@ export type RetainedCompositorGestureResult = {
 };
 
 export type RetainedCompositorCadenceBudget = {
-  readonly lane: "ci-capped" | "local-120hz";
+  readonly lane: "ci-capped" | "local-120hz" | "refresh-aware";
   readonly longTaskBudgetMs: number;
   readonly maxFrameBudgetMs: number;
   readonly p95FrameBudgetMs: number;
@@ -557,7 +559,10 @@ export function resolveRetainedCompositorCadenceBudget({
   readonly controlCadence: PageRafCadence;
   readonly eventSpacing: RetainedCompositorIntervalStats;
 }): RetainedCompositorCadenceBudget {
-  if (STRICT_LOCAL_120HZ) {
+  if (
+    STRICT_LOCAL_120HZ &&
+    retainedCompositorCanMeasureStrictLocal120Hz(controlCadence)
+  ) {
     return {
       lane: "local-120hz",
       longTaskBudgetMs: 50,
@@ -568,7 +573,7 @@ export function resolveRetainedCompositorCadenceBudget({
     };
   }
   return {
-    lane: "ci-capped",
+    lane: STRICT_LOCAL_120HZ ? "refresh-aware" : "ci-capped",
     longTaskBudgetMs: CI_LONG_TASK_BUDGET_MS,
     maxFrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
     p95FrameBudgetMs: Math.max(
@@ -579,6 +584,15 @@ export function resolveRetainedCompositorCadenceBudget({
     p99FrameBudgetMs: CI_MAX_FRAME_BUDGET_MS,
     slowFrameRatioBudget: CI_SLOW_FRAME_RATIO_BUDGET,
   };
+}
+
+function retainedCompositorCanMeasureStrictLocal120Hz(
+  controlCadence: PageRafCadence,
+): boolean {
+  return (
+    controlCadence.p50Ms <= STRICT_BASELINE_P50_FRAME_BUDGET_MS &&
+    controlCadence.p95Ms <= STRICT_BASELINE_P95_FRAME_BUDGET_MS
+  );
 }
 
 export function expectRetainedCompositorGestureWithinBudget({

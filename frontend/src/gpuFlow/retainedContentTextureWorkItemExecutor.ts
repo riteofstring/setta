@@ -1,12 +1,10 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
-import { areRetainedContentTexturePageDomControlTexturesReady } from "./retainedContentTexturePageDomControlTextures";
 import {
   isRetainedTextureWorkItemCompleteAfterPageUpload,
   shouldEnqueueRemainingRefreshDescriptors,
   shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
-import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   RetainedTexturePageCache,
@@ -39,24 +37,15 @@ const EMPTY_RETAINED_TEXTURE_WORK_RESULT: RetainedTextureWorkExecutionResult = {
 
 export function executeRetainedContentTextureWorkItem({
   cache,
-  clearSnapshotExactUnavailableState,
   enqueueDescriptorWork,
   frame,
-  frameSurfaceById,
   item,
   palette,
-  resolveSnapshotExactUnavailableResult,
   resolveWorkItemDescriptors,
-  snapshotUnavailablePageKeys,
   switchAnimations,
-  domControlTextureElementById,
   uploadPage,
 }: {
   readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
-  readonly clearSnapshotExactUnavailableState: (input: {
-    readonly descriptor: RetainedTexturePageDescriptor;
-    readonly descriptorKey: string;
-  }) => void;
   readonly enqueueDescriptorWork: (input: {
     readonly descriptors: readonly RetainedTexturePageDescriptor[];
     readonly frame: number;
@@ -66,29 +55,16 @@ export function executeRetainedContentTextureWorkItem({
     readonly targetLod?: number | undefined;
   }) => void;
   readonly frame: number;
-  readonly frameSurfaceById: ReadonlyMap<
-    string,
-    RetainedContentTexturePageFrameSurface
-  >;
   readonly item: RetainedTextureWorkItem;
   readonly palette: GpuRetainedContentCanvasPalette;
-  readonly resolveSnapshotExactUnavailableResult: (
-    descriptor: RetainedTexturePageDescriptor,
-  ) => RetainedTextureWorkExecutionResult;
   readonly resolveWorkItemDescriptors: (
     item: RetainedTextureWorkItem,
   ) => readonly RetainedTexturePageDescriptor[];
-  readonly snapshotUnavailablePageKeys: ReadonlySet<string>;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByDomControlTextureSourceId: ReadonlyMap<
-      string,
-      HTMLElement
-    >;
     readonly frame: number;
     readonly palette: GpuRetainedContentCanvasPalette;
     readonly switchAnimations?:
@@ -104,16 +80,11 @@ export function executeRetainedContentTextureWorkItem({
 
   const uploadOutcome = executeDescriptorUploadForWorkItem({
     cache,
-    clearSnapshotExactUnavailableState,
     descriptor,
     frame,
-    frameSurfaceById,
     item,
     palette,
-    resolveSnapshotExactUnavailableResult,
-    snapshotUnavailablePageKeys,
     switchAnimations,
-    domControlTextureElementById,
     uploadPage,
   });
   if (!uploadOutcome.continueWorkItem) {
@@ -136,45 +107,23 @@ export function executeRetainedContentTextureWorkItem({
 
 function executeDescriptorUploadForWorkItem({
   cache,
-  clearSnapshotExactUnavailableState,
   descriptor,
   frame,
-  frameSurfaceById,
   item,
   palette,
-  resolveSnapshotExactUnavailableResult,
-  snapshotUnavailablePageKeys,
   switchAnimations,
-  domControlTextureElementById,
   uploadPage,
 }: {
   readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
-  readonly clearSnapshotExactUnavailableState: (input: {
-    readonly descriptor: RetainedTexturePageDescriptor;
-    readonly descriptorKey: string;
-  }) => void;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly frame: number;
-  readonly frameSurfaceById: ReadonlyMap<
-    string,
-    RetainedContentTexturePageFrameSurface
-  >;
   readonly item: RetainedTextureWorkItem;
   readonly palette: GpuRetainedContentCanvasPalette;
-  readonly resolveSnapshotExactUnavailableResult: (
-    descriptor: RetainedTexturePageDescriptor,
-  ) => RetainedTextureWorkExecutionResult;
-  readonly snapshotUnavailablePageKeys: ReadonlySet<string>;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByDomControlTextureSourceId: ReadonlyMap<
-      string,
-      HTMLElement
-    >;
     readonly frame: number;
     readonly palette: GpuRetainedContentCanvasPalette;
     readonly switchAnimations?:
@@ -192,56 +141,29 @@ function executeDescriptorUploadForWorkItem({
     });
   }
   return executeRequiredDescriptorUploadForWorkItem({
-    clearSnapshotExactUnavailableState,
     descriptor,
     frame,
-    frameSurfaceById,
     palette,
-    resolveSnapshotExactUnavailableResult,
-    snapshotUnavailablePageKeys,
     switchAnimations,
-    domControlTextureElementById,
     uploadPage,
   });
 }
 
 function executeRequiredDescriptorUploadForWorkItem({
-  clearSnapshotExactUnavailableState,
   descriptor,
   frame,
-  frameSurfaceById,
   palette,
-  resolveSnapshotExactUnavailableResult,
-  snapshotUnavailablePageKeys,
   switchAnimations,
-  domControlTextureElementById,
   uploadPage,
 }: {
-  readonly clearSnapshotExactUnavailableState: (input: {
-    readonly descriptor: RetainedTexturePageDescriptor;
-    readonly descriptorKey: string;
-  }) => void;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly frame: number;
-  readonly frameSurfaceById: ReadonlyMap<
-    string,
-    RetainedContentTexturePageFrameSurface
-  >;
   readonly palette: GpuRetainedContentCanvasPalette;
-  readonly resolveSnapshotExactUnavailableResult: (
-    descriptor: RetainedTexturePageDescriptor,
-  ) => RetainedTextureWorkExecutionResult;
-  readonly snapshotUnavailablePageKeys: ReadonlySet<string>;
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByDomControlTextureSourceId: ReadonlyMap<
-      string,
-      HTMLElement
-    >;
     readonly frame: number;
     readonly palette: GpuRetainedContentCanvasPalette;
     readonly switchAnimations?:
@@ -249,71 +171,22 @@ function executeRequiredDescriptorUploadForWorkItem({
       | undefined;
   }) => RetainedTextureWorkExecutionResult;
 }): RetainedTextureWorkDescriptorUploadOutcome {
-  const descriptorKey = retainedTexturePageKey(descriptor);
-  if (snapshotUnavailablePageKeys.has(descriptorKey)) {
-    return createStoppedDescriptorUploadOutcome(
-      EMPTY_RETAINED_TEXTURE_WORK_RESULT,
-    );
-  }
-  if (
-    !isSnapshotExactDescriptorReady({
-      descriptor,
-      frameSurfaceById,
-      domControlTextureElementById,
-    })
-  ) {
-    return createStoppedDescriptorUploadOutcome(
-      resolveSnapshotExactUnavailableResult(descriptor),
-    );
-  }
-
   const upload = uploadPage({
     descriptor,
-    elementByDomControlTextureSourceId: domControlTextureElementById,
     frame,
     palette,
     switchAnimations,
   });
   if (upload.complete) {
-    clearSnapshotExactUnavailableState({ descriptor, descriptorKey });
     return createContinuingDescriptorUploadOutcome({
       pageUploadComplete: true,
       result: upload,
-    });
-  }
-  if (descriptor.visualEpochKind === "snapshot-exact") {
-    return createStoppedDescriptorUploadOutcome({
-      ...resolveSnapshotExactUnavailableResult(descriptor),
-      rasterMs: upload.rasterMs,
-      uploadMs: upload.uploadMs,
     });
   }
   return createContinuingDescriptorUploadOutcome({
     pageUploadComplete: false,
     result: upload,
   });
-}
-
-function isSnapshotExactDescriptorReady({
-  descriptor,
-  frameSurfaceById,
-  domControlTextureElementById,
-}: {
-  readonly descriptor: RetainedTexturePageDescriptor;
-  readonly frameSurfaceById: ReadonlyMap<
-    string,
-    RetainedContentTexturePageFrameSurface
-  >;
-  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
-}): boolean {
-  return (
-    descriptor.visualEpochKind !== "snapshot-exact" ||
-    areRetainedContentTexturePageDomControlTexturesReady({
-      descriptor,
-      elementBySourceId: domControlTextureElementById,
-      surface: frameSurfaceById.get(descriptor.surfaceId),
-    })
-  );
 }
 
 function enqueueRemainingRefreshDescriptorsAfterUpload({
@@ -385,16 +258,6 @@ function createContinuingDescriptorUploadOutcome({
   return {
     continueWorkItem: true,
     pageUploadComplete,
-    result,
-  };
-}
-
-function createStoppedDescriptorUploadOutcome(
-  result: RetainedTextureWorkExecutionResult,
-): RetainedTextureWorkDescriptorUploadOutcome {
-  return {
-    continueWorkItem: false,
-    pageUploadComplete: false,
     result,
   };
 }

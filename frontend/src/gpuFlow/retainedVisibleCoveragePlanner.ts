@@ -6,7 +6,6 @@ import {
 import type {
   RetainedFidelityMetadata,
   RetainedRegionContentSegment,
-  RetainedRegionDomControlTexture,
   RetainedRegionManifest,
   RetainedRegionTarget,
 } from "./retainedCommittedCoverageStore";
@@ -21,7 +20,6 @@ import {
   type RetainedTexturePageCache,
   type RetainedTexturePageRegionCoverageEntry,
 } from "./retainedTexturePages";
-import type { RetainedVisualEpochKind } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
 type RetainedFidelityTarget = RetainedFidelityMetadata;
@@ -52,9 +50,6 @@ export type RetainedVisibleRegionSurface = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly domControlTextures?:
-    | readonly RetainedRegionDomControlTexture[]
-    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -330,16 +325,8 @@ function createVisibleRegionManifest({
     rowId: null,
     sectionId: surface.surfaceId,
     surfaceId: surface.surfaceId,
-    domControlTextures: Object.freeze(
-      (surface.domControlTextures ?? []).map((snapshot) =>
-        Object.freeze({
-          ...snapshot,
-          rectCss: Object.freeze({ ...snapshot.rectCss }),
-        }),
-      ),
-    ),
     themeGeneration: surface.sourceVersion,
-    visualEpochKind: retainedVisualEpochKindForSurface(surface),
+    visualEpochKind: "base",
   });
 }
 
@@ -369,18 +356,12 @@ function createVisibleRegionFidelity({
       surface.contentVersion,
       retainedTexturePageScaleKey(lodScale),
       viewportZoomBucket,
-      retainedVisualEpochKindForSurface(surface),
+      "base",
     ].join(":"),
     pixelHeight: Math.max(1, Math.ceil(contentRect.height * lodScale)),
     pixelWidth: Math.max(1, Math.ceil(contentRect.width * lodScale)),
     viewportZoomBucket,
   });
-}
-
-function retainedVisualEpochKindForSurface(
-  surface: RetainedVisibleRegionSurface,
-): Exclude<RetainedVisualEpochKind, "active-dom"> {
-  return surface.domControlTextures?.length ? "snapshot-exact" : "base";
 }
 
 function createRetainedDrawRegion<TResource>({

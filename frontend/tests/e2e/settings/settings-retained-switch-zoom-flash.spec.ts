@@ -116,7 +116,18 @@ test("retained switch does not flash its previous state while zooming before bac
     if (!backendConfirmationReleasedForZoom) {
       releaseBackendConfirmation();
     }
-    await page.waitForTimeout(0);
+    if (delayedBackendRequests > 0) {
+      await expect
+        .poll(
+          async () =>
+            Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+          {
+            timeout: 5_000,
+          },
+        )
+        .toBe(targetChecked);
+    }
+    await waitForViewportIdle(page);
     await page.unroute("**/setParamEnteredValue");
   }
 });
@@ -380,6 +391,7 @@ async function captureSwitchFramesWhileZooming({
   } finally {
     await page.keyboard.up("Control");
   }
+  await waitForViewportIdle(page);
   return frames;
 }
 
@@ -429,11 +441,13 @@ async function resolveSwitchAnimationTrackClip(
   const trackRect = await page.evaluate(
     ({ rowId, surfaceId }) => {
       const visualSurfaceId = `${surfaceId}:switch-animation:${rowId}:track`;
-      const track = window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.().find(
-        (surface) =>
-          surface.kind === "solid-rounded-rect" &&
-          surface.surfaceId === visualSurfaceId,
-      );
+      const track = window
+        .__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.()
+        .find(
+          (surface) =>
+            surface.kind === "solid-rounded-rect" &&
+            surface.surfaceId === visualSurfaceId,
+        );
       return track?.clientRect ?? null;
     },
     { rowId: row.rowId, surfaceId: row.surfaceId },

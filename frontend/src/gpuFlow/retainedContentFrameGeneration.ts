@@ -36,7 +36,6 @@ export function createGpuRetainedContentFrameGeneration({
     contentPageSurfaces:
       getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
         sourceSurfaces,
-        { domControlSources },
       ),
     domControlSources,
     sourceSurfaces,

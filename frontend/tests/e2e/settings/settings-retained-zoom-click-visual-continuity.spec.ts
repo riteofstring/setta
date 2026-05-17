@@ -10,6 +10,7 @@ import {
   openAllSettingsForRetainedCompositor,
   resolveRetainedCompositorCadenceBudget,
   resolveRetainedCompositorTarget,
+  waitForRetainedCompositorGestureIdle,
 } from "./settings-retained-compositor-helpers";
 import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
 import {
@@ -131,6 +132,8 @@ test("rapid retained zoom plus text-like row click remains visually continuous",
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, surfaceId);
   let row = await resolveVisibleTextLikeRow(page, surfaceId);
+  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
+  await waitForRetainedCompositorGestureIdle(page);
   const target = await resolveRetainedCompositorTarget(page, surfaceId);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
 

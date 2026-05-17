@@ -4,7 +4,7 @@ import { getGpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 
 describe("retained content text-like canvas", () => {
-  it("leaves inactive row-text editor value pixels to the DOM-control texture layer", () => {
+  it("leaves inactive row-text editor value pixels to the DOM control plane", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 

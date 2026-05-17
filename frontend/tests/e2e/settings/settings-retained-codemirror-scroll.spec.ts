@@ -68,7 +68,8 @@ test("retained passive text editor previews stay attached during section scroll"
   ];
   for (let index = 0; index < 8; index += 1) {
     await page.mouse.wheel(0, 48);
-    await page.waitForTimeout(18);
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
     frames.push(
       await captureTextPreviewScrollFrame({
         name: `wheel-${index}`,
@@ -182,6 +183,7 @@ test("retained passive text editor preview ink moves with its retained row durin
   );
   for (let index = 0; index < 6; index += 1) {
     await page.mouse.wheel(0, 24);
+    await waitForAnimationFrame(page);
     frames.push(
       await captureTextInkAlignmentFrameForLabel({
         label: SCROLL_TEXT_PREVIEW_LABEL,
@@ -687,9 +689,17 @@ async function captureTextInkAlignmentFrame({
     readonly controlClientRect: Rect;
     readonly rowLabel: string;
     readonly rowY: number;
+    readonly valueClientRect: Rect;
   };
   readonly valueInk: TextInkBounds | null;
 }> {
+  const valueClientRect = await resolveProjectedDomControlHostRectForRow(
+    page,
+    row,
+  );
+  if (!valueClientRect) {
+    throw new Error(`Missing projected DOM-control host for ${row.rowLabel}.`);
+  }
   const clip = await viewportScreenshotClip(page);
   const screenshot = await screenshotClip({
     name: `visual-scroll-text-ink-${name}.png`,
@@ -706,7 +716,7 @@ async function captureTextInkAlignmentFrame({
     analyzeCodeMirrorTextInkBounds(page, {
       clip,
       screenshot,
-      searchRect: resolveValueInkSearchRect(row.controlClientRect),
+      searchRect: resolveValueInkSearchRect(valueClientRect),
     }),
   ]);
   return {
@@ -716,6 +726,7 @@ async function captureTextInkAlignmentFrame({
       controlClientRect: row.controlClientRect,
       rowLabel: row.rowLabel,
       rowY: row.clientRect.y,
+      valueClientRect,
     },
     valueInk,
   };
@@ -738,9 +749,21 @@ async function captureTextInkAlignmentFrameForLabel({
     readonly controlClientRect: Rect;
     readonly rowLabel: string;
     readonly rowY: number;
+    readonly valueClientRect: Rect;
   };
   readonly valueInk: TextInkBounds | null;
 }> {
+  const row = await resolveVisibleGuiRow(page, label);
+  if (!row.controlClientRect) {
+    throw new Error(`Missing ${label} control rect for ${name}.`);
+  }
+  const valueClientRect = await resolveProjectedDomControlHostRectForRow(
+    page,
+    row,
+  );
+  if (!valueClientRect) {
+    throw new Error(`Missing projected DOM-control host for ${label}.`);
+  }
   const clip = await viewportScreenshotClip(page);
   const screenshot = await screenshotClip({
     name: `visual-scroll-text-ink-${name}.png`,
@@ -748,10 +771,6 @@ async function captureTextInkAlignmentFrameForLabel({
     rect: clip,
     testInfo,
   });
-  const row = await resolveVisibleGuiRow(page, label);
-  if (!row.controlClientRect) {
-    throw new Error(`Missing ${label} control rect for ${name}.`);
-  }
   const [labelInk, valueInk] = await Promise.all([
     analyzeRetainedLabelTextInkBounds(page, {
       clip,
@@ -761,7 +780,7 @@ async function captureTextInkAlignmentFrameForLabel({
     analyzeCodeMirrorTextInkBounds(page, {
       clip,
       screenshot,
-      searchRect: resolveValueInkSearchRect(row.controlClientRect),
+      searchRect: resolveValueInkSearchRect(valueClientRect),
     }),
   ]);
   return {
@@ -771,9 +790,43 @@ async function captureTextInkAlignmentFrameForLabel({
       controlClientRect: row.controlClientRect,
       rowLabel: row.rowLabel,
       rowY: row.clientRect.y,
+      valueClientRect,
     },
     valueInk,
   };
+}
+
+async function resolveProjectedDomControlHostRectForRow(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<Rect | null> {
+  return await page.evaluate(
+    ({ rowId, surfaceId }) => {
+      const host = [
+        ...document.querySelectorAll('[data-gpu-flow-dom-control="true"]'),
+      ].find(
+        (element): element is HTMLElement =>
+          element instanceof HTMLElement &&
+          element.getAttribute("data-gpu-flow-dom-control-surface-id") ===
+            surfaceId &&
+          element.getAttribute("data-gpu-flow-dom-control-row-id") === rowId,
+      );
+      if (!host || getComputedStyle(host).display === "none") {
+        return null;
+      }
+      const rect = host.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+      return {
+        height: rect.height,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      };
+    },
+    { rowId: row.rowId, surfaceId: GUI_CONTENT_SURFACE_ID },
+  );
 }
 
 async function captureRetainedLabelMotionFrame({
@@ -864,6 +917,7 @@ type TextPreviewRowStats = {
   readonly label: string;
   readonly minimumTextPixelCount: number;
   readonly rowY: number;
+  readonly valueClientRect: Rect;
   readonly visibleTextPixelCount: number;
 };
 
@@ -877,22 +931,52 @@ async function analyzeVisibleTextPreviewRows(
   return await page.evaluate(
     async ({ clip, screenshotDataUrl, surfaceId, trackedLabels }) => {
       const trackedLabelSet = new Set(trackedLabels);
+      const hostRectByRowId = new Map<string, Rect>();
+      for (const element of document.querySelectorAll(
+        '[data-gpu-flow-dom-control="true"]',
+      )) {
+        if (!(element instanceof HTMLElement)) {
+          continue;
+        }
+        if (
+          element.getAttribute("data-gpu-flow-dom-control-surface-id") !==
+          surfaceId
+        ) {
+          continue;
+        }
+        const rowId = element.getAttribute("data-gpu-flow-dom-control-row-id");
+        if (!rowId || getComputedStyle(element).display === "none") {
+          continue;
+        }
+        const rect = element.getBoundingClientRect();
+        if (
+          rect.width <= 0 ||
+          rect.height <= 0 ||
+          rect.y < clip.y + 1 ||
+          rect.y + rect.height > clip.y + clip.height - 1
+        ) {
+          continue;
+        }
+        hostRectByRowId.set(rowId, {
+          height: rect.height,
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        });
+      }
       const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
         .filter(
           (row): row is RetainedRowDebugEntry =>
             row.surfaceId === surfaceId &&
             trackedLabelSet.has(row.rowLabel) &&
             row.controlKind === "text-like" &&
-            row.controlClientRect !== null &&
+            hostRectByRowId.has(row.rowId) &&
             row.canvasSamplePoint.x >= 0 &&
             row.canvasSamplePoint.y >= 0 &&
             row.canvasSamplePoint.x < row.canvasCssSize.width &&
             row.canvasSamplePoint.y < row.canvasCssSize.height &&
             row.clientRect.width > 16 &&
             row.clientRect.height > 8 &&
-            row.controlClientRect.y >= clip.y + 1 &&
-            row.controlClientRect.y + row.controlClientRect.height <=
-              clip.y + clip.height - 1 &&
             row.clientRect.y < clip.y + clip.height &&
             row.clientRect.y + row.clientRect.height > clip.y,
         )
@@ -913,9 +997,9 @@ async function analyzeVisibleTextPreviewRows(
         canvas.height,
       );
       return rows.map((row) => {
-        const controlRect = row.controlClientRect;
+        const controlRect = hostRectByRowId.get(row.rowId);
         if (!controlRect) {
-          throw new Error(`Missing control rect for ${row.rowLabel}`);
+          throw new Error(`Missing DOM-control host for ${row.rowLabel}`);
         }
         const left = Math.max(0, Math.floor(controlRect.x - clip.x));
         const right = Math.min(
@@ -943,6 +1027,7 @@ async function analyzeVisibleTextPreviewRows(
           label: row.rowLabel,
           minimumTextPixelCount: 1,
           rowY: row.clientRect.y,
+          valueClientRect: controlRect,
           visibleTextPixelCount,
         };
       });

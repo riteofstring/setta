@@ -5,7 +5,6 @@ import {
   type RetainedFidelityMetadata,
   type RetainedRegionCompatibility,
   type RetainedRegionContentSegment,
-  type RetainedRegionDomControlTexture,
   type RetainedRegionManifest,
   type RetainedRegionTarget,
 } from "./retainedCommittedCoverageStore";
@@ -103,9 +102,6 @@ type RetainedPageLifecycleDescriptor = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly domControlTextures?:
-    | readonly RetainedRegionDomControlTexture[]
-    | undefined;
   readonly tileColumn: number;
   readonly tileRow: number;
   readonly visualEpochKind?:
@@ -207,9 +203,6 @@ function createRetainedRegionManifest(
     rowId: null,
     sectionId: descriptor.surfaceId,
     surfaceId: descriptor.surfaceId,
-    domControlTextures: freezeDomControlTextures(
-      descriptor.domControlTextures ?? [],
-    ),
     themeGeneration: descriptor.sourceVersion,
     visualEpochKind: descriptor.visualEpochKind ?? "base",
   });
@@ -405,19 +398,6 @@ function freezeContentSegments(
       Object.freeze({
         ...segment,
         rectCss: freezeRect(segment.rectCss),
-      }),
-    ),
-  );
-}
-
-function freezeDomControlTextures(
-  snapshots: readonly RetainedRegionDomControlTexture[],
-): readonly RetainedRegionDomControlTexture[] {
-  return Object.freeze(
-    snapshots.map((snapshot) =>
-      Object.freeze({
-        ...snapshot,
-        rectCss: freezeRect(snapshot.rectCss),
       }),
     ),
   );

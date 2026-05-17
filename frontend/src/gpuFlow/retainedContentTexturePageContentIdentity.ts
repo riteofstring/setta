@@ -1,20 +1,15 @@
-import type {
-  RetainedRegionContentSegment,
-  RetainedRegionDomControlTexture,
-} from "./retainedCommittedCoverageStore";
+import type { RetainedRegionContentSegment } from "./retainedCommittedCoverageStore";
 import { rectsIntersect } from "./retainedContentTexturePageManagerHelpers";
 import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManagerTypes";
-import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
 type PageContentIdentity = {
   readonly contentSegments: readonly RetainedRegionContentSegment[];
   readonly contentVersion: number;
-  readonly domControlTextures: readonly RetainedRegionDomControlTexture[];
 };
 
 type PageContentVersionSignature = Omit<
@@ -42,8 +37,7 @@ export class RetainedTexturePageContentIdentityResolver {
     readonly surface: RetainedContentTexturePageFrameSurface;
   }): readonly RetainedTexturePageDescriptor[] {
     const segments = surface.contentSegments ?? [];
-    const domControlTextures = surface.domControlTextures ?? [];
-    if (segments.length === 0 && domControlTextures.length === 0) {
+    if (segments.length === 0) {
       return descriptors;
     }
     return descriptors.map((descriptor) => {
@@ -51,13 +45,11 @@ export class RetainedTexturePageContentIdentityResolver {
         descriptor,
         segments,
         surfaceContentVersion: surface.contentVersion,
-        domControlTextures: domControlTextures,
       });
       return {
         ...descriptor,
         contentSegments: identity.contentSegments,
         contentVersion: identity.contentVersion,
-        domControlTextures: identity.domControlTextures,
       };
     });
   }
@@ -66,12 +58,10 @@ export class RetainedTexturePageContentIdentityResolver {
     descriptor,
     segments,
     surfaceContentVersion,
-    domControlTextures,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly segments: readonly RetainedContentTexturePageContentSegment[];
     readonly surfaceContentVersion: number;
-    readonly domControlTextures: readonly GpuRetainedDomControlTextureDescriptor[];
   }): PageContentIdentity {
     const contentSegments = segments
       .filter((segment) =>
@@ -83,26 +73,10 @@ export class RetainedTexturePageContentIdentityResolver {
         rectCss: segment.rectCss,
       }))
       .sort((left, right) => left.id.localeCompare(right.id));
-    const textureDescriptors = domControlTextures
-      .filter((texture) =>
-        rectsIntersect(texture.rectCss, descriptor.sourceRectCss),
-      )
-      .map((texture) => ({
-        rectCss: texture.rectCss,
-        rowId: texture.rowId,
-        sourceId: texture.sourceId,
-        sourceKey: texture.sourceKey,
-      }))
-      .sort(
-        (left, right) =>
-          left.sourceId.localeCompare(right.sourceId) ||
-          left.rowId.localeCompare(right.rowId),
-      );
-    if (contentSegments.length === 0 && textureDescriptors.length === 0) {
+    if (contentSegments.length === 0) {
       return {
         contentSegments: [],
         contentVersion: surfaceContentVersion,
-        domControlTextures: [],
       };
     }
     return {
@@ -111,9 +85,7 @@ export class RetainedTexturePageContentIdentityResolver {
         contentSegments,
         sourceRectCss: descriptor.sourceRectCss,
         surfaceContentVersion,
-        domControlTextures: textureDescriptors,
       }),
-      domControlTextures: textureDescriptors,
     };
   }
 

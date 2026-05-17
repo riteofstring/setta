@@ -1,4 +1,5 @@
 import { GpuFlow } from "gpuFlow/GpuFlow";
+import type { GpuFlowDomControlActivationHandler } from "gpuFlow/GpuFlow/domControlPlane";
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
@@ -23,6 +24,7 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
+import { flushSync } from "react-dom";
 
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
@@ -628,6 +630,24 @@ function ProjectGpuFlowLayer({
       }),
     [activeNodeIds, canEditStructure, flowInteractionKeys],
   );
+  const handleDomControlActivation =
+    useCallback<GpuFlowDomControlActivationHandler>(
+      (control, activation) => {
+        flushSync(() => {
+          onActiveParamDomIslandChange({
+            activation: {
+              clientPoint: activation.clientPoint,
+              kind: "pointer",
+            },
+            hitRecordId: `control:${control.rowId}`,
+            paramInfoId: control.rowId,
+            sectionId: control.sectionId,
+            surfaceId: control.surfaceId,
+          });
+        });
+      },
+      [onActiveParamDomIslandChange],
+    );
   if (!readyToRender) {
     return null;
   }
@@ -644,6 +664,7 @@ function ProjectGpuFlowLayer({
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
       onNodeElementChange={handleNodeElementChange}
+      onDomControlActivation={handleDomControlActivation}
       onRetainedRuntimeFrame={onRetainedRuntimeFrameChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}

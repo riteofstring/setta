@@ -1,14 +1,9 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
 import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
-import {
-  resolveRetainedContentTexturePageDomControlTextures,
-  uploadRetainedContentTexturePageDomControlTextures,
-} from "./retainedContentTexturePageDomControlTextures";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
 import {
   createRetainedContentTextureResources,
-  destroyRetainedContentTextureResources,
   getRetainedContentTextureResourceRegion,
   type RetainedContentTextureAtlasStore,
   type RetainedContentTextureResources,
@@ -33,7 +28,6 @@ export function uploadRetainedContentTexturePage({
   cache,
   descriptor,
   device,
-  elementByDomControlTextureSourceId,
   format,
   frame,
   frameSurfaceById,
@@ -46,7 +40,6 @@ export function uploadRetainedContentTexturePage({
   readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly device: GPUDevice;
-  readonly elementByDomControlTextureSourceId: ReadonlyMap<string, HTMLElement>;
   readonly format: GPUTextureFormat;
   readonly frame: number;
   readonly frameSurfaceById: ReadonlyMap<
@@ -108,30 +101,6 @@ export function uploadRetainedContentTexturePage({
       width: descriptor.pixelWidth,
     },
   );
-  const domControlTexturePaintAvailable =
-    descriptor.visualEpochKind === "snapshot-exact"
-      ? uploadRetainedContentTexturePageDomControlTextures({
-          descriptor,
-          elementBySourceId: elementByDomControlTextureSourceId,
-          queue: device.queue,
-          resource,
-          domControlTextures:
-            resolveRetainedContentTexturePageDomControlTextures({
-              descriptor,
-              surface,
-            }),
-        })
-      : true;
-  if (!domControlTexturePaintAvailable) {
-    destroyRetainedContentTextureResources(resource);
-    cache.cancelPendingPage(pending.key);
-    return {
-      ...emptyRetainedContentTexturePageUploadResult(false),
-      drawnCommandCount: rasterResult.drawnCommandCount,
-      rasterMs,
-      uploadMs: performance.now() - uploadStartedAt,
-    };
-  }
   const uploadMs = performance.now() - uploadStartedAt;
   cache.commitPendingPage({
     frame,

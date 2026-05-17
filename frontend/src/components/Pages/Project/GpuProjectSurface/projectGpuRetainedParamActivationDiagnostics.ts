@@ -24,10 +24,7 @@ export function postProjectGpuRetainedParamActivationPreflightChromeReproEvent(
   const controlRect = row
     ? createProjectGpuRetainedParamActivationControlRect(event, row)
     : null;
-  const sourceKey = row
-    ? createProjectGpuRetainedDomControlSourceKey({ event, row, controlRect })
-    : null;
-  const sourceElement = findProjectGpuRetainedDomControlSourceElement({
+  const hostElement = findProjectGpuRetainedDomControlHostElement({
     rowId: event.hit.ownerRowId,
     surfaceId: event.surfaceId,
   });
@@ -62,9 +59,8 @@ export function postProjectGpuRetainedParamActivationPreflightChromeReproEvent(
       x: roundChromeReproMs(event.screenPoint.x),
       y: roundChromeReproMs(event.screenPoint.y),
     },
-    sourceElement: summarizeProjectGpuRetainedDomControlSourceElement({
-      expectedSourceKey: sourceKey,
-      sourceElement,
+    domControlHost: summarizeProjectGpuRetainedDomControlHostElement({
+      hostElement,
     }),
     surfaceId: event.surfaceId,
   });
@@ -138,47 +134,7 @@ function summarizeProjectGpuRetainedParamActivationRow(
   };
 }
 
-function createProjectGpuRetainedDomControlSourceKey({
-  controlRect,
-  event,
-  row,
-}: {
-  readonly controlRect: GpuRect | null;
-  readonly event: GpuRetainedContentInteractionEvent;
-  readonly row: GpuRetainedContentRow;
-}): string | null {
-  const control = row.control;
-  if (control?.kind !== "text-like" || !controlRect) {
-    return null;
-  }
-  const valueStyleKey = JSON.stringify({
-    disabled: row.state.disabled,
-    editorKind: control.editorKind,
-    error: row.state.error,
-    height: controlRect.height,
-    language: control.policy.language,
-    linePolicy: control.policy.linePolicy,
-    rendererFamily: control.rendererFamily,
-    width: controlRect.width,
-    wrapLines: control.policy.wrapLines,
-  });
-  return JSON.stringify({
-    defaultValue: control.defaultDisplayValue,
-    disabled: row.state.disabled,
-    error: row.state.error,
-    language: control.policy.language,
-    linePolicy: control.policy.linePolicy,
-    rowId: row.id,
-    sourceHeight: controlRect.height,
-    sourceWidth: controlRect.width,
-    surfaceId: event.surfaceId,
-    value: control.displayValue,
-    valueStyleKey,
-    wrapLines: control.policy.wrapLines,
-  });
-}
-
-function findProjectGpuRetainedDomControlSourceElement({
+function findProjectGpuRetainedDomControlHostElement({
   rowId,
   surfaceId,
 }: {
@@ -186,11 +142,11 @@ function findProjectGpuRetainedDomControlSourceElement({
   readonly surfaceId: string;
 }): HTMLElement | null {
   for (const element of document.querySelectorAll<HTMLElement>(
-    '[data-gpu-flow-retained-dom-control-source="true"]',
+    '[data-gpu-flow-dom-control="true"]',
   )) {
     if (
-      element.dataset.gpuFlowRetainedRowId === rowId &&
-      element.dataset.gpuFlowRetainedSurfaceId === surfaceId
+      element.dataset.gpuFlowDomControlRowId === rowId &&
+      element.dataset.gpuFlowDomControlSurfaceId === surfaceId
     ) {
       return element;
     }
@@ -198,34 +154,23 @@ function findProjectGpuRetainedDomControlSourceElement({
   return null;
 }
 
-function summarizeProjectGpuRetainedDomControlSourceElement({
-  expectedSourceKey,
-  sourceElement,
+function summarizeProjectGpuRetainedDomControlHostElement({
+  hostElement,
 }: {
-  readonly expectedSourceKey: string | null;
-  readonly sourceElement: HTMLElement | null;
+  readonly hostElement: HTMLElement | null;
 }) {
-  const expectedSourceKeyLength = expectedSourceKey?.length ?? null;
-  if (!sourceElement) {
+  if (!hostElement) {
     return {
-      expectedSourceKeyLength,
       hasElement: false,
-      sourceKeyMatches: false,
     };
   }
-  const rect = sourceElement.getBoundingClientRect();
-  const sourceKey =
-    sourceElement.dataset.gpuFlowRetainedDomControlSourceKey ?? "";
-  const sourceKeyMatches = isProjectGpuRetainedDomControlSourceKeyMatch({
-    expectedSourceKey,
-    sourceKey,
-  });
+  const rect = hostElement.getBoundingClientRect();
   return {
-    childElementCount: sourceElement.childElementCount,
-    clientHeight: roundChromeReproMs(sourceElement.clientHeight),
-    clientWidth: roundChromeReproMs(sourceElement.clientWidth),
-    datasetSourceKeyLength: sourceKey.length,
-    expectedSourceKeyLength,
+    active: hostElement.dataset.gpuFlowDomControlActive === "true",
+    childElementCount: hostElement.childElementCount,
+    clientHeight: roundChromeReproMs(hostElement.clientHeight),
+    clientWidth: roundChromeReproMs(hostElement.clientWidth),
+    controlId: hostElement.dataset.gpuFlowDomControlId ?? null,
     hasElement: true,
     rect: roundProjectGpuChromeReproRect({
       height: rect.height,
@@ -233,19 +178,8 @@ function summarizeProjectGpuRetainedDomControlSourceElement({
       x: rect.x,
       y: rect.y,
     }),
-    scrollHeight: roundChromeReproMs(sourceElement.scrollHeight),
-    scrollWidth: roundChromeReproMs(sourceElement.scrollWidth),
-    sourceKeyMatches,
-    textContentLength: sourceElement.textContent?.length ?? 0,
+    scrollHeight: roundChromeReproMs(hostElement.scrollHeight),
+    scrollWidth: roundChromeReproMs(hostElement.scrollWidth),
+    textContentLength: hostElement.textContent?.length ?? 0,
   };
-}
-
-function isProjectGpuRetainedDomControlSourceKeyMatch({
-  expectedSourceKey,
-  sourceKey,
-}: {
-  readonly expectedSourceKey: string | null;
-  readonly sourceKey: string;
-}): boolean {
-  return expectedSourceKey !== null && sourceKey === expectedSourceKey;
 }

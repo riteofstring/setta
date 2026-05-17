@@ -76,10 +76,8 @@ import {
   postGpuFlowRetainedContentVisualStateChromeReproEvent,
   postGpuFlowRetainedDisplayFrameChromeReproEvent,
   postGpuFlowRetainedDomControlChromeReproEvent,
-  postGpuFlowRetainedDomControlMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { resolveGpuFlowRetainedPageMaintenanceAfterPublish } from "./flowRetainedPageMaintenance";
-import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -451,7 +449,6 @@ export function renderGpuFlowNodeLayerFrame({
   retainedContentPageManagerRef,
   retainedContentRuntimeState,
   retainedDisplayFrameRef,
-  retainedDomControlElementByIdRef,
   retainedContentSwitchAnimations,
   retainedContentFrameCacheRef,
   surfaceRef,
@@ -479,9 +476,6 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
-  readonly retainedDomControlElementByIdRef: MutableRefObject<
-    Map<string, HTMLElement>
-  >;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
   readonly onRetainedRuntimeFrame?:
@@ -548,31 +542,9 @@ export function renderGpuFlowNodeLayerFrame({
   });
   let retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
   let retainedPagePreparedFrame = retainedFrame.preparedFrame;
-  const retainedPreparationRuntimeFrame =
-    createGpuFlowRetainedPreparationRuntimeFrame({
-      preparedFrame: retainedPagePreparedFrame,
-      retainedRuntimeFrame,
-    });
-  if (retainedPreparationRuntimeFrame !== retainedRuntimeFrame) {
-    retainedRuntimeFrame = retainedPreparationRuntimeFrame;
-    retainedPagePreparedFrame =
-      resources.retainedContentPageManager.prepareFrame({
-        devicePixelRatio: canvasSize.devicePixelRatio,
-        frame,
-        surfaces: retainedRuntimeFrame.descriptors.contentPageSurfaces,
-        viewportZoomBucket,
-      });
-    retainedContentFrameCacheRef.current = retainedContentFrameCacheRef.current
-      ? {
-          ...retainedContentFrameCacheRef.current,
-          preparedFrame: retainedPagePreparedFrame,
-          retainedRuntimeFrame,
-        }
-      : null;
-  }
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedPreparedRuntimeFrame,
-    retainedPreparationRuntimeFrame,
+    retainedRuntimeFrame,
   );
   const retainedDisplayOutcome = resolveRetainedDisplayFrameTransaction({
     allowColdPlaceholder: true,
@@ -659,17 +631,9 @@ export function renderGpuFlowNodeLayerFrame({
       preparedFrame: retainedPagePreparedFrame,
       publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
       retainedContentPageManager: resources.retainedContentPageManager,
-      domControlElementById: retainedDomControlElementByIdRef.current,
     });
   const deferRetainedPageMaintenance = retainedPageMaintenance.deferred;
   const retainedPageResult = retainedPageMaintenance.result;
-  postGpuFlowRetainedDomControlMaintenanceChromeReproEvent({
-    elementBySourceId: retainedDomControlElementByIdRef.current,
-    frame,
-    maintenanceResult: retainedPageResult,
-    sources: retainedRuntimeFrame.descriptors.domControlSources,
-    viewportInteractionActive: deferResolutionUpdates,
-  });
   settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces({
     deferRetainedPageMaintenance,
     nowMs: renderStartedAt,

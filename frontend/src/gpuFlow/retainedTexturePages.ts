@@ -3,7 +3,6 @@ import {
   type RetainedCoverageEntry,
   type RetainedCoveragePlanDiagnostics,
   type RetainedRegionContentSegment,
-  type RetainedRegionDomControlTexture,
   type RetainedRegionTarget,
   type RetainedReplacementTxn,
   type RetainedUncoveredRegion,
@@ -37,8 +36,6 @@ import type { GpuRect } from "./viewportMath";
 
 type RetainedTexturePageContentSegments =
   readonly RetainedRegionContentSegment[];
-type RetainedTexturePageDomControlTextures =
-  readonly RetainedRegionDomControlTexture[];
 type RetainedTexturePageProtectedKeys =
   | ReadonlySet<string>
   | readonly string[]
@@ -62,9 +59,6 @@ export type RetainedTexturePageDescriptor = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly domControlTextures?:
-    | RetainedTexturePageDomControlTextures
-    | undefined;
   readonly tileColumn: number;
   readonly tileRow: number;
   readonly visualEpochKind?:
@@ -120,9 +114,6 @@ type RetainedTexturePageLookup = {
   readonly sourceWindowCss?: GpuRect | undefined;
   readonly surfaceId: string;
   readonly targetLodScale: number;
-  readonly domControlTextures?:
-    | RetainedTexturePageDomControlTextures
-    | undefined;
   readonly tileColumn?: number | undefined;
   readonly tileRow?: number | undefined;
   readonly usedFrame?: number | undefined;
@@ -336,7 +327,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    domControlTextures,
     usedFrame,
     viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
@@ -350,7 +340,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
-      domControlTextures,
       viewportZoomBucket,
       contentSegments,
     }).filter((page) =>
@@ -377,7 +366,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -394,7 +382,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
-      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -416,7 +403,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -442,7 +428,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -487,7 +472,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -513,7 +497,6 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -846,10 +829,6 @@ function normalizePageDescriptor(
       descriptor.sourceWindowCss,
     ),
     surfaceId,
-    domControlTextures:
-      descriptor.domControlTextures === undefined
-        ? undefined
-        : normalizeDomControlTextures(descriptor.domControlTextures),
     tileColumn,
     tileRow,
     visualEpochKind: normalizeRetainedTexturePageVisualEpochKind(
@@ -872,24 +851,6 @@ function normalizeContentSegments(
       rectCss: normalizeRect("contentSegments.rectCss", segment.rectCss),
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
-}
-
-function normalizeDomControlTextures(
-  snapshots: readonly RetainedRegionDomControlTexture[],
-): readonly RetainedRegionDomControlTexture[] {
-  return snapshots
-    .map((snapshot) => ({
-      rectCss: normalizeRect("domControlTextures.rectCss", snapshot.rectCss),
-      rowId: normalizeSourceKey(snapshot.rowId),
-      sourceId: normalizeSourceKey(snapshot.sourceId),
-      sourceKey: normalizeSourceKey(snapshot.sourceKey),
-    }))
-    .sort(
-      (left, right) =>
-        left.rowId.localeCompare(right.rowId) ||
-        left.sourceId.localeCompare(right.sourceId) ||
-        left.sourceKey.localeCompare(right.sourceKey),
-    );
 }
 
 function compareCompatiblePagesForTarget({

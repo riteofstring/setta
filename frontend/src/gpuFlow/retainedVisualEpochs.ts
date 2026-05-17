@@ -6,7 +6,7 @@ import type {
 import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedVisualEpochKind = "base" | "snapshot-exact" | "active-dom";
+export type RetainedVisualEpochKind = "base" | "active-dom";
 
 type RetainedPageHandle = {
   readonly key: string;
@@ -38,7 +38,7 @@ export function normalizeRetainedTexturePageVisualEpochKind(
   if (visualEpochKind === undefined) {
     return "base";
   }
-  if (visualEpochKind !== "base" && visualEpochKind !== "snapshot-exact") {
+  if (visualEpochKind !== "base") {
     throw new Error(
       `Retained texture page visualEpochKind "${visualEpochKind}" is not supported for texture pages.`,
     );

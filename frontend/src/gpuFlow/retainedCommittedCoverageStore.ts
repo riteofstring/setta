@@ -63,9 +63,6 @@ export type RetainedRegionManifest = {
   readonly contentSegments?:
     | readonly RetainedRegionContentSegment[]
     | undefined;
-  readonly domControlTextures?:
-    | readonly RetainedRegionDomControlTexture[]
-    | undefined;
   readonly themeGeneration: RetainedThemeGeneration;
   readonly fontGeneration: RetainedFontGeneration;
   readonly renderMode: "active" | "passive";
@@ -78,13 +75,6 @@ export type RetainedRegionContentSegment = {
   readonly contentVersion: RetainedContentVersion;
   readonly id: string;
   readonly rectCss: ContentRect;
-};
-
-export type RetainedRegionDomControlTexture = {
-  readonly rectCss: ContentRect;
-  readonly rowId: RetainedRowId;
-  readonly sourceId: string;
-  readonly sourceKey: string;
 };
 
 export type RetainedRegionCompatibility =

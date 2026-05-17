@@ -20,26 +20,11 @@ import {
   setParamEnteredValueFromFrontend,
   setSectionSizesFromFrontend,
 } from "../helpers";
-
-type RetainedDiagnosticsSnapshot = {
-  readonly hitTests: readonly {
-    readonly checkedHitRecordCount: number;
-    readonly durationMs: number;
-    readonly matched: boolean;
-    readonly retainedSurfaceCount: number;
-    readonly testedHitRecordCount: number;
-    readonly testedSurfaceCount: number;
-  }[];
-  readonly pointerEvents: readonly { readonly type: string }[];
-  readonly sceneBuilds: readonly {
-    readonly durationMs: number;
-    readonly hitRecordBuildDurationMs: number;
-    readonly hitRecordCount: number;
-    readonly rowCount: number;
-    readonly sceneId: string;
-    readonly visibleRowCount: number;
-  }[];
-};
+import {
+  installRetainedDiagnosticsProbe,
+  percentile,
+  readRetainedDiagnostics,
+} from "./html-canvas-library-adoption-helpers";
 
 type RetainedRowTarget = {
   readonly clientPoint: { readonly x: number; readonly y: number };
@@ -134,7 +119,7 @@ for (const theme of [
   });
 }
 
-test("retained DOM islands pass scoped axe and return ownership to the canvas", async ({
+test("retained DOM controls and islands pass scoped axe and return ownership to the canvas", async ({
   page,
 }) => {
   await installRetainedDiagnosticsProbe(page);
@@ -441,13 +426,15 @@ async function activateAndEditTextLikeIsland(
   paramInfoId: string,
   { selector, value }: { readonly selector: string; readonly value: string },
 ): Promise<void> {
-  await activateRetainedRowControl(page, paramInfoId);
-  const island = page.locator(
-    `[data-gpu-flow-dom-island-id="param-control:${sectionId}:${paramInfoId}"]`,
-  );
-  await expect(island).toBeVisible();
+  const target = await activateRetainedRowControl(page, paramInfoId);
+  const container = await resolveActiveRetainedControlContainer(page, {
+    paramInfoId,
+    sectionId,
+    target,
+  });
+  const island = page.locator(container.selector);
   await expectScopedAxeClean(page, {
-    include: `[data-gpu-flow-dom-island-id="param-control:${sectionId}:${paramInfoId}"]`,
+    include: container.selector,
   });
   const editor = island.locator(selector).first();
   await expect(editor).toBeVisible();
@@ -459,7 +446,49 @@ async function activateAndEditTextLikeIsland(
       .poll(() => readParamCodeObjValue(page, sectionId, paramInfoId))
       .toBe(value);
   }
-  await dismissActiveDomIsland(page);
+  if (container.kind === "dom-control") {
+    await dismissActiveDomControl(page, target);
+  } else {
+    await dismissActiveDomIsland(page);
+  }
+}
+
+async function resolveActiveRetainedControlContainer(
+  page: Page,
+  input: {
+    readonly paramInfoId: string;
+    readonly sectionId: string;
+    readonly target: RetainedRowTarget;
+  },
+): Promise<{
+  readonly kind: "dom-control" | "dom-island";
+  readonly selector: string;
+}> {
+  const domControlSelector = activeDomControlHostSelector(input.target);
+  const domIslandSelector = `[data-gpu-flow-dom-island-id="param-control:${input.sectionId}:${input.paramInfoId}"]`;
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (
+      await page
+        .locator(domControlSelector)
+        .isVisible()
+        .catch(() => false)
+    ) {
+      return { kind: "dom-control", selector: domControlSelector };
+    }
+    if (
+      await page
+        .locator(domIslandSelector)
+        .isVisible()
+        .catch(() => false)
+    ) {
+      return { kind: "dom-island", selector: domIslandSelector };
+    }
+    await page.waitForTimeout(50);
+  }
+  throw new Error(
+    `Missing active retained control container for ${input.paramInfoId}.`,
+  );
 }
 
 async function isFormValueEditor(locator: Locator): Promise<boolean> {
@@ -677,6 +706,22 @@ async function dismissActiveDomIsland(page: Page): Promise<void> {
   await expect(page.locator('[data-gpu-flow-dom-island="true"]')).toHaveCount(
     0,
   );
+  await expect(
+    page.locator(
+      '[data-gpu-flow-dom-control="true"][data-gpu-flow-dom-control-active="true"]',
+    ),
+  ).toHaveCount(0);
+}
+
+async function dismissActiveDomControl(
+  page: Page,
+  target: RetainedRowTarget,
+): Promise<void> {
+  const point = await getEmptyPanePoint(page);
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator(activeDomControlHostSelector(target))).toHaveCount(
+    0,
+  );
 }
 
 async function expectCanvasOwnsFocus(page: Page): Promise<void> {
@@ -684,11 +729,28 @@ async function expectCanvasOwnsFocus(page: Page): Promise<void> {
     .poll(() =>
       page.evaluate(() =>
         Boolean(
-          document.activeElement?.closest('[data-gpu-flow-dom-island="true"]'),
+          document.activeElement?.closest(
+            '[data-gpu-flow-dom-island="true"], [data-gpu-flow-dom-control="true"]',
+          ),
         ),
       ),
     )
     .toBe(false);
+}
+
+function activeDomControlHostSelector(target: RetainedRowTarget): string {
+  return [
+    '[data-gpu-flow-dom-control="true"]',
+    '[data-gpu-flow-dom-control-active="true"]',
+    `[data-gpu-flow-dom-control-surface-id="${cssAttributeEscape(
+      target.surfaceId,
+    )}"]`,
+    `[data-gpu-flow-dom-control-row-id="${cssAttributeEscape(target.rowId)}"]`,
+  ].join("");
+}
+
+function cssAttributeEscape(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
 }
 
 async function performCanvasPanAndZoom(page: Page): Promise<void> {
@@ -798,6 +860,7 @@ async function getEmptyPanePoint(
       "[data-gpu-flow-handle='true']",
       "[data-gpu-flow-portal-root='true']",
       "[data-gpu-flow-dom-island='true']",
+      "[data-gpu-flow-dom-control='true']",
       "[data-gpu-flow-retained-content-canvas='true']",
       "[data-gpu-flow-retained-content-native='true']",
       "[data-gpu-flow-retained-content-source='true']",
@@ -913,6 +976,7 @@ async function getPaneEdgeBackgroundPoints(
       "[data-gpu-flow-handle='true']",
       "[data-gpu-flow-portal-root='true']",
       "[data-gpu-flow-dom-island='true']",
+      "[data-gpu-flow-dom-control='true']",
       "[data-gpu-flow-retained-content-canvas='true']",
       "[data-gpu-flow-retained-content-native='true']",
       "[data-gpu-flow-retained-content-source='true']",
@@ -1022,7 +1086,10 @@ async function scrollRetainedParameterSurface(
   rowLabel: string,
 ): Promise<void> {
   const target = await bringRetainedRowControlIntoViewport(page, rowLabel);
-  await page.mouse.move(target.clientPoint.x, target.clientPoint.y);
+  await page.mouse.move(
+    target.rowRect.x + Math.min(24, Math.max(4, target.rowRect.width * 0.1)),
+    target.rowRect.y + target.rowRect.height / 2,
+  );
   const before = await readRetainedRowClientY(page, target.rowId);
   await page.mouse.wheel(0, 240);
   await expect
@@ -1070,113 +1137,4 @@ async function readRetainedRowClientY(
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
     return rows.find((row) => row.rowId === rowId)?.clientRect.y ?? null;
   }, rowId);
-}
-
-async function installRetainedDiagnosticsProbe(page: Page): Promise<void> {
-  const install = () => {
-    const state = {
-      hitTests: [] as unknown[],
-      pointerEvents: [] as unknown[],
-      sceneBuilds: [] as unknown[],
-    };
-    const pushBounded = (target: unknown[], value: unknown) => {
-      target.push(value);
-      if (target.length > 400) {
-        target.shift();
-      }
-    };
-    window.__SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS__ = {
-      recordHitTest(sample) {
-        pushBounded(state.hitTests, {
-          checkedHitRecordCount: sample.checkedHitRecordCount,
-          durationMs: sample.durationMs,
-          matched: sample.matched,
-          retainedSurfaceCount: sample.retainedSurfaceCount,
-          testedHitRecordCount: sample.testedHitRecordCount,
-          testedSurfaceCount: sample.testedSurfaceCount,
-        });
-      },
-      recordSceneBuild(sample) {
-        pushBounded(state.sceneBuilds, {
-          durationMs: sample.durationMs,
-          hitRecordBuildDurationMs: sample.hitRecordBuildDurationMs,
-          hitRecordCount: sample.hitRecordCount,
-          rowCount: sample.rowCount,
-          sceneId: sample.sceneId,
-          visibleRowCount: sample.visibleRowCount,
-        });
-      },
-    };
-    for (const type of ["pointerdown", "pointermove", "pointerup", "wheel"]) {
-      window.addEventListener(
-        type,
-        () => pushBounded(state.pointerEvents, { type }),
-        { capture: true, passive: true },
-      );
-    }
-    window.__SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS_PROBE__ = {
-      snapshot: () => ({
-        hitTests: [...state.hitTests],
-        pointerEvents: [...state.pointerEvents],
-        sceneBuilds: [...state.sceneBuilds],
-      }),
-    };
-  };
-  await page.addInitScript(install);
-  await page.evaluate(install);
-}
-
-async function readRetainedDiagnostics(
-  page: Page,
-): Promise<RetainedDiagnosticsSnapshot> {
-  return await page.evaluate(() => {
-    const probe = window.__SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS_PROBE__;
-    if (!probe) {
-      throw new Error("Missing retained content diagnostics probe.");
-    }
-    return probe.snapshot();
-  });
-}
-
-function percentile(
-  values: readonly number[],
-  percentileValue: number,
-): number {
-  if (values.length === 0) {
-    return 0;
-  }
-  const sorted = [...values].sort((left, right) => left - right);
-  const index = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.ceil((percentileValue / 100) * sorted.length) - 1),
-  );
-  return sorted[index] ?? 0;
-}
-
-declare global {
-  interface Window {
-    __SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS__?:
-      | {
-          recordHitTest?: (sample: {
-            checkedHitRecordCount: number;
-            durationMs: number;
-            matched: boolean;
-            retainedSurfaceCount: number;
-            testedHitRecordCount: number;
-            testedSurfaceCount: number;
-          }) => void;
-          recordSceneBuild?: (sample: {
-            durationMs: number;
-            hitRecordBuildDurationMs: number;
-            hitRecordCount: number;
-            rowCount: number;
-            sceneId: string;
-            visibleRowCount: number;
-          }) => void;
-        }
-      | undefined;
-    __SETTA_GPU_RETAINED_CONTENT_DIAGNOSTICS_PROBE__?:
-      | { snapshot(): RetainedDiagnosticsSnapshot }
-      | undefined;
-  }
 }

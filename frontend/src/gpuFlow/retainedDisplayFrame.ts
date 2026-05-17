@@ -6,11 +6,6 @@ import type {
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
-  resolveGpuRetainedDomControlPublicationState,
-  type GpuRetainedDomControlPublicationState,
-  type GpuRetainedDomControlSourceDescriptor,
-} from "./retainedDomControlScene";
-import {
   createPublishedNativeIslandRects,
   resolveNativeIslandPublicationTransaction,
   type NativeIslandPublicationTransaction,
@@ -95,7 +90,7 @@ type PublishedFrameDiagnostics = {
   readonly continuityProof: RetainedMotionContinuityProof;
   readonly coverageReadiness: CoverageReadiness;
   readonly desiredScrollRevision: number;
-  readonly domControlPublicationStates: readonly GpuRetainedDomControlPublicationState[];
+  readonly domControlPlaneCompleteness: readonly RetainedDomControlPlaneCompletenessState[];
   readonly exactPageCount: number;
   readonly fidelityReadiness: RetainedFidelityState;
   readonly holdDiagnostics: SurfaceTransactionHoldDiagnostics | null;
@@ -110,6 +105,16 @@ type PublishedFrameDiagnostics = {
     | "publish-compatible"
     | "publish-exact";
   readonly trueHoleRectCount: number;
+};
+
+type RetainedDomControlPlaneCompletenessState = {
+  readonly active: boolean;
+  readonly blockingReasons: readonly string[];
+  readonly controlId: string;
+  readonly projected: boolean;
+  readonly rowId: string;
+  readonly sourceKey: string;
+  readonly visibleNonempty: boolean;
 };
 
 export type RetainedDisplayFrame = {
@@ -384,9 +389,8 @@ function createComposedRetainedDisplayFrame({
     previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),
     publishedIslandIds: activeIslandRects.map((island) => island.id),
   });
-  const domControlPublicationStates = createDomControlPublicationStates({
+  const domControlPlaneCompleteness = createDomControlPlaneCompleteness({
     prepared,
-    previousCoherentFrameAvailable: diagnosticsPrevious !== null,
   });
   return Object.freeze({
     activeIslandRects,
@@ -401,7 +405,7 @@ function createComposedRetainedDisplayFrame({
       }),
       coverageReadiness,
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
-      domControlPublicationStates,
+      domControlPlaneCompleteness,
       exactPageCount,
       fidelityReadiness: proof.fidelityState,
       holdDiagnostics,
@@ -443,9 +447,8 @@ function createHeldRetainedDisplayFrame({
       ...previous.diagnostics,
       coverageReadiness: "held-previous",
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
-      domControlPublicationStates: createDomControlPublicationStates({
+      domControlPlaneCompleteness: createDomControlPlaneCompleteness({
         prepared,
-        previousCoherentFrameAvailable: true,
       }),
       holdDiagnostics: diagnostics,
       rejectedFrameCount: previous.diagnostics.rejectedFrameCount + 1,
@@ -507,172 +510,27 @@ function getPublishedNativeIslandIds(
   return frame?.activeIslandRects.map((island) => island.id) ?? [];
 }
 
-function createDomControlPublicationStates({
+function createDomControlPlaneCompleteness({
   prepared,
-  previousCoherentFrameAvailable,
 }: {
   readonly prepared: RetainedDisplayFrameInput;
-  readonly previousCoherentFrameAvailable: boolean;
-}): readonly GpuRetainedDomControlPublicationState[] {
+}): readonly RetainedDomControlPlaneCompletenessState[] {
   return Object.freeze(
-    prepared.retainedRuntimeFrame.descriptors.domControlSources.map((source) =>
-      resolveGpuRetainedDomControlPublicationState({
-        activeOcclusionReady: source.active
-          ? isDomControlRectCoveredByDrawRegions({
-              drawRegions: prepared.pageFrame.drawRegions,
-              rect: source.textureRectCssPx,
-            })
-          : false,
-        activeProjectionReady:
-          source.active && isActiveDomControlProjectionReady(source),
-        gestureOwnershipReady:
-          !source.active || isActiveDomControlProjectionReady(source),
-        passiveTextureReady:
-          !source.active &&
-          isPassiveDomControlTextureReady({
-            drawRegions: prepared.pageFrame.drawRegions,
-            source,
-          }),
-        previousCoherentFrameAvailable,
-        source,
-        sourcePaintReady: isDomControlSourcePaintReady(source),
-        textureUploadReady:
-          source.active ||
-          isPassiveDomControlTextureReady({
-            drawRegions: prepared.pageFrame.drawRegions,
-            source,
-          }),
+    prepared.retainedRuntimeFrame.descriptors.domControlSources.map(
+      (source) => ({
+        active: source.active,
+        blockingReasons:
+          source.value.length > 0 && source.clipRectSurfaceCssPx.width <= 0
+            ? Object.freeze(["control-clipped"])
+            : Object.freeze([]),
+        controlId: source.controlId,
+        projected: source.clipRectSurfaceCssPx.width > 0,
+        rowId: source.rowId,
+        sourceKey: source.sourceKey,
+        visibleNonempty: source.value.length > 0,
       }),
     ),
   );
-}
-
-function isDomControlSourcePaintReady(
-  source: Pick<GpuRetainedDomControlSourceDescriptor, "lifecycleState">,
-): boolean {
-  return (
-    source.lifecycleState !== "unmounted" &&
-    source.lifecycleState !== "mounted-paint-pending"
-  );
-}
-
-function isActiveDomControlProjectionReady(
-  source: Pick<
-    GpuRetainedDomControlSourceDescriptor,
-    "active" | "lifecycleState"
-  >,
-): boolean {
-  return (
-    source.active &&
-    (source.lifecycleState === "active-projected" ||
-      source.lifecycleState === "active-editing")
-  );
-}
-
-function isPassiveDomControlTextureReady({
-  drawRegions,
-  source,
-}: {
-  readonly drawRegions: readonly PublishedRetainedDrawRegion[];
-  readonly source: GpuRetainedDomControlSourceDescriptor;
-}): boolean {
-  return isDomControlRectCoveredByDrawRegions({
-    drawRegions: drawRegions.filter((region) =>
-      regionHasPassiveDomControlTexture({ region, source }),
-    ),
-    rect: source.textureRectCssPx,
-  });
-}
-
-function regionHasPassiveDomControlTexture({
-  region,
-  source,
-}: {
-  readonly region: PublishedRetainedDrawRegion;
-  readonly source: GpuRetainedDomControlSourceDescriptor;
-}): boolean {
-  if (region.coverageKind !== "exact") {
-    return false;
-  }
-  return Boolean(
-    region.page.descriptor.domControlTextures?.some(
-      (texture) =>
-        texture.sourceId === source.sourceId &&
-        texture.sourceKey === source.sourceKey &&
-        rectsIntersect(texture.rectCss, region.sampleRectCss),
-    ),
-  );
-}
-
-function isDomControlRectCoveredByDrawRegions({
-  drawRegions,
-  rect,
-}: {
-  readonly drawRegions: readonly Pick<
-    PublishedRetainedDrawRegion,
-    "sampleRectCss"
-  >[];
-  readonly rect: GpuRect;
-}): boolean {
-  let uncoveredRects: readonly GpuRect[] = [rect];
-  for (const region of drawRegions) {
-    const nextUncoveredRects: GpuRect[] = [];
-    for (const uncoveredRect of uncoveredRects) {
-      nextUncoveredRects.push(
-        ...subtractRect(uncoveredRect, region.sampleRectCss),
-      );
-    }
-    uncoveredRects = nextUncoveredRects;
-    if (uncoveredRects.length === 0) {
-      return true;
-    }
-  }
-  return uncoveredRects.every((uncoveredRect) => rectArea(uncoveredRect) < 0.5);
-}
-
-function subtractRect(rect: GpuRect, cut: GpuRect): readonly GpuRect[] {
-  const intersection = intersectRects(rect, cut);
-  if (!intersection) {
-    return [rect];
-  }
-  const rectRight = rect.x + rect.width;
-  const rectBottom = rect.y + rect.height;
-  const intersectionRight = intersection.x + intersection.width;
-  const intersectionBottom = intersection.y + intersection.height;
-  return [
-    {
-      height: intersection.y - rect.y,
-      width: rect.width,
-      x: rect.x,
-      y: rect.y,
-    },
-    {
-      height: rectBottom - intersectionBottom,
-      width: rect.width,
-      x: rect.x,
-      y: intersectionBottom,
-    },
-    {
-      height: intersection.height,
-      width: intersection.x - rect.x,
-      x: rect.x,
-      y: intersection.y,
-    },
-    {
-      height: intersection.height,
-      width: rectRight - intersectionRight,
-      x: intersectionRight,
-      y: intersection.y,
-    },
-  ].filter((candidate) => rectArea(candidate) > 0.5);
-}
-
-function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
-  return intersectRects(left, right) !== null;
-}
-
-function rectArea(rect: GpuRect): number {
-  return Math.max(0, rect.width) * Math.max(0, rect.height);
 }
 
 function createVisibleCoverageProof({

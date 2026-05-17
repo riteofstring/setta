@@ -22,6 +22,10 @@ import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import type {
+  GpuFlowDomControlActivationHandler,
+  GpuFlowDomControlRenderer,
+} from "./domControlPlane";
 import type { GpuFlowDomIslandRenderer } from "./domIslandLayer";
 import type { GpuFlowNodeResizeOptions } from "./flowNodeResizeController";
 import type {
@@ -31,7 +35,6 @@ import type {
   GpuFlowRetainedContentScrollOptions,
   GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
-import type { GpuRetainedDomControlRenderer } from "./retainedDomControlSources";
 import type { GpuFlowSelectionDragOptions } from "./selectionDragLayer";
 
 export type GpuFlowProps = Pick<
@@ -75,6 +78,7 @@ export type GpuFlowProps = Pick<
   onRetainedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
     | undefined;
+  onDomControlActivation?: GpuFlowDomControlActivationHandler | undefined;
   panZoom?:
     | false
     | Omit<
@@ -106,7 +110,7 @@ export type GpuFlowProps = Pick<
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
-  renderRetainedDomControl?: GpuRetainedDomControlRenderer | undefined;
+  renderRetainedDomControl?: GpuFlowDomControlRenderer | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
   viewport?: GpuViewportInput | undefined;
   viewportStore?: GpuFlowViewportStoreApi | undefined;

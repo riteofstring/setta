@@ -1,34 +1,8 @@
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type MutableRefObject,
-  type ReactNode,
-} from "react";
-
-import {
-  isChromeReproActive,
-  isChromeReproVerboseGpuFlowActive,
-  nowChromeReproPerformanceMs,
-  postMeasuredChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
-
-import {
   getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
+  type GpuRetainedContentSurface,
 } from "../GpuRetainedContentSurfaces";
-import type { GpuSurfaceHandle } from "../GpuSurface";
-import {
-  HTML_SURFACE_PASSIVE_TRANSFORM,
-  HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
-} from "../htmlSurfaces/interactionProjector";
-import {
-  HTML_SURFACE_SOURCE_CLASS_NAME,
-  HtmlSurfaceSourceLayer,
-  type HtmlSurfaceSourceElementConfig,
-} from "../htmlSurfaces/sourceLayer";
 import { createGpuRetainedContentRowControlRect } from "../retainedContentRowLayout";
 import { createGpuRetainedRowContentSceneWithScrollWindow } from "../retainedContentScene";
 import {
@@ -40,7 +14,6 @@ import {
   GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
   type GpuRetainedDomControlSourceDescriptor,
 } from "../retainedDomControlScene";
-import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import {
   flowToScreenPosition,
@@ -49,119 +22,12 @@ import {
   type GpuViewportInput,
 } from "../viewportMath";
 
-export type GpuRetainedDomControlRenderer = (
-  source: GpuRetainedDomControlSourceDescriptor,
-) => ReactNode;
-
-const GPU_RETAINED_DOM_CONTROL_SOURCE_CLASS_NAME =
-  "setta-gpu-flow__retained-dom-control-source";
-
-const EMPTY_RETAINED_DOM_CONTROL_SOURCES: readonly GpuRetainedDomControlSourceDescriptor[] =
-  [];
-
 type GpuRetainedTextLikeDomControlRow = GpuRetainedContentRow & {
   readonly control: Extract<
     NonNullable<GpuRetainedContentRow["control"]>,
     { readonly kind: "text-like" }
   >;
 };
-
-export function useGpuFlowRetainedDomControlSources({
-  elementBySourceIdRef,
-  renderSource,
-  retainedRuntimeFrame,
-  surfaceRef,
-}: {
-  readonly elementBySourceIdRef: MutableRefObject<Map<string, HTMLElement>>;
-  readonly renderSource: GpuRetainedDomControlRenderer | undefined;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
-  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-}): {
-  readonly retainedDomControlSourceElement: ReactNode;
-} {
-  const sources = useMemo(
-    () =>
-      renderSource
-        ? retainedRuntimeFrame?.descriptors.domControlSources ??
-          EMPTY_RETAINED_DOM_CONTROL_SOURCES
-        : EMPTY_RETAINED_DOM_CONTROL_SOURCES,
-    [renderSource, retainedRuntimeFrame],
-  );
-  const paintSourceSignatureRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!renderSource || sources.length === 0) {
-      paintSourceSignatureRef.current = null;
-      return;
-    }
-    const signature = createGpuRetainedDomControlPaintSignature(sources);
-    if (signature === paintSourceSignatureRef.current) {
-      return;
-    }
-    paintSourceSignatureRef.current = signature;
-    surfaceRef.current?.requestPaint();
-    surfaceRef.current?.requestFrame("manual");
-  }, [renderSource, sources, surfaceRef]);
-  const chromeReproSourceSignatureRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!isChromeReproActive()) {
-      return;
-    }
-    const buildStartedAtMs = nowChromeReproPerformanceMs();
-    const verbose = isChromeReproVerboseGpuFlowActive();
-    const state = sources.map((source) =>
-      summarizeGpuRetainedDomControlSource(source, { verbose }),
-    );
-    const signature = JSON.stringify(state);
-    if (signature === chromeReproSourceSignatureRef.current) {
-      return;
-    }
-    chromeReproSourceSignatureRef.current = signature;
-    postMeasuredChromeReproEvent(
-      "gpu-flow-retained-dom-control-sources",
-      {
-        sourceCount: sources.length,
-        sources: state,
-      },
-      {
-        buildDurationMs: nowChromeReproPerformanceMs() - buildStartedAtMs,
-      },
-    );
-  }, [sources]);
-  const handleSourceElementChange = useCallback(
-    (sourceId: string, element: HTMLElement | null) => {
-      if (!element) {
-        elementBySourceIdRef.current.delete(sourceId);
-        return;
-      }
-      elementBySourceIdRef.current.set(sourceId, element);
-      surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame("manual");
-    },
-    [elementBySourceIdRef, surfaceRef],
-  );
-  const handleSourceReady = useCallback(
-    (sourceId: string) => {
-      if (!elementBySourceIdRef.current.has(sourceId)) {
-        return;
-      }
-      surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame("manual");
-    },
-    [elementBySourceIdRef, surfaceRef],
-  );
-
-  return {
-    retainedDomControlSourceElement:
-      renderSource && sources.length > 0 ? (
-        <GpuRetainedDomControlSourceLayer
-          onSourceElementChange={handleSourceElementChange}
-          onSourceReady={handleSourceReady}
-          renderSource={renderSource}
-          sources={sources}
-        />
-      ) : null,
-  };
-}
 
 export function getGpuRetainedDomControlSources(
   scene: GpuFlowScene | undefined,
@@ -185,6 +51,7 @@ export function getGpuRetainedDomControlSourcesFromSourceSurfaces(
   surfaces: readonly GpuRetainedContentSourceSurface[],
   options: {
     readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
   } = {},
 ): readonly GpuRetainedDomControlSourceDescriptor[] {
   return surfaces.flatMap((surface) =>
@@ -192,10 +59,88 @@ export function getGpuRetainedDomControlSourcesFromSourceSurfaces(
   );
 }
 
+export function getGpuRetainedDomControlSourcesFromHitTestSurfaces(
+  surfaces: readonly GpuRetainedContentSurface[],
+  options: {
+    readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
+  } = {},
+): readonly GpuRetainedDomControlSourceDescriptor[] {
+  return surfaces.flatMap((surface) =>
+    getGpuRetainedDomControlSourcesForHitTestSurface(surface, options),
+  );
+}
+
+function getGpuRetainedDomControlSourcesForHitTestSurface(
+  surface: GpuRetainedContentSurface,
+  options: {
+    readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
+  },
+): readonly GpuRetainedDomControlSourceDescriptor[] {
+  const sourceInput = getGpuRetainedContentSceneSourceInput(
+    surface.retainedScene,
+  );
+  if (!sourceInput) {
+    return [];
+  }
+  const sectionClipRectFlowPx = intersectGpuRetainedDomControlRects(
+    surface.rect,
+    surface.clipRect,
+  );
+  if (sectionClipRectFlowPx.width <= 0 || sectionClipRectFlowPx.height <= 0) {
+    return [];
+  }
+  const sectionClipRectSurfaceCssPx = {
+    height: sectionClipRectFlowPx.height,
+    width: sectionClipRectFlowPx.width,
+    x: sectionClipRectFlowPx.x - surface.rect.x,
+    y: sectionClipRectFlowPx.y - surface.rect.y,
+  };
+  const sources: GpuRetainedDomControlSourceDescriptor[] = [];
+  for (const row of surface.retainedScene.rows) {
+    if (!isGpuRetainedTextLikeDomControlRow(row)) {
+      continue;
+    }
+    const controlRectSurfaceCssPx = createGpuRetainedContentRowControlRect({
+      controlWidth: sourceInput.controlWidth,
+      indentWidth: sourceInput.indentWidth,
+      rightInset: sourceInput.controlRightInset,
+      rowDepth: row.depth,
+      rowRect: row.projectedRect,
+    });
+    const clipRectSurfaceCssPx = intersectGpuRetainedDomControlRects(
+      controlRectSurfaceCssPx,
+      sectionClipRectSurfaceCssPx,
+    );
+    if (clipRectSurfaceCssPx.width <= 0 || clipRectSurfaceCssPx.height <= 0) {
+      continue;
+    }
+    const source = createGpuRetainedDomControlSourceBase({
+      active: Boolean(row.state.nativeControlActive),
+      clipRectSurfaceCssPx,
+      controlRectSurfaceCssPx,
+      liveControlRectSurfaceCssPx: controlRectSurfaceCssPx,
+      liveRow: row,
+      options,
+      row,
+      sectionClipRectFlowPx,
+      sectionScrollOffset: surface.retainedScene.scrollOffset,
+      surface,
+    });
+    sources.push({
+      ...source,
+      sourceKey: createGpuRetainedDomControlSourceKey(source),
+    });
+  }
+  return sources;
+}
+
 function getGpuRetainedDomControlSourcesForSurface(
   surface: GpuRetainedContentSourceSurface,
   options: {
     readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
   },
 ): readonly GpuRetainedDomControlSourceDescriptor[] {
   const rasterScene = createGpuRetainedRowContentSceneWithScrollWindow({
@@ -250,6 +195,7 @@ function createGpuRetainedDomControlSourceForRow({
   readonly liveSourceInput: GpuRetainedContentSceneSourceInput;
   readonly options: {
     readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
   };
   readonly row: GpuRetainedContentRow;
   readonly sourceInput: GpuRetainedContentSceneSourceInput;
@@ -288,6 +234,11 @@ function createGpuRetainedDomControlSourceForRow({
     liveRow,
     options,
     row,
+    sectionClipRectFlowPx: intersectGpuRetainedDomControlRects(
+      surface.rect,
+      surface.clipRect,
+    ),
+    sectionScrollOffset: surface.textureWindow.cacheScrollOffset,
     surface,
   });
   return {
@@ -333,6 +284,8 @@ function createGpuRetainedDomControlSourceBase({
   liveRow,
   options,
   row,
+  sectionClipRectFlowPx,
+  sectionScrollOffset,
   surface,
 }: {
   readonly active: boolean;
@@ -342,21 +295,23 @@ function createGpuRetainedDomControlSourceBase({
   readonly liveRow: GpuRetainedContentRow;
   readonly options: {
     readonly viewport?: GpuViewportInput | undefined;
+    readonly scrollRevision?: number | undefined;
   };
   readonly row: GpuRetainedTextLikeDomControlRow;
-  readonly surface: GpuRetainedContentSourceSurface;
+  readonly sectionClipRectFlowPx: GpuRect;
+  readonly sectionScrollOffset: { readonly x: number; readonly y: number };
+  readonly surface: GpuRetainedContentSurface;
 }): Omit<GpuRetainedDomControlSourceDescriptor, "sourceKey"> {
+  const sourceId = getGpuRetainedDomControlSourceId({
+    rowId: row.id,
+    surfaceId: surface.id,
+  });
   const sourceRectCssPx = {
     height: controlRectSurfaceCssPx.height,
     width: controlRectSurfaceCssPx.width,
     x: 0,
     y: 0,
   };
-  const textureRectCssPx = toRetainedContentRectCss({
-    rect: controlRectSurfaceCssPx,
-    viewportRect: surface.textureWindow.cacheViewportRect,
-    windowOrigin: surface.textureWindow.cacheScrollOffset,
-  });
   const worldRectFlowPx = {
     height: liveControlRectSurfaceCssPx.height,
     width: liveControlRectSurfaceCssPx.width,
@@ -367,196 +322,63 @@ function createGpuRetainedDomControlSourceBase({
     rect: worldRectFlowPx,
     viewport: options.viewport,
   });
+  const valueStyleKey = createGpuRetainedDomControlValueStyleKey({
+    control: row.control,
+    controlRectSurfaceCssPx,
+    disabled: row.state.disabled,
+    error: row.state.error,
+  });
   return {
     active,
     ...(active && liveRow.state.domControlActivation
       ? { activation: liveRow.state.domControlActivation }
       : {}),
     clipRectSurfaceCssPx,
+    clipChainRevision: JSON.stringify({
+      clipRectSurfaceCssPx,
+      sectionClipRectFlowPx,
+      surfaceId: surface.id,
+    }),
+    controlId: sourceId,
     controlRectSurfaceCssPx,
     defaultValue: row.control.defaultDisplayValue,
     disabled: row.state.disabled,
     editorKind: row.control.editorKind,
     error: row.state.error,
+    geometryRevision: JSON.stringify({
+      controlRectSurfaceCssPx,
+      sectionClipRectFlowPx,
+      worldRectFlowPx,
+    }),
     interactionPolicy: GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
     language: row.control.policy.language,
-    layerSlot: active ? "active-projected-source" : "passive-dom-control",
-    lifecycleState: active ? "active-projected" : "passive-texture-pending",
+    layerSlot: active ? "active-dom-control-plane" : "dom-control-plane",
+    lifecycleState: active ? "active-projected" : "passive-projected",
     linePolicy: row.control.policy.linePolicy,
     maxVisibleLines: row.control.policy.maxVisibleLines,
     minVisibleLines: row.control.policy.minVisibleLines,
     rendererFamily: row.control.rendererFamily,
     role: "text-like",
     rowId: row.id,
+    sectionClipRectFlowPx,
     sectionId: surface.ownerSectionId,
-    sourceId: getGpuRetainedDomControlSourceId({
-      rowId: row.id,
-      surfaceId: surface.id,
-    }),
+    sectionScrollOffset,
+    sectionScrollRevision: options.scrollRevision ?? 0,
+    sourceId,
     sourceRectCssPx,
     surfaceId: surface.id,
-    textureRectCssPx,
-    textureRectDevicePx: toDeviceRectApproximation(textureRectCssPx),
     value: row.control.displayValue,
-    valueStyleKey: createGpuRetainedDomControlValueStyleKey({
-      control: row.control,
-      controlRectSurfaceCssPx,
-      disabled: row.state.disabled,
-      error: row.state.error,
-    }),
+    valueStyleKey,
+    valueStyleRevision: valueStyleKey,
     viewportRectCssPx,
+    viewportSampleRevision: JSON.stringify({
+      viewport: options.viewport ?? [0, 0, 1],
+      viewportRectCssPx,
+    }),
     worldRectFlowPx,
     wrapLines: row.control.policy.wrapLines,
     zOrder: surface.zIndex + 1,
   };
-}
-
-function GpuRetainedDomControlSourceLayer({
-  onSourceElementChange,
-  onSourceReady,
-  renderSource,
-  sources,
-}: {
-  readonly onSourceElementChange:
-    | ((sourceId: string, element: HTMLElement | null) => void)
-    | undefined;
-  readonly onSourceReady: ((sourceId: string) => void) | undefined;
-  readonly renderSource: GpuRetainedDomControlRenderer;
-  readonly sources: readonly GpuRetainedDomControlSourceDescriptor[];
-}) {
-  const configureSourceElement = useCallback(
-    (
-      config: HtmlSurfaceSourceElementConfig<GpuRetainedDomControlSourceDescriptor>,
-    ) =>
-      configureGpuRetainedDomControlSourceElement({
-        ...config,
-        onSourceReady,
-      }),
-    [onSourceReady],
-  );
-  return (
-    <HtmlSurfaceSourceLayer
-      configureSourceElement={configureSourceElement}
-      getSourceId={getGpuRetainedDomControlSourceIdFromSource}
-      onSourceElementChange={onSourceElementChange}
-      renderSource={renderSource}
-      sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${GPU_RETAINED_DOM_CONTROL_SOURCE_CLASS_NAME}`}
-      sources={sources}
-    />
-  );
-}
-
-function configureGpuRetainedDomControlSourceElement({
-  anchor,
-  host,
-  onSourceReady,
-  source,
-  sourceId,
-}: HtmlSurfaceSourceElementConfig<GpuRetainedDomControlSourceDescriptor> & {
-  readonly onSourceReady: ((sourceId: string) => void) | undefined;
-}) {
-  host.dataset.gpuFlowRetainedDomControlSource = "true";
-  host.dataset.gpuFlowRetainedDomControlSourceKey = source.sourceKey;
-  host.dataset.gpuFlowRetainedDomControlLifecycle = source.lifecycleState;
-  host.dataset.gpuFlowRetainedDomControlLayer = source.layerSlot;
-  host.dataset.gpuFlowRetainedSurfaceId = source.surfaceId;
-  host.dataset.gpuFlowRetainedRowId = source.rowId;
-  host.style.height = `${source.sourceRectCssPx.height}px`;
-  host.style.overflow = "hidden";
-  host.style.width = `${source.sourceRectCssPx.width}px`;
-  if (source.active) {
-    moveGpuRetainedDomControlSourceToActiveOverlay({ anchor, host });
-    configureActiveGpuRetainedDomControlSourceElement(host, source);
-  } else {
-    moveGpuRetainedDomControlSourceToPassiveLayoutSubtree({ anchor, host });
-    configurePassiveGpuRetainedDomControlSourceElement(host);
-  }
-  deferGpuRetainedDomControlReadyKey({
-    host,
-    onSourceReady,
-    sourceId,
-    sourceKey: source.sourceKey,
-  });
-}
-
-function configureActiveGpuRetainedDomControlSourceElement(
-  host: HTMLElement,
-  source: GpuRetainedDomControlSourceDescriptor,
-) {
-  const scale = resolveGpuRetainedDomControlViewportScale(source);
-  setInert(host, false);
-  host.removeAttribute("aria-hidden");
-  host.setAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE, "true");
-  host.style.contain = "layout paint style";
-  host.style.display = "";
-  host.style.left = `${source.viewportRectCssPx.x}px`;
-  host.style.pointerEvents = "auto";
-  host.style.top = `${source.viewportRectCssPx.y}px`;
-  host.style.transform = `scale(${scale})`;
-  host.style.transformOrigin = "top left";
-  host.style.zIndex = String(source.zOrder);
-}
-
-function configurePassiveGpuRetainedDomControlSourceElement(host: HTMLElement) {
-  setInert(host, true);
-  host.setAttribute("aria-hidden", "true");
-  host.removeAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE);
-  host.style.display = "";
-  host.style.left = "0px";
-  host.style.pointerEvents = "none";
-  host.style.top = "0px";
-  host.style.transform = HTML_SURFACE_PASSIVE_TRANSFORM;
-  host.style.transformOrigin = "0 0";
-  host.style.zIndex = "";
-}
-
-function moveGpuRetainedDomControlSourceToActiveOverlay({
-  anchor,
-  host,
-}: {
-  readonly anchor: HTMLElement;
-  readonly host: HTMLElement;
-}) {
-  const activeParent =
-    anchor.closest<HTMLElement>(".setta-gpu-flow") ?? anchor.ownerDocument.body;
-  if (host.parentNode !== activeParent) {
-    activeParent.appendChild(host);
-  }
-}
-
-function moveGpuRetainedDomControlSourceToPassiveLayoutSubtree({
-  anchor,
-  host,
-}: {
-  readonly anchor: HTMLElement;
-  readonly host: HTMLElement;
-}) {
-  const parent = anchor.parentNode;
-  if (!parent) {
-    return;
-  }
-  if (host.parentNode !== parent || host.previousSibling !== anchor) {
-    parent.insertBefore(host, anchor.nextSibling);
-  }
-}
-
-function setInert(host: HTMLElement, inert: boolean) {
-  (host as HTMLElement & { inert?: boolean }).inert = inert;
-}
-
-function resolveGpuRetainedDomControlViewportScale(
-  source: GpuRetainedDomControlSourceDescriptor,
-): number {
-  if (source.sourceRectCssPx.width <= 0) {
-    return 1;
-  }
-  return source.viewportRectCssPx.width / source.sourceRectCssPx.width;
-}
-
-function getGpuRetainedDomControlSourceIdFromSource(
-  source: GpuRetainedDomControlSourceDescriptor,
-): string {
-  return source.sourceId;
 }
 
 function getGpuRetainedDomControlSourceId({
@@ -567,57 +389,6 @@ function getGpuRetainedDomControlSourceId({
   readonly surfaceId: string;
 }): string {
   return `retained-dom-control:${surfaceId}:${rowId}`;
-}
-
-function deferGpuRetainedDomControlReadyKey({
-  host,
-  onSourceReady,
-  sourceId,
-  sourceKey,
-}: {
-  readonly host: HTMLElement;
-  readonly onSourceReady: ((sourceId: string) => void) | undefined;
-  readonly sourceId: string;
-  readonly sourceKey: string;
-}) {
-  if (
-    host.dataset.gpuFlowRetainedDomControlReadyKey === sourceKey ||
-    host.dataset.gpuFlowRetainedDomControlPendingReadyKey === sourceKey
-  ) {
-    return;
-  }
-  host.dataset.gpuFlowRetainedDomControlReadyKey = "";
-  host.dataset.gpuFlowRetainedDomControlPendingReadyKey = sourceKey;
-  const view = host.ownerDocument.defaultView;
-  if (!view?.requestAnimationFrame) {
-    host.dataset.gpuFlowRetainedDomControlReadyKey = sourceKey;
-    delete host.dataset.gpuFlowRetainedDomControlPendingReadyKey;
-    onSourceReady?.(sourceId);
-    return;
-  }
-  view.requestAnimationFrame(() => {
-    view.requestAnimationFrame(() => {
-      if (host.dataset.gpuFlowRetainedDomControlSourceKey !== sourceKey) {
-        return;
-      }
-      host.dataset.gpuFlowRetainedDomControlReadyKey = sourceKey;
-      delete host.dataset.gpuFlowRetainedDomControlPendingReadyKey;
-      onSourceReady?.(sourceId);
-    });
-  });
-}
-
-function createGpuRetainedDomControlPaintSignature(
-  sources: readonly GpuRetainedDomControlSourceDescriptor[],
-): string {
-  return JSON.stringify(
-    sources.map((source) => ({
-      active: source.active,
-      sourceId: source.sourceId,
-      sourceKey: source.sourceKey,
-      viewportRectCssPx: source.active ? source.viewportRectCssPx : null,
-    })),
-  );
 }
 
 function createGpuRetainedDomControlSourceKey(
@@ -668,59 +439,6 @@ function createGpuRetainedDomControlValueStyleKey({
   });
 }
 
-function summarizeGpuRetainedDomControlSource(
-  source: GpuRetainedDomControlSourceDescriptor,
-  { verbose }: { readonly verbose: boolean },
-) {
-  return {
-    active: source.active,
-    ...(verbose ? { value: source.value } : {}),
-    defaultValueLength: source.defaultValue.length,
-    disabled: source.disabled,
-    editorKind: source.editorKind,
-    error: source.error,
-    layerSlot: source.layerSlot,
-    lifecycleState: source.lifecycleState,
-    linePolicy: source.linePolicy,
-    role: source.role,
-    rowId: source.rowId,
-    sectionId: source.sectionId,
-    sourceId: source.sourceId,
-    sourceKeyLength: source.sourceKey.length,
-    sourceRectCssPx: roundGpuRetainedDomControlRect(source.sourceRectCssPx),
-    surfaceId: source.surfaceId,
-    valueLength: source.value.length,
-    viewportRectCssPx: roundGpuRetainedDomControlRect(source.viewportRectCssPx),
-    wrapLines: source.wrapLines,
-  };
-}
-
-function roundGpuRetainedDomControlRect(rect: GpuRect): GpuRect {
-  return {
-    height: roundChromeReproMs(rect.height),
-    width: roundChromeReproMs(rect.width),
-    x: roundChromeReproMs(rect.x),
-    y: roundChromeReproMs(rect.y),
-  };
-}
-
-function toRetainedContentRectCss({
-  rect,
-  viewportRect,
-  windowOrigin,
-}: {
-  readonly rect: GpuRect;
-  readonly viewportRect: GpuRect;
-  readonly windowOrigin: { readonly x: number; readonly y: number };
-}): GpuRect {
-  return {
-    height: rect.height,
-    width: rect.width,
-    x: rect.x - viewportRect.x + windowOrigin.x,
-    y: rect.y - viewportRect.y + windowOrigin.y,
-  };
-}
-
 function toViewportRectCssPx({
   rect,
   viewport,
@@ -735,17 +453,6 @@ function toViewportRectCssPx({
     width: rect.width * normalizedViewport.zoom,
     x: position.x,
     y: position.y,
-  };
-}
-
-function toDeviceRectApproximation(rect: GpuRect): GpuRect {
-  const devicePixelRatio =
-    typeof window === "undefined" ? 1 : window.devicePixelRatio;
-  return {
-    height: Math.max(1, Math.ceil(rect.height * devicePixelRatio)),
-    width: Math.max(1, Math.ceil(rect.width * devicePixelRatio)),
-    x: Math.floor(rect.x * devicePixelRatio),
-    y: Math.floor(rect.y * devicePixelRatio),
   };
 }
 

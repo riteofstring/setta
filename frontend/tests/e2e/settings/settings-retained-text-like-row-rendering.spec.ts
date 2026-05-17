@@ -22,31 +22,6 @@ type TextLikeRowTarget = {
   readonly surfaceId: string;
 };
 
-type DomControlTextureCopyCall = {
-  readonly destinationX: number | null;
-  readonly destinationY: number | null;
-  readonly pixelHeight: number | null;
-  readonly pixelWidth: number | null;
-  readonly readyKeyLength: number;
-  readonly rowId: string;
-  readonly sourceHeight: number | null;
-  readonly sourceId: string | null;
-  readonly sourceKeyLength: number;
-  readonly sourceText: string | null;
-  readonly sourceWidth: number | null;
-  readonly sourceX: number | null;
-  readonly sourceY: number | null;
-  readonly surfaceId: string;
-};
-
-declare global {
-  interface Window {
-    __SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__?:
-      | (() => readonly DomControlTextureCopyCall[])
-      | undefined;
-  }
-}
-
 const TEXT_LIKE_ROW_TARGETS: readonly TextLikeRowTarget[] = [
   {
     expectActivation: true,
@@ -77,7 +52,6 @@ test.use({
 test("all-settings retained text-like row values are visible before click and through editor handoff", async ({
   page,
 }, testInfo) => {
-  await installDomControlCopyProbe(page);
   await openAllSettings(page);
 
   for (const target of TEXT_LIKE_ROW_TARGETS) {
@@ -216,58 +190,6 @@ async function openAllSettings(page: Page): Promise<void> {
   await expect
     .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
     .toBeGreaterThan(50);
-}
-
-async function installDomControlCopyProbe(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const calls: DomControlTextureCopyCall[] = [];
-    window.__SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__ = () => calls;
-    const queuePrototype = window.GPUQueue?.prototype as
-      | (GPUQueue & {
-          copyElementImageToTexture?: (...args: unknown[]) => unknown;
-        })
-      | undefined;
-    const original = queuePrototype?.copyElementImageToTexture;
-    if (!queuePrototype || typeof original !== "function") {
-      return;
-    }
-    queuePrototype.copyElementImageToTexture = function patchedCopy(
-      this: GPUQueue,
-      ...args: unknown[]
-    ) {
-      const source = args[0];
-      if (
-        source instanceof HTMLElement &&
-        source.dataset.gpuFlowRetainedDomControlSource === "true"
-      ) {
-        const destination = args[7] as
-          | { readonly origin?: { readonly x?: number; readonly y?: number } }
-          | undefined;
-        calls.push({
-          destinationX: destination?.origin?.x ?? null,
-          destinationY: destination?.origin?.y ?? null,
-          pixelHeight: typeof args[6] === "number" ? args[6] : null,
-          pixelWidth: typeof args[5] === "number" ? args[5] : null,
-          readyKeyLength:
-            source.dataset.gpuFlowRetainedDomControlReadyKey?.length ?? 0,
-          rowId: source.dataset.gpuFlowRetainedRowId ?? "",
-          sourceHeight: typeof args[4] === "number" ? args[4] : null,
-          sourceId: source.dataset.gpuFlowSourceId ?? null,
-          sourceKeyLength:
-            source.dataset.gpuFlowRetainedDomControlSourceKey?.length ?? 0,
-          sourceText: source.textContent,
-          sourceWidth: typeof args[3] === "number" ? args[3] : null,
-          sourceX: typeof args[1] === "number" ? args[1] : null,
-          sourceY: typeof args[2] === "number" ? args[2] : null,
-          surfaceId: source.dataset.gpuFlowRetainedSurfaceId ?? "",
-        });
-        if (calls.length > 80) {
-          calls.shift();
-        }
-      }
-      return original.apply(this, args);
-    };
-  });
 }
 
 async function centerRetainedSurface(
@@ -616,14 +538,14 @@ async function readRetainedTextLikeRowDiagnostics(
   target: TextLikeRowTarget,
 ): Promise<unknown> {
   return await page.evaluate((target) => {
-    const selector = [
-      "[data-gpu-flow-retained-dom-control-source='true']",
-      `[data-gpu-flow-retained-surface-id='${cssEscape(target.surfaceId)}']`,
-      `[data-gpu-flow-retained-row-id='${cssEscape(target.rowId)}']`,
-    ].join("");
+    const selector = createDomControlHostSelector(target);
     const element = document.querySelector<HTMLElement>(selector);
-    const copyCalls =
-      window.__SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__?.() ?? [];
+    const planeDiagnostics =
+      (
+        window as typeof window & {
+          __settaGpuFlowDomControlPlaneDiagnostics?: () => unknown;
+        }
+      ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null;
     const visualSurfaces =
       window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [];
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
@@ -633,28 +555,25 @@ async function readRetainedTextLikeRowDiagnostics(
     );
     return {
       retainedRowFound: Boolean(row),
-      domControlSourceElement:
+      domControlHost:
         element === null
           ? null
           : {
+              active: element.dataset.gpuFlowDomControlActive === "true",
               childElementCount: element.childElementCount,
               className: element.className,
               clientHeight: element.clientHeight,
               clientWidth: element.clientWidth,
+              controlId: element.dataset.gpuFlowDomControlId ?? null,
               rect: toPlainRect(element.getBoundingClientRect()),
-              sourceKeyLength:
-                element.dataset.gpuFlowRetainedDomControlSourceKey?.length ?? 0,
-              readyKeyLength:
-                element.dataset.gpuFlowRetainedDomControlReadyKey?.length ?? 0,
-              pendingReadyKeyLength:
-                element.dataset.gpuFlowRetainedDomControlPendingReadyKey
-                  ?.length ?? 0,
+              style: {
+                display: element.style.display,
+                pointerEvents: element.style.pointerEvents,
+                transform: element.style.transform,
+              },
               textContent: element.textContent,
             },
-      domControlCopyCalls: copyCalls.filter(
-        (call) =>
-          call.surfaceId === target.surfaceId && call.rowId === target.rowId,
-      ),
+      planeDiagnostics,
       visualSurfaces: visualSurfaces
         .filter((surface) => surface.surfaceId.includes(target.surfaceId))
         .slice(0, 12),
@@ -667,6 +586,14 @@ async function readRetainedTextLikeRowDiagnostics(
         x: rect.x,
         y: rect.y,
       };
+    }
+
+    function createDomControlHostSelector(input: TextLikeRowTarget): string {
+      return [
+        "[data-gpu-flow-dom-control='true']",
+        `[data-gpu-flow-dom-control-surface-id='${cssEscape(input.surfaceId)}']`,
+        `[data-gpu-flow-dom-control-row-id='${cssEscape(input.rowId)}']`,
+      ].join("");
     }
 
     function cssEscape(value: string): string {
@@ -692,18 +619,19 @@ async function readRetainedDomControlSourceReady(
 ): Promise<boolean> {
   return await page.evaluate((target) => {
     const selector = [
-      "[data-gpu-flow-retained-dom-control-source='true']",
-      `[data-gpu-flow-retained-surface-id='${cssEscape(target.surfaceId)}']`,
-      `[data-gpu-flow-retained-row-id='${cssEscape(target.rowId)}']`,
+      "[data-gpu-flow-dom-control='true']",
+      `[data-gpu-flow-dom-control-surface-id='${cssEscape(target.surfaceId)}']`,
+      `[data-gpu-flow-dom-control-row-id='${cssEscape(target.rowId)}']`,
     ].join("");
     const element = document.querySelector<HTMLElement>(selector);
     if (!element) {
       return false;
     }
-    const sourceKey = element.dataset.gpuFlowRetainedDomControlSourceKey ?? "";
     return (
-      sourceKey.length > 0 &&
-      element.dataset.gpuFlowRetainedDomControlReadyKey === sourceKey
+      element.offsetParent !== null &&
+      element.getBoundingClientRect().width > 0 &&
+      element.getBoundingClientRect().height > 0 &&
+      element.textContent !== null
     );
 
     function cssEscape(value: string): string {

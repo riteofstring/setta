@@ -135,7 +135,9 @@ test("all-settings retained surface compositor publishes transactional gesture f
       const startedAtMs = await page.evaluate(() => performance.now());
       await page.mouse.click(textLikeTarget.point.x, textLikeTarget.point.y);
       await expect
-        .poll(() => readFlowDomIslandRect(page), { timeout: 1_000 })
+        .poll(() => readActiveDomControlHostRect(page, textLikeTarget), {
+          timeout: 1_000,
+        })
         .not.toBeNull();
       textActivationLatencyMs = await page.evaluate(
         (startedAtMs) => performance.now() - startedAtMs,
@@ -144,7 +146,10 @@ test("all-settings retained surface compositor publishes transactional gesture f
       return [controlCadence.p50Ms];
     },
   );
-  const activeIslandRect = await readActiveDomIslandRect(page);
+  const activeDomControlRect = await readActiveDomControlHostRect(
+    page,
+    textLikeTarget,
+  );
   const afterScrollSignature = await readRetainedCompositorScrollSignature(
     page,
     retainedTarget.surfaceId,
@@ -190,7 +195,7 @@ test("all-settings retained surface compositor publishes transactional gesture f
   const holdStats = summarizeRetainedTransactionHoldProbe(retainedFrameProbe);
   const details = JSON.stringify(
     {
-      activeIslandRect,
+      activeDomControlRect,
       budgets,
       controlCadence,
       gestures: {
@@ -246,10 +251,10 @@ test("all-settings retained surface compositor publishes transactional gesture f
   );
   expect(beforeVisual.nonblankRatio, details).toBeGreaterThan(0.01);
   expect(afterVisual.nonblankRatio, details).toBeGreaterThan(0.01);
-  expect(activeIslandRect, details).not.toBeNull();
+  expect(activeDomControlRect, details).not.toBeNull();
   expect(
-    activeIslandRect
-      ? distanceBetweenCenters(activeIslandRect, textLikeTarget.rect)
+    activeDomControlRect
+      ? distanceBetweenCenters(activeDomControlRect, textLikeTarget.rect)
       : Number.POSITIVE_INFINITY,
     details,
   ).toBeLessThan(96);
@@ -407,50 +412,41 @@ async function readLatestRetainedTransactionCovered(
   });
 }
 
-async function readActiveDomIslandRect(page: Page): Promise<{
+async function readActiveDomControlHostRect(
+  page: Page,
+  target: RetainedControlTarget,
+): Promise<{
   readonly height: number;
   readonly width: number;
   readonly x: number;
   readonly y: number;
 } | null> {
-  return await page.evaluate(() => {
-    const island = document.querySelector<HTMLElement>(
-      '[data-gpu-project-param-dom-island="true"], [data-gpu-project-param-name-dom-island="true"]',
+  return await page.evaluate((target) => {
+    const host = [
+      ...document.querySelectorAll('[data-gpu-flow-dom-control="true"]'),
+    ].find(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement &&
+        element.getAttribute("data-gpu-flow-dom-control-active") === "true" &&
+        element.getAttribute("data-gpu-flow-dom-control-row-id") ===
+          target.rowId &&
+        element.getAttribute("data-gpu-flow-dom-control-surface-id") ===
+          target.surfaceId,
     );
-    if (!island) {
+    if (!host || getComputedStyle(host).display === "none") {
       return null;
     }
-    const rect = island.getBoundingClientRect();
+    const rect = host.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
     return {
       height: rect.height,
       width: rect.width,
       x: rect.x,
       y: rect.y,
     };
-  });
-}
-
-async function readFlowDomIslandRect(page: Page): Promise<{
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-} | null> {
-  return await page.evaluate(() => {
-    const island = document.querySelector<HTMLElement>(
-      '[data-gpu-flow-dom-island="true"]',
-    );
-    if (!island) {
-      return null;
-    }
-    const rect = island.getBoundingClientRect();
-    return {
-      height: rect.height,
-      width: rect.width,
-      x: rect.x,
-      y: rect.y,
-    };
-  });
+  }, target);
 }
 
 function summarizeRetainedTransactionHoldProbe(probe: unknown): {
