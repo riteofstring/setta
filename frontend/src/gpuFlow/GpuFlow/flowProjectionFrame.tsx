@@ -361,7 +361,6 @@ export function resolveGpuFlowProjectionFrameTransaction({
 }): GpuFlowProjectionFrameTransaction {
   const requestedRetainedProjectionFrame =
     resolveGpuFlowRetainedProjectionFrame({
-      frameReasons,
       layer,
       retainedDisplayFrame,
       transaction: requestedTransaction,
@@ -394,7 +393,6 @@ export function resolveGpuFlowProjectionFrameTransaction({
     requestedSample: requestedTransaction.sample,
   });
   const heldProjectionFrame = resolveGpuFlowRetainedProjectionFrame({
-    frameReasons,
     layer,
     retainedDisplayFrame,
     transaction: heldPreviousTransaction,
@@ -412,27 +410,46 @@ export function resolveGpuFlowProjectionFrameTransaction({
 }
 
 function resolveGpuFlowRetainedProjectionFrame({
-  frameReasons,
   layer,
   retainedDisplayFrame,
   transaction,
 }: {
-  readonly frameReasons: readonly GpuFrameReason[];
   readonly layer: GpuFlowNodeLayerState;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly transaction: GpuFlowProjectionTransaction;
 }): GpuFlowRetainedProjectionFrame {
-  return frameReasons.includes("retained-scroll")
-    ? projectGpuFlowRetainedDisplayFrameFlatSurfaces({
-        layer,
-        retainedDisplayFrame,
-        scrollOffsets: transaction.sample.retainedScrollOffsets,
-      })
-    : {
-        flatSurfaces: retainedDisplayFrame.flatSurfaces,
-        missingCoverageSurfaceIds: new Set(),
-        needsRetainedPageMaintenance: false,
-      };
+  if (
+    !hasGpuFlowRetainedProjectionScrollSampleChanged({
+      retainedDisplayFrame,
+      scrollOffsets: transaction.sample.retainedScrollOffsets,
+    })
+  ) {
+    return {
+      flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      missingCoverageSurfaceIds: new Set(),
+      needsRetainedPageMaintenance: false,
+    };
+  }
+  return projectGpuFlowRetainedDisplayFrameFlatSurfaces({
+    layer,
+    retainedDisplayFrame,
+    scrollOffsets: transaction.sample.retainedScrollOffsets,
+  });
+}
+
+function hasGpuFlowRetainedProjectionScrollSampleChanged({
+  retainedDisplayFrame,
+  scrollOffsets,
+}: {
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+}): boolean {
+  return (
+    getGpuFlowRetainedProjectionChangedSurfaceIds({
+      currentScrollOffsets: scrollOffsets,
+      retainedDisplayFrame,
+    }).size > 0
+  );
 }
 
 function projectGpuFlowRetainedDisplayFrameFlatSurfaces({

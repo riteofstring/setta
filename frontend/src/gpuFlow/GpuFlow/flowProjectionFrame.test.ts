@@ -127,6 +127,46 @@ describe("GPU flow projection frame coverage", () => {
     );
   });
 
+  it("projects retained scroll from the transaction sample rather than raw reasons", () => {
+    const previousSample = liveSample({
+      id: 1,
+      retainedScrollY: 0,
+    });
+    const requestedTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["manual"],
+        sample: liveSample({
+          id: 2,
+          retainedScrollY: 400,
+        }),
+      });
+
+    const result = resolveGpuFlowProjectionFrameTransaction({
+      frameReasons: ["manual"],
+      heldPreviousProjectionState: visibleProjectionState({
+        committedFrameId: 11,
+        sample: previousSample,
+      }),
+      layer: retainedLayer(),
+      retainedDisplayFrame: retainedDisplayFrame(),
+      requestedTransaction,
+    });
+
+    expect(result.transaction.kind).toBe("held-previous");
+    expect(result.heldPreviousProjection).toEqual(
+      expect.objectContaining({
+        reason: "retained-projection-coverage-missing",
+        requestedProjectionSampleId: 2,
+      }),
+    );
+    expect(result.retainedProjectionFrame.needsRetainedPageMaintenance).toBe(
+      true,
+    );
+  });
+
   it("reports held-previous overuse against the projection scheduler knobs", () => {
     const previousSample = liveSample({
       id: 1,
