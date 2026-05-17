@@ -168,7 +168,7 @@ format_counter() {
 write_implementer_prompt() {
   local prompt_file="$1"
 
-  printf "/goal Fully implement %s. Commit your work when you're finished.\n" "${plan_file}" > "${prompt_file}"
+  printf "Fully implement %s. Commit your work when you're finished.\n" "${plan_file}" > "${prompt_file}"
 }
 
 write_verifier_prompt() {
