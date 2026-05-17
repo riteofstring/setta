@@ -2,25 +2,10 @@ import {
   createGpuFlowCommittedSurfaceFrameRenderSignature,
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
-import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
-import type { GpuViewportInput } from "./viewportMath";
 
-export type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
+type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
 
-export type GpuFlowLiveProjectionSample = {
-  readonly retainedScrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly sampleId: number;
-  readonly viewport: GpuViewportInput;
-};
-
-export type GpuFlowProjectionFrame = {
-  readonly committedContentFrameId: number;
-  readonly id: number;
-  readonly projectedAtMs: number;
-  readonly sample: GpuFlowLiveProjectionSample;
-};
-
-export type GpuFlowReactSemanticSnapshot = {
+type GpuFlowReactSemanticSnapshot = {
   readonly frame: GpuFlowCommittedContentFrame;
   readonly publishCount: number;
   readonly renderSignature: string;
@@ -28,7 +13,7 @@ export type GpuFlowReactSemanticSnapshot = {
 
 type GpuFlowCommittedSurfaceRuntimeListener = () => void;
 
-export type GpuFlowCommittedSurfaceRuntime = {
+type GpuFlowCommittedSurfaceRuntime = {
   getCommittedContentFrame(): GpuFlowCommittedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
   publishCommittedContentFrame(frame: GpuFlowCommittedContentFrame): boolean;

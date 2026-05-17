@@ -15,7 +15,7 @@ export type UploadDirtyHtmlSurfaceTexturesResult = {
   readonly workSummary: HtmlSurfaceTextureUploadWorkSummary;
 };
 
-export type HtmlSurfaceTextureUploadNoWorkReason =
+type HtmlSurfaceTextureUploadNoWorkReason =
   | "all-work-deferred"
   | "budget-exhausted"
   | "no-dirty-surfaces"
@@ -83,7 +83,7 @@ export type HtmlSurfaceTextureUploadDiagnostic = {
   readonly workKinds: readonly DirtyNodeWorkKind[];
 };
 
-export function createHtmlSurfaceTextureDirtyWorkCounts(
+function createHtmlSurfaceTextureDirtyWorkCounts(
   dirtySurfaces: readonly Pick<DirtyNodeState, "workKinds">[],
 ): HtmlSurfaceTextureDirtyWorkCounts {
   const counts = createEmptyHtmlSurfaceTextureDirtyWorkCounts();

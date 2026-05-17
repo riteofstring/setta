@@ -2,7 +2,7 @@ import type {
   CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureLayout,
   HtmlSurfaceTextureTileRecord,
-} from "./textures";
+} from "./textureRecords";
 import {
   resolveTextureSourceRectUploadRegion,
   type HtmlSurfaceTextureSourceRect,
