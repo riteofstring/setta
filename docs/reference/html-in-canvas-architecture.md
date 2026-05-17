@@ -193,12 +193,13 @@ The reusable runtime is centered on these modules:
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
-  `retainedDisplayFrame.ts`, `GpuFlow/flowRetainedPageMaintenance.ts`, and
+  `retainedDisplayFrame.ts`, `retainedNativeIslandTransactions.ts`,
+  `GpuFlow/flowRetainedPageMaintenance.ts`, and
   `retainedContentTexturePageManager.ts` sample retained runtime frames, derive
-  retained page frame inputs and DOM-control descriptors, resolve retained
-  display transactions, run post-submit first-visible and refinement
-  maintenance, page-rasterize retained scenes, cache committed retained pages,
-  and schedule retained texture upload work.
+  retained page frame inputs and DOM-control/native-island descriptors, resolve
+  retained display and native-island publication transactions, run post-submit
+  first-visible and refinement maintenance, page-rasterize retained scenes,
+  cache committed retained pages, and schedule retained texture upload work.
 - `surfaceCompositor/*` provides the shared actor, generation, coverage,
   transaction, and diagnostics model used to decide whether retained surfaces
   publish exact/compatible coverage, hold previous coverage, publish a cold
@@ -437,13 +438,16 @@ runtime frame, not a newer prepared retained frame.
 Retained page descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. Retained page
 upload rasterizes the retained scene to a scratch 2D canvas and uploads it with
-`GPUQueue.copyExternalImageToTexture()`. `GpuFlowCommittedSurfaceFrame` is the
-visible publication boundary that ties the published retained display frame,
-DOM-control actors, DOM islands, retained HTML texture actors, retained native
-visuals, hit generation, debug snapshot frame id, retained scroll revision, and
-clip-chain revision together. Prepared retained runtime frames can schedule work
-and diagnostics, but they do not independently update the visible DOM-control or
-DOM-island layers.
+`GPUQueue.copyExternalImageToTexture()`. `RetainedDisplayFrame` is the retained
+coverage publication boundary and records the active native-island transaction
+(`attach`, `survive`, `commit-detach`, or `replace`) for published frames.
+`GpuFlowCommittedSurfaceFrame` is the visible GPU Flow publication boundary
+that ties the published retained display frame, DOM-control actors, DOM
+islands, retained HTML texture actors, retained native visuals, hit generation,
+debug snapshot frame id, retained scroll revision, and clip-chain revision
+together. Prepared retained runtime frames can schedule work and diagnostics,
+but they do not independently update the visible DOM-control or DOM-island
+layers.
 Text-like retained controls use the same committed actor host for passive and
 active DOM-plane rendering: passive controls are viewport-projected
 `DummyCodeMirror` display hosts, while active controls render `ParamInput`,
@@ -478,7 +482,10 @@ classes. Islands clipped out by retained runtime sampling are not published;
 islands outside the viewport window are hidden with pointer events disabled.
 They are not uploaded as textures; they are the active
 browser-native surface for non-text-like retained controls and editable labels
-that still use `GpuDomIsland` descriptors.
+that still use `GpuDomIsland` descriptors. If a prepared retained frame would
+detach or replace an active island while passive retained texture coverage has
+true holes, the retained display transaction holds the previous visible frame
+so the active native island does not reveal an incoherent passive row.
 
 ## Frame Pipeline
 
@@ -508,8 +515,10 @@ Each render frame follows this shape:
 4. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
    transaction. Exact or compatible coverage publishes; missing coverage holds
    the previous retained display when one exists, or blocks/publishes a whole
-   retained placeholder for a cold surface. Published retained transactions do
-   not contain true-hole coverage.
+   retained placeholder for a cold surface. Published `RetainedDisplayFrame`
+   diagnostics record active native-island attach/survive, detach, and replace
+   transitions; held frames keep the previous native-island publication.
+   Published retained transactions do not contain true-hole coverage.
 5. `createGpuFlowCommittedSurfaceFrame()` wraps the published retained display
    in the visible committed surface frame. The committed frame id drives the
    canvas retained frame, projected DOM controls, DOM islands, retained HTML
@@ -769,6 +778,10 @@ The retained renderer uses texture pages:
   one committed frame id covers retained pages, retained HTML texture actors,
   projected DOM controls, DOM islands, retained native visuals, hit generation,
   debug snapshots, retained scroll revision, and clip-chain revision.
+- `retainedNativeIslandTransactions.ts` models active native-island
+  publication modes used by retained display publication. When the retained
+  passive surface would expose true holes, retained display publication keeps
+  the previous visible frame instead of advancing an island detach/replace.
 - `GpuRetainedContentPageFrameSurfaces.ts` assigns content versions to the base
   surface and row-level content segments so page freshness checks do not
   rerasterize unrelated rows.

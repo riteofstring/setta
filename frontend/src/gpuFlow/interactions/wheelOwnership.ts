@@ -9,7 +9,7 @@ export type GpuWheelGestureOwner =
   | "ownedByNativePage"
   | "cooldown";
 
-export type GpuWheelGestureOwnershipState = {
+type GpuWheelGestureOwnershipState = {
   readonly lastTransitionReason: string | null;
   readonly owner: GpuWheelGestureOwner;
   readonly sequence: number;

@@ -9,14 +9,14 @@ import type { GpuDomIsland } from "./scene";
 import type { SurfaceActorSnapshot } from "./surfaceCompositor/surfaceActor";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
-export type GpuFlowCommittedSurfaceActorKind =
+type GpuFlowCommittedSurfaceActorKind =
   | "retained-page"
   | "dom-control"
   | "dom-island"
   | "html-texture"
   | "gpu-native-visual";
 
-export type GpuFlowCommittedSurfaceActorGeneration = {
+type GpuFlowCommittedSurfaceActorGeneration = {
   readonly active: boolean;
   readonly actorId: string;
   readonly clipChainRevision: string;
@@ -48,14 +48,14 @@ export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly zOrder: number;
 };
 
-export type GpuFlowCommittedSurfaceCompleteness = {
+type GpuFlowCommittedSurfaceCompleteness = {
   readonly blockingActorIds: readonly string[];
   readonly projectedVisibleNonemptyDomControlCount: number;
   readonly status: "blocked" | "complete" | "startup";
   readonly visibleNonemptyDomControlCount: number;
 };
 
-export type GpuFlowCommittedSurfaceCoherence = {
+type GpuFlowCommittedSurfaceCoherence = {
   readonly canvasRetainedFrameId: number;
   readonly clipChainRevision: string;
   readonly debugSnapshotFrameId: number;

@@ -6,7 +6,7 @@ type ProjectHoverInteraction =
 type ClearProjectedHoverInteraction =
   GpuNodeInteractionDirtyControllerOptions["clearProjectedHoverInteraction"];
 
-export type GpuNodeProjectedHoverSourceController = {
+type GpuNodeProjectedHoverSourceController = {
   clear(nodeId?: string | null): void;
   update(
     event: PointerEvent,
