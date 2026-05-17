@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
@@ -61,6 +62,11 @@ const GPU_FLOW_DOM_CONTROL_HOST_CLASS_NAME = [
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
   [];
 
+type GpuFlowDomControlProjectedControls = {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly sourceRevision: string;
+};
+
 export function GpuFlowDomControlPlane({
   committedFrameId,
   getRetainedScrollOffset,
@@ -71,7 +77,9 @@ export function GpuFlowDomControlPlane({
   viewportRuntime,
 }: {
   readonly committedFrameId?: number | undefined;
-  readonly getRetainedScrollOffset?: GpuFlowRetainedScrollOffsetGetter;
+  readonly getRetainedScrollOffset:
+    | GpuFlowRetainedScrollOffsetGetter
+    | undefined;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly renderControl: GpuFlowDomControlRenderer | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
@@ -98,6 +106,14 @@ export function GpuFlowDomControlPlane({
       EMPTY_DOM_CONTROL_DESCRIPTORS,
     [retainedRuntimeFrame],
   );
+  const projectionSourceRevision = useMemo(
+    () =>
+      createGpuFlowDomControlProjectionSourceRevision({
+        controls,
+        frameIds,
+      }),
+    [controls, frameIds],
+  );
   const diagnosticsRef = useRef<GpuFlowDomControlPlaneDiagnostics>(
     createEmptyDomControlPlaneDiagnostics({
       committedFrameId: frameIds.committedFrameId,
@@ -111,11 +127,13 @@ export function GpuFlowDomControlPlane({
   );
   const controlByIdRef = useRef(controlById);
   controlByIdRef.current = controlById;
-  const controlsToMount = useMemo(
-    () => {
-      const assignments = projectionManagerRef.current.prepare({
+  const initialControlsToMount = useMemo(
+    () =>
+      resolveGpuFlowDomControlProjectedControls({
         controls,
         getRetainedScrollOffset,
+        projectionManager: projectionManagerRef.current,
+        sourceRevision: projectionSourceRevision,
         viewport: getLiveGpuFlowDomControlPlaneViewport({
           viewportRuntime,
           viewportStore,
@@ -123,10 +141,75 @@ export function GpuFlowDomControlPlane({
         viewportSize: getGpuFlowDomControlPlaneViewportSize({
           viewportStore,
         }),
+      }),
+    [
+      controls,
+      getRetainedScrollOffset,
+      projectionSourceRevision,
+      viewportRuntime,
+      viewportStore,
+    ],
+  );
+  const [projectedControls, setProjectedControls] =
+    useState<GpuFlowDomControlProjectedControls>(initialControlsToMount);
+  const controlsToMount =
+    projectedControls.sourceRevision === projectionSourceRevision
+      ? projectedControls.controls
+      : initialControlsToMount.controls;
+  const controlsToMountRef = useRef(controlsToMount);
+  controlsToMountRef.current = controlsToMount;
+  const refreshProjectedControls = useCallback(
+    (
+      viewport = getLiveGpuFlowDomControlPlaneViewport({
+        viewportRuntime,
+        viewportStore,
+      }),
+    ) => {
+      const nextProjectedControls = resolveGpuFlowDomControlProjectedControls({
+        controls,
+        getRetainedScrollOffset,
+        projectionManager: projectionManagerRef.current,
+        sourceRevision: projectionSourceRevision,
+        viewport,
+        viewportSize: getGpuFlowDomControlPlaneViewportSize({
+          viewportStore,
+        }),
       });
-      return projectionManagerRef.current.promote(assignments);
+      setProjectedControls((current) => {
+        const currentControls =
+          current.sourceRevision === projectionSourceRevision
+            ? current.controls
+            : controlsToMountRef.current;
+        if (
+          current.sourceRevision === projectionSourceRevision &&
+          areGpuFlowDomControlProjectedControlsEqual(
+            currentControls,
+            nextProjectedControls.controls,
+          )
+        ) {
+          return current;
+        }
+        if (
+          areGpuFlowDomControlProjectedControlsEqual(
+            currentControls,
+            nextProjectedControls.controls,
+          )
+        ) {
+          return {
+            controls: currentControls,
+            sourceRevision: projectionSourceRevision,
+          };
+        }
+        return nextProjectedControls;
+      });
     },
-    [controls, getRetainedScrollOffset, viewportRuntime, viewportStore],
+    [
+      controls,
+      getRetainedScrollOffset,
+      projectionSourceRevision,
+      viewportRuntime,
+      viewportStore,
+    ],
   );
 
   const setControlElement = useCallback(
@@ -158,8 +241,10 @@ export function GpuFlowDomControlPlane({
   );
 
   useLayoutEffect(() => {
+    refreshProjectedControls();
     return viewportRuntime.registerOverlayManager({
       applyViewport(viewport) {
+        refreshProjectedControls(viewport);
         projectionManagerRef.current.project({
           committedFrameId: frameIds.committedFrameId,
           controlById: controlByIdRef.current,
@@ -174,13 +259,20 @@ export function GpuFlowDomControlPlane({
         });
       },
     });
-  }, [frameIds, getRetainedScrollOffset, viewportRuntime, viewportStore]);
+  }, [
+    frameIds,
+    getRetainedScrollOffset,
+    refreshProjectedControls,
+    viewportRuntime,
+    viewportStore,
+  ]);
 
   useLayoutEffect(() => {
     return viewportStore.subscribe((state, previousState) => {
       if (state.transform === previousState.transform) {
         return;
       }
+      refreshProjectedControls(state.transform);
       projectionManagerRef.current.project({
         committedFrameId: frameIds.committedFrameId,
         controlById: controlByIdRef.current,
@@ -195,9 +287,15 @@ export function GpuFlowDomControlPlane({
         },
       });
     });
-  }, [frameIds, getRetainedScrollOffset, viewportStore]);
+  }, [
+    frameIds,
+    getRetainedScrollOffset,
+    refreshProjectedControls,
+    viewportStore,
+  ]);
 
   useLayoutEffect(() => {
+    refreshProjectedControls();
     projectionManagerRef.current.project({
       committedFrameId: frameIds.committedFrameId,
       controlById,
@@ -217,6 +315,7 @@ export function GpuFlowDomControlPlane({
     controlById,
     frameIds,
     getRetainedScrollOffset,
+    refreshProjectedControls,
     viewportRuntime,
     viewportStore,
   ]);
@@ -368,6 +467,77 @@ function resolveGpuFlowDomControlPlaneFrameIds({
     committedFrameId: committedFrameId ?? runtimeFrameId,
     runtimeFrameId,
   };
+}
+
+function resolveGpuFlowDomControlProjectedControls({
+  controls,
+  getRetainedScrollOffset,
+  projectionManager,
+  sourceRevision,
+  viewport,
+  viewportSize,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly getRetainedScrollOffset:
+    | GpuFlowRetainedScrollOffsetGetter
+    | undefined;
+  readonly projectionManager: ReturnType<
+    typeof createGpuFlowDomControlProjectionManager
+  >;
+  readonly sourceRevision: string;
+  readonly viewport: Parameters<
+    ReturnType<typeof createGpuFlowDomControlProjectionManager>["prepare"]
+  >[0]["viewport"];
+  readonly viewportSize: Parameters<
+    ReturnType<typeof createGpuFlowDomControlProjectionManager>["prepare"]
+  >[0]["viewportSize"];
+}): GpuFlowDomControlProjectedControls {
+  const assignments = projectionManager.prepare({
+    controls,
+    getRetainedScrollOffset,
+    viewport,
+    viewportSize,
+  });
+  return {
+    controls: projectionManager.promote(assignments),
+    sourceRevision,
+  };
+}
+
+function createGpuFlowDomControlProjectionSourceRevision({
+  controls,
+  frameIds,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly frameIds: {
+    readonly committedFrameId: number;
+    readonly runtimeFrameId: number;
+  };
+}): string {
+  return JSON.stringify({
+    committedFrameId: frameIds.committedFrameId,
+    controls: controls.map((control) => [
+      control.sourceId,
+      control.sourceKey,
+      control.active,
+      control.visualPolicy,
+      control.sectionScrollRevision,
+      control.viewportSampleRevision,
+    ]),
+    runtimeFrameId: frameIds.runtimeFrameId,
+  });
+}
+
+function areGpuFlowDomControlProjectedControlsEqual(
+  left: readonly GpuRetainedDomControlSourceDescriptor[],
+  right: readonly GpuRetainedDomControlSourceDescriptor[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every(
+    (control, index) => control.sourceId === right[index]?.sourceId,
+  );
 }
 
 function blurFocusedDescendantBeforeUnmount(element: HTMLElement) {

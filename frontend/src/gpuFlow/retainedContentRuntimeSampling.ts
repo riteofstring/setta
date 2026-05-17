@@ -1,4 +1,7 @@
-import { createGpuRetainedRowContentSceneWithScrollOffset } from "./retainedContentScene";
+import {
+  createGpuRetainedRowContentSceneWithScrollOffset,
+  createGpuRetainedRowContentSceneWithScrollOverscan,
+} from "./retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { GpuContentSurface } from "./scene";
 import type { GpuPoint } from "./viewportMath";
@@ -18,9 +21,11 @@ export function getGpuRetainedContentSampledScrollOffset({
 }
 
 export function createGpuRetainedContentSampledSceneForSurface({
+  minOverscanRows,
   scrollOffsets,
   surface,
 }: {
+  readonly minOverscanRows?: number | undefined;
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly surface: GpuRetainedContentSurfaceWithScene;
 }): NonNullable<GpuContentSurface["retainedScene"]> {
@@ -29,10 +34,18 @@ export function createGpuRetainedContentSampledSceneForSurface({
     surface,
   });
   if (
+    minOverscanRows === undefined &&
     scrollOffset.x === surface.retainedScene.scrollOffset.x &&
     scrollOffset.y === surface.retainedScene.scrollOffset.y
   ) {
     return surface.retainedScene;
+  }
+  if (minOverscanRows !== undefined) {
+    return createGpuRetainedRowContentSceneWithScrollOverscan({
+      minOverscanRows,
+      scene: surface.retainedScene,
+      scrollOffset,
+    });
   }
   return createGpuRetainedRowContentSceneWithScrollOffset({
     scene: surface.retainedScene,

@@ -16,6 +16,7 @@ import { createGpuRetainedContentSampledSceneForSurface } from "./retainedConten
 import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { GpuRetainedContentScrollbarVisualState } from "./retainedContentScrollbar";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
+import { GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX } from "./retainedDomControlGeometry";
 import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
@@ -203,6 +204,10 @@ function createGpuRetainedRuntimeFrameHitTestSurfaces({
       surface: {
         ...surface,
         retainedScene: createGpuRetainedContentSampledSceneForSurface({
+          minOverscanRows: Math.ceil(
+            GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX /
+              surface.retainedScene.rowHeight,
+          ),
           scrollOffsets,
           surface,
         }),

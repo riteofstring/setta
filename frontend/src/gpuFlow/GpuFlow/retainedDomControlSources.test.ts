@@ -140,6 +140,51 @@ describe("getGpuRetainedDomControlSources", () => {
     );
   });
 
+  it("keeps near-future DOM controls in the committed runtime frame", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 2,
+      scene: scene({ rowCount: 80, surfaceHeight: 72 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 72, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const sources = runtimeFrame.descriptors.domControlSources;
+    const visibleSources = sources.filter(
+      (source) => source.projectionVisibility === "viewport-visible",
+    );
+    const nearFutureSource = sources.find(
+      (source) => source.rowId === "param-u",
+    );
+
+    expect(sources.length).toBeGreaterThan(visibleSources.length);
+    expect(nearFutureSource).toEqual(
+      expect.objectContaining({
+        projectionVisibility: "outside-viewport",
+        visualPolicy: "outside-viewport",
+      }),
+    );
+
+    const nearFutureActor = createDomControlActors(runtimeFrame).find(
+      (actor) => actor.actorId === nearFutureSource?.sourceId,
+    );
+    expect(nearFutureActor?.textCoverageProof).toEqual(
+      expect.objectContaining({
+        projectionCoverage: "blocked-awaiting-browser-visual",
+        readinessReason: "snapshot-pending",
+      }),
+    );
+
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: runtimeFrame,
+    });
+    expect(
+      committedFrame.projectionHorizon.obligations.nearFutureActorIds,
+    ).toContain(nearFutureSource?.sourceId);
+  });
+
   it("classifies excess visible passive rows as bounded browser snapshot actors", () => {
     const runtimeFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,

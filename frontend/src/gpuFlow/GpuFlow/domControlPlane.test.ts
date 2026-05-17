@@ -147,6 +147,26 @@ describe("GPU flow DOM control plane", () => {
     expect(mountedRowIds).not.toContain("row-4");
   });
 
+  it("can promote prepared outside-viewport controls as retained scroll approaches them", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({
+        index,
+        visualPolicy: index <= 2 ? "live-dom" : "outside-viewport",
+      }),
+    );
+
+    const mounted = filterGpuFlowDomControlPlaneMountedControls({
+      controls,
+      getRetainedScrollOffset: () => ({ x: 0, y: 280 }),
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+    const mountedRowIds = mounted.map((control) => control.rowId);
+
+    expect(mountedRowIds).toEqual(expect.arrayContaining(["row-10", "row-20"]));
+    expect(mountedRowIds).not.toContain("row-60");
+  });
+
   it("keeps small-scene live DOM controls mounted across projection-only viewport moves", () => {
     const controls = Array.from({ length: 4 }, (_, index) =>
       domControl({ index: index * 50 }),

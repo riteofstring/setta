@@ -11,6 +11,11 @@ import {
 } from "../retainedContentSceneSourceMetadata";
 import type { GpuRetainedContentRow } from "../retainedContentSceneTypes";
 import {
+  GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX,
+  createGpuRetainedDomControlPreparationClipRect,
+  intersectGpuRetainedDomControlRects,
+} from "../retainedDomControlGeometry";
+import {
   GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
   type GpuRetainedDomControlSourceDescriptor,
   type GpuRetainedDomControlVisualSemantics,
@@ -47,7 +52,6 @@ type GpuRetainedDomControlSourceOptions = {
   readonly scrollRevision?: number | undefined;
 };
 
-const GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX = 720;
 const GPU_RETAINED_DOM_CONTROL_MIN_VISIBLE_SCREEN_HEIGHT_CSS_PX = 8;
 const GPU_RETAINED_DOM_CONTROL_MAX_OVERSCAN_LIVE_ACTORS = 8;
 const GPU_RETAINED_DOM_CONTROL_MAX_READABLE_LIVE_ACTORS = 24;
@@ -120,6 +124,8 @@ function getGpuRetainedDomControlSourcesForHitTestSurface(
     x: sectionClipRectFlowPx.x - surface.rect.x,
     y: sectionClipRectFlowPx.y - surface.rect.y,
   };
+  const preparationClipRectSurfaceCssPx =
+    createGpuRetainedDomControlPreparationClipRect(sectionClipRectSurfaceCssPx);
   const sources: GpuRetainedDomControlSourceDescriptor[] = [];
   for (const row of surface.retainedScene.rows) {
     if (!isGpuRetainedTextLikeDomControlRow(row)) {
@@ -134,7 +140,7 @@ function getGpuRetainedDomControlSourcesForHitTestSurface(
     });
     const clipRectSurfaceCssPx = intersectGpuRetainedDomControlRects(
       controlRectSurfaceCssPx,
-      sectionClipRectSurfaceCssPx,
+      preparationClipRectSurfaceCssPx,
     );
     if (clipRectSurfaceCssPx.width <= 0 || clipRectSurfaceCssPx.height <= 0) {
       continue;
@@ -592,7 +598,10 @@ function createGpuRetainedDomControlLiveSourceIds({
   const inactiveCandidates = candidates.filter(
     (candidate) => !candidate.control.active,
   );
-  const inactiveLiveBudget = Math.max(0, GPU_RETAINED_DOM_CONTROL_MAX_LIVE_ACTORS - liveSourceIds.size);
+  const inactiveLiveBudget = Math.max(
+    0,
+    GPU_RETAINED_DOM_CONTROL_MAX_LIVE_ACTORS - liveSourceIds.size,
+  );
   const readableLiveBudget = Math.min(
     GPU_RETAINED_DOM_CONTROL_MAX_READABLE_LIVE_ACTORS,
     inactiveLiveBudget,
@@ -978,21 +987,5 @@ function toViewportRectCssPx({
     width: rect.width * normalizedViewport.zoom,
     x: position.x,
     y: position.y,
-  };
-}
-
-function intersectGpuRetainedDomControlRects(
-  left: GpuRect,
-  right: GpuRect,
-): GpuRect {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const maxX = Math.min(left.x + left.width, right.x + right.width);
-  const maxY = Math.min(left.y + left.height, right.y + right.height);
-  return {
-    height: Math.max(0, maxY - y),
-    width: Math.max(0, maxX - x),
-    x,
-    y,
   };
 }

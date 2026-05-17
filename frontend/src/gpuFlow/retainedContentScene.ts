@@ -261,6 +261,31 @@ export function createGpuRetainedRowContentSceneWithScrollOffset({
   });
 }
 
+export function createGpuRetainedRowContentSceneWithScrollOverscan({
+  minOverscanRows,
+  scene,
+  scrollOffset,
+}: {
+  readonly minOverscanRows: number;
+  readonly scene: GpuRetainedContentScene;
+  readonly scrollOffset: GpuPoint;
+}): GpuRetainedContentScene {
+  assertFiniteNonNegative("retained row minimum overscan", minOverscanRows);
+  const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
+  if (!sourceInput) {
+    throw new Error(
+      "Cannot create retained content scroll overscan without retained row source metadata.",
+    );
+  }
+  return createGpuRetainedRowContentSceneFromSourceInput({
+    scrollOffset,
+    sourceInput: {
+      ...sourceInput,
+      overscanRows: Math.max(sourceInput.overscanRows, minOverscanRows),
+    },
+  });
+}
+
 export function createGpuRetainedRowContentSceneWithScrollWindow({
   scene,
   scrollOffset,

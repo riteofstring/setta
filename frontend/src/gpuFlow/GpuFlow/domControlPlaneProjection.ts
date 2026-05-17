@@ -160,9 +160,7 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
 }): readonly GpuFlowDomControlProjectionAssignment[] {
   const canvasSize = getGpuFlowDomControlPlaneViewportCanvasSize(viewportSize);
   const normalizedViewport = normalizeGpuViewport(viewport);
-  const mountEligibleControls = controls.filter(
-    (control) => control.active || control.visualPolicy === "live-dom",
-  );
+  const mountEligibleControls = controls.filter(isDomControlMountEligible);
   if (
     controls.length <=
     DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.smallSceneMountedControlLimit
@@ -304,6 +302,16 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
       }),
     )
     .sort(compareGpuFlowDomControlProjectionAssignments);
+}
+
+function isDomControlMountEligible(
+  control: GpuRetainedDomControlSourceDescriptor,
+): boolean {
+  return (
+    control.active ||
+    control.visualPolicy === "live-dom" ||
+    control.visualPolicy === "outside-viewport"
+  );
 }
 
 function createGpuFlowDomControlProjectionAssignment({
