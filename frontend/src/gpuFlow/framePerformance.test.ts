@@ -37,6 +37,7 @@ describe("framePerformance", () => {
       interactionDiagnostics: null,
       projectionDiagnostics: {
         committedFrameId: null,
+        gestureOwner: null,
         heldPreviousDurationMs: 0,
         heldPreviousFrameCount: 0,
         heldPreviousOverBudget: false,
@@ -288,6 +289,7 @@ describe("framePerformance", () => {
       layerResult: createLayerResult(),
       projectionDebugState: {
         committedFrameId: 42,
+        gestureOwner: "ownedByRetainedSectionScroll",
         heldPreviousDurationMs: 18,
         heldPreviousFrameCount: 2,
         heldPreviousOverBudget: true,
@@ -305,6 +307,7 @@ describe("framePerformance", () => {
 
     expect(event.projectionDiagnostics).toEqual({
       committedFrameId: 42,
+      gestureOwner: "ownedByRetainedSectionScroll",
       heldPreviousDurationMs: 18,
       heldPreviousFrameCount: 2,
       heldPreviousOverBudget: true,

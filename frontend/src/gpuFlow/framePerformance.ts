@@ -1,6 +1,7 @@
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
 import type { HtmlSurfaceTextureDirtyWorkCounts } from "./htmlSurfaces/textureUploadDiagnostics";
+import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
 import type { GpuFlowInteractionDiagnostics } from "./interactionDiagnostics";
 import type {
   GpuFlowProjectionDebugState,
@@ -87,6 +88,7 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
 
 export type GpuFlowFrameProjectionDiagnostics = {
   readonly committedFrameId: number | null;
+  readonly gestureOwner: GpuWheelGestureOwner | null;
   readonly heldPreviousDurationMs: number;
   readonly heldPreviousFrameCount: number;
   readonly heldPreviousOverBudget: boolean;
@@ -346,6 +348,7 @@ function createGpuFlowFrameProjectionDiagnostics(
   if (!debugState) {
     return {
       committedFrameId: null,
+      gestureOwner: null,
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,
       heldPreviousOverBudget: false,
@@ -359,6 +362,7 @@ function createGpuFlowFrameProjectionDiagnostics(
   }
   return {
     committedFrameId: debugState.committedFrameId,
+    gestureOwner: debugState.gestureOwner,
     heldPreviousDurationMs: debugState.heldPreviousDurationMs,
     heldPreviousFrameCount: debugState.heldPreviousFrameCount,
     heldPreviousOverBudget: debugState.heldPreviousOverBudget,

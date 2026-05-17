@@ -77,6 +77,7 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   };
   readonly projectionDiagnostics: {
     readonly committedFrameId: number | null;
+    readonly gestureOwner: string | null;
     readonly heldPreviousDurationMs: number;
     readonly heldPreviousFrameCount: number;
     readonly heldPreviousOverBudget: boolean;
@@ -916,6 +917,7 @@ function toNodeLayerFrameSummary(
 
 function projectionDiagnosticsValue(value: unknown): {
   readonly committedFrameId: number | null;
+  readonly gestureOwner: string | null;
   readonly heldPreviousDurationMs: number;
   readonly heldPreviousFrameCount: number;
   readonly heldPreviousOverBudget: boolean;
@@ -929,6 +931,7 @@ function projectionDiagnosticsValue(value: unknown): {
   const diagnostics = objectValue(value);
   return {
     committedFrameId: nullableNumberValue(diagnostics.committedFrameId),
+    gestureOwner: nullableStringValue(diagnostics.gestureOwner),
     heldPreviousDurationMs: numberValue(diagnostics.heldPreviousDurationMs),
     heldPreviousFrameCount: numberValue(diagnostics.heldPreviousFrameCount),
     heldPreviousOverBudget: diagnostics.heldPreviousOverBudget === true,

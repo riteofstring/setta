@@ -145,6 +145,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   const missingProjectionDiagnostics = projectionFrames.filter(
     (frame) =>
       frame.projectionDiagnostics.committedFrameId === null ||
+      frame.projectionDiagnostics.gestureOwner === null ||
       frame.projectionDiagnostics.lane !== "motion" ||
       frame.projectionDiagnostics.sampleId === null ||
       frame.projectionDiagnostics.transactionId === null ||

@@ -371,6 +371,7 @@ describe("GPU Flow projection runtime", () => {
     expect(element.dataset.gpuFlowProjectionTransactionKind).toBe(
       "held-previous",
     );
+    expect(element.dataset.gpuFlowProjectionGestureOwner).toBe("idle");
   });
 
   it("scopes projection debug attributes to the canvas owning DOM control plane", () => {

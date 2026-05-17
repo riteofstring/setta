@@ -35,6 +35,7 @@ export function setProjectionDebugAttributes(
     debugState.heldPreviousRequestedSampleId === null
       ? ""
       : String(debugState.heldPreviousRequestedSampleId);
+  element.dataset.gpuFlowProjectionGestureOwner = debugState.gestureOwner;
   element.dataset.gpuFlowProjectionLane = debugState.lane;
   element.dataset.gpuFlowProjectionSampleId = String(
     debugState.projectionSampleId,

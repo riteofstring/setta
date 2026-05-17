@@ -166,6 +166,7 @@ export type GpuFlowProjectionTransaction = {
 
 export type GpuFlowProjectionDebugState = {
   readonly committedFrameId: number;
+  readonly gestureOwner: GpuWheelGestureOwner;
   readonly lane: GpuFlowProjectionLane;
   readonly projectionSampleId: number;
   readonly projectionTransactionId: GpuFlowProjectionTransactionId;
@@ -372,6 +373,7 @@ export function createGpuFlowProjectionDebugState(
   });
   return Object.freeze({
     committedFrameId: transaction.committedFrameId,
+    gestureOwner: transaction.sample.gestureOwner,
     ...heldPreviousDebugState,
     lane: transaction.lane,
     projectionSampleId: transaction.sample.id,
