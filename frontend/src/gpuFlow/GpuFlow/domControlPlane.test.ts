@@ -6,7 +6,10 @@ import {
   GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
   type GpuRetainedDomControlSourceDescriptor,
 } from "../retainedDomControlScene";
-import { filterGpuFlowDomControlPlaneMountedControls } from "./domControlPlane";
+import {
+  filterGpuFlowDomControlPlaneMountedControls,
+  resolveGpuFlowDomControlPlaneProjectionAssignments,
+} from "./domControlPlane";
 
 describe("GPU flow DOM control plane", () => {
   it("mounts visible readable retained DOM controls before overscan controls", () => {
@@ -43,6 +46,55 @@ describe("GPU flow DOM control plane", () => {
     expect(mounted.length).toBeGreaterThan(24);
     expect(mounted.length).toBeLessThanOrEqual(32);
     expect(mounted.some((control) => control.active)).toBe(true);
+  });
+
+  it("pins active retained DOM controls even outside the projection horizon", () => {
+    const controls = [
+      domControl({ active: true, index: 500 }),
+      ...Array.from({ length: 100 }, (_, index) => domControl({ index })),
+    ];
+
+    const mounted = filterGpuFlowDomControlPlaneMountedControls({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(mounted.map((control) => control.rowId)).toContain("row-500");
+  });
+
+  it("reports explicit projection coverage states for non-live controls", () => {
+    const assignments = resolveGpuFlowDomControlPlaneProjectionAssignments({
+      controls: [
+        domControl({ index: 0 }),
+        domControl({ index: 1, visualPolicy: "snapshot" }),
+        domControl({
+          index: 2,
+          visualPolicy: "blocked-awaiting-browser-visual",
+        }),
+        domControl({ index: 3, visualPolicy: "clipped-empty" }),
+      ],
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 60, width: 400 },
+    });
+
+    expect(
+      new Map(
+        assignments.map((assignment) => [
+          assignment.control.rowId,
+          assignment.coverageState,
+        ]),
+      ),
+    ).toEqual(
+      new Map([
+        ["row-0", "live"],
+        ["row-1", "snapshot"],
+        ["row-2", "blocked-awaiting-browser-visual"],
+        ["row-3", "true-hole"],
+      ]),
+    );
   });
 
   it("uses the provided viewport size for deterministic candidate selection", () => {
@@ -85,9 +137,13 @@ describe("GPU flow DOM control plane", () => {
 function domControl({
   active = false,
   index,
+  visualPolicy = "live-dom",
 }: {
   readonly active?: boolean | undefined;
   readonly index: number;
+  readonly visualPolicy?:
+    | GpuRetainedDomControlSourceDescriptor["visualPolicy"]
+    | undefined;
 }): GpuRetainedDomControlSourceDescriptor {
   const rect = { height: 24, width: 273, x: 0, y: index * 28 };
   const snapshotCacheKey = {
@@ -151,7 +207,7 @@ function domControl({
     valueStyleRevision: "value-style",
     viewportRectCssPx: rect,
     viewportSampleRevision: "viewport",
-    visualPolicy: "live-dom",
+    visualPolicy,
     visualSemantics: active
       ? {
           accessibility: "active-browser-editor",

@@ -39,6 +39,13 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import {
+  applyGpuFlowProjectionDebugAttributes,
+  createGpuFlowProjectionDebugState,
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  type GpuFlowLiveProjectionSample,
+  type GpuFlowProjectionLane,
+} from "../projectionRuntime";
+import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
   getGpuRetainedContentRuntimeScrollRevisions,
@@ -95,6 +102,7 @@ import {
   EMPTY_GPU_NODE_LAYOUTS,
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
+import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnlyPaintNodes";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -513,6 +521,8 @@ export function renderGpuFlowNodeLayerFrame({
   retainedDisplayFrameRef,
   retainedContentSwitchAnimations,
   retainedContentFrameCacheRef,
+  liveProjectionSample,
+  publicationLane,
   surfaceRef,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
@@ -541,6 +551,11 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
+  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+  readonly publicationLane: Extract<
+    GpuFlowProjectionLane,
+    "content" | "maintenance"
+  >;
   readonly onRetainedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
     | undefined;
@@ -819,6 +834,21 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
+  const projectionTransaction =
+    createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: publishedRetainedFrame.id,
+      kind:
+        retainedDisplayOutcome.kind === "hold-previous"
+          ? "held-previous"
+          : "content-publication",
+      lane: publicationLane,
+      rawReasons: frameReasons,
+      sample: liveProjectionSample,
+    });
+  applyGpuFlowProjectionDebugAttributes({
+    canvas: runtime.canvas,
+    debugState: createGpuFlowProjectionDebugState(projectionTransaction),
+  });
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedRuntimeFrame,
     publishedRetainedRuntimeFrame,
@@ -957,23 +987,4 @@ export function updateGpuFlowNodeLayerFrameState({
     surfaceRef,
     switchAnimationFollowUpFrame,
   });
-}
-function markTransformOnlyPaintNodesForViewportFrame({
-  layerResult,
-  transformOnlyPaintNodeIdsRef,
-  viewportFrame,
-}: {
-  readonly layerResult: RenderHtmlSurfaceFrameResult;
-  readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
-  readonly viewportFrame: boolean;
-}) {
-  if (!viewportFrame) {
-    return;
-  }
-  for (const nodeId of layerResult.domTransformUpdatedNodeIds) {
-    transformOnlyPaintNodeIdsRef.current.add(nodeId);
-  }
-  for (const nodeId of layerResult.domTransformParkedNodeIds) {
-    transformOnlyPaintNodeIdsRef.current.add(nodeId);
-  }
 }

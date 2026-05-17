@@ -62,6 +62,16 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
     expect(sample.planeRuntimeFrameId, details).toBeLessThanOrEqual(
       sample.committed?.canvasRetainedFrameId ?? 0,
     );
+    expect(sample.canvasProjectionTransactionId, details).toBeTruthy();
+    expect(sample.planeProjectionTransactionId, details).toBe(
+      sample.canvasProjectionTransactionId,
+    );
+    expect(sample.planeProjectionSampleId, details).toBe(
+      sample.canvasProjectionSampleId,
+    );
+    expect(sample.planeProjectionCommittedFrameId, details).toBe(
+      sample.canvasProjectionCommittedFrameId,
+    );
   }
   expect(sample.committed?.debugSnapshotFrameId, details).toBe(
     sample.committed?.displayFrameId,
@@ -104,7 +114,13 @@ async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
     readonly visibleControlRectCount: number;
   } | null;
   readonly planeCommittedFrameId: number;
+  readonly planeProjectionCommittedFrameId: number;
+  readonly planeProjectionSampleId: number;
+  readonly planeProjectionTransactionId: string | null;
   readonly planeRuntimeFrameId: number;
+  readonly canvasProjectionCommittedFrameId: number;
+  readonly canvasProjectionSampleId: number;
+  readonly canvasProjectionTransactionId: string | null;
 }> {
   return await page.evaluate(() => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
@@ -123,12 +139,31 @@ async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
     const plane = document.querySelector<HTMLElement>(
       "[data-gpu-flow-dom-control-plane='true']",
     );
+    const canvas = document.querySelector<HTMLElement>(
+      "[data-gpu-flow-surface='true']",
+    );
     return {
       committed,
       diagnostics,
+      canvasProjectionCommittedFrameId: Number(
+        canvas?.dataset.gpuFlowCommittedFrameId ?? NaN,
+      ),
+      canvasProjectionSampleId: Number(
+        canvas?.dataset.gpuFlowProjectionSampleId ?? NaN,
+      ),
+      canvasProjectionTransactionId:
+        canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
       planeCommittedFrameId: Number(
         plane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ?? NaN,
       ),
+      planeProjectionCommittedFrameId: Number(
+        plane?.dataset.gpuFlowCommittedFrameId ?? NaN,
+      ),
+      planeProjectionSampleId: Number(
+        plane?.dataset.gpuFlowProjectionSampleId ?? NaN,
+      ),
+      planeProjectionTransactionId:
+        plane?.dataset.gpuFlowProjectionTransactionId ?? null,
       planeRuntimeFrameId: Number(
         plane?.dataset.gpuFlowDomControlPlaneFrameId ?? NaN,
       ),

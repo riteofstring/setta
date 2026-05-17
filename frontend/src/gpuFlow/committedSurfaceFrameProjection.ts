@@ -12,6 +12,8 @@ type GpuFlowProjectionHorizonSurfaceEntry = {
   visibleNonemptyTextActorCount: number;
 };
 
+const GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX = 720;
+
 export function createGpuFlowContentFramePublishability({
   actorGenerations,
   displayCompleteness,
@@ -103,6 +105,7 @@ export function createGpuFlowProjectionHorizon({
   return Object.freeze({
     actorFamilyCoverage:
       createGpuFlowProjectionActorFamilyCoverage(actorGenerations),
+    obligations: createGpuFlowProjectionHorizonObligations(actorGenerations),
     retainedScrollSurfaces:
       createGpuFlowProjectionRetainedScrollSurfaces(surfaces),
     textActorCoverage: createGpuFlowProjectionTextActorCoverage(textActors),
@@ -112,6 +115,35 @@ export function createGpuFlowProjectionHorizon({
       overscanCssPx: 0,
       preparedBounds: null,
     }),
+  });
+}
+
+function createGpuFlowProjectionHorizonObligations(
+  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+): GpuFlowProjectionHorizon["obligations"] {
+  const visibleActorIds: string[] = [];
+  const activePinnedActorIds: string[] = [];
+  const nearFutureActorIds: string[] = [];
+  const maintenanceActorIds: string[] = [];
+  for (const actor of actorGenerations) {
+    if (actor.active) {
+      activePinnedActorIds.push(actor.actorId);
+    }
+    if (actor.visibleNonempty) {
+      visibleActorIds.push(actor.actorId);
+      continue;
+    }
+    if (isGpuFlowCommittedTextActor(actor)) {
+      nearFutureActorIds.push(actor.actorId);
+      continue;
+    }
+    maintenanceActorIds.push(actor.actorId);
+  }
+  return Object.freeze({
+    activePinnedActorIds: Object.freeze(activePinnedActorIds.sort()),
+    maintenanceActorIds: Object.freeze(maintenanceActorIds.sort()),
+    nearFutureActorIds: Object.freeze(nearFutureActorIds.sort()),
+    visibleActorIds: Object.freeze(visibleActorIds.sort()),
   });
 }
 
@@ -240,14 +272,26 @@ function createGpuFlowProjectionPreparedScrollRange(
   return Object.freeze({
     x: committedScrollOffset
       ? Object.freeze({
-          max: committedScrollOffset.x,
-          min: committedScrollOffset.x,
+          max:
+            committedScrollOffset.x +
+            GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
+          min: Math.max(
+            0,
+            committedScrollOffset.x -
+              GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
+          ),
         })
       : null,
     y: committedScrollOffset
       ? Object.freeze({
-          max: committedScrollOffset.y,
-          min: committedScrollOffset.y,
+          max:
+            committedScrollOffset.y +
+            GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
+          min: Math.max(
+            0,
+            committedScrollOffset.y -
+              GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
+          ),
         })
       : null,
   });
@@ -263,6 +307,16 @@ function createGpuFlowProjectionTextActorCoverage(
           (actor) =>
             actor.textCoverageProof?.projectionCoverage ===
             "blocked-awaiting-browser-visual",
+        )
+        .map((actor) => actor.actorId)
+        .sort(),
+    ),
+    blockedAwaitingLiveHostActorIds: Object.freeze(
+      textActors
+        .filter(
+          (actor) =>
+            actor.textCoverageProof?.projectionCoverage ===
+            "blocked-awaiting-live-host",
         )
         .map((actor) => actor.actorId)
         .sort(),

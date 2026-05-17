@@ -46,6 +46,25 @@ describe("GPU flow projection frame coverage", () => {
         }),
       }),
     ).not.toThrow();
+
+    expect(() =>
+      assertGpuFlowProjectionOnlyFrameWork({
+        frameReasons: ["retained-scroll", "paint", "texture-upload"],
+        layerResult: projectionLayerResult({
+          uploadedNodeIds: ["node-a"],
+        }),
+      }),
+    ).toThrow(/forbidden content work/);
+
+    expect(() =>
+      assertGpuFlowProjectionOnlyFrameWork({
+        frameReasons: ["retained-scroll", "paint", "texture-upload"],
+        layerResult: projectionLayerResult({
+          remainingDirtyNodeIds: ["node-a"],
+          skippedNodeIds: ["node-a"],
+        }),
+      }),
+    ).not.toThrow();
   });
 });
 

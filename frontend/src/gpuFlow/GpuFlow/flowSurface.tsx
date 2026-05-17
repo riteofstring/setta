@@ -30,6 +30,10 @@ import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
 } from "../nodeInteractionDirty";
+import {
+  createGpuFlowLiveProjectionSampler,
+  createGpuFlowVisiblePublicationScheduler,
+} from "../projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
@@ -47,7 +51,6 @@ import {
   destroyNodeInteractionResources,
   destroyNodeLayerResources,
   nextFrame,
-  renderGpuFlowNodeLayerFrame,
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
@@ -55,15 +58,8 @@ import { createInitialGpuFlowRetainedRuntimeFrame } from "./flowInitialRetainedR
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
-import {
-  renderGpuFlowNodeLayerProjectionFrame,
-  shouldRenderGpuFlowProjectionOnlyFrame,
-} from "./flowProjectionFrame";
-import {
-  createGpuFlowRetainedRuntimeFrameOverlayRenderSignature,
-  createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
-} from "./flowRetainedRuntimeFrameSignatures";
 import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
+import { renderGpuFlowSurfaceFrame } from "./flowSurfaceFramePublication";
 import {
   useGpuFlowNodeElementChangeHandler,
   useGpuFlowNodeScreenRectDebug,
@@ -79,7 +75,6 @@ import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
-import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
 import {
   getGpuFlowSelectionDragPrimaryNodeId,
@@ -202,6 +197,10 @@ export function GpuFlow({
   );
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ?? defaultRetainedContentRuntimeState;
+  const liveProjectionSamplerRef = useRef(createGpuFlowLiveProjectionSampler());
+  const visiblePublicationSchedulerRef = useRef(
+    createGpuFlowVisiblePublicationScheduler(),
+  );
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) =>
       activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ?? null,
@@ -827,124 +826,47 @@ export function GpuFlow({
 
   const handleFrame = useCallback<NonNullable<GpuSurfaceProps["onFrame"]>>(
     (runtime, event) => {
-      const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
-      nodeLayerRef.current = {
-        ...nodeLayerRef.current,
-        viewport: viewportRuntime.getViewportTuple(),
-      };
-      sampleGpuFlowRetainedContentRuntimeScene({
+      renderGpuFlowSurfaceFrame({
+        activeResizeNodeIdRef,
+        callbacksRef,
+        canvasSizeRef,
+        committedSurfaceFrameRef,
+        event,
+        frameRef,
+        htmlSurfaceRendererRef,
+        initialRetainedRuntimeFrame,
+        interactionDiagnosticsRef,
+        liveProjectionSamplerRef,
+        nodeDomTransformSyncCacheRef,
+        nodeElementByIdRef,
+        nodeInteractionRef,
         nodeLayerRef,
+        publishCommittedSurfaceFrame,
+        retainedContentFrameCacheRef,
+        retainedContentPageManagerRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
+        retainedContentSwitchAnimations,
+        retainedDisplayFrameRef,
+        retainedPreparationRuntimeFrameRenderSignatureRef,
+        retainedPreparationRuntimeFrameScrollRevisionRef,
+        retainedRuntimeFrameRenderSignatureRef,
+        runtime,
+        surfaceRef,
+        textureManagerRef,
+        transformOnlyPaintNodeIdsRef,
+        visibleCommittedSurfaceFrame,
+        visibleNodeIdsRef,
+        visiblePublicationSchedulerRef,
+        viewportRuntime,
+        viewportStore,
       });
-      const viewportFrame =
-        event.reasons.includes("viewport") || runtimeFrame.viewportFrame;
-      const textureUploadFrame = event.reasons.includes("texture-upload");
-      const deferResolutionUpdates =
-        viewportStore.getState().viewportInteractionActive ||
-        (viewportFrame && !textureUploadFrame);
-      const renderedProjectionOnlyFrame =
-        shouldRenderGpuFlowProjectionOnlyFrame(event.reasons) &&
-        renderGpuFlowNodeLayerProjectionFrame({
-          callbacksRef,
-          canvasSizeRef,
-          frameReasons: event.reasons,
-          frameRef,
-          activeResizeNodeIdRef,
-          interactionDiagnosticsRef,
-          nodeElementByIdRef,
-          nodeDomTransformSyncCacheRef,
-          nodeInteractionRef,
-          nodeLayerRef,
-          htmlSurfaceRendererRef,
-          retainedContentPageManagerRef,
-          retainedDisplayFrameRef,
-          retainedContentRuntimeState: activeRetainedContentRuntimeState,
-          runtime,
-          surfaceRef,
-          textureManagerRef,
-          transformOnlyPaintNodeIdsRef,
-          visibleNodeIdsRef,
-          viewportStore,
-          viewportFrame,
-        });
-      if (!renderedProjectionOnlyFrame) {
-        renderGpuFlowNodeLayerFrame({
-          callbacksRef,
-          canvasSizeRef,
-          deferResolutionUpdates,
-          frameReasons: event.reasons,
-          frameRef,
-          activeResizeNodeIdRef,
-          interactionDiagnosticsRef,
-          nodeElementByIdRef,
-          nodeDomTransformSyncCacheRef,
-          nodeInteractionRef,
-          nodeLayerRef,
-          htmlSurfaceRendererRef,
-          retainedContentPageManagerRef,
-          retainedContentFrameCacheRef,
-          retainedContentRuntimeState: activeRetainedContentRuntimeState,
-          retainedDisplayFrameRef,
-          retainedContentSwitchAnimations,
-          runtime,
-          surfaceRef,
-          textureManagerRef,
-          transformOnlyPaintNodeIdsRef,
-          visibleNodeIdsRef,
-          viewportStore,
-          viewportFrame,
-          onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-            const previousScrollRevision =
-              retainedPreparationRuntimeFrameScrollRevisionRef.current ??
-              initialRetainedRuntimeFrame.input.scrollRevision;
-            if (
-              deferResolutionUpdates &&
-              nextRetainedRuntimeFrame.input.scrollRevision ===
-                previousScrollRevision
-            ) {
-              return;
-            }
-            const nextSignature =
-              createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
-                nextRetainedRuntimeFrame,
-              );
-            if (
-              retainedPreparationRuntimeFrameRenderSignatureRef.current ===
-              nextSignature
-            ) {
-              return;
-            }
-            retainedPreparationRuntimeFrameRenderSignatureRef.current =
-              nextSignature;
-            retainedPreparationRuntimeFrameScrollRevisionRef.current =
-              nextRetainedRuntimeFrame.input.scrollRevision;
-          },
-          onRetainedDisplayFrame: publishCommittedSurfaceFrame,
-          onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-            callbacksRef.current.onRetainedRuntimeFrame?.(
-              nextRetainedRuntimeFrame,
-            );
-            const nextSignature =
-              createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
-                nextRetainedRuntimeFrame,
-              );
-            if (
-              retainedRuntimeFrameRenderSignatureRef.current === nextSignature
-            ) {
-              return;
-            }
-            retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
-          },
-        });
-      }
-      viewportRuntime.applyOverlayTransforms();
-      callbacksRef.current.onFrame?.(runtime, event);
     },
     [
       activeRetainedContentRuntimeState,
       initialRetainedRuntimeFrame,
       publishCommittedSurfaceFrame,
       retainedContentSwitchAnimations,
+      visibleCommittedSurfaceFrame,
       viewportRuntime,
       viewportStore,
     ],

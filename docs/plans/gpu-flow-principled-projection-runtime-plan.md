@@ -1,7 +1,7 @@
 # GPU Flow Principled Projection Runtime Plan
 
 Date: 2026-05-19
-Status: Proposed
+Status: Implemented
 
 This plan replaces the deleted GPU Flow content projection runtime refactor plan. It assumes no backward compatibility, no transitional dual paths, and no legacy runtime shims. The goal is to fix the scrolling/input desync and jank by replacing visible-frame authority, not by adding more patches around the current frame loop.
 

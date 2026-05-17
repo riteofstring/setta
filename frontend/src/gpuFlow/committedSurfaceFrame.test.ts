@@ -64,6 +64,7 @@ describe("GPU Flow committed surface frame", () => {
     ).toEqual(["retained-dom-control:dict-a:param-content:unpinned:param-a"]);
     expect(frame.projectionHorizon.textActorCoverage).toEqual({
       blockedAwaitingBrowserVisualActorIds: [],
+      blockedAwaitingLiveHostActorIds: [],
       compatiblePreviousActorIds: [],
       exactLiveDomActorIds: [
         "retained-dom-control:dict-a:param-content:unpinned:param-a",
@@ -286,8 +287,8 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.projectionHorizon.retainedScrollSurfaces[0]).toEqual(
       expect.objectContaining({
         preparedScrollRange: {
-          x: { max: 0, min: 0 },
-          y: { max: 6, min: 6 },
+          x: { max: 720, min: 0 },
+          y: { max: 726, min: 0 },
         },
         surfaceId: "dict-a:param-content:unpinned",
       }),

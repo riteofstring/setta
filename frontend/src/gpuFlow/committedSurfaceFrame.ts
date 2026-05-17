@@ -65,6 +65,10 @@ export type GpuFlowCommittedSurfaceTextCoverageProof =
       readonly readinessReason: "snapshot-pending" | "live-dom-budget";
     })
   | (GpuFlowCommittedSurfaceTextCoverageProofBase & {
+      readonly projectionCoverage: "blocked-awaiting-live-host";
+      readonly readinessReason: "live-dom-budget";
+    })
+  | (GpuFlowCommittedSurfaceTextCoverageProofBase & {
       readonly projectionCoverage: "true-hole";
       readonly readinessReason: "clipped-empty" | "missing-browser-visual";
     });
@@ -194,6 +198,12 @@ export type GpuFlowProjectionHorizon = {
     readonly htmlTextureActorIds: readonly string[];
     readonly retainedPageActorIds: readonly string[];
   };
+  readonly obligations: {
+    readonly activePinnedActorIds: readonly string[];
+    readonly maintenanceActorIds: readonly string[];
+    readonly nearFutureActorIds: readonly string[];
+    readonly visibleActorIds: readonly string[];
+  };
   readonly retainedScrollSurfaces: readonly {
     readonly actorCount: number;
     readonly committedScrollOffset: {
@@ -210,6 +220,7 @@ export type GpuFlowProjectionHorizon = {
   }[];
   readonly textActorCoverage: {
     readonly blockedAwaitingBrowserVisualActorIds: readonly string[];
+    readonly blockedAwaitingLiveHostActorIds: readonly string[];
     readonly compatiblePreviousActorIds: readonly string[];
     readonly exactLiveDomActorIds: readonly string[];
     readonly exactSnapshotActorIds: readonly string[];

@@ -17,6 +17,12 @@ import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnos
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 import {
+  applyGpuFlowProjectionDebugAttributes,
+  createGpuFlowProjectionDebugState,
+  isGpuFlowMotionFrameReason,
+  type GpuFlowProjectionTransaction,
+} from "../projectionRuntime";
+import {
   getGpuRetainedContentRuntimeScrollOffsets,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
@@ -46,14 +52,9 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 
 export function shouldRenderGpuFlowProjectionOnlyFrame(
-  reasons: readonly string[],
+  reasons: readonly GpuFrameReason[],
 ): boolean {
-  return (
-    reasons.length > 0 &&
-    reasons.every(
-      (reason) => reason === "viewport" || reason === "retained-scroll",
-    )
-  );
+  return reasons.length > 0 && reasons.some(isGpuFlowMotionFrameReason);
 }
 
 type GpuFlowRetainedProjectionFrame = {
@@ -80,6 +81,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeElementByIdRef,
   nodeInteractionRef,
   nodeLayerRef,
+  projectionTransaction,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
   retainedDisplayFrameRef,
@@ -102,6 +104,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+  readonly projectionTransaction: GpuFlowProjectionTransaction;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
@@ -227,6 +230,10 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
+  applyGpuFlowProjectionDebugAttributes({
+    canvas: runtime.canvas,
+    debugState: createGpuFlowProjectionDebugState(projectionTransaction),
+  });
   return true;
 }
 
@@ -291,11 +298,7 @@ function hasGpuFlowProjectionOnlyForbiddenContentWork({
   return [
     budgetExhausted,
     blockedWork.evictedTextureBytes > 0,
-    blockedWork.deferredNodeIds.length > 0,
     blockedWork.evictedTextureNodeIds.length > 0,
-    blockedWork.missingElementNodeIds.length > 0,
-    blockedWork.remainingDirtyNodeIds.length > 0,
-    blockedWork.skippedNodeIds.length > 0,
     blockedWork.uploadedNodeIds.length > 0,
   ].some(Boolean);
 }

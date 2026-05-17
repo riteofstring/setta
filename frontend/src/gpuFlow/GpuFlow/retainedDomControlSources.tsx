@@ -486,8 +486,12 @@ function applyGpuRetainedDomControlVisualPolicies(
   if (!options.viewportSize) {
     return applyDefaultGpuRetainedDomControlVisualPolicies(sources);
   }
+  const optionsWithViewportSize = {
+    ...options,
+    viewportSize: options.viewportSize,
+  };
   const candidates = createGpuRetainedDomControlVisualCandidates({
-    options,
+    options: optionsWithViewportSize,
     sources,
   });
   const candidateBySourceId = new Map(
