@@ -181,6 +181,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Use this for focused long-running feature work.
   - Requires `--plan`, `--sentinel`, and `--name`.
   - Pass extra plan-specific instructions with `--extra-prompt` or `--extra-prompt-file`.
+- `./scripts/run-codex-simple-plan-loop.sh`
+  - Simpler plan loop that alternates fresh implementation and verification Codex sessions for a plan document.
+  - Defaults to `gpt-5.5`, `xhigh`, yolo mode, and same-step retries after Codex failures or inactivity timeouts.
+  - Stops only when the verifier replies exactly `PLAN DOC IS FULLY IMPLEMENTED`.
 - `./scripts/run-codex-gpuflow-full-scene-canvas-content-clean-break-loop.sh`
   - Dedicated plan loop for `docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md`.
   - Uses the generic plan-loop engine with full-scene/canvas-content clean-break instructions, `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE`, and `gpuflow-full-scene:` commits.
