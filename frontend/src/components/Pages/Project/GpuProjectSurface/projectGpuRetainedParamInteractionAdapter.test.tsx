@@ -926,7 +926,8 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
-  it("records viewport client coordinates for retained DOM island activation", () => {
+  it("records viewport client coordinates for retained browser-control activation", () => {
+    const onActiveParamCanvasControlChange = vi.fn();
     const onActiveParamDomIslandChange = vi.fn();
     const retainedScene = createGpuRetainedRowContentScene({
       controlWidth: 40,
@@ -935,7 +936,10 @@ describe("project GPU retained param DOM islands", () => {
       rowHeight: 28,
       rows: [
         {
-          control: textLikeControlDescriptor(""),
+          control: {
+            ...textLikeControlDescriptor(""),
+            renderOwner: "dom-owned",
+          },
           controlKind: "text-like",
           depth: 0,
           id: "param-1",
@@ -953,6 +957,7 @@ describe("project GPU retained param DOM islands", () => {
     }
     const options = getProjectRetainedContentInteractionOptions({
       canEditStructure: true,
+      onActiveParamCanvasControlChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange: vi.fn(),
       onRetainedParamDragPreviewChange: vi.fn(),
@@ -996,6 +1001,10 @@ describe("project GPU retained param DOM islands", () => {
       }) as PointerEvent,
     });
     expect(onActiveParamDomIslandChange).toHaveBeenCalledTimes(1);
+    expect(onActiveParamCanvasControlChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamCanvasControlChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({ paramInfoId: "param-1" }),
+    );
   });
 
   it("records retained param name DOM island activation from pointerdown", () => {

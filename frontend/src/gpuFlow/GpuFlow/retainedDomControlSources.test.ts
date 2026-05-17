@@ -35,13 +35,16 @@ describe("getGpuRetainedDomControlSources", () => {
         sectionId: "section-a",
         snapshotCacheKey: expect.objectContaining({
           appThemeRevision: "setta-app-theme:inherited",
+          caretVisibility: "hidden",
           codeMirrorThemeRevision:
             "setta-codemirror-theme:use-code-mirror-style",
+          compositionState: "inactive",
           cssStyleRevision: expect.any(String),
           devicePixelRatioBucket: 1,
           editorExtensionGeneration: "text|single-line|nowrap",
           fontGeneration: "document-fonts:runtime",
           measuredLayoutMode: "single-line",
+          selectionState: "none",
           syntaxGeneration: "python",
           value: "alpha",
           zoomBucket: 1,
@@ -55,6 +58,11 @@ describe("getGpuRetainedDomControlSources", () => {
         },
         snapshotSurfaceId: null,
         surfaceId: "surface-a",
+        textCoverageState: {
+          caret: "hidden",
+          composition: "inactive",
+          selection: "none",
+        },
         value: "alpha",
         visualPolicy: "live-dom",
         visualSemantics: {
@@ -102,6 +110,11 @@ describe("getGpuRetainedDomControlSources", () => {
         active: true,
         layerSlot: "active-dom-control-plane",
         lifecycleState: "active-projected",
+        textCoverageState: {
+          caret: "visible",
+          composition: "inactive",
+          selection: "collapsed",
+        },
         viewportRectCssPx: {
           height: 24,
           width: 80,

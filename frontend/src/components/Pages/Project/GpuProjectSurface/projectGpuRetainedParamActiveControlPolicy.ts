@@ -10,6 +10,24 @@ export function isProjectGpuRetainedParamControlDomIslandActive({
 }: {
   readonly row: ProjectGpuRetainedParamControlRow;
 }): boolean {
+  if (
+    !isProjectGpuRetainedParamControlBrowserActivationTarget({
+      row,
+    })
+  ) {
+    return false;
+  }
+  if (isProjectGpuRetainedParamTextLikeDomOwned(row)) {
+    return false;
+  }
+  return true;
+}
+
+export function isProjectGpuRetainedParamControlBrowserActivationTarget({
+  row,
+}: {
+  readonly row: ProjectGpuRetainedParamControlRow;
+}): boolean {
   if (isProjectGpuRetainedParamControlInactive(row)) {
     return false;
   }
@@ -32,4 +50,12 @@ function isProjectGpuRetainedParamControlCanvasOwned(
   row: ProjectGpuRetainedParamControlRow,
 ): boolean {
   return Boolean(row.control && row.control.commitPolicy !== "native-island");
+}
+
+function isProjectGpuRetainedParamTextLikeDomOwned(
+  row: ProjectGpuRetainedParamControlRow,
+): boolean {
+  return Boolean(
+    row.control?.kind === "text-like" && row.control.renderOwner === "dom-owned",
+  );
 }

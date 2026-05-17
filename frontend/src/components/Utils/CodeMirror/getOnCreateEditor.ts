@@ -31,11 +31,7 @@ export function getOnCreateEditor({
   defaultVal,
 }) {
   return (view) => {
-    if (view.contentDOM?.focus) {
-      view.contentDOM.focus({ preventScroll: true });
-    } else {
-      view.focus();
-    }
+    view.focus();
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;
       const pos = view.posAtCoords({ x: clientX, y: clientY });
@@ -62,27 +58,43 @@ export function getOnCreateEditor({
 }
 
 export function requestGpuFlowCodeMirrorActivationPaint(
-  view: Pick<EditorView, "dom">,
+  view: Pick<EditorView, "dom"> & Partial<Pick<EditorView, "contentDOM" | "focus">>,
   chromeReproContext?: GpuFlowCodeMirrorActivationPaintChromeReproContext,
 ) {
   const scheduledAtMs = nowChromeReproPerformanceMs();
+  const resolvedChromeReproContext =
+    resolveGpuFlowCodeMirrorActivationPaintChromeReproContext(
+      view,
+      chromeReproContext,
+    );
   scheduleGpuFlowCodeMirrorActivationPaint(() => {
+    focusGpuFlowCodeMirrorActivationEditor(view);
     dispatchGpuFlowNodeDirtyEvent(view.dom, {
       priority: "interactive",
       reason: "focus",
     });
     getGpuFlowPaintableCanvas(view.dom)?.requestPaint?.();
     postGpuFlowCodeMirrorActivationChromeReproEvent({
-      defaultValueLength: chromeReproContext?.defaultValueLength ?? 0,
-      divId: chromeReproContext?.divId ?? view.dom.id,
-      event: chromeReproContext?.event ?? null,
+      ...resolvedChromeReproContext,
       paintRequestDelayMs: roundChromeReproMs(
         nowChromeReproPerformanceMs() - scheduledAtMs,
       ),
       phase: "paint-requested",
-      valueLength: chromeReproContext?.valueLength ?? 0,
     });
   });
+}
+
+function focusGpuFlowCodeMirrorActivationEditor(
+  view: Pick<EditorView, "dom"> &
+    Partial<Pick<EditorView, "contentDOM" | "focus">>,
+) {
+  if (view.focus) {
+    view.focus();
+    return;
+  }
+  if (view.contentDOM?.isConnected) {
+    view.contentDOM.focus({ preventScroll: true });
+  }
 }
 
 type GpuFlowCodeMirrorActivationPaintChromeReproContext = {
@@ -91,6 +103,23 @@ type GpuFlowCodeMirrorActivationPaintChromeReproContext = {
   readonly event: ReturnType<typeof summarizeGpuFlowCodeMirrorInitialEvent>;
   readonly valueLength: number;
 };
+
+function resolveGpuFlowCodeMirrorActivationPaintChromeReproContext(
+  view: Pick<EditorView, "dom">,
+  chromeReproContext:
+    | GpuFlowCodeMirrorActivationPaintChromeReproContext
+    | undefined,
+) {
+  if (chromeReproContext) {
+    return chromeReproContext;
+  }
+  return {
+    defaultValueLength: 0,
+    divId: view.dom.id,
+    event: null,
+    valueLength: 0,
+  };
+}
 
 function postGpuFlowCodeMirrorActivationChromeReproEvent({
   defaultValueLength,

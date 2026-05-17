@@ -135,6 +135,7 @@ export type BrowserVisualActor = {
       | "native-dom-island"
       | "native-control-affordance"
       | "none"
+      | "selection-caret"
       | "semantic-required-visible"
       | "value-text";
     readonly required: boolean;
@@ -242,6 +243,7 @@ export function createDomControlBrowserVisualActor(
     control.sourceId,
     control.sourceKey,
     control.valueStyleRevision,
+    control.textCoverageRevision,
   ].join("|");
   const semanticGenerationId = [
     "browser-dom-control-semantic",
@@ -250,6 +252,7 @@ export function createDomControlBrowserVisualActor(
     control.defaultValue,
     control.disabled,
     control.error,
+    control.textCoverageRevision,
   ].join("|");
   const visualGenerationId = [
     "browser-dom-control-visual",
@@ -257,6 +260,7 @@ export function createDomControlBrowserVisualActor(
     control.visualPolicy,
     control.snapshotSurfaceId ?? "surface:none",
     control.snapshotCacheKeyRevision,
+    control.textCoverageRevision,
   ].join("|");
   const generationId = [
     contentGenerationId,
@@ -691,6 +695,9 @@ function getDomControlNonemptyReason(
   if (control.value.length > 0) {
     return "value-text";
   }
+  if (hasDomControlSelectionCaretCoverage(control)) {
+    return "selection-caret";
+  }
   if (control.active) {
     return "active-editor";
   }
@@ -727,7 +734,20 @@ function getDomControlCoverageRequired({
   if (nonemptyReason === "active-editor") {
     return { reason: "active-editor", required: true };
   }
+  if (nonemptyReason === "selection-caret") {
+    return { reason: "selection-caret", required: true };
+  }
   return { reason: "native-control-affordance", required: true };
+}
+
+function hasDomControlSelectionCaretCoverage(
+  control: GpuRetainedDomControlSourceDescriptor,
+): boolean {
+  return (
+    control.textCoverageState.caret === "visible" ||
+    control.textCoverageState.composition === "active" ||
+    control.textCoverageState.selection !== "none"
+  );
 }
 
 function getDomControlCoverageExemption(

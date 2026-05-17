@@ -9,7 +9,10 @@ import {
 } from "../htmlSurfaces/interactionProjector";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
+import type {
+  GpuRetainedDomControlSourceDescriptor,
+  GpuRetainedDomControlTextCoverageState,
+} from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
 import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
@@ -20,13 +23,16 @@ import {
   areBrowserVisualActorRuntimeSnapshotsEqual,
   blurFocusedDescendantBeforeUnmount,
   createGpuFlowDomControlProjectionSourceRevision,
-  createGpuFlowDomControlRetainedScrollProjectionSignature,
   isProjectableDomControlAssignment,
   mergeGpuFlowDomControlProjectedControls,
   parkDomControlElement,
   resolveGpuFlowBrowserVisualActorFrameIds,
   syncGpuFlowBrowserVisualDomIslandLayerStyles,
 } from "./browserVisualActorRuntimeHelpers";
+import {
+  getDomControlHostSelectionState,
+  isDomControlHostFocused,
+} from "./browserVisualActorTextCoverage";
 import {
   createEmptyDomControlPlaneDiagnostics,
   createGpuFlowDomControlProjectionManager,
@@ -40,6 +46,10 @@ import {
   getGpuFlowDomControlPlaneViewportSize,
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
+import {
+  createGpuRetainedDomControlTextCoverageState,
+  withGpuRetainedDomControlTextCoverageState,
+} from "./retainedDomControlSourceKeys";
 import { getGpuRetainedDomControlResolvedSnapshotSurfaceId } from "./retainedDomControlSources";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
@@ -134,6 +144,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     string,
     HTMLElement
   >();
+  private readonly composingDomControlIds = new Set<string>();
   private domControlSnapshotTextureManager: Pick<
     HtmlSurfaceTextureManager,
     "getCommittedSurfaceTexture"
@@ -149,7 +160,6 @@ export class GpuFlowBrowserVisualActorRuntime {
   private readonly listeners = new Set<BrowserVisualActorRuntimeListener>();
   private readonly projectionManager =
     createGpuFlowDomControlProjectionManager();
-  private retainedScrollProjectionSignature = "";
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
   private suspendPassivePointerActivation = false;
   private unsubscribeCommittedSurfaceRuntime: (() => void) | null = null;
@@ -286,6 +296,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         blurFocusedDescendantBeforeUnmount(mounted.element);
       }
       this.domControlHostById.delete(control.sourceId);
+      this.composingDomControlIds.delete(control.sourceId);
       return;
     }
     this.domControlHostById.set(control.sourceId, {
@@ -323,6 +334,23 @@ export class GpuFlowBrowserVisualActorRuntime {
     this.domControlSnapshotTextureManager = textureManager;
   }
 
+  setDomControlCompositionActive({
+    active,
+    controlId,
+  }: {
+    readonly active: boolean;
+    readonly controlId: string;
+  }): void {
+    const changed = active
+      ? addSetValue(this.composingDomControlIds, controlId)
+      : deleteSetValue(this.composingDomControlIds, controlId);
+    if (!changed) {
+      return;
+    }
+    this.refreshBrowserActors();
+    this.projectDomControls();
+  }
+
   setDomIslandElement({
     element,
     islandId,
@@ -356,19 +384,6 @@ export class GpuFlowBrowserVisualActorRuntime {
         viewportRuntime,
         viewportStore,
       });
-    const retainedScrollProjectionSignature =
-      createGpuFlowDomControlRetainedScrollProjectionSignature({
-        controls: this.snapshot.domControls.controls,
-        getRetainedScrollOffset: this.getRetainedScrollOffset,
-      });
-    if (
-      retainedScrollProjectionSignature !==
-      this.retainedScrollProjectionSignature
-    ) {
-      this.retainedScrollProjectionSignature =
-        retainedScrollProjectionSignature;
-      this.refreshBrowserActors(projectionViewport);
-    }
     const diagnosticsRef = { current: this.diagnostics };
     this.projectionManager.project({
       committedFrameId: this.snapshot.frameIds.committedFrameId,
@@ -636,42 +651,58 @@ export class GpuFlowBrowserVisualActorRuntime {
   private withFocusedDomControlPins(
     controls: readonly GpuRetainedDomControlSourceDescriptor[],
   ): readonly GpuRetainedDomControlSourceDescriptor[] {
-    const focusedControlIds = this.getFocusedDomControlIds();
-    if (focusedControlIds.size === 0) {
-      return controls;
-    }
     let changed = false;
     const pinnedControls = controls.map((control) => {
-      if (control.active || !focusedControlIds.has(control.sourceId)) {
+      const textCoverageState =
+        this.getRuntimeDomControlTextCoverageState(control);
+      const textStateChanged =
+        control.textCoverageState.caret !== textCoverageState.caret ||
+        control.textCoverageState.composition !==
+          textCoverageState.composition ||
+        control.textCoverageState.selection !== textCoverageState.selection;
+      const shouldPinActive =
+        control.active ||
+        textCoverageState.caret === "visible" ||
+        textCoverageState.composition === "active" ||
+        textCoverageState.selection !== "none";
+      if (!shouldPinActive && !textStateChanged) {
         return control;
       }
       changed = true;
-      return {
-        ...control,
-        active: true,
-        layerSlot: "active-dom-control-plane",
-        lifecycleState: "active-projected",
-        visualSemantics: GPU_FLOW_FOCUSED_DOM_CONTROL_VISUAL_SEMANTICS,
-      } satisfies GpuRetainedDomControlSourceDescriptor;
+      const nextControl = shouldPinActive
+        ? ({
+            ...control,
+            active: true,
+            layerSlot: "active-dom-control-plane",
+            lifecycleState: "active-projected",
+            visualSemantics: GPU_FLOW_FOCUSED_DOM_CONTROL_VISUAL_SEMANTICS,
+          } satisfies GpuRetainedDomControlSourceDescriptor)
+        : control;
+      return withGpuRetainedDomControlTextCoverageState(
+        nextControl,
+        textCoverageState,
+      );
     });
     return changed ? Object.freeze(pinnedControls) : controls;
   }
 
-  private getFocusedDomControlIds(): ReadonlySet<string> {
-    const focusedControlIds = new Set<string>();
-    for (const [controlId, host] of this.domControlHostById) {
-      const ownerDocument = host.element.ownerDocument;
-      const elementConstructor = ownerDocument.defaultView?.Element;
-      const activeElement = ownerDocument.activeElement;
-      if (
-        elementConstructor &&
-        activeElement instanceof elementConstructor &&
-        host.element.contains(activeElement)
-      ) {
-        focusedControlIds.add(controlId);
-      }
+  private getRuntimeDomControlTextCoverageState(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): GpuRetainedDomControlTextCoverageState {
+    const host = this.domControlHostById.get(control.sourceId);
+    const focused = host ? isDomControlHostFocused(host.element) : false;
+    const composing = this.composingDomControlIds.has(control.sourceId);
+    if (!control.active && !focused && !composing) {
+      return createGpuRetainedDomControlTextCoverageState(false);
     }
-    return focusedControlIds;
+    const selection = host
+      ? getDomControlHostSelectionState(host.element, focused)
+      : "collapsed";
+    return {
+      caret: "visible",
+      composition: composing ? "active" : "inactive",
+      selection,
+    };
   }
 
   private createDomControlReadinessByActorId(
@@ -816,6 +847,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         host.control.sourceKey === control.sourceKey &&
         host.control.snapshotCacheKeyRevision ===
           control.snapshotCacheKeyRevision &&
+        host.control.textCoverageRevision === control.textCoverageRevision &&
         host.control.valueStyleRevision === control.valueStyleRevision &&
         host.control.geometryRevision === control.geometryRevision &&
         host.control.clipChainRevision === control.clipChainRevision,
@@ -934,4 +966,16 @@ function isDomControlSnapshotPreparationAssignment(
       assignment.reason === "live-host-overflow" &&
       !assignment.control.active)
   );
+}
+
+function addSetValue<T>(set: Set<T>, value: T): boolean {
+  if (set.has(value)) {
+    return false;
+  }
+  set.add(value);
+  return true;
+}
+
+function deleteSetValue<T>(set: Set<T>, value: T): boolean {
+  return set.delete(value);
 }

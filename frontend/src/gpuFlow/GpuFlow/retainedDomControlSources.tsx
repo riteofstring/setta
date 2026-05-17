@@ -18,6 +18,7 @@ import {
 import {
   GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
   type GpuRetainedDomControlSourceDescriptor,
+  type GpuRetainedDomControlTextCoverageState,
   type GpuRetainedDomControlVisualSemantics,
   type GpuRetainedTextSnapshotCacheKey,
 } from "../retainedDomControlScene";
@@ -30,6 +31,11 @@ import {
   type GpuRect,
   type GpuViewportInput,
 } from "../viewportMath";
+import {
+  createGpuRetainedDomControlSourceKey,
+  createGpuRetainedDomControlTextCoverageRevision,
+  createGpuRetainedDomControlTextCoverageState,
+} from "./retainedDomControlSourceKeys";
 
 type GpuRetainedTextLikeDomControlRow = GpuRetainedContentRow & {
   readonly control: Extract<
@@ -351,11 +357,16 @@ function createGpuRetainedDomControlSourceBase({
     x: viewportPosition.x,
     y: viewportPosition.y,
   };
+  const textCoverageState =
+    createGpuRetainedDomControlTextCoverageState(active);
+  const textCoverageRevision =
+    createGpuRetainedDomControlTextCoverageRevision(textCoverageState);
   const valueStyleKey = createGpuRetainedDomControlValueStyleKey({
     control: row.control,
     controlRectSurfaceCssPx,
     disabled: row.state.disabled,
     error: row.state.error,
+    textCoverageRevision,
   });
   const snapshotCacheKey = createGpuRetainedDomControlSnapshotCacheKey({
     control: row.control,
@@ -364,6 +375,7 @@ function createGpuRetainedDomControlSourceBase({
     devicePixelRatioBucket: options.devicePixelRatioBucket ?? 1,
     disabled: row.state.disabled,
     error: row.state.error,
+    textCoverageState,
     value: row.control.displayValue,
     valueStyleKey,
     viewportZoomBucket: options.viewportZoomBucket ?? 1,
@@ -412,6 +424,8 @@ function createGpuRetainedDomControlSourceBase({
     snapshotCacheKey,
     snapshotCacheKeyRevision: JSON.stringify(snapshotCacheKey),
     surfaceId: surface.id,
+    textCoverageRevision,
+    textCoverageState,
     value: row.control.displayValue,
     valueStyleKey,
     valueStyleRevision: valueStyleKey,
@@ -872,25 +886,6 @@ function getGpuRetainedDomControlVisibleClipFlowPx(
   );
 }
 
-function createGpuRetainedDomControlSourceKey(
-  source: Omit<GpuRetainedDomControlSourceDescriptor, "sourceKey">,
-): string {
-  return JSON.stringify({
-    defaultValue: source.defaultValue,
-    disabled: source.disabled,
-    error: source.error,
-    language: source.language,
-    linePolicy: source.linePolicy,
-    rowId: source.rowId,
-    sourceHeight: source.sourceRectCssPx.height,
-    sourceWidth: source.sourceRectCssPx.width,
-    surfaceId: source.surfaceId,
-    value: source.value,
-    valueStyleKey: source.valueStyleKey,
-    wrapLines: source.wrapLines,
-  });
-}
-
 function createGpuRetainedDomControlSnapshotCacheKey({
   control,
   controlRectSurfaceCssPx,
@@ -898,6 +893,7 @@ function createGpuRetainedDomControlSnapshotCacheKey({
   devicePixelRatioBucket,
   disabled,
   error,
+  textCoverageState,
   value,
   valueStyleKey,
   viewportZoomBucket,
@@ -913,13 +909,16 @@ function createGpuRetainedDomControlSnapshotCacheKey({
   readonly devicePixelRatioBucket: number;
   readonly disabled: boolean;
   readonly error: boolean;
+  readonly textCoverageState: GpuRetainedDomControlTextCoverageState;
   readonly value: string;
   readonly valueStyleKey: string;
   readonly viewportZoomBucket: number;
 }): GpuRetainedTextSnapshotCacheKey {
   return {
     appThemeRevision: "setta-app-theme:inherited",
+    caretVisibility: textCoverageState.caret,
     codeMirrorThemeRevision: "setta-codemirror-theme:use-code-mirror-style",
+    compositionState: textCoverageState.composition,
     cssStyleRevision: valueStyleKey,
     defaultValue,
     devicePixelRatioBucket,
@@ -938,6 +937,7 @@ function createGpuRetainedDomControlSnapshotCacheKey({
       control.policy.linePolicy === "single-line" ? "single-line" : "multiline",
     placeholder: defaultValue,
     rendererFamily: control.rendererFamily,
+    selectionState: textCoverageState.selection,
     sourceHeight: controlRectSurfaceCssPx.height,
     sourceWidth: controlRectSurfaceCssPx.width,
     syntaxGeneration: control.policy.language ?? "plain-text",
@@ -970,6 +970,7 @@ function createGpuRetainedDomControlValueStyleKey({
   controlRectSurfaceCssPx,
   disabled,
   error,
+  textCoverageRevision,
 }: {
   readonly control: Extract<
     NonNullable<
@@ -980,6 +981,7 @@ function createGpuRetainedDomControlValueStyleKey({
   readonly controlRectSurfaceCssPx: GpuRect;
   readonly disabled: boolean;
   readonly error: boolean;
+  readonly textCoverageRevision: string;
 }): string {
   return JSON.stringify({
     disabled,
@@ -989,6 +991,7 @@ function createGpuRetainedDomControlValueStyleKey({
     language: control.policy.language,
     linePolicy: control.policy.linePolicy,
     rendererFamily: control.rendererFamily,
+    textCoverageRevision,
     width: controlRectSurfaceCssPx.width,
     wrapLines: control.policy.wrapLines,
   });

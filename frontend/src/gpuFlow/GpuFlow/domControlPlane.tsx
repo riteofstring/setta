@@ -85,6 +85,8 @@ const DEFAULT_PASSIVE_DOM_CONTROL_COVERAGE_DEBUG_ATTRIBUTES: GpuFlowDomControlCo
     "data-gpu-flow-dom-control-coverage-state": "live",
     "data-gpu-flow-dom-control-projection-phase": "project",
   });
+const GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_ATTEMPTS = 300;
+const GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_RETRY_DELAY_MS = 16;
 
 export function GpuFlowDomControlPlane({
   committedFrameId,
@@ -169,10 +171,16 @@ export function GpuFlowDomControlPlane({
         finishMeasure();
       }
     },
-    [
-      browserVisualRuntime,
-      surfaceRef,
-    ],
+    [browserVisualRuntime, surfaceRef],
+  );
+  const setControlCompositionActive = useCallback(
+    (controlId: string, active: boolean) => {
+      browserVisualRuntime.setDomControlCompositionActive({
+        active,
+        controlId,
+      });
+    },
+    [browserVisualRuntime],
   );
 
   useLayoutEffect(() => {
@@ -343,6 +351,7 @@ export function GpuFlowDomControlPlane({
             key={control.sourceId}
             onActivate={onActivate}
             renderControl={renderControl}
+            setControlCompositionActive={setControlCompositionActive}
             setControlElement={setControlElement}
           />
         );
@@ -358,6 +367,7 @@ function GpuFlowDomControlHost({
   initialStyle,
   onActivate,
   renderControl,
+  setControlCompositionActive,
   setControlElement,
 }: {
   readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
@@ -368,6 +378,10 @@ function GpuFlowDomControlHost({
   readonly initialStyle: ReturnType<typeof projectGpuFlowDomControlPlaneHost>;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly renderControl: GpuFlowDomControlRenderer;
+  readonly setControlCompositionActive: (
+    controlId: string,
+    active: boolean,
+  ) => void;
   readonly setControlElement: (
     control: GpuRetainedDomControlSourceDescriptor,
     element: HTMLElement | null,
@@ -413,6 +427,44 @@ function GpuFlowDomControlHost({
     setControlElement(control, element);
   }, [control, setControlElement]);
 
+  useLayoutEffect(() => {
+    if (!control.active) {
+      return;
+    }
+    let timeoutId: number | null = null;
+    let attemptCount = 0;
+    const scheduleNextFocusAttempt = () => {
+      if (attemptCount >= GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_ATTEMPTS) {
+        return;
+      }
+      timeoutId = window.setTimeout(
+        focusActiveEditor,
+        GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_RETRY_DELAY_MS,
+      );
+    };
+    const focusActiveEditor = () => {
+      timeoutId = null;
+      attemptCount += 1;
+      const element = hostElementRef.current;
+      if (!element?.isConnected) {
+        scheduleNextFocusAttempt();
+        return;
+      }
+      if (!hasGpuFlowDomControlEditorFocus(element)) {
+        focusGpuFlowDomControlEditor(element);
+      }
+      if (!hasGpuFlowDomControlEditorFocus(element)) {
+        scheduleNextFocusAttempt();
+      }
+    };
+    focusActiveEditor();
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [control.active, control.sourceId, control.sourceKey]);
+
   return (
     <div
       aria-hidden={
@@ -446,6 +498,12 @@ function GpuFlowDomControlHost({
           },
           kind: "pointer",
         });
+      }}
+      onCompositionEndCapture={() => {
+        setControlCompositionActive(control.sourceId, false);
+      }}
+      onCompositionStartCapture={() => {
+        setControlCompositionActive(control.sourceId, true);
       }}
       ref={setHostElement}
       style={initialStyle}
@@ -490,4 +548,37 @@ function getGpuFlowDomControlCoverageDebugAttributes({
     "data-gpu-flow-dom-control-coverage-state": assignment.coverageState,
     "data-gpu-flow-dom-control-projection-phase": assignment.phase,
   };
+}
+
+function hasGpuFlowDomControlEditorFocus(element: HTMLElement): boolean {
+  const activeElement = element.ownerDocument.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !element.contains(activeElement)) {
+    return false;
+  }
+  const control = activeElement.closest<HTMLElement>("[data-gpu-flow-control]");
+  if (!control) {
+    return false;
+  }
+  const codeMirrorContent = control.querySelector<HTMLElement>(
+    ".cm-content[contenteditable='true']",
+  );
+  return codeMirrorContent
+    ? codeMirrorContent === activeElement ||
+        codeMirrorContent.contains(activeElement)
+    : true;
+}
+
+function focusGpuFlowDomControlEditor(element: HTMLElement): void {
+  const control = getGpuFlowDomControlEditorFocusTarget(element);
+  control?.focus({ preventScroll: true });
+}
+
+function getGpuFlowDomControlEditorFocusTarget(
+  element: HTMLElement,
+): HTMLElement | null {
+  const control = element.querySelector<HTMLElement>("[data-gpu-flow-control]");
+  return (
+    control?.querySelector<HTMLElement>(".cm-content[contenteditable='true']") ??
+    control
+  );
 }

@@ -49,6 +49,7 @@ export function createGpuFlowDomControlProjectionSourceRevision({
       control.sourceKey,
       control.active,
       control.visualPolicy,
+      control.textCoverageRevision,
       control.sectionScrollRevision,
       control.viewportSampleRevision,
     ]),
@@ -225,6 +226,8 @@ function canRetainPreviousGpuFlowDomControlDescriptor({
     currentControl.sourceKey === previousControl.sourceKey &&
     currentControl.snapshotCacheKeyRevision ===
       previousControl.snapshotCacheKeyRevision &&
+    currentControl.textCoverageRevision ===
+      previousControl.textCoverageRevision &&
     currentControl.active === previousControl.active
   );
 }
@@ -262,6 +265,7 @@ function areDomControlDescriptorsEqual(
       left.sourceKey === right.sourceKey &&
       left.snapshotCacheKeyRevision === right.snapshotCacheKeyRevision &&
       left.geometryRevision === right.geometryRevision &&
+      left.textCoverageRevision === right.textCoverageRevision &&
       left.active === right.active,
   );
 }

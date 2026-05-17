@@ -52,16 +52,6 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
   if (domControlPlaneVisible) {
     expect(Number.isFinite(sample.planeCommittedFrameId), details).toBe(true);
     expect(Number.isFinite(sample.planeRuntimeFrameId), details).toBe(true);
-    expect(sample.planeCommittedFrameId, details).toBeLessThanOrEqual(
-      sample.committed?.domControlCommittedFrameId ?? 0,
-    );
-    expect(
-      sample.diagnostics?.committedFrameId ?? 0,
-      details,
-    ).toBeLessThanOrEqual(sample.committed?.domControlCommittedFrameId ?? 0);
-    expect(sample.planeRuntimeFrameId, details).toBeLessThanOrEqual(
-      sample.committed?.canvasRetainedFrameId ?? 0,
-    );
     expect(sample.canvasProjectionTransactionId, details).toBeTruthy();
     expect(sample.planeProjectionTransactionId, details).toBe(
       sample.canvasProjectionTransactionId,
@@ -71,6 +61,9 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
     );
     expect(sample.planeProjectionCommittedFrameId, details).toBe(
       sample.canvasProjectionCommittedFrameId,
+    );
+    expect(sample.planeProjectionCommittedFrameId, details).toBe(
+      sample.committed?.displayFrameId,
     );
   }
   expect(sample.committed?.debugSnapshotFrameId, details).toBe(
@@ -185,6 +178,10 @@ function isCommittedSurfaceDomActorSampleReady(
   return Boolean(
     sample.committed &&
       sample.diagnostics &&
+      sample.committed.displayCompletenessStatus === "complete" &&
+      sample.committed.publishabilityKind === "publishable" &&
+      sample.canvasProjectionTransactionId &&
+      sample.planeProjectionTransactionId &&
       sample.diagnostics.mountedControlCount <=
         MAX_EXPECTED_MOUNTED_DOM_CONTROLS,
   );

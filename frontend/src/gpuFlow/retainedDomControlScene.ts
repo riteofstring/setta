@@ -27,7 +27,9 @@ type GpuRetainedDomControlInteractionPolicy = {
 
 export type GpuRetainedTextSnapshotCacheKey = {
   readonly appThemeRevision: string;
+  readonly caretVisibility: "hidden" | "visible";
   readonly codeMirrorThemeRevision: string;
+  readonly compositionState: "active" | "inactive";
   readonly cssStyleRevision: string;
   readonly defaultValue: string;
   readonly devicePixelRatioBucket: number;
@@ -41,6 +43,7 @@ export type GpuRetainedTextSnapshotCacheKey = {
   readonly measuredLayoutMode: "multiline" | "single-line";
   readonly placeholder: string;
   readonly rendererFamily: string;
+  readonly selectionState: "collapsed" | "none" | "range";
   readonly sourceHeight: number;
   readonly sourceWidth: number;
   readonly syntaxGeneration: string;
@@ -54,6 +57,12 @@ export type GpuRetainedDomControlVisualSemantics = {
   readonly focusable: boolean;
   readonly pointer: "active-browser-editor" | "retained-activation-model";
   readonly selectable: "browser-editor" | "none";
+};
+
+export type GpuRetainedDomControlTextCoverageState = {
+  readonly caret: "hidden" | "visible";
+  readonly composition: "active" | "inactive";
+  readonly selection: "collapsed" | "none" | "range";
 };
 
 type GpuRetainedDomControlProjectionVisibility =
@@ -112,6 +121,8 @@ export type GpuRetainedDomControlSourceDescriptor = {
   readonly projectionVisibility: GpuRetainedDomControlProjectionVisibility;
   readonly snapshotSurfaceId: string | null;
   readonly surfaceId: string;
+  readonly textCoverageRevision: string;
+  readonly textCoverageState: GpuRetainedDomControlTextCoverageState;
   readonly value: string;
   readonly snapshotCacheKey: GpuRetainedTextSnapshotCacheKey;
   readonly snapshotCacheKeyRevision: string;

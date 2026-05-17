@@ -135,6 +135,55 @@ describe("browser visual actor adapter", () => {
     ]);
   });
 
+  it("requires coverage for empty visible controls with caret or selection state", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        textCoverageState: {
+          caret: "visible",
+          composition: "inactive",
+          selection: "collapsed",
+        },
+        value: "",
+      }),
+      {
+        representationReadiness: {
+          coverageState: "live-host-ready",
+          resourceHandles: [{ id: "source-a", kind: "source" }],
+        },
+      },
+    );
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageRequired: { reason: "selection-caret", required: true },
+        nonemptyReason: "selection-caret",
+      }),
+    );
+  });
+
+  it("keys active composition into DOM-control visual generation", () => {
+    const inactiveActor = createDomControlBrowserVisualActor(
+      domControl({ value: "" }),
+    );
+    const composingActor = createDomControlBrowserVisualActor(
+      domControl({
+        textCoverageState: {
+          caret: "visible",
+          composition: "active",
+          selection: "collapsed",
+        },
+        value: "",
+      }),
+    );
+
+    expect(composingActor.visualGenerationId).not.toBe(
+      inactiveActor.visualGenerationId,
+    );
+    expect(composingActor.generationId).toContain(
+      composingActor.visualGenerationId,
+    );
+  });
+
   it("uses exact snapshot coverage for live DOM controls when runtime falls back to a snapshot", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
@@ -268,11 +317,18 @@ describe("browser visual actor adapter", () => {
   });
 });
 
+const DEFAULT_TEXT_COVERAGE_STATE = {
+  caret: "hidden",
+  composition: "inactive",
+  selection: "none",
+} as const;
+
 function domControl({
   clipRect,
   projectionVisibility = "viewport-visible",
   snapshotSurfaceId = null,
   sourceId = "source-a",
+  textCoverageState,
   value = "",
   visualPolicy = "live-dom",
   worldRect,
@@ -284,6 +340,9 @@ function domControl({
     | undefined;
   readonly snapshotSurfaceId?: string | null | undefined;
   readonly sourceId?: string | undefined;
+  readonly textCoverageState?:
+    | GpuRetainedDomControlSourceDescriptor["textCoverageState"]
+    | undefined;
   readonly value?: string | undefined;
   readonly visualPolicy?:
     | GpuRetainedDomControlSourceDescriptor["visualPolicy"]
@@ -291,11 +350,14 @@ function domControl({
   readonly worldRect?: GpuRetainedDomControlSourceDescriptor["worldRectFlowPx"];
   readonly zOrder?: number | undefined;
 }): GpuRetainedDomControlSourceDescriptor {
-  const rect = { height: 24, width: 180, x: 4, y: 8 };
+  const rects = createDomControlTestRects({ clipRect, worldRect });
+  const resolvedTextCoverageState =
+    textCoverageState ?? DEFAULT_TEXT_COVERAGE_STATE;
+  const textCoverageRevision = JSON.stringify(resolvedTextCoverageState);
   return {
     active: false,
     clipChainRevision: "clip",
-    clipRectSurfaceCssPx: clipRect ?? rect,
+    clipRectSurfaceCssPx: rects.clipRect,
     controlId: "control-a",
     defaultValue: "",
     disabled: false,
@@ -310,10 +372,30 @@ function domControl({
     sourceId,
     sourceKey: "source-key",
     sourceRectCssPx: { height: 24, width: 180, x: 0, y: 0 },
+    textCoverageRevision,
+    textCoverageState: resolvedTextCoverageState,
     value,
     valueStyleRevision: "value-style",
     visualPolicy,
-    worldRectFlowPx: worldRect ?? rect,
+    worldRectFlowPx: rects.worldRect,
     zOrder,
   } as GpuRetainedDomControlSourceDescriptor;
+}
+
+function createDomControlTestRects({
+  clipRect,
+  worldRect,
+}: {
+  readonly clipRect:
+    | GpuRetainedDomControlSourceDescriptor["clipRectSurfaceCssPx"]
+    | undefined;
+  readonly worldRect:
+    | GpuRetainedDomControlSourceDescriptor["worldRectFlowPx"]
+    | undefined;
+}) {
+  const rect = { height: 24, width: 180, x: 4, y: 8 };
+  return {
+    clipRect: clipRect ?? rect,
+    worldRect: worldRect ?? rect,
+  };
 }

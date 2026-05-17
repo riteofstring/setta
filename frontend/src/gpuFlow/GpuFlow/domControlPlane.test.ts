@@ -373,9 +373,16 @@ function domControl({
     | undefined;
 }): GpuRetainedDomControlSourceDescriptor {
   const rect = { height: 24, width: 273, x: 0, y: index * 28 };
+  const textCoverageState = {
+    caret: active ? "visible" : "hidden",
+    composition: "inactive",
+    selection: active ? "collapsed" : "none",
+  } as const;
   const snapshotCacheKey = {
     appThemeRevision: "theme",
+    caretVisibility: textCoverageState.caret,
     codeMirrorThemeRevision: "codemirror-theme",
+    compositionState: textCoverageState.composition,
     cssStyleRevision: "value-style",
     defaultValue: "",
     devicePixelRatioBucket: 1,
@@ -389,13 +396,15 @@ function domControl({
     measuredLayoutMode: "single-line" as const,
     placeholder: "",
     rendererFamily: "text-like",
+    selectionState: textCoverageState.selection,
     sourceHeight: rect.height,
     sourceWidth: rect.width,
     syntaxGeneration: "plain-text",
     value: "",
     wrapLines: false,
     zoomBucket: 1,
-  };
+  } as const;
+  const textCoverageRevision = JSON.stringify(textCoverageState);
   return {
     active,
     clipChainRevision: "clip",
@@ -429,6 +438,8 @@ function domControl({
     snapshotCacheKey,
     snapshotCacheKeyRevision: JSON.stringify(snapshotCacheKey),
     surfaceId: "surface",
+    textCoverageRevision,
+    textCoverageState,
     value: "",
     valueStyleKey: "value-style",
     valueStyleRevision: "value-style",

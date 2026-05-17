@@ -85,6 +85,43 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(mountedRowIds()).toEqual(mountedBefore);
   });
 
+  it("projects retained scroll motion without refreshing runtime host assignments", () => {
+    const controls = Array.from({ length: 100 }, (_, index) =>
+      domControl({ index }),
+    );
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    let retainedScrollY = 0;
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: () => ({ x: 0, y: retainedScrollY }),
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 1,
+        retainedRuntimeFrame: retainedRuntimeFrame(controls),
+      }),
+    });
+    const mountedBefore = browserVisualRuntime
+      .getSnapshot()
+      .domControls.mountedControls.map((control) => control.rowId);
+
+    retainedScrollY = 280;
+    browserVisualRuntime.projectDomControls();
+
+    expect(
+      browserVisualRuntime
+        .getSnapshot()
+        .domControls.mountedControls.map((control) => control.rowId),
+    ).toEqual(mountedBefore);
+  });
+
   it("pins focused DOM-control hosts while retained active state catches up", () => {
     const activeControls = [
       domControl({ active: true, index: 0 }),
@@ -107,7 +144,9 @@ describe("GPU flow DOM control projection runtime", () => {
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
-    const renderPlane = (controls: readonly GpuRetainedDomControlSourceDescriptor[]) => (
+    const renderPlane = (
+      controls: readonly GpuRetainedDomControlSourceDescriptor[],
+    ) => (
       <GpuFlowDomControlPlane
         committedFrameId={1}
         getRetainedScrollOffset={undefined}
@@ -205,6 +244,51 @@ describe("GPU flow DOM control projection runtime", () => {
     });
 
     expect(document.activeElement).toBe(input);
+  });
+
+  it("focuses CodeMirror content for active retained DOM-control hosts", () => {
+    const controls = [
+      domControl({ active: true, index: 0 }),
+      ...Array.from({ length: 99 }, (_, index) =>
+        domControl({ index: index + 1 }),
+      ),
+    ];
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+
+    act(() => {
+      root?.render(
+        <GpuFlowDomControlPlane
+          committedFrameId={1}
+          getRetainedScrollOffset={undefined}
+          onActivate={undefined}
+          renderControl={(control) => (
+            <div data-gpu-flow-control={`codemirror:${control.rowId}:value`}>
+              <div
+                className="cm-content"
+                contentEditable
+                data-row-id={control.rowId}
+                suppressContentEditableWarning
+                tabIndex={0}
+              />
+            </div>
+          )}
+          retainedRuntimeFrame={retainedRuntimeFrame(controls)}
+          viewportRuntime={viewportRuntime}
+          viewportStore={viewportStore}
+        />,
+      );
+    });
+
+    expect(document.activeElement).toBe(
+      document.querySelector("[data-row-id='row-0']"),
+    );
   });
 
   it("uses identical DOM-control host selection when Chrome repro capture is active", () => {
@@ -828,7 +912,9 @@ function domControl({
   const rect = { height: 24, width: 273, x: 0, y: index * 28 };
   const snapshotCacheKey = {
     appThemeRevision: "theme",
+    caretVisibility: active ? "visible" : "hidden",
     codeMirrorThemeRevision: "codemirror-theme",
+    compositionState: "inactive",
     cssStyleRevision: "value-style",
     defaultValue: "",
     devicePixelRatioBucket: 1,
@@ -842,13 +928,16 @@ function domControl({
     measuredLayoutMode: "single-line" as const,
     placeholder: "",
     rendererFamily: "text-like",
+    selectionState: active ? "collapsed" : "none",
     sourceHeight: rect.height,
     sourceWidth: rect.width,
     syntaxGeneration: "plain-text",
     value,
     wrapLines: false,
     zoomBucket: 1,
-  };
+  } as const;
+  const textCoverageState = createTestTextCoverageState(active);
+  const textCoverageRevision = JSON.stringify(textCoverageState);
   return {
     active,
     clipChainRevision: "clip",
@@ -882,6 +971,8 @@ function domControl({
     sourceKey: `source-${index}`,
     sourceRectCssPx: rect,
     surfaceId: "surface",
+    textCoverageRevision,
+    textCoverageState,
     value,
     valueStyleKey: "value-style",
     valueStyleRevision: "value-style",
@@ -898,4 +989,12 @@ function domControl({
     wrapLines: false,
     zOrder: index,
   };
+}
+
+function createTestTextCoverageState(active: boolean) {
+  return {
+    caret: active ? "visible" : "hidden",
+    composition: "inactive",
+    selection: active ? "collapsed" : "none",
+  } as const;
 }

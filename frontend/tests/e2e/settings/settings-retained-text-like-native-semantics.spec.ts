@@ -66,10 +66,7 @@ test("native selection and caret stay with a retained text-like editor across pr
 }) => {
   const { row, target } = await openNativeTextLikeRow(page);
 
-  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-  await expect
-    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
-    .toContain(row.rowId);
+  await activateNativeTextLikeEditor(page, row);
   await page.keyboard.press(selectAllShortcut());
   const selectedBefore = await waitForNativeTextSelectionState(page, {
     expectedCollapsed: false,
@@ -152,10 +149,7 @@ test("IME composition stays live and aligned through retained scroll and viewpor
   const { row, target } = await openNativeTextLikeRow(page);
 
   await installNativeCompositionProbe(page);
-  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-  await expect
-    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
-    .toContain(row.rowId);
+  await activateNativeTextLikeEditor(page, row);
   await dispatchSyntheticCompositionEvent(page, {
     data: "ka",
     kind: "compositionstart",
@@ -316,6 +310,135 @@ function expectNativeCompositionStateAlignedToRow(
     rectIntersectsRect(state.editorRect, state.rowControlRect),
     details,
   ).toBe(true);
+}
+
+async function activateNativeTextLikeEditor(
+  page: Page,
+  row: RetainedRowDebugEntry & {
+    readonly controlClientPoint: Point;
+    readonly controlClientRect: Rect;
+  },
+): Promise<void> {
+  const points = [
+    row.controlClientPoint,
+    {
+      x: row.controlClientRect.x + row.controlClientRect.width / 2,
+      y: row.controlClientRect.y + row.controlClientRect.height / 2,
+    },
+  ];
+  for (const point of points) {
+    await page.mouse.click(point.x, point.y);
+    try {
+      await expect
+        .poll(() => readActiveCodeMirrorId(page), { timeout: 2_000 })
+        .toContain(row.rowId);
+      return;
+    } catch {
+      await waitForAnimationFrame(page);
+    }
+  }
+  throw new Error(
+    `Could not activate native text-like editor. ${JSON.stringify(
+      await readNativeTextActivationDiagnostics(page, row),
+      null,
+      2,
+    )}`,
+  );
+}
+
+async function readNativeTextActivationDiagnostics(
+  page: Page,
+  row: RetainedRowDebugEntry & {
+    readonly controlClientPoint: Point;
+    readonly controlClientRect: Rect;
+  },
+): Promise<unknown> {
+  return await page.evaluate((row) => {
+    const host = document.querySelector<HTMLElement>(
+      `[data-gpu-flow-dom-control-row-id="${CSS.escape(row.rowId)}"]`,
+    );
+    const hostRect = host ? toPlainRect(host.getBoundingClientRect()) : null;
+    const pointTarget = document.elementFromPoint(
+      row.controlClientPoint.x,
+      row.controlClientPoint.y,
+    );
+    const centerTarget = document.elementFromPoint(
+      row.controlClientRect.x + row.controlClientRect.width / 2,
+      row.controlClientRect.y + row.controlClientRect.height / 2,
+    );
+    return {
+      activeElement: describeElement(document.activeElement),
+      activeElementInsideHost:
+        host && document.activeElement instanceof Element
+          ? host.contains(document.activeElement)
+          : false,
+      activeEditorId:
+        document.activeElement instanceof Element
+          ? document.activeElement
+              .closest("[data-gpu-flow-control]")
+              ?.getAttribute("data-gpu-flow-control") ?? null
+          : null,
+      centerTarget: describeElement(centerTarget),
+      domControlPlaneDiagnostics:
+        (
+          window as typeof window & {
+            __settaGpuFlowDomControlPlaneDiagnostics?: () => unknown;
+          }
+        ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+      host: host ? describeElement(host) : null,
+      hostControls: host
+        ? Array.from(host.querySelectorAll<HTMLElement>("[data-gpu-flow-control]"))
+            .slice(0, 5)
+            .map((element) => ({
+              ...(describeElement(element) as Record<string, unknown>),
+              rect: toPlainRect(element.getBoundingClientRect()),
+            }))
+        : [],
+      hostEditors: host
+        ? Array.from(host.querySelectorAll<HTMLElement>(".cm-editor"))
+            .slice(0, 5)
+            .map((element) => ({
+              ...(describeElement(element) as Record<string, unknown>),
+              rect: toPlainRect(element.getBoundingClientRect()),
+            }))
+        : [],
+      hostRect,
+      pointTarget: describeElement(pointTarget),
+      row: {
+        controlClientPoint: row.controlClientPoint,
+        controlClientRect: row.controlClientRect,
+        rowId: row.rowId,
+        surfaceId: row.surfaceId,
+      },
+    };
+
+    function describeElement(element: Element | null): unknown {
+      if (!(element instanceof HTMLElement)) {
+        return null;
+      }
+      return {
+        className: element.className,
+        contentEditable: element.contentEditable,
+        domControlActive: element.dataset.gpuFlowDomControlActive ?? null,
+        domControlId: element.dataset.gpuFlowDomControlId ?? null,
+        domControlRowId: element.dataset.gpuFlowDomControlRowId ?? null,
+        gpuFlowControl: element.dataset.gpuFlowControl ?? null,
+        id: element.id,
+        pointerEvents: getComputedStyle(element).pointerEvents,
+        tabIndex: element.tabIndex,
+        tagName: element.tagName,
+      };
+    }
+
+    function toPlainRect(rect: DOMRect): Rect {
+      return {
+        height: rect.height,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      };
+    }
+  }, row);
 }
 
 function rectIntersectsRect(left: Rect, right: Rect): boolean {

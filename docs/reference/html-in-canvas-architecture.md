@@ -35,14 +35,13 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
 - Projected DOM-control actors: viewport-positioned real DOM for retained
   text-like controls whose row descriptors explicitly set
   `renderOwner === "dom-owned"`. Passive hosts render `DummyCodeMirror`
-  display DOM through live DOM or bounded snapshot sources; sampled active
-  descriptors can render `ParamInput` through the same descriptor contract.
+  display DOM through live DOM or bounded snapshot sources; activation replaces
+  the same actor's representation with an active `ParamInput` editor.
 - DOM islands: viewport-positioned real DOM siblings of the canvas for active
   native controls such as password fields, date/time fields, dropzones, color
-  input fallback, editable parameter labels, and project active browser-owned
-  parameter controls. Text-like activation is represented by
-  `activeParamDomIsland` while the retained text actor also publishes
-  DOM-control descriptors for readable browser-rendered coverage.
+  input fallback, and editable parameter labels. Text-like parameter editing
+  does not create a DOM island; the project activation target marks the
+  canonical retained DOM-control actor active under the same actor identity.
 - Viewport-positioned overlay roots: `GpuFlow` viewport portals for retained
   CodeMirror tooltips and validation UI, plus shared DOM portals for combobox
   lists and primitive-owned popovers that subscribe to GPU viewport
@@ -502,13 +501,15 @@ and DOM-island projection follows the latest committed content frame even when
 React skips a semantic rerender. Chrome repro mode records screenshot-backed
 browser visual evidence, but it is not a rendering policy input.
 
-When the project marks a text-like row active, the retained runtime samples an
-active DOM-control descriptor and the project adapter also publishes the active
-browser editor as an active DOM island from `activeParamDomIsland`. Canvas
-retained row drawing owns the row shell, label, focus treatment, hover, and
-clipping, but it does not draw text-like value pixels for DOM-owned controls.
-Each committed text actor carries separate visual and semantic generation ids,
-a canonical browser-rendered snapshot cache-key revision, and an explicit
+When the project marks a text-like row active, the retained runtime samples one
+active DOM-control descriptor for the same canonical actor id that represented
+the passive value. Activation changes that actor's representation to the live
+browser editor; it does not publish a second visible DOM island for the same
+row/value. Canvas retained row drawing owns the row shell, label, focus
+treatment, hover, and clipping, but it does not draw text-like value pixels for
+DOM-owned controls. Each committed text actor carries separate visual and
+semantic generation ids, a canonical browser-rendered snapshot cache-key
+revision, explicit caret/selection/composition coverage state, and an explicit
 coverage proof (`exact-live-dom`, `exact-snapshot`, `compatible-previous`,
 `blocked-awaiting-browser-visual`, `blocked-awaiting-live-host`, or
 `true-hole`). Passive readable hosts are visual-only DOM (`aria-hidden`, not
@@ -722,8 +723,8 @@ rasterization draws retained row commands for row structure, labels, non-text
 controls, and chrome. Text-like value pixels are excluded from retained page
 rasterization: passive readable text is projected by committed DOM-control
 actors above the canvas or captured by DOM-control snapshot sources, and active
-editing is represented by the sampled active DOM-control descriptor plus the
-project's active DOM island.
+editing is represented by the sampled active DOM-control descriptor for the
+same canonical actor.
 
 ## WebGPU Scene Rendering
 
@@ -863,8 +864,8 @@ overlay-owned native visuals. Text-like control chrome can be drawn by
 `retainedContentTextLikeCanvas.ts`, but text-like value pixels are not drawn by
 the retained canvas. Readable passive text values are browser-rendered
 `DummyCodeMirror` actors in the DOM-control plane or captured by the
-DOM-control snapshot lane; active editing is driven by the project active
-DOM-island state and reflected in the sampled DOM-control descriptor.
+DOM-control snapshot lane; active editing is driven by the project activation
+target and reflected in the sampled active DOM-control descriptor.
 
 The retained renderer uses texture pages:
 
@@ -892,16 +893,18 @@ The retained renderer uses texture pages:
 - DOM-owned text-like controls are described by
   `GpuFlow/retainedDomControlSources.tsx` and rendered by
   `GpuFlow/domControlPlane.tsx`. Passive hosts render `DummyCodeMirror` display
-  DOM, and sampled active descriptors can render `ParamInput`; live DOM-control
-  hosts are clipped to the retained surface and projected through the live
-  viewport as real DOM. The project activation state is carried through
-  `activeParamDomIsland`, so the active browser editor also participates in the
-  DOM-island transaction model.
+  DOM, and sampled active descriptors render `ParamInput` under the same
+  DOM-control actor id; live DOM-control hosts are clipped to the retained
+  surface and projected through the live viewport as real DOM. The project
+  activation target still identifies the row and activation point, but
+  text-like active editing participates in the browser visual transaction as a
+  DOM-control representation rather than a DOM island.
 - Text-like parameter descriptors are DOM-owned readable controls. They publish
   committed DOM-control actors with explicit text coverage proof, so passive
   text pixels come from browser DOM rather than custom canvas text metrics.
-  Active text-like editing, native date/time, password, dropzone, native color
-  fallback, and label editing use DOM islands.
+  Active text-like editing uses the same canonical DOM-control actor; native
+  date/time, password, dropzone, native color fallback, and label editing use
+  DOM islands.
 
 Retained scrollbars, row-hover state, and switch transitions are GPU-native
 rounded-rect visuals layered with the retained pages. Static page textures cache
@@ -1080,18 +1083,18 @@ Parameter controls are split by commit policy:
 - `preview-commit`: range controls such as sliders and rotaries preview during
   pointer, keyboard, or wheel interaction and commit when the interaction ends.
 - `native-island`: browser-owned controls. Text-like controls publish passive
-  `DummyCodeMirror` DOM actors and route active editing through the project
-  `activeParamDomIsland` path, which marks the sampled DOM-control descriptor
-  active and publishes an active DOM island. Password entry, dropzones, native
-  date/time fields, color input fallback, and editable parameter labels also use
-  `GpuDomIslandLayer`.
+  `DummyCodeMirror` DOM actors and route active editing by marking the sampled
+  DOM-control descriptor active for the same canonical actor. Password entry,
+  dropzones, native date/time fields, color input fallback, and editable
+  parameter labels use `GpuDomIslandLayer`.
 
 `projectGpuParamDomIslandGeometry.ts` computes island geometry for controls and
 editable labels that use `GpuDomIslandLayer` and clips it to the retained
 surface.
 `projectGpuRetainedParamDomIslandRenderer.tsx` mounts the normal `ParamInput`
-or `ParamNameInput`, marks it as retained native content, focuses it, and
-replays the original pointer activation when present.
+for native non-text retained controls or `ParamNameInput` for editable labels,
+marks it as retained native content, focuses it, and replays the original
+pointer activation when present.
 `projectGpuRetainedDomControlRenderer.tsx` renders the DOM-plane path for
 DOM-owned text-like descriptors: passive hosts render `DummyCodeMirror`, and
 sampled active descriptors can render `ParamInput` from the committed retained

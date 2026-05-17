@@ -61,7 +61,7 @@ import {
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
 import { postProjectGpuRetainedParamActivationPreflightChromeReproEvent } from "./projectGpuRetainedParamActivationDiagnostics";
-import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import { isProjectGpuRetainedParamControlBrowserActivationTarget } from "./projectGpuRetainedParamActiveControlPolicy";
 import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
 import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
 import { toProjectGpuRetainedCanvasControlTarget } from "./projectGpuRetainedParamCanvasControlInput";
@@ -716,7 +716,7 @@ function isProjectRetainedParamControlActivationHit(
   const row = getProjectRetainedContentHitRow(event);
   return Boolean(
     row &&
-      isProjectGpuRetainedParamControlDomIslandActive({
+      isProjectGpuRetainedParamControlBrowserActivationTarget({
         row,
       }),
   );

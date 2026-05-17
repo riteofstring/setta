@@ -95,6 +95,7 @@ function domControlToActorRecord({
     control.sourceId,
     control.sourceKey,
     control.valueStyleRevision,
+    control.textCoverageRevision,
   ].join("|");
   const layoutProjectionGenerationId = [
     "dom-control-layout",
@@ -368,6 +369,7 @@ function createDomControlVisualGenerationId(
     control.sourceId,
     control.snapshotSurfaceId ?? "surface:none",
     control.snapshotCacheKeyRevision,
+    control.textCoverageRevision,
   ].join("|");
 }
 
@@ -381,6 +383,7 @@ function createDomControlSemanticGenerationId(
     control.defaultValue,
     control.disabled,
     control.error,
+    control.textCoverageRevision,
   ].join("|");
 }
 

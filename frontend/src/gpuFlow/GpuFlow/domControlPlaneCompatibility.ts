@@ -161,6 +161,7 @@ function isGpuFlowDomControlCompatiblePreviousCandidate({
     current.error === previous.error,
     current.value === previous.value,
     current.valueStyleRevision === previous.valueStyleRevision,
+    current.textCoverageRevision === previous.textCoverageRevision,
     current.snapshotCacheKeyRevision === previous.snapshotCacheKeyRevision,
     current.clipChainRevision === previous.clipChainRevision,
     current.geometryRevision === previous.geometryRevision,
@@ -192,6 +193,7 @@ function createGpuFlowDomControlSemanticProofKey(
     control.defaultValue,
     control.disabled,
     control.error,
+    control.textCoverageRevision,
   ].join("|");
 }
 
@@ -205,6 +207,7 @@ function createGpuFlowDomControlVisualProofKey(
     control.sourceId,
     control.snapshotSurfaceId ?? "surface:none",
     control.snapshotCacheKeyRevision,
+    control.textCoverageRevision,
   ].join("|");
 }
 
