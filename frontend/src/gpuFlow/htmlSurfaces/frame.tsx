@@ -22,6 +22,12 @@ import type {
 } from "./textures";
 
 import {
+  createHtmlSurfaceActorCoverageSnapshot,
+  type HtmlSurfaceActorLayout,
+  type HtmlSurfaceCompositorTextureSnapshot,
+} from "../surfaceCompositor/htmlSurfaceActorAdapter";
+import type { SurfaceActorKind } from "../surfaceCompositor/surfaceActor";
+import {
   getActiveGpuHtmlSurfaceOverlayIds,
   partitionGpuHtmlSurfaceOverlayQuads,
   toGpuHtmlSurfaceOverlayNodeLayouts,
@@ -38,7 +44,7 @@ import {
   type HtmlSurfaceVisualBuildResult,
 } from "./surfaceVisuals";
 
-import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
+import { resolveGpuNodeCssZIndex } from "../nodeZIndex";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
@@ -61,22 +67,29 @@ import {
 } from "../viewportMath";
 
 import {
-  applyCulledNodeDomTransform,
-  applyNodeDomTransformState,
-  applyVisibleNodeDomTransform,
-  createVisibleNodeDomTransformStateForQuad,
-  isCachedNodeDomTransformState,
   mergeNodeIdSets,
   normalizeNodeIdSet,
-  resolveElement,
   resolveVisibleNodeTexturePriority,
   setGpuNodeBaseStyle,
   setStyleValue,
   toNodeQuad,
   toRect,
 } from "./sourceTransforms";
+import {
+  syncGpuNodeDomTransforms,
+  syncGpuNodeDomTransformsFromQuads,
+} from "./frameDomTransformSync";
+
+export {
+  clearGpuNodeDomTransformSyncCache,
+  clearGpuNodeDomTransformSyncCacheNode,
+  createGpuNodeDomTransformSyncCache,
+  syncGpuNodeDomTransforms,
+  syncGpuNodeDomTransformsFromQuads,
+} from "./frameDomTransformSync";
 
 export type GpuNodeLayout = {
+  readonly actorKind?: SurfaceActorKind | undefined;
   readonly height: number | null;
   readonly nodeId: string;
   readonly textureContentKey?: string | undefined;
@@ -91,6 +104,7 @@ export type GpuNodeLayout = {
 };
 
 export type GpuVisibleNodeQuad = {
+  readonly actorKind?: SurfaceActorKind | undefined;
   readonly height: number;
   readonly nodeId: string;
   readonly textureContentKey?: string | undefined;
@@ -104,6 +118,10 @@ export type GpuVisibleNodeQuad = {
 };
 
 export type GpuHtmlSurfaceOverlayLayout = {
+  readonly actorKind: Extract<
+    SurfaceActorKind,
+    "drag-overlay" | "edge-label" | "resize-overlay" | "selection-overlay"
+  >;
   readonly height: number;
   readonly layer?: "late" | "normal" | "page" | undefined;
   readonly ownerNodeId?: string | undefined;
@@ -148,27 +166,6 @@ type BuildTexturedGpuNodeQuadsResult = {
   readonly texturedQuads: readonly GpuTexturedNodeQuad[];
 };
 
-type SyncGpuNodeDomTransformsInput = {
-  readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
-  readonly elementByNodeId:
-    | ReadonlyMap<string, HTMLElement>
-    | ((nodeId: string) => HTMLElement | null | undefined);
-  readonly nodes: readonly GpuNodeLayout[];
-  readonly visibleNodeIds: ReadonlySet<string>;
-  readonly viewport: GpuViewportInput;
-};
-
-type SyncGpuNodeDomTransformsFromQuadsInput = {
-  readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
-  readonly cache: GpuNodeDomTransformSyncCache;
-  readonly elementByNodeId:
-    | ReadonlyMap<string, HTMLElement>
-    | ((nodeId: string) => HTMLElement | null | undefined);
-  readonly retainNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
-  readonly visibleQuads: readonly GpuVisibleNodeQuad[];
-  readonly viewport: GpuViewportInput;
-};
-
 export type GpuNodeDomTransformState = {
   readonly element: HTMLElement;
   readonly height: string;
@@ -183,13 +180,6 @@ export type GpuNodeDomTransformState = {
 export type GpuNodeDomTransformSyncCache = {
   readonly previousVisibleNodeIds: Set<string>;
   readonly stateByNodeId: Map<string, GpuNodeDomTransformState>;
-};
-
-type GpuNodeDomTransformSyncResult = {
-  readonly parkedNodeIds: readonly string[];
-  readonly skippedNodeIds: readonly string[];
-  readonly updatedNodeIds: readonly string[];
-  readonly visibleNodeIds: readonly string[];
 };
 
 export type GpuNodeUploadBudget = Pick<
@@ -258,6 +248,9 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
   readonly skippedNodeIds: readonly string[];
+  readonly surfaceActorGenerationCount: number;
+  readonly surfaceCoverageProtectedResourceCount: number;
+  readonly surfaceCoverageTrueHoleCount: number;
   readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
   readonly textureLifecycleDiagnostics: readonly HtmlSurfaceTextureLifecycleDiagnostic[];
@@ -291,13 +284,6 @@ export const GPU_FLOW_NODE_INTERACTIVE_CLASS =
 const PRESERVED_GPU_NODE_STATE_CLASSES = [
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
 ] as const;
-
-const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
-  parkedNodeIds: [],
-  skippedNodeIds: [],
-  updatedNodeIds: [],
-  visibleNodeIds: [],
-};
 
 export function HtmlSurfaceNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -491,6 +477,20 @@ export function renderHtmlSurfaceFrame({
     lateOverlayTextureResult.texturedQuads.filter(
       (quad) => quad.texture.lastUploadFrame >= 0,
     );
+  const htmlSurfaceActorCoverage = createHtmlSurfaceActorCoverageSnapshot({
+    actorKind: "dom-section",
+    layouts: [
+      ...toHtmlSurfaceActorLayouts(visibleQuads, {
+        rendererBucket: "dom-section",
+        sourcePolicy: "layoutsubtree-dom",
+      }),
+      ...toHtmlSurfaceOverlayActorLayouts(visibleOverlayQuads),
+    ],
+    textureBySurfaceId: createHtmlSurfaceTextureSnapshotMap({
+      quads: visibleSurfaceQuads,
+      textureManager,
+    }),
+  });
   const visualSurfaces = mergeHtmlSurfaceVisuals(
     buildHtmlSurfaceVisuals(uploadedTexturedQuads),
     buildHtmlSurfaceVisuals(uploadedOverlayTexturedQuads),
@@ -558,6 +558,11 @@ export function renderHtmlSurfaceFrame({
     skippedNodeIds: uploadResult.skippedSurfaceIds.filter((surfaceId) =>
       nodeSurfaceIds.has(surfaceId),
     ),
+    surfaceActorGenerationCount: htmlSurfaceActorCoverage.actorSnapshots.length,
+    surfaceCoverageProtectedResourceCount:
+      htmlSurfaceActorCoverage.coverageProof.protectedResourceHandles.length,
+    surfaceCoverageTrueHoleCount:
+      htmlSurfaceActorCoverage.coverageProof.trueHoleRects.length,
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
     textureLifecycleDiagnostics,
@@ -622,6 +627,106 @@ function registerVisibleGpuNodeTextures({
     });
   }
   return missingElementNodeIds;
+}
+
+function toHtmlSurfaceActorLayouts(
+  quads: readonly GpuVisibleNodeQuad[],
+  {
+    rendererBucket,
+    sourcePolicy,
+  }: Pick<HtmlSurfaceActorLayout, "rendererBucket" | "sourcePolicy">,
+): readonly HtmlSurfaceActorLayout[] {
+  return quads.map((quad) => ({
+    ...(quad.actorKind === undefined ? {} : { actorKind: quad.actorKind }),
+    height: quad.height,
+    rendererBucket,
+    sourcePolicy,
+    surfaceId: quad.nodeId,
+    ...(quad.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: quad.textureContentKey }),
+    ...(quad.textureCssHeight === undefined
+      ? {}
+      : { textureCssHeight: quad.textureCssHeight }),
+    ...(quad.textureCssWidth === undefined
+      ? {}
+      : { textureCssWidth: quad.textureCssWidth }),
+    ...(quad.textureSourceRect === undefined
+      ? {}
+      : { textureSourceRect: quad.textureSourceRect }),
+    width: quad.width,
+    x: quad.x,
+    y: quad.y,
+    zIndex: quad.zIndex,
+  }));
+}
+
+function toHtmlSurfaceOverlayActorLayouts(
+  quads: readonly GpuVisibleNodeQuad[],
+): readonly HtmlSurfaceActorLayout[] {
+  return quads.map((quad) => ({
+    ...(quad.actorKind === undefined ? {} : { actorKind: quad.actorKind }),
+    height: quad.height,
+    rendererBucket: htmlSurfaceOverlayRendererBucket(quad),
+    sourcePolicy: "layoutsubtree-dom",
+    surfaceId: quad.nodeId,
+    ...(quad.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: quad.textureContentKey }),
+    ...(quad.textureCssHeight === undefined
+      ? {}
+      : { textureCssHeight: quad.textureCssHeight }),
+    ...(quad.textureCssWidth === undefined
+      ? {}
+      : { textureCssWidth: quad.textureCssWidth }),
+    ...(quad.textureSourceRect === undefined
+      ? {}
+      : { textureSourceRect: quad.textureSourceRect }),
+    width: quad.width,
+    x: quad.x,
+    y: quad.y,
+    zIndex: quad.zIndex,
+  }));
+}
+
+function htmlSurfaceOverlayRendererBucket(
+  quad: GpuVisibleNodeQuad,
+): HtmlSurfaceActorLayout["rendererBucket"] {
+  if (!quad.actorKind) {
+    throw new Error("HTML surface overlay quad is missing an actor kind.");
+  }
+  switch (quad.actorKind) {
+    case "drag-overlay":
+      return "drag-overlay";
+    case "edge-label":
+      return "edge-label";
+    case "resize-overlay":
+    case "selection-overlay":
+      return "selection-overlay";
+    default:
+      throw new Error(`Unsupported HTML surface overlay actor kind.`);
+  }
+}
+
+function createHtmlSurfaceTextureSnapshotMap({
+  quads,
+  textureManager,
+}: {
+  readonly quads: readonly GpuVisibleNodeQuad[];
+  readonly textureManager: GpuNodeTextureController;
+}): ReadonlyMap<string, HtmlSurfaceCompositorTextureSnapshot> {
+  const textureBySurfaceId = new Map<
+    string,
+    HtmlSurfaceCompositorTextureSnapshot
+  >();
+  for (const quad of quads) {
+    const texture = textureManager.getCommittedSurfaceTexture(quad.nodeId);
+    if (!texture) {
+      continue;
+    }
+    textureBySurfaceId.set(quad.nodeId, texture);
+  }
+  return textureBySurfaceId;
 }
 
 function uploadGpuNodeTextures({
@@ -715,6 +820,7 @@ export function collectVisibleGpuNodeQuads({
     )
     .map((quad) => ({
       height: quad.height,
+      ...(quad.actorKind === undefined ? {} : { actorKind: quad.actorKind }),
       nodeId: quad.nodeId,
       ...(quad.textureCssHeight === undefined
         ? {}
@@ -801,193 +907,5 @@ function mergeHtmlSurfaceVisuals(
       ...base.tiledFlatSurfaces,
       ...overlays.tiledFlatSurfaces,
     ],
-  };
-}
-
-export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {
-  return {
-    previousVisibleNodeIds: new Set(),
-    stateByNodeId: new Map(),
-  };
-}
-
-export function clearGpuNodeDomTransformSyncCache(
-  cache: GpuNodeDomTransformSyncCache,
-) {
-  cache.previousVisibleNodeIds.clear();
-  cache.stateByNodeId.clear();
-}
-
-export function clearGpuNodeDomTransformSyncCacheNode(
-  cache: GpuNodeDomTransformSyncCache,
-  nodeId: string,
-) {
-  cache.previousVisibleNodeIds.delete(nodeId);
-  cache.stateByNodeId.delete(nodeId);
-}
-
-export function syncGpuNodeDomTransformsFromQuads({
-  activeNodeIds,
-  cache,
-  elementByNodeId,
-  retainNodeIds,
-  visibleQuads,
-}: SyncGpuNodeDomTransformsFromQuadsInput): GpuNodeDomTransformSyncResult {
-  const activeIds = normalizeNodeIdSet(activeNodeIds);
-  const retainedIds = normalizeNodeIdSet(
-    mergeNodeIdSets(activeIds, retainNodeIds),
-  );
-  const visibleResult = syncVisibleGpuNodeDomTransforms({
-    activeIds,
-    cache,
-    elementByNodeId,
-    visibleQuads,
-  });
-  const parkResult = parkExitedGpuNodeDomTransforms({
-    cache,
-    elementByNodeId,
-    retainedIds,
-    visibleNodeIds: visibleResult.visibleNodeIds,
-  });
-
-  cache.previousVisibleNodeIds.clear();
-  for (const nodeId of visibleResult.visibleNodeIds) {
-    cache.previousVisibleNodeIds.add(nodeId);
-  }
-
-  return {
-    parkedNodeIds: parkResult.parkedNodeIds,
-    skippedNodeIds: [
-      ...visibleResult.skippedNodeIds,
-      ...parkResult.skippedNodeIds,
-    ],
-    updatedNodeIds: visibleResult.updatedNodeIds,
-    visibleNodeIds: [...visibleResult.visibleNodeIds],
-  };
-}
-
-function syncVisibleGpuNodeDomTransforms({
-  activeIds,
-  cache,
-  elementByNodeId,
-  visibleQuads,
-}: {
-  readonly activeIds: ReadonlySet<string>;
-  readonly cache: GpuNodeDomTransformSyncCache;
-  readonly elementByNodeId:
-    | ReadonlyMap<string, HTMLElement>
-    | ((nodeId: string) => HTMLElement | null | undefined);
-  readonly visibleQuads: readonly GpuVisibleNodeQuad[];
-}) {
-  const visibleNodeIds = new Set<string>();
-  const skippedNodeIds: string[] = [];
-  const updatedNodeIds: string[] = [];
-
-  for (const quad of visibleQuads) {
-    visibleNodeIds.add(quad.nodeId);
-    const element = resolveElement(elementByNodeId, quad.nodeId);
-    if (!element) {
-      cache.stateByNodeId.delete(quad.nodeId);
-      continue;
-    }
-    const state = createVisibleNodeDomTransformStateForQuad({
-      activeIds,
-      element,
-      quad,
-    });
-    if (isCachedNodeDomTransformState(cache, quad.nodeId, state)) {
-      skippedNodeIds.push(quad.nodeId);
-      continue;
-    }
-    applyNodeDomTransformState(element, state);
-    cache.stateByNodeId.set(quad.nodeId, state);
-    updatedNodeIds.push(quad.nodeId);
-  }
-
-  return { skippedNodeIds, updatedNodeIds, visibleNodeIds };
-}
-
-function parkExitedGpuNodeDomTransforms({
-  cache,
-  elementByNodeId,
-  retainedIds,
-  visibleNodeIds,
-}: {
-  readonly cache: GpuNodeDomTransformSyncCache;
-  readonly elementByNodeId:
-    | ReadonlyMap<string, HTMLElement>
-    | ((nodeId: string) => HTMLElement | null | undefined);
-  readonly retainedIds: ReadonlySet<string>;
-  readonly visibleNodeIds: Set<string>;
-}) {
-  const parkedNodeIds: string[] = [];
-  const skippedNodeIds: string[] = [];
-
-  for (const nodeId of cache.previousVisibleNodeIds) {
-    if (visibleNodeIds.has(nodeId)) {
-      continue;
-    }
-    if (retainedIds.has(nodeId)) {
-      visibleNodeIds.add(nodeId);
-      const previous = cache.stateByNodeId.get(nodeId);
-      const element = resolveElement(elementByNodeId, nodeId);
-      if (!previous || !element) {
-        continue;
-      }
-      const retainedState: GpuNodeDomTransformState = {
-        ...previous,
-        element,
-        interactive: "true",
-        pointerEvents: "auto",
-        transform: element.style.transform || previous.transform,
-        visible: "true",
-      };
-      if (isCachedNodeDomTransformState(cache, nodeId, retainedState)) {
-        skippedNodeIds.push(nodeId);
-        continue;
-      }
-      applyNodeDomTransformState(element, retainedState);
-      cache.stateByNodeId.set(nodeId, retainedState);
-      continue;
-    }
-  }
-
-  return { parkedNodeIds, skippedNodeIds };
-}
-
-export function syncGpuNodeDomTransforms({
-  activeNodeIds,
-  elementByNodeId,
-  nodes,
-  visibleNodeIds,
-}: SyncGpuNodeDomTransformsInput): GpuNodeDomTransformSyncResult {
-  const activeIds = normalizeNodeIdSet(activeNodeIds);
-  const parkedNodeIds: string[] = [];
-  const updatedNodeIds: string[] = [];
-  for (const node of nodes) {
-    const element = resolveElement(elementByNodeId, node.nodeId);
-    if (!element) {
-      continue;
-    }
-    const visible = visibleNodeIds.has(node.nodeId);
-    if (visible) {
-      applyVisibleNodeDomTransform(element, {
-        height: node.height ?? 0,
-        interactive: activeIds.has(node.nodeId),
-        width: node.width ?? 0,
-        zIndex: resolveGpuNodeZIndex(node),
-      });
-      updatedNodeIds.push(node.nodeId);
-      continue;
-    }
-
-    applyCulledNodeDomTransform(element);
-    parkedNodeIds.push(node.nodeId);
-  }
-  return {
-    parkedNodeIds,
-    skippedNodeIds: EMPTY_DOM_TRANSFORM_SYNC_RESULT.skippedNodeIds,
-    updatedNodeIds,
-    visibleNodeIds: [...visibleNodeIds],
   };
 }

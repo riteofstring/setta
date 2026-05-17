@@ -20,6 +20,7 @@ import {
 describe("GpuEdgeLabelSurfaceLayer", () => {
   it("maps edge-scene label geometry to renderer-owned surface layouts", () => {
     expect(toGpuEdgeLabelSurfaceLayout(workflowLabel())).toEqual({
+      actorKind: "edge-label",
       height: 20,
       surfaceId: "workflow-source-activation:workflow-a",
       width: 96,

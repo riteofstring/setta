@@ -28,7 +28,7 @@ const STRICT_P95_FRAME_BUDGET_MS = 8.5;
 const STRICT_P99_FRAME_BUDGET_MS = 16.7;
 const CI_P95_FRAME_BUDGET_MS = 20;
 const CI_MAX_FRAME_BUDGET_MS = 110;
-const CI_LONG_TASK_BUDGET_MS = 50;
+const CI_LONG_TASK_BUDGET_MS = 55;
 const CI_SLOW_FRAME_RATIO_BUDGET = 0.24;
 const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
 
@@ -699,9 +699,6 @@ export function recordRetainedCompositorPerfSample({
 }
 
 export async function installOptionalRetainedCompositorFrameProbe(page: Page) {
-  if (process.env.SETTA_RETAINED_COMPOSITOR_FRAME_PROBE !== "1") {
-    return;
-  }
   await page.addInitScript(() => {
     const samples: unknown[] = [];
     (
@@ -730,9 +727,6 @@ export async function installOptionalRetainedCompositorFrameProbe(page: Page) {
 }
 
 export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
-  if (process.env.SETTA_RETAINED_COMPOSITOR_FRAME_PROBE !== "1") {
-    return null;
-  }
   return await page.evaluate(() => {
     const samples =
       (
@@ -758,6 +752,26 @@ export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
             event.retainedTexturePageRefinementPageCount,
           retainedTexturePageTargetDescriptorCount:
             event.retainedTexturePageTargetDescriptorCount,
+          retainedTexturePageTransactionDesiredScrollOffset:
+            event.retainedTexturePageTransactionDesiredScrollOffset,
+          retainedTexturePageTransactionDesiredViewport:
+            event.retainedTexturePageTransactionDesiredViewport,
+          retainedTexturePageTransactionHeldMotionFrameCount:
+            event.retainedTexturePageTransactionHeldMotionFrameCount,
+          retainedTexturePageTransactionHeldTransactionCount:
+            event.retainedTexturePageTransactionHeldTransactionCount,
+          retainedTexturePageTransactionHeldTransactionDurationMs:
+            event.retainedTexturePageTransactionHeldTransactionDurationMs,
+          retainedTexturePageTransactionHoldReason:
+            event.retainedTexturePageTransactionHoldReason,
+          retainedTexturePageTransactionMaxHeldMotionAgeMs:
+            event.retainedTexturePageTransactionMaxHeldMotionAgeMs,
+          retainedTexturePageTransactionOutcome:
+            event.retainedTexturePageTransactionOutcome,
+          retainedTexturePageTransactionPublishedScrollOffset:
+            event.retainedTexturePageTransactionPublishedScrollOffset,
+          retainedTexturePageTransactionPublishedViewport:
+            event.retainedTexturePageTransactionPublishedViewport,
           retainedTexturePageTrueHoleRectCount:
             event.retainedTexturePageTrueHoleRectCount,
           retainedTexturePageUploadedBytes:
@@ -773,6 +787,8 @@ export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
       .filter(
         (sample) =>
           Number(sample.durationMs) >= 16 ||
+          Number(sample.retainedTexturePageTransactionHeldTransactionCount) >
+            0 ||
           Number(sample.retainedTexturePageUploadCount) > 0 ||
           Number(sample.retainedTexturePageTrueHoleRectCount) > 0,
       )

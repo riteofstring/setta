@@ -255,6 +255,9 @@ async function openAllSettings(page: Page): Promise<void> {
   await page.waitForFunction(
     () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
   );
+  await page.getByRole("button", { name: "fit view" }).click();
+  await waitForViewportIdle(page);
+  await waitForRetainedRows(page);
 }
 
 async function waitForRetainedRows(page: Page): Promise<void> {

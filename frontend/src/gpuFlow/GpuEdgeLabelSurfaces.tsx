@@ -48,6 +48,7 @@ export function toGpuEdgeLabelSurfaceLayout(
   label: GpuEdgeSceneLabel,
 ): GpuHtmlSurfaceOverlayLayout {
   return {
+    actorKind: "edge-label",
     height: label.height,
     surfaceId: getGpuEdgeLabelSurfaceId(label),
     width: label.width,

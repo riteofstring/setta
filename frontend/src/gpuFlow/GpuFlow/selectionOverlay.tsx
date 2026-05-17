@@ -242,6 +242,7 @@ export function getGpuSelectionOverlaySurfaceLayouts(
   sources: readonly GpuSelectionOverlaySource[],
 ): readonly GpuHtmlSurfaceOverlayLayout[] {
   return sources.map((source) => ({
+    actorKind: "selection-overlay",
     height: source.height,
     surfaceId: source.surfaceId,
     width: source.width,

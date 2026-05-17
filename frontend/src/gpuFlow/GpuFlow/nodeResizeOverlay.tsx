@@ -197,6 +197,7 @@ export function getGpuNodeResizeOverlaySurfaceLayouts(
   sources: readonly GpuNodeResizeOverlaySource[],
 ): readonly GpuHtmlSurfaceOverlayLayout[] {
   return sources.map((source) => ({
+    actorKind: "resize-overlay",
     height: source.height,
     surfaceId: source.surfaceId,
     width: source.width,

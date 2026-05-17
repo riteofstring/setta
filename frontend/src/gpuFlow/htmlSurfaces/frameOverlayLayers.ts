@@ -58,6 +58,7 @@ export function toGpuHtmlSurfaceOverlayNodeLayouts(
   overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
 ): GpuNodeLayout[] {
   return (overlays ?? []).map((overlay) => ({
+    actorKind: overlay.actorKind,
     height: overlay.height,
     nodeId: overlay.surfaceId,
     ...(overlay.textureCssHeight === undefined

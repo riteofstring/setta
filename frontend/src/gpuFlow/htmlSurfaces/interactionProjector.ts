@@ -1,3 +1,9 @@
+import {
+  flowToScreenPosition,
+  normalizeGpuViewport,
+  type GpuRect,
+  type GpuViewportInput,
+} from "../viewportMath";
 import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 
 type HtmlSurfaceInteractionProjectionInput = {
@@ -7,6 +13,16 @@ type HtmlSurfaceInteractionProjectionInput = {
   readonly sourceId: string;
   readonly surfaceX: number;
   readonly surfaceY: number;
+};
+
+export type HtmlSurfaceInteractionTarget = {
+  readonly localX: number;
+  readonly localY: number;
+  readonly sourceElement: HTMLElement;
+  readonly sourceId: string;
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+  readonly zIndex: number;
 };
 
 type HtmlSurfaceInteractionProjectionState = {
@@ -21,6 +37,18 @@ export type HtmlSurfaceInteractionProjector = {
   clearSource(sourceId?: string | undefined): void;
   destroy(): void;
   getProjectedSourceId(): string | null;
+};
+
+export type HtmlSurfaceActiveDomIslandProjection = {
+  readonly display: string;
+  readonly height: number;
+  readonly left: number;
+  readonly pointerEvents: "auto" | "none";
+  readonly top: number;
+  readonly transform: string;
+  readonly transformOrigin: string;
+  readonly width: number;
+  readonly zIndex: number;
 };
 
 export { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
@@ -80,9 +108,100 @@ export function createHtmlSurfaceInteractionProjector(): HtmlSurfaceInteractionP
   };
 }
 
+export function resolveTopmostHtmlSurfaceInteractionTarget(
+  targets: readonly HtmlSurfaceInteractionTarget[],
+): HtmlSurfaceInteractionTarget | null {
+  if (targets.length === 0) {
+    return null;
+  }
+  return (
+    [...targets].sort(
+      (left, right) =>
+        right.zIndex - left.zIndex ||
+        right.sourceId.localeCompare(left.sourceId),
+    )[0] ?? null
+  );
+}
+
+export function projectHtmlSurfaceInteractionTarget({
+  projector,
+  target,
+}: {
+  readonly projector: HtmlSurfaceInteractionProjector | null;
+  readonly target: HtmlSurfaceInteractionTarget | null;
+}): HtmlSurfaceInteractionProjectionState | null {
+  if (!projector || !target) {
+    return null;
+  }
+  return projector.alignSourceToClientPoint({
+    localX: target.localX,
+    localY: target.localY,
+    sourceElement: target.sourceElement,
+    sourceId: target.sourceId,
+    surfaceX: target.surfaceX,
+    surfaceY: target.surfaceY,
+  });
+}
+
+export function projectHtmlSurfaceActiveDomIsland({
+  flowRect,
+  viewport,
+  zIndex,
+}: {
+  readonly flowRect: GpuRect;
+  readonly viewport: GpuViewportInput;
+  readonly zIndex: number;
+}): HtmlSurfaceActiveDomIslandProjection {
+  const normalizedViewport = normalizeGpuViewport(viewport);
+  const position = flowToScreenPosition(flowRect, normalizedViewport);
+  return Object.freeze({
+    display: "",
+    height: flowRect.height,
+    left: position.x,
+    pointerEvents: "auto",
+    top: position.y,
+    transform: `scale(${normalizedViewport.zoom})`,
+    transformOrigin: "top left",
+    width: flowRect.width,
+    zIndex,
+  });
+}
+
+export function applyHtmlSurfaceActiveDomIslandProjection({
+  element,
+  projection,
+}: {
+  readonly element: HTMLElement;
+  readonly projection: HtmlSurfaceActiveDomIslandProjection;
+}) {
+  setStyleValue(element, "display", projection.display);
+  setStyleValue(element, "height", `${projection.height}px`);
+  setStyleValue(element, "left", `${projection.left}px`);
+  setStyleValue(element, "pointerEvents", projection.pointerEvents);
+  setStyleValue(element, "top", `${projection.top}px`);
+  setStyleValue(element, "transform", projection.transform);
+  setStyleValue(element, "transformOrigin", projection.transformOrigin);
+  setStyleValue(element, "width", `${projection.width}px`);
+  setStyleValue(element, "zIndex", String(projection.zIndex));
+}
+
+export function hideHtmlSurfaceActiveDomIslandProjection(element: HTMLElement) {
+  setStyleValue(element, "display", "none");
+  setStyleValue(element, "pointerEvents", "none");
+}
+
 function setStyleValue(
   element: HTMLElement,
-  property: "pointerEvents" | "transform",
+  property:
+    | "display"
+    | "height"
+    | "left"
+    | "pointerEvents"
+    | "top"
+    | "transform"
+    | "transformOrigin"
+    | "width"
+    | "zIndex",
   value: string,
 ) {
   if (element.style[property] !== value) {

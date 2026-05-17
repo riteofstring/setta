@@ -13,11 +13,21 @@ import {
 } from "./retainedNativeIslandTransactions";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
+import {
+  createRetainedColdPlaceholderSurfaceTransaction,
+  createRetainedSurfaceTransactionSnapshot,
+} from "./surfaceCompositor/retainedSurfaceActorAdapter";
+import type { SurfaceActorSnapshot } from "./surfaceCompositor/surfaceActor";
+import type { SurfaceTransactionHoldDiagnostics } from "./surfaceCompositor/surfaceDiagnostics";
+import {
+  resolveSurfaceTransaction,
+  type SurfaceDisplayTransaction,
+} from "./surfaceCompositor/surfaceTransaction";
 import type { GpuRect } from "./viewportMath";
 
 type RetainedFrameId = number;
 
-type CoverageReadiness = "covered";
+type CoverageReadiness = "cold-placeholder" | "covered" | "held-previous";
 
 type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
   readonly frameId: RetainedFrameId;
@@ -82,10 +92,17 @@ type PublishedFrameDiagnostics = {
   readonly desiredScrollRevision: number;
   readonly exactPageCount: number;
   readonly fidelityReadiness: RetainedFidelityState;
+  readonly holdDiagnostics: SurfaceTransactionHoldDiagnostics | null;
   readonly lastRejectedPreparedFrameId: RetainedFrameId | null;
+  readonly publishedAtMs: number;
   readonly publishedPreparedFrameId: RetainedFrameId;
   readonly rejectedFrameCount: number;
   readonly refinementPageCount: number;
+  readonly transactionOutcome:
+    | "hold-previous"
+    | "publish-cold-placeholder"
+    | "publish-compatible"
+    | "publish-exact";
   readonly trueHoleRectCount: number;
 };
 
@@ -100,13 +117,39 @@ export type RetainedDisplayFrame = {
   readonly id: RetainedFrameId;
   readonly pageFrame: RetainedPageFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+  readonly surfaceActorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly surfaceTransaction: SurfaceDisplayTransaction;
 };
 
 type RetainedFrameTransaction = {
+  readonly allowColdPlaceholder?: boolean | undefined;
   readonly nowMs?: number | undefined;
   readonly prepared: RetainedDisplayFrameInput;
   readonly previous: RetainedDisplayFrame | null;
 };
+
+export type RetainedDisplayFrameOutcome =
+  | { readonly frame: RetainedDisplayFrame; readonly kind: "publish-exact" }
+  | {
+      readonly frame: RetainedDisplayFrame;
+      readonly kind: "publish-compatible";
+    }
+  | {
+      readonly diagnostics: SurfaceTransactionHoldDiagnostics;
+      readonly frame: RetainedDisplayFrame;
+      readonly kind: "hold-previous";
+      readonly previousFrameId: RetainedFrameId;
+      readonly reason: "coverage-missing";
+    }
+  | {
+      readonly kind: "block-cold-first-coverage";
+      readonly reason: "coverage-missing";
+    }
+  | {
+      readonly frame: RetainedDisplayFrame;
+      readonly kind: "publish-cold-placeholder";
+      readonly reason: "coverage-missing";
+    };
 
 export function createRetainedDisplayFrameInput({
   pageFrame,
@@ -131,34 +174,190 @@ export function publishRetainedDisplayFrame({
   prepared,
   previous,
 }: RetainedFrameTransaction): RetainedDisplayFrame {
-  void nowMs;
+  const outcome = resolveRetainedDisplayFrameTransaction({
+    nowMs,
+    prepared,
+    previous,
+  });
+  if (
+    outcome.kind === "publish-exact" ||
+    outcome.kind === "publish-compatible" ||
+    outcome.kind === "publish-cold-placeholder" ||
+    outcome.kind === "hold-previous"
+  ) {
+    return outcome.frame;
+  }
+  throw new Error(
+    "Retained display frame publication requires committed visual epoch coverage.",
+  );
+}
+
+export function resolveRetainedDisplayFrameTransaction({
+  allowColdPlaceholder = false,
+  nowMs = 0,
+  prepared,
+  previous,
+}: RetainedFrameTransaction): RetainedDisplayFrameOutcome {
   const proof = createVisibleCoverageProof({
     prepared,
     previous,
   });
-  if (proof.trueHoleRects.length > 0) {
+  const surfaceSnapshot = createRetainedSurfaceTransactionSnapshot({
+    id: `retained:${prepared.id}`,
+    nowMs,
+    pageFrame: prepared.pageFrame,
+    retainedRuntimeFrame: prepared.retainedRuntimeFrame,
+  });
+  const surfaceOutcome = resolveSurfaceTransaction({
+    coldPlaceholderAllowed: allowColdPlaceholder,
+    desired: surfaceSnapshot.transaction,
+    nowMs,
+    previous: previous?.surfaceTransaction ?? null,
+  });
+  return resolveRetainedSurfaceTransactionOutcome({
+    nowMs,
+    prepared,
+    previous,
+    proof,
+    surfaceActorSnapshots: surfaceSnapshot.actorSnapshots,
+    surfaceOutcome,
+  });
+}
+
+function resolveRetainedSurfaceTransactionOutcome({
+  nowMs,
+  prepared,
+  previous,
+  proof,
+  surfaceActorSnapshots,
+  surfaceOutcome,
+}: {
+  readonly nowMs: number;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null | undefined;
+  readonly proof: RetainedVisibleCoverageProof;
+  readonly surfaceActorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly surfaceOutcome: ReturnType<typeof resolveSurfaceTransaction>;
+}): RetainedDisplayFrameOutcome {
+  switch (surfaceOutcome.kind) {
+    case "hold-previous":
+      return createHeldRetainedDisplayFrameOutcome({
+        diagnostics: surfaceOutcome.diagnostics,
+        prepared,
+        previous,
+      });
+    case "publish-cold-placeholder":
+      return {
+        frame: createColdPlaceholderRetainedDisplayFrame({
+          nowMs,
+          prepared,
+          proof,
+        }),
+        kind: "publish-cold-placeholder",
+        reason: "coverage-missing",
+      };
+    case "block-cold-first-coverage":
+      return {
+        kind: "block-cold-first-coverage",
+        reason: "coverage-missing",
+      };
+    case "publish-compatible":
+    case "publish-exact":
+      return createPublishedRetainedDisplayFrameOutcome({
+        nowMs,
+        prepared,
+        previous,
+        proof,
+        surfaceActorSnapshots,
+        surfaceTransaction: surfaceOutcome.transaction,
+      });
+  }
+}
+
+function createHeldRetainedDisplayFrameOutcome({
+  diagnostics,
+  prepared,
+  previous,
+}: {
+  readonly diagnostics: SurfaceTransactionHoldDiagnostics;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null | undefined;
+}): Extract<RetainedDisplayFrameOutcome, { readonly kind: "hold-previous" }> {
+  if (!previous) {
     throw new Error(
-      `Retained display frame publication requires committed visual epoch coverage; ${proof.trueHoleRects.length} true-hole rects remained.`,
+      "Retained surface transaction hold requires a previous display frame.",
     );
   }
-  return createComposedRetainedDisplayFrame({
+  return {
+    diagnostics,
+    frame: createHeldRetainedDisplayFrame({
+      diagnostics,
+      prepared,
+      previous,
+    }),
+    kind: "hold-previous",
+    previousFrameId: previous.id,
+    reason: "coverage-missing",
+  };
+}
+
+function createPublishedRetainedDisplayFrameOutcome({
+  nowMs,
+  prepared,
+  previous,
+  proof,
+  surfaceActorSnapshots,
+  surfaceTransaction,
+}: {
+  readonly nowMs: number;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null | undefined;
+  readonly proof: RetainedVisibleCoverageProof;
+  readonly surfaceActorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly surfaceTransaction: SurfaceDisplayTransaction;
+}): Extract<
+  RetainedDisplayFrameOutcome,
+  { readonly kind: "publish-compatible" | "publish-exact" }
+> {
+  const transactionOutcome = hasCompatibleRetainedDrawRegions(prepared.pageFrame)
+    ? "publish-compatible"
+    : "publish-exact";
+  const frame = createComposedRetainedDisplayFrame({
     coverageReadiness: "covered",
     diagnosticsPrevious: previous,
+    holdDiagnostics: null,
+    nowMs,
     prepared,
     proof,
+    surfaceActorSnapshots,
+    surfaceTransaction,
+    transactionOutcome,
   });
+  return transactionOutcome === "publish-compatible"
+    ? { frame, kind: "publish-compatible" }
+    : { frame, kind: "publish-exact" };
 }
 
 function createComposedRetainedDisplayFrame({
   coverageReadiness,
   diagnosticsPrevious,
+  holdDiagnostics,
+  nowMs,
   prepared,
   proof,
+  surfaceActorSnapshots,
+  surfaceTransaction,
+  transactionOutcome,
 }: {
   readonly coverageReadiness: CoverageReadiness;
   readonly diagnosticsPrevious: RetainedDisplayFrame | null;
+  readonly holdDiagnostics: SurfaceTransactionHoldDiagnostics | null;
+  readonly nowMs: number;
   readonly prepared: RetainedDisplayFrameInput;
   readonly proof: RetainedVisibleCoverageProof;
+  readonly surfaceActorSnapshots: readonly SurfaceActorSnapshot[];
+  readonly surfaceTransaction: SurfaceDisplayTransaction;
+  readonly transactionOutcome: PublishedFrameDiagnostics["transactionOutcome"];
 }): RetainedDisplayFrame {
   const compatibleDrawRegions = prepared.pageFrame.drawRegions.filter(
     (region): region is PublishedRetainedCompatibleDrawRegion =>
@@ -192,11 +391,14 @@ function createComposedRetainedDisplayFrame({
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
       exactPageCount,
       fidelityReadiness: proof.fidelityState,
+      holdDiagnostics,
       lastRejectedPreparedFrameId: null,
+      publishedAtMs: nowMs,
       publishedPreparedFrameId: prepared.id,
       rejectedFrameCount:
         diagnosticsPrevious?.diagnostics.rejectedFrameCount ?? 0,
       refinementPageCount: prepared.pageFrame.refinementPageCount,
+      transactionOutcome,
       trueHoleRectCount: proof.trueHoleRects.length,
     }),
     compatibleDrawRegions: Object.freeze(compatibleDrawRegions),
@@ -208,6 +410,77 @@ function createComposedRetainedDisplayFrame({
     id: prepared.id,
     pageFrame: prepared.pageFrame,
     retainedRuntimeFrame: prepared.retainedRuntimeFrame,
+    surfaceActorSnapshots,
+    surfaceTransaction,
+  });
+}
+
+function createHeldRetainedDisplayFrame({
+  diagnostics,
+  prepared,
+  previous,
+}: {
+  readonly diagnostics: SurfaceTransactionHoldDiagnostics;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame;
+}): RetainedDisplayFrame {
+  return Object.freeze({
+    ...previous,
+    diagnostics: Object.freeze({
+      ...previous.diagnostics,
+      coverageReadiness: "held-previous",
+      desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
+      holdDiagnostics: diagnostics,
+      rejectedFrameCount: previous.diagnostics.rejectedFrameCount + 1,
+      transactionOutcome: "hold-previous",
+    }),
+  });
+}
+
+function createColdPlaceholderRetainedDisplayFrame({
+  nowMs,
+  prepared,
+  proof,
+}: {
+  readonly nowMs: number;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly proof: RetainedVisibleCoverageProof;
+}): RetainedDisplayFrame {
+  const placeholderPageFrame: RetainedPageFrame = {
+    ...prepared.pageFrame,
+    compatibleDrawQuadCount: 0,
+    drawRegions: [],
+    drawQuadCount: 0,
+    flatSurfaces: [],
+    mergedDrawQuadCount: 0,
+    trueHoleRectCount: 0,
+    trueHoleRectsCss: [],
+    trueHoleVisuals: [],
+  };
+  const surfaceSnapshot = createRetainedColdPlaceholderSurfaceTransaction({
+    id: `retained:${prepared.id}:cold-placeholder`,
+    nowMs,
+    retainedRuntimeFrame: prepared.retainedRuntimeFrame,
+  });
+  return createComposedRetainedDisplayFrame({
+    coverageReadiness: "cold-placeholder",
+    diagnosticsPrevious: null,
+    holdDiagnostics: null,
+    nowMs,
+    prepared: createRetainedDisplayFrameInput({
+      pageFrame: placeholderPageFrame,
+      retainedRuntimeFrame: prepared.retainedRuntimeFrame,
+    }),
+    proof: Object.freeze({
+      ...proof,
+      compatibleCoverageRects: Object.freeze([]),
+      exactCoverageRects: Object.freeze([]),
+      trueHoleRects: Object.freeze([]),
+      visibleContentRects: Object.freeze([]),
+    }),
+    surfaceActorSnapshots: surfaceSnapshot.actorSnapshots,
+    surfaceTransaction: surfaceSnapshot.transaction,
+    transactionOutcome: "publish-cold-placeholder",
   });
 }
 
@@ -257,6 +530,14 @@ function createVisibleCoverageProof({
     trueHoleRects,
     visibleContentRects,
   });
+}
+
+function hasCompatibleRetainedDrawRegions(
+  pageFrame: RetainedPageFrame,
+): boolean {
+  return pageFrame.drawRegions.some(
+    (region) => region.coverageKind === "compatible",
+  );
 }
 
 function createRetainedMotionContinuityProof({

@@ -3,15 +3,18 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
+import {
+  applyHtmlSurfaceActiveDomIslandProjection,
+  hideHtmlSurfaceActiveDomIslandProjection,
+  projectHtmlSurfaceActiveDomIsland,
+} from "../htmlSurfaces/interactionProjector";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
 import {
-  flowToScreenPosition,
   getVisibleFlowRect,
   normalizeGpuViewport,
   type GpuViewportInput,
@@ -159,39 +162,18 @@ function syncGpuFlowDomIslandElementStyle({
   readonly island: GpuDomIsland;
   readonly viewport: GpuViewportInput;
 }) {
-  const style = getGpuFlowDomIslandStyle(
-    island,
-    normalizeGpuViewport(viewport),
-  );
-  element.style.display = "";
-  element.style.height = `${style.height}px`;
-  element.style.left = `${style.left}px`;
-  element.style.pointerEvents = "auto";
-  element.style.top = `${style.top}px`;
-  element.style.transform = String(style.transform ?? "");
-  element.style.transformOrigin = String(style.transformOrigin ?? "");
-  element.style.width = `${style.width}px`;
-  element.style.zIndex = String(style.zIndex ?? "");
+  applyHtmlSurfaceActiveDomIslandProjection({
+    element,
+    projection: projectHtmlSurfaceActiveDomIsland({
+      flowRect: island.rect,
+      viewport,
+      zIndex: island.zIndex,
+    }),
+  });
 }
 
 function hideGpuFlowDomIslandElement(element: HTMLElement) {
-  element.style.display = "none";
-}
-
-function getGpuFlowDomIslandStyle(
-  island: GpuDomIsland,
-  viewport: ReturnType<typeof normalizeGpuViewport>,
-): CSSProperties {
-  const position = flowToScreenPosition(island.rect, viewport);
-  return {
-    height: island.rect.height,
-    left: position.x,
-    top: position.y,
-    transform: `scale(${viewport.zoom})`,
-    transformOrigin: "top left",
-    width: island.rect.width,
-    zIndex: island.zIndex,
-  };
+  hideHtmlSurfaceActiveDomIslandProjection(element);
 }
 
 function getGpuFlowDomIslandInitialStyle({
@@ -200,8 +182,12 @@ function getGpuFlowDomIslandInitialStyle({
 }: {
   readonly island: GpuDomIsland;
   readonly viewport: ReturnType<typeof normalizeGpuViewport>;
-}): CSSProperties {
-  return getGpuFlowDomIslandStyle(island, viewport);
+}) {
+  return projectHtmlSurfaceActiveDomIsland({
+    flowRect: island.rect,
+    viewport,
+    zIndex: island.zIndex,
+  });
 }
 
 function syncGpuFlowDomIslandLayerStyles({

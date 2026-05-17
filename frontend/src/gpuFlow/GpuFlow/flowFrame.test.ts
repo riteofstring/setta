@@ -1,12 +1,7 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type {
-  RetainedContentTexturePageMaintenanceResult,
-  RetainedContentTexturePageManager,
-  RetainedContentTexturePagePreparedFrame,
-} from "../retainedContentTexturePageManager";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
 import type { GpuRect } from "../viewportMath";
@@ -16,7 +11,6 @@ import {
   syncGpuFlowNodeInteractionState,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowFrame";
-import { runGpuFlowRetainedPageMaintenanceBeforePublish } from "./flowRetainedPageMaintenance";
 import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 
 describe("GPU flow frame helpers", () => {
@@ -42,7 +36,7 @@ describe("GPU flow frame helpers", () => {
     expect(nextElement.dataset.gpuFlowInteractive).toBe("true");
   });
 
-  it("keeps visible true-hole repair active during viewport interaction", () => {
+  it("keeps visible true-hole follow-up maintenance active during viewport interaction", () => {
     expect(
       shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
         deferResolutionUpdates: true,
@@ -66,85 +60,62 @@ describe("GPU flow frame helpers", () => {
     ).toBe(false);
   });
 
-  it("repairs all true-hole coverage before retained display publication", () => {
-    const initialFrame = retainedFrameCache({
-      trueHoleRectCount: 2,
-    }).preparedFrame;
-    const partialFrame = retainedFrameCache({
-      trueHoleRectCount: 1,
-    }).preparedFrame;
-    const repairedFrame = retainedFrameCache({
-      trueHoleRectCount: 0,
-    }).preparedFrame;
-    const manager = {
-      runPostSubmitMaintenance: vi
-        .fn()
-        .mockReturnValueOnce(
-          retainedMaintenanceResult({
-            preparedFrame: initialFrame,
-            repairedPreparedFrame: partialFrame,
-          }),
-        )
-        .mockReturnValueOnce(
-          retainedMaintenanceResult({
-            preparedFrame: partialFrame,
-            repairedPreparedFrame: repairedFrame,
-          }),
-        ),
-    } as unknown as RetainedContentTexturePageManager;
+  it("keeps visible snapshot-exact refinement maintenance active during viewport interaction", () => {
+    const preparedFrame = {
+      ...retainedFrameCache({ contentSurfaces: [] }).preparedFrame,
+      replacementDescriptors: [
+        retainedReplacementDescriptor({
+          descriptor: {
+            ...retainedTexturePageDescriptor("surface-a", {
+              height: 64,
+              width: 256,
+              x: 0,
+              y: 0,
+            }),
+            visualEpochKind: "snapshot-exact",
+          },
+          priority: "visible-refinement",
+          reason: "target-fidelity-missing",
+          snapshotBlockSequence: null,
+        }),
+      ],
+    };
 
-    const result = runGpuFlowRetainedPageMaintenanceBeforePublish({
-      darkMode: false,
-      deferResolutionUpdates: true,
-      preparedFrame: initialFrame,
-      retainedContentPageManager: manager,
-      textLikeSnapshotElementById: new Map(),
-    });
-
-    expect(manager.runPostSubmitMaintenance).toHaveBeenCalledTimes(2);
-    expect(result?.result.repairedPreparedFrame).toBe(repairedFrame);
-    expect(result?.result.trueHoleRectCount).toBe(0);
-    expect(result?.result.uploadCount).toBe(2);
+    expect(
+      shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
+        deferResolutionUpdates: true,
+        preparedFrame,
+      }),
+    ).toBe(false);
   });
 
-  it("continues pre-publish repair when true-hole area shrinks without changing rect count", () => {
-    const initialFrame = retainedFrameCache({
-      trueHoleRectsCss: [{ height: 100, width: 100, x: 0, y: 0 }],
-    }).preparedFrame;
-    const partialFrame = retainedFrameCache({
-      trueHoleRectsCss: [{ height: 50, width: 100, x: 0, y: 50 }],
-    }).preparedFrame;
-    const repairedFrame = retainedFrameCache({
-      trueHoleRectsCss: [],
-    }).preparedFrame;
-    const manager = {
-      runPostSubmitMaintenance: vi
-        .fn()
-        .mockReturnValueOnce(
-          retainedMaintenanceResult({
-            preparedFrame: initialFrame,
-            repairedPreparedFrame: partialFrame,
-          }),
-        )
-        .mockReturnValueOnce(
-          retainedMaintenanceResult({
-            preparedFrame: partialFrame,
-            repairedPreparedFrame: repairedFrame,
-          }),
-        ),
-    } as unknown as RetainedContentTexturePageManager;
+  it("defers large visible snapshot-exact refinement sets during viewport interaction", () => {
+    const preparedFrame = {
+      ...retainedFrameCache({ contentSurfaces: [] }).preparedFrame,
+      replacementDescriptors: Array.from({ length: 9 }, (_, index) =>
+        retainedReplacementDescriptor({
+          descriptor: {
+            ...retainedTexturePageDescriptor(`surface-${index}`, {
+              height: 64,
+              width: 256,
+              x: 0,
+              y: 0,
+            }),
+            visualEpochKind: "snapshot-exact",
+          },
+          priority: "visible-refinement",
+          reason: "target-fidelity-missing",
+          snapshotBlockSequence: null,
+        }),
+      ),
+    };
 
-    const result = runGpuFlowRetainedPageMaintenanceBeforePublish({
-      darkMode: false,
-      deferResolutionUpdates: true,
-      preparedFrame: initialFrame,
-      retainedContentPageManager: manager,
-      textLikeSnapshotElementById: new Map(),
-    });
-
-    expect(manager.runPostSubmitMaintenance).toHaveBeenCalledTimes(2);
-    expect(result?.result.repairedPreparedFrame).toBe(repairedFrame);
-    expect(result?.result.trueHoleRectCount).toBe(0);
+    expect(
+      shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
+        deferResolutionUpdates: true,
+        preparedFrame,
+      }),
+    ).toBe(true);
   });
 
   it("reuses committed retained page coverage when scene, zoom, and scroll inputs are unchanged", () => {
@@ -303,6 +274,144 @@ describe("GPU flow frame helpers", () => {
       ),
     ).toEqual(["source-a"]);
     expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(1);
+  });
+
+  it("keeps visible retained preparation snapshot sources when descriptor filtering is active", () => {
+    const visibleRect = {
+      height: 28,
+      width: 240,
+      x: 32,
+      y: 64,
+    };
+    const runtimeFrame = retainedFrameWithSnapshotSources([
+      retainedSnapshotSource("source-visible", "surface-visible", {
+        height: 18,
+        width: 160,
+        x: 48,
+        y: 70,
+      }),
+      retainedSnapshotSource("source-refinement", "surface-refinement", {
+        height: 18,
+        width: 160,
+        x: 8,
+        y: 8,
+      }),
+      ...Array.from({ length: 160 }, (_, index) =>
+        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+          height: 20,
+          width: 120,
+          x: 0,
+          y: index * 24,
+        }),
+      ),
+    ]);
+    const preparedFrame = {
+      ...retainedFrameCache({
+        contentSurfaces: [],
+        refinementPageCount: 1,
+        trueHoleRectCount: 1,
+      }).preparedFrame,
+      refinementDescriptors: [
+        retainedTexturePageDescriptor("surface-refinement", {
+          height: 64,
+          width: 256,
+          x: 0,
+          y: 0,
+        }),
+      ],
+      visibleRegionTargets: [
+        retainedVisibleRegionTarget("surface-visible", visibleRect),
+      ],
+    };
+
+    const preparationFrame = createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame,
+      retainedRuntimeFrame: runtimeFrame,
+    });
+
+    expect(
+      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+        (source) => source.sourceId,
+      ),
+    ).toEqual(["source-visible", "source-refinement"]);
+    expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(2);
+  });
+
+  it("keeps retained preparation content page snapshots aligned with mounted sources", () => {
+    const runtimeFrame = retainedFrameWithSnapshotSources(
+      [
+        retainedSnapshotSource("source-visible", "surface-visible", {
+          height: 18,
+          width: 160,
+          x: 48,
+          y: 70,
+        }),
+        retainedSnapshotSource("source-hidden", "surface-visible", {
+          height: 18,
+          width: 160,
+          x: 48,
+          y: 420,
+        }),
+        ...Array.from({ length: 160 }, (_, index) =>
+          retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+            height: 20,
+            width: 120,
+            x: 0,
+            y: index * 24,
+          }),
+        ),
+      ],
+      [
+        retainedContentPageSurface("surface-visible", [
+          retainedSnapshotSource("source-visible", "surface-visible", {
+            height: 18,
+            width: 160,
+            x: 48,
+            y: 70,
+          }),
+          retainedSnapshotSource("source-hidden", "surface-visible", {
+            height: 18,
+            width: 160,
+            x: 48,
+            y: 420,
+          }),
+        ]),
+      ],
+    );
+    const preparedFrame = {
+      ...retainedFrameCache({
+        contentSurfaces: [],
+        refinementPageCount: 1,
+        trueHoleRectCount: 1,
+      }).preparedFrame,
+      refinementDescriptors: [
+        retainedTexturePageDescriptor("surface-visible", {
+          height: 96,
+          width: 256,
+          x: 0,
+          y: 32,
+        }),
+      ],
+      visibleRegionTargets: [
+        retainedVisibleRegionTarget("surface-visible", {
+          height: 96,
+          width: 256,
+          x: 0,
+          y: 32,
+        }),
+      ],
+    };
+
+    const preparationFrame = createGpuFlowRetainedPreparationRuntimeFrame({
+      preparedFrame,
+      retainedRuntimeFrame: runtimeFrame,
+    });
+
+    expect(
+      preparationFrame.descriptors.contentPageSurfaces[0]?.textLikeSnapshots?.map(
+        (snapshot) => snapshot.sourceId,
+      ),
+    ).toEqual(["source-visible"]);
   });
 
   it("prioritizes large retained preparation snapshot descriptors beyond the initial order", () => {
@@ -467,57 +576,6 @@ function retainedFrameCache({
   };
 }
 
-function retainedMaintenanceResult({
-  preparedFrame,
-  repairedPreparedFrame,
-}: {
-  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly repairedPreparedFrame: RetainedContentTexturePagePreparedFrame;
-}): RetainedContentTexturePageMaintenanceResult {
-  return {
-    budgetExhausted: false,
-    compatibleDrawQuadCount: preparedFrame.compatibleDrawQuadCount,
-    coverageCandidateCount: preparedFrame.coverageCandidateCount,
-    diagnostics: [],
-    drawQuadCount: preparedFrame.drawQuadCount,
-    evicted: {
-      evictedBytes: 0,
-      evictedKeys: [],
-      remainingBytes: 0,
-    },
-    executedItemCount: 1,
-    fidelityState: repairedPreparedFrame.fidelityState,
-    memory: {
-      committedBytes: 0,
-      committedCount: 0,
-      pendingBytes: 0,
-      pendingCount: 0,
-      retiredBytes: 0,
-      retiredCount: 0,
-      totalBytes: 0,
-    },
-    mergedDrawQuadCount: preparedFrame.mergedDrawQuadCount,
-    needsFollowUpFrame: repairedPreparedFrame.trueHoleRectCount > 0,
-    postMaintenanceRefinementPageCount:
-      repairedPreparedFrame.refinementPageCount,
-    queuedWorkCount: 0,
-    queuedWorkCountBeforeUpload: 1,
-    rasterMs: 1,
-    refinementPageCount: preparedFrame.refinementPageCount,
-    rejectedStaleRectCount: repairedPreparedFrame.rejectedStaleRectCount,
-    remainingUploadableWorkCount: 0,
-    repairedPreparedFrame,
-    skippedItemCount: 0,
-    targetDescriptorCount: preparedFrame.refinementDescriptors.length,
-    trueHoleRectCount: preparedFrame.trueHoleRectCount,
-    trueHoleVisuals: preparedFrame.trueHoleVisuals,
-    uploadedBytes: 1024,
-    uploadedDrawCommandCount: 1,
-    uploadCount: 1,
-    uploadMs: 1,
-  };
-}
-
 function emptyCoveragePlan() {
   return {
     diagnostics: {
@@ -568,6 +626,7 @@ function emptyCoveragePlan() {
 
 function retainedFrameWithSnapshotSources(
   sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"],
+  contentPageSurfaces: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["contentPageSurfaces"] = [],
 ): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"] {
   const frame = createGpuRetainedRuntimeFrame({
     devicePixelRatioBucket: 2,
@@ -582,12 +641,64 @@ function retainedFrameWithSnapshotSources(
     ...frame,
     descriptors: {
       ...frame.descriptors,
+      contentPageSurfaces,
       textLikeRowSnapshotSources: sources,
     },
     diagnostics: {
       ...frame.diagnostics,
       textLikeSnapshotSourceCount: sources.length,
     },
+  };
+}
+
+function retainedContentPageSurface(
+  surfaceId: string,
+  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"],
+): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["contentPageSurfaces"][number] {
+  const rect = {
+    height: 512,
+    width: 512,
+    x: 0,
+    y: 0,
+  };
+  return {
+    contentBoundsCss: rect,
+    contentSegments: [],
+    contentVersion: 1,
+    layout: {
+      height: rect.height,
+      surfaceId,
+      textureSourceRect: rect,
+      width: rect.width,
+      x: 0,
+      y: 0,
+      zIndex: 0,
+    },
+    rasterScene: {
+      contentRect: rect,
+      drawCommands: [],
+      hitRecords: [],
+      id: surfaceId,
+      ownerSectionId: "section-a",
+      portAnchors: [],
+      rowHeight: 24,
+      rowOrder: [],
+      rows: [],
+      scrollOffset: { x: 0, y: 0 },
+      visibleRange: { endIndex: 0, rowCount: 0, startIndex: 0 },
+      viewportRect: rect,
+    },
+    sourceKey: `${surfaceId}:source`,
+    sourceVersion: 1,
+    sourceWindowCss: rect,
+    surfaceId,
+    textLikeSnapshots: sources.map((source) => ({
+      rectCss: source.targetRectCss,
+      rowId: source.rowId,
+      sourceId: source.sourceId,
+      sourceKey: source.sourceKey,
+    })),
+    visibleSourceRectCss: rect,
   };
 }
 
@@ -645,10 +756,14 @@ function retainedTexturePageDescriptor(
 
 function retainedReplacementDescriptor({
   descriptor,
+  priority = "visible-hole",
+  reason = "true-hole",
   snapshotBlockSequence,
 }: {
   readonly descriptor: GpuFlowRetainedContentFrameCache["preparedFrame"]["refinementDescriptors"][number];
-  readonly snapshotBlockSequence: number;
+  readonly priority?: GpuFlowRetainedContentFrameCache["preparedFrame"]["replacementDescriptors"][number]["replacementRequest"]["priority"];
+  readonly reason?: GpuFlowRetainedContentFrameCache["preparedFrame"]["replacementDescriptors"][number]["replacementRequest"]["reason"];
+  readonly snapshotBlockSequence: number | null;
 }): GpuFlowRetainedContentFrameCache["preparedFrame"]["replacementDescriptors"][number] {
   return {
     descriptor,
@@ -668,8 +783,8 @@ function retainedReplacementDescriptor({
         },
         owner: descriptor.surfaceId,
       },
-      priority: "visible-hole",
-      reason: "true-hole",
+      priority,
+      reason,
       target: {
         clipRect: descriptor.sourceWindowCss,
         contentRect: descriptor.sourceRectCss,
@@ -696,7 +811,38 @@ function retainedReplacementDescriptor({
       },
     },
     snapshotBlockSequence,
-    snapshotRequired: true,
+    snapshotRequired: snapshotBlockSequence !== null,
+  };
+}
+
+function retainedVisibleRegionTarget(
+  surfaceId: string,
+  contentRect: GpuRect,
+): GpuFlowRetainedContentFrameCache["preparedFrame"]["visibleRegionTargets"][number] {
+  const descriptor = retainedTexturePageDescriptor(surfaceId, contentRect);
+  return {
+    clipRect: descriptor.sourceWindowCss,
+    contentRect: descriptor.sourceRectCss,
+    fidelity: {
+      devicePixelRatioBucket: descriptor.devicePixelRatioBucket,
+      lodLevel: descriptor.lodLevel,
+      lodScale: descriptor.lodScale,
+      pageGridGeneration: "test-grid",
+      pixelHeight: descriptor.pixelHeight,
+      pixelWidth: descriptor.pixelWidth,
+      viewportZoomBucket: descriptor.viewportZoomBucket,
+    },
+    manifest: retainedRegionManifest(descriptor),
+    reason: "visible",
+    surfaceLayout: {
+      height: descriptor.sourceRectCss.height,
+      surfaceId,
+      textureSourceRect: descriptor.sourceWindowCss,
+      width: descriptor.sourceRectCss.width,
+      x: 0,
+      y: 0,
+    },
+    zLayer: 0,
   };
 }
 

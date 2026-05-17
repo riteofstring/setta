@@ -10,6 +10,7 @@ import type { RetainedContentTextureResources } from "./retainedContentTextureRe
 import {
   createRetainedDisplayFrameInput,
   publishRetainedDisplayFrame,
+  resolveRetainedDisplayFrameTransaction,
 } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import {
@@ -49,9 +50,24 @@ describe("retained display frame publisher", () => {
     expect(frame.pageFrame.flatSurfaces).toEqual([
       expect.objectContaining({ surfaceId: "frame-1" }),
     ]);
+    expect(
+      frame.surfaceActorSnapshots.map(({ actor }) => actor.kind),
+    ).toContain("retained-parameter-content");
+    expect(frame.surfaceTransaction.coverageProof.exactCoverage).toHaveLength(
+      1,
+    );
+    expect(
+      frame.surfaceTransaction.coverageProof.protectedResourceHandles,
+    ).toEqual([
+      expect.objectContaining({
+        id: "page",
+        kind: "page",
+        reason: "published-transaction",
+      }),
+    ]);
   });
 
-  it("rejects current motion when committed visual epoch coverage is missing", () => {
+  it("holds previous visuals when current motion coverage is missing", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -62,25 +78,44 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
-    expect(() =>
-      publishRetainedDisplayFrame({
-        prepared: preparedFrame({
-          drawRegions: [
-            pageDrawRegion(descriptor, {
-              coverageKind: "compatible",
-              sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
-            }),
-          ],
-          frame: 2,
-          visibleRegionTargets: [descriptor],
-          trueHoleRectsCss: [missingRect],
-        }),
-        previous,
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      nowMs: 20,
+      prepared: preparedFrame({
+        drawRegions: [
+          pageDrawRegion(descriptor, {
+            coverageKind: "compatible",
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
+        frame: 2,
+        visibleRegionTargets: [descriptor],
+        trueHoleRectsCss: [missingRect],
       }),
-    ).toThrow(/committed visual epoch coverage/);
+      previous,
+    });
+
+    expect(outcome.kind).toBe("hold-previous");
+    expect(outcome.kind === "hold-previous" ? outcome.frame.id : null).toBe(
+      previous.id,
+    );
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.frame.diagnostics.coverageReadiness
+        : null,
+    ).toBe("held-previous");
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.frame.surfaceTransaction.id
+        : null,
+    ).toBe(previous.surfaceTransaction.id);
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.diagnostics.blockingSurfaceIds
+        : [],
+    ).toEqual(["surface"]);
   });
 
-  it("rejects scroll frames that would expose true-hole coverage", () => {
+  it("holds scroll frames that would expose true-hole coverage", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       nowMs: 10,
@@ -93,27 +128,37 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
-    expect(() =>
-      publishRetainedDisplayFrame({
-        nowMs: 20,
-        prepared: preparedFrame({
-          drawRegions: [
-            pageDrawRegion(descriptor, {
-              coverageKind: "compatible",
-              sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
-            }),
-          ],
-          frame: 2,
-          scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
-          visibleRegionTargets: [descriptor],
-          trueHoleRectsCss: [missingRect],
-        }),
-        previous,
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      nowMs: 20,
+      prepared: preparedFrame({
+        drawRegions: [
+          pageDrawRegion(descriptor, {
+            coverageKind: "compatible",
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
+        frame: 2,
+        scrollOffsets: new Map([["surface", { x: 0, y: 24 }]]),
+        visibleRegionTargets: [descriptor],
+        trueHoleRectsCss: [missingRect],
       }),
-    ).toThrow(/committed visual epoch coverage/);
+      previous,
+    });
+
+    expect(outcome.kind).toBe("hold-previous");
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.diagnostics.desiredScrollOffset
+        : null,
+    ).toBe(24);
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.diagnostics.publishedScrollOffset
+        : null,
+    ).toBe(0);
   });
 
-  it("rejects native-island detach frames that would expose passive true holes", () => {
+  it("holds native-island detach frames that would expose passive true holes", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
@@ -126,23 +171,64 @@ describe("retained display frame publisher", () => {
     });
 
     expect(previous.diagnostics.activeIslandTransaction.mode).toBe("attach");
-    expect(() =>
-      publishRetainedDisplayFrame({
-        prepared: preparedFrame({
-          drawRegions: [
-            pageDrawRegion(descriptor, {
-              coverageKind: "compatible",
-              sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
-            }),
-          ],
-          frame: 2,
-          nativeDomIslands: [],
-          visibleRegionTargets: [descriptor],
-          trueHoleRectsCss: [{ height: 12, width: 12, x: 0, y: 0 }],
-        }),
-        previous,
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      nowMs: 20,
+      prepared: preparedFrame({
+        drawRegions: [
+          pageDrawRegion(descriptor, {
+            coverageKind: "compatible",
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
+        frame: 2,
+        nativeDomIslands: [],
+        visibleRegionTargets: [descriptor],
+        trueHoleRectsCss: [{ height: 12, width: 12, x: 0, y: 0 }],
       }),
-    ).toThrow(/committed visual epoch coverage/);
+      previous,
+    });
+
+    expect(outcome.kind).toBe("hold-previous");
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.frame.activeIslandRects.map((island) => island.id)
+        : [],
+    ).toEqual(["island-a"]);
+    expect(
+      outcome.kind === "hold-previous"
+        ? outcome.frame.diagnostics.activeIslandTransaction.mode
+        : null,
+    ).toBe("attach");
+  });
+
+  it("publishRetainedDisplayFrame returns the held frame for missing covered motion", () => {
+    const descriptor = pageDescriptor();
+    const previous = publishRetainedDisplayFrame({
+      prepared: preparedFrame({
+        drawRegions: [pageDrawRegion(descriptor)],
+        frame: 1,
+        visibleRegionTargets: [descriptor],
+      }),
+      previous: null,
+    });
+    const missingRect = { height: 32, width: 32, x: 16, y: 16 };
+    const frame = publishRetainedDisplayFrame({
+      nowMs: 20,
+      prepared: preparedFrame({
+        drawRegions: [
+          pageDrawRegion(descriptor, {
+            coverageKind: "compatible",
+            sampleRectCss: { height: 16, width: 64, x: 0, y: 0 },
+          }),
+        ],
+        frame: 2,
+        visibleRegionTargets: [descriptor],
+        trueHoleRectsCss: [missingRect],
+      }),
+      previous,
+    });
+    expect(frame.id).toBe(previous.id);
+    expect(frame.diagnostics.coverageReadiness).toBe("held-previous");
   });
 
   it("records compatible coverage without treating it as true-hole coverage", () => {

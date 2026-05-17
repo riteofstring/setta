@@ -40,6 +40,7 @@ describe("GpuSelectionOverlaySurfaceLayer", () => {
     ]);
     expect(getGpuSelectionOverlaySurfaceLayouts(sources)).toEqual([
       {
+        actorKind: "selection-overlay",
         height: 30,
         surfaceId: "gpu-user-selection",
         width: 50,
@@ -48,6 +49,7 @@ describe("GpuSelectionOverlaySurfaceLayer", () => {
         zIndex: 90_000,
       },
       {
+        actorKind: "selection-overlay",
         height: 80,
         surfaceId: "gpu-nodes-selection",
         width: 120,

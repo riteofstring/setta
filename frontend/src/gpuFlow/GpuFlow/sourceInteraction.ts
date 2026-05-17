@@ -2,7 +2,10 @@ import type { MutableRefObject } from "react";
 
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 
-import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
+import {
+  projectHtmlSurfaceInteractionTarget,
+  type HtmlSurfaceInteractionProjector,
+} from "../htmlSurfaces/interactionProjector";
 
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 
@@ -17,6 +20,7 @@ import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
+import { resolveGpuNodeZIndex } from "../nodeZIndex";
 import {
   flowToScreenPosition,
   normalizeGpuViewport,
@@ -78,13 +82,17 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   if (!projection) {
     return;
   }
-  projector.alignSourceToClientPoint({
-    localX: projection.localX,
-    localY: projection.localY,
-    sourceElement,
-    sourceId: nodeId,
-    surfaceX: projection.surfaceX,
-    surfaceY: projection.surfaceY,
+  projectHtmlSurfaceInteractionTarget({
+    projector,
+    target: {
+      localX: projection.localX,
+      localY: projection.localY,
+      sourceElement,
+      sourceId: nodeId,
+      surfaceX: projection.surfaceX,
+      surfaceY: projection.surfaceY,
+      zIndex: resolveGpuNodeZIndex(node),
+    },
   });
 }
 

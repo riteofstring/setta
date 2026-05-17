@@ -35,7 +35,28 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly refinementPageCount: number;
   readonly rasterMs: number;
   readonly rejectedStaleRectCount: number;
+  readonly surfaceActorGenerationCount: number;
+  readonly surfaceCoverageProtectedResourceCount: number;
+  readonly surfaceCoverageTrueHoleCount: number;
   readonly targetDescriptorCount: number;
+  readonly transactionDesiredScrollOffset: number | null;
+  readonly transactionDesiredViewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
+  readonly transactionHeldMotionFrameCount: number;
+  readonly transactionHeldTransactionCount: number;
+  readonly transactionHeldTransactionDurationMs: number;
+  readonly transactionHoldReason: string | null;
+  readonly transactionMaxHeldMotionAgeMs: number;
+  readonly transactionOutcome: string;
+  readonly transactionPublishedScrollOffset: number | null;
+  readonly transactionPublishedViewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
   readonly trueHoleRectCount: number;
   readonly uploadedBytes: number;
   readonly uploadedDrawCommandCount: number;
@@ -113,7 +134,28 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageRefinementPageCount: number;
   readonly retainedTexturePageRasterMs: number;
   readonly retainedTexturePageRejectedStaleRectCount: number;
+  readonly retainedTexturePageSurfaceActorGenerationCount: number;
+  readonly retainedTexturePageSurfaceCoverageProtectedResourceCount: number;
+  readonly retainedTexturePageSurfaceCoverageTrueHoleCount: number;
   readonly retainedTexturePageTargetDescriptorCount: number;
+  readonly retainedTexturePageTransactionDesiredScrollOffset: number | null;
+  readonly retainedTexturePageTransactionDesiredViewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
+  readonly retainedTexturePageTransactionHeldMotionFrameCount: number;
+  readonly retainedTexturePageTransactionHeldTransactionCount: number;
+  readonly retainedTexturePageTransactionHeldTransactionDurationMs: number;
+  readonly retainedTexturePageTransactionHoldReason: string | null;
+  readonly retainedTexturePageTransactionMaxHeldMotionAgeMs: number;
+  readonly retainedTexturePageTransactionOutcome: string;
+  readonly retainedTexturePageTransactionPublishedScrollOffset: number | null;
+  readonly retainedTexturePageTransactionPublishedViewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
   readonly retainedTexturePageTrueHoleRectCount: number;
   readonly retainedTexturePageUploadedBytes: number;
   readonly retainedTexturePageUploadedDrawCommandCount: number;
@@ -121,6 +163,9 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageUploadMs: number;
   readonly skippedNodeCount: number;
   readonly solidRoundedRectSurfaceCount: number;
+  readonly surfaceActorGenerationCount: number;
+  readonly surfaceCoverageProtectedResourceCount: number;
+  readonly surfaceCoverageTrueHoleCount: number;
   readonly textureMemoryAllocatedBytes: number;
   readonly textureMemoryBeforeEvictionAllocatedBytes: number;
   readonly textureMemoryBeforeEvictionCount: number;
@@ -200,6 +245,10 @@ export function createGpuFlowFramePerformanceEvent({
     skippedNodeCount: layerResult.skippedNodeIds.length,
     solidRoundedRectSurfaceCount:
       layerResult.visualScene.solidRoundedRectSurfaces.length,
+    surfaceActorGenerationCount: layerResult.surfaceActorGenerationCount,
+    surfaceCoverageProtectedResourceCount:
+      layerResult.surfaceCoverageProtectedResourceCount,
+    surfaceCoverageTrueHoleCount: layerResult.surfaceCoverageTrueHoleCount,
     textureMemoryAllocatedBytes: textureMemory.allocatedBytes,
     textureMemoryBeforeEvictionAllocatedBytes:
       textureMemoryBeforeEviction.allocatedBytes,
@@ -266,7 +315,20 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageRefinementPageCount"
   | "retainedTexturePageRasterMs"
   | "retainedTexturePageRejectedStaleRectCount"
+  | "retainedTexturePageSurfaceActorGenerationCount"
+  | "retainedTexturePageSurfaceCoverageProtectedResourceCount"
+  | "retainedTexturePageSurfaceCoverageTrueHoleCount"
   | "retainedTexturePageTargetDescriptorCount"
+  | "retainedTexturePageTransactionDesiredScrollOffset"
+  | "retainedTexturePageTransactionDesiredViewport"
+  | "retainedTexturePageTransactionHeldMotionFrameCount"
+  | "retainedTexturePageTransactionHeldTransactionCount"
+  | "retainedTexturePageTransactionHeldTransactionDurationMs"
+  | "retainedTexturePageTransactionHoldReason"
+  | "retainedTexturePageTransactionMaxHeldMotionAgeMs"
+  | "retainedTexturePageTransactionOutcome"
+  | "retainedTexturePageTransactionPublishedScrollOffset"
+  | "retainedTexturePageTransactionPublishedViewport"
   | "retainedTexturePageTrueHoleRectCount"
   | "retainedTexturePageUploadedBytes"
   | "retainedTexturePageUploadedDrawCommandCount"
@@ -291,7 +353,20 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageRefinementPageCount: 0,
       retainedTexturePageRasterMs: 0,
       retainedTexturePageRejectedStaleRectCount: 0,
+      retainedTexturePageSurfaceActorGenerationCount: 0,
+      retainedTexturePageSurfaceCoverageProtectedResourceCount: 0,
+      retainedTexturePageSurfaceCoverageTrueHoleCount: 0,
       retainedTexturePageTargetDescriptorCount: 0,
+      retainedTexturePageTransactionDesiredScrollOffset: null,
+      retainedTexturePageTransactionDesiredViewport: { x: 0, y: 0, zoom: 1 },
+      retainedTexturePageTransactionHeldMotionFrameCount: 0,
+      retainedTexturePageTransactionHeldTransactionCount: 0,
+      retainedTexturePageTransactionHeldTransactionDurationMs: 0,
+      retainedTexturePageTransactionHoldReason: null,
+      retainedTexturePageTransactionMaxHeldMotionAgeMs: 0,
+      retainedTexturePageTransactionOutcome: "none",
+      retainedTexturePageTransactionPublishedScrollOffset: null,
+      retainedTexturePageTransactionPublishedViewport: { x: 0, y: 0, zoom: 1 },
       retainedTexturePageTrueHoleRectCount: 0,
       retainedTexturePageUploadedBytes: 0,
       retainedTexturePageUploadedDrawCommandCount: 0,
@@ -325,8 +400,36 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageRasterMs: retainedTexturePages.rasterMs,
     retainedTexturePageRejectedStaleRectCount:
       retainedTexturePages.rejectedStaleRectCount,
+    retainedTexturePageSurfaceActorGenerationCount:
+      retainedTexturePages.surfaceActorGenerationCount,
+    retainedTexturePageSurfaceCoverageProtectedResourceCount:
+      retainedTexturePages.surfaceCoverageProtectedResourceCount,
+    retainedTexturePageSurfaceCoverageTrueHoleCount:
+      retainedTexturePages.surfaceCoverageTrueHoleCount,
     retainedTexturePageTargetDescriptorCount:
       retainedTexturePages.targetDescriptorCount,
+    retainedTexturePageTransactionDesiredScrollOffset:
+      retainedTexturePages.transactionDesiredScrollOffset,
+    retainedTexturePageTransactionDesiredViewport: {
+      ...retainedTexturePages.transactionDesiredViewport,
+    },
+    retainedTexturePageTransactionHeldMotionFrameCount:
+      retainedTexturePages.transactionHeldMotionFrameCount,
+    retainedTexturePageTransactionHeldTransactionCount:
+      retainedTexturePages.transactionHeldTransactionCount,
+    retainedTexturePageTransactionHeldTransactionDurationMs:
+      retainedTexturePages.transactionHeldTransactionDurationMs,
+    retainedTexturePageTransactionHoldReason:
+      retainedTexturePages.transactionHoldReason,
+    retainedTexturePageTransactionMaxHeldMotionAgeMs:
+      retainedTexturePages.transactionMaxHeldMotionAgeMs,
+    retainedTexturePageTransactionOutcome:
+      retainedTexturePages.transactionOutcome,
+    retainedTexturePageTransactionPublishedScrollOffset:
+      retainedTexturePages.transactionPublishedScrollOffset,
+    retainedTexturePageTransactionPublishedViewport: {
+      ...retainedTexturePages.transactionPublishedViewport,
+    },
     retainedTexturePageTrueHoleRectCount:
       retainedTexturePages.trueHoleRectCount,
     retainedTexturePageUploadedBytes: retainedTexturePages.uploadedBytes,

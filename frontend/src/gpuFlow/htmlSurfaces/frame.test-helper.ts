@@ -41,6 +41,7 @@ export function surfaceOverlay(
   ownerNodeId?: string,
 ): GpuHtmlSurfaceOverlayLayout {
   return {
+    actorKind: "edge-label",
     height,
     ownerNodeId,
     surfaceId,

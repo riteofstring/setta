@@ -229,6 +229,7 @@ export function getGpuNodeDragPreviewSurfaceLayouts(
   sources: readonly GpuNodeDragPreviewSource[],
 ): readonly GpuHtmlSurfaceOverlayLayout[] {
   return sources.map((source) => ({
+    actorKind: "drag-overlay",
     height: source.height,
     surfaceId: source.surfaceId,
     width: source.width,

@@ -51,7 +51,7 @@ import {
 } from "../retainedContentTexturePageManager";
 import {
   createRetainedDisplayFrameInput,
-  publishRetainedDisplayFrame,
+  resolveRetainedDisplayFrameTransaction,
   type RetainedDisplayFrame,
 } from "../retainedDisplayFrame";
 import {
@@ -78,11 +78,7 @@ import {
   postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
-import {
-  assertGpuFlowRetainedPreparedFrameHasNoTrueHoles,
-  resolveGpuFlowRetainedPageMaintenanceAfterPublish,
-  runGpuFlowRetainedPageMaintenanceBeforePublish,
-} from "./flowRetainedPageMaintenance";
+import { resolveGpuFlowRetainedPageMaintenanceAfterPublish } from "./flowRetainedPageMaintenance";
 import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
 import { combineGpuFlowRetainedTexturePageMetrics } from "./flowRetainedTextureMetrics";
 import {
@@ -550,43 +546,36 @@ export function renderGpuFlowNodeLayerFrame({
     sceneRevision: retainedSceneInput.sceneRevision,
     viewportZoomBucket,
   });
-  const retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
+  let retainedRuntimeFrame = retainedFrame.retainedRuntimeFrame;
   let retainedPagePreparedFrame = retainedFrame.preparedFrame;
-  let retainedPageMaintenance = runGpuFlowRetainedPageMaintenanceBeforePublish({
-    darkMode,
-    deferResolutionUpdates,
-    preparedFrame: retainedPagePreparedFrame,
-    publishedProtectedPageKeys: resolvePublishedRetainedProtectedPageKeys(
-      retainedDisplayFrameRef.current,
-    ),
-    retainedContentPageManager: resources.retainedContentPageManager,
-    textLikeSnapshotElementById:
-      retainedTextLikeRowSnapshotElementByIdRef.current,
-  });
-  if (retainedPageMaintenance) {
-    retainedPagePreparedFrame =
-      retainedPageMaintenance.result.repairedPreparedFrame;
-    assertGpuFlowRetainedPreparedFrameHasNoTrueHoles({
-      preparedFrame: retainedPagePreparedFrame,
-    });
-    updateGpuFlowRetainedContentFrameCacheAfterRepair({
-      preparedFrame: retainedPagePreparedFrame,
-      retainedContentFrameCacheRef,
-      retainedContentPageManager: resources.retainedContentPageManager,
-      retainedRuntimeFrame,
-    });
-  }
-  assertGpuFlowRetainedPreparedFrameHasNoTrueHoles({
-    preparedFrame: retainedPagePreparedFrame,
-  });
-  notifyGpuFlowRetainedRuntimeFrame(
-    onRetainedPreparedRuntimeFrame,
+  const retainedPreparationRuntimeFrame =
     createGpuFlowRetainedPreparationRuntimeFrame({
       preparedFrame: retainedPagePreparedFrame,
       retainedRuntimeFrame,
-    }),
+    });
+  if (retainedPreparationRuntimeFrame !== retainedRuntimeFrame) {
+    retainedRuntimeFrame = retainedPreparationRuntimeFrame;
+    retainedPagePreparedFrame =
+      resources.retainedContentPageManager.prepareFrame({
+        devicePixelRatio: canvasSize.devicePixelRatio,
+        frame,
+        surfaces: retainedRuntimeFrame.descriptors.contentPageSurfaces,
+        viewportZoomBucket,
+      });
+    retainedContentFrameCacheRef.current = retainedContentFrameCacheRef.current
+      ? {
+          ...retainedContentFrameCacheRef.current,
+          preparedFrame: retainedPagePreparedFrame,
+          retainedRuntimeFrame,
+        }
+      : null;
+  }
+  notifyGpuFlowRetainedRuntimeFrame(
+    onRetainedPreparedRuntimeFrame,
+    retainedPreparationRuntimeFrame,
   );
-  const publishedRetainedFrame = publishRetainedDisplayFrame({
+  const retainedDisplayOutcome = resolveRetainedDisplayFrameTransaction({
+    allowColdPlaceholder: true,
     nowMs: renderStartedAt,
     prepared: createRetainedDisplayFrameInput({
       pageFrame: retainedPagePreparedFrame,
@@ -594,6 +583,11 @@ export function renderGpuFlowNodeLayerFrame({
     }),
     previous: retainedDisplayFrameRef.current,
   });
+  if (retainedDisplayOutcome.kind === "block-cold-first-coverage") {
+    surfaceRef.current?.requestFrame("texture-upload");
+    return;
+  }
+  const publishedRetainedFrame = retainedDisplayOutcome.frame;
   retainedDisplayFrameRef.current = publishedRetainedFrame;
   const publishedRetainedRuntimeFrame =
     publishedRetainedFrame.retainedRuntimeFrame;
@@ -658,16 +652,17 @@ export function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
-  retainedPageMaintenance = resolveGpuFlowRetainedPageMaintenanceAfterPublish({
-    darkMode,
-    deferResolutionUpdates,
-    existingMaintenance: retainedPageMaintenance,
-    preparedFrame: retainedPagePreparedFrame,
-    publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
-    retainedContentPageManager: resources.retainedContentPageManager,
-    textLikeSnapshotElementById:
-      retainedTextLikeRowSnapshotElementByIdRef.current,
-  });
+  const retainedPageMaintenance =
+    resolveGpuFlowRetainedPageMaintenanceAfterPublish({
+      darkMode,
+      deferResolutionUpdates,
+      existingMaintenance: null,
+      preparedFrame: retainedPagePreparedFrame,
+      publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
+      retainedContentPageManager: resources.retainedContentPageManager,
+      textLikeSnapshotElementById:
+        retainedTextLikeRowSnapshotElementByIdRef.current,
+    });
   const deferRetainedPageMaintenance = retainedPageMaintenance.deferred;
   const retainedPageResult = retainedPageMaintenance.result;
   postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent({
@@ -712,6 +707,7 @@ export function renderGpuFlowNodeLayerFrame({
     layerResult: combinedLayerResult,
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: combineGpuFlowRetainedTexturePageMetrics({
+      retainedDisplayFrame: publishedRetainedFrame,
       retainedPageResult,
     }),
     viewport: layer.viewport,
@@ -749,12 +745,6 @@ function createGpuFlowRetainedContentFrameSceneInput(
   };
 }
 
-function resolvePublishedRetainedProtectedPageKeys(
-  retainedDisplayFrame: RetainedDisplayFrame | null,
-): readonly string[] | undefined {
-  return retainedDisplayFrame?.pageFrame.protectedPageKeys;
-}
-
 function resolveGpuFlowRetainedContentRowHoverTarget(
   layer: GpuFlowNodeLayerState,
 ): GpuFlowNodeLayerState["retainedContentRowHoverTarget"] | null {
@@ -765,29 +755,6 @@ function resolveGpuFlowNodeInteractionActiveNodeId(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
 ): string | null {
   return nodeInteractionRef.current?.getActiveNodeId() ?? null;
-}
-
-function updateGpuFlowRetainedContentFrameCacheAfterRepair({
-  preparedFrame,
-  retainedContentFrameCacheRef,
-  retainedContentPageManager,
-  retainedRuntimeFrame,
-}: {
-  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
-  readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}) {
-  const cachedFrame = retainedContentFrameCacheRef.current;
-  if (!cachedFrame) {
-    return;
-  }
-  retainedContentFrameCacheRef.current = {
-    ...cachedFrame,
-    pageDrawableRevision: retainedContentPageManager.getDrawableRevision(),
-    preparedFrame,
-    retainedRuntimeFrame,
-  };
 }
 
 function notifyGpuFlowRetainedRuntimeFrame(

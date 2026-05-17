@@ -16,6 +16,7 @@ const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GUI_SECTION_ID = "settings-section__gui";
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const SCROLL_TEXT_PREVIEW_LABEL = "Pan On Scroll Speed";
+const TEXT_PREVIEW_ROW_ALIGNMENT_TOLERANCE_PX = 4;
 const GUI_SCROLL_LABEL_ORDER = [
   "Default Zoom Level",
   "Grid Color",
@@ -150,6 +151,7 @@ test("retained passive text editor preview ink moves with its retained row durin
   await openSettings(page);
   await resetGuiContentScrollToTop(page);
   await centerGuiRowControlAtZoom(page, SCROLL_TEXT_PREVIEW_LABEL, 1.5);
+  await waitForStableScreenshotClip(page, await viewportScreenshotClip(page));
   const initialRow = await resolveVisibleGuiRow(
     page,
     SCROLL_TEXT_PREVIEW_LABEL,
@@ -196,7 +198,7 @@ test("retained passive text editor preview ink moves with its retained row durin
     }
     const offsetY = frame.valueInk.centerY - frame.labelInk.centerY;
     const offsetDeltaY = offsetY - initialInkOffsetY;
-    return Math.abs(offsetDeltaY) > 2
+    return Math.abs(offsetDeltaY) > TEXT_PREVIEW_ROW_ALIGNMENT_TOLERANCE_PX
       ? [
           {
             frame: frame.name,

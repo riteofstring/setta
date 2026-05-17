@@ -84,6 +84,7 @@ describe("HTML surface frame helpers", () => {
 
     expect(quads).toEqual([
       {
+        actorKind: "edge-label",
         height: 18,
         nodeId: "visible-label",
         width: 80,
@@ -114,6 +115,7 @@ describe("HTML surface frame helpers", () => {
 
     expect(quads).toEqual([
       {
+        actorKind: "edge-label",
         height: 90,
         nodeId: "retained-content",
         textureCssHeight: 360,

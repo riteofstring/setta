@@ -44,6 +44,7 @@ describe("GpuNodeResizeOverlaySurfaceLayer", () => {
     ]);
     expect(getGpuNodeResizeOverlaySurfaceLayouts(sources)).toEqual([
       {
+        actorKind: "resize-overlay",
         height: 88,
         surfaceId: "gpu-node-resize-handles:section-a",
         width: 128,
@@ -52,6 +53,7 @@ describe("GpuNodeResizeOverlaySurfaceLayer", () => {
         zIndex: 90_003,
       },
       {
+        actorKind: "resize-overlay",
         height: 68,
         surfaceId: "gpu-node-resize-handles:section-b",
         width: 98,

@@ -26,6 +26,7 @@ import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
+import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
@@ -743,6 +744,15 @@ function retainedParamAnchorScene(): GpuFlowScene {
           rowHeight: 28,
           rows: [
             {
+              control: {
+                commitPolicy: "native-island",
+                defaultDisplayValue: "",
+                displayValue: "Input",
+                editorKind: "text",
+                kind: "text-like",
+                policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+                rendererFamily: "text-like",
+              },
               controlKind: "text-like",
               depth: 0,
               id: "in",

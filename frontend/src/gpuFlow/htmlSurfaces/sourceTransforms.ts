@@ -15,6 +15,10 @@ import type {
 } from "./frame";
 import { GPU_FLOW_NODE_INTERACTIVE_CLASS } from "./frame";
 
+type MutableGpuVisibleNodeQuad = {
+  -readonly [Key in keyof GpuVisibleNodeQuad]: GpuVisibleNodeQuad[Key];
+};
+
 export function applyVisibleNodeDomTransform(
   element: HTMLElement,
   {
@@ -270,26 +274,37 @@ export function toNodeQuad(node: GpuNodeLayout): GpuVisibleNodeQuad | null {
     return null;
   }
 
-  return {
+  const quad: MutableGpuVisibleNodeQuad = {
     height: node.height,
     nodeId: node.nodeId,
-    ...(node.textureContentKey === undefined
-      ? {}
-      : { textureContentKey: node.textureContentKey }),
-    ...(node.textureCssHeight === undefined
-      ? {}
-      : { textureCssHeight: node.textureCssHeight }),
-    ...(node.textureCssWidth === undefined
-      ? {}
-      : { textureCssWidth: node.textureCssWidth }),
-    ...(node.textureSourceRect === undefined
-      ? {}
-      : { textureSourceRect: node.textureSourceRect }),
     width: node.width,
     x: node.x,
     y: node.y,
     zIndex: resolveGpuNodeZIndex(node),
   };
+  addOptionalNodeQuadFields(quad, node);
+  return quad;
+}
+
+function addOptionalNodeQuadFields(
+  quad: MutableGpuVisibleNodeQuad,
+  node: GpuNodeLayout,
+) {
+  if (node.actorKind !== undefined) {
+    quad.actorKind = node.actorKind;
+  }
+  if (node.textureContentKey !== undefined) {
+    quad.textureContentKey = node.textureContentKey;
+  }
+  if (node.textureCssHeight !== undefined) {
+    quad.textureCssHeight = node.textureCssHeight;
+  }
+  if (node.textureCssWidth !== undefined) {
+    quad.textureCssWidth = node.textureCssWidth;
+  }
+  if (node.textureSourceRect !== undefined) {
+    quad.textureSourceRect = node.textureSourceRect;
+  }
 }
 
 export function toRect(quad: GpuVisibleNodeQuad): GpuRect {

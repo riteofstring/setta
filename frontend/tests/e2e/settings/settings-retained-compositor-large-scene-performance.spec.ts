@@ -205,12 +205,17 @@ test("all-settings retained compositor gestures stay within the measured cadence
       eventSpacing: zoom.eventSpacing,
     }),
   };
+  const holdStats = summarizeRetainedTransactionHoldProbe(retainedFrameProbe);
+  const maxMeasuredFrameBudgetMs = Math.max(
+    ...Object.values(budgets).map((budget) => budget.p99FrameBudgetMs),
+  );
   const details = JSON.stringify(
     {
       budgets,
       bandStats,
       controlCadence,
       gestures,
+      holdStats,
       pageScroll: { after: afterPageScrollY, before: beforePageScrollY },
       retainedFrameProbe,
       scene,
@@ -236,9 +241,17 @@ test("all-settings retained compositor gestures stay within the measured cadence
   });
 
   expect(scene.nodeCount, details).toBeGreaterThan(30);
-  expect(scene.retainedRowCount, details).toBeGreaterThan(100);
+  expect(scene.retainedRowCount, details).toBeGreaterThan(400);
   expect(scene.surfaceCount, details).toBeGreaterThan(4);
-  expect(scene.controlKinds.length, details).toBeGreaterThan(4);
+  expect(scene.controlKinds, details).toEqual(
+    expect.arrayContaining([
+      "color-picker",
+      "dropdown",
+      "nested",
+      "switch",
+      "text-like",
+    ]),
+  );
   expect(
     Math.abs(afterPanViewport.y - beforeViewport.y),
     details,
@@ -252,6 +265,10 @@ test("all-settings retained compositor gestures stay within the measured cadence
     bandStats.filter((sample) => sample.stats.highConfidencePlaceholder),
     details,
   ).toEqual([]);
+  expect(holdStats.maxDivergedHeldMotionAgeMs, details).toBeLessThanOrEqual(
+    maxMeasuredFrameBudgetMs,
+  );
+  expect(holdStats.repeatedDivergedHoldCount, details).toBe(0);
   expect(retainedHoverZoom.frame.p95Ms, details).toBeLessThanOrEqual(
     Math.max(budgets.retainedHoverZoom.p95FrameBudgetMs, zoom.frame.p95Ms + 8),
   );
@@ -314,4 +331,65 @@ async function captureRetainedCompositorBandStats({
     name,
     stats: await analyzeHorizontalPlaceholderBands(page, { screenshot }),
   };
+}
+
+function summarizeRetainedTransactionHoldProbe(probe: unknown): {
+  readonly maxDivergedHeldMotionAgeMs: number;
+  readonly repeatedDivergedHoldCount: number;
+} {
+  if (!Array.isArray(probe)) {
+    return { maxDivergedHeldMotionAgeMs: 0, repeatedDivergedHoldCount: 0 };
+  }
+  let maxDivergedHeldMotionAgeMs = 0;
+  let consecutiveDivergedHolds = 0;
+  let repeatedDivergedHoldCount = 0;
+  for (const sample of probe) {
+    const entry = isRecord(sample) ? sample : {};
+    const heldCount = numericValue(
+      entry.retainedTexturePageTransactionHeldTransactionCount,
+    );
+    const heldAge = numericValue(
+      entry.retainedTexturePageTransactionMaxHeldMotionAgeMs,
+    );
+    const diverged =
+      heldCount > 0 &&
+      (numericValue(entry.retainedTexturePageTransactionDesiredScrollOffset) !==
+        numericValue(
+          entry.retainedTexturePageTransactionPublishedScrollOffset,
+        ) ||
+        !viewportsEqual(
+          entry.retainedTexturePageTransactionDesiredViewport,
+          entry.retainedTexturePageTransactionPublishedViewport,
+        ));
+    if (diverged) {
+      maxDivergedHeldMotionAgeMs = Math.max(
+        maxDivergedHeldMotionAgeMs,
+        heldAge,
+      );
+    }
+    consecutiveDivergedHolds = diverged ? consecutiveDivergedHolds + 1 : 0;
+    if (consecutiveDivergedHolds > 1) {
+      repeatedDivergedHoldCount += 1;
+    }
+  }
+  return { maxDivergedHeldMotionAgeMs, repeatedDivergedHoldCount };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function numericValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function viewportsEqual(left: unknown, right: unknown): boolean {
+  if (!isRecord(left) || !isRecord(right)) {
+    return true;
+  }
+  return (
+    numericValue(left.x) === numericValue(right.x) &&
+    numericValue(left.y) === numericValue(right.y) &&
+    numericValue(left.zoom) === numericValue(right.zoom)
+  );
 }

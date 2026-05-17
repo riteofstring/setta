@@ -99,6 +99,7 @@ test("all-settings retained text-like row values are visible before click and th
       expect(scrollSteps).toBeGreaterThan(0);
     }
 
+    await waitForRetainedTextLikeSnapshotSource(page, rowTarget);
     const passiveClip = await resolveControlScreenshotClip(page, row);
     const { ink: passiveInk } = await waitForCodeMirrorTextInkFrame({
       name: `${rowTarget.rowId}-passive-before-click.png`,
@@ -470,7 +471,9 @@ async function readRetainedSurfaceRowSearchDiagnostics(
 ): Promise<unknown> {
   return await page.evaluate((target) => {
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
-    const surfaceRows = rows.filter((row) => row.surfaceId === target.surfaceId);
+    const surfaceRows = rows.filter(
+      (row) => row.surfaceId === target.surfaceId,
+    );
     const visibleRows = surfaceRows.filter((row) =>
       rectIntersectsViewport(row.clientRect),
     );
@@ -670,6 +673,44 @@ async function readRetainedTextLikeRowDiagnostics(
         y: rect.y,
       };
     }
+
+    function cssEscape(value: string): string {
+      return value.replace(/['\\]/g, "\\$&");
+    }
+  }, target);
+}
+
+async function waitForRetainedTextLikeSnapshotSource(
+  page: Page,
+  target: TextLikeRowTarget,
+): Promise<void> {
+  await expect
+    .poll(() => readRetainedTextLikeSnapshotSourceReady(page, target), {
+      timeout: 5_000,
+    })
+    .toBe(true);
+}
+
+async function readRetainedTextLikeSnapshotSourceReady(
+  page: Page,
+  target: TextLikeRowTarget,
+): Promise<boolean> {
+  return await page.evaluate((target) => {
+    const selector = [
+      "[data-gpu-flow-retained-text-like-row-snapshot-source='true']",
+      `[data-gpu-flow-retained-surface-id='${cssEscape(target.surfaceId)}']`,
+      `[data-gpu-flow-retained-row-id='${cssEscape(target.rowId)}']`,
+    ].join("");
+    const element = document.querySelector<HTMLElement>(selector);
+    if (!element) {
+      return false;
+    }
+    const sourceKey =
+      element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ?? "";
+    return (
+      sourceKey.length > 0 &&
+      element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey === sourceKey
+    );
 
     function cssEscape(value: string): string {
       return value.replace(/['\\]/g, "\\$&");

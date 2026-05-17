@@ -42,6 +42,7 @@ describe("GpuNodeDragPreviewSurfaceLayer", () => {
     ]);
     expect(getGpuNodeDragPreviewSurfaceLayouts(sources)).toEqual([
       {
+        actorKind: "drag-overlay",
         height: 116,
         surfaceId: "gpu-drag-preview-node:dragging-node",
         width: 156,
@@ -50,6 +51,7 @@ describe("GpuNodeDragPreviewSurfaceLayer", () => {
         zIndex: 100_000,
       },
       {
+        actorKind: "drag-overlay",
         height: 32,
         surfaceId: "gpu-drop-marker",
         width: 208,

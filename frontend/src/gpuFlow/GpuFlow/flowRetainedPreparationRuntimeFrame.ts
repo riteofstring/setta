@@ -31,10 +31,16 @@ export function createGpuFlowRetainedPreparationRuntimeFrame({
   if (textLikeRowSnapshotSources.length === sources.length) {
     return retainedRuntimeFrame;
   }
+  const contentPageSurfaces =
+    filterRetainedPreparationContentPageSurfacesBySnapshotSources({
+      retainedRuntimeFrame,
+      selectedSourceIds,
+    });
   return Object.freeze({
     ...retainedRuntimeFrame,
     descriptors: Object.freeze({
       ...retainedRuntimeFrame.descriptors,
+      contentPageSurfaces,
       textLikeRowSnapshotSources: Object.freeze(textLikeRowSnapshotSources),
     }),
     diagnostics: Object.freeze({
@@ -42,6 +48,37 @@ export function createGpuFlowRetainedPreparationRuntimeFrame({
       textLikeSnapshotSourceCount: textLikeRowSnapshotSources.length,
     }),
   });
+}
+
+function filterRetainedPreparationContentPageSurfacesBySnapshotSources({
+  retainedRuntimeFrame,
+  selectedSourceIds,
+}: {
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+  readonly selectedSourceIds: ReadonlySet<string>;
+}): GpuRetainedRuntimeFrame["descriptors"]["contentPageSurfaces"] {
+  let changed = false;
+  const contentPageSurfaces =
+    retainedRuntimeFrame.descriptors.contentPageSurfaces.map((surface) => {
+      const textLikeSnapshots = surface.textLikeSnapshots ?? [];
+      if (textLikeSnapshots.length === 0) {
+        return surface;
+      }
+      const filteredTextLikeSnapshots = textLikeSnapshots.filter((snapshot) =>
+        selectedSourceIds.has(snapshot.sourceId),
+      );
+      if (filteredTextLikeSnapshots.length === textLikeSnapshots.length) {
+        return surface;
+      }
+      changed = true;
+      return Object.freeze({
+        ...surface,
+        textLikeSnapshots: Object.freeze(filteredTextLikeSnapshots),
+      });
+    });
+  return changed
+    ? Object.freeze(contentPageSurfaces)
+    : retainedRuntimeFrame.descriptors.contentPageSurfaces;
 }
 
 function shouldFilterRetainedPreparationSnapshotSources({
@@ -68,6 +105,11 @@ function collectRetainedPreparationSnapshotSourceIds({
   const selectedSourceIds = new Set<string>();
   const sourcesBySurfaceId =
     groupRetainedPreparationSnapshotSourcesBySurface(sources);
+  collectRetainedPreparationVisibleSourceIds({
+    preparedFrame,
+    selectedSourceIds,
+    sourcesBySurfaceId,
+  });
   for (const descriptor of selectRetainedPreparationSnapshotDescriptors({
     preparedFrame,
   })) {
@@ -84,6 +126,29 @@ function collectRetainedPreparationSnapshotSourceIds({
     }
   }
   return selectedSourceIds;
+}
+
+function collectRetainedPreparationVisibleSourceIds({
+  preparedFrame,
+  selectedSourceIds,
+  sourcesBySurfaceId,
+}: {
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly selectedSourceIds: Set<string>;
+  readonly sourcesBySurfaceId: Map<
+    string,
+    GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"]
+  >;
+}) {
+  for (const target of preparedFrame.visibleRegionTargets) {
+    const sources = sourcesBySurfaceId.get(target.manifest.surfaceId) ?? [];
+    for (const source of sources) {
+      if (!rectsIntersect(source.targetRectCss, target.contentRect)) {
+        continue;
+      }
+      selectedSourceIds.add(source.sourceId);
+    }
+  }
 }
 
 function groupRetainedPreparationSnapshotSourcesBySurface(
