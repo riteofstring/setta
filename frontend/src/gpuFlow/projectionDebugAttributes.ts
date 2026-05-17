@@ -8,9 +8,9 @@ export function applyGpuFlowProjectionDebugAttributes({
   readonly debugState: GpuFlowProjectionDebugState;
 }): void {
   setProjectionDebugAttributes(canvas, debugState);
-  const root = canvas.ownerDocument.querySelector<HTMLElement>(
-    "[data-gpu-flow-dom-control-plane='true']",
-  );
+  const root = canvas
+    .closest<HTMLElement>("[data-tab-scope='canvas']")
+    ?.querySelector<HTMLElement>("[data-gpu-flow-dom-control-plane='true']");
   if (root) {
     setProjectionDebugAttributes(root, debugState);
   }

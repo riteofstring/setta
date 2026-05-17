@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import {
+  applyGpuFlowProjectionDebugAttributes,
   createGpuFlowHeldPreviousProjection,
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionHorizonObligations,
@@ -338,6 +339,55 @@ describe("GPU Flow projection runtime", () => {
     expect(element.dataset.gpuFlowProjectionTransactionKind).toBe(
       "held-previous",
     );
+  });
+
+  it("scopes projection debug attributes to the canvas owning DOM control plane", () => {
+    document.body.innerHTML = `
+      <div data-tab-scope="canvas">
+        <canvas id="canvas-a"></canvas>
+        <div id="plane-a" data-gpu-flow-dom-control-plane="true"></div>
+      </div>
+      <div data-tab-scope="canvas">
+        <canvas id="canvas-b"></canvas>
+        <div id="plane-b" data-gpu-flow-dom-control-plane="true"></div>
+      </div>
+    `;
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 7,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(3),
+    });
+    const visibleState = createGpuFlowVisibleProjectionState({
+      committedFrame: {
+        displayFrameId: 7,
+      } as GpuFlowCommittedSurfaceFrame,
+      transaction,
+    });
+    const canvasB = document.getElementById("canvas-b");
+    const planeA = document.getElementById("plane-a");
+    const planeB = document.getElementById("plane-b");
+    if (
+      !(canvasB instanceof HTMLCanvasElement) ||
+      !(planeA instanceof HTMLElement) ||
+      !(planeB instanceof HTMLElement)
+    ) {
+      throw new Error("Expected projection debug test elements.");
+    }
+
+    applyGpuFlowProjectionDebugAttributes({
+      canvas: canvasB,
+      debugState: visibleState.debugState,
+    });
+
+    expect(canvasB.dataset.gpuFlowProjectionTransactionId).toBe(
+      "motion-projection:content-7:sample-3",
+    );
+    expect(planeB.dataset.gpuFlowProjectionTransactionId).toBe(
+      "motion-projection:content-7:sample-3",
+    );
+    expect(planeA.dataset.gpuFlowProjectionTransactionId).toBeUndefined();
   });
 });
 
