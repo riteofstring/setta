@@ -218,6 +218,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     nodeInteractionRef: input.nodeInteractionRef,
     nodeLayerRef,
     projectionTransaction,
+    heldPreviousProjectionState: input.visibleProjectionStateRef.current,
     htmlSurfaceRendererRef: input.htmlSurfaceRendererRef,
     retainedContentPageManagerRef: input.retainedContentPageManagerRef,
     retainedDisplayFrameRef: input.retainedDisplayFrameRef,
@@ -229,14 +230,19 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     viewportStore,
     viewportFrame,
   });
-  if (rendered) {
+  if (rendered.rendered) {
+    const visibleCommittedFrame =
+      rendered.transaction.kind === "held-previous"
+        ? input.visibleProjectionStateRef.current?.committedFrame ??
+          committedFrame
+        : committedFrame;
     input.visibleProjectionStateRef.current =
       createGpuFlowVisibleProjectionState({
-        committedFrame,
-        transaction: projectionTransaction,
+        committedFrame: visibleCommittedFrame,
+        transaction: rendered.transaction,
       });
   }
-  return rendered;
+  return rendered.rendered;
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({

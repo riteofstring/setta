@@ -19,8 +19,10 @@ import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty"
 import {
   applyGpuFlowProjectionDebugAttributes,
   createGpuFlowProjectionDebugState,
+  createGpuFlowProjectionTransactionForCommittedFrameId,
   isGpuFlowMotionFrameReason,
   type GpuFlowProjectionTransaction,
+  type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type {
@@ -55,8 +57,23 @@ export function shouldRenderGpuFlowProjectionOnlyFrame(
 
 type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly missingCoverageSurfaceIds: ReadonlySet<string>;
   readonly needsRetainedPageMaintenance: boolean;
 };
+
+type GpuFlowProjectionFrameTransaction = {
+  readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
+  readonly transaction: GpuFlowProjectionTransaction;
+};
+
+export type RenderGpuFlowNodeLayerProjectionFrameResult =
+  | {
+      readonly rendered: false;
+    }
+  | {
+      readonly rendered: true;
+      readonly transaction: GpuFlowProjectionTransaction;
+    };
 
 type GpuFlowRetainedProjectionVisualsBySurfaceId = {
   readonly missingCoverageSurfaceIds: ReadonlySet<string>;
@@ -78,6 +95,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeInteractionRef,
   nodeLayerRef,
   projectionTransaction,
+  heldPreviousProjectionState,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
   retainedDisplayFrameRef,
@@ -100,6 +118,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly projectionTransaction: GpuFlowProjectionTransaction;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
@@ -110,10 +129,10 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportFrame: boolean;
-}): boolean {
+}): RenderGpuFlowNodeLayerProjectionFrameResult {
   const retainedDisplayFrame = retainedDisplayFrameRef.current;
   if (!retainedDisplayFrame) {
-    return false;
+    return { rendered: false };
   }
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,
@@ -124,23 +143,30 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     textureManagerRef,
   });
   if (!frameInput) {
-    return true;
+    return {
+      rendered: true,
+      transaction: projectionTransaction,
+    };
   }
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
   const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
   const projectionSurfaceResolveStart = performance.now();
-  const retainedProjectionFrame = frameReasons.includes("retained-scroll")
-    ? projectGpuFlowRetainedDisplayFrameFlatSurfaces({
-        layer,
-        retainedDisplayFrame,
-        scrollOffsets: projectionTransaction.sample.retainedScrollOffsets,
-      })
-    : {
-        flatSurfaces: retainedDisplayFrame.flatSurfaces,
-        needsRetainedPageMaintenance: false,
-      };
+  const { retainedProjectionFrame, transaction } =
+    resolveGpuFlowProjectionFrameTransaction({
+      frameReasons,
+      heldPreviousProjectionState,
+      layer,
+      retainedDisplayFrame,
+      requestedTransaction: projectionTransaction,
+    });
+  const projectionViewport = transaction.sample.viewport;
+  const projectionRetainedRuntimeFrame =
+    transaction.kind === "held-previous"
+      ? heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
+        retainedRuntimeFrame
+      : retainedRuntimeFrame;
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
   const projectionSurfaceResolveMs =
     performance.now() - projectionSurfaceResolveStart;
@@ -161,7 +187,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     grid: layer.grid,
     htmlSurfaceOverlays: layer.edgeLabelSurfaces,
     htmlSurfaceNativeVisuals:
-      retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
+      projectionRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
     htmlSurfacePageVisuals: retainedPageVisuals,
     marginCssPx: layer.marginCssPx,
     nodes,
@@ -170,7 +196,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     textureManager: resources.textureManager,
     textureWorkMode: "projection",
     uploadBudget: layer.uploadBudget,
-    viewport: layer.viewport,
+    viewport: projectionViewport,
   });
   assertGpuFlowProjectionOnlyFrameWork({
     frameReasons,
@@ -206,7 +232,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     },
     renderDurationMs: performance.now() - renderStartedAt,
     retainedTexturePages: undefined,
-    viewport: layer.viewport,
+    viewport: projectionViewport,
     viewportFrame,
   });
   updateGpuFlowNodeLayerFrameState({
@@ -214,21 +240,24 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     layerResult,
     nodeInteractionRef,
     nodeLayerRef,
-    retainedRuntimeFrame,
+    retainedRuntimeFrame: projectionRetainedRuntimeFrame,
     retainedTexturePageFollowUpFrame:
       retainedProjectionFrame.needsRetainedPageMaintenance,
     surfaceRef,
     switchAnimationFollowUpFrame: false,
     transformOnlyPaintNodeIdsRef,
-    viewport: layer.viewport,
+    viewport: projectionViewport,
     viewportFrame,
     visibleNodeIdsRef,
   });
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtime.canvas,
-    debugState: createGpuFlowProjectionDebugState(projectionTransaction),
+    debugState: createGpuFlowProjectionDebugState(transaction),
   });
-  return true;
+  return {
+    rendered: true,
+    transaction,
+  };
 }
 
 export function assertGpuFlowProjectionOnlyFrameWork({
@@ -297,6 +326,85 @@ function hasGpuFlowProjectionOnlyForbiddenContentWork({
   ].some(Boolean);
 }
 
+export function resolveGpuFlowProjectionFrameTransaction({
+  frameReasons,
+  heldPreviousProjectionState,
+  layer,
+  retainedDisplayFrame,
+  requestedTransaction,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+  readonly requestedTransaction: GpuFlowProjectionTransaction;
+}): GpuFlowProjectionFrameTransaction {
+  const requestedRetainedProjectionFrame =
+    resolveGpuFlowRetainedProjectionFrame({
+      frameReasons,
+      layer,
+      retainedDisplayFrame,
+      transaction: requestedTransaction,
+    });
+  if (
+    requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size === 0 ||
+    heldPreviousProjectionState === null
+  ) {
+    return {
+      retainedProjectionFrame: requestedRetainedProjectionFrame,
+      transaction: requestedTransaction,
+    };
+  }
+  const heldPreviousTransaction =
+    createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId:
+        heldPreviousProjectionState.committedFrame.displayFrameId,
+      kind: "held-previous",
+      lane: requestedTransaction.lane,
+      rawReasons: frameReasons,
+      sample: heldPreviousProjectionState.sample,
+    });
+  const heldProjectionFrame = resolveGpuFlowRetainedProjectionFrame({
+    frameReasons,
+    layer,
+    retainedDisplayFrame,
+    transaction: heldPreviousTransaction,
+  });
+  return {
+    retainedProjectionFrame: {
+      ...heldProjectionFrame,
+      needsRetainedPageMaintenance:
+        heldProjectionFrame.needsRetainedPageMaintenance ||
+        requestedRetainedProjectionFrame.needsRetainedPageMaintenance,
+    },
+    transaction: heldPreviousTransaction,
+  };
+}
+
+function resolveGpuFlowRetainedProjectionFrame({
+  frameReasons,
+  layer,
+  retainedDisplayFrame,
+  transaction,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+  readonly transaction: GpuFlowProjectionTransaction;
+}): GpuFlowRetainedProjectionFrame {
+  return frameReasons.includes("retained-scroll")
+    ? projectGpuFlowRetainedDisplayFrameFlatSurfaces({
+        layer,
+        retainedDisplayFrame,
+        scrollOffsets: transaction.sample.retainedScrollOffsets,
+      })
+    : {
+        flatSurfaces: retainedDisplayFrame.flatSurfaces,
+        missingCoverageSurfaceIds: new Set(),
+        needsRetainedPageMaintenance: false,
+      };
+}
+
 function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   layer,
   retainedDisplayFrame,
@@ -309,6 +417,7 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   if (!layer.scene) {
     return {
       flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      missingCoverageSurfaceIds: new Set(),
       needsRetainedPageMaintenance: false,
     };
   }
@@ -319,6 +428,7 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   if (changedSurfaceIds.size === 0) {
     return {
       flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      missingCoverageSurfaceIds: new Set(),
       needsRetainedPageMaintenance: false,
     };
   }
@@ -332,6 +442,7 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
   if (projectedVisualsBySurfaceId.size === 0) {
     return {
       flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      missingCoverageSurfaceIds,
       needsRetainedPageMaintenance: missingCoverageSurfaceIds.size > 0,
     };
   }
@@ -341,6 +452,7 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
       projectedVisualsBySurfaceId,
       retainedDisplayFrame,
     }),
+    missingCoverageSurfaceIds,
     needsRetainedPageMaintenance: missingCoverageSurfaceIds.size > 0,
   };
 }
