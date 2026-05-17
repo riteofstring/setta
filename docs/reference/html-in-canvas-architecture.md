@@ -76,9 +76,11 @@ The hot path for viewport movement is:
 Pan and zoom frames whose visible surfaces are already covered by committed
 textures do not call `requestPaint()`, upload HTML source textures with
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
-every source transform. Viewport frames with prepared retained displays that
-have true holes run first-visible retained-page repair before publishing the
-retained display frame.
+every source transform. Retained display publication is guarded by the surface
+transaction model: exact or compatible retained coverage can publish, missing
+coverage holds the previous retained display when one exists, and cold retained
+surfaces can publish an empty placeholder while first-visible page work is
+queued by post-submit maintenance.
 
 ## Scene Model
 
@@ -178,13 +180,17 @@ The reusable runtime is centered on these modules:
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
-  `retainedDisplayFrame.ts`, `GpuFlow/flowRetainedPageMaintenance.ts`,
-  `GpuFlow/flowRetainedPreparationRuntimeFrame.ts`, and
+  `GpuFlow/flowRetainedPreparationRuntimeFrame.ts`, `retainedDisplayFrame.ts`,
+  `GpuFlow/flowRetainedPageMaintenance.ts`, and
   `retainedContentTexturePageManager.ts` sample retained runtime frames, derive
-  retained page frame inputs, repair first-visible true holes before display
-  publication, publish active retained display frames, page-rasterize retained
-  scenes, cache committed retained pages, and schedule retained texture upload
-  work.
+  retained page frame inputs, optionally narrow snapshot sources for preparation
+  work, resolve retained display transactions, run post-submit first-visible and
+  refinement maintenance, page-rasterize retained scenes, cache committed
+  retained pages, and schedule retained texture upload work.
+- `surfaceCompositor/*` provides the shared actor, generation, coverage,
+  transaction, and diagnostics model used to decide whether retained surfaces
+  publish exact/compatible coverage, hold previous coverage, publish a cold
+  placeholder, and record follow-up work diagnostics.
 - `retainedContentFrameGeneration.ts` is a test-only descriptor-generation
   facade and throws outside the test environment.
 - `retainedContentScene.ts` and related retained-content modules build retained
@@ -401,10 +407,10 @@ Page frame descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. The hidden React
 snapshot source layer is mounted from the source retained runtime frame via
 `GpuFlow/flowSurface.tsx` and `GpuFlow/flowOverlays.tsx`; frame preparation can
-narrow that source list to descriptors needed for current first-visible repair
-or refinement work. Retained page upload joins sampled descriptors with mounted
-snapshot source elements by snapshot id and source key before copying text-like
-DOM into retained page textures.
+narrow that source list to descriptors needed for current first-visible or
+snapshot-refinement work. Retained page upload joins sampled descriptors with
+mounted snapshot source elements by snapshot id and source key before copying
+text-like DOM into retained page textures.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -460,12 +466,15 @@ Each render frame follows this shape:
    the stable zoom bucket. `prepareFrame()` computes desired page descriptors,
    committed-page draw regions, replacement and refinement work descriptors, and
    any true-hole count for pages that are required for first-visible coverage.
-4. If the prepared retained frame has true holes,
-   `GpuFlow/flowRetainedPageMaintenance.ts` repairs first-visible pages before
-   display publication. The retained display frame is not published until
-   deterministic retained coverage has no true holes.
-5. `publishRetainedDisplayFrame()` publishes the retained page visuals, coverage
-   proof, flat surface records, and active DOM islands for the frame.
+4. `createGpuFlowRetainedPreparationRuntimeFrame()` may narrow text-like
+   snapshot sources when the prepared frame has true holes or snapshot
+   refinements and the source set is large. The retained page frame is prepared
+   again when that preparation runtime frame changes.
+5. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
+   transaction. Exact or compatible coverage publishes; missing coverage holds
+   the previous retained display when one exists, or publishes a cold placeholder
+   for a cold surface. Published retained transactions do not contain true-hole
+   coverage.
 6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
@@ -478,25 +487,28 @@ Each render frame follows this shape:
    the viewport camera.
 9. HTML textures are evicted according to visibility, protected active ids, and
    memory budget.
-10. Retained page maintenance after publish either reuses the work already done
-    for true-hole repair, defers passive refinement while
-    `deferResolutionUpdates` is true and committed pages cover the frame, or
-    calls `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to
-    enqueue missing retained pages, rasterize and upload retained page textures
-    within its own budget, upload text-like row DOM snapshots into retained page
-    textures when required, evict retained pages to budget, and report whether
-    another frame is needed.
+10. Retained page maintenance after the display transaction defers passive
+    refinement while `deferResolutionUpdates` is true and committed pages cover
+    the frame, or calls
+    `RetainedContentTexturePageManager.runPostSubmitMaintenance()` to enqueue
+    missing first-visible and refinement pages, rasterize and upload retained
+    page textures within its own budget, upload text-like row DOM snapshots into
+    retained page textures when required, evict retained pages to budget, and
+    report whether another frame is needed.
 11. Frame performance reporting records render time, upload work, texture memory,
     retained page metrics, viewport state, and interaction diagnostics.
 
 Pure pan and zoom frames update the runtime viewport and redraw cached
 surfaces. Passive texture resolution upgrades and passive uploads are deferred
 while `deferResolutionUpdates` is true: whenever viewport interaction is active
-and on viewport frames that are not `texture-upload` frames. True-hole retained
-page repair runs before display publication so first-visible coverage is never
-published with holes. When compatible committed pages already cover the frame,
-post-publish retained maintenance can defer passive refinement until idle or
-`texture-upload` frames catch up deferred retained work.
+and on viewport frames that are not `texture-upload` frames. Retained display
+transactions never publish true-hole coverage: they publish exact or compatible
+coverage, hold the previous retained display, or publish a cold placeholder.
+Visible true-hole work is not passively deferred, so post-submit retained
+maintenance keeps first-visible page uploads active until coverage catches up.
+When compatible committed pages already cover the frame, post-submit retained
+maintenance can defer passive refinement until idle or `texture-upload` frames
+catch up deferred retained work.
 
 ## HTML Texture Lifecycle
 
