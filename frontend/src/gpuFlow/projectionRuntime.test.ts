@@ -280,6 +280,109 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.debt.motion).toBe(false);
   });
 
+  it("honors motion-settling interleave budgets for content and maintenance debt", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler({
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 2,
+        maxContentInterleaveMs: 0,
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+    });
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    scheduler.completeFrame(motion);
+
+    const settling = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(20),
+      timestamp: 20,
+      viewportInteractionActive: false,
+    });
+
+    expect(settling.schedulerState).toBe("motion-settling");
+    expect(settling.lane).toBe("idle");
+    expect(settling.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+    scheduler.completeFrame(settling, { published: false });
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: [],
+      sample: liveSample(140),
+      timestamp: 140,
+      viewportInteractionActive: false,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: false,
+    });
+  });
+
+  it("honors the maintenance interleave budget while motion is settling", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler({
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 2,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        maxMaintenanceInterleaveMs: 0,
+        motionSettleWindowMs: 120,
+      },
+    });
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["viewport"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    scheduler.completeFrame(motion);
+
+    const settling = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(20),
+      timestamp: 20,
+      viewportInteractionActive: false,
+    });
+
+    expect(settling.schedulerState).toBe("motion-settling");
+    expect(settling.lane).toBe("idle");
+    expect(settling.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: false,
+    });
+    scheduler.completeFrame(settling, { published: false });
+
+    const maintenance = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: [],
+      sample: liveSample(140),
+      timestamp: 140,
+      viewportInteractionActive: false,
+    });
+
+    expect(maintenance.schedulerState).toBe("maintenance-drain");
+    expect(maintenance.lane).toBe("maintenance");
+  });
+
   it("keeps projection horizon obligations concrete and lane-scoped", () => {
     const obligations = createGpuFlowProjectionHorizonObligations({
       committedFrame: committedFrameForObligations(),

@@ -176,6 +176,7 @@ export function createGpuFlowVisiblePublicationScheduler({
         hasCommittedContentFrame,
         maintenanceDebt,
         motionDebt,
+        schedulerKnobs,
         schedulerState,
       });
       return Object.freeze({
@@ -210,12 +211,14 @@ function selectVisiblePublicationLane({
   hasCommittedContentFrame,
   maintenanceDebt,
   motionDebt,
+  schedulerKnobs,
   schedulerState,
 }: {
   readonly contentDebt: boolean;
   readonly hasCommittedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
   readonly schedulerState: GpuFlowProjectionSchedulerState;
 }): GpuFlowVisiblePublicationDecision["lane"] {
   if (
@@ -234,6 +237,7 @@ function selectVisiblePublicationLane({
         hasCommittedContentFrame,
         maintenanceDebt,
         motionDebt,
+        schedulerKnobs,
       });
     case "content-catchup":
       return selectContentCatchupVisiblePublicationLane({
@@ -277,19 +281,26 @@ function selectMotionPriorityVisiblePublicationLane({
   hasCommittedContentFrame,
   maintenanceDebt,
   motionDebt,
+  schedulerKnobs,
 }: {
   readonly contentDebt: boolean;
   readonly hasCommittedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
 }): GpuFlowVisiblePublicationDecision["lane"] {
   if (motionDebt && hasCommittedContentFrame) {
     return "motion";
   }
-  return selectNonMotionVisiblePublicationLane({
-    contentDebt,
-    maintenanceDebt,
-  });
+  if (contentDebt) {
+    return schedulerKnobs.maxContentInterleaveMs > 0 ? "content" : "idle";
+  }
+  if (maintenanceDebt) {
+    return schedulerKnobs.maxMaintenanceInterleaveMs > 0
+      ? "maintenance"
+      : "idle";
+  }
+  return "idle";
 }
 
 function selectContentCatchupVisiblePublicationLane({
@@ -317,19 +328,6 @@ function selectMaintenanceDrainVisiblePublicationLane({
 }: {
   readonly maintenanceDebt: boolean;
 }): GpuFlowVisiblePublicationDecision["lane"] {
-  return maintenanceDebt ? "maintenance" : "idle";
-}
-
-function selectNonMotionVisiblePublicationLane({
-  contentDebt,
-  maintenanceDebt,
-}: {
-  readonly contentDebt: boolean;
-  readonly maintenanceDebt: boolean;
-}): GpuFlowVisiblePublicationDecision["lane"] {
-  if (contentDebt) {
-    return "content";
-  }
   return maintenanceDebt ? "maintenance" : "idle";
 }
 
