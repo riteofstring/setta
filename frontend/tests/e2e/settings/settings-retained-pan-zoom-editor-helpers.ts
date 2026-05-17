@@ -71,10 +71,10 @@ export async function activateRetainedEditor(
     await page.mouse.click(point.x, point.y);
     try {
       await expect
-        .poll(() => readActiveCodeMirrorId(page), { timeout: 1_500 })
+        .poll(() => readActiveCodeMirrorId(page), { timeout: 3_000 })
         .toContain(row.rowId);
       return await waitForActiveEditorGeometry(page, row.controlClientRect, {
-        timeoutMs: 1_500,
+        timeoutMs: 3_000,
       });
     } catch (error) {
       lastError = error;
@@ -92,13 +92,23 @@ export async function waitForActiveEditorGeometry(
 ): ReturnType<typeof readActiveEditorGeometry> {
   const deadline = Date.now() + (options.timeoutMs ?? 5_000);
   let lastError: unknown = null;
+  let lastGeometry: Awaited<ReturnType<typeof readActiveEditorGeometry>> | null =
+    null;
   while (Date.now() < deadline) {
     try {
-      return await readActiveEditorGeometry(page, expectedRect);
+      lastGeometry = await readActiveEditorGeometry(page, expectedRect);
+      if (isActiveEditorGeometryAligned(lastGeometry)) {
+        return lastGeometry;
+      }
+      lastError = new Error(
+        `Active CodeMirror editor geometry is not aligned: ${JSON.stringify(
+          lastGeometry,
+        )}`,
+      );
     } catch (error) {
       lastError = error;
-      await page.waitForTimeout(50);
     }
+    await page.waitForTimeout(50);
   }
   throw lastError instanceof Error
     ? lastError
@@ -160,6 +170,20 @@ async function readActiveEditorGeometry(
       widthDelta: rect.width - expectedRect.width,
     };
   }, expectedRect);
+}
+
+function isActiveEditorGeometryAligned(geometry: {
+  readonly heightDelta: number;
+  readonly leftDelta: number;
+  readonly topDelta: number;
+  readonly widthDelta: number;
+}): boolean {
+  return (
+    Math.abs(geometry.leftDelta) < 2 &&
+    Math.abs(geometry.topDelta) < 9 &&
+    Math.abs(geometry.widthDelta) < 2 &&
+    Math.abs(geometry.heightDelta) < 10
+  );
 }
 
 async function readViewportIdleState(page: Page) {

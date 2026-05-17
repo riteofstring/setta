@@ -37,6 +37,11 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 >[1];
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 
+type GpuFlowContentPublicationFrameResult = {
+  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly rendered: boolean;
+};
+
 type RenderGpuFlowSurfaceFrameInput = Omit<
   GpuFlowNodeLayerFrameInput,
   | "deferResolutionUpdates"
@@ -150,9 +155,11 @@ export function renderGpuFlowSurfaceFrame({
       viewportStore,
     });
   completeGpuFlowSurfacePublicationFrame({
+    forceImmediatePublicationDebtFrame:
+      renderedContentPublicationFrame.forceImmediatePublicationDebtFrame,
     publicationDecision,
     renderedVisibleFrame:
-      renderedProjectionOnlyFrame || renderedContentPublicationFrame,
+      renderedProjectionOnlyFrame || renderedContentPublicationFrame.rendered,
     surfaceRef: input.surfaceRef,
     visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
   });
@@ -285,14 +292,14 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly renderedProjectionOnlyFrame: boolean;
   readonly viewportFrame: boolean;
-}): boolean {
+}): GpuFlowContentPublicationFrameResult {
   if (
     !shouldPublishGpuFlowContentFrame(
       publicationDecision,
       renderedProjectionOnlyFrame,
     )
   ) {
-    return false;
+    return createGpuFlowContentPublicationFrameResult({ rendered: false });
   }
   if (
     shouldSkipDeferredGpuFlowContentPublication({
@@ -304,7 +311,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       retainedDisplayFrameRef: input.retainedDisplayFrameRef,
     })
   ) {
-    return false;
+    return createGpuFlowContentPublicationFrameResult({ rendered: false });
   }
   const visibleProjectionState = renderGpuFlowNodeLayerFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
@@ -375,12 +382,28 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   });
   if (visibleProjectionState) {
     input.visibleProjectionStateRef.current = visibleProjectionState;
-    return (
-      deferResolutionUpdates ||
-      visibleProjectionState.transaction.kind !== "held-previous"
-    );
+    const heldPrevious =
+      visibleProjectionState.transaction.kind === "held-previous";
+    return createGpuFlowContentPublicationFrameResult({
+      forceImmediatePublicationDebtFrame:
+        heldPrevious && !deferResolutionUpdates,
+      rendered: deferResolutionUpdates || !heldPrevious,
+    });
   }
-  return false;
+  return createGpuFlowContentPublicationFrameResult({ rendered: false });
+}
+
+function createGpuFlowContentPublicationFrameResult({
+  forceImmediatePublicationDebtFrame = false,
+  rendered,
+}: {
+  readonly forceImmediatePublicationDebtFrame?: boolean | undefined;
+  readonly rendered: boolean;
+}): GpuFlowContentPublicationFrameResult {
+  return {
+    forceImmediatePublicationDebtFrame,
+    rendered,
+  };
 }
 
 function shouldPublishGpuFlowContentFrame(
@@ -434,11 +457,13 @@ function getGpuFlowContentPublicationLane(
 }
 
 function completeGpuFlowSurfacePublicationFrame({
+  forceImmediatePublicationDebtFrame,
   publicationDecision,
   renderedVisibleFrame,
   surfaceRef,
   visiblePublicationSchedulerRef,
 }: {
+  readonly forceImmediatePublicationDebtFrame: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly renderedVisibleFrame: boolean;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
@@ -453,6 +478,7 @@ function completeGpuFlowSurfacePublicationFrame({
   if (hasGpuFlowVisiblePublicationDebt(completion.debt)) {
     const frameReason = getGpuFlowVisiblePublicationDebtReason(completion.debt);
     if (
+      !forceImmediatePublicationDebtFrame &&
       shouldDelayGpuFlowPublicationDebtRequest({
         publicationDecision,
       }) &&

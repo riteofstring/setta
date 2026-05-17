@@ -1,6 +1,8 @@
+import { getGpuRetainedDomControlResolvedSnapshotSurfaceId } from "../GpuFlow/retainedDomControlSources";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuDomIsland } from "../scene";
 import type { GpuRect } from "../viewportMath";
+import { createDomControlTextActorRepresentation } from "./browserVisualActorRepresentation";
 import {
   createSurfaceActor,
   createSurfaceActorSnapshot,
@@ -58,6 +60,14 @@ export type BrowserVisualActorCoverageState =
   | "exact-snapshot-ready"
   | "live-host-ready"
   | "true-hole";
+
+export type BrowserVisualActorRepresentationReadiness = {
+  readonly coverageState: Exclude<
+    BrowserVisualActorCoverageState,
+    "compatible-previous-ready"
+  >;
+  readonly resourceHandles?: readonly SurfaceResourceHandle[] | undefined;
+};
 
 export type BrowserActorId = string;
 export type DomIslandId = string;
@@ -187,14 +197,20 @@ export function createDomControlBrowserVisualActor(
       | BrowserVisualActorCompatiblePreviousProof
       | null
       | undefined;
+    readonly representationReadiness?:
+      | BrowserVisualActorRepresentationReadiness
+      | null
+      | undefined;
   } = {},
 ): BrowserVisualActor {
   const compatiblePreviousProof = options.compatiblePreviousProof ?? null;
+  const representationReadiness = options.representationReadiness ?? null;
   const visibilityReason = getDomControlVisibilityReason(control);
   const nonemptyReason = getDomControlNonemptyReason(control);
   const coverageRequired = getDomControlCoverageRequired({
     control,
     nonemptyReason,
+    representationReadiness,
     visibilityReason,
   });
   const coverageExemption = coverageRequired.required
@@ -204,6 +220,7 @@ export function createDomControlBrowserVisualActor(
     compatiblePreviousProof,
     control,
     coverageRequired: coverageRequired.required,
+    representationReadiness,
   });
   const representationKind = getDomControlRepresentationKind({
     control,
@@ -218,6 +235,7 @@ export function createDomControlBrowserVisualActor(
     compatiblePreviousProof,
     control,
     coverageState,
+    representationReadiness,
   });
   const contentGenerationId = [
     "browser-dom-control-content",
@@ -283,11 +301,18 @@ export function createDomControlBrowserVisualActor(
 
 export function createDomIslandBrowserVisualActor(
   island: GpuDomIsland,
+  options: {
+    readonly representationReadiness?:
+      | BrowserVisualActorRepresentationReadiness
+      | null
+      | undefined;
+  } = {},
 ): BrowserVisualActor {
   const visible = island.rect.width > 0 && island.rect.height > 0;
   const surfaceId = `active-dom-island:${island.id}`;
   const coverage = createDomIslandBrowserVisualCoverage({
     island,
+    representationReadiness: options.representationReadiness ?? null,
     visible,
   });
   const contentGenerationId = [
@@ -314,7 +339,7 @@ export function createDomIslandBrowserVisualActor(
     contentGenerationId,
     semanticGenerationId,
     visualGenerationId,
-    visible ? "live-host-ready" : "true-hole",
+    coverage.coverageState,
   ].join("|");
   const activeIsland = Object.freeze({
     focusIdentity: island.id,
@@ -336,7 +361,7 @@ export function createDomIslandBrowserVisualActor(
     flowRect: island.rect,
     generationId,
     hitTargetId: island.id,
-    island: activeIsland,
+    island: coverage.coverageState === "live-host-ready" ? activeIsland : null,
     nonemptyReason: coverage.nonemptyReason,
     rendererBucket: "native-control",
     representation: null,
@@ -356,9 +381,11 @@ export function createDomIslandBrowserVisualActor(
 
 function createDomIslandBrowserVisualCoverage({
   island,
+  representationReadiness,
   visible,
 }: {
   readonly island: GpuDomIsland;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
   readonly visible: boolean;
 }): Pick<
   BrowserVisualActor,
@@ -386,19 +413,34 @@ function createDomIslandBrowserVisualCoverage({
       visibilityReason: "clipped-empty",
     });
   }
+  const coverageState =
+    representationReadiness?.coverageState === "live-host-ready"
+      ? "live-host-ready"
+      : "blocked-awaiting-live-host";
+  const resourceHandles =
+    coverageState === "live-host-ready"
+      ? createBrowserVisualReadinessResourceHandles({
+          fallback: Object.freeze([
+            Object.freeze({
+              id: island.id,
+              kind: "native-dom-island" as const,
+            }),
+          ]),
+          representationReadiness,
+        })
+      : Object.freeze([]);
   return Object.freeze({
     coverageExemption: null,
     coverageRequired: Object.freeze({
       reason: "native-dom-island" as const,
       required: true,
     }),
-    coverageState: "live-host-ready",
+    coverageState,
     nonemptyReason: "semantic-required-visible",
     representation: null,
-    representationKind: "live-host",
-    resourceHandles: Object.freeze([
-      Object.freeze({ id: island.id, kind: "native-dom-island" as const }),
-    ]),
+    representationKind:
+      coverageState === "live-host-ready" ? "live-host" : "blocked",
+    resourceHandles,
     visibilityReason: "visible",
   });
 }
@@ -634,8 +676,8 @@ function getDomControlVisibilityReason(
   }
   switch (control.projectionVisibility) {
     case "viewport-visible":
-    case "overscan-visible":
       return "visible";
+    case "overscan-visible":
     case "outside-viewport":
       return "outside-viewport";
     case "clipped-empty":
@@ -661,12 +703,17 @@ function getDomControlNonemptyReason(
 function getDomControlCoverageRequired({
   control,
   nonemptyReason,
+  representationReadiness,
   visibilityReason,
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly nonemptyReason: BrowserVisualActorNonemptyReason;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
   readonly visibilityReason: BrowserVisualActorVisibilityReason;
 }): BrowserVisualActor["coverageRequired"] {
+  if (representationReadiness?.coverageState === "coverage-exempt") {
+    return { reason: "none", required: false };
+  }
   const required =
     control.active ||
     visibilityReason === "visible" ||
@@ -703,35 +750,46 @@ function getDomControlCoverageState({
   compatiblePreviousProof,
   control,
   coverageRequired,
+  representationReadiness,
 }: {
   readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageRequired: boolean;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
 }): BrowserVisualActorCoverageState {
   if (!coverageRequired) {
     return "coverage-exempt";
   }
   if (
     compatiblePreviousProof &&
-    canUseDomControlCompatiblePreviousCoverage(control)
+    canUseDomControlCompatiblePreviousCoverage({
+      control,
+      representationReadiness,
+    })
   ) {
     return "compatible-previous-ready";
   }
-  return getDomControlCoverageStateForVisualPolicy(control);
+  return getDomControlCoverageStateForVisualPolicy({
+    control,
+    representationReadiness,
+  });
 }
 
-function getDomControlCoverageStateForVisualPolicy(
-  control: GpuRetainedDomControlSourceDescriptor,
-): BrowserVisualActorCoverageState {
+function getDomControlCoverageStateForVisualPolicy({
+  control,
+  representationReadiness,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
+}): BrowserVisualActorCoverageState {
+  const readinessState = representationReadiness?.coverageState;
   switch (control.visualPolicy) {
     case "live-dom":
-      return "live-host-ready";
+      return getLiveDomControlCoverageState(readinessState);
     case "snapshot":
-      return control.snapshotSurfaceId
-        ? "exact-snapshot-ready"
-        : "blocked-awaiting-snapshot";
+      return getSnapshotDomControlCoverageState(readinessState);
     case "blocked-awaiting-browser-visual":
-      return "blocked-awaiting-snapshot";
+      return getBlockedDomControlCoverageState(readinessState);
     case "outside-viewport":
       return "coverage-exempt";
     case "clipped-empty":
@@ -739,12 +797,55 @@ function getDomControlCoverageStateForVisualPolicy(
   }
 }
 
-function canUseDomControlCompatiblePreviousCoverage(
-  control: GpuRetainedDomControlSourceDescriptor,
-): boolean {
+function getLiveDomControlCoverageState(
+  readinessState:
+    | BrowserVisualActorRepresentationReadiness["coverageState"]
+    | undefined,
+): BrowserVisualActorCoverageState {
+  if (readinessState === "exact-snapshot-ready") {
+    return "exact-snapshot-ready";
+  }
+  return readinessState === "live-host-ready"
+    ? "live-host-ready"
+    : "blocked-awaiting-live-host";
+}
+
+function getSnapshotDomControlCoverageState(
+  readinessState:
+    | BrowserVisualActorRepresentationReadiness["coverageState"]
+    | undefined,
+): BrowserVisualActorCoverageState {
+  return readinessState === "exact-snapshot-ready"
+    ? "exact-snapshot-ready"
+    : "blocked-awaiting-snapshot";
+}
+
+function getBlockedDomControlCoverageState(
+  readinessState:
+    | BrowserVisualActorRepresentationReadiness["coverageState"]
+    | undefined,
+): BrowserVisualActorCoverageState {
+  if (readinessState === "live-host-ready") {
+    return "live-host-ready";
+  }
+  if (readinessState === "exact-snapshot-ready") {
+    return "exact-snapshot-ready";
+  }
+  return "blocked-awaiting-snapshot";
+}
+
+function canUseDomControlCompatiblePreviousCoverage({
+  control,
+  representationReadiness,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
+}): boolean {
   return (
     control.visualPolicy === "blocked-awaiting-browser-visual" ||
-    (control.visualPolicy === "snapshot" && !control.snapshotSurfaceId)
+    (control.visualPolicy === "snapshot" && !control.snapshotSurfaceId) ||
+    representationReadiness?.coverageState === "blocked-awaiting-live-host" ||
+    representationReadiness?.coverageState === "blocked-awaiting-snapshot"
   );
 }
 
@@ -777,142 +878,28 @@ function getDomControlRepresentationKind({
   return "passive-live-display";
 }
 
-function createDomControlTextActorRepresentation({
-  compatiblePreviousProof,
-  control,
-  coverageState,
-}: {
-  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
-  readonly control: GpuRetainedDomControlSourceDescriptor;
-  readonly coverageState: BrowserVisualActorCoverageState;
-}): BrowserTextActorRepresentation | null {
-  if (coverageState === "coverage-exempt") {
-    return null;
-  }
-  if (coverageState === "live-host-ready") {
-    return createLiveHostDomControlTextActorRepresentation(control);
-  }
-  if (coverageState === "exact-snapshot-ready") {
-    return createSnapshotDomControlTextActorRepresentation(control);
-  }
-  if (coverageState === "compatible-previous-ready") {
-    return createCompatiblePreviousDomControlTextActorRepresentation({
-      compatiblePreviousProof,
-      control,
-    });
-  }
-  return createBlockedDomControlTextActorRepresentation({
-    control,
-    reason: getBlockedDomControlTextActorRepresentationReason({
-      control,
-      coverageState,
-    }),
-  });
-}
-
-function createSnapshotDomControlTextActorRepresentation(
-  control: GpuRetainedDomControlSourceDescriptor,
-): BrowserTextActorRepresentation {
-  return Object.freeze({
-    actorId: control.sourceId,
-    kind: "passive-snapshot",
-    snapshotId:
-      control.snapshotSurfaceId ??
-      `missing-snapshot:${control.snapshotCacheKeyRevision}`,
-  });
-}
-
-function createCompatiblePreviousDomControlTextActorRepresentation({
-  compatiblePreviousProof,
-  control,
-}: {
-  readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
-  readonly control: GpuRetainedDomControlSourceDescriptor;
-}): BrowserTextActorRepresentation {
-  return Object.freeze({
-    actorId: control.sourceId,
-    kind: "compatible-previous",
-    previousTransactionId:
-      compatiblePreviousProof?.previousTransactionId ?? "unknown",
-  });
-}
-
-function getBlockedDomControlTextActorRepresentationReason({
-  control,
-  coverageState,
-}: {
-  readonly control: GpuRetainedDomControlSourceDescriptor;
-  readonly coverageState: BrowserVisualActorCoverageState;
-}): BrowserActorBlockedReason {
-  if (coverageState === "blocked-awaiting-live-host") {
-    return "live-dom-budget";
-  }
-  if (coverageState === "blocked-awaiting-snapshot") {
-    return "snapshot-pending";
-  }
-  return getDomControlTrueHoleBlockedReason(control);
-}
-
-function createLiveHostDomControlTextActorRepresentation(
-  control: GpuRetainedDomControlSourceDescriptor,
-): BrowserTextActorRepresentation {
-  if (control.active) {
-    return Object.freeze({
-      actorId: control.sourceId,
-      hostId: createDomControlHostId(control),
-      islandId: control.layerSlot,
-      kind: "active-editor",
-    });
-  }
-  return Object.freeze({
-    actorId: control.sourceId,
-    hostId: createDomControlHostId(control),
-    kind: "passive-live-display",
-  });
-}
-
-function createBlockedDomControlTextActorRepresentation({
-  control,
-  reason,
-}: {
-  readonly control: GpuRetainedDomControlSourceDescriptor;
-  readonly reason: BrowserActorBlockedReason;
-}): BrowserTextActorRepresentation {
-  return Object.freeze({
-    actorId: control.sourceId,
-    kind: "blocked",
-    reason,
-  });
-}
-
-function getDomControlTrueHoleBlockedReason(
-  control: GpuRetainedDomControlSourceDescriptor,
-): BrowserActorBlockedReason {
-  return control.visualPolicy === "clipped-empty"
-    ? "clipped-empty"
-    : "missing-browser-visual";
-}
-
-function createDomControlHostId(
-  control: GpuRetainedDomControlSourceDescriptor,
-): HostId {
-  return `dom-control-host:${control.sourceId}`;
-}
-
 function getBrowserVisualActorResourceHandles({
   compatiblePreviousProof,
   control,
   coverageState,
+  representationReadiness,
 }: {
   readonly compatiblePreviousProof: BrowserVisualActorCompatiblePreviousProof | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly coverageState: BrowserVisualActorCoverageState;
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
 }): readonly SurfaceResourceHandle[] {
   if (coverageState === "live-host-ready") {
-    return Object.freeze([{ id: control.sourceId, kind: "source" }]);
+    return createBrowserVisualReadinessResourceHandles({
+      fallback: Object.freeze([{ id: control.sourceId, kind: "source" }]),
+      representationReadiness,
+    });
   }
   if (coverageState === "exact-snapshot-ready") {
-    return createDomControlSnapshotResourceHandles(control);
+    return createBrowserVisualReadinessResourceHandles({
+      fallback: createDomControlSnapshotResourceHandles(control),
+      representationReadiness,
+    });
   }
   if (coverageState === "compatible-previous-ready") {
     return Object.freeze(
@@ -924,14 +911,25 @@ function getBrowserVisualActorResourceHandles({
   return Object.freeze([]);
 }
 
+function createBrowserVisualReadinessResourceHandles({
+  fallback,
+  representationReadiness,
+}: {
+  readonly fallback: readonly SurfaceResourceHandle[];
+  readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
+}): readonly SurfaceResourceHandle[] {
+  const resourceHandles = representationReadiness?.resourceHandles ?? fallback;
+  return Object.freeze(
+    resourceHandles.map((handle) => Object.freeze({ ...handle })),
+  );
+}
+
 function createDomControlSnapshotResourceHandles(
   control: GpuRetainedDomControlSourceDescriptor,
 ): readonly SurfaceResourceHandle[] {
   return Object.freeze([
     {
-      id: [control.snapshotSurfaceId, control.snapshotCacheKeyRevision].join(
-        ":",
-      ),
+      id: getGpuRetainedDomControlResolvedSnapshotSurfaceId(control),
       kind: "texture",
     },
   ]);

@@ -3,12 +3,6 @@ import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { RetainedDrawRegion } from "../retainedVisibleCoveragePlanner";
 import { normalizeGpuViewport, type GpuRect } from "../viewportMath";
 import {
-  createBrowserVisualSurfaceTransactionFragment,
-  createDomControlBrowserVisualActor,
-  createDomIslandBrowserVisualActor,
-  type BrowserVisualSurfaceTransactionFragment,
-} from "./browserVisualActorAdapter";
-import {
   createSurfaceActor,
   createSurfaceActorSnapshot,
   type SurfaceActorSnapshot,
@@ -75,16 +69,9 @@ export function createRetainedSurfaceTransactionSnapshot({
       generation,
     ]),
   );
-  const browserVisualFragment = createRetainedBrowserVisualFragment({
-    retainedRuntimeFrame,
-  });
-  const actorSnapshots = Object.freeze([
-    ...retainedContentActorSnapshots,
-    ...browserVisualFragment.actorSnapshots,
-  ]);
+  const actorSnapshots = retainedContentActorSnapshots;
   const coverageProof = createRetainedSurfaceCoverageProof({
     actorSnapshots,
-    browserVisualFragment,
     generationBySurfaceId,
     pageFrame,
   });
@@ -92,8 +79,8 @@ export function createRetainedSurfaceTransactionSnapshot({
     actorSnapshots,
     transaction: Object.freeze({
       activeDomIslandTransaction: Object.freeze({
-        islands: browserVisualFragment.activeIslands,
-        mode: browserVisualFragment.activeIslands.length > 0 ? "attach" : "none",
+        islands: Object.freeze([]),
+        mode: "none",
       }),
       coverageProof,
       desiredSurfaceGenerations: Object.freeze(
@@ -125,7 +112,7 @@ export function createRetainedSurfaceTransactionSnapshot({
       }),
       id,
       motionFrame: Object.freeze({
-        activeIslands: browserVisualFragment.activeIslands,
+        activeIslands: Object.freeze([]),
         retainedScrollOffset: firstRetainedScrollOffset(
           retainedRuntimeFrame.input.scrollOffsets,
         ),
@@ -304,49 +291,25 @@ function createRetainedContentSurfaceGeneration({
   });
 }
 
-function createRetainedBrowserVisualFragment({
-  retainedRuntimeFrame,
-}: {
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): BrowserVisualSurfaceTransactionFragment {
-  return createBrowserVisualSurfaceTransactionFragment([
-    ...retainedRuntimeFrame.descriptors.domControlSources.map(
-      createDomControlBrowserVisualActor,
-    ),
-    ...retainedRuntimeFrame.descriptors.nativeDomIslands.map(
-      createDomIslandBrowserVisualActor,
-    ),
-  ]);
-}
-
 function createRetainedSurfaceCoverageProof({
   actorSnapshots,
-  browserVisualFragment,
   generationBySurfaceId,
   pageFrame,
 }: {
   readonly actorSnapshots: readonly SurfaceActorSnapshot[];
-  readonly browserVisualFragment: BrowserVisualSurfaceTransactionFragment;
   readonly generationBySurfaceId: ReadonlyMap<string, SurfaceGeneration>;
   readonly pageFrame: RetainedContentTexturePagePreparedFrame;
 }): SurfaceCoverageProof {
   const retainedEntries = pageFrame.drawRegions.map((region) =>
     retainedDrawRegionToCoverageEntry({ generationBySurfaceId, region }),
   );
-  const entries = [
-    ...retainedEntries,
-    ...browserVisualFragment.exactCoverage,
-    ...browserVisualFragment.compatibleCoverage,
-  ];
+  const entries = retainedEntries;
   const exactCoverage = entries.filter((entry) => entry.fidelity === "exact");
   const compatibleCoverage = entries.filter(
     (entry) => entry.fidelity === "compatible",
   );
   const retainedTrueHoleRects = createRetainedSurfaceTrueHoleRects(pageFrame);
-  const trueHoleRects = Object.freeze([
-    ...retainedTrueHoleRects,
-    ...browserVisualFragment.trueHoleRects,
-  ]);
+  const trueHoleRects = Object.freeze([...retainedTrueHoleRects]);
   const retainedBlockingSurfaceIds = createRetainedSurfaceBlockingSurfaceIds({
     pageFrame,
     trueHoleRects: retainedTrueHoleRects,
@@ -357,20 +320,13 @@ function createRetainedSurfaceCoverageProof({
       `retained-missing:${surfaceId}`,
   );
   const protectedResourceHandles = createRetainedProtectedResourceHandles({
-    browserVisualFragment,
     entries,
     pageFrame,
   });
   const drawCommands = createSortedRetainedDrawCommands(entries);
   return createSurfaceCoverageProof({
-    blockingGenerationIds: [
-      ...retainedBlockingGenerationIds,
-      ...browserVisualFragment.blockingGenerationIds,
-    ],
-    blockingSurfaceIds: [
-      ...retainedBlockingSurfaceIds,
-      ...browserVisualFragment.blockingSurfaceIds,
-    ],
+    blockingGenerationIds: [...retainedBlockingGenerationIds],
+    blockingSurfaceIds: [...retainedBlockingSurfaceIds],
     compatibilityProof: createRetainedCompatibilityProof({
       generationBySurfaceId,
       pageFrame,
@@ -385,8 +341,7 @@ function createRetainedSurfaceCoverageProof({
     trueHoleRects,
     visibleRects: actorSnapshots
       .filter(({ actor }) => actor.kind === "retained-parameter-content")
-      .map(({ generation }) => generation.flowRect)
-      .concat(browserVisualFragment.visibleRects),
+      .map(({ generation }) => generation.flowRect),
     zOrder: uniqueOrdered(drawCommands.map((command) => command.surfaceId)),
   });
 }
@@ -450,11 +405,9 @@ function createRetainedCompatibilityProof({
 }
 
 function createRetainedProtectedResourceHandles({
-  browserVisualFragment,
   entries,
   pageFrame,
 }: {
-  readonly browserVisualFragment: BrowserVisualSurfaceTransactionFragment;
   readonly entries: readonly SurfaceCoverageEntry[];
   readonly pageFrame: RetainedContentTexturePagePreparedFrame;
 }): readonly ProtectedSurfaceResourceHandle[] {
@@ -469,9 +422,6 @@ function createRetainedProtectedResourceHandles({
   }
   for (const pageKey of pageFrame.protectedPageKeys) {
     const handle = retainedPageResourceHandle(pageKey);
-    handles.set(`${handle.kind}:${handle.id}`, handle);
-  }
-  for (const handle of browserVisualFragment.protectedResourceHandles) {
     handles.set(`${handle.kind}:${handle.id}`, handle);
   }
   return Object.freeze(

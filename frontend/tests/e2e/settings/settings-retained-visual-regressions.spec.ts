@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, postBackend } from "../helpers";
+import { readVisibleRetainedContentScrollMarker } from "./settings-retained-scroll-marker";
 import {
   analyzeHoverBands,
   analyzeHoverContrast,
@@ -87,6 +88,19 @@ test("rapid row hover shows exactly one retained row highlight", async ({
   await waitForGuiRowHoverState(page, null);
 
   const clip = rowsToClip(rows);
+  const warmupRow = rows[0];
+  if (warmupRow) {
+    await page.mouse.move(
+      warmupRow.labelClientPoint.x,
+      warmupRow.labelClientPoint.y,
+      { steps: 4 },
+    );
+    await waitForGuiRowHoverState(page, warmupRow.rowLabel);
+    await waitForAnimationFrame(page);
+    await waitForAnimationFrame(page);
+    await moveAwayFromRetainedRows(page);
+    await waitForGuiRowHoverState(page, null);
+  }
   await waitForStableScreenshotClip(page, clip);
   const before = await screenshotClip({
     name: "visual-hover-before.png",
@@ -299,6 +313,7 @@ test("retained section scroll position survives viewport pan and zoom", async ({
     "Section Tag Color Choices",
   ]);
   const beforeClip = rowsToClip(beforeRows);
+  await waitForStableScreenshotClip(page, beforeClip);
   const before = await screenshotClip({
     name: "visual-scroll-before-pan-zoom.png",
     page,
@@ -322,6 +337,7 @@ test("retained section scroll position survives viewport pan and zoom", async ({
     "Section Tag Color Choices",
   ]);
   const afterClip = rowsToClip(afterRows);
+  await waitForStableScreenshotClip(page, afterClip);
   const after = await screenshotClip({
     name: "visual-scroll-after-pan-zoom.png",
     page,
@@ -330,13 +346,37 @@ test("retained section scroll position survives viewport pan and zoom", async ({
   });
 
   const similarity = await compareScreenshots(page, before, after);
+  const rowMotion = afterRows.map((row, index) => {
+    const beforeRow = beforeRows[index];
+    return {
+      dx: beforeRow ? row.clientRect.x - beforeRow.clientRect.x : null,
+      dy: beforeRow ? row.clientRect.y - beforeRow.clientRect.y : null,
+      rowLabel: row.rowLabel,
+    };
+  });
   const failureDetails = JSON.stringify(
-    { afterRows, beforeRows, similarity },
+    { afterRows, beforeRows, rowMotion, similarity },
     null,
     2,
   );
-  expect(similarity.meanDelta, failureDetails).toBeLessThan(14);
-  expect(similarity.changedPixelRatio, failureDetails).toBeLessThan(0.4);
+  expect(
+    afterRows.map((row) => row.rowLabel),
+    failureDetails,
+  ).toEqual(beforeRows.map((row) => row.rowLabel));
+  expect(
+    afterRows.map((row) => row.surfaceScrollOffset),
+    failureDetails,
+  ).toEqual(beforeRows.map((row) => row.surfaceScrollOffset));
+  expect(
+    rowMotion.every(
+      (motion) =>
+        motion.dx !== null &&
+        motion.dy !== null &&
+        Math.abs(motion.dx - (rowMotion[0]?.dx ?? motion.dx)) < 1 &&
+        Math.abs(motion.dy - (rowMotion[0]?.dy ?? motion.dy)) < 1,
+    ),
+    failureDetails,
+  ).toBe(true);
 });
 
 test("retained section wheel scrolling moves visibly in one direction", async ({
@@ -556,6 +596,10 @@ test("retained scrollbar renders as one coherent vertical control", async ({
 
 async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
+  await postBackend(page, "/setActiveViewMode", {
+    activeViewModeId: "settings-core",
+    projectConfigId: "settings",
+  });
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
   await disableMinimapIfEnabled(page);
@@ -1064,74 +1108,16 @@ async function captureScrollContentFrame({
     rect,
     testInfo,
   });
-  const marker = await readVisibleGuiContentScrollMarker(page);
+  const marker = await readVisibleRetainedContentScrollMarker(page, {
+    labelOrder: GUI_SCROLL_LABEL_ORDER,
+    surfaceId: GUI_CONTENT_SURFACE_ID,
+  });
   return {
     marker: marker.marker,
     name,
     screenshot,
     visibleRows: marker.visibleRows,
   };
-}
-
-async function readVisibleGuiContentScrollMarker(page: Page): Promise<{
-  readonly marker: number;
-  readonly visibleRows: readonly {
-    readonly label: string;
-    readonly y: number;
-  }[];
-}> {
-  return await page.evaluate(
-    ({ labelOrder, surfaceId }) => {
-      const orderByLabel = new Map(
-        labelOrder.map((label, index) => [label, index]),
-      );
-      const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
-        .filter(
-          (row): row is RetainedRowDebugEntry =>
-            row.surfaceId === surfaceId &&
-            orderByLabel.has(row.rowLabel) &&
-            row.clientRect.width > 16 &&
-            row.clientRect.height > 8 &&
-            row.clientRect.y < window.innerHeight &&
-            row.clientRect.y + row.clientRect.height > 0,
-        )
-        .sort((left, right) => left.clientRect.y - right.clientRect.y);
-      if (rows.length < 3) {
-        throw new Error(
-          `Missing enough visible GUI rows for scroll marker: ${JSON.stringify(
-            rows.map((row) => row.rowLabel),
-          )}`,
-        );
-      }
-      const rowHeight = median(rows.map((row) => row.clientRect.height));
-      const markers = rows.map((row) => {
-        const order = orderByLabel.get(row.rowLabel);
-        if (order === undefined) {
-          throw new Error(`Missing retained row order for ${row.rowLabel}.`);
-        }
-        return order * rowHeight - row.clientRect.y;
-      });
-      return {
-        marker: median(markers),
-        visibleRows: rows.map((row) => ({
-          label: row.rowLabel,
-          y: row.clientRect.y,
-        })),
-      };
-
-      function median(values: readonly number[]): number {
-        if (values.length === 0) {
-          return 0;
-        }
-        const sorted = [...values].sort((left, right) => left - right);
-        return sorted[Math.floor(sorted.length / 2)] ?? 0;
-      }
-    },
-    {
-      labelOrder: GUI_SCROLL_LABEL_ORDER,
-      surfaceId: GUI_CONTENT_SURFACE_ID,
-    },
-  );
 }
 
 function rowsToClip(rows: readonly RetainedRowDebugEntry[]): Rect {

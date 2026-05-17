@@ -1,15 +1,26 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { ensureAppReady } from "../helpers";
+import {
+  resolveLabelInkSearchRect,
+  resolveValueInkSearchRect,
+  resolveVisibleLabelInkSearchRect,
+  viewportScreenshotClip,
+} from "./settings-retained-codemirror-scroll-geometry";
 import { analyzeTextPreviewValueColumnPixelCount } from "./settings-retained-codemirror-visual-analysis";
+import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
 import {
   analyzeCodeMirrorTextInkBounds,
   analyzeRetainedLabelTextInkBounds,
-  compareScreenshots,
   type Rect,
   type RetainedRowDebugEntry,
   type TextInkBounds,
 } from "./settings-retained-visual-analysis";
+import {
+  clampScreenshotClip,
+  screenshotClip,
+  waitForStableScreenshotClip,
+} from "./settings-retained-visual-regression-helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -268,13 +279,21 @@ test("focused input does not degrade section scroll cadence", async ({
     await waitForAnimationFrame(page);
   }
 
+  await expect
+    .poll(() => readActiveCodeMirrorId(page), { timeout: 2_000 })
+    .toContain(row.rowId);
   const afterY = await readRetainedRowClientY(page, SCROLL_TEXT_PREVIEW_LABEL);
   const editorState = await readActiveCodeMirrorWheelState(page);
+  const rowDomControlState = await readRetainedDomControlStateForRow(
+    page,
+    row.rowId,
+  );
   const failureDetails = JSON.stringify(
     {
       afterY,
       beforeY,
       editorState,
+      rowDomControlState,
       row: {
         controlClientPoint: row.controlClientPoint,
         controlClientRect: row.controlClientRect,
@@ -286,6 +305,9 @@ test("focused input does not degrade section scroll cadence", async ({
     2,
   );
 
+  if (editorState.activeEditorId === null) {
+    throw new Error(failureDetails);
+  }
   expect(editorState.activeEditorId, failureDetails).toContain(row.rowId);
   expect(editorState.verticalScrollRoom, failureDetails).toBeLessThanOrEqual(1);
   expect(afterY, failureDetails).toBeLessThan(beforeY - 12);
@@ -604,13 +626,19 @@ async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
     return (
       activeElement
         .closest("[data-gpu-flow-control]")
-        ?.getAttribute("data-gpu-flow-control") ?? null
+        ?.getAttribute("data-gpu-flow-control") ??
+      activeElement
+        .closest("[data-gpu-flow-dom-control-row-id]")
+        ?.getAttribute("data-gpu-flow-dom-control-row-id") ??
+      activeElement.closest("[data-param-id]")?.getAttribute("data-param-id") ??
+      null
     );
   });
 }
 
 async function readActiveCodeMirrorWheelState(page: Page): Promise<{
   readonly activeEditorId: string | null;
+  readonly activeElementPath: readonly ActiveElementDebugEntry[];
   readonly verticalScrollRoom: number;
 }> {
   return await page.evaluate(() => {
@@ -619,7 +647,14 @@ async function readActiveCodeMirrorWheelState(page: Page): Promise<{
       activeElement instanceof Element
         ? activeElement
             .closest("[data-gpu-flow-control]")
-            ?.getAttribute("data-gpu-flow-control") ?? null
+            ?.getAttribute("data-gpu-flow-control") ??
+          activeElement
+            .closest("[data-gpu-flow-dom-control-row-id]")
+            ?.getAttribute("data-gpu-flow-dom-control-row-id") ??
+          activeElement
+            .closest("[data-param-id]")
+            ?.getAttribute("data-param-id") ??
+          null
         : null;
     const scroller =
       activeElement instanceof Element
@@ -631,10 +666,107 @@ async function readActiveCodeMirrorWheelState(page: Page): Promise<{
         : 0;
     return {
       activeEditorId,
+      activeElementPath:
+        activeElement instanceof Element
+          ? describeActiveElementPath(activeElement)
+          : [],
       verticalScrollRoom,
     };
+
+    function describeActiveElementPath(
+      element: Element,
+    ): readonly ActiveElementDebugEntry[] {
+      const path: ActiveElementDebugEntry[] = [];
+      let current: Element | null = element;
+      while (current && path.length < 10) {
+        path.push({
+          className:
+            typeof current.className === "string" ? current.className : "",
+          gpuFlowControl: current.getAttribute("data-gpu-flow-control"),
+          gpuFlowDomControlRowId: current.getAttribute(
+            "data-gpu-flow-dom-control-row-id",
+          ),
+          paramId: current.getAttribute("data-param-id"),
+          role: current.getAttribute("role"),
+          tagName: current.tagName.toLowerCase(),
+        });
+        current = current.parentElement;
+      }
+      return path;
+    }
   });
 }
+
+type ActiveElementDebugEntry = {
+  readonly className: string;
+  readonly gpuFlowControl: string | null;
+  readonly gpuFlowDomControlRowId: string | null;
+  readonly paramId: string | null;
+  readonly role: string | null;
+  readonly tagName: string;
+};
+
+async function readRetainedDomControlStateForRow(
+  page: Page,
+  rowId: string,
+): Promise<{
+  readonly diagnostics: unknown;
+  readonly hosts: readonly RetainedDomControlHostDebugEntry[];
+}> {
+  return await page.evaluate((rowId) => {
+    const view = window as Window & {
+      __settaGpuFlowDomControlPlaneDiagnostics?: () => unknown;
+    };
+    const diagnostics =
+      view.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null;
+    const hosts = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-gpu-flow-dom-control-row-id]",
+      ),
+    ]
+      .filter(
+        (element) =>
+          element.getAttribute("data-gpu-flow-dom-control-row-id") === rowId,
+      )
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          active: element.getAttribute("data-gpu-flow-dom-control-active"),
+          controlId: element.getAttribute("data-gpu-flow-dom-control-id"),
+          display: getComputedStyle(element).display,
+          focusedDescendant: element.contains(document.activeElement),
+          gpuFlowControls: [
+            ...element.querySelectorAll<HTMLElement>("[data-gpu-flow-control]"),
+          ].map((control) => control.getAttribute("data-gpu-flow-control")),
+          paramIds: [
+            ...element.querySelectorAll<HTMLElement>("[data-param-id]"),
+          ].map((control) => control.getAttribute("data-param-id")),
+          rect: {
+            height: rect.height,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y,
+          },
+          rowId: element.getAttribute("data-gpu-flow-dom-control-row-id"),
+        };
+      });
+    return {
+      diagnostics,
+      hosts,
+    };
+  }, rowId);
+}
+
+type RetainedDomControlHostDebugEntry = {
+  readonly active: string | null;
+  readonly controlId: string | null;
+  readonly display: string;
+  readonly focusedDescendant: boolean;
+  readonly gpuFlowControls: readonly (string | null)[];
+  readonly paramIds: readonly (string | null)[];
+  readonly rect: Rect;
+  readonly rowId: string | null;
+};
 
 async function readRetainedRowClientY(
   page: Page,
@@ -890,49 +1022,6 @@ async function captureRetainedLabelMotionFrame({
   };
 }
 
-async function viewportScreenshotClip(page: Page): Promise<Rect> {
-  return await page.evaluate(() => ({
-    height: window.innerHeight,
-    width: window.innerWidth,
-    x: 0,
-    y: 0,
-  }));
-}
-
-function resolveValueInkSearchRect(rect: Rect): Rect {
-  return {
-    height: rect.height,
-    width: Math.min(rect.width, 220),
-    x: rect.x,
-    y: rect.y,
-  };
-}
-
-function resolveLabelInkSearchRect(
-  row: RetainedRowDebugEntry & { readonly controlClientRect: Rect },
-): Rect {
-  return {
-    height: row.clientRect.height,
-    width: Math.max(1, row.controlClientRect.x - row.clientRect.x - 8),
-    x: row.clientRect.x,
-    y: row.clientRect.y,
-  };
-}
-
-function resolveVisibleLabelInkSearchRect(row: RetainedRowDebugEntry): Rect {
-  return {
-    height: row.clientRect.height,
-    width: Math.max(
-      1,
-      (row.controlClientRect?.x ?? row.clientRect.x + row.clientRect.width) -
-        row.clientRect.x -
-        8,
-    ),
-    x: row.clientRect.x,
-    y: row.clientRect.y,
-  };
-}
-
 type TextPreviewRowStats = {
   readonly label: string;
   readonly minimumTextPixelCount: number;
@@ -1093,62 +1182,4 @@ async function analyzeVisibleTextPreviewRows(
       trackedLabels: GUI_SCROLL_LABEL_ORDER,
     },
   );
-}
-
-async function screenshotClip({
-  name,
-  page,
-  rect,
-  testInfo,
-}: {
-  readonly name: string;
-  readonly page: Page;
-  readonly rect: Rect;
-  readonly testInfo: TestInfo;
-}): Promise<Buffer> {
-  const screenshot = await page.screenshot({
-    clip: rect,
-    path: testInfo.outputPath(name),
-  });
-  await testInfo.attach(name, {
-    body: screenshot,
-    contentType: "image/png",
-  });
-  return screenshot;
-}
-
-async function waitForStableScreenshotClip(
-  page: Page,
-  rect: Rect,
-): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const first = await page.screenshot({ clip: rect });
-        await page.waitForTimeout(80);
-        const second = await page.screenshot({ clip: rect });
-        return (await compareScreenshots(page, first, second)).meanDelta;
-      },
-      {
-        intervals: [80, 120, 180, 240],
-        timeout: 2_000,
-      },
-    )
-    .toBeLessThan(1);
-}
-
-async function waitForAnimationFrame(page: Page): Promise<void> {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  );
-}
-
-function clampScreenshotClip(rect: Rect): Rect {
-  return {
-    height: Math.max(1, Math.floor(rect.height)),
-    width: Math.max(1, Math.floor(rect.width)),
-    x: Math.max(0, Math.floor(rect.x)),
-    y: Math.max(0, Math.floor(rect.y)),
-  };
 }

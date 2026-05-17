@@ -67,6 +67,22 @@ export function hitTestGpuRetainedContentScene({
   readonly scene: GpuFlowScene;
 }): GpuRetainedContentHitTarget | null {
   assertGpuRetainedContentSceneOnlyHitTestAllowed();
+  return hitTestGpuRetainedContentSampledScene({
+    point,
+    scrollOffsets,
+    scene,
+  });
+}
+
+export function hitTestGpuRetainedContentSampledScene({
+  point,
+  scrollOffsets,
+  scene,
+}: {
+  readonly point: GpuPoint;
+  readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly scene: GpuFlowScene;
+}): GpuRetainedContentHitTarget | null {
   const surfaces = getRetainedContentHitSurfaces(scene.contentSurfaces).map(
     (surface) => ({
       ...surface,

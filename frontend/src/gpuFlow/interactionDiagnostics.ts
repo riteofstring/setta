@@ -168,7 +168,9 @@ export type GpuFlowRetainedRowDebugEntry = {
   readonly surfaceId: string;
   readonly surfaceLogicalRowCount: number;
   readonly surfaceScrollOffset: GpuPoint;
+  readonly surfaceViewportFlowRect: GpuRect;
   readonly surfaceViewportHeight: number;
+  readonly surfaceViewportWidth: number;
 };
 
 export type GpuFlowVisualSurfaceDebugEntry = {

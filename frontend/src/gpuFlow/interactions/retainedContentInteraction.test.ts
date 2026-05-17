@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
@@ -8,17 +7,15 @@ import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import {
-  createGpuRetainedRowContentScene,
-  type GpuRetainedContentControlDescriptor,
-} from "../retainedContentScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
+import { attachGpuRetainedContentInteractionController } from "./retainedContentInteraction";
 import {
-  attachGpuRetainedContentInteractionController,
-  hitTestGpuRetainedContentInteraction,
-} from "./retainedContentInteraction";
+  createHostElement,
+  createMouseEvent,
+  createPointerEvent,
+  retainedContentScene,
+} from "./retainedContentInteraction.testHelpers";
 
 describe("GPU retained content interaction controller", () => {
   afterEach(() => {
@@ -106,6 +103,84 @@ describe("GPU retained content interaction controller", () => {
     expect(onHitClick).toHaveBeenCalledTimes(1);
     expect(click.defaultPrevented).toBe(true);
     expect(onBackgroundClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("keeps non-drag click candidates through early pointer capture loss", () => {
+    const element = createHostElement();
+    const onHitClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("lostpointercapture", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+
+    expect(onHitClick).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
+  it("emits the pointerdown hit when pointerup is transiently rejected", () => {
+    const element = createHostElement();
+    const onHitClick = vi.fn();
+    let acceptHits = true;
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      shouldHandleHit: (hit) => acceptHits && hit.hit.kind === "control",
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    acceptHits = false;
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+
+    expect(onHitClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "control:param-0",
+          kind: "control",
+          ownerRowId: "param-0",
+        }),
+      }),
+    );
 
     cleanup();
   });
@@ -419,6 +494,77 @@ describe("GPU retained content interaction controller", () => {
     expect(onHitDragMove).toHaveBeenCalledWith(
       expect.objectContaining({
         flowPoint: { x: 116, y: 42 },
+      }),
+    );
+
+    cleanup();
+  });
+
+  it("falls back to the current scene when a stale projected hit is rejected", () => {
+    const element = createHostElement();
+    const scene = retainedContentScene();
+    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene,
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [40, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame,
+    });
+    const visibleProjectionState = createGpuFlowVisibleProjectionState({
+      committedFrame,
+      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: committedFrame.displayFrameId,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["viewport"],
+        sample: {
+          cssViewport: { height: 120, width: 240 },
+          devicePixelRatio: 1,
+          gestureOwner: "idle",
+          id: 4,
+          retainedScrollDelta: new Map(),
+          retainedScrollOffsets: new Map(),
+          retainedScrollRevision: 0,
+          retainedScrollVelocityCssPxPerMs: new Map(),
+          timestamp: 4,
+          viewport: { x: 40, y: 0, zoom: 1 },
+          viewportDelta: { x: 0, y: 0, zoom: 0 },
+          viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
+        },
+      }),
+    });
+    const onHitPointerDown = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getRetainedRuntimeFrame: () => retainedRuntimeFrame,
+      getScene: () => scene,
+      getVisibleProjectionState: () => visibleProjectionState,
+      onHitPointerDown,
+      shouldHandleHit: (hit) => hit.hit.kind === "control",
+      store: createGpuFlowViewportStore({ transform: [0, 0, 1] }),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+
+    expect(onHitPointerDown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "control:param-0",
+          kind: "control",
+          ownerRowId: "param-0",
+        }),
+        localPoint: { x: 140, y: 14 },
       }),
     );
 
@@ -821,263 +967,4 @@ describe("GPU retained content interaction controller", () => {
 
     cleanup();
   });
-
-  it("can hit test retained content interaction without attaching listeners", () => {
-    const element = createHostElement();
-    const hit = hitTestGpuRetainedContentInteraction({
-      element,
-      event: createPointerEvent("pointermove", {
-        clientX: 116,
-        clientY: 42,
-        pointerId: 1,
-      }),
-      getScene: () => retainedContentScene(),
-      store: createGpuFlowViewportStore(),
-    });
-
-    expect(hit).toMatchObject({
-      hit: {
-        id: "row:param-1",
-        kind: "row",
-        ownerRowId: "param-1",
-      },
-      localPoint: { x: 116, y: 42 },
-      surfaceId: "dict-a:param-content:unpinned",
-    });
-  });
-
-  it("does not fall back to scene-only hit testing when the runtime frame provider has no published frame", () => {
-    const element = createHostElement();
-    const hit = hitTestGpuRetainedContentInteraction({
-      element,
-      event: createPointerEvent("pointermove", {
-        clientX: 116,
-        clientY: 42,
-        pointerId: 1,
-      }),
-      getRetainedRuntimeFrame: () => null,
-      getScene: () => retainedContentScene(),
-      store: createGpuFlowViewportStore(),
-    });
-
-    expect(hit).toBeNull();
-  });
-
-  it("hit tests retained content interaction against the published runtime frame when available", () => {
-    const element = createHostElement();
-    const scene = retainedContentScene();
-    const hit = hitTestGpuRetainedContentInteraction({
-      element,
-      event: createPointerEvent("pointermove", {
-        clientX: 116,
-        clientY: 42,
-        pointerId: 1,
-      }),
-      getRetainedRuntimeFrame: () =>
-        createGpuRetainedRuntimeFrame({
-          devicePixelRatioBucket: 1,
-          frameId: 1,
-          scene,
-          scrollOffsets: new Map(),
-          scrollRevision: 1,
-          viewport: [0, 0, 1],
-          viewportZoomBucket: 1,
-        }),
-      getScene: () => retainedContentScene(),
-      store: createGpuFlowViewportStore(),
-    });
-
-    expect(hit).toMatchObject({
-      hit: {
-        id: "row:param-1",
-        kind: "row",
-        ownerRowId: "param-1",
-      },
-      localPoint: { x: 116, y: 42 },
-      surfaceId: "dict-a:param-content:unpinned",
-    });
-  });
-
-  it("hit tests retained content through the visible projection sample", () => {
-    const element = createHostElement();
-    const scene = retainedContentScene();
-    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
-      devicePixelRatioBucket: 1,
-      frameId: 1,
-      scene,
-      scrollOffsets: new Map(),
-      scrollRevision: 0,
-      viewport: [0, 0, 1],
-      viewportZoomBucket: 1,
-    });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
-      retainedRuntimeFrame,
-    });
-    const projectionSample = {
-      cssViewport: { height: 120, width: 240 },
-      devicePixelRatio: 1,
-      gestureOwner: "ownedByRetainedSectionScroll" as const,
-      id: 7,
-      retainedScrollDelta: new Map([
-        ["dict-a:param-content:unpinned", { x: 0, y: 28 }],
-      ]),
-      retainedScrollOffsets: new Map([
-        ["dict-a:param-content:unpinned", { x: 0, y: 28 }],
-      ]),
-      retainedScrollRevision: 1,
-      retainedScrollVelocityCssPxPerMs: new Map([
-        ["dict-a:param-content:unpinned", { x: 0, y: 0 }],
-      ]),
-      timestamp: 7,
-      viewport: { x: 0, y: 0, zoom: 1 },
-      viewportDelta: { x: 0, y: 0, zoom: 0 },
-      viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
-    };
-    const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
-        kind: "motion-projection",
-        lane: "motion",
-        rawReasons: ["retained-scroll"],
-        sample: projectionSample,
-      }),
-    });
-
-    const hit = hitTestGpuRetainedContentInteraction({
-      element,
-      event: createPointerEvent("pointermove", {
-        clientX: 116,
-        clientY: 42,
-        pointerId: 1,
-      }),
-      getRetainedRuntimeFrame: () => retainedRuntimeFrame,
-      getScene: () => retainedContentScene(),
-      getVisibleProjectionState: () => visibleProjectionState,
-      store: createGpuFlowViewportStore(),
-    });
-
-    expect(hit).toMatchObject({
-      hit: {
-        id: "row:param-2",
-        kind: "row",
-        ownerRowId: "param-2",
-      },
-      localPoint: { x: 116, y: 42 },
-      surfaceId: "dict-a:param-content:unpinned",
-    });
-  });
 });
-
-function createHostElement(): HTMLElement {
-  const element = document.createElement("div");
-  Object.defineProperty(element, "getBoundingClientRect", {
-    value: () => ({
-      bottom: 120,
-      height: 120,
-      left: 0,
-      right: 240,
-      top: 0,
-      width: 240,
-      x: 0,
-      y: 0,
-    }),
-  });
-  document.body.append(element);
-  return element;
-}
-
-function retainedContentScene(): GpuFlowScene {
-  return {
-    contentSurfaces: [retainedSurface()],
-    domIslands: [],
-    edges: [],
-    revision: 1,
-    sections: [],
-  };
-}
-
-function retainedSurface(): GpuContentSurface {
-  const rect = { height: 80, width: 160, x: 0, y: 0 };
-  return {
-    clipRect: rect,
-    id: "dict-a:param-content:unpinned",
-    ownerSectionId: "dict-a",
-    rect,
-    renderer: {
-      kind: "canvas-content",
-      surfaceId: "dict-a:param-content:unpinned",
-    },
-    retainedScene: createGpuRetainedRowContentScene({
-      controlWidth: 40,
-      id: "dict-a:param-content:unpinned",
-      ownerSectionId: "dict-a",
-      rowHeight: 28,
-      rows: Array.from({ length: 4 }, (_, index) => ({
-        control: textLikeControlDescriptor(`Value ${index}`),
-        controlKind: "text-like",
-        depth: 0,
-        id: `param-${index}`,
-        label: `Param ${index}`,
-      })),
-      scrollOffset: { x: 0, y: 0 },
-      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
-    }),
-    zIndex: 1,
-  };
-}
-
-function textLikeControlDescriptor(
-  displayValue: string,
-): GpuRetainedContentControlDescriptor {
-  return {
-    defaultDisplayValue: "",
-    displayValue,
-    editorKind: "text",
-    kind: "text-like",
-    policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
-    rendererFamily: "text-like",
-    commitPolicy: "native-island",
-  };
-}
-
-function createPointerEvent(
-  type: string,
-  init: {
-    readonly button?: number | undefined;
-    readonly buttons?: number | undefined;
-    readonly clientX: number;
-    readonly clientY: number;
-    readonly pointerId: number;
-  },
-): PointerEvent {
-  const event = new MouseEvent(type, {
-    bubbles: true,
-    cancelable: true,
-    clientX: init.clientX,
-    clientY: init.clientY,
-  }) as PointerEvent;
-  Object.defineProperties(event, {
-    button: { value: init.button ?? 0 },
-    buttons: { value: init.buttons ?? (type === "pointerup" ? 0 : 1) },
-    isPrimary: { value: true },
-    pointerId: { value: init.pointerId },
-    pointerType: { value: "mouse" },
-  });
-  return event;
-}
-
-function createMouseEvent(
-  type: string,
-  init: {
-    readonly clientX: number;
-    readonly clientY: number;
-  },
-): MouseEvent {
-  return new MouseEvent(type, {
-    bubbles: true,
-    cancelable: true,
-    clientX: init.clientX,
-    clientY: init.clientY,
-  });
-}

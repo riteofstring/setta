@@ -209,9 +209,13 @@ export function resolveRetainedDisplayFrameTransaction({
   prepared,
   previous,
 }: RetainedFrameTransaction): RetainedDisplayFrameOutcome {
-  const proof = createVisibleCoverageProof({
+  const holdCompatiblePrevious = getRetainedDisplayHoldCompatiblePrevious({
     prepared,
     previous,
+  });
+  const proof = createVisibleCoverageProof({
+    prepared,
+    previous: holdCompatiblePrevious,
   });
   const surfaceSnapshot = createRetainedSurfaceTransactionSnapshot({
     id: `retained:${prepared.id}`,
@@ -220,19 +224,59 @@ export function resolveRetainedDisplayFrameTransaction({
     retainedRuntimeFrame: prepared.retainedRuntimeFrame,
   });
   const surfaceOutcome = resolveSurfaceTransaction({
-    coldPlaceholderAllowed: allowColdPlaceholder,
+    coldPlaceholderAllowed:
+      allowColdPlaceholder ||
+      (previous !== null && holdCompatiblePrevious === null),
     desired: surfaceSnapshot.transaction,
     nowMs,
-    previous: previous?.surfaceTransaction ?? null,
+    previous: holdCompatiblePrevious?.surfaceTransaction ?? null,
   });
   return resolveRetainedSurfaceTransactionOutcome({
     nowMs,
     prepared,
-    previous,
+    previous: holdCompatiblePrevious,
     proof,
     surfaceActorSnapshots: surfaceSnapshot.actorSnapshots,
     surfaceOutcome,
   });
+}
+
+function getRetainedDisplayHoldCompatiblePrevious({
+  prepared,
+  previous,
+}: {
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null;
+}): RetainedDisplayFrame | null {
+  if (!previous) {
+    return null;
+  }
+  if (
+    !retainedRuntimeFrameSourceSurfaceIdsMatch(
+      previous.retainedRuntimeFrame,
+      prepared.retainedRuntimeFrame,
+    )
+  ) {
+    return null;
+  }
+  return previous;
+}
+
+function retainedRuntimeFrameSourceSurfaceIdsMatch(
+  previous: GpuRetainedRuntimeFrame,
+  next: GpuRetainedRuntimeFrame,
+): boolean {
+  const previousSurfaces = previous.descriptors.sourceSurfaces;
+  const nextSurfaces = next.descriptors.sourceSurfaces;
+  if (previousSurfaces.length !== nextSurfaces.length) {
+    return false;
+  }
+  for (let index = 0; index < previousSurfaces.length; index += 1) {
+    if (previousSurfaces[index]?.id !== nextSurfaces[index]?.id) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function resolveRetainedSurfaceTransactionOutcome({

@@ -121,6 +121,7 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
+  readonly visibleEdgeMaxUploads?: number | undefined;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 

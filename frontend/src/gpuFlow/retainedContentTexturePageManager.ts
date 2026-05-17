@@ -90,7 +90,7 @@ const DEFAULT_RETAINED_PAGE_BUDGET: RetainedTextureUploadSchedulerBudget = {
   maxTextureMemoryBytes: 192 * 1024 * 1024,
   maxUploads: 1,
 };
-const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 1024;
+const DEFAULT_RETAINED_CONTENT_MAX_PAGE_PIXEL_SIZE = 768;
 
 export class RetainedContentTexturePageManager {
   private readonly budget: RetainedTextureUploadSchedulerBudget;
@@ -307,6 +307,7 @@ export class RetainedContentTexturePageManager {
     publishedProtectedPageKeys,
     refreshFirstVisiblePages = false,
     switchAnimations,
+    visibleEdgeMaxUploads,
     viewportInteractionActive = false,
   }: RetainedContentTexturePageMaintenanceInput): RetainedContentTexturePageMaintenanceResult {
     const finishQueueMeasure = startGpuFlowPerformanceMeasure(
@@ -355,7 +356,8 @@ export class RetainedContentTexturePageManager {
         prefetchMaxBytes: this.textureBudget.offscreenPrefetchMaxBytes,
         refinementMaxBytes: this.textureBudget.nearViewportReserveBytes,
         visibleCoverageReserveBytes: this.textureBudget.visibleReserveBytes,
-        visibleEdgeMaxUploads: this.budget.maxUploads,
+        visibleEdgeMaxUploads:
+          visibleEdgeMaxUploads ?? this.budget.maxUploads,
       },
       queue: this.workQueue,
       textureBudget: this.textureBudget,

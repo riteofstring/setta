@@ -338,10 +338,19 @@ function createGpuRetainedDomControlSourceBase({
     x: surface.rect.x + liveControlRectSurfaceCssPx.x,
     y: surface.rect.y + liveControlRectSurfaceCssPx.y,
   };
-  const viewportRectCssPx = toViewportRectCssPx({
-    rect: worldRectFlowPx,
-    viewport: options.viewport,
-  });
+  const normalizedViewport = normalizeGpuViewport(
+    options.viewport ?? [0, 0, 1],
+  );
+  const viewportPosition = flowToScreenPosition(
+    worldRectFlowPx,
+    normalizedViewport,
+  );
+  const viewportRectCssPx = {
+    height: worldRectFlowPx.height * normalizedViewport.zoom,
+    width: worldRectFlowPx.width * normalizedViewport.zoom,
+    x: viewportPosition.x,
+    y: viewportPosition.y,
+  };
   const valueStyleKey = createGpuRetainedDomControlValueStyleKey({
     control: row.control,
     controlRectSurfaceCssPx,
@@ -481,6 +490,18 @@ export function getGpuRetainedDomControlSnapshotSurfaceId(
   control: Pick<GpuRetainedDomControlSourceDescriptor, "sourceId">,
 ): string {
   return `retained-dom-control-snapshot:${control.sourceId}`;
+}
+
+export function getGpuRetainedDomControlResolvedSnapshotSurfaceId(
+  control: Pick<
+    GpuRetainedDomControlSourceDescriptor,
+    "snapshotSurfaceId" | "sourceId"
+  >,
+): string {
+  return (
+    control.snapshotSurfaceId ??
+    getGpuRetainedDomControlSnapshotSurfaceId(control)
+  );
 }
 
 function applyGpuRetainedDomControlVisualPolicies(
@@ -971,21 +992,4 @@ function createGpuRetainedDomControlValueStyleKey({
     width: controlRectSurfaceCssPx.width,
     wrapLines: control.policy.wrapLines,
   });
-}
-
-function toViewportRectCssPx({
-  rect,
-  viewport,
-}: {
-  readonly rect: GpuRect;
-  readonly viewport: GpuViewportInput | undefined;
-}): GpuRect {
-  const normalizedViewport = normalizeGpuViewport(viewport ?? [0, 0, 1]);
-  const position = flowToScreenPosition(rect, normalizedViewport);
-  return {
-    height: rect.height * normalizedViewport.zoom,
-    width: rect.width * normalizedViewport.zoom,
-    x: position.x,
-    y: position.y,
-  };
 }

@@ -80,12 +80,14 @@ test("native selection and caret stay with a retained text-like editor across pr
   await waitForAnimationFrame(page);
   const selectedAfterPan = await waitForNativeTextSelectionState(page, {
     expectedCollapsed: false,
+    minEditorXDeltaFrom: selectedBefore,
     rowId: row.rowId,
   });
   await applyViewportTransformDelta(page, { zoomFactor: 1.1 });
   await waitForAnimationFrame(page);
   const selectedAfterZoom = await waitForNativeTextSelectionState(page, {
     expectedCollapsed: false,
+    minEditorWidthDeltaFrom: selectedAfterPan,
     rowId: row.rowId,
   });
 
@@ -126,6 +128,7 @@ test("native selection and caret stay with a retained text-like editor across pr
   await waitForAnimationFrame(page);
   const caretAfterPan = await waitForNativeTextSelectionState(page, {
     expectedCollapsed: true,
+    minEditorXDeltaFrom: caretBefore,
     rowId: row.rowId,
   });
   const caretDetails = JSON.stringify(
@@ -171,25 +174,36 @@ test("IME composition stays live and aligned through retained scroll and viewpor
   await page.mouse.move(wheelPoint.x, wheelPoint.y);
   await page.mouse.wheel(0, 28);
   await waitForAnimationFrame(page);
-  const composingAfterScroll = await dispatchSyntheticCompositionEvent(page, {
-    data: "kana-scroll",
-    kind: "compositionupdate",
-    rowId: row.rowId,
-  });
+  const composingAfterScroll = await dispatchSyntheticCompositionEvent(
+    page,
+    {
+      data: "kana-scroll",
+      kind: "compositionupdate",
+      rowId: row.rowId,
+    },
+  );
   await applyViewportTransformDelta(page, { dx: 52, dy: -28 });
   await waitForAnimationFrame(page);
-  const composingAfterPan = await dispatchSyntheticCompositionEvent(page, {
-    data: "kana-pan",
-    kind: "compositionupdate",
-    rowId: row.rowId,
-  });
+  const composingAfterPan = await dispatchSyntheticCompositionEvent(
+    page,
+    {
+      data: "kana-pan",
+      kind: "compositionupdate",
+      rowId: row.rowId,
+    },
+    { minEditorXDeltaFrom: composingAfterScroll },
+  );
   await applyViewportTransformDelta(page, { zoomFactor: 1.08 });
   await waitForAnimationFrame(page);
-  const composingAfterZoom = await dispatchSyntheticCompositionEvent(page, {
-    data: "kana-zoom",
-    kind: "compositionupdate",
-    rowId: row.rowId,
-  });
+  const composingAfterZoom = await dispatchSyntheticCompositionEvent(
+    page,
+    {
+      data: "kana-zoom",
+      kind: "compositionupdate",
+      rowId: row.rowId,
+    },
+    { minEditorWidthDeltaFrom: composingAfterPan },
+  );
   await dispatchSyntheticCompositionEvent(page, {
     data: "kana-zoom",
     kind: "compositionend",
@@ -485,9 +499,13 @@ async function waitForNativeTextSelectionState(
   page: Page,
   {
     expectedCollapsed,
+    minEditorWidthDeltaFrom,
+    minEditorXDeltaFrom,
     rowId,
   }: {
     readonly expectedCollapsed: boolean;
+    readonly minEditorWidthDeltaFrom?: NativeTextSelectionState | undefined;
+    readonly minEditorXDeltaFrom?: NativeTextSelectionState | undefined;
     readonly rowId: string;
   },
 ): Promise<NativeTextSelectionState> {
@@ -495,14 +513,26 @@ async function waitForNativeTextSelectionState(
   let latestState: NativeTextSelectionState | null = null;
   while (Date.now() < deadline) {
     latestState = await readNativeTextSelectionState(page, rowId);
-    if (isExpectedNativeTextSelectionState(latestState, expectedCollapsed)) {
+    if (
+      isExpectedNativeTextSelectionState(latestState, {
+        expectedCollapsed,
+        minEditorWidthDeltaFrom,
+        minEditorXDeltaFrom,
+      })
+    ) {
       return latestState;
     }
     await page.waitForTimeout(80);
   }
   throw new Error(
     `Native text selection did not reach the expected state. ${JSON.stringify(
-      { expectedCollapsed, latestState, rowId },
+      {
+        expectedCollapsed,
+        latestState,
+        minEditorWidthDeltaFrom,
+        minEditorXDeltaFrom,
+        rowId,
+      },
       null,
       2,
     )}`,
@@ -612,7 +642,11 @@ async function readNativeTextSelectionState(
 
 function isExpectedNativeTextSelectionState(
   state: NativeTextSelectionState | null,
-  expectedCollapsed: boolean,
+  options: {
+    readonly expectedCollapsed: boolean;
+    readonly minEditorWidthDeltaFrom?: NativeTextSelectionState | undefined;
+    readonly minEditorXDeltaFrom?: NativeTextSelectionState | undefined;
+  },
 ): state is NativeTextSelectionState {
   if (!state?.activeEditorId?.includes(state.rowId)) {
     return false;
@@ -620,13 +654,40 @@ function isExpectedNativeTextSelectionState(
   if (!state.selectionWithinEditor) {
     return false;
   }
-  if (state.selectionCollapsed !== expectedCollapsed) {
+  if (state.selectionCollapsed !== options.expectedCollapsed) {
     return false;
   }
-  if (expectedCollapsed) {
+  if (
+    options.minEditorXDeltaFrom &&
+    Math.abs(state.editorRect.x - options.minEditorXDeltaFrom.editorRect.x) <=
+      12
+  ) {
+    return false;
+  }
+  if (
+    options.minEditorWidthDeltaFrom &&
+    Math.abs(
+      state.editorRect.width - options.minEditorWidthDeltaFrom.editorRect.width,
+    ) <= 4
+  ) {
+    return false;
+  }
+  if (!isNativeTextStateAlignedToRow(state)) {
+    return false;
+  }
+  if (options.expectedCollapsed) {
     return state.selectedText === "" && state.caretRect !== null;
   }
   return state.selectedText.length > 0 && state.selectionRect !== null;
+}
+
+function isNativeTextStateAlignedToRow(state: NativeTextSelectionState): boolean {
+  return (
+    Math.abs(state.editorRowDelta.x) <= 3 &&
+    Math.abs(state.editorRowDelta.y) <= 9 &&
+    Math.abs(state.editorRowDelta.width) <= 3 &&
+    Math.abs(state.editorRowDelta.height) <= 9
+  );
 }
 
 async function applyViewportTransformDelta(
@@ -725,6 +786,10 @@ async function dispatchSyntheticCompositionEvent(
     readonly kind: "compositionend" | "compositionstart" | "compositionupdate";
     readonly rowId: string;
   },
+  options: {
+    readonly minEditorWidthDeltaFrom?: NativeCompositionState | undefined;
+    readonly minEditorXDeltaFrom?: NativeCompositionState | undefined;
+  } = {},
 ): Promise<NativeCompositionState> {
   await page.evaluate(
     ({ data, kind }) => {
@@ -757,11 +822,109 @@ async function dispatchSyntheticCompositionEvent(
     },
     { data, kind },
   );
+  if (kind !== "compositionend") {
+    return await waitForNativeCompositionState(page, {
+      expectedLastCompositionData: data,
+      minEditorWidthDeltaFrom: options.minEditorWidthDeltaFrom,
+      minEditorXDeltaFrom: options.minEditorXDeltaFrom,
+      rowId,
+    });
+  }
   const state = await readNativeCompositionState(page, rowId);
   if (!state) {
     throw new Error(`Missing native composition state for ${rowId}.`);
   }
   return state;
+}
+
+async function waitForNativeCompositionState(
+  page: Page,
+  {
+    expectedLastCompositionData,
+    minEditorWidthDeltaFrom,
+    minEditorXDeltaFrom,
+    rowId,
+  }: {
+    readonly expectedLastCompositionData: string;
+    readonly minEditorWidthDeltaFrom?: NativeCompositionState | undefined;
+    readonly minEditorXDeltaFrom?: NativeCompositionState | undefined;
+    readonly rowId: string;
+  },
+): Promise<NativeCompositionState> {
+  const deadline = Date.now() + 5_000;
+  let latestState: NativeCompositionState | null = null;
+  while (Date.now() < deadline) {
+    latestState = await readNativeCompositionState(page, rowId);
+    if (
+      isExpectedNativeCompositionState(latestState, {
+        expectedLastCompositionData,
+        minEditorWidthDeltaFrom,
+        minEditorXDeltaFrom,
+      })
+    ) {
+      return latestState;
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(
+    `Native composition did not reach the expected state. ${JSON.stringify(
+      {
+        expectedLastCompositionData,
+        latestState,
+        minEditorWidthDeltaFrom,
+        minEditorXDeltaFrom,
+        rowId,
+      },
+      null,
+      2,
+    )}`,
+  );
+}
+
+function isExpectedNativeCompositionState(
+  state: NativeCompositionState | null,
+  options: {
+    readonly expectedLastCompositionData: string;
+    readonly minEditorWidthDeltaFrom?: NativeCompositionState | undefined;
+    readonly minEditorXDeltaFrom?: NativeCompositionState | undefined;
+  },
+): state is NativeCompositionState {
+  if (!state?.activeEditorId?.includes(state.rowId)) {
+    return false;
+  }
+  if (!state.activeCompositionControlId?.includes(state.rowId)) {
+    return false;
+  }
+  if (state.lastCompositionData !== options.expectedLastCompositionData) {
+    return false;
+  }
+  if (
+    options.minEditorXDeltaFrom &&
+    Math.abs(state.editorRect.x - options.minEditorXDeltaFrom.editorRect.x) <=
+      12
+  ) {
+    return false;
+  }
+  if (
+    options.minEditorWidthDeltaFrom &&
+    Math.abs(
+      state.editorRect.width - options.minEditorWidthDeltaFrom.editorRect.width,
+    ) <= 4
+  ) {
+    return false;
+  }
+  return isNativeCompositionStateAlignedToRow(state);
+}
+
+function isNativeCompositionStateAlignedToRow(
+  state: NativeCompositionState,
+): boolean {
+  return (
+    Math.abs(state.editorRowDelta.x) <= 3 &&
+    Math.abs(state.editorRowDelta.y) <= 9 &&
+    Math.abs(state.editorRowDelta.width) <= 3 &&
+    Math.abs(state.editorRowDelta.height) <= 9
+  );
 }
 
 async function readNativeCompositionState(

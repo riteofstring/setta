@@ -3,6 +3,7 @@ import { type MutableRefObject } from "react";
 import type { GpuFlowRuntime } from "../gpuDevice";
 
 import {
+  prepareHtmlSurfaceOverlayTextures,
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
@@ -54,7 +55,10 @@ import {
   RetainedContentTexturePageManager,
   type RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
-import { type RetainedDisplayFrame } from "../retainedDisplayFrame";
+import {
+  type RetainedDisplayFrame,
+  type RetainedDisplayFrameOutcome,
+} from "../retainedDisplayFrame";
 import {
   createGpuRetainedRuntimeFrame,
   type GpuRetainedRuntimeFrame,
@@ -63,20 +67,21 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
+import { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
 import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
 } from "./flowFrameInteractionState";
 import {
-  combineGpuFlowHtmlSurfaceNativeVisuals,
-  createGpuFlowRetainedContentNativeVisualSignature,
-} from "./flowFrameVisuals";
-import { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
-import type { GpuFlowNodeLayerState } from "./flowLayerState";
-import {
   reportGpuFlowNodeLayerFramePerformance,
   updateGpuFlowNodeLayerFrameState,
 } from "./flowFrameLifecycle";
+import {
+  combineGpuFlowHtmlSurfaceNativeVisuals,
+  createGpuFlowRetainedContentNativeVisualSignature,
+} from "./flowFrameVisuals";
+import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import { getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds } from "./flowProtectedTextureSurfaceIds";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
@@ -641,6 +646,14 @@ export function renderGpuFlowNodeLayerFrame({
     surfaceRef.current?.requestFrame("texture-upload");
     return null;
   }
+  if (
+    shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
+      deferResolutionUpdates,
+      outcomeKind: retainedDisplayOutcome.kind,
+    })
+  ) {
+    surfaceRef.current?.requestFrame("texture-upload");
+  }
   const publishedRetainedFrame = retainedDisplayOutcome.frame;
   retainedDisplayFrameRef.current = publishedRetainedFrame;
   const publishedRetainedRuntimeFrame =
@@ -700,6 +713,22 @@ export function renderGpuFlowNodeLayerFrame({
       runtimeCanvas: runtime.canvas,
       surfaceRef,
     });
+  const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
+    runtimeScrollOffsets.get(surfaceId) ?? null;
+  prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceGate({
+    input: {
+      canvasSize,
+      deferResolutionUpdates,
+      elementByNodeId: nodeElementByIdRef.current,
+      frame,
+      htmlSurfaceOverlays: layer.edgeLabelSurfaces,
+      marginCssPx: layer.marginCssPx,
+      textureManager: resources.textureManager,
+      uploadBudget: layer.uploadBudget,
+      viewport: liveProjectionSample.viewport,
+    },
+    publicationKind: committedSurfacePublicationGate.kind,
+  });
   if (committedSurfacePublicationGate.kind === "blocked") {
     return null;
   }
@@ -718,8 +747,7 @@ export function renderGpuFlowNodeLayerFrame({
   const htmlSurfaceOverlays =
     projectGpuRetainedDomControlSnapshotSurfaceLayouts({
       controls: publishedRetainedRuntimeFrame.descriptors.domControlSources,
-      getRetainedScrollOffset: (surfaceId) =>
-        runtimeScrollOffsets.get(surfaceId) ?? null,
+      getRetainedScrollOffset: getRetainedDomControlRuntimeScrollOffset,
       overlays: layer.edgeLabelSurfaces,
     });
   const htmlSurfaceFrameStart = performance.now();
@@ -743,6 +771,10 @@ export function renderGpuFlowNodeLayerFrame({
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
+    protectedTextureSurfaceIds:
+      getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds(
+        publishedCommittedSurfaceFrame,
+      ),
     renderer: resources.htmlSurfaceRenderer,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
@@ -877,6 +909,31 @@ function notifyGpuFlowRetainedRuntimeFrame(
   frame: GpuRetainedRuntimeFrame,
 ) {
   callback?.(frame);
+}
+
+function shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
+  deferResolutionUpdates,
+  outcomeKind,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly outcomeKind: RetainedDisplayFrameOutcome["kind"];
+}): boolean {
+  return outcomeKind === "hold-previous" && !deferResolutionUpdates;
+}
+
+function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceGate({
+  input,
+  publicationKind,
+}: {
+  readonly input: Parameters<typeof prepareHtmlSurfaceOverlayTextures>[0];
+  readonly publicationKind: ReturnType<
+    typeof resolveGpuFlowCommittedSurfacePublicationGate
+  >["kind"];
+}) {
+  if (publicationKind === "publish") {
+    return;
+  }
+  prepareHtmlSurfaceOverlayTextures(input);
 }
 
 function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {

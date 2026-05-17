@@ -11,6 +11,12 @@ describe("browser visual actor adapter", () => {
   it("publishes live DOM-control coverage through shared surface entries", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({ value: "hello" }),
+      {
+        representationReadiness: {
+          coverageState: "live-host-ready",
+          resourceHandles: [{ id: "source-a", kind: "source" }],
+        },
+      },
     );
     const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
 
@@ -32,6 +38,61 @@ describe("browser visual actor adapter", () => {
         reason: "interactive-source",
       }),
     ]);
+  });
+
+  it("blocks live DOM-control coverage until runtime host readiness is proven", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({ value: "hello" }),
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor.coverageState).toBe("blocked-awaiting-live-host");
+    expect(actor.representationKind).toBe("blocked");
+    expect(fragment.exactCoverage).toEqual([]);
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
+  });
+
+  it("does not require coverage for overscan-only DOM controls", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        projectionVisibility: "overscan-visible",
+        value: "hello",
+        visualPolicy: "outside-viewport",
+      }),
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageExemption: { reason: "outside-viewport" },
+        coverageRequired: { reason: "none", required: false },
+        coverageState: "coverage-exempt",
+        visibilityReason: "outside-viewport",
+      }),
+    );
+    expect(fragment.blockingSurfaceIds).toEqual([]);
+    expect(fragment.exactCoverage).toEqual([]);
+  });
+
+  it("lets runtime projection exempt stale viewport-visible DOM controls", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({ value: "hello" }),
+      {
+        representationReadiness: { coverageState: "coverage-exempt" },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageExemption: null,
+        coverageRequired: { reason: "none", required: false },
+        coverageState: "coverage-exempt",
+        visibilityReason: "visible",
+      }),
+    );
+    expect(fragment.blockingSurfaceIds).toEqual([]);
+    expect(fragment.exactCoverage).toEqual([]);
   });
 
   it("turns blocked visible DOM-control coverage into transaction-blocking holes", () => {
@@ -56,6 +117,12 @@ describe("browser visual actor adapter", () => {
         value: "hello",
         visualPolicy: "snapshot",
       }),
+      {
+        representationReadiness: {
+          coverageState: "exact-snapshot-ready",
+          resourceHandles: [{ id: "snapshot-a", kind: "texture" }],
+        },
+      },
     );
     const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
 
@@ -63,6 +130,44 @@ describe("browser visual actor adapter", () => {
     expect(fragment.exactCoverage[0]?.resourceHandles).toEqual([
       expect.objectContaining({
         id: expect.stringContaining("snapshot-a"),
+        kind: "texture",
+      }),
+    ]);
+  });
+
+  it("uses exact snapshot coverage for live DOM controls when runtime falls back to a snapshot", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        sourceId: "source-live-overflow",
+        value: "hello",
+      }),
+      {
+        representationReadiness: {
+          coverageState: "exact-snapshot-ready",
+          resourceHandles: [
+            {
+              id: "retained-dom-control-snapshot:source-live-overflow",
+              kind: "texture",
+            },
+          ],
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageState: "exact-snapshot-ready",
+        representation: expect.objectContaining({
+          kind: "passive-snapshot",
+          snapshotId: "retained-dom-control-snapshot:source-live-overflow",
+        }),
+        representationKind: "passive-snapshot",
+      }),
+    );
+    expect(fragment.exactCoverage[0]?.resourceHandles).toEqual([
+      expect.objectContaining({
+        id: "retained-dom-control-snapshot:source-live-overflow",
         kind: "texture",
       }),
     ]);
@@ -113,17 +218,31 @@ describe("browser visual actor adapter", () => {
         worldRect: { height: 24, width: 180, x: 8, y: 12 },
         zOrder: 3,
       }),
+      {
+        representationReadiness: {
+          coverageState: "live-host-ready",
+          resourceHandles: [{ id: "source-control", kind: "source" }],
+        },
+      },
     );
-    const island = createDomIslandBrowserVisualActor({
-      clipOwnerId: "section-a",
-      contentRect: { height: 32, width: 160, x: 0, y: 0 },
-      id: "island-a",
-      kind: "retained-content-control",
-      ownerSectionId: "section-a",
-      rect: { height: 32, width: 160, x: 24, y: 18 },
-      source: { kind: "custom" },
-      zIndex: 9,
-    });
+    const island = createDomIslandBrowserVisualActor(
+      {
+        clipOwnerId: "section-a",
+        contentRect: { height: 32, width: 160, x: 0, y: 0 },
+        id: "island-a",
+        kind: "retained-content-control",
+        ownerSectionId: "section-a",
+        rect: { height: 32, width: 160, x: 24, y: 18 },
+        source: { kind: "custom" },
+        zIndex: 9,
+      },
+      {
+        representationReadiness: {
+          coverageState: "live-host-ready",
+          resourceHandles: [{ id: "island-a", kind: "native-dom-island" }],
+        },
+      },
+    );
     const fragment = createBrowserVisualSurfaceTransactionFragment([
       control,
       island,
@@ -151,6 +270,7 @@ describe("browser visual actor adapter", () => {
 
 function domControl({
   clipRect,
+  projectionVisibility = "viewport-visible",
   snapshotSurfaceId = null,
   sourceId = "source-a",
   value = "",
@@ -159,6 +279,9 @@ function domControl({
   zOrder = 2,
 }: {
   readonly clipRect?: GpuRetainedDomControlSourceDescriptor["clipRectSurfaceCssPx"];
+  readonly projectionVisibility?:
+    | GpuRetainedDomControlSourceDescriptor["projectionVisibility"]
+    | undefined;
   readonly snapshotSurfaceId?: string | null | undefined;
   readonly sourceId?: string | undefined;
   readonly value?: string | undefined;
@@ -178,7 +301,7 @@ function domControl({
     disabled: false,
     error: false,
     geometryRevision: "geometry",
-    projectionVisibility: "viewport-visible",
+    projectionVisibility,
     snapshotCacheKey: {
       placeholder: "",
     },

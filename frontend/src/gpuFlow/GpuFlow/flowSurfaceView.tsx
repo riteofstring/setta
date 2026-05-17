@@ -152,6 +152,7 @@ export function GpuFlowSurfaceView({
             onActivate={onDomControlActivation}
             renderControl={renderRetainedDomControl}
             retainedRuntimeFrame={visibleRetainedRuntimeFrame}
+            surfaceRef={surfaceRef}
             viewportStore={viewportStore}
             viewportRuntime={viewportRuntime}
           />

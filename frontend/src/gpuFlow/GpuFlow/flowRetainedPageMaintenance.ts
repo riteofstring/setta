@@ -9,6 +9,7 @@ type GpuFlowRetainedPageMaintenanceRun = ReturnType<
 >;
 
 const MAX_PRE_PUBLISH_REPAIR_PASSES = 4;
+const PRE_PUBLISH_VISIBLE_EDGE_MAX_UPLOADS = 6;
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
@@ -46,6 +47,7 @@ function runGpuFlowRetainedPageMaintenance({
   retainedContentPageManager,
   refreshFirstVisiblePages = false,
   preserveFirstVisibleSourceRects = false,
+  visibleEdgeMaxUploads,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
@@ -56,6 +58,7 @@ function runGpuFlowRetainedPageMaintenance({
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly visibleEdgeMaxUploads?: number | undefined;
 }): {
   readonly deferred: boolean;
   readonly result: RetainedContentTexturePageMaintenanceResult;
@@ -77,6 +80,7 @@ function runGpuFlowRetainedPageMaintenance({
         refreshFirstVisiblePages,
         // Switch transitions are composited as native visuals, so texture
         // pages cache only the static retained scene state.
+        visibleEdgeMaxUploads,
         viewportInteractionActive: deferResolutionUpdates,
       });
   return { deferred, result };
@@ -113,6 +117,7 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
       preparedFrame: currentFrame,
       publishedProtectedPageKeys: previousProtectedPageKeys,
       retainedContentPageManager,
+      visibleEdgeMaxUploads: PRE_PUBLISH_VISIBLE_EDGE_MAX_UPLOADS,
     });
     maintenance = nextMaintenance;
     currentFrame = nextMaintenance.result.repairedPreparedFrame;

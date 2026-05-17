@@ -9,6 +9,7 @@ import {
   configureGpuNodeHostElement,
   createGpuNodeDomTransformSyncCache,
   markHtmlSurfaceFramePaintDirty,
+  prepareHtmlSurfaceOverlayTextures,
   renderHtmlSurfaceFrame,
   syncGpuNodeDomTransforms,
   syncGpuNodeDomTransformsFromQuads,
@@ -33,7 +34,6 @@ import {
 } from "./frame.test-helper";
 import {
   HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
-  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
 } from "./sourceDom";
 import { HtmlSurfaceTextureManager } from "./textures";
@@ -550,6 +550,51 @@ describe("HTML surface frame helpers", () => {
     expect(culled.style.pointerEvents).toBe("none");
   });
 
+  it("prepares visible overlay textures without rendering a frame", () => {
+    const snapshot = document.createElement("div");
+    const elements = new Map([["snapshot-a", snapshot]]);
+    const manager = createFrameTextureManager();
+
+    const result = prepareHtmlSurfaceOverlayTextures({
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 7,
+      htmlSurfaceOverlays: [
+        {
+          ...surfaceOverlay("snapshot-a", 20, 30, 120, 24, 1),
+          actorKind: "dom-control",
+          layer: "page",
+          textureContentKey: "snapshot-key",
+          textureCssHeight: 24,
+          textureCssWidth: 180,
+          textureSourceRect: { height: 24, width: 120, x: 0, y: 0 },
+        },
+      ],
+      marginCssPx: 0,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith({
+      cssHeight: 24,
+      cssWidth: 180,
+      devicePixelRatio: 2,
+      element: snapshot,
+      frame: 7,
+      priority: "visible",
+      surfaceId: "snapshot-a",
+      textureContentKey: "snapshot-key",
+      textureSourceRect: { height: 24, width: 120, x: 0, y: 0 },
+      zoom: 1,
+    });
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      frame: 7,
+    });
+    expect(
+      result.uploadResult.uploaded.map((record) => record.surfaceId),
+    ).toEqual(["snapshot-a"]);
+  });
+
   it("renders HTML surface overlays after node surfaces without counting them as nodes", () => {
     const nodeElement = document.createElement("div");
     const labelElement = document.createElement("div");
@@ -862,6 +907,30 @@ describe("HTML surface frame helpers", () => {
     });
   });
 
+  it("protects committed browser visual snapshot textures during frame eviction", () => {
+    const visible = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderHtmlSurfaceFrame({
+      activeNodeId: "visible",
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map([["visible", visible]]),
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      protectedTextureSurfaceIds: ["snapshot-a"],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    const evictionInput = manager.evictSurfaceTextures.mock.calls[0]?.[0];
+    expect([...(evictionInput?.protectedSurfaceIds ?? [])]).toEqual([
+      "visible",
+      "snapshot-a",
+    ]);
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -1091,105 +1160,6 @@ describe("HTML surface frame helpers", () => {
     expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 8,
-      reason: "paint",
-      requestPaint: false,
-      surfaceId: "node-a",
-    });
-  });
-
-  it("ignores direct node-wrapper paints caused by viewport transform sync", () => {
-    const nodeElement = createGpuPaintNodeElement("node-a");
-    const child = document.createElement("input");
-    nodeElement.append(child);
-    const manager = {
-      markSurfaceTextureDirty: vi.fn(() => true),
-      markSurfacesPainted: vi.fn(),
-    };
-
-    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
-      changedElements: [nodeElement, child],
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      frame: 9,
-      ignoreDirectNodeIds: new Set(["node-a"]),
-      textureManager: manager,
-    });
-
-    expect(dirtyNodeIds).toEqual(["node-a"]);
-    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
-    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
-    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 9,
-      reason: "paint",
-      requestPaint: false,
-      surfaceId: "node-a",
-    });
-  });
-
-  it("does not dirty transform-only node-wrapper paints", () => {
-    const nodeElement = createGpuPaintNodeElement("node-a");
-    const manager = {
-      markSurfaceTextureDirty: vi.fn(() => true),
-      markSurfacesPainted: vi.fn(),
-    };
-
-    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
-      changedElements: [nodeElement],
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      frame: 9,
-      ignoreDirectNodeIds: ["node-a"],
-      textureManager: manager,
-    });
-
-    expect(dirtyNodeIds).toEqual([]);
-    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
-    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-  });
-
-  it("tracks explicit dirty source paints without marking them dirty again", () => {
-    const nodeElement = createGpuPaintNodeElement("node-a");
-    nodeElement.setAttribute(
-      HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
-      "true",
-    );
-    const manager = {
-      markSurfaceTextureDirty: vi.fn(() => true),
-      markSurfacesPainted: vi.fn(),
-    };
-
-    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
-      changedElements: [nodeElement],
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      frame: 9,
-      textureManager: manager,
-    });
-
-    expect(dirtyNodeIds).toEqual([]);
-    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
-    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
-  });
-
-  it("uses the narrow ancestor fallback only for a single registered node subtree", () => {
-    const nodeElement = createGpuPaintNodeElement("node-a");
-    const wrapper = document.createElement("div");
-    wrapper.append(nodeElement);
-    const manager = {
-      markSurfaceTextureDirty: vi.fn(() => true),
-      markSurfacesPainted: vi.fn(),
-    };
-
-    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
-      changedElements: [wrapper],
-      elementByNodeId: new Map([["node-a", nodeElement]]),
-      frame: 9,
-      textureManager: manager,
-    });
-
-    expect(dirtyNodeIds).toEqual(["node-a"]);
-    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
-    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 9,
       reason: "paint",
       requestPaint: false,
       surfaceId: "node-a",

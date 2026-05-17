@@ -173,12 +173,17 @@ export function renderHtmlSurfaceVisualScene({
 
 export function evictHtmlSurfaceFrameTextures({
   nodeTextureMemoryBudgetBytes,
+  protectedTextureSurfaceIds,
   retainedNodeIds,
   textureManager,
   textureWorkMode,
   visibleSurfaceIds,
 }: {
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
+  readonly protectedTextureSurfaceIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly retainedNodeIds: ReadonlySet<string>;
   readonly textureManager: GpuNodeTextureController;
   readonly textureWorkMode: "content" | "projection";
@@ -194,7 +199,10 @@ export function evictHtmlSurfaceFrameTextures({
     ...(nodeTextureMemoryBudgetBytes === undefined
       ? {}
       : { budgetBytes: nodeTextureMemoryBudgetBytes }),
-    protectedSurfaceIds: retainedNodeIds,
+    protectedSurfaceIds: mergeProtectedSurfaceIds(
+      retainedNodeIds,
+      protectedTextureSurfaceIds,
+    ),
     reason: "html-surface-frame",
     visibleSurfaceIds,
   });
@@ -239,6 +247,19 @@ function createProjectionOnlyEvictionResult({
     protectedSurfaceIds: [],
     reason: "projection-frame",
   };
+}
+
+function mergeProtectedSurfaceIds(
+  retainedNodeIds: ReadonlySet<string>,
+  protectedTextureSurfaceIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined,
+): ReadonlySet<string> {
+  if (!protectedTextureSurfaceIds) {
+    return retainedNodeIds;
+  }
+  return new Set([...retainedNodeIds, ...protectedTextureSurfaceIds]);
 }
 
 function registerVisibleGpuNodeTextures({

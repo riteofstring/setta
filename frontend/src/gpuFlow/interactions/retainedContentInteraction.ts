@@ -5,12 +5,6 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import {
-  hitTestGpuRetainedContentProjectedRuntimeFrame,
-  hitTestGpuRetainedContentRuntimeFrame,
-  hitTestGpuRetainedContentScene,
-  type GpuRetainedContentHitTarget,
-} from "../retainedContentHitTest";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
@@ -19,9 +13,14 @@ import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
+import {
+  hitTestGpuRetainedContentInteraction,
+  type GpuRetainedContentInteractionHit,
+} from "./retainedContentInteractionHitTest";
 
-export type GpuRetainedContentInteractionHit = GpuRetainedContentHitTarget & {
-  readonly screenPoint: GpuPoint;
+export {
+  hitTestGpuRetainedContentInteraction,
+  type GpuRetainedContentInteractionHit,
 };
 
 export type GpuRetainedContentInteractionEvent<
@@ -154,121 +153,15 @@ export function attachGpuRetainedContentInteractionController(
   return () => controller.destroy();
 }
 
-export function hitTestGpuRetainedContentInteraction({
-  element,
-  event,
-  getScene,
-  getRetainedRuntimeFrame,
-  getScrollOffsets,
-  getVisibleProjectionState,
-  store = gpuFlowViewportStore,
-}: {
-  readonly element?: HTMLElement | undefined;
-  readonly event: Pick<PointerEvent, "clientX" | "clientY">;
-  readonly getScene: () => GpuFlowScene | undefined;
-  readonly getRetainedRuntimeFrame?:
-    | (() => GpuRetainedRuntimeFrame | null | undefined)
-    | undefined;
-  readonly getScrollOffsets?:
-    | (() => GpuRetainedContentScrollOffsetMap)
-    | undefined;
-  readonly getVisibleProjectionState?:
-    | (() => GpuFlowVisibleProjectionState | null | undefined)
-    | undefined;
-  readonly store?: GpuFlowViewportStoreApi | undefined;
-}): GpuRetainedContentInteractionHit | null {
-  const context = resolveGpuRetainedContentInteractionHitContext({
-    element,
-    getScene,
-    store,
-  });
-  if (!context) {
-    return null;
-  }
-  const screenPoint = getEventPointRelativeToElement(event, context.domNode);
-  const visibleProjectionState = getVisibleProjectionState?.() ?? null;
-  const flowPoint = screenToFlowPosition(
-    screenPoint,
-    visibleProjectionState?.sample.viewport ?? store.getState().transform,
-  );
-  const hit = hitTestGpuRetainedContentInteractionFrame({
-    getRetainedRuntimeFrame,
-    getScrollOffsets,
-    point: flowPoint,
-    scene: context.scene,
-    visibleProjectionState,
-  });
-  return hit ? { ...hit, screenPoint } : null;
-}
-
-function resolveGpuRetainedContentInteractionHitContext({
-  element,
-  getScene,
-  store,
-}: {
-  readonly element: HTMLElement | undefined;
-  readonly getScene: () => GpuFlowScene | undefined;
-  readonly store: GpuFlowViewportStoreApi;
-}): {
-  readonly domNode: HTMLElement;
-  readonly scene: GpuFlowScene;
-} | null {
-  const scene = getScene();
-  const domNode = element ?? store.getState().domNode;
-  if (!scene || !domNode) {
-    return null;
-  }
-  return { domNode, scene };
-}
-
-function hitTestGpuRetainedContentInteractionFrame({
-  getRetainedRuntimeFrame,
-  getScrollOffsets,
-  point,
-  scene,
-  visibleProjectionState,
-}: {
-  readonly getRetainedRuntimeFrame?:
-    | (() => GpuRetainedRuntimeFrame | null | undefined)
-    | undefined;
-  readonly getScrollOffsets?:
-    | (() => GpuRetainedContentScrollOffsetMap)
-    | undefined;
-  readonly point: GpuPoint;
-  readonly scene: GpuFlowScene;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuRetainedContentHitTarget | null {
-  if (visibleProjectionState) {
-    return hitTestGpuRetainedContentProjectedRuntimeFrame({
-      frame: visibleProjectionState.committedFrame.retainedRuntimeFrame,
-      point,
-      scrollOffsets: visibleProjectionState.sample.retainedScrollOffsets,
-    });
-  }
-  if (getRetainedRuntimeFrame) {
-    const frame = getRetainedRuntimeFrame();
-    return frame
-      ? hitTestGpuRetainedContentRuntimeFrame({ frame, point })
-      : null;
-  }
-  return hitTestGpuRetainedContentScene({
-    point,
-    scrollOffsets: getScrollOffsets?.(),
-    scene,
-  });
-}
-
 class GpuRetainedContentInteractionController {
   private activePointer: ActiveRetainedContentPointer | null = null;
   private dragAnimationFrame: number | null = null;
   private hoveredHitKey: string | null = null;
   private deferredHoverAnimationFrame: number | null = null;
-  private deferredHoverPointerMove:
-    | {
-        readonly nativeEvent: PointerEvent;
-        readonly retryCount: number;
-      }
-    | null = null;
+  private deferredHoverPointerMove: {
+    readonly nativeEvent: PointerEvent;
+    readonly retryCount: number;
+  } | null = null;
   private suppressNextClick: SuppressedRetainedContentClick | null = null;
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentInteractionControllerOptions;
@@ -429,6 +322,9 @@ class GpuRetainedContentInteractionController {
       return;
     }
     this.clearPointerCaptureDiagnostics(event.pointerId);
+    if (!activePointer.dragging) {
+      return;
+    }
     this.cancelActivePointer(event, { releaseCapture: false });
   };
 
@@ -473,10 +369,23 @@ class GpuRetainedContentInteractionController {
       getVisibleProjectionState: this.options.getVisibleProjectionState,
       store: this.store,
     });
-    if (!hit || hitFilter?.(hit) === false) {
-      return null;
+    if (hit && hitFilter?.(hit) !== false) {
+      return hit;
     }
-    return hit;
+    const currentSceneHit = hitTestGpuRetainedContentInteraction({
+      element: this.element,
+      event,
+      forceCurrentScene: true,
+      getScene: this.options.getScene,
+      getRetainedRuntimeFrame: this.options.getRetainedRuntimeFrame,
+      getScrollOffsets: this.options.getScrollOffsets,
+      getVisibleProjectionState: this.options.getVisibleProjectionState,
+      store: this.store,
+    });
+    if (currentSceneHit && hitFilter?.(currentSceneHit) !== false) {
+      return currentSceneHit;
+    }
+    return null;
   }
 
   private shouldSkipPointerEvent(event: Pick<PointerEvent, "target">): boolean {
@@ -536,8 +445,7 @@ class GpuRetainedContentInteractionController {
     }
     if (this.store.getState().viewportInteractionActive) {
       if (
-        pending.retryCount >=
-        MAX_DEFERRED_RETAINED_CONTENT_HOVER_FRAME_RETRIES
+        pending.retryCount >= MAX_DEFERRED_RETAINED_CONTENT_HOVER_FRAME_RETRIES
       ) {
         this.deferredHoverPointerMove = null;
         return;
@@ -660,11 +568,20 @@ class GpuRetainedContentInteractionController {
       clientY: event.clientY,
     };
     const hit = this.hitTestEvent(event);
-    if (!isRetainedContentActivePointerHit(activePointer, hit)) {
-      return;
+    let emittedClick = false;
+    if (isRetainedContentActivePointerHit(activePointer, hit)) {
+      this.options.onHitClick?.({ ...hit, nativeEvent: event });
+      emittedClick = true;
+    } else if (!hit && !this.shouldSkipPointerEvent(event)) {
+      this.options.onHitClick?.({
+        ...activePointer.startHit,
+        nativeEvent: event,
+      });
+      emittedClick = true;
     }
-    this.options.onHitClick?.({ ...hit, nativeEvent: event });
-    this.options.requestFrame?.("manual");
+    if (emittedClick) {
+      this.options.requestFrame?.("manual");
+    }
   }
 
   private createActivePointerDragEvent(

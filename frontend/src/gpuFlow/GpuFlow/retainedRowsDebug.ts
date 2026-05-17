@@ -522,7 +522,14 @@ function createGpuFlowRetainedRowDebugEntry({
     surfaceId: surface.id,
     surfaceLogicalRowCount: sampledRetainedScene.visibleRange.rowCount,
     surfaceScrollOffset: { ...sampledRetainedScene.scrollOffset },
+    surfaceViewportFlowRect: {
+      height: sampledRetainedScene.viewportRect.height,
+      width: sampledRetainedScene.viewportRect.width,
+      x: surface.rect.x + sampledRetainedScene.viewportRect.x,
+      y: surface.rect.y + sampledRetainedScene.viewportRect.y,
+    },
     surfaceViewportHeight: sampledRetainedScene.viewportRect.height,
+    surfaceViewportWidth: sampledRetainedScene.viewportRect.width,
   };
 }
 

@@ -106,13 +106,13 @@ export function syncGpuFlowNodeLayerSceneState({
     activeRetainedContentRuntimeState,
   );
   const nextScene = scene;
-  const previousRetainedRuntimeFrame =
-    nodeLayerRef.current.retainedRuntimeFrame ?? null;
-  const retainedRuntimeFrame =
-    previousRetainedRuntimeFrame?.input.sceneRevision ===
-    (nextScene?.revision ?? 0)
-      ? previousRetainedRuntimeFrame
-      : null;
+  const previousScene = nodeLayerRef.current.scene;
+  const retainedRuntimeFrame = resolveRetainedRuntimeFrameForSceneStateSync({
+    nextScene,
+    previousRetainedRuntimeFrame:
+      nodeLayerRef.current.retainedRuntimeFrame ?? null,
+    previousScene,
+  });
   const nextHtmlSurfaceNativeVisuals = htmlSurfaceNativeVisuals;
   nodeLayerRef.current = {
     edgeScene,
@@ -153,6 +153,29 @@ export function syncGpuFlowNodeLayerSceneState({
     );
   }
   surfaceRef.current?.requestFrame("viewport");
+}
+
+function resolveRetainedRuntimeFrameForSceneStateSync({
+  nextScene,
+  previousRetainedRuntimeFrame,
+  previousScene,
+}: {
+  readonly nextScene: GpuFlowScene | undefined;
+  readonly previousRetainedRuntimeFrame:
+    | GpuFlowNodeLayerState["retainedRuntimeFrame"]
+    | null;
+  readonly previousScene: GpuFlowScene | undefined;
+}): GpuFlowNodeLayerState["retainedRuntimeFrame"] | null {
+  if (previousScene !== nextScene) {
+    return null;
+  }
+  if (
+    previousRetainedRuntimeFrame?.input.sceneRevision !==
+    (nextScene?.revision ?? 0)
+  ) {
+    return null;
+  }
+  return previousRetainedRuntimeFrame;
 }
 
 function isGpuFlowNodeLayerEmpty({

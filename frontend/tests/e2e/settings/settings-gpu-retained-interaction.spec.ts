@@ -93,6 +93,7 @@ test("settings retained controls and text editors stay local to the row", async 
   );
   await expect(guiNode).toBeVisible();
   await expect.poll(() => readNodesSelectionBounds(page)).toBeNull();
+  await waitForGpuFlowIdle(page);
 
   const initialLeftPaneShift = Boolean(
     await readGuiSetting(page, "leftSidePaneShiftsMap"),
@@ -110,16 +111,12 @@ test("settings retained controls and text editors stay local to the row", async 
       page,
       "Left Side Pane Shifts Map",
     );
-    await page.mouse.click(
-      leftPaneTarget.clientPoint.x,
-      leftPaneTarget.clientPoint.y,
+    await clickRetainedControlUntilGuiSetting(
+      page,
+      leftPaneTarget,
+      "leftSidePaneShiftsMap",
+      !initialLeftPaneShift,
     );
-
-    await expect
-      .poll(async () =>
-        Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
-      )
-      .toBe(!initialLeftPaneShift);
     await expect
       .poll(() => pixelDistanceFromFocusedRowBackground(page, leftPaneTarget))
       .toBeGreaterThan(18);
@@ -365,19 +362,82 @@ async function clickRetainedControlUntilGuiSetting(
   const deadlineMs = Date.now() + 5_000;
   let value = Boolean(await readGuiSetting(page, key));
   let currentTarget = target;
+  const attempts: unknown[] = [];
   while (Date.now() < deadlineMs) {
     currentTarget = await resolveRetainedControlTarget(page, target.label);
-    await page.mouse.click(
+    const before = Boolean(await readGuiSetting(page, key));
+    const hitTarget = await readElementAtPoint(page, currentTarget.clientPoint);
+    await page.mouse.move(
       currentTarget.clientPoint.x,
       currentTarget.clientPoint.y,
     );
-    await page.waitForTimeout(50);
-    value = Boolean(await readGuiSetting(page, key));
-    if (value === expectedValue) {
-      return;
+    await page.mouse.down();
+    await page.waitForTimeout(16);
+    const pointerDownSnapshot = await readGpuFlowDebugSnapshot(page);
+    await page.mouse.up();
+    const settleDeadlineMs = Date.now() + 500;
+    while (Date.now() < settleDeadlineMs) {
+      value = Boolean(await readGuiSetting(page, key));
+      if (value === expectedValue) {
+        return;
+      }
+      await page.waitForTimeout(50);
     }
+    const snapshot = await readGpuFlowDebugSnapshot(page);
+    attempts.push({
+      after: value,
+      before,
+      debug: snapshot
+        ? {
+            activeMode: snapshot.activeMode,
+            activeRetainedHit: snapshot.activeRetainedHit,
+            lastPointer: snapshot.lastPointer,
+          }
+        : null,
+      hitTarget,
+      pointerDownDebug: pointerDownSnapshot
+        ? {
+            activeMode: pointerDownSnapshot.activeMode,
+            activeRetainedHit: pointerDownSnapshot.activeRetainedHit,
+            lastPointer: pointerDownSnapshot.lastPointer,
+          }
+        : null,
+      target: currentTarget,
+    });
   }
-  expect(value).toBe(expectedValue);
+  expect(
+    value,
+    JSON.stringify({ attempts, expectedValue, key, value }, null, 2),
+  ).toBe(expectedValue);
+}
+
+async function readElementAtPoint(
+  page: Page,
+  point: { readonly x: number; readonly y: number },
+): Promise<unknown> {
+  return await page.evaluate((point) => {
+    const element = document.elementFromPoint(point.x, point.y);
+    if (!(element instanceof Element)) {
+      return null;
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      className: typeof element.className === "string" ? element.className : "",
+      gpuFlowControl: element
+        .closest("[data-gpu-flow-control]")
+        ?.getAttribute("data-gpu-flow-control"),
+      retainedDomControlRowId: element
+        .closest("[data-gpu-flow-dom-control-row-id]")
+        ?.getAttribute("data-gpu-flow-dom-control-row-id"),
+      tagName: element.tagName.toLowerCase(),
+      rect: {
+        height: rect.height,
+        width: rect.width,
+        x: rect.x,
+        y: rect.y,
+      },
+    };
+  }, point);
 }
 
 async function readRetainedRowFocused(

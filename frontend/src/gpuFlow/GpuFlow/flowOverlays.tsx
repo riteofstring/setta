@@ -1,5 +1,6 @@
 import { useMemo, type MutableRefObject, type ReactNode } from "react";
 
+import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
@@ -30,6 +31,7 @@ type GpuFlowOverlaySources = {
 };
 
 export function useGpuFlowOverlaySources({
+  committedSurfaceRuntime,
   edgeScene,
   layoutStore,
   nodeDomTransformSyncCacheRef,
@@ -43,6 +45,7 @@ export function useGpuFlowOverlaySources({
   transformOnlyPaintNodeIdsRef,
   viewportStore,
 }: {
+  readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
   readonly edgeScene: GpuEdgeScene | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi | undefined;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
@@ -72,6 +75,7 @@ export function useGpuFlowOverlaySources({
     retainedDomControlSnapshotSourceElement,
     retainedDomControlSnapshotSurfaces,
   } = useGpuFlowRetainedDomControlSnapshotSources({
+    committedSurfaceRuntime,
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     renderControl: renderRetainedDomControl,

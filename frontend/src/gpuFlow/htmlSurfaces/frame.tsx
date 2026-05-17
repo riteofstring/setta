@@ -219,6 +219,10 @@ type RenderHtmlSurfaceFrameInput = {
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
+  readonly protectedTextureSurfaceIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly renderer: GpuNodeSurfaceRenderTarget;
   readonly domTransformCache?: GpuNodeDomTransformSyncCache | undefined;
   readonly textureManager: GpuNodeTextureController;
@@ -372,6 +376,7 @@ export function renderHtmlSurfaceFrame({
   marginCssPx,
   nodes,
   nodeTextureMemoryBudgetBytes,
+  protectedTextureSurfaceIds,
   renderer,
   textureManager,
   textureWorkMode = "content",
@@ -511,6 +516,7 @@ export function renderHtmlSurfaceFrame({
   });
   const evictionResult = evictHtmlSurfaceFrameTextures({
     nodeTextureMemoryBudgetBytes,
+    protectedTextureSurfaceIds,
     retainedNodeIds,
     textureManager,
     textureWorkMode,
@@ -566,6 +572,54 @@ export function renderHtmlSurfaceFrame({
     visibleNodeIds: [...visibleNodeIds],
     visualScene,
   };
+}
+
+export function prepareHtmlSurfaceOverlayTextures({
+  canvasSize,
+  deferResolutionUpdates,
+  elementByNodeId,
+  frame,
+  htmlSurfaceOverlays,
+  marginCssPx,
+  textureManager,
+  uploadBudget,
+  viewport,
+}: Pick<
+  RenderHtmlSurfaceFrameInput,
+  | "canvasSize"
+  | "deferResolutionUpdates"
+  | "elementByNodeId"
+  | "frame"
+  | "htmlSurfaceOverlays"
+  | "marginCssPx"
+  | "textureManager"
+  | "uploadBudget"
+  | "viewport"
+>) {
+  const visibleOverlayQuads = collectVisibleGpuHtmlSurfaceOverlayQuads({
+    canvasHeight: canvasSize.cssHeight,
+    canvasWidth: canvasSize.cssWidth,
+    marginCssPx,
+    overlays: htmlSurfaceOverlays,
+    viewport,
+  });
+  const activeSurfaceIds = getActiveGpuHtmlSurfaceOverlayIds(
+    new Set(),
+    htmlSurfaceOverlays,
+  );
+  return resolveHtmlSurfaceFrameTextureWork({
+    activeSurfaceIds,
+    canvasSize,
+    deferResolutionUpdates,
+    elementByNodeId,
+    frame,
+    nodeSurfaceIds: new Set(),
+    textureManager,
+    textureWorkMode: "content",
+    uploadBudget,
+    viewport,
+    visibleSurfaceQuads: visibleOverlayQuads,
+  });
 }
 
 function toHtmlSurfaceActorLayouts(

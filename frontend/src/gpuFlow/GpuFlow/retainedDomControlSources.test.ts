@@ -220,17 +220,20 @@ describe("getGpuRetainedDomControlSources", () => {
     const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
       retainedRuntimeFrame: runtimeFrame,
     });
-    expect(committedFrame.projectionHorizon.textActorCoverage).toEqual(
-      expect.objectContaining({
-        exactLiveDomActorIds: expect.arrayContaining(
-          liveSources.map((source) => source.sourceId),
-        ),
-        exactSnapshotActorIds: expect.arrayContaining(
-          snapshotSources.map((source) => source.sourceId),
-        ),
-      }),
+    const coverage = committedFrame.projectionHorizon.textActorCoverage;
+    const blockedActorIds = new Set([
+      ...coverage.blockedAwaitingLiveHostActorIds,
+      ...coverage.blockedAwaitingBrowserVisualActorIds,
+    ]);
+    for (const source of liveSources) {
+      expect(blockedActorIds.has(source.sourceId)).toBe(true);
+    }
+    expect(coverage.blockedAwaitingBrowserVisualActorIds).toEqual(
+      expect.arrayContaining(snapshotSources.map((source) => source.sourceId)),
     );
-    expect(committedFrame.diagnostics.textActorExactCoverageCount).toBe(80);
+    expect(coverage.exactLiveDomActorIds).toEqual([]);
+    expect(coverage.exactSnapshotActorIds).toEqual([]);
+    expect(committedFrame.diagnostics.textActorExactCoverageCount).toBe(0);
 
     const firstSnapshotLayout =
       getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources)[0];
@@ -266,10 +269,9 @@ describe("getGpuRetainedDomControlSources", () => {
       viewportSize: { height: 2_200, width: 320 },
       viewportZoomBucket: 1,
     });
-    const firstSnapshotSource =
-      firstFrame.descriptors.domControlSources.find(
-        (source) => source.visualPolicy === "snapshot",
-      );
+    const firstSnapshotSource = firstFrame.descriptors.domControlSources.find(
+      (source) => source.visualPolicy === "snapshot",
+    );
     if (!firstSnapshotSource) {
       throw new Error("Expected a snapshot-backed DOM control source.");
     }
@@ -317,7 +319,8 @@ describe("getGpuRetainedDomControlSources", () => {
       retainedRuntimeFrame: nextFrame,
     });
     expect(
-      committedFrame.projectionHorizon.textActorCoverage.exactSnapshotActorIds,
+      committedFrame.projectionHorizon.textActorCoverage
+        .blockedAwaitingBrowserVisualActorIds,
     ).toContain(nextSnapshotSource.sourceId);
   });
 

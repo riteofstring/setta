@@ -117,6 +117,50 @@ describe("retained display frame publisher", () => {
     ).toEqual(["surface"]);
   });
 
+  it("publishes a current-scene cold placeholder instead of holding an incompatible previous scene", () => {
+    const previousDescriptor = pageDescriptor({ surfaceId: "surface-a" });
+    const nextDescriptor = pageDescriptor({ surfaceId: "surface-b" });
+    const previous = publishRetainedDisplayFrame({
+      prepared: preparedFrame({
+        drawRegions: [pageDrawRegion(previousDescriptor)],
+        frame: 1,
+        scene: sceneWithRetainedSurface("surface-a"),
+        visibleRegionTargets: [previousDescriptor],
+      }),
+      previous: null,
+    });
+    const missingRect = { height: 32, width: 32, x: 16, y: 16 };
+    const outcome = resolveRetainedDisplayFrameTransaction({
+      nowMs: 20,
+      prepared: preparedFrame({
+        frame: 2,
+        scene: sceneWithRetainedSurface("surface-b"),
+        visibleRegionTargets: [nextDescriptor],
+        trueHoleRectsCss: [missingRect],
+      }),
+      previous,
+    });
+
+    expect(outcome.kind).toBe("publish-cold-placeholder");
+    expect(
+      outcome.kind === "publish-cold-placeholder"
+        ? outcome.frame.retainedRuntimeFrame.descriptors.sourceSurfaces.map(
+            (surface) => surface.id,
+          )
+        : null,
+    ).toEqual(["surface-b"]);
+    expect(
+      outcome.kind === "publish-cold-placeholder"
+        ? outcome.frame.flatSurfaces
+        : [],
+    ).toEqual([]);
+    expect(
+      outcome.kind === "publish-cold-placeholder"
+        ? outcome.frame.diagnostics.coverageReadiness
+        : null,
+    ).toBe("cold-placeholder");
+  });
+
   it("holds scroll frames that would expose true-hole coverage", () => {
     const descriptor = pageDescriptor();
     const previous = publishRetainedDisplayFrame({
@@ -301,7 +345,7 @@ describe("retained display frame publisher", () => {
     ).toThrow(/committed visual epoch coverage/);
   });
 
-  it("blocks first publication when visible browser text actors have no representation coverage", () => {
+  it("leaves browser text actor readiness to committed-surface publication", () => {
     const outcome = resolveRetainedDisplayFrameTransaction({
       prepared: preparedFrame({
         scene: sceneWithTextRows(100),
@@ -310,10 +354,10 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
 
-    expect(outcome.kind).toBe("block-cold-first-coverage");
+    expect(outcome.kind).toBe("publish-exact");
   });
 
-  it("holds previous coverage when visible browser text actor coverage is blocked", () => {
+  it("does not hold retained page publication for browser text actor coverage", () => {
     const previous = publishRetainedDisplayFrame({
       prepared: preparedFrame({
         frame: 1,
@@ -332,14 +376,9 @@ describe("retained display frame publisher", () => {
       previous,
     });
 
-    expect(outcome.kind).toBe("hold-previous");
     expect(
-      outcome.kind === "hold-previous"
-        ? outcome.diagnostics.blockingSurfaceIds.some((surfaceId) =>
-            surfaceId.startsWith("dom-control:"),
-          )
-        : false,
-    ).toBe(true);
+      outcome.kind === "publish-exact" ? outcome.frame.diagnostics : null,
+    ).toEqual(expect.objectContaining({ transactionOutcome: "publish-exact" }));
   });
 });
 
@@ -571,6 +610,37 @@ function nativeIsland(id: string): GpuDomIsland {
     rect: { height: 16, width: 32, x: 4, y: 8 },
     source: { kind: "custom" },
     zIndex: 1,
+  };
+}
+
+function sceneWithRetainedSurface(surfaceId: string): GpuFlowScene {
+  const rect = { height: 64, width: 64, x: 0, y: 0 };
+  return {
+    contentSurfaces: [
+      {
+        clipRect: rect,
+        id: surfaceId,
+        ownerSectionId: "section",
+        rect,
+        renderer: {
+          kind: "canvas-content",
+          surfaceId,
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: surfaceId,
+          ownerSectionId: "section",
+          rowHeight: 24,
+          rows: [{ depth: 0, id: "row", label: "Row" }],
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: rect,
+        }),
+        zIndex: 0,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }
 

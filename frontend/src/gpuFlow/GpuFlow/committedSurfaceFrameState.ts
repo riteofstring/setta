@@ -9,6 +9,7 @@ import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 
 export function useGpuFlowCommittedSurfaceFrameState({
   initialRetainedRuntimeFrame,
@@ -64,7 +65,16 @@ export function useGpuFlowCommittedSurfaceFrameState({
     ): GpuFlowCommittedSurfaceFrame => {
       const previousCommittedSurfaceFrame =
         committedSurfaceRuntimeRef.current.getCommittedContentFrame();
+      const browserVisualRuntime =
+        getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+          committedSurfaceRuntimeRef.current,
+        );
+      const browserVisualReadiness =
+        browserVisualRuntime.prepareCommittedSurfaceFrame({
+          retainedDisplayFrame: nextRetainedDisplayFrame,
+        });
       const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
+        browserVisualReadiness,
         gpuNativeVisuals: options?.gpuNativeVisuals,
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,

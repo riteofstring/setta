@@ -4,12 +4,14 @@ import {
   useMemo,
   useRef,
   useSyncExternalStore,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
   GpuRetainedDomControlActivation,
   GpuRetainedDomControlSourceDescriptor,
@@ -91,6 +93,7 @@ export function GpuFlowDomControlPlane({
   onActivate,
   renderControl,
   retainedRuntimeFrame,
+  surfaceRef,
   viewportStore,
   viewportRuntime,
 }: {
@@ -102,12 +105,14 @@ export function GpuFlowDomControlPlane({
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly renderControl: GpuFlowDomControlRenderer | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
+  readonly surfaceRef?: MutableRefObject<GpuSurfaceHandle | null> | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
   const fallbackRuntimeRef = useRef<GpuFlowBrowserVisualActorRuntime | null>(
     null,
   );
+  const projectedFrameRequestKeyRef = useRef<string>("");
   const browserVisualRuntime = useMemo(() => {
     if (committedSurfaceRuntime) {
       return getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
@@ -123,6 +128,8 @@ export function GpuFlowDomControlPlane({
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
   );
   const frameIds = snapshot.frameIds;
+  const frameIdsRef = useRef(frameIds);
+  frameIdsRef.current = frameIds;
   const controlsToMount = snapshot.domControls.mountedControls;
   const assignmentsToMount = snapshot.domControls.assignments;
   const assignmentByControlId = useMemo(
@@ -141,12 +148,13 @@ export function GpuFlowDomControlPlane({
       control: GpuRetainedDomControlSourceDescriptor,
       element: HTMLElement | null,
     ) => {
+      const currentFrameIds = frameIdsRef.current;
       const finishMeasure = startGpuFlowPerformanceMeasure(
         "dom-control-host-assignment",
         {
-          committedFrameId: frameIds.committedFrameId,
+          committedFrameId: currentFrameIds.committedFrameId,
           controlId: control.sourceId,
-          runtimeFrameId: frameIds.runtimeFrameId,
+          runtimeFrameId: currentFrameIds.runtimeFrameId,
         },
       );
       try {
@@ -154,11 +162,17 @@ export function GpuFlowDomControlPlane({
           control,
           element,
         });
+        if (element) {
+          surfaceRef?.current?.requestFrame("texture-upload");
+        }
       } finally {
         finishMeasure();
       }
     },
-    [browserVisualRuntime, frameIds.committedFrameId, frameIds.runtimeFrameId],
+    [
+      browserVisualRuntime,
+      surfaceRef,
+    ],
   );
 
   useLayoutEffect(() => {
@@ -246,6 +260,12 @@ export function GpuFlowDomControlPlane({
   }, [browserVisualRuntime, controlsToMount.length, frameIds, viewportStore]);
 
   useLayoutEffect(() => {
+    const projectionFrameKey = [
+      frameIds.committedFrameId,
+      frameIds.runtimeFrameId,
+      controlsToMount.length,
+      snapshot.domControls.sourceRevision,
+    ].join(":");
     const finishMeasure = startGpuFlowPerformanceMeasure(
       "dom-control-projection",
       {
@@ -256,10 +276,23 @@ export function GpuFlowDomControlPlane({
     );
     try {
       browserVisualRuntime.projectDomControls();
+      if (
+        controlsToMount.length > 0 &&
+        projectedFrameRequestKeyRef.current !== projectionFrameKey
+      ) {
+        projectedFrameRequestKeyRef.current = projectionFrameKey;
+        surfaceRef?.current?.requestFrame("texture-upload");
+      }
     } finally {
       finishMeasure();
     }
-  }, [browserVisualRuntime, controlsToMount.length, frameIds]);
+  }, [
+    browserVisualRuntime,
+    controlsToMount.length,
+    frameIds,
+    snapshot.domControls.sourceRevision,
+    surfaceRef,
+  ]);
 
   useLayoutEffect(() => {
     const view = window as typeof window & {
@@ -340,6 +373,11 @@ function GpuFlowDomControlHost({
     element: HTMLElement | null,
   ) => void;
 }) {
+  const hostElementRef = useRef<HTMLDivElement | null>(null);
+  const latestControlRef = useRef(control);
+  const registeredControlRef =
+    useRef<GpuRetainedDomControlSourceDescriptor | null>(null);
+  latestControlRef.current = control;
   const geometry = projectGpuFlowDomControlPlaneGeometry({
     control,
     getRetainedScrollOffset,
@@ -349,6 +387,32 @@ function GpuFlowDomControlHost({
     assignment,
     active: control.active,
   });
+  const setHostElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      hostElementRef.current = element;
+      if (element) {
+        const nextControl = latestControlRef.current;
+        registeredControlRef.current = nextControl;
+        setControlElement(nextControl, element);
+        return;
+      }
+      const previousControl =
+        registeredControlRef.current ?? latestControlRef.current;
+      registeredControlRef.current = null;
+      setControlElement(previousControl, null);
+    },
+    [setControlElement],
+  );
+
+  useLayoutEffect(() => {
+    const element = hostElementRef.current;
+    if (!element || registeredControlRef.current === control) {
+      return;
+    }
+    registeredControlRef.current = control;
+    setControlElement(control, element);
+  }, [control, setControlElement]);
+
   return (
     <div
       aria-hidden={
@@ -383,7 +447,7 @@ function GpuFlowDomControlHost({
           kind: "pointer",
         });
       }}
-      ref={(element) => setControlElement(control, element)}
+      ref={setHostElement}
       style={initialStyle}
     >
       <div

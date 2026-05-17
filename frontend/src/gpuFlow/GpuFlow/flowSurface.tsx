@@ -264,6 +264,7 @@ export function GpuFlow({
     retainedDomControlSnapshotSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
+    committedSurfaceRuntime,
     edgeScene,
     layoutStore,
     nodeDomTransformSyncCacheRef,
@@ -298,6 +299,7 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    retainedRuntimeFrame: initialRetainedRuntimeFrame,
     scene,
     uploadBudget,
     viewport: viewport ?? viewportRuntime.getViewportTuple(),

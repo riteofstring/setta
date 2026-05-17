@@ -1,3 +1,13 @@
+import { freezeActor } from "./committedSurfaceActorFreeze";
+import {
+  assertGpuFlowBrowserVisualSurfaceFragment,
+  createGpuFlowCommittedSurfaceBrowserVisualFragment,
+  createGpuFlowCommittedSurfaceTransaction,
+} from "./committedSurfaceBrowserVisualFragment";
+import {
+  assertGpuFlowCommittedSurfaceCompleteness,
+  createGpuFlowCommittedSurfaceCompleteness,
+} from "./committedSurfaceCompleteness";
 import {
   assertGpuFlowContentFramePublishability,
   assertGpuFlowProjectionHorizon,
@@ -5,7 +15,10 @@ import {
   createGpuFlowProjectionHorizon,
   isGpuFlowCommittedTextActor,
 } from "./committedSurfaceFrameProjection";
-import { createDomControlActors } from "./committedSurfaceTextActor";
+import {
+  createDomControlActorSet,
+  type DomControlActorOptions,
+} from "./committedSurfaceTextActor";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
@@ -16,8 +29,11 @@ import type { GpuDomIsland } from "./scene";
 import {
   createDomIslandBrowserVisualActor,
   type BrowserVisualActor,
+  type BrowserVisualActorRepresentationReadiness,
+  type BrowserVisualSurfaceTransactionFragment,
 } from "./surfaceCompositor/browserVisualActorAdapter";
 import type { SurfaceActorSnapshot } from "./surfaceCompositor/surfaceActor";
+import type { SurfaceDisplayTransaction } from "./surfaceCompositor/surfaceTransaction";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
 type GpuFlowCommittedSurfaceActorKind =
@@ -26,10 +42,6 @@ type GpuFlowCommittedSurfaceActorKind =
   | "dom-island"
   | "html-texture"
   | "gpu-native-visual";
-
-type GpuFlowCommittedSurfaceActorFamily =
-  | GpuFlowCommittedSurfaceActorKind
-  | "text-like-dom-control";
 
 export type GpuFlowTextActorActivationPolicy =
   | "allowed"
@@ -94,7 +106,9 @@ export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly accessibilityProjection: "browser-dom" | "none";
   readonly activationPolicy: GpuFlowTextActorActivationPolicy | "none";
   readonly actorId: string;
-  readonly actorFamily: GpuFlowCommittedSurfaceActorFamily;
+  readonly actorFamily:
+    | GpuFlowCommittedSurfaceActorKind
+    | "text-like-dom-control";
   readonly browserVisual: GpuFlowCommittedSurfaceBrowserVisualContract | null;
   readonly clipChainRevision: string;
   readonly clipRect: GpuRect;
@@ -133,7 +147,7 @@ export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly zOrder: number;
 };
 
-type GpuFlowCommittedSurfaceActorGenerationInput = Omit<
+export type GpuFlowCommittedSurfaceActorGenerationInput = Omit<
   GpuFlowCommittedSurfaceActorGeneration,
   | "accessibilityProjection"
   | "activationPolicy"
@@ -255,6 +269,7 @@ export type GpuFlowProjectionHorizon = {
 
 export type GpuFlowCommittedSurfaceFrame = {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly browserVisualSurfaceFragment: BrowserVisualSurfaceTransactionFragment;
   readonly coherence: GpuFlowCommittedSurfaceCoherence;
   readonly diagnostics: {
     readonly actorCount: number;
@@ -275,14 +290,31 @@ export type GpuFlowCommittedSurfaceFrame = {
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly sceneRevision: number;
+  readonly surfaceTransaction: SurfaceDisplayTransaction | null;
   readonly viewportSample: GpuViewportInput;
 };
 
+export type GpuFlowCommittedSurfaceBrowserVisualReadiness = {
+  readonly domControlReadinessByActorId: ReadonlyMap<
+    string,
+    BrowserVisualActorRepresentationReadiness
+  >;
+  readonly domIslandReadinessByActorId: ReadonlyMap<
+    string,
+    BrowserVisualActorRepresentationReadiness
+  >;
+};
+
 export function createGpuFlowCommittedSurfaceFrame({
+  browserVisualReadiness,
   gpuNativeVisuals,
   previousCommittedSurfaceFrame,
   retainedDisplayFrame,
 }: {
+  readonly browserVisualReadiness?:
+    | GpuFlowCommittedSurfaceBrowserVisualReadiness
+    | null
+    | undefined;
   readonly gpuNativeVisuals?:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
@@ -293,28 +325,32 @@ export function createGpuFlowCommittedSurfaceFrame({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): GpuFlowCommittedSurfaceFrame {
   const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
+  const domControlActorOptions = createCommittedSurfaceDomControlActorOptions({
+    browserVisualReadiness,
+    previousCommittedSurfaceFrame,
+  });
+  const domControlActorSet = createDomControlActorSet(
+    retainedRuntimeFrame,
+    domControlActorOptions,
+  );
+  const domIslandActorSet = createDomIslandActorSet({
+    browserVisualReadinessByActorId:
+      browserVisualReadiness?.domIslandReadinessByActorId,
+    retainedRuntimeFrame,
+  });
+  const browserVisualSurfaceFragment =
+    createGpuFlowCommittedSurfaceBrowserVisualFragment([
+      ...domControlActorSet.browserVisualActors,
+      ...domIslandActorSet.browserVisualActors,
+    ]);
   const actorGenerations = Object.freeze([
     ...createRetainedPageActors(retainedDisplayFrame.surfaceActorSnapshots),
     ...createHtmlTextureActors({
       retainedRuntimeFrame,
       surfaces: retainedDisplayFrame.flatSurfaces,
     }),
-    ...createDomControlActors(
-      retainedRuntimeFrame,
-      previousCommittedSurfaceFrame
-        ? {
-            previousCommittedSurfaceActors:
-              previousCommittedSurfaceFrame.actorGenerations,
-            previousRetainedRuntimeFrame:
-              previousCommittedSurfaceFrame.retainedRuntimeFrame,
-            previousTransactionId:
-              createGpuFlowCommittedSurfacePreviousTransactionId(
-                previousCommittedSurfaceFrame,
-              ),
-          }
-        : {},
-    ),
-    ...createDomIslandActors(retainedRuntimeFrame),
+    ...domControlActorSet.actorGenerations,
+    ...domIslandActorSet.actorGenerations,
     ...createGpuNativeVisualActors({
       retainedRuntimeFrame,
       visuals:
@@ -324,6 +360,7 @@ export function createGpuFlowCommittedSurfaceFrame({
   ]);
   const frame = freezeCommittedSurfaceFrame({
     actorGenerations,
+    browserVisualSurfaceFragment,
     displayFrameId: retainedDisplayFrame.id,
     retainedDisplayFrame,
     retainedRuntimeFrame,
@@ -338,9 +375,16 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
 }: {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): GpuFlowCommittedSurfaceFrame {
+  const domControlActorSet = createDomControlActorSet(retainedRuntimeFrame);
+  const domIslandActorSet = createDomIslandActorSet({ retainedRuntimeFrame });
+  const browserVisualSurfaceFragment =
+    createGpuFlowCommittedSurfaceBrowserVisualFragment([
+      ...domControlActorSet.browserVisualActors,
+      ...domIslandActorSet.browserVisualActors,
+    ]);
   const actorGenerations = Object.freeze([
-    ...createDomControlActors(retainedRuntimeFrame),
-    ...createDomIslandActors(retainedRuntimeFrame),
+    ...domControlActorSet.actorGenerations,
+    ...domIslandActorSet.actorGenerations,
     ...createGpuNativeVisualActors({
       retainedRuntimeFrame,
       visuals: retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
@@ -348,6 +392,7 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
   ]);
   const frame = freezeCommittedSurfaceFrame({
     actorGenerations,
+    browserVisualSurfaceFragment,
     displayFrameId: retainedRuntimeFrame.frameId,
     retainedDisplayFrame: null,
     retainedRuntimeFrame,
@@ -405,6 +450,10 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
     frame.displayCompleteness,
     expectedCompleteness,
   );
+  assertGpuFlowBrowserVisualSurfaceFragment({
+    actorGenerations: frame.actorGenerations,
+    browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
+  });
   assertGpuFlowContentFramePublishability(
     frame.publishability,
     createGpuFlowContentFramePublishability({
@@ -425,12 +474,14 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
 
 function freezeCommittedSurfaceFrame({
   actorGenerations,
+  browserVisualSurfaceFragment,
   displayFrameId,
   retainedDisplayFrame,
   retainedRuntimeFrame,
   transactionOutcome,
 }: {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly browserVisualSurfaceFragment: BrowserVisualSurfaceTransactionFragment;
   readonly displayFrameId: number;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
@@ -450,12 +501,25 @@ function freezeCommittedSurfaceFrame({
     actorGenerations,
     displayFrameId,
   });
+  const surfaceTransaction =
+    retainedDisplayFrame && publishability.kind === "publishable"
+      ? createGpuFlowCommittedSurfaceTransaction({
+          browserVisualSurfaceFragment,
+          displayFrameId: retainedDisplayFrame.id,
+          retainedSurfaceTransaction: retainedDisplayFrame.surfaceTransaction,
+        })
+      : null;
   const clipChainRevision = createCommittedClipChainRevision({
     actorGenerations,
     retainedRuntimeFrame,
   });
+  const hitGenerationId =
+    surfaceTransaction?.hitIndex.id ??
+    retainedDisplayFrame?.surfaceTransaction.hitIndex.id ??
+    `startup-hit:${displayFrameId}`;
   return Object.freeze({
     actorGenerations,
+    browserVisualSurfaceFragment,
     coherence: Object.freeze({
       canvasRetainedFrameId: displayFrameId,
       clipChainRevision,
@@ -463,9 +527,7 @@ function freezeCommittedSurfaceFrame({
       domControlCommittedFrameId: displayFrameId,
       domIslandCommittedFrameId: displayFrameId,
       gpuNativeVisualCommittedFrameId: displayFrameId,
-      hitGenerationId:
-        retainedDisplayFrame?.surfaceTransaction.hitIndex.id ??
-        `startup-hit:${displayFrameId}`,
+      hitGenerationId,
       htmlTextureOverlayCommittedFrameId: displayFrameId,
       retainedScrollRevision: retainedRuntimeFrame.input.scrollRevision,
     }),
@@ -503,6 +565,7 @@ function freezeCommittedSurfaceFrame({
     retainedDisplayFrame,
     retainedRuntimeFrame,
     sceneRevision: retainedRuntimeFrame.input.sceneRevision,
+    surfaceTransaction,
     viewportSample: retainedRuntimeFrame.input.viewport,
   });
 }
@@ -651,27 +714,64 @@ function getHtmlTextureSourceRect(surface: HtmlSurfaceFlatVisual): GpuRect {
   );
 }
 
-function createDomIslandActors(
-  retainedRuntimeFrame: GpuRetainedRuntimeFrame,
-): readonly GpuFlowCommittedSurfaceActorGeneration[] {
-  return Object.freeze(
-    retainedRuntimeFrame.descriptors.nativeDomIslands.map((island) =>
-      domIslandToActor({
+type BrowserVisualCommittedActorSet = {
+  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly browserVisualActors: readonly BrowserVisualActor[];
+};
+
+function createDomIslandActorSet({
+  browserVisualReadinessByActorId,
+  retainedRuntimeFrame,
+}: {
+  readonly browserVisualReadinessByActorId?:
+    | ReadonlyMap<string, BrowserVisualActorRepresentationReadiness>
+    | null
+    | undefined;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+}): BrowserVisualCommittedActorSet {
+  const actorRecords = retainedRuntimeFrame.descriptors.nativeDomIslands.map(
+    (island) =>
+      domIslandToActorRecord({
+        browserVisualReadiness:
+          browserVisualReadinessByActorId?.get(island.id) ?? null,
         island,
         retainedRuntimeFrame,
       }),
-    ),
   );
+  return Object.freeze({
+    actorGenerations: Object.freeze(
+      actorRecords.map((record) => record.actorGeneration),
+    ),
+    browserVisualActors: Object.freeze(
+      actorRecords.map((record) => record.browserVisualActor),
+    ),
+  });
 }
 
-function domIslandToActor({
+function domIslandToActorRecord({
+  browserVisualReadiness,
   island,
   retainedRuntimeFrame,
 }: {
+  readonly browserVisualReadiness: BrowserVisualActorRepresentationReadiness | null;
   readonly island: GpuDomIsland;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): GpuFlowCommittedSurfaceActorGeneration {
-  const browserVisual = createDomIslandBrowserVisualActor(island);
+}): {
+  readonly actorGeneration: GpuFlowCommittedSurfaceActorGeneration;
+  readonly browserVisualActor: BrowserVisualActor;
+} {
+  const browserVisual = createDomIslandBrowserVisualActor(island, {
+    representationReadiness: browserVisualReadiness,
+  });
+  const browserVisualCoverageReady =
+    browserVisual.coverageState === "live-host-ready" ||
+    browserVisual.coverageState === "exact-snapshot-ready" ||
+    browserVisual.coverageState === "compatible-previous-ready";
+  const browserVisualReadinessState = browserVisual.coverageRequired.required
+    ? browserVisualCoverageReady
+      ? "ready"
+      : "not-required"
+    : "not-required";
   const ownerSurfaceId =
     island.source.kind === "retained-content"
       ? island.source.surfaceId
@@ -701,38 +801,41 @@ function domIslandToActor({
     island.id,
     "ready",
   ].join("|");
-  return freezeActor({
-    active: true,
-    actorId: island.id,
-    browserVisual,
-    clipChainRevision: island.clipOwnerId,
-    clipRect: island.rect,
-    contentGenerationId,
-    controlId: null,
-    focusIdentity: island.id,
-    flowRect: island.rect,
-    generationId: [
+  return Object.freeze({
+    actorGeneration: freezeActor({
+      active: true,
+      actorId: island.id,
+      browserVisual,
+      clipChainRevision: island.clipOwnerId,
+      clipRect: island.rect,
       contentGenerationId,
+      controlId: null,
+      focusIdentity: island.id,
+      flowRect: island.rect,
+      generationId: [
+        contentGenerationId,
+        layoutProjectionGenerationId,
+        readinessGenerationId,
+      ].join("|"),
+      islandId: island.id,
+      kind: "dom-island",
       layoutProjectionGenerationId,
+      liveMotionSampleId: "not-sampled",
+      mountReadiness: browserVisualReadinessState,
+      ownerSurfaceId,
+      pointerEvents: "auto",
+      projectionReadiness: browserVisualReadinessState,
       readinessGenerationId,
-    ].join("|"),
-    islandId: island.id,
-    kind: "dom-island",
-    layoutProjectionGenerationId,
-    liveMotionSampleId: "not-sampled",
-    mountReadiness: "ready",
-    ownerSurfaceId,
-    pointerEvents: "auto",
-    projectionReadiness: "ready",
-    readinessGenerationId,
-    retainedScrollOffset: null,
-    retainedScrollRevision,
-    rowId: null,
-    sourceRect: island.contentRect,
-    valueStyleRevision: null,
-    visibleNonempty: false,
-    wheelPolicy: "native-page",
-    zOrder: island.zIndex,
+      retainedScrollOffset: null,
+      retainedScrollRevision,
+      rowId: null,
+      sourceRect: island.contentRect,
+      valueStyleRevision: null,
+      visibleNonempty: false,
+      wheelPolicy: "native-page",
+      zOrder: island.zIndex,
+    }),
+    browserVisualActor: browserVisual,
   });
 }
 
@@ -815,63 +918,6 @@ function gpuNativeVisualToActor({
   });
 }
 
-function createGpuFlowCommittedSurfaceCompleteness({
-  actorGenerations,
-  startup,
-}: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
-  readonly startup: boolean;
-}): GpuFlowCommittedSurfaceCompleteness {
-  const visibleNonemptyDomControls = actorGenerations.filter(
-    (actor) => actor.kind === "dom-control" && actor.visibleNonempty,
-  );
-  const projectedVisibleNonemptyDomControls = visibleNonemptyDomControls.filter(
-    (actor) =>
-      actor.mountReadiness === "ready" && actor.projectionReadiness === "ready",
-  );
-  const blockingActorIds = visibleNonemptyDomControls
-    .filter(
-      (actor) =>
-        actor.mountReadiness !== "ready" ||
-        actor.projectionReadiness !== "ready",
-    )
-    .map((actor) => actor.actorId);
-  const status =
-    blockingActorIds.length === 0
-      ? "complete"
-      : startup
-        ? "startup"
-        : "blocked";
-  return Object.freeze({
-    blockingActorIds: Object.freeze(blockingActorIds),
-    projectedVisibleNonemptyDomControlCount:
-      projectedVisibleNonemptyDomControls.length,
-    status,
-    visibleNonemptyDomControlCount: visibleNonemptyDomControls.length,
-  });
-}
-
-function assertGpuFlowCommittedSurfaceCompleteness(
-  left: GpuFlowCommittedSurfaceCompleteness,
-  right: GpuFlowCommittedSurfaceCompleteness,
-): void {
-  if (
-    left.status !== right.status ||
-    left.visibleNonemptyDomControlCount !==
-      right.visibleNonemptyDomControlCount ||
-    left.projectedVisibleNonemptyDomControlCount !==
-      right.projectedVisibleNonemptyDomControlCount ||
-    left.blockingActorIds.length !== right.blockingActorIds.length ||
-    left.blockingActorIds.some(
-      (actorId, index) => actorId !== right.blockingActorIds[index],
-    )
-  ) {
-    throw new Error(
-      "GPU Flow committed surface frame has stale display completeness.",
-    );
-  }
-}
-
 function createCommittedClipChainRevision({
   actorGenerations,
   retainedRuntimeFrame,
@@ -898,80 +944,51 @@ function getGpuFlowCommittedSurfaceActorScrollRevision({
   );
 }
 
+function createCommittedSurfaceDomControlActorOptions({
+  browserVisualReadiness,
+  previousCommittedSurfaceFrame,
+}: {
+  readonly browserVisualReadiness?:
+    | GpuFlowCommittedSurfaceBrowserVisualReadiness
+    | null
+    | undefined;
+  readonly previousCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
+}): DomControlActorOptions {
+  const browserVisualReadinessByActorId =
+    browserVisualReadiness?.domControlReadinessByActorId;
+  const options: DomControlActorOptions = browserVisualReadinessByActorId
+    ? { browserVisualReadinessByActorId }
+    : {};
+  if (!previousCommittedSurfaceFrame) {
+    return options;
+  }
+  return {
+    ...options,
+    previousCommittedSurfaceActors:
+      previousCommittedSurfaceFrame.actorGenerations,
+    previousRetainedRuntimeFrame:
+      previousCommittedSurfaceFrame.retainedRuntimeFrame,
+    previousTransactionId: createGpuFlowCommittedSurfacePreviousTransactionId(
+      previousCommittedSurfaceFrame,
+    ),
+  };
+}
+
 function createGpuFlowCommittedSurfacePreviousTransactionId(
   frame: GpuFlowCommittedSurfaceFrame,
 ): string {
+  if (frame.surfaceTransaction) {
+    return frame.surfaceTransaction.id;
+  }
   return [
     "committed-surface",
     frame.displayFrameId,
     frame.coherence.hitGenerationId,
     frame.diagnostics.transactionOutcome,
   ].join("|");
-}
-
-function freezeActor(
-  actor: GpuFlowCommittedSurfaceActorGenerationInput,
-): GpuFlowCommittedSurfaceActorGeneration {
-  const visualGenerationId =
-    actor.visualGenerationId ?? actor.contentGenerationId;
-  const semanticGenerationId =
-    actor.semanticGenerationId ?? actor.contentGenerationId;
-  return Object.freeze({
-    ...actor,
-    accessibilityProjection: actor.accessibilityProjection ?? "none",
-    activationPolicy: actor.activationPolicy ?? "none",
-    actorFamily: actor.actorFamily ?? actor.kind,
-    browserVisual: freezeOptionalBrowserVisualContract(actor.browserVisual),
-    clipRect: freezeRect(actor.clipRect),
-    flowRect: freezeRect(actor.flowRect),
-    retainedScrollOffset: freezeOptionalRetainedScrollOffset(
-      actor.retainedScrollOffset,
-    ),
-    semanticGenerationId,
-    sourceRect: freezeRect(actor.sourceRect),
-    textCoverageProof: freezeOptionalTextCoverageProof(actor.textCoverageProof),
-    textSnapshotCacheKeyRevision: actor.textSnapshotCacheKeyRevision ?? null,
-    visualGenerationId,
-  });
-}
-
-function freezeOptionalBrowserVisualContract(
-  contract: GpuFlowCommittedSurfaceActorGenerationInput["browserVisual"],
-): GpuFlowCommittedSurfaceBrowserVisualContract | null {
-  return contract ? freezeBrowserVisualContract(contract) : null;
-}
-
-function freezeOptionalRetainedScrollOffset(
-  retainedScrollOffset: GpuFlowCommittedSurfaceActorGenerationInput["retainedScrollOffset"],
-): GpuFlowCommittedSurfaceActorGeneration["retainedScrollOffset"] {
-  return retainedScrollOffset
-    ? Object.freeze({ ...retainedScrollOffset })
-    : null;
-}
-
-function freezeOptionalTextCoverageProof(
-  textCoverageProof: GpuFlowCommittedSurfaceActorGenerationInput["textCoverageProof"],
-): GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"] {
-  return textCoverageProof ? Object.freeze({ ...textCoverageProof }) : null;
-}
-
-function freezeBrowserVisualContract(
-  contract: GpuFlowCommittedSurfaceBrowserVisualContract,
-): GpuFlowCommittedSurfaceBrowserVisualContract {
-  return Object.freeze({
-    ...contract,
-    coverageExemption: contract.coverageExemption
-      ? Object.freeze({ ...contract.coverageExemption })
-      : null,
-    coverageRequired: Object.freeze({ ...contract.coverageRequired }),
-    resourceHandles: Object.freeze(
-      contract.resourceHandles.map((handle) => Object.freeze({ ...handle })),
-    ),
-  });
-}
-
-function freezeRect(rect: GpuRect): GpuRect {
-  return Object.freeze({ ...rect });
 }
 
 function rectKey(rect: GpuRect): string {

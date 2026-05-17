@@ -1,11 +1,26 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, postBackend } from "../helpers";
+import {
+  analyzeHoverCoverage,
+  analyzeScreenshotContent,
+} from "./settings-retained-interaction-analysis";
+import {
+  screenshotClip,
+  waitForAnimationFrame,
+} from "./settings-retained-visual-regression-helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GUI_SECTION_ID = "settings-section__gui";
+const CORE_SECTION_IDS = new Set([
+  "settings-section__backend",
+  "settings-section__gui",
+  "settings-section__languageServer",
+  "settings-section__sectionSizingPolicy",
+  "settings-section__shortcuts",
+]);
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const LEFT_PANE_SHIFT_LABEL = "Left Side Pane Shifts Map";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
@@ -52,15 +67,13 @@ type RetainedRowTarget = {
   readonly surfaceId: string;
 };
 
-type HoverCoverageStats = {
-  readonly bandCount: number;
-  readonly changedPixelRatioByBand: readonly number[];
-  readonly meanDeltaByBand: readonly number[];
-};
-
 type RetainedHoverDiagnostics = {
+  readonly activeViewMode: {
+    readonly id: string | null;
+    readonly name: string | null;
+    readonly visibleSectionCount: number | null;
+  } | null;
   readonly hoverVisualSurfaces: readonly {
-    readonly clientRect: Rect;
     readonly kind: string;
     readonly surfaceId: string;
     readonly zIndex: number;
@@ -70,14 +83,6 @@ type RetainedHoverDiagnostics = {
   readonly pointElement: unknown;
   readonly targetRow: RetainedRowDebugEntry | null;
   readonly viewport: unknown;
-};
-
-type ScreenshotContentStats = {
-  readonly contrastPixelRatio: number;
-  readonly height: number;
-  readonly luminanceRange: number;
-  readonly meanContrast: number;
-  readonly width: number;
 };
 
 type FrameSamplerResult = {
@@ -228,6 +233,10 @@ test("zoom does not blank visible section content", async ({
 
 async function openSettings(page: Page): Promise<void> {
   await ensureAppReady(page);
+  await postBackend(page, "/setActiveViewMode", {
+    activeViewModeId: "settings-core",
+    projectConfigId: "settings",
+  });
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
   await page.getByRole("button", { exact: true, name: "Core" }).click();
@@ -237,12 +246,126 @@ async function openSettings(page: Page): Promise<void> {
   await expect(
     page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
   ).toBeVisible();
+  await waitForCoreVisualScene(page);
   await waitForRetainedRows(page);
 }
 
 async function waitForCoreSettingsView(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () => document.querySelectorAll(".setta-gpu-flow__node").length <= 10,
+  await page.waitForFunction(async () => {
+    const { useProjectState } = await import("/src/state/definitions");
+    const { activeViewModeId, viewModes } =
+      useProjectState.getState().projectConfig;
+    const activeViewMode =
+      activeViewModeId !== null && activeViewModeId !== undefined
+        ? viewModes[activeViewModeId]
+        : null;
+    return (
+      activeViewMode?.name === "Core" &&
+      document.querySelectorAll(".setta-gpu-flow__node").length === 5
+    );
+  });
+}
+
+async function waitForCoreVisualScene(page: Page): Promise<void> {
+  try {
+    await expect
+      .poll(() => readCoreVisualSceneState(page), { timeout: 8_000 })
+      .toMatchObject({
+        allCore: true,
+        guiPresent: true,
+      });
+  } catch (error) {
+    throw new Error(
+      JSON.stringify(
+        {
+          state: await readCoreVisualSceneState(page),
+          waitError: String(error),
+        },
+        null,
+        2,
+      ),
+    );
+  }
+}
+
+async function readCoreVisualSceneState(page: Page): Promise<{
+  readonly activeViewMode: {
+    readonly id: string | null;
+    readonly name: string | null;
+  };
+  readonly allCore: boolean;
+  readonly committedSurfaceFrame: {
+    readonly displayFrameId: number;
+    readonly displayCompletenessStatus: string;
+    readonly gpuNativeVisualActorCount: number;
+    readonly htmlTextureActorCount: number;
+    readonly publishabilityKind: string;
+    readonly retainedPageActorCount: number;
+    readonly sceneRevision: number;
+  } | null;
+  readonly guiPresent: boolean;
+  readonly retainedRowSectionIds: readonly string[];
+  readonly retainedSectionIds: readonly string[];
+  readonly visualSurfaceCount: number;
+}> {
+  return await page.evaluate(
+    async ({ coreSectionIds, guiSectionId, suffix }) => {
+      const { useProjectState } = await import("/src/state/definitions");
+      const { activeViewModeId, viewModes } =
+        useProjectState.getState().projectConfig;
+      const activeMode = activeViewModeId ? viewModes[activeViewModeId] : null;
+      const surfaces =
+        window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [];
+      const retainedSectionIds = new Set(
+        surfaces
+          .map((surface) =>
+            surface.surfaceId.startsWith("settings-section__") &&
+            surface.surfaceId.includes(suffix)
+              ? surface.surfaceId.slice(0, surface.surfaceId.indexOf(suffix))
+              : null,
+          )
+          .filter((id): id is string => id !== null),
+      );
+      const retainedRowSectionIds = new Set(
+        (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).map(
+          (row) => row.ownerSectionId,
+        ),
+      );
+      return {
+        activeViewMode: {
+          id: activeViewModeId ?? null,
+          name: activeMode?.name ?? null,
+        },
+        allCore:
+          retainedSectionIds.size > 0 &&
+          [...retainedSectionIds].every((id) => coreSectionIds.includes(id)),
+        committedSurfaceFrame: (() => {
+          const frame =
+            window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.()
+              .committedSurfaceFrame ?? null;
+          return frame
+            ? {
+                displayCompletenessStatus: frame.displayCompletenessStatus,
+                displayFrameId: frame.displayFrameId,
+                gpuNativeVisualActorCount: frame.gpuNativeVisualActorCount,
+                htmlTextureActorCount: frame.htmlTextureActorCount,
+                publishabilityKind: frame.publishabilityKind,
+                retainedPageActorCount: frame.retainedPageActorCount,
+                sceneRevision: frame.sceneRevision,
+              }
+            : null;
+        })(),
+        guiPresent: retainedSectionIds.has(guiSectionId),
+        retainedRowSectionIds: [...retainedRowSectionIds].sort(),
+        retainedSectionIds: [...retainedSectionIds].sort(),
+        visualSurfaceCount: surfaces.length,
+      };
+    },
+    {
+      coreSectionIds: [...CORE_SECTION_IDS],
+      guiSectionId: GUI_SECTION_ID,
+      suffix: SETTINGS_PARAM_CONTENT_SUFFIX,
+    },
   );
 }
 
@@ -392,35 +515,61 @@ async function waitForRetainedHoverVisual(
   page: Page,
   target: RetainedRowTarget,
 ): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate((target) => {
-          const hoverSurfaceId = `${target.surfaceId}:row-hover:${target.rowId}`;
-          return (
-            window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.().some(
-              (surface) => surface.surfaceId === hoverSurfaceId,
-            ) ?? false
+  let attempt = 0;
+  try {
+    await expect
+      .poll(
+        async () => {
+          const xOffset = attempt % 2 === 0 ? 0 : 1;
+          attempt += 1;
+          await page.mouse.move(
+            target.labelClientPoint.x + xOffset,
+            target.labelClientPoint.y,
           );
-        }, target),
-      { timeout: 2_000 },
-    )
-    .toBe(true);
-}
-
-async function waitForAnimationFrame(page: Page): Promise<void> {
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  );
+          await waitForAnimationFrame(page);
+          return await page.evaluate((target) => {
+            const hoverSurfaceId = `${target.surfaceId}:row-hover:${target.rowId}`;
+            return (
+              window
+                .__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.()
+                .some((surface) => surface.surfaceId === hoverSurfaceId) ??
+              false
+            );
+          }, target);
+        },
+        { timeout: 4_000 },
+      )
+      .toBe(true);
+  } catch (error) {
+    const diagnostics = await readRetainedHoverDiagnostics(page, target);
+    throw new Error(
+      JSON.stringify(
+        { diagnostics, target, waitError: String(error) },
+        null,
+        2,
+      ),
+    );
+  }
 }
 
 async function readRetainedHoverDiagnostics(
   page: Page,
   target: RetainedRowTarget,
 ): Promise<RetainedHoverDiagnostics> {
-  return await page.evaluate((target) => {
+  return await page.evaluate(async (target) => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
+    const { useProjectState } = await import("/src/state/definitions");
+    const { activeViewModeId, viewModes } =
+      useProjectState.getState().projectConfig;
+    const activeMode = activeViewModeId ? viewModes[activeViewModeId] : null;
+    const activeViewMode = {
+      id: activeViewModeId ?? null,
+      name: activeMode?.name ?? null,
+      visibleSectionCount: activeMode
+        ? Object.values(activeMode.visibilityBySectionId ?? {}).filter(Boolean)
+            .length
+        : null,
+    };
     const targetRow =
       window
         .__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.()
@@ -430,16 +579,24 @@ async function readRetainedHoverDiagnostics(
         ) ?? null;
     const hoverVisualSurfaces = (
       window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []
-    ).filter(
-      (surface) =>
-        surface.surfaceId.includes(":row-hover:") ||
-        surface.kind === "solid-rounded-rect",
-    );
+    )
+      .filter(
+        (surface) =>
+          surface.surfaceId.includes(":row-hover:") ||
+          surface.kind === "solid-rounded-rect",
+      )
+      .slice(0, 20)
+      .map((surface) => ({
+        kind: surface.kind,
+        surfaceId: surface.surfaceId,
+        zIndex: surface.zIndex,
+      }));
     const pointElement = document.elementFromPoint(
       target.labelClientPoint.x,
       target.labelClientPoint.y,
     );
     return {
+      activeViewMode,
       hoverVisualSurfaces,
       hoveredRetainedHit: snapshot?.hoveredRetainedHit ?? null,
       lastPointer: snapshot?.lastPointer ?? null,
@@ -967,188 +1124,4 @@ async function stopFrameSampler(page: Page): Promise<FrameSamplerResult> {
       worstIntervalMs: intervals.at(-1) ?? 0,
     };
   });
-}
-
-async function screenshotClip({
-  name,
-  page,
-  rect,
-  testInfo,
-}: {
-  readonly name: string;
-  readonly page: Page;
-  readonly rect: Rect;
-  readonly testInfo: TestInfo;
-}): Promise<Buffer> {
-  const screenshot = await page.screenshot({
-    clip: rect,
-    path: testInfo.outputPath(name),
-  });
-  await testInfo.attach(name, {
-    body: screenshot,
-    contentType: "image/png",
-  });
-  return screenshot;
-}
-
-async function analyzeHoverCoverage(
-  page: Page,
-  before: Buffer,
-  after: Buffer,
-): Promise<HoverCoverageStats> {
-  return await page.evaluate(
-    async ({ afterDataUrl, beforeDataUrl }) => {
-      const [beforeImage, afterImage] = await Promise.all([
-        loadImage(beforeDataUrl),
-        loadImage(afterDataUrl),
-      ]);
-      const width = Math.min(beforeImage.naturalWidth, afterImage.naturalWidth);
-      const height = Math.min(
-        beforeImage.naturalHeight,
-        afterImage.naturalHeight,
-      );
-      const beforePixels = imagePixels(beforeImage, width, height);
-      const afterPixels = imagePixels(afterImage, width, height);
-      const bandCount = 4;
-      const changedCounts = Array.from({ length: bandCount }, () => 0);
-      const totalCounts = Array.from({ length: bandCount }, () => 0);
-      const deltaTotals = Array.from({ length: bandCount }, () => 0);
-      for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-          const band = Math.min(
-            bandCount - 1,
-            Math.floor((x / Math.max(1, width)) * bandCount),
-          );
-          const index = (y * width + x) * 4;
-          const delta =
-            Math.abs((afterPixels[index] ?? 0) - (beforePixels[index] ?? 0)) +
-            Math.abs(
-              (afterPixels[index + 1] ?? 0) - (beforePixels[index + 1] ?? 0),
-            ) +
-            Math.abs(
-              (afterPixels[index + 2] ?? 0) - (beforePixels[index + 2] ?? 0),
-            );
-          totalCounts[band] += 1;
-          deltaTotals[band] += delta / 3;
-          if (delta >= 18) {
-            changedCounts[band] += 1;
-          }
-        }
-      }
-      return {
-        bandCount,
-        changedPixelRatioByBand: changedCounts.map((count, index) =>
-          totalCounts[index] === 0 ? 0 : count / totalCounts[index],
-        ),
-        meanDeltaByBand: deltaTotals.map((total, index) =>
-          totalCounts[index] === 0 ? 0 : total / totalCounts[index],
-        ),
-      };
-
-      async function loadImage(url: string): Promise<HTMLImageElement> {
-        const image = new Image();
-        const loaded = new Promise<void>((resolve, reject) => {
-          image.onload = () => resolve();
-          image.onerror = () =>
-            reject(new Error("Failed to decode screenshot."));
-        });
-        image.src = url;
-        await loaded;
-        return image;
-      }
-
-      function imagePixels(
-        image: HTMLImageElement,
-        width: number,
-        height: number,
-      ): Uint8ClampedArray {
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) {
-          throw new Error("Missing screenshot diff canvas context.");
-        }
-        ctx.drawImage(image, 0, 0, width, height);
-        return ctx.getImageData(0, 0, width, height).data;
-      }
-    },
-    {
-      afterDataUrl: `data:image/png;base64,${after.toString("base64")}`,
-      beforeDataUrl: `data:image/png;base64,${before.toString("base64")}`,
-    },
-  );
-}
-
-async function analyzeScreenshotContent(
-  page: Page,
-  screenshot: Buffer,
-): Promise<ScreenshotContentStats> {
-  const dataUrl = `data:image/png;base64,${screenshot.toString("base64")}`;
-  return await page.evaluate(async (url) => {
-    const image = new Image();
-    const loaded = new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("Failed to decode screenshot."));
-    });
-    image.src = url;
-    await loaded;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) {
-      throw new Error("Missing screenshot analysis context.");
-    }
-    ctx.drawImage(image, 0, 0);
-    const { data, height, width } = ctx.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    );
-    const luminances: number[] = [];
-    for (let index = 0; index < data.length; index += 4) {
-      const a = data[index + 3] ?? 0;
-      if (a < 64) {
-        continue;
-      }
-      const r = data[index] ?? 0;
-      const g = data[index + 1] ?? 0;
-      const b = data[index + 2] ?? 0;
-      luminances.push(0.2126 * r + 0.7152 * g + 0.0722 * b);
-    }
-    if (luminances.length === 0) {
-      return {
-        contrastPixelRatio: 0,
-        height,
-        luminanceRange: 0,
-        meanContrast: 0,
-        width,
-      };
-    }
-    const sorted = [...luminances].sort((left, right) => left - right);
-    const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
-    let contrastPixels = 0;
-    let contrastTotal = 0;
-    let min = Number.POSITIVE_INFINITY;
-    let max = Number.NEGATIVE_INFINITY;
-    for (const luminance of luminances) {
-      const contrast = Math.abs(luminance - median);
-      if (contrast >= 24) {
-        contrastPixels += 1;
-      }
-      contrastTotal += contrast;
-      min = Math.min(min, luminance);
-      max = Math.max(max, luminance);
-    }
-    return {
-      contrastPixelRatio: contrastPixels / Math.max(1, width * height),
-      height,
-      luminanceRange: max - min,
-      meanContrast: contrastTotal / luminances.length,
-      width,
-    };
-  }, dataUrl);
 }

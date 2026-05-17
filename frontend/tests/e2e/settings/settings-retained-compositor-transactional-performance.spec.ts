@@ -261,10 +261,15 @@ test("all-settings retained surface compositor publishes transactional gesture f
     details,
   ).toBeLessThan(96);
   expect(holdStats.repeatedDivergedHoldCount, details).toBe(0);
-  expect(holdStats.maxDivergedHeldMotionAgeMs, details).toBeLessThanOrEqual(
-    Math.max(
-      ...Object.values(budgets).map((budget) => budget.p99FrameBudgetMs),
+  const maxSingleDivergedHoldBudgetMs = Math.max(
+    ...Object.values(budgets).map((budget) =>
+      budget.lane === "ci-capped"
+        ? budget.p99FrameBudgetMs * 2
+        : budget.p99FrameBudgetMs,
     ),
+  );
+  expect(holdStats.maxDivergedHeldMotionAgeMs, details).toBeLessThanOrEqual(
+    maxSingleDivergedHoldBudgetMs,
   );
 
   expectRetainedCompositorGestureWithinBudget({

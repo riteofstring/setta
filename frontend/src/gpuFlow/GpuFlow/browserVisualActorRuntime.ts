@@ -1,16 +1,32 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type {
+  GpuFlowCommittedSurfaceBrowserVisualReadiness,
+  GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import {
   applyHtmlSurfaceActiveDomIslandProjection,
-  hideHtmlSurfaceActiveDomIslandProjection,
   projectHtmlSurfaceActiveDomIsland,
 } from "../htmlSurfaces/interactionProjector";
+import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
-import { getVisibleFlowRect, type GpuViewportInput } from "../viewportMath";
+import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
+import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import {
+  areBrowserVisualActorRuntimeSnapshotsEqual,
+  blurFocusedDescendantBeforeUnmount,
+  createGpuFlowDomControlProjectionSourceRevision,
+  createGpuFlowDomControlRetainedScrollProjectionSignature,
+  isProjectableDomControlAssignment,
+  mergeGpuFlowDomControlProjectedControls,
+  parkDomControlElement,
+  resolveGpuFlowBrowserVisualActorFrameIds,
+  syncGpuFlowBrowserVisualDomIslandLayerStyles,
+} from "./browserVisualActorRuntimeHelpers";
 import {
   createEmptyDomControlPlaneDiagnostics,
   createGpuFlowDomControlProjectionManager,
@@ -24,6 +40,7 @@ import {
   getGpuFlowDomControlPlaneViewportSize,
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
+import { getGpuRetainedDomControlResolvedSnapshotSurfaceId } from "./retainedDomControlSources";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
   readonly committedFrameId: number;
@@ -39,6 +56,7 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
     >;
     readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
     readonly mountedControls: readonly GpuRetainedDomControlSourceDescriptor[];
+    readonly snapshotControls: readonly GpuRetainedDomControlSourceDescriptor[];
     readonly sourceRevision: string;
   };
   readonly domIslands: {
@@ -49,10 +67,20 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
 
 type BrowserVisualActorRuntimeListener = () => void;
 
-const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT = 64;
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
   Object.freeze([]);
 const EMPTY_DOM_ISLANDS: readonly GpuDomIsland[] = Object.freeze([]);
+const BLOCKED_AWAITING_LIVE_HOST_READINESS: BrowserVisualActorRepresentationReadiness =
+  Object.freeze({ coverageState: "blocked-awaiting-live-host" });
+const BLOCKED_AWAITING_SNAPSHOT_READINESS: BrowserVisualActorRepresentationReadiness =
+  Object.freeze({ coverageState: "blocked-awaiting-snapshot" });
+const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE = 8;
+const GPU_FLOW_FOCUSED_DOM_CONTROL_VISUAL_SEMANTICS = Object.freeze({
+  accessibility: "active-browser-editor",
+  focusable: true,
+  pointer: "active-browser-editor",
+  selectable: "browser-editor",
+} satisfies GpuRetainedDomControlSourceDescriptor["visualSemantics"]);
 
 const browserVisualActorRuntimeByCommittedSurfaceRuntime = new WeakMap<
   GpuFlowCommittedSurfaceRuntime,
@@ -81,6 +109,15 @@ export function getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
   return runtime;
 }
 
+function createBlockedDomControlReadiness(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserVisualActorRepresentationReadiness {
+  if (control.visualPolicy === "snapshot") {
+    return BLOCKED_AWAITING_SNAPSHOT_READINESS;
+  }
+  return BLOCKED_AWAITING_LIVE_HOST_READINESS;
+}
+
 export class GpuFlowBrowserVisualActorRuntime {
   private committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime | null = null;
   private controlViewportRuntime: GpuFlowViewportRuntime | null = null;
@@ -93,6 +130,14 @@ export class GpuFlowBrowserVisualActorRuntime {
     string,
     GpuFlowDomControlPlaneMountedHost
   >();
+  private readonly domControlSnapshotElementBySurfaceId = new Map<
+    string,
+    HTMLElement
+  >();
+  private domControlSnapshotTextureManager: Pick<
+    HtmlSurfaceTextureManager,
+    "getCommittedSurfaceTexture"
+  > | null = null;
   private readonly domIslandElementById = new Map<string, HTMLElement>();
   private fallbackCommittedFrameId: number | undefined;
   private fallbackRetainedRuntimeFrame: GpuRetainedRuntimeFrame | null = null;
@@ -122,6 +167,53 @@ export class GpuFlowBrowserVisualActorRuntime {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  prepareCommittedSurfaceFrame({
+    retainedDisplayFrame,
+  }: {
+    readonly retainedDisplayFrame: RetainedDisplayFrame;
+  }): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+    const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
+    const frameIds = resolveGpuFlowBrowserVisualActorFrameIds({
+      committedFrameId: retainedDisplayFrame.id,
+      retainedRuntimeFrame,
+    });
+    const controls = this.withFocusedDomControlPins(
+      retainedRuntimeFrame.descriptors.domControlSources,
+    );
+    const controlById = new Map(
+      controls.map((control) => [control.sourceId, control]),
+    );
+    const sourceRevision = createGpuFlowDomControlProjectionSourceRevision({
+      controls,
+      frameIds,
+    });
+    const preparedDomControls = this.resolveDomControlProjection({
+      controlById,
+      controls,
+      sourceRevision,
+      viewport: undefined,
+    });
+    this.stagePreparedBrowserVisualActors({
+      preparedSnapshot: Object.freeze({
+        domControls: preparedDomControls,
+        domIslands: Object.freeze({
+          islands: Object.freeze([
+            ...(retainedRuntimeFrame.descriptors.nativeDomIslands ??
+              EMPTY_DOM_ISLANDS),
+          ]),
+        }),
+        frameIds,
+      }),
+    });
+    return Object.freeze({
+      domControlReadinessByActorId:
+        this.createDomControlReadinessByActorId(preparedDomControls),
+      domIslandReadinessByActorId: this.createDomIslandReadinessByActorId(
+        retainedRuntimeFrame.descriptors.nativeDomIslands ?? EMPTY_DOM_ISLANDS,
+      ),
+    });
   }
 
   setCommittedSurfaceSource({
@@ -206,6 +298,29 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     parkDomControlElement(element);
+  }
+
+  setDomControlSnapshotElement({
+    element,
+    surfaceId,
+  }: {
+    readonly element: HTMLElement | null;
+    readonly surfaceId: string;
+  }): void {
+    if (!element) {
+      this.domControlSnapshotElementBySurfaceId.delete(surfaceId);
+      return;
+    }
+    this.domControlSnapshotElementBySurfaceId.set(surfaceId, element);
+  }
+
+  setDomControlSnapshotTextureManager(
+    textureManager: Pick<
+      HtmlSurfaceTextureManager,
+      "getCommittedSurfaceTexture"
+    > | null,
+  ): void {
+    this.domControlSnapshotTextureManager = textureManager;
   }
 
   setDomIslandElement({
@@ -372,9 +487,10 @@ export class GpuFlowBrowserVisualActorRuntime {
         currentFrame?.displayFrameId ?? this.fallbackCommittedFrameId,
       retainedRuntimeFrame,
     });
-    const controls =
+    const controls = this.withFocusedDomControlPins(
       retainedRuntimeFrame?.descriptors.domControlSources ??
-      EMPTY_DOM_CONTROL_DESCRIPTORS;
+        EMPTY_DOM_CONTROL_DESCRIPTORS,
+    );
     const controlById = new Map(
       controls.map((control) => [control.sourceId, control]),
     );
@@ -422,6 +538,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         controlById,
         controls: Object.freeze([...controls]),
         mountedControls: Object.freeze([]),
+        snapshotControls: Object.freeze([]),
         sourceRevision,
       });
     }
@@ -439,6 +556,8 @@ export class GpuFlowBrowserVisualActorRuntime {
       }),
     });
     const promotedControls = this.projectionManager.promote(assignments);
+    const snapshotControls =
+      this.resolveDomControlSnapshotPreparationPool(assignments);
     const mountedControls = mergeGpuFlowDomControlProjectedControls({
       controlById,
       currentControls: this.snapshot.domControls.mountedControls,
@@ -449,8 +568,281 @@ export class GpuFlowBrowserVisualActorRuntime {
       controlById,
       controls: Object.freeze([...controls]),
       mountedControls: Object.freeze([...mountedControls]),
+      snapshotControls: Object.freeze([...snapshotControls]),
       sourceRevision,
     });
+  }
+
+  private stagePreparedBrowserVisualActors({
+    preparedSnapshot,
+  }: {
+    readonly preparedSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+  }): void {
+    const preparedDomControls = preparedSnapshot.domControls;
+    const mountedControls = mergeGpuFlowDomControlProjectedControls({
+      controlById: preparedDomControls.controlById,
+      currentControls: this.snapshot.domControls.mountedControls,
+      nextControls: preparedDomControls.mountedControls,
+    });
+    const nextSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot =
+      Object.freeze({
+        domControls: Object.freeze({
+          ...preparedDomControls,
+          mountedControls: Object.freeze([...mountedControls]),
+          snapshotControls: Object.freeze([
+            ...preparedDomControls.snapshotControls,
+          ]),
+        }),
+        domIslands: preparedSnapshot.domIslands,
+        frameIds: preparedSnapshot.frameIds,
+      });
+    if (
+      areBrowserVisualActorRuntimeSnapshotsEqual(this.snapshot, nextSnapshot)
+    ) {
+      return;
+    }
+    this.snapshot = nextSnapshot;
+    this.diagnostics = createEmptyDomControlPlaneDiagnostics({
+      committedFrameId: nextSnapshot.frameIds.committedFrameId,
+      runtimeFrameId: nextSnapshot.frameIds.runtimeFrameId,
+    });
+    this.emit();
+  }
+
+  private resolveDomControlSnapshotPreparationPool(
+    assignments: readonly GpuFlowDomControlProjectionAssignment[],
+  ): readonly GpuRetainedDomControlSourceDescriptor[] {
+    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    for (const assignment of assignments) {
+      if (!isDomControlSnapshotPreparationAssignment(assignment)) {
+        continue;
+      }
+      if (this.isDomControlSnapshotReady(assignment.control)) {
+        readyControls.push(assignment.control);
+      } else {
+        pendingControls.push(assignment.control);
+      }
+    }
+    return Object.freeze([
+      ...readyControls,
+      ...pendingControls.slice(
+        0,
+        GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE,
+      ),
+    ]);
+  }
+
+  private withFocusedDomControlPins(
+    controls: readonly GpuRetainedDomControlSourceDescriptor[],
+  ): readonly GpuRetainedDomControlSourceDescriptor[] {
+    const focusedControlIds = this.getFocusedDomControlIds();
+    if (focusedControlIds.size === 0) {
+      return controls;
+    }
+    let changed = false;
+    const pinnedControls = controls.map((control) => {
+      if (control.active || !focusedControlIds.has(control.sourceId)) {
+        return control;
+      }
+      changed = true;
+      return {
+        ...control,
+        active: true,
+        layerSlot: "active-dom-control-plane",
+        lifecycleState: "active-projected",
+        visualSemantics: GPU_FLOW_FOCUSED_DOM_CONTROL_VISUAL_SEMANTICS,
+      } satisfies GpuRetainedDomControlSourceDescriptor;
+    });
+    return changed ? Object.freeze(pinnedControls) : controls;
+  }
+
+  private getFocusedDomControlIds(): ReadonlySet<string> {
+    const focusedControlIds = new Set<string>();
+    for (const [controlId, host] of this.domControlHostById) {
+      const ownerDocument = host.element.ownerDocument;
+      const elementConstructor = ownerDocument.defaultView?.Element;
+      const activeElement = ownerDocument.activeElement;
+      if (
+        elementConstructor &&
+        activeElement instanceof elementConstructor &&
+        host.element.contains(activeElement)
+      ) {
+        focusedControlIds.add(controlId);
+      }
+    }
+    return focusedControlIds;
+  }
+
+  private createDomControlReadinessByActorId(
+    preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"],
+  ): ReadonlyMap<string, BrowserVisualActorRepresentationReadiness> {
+    const assignmentByControlId = new Map(
+      preparedDomControls.assignments.map((assignment) => [
+        assignment.control.sourceId,
+        assignment,
+      ]),
+    );
+    const readinessByActorId = new Map<
+      string,
+      BrowserVisualActorRepresentationReadiness
+    >();
+    for (const control of preparedDomControls.controls) {
+      const assignment = assignmentByControlId.get(control.sourceId);
+      readinessByActorId.set(
+        control.sourceId,
+        this.createDomControlReadiness({ assignment, control }),
+      );
+    }
+    return readinessByActorId;
+  }
+
+  private createDomControlReadiness({
+    assignment,
+    control,
+  }: {
+    readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
+    readonly control: GpuRetainedDomControlSourceDescriptor;
+  }): BrowserVisualActorRepresentationReadiness {
+    if (!assignment) {
+      return createBlockedDomControlReadiness(control);
+    }
+    switch (assignment.coverageState) {
+      case "live":
+        return this.createLiveDomControlReadiness(control);
+      case "snapshot":
+        return this.createSnapshotDomControlReadiness(control);
+      case "compatible-previous":
+        return createBlockedDomControlReadiness(control);
+      case "blocked-awaiting-browser-visual":
+        return BLOCKED_AWAITING_SNAPSHOT_READINESS;
+      case "blocked-awaiting-live-host":
+        return this.createBlockedLiveHostDomControlReadiness({
+          control,
+          reason: assignment.reason,
+        });
+      case "true-hole":
+        return Object.freeze({ coverageState: "true-hole" });
+    }
+  }
+
+  private createBlockedLiveHostDomControlReadiness({
+    control,
+    reason,
+  }: {
+    readonly control: GpuRetainedDomControlSourceDescriptor;
+    readonly reason: GpuFlowDomControlProjectionAssignment["reason"];
+  }): BrowserVisualActorRepresentationReadiness {
+    if (reason === "near-future-live") {
+      return Object.freeze({ coverageState: "coverage-exempt" });
+    }
+    if (reason === "live-host-overflow" && !control.active) {
+      return this.createSnapshotDomControlReadiness(control);
+    }
+    return BLOCKED_AWAITING_LIVE_HOST_READINESS;
+  }
+
+  private createLiveDomControlReadiness(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): BrowserVisualActorRepresentationReadiness {
+    if (!this.isDomControlHostReady(control)) {
+      return Object.freeze({ coverageState: "blocked-awaiting-live-host" });
+    }
+    return Object.freeze({
+      coverageState: "live-host-ready",
+      resourceHandles: Object.freeze([
+        Object.freeze({
+          id: control.sourceId,
+          kind: "source" as const,
+        }),
+      ]),
+    });
+  }
+
+  private createSnapshotDomControlReadiness(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): BrowserVisualActorRepresentationReadiness {
+    const snapshotSurfaceId =
+      getGpuRetainedDomControlResolvedSnapshotSurfaceId(control);
+    if (!this.isDomControlSnapshotReady(control)) {
+      return Object.freeze({ coverageState: "blocked-awaiting-snapshot" });
+    }
+    return Object.freeze({
+      coverageState: "exact-snapshot-ready",
+      resourceHandles: Object.freeze([
+        Object.freeze({
+          id: snapshotSurfaceId,
+          kind: "texture" as const,
+        }),
+      ]),
+    });
+  }
+
+  private createDomIslandReadinessByActorId(
+    islands: readonly GpuDomIsland[],
+  ): ReadonlyMap<string, BrowserVisualActorRepresentationReadiness> {
+    const readinessByActorId = new Map<
+      string,
+      BrowserVisualActorRepresentationReadiness
+    >();
+    for (const island of islands) {
+      const element = this.domIslandElementById.get(island.id);
+      readinessByActorId.set(
+        island.id,
+        element?.isConnected
+          ? Object.freeze({
+              coverageState: "live-host-ready",
+              resourceHandles: Object.freeze([
+                Object.freeze({
+                  id: island.id,
+                  kind: "native-dom-island" as const,
+                }),
+              ]),
+            })
+          : Object.freeze({ coverageState: "blocked-awaiting-live-host" }),
+      );
+    }
+    return readinessByActorId;
+  }
+
+  private isDomControlHostReady(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): boolean {
+    const host = this.domControlHostById.get(control.sourceId);
+    return Boolean(
+      host &&
+        host.element.isConnected &&
+        host.control.sourceId === control.sourceId &&
+        host.control.sourceKey === control.sourceKey &&
+        host.control.snapshotCacheKeyRevision ===
+          control.snapshotCacheKeyRevision &&
+        host.control.valueStyleRevision === control.valueStyleRevision &&
+        host.control.geometryRevision === control.geometryRevision &&
+        host.control.clipChainRevision === control.clipChainRevision,
+    );
+  }
+
+  private isDomControlSnapshotReady(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): boolean {
+    const snapshotSurfaceId =
+      getGpuRetainedDomControlResolvedSnapshotSurfaceId(control);
+    const element =
+      this.domControlSnapshotElementBySurfaceId.get(snapshotSurfaceId);
+    if (!element?.isConnected) {
+      return false;
+    }
+    const texture =
+      this.domControlSnapshotTextureManager?.getCommittedSurfaceTexture(
+        snapshotSurfaceId,
+      );
+    return Boolean(
+      texture &&
+        texture.lastUploadFrame >= 0 &&
+        !texture.dirtyContent &&
+        !texture.dirtyResolution &&
+        texture.textureContentKey === control.snapshotCacheKeyRevision,
+    );
   }
 
   private syncDomControlElement(
@@ -523,6 +915,7 @@ function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualAct
       controlById: new Map(),
       controls: EMPTY_DOM_CONTROL_DESCRIPTORS,
       mountedControls: EMPTY_DOM_CONTROL_DESCRIPTORS,
+      snapshotControls: EMPTY_DOM_CONTROL_DESCRIPTORS,
       sourceRevision: "",
     }),
     domIslands: Object.freeze({
@@ -532,298 +925,13 @@ function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualAct
   });
 }
 
-function resolveGpuFlowBrowserVisualActorFrameIds({
-  committedFrameId,
-  retainedRuntimeFrame,
-}: {
-  readonly committedFrameId: number | undefined;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
-}): GpuFlowBrowserVisualActorRuntimeFrameIds {
-  const runtimeFrameId = retainedRuntimeFrame?.frameId ?? 0;
-  return Object.freeze({
-    committedFrameId: committedFrameId ?? runtimeFrameId,
-    runtimeFrameId,
-  });
-}
-
-function createGpuFlowDomControlProjectionSourceRevision({
-  controls,
-  frameIds,
-}: {
-  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-}): string {
-  return JSON.stringify({
-    committedFrameId: frameIds.committedFrameId,
-    controls: controls.map((control) => [
-      control.sourceId,
-      control.sourceKey,
-      control.active,
-      control.visualPolicy,
-      control.sectionScrollRevision,
-      control.viewportSampleRevision,
-    ]),
-    runtimeFrameId: frameIds.runtimeFrameId,
-  });
-}
-
-function isProjectableDomControlAssignment(
+function isDomControlSnapshotPreparationAssignment(
   assignment: GpuFlowDomControlProjectionAssignment,
 ): boolean {
   return (
-    assignment.coverageState === "live" ||
-    assignment.coverageState === "compatible-previous"
+    assignment.coverageState === "snapshot" ||
+    (assignment.coverageState === "blocked-awaiting-live-host" &&
+      assignment.reason === "live-host-overflow" &&
+      !assignment.control.active)
   );
-}
-
-function mergeGpuFlowDomControlProjectedControls({
-  controlById,
-  currentControls,
-  nextControls,
-}: {
-  readonly controlById: ReadonlyMap<
-    string,
-    GpuRetainedDomControlSourceDescriptor
-  >;
-  readonly currentControls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly nextControls: readonly GpuRetainedDomControlSourceDescriptor[];
-}): readonly GpuRetainedDomControlSourceDescriptor[] {
-  if (currentControls.length === 0) {
-    return nextControls;
-  }
-  const merged: GpuRetainedDomControlSourceDescriptor[] = [];
-  const seen = new Set<string>();
-  for (const control of nextControls) {
-    merged.push(control);
-    seen.add(control.sourceId);
-  }
-  for (const previousControl of currentControls) {
-    if (merged.length >= GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT) {
-      break;
-    }
-    if (seen.has(previousControl.sourceId)) {
-      continue;
-    }
-    const currentControl = controlById.get(previousControl.sourceId);
-    if (!currentControl) {
-      continue;
-    }
-    const retainedControl = canRetainPreviousGpuFlowDomControlDescriptor({
-      currentControl,
-      previousControl,
-    })
-      ? previousControl
-      : currentControl;
-    merged.push(retainedControl);
-    seen.add(retainedControl.sourceId);
-  }
-  return merged;
-}
-
-function canRetainPreviousGpuFlowDomControlDescriptor({
-  currentControl,
-  previousControl,
-}: {
-  readonly currentControl: GpuRetainedDomControlSourceDescriptor;
-  readonly previousControl: GpuRetainedDomControlSourceDescriptor;
-}): boolean {
-  return (
-    currentControl.sourceKey === previousControl.sourceKey &&
-    currentControl.snapshotCacheKeyRevision ===
-      previousControl.snapshotCacheKeyRevision &&
-    currentControl.active === previousControl.active
-  );
-}
-
-function areBrowserVisualActorRuntimeSnapshotsEqual(
-  left: GpuFlowBrowserVisualActorRuntimeSnapshot,
-  right: GpuFlowBrowserVisualActorRuntimeSnapshot,
-): boolean {
-  return (
-    left.frameIds.committedFrameId === right.frameIds.committedFrameId &&
-    left.frameIds.runtimeFrameId === right.frameIds.runtimeFrameId &&
-    left.domControls.sourceRevision === right.domControls.sourceRevision &&
-    areGpuFlowDomControlProjectedControlsEqual({
-      leftAssignments: left.domControls.assignments,
-      leftControls: left.domControls.mountedControls,
-      rightAssignments: right.domControls.assignments,
-      rightControls: right.domControls.mountedControls,
-    }) &&
-    areDomIslandListsEqual(left.domIslands.islands, right.domIslands.islands)
-  );
-}
-
-function areDomIslandListsEqual(
-  left: readonly GpuDomIsland[],
-  right: readonly GpuDomIsland[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every(
-      (island, index) =>
-        island.id === right[index]?.id &&
-        island.kind === right[index]?.kind &&
-        island.zIndex === right[index]?.zIndex &&
-        rectsEqual(island.rect, right[index]?.rect),
-    )
-  );
-}
-
-function areGpuFlowDomControlProjectedControlsEqual({
-  leftAssignments,
-  leftControls,
-  rightAssignments,
-  rightControls,
-}: {
-  readonly leftAssignments: readonly GpuFlowDomControlProjectionAssignment[];
-  readonly leftControls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly rightAssignments: readonly GpuFlowDomControlProjectionAssignment[];
-  readonly rightControls: readonly GpuRetainedDomControlSourceDescriptor[];
-}): boolean {
-  if (leftControls.length !== rightControls.length) {
-    return false;
-  }
-  const leftAssignmentByControlId =
-    createGpuFlowDomControlProjectionAssignmentMap(leftAssignments);
-  const rightAssignmentByControlId =
-    createGpuFlowDomControlProjectionAssignmentMap(rightAssignments);
-  return leftControls.every(
-    (control, index) =>
-      control.sourceId === rightControls[index]?.sourceId &&
-      areGpuFlowDomControlProjectionAssignmentsEqual(
-        leftAssignmentByControlId.get(control.sourceId),
-        rightAssignmentByControlId.get(control.sourceId),
-      ),
-  );
-}
-
-function createGpuFlowDomControlProjectionAssignmentMap(
-  assignments: readonly GpuFlowDomControlProjectionAssignment[],
-): ReadonlyMap<string, GpuFlowDomControlProjectionAssignment> {
-  return new Map(
-    assignments.map((assignment) => [assignment.control.sourceId, assignment]),
-  );
-}
-
-function areGpuFlowDomControlProjectionAssignmentsEqual(
-  left: GpuFlowDomControlProjectionAssignment | undefined,
-  right: GpuFlowDomControlProjectionAssignment | undefined,
-): boolean {
-  return (
-    createGpuFlowDomControlProjectionAssignmentEqualityKey(left) ===
-    createGpuFlowDomControlProjectionAssignmentEqualityKey(right)
-  );
-}
-
-function createGpuFlowDomControlProjectionAssignmentEqualityKey(
-  assignment: GpuFlowDomControlProjectionAssignment | undefined,
-): string {
-  if (!assignment) {
-    return "";
-  }
-  const compatibilityProof = assignment.compatibilityProof;
-  return JSON.stringify([
-    assignment.coverageState,
-    assignment.phase,
-    assignment.reason,
-    compatibilityProof ? compatibilityProof.reasonCode : "",
-  ]);
-}
-
-function createGpuFlowDomControlRetainedScrollProjectionSignature({
-  controls,
-  getRetainedScrollOffset,
-}: {
-  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly getRetainedScrollOffset:
-    | GpuFlowRetainedScrollOffsetGetter
-    | undefined;
-}): string {
-  if (!getRetainedScrollOffset) {
-    return "";
-  }
-  const surfaceIds = [
-    ...new Set(controls.map((control) => control.surfaceId)),
-  ].sort((left, right) => left.localeCompare(right));
-  return JSON.stringify(
-    surfaceIds.map((surfaceId) => {
-      const offset = getRetainedScrollOffset(surfaceId);
-      return [surfaceId, offset?.x ?? null, offset?.y ?? null];
-    }),
-  );
-}
-
-function syncGpuFlowBrowserVisualDomIslandLayerStyles({
-  elementById,
-  islands,
-  viewport,
-  viewportSize,
-}: {
-  readonly elementById: ReadonlyMap<string, HTMLElement>;
-  readonly islands: readonly GpuDomIsland[];
-  readonly viewport: GpuViewportInput;
-  readonly viewportSize: { readonly height: number; readonly width: number };
-}) {
-  const visibleFlowRect = getVisibleFlowRect({
-    canvasHeight: viewportSize.height,
-    canvasWidth: viewportSize.width,
-    marginCssPx: 128,
-    viewport,
-  });
-  for (const island of islands) {
-    const element = elementById.get(island.id);
-    if (!element) {
-      continue;
-    }
-    if (!rectsIntersect(visibleFlowRect, island.rect)) {
-      hideHtmlSurfaceActiveDomIslandProjection(element);
-      element.style.pointerEvents = "none";
-      continue;
-    }
-    applyHtmlSurfaceActiveDomIslandProjection({
-      element,
-      projection: projectHtmlSurfaceActiveDomIsland({
-        flowRect: island.rect,
-        viewport,
-        zIndex: island.zIndex,
-      }),
-    });
-  }
-}
-
-function rectsIntersect(
-  left: Pick<GpuDomIsland["rect"], "height" | "width" | "x" | "y">,
-  right: Pick<GpuDomIsland["rect"], "height" | "width" | "x" | "y">,
-): boolean {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
-}
-
-function rectsEqual(
-  left: Pick<GpuDomIsland["rect"], "height" | "width" | "x" | "y">,
-  right: Pick<GpuDomIsland["rect"], "height" | "width" | "x" | "y"> | undefined,
-): boolean {
-  return Boolean(
-    right &&
-      left.x === right.x &&
-      left.y === right.y &&
-      left.width === right.width &&
-      left.height === right.height,
-  );
-}
-
-function parkDomControlElement(element: HTMLElement): void {
-  element.style.display = "none";
-  element.style.pointerEvents = "none";
-}
-
-function blurFocusedDescendantBeforeUnmount(element: HTMLElement) {
-  const activeElement = element.ownerDocument.activeElement;
-  if (activeElement instanceof HTMLElement && element.contains(activeElement)) {
-    activeElement.blur();
-  }
 }

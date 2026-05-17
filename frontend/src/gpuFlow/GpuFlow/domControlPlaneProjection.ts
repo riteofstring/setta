@@ -15,6 +15,11 @@ import {
   type GpuFlowDomControlPromotedRepresentation,
 } from "./domControlPlaneCompatibility";
 import {
+  intersectRects,
+  rectsIntersect,
+  setStyleValue,
+} from "./domControlPlaneProjectionPrimitives";
+import {
   getGpuFlowDomControlPlaneViewportCanvasSize,
   type GpuFlowDomControlPlaneViewportSize,
 } from "./domControlPlaneViewport";
@@ -24,14 +29,7 @@ import {
   getGpuFlowDomControlProjectionHorizonFlowRect,
   getGpuFlowDomControlProjectionScrollVector,
 } from "./domControlProjectionHorizon";
-import {
-  intersectRects,
-  rectsIntersect,
-  setStyleValue,
-} from "./domControlPlaneProjectionPrimitives";
-export {
-  DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS,
-} from "./domControlProjectionHorizon";
+export { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
 
 export type GpuFlowRetainedScrollOffsetGetter = (
   surfaceId: string,
@@ -465,6 +463,9 @@ function getGpuFlowDomControlPlaneAssignmentReason({
   }
   if (control.visualPolicy === "clipped-empty") {
     return "clipped-empty";
+  }
+  if (!visibleCandidateIds.has(control.sourceId)) {
+    return "near-future-live";
   }
   return "live-host-overflow";
 }

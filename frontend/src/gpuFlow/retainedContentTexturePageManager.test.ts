@@ -187,6 +187,28 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
   });
 
+  it("can raise visible edge uploads for pre-publish repair", () => {
+    const fixture = createManagerFixture({ maxPagePixelSize: 50 });
+    const preparedFrame = fixture.manager.prepareFrame({
+      devicePixelRatio: 1,
+      frame: 1,
+      surfaces: [createFrameSurface()],
+      viewportZoomBucket: 1,
+    });
+
+    const maintenance = fixture.manager.runPostSubmitMaintenance({
+      preparedFrame,
+      visibleEdgeMaxUploads: 2,
+    });
+
+    expect(maintenance.uploadCount).toBe(2);
+    expect(maintenance.executedItems.map((item) => item.kind)).toEqual([
+      "first-visible",
+      "first-visible",
+    ]);
+    expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
   it("uploads uncovered first-visible work during viewport interaction", () => {
     const fixture = createManagerFixture({ maxPagePixelSize: 50 });
     const result = renderFrame(fixture.manager, {
