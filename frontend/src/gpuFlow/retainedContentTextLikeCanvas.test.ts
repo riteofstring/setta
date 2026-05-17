@@ -4,7 +4,7 @@ import { getGpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 
 describe("retained content text-like canvas", () => {
-  it("draws inactive row-text editor value pixels from the descriptor", () => {
+  it("leaves inactive row-text editor value pixels to the DOM-control texture layer", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -16,19 +16,14 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).toHaveBeenCalledWith(
-      "sample",
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Number),
-    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
     expect(ctx.fill).not.toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
     expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
   });
 
-  it("draws row-text focus chrome around readable editor value pixels", () => {
+  it("draws row-text focus chrome without drawing editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -40,6 +35,7 @@ describe("retained content text-like canvas", () => {
       state: {
         controlFocused: true,
         disabled: false,
+        domControlActivation: null,
         dragging: false,
         error: false,
         focused: false,
@@ -52,16 +48,11 @@ describe("retained content text-like canvas", () => {
       },
     });
 
-    expect(ctx.fillText).toHaveBeenCalledWith(
-      "sample",
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Number),
-    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
   });
 
-  it("draws boxed chrome and readable editor value pixels", () => {
+  it("draws boxed chrome without drawing editor value pixels", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(false);
 
@@ -73,12 +64,7 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillText).toHaveBeenCalledWith(
-      "sample",
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Number),
-    );
+    expect(ctx.fillText).not.toHaveBeenCalled();
     expect(ctx.fill).toHaveBeenCalled();
     expect(ctx.stroke).toHaveBeenCalled();
   });

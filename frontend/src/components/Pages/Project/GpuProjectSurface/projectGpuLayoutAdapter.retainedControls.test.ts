@@ -575,6 +575,7 @@ describe("project GPU layout adapter retained controls", () => {
       mode: DropzoneModeEnum.STATEFUL,
       placeholder: "Drop an input",
       remainingSlots: 0,
+      renderOwner: "dom-owned",
       rendererFamily: "dropzone",
       commitPolicy: "native-island",
     });

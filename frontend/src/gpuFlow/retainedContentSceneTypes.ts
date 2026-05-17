@@ -6,11 +6,16 @@ import type {
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
 import type { GpuRetainedContentRowStatus } from "./retainedContentRowStatus";
 import type { GpuRetainedContentScrollbarDrawCommand } from "./retainedContentScrollbar";
+import type {
+  GpuRetainedContentControlRenderOwner,
+  GpuRetainedDomControlActivation,
+} from "./retainedDomControlScene";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentRowState = {
   readonly controlFocused: boolean;
   readonly disabled: boolean;
+  readonly domControlActivation: GpuRetainedDomControlActivation | null;
   readonly dragging: boolean;
   readonly error: boolean;
   readonly focused: boolean;
@@ -81,6 +86,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly editorKind: "code" | "text" | "textarea";
       readonly kind: "text-like";
       readonly policy: GpuRetainedContentTextLikeEditorPolicy;
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "native-island";
     }
@@ -89,6 +95,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly displayValue: string;
       readonly kind: "button";
       readonly label: string;
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
     }
@@ -97,6 +104,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "switch";
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
     }
@@ -104,6 +112,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "slider";
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "preview-commit";
       readonly max: number;
@@ -115,6 +124,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "rotary";
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "preview-commit";
       readonly max: number;
@@ -127,6 +137,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "color-picker";
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate" | "native-island";
       readonly selectedIndex: number | null;
@@ -136,6 +147,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "dropdown";
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
       readonly selectedIndex: number | null;
@@ -146,6 +158,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly hasSecret: boolean;
       readonly kind: "password";
       readonly placeholder: string;
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly revealAvailable: boolean;
       readonly revealPending: boolean;
@@ -163,6 +176,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly mode: string;
       readonly placeholder: string;
       readonly remainingSlots: number | null;
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly commitPolicy: "native-island";
     }
@@ -173,6 +187,7 @@ export type GpuRetainedContentControlDescriptor =
       readonly kind: "date-time";
       readonly label: string;
       readonly mode: GpuRetainedContentDateTimeMode;
+      readonly renderOwner?: GpuRetainedContentControlRenderOwner | undefined;
       readonly rendererFamily: string;
       readonly summaryText: string | null;
       readonly commitPolicy: GpuRetainedContentControlCommitPolicy;

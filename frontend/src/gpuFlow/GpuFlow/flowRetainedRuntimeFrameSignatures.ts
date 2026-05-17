@@ -4,12 +4,10 @@ export function createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
   frame: GpuRetainedRuntimeFrame,
 ): string {
   return JSON.stringify({
-    textLikeSnapshotSources: frame.descriptors.textLikeRowSnapshotSources.map(
-      (source) => ({
-        sourceId: source.sourceId,
-        sourceKey: source.sourceKey,
-      }),
-    ),
+    domControlSources: frame.descriptors.domControlSources.map((source) => ({
+      sourceId: source.sourceId,
+      sourceKey: source.sourceKey,
+    })),
   });
 }
 

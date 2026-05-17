@@ -60,14 +60,18 @@ export type RetainedRegionManifest = {
   readonly sectionId: RetainedSectionId;
   readonly rowId: RetainedRowId | null;
   readonly contentVersion: RetainedContentVersion;
-  readonly contentSegments?: readonly RetainedRegionContentSegment[];
-  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly contentSegments?:
+    | readonly RetainedRegionContentSegment[]
+    | undefined;
+  readonly domControlTextures?:
+    | readonly RetainedRegionDomControlTexture[]
+    | undefined;
   readonly themeGeneration: RetainedThemeGeneration;
   readonly fontGeneration: RetainedFontGeneration;
   readonly renderMode: "active" | "passive";
   readonly contentRect: ContentRect;
   readonly clipRect: ContentRect;
-  readonly visualEpochKind?: RetainedVisualEpochKind;
+  readonly visualEpochKind?: RetainedVisualEpochKind | undefined;
 };
 
 export type RetainedRegionContentSegment = {
@@ -76,7 +80,7 @@ export type RetainedRegionContentSegment = {
   readonly rectCss: ContentRect;
 };
 
-export type RetainedRegionTextLikeSnapshot = {
+export type RetainedRegionDomControlTexture = {
   readonly rectCss: ContentRect;
   readonly rowId: RetainedRowId;
   readonly sourceId: string;

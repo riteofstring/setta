@@ -6,6 +6,7 @@ import {
   RetainedContentTexturePageManager,
   type RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
+import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTextureUploadSchedulerBudget } from "./retainedTextureUploadScheduler";
 
 export function renderFrame(
@@ -15,7 +16,7 @@ export function renderFrame(
     devicePixelRatio,
     frame,
     surfaces,
-    textLikeSnapshotElementById,
+    domControlElementById,
     viewportInteractionActive = false,
     viewportZoomBucket,
   }: {
@@ -23,7 +24,7 @@ export function renderFrame(
     readonly devicePixelRatio: number;
     readonly frame: number;
     readonly surfaces: readonly RetainedContentTexturePageFrameSurface[];
-    readonly textLikeSnapshotElementById?:
+    readonly domControlElementById?:
       | ReadonlyMap<string, HTMLElement>
       | undefined;
     readonly viewportInteractionActive?: boolean | undefined;
@@ -42,11 +43,11 @@ export function renderFrame(
     viewportInteractionActive,
   };
   const maintenance = manager.runPostSubmitMaintenance(
-    textLikeSnapshotElementById === undefined
+    domControlElementById === undefined
       ? maintenanceInput
       : {
           ...maintenanceInput,
-          textLikeSnapshotElementById,
+          domControlElementById,
         },
   );
   return {
@@ -107,7 +108,7 @@ export function createManagerFixture({
   return { manager, queue, textures };
 }
 
-export function createTextLikeSnapshotElement(
+export function createDomControlTextureElement(
   sourceKey: string,
   requestPaint?: (() => void) | undefined,
 ): HTMLElement {
@@ -117,8 +118,8 @@ export function createTextLikeSnapshotElement(
   return {
     closest: vi.fn(() => null),
     dataset: {
-      gpuFlowRetainedTextLikeRowSnapshotReadyKey: sourceKey,
-      gpuFlowRetainedTextLikeRowSnapshotSourceKey: sourceKey,
+      gpuFlowRetainedDomControlReadyKey: sourceKey,
+      gpuFlowRetainedDomControlSourceKey: sourceKey,
     },
     ownerDocument: {
       querySelector: vi.fn((selector: string) =>
@@ -141,9 +142,16 @@ export function createDeferred<T>() {
 }
 
 export function createFrameSurface(
-  overrides: Partial<RetainedContentTexturePageFrameSurface> = {},
+  overrides: Partial<
+    Omit<RetainedContentTexturePageFrameSurface, "domControlTextures">
+  > & {
+    readonly domControlTextures?:
+      | readonly Partial<GpuRetainedDomControlTextureDescriptor>[]
+      | undefined;
+  } = {},
 ): RetainedContentTexturePageFrameSurface {
   const contentVersion = overrides.contentVersion ?? 1;
+  const { domControlTextures, ...surfaceOverrides } = overrides;
   return {
     contentBoundsCss: { height: 100, width: 100, x: 0, y: 0 },
     contentVersion,
@@ -161,7 +169,28 @@ export function createFrameSurface(
     sourceWindowCss: { height: 100, width: 100, x: 0, y: 0 },
     surfaceId: "surface-a",
     visibleSourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
-    ...overrides,
+    ...(domControlTextures === undefined
+      ? {}
+      : {
+          domControlTextures: domControlTextures.map(
+            normalizeDomControlTextureDescriptor,
+          ),
+        }),
+    ...surfaceOverrides,
+  };
+}
+
+function normalizeDomControlTextureDescriptor(
+  texture: Partial<GpuRetainedDomControlTextureDescriptor>,
+): GpuRetainedDomControlTextureDescriptor {
+  const rectCss = texture.rectCss ?? { height: 20, width: 40, x: 10, y: 12 };
+  return {
+    controlRectSurfaceCssPx: texture.controlRectSurfaceCssPx ?? rectCss,
+    rectCss,
+    rowId: texture.rowId ?? "row-a",
+    sourceId: texture.sourceId ?? "snapshot-a",
+    sourceKey: texture.sourceKey ?? "snapshot-key",
+    textureRectDevicePx: texture.textureRectDevicePx ?? rectCss,
   };
 }
 

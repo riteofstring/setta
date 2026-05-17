@@ -1,4 +1,3 @@
-import type { GpuRetainedTextLikeRowSnapshotSource } from "./GpuFlow/retainedTextLikeRowSnapshotSources";
 import {
   getGpuRetainedContentSourceSurfaces,
   type GpuRetainedContentSourceSurface,
@@ -13,14 +12,17 @@ import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManager";
-import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
+import type {
+  GpuRetainedDomControlSourceDescriptor,
+  GpuRetainedDomControlTextureDescriptor,
+} from "./retainedDomControlScene";
 import type { GpuContentSurface } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
 type GpuRetainedContentPageFrameSurfaceOptions = {
   readonly scrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
-  readonly textLikeRowSnapshotSources?:
-    | readonly GpuRetainedTextLikeRowSnapshotSource[]
+  readonly domControlSources?:
+    | readonly GpuRetainedDomControlSourceDescriptor[]
     | undefined;
   readonly viewportZoomBucket?: number | undefined;
 };
@@ -61,8 +63,8 @@ function toGpuRetainedContentTexturePageFrameSurface(
   surface: GpuRetainedContentSourceSurface,
   options: GpuRetainedContentPageFrameSurfaceOptions,
 ): RetainedContentTexturePageFrameSurface {
-  const textLikeSnapshots = createTextLikeSnapshots({
-    sources: options.textLikeRowSnapshotSources ?? [],
+  const domControlTextures = createDomControlTextures({
+    sources: options.domControlSources ?? [],
     surfaceId: surface.id,
   });
   const contentVersion = getBaseContentVersion(surface.retainedScene);
@@ -114,7 +116,7 @@ function toGpuRetainedContentTexturePageFrameSurface(
     sourceVersion: contentVersion,
     sourceWindowCss,
     surfaceId: surface.id,
-    textLikeSnapshots,
+    domControlTextures,
     visibleSourceRectCss: visibleContentRectCss,
   };
 }
@@ -149,20 +151,22 @@ function createRetainedContentTexturePageFrameSurfaceSourceKey({
   });
 }
 
-function createTextLikeSnapshots({
+function createDomControlTextures({
   sources,
   surfaceId,
 }: {
-  readonly sources: readonly GpuRetainedTextLikeRowSnapshotSource[];
+  readonly sources: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly surfaceId: string;
-}): readonly RetainedContentTexturePageTextLikeSnapshot[] {
+}): readonly GpuRetainedDomControlTextureDescriptor[] {
   return sources
-    .filter((source) => source.surfaceId === surfaceId)
+    .filter((source) => source.surfaceId === surfaceId && !source.active)
     .map((source) => ({
-      rectCss: source.targetRectCss,
+      controlRectSurfaceCssPx: source.controlRectSurfaceCssPx,
+      rectCss: source.textureRectCssPx,
       rowId: source.rowId,
       sourceId: source.sourceId,
       sourceKey: source.sourceKey,
+      textureRectDevicePx: source.textureRectDevicePx,
     }));
 }
 

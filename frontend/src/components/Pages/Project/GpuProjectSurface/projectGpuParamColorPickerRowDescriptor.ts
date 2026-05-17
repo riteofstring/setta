@@ -23,6 +23,7 @@ export function createProjectGpuColorPickerControlDescriptor({
     ),
     displayValue,
     kind: "color-picker",
+    renderOwner: choices.length === 0 ? "dom-owned" : "canvas-owned",
     rendererFamily: controlKind,
     commitPolicy: choices.length === 0 ? "native-island" : "immediate",
     selectedIndex: selectedIndex === -1 ? null : selectedIndex,

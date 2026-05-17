@@ -60,7 +60,7 @@ function runGpuFlowRetainedPageMaintenance({
   publishedProtectedPageKeys,
   retainedContentPageManager,
   refreshFirstVisiblePages = false,
-  textLikeSnapshotElementById,
+  domControlElementById,
   preserveFirstVisibleSourceRects = false,
 }: {
   readonly darkMode: boolean;
@@ -70,7 +70,7 @@ function runGpuFlowRetainedPageMaintenance({
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlElementById: ReadonlyMap<string, HTMLElement>;
 }): {
   readonly deferred: boolean;
   readonly result: RetainedContentTexturePageMaintenanceResult;
@@ -89,7 +89,7 @@ function runGpuFlowRetainedPageMaintenance({
         refreshFirstVisiblePages,
         // Switch transitions are composited as native visuals, so texture
         // pages cache only the static retained scene state.
-        textLikeSnapshotElementById,
+        domControlElementById,
         viewportInteractionActive: deferResolutionUpdates,
       });
   return { deferred, result };
@@ -102,7 +102,7 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   preparedFrame,
   publishedProtectedPageKeys,
   retainedContentPageManager,
-  textLikeSnapshotElementById,
+  domControlElementById,
 }: {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
@@ -110,7 +110,7 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly publishedProtectedPageKeys: readonly string[];
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlElementById: ReadonlyMap<string, HTMLElement>;
 }): GpuFlowRetainedPageMaintenanceRun {
   return (
     existingMaintenance ??
@@ -120,7 +120,7 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       preparedFrame,
       publishedProtectedPageKeys,
       retainedContentPageManager,
-      textLikeSnapshotElementById,
+      domControlElementById,
     })
   );
 }

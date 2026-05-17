@@ -14,6 +14,7 @@ export function createProjectGpuButtonControlDescriptor({
     displayValue: label,
     kind: "button",
     label,
+    renderOwner: "canvas-owned",
     rendererFamily: controlKind,
     commitPolicy: "immediate",
   };

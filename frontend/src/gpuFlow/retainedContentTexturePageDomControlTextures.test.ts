@@ -2,48 +2,51 @@
 
 import { describe, expect, it } from "vitest";
 
-import { areRetainedContentTexturePageTextLikeSnapshotsReady } from "./retainedContentTexturePageTextLikeSnapshots";
+import { areRetainedContentTexturePageDomControlTexturesReady } from "./retainedContentTexturePageDomControlTextures";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 
-describe("areRetainedContentTexturePageTextLikeSnapshotsReady", () => {
-  it("waits for the matching snapshot source key to be marked paint-ready", () => {
+describe("areRetainedContentTexturePageDomControlTexturesReady", () => {
+  it("waits for the matching DOM-control source key to be marked paint-ready", () => {
     const descriptor = pageDescriptor({
       sourceRectCss: { height: 64, width: 64, x: 0, y: 0 },
     });
     const element = document.createElement("div");
-    element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey =
-      "snapshot-key";
+    element.dataset.gpuFlowRetainedDomControlSourceKey = "snapshot-key";
 
     expect(
-      areRetainedContentTexturePageTextLikeSnapshotsReady({
+      areRetainedContentTexturePageDomControlTexturesReady({
         descriptor,
         elementBySourceId: new Map([["snapshot-a", element]]),
         surface: {
-          textLikeSnapshots: [
+          domControlTextures: [
             {
+              controlRectSurfaceCssPx: { height: 20, width: 40, x: 8, y: 10 },
               rectCss: { height: 20, width: 40, x: 8, y: 10 },
               rowId: "row-a",
               sourceId: "snapshot-a",
               sourceKey: "snapshot-key",
+              textureRectDevicePx: { height: 20, width: 40, x: 8, y: 10 },
             },
           ],
         },
       }),
     ).toBe(false);
 
-    element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey = "snapshot-key";
+    element.dataset.gpuFlowRetainedDomControlReadyKey = "snapshot-key";
 
     expect(
-      areRetainedContentTexturePageTextLikeSnapshotsReady({
+      areRetainedContentTexturePageDomControlTexturesReady({
         descriptor,
         elementBySourceId: new Map([["snapshot-a", element]]),
         surface: {
-          textLikeSnapshots: [
+          domControlTextures: [
             {
+              controlRectSurfaceCssPx: { height: 20, width: 40, x: 8, y: 10 },
               rectCss: { height: 20, width: 40, x: 8, y: 10 },
               rowId: "row-a",
               sourceId: "snapshot-a",
               sourceKey: "snapshot-key",
+              textureRectDevicePx: { height: 20, width: 40, x: 8, y: 10 },
             },
           ],
         },

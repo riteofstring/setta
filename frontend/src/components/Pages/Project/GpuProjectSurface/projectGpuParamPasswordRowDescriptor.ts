@@ -48,6 +48,7 @@ export function createProjectGpuPasswordControlDescriptor({
     hasSecret,
     kind: "password",
     placeholder: getProjectGpuPasswordPlaceholder({ displayValue, hasSecret }),
+    renderOwner: "dom-owned",
     rendererFamily: controlKind,
     revealAvailable,
     revealPending,

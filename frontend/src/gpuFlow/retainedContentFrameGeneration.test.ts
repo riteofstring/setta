@@ -14,12 +14,12 @@ describe("createGpuRetainedContentFrameGeneration", () => {
 
     expect(generation.sourceSurfaces).toHaveLength(1);
     expect(generation.contentPageSurfaces).toHaveLength(1);
-    expect(generation.textLikeRowSnapshotSources).toHaveLength(1);
-    expect(generation.contentPageSurfaces[0]?.textLikeSnapshots).toEqual([
+    expect(generation.domControlSources).toHaveLength(1);
+    expect(generation.contentPageSurfaces[0]?.domControlTextures).toEqual([
       expect.objectContaining({
-        rectCss: generation.textLikeRowSnapshotSources[0]?.targetRectCss,
+        rectCss: generation.domControlSources[0]?.textureRectCssPx,
         rowId: "param-a",
-        sourceId: generation.textLikeRowSnapshotSources[0]?.sourceId,
+        sourceId: generation.domControlSources[0]?.sourceId,
       }),
     ]);
   });
@@ -40,6 +40,7 @@ function surface(): GpuContentSurface {
           editorKind: "text",
           kind: "text-like",
           policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+          renderOwner: "dom-owned",
           rendererFamily: "text-like",
         },
         controlKind: "text-like",

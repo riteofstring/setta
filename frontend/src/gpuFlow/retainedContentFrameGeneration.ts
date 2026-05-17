@@ -1,7 +1,4 @@
-import {
-  getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces,
-  type GpuRetainedTextLikeRowSnapshotSource,
-} from "./GpuFlow/retainedTextLikeRowSnapshotSources";
+import { getGpuRetainedDomControlSourcesFromSourceSurfaces } from "./GpuFlow/retainedDomControlSources";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "./GpuRetainedContentPageFrameSurfaces";
 import {
   getGpuRetainedContentSourceSurfaces,
@@ -9,12 +6,13 @@ import {
 } from "./GpuRetainedContentSurfaces";
 import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
+import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuContentSurface } from "./scene";
 
 type GpuRetainedContentFrameGeneration = {
   readonly contentPageSurfaces: readonly RetainedContentTexturePageFrameSurface[];
+  readonly domControlSources: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
-  readonly textLikeRowSnapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
   readonly viewportZoomBucket: number;
 };
 
@@ -32,16 +30,16 @@ export function createGpuRetainedContentFrameGeneration({
     scrollOffsets,
     viewportZoomBucket,
   });
-  const textLikeRowSnapshotSources =
-    getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces(sourceSurfaces);
+  const domControlSources =
+    getGpuRetainedDomControlSourcesFromSourceSurfaces(sourceSurfaces);
   return {
     contentPageSurfaces:
       getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
         sourceSurfaces,
-        { textLikeRowSnapshotSources },
+        { domControlSources },
       ),
+    domControlSources,
     sourceSurfaces,
-    textLikeRowSnapshotSources,
     viewportZoomBucket,
   };
 }

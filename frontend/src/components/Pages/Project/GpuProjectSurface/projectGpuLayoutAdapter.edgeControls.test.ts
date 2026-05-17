@@ -384,7 +384,7 @@ describe("project GPU layout adapter edge and retained control state", () => {
     );
   });
 
-  it("derives active retained param controls as explicit DOM islands", () => {
+  it("marks active text-like retained param controls for projected DOM-control sources", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -469,37 +469,29 @@ describe("project GPU layout adapter edge and retained control state", () => {
         focused: row.state.focused,
         hovered: row.state.hovered,
         id: row.id,
+        nativeControlActive: row.state.nativeControlActive,
+        domControlActivation: row.state.domControlActivation,
       })),
     ).toEqual([
-      { focused: false, hovered: true, id: "parent-param" },
-      { focused: false, hovered: false, id: "child-param" },
-    ]);
-    expect(scene.domIslands).toEqual([
       {
-        activation: {
+        domControlActivation: null,
+        focused: false,
+        hovered: true,
+        id: "parent-param",
+        nativeControlActive: false,
+      },
+      {
+        domControlActivation: {
           clientPoint: { x: 190, y: 62 },
           kind: "pointer",
         },
-        clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 61, width: 116, x: 0, y: 0 },
-        id: "param-control:dict-a:child-param",
-        kind: "retained-content-control",
-        ownerSectionId: "dict-a",
-        rect: {
-          height: 36,
-          width: 116,
-          x: 147,
-          y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
-        },
-        source: {
-          hitRecordId: "control:child-param",
-          kind: "retained-content",
-          ownerRowId: "child-param",
-          surfaceId: "dict-a:param-content:unpinned",
-        },
-        zIndex: 4,
+        focused: false,
+        hovered: false,
+        id: "child-param",
+        nativeControlActive: true,
       },
     ]);
+    expect(scene.domIslands).toEqual([]);
   });
 
   it("keeps canvas-owned retained controls out of row focus state", () => {

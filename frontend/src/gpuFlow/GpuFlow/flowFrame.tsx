@@ -75,8 +75,8 @@ import {
 import {
   postGpuFlowRetainedContentVisualStateChromeReproEvent,
   postGpuFlowRetainedDisplayFrameChromeReproEvent,
-  postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent,
-  postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent,
+  postGpuFlowRetainedDomControlChromeReproEvent,
+  postGpuFlowRetainedDomControlMaintenanceChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { resolveGpuFlowRetainedPageMaintenanceAfterPublish } from "./flowRetainedPageMaintenance";
 import { createGpuFlowRetainedPreparationRuntimeFrame } from "./flowRetainedPreparationRuntimeFrame";
@@ -451,7 +451,7 @@ export function renderGpuFlowNodeLayerFrame({
   retainedContentPageManagerRef,
   retainedContentRuntimeState,
   retainedDisplayFrameRef,
-  retainedTextLikeRowSnapshotElementByIdRef,
+  retainedDomControlElementByIdRef,
   retainedContentSwitchAnimations,
   retainedContentFrameCacheRef,
   surfaceRef,
@@ -479,7 +479,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
-  readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
+  readonly retainedDomControlElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
   readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
@@ -598,11 +598,10 @@ export function renderGpuFlowNodeLayerFrame({
     publishedFrame: publishedRetainedFrame,
     viewportInteractionActive: deferResolutionUpdates,
   });
-  postGpuFlowRetainedTextLikeRowSnapshotChromeReproEvent({
+  postGpuFlowRetainedDomControlChromeReproEvent({
     frame,
     preparedFrame: retainedPagePreparedFrame,
-    snapshotSources:
-      retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
+    sources: retainedRuntimeFrame.descriptors.domControlSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   markGpuFlowRetainedContentFrameFreshnessDirty({
@@ -660,17 +659,15 @@ export function renderGpuFlowNodeLayerFrame({
       preparedFrame: retainedPagePreparedFrame,
       publishedProtectedPageKeys: publishedRetainedPageFrame.protectedPageKeys,
       retainedContentPageManager: resources.retainedContentPageManager,
-      textLikeSnapshotElementById:
-        retainedTextLikeRowSnapshotElementByIdRef.current,
+      domControlElementById: retainedDomControlElementByIdRef.current,
     });
   const deferRetainedPageMaintenance = retainedPageMaintenance.deferred;
   const retainedPageResult = retainedPageMaintenance.result;
-  postGpuFlowRetainedTextLikeRowSnapshotMaintenanceChromeReproEvent({
-    elementBySourceId: retainedTextLikeRowSnapshotElementByIdRef.current,
+  postGpuFlowRetainedDomControlMaintenanceChromeReproEvent({
+    elementBySourceId: retainedDomControlElementByIdRef.current,
     frame,
     maintenanceResult: retainedPageResult,
-    snapshotSources:
-      retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources,
+    sources: retainedRuntimeFrame.descriptors.domControlSources,
     viewportInteractionActive: deferResolutionUpdates,
   });
   settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces({

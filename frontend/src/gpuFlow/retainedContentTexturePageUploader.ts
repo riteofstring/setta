@@ -1,11 +1,11 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
 import { rasterizeGpuRetainedContentPage } from "./retainedContentPageRasterizer";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
-import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
 import {
-  resolveRetainedContentTexturePageTextLikeSnapshots,
-  uploadRetainedContentTexturePageTextLikeSnapshots,
-} from "./retainedContentTexturePageTextLikeSnapshots";
+  resolveRetainedContentTexturePageDomControlTextures,
+  uploadRetainedContentTexturePageDomControlTextures,
+} from "./retainedContentTexturePageDomControlTextures";
+import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
 import {
   createRetainedContentTextureResources,
   destroyRetainedContentTextureResources,
@@ -33,7 +33,7 @@ export function uploadRetainedContentTexturePage({
   cache,
   descriptor,
   device,
-  elementByTextLikeSnapshotSourceId,
+  elementByDomControlTextureSourceId,
   format,
   frame,
   frameSurfaceById,
@@ -46,7 +46,7 @@ export function uploadRetainedContentTexturePage({
   readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly device: GPUDevice;
-  readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<string, HTMLElement>;
+  readonly elementByDomControlTextureSourceId: ReadonlyMap<string, HTMLElement>;
   readonly format: GPUTextureFormat;
   readonly frame: number;
   readonly frameSurfaceById: ReadonlyMap<
@@ -108,20 +108,21 @@ export function uploadRetainedContentTexturePage({
       width: descriptor.pixelWidth,
     },
   );
-  const textLikeSnapshotPaintAvailable =
+  const domControlTexturePaintAvailable =
     descriptor.visualEpochKind === "snapshot-exact"
-      ? uploadRetainedContentTexturePageTextLikeSnapshots({
+      ? uploadRetainedContentTexturePageDomControlTextures({
           descriptor,
-          elementBySourceId: elementByTextLikeSnapshotSourceId,
+          elementBySourceId: elementByDomControlTextureSourceId,
           queue: device.queue,
           resource,
-          snapshots: resolveRetainedContentTexturePageTextLikeSnapshots({
-            descriptor,
-            surface,
-          }),
+          domControlTextures:
+            resolveRetainedContentTexturePageDomControlTextures({
+              descriptor,
+              surface,
+            }),
         })
       : true;
-  if (!textLikeSnapshotPaintAvailable) {
+  if (!domControlTexturePaintAvailable) {
     destroyRetainedContentTextureResources(resource);
     cache.cancelPendingPage(pending.key);
     return {

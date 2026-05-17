@@ -15,6 +15,7 @@ export {
 } from "./sourceDom";
 
 export type HtmlSurfaceSourceElementConfig<TSource> = {
+  readonly anchor: HTMLElement;
   readonly className: string;
   readonly host: HTMLElement;
   readonly source: TSource;
@@ -107,7 +108,8 @@ function HtmlSurfaceSourceChild<TSource>({
   }, [onSourceElementChange, sourceId]);
 
   useLayoutEffect(() => {
-    if (!hostElement) {
+    const anchor = anchorRef.current;
+    if (!hostElement || !anchor) {
       return;
     }
     configureHtmlSurfaceSourceElement({
@@ -117,6 +119,7 @@ function HtmlSurfaceSourceChild<TSource>({
       sourceId,
     });
     configureSourceElement?.({
+      anchor,
       className: sourceClassName,
       host: hostElement,
       source,

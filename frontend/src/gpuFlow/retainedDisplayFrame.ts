@@ -6,6 +6,11 @@ import type {
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
+  resolveGpuRetainedDomControlPublicationState,
+  type GpuRetainedDomControlPublicationState,
+  type GpuRetainedDomControlSourceDescriptor,
+} from "./retainedDomControlScene";
+import {
   createPublishedNativeIslandRects,
   resolveNativeIslandPublicationTransaction,
   type NativeIslandPublicationTransaction,
@@ -90,6 +95,7 @@ type PublishedFrameDiagnostics = {
   readonly continuityProof: RetainedMotionContinuityProof;
   readonly coverageReadiness: CoverageReadiness;
   readonly desiredScrollRevision: number;
+  readonly domControlPublicationStates: readonly GpuRetainedDomControlPublicationState[];
   readonly exactPageCount: number;
   readonly fidelityReadiness: RetainedFidelityState;
   readonly holdDiagnostics: SurfaceTransactionHoldDiagnostics | null;
@@ -319,12 +325,14 @@ function createPublishedRetainedDisplayFrameOutcome({
   RetainedDisplayFrameOutcome,
   { readonly kind: "publish-compatible" | "publish-exact" }
 > {
-  const transactionOutcome = hasCompatibleRetainedDrawRegions(prepared.pageFrame)
+  const transactionOutcome = hasCompatibleRetainedDrawRegions(
+    prepared.pageFrame,
+  )
     ? "publish-compatible"
     : "publish-exact";
   const frame = createComposedRetainedDisplayFrame({
     coverageReadiness: "covered",
-    diagnosticsPrevious: previous,
+    diagnosticsPrevious: previous ?? null,
     holdDiagnostics: null,
     nowMs,
     prepared,
@@ -376,6 +384,10 @@ function createComposedRetainedDisplayFrame({
     previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),
     publishedIslandIds: activeIslandRects.map((island) => island.id),
   });
+  const domControlPublicationStates = createDomControlPublicationStates({
+    prepared,
+    previousCoherentFrameAvailable: diagnosticsPrevious !== null,
+  });
   return Object.freeze({
     activeIslandRects,
     coverageProof: proof,
@@ -389,6 +401,7 @@ function createComposedRetainedDisplayFrame({
       }),
       coverageReadiness,
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
+      domControlPublicationStates,
       exactPageCount,
       fidelityReadiness: proof.fidelityState,
       holdDiagnostics,
@@ -430,6 +443,10 @@ function createHeldRetainedDisplayFrame({
       ...previous.diagnostics,
       coverageReadiness: "held-previous",
       desiredScrollRevision: prepared.retainedRuntimeFrame.input.scrollRevision,
+      domControlPublicationStates: createDomControlPublicationStates({
+        prepared,
+        previousCoherentFrameAvailable: true,
+      }),
       holdDiagnostics: diagnostics,
       rejectedFrameCount: previous.diagnostics.rejectedFrameCount + 1,
       transactionOutcome: "hold-previous",
@@ -488,6 +505,174 @@ function getPublishedNativeIslandIds(
   frame: RetainedDisplayFrame | null,
 ): readonly string[] {
   return frame?.activeIslandRects.map((island) => island.id) ?? [];
+}
+
+function createDomControlPublicationStates({
+  prepared,
+  previousCoherentFrameAvailable,
+}: {
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previousCoherentFrameAvailable: boolean;
+}): readonly GpuRetainedDomControlPublicationState[] {
+  return Object.freeze(
+    prepared.retainedRuntimeFrame.descriptors.domControlSources.map((source) =>
+      resolveGpuRetainedDomControlPublicationState({
+        activeOcclusionReady: source.active
+          ? isDomControlRectCoveredByDrawRegions({
+              drawRegions: prepared.pageFrame.drawRegions,
+              rect: source.textureRectCssPx,
+            })
+          : false,
+        activeProjectionReady:
+          source.active && isActiveDomControlProjectionReady(source),
+        gestureOwnershipReady:
+          !source.active || isActiveDomControlProjectionReady(source),
+        passiveTextureReady:
+          !source.active &&
+          isPassiveDomControlTextureReady({
+            drawRegions: prepared.pageFrame.drawRegions,
+            source,
+          }),
+        previousCoherentFrameAvailable,
+        source,
+        sourcePaintReady: isDomControlSourcePaintReady(source),
+        textureUploadReady:
+          source.active ||
+          isPassiveDomControlTextureReady({
+            drawRegions: prepared.pageFrame.drawRegions,
+            source,
+          }),
+      }),
+    ),
+  );
+}
+
+function isDomControlSourcePaintReady(
+  source: Pick<GpuRetainedDomControlSourceDescriptor, "lifecycleState">,
+): boolean {
+  return (
+    source.lifecycleState !== "unmounted" &&
+    source.lifecycleState !== "mounted-paint-pending"
+  );
+}
+
+function isActiveDomControlProjectionReady(
+  source: Pick<
+    GpuRetainedDomControlSourceDescriptor,
+    "active" | "lifecycleState"
+  >,
+): boolean {
+  return (
+    source.active &&
+    (source.lifecycleState === "active-projected" ||
+      source.lifecycleState === "active-editing")
+  );
+}
+
+function isPassiveDomControlTextureReady({
+  drawRegions,
+  source,
+}: {
+  readonly drawRegions: readonly PublishedRetainedDrawRegion[];
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+}): boolean {
+  return isDomControlRectCoveredByDrawRegions({
+    drawRegions: drawRegions.filter((region) =>
+      regionHasPassiveDomControlTexture({ region, source }),
+    ),
+    rect: source.textureRectCssPx,
+  });
+}
+
+function regionHasPassiveDomControlTexture({
+  region,
+  source,
+}: {
+  readonly region: PublishedRetainedDrawRegion;
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+}): boolean {
+  if (region.coverageKind !== "exact") {
+    return false;
+  }
+  return Boolean(
+    region.page.descriptor.domControlTextures?.some(
+      (texture) =>
+        texture.sourceId === source.sourceId &&
+        texture.sourceKey === source.sourceKey &&
+        rectsIntersect(texture.rectCss, region.sampleRectCss),
+    ),
+  );
+}
+
+function isDomControlRectCoveredByDrawRegions({
+  drawRegions,
+  rect,
+}: {
+  readonly drawRegions: readonly Pick<
+    PublishedRetainedDrawRegion,
+    "sampleRectCss"
+  >[];
+  readonly rect: GpuRect;
+}): boolean {
+  let uncoveredRects: readonly GpuRect[] = [rect];
+  for (const region of drawRegions) {
+    const nextUncoveredRects: GpuRect[] = [];
+    for (const uncoveredRect of uncoveredRects) {
+      nextUncoveredRects.push(
+        ...subtractRect(uncoveredRect, region.sampleRectCss),
+      );
+    }
+    uncoveredRects = nextUncoveredRects;
+    if (uncoveredRects.length === 0) {
+      return true;
+    }
+  }
+  return uncoveredRects.every((uncoveredRect) => rectArea(uncoveredRect) < 0.5);
+}
+
+function subtractRect(rect: GpuRect, cut: GpuRect): readonly GpuRect[] {
+  const intersection = intersectRects(rect, cut);
+  if (!intersection) {
+    return [rect];
+  }
+  const rectRight = rect.x + rect.width;
+  const rectBottom = rect.y + rect.height;
+  const intersectionRight = intersection.x + intersection.width;
+  const intersectionBottom = intersection.y + intersection.height;
+  return [
+    {
+      height: intersection.y - rect.y,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    },
+    {
+      height: rectBottom - intersectionBottom,
+      width: rect.width,
+      x: rect.x,
+      y: intersectionBottom,
+    },
+    {
+      height: intersection.height,
+      width: intersection.x - rect.x,
+      x: rect.x,
+      y: intersection.y,
+    },
+    {
+      height: intersection.height,
+      width: rectRight - intersectionRight,
+      x: intersectionRight,
+      y: intersection.y,
+    },
+  ].filter((candidate) => rectArea(candidate) > 0.5);
+}
+
+function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
+  return intersectRects(left, right) !== null;
+}
+
+function rectArea(rect: GpuRect): number {
+  return Math.max(0, rect.width) * Math.max(0, rect.height);
 }
 
 function createVisibleCoverageProof({

@@ -11,9 +11,9 @@ import type {
   RetainedFidelityMetadata,
   RetainedRegionCompatibility,
   RetainedRegionContentSegment,
+  RetainedRegionDomControlTexture,
   RetainedRegionManifest,
   RetainedRegionTarget,
-  RetainedRegionTextLikeSnapshot,
 } from "./retainedCommittedCoverageStore";
 import type { GpuRect } from "./viewportMath";
 
@@ -167,8 +167,8 @@ export function freezeRegionManifest(
       ),
     ),
     contentRect: freezeRect(manifest.contentRect),
-    textLikeSnapshots: Object.freeze(
-      (manifest.textLikeSnapshots ?? []).map((snapshot) =>
+    domControlTextures: Object.freeze(
+      (manifest.domControlTextures ?? []).map((snapshot) =>
         Object.freeze({
           ...snapshot,
           rectCss: freezeRect(snapshot.rectCss),
@@ -206,7 +206,7 @@ function retainedManifestContentProofMatches(
   return [
     left.contentVersion === right.contentVersion,
     contentSegmentsEqual(left.contentSegments, right.contentSegments),
-    textLikeSnapshotsEqual(left.textLikeSnapshots, right.textLikeSnapshots),
+    domControlTexturesEqual(left.domControlTextures, right.domControlTextures),
   ].every(Boolean);
 }
 
@@ -234,8 +234,8 @@ function retainedContentProofKeysForRect(
       manifest.contentSegments ?? [],
       coverageRect,
     ),
-    snapshotKeys: textLikeSnapshotKeysForRect(
-      manifest.textLikeSnapshots ?? [],
+    snapshotKeys: domControlTextureKeysForRect(
+      manifest.domControlTextures ?? [],
       coverageRect,
     ),
   };
@@ -259,7 +259,7 @@ function retainedManifestHasStructuredContentProof(
   manifest: RetainedRegionManifest,
 ): boolean {
   return Boolean(
-    manifest.contentSegments?.length || manifest.textLikeSnapshots?.length,
+    manifest.contentSegments?.length || manifest.domControlTextures?.length,
   );
 }
 
@@ -273,8 +273,8 @@ function contentSegmentKeysForRect(
     .sort();
 }
 
-function textLikeSnapshotKeysForRect(
-  snapshots: readonly RetainedRegionTextLikeSnapshot[],
+function domControlTextureKeysForRect(
+  snapshots: readonly RetainedRegionDomControlTexture[],
   coverageRect: GpuRect,
 ): readonly string[] {
   return snapshots
@@ -304,9 +304,9 @@ function contentSegmentsEqual(
   );
 }
 
-function textLikeSnapshotsEqual(
-  left: readonly RetainedRegionTextLikeSnapshot[] | undefined,
-  right: readonly RetainedRegionTextLikeSnapshot[] | undefined,
+function domControlTexturesEqual(
+  left: readonly RetainedRegionDomControlTexture[] | undefined,
+  right: readonly RetainedRegionDomControlTexture[] | undefined,
 ): boolean {
   const leftSnapshots = left ?? [];
   const rightSnapshots = right ?? [];

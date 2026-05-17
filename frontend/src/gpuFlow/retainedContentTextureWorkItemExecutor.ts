@@ -1,12 +1,13 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
+import { areRetainedContentTexturePageDomControlTexturesReady } from "./retainedContentTexturePageDomControlTextures";
 import {
   isRetainedTextureWorkItemCompleteAfterPageUpload,
   shouldEnqueueRemainingRefreshDescriptors,
   shouldUploadRetainedTexturePage,
 } from "./retainedContentTexturePageManagerHelpers";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManagerTypes";
-import { areRetainedContentTexturePageTextLikeSnapshotsReady } from "./retainedContentTexturePageTextLikeSnapshots";
+import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   RetainedTexturePageCache,
   retainedTexturePageKey,
@@ -48,10 +49,10 @@ export function executeRetainedContentTextureWorkItem({
   resolveWorkItemDescriptors,
   snapshotUnavailablePageKeys,
   switchAnimations,
-  textLikeSnapshotElementById,
+  domControlTextureElementById,
   uploadPage,
 }: {
-  readonly cache: RetainedTexturePageCache;
+  readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
   readonly clearSnapshotExactUnavailableState: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly descriptorKey: string;
@@ -81,10 +82,10 @@ export function executeRetainedContentTextureWorkItem({
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
+    readonly elementByDomControlTextureSourceId: ReadonlyMap<
       string,
       HTMLElement
     >;
@@ -112,7 +113,7 @@ export function executeRetainedContentTextureWorkItem({
     resolveSnapshotExactUnavailableResult,
     snapshotUnavailablePageKeys,
     switchAnimations,
-    textLikeSnapshotElementById,
+    domControlTextureElementById,
     uploadPage,
   });
   if (!uploadOutcome.continueWorkItem) {
@@ -144,10 +145,10 @@ function executeDescriptorUploadForWorkItem({
   resolveSnapshotExactUnavailableResult,
   snapshotUnavailablePageKeys,
   switchAnimations,
-  textLikeSnapshotElementById,
+  domControlTextureElementById,
   uploadPage,
 }: {
-  readonly cache: RetainedTexturePageCache;
+  readonly cache: RetainedTexturePageCache<RetainedContentTextureResources>;
   readonly clearSnapshotExactUnavailableState: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly descriptorKey: string;
@@ -167,10 +168,10 @@ function executeDescriptorUploadForWorkItem({
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
+    readonly elementByDomControlTextureSourceId: ReadonlyMap<
       string,
       HTMLElement
     >;
@@ -199,7 +200,7 @@ function executeDescriptorUploadForWorkItem({
     resolveSnapshotExactUnavailableResult,
     snapshotUnavailablePageKeys,
     switchAnimations,
-    textLikeSnapshotElementById,
+    domControlTextureElementById,
     uploadPage,
   });
 }
@@ -213,7 +214,7 @@ function executeRequiredDescriptorUploadForWorkItem({
   resolveSnapshotExactUnavailableResult,
   snapshotUnavailablePageKeys,
   switchAnimations,
-  textLikeSnapshotElementById,
+  domControlTextureElementById,
   uploadPage,
 }: {
   readonly clearSnapshotExactUnavailableState: (input: {
@@ -234,10 +235,10 @@ function executeRequiredDescriptorUploadForWorkItem({
   readonly switchAnimations?:
     | GpuRetainedContentSwitchAnimationStore
     | undefined;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   readonly uploadPage: (input: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
+    readonly elementByDomControlTextureSourceId: ReadonlyMap<
       string,
       HTMLElement
     >;
@@ -258,7 +259,7 @@ function executeRequiredDescriptorUploadForWorkItem({
     !isSnapshotExactDescriptorReady({
       descriptor,
       frameSurfaceById,
-      textLikeSnapshotElementById,
+      domControlTextureElementById,
     })
   ) {
     return createStoppedDescriptorUploadOutcome(
@@ -268,7 +269,7 @@ function executeRequiredDescriptorUploadForWorkItem({
 
   const upload = uploadPage({
     descriptor,
-    elementByTextLikeSnapshotSourceId: textLikeSnapshotElementById,
+    elementByDomControlTextureSourceId: domControlTextureElementById,
     frame,
     palette,
     switchAnimations,
@@ -296,20 +297,20 @@ function executeRequiredDescriptorUploadForWorkItem({
 function isSnapshotExactDescriptorReady({
   descriptor,
   frameSurfaceById,
-  textLikeSnapshotElementById,
+  domControlTextureElementById,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly frameSurfaceById: ReadonlyMap<
     string,
     RetainedContentTexturePageFrameSurface
   >;
-  readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+  readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
 }): boolean {
   return (
     descriptor.visualEpochKind !== "snapshot-exact" ||
-    areRetainedContentTexturePageTextLikeSnapshotsReady({
+    areRetainedContentTexturePageDomControlTexturesReady({
       descriptor,
-      elementBySourceId: textLikeSnapshotElementById,
+      elementBySourceId: domControlTextureElementById,
       surface: frameSurfaceById.get(descriptor.surfaceId),
     })
   );

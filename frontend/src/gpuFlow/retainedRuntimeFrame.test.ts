@@ -25,7 +25,7 @@ describe("createGpuRetainedRuntimeFrame", () => {
     expect(pageSurface?.visibleSourceRectCss.y).toBe(240);
     expect(pageSurface?.sourceKey).toContain('"surfaceId":"surface-a"');
     expect(
-      pageSurface?.textLikeSnapshots?.map((snapshot) => snapshot.rowId),
+      pageSurface?.domControlTextures?.map((snapshot) => snapshot.rowId),
     ).toContain("param-10");
 
     expect(frame.descriptors.nativeDomIslands[0]).toEqual(
@@ -91,6 +91,7 @@ function retainedSurface(): GpuContentSurface {
         editorKind: "text" as const,
         kind: "text-like" as const,
         policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+        renderOwner: "dom-owned" as const,
         rendererFamily: "text-like",
       },
       controlKind: "text-like" as const,

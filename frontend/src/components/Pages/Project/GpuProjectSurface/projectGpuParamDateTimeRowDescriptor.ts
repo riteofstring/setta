@@ -107,6 +107,7 @@ function createProjectGpuDateControlDescriptor({
     kind: "date-time",
     label: getProjectGpuDateControlLabel(codeObjImpl),
     mode,
+    renderOwner: mode === "date-calendar" ? "canvas-owned" : "dom-owned",
     rendererFamily: controlKind,
     summaryText: getProjectGpuDateControlSummaryText(codeObjImpl),
     commitPolicy: mode === "date-calendar" ? "immediate" : "native-island",
@@ -136,6 +137,7 @@ function createProjectGpuTimeControlDescriptor({
       codeObjImpl.timeControlMode === TimeControlModeEnum.display
         ? "time-display"
         : "time-input",
+    renderOwner: "dom-owned",
     rendererFamily: controlKind,
     summaryText: null,
     commitPolicy: "native-island",

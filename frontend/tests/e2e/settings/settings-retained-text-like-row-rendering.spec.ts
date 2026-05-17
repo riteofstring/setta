@@ -22,7 +22,7 @@ type TextLikeRowTarget = {
   readonly surfaceId: string;
 };
 
-type TextLikeSnapshotCopyCall = {
+type DomControlTextureCopyCall = {
   readonly destinationX: number | null;
   readonly destinationY: number | null;
   readonly pixelHeight: number | null;
@@ -41,8 +41,8 @@ type TextLikeSnapshotCopyCall = {
 
 declare global {
   interface Window {
-    __SETTA_GPU_FLOW_DEBUG_TEXT_LIKE_COPY_CALLS__?:
-      | (() => readonly TextLikeSnapshotCopyCall[])
+    __SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__?:
+      | (() => readonly DomControlTextureCopyCall[])
       | undefined;
   }
 }
@@ -77,7 +77,7 @@ test.use({
 test("all-settings retained text-like row values are visible before click and through editor handoff", async ({
   page,
 }, testInfo) => {
-  await installTextLikeSnapshotCopyProbe(page);
+  await installDomControlCopyProbe(page);
   await openAllSettings(page);
 
   for (const target of TEXT_LIKE_ROW_TARGETS) {
@@ -99,7 +99,7 @@ test("all-settings retained text-like row values are visible before click and th
       expect(scrollSteps).toBeGreaterThan(0);
     }
 
-    await waitForRetainedTextLikeSnapshotSource(page, rowTarget);
+    await waitForRetainedDomControlSource(page, rowTarget);
     const passiveClip = await resolveControlScreenshotClip(page, row);
     const { ink: passiveInk } = await waitForCodeMirrorTextInkFrame({
       name: `${rowTarget.rowId}-passive-before-click.png`,
@@ -218,10 +218,10 @@ async function openAllSettings(page: Page): Promise<void> {
     .toBeGreaterThan(50);
 }
 
-async function installTextLikeSnapshotCopyProbe(page: Page): Promise<void> {
+async function installDomControlCopyProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const calls: TextLikeSnapshotCopyCall[] = [];
-    window.__SETTA_GPU_FLOW_DEBUG_TEXT_LIKE_COPY_CALLS__ = () => calls;
+    const calls: DomControlTextureCopyCall[] = [];
+    window.__SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__ = () => calls;
     const queuePrototype = window.GPUQueue?.prototype as
       | (GPUQueue & {
           copyElementImageToTexture?: (...args: unknown[]) => unknown;
@@ -238,7 +238,7 @@ async function installTextLikeSnapshotCopyProbe(page: Page): Promise<void> {
       const source = args[0];
       if (
         source instanceof HTMLElement &&
-        source.dataset.gpuFlowRetainedTextLikeRowSnapshotSource === "true"
+        source.dataset.gpuFlowRetainedDomControlSource === "true"
       ) {
         const destination = args[7] as
           | { readonly origin?: { readonly x?: number; readonly y?: number } }
@@ -249,14 +249,12 @@ async function installTextLikeSnapshotCopyProbe(page: Page): Promise<void> {
           pixelHeight: typeof args[6] === "number" ? args[6] : null,
           pixelWidth: typeof args[5] === "number" ? args[5] : null,
           readyKeyLength:
-            source.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey?.length ??
-            0,
+            source.dataset.gpuFlowRetainedDomControlReadyKey?.length ?? 0,
           rowId: source.dataset.gpuFlowRetainedRowId ?? "",
           sourceHeight: typeof args[4] === "number" ? args[4] : null,
           sourceId: source.dataset.gpuFlowSourceId ?? null,
           sourceKeyLength:
-            source.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey
-              ?.length ?? 0,
+            source.dataset.gpuFlowRetainedDomControlSourceKey?.length ?? 0,
           sourceText: source.textContent,
           sourceWidth: typeof args[3] === "number" ? args[3] : null,
           sourceX: typeof args[1] === "number" ? args[1] : null,
@@ -619,13 +617,13 @@ async function readRetainedTextLikeRowDiagnostics(
 ): Promise<unknown> {
   return await page.evaluate((target) => {
     const selector = [
-      "[data-gpu-flow-retained-text-like-row-snapshot-source='true']",
+      "[data-gpu-flow-retained-dom-control-source='true']",
       `[data-gpu-flow-retained-surface-id='${cssEscape(target.surfaceId)}']`,
       `[data-gpu-flow-retained-row-id='${cssEscape(target.rowId)}']`,
     ].join("");
     const element = document.querySelector<HTMLElement>(selector);
     const copyCalls =
-      window.__SETTA_GPU_FLOW_DEBUG_TEXT_LIKE_COPY_CALLS__?.() ?? [];
+      window.__SETTA_GPU_FLOW_DEBUG_DOM_CONTROL_COPY_CALLS__?.() ?? [];
     const visualSurfaces =
       window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [];
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
@@ -635,7 +633,7 @@ async function readRetainedTextLikeRowDiagnostics(
     );
     return {
       retainedRowFound: Boolean(row),
-      snapshotElement:
+      domControlSourceElement:
         element === null
           ? null
           : {
@@ -645,18 +643,15 @@ async function readRetainedTextLikeRowDiagnostics(
               clientWidth: element.clientWidth,
               rect: toPlainRect(element.getBoundingClientRect()),
               sourceKeyLength:
-                element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey
-                  ?.length ?? 0,
+                element.dataset.gpuFlowRetainedDomControlSourceKey?.length ?? 0,
               readyKeyLength:
-                element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey
-                  ?.length ?? 0,
+                element.dataset.gpuFlowRetainedDomControlReadyKey?.length ?? 0,
               pendingReadyKeyLength:
-                element.dataset
-                  .gpuFlowRetainedTextLikeRowSnapshotPendingReadyKey?.length ??
-                0,
+                element.dataset.gpuFlowRetainedDomControlPendingReadyKey
+                  ?.length ?? 0,
               textContent: element.textContent,
             },
-      textLikeCopyCalls: copyCalls.filter(
+      domControlCopyCalls: copyCalls.filter(
         (call) =>
           call.surfaceId === target.surfaceId && call.rowId === target.rowId,
       ),
@@ -680,24 +675,24 @@ async function readRetainedTextLikeRowDiagnostics(
   }, target);
 }
 
-async function waitForRetainedTextLikeSnapshotSource(
+async function waitForRetainedDomControlSource(
   page: Page,
   target: TextLikeRowTarget,
 ): Promise<void> {
   await expect
-    .poll(() => readRetainedTextLikeSnapshotSourceReady(page, target), {
+    .poll(() => readRetainedDomControlSourceReady(page, target), {
       timeout: 5_000,
     })
     .toBe(true);
 }
 
-async function readRetainedTextLikeSnapshotSourceReady(
+async function readRetainedDomControlSourceReady(
   page: Page,
   target: TextLikeRowTarget,
 ): Promise<boolean> {
   return await page.evaluate((target) => {
     const selector = [
-      "[data-gpu-flow-retained-text-like-row-snapshot-source='true']",
+      "[data-gpu-flow-retained-dom-control-source='true']",
       `[data-gpu-flow-retained-surface-id='${cssEscape(target.surfaceId)}']`,
       `[data-gpu-flow-retained-row-id='${cssEscape(target.rowId)}']`,
     ].join("");
@@ -705,11 +700,10 @@ async function readRetainedTextLikeSnapshotSourceReady(
     if (!element) {
       return false;
     }
-    const sourceKey =
-      element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ?? "";
+    const sourceKey = element.dataset.gpuFlowRetainedDomControlSourceKey ?? "";
     return (
       sourceKey.length > 0 &&
-      element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey === sourceKey
+      element.dataset.gpuFlowRetainedDomControlReadyKey === sourceKey
     );
 
     function cssEscape(value: string): string {

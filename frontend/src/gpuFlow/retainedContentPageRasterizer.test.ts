@@ -47,6 +47,7 @@ function rowBackgroundCommand(
     state: {
       controlFocused: false,
       disabled: false,
+      domControlActivation: null,
       dragging: false,
       error: false,
       focused: false,
@@ -157,7 +158,7 @@ describe("rasterizeGpuRetainedContentPage", () => {
     );
   });
 
-  it("draws deterministic passive text-like row labels and values without snapshots", () => {
+  it("draws deterministic passive text-like row labels without DOM-owned values", () => {
     const canvas = { height: 1, width: 1 } as HTMLCanvasElement;
     const ctx = createCanvasContextRecorder();
 
@@ -219,7 +220,7 @@ describe("rasterizeGpuRetainedContentPage", () => {
       expect.any(Number),
       expect.any(Number),
     );
-    expect(ctx.fillText).toHaveBeenCalledWith(
+    expect(ctx.fillText).not.toHaveBeenCalledWith(
       "42",
       expect.any(Number),
       expect.any(Number),

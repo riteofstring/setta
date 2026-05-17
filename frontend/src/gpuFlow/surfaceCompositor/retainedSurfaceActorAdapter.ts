@@ -70,7 +70,7 @@ export function createRetainedSurfaceTransactionSnapshot({
       generation,
     ]),
   );
-  const textLikeActorSnapshots = createRetainedTextLikeActorSnapshots({
+  const domControlActorSnapshots = createRetainedDomControlActorSnapshots({
     generationBySurfaceId,
     pageFrame,
     retainedRuntimeFrame,
@@ -81,7 +81,7 @@ export function createRetainedSurfaceTransactionSnapshot({
   });
   const actorSnapshots = Object.freeze([
     ...retainedContentActorSnapshots,
-    ...textLikeActorSnapshots,
+    ...domControlActorSnapshots,
     ...activeIslandSnapshot.actorSnapshots,
   ]);
   const coverageProof = createRetainedSurfaceCoverageProof({
@@ -305,7 +305,7 @@ function createRetainedContentSurfaceGeneration({
   });
 }
 
-function createRetainedTextLikeActorSnapshots({
+function createRetainedDomControlActorSnapshots({
   generationBySurfaceId,
   pageFrame,
   retainedRuntimeFrame,
@@ -316,29 +316,32 @@ function createRetainedTextLikeActorSnapshots({
 }): readonly SurfaceActorSnapshot[] {
   const targetsBySurfaceId = groupVisibleTargetsBySurfaceId(pageFrame);
   const snapshots: SurfaceActorSnapshot[] = [];
-  for (const source of retainedRuntimeFrame.descriptors
-    .textLikeRowSnapshotSources) {
+  for (const source of retainedRuntimeFrame.descriptors.domControlSources) {
     const target = targetsBySurfaceId
       .get(source.surfaceId)
       ?.find((candidate) =>
-        rectsIntersect(candidate.contentRect, source.targetRectCss),
+        rectsIntersect(candidate.contentRect, source.textureRectCssPx),
       );
     if (!target) {
       continue;
     }
     const flowRect = retainedContentRectToFlowRect({
-      contentRect: source.targetRectCss,
+      contentRect: source.textureRectCssPx,
       surfaceLayout: target.surfaceLayout,
     });
     const ownerGeneration = generationBySurfaceId.get(source.surfaceId);
     const generationId = [
-      "retained-text-like",
+      "retained-dom-control",
       source.sourceId,
       source.sourceKey,
-      rectKey(source.targetRectCss),
+      source.lifecycleState,
+      rectKey(source.textureRectCssPx),
       ownerGeneration?.generationId ?? "owner:none",
     ].join("|");
-    const surfaceId = `retained-text-like:${source.sourceId}`;
+    const surfaceId = `retained-dom-control:${source.sourceId}`;
+    const rendererBucket: SurfaceRendererBucket = source.active
+      ? "native-control"
+      : "retained-content";
     const generation = createSurfaceGeneration({
       activeDomIsland: null,
       clipRect: flowRect,
@@ -351,20 +354,22 @@ function createRetainedTextLikeActorSnapshots({
           Object.freeze({
             id: source.sourceId,
             rect: flowRect,
-            role: "retained-text-like-snapshot",
+            role: source.active
+              ? "retained-active-dom-control"
+              : "retained-passive-dom-control",
           }),
         ]),
         generationId,
       },
       paintReadiness: "ready",
-      rendererBucket: "retained-content",
+      rendererBucket,
       sourceKey: source.sourceKey,
       sourceWindow: {
         contentToTextureKey: [
           source.sourceKey,
-          rectKey(source.targetRectCss),
+          rectKey(source.textureRectCssPx),
         ].join("|"),
-        sourceRect: source.targetRectCss,
+        sourceRect: source.textureRectCssPx,
       },
       surfaceId,
       textureReadiness: "ready",
@@ -375,8 +380,10 @@ function createRetainedTextLikeActorSnapshots({
       createSurfaceActorSnapshot({
         actor: createSurfaceActor({
           currentGenerationId: generation.generationId,
-          kind: "retained-text-like-snapshot",
-          rendererBucket: "retained-content",
+          kind: source.active
+            ? "retained-active-dom-control"
+            : "retained-passive-dom-control",
+          rendererBucket,
           sourceKey: generation.sourceKey,
           sourcePolicy: "layoutsubtree-dom",
           surfaceId,
@@ -629,7 +636,8 @@ function createRetainedProtectedResourceHandles({
   }
   for (const { actor, generation } of actorSnapshots) {
     if (
-      actor.kind !== "retained-text-like-snapshot" &&
+      actor.kind !== "retained-passive-dom-control" &&
+      actor.kind !== "retained-active-dom-control" &&
       actor.kind !== "active-dom-island"
     ) {
       continue;

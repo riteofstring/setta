@@ -3,10 +3,10 @@ import {
   type RetainedCoverageEntry,
   type RetainedCoveragePlanDiagnostics,
   type RetainedRegionContentSegment,
+  type RetainedRegionDomControlTexture,
   type RetainedRegionTarget,
-  type RetainedRegionTextLikeSnapshot,
-  type RetainedUncoveredRegion,
   type RetainedReplacementTxn,
+  type RetainedUncoveredRegion,
 } from "./retainedCommittedCoverageStore";
 import {
   createRetainedCommittedPageLifecycle,
@@ -19,14 +19,38 @@ import {
   type RetainedCompatibilityResult,
 } from "./retainedContentLifecycle";
 import {
+  normalizeFiniteInteger,
+  normalizeFiniteNonNegativeInteger,
+  normalizeFiniteNumber,
+  normalizeFinitePositiveInteger,
+  normalizeFinitePositiveNumber,
+  normalizeRetiredFrameThrough,
+  normalizeScaleKey,
+  normalizeSourceKey,
+  normalizeSurfaceId,
+} from "./retainedTexturePageNormalization";
+import {
   normalizeRetainedTexturePageVisualEpochKind,
   type RetainedVisualEpochKind,
 } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
 
+type RetainedTexturePageContentSegments =
+  readonly RetainedRegionContentSegment[];
+type RetainedTexturePageDomControlTextures =
+  readonly RetainedRegionDomControlTexture[];
+type RetainedTexturePageProtectedKeys =
+  | ReadonlySet<string>
+  | readonly string[]
+  | undefined;
+type RetainedTexturePageDescriptorVisualEpochKind = Exclude<
+  RetainedVisualEpochKind,
+  "active-dom"
+>;
+
 export type RetainedTexturePageDescriptor = {
   readonly contentVersion: number;
-  readonly contentSegments?: readonly RetainedRegionContentSegment[];
+  readonly contentSegments?: RetainedTexturePageContentSegments | undefined;
   readonly devicePixelRatioBucket: number;
   readonly lodLevel: number;
   readonly lodScale: number;
@@ -38,10 +62,14 @@ export type RetainedTexturePageDescriptor = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly domControlTextures?:
+    | RetainedTexturePageDomControlTextures
+    | undefined;
   readonly tileColumn: number;
   readonly tileRow: number;
-  readonly visualEpochKind?: Exclude<RetainedVisualEpochKind, "active-dom">;
+  readonly visualEpochKind?:
+    | RetainedTexturePageDescriptorVisualEpochKind
+    | undefined;
   readonly viewportZoomBucket: number;
 };
 
@@ -82,7 +110,7 @@ export type RetainedTexturePageCacheSnapshot = {
 
 type RetainedTexturePageLookup = {
   readonly contentVersion: number;
-  readonly contentSegments?: readonly RetainedRegionContentSegment[];
+  readonly contentSegments?: RetainedTexturePageContentSegments | undefined;
   readonly devicePixelRatioBucket: number;
   readonly pixelHeight?: number | undefined;
   readonly pixelWidth?: number | undefined;
@@ -92,7 +120,9 @@ type RetainedTexturePageLookup = {
   readonly sourceWindowCss?: GpuRect | undefined;
   readonly surfaceId: string;
   readonly targetLodScale: number;
-  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly domControlTextures?:
+    | RetainedTexturePageDomControlTextures
+    | undefined;
   readonly tileColumn?: number | undefined;
   readonly tileRow?: number | undefined;
   readonly usedFrame?: number | undefined;
@@ -130,10 +160,7 @@ type RetainedTexturePageRegionCoveragePlan<TResource = unknown> = {
 type RetainedTexturePageEvictionOptions = {
   readonly frame?: number | undefined;
   readonly maxBytes: number;
-  readonly protectedPageKeys?:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
+  readonly protectedPageKeys?: RetainedTexturePageProtectedKeys;
 };
 
 export type RetainedTexturePageEvictionResult = {
@@ -309,7 +336,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    textLikeSnapshots,
+    domControlTextures,
     usedFrame,
     viewportZoomBucket,
   }: RetainedTexturePageLookup): CommittedRetainedTexturePage<TResource> | null {
@@ -323,7 +350,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
-      textLikeSnapshots,
+      domControlTextures,
       viewportZoomBucket,
       contentSegments,
     }).filter((page) =>
@@ -350,7 +377,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    textLikeSnapshots,
+    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -367,7 +394,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceWindowCss,
       surfaceId,
       targetLodScale,
-      textLikeSnapshots,
+      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -389,7 +416,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    textLikeSnapshots,
+    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -415,7 +442,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      textLikeSnapshots,
+      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -460,7 +487,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     sourceWindowCss,
     surfaceId,
     targetLodScale,
-    textLikeSnapshots,
+    domControlTextures,
     tileColumn = 0,
     tileRow = 0,
     viewportZoomBucket,
@@ -486,7 +513,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
       sourceVersion,
       sourceWindowCss: sourceWindowCss ?? lookupRect,
       surfaceId,
-      textLikeSnapshots,
+      domControlTextures,
       tileColumn,
       tileRow,
       viewportZoomBucket,
@@ -819,10 +846,10 @@ function normalizePageDescriptor(
       descriptor.sourceWindowCss,
     ),
     surfaceId,
-    textLikeSnapshots:
-      descriptor.textLikeSnapshots === undefined
+    domControlTextures:
+      descriptor.domControlTextures === undefined
         ? undefined
-        : normalizeTextLikeSnapshots(descriptor.textLikeSnapshots),
+        : normalizeDomControlTextures(descriptor.domControlTextures),
     tileColumn,
     tileRow,
     visualEpochKind: normalizeRetainedTexturePageVisualEpochKind(
@@ -847,12 +874,12 @@ function normalizeContentSegments(
     .sort((left, right) => left.id.localeCompare(right.id));
 }
 
-function normalizeTextLikeSnapshots(
-  snapshots: readonly RetainedRegionTextLikeSnapshot[],
-): readonly RetainedRegionTextLikeSnapshot[] {
+function normalizeDomControlTextures(
+  snapshots: readonly RetainedRegionDomControlTexture[],
+): readonly RetainedRegionDomControlTexture[] {
   return snapshots
     .map((snapshot) => ({
-      rectCss: normalizeRect("textLikeSnapshots.rectCss", snapshot.rectCss),
+      rectCss: normalizeRect("domControlTextures.rectCss", snapshot.rectCss),
       rowId: normalizeSourceKey(snapshot.rowId),
       sourceId: normalizeSourceKey(snapshot.sourceId),
       sourceKey: normalizeSourceKey(snapshot.sourceKey),
@@ -923,77 +950,4 @@ function sumBytes(pages: Iterable<{ readonly byteSize: number }>): number {
     total += page.byteSize;
   }
   return total;
-}
-
-function normalizeSurfaceId(surfaceId: string): string {
-  if (!surfaceId) {
-    throw new Error("Retained texture page requires surfaceId.");
-  }
-  return surfaceId;
-}
-function normalizeScaleKey(scaleKey: string): string {
-  if (!scaleKey) {
-    throw new Error("Retained texture page requires scaleKey.");
-  }
-  return scaleKey;
-}
-function normalizeSourceKey(sourceKey: string): string {
-  if (!sourceKey) {
-    throw new Error("Retained texture page requires sourceKey.");
-  }
-  return sourceKey;
-}
-function normalizeFiniteNumber(name: string, value: number): number {
-  if (!Number.isFinite(value)) {
-    throw new Error(`Retained texture page ${name} must be finite.`);
-  }
-  return value;
-}
-function normalizeFinitePositiveNumber(name: string, value: number): number {
-  const normalized = normalizeFiniteNumber(name, value);
-  if (normalized <= 0) {
-    throw new Error(`Retained texture page ${name} must be greater than zero.`);
-  }
-  return normalized;
-}
-
-function normalizeFinitePositiveInteger(name: string, value: number): number {
-  const normalized = normalizeFinitePositiveNumber(name, value);
-  if (!Number.isInteger(normalized)) {
-    throw new Error(`Retained texture page ${name} must be an integer.`);
-  }
-  return normalized;
-}
-
-function normalizeFiniteInteger(name: string, value: number): number {
-  const normalized = normalizeFiniteNumber(name, value);
-  if (!Number.isInteger(normalized)) {
-    throw new Error(`Retained texture page ${name} must be an integer.`);
-  }
-  return normalized;
-}
-
-function normalizeFiniteNonNegativeInteger(
-  name: string,
-  value: number,
-): number {
-  const normalized = normalizeFiniteNumber(name, value);
-  if (!Number.isInteger(normalized) || normalized < 0) {
-    throw new Error(
-      `Retained texture page ${name} must be a non-negative integer.`,
-    );
-  }
-  return normalized;
-}
-
-function normalizeRetiredFrameThrough(value: number): number {
-  if (value === Number.POSITIVE_INFINITY) {
-    return value;
-  }
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(
-      "Retained texture page retiredFrameThrough must be finite, non-negative, or positive infinity.",
-    );
-  }
-  return value;
 }

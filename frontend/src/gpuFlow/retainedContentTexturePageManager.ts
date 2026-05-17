@@ -10,11 +10,16 @@ import {
   normalizeRetainedContentTexturePageLodScale,
   resolveRetainedContentTexturePageTextureBudget,
 } from "./retainedContentTexturePageBudget";
+import { isCommittedRetainedPageCompatibleWithReplacementTarget } from "./retainedContentTexturePageCompatibility";
 import { RetainedTexturePageContentIdentityResolver } from "./retainedContentTexturePageContentIdentity";
 import {
   createRetainedContentTexturePageVisibleCoverageFrame,
   type RetainedContentTexturePageVisibleCoverageFrame,
 } from "./retainedContentTexturePageCoverageFrame";
+import {
+  EMPTY_DOM_CONTROL_TEXTURE_ELEMENTS,
+  isRetainedContentTexturePageSnapshotExactDescriptorReady,
+} from "./retainedContentTexturePageDomControlTextures";
 import {
   createDeferredRetainedContentTexturePageMaintenanceResult,
   createRetainedContentTexturePageMaintenanceResult,
@@ -35,11 +40,6 @@ import type {
   RetainedContentTexturePagePreparedFrame,
   RetainedContentTexturePageReplacementDescriptor,
 } from "./retainedContentTexturePageManagerTypes";
-import { isCommittedRetainedPageCompatibleWithReplacementTarget } from "./retainedContentTexturePageCompatibility";
-import {
-  EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
-  isRetainedContentTexturePageSnapshotExactDescriptorReady,
-} from "./retainedContentTexturePageTextLikeSnapshots";
 import { uploadRetainedContentTexturePage } from "./retainedContentTexturePageUploader";
 import {
   RetainedContentTextureAtlasStore,
@@ -295,7 +295,7 @@ export class RetainedContentTexturePageManager {
     publishedProtectedPageKeys,
     refreshFirstVisiblePages = false,
     switchAnimations,
-    textLikeSnapshotElementById = EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS,
+    domControlElementById = EMPTY_DOM_CONTROL_TEXTURE_ELEMENTS,
     viewportInteractionActive = false,
   }: RetainedContentTexturePageMaintenanceInput): RetainedContentTexturePageMaintenanceResult {
     this.enqueueMissingReplacementPages(
@@ -303,7 +303,7 @@ export class RetainedContentTexturePageManager {
       preparedFrame.frame,
       preserveFirstVisibleSourceRects,
       refreshFirstVisiblePages,
-      textLikeSnapshotElementById,
+      domControlElementById,
     );
     this.maintenanceUploadedDrawCommandCount = 0;
     const queuedWorkCountBeforeUpload = this.workQueue.size;
@@ -317,7 +317,7 @@ export class RetainedContentTexturePageManager {
           item,
           palette,
           switchAnimations,
-          textLikeSnapshotElementById,
+          domControlTextureElementById: domControlElementById,
         }),
       pageWorkBudget: {
         activeIslandReserveBytes: this.textureBudget.activeIslandReserveBytes,
@@ -410,7 +410,7 @@ export class RetainedContentTexturePageManager {
       visualEpochKind === "base"
         ? ({
             ...surface,
-            textLikeSnapshots: [],
+            domControlTextures: [],
           } satisfies RetainedContentTexturePageFrameSurface)
         : surface;
     return this.resolveDescriptorContentVersions({
@@ -437,7 +437,7 @@ export class RetainedContentTexturePageManager {
     frame: number,
     preserveFirstVisibleSourceRects: boolean,
     refreshFirstVisiblePages: boolean,
-    textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>,
+    domControlTextureElementById: ReadonlyMap<string, HTMLElement>,
   ) {
     this.cancelStaleFirstVisibleReplacementWork(replacementDescriptors);
     for (const replacementDescriptor of replacementDescriptors) {
@@ -446,7 +446,7 @@ export class RetainedContentTexturePageManager {
         frame,
         preserveFirstVisibleSourceRects,
         refreshFirstVisiblePages,
-        textLikeSnapshotElementById,
+        domControlTextureElementById,
       );
     }
   }
@@ -459,12 +459,12 @@ export class RetainedContentTexturePageManager {
     frame: number,
     preserveFirstVisibleSourceRects: boolean,
     refreshFirstVisiblePages: boolean,
-    textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>,
+    domControlTextureElementById: ReadonlyMap<string, HTMLElement>,
   ) {
     if (
       !isRetainedContentTexturePageSnapshotExactDescriptorReady({
         descriptor,
-        elementBySourceId: textLikeSnapshotElementById,
+        elementBySourceId: domControlTextureElementById,
         surface: this.frameSurfaceById.get(descriptor.surfaceId),
       })
     ) {
@@ -531,7 +531,7 @@ export class RetainedContentTexturePageManager {
     this.enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
       descriptor,
       frame,
-      textLikeSnapshotElementById,
+      domControlTextureElementById,
     });
   }
 
@@ -562,11 +562,11 @@ export class RetainedContentTexturePageManager {
   private enqueueSnapshotExactDescriptorsForCommittedBaseReplacement({
     descriptor,
     frame,
-    textLikeSnapshotElementById,
+    domControlTextureElementById,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly frame: number;
-    readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+    readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   }) {
     const exactDescriptors =
       this.createSnapshotExactDescriptorsForCommittedBaseReplacement(
@@ -582,7 +582,7 @@ export class RetainedContentTexturePageManager {
       }
       const ready = isRetainedContentTexturePageSnapshotExactDescriptorReady({
         descriptor: exactDescriptor,
-        elementBySourceId: textLikeSnapshotElementById,
+        elementBySourceId: domControlTextureElementById,
         surface: this.frameSurfaceById.get(exactDescriptor.surfaceId),
       });
       if (!ready) {
@@ -605,7 +605,7 @@ export class RetainedContentTexturePageManager {
     descriptor: RetainedTexturePageDescriptor,
   ): readonly RetainedTexturePageDescriptor[] {
     const surface = this.frameSurfaceById.get(descriptor.surfaceId);
-    if (!surface?.textLikeSnapshots?.length) {
+    if (!surface?.domControlTextures?.length) {
       return [];
     }
     return this.createPageDescriptors({
@@ -701,18 +701,17 @@ export class RetainedContentTexturePageManager {
   }: {
     readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
     readonly uploadCount: number;
-  }):
-    | RetainedContentTexturePagePreparedFrame
-    | ReturnType<
-        RetainedContentTexturePageManager["createVisibleCoverageFrame"]
-      > {
+  }): RetainedContentTexturePagePreparedFrame {
     if (uploadCount === 0) {
       return preparedFrame;
     }
-    return this.createVisibleCoverageFrame({
+    return {
+      ...this.createVisibleCoverageFrame({
+        frame: preparedFrame.frame,
+        visibleRegionTargets: preparedFrame.visibleRegionTargets,
+      }),
       frame: preparedFrame.frame,
-      visibleRegionTargets: preparedFrame.visibleRegionTargets,
-    });
+    };
   }
 
   private estimateWorkItem(item: RetainedTextureWorkItem): {
@@ -735,7 +734,7 @@ export class RetainedContentTexturePageManager {
     item,
     palette,
     switchAnimations,
-    textLikeSnapshotElementById,
+    domControlTextureElementById,
   }: {
     readonly frame: number;
     readonly item: RetainedTextureWorkItem;
@@ -743,7 +742,7 @@ export class RetainedContentTexturePageManager {
     readonly switchAnimations?:
       | GpuRetainedContentSwitchAnimationStore
       | undefined;
-    readonly textLikeSnapshotElementById: ReadonlyMap<string, HTMLElement>;
+    readonly domControlTextureElementById: ReadonlyMap<string, HTMLElement>;
   }): RetainedTextureWorkExecutionResult {
     return executeRetainedContentTextureWorkItem({
       cache: this.cache,
@@ -760,7 +759,7 @@ export class RetainedContentTexturePageManager {
         this.resolveWorkItemDescriptors(workItem),
       snapshotUnavailablePageKeys: this.snapshotUnavailablePageKeys,
       switchAnimations,
-      textLikeSnapshotElementById,
+      domControlTextureElementById,
       uploadPage: (input) => this.uploadPage(input),
     });
   }
@@ -871,13 +870,13 @@ export class RetainedContentTexturePageManager {
 
   private uploadPage({
     descriptor,
-    elementByTextLikeSnapshotSourceId,
+    elementByDomControlTextureSourceId,
     frame,
     palette,
     switchAnimations,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
-    readonly elementByTextLikeSnapshotSourceId: ReadonlyMap<
+    readonly elementByDomControlTextureSourceId: ReadonlyMap<
       string,
       HTMLElement
     >;
@@ -897,7 +896,7 @@ export class RetainedContentTexturePageManager {
       cache: this.cache,
       descriptor,
       device: this.device,
-      elementByTextLikeSnapshotSourceId,
+      elementByDomControlTextureSourceId,
       format: this.format,
       frame,
       frameSurfaceById: this.frameSurfaceById,

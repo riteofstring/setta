@@ -6,9 +6,9 @@ import {
 import type {
   RetainedFidelityMetadata,
   RetainedRegionContentSegment,
+  RetainedRegionDomControlTexture,
   RetainedRegionManifest,
   RetainedRegionTarget,
-  RetainedRegionTextLikeSnapshot,
 } from "./retainedCommittedCoverageStore";
 import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import { retainedContentRectToTextureRect } from "./retainedContentLifecycle";
@@ -43,14 +43,18 @@ type RetainedRegionTargetReason =
 
 export type RetainedVisibleRegionSurface = {
   readonly contentBoundsCss: GpuRect;
-  readonly contentSegments?: readonly RetainedRegionContentSegment[];
+  readonly contentSegments?:
+    | readonly RetainedRegionContentSegment[]
+    | undefined;
   readonly contentVersion: number;
   readonly layout: RetainedTexturePageSurfaceLayout;
   readonly sourceKey: string;
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly domControlTextures?:
+    | readonly RetainedRegionDomControlTexture[]
+    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -326,8 +330,8 @@ function createVisibleRegionManifest({
     rowId: null,
     sectionId: surface.surfaceId,
     surfaceId: surface.surfaceId,
-    textLikeSnapshots: Object.freeze(
-      (surface.textLikeSnapshots ?? []).map((snapshot) =>
+    domControlTextures: Object.freeze(
+      (surface.domControlTextures ?? []).map((snapshot) =>
         Object.freeze({
           ...snapshot,
           rectCss: Object.freeze({ ...snapshot.rectCss }),
@@ -376,7 +380,7 @@ function createVisibleRegionFidelity({
 function retainedVisualEpochKindForSurface(
   surface: RetainedVisibleRegionSurface,
 ): Exclude<RetainedVisualEpochKind, "active-dom"> {
-  return surface.textLikeSnapshots?.length ? "snapshot-exact" : "base";
+  return surface.domControlTextures?.length ? "snapshot-exact" : "base";
 }
 
 function createRetainedDrawRegion<TResource>({

@@ -67,6 +67,15 @@ type ProjectGpuRetainedParamTargetLike = {
 
 type ProjectGpuRetainedParamDomIslandTargetLike =
   ProjectGpuRetainedParamTargetLike & {
+    readonly activation?:
+      | {
+          readonly clientPoint: {
+            readonly x: number;
+            readonly y: number;
+          };
+          readonly kind: "keyboard" | "pointer";
+        }
+      | undefined;
     readonly hitRecordId: string;
   };
 
@@ -328,6 +337,7 @@ function createProjectGpuSpecializedControlDescriptorIfSupported({
       ),
       displayValue,
       kind: "switch",
+      renderOwner: "canvas-owned",
       rendererFamily: controlKind,
       commitPolicy: "immediate",
     };
@@ -400,6 +410,7 @@ function createProjectGpuDropdownControlDescriptor({
     defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
     displayValue,
     kind: "dropdown",
+    renderOwner: "canvas-owned",
     rendererFamily: controlKind,
     commitPolicy: "immediate",
     selectedIndex: selectedIndex === -1 ? null : selectedIndex,
@@ -455,6 +466,7 @@ function createProjectGpuDropzoneControlDescriptor({
     mode: codeObjImpl.mode,
     placeholder: codeObjImpl.placeholder,
     remainingSlots,
+    renderOwner: "dom-owned",
     rendererFamily: controlKind,
     commitPolicy: "native-island",
   };
@@ -573,6 +585,7 @@ function createProjectGpuRangedControlDescriptor({
     }),
     displayValue: formatGpuRetainedNumericControlValue({ step, value }),
     kind,
+    renderOwner: "canvas-owned",
     rendererFamily: controlKind,
     commitPolicy: "preview-commit",
     max,
@@ -677,10 +690,22 @@ function getProjectGpuParamNativeRowState(
   row: ProjectGpuRetainedParamTargetLike,
 ) {
   if (!target || !isProjectGpuRetainedParamTargetForRow(target, row)) {
-    return { nativeControlActive: false, nativeLabelActive: false };
+    return {
+      domControlActivation: null,
+      nativeControlActive: false,
+      nativeLabelActive: false,
+    };
   }
+  const nativeControlActive = target.hitRecordId.startsWith("control:");
   return {
-    nativeControlActive: target.hitRecordId.startsWith("control:"),
+    domControlActivation:
+      nativeControlActive && target.activation
+        ? {
+            clientPoint: target.activation.clientPoint,
+            kind: target.activation.kind,
+          }
+        : null,
+    nativeControlActive,
     nativeLabelActive: target.hitRecordId.startsWith("label:"),
   };
 }

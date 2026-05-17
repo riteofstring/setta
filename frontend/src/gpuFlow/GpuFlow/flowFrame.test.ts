@@ -226,20 +226,20 @@ describe("GPU flow frame helpers", () => {
 
   it("limits retained preparation snapshot sources to current refinement pages", () => {
     const runtimeFrame = retainedFrameWithSnapshotSources([
-      retainedSnapshotSource("source-a", "surface-a", {
+      retainedDomControlSource("source-a", "surface-a", {
         height: 20,
         width: 120,
         x: 10,
         y: 10,
       }),
-      retainedSnapshotSource("source-b", "surface-b", {
+      retainedDomControlSource("source-b", "surface-b", {
         height: 20,
         width: 120,
         x: 10,
         y: 10,
       }),
       ...Array.from({ length: 160 }, (_, index) =>
-        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+        retainedDomControlSource(`source-extra-${index}`, "surface-extra", {
           height: 20,
           width: 120,
           x: 0,
@@ -269,11 +269,11 @@ describe("GPU flow frame helpers", () => {
     });
 
     expect(
-      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+      preparationFrame.descriptors.domControlSources.map(
         (source) => source.sourceId,
       ),
     ).toEqual(["source-a"]);
-    expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(1);
+    expect(preparationFrame.diagnostics.domControlSourceCount).toBe(1);
   });
 
   it("keeps visible retained preparation snapshot sources when descriptor filtering is active", () => {
@@ -284,20 +284,20 @@ describe("GPU flow frame helpers", () => {
       y: 64,
     };
     const runtimeFrame = retainedFrameWithSnapshotSources([
-      retainedSnapshotSource("source-visible", "surface-visible", {
+      retainedDomControlSource("source-visible", "surface-visible", {
         height: 18,
         width: 160,
         x: 48,
         y: 70,
       }),
-      retainedSnapshotSource("source-refinement", "surface-refinement", {
+      retainedDomControlSource("source-refinement", "surface-refinement", {
         height: 18,
         width: 160,
         x: 8,
         y: 8,
       }),
       ...Array.from({ length: 160 }, (_, index) =>
-        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+        retainedDomControlSource(`source-extra-${index}`, "surface-extra", {
           height: 20,
           width: 120,
           x: 0,
@@ -330,30 +330,30 @@ describe("GPU flow frame helpers", () => {
     });
 
     expect(
-      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+      preparationFrame.descriptors.domControlSources.map(
         (source) => source.sourceId,
       ),
     ).toEqual(["source-visible", "source-refinement"]);
-    expect(preparationFrame.diagnostics.textLikeSnapshotSourceCount).toBe(2);
+    expect(preparationFrame.diagnostics.domControlSourceCount).toBe(2);
   });
 
   it("keeps retained preparation content page snapshots aligned with mounted sources", () => {
     const runtimeFrame = retainedFrameWithSnapshotSources(
       [
-        retainedSnapshotSource("source-visible", "surface-visible", {
+        retainedDomControlSource("source-visible", "surface-visible", {
           height: 18,
           width: 160,
           x: 48,
           y: 70,
         }),
-        retainedSnapshotSource("source-hidden", "surface-visible", {
+        retainedDomControlSource("source-hidden", "surface-visible", {
           height: 18,
           width: 160,
           x: 48,
           y: 420,
         }),
         ...Array.from({ length: 160 }, (_, index) =>
-          retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+          retainedDomControlSource(`source-extra-${index}`, "surface-extra", {
             height: 20,
             width: 120,
             x: 0,
@@ -363,13 +363,13 @@ describe("GPU flow frame helpers", () => {
       ],
       [
         retainedContentPageSurface("surface-visible", [
-          retainedSnapshotSource("source-visible", "surface-visible", {
+          retainedDomControlSource("source-visible", "surface-visible", {
             height: 18,
             width: 160,
             x: 48,
             y: 70,
           }),
-          retainedSnapshotSource("source-hidden", "surface-visible", {
+          retainedDomControlSource("source-hidden", "surface-visible", {
             height: 18,
             width: 160,
             x: 48,
@@ -408,7 +408,7 @@ describe("GPU flow frame helpers", () => {
     });
 
     expect(
-      preparationFrame.descriptors.contentPageSurfaces[0]?.textLikeSnapshots?.map(
+      preparationFrame.descriptors.contentPageSurfaces[0]?.domControlTextures?.map(
         (snapshot) => snapshot.sourceId,
       ),
     ).toEqual(["source-visible"]);
@@ -416,14 +416,14 @@ describe("GPU flow frame helpers", () => {
 
   it("prioritizes large retained preparation snapshot descriptors beyond the initial order", () => {
     const runtimeFrame = retainedFrameWithSnapshotSources([
-      retainedSnapshotSource("source-late", "surface-30", {
+      retainedDomControlSource("source-late", "surface-30", {
         height: 20,
         width: 120,
         x: 10,
         y: 10,
       }),
       ...Array.from({ length: 160 }, (_, index) =>
-        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+        retainedDomControlSource(`source-extra-${index}`, "surface-extra", {
           height: 20,
           width: 120,
           x: 0,
@@ -453,7 +453,7 @@ describe("GPU flow frame helpers", () => {
     });
 
     expect(
-      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+      preparationFrame.descriptors.domControlSources.map(
         (source) => source.sourceId,
       ),
     ).toEqual(["source-late"]);
@@ -461,20 +461,20 @@ describe("GPU flow frame helpers", () => {
 
   it("rotates snapshot-blocked retained preparation descriptors ahead of larger stale holes", () => {
     const runtimeFrame = retainedFrameWithSnapshotSources([
-      retainedSnapshotSource("source-latest-blocked", "surface-30", {
+      retainedDomControlSource("source-latest-blocked", "surface-30", {
         height: 4,
         width: 4,
         x: 1,
         y: 1,
       }),
-      retainedSnapshotSource("source-large-blocked", "surface-0", {
+      retainedDomControlSource("source-large-blocked", "surface-0", {
         height: 20,
         width: 120,
         x: 10,
         y: 10,
       }),
       ...Array.from({ length: 160 }, (_, index) =>
-        retainedSnapshotSource(`source-extra-${index}`, "surface-extra", {
+        retainedDomControlSource(`source-extra-${index}`, "surface-extra", {
           height: 20,
           width: 120,
           x: 0,
@@ -507,7 +507,7 @@ describe("GPU flow frame helpers", () => {
     });
 
     expect(
-      preparationFrame.descriptors.textLikeRowSnapshotSources.map(
+      preparationFrame.descriptors.domControlSources.map(
         (source) => source.sourceId,
       ),
     ).toContain("source-latest-blocked");
@@ -520,7 +520,7 @@ function retainedFrameCache({
   trueHoleRectCount = 0,
   trueHoleRectsCss,
 }: {
-  readonly contentSurfaces: readonly GpuContentSurface[];
+  readonly contentSurfaces?: readonly GpuContentSurface[] | undefined;
   readonly refinementPageCount?: number | undefined;
   readonly trueHoleRectCount?: number | undefined;
   readonly trueHoleRectsCss?: readonly GpuRect[] | undefined;
@@ -560,6 +560,7 @@ function retainedFrameCache({
       trueHoleRectsCss: resolvedTrueHoleRectsCss,
       trueHoleRectCount: resolvedTrueHoleRectCount,
       visibleRegionTargets: [],
+      visualEpochs: [],
     },
     retainedRuntimeFrame: createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 2,
@@ -625,7 +626,7 @@ function emptyCoveragePlan() {
 }
 
 function retainedFrameWithSnapshotSources(
-  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"],
+  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["domControlSources"],
   contentPageSurfaces: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["contentPageSurfaces"] = [],
 ): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"] {
   const frame = createGpuRetainedRuntimeFrame({
@@ -642,18 +643,18 @@ function retainedFrameWithSnapshotSources(
     descriptors: {
       ...frame.descriptors,
       contentPageSurfaces,
-      textLikeRowSnapshotSources: sources,
+      domControlSources: sources,
     },
     diagnostics: {
       ...frame.diagnostics,
-      textLikeSnapshotSourceCount: sources.length,
+      domControlSourceCount: sources.length,
     },
   };
 }
 
 function retainedContentPageSurface(
   surfaceId: string,
-  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"],
+  sources: GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["domControlSources"],
 ): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["contentPageSurfaces"][number] {
   const rect = {
     height: 512,
@@ -692,42 +693,67 @@ function retainedContentPageSurface(
     sourceVersion: 1,
     sourceWindowCss: rect,
     surfaceId,
-    textLikeSnapshots: sources.map((source) => ({
-      rectCss: source.targetRectCss,
+    domControlTextures: sources.map((source) => ({
+      controlRectSurfaceCssPx: source.controlRectSurfaceCssPx,
+      rectCss: source.textureRectCssPx,
       rowId: source.rowId,
       sourceId: source.sourceId,
       sourceKey: source.sourceKey,
+      textureRectDevicePx: source.textureRectDevicePx,
     })),
     visibleSourceRectCss: rect,
   };
 }
 
-function retainedSnapshotSource(
+function retainedDomControlSource(
   sourceId: string,
   surfaceId: string,
-  targetRectCss: GpuRect,
-): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["textLikeRowSnapshotSources"][number] {
+  textureRectCssPx: GpuRect,
+): GpuFlowRetainedContentFrameCache["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number] {
+  const sourceRectCssPx = {
+    height: textureRectCssPx.height,
+    width: textureRectCssPx.width,
+    x: 0,
+    y: 0,
+  };
   return {
-    code: "",
-    commitPolicy: "native-island",
+    active: false,
+    clipRectSurfaceCssPx: textureRectCssPx,
+    controlRectSurfaceCssPx: textureRectCssPx,
     defaultValue: "",
     disabled: false,
     editorKind: "text",
     error: false,
+    interactionPolicy: {
+      click: "activate",
+      drag: "viewport-pan-or-text-selection",
+      focus: "active-only",
+      keyboard: "active-dom-control",
+      pointerEvents: "active-only",
+      wheel: "retained-scroll-or-editor-scroll",
+    },
     language: null,
+    layerSlot: "passive-dom-control",
+    lifecycleState: "passive-texture-pending",
     linePolicy: "single-line",
     maxVisibleLines: 1,
     minVisibleLines: 1,
     rendererFamily: "plain",
+    role: "text-like",
     rowId: sourceId,
     sectionId: "section-a",
-    sourceHeight: targetRectCss.height,
     sourceId,
     sourceKey: `${surfaceId}:${sourceId}`,
-    sourceWidth: targetRectCss.width,
+    sourceRectCssPx,
     surfaceId,
-    targetRectCss,
+    textureRectCssPx,
+    textureRectDevicePx: textureRectCssPx,
+    value: "",
+    valueStyleKey: "style",
+    viewportRectCssPx: textureRectCssPx,
+    worldRectFlowPx: textureRectCssPx,
     wrapLines: false,
+    zOrder: 1,
   };
 }
 
@@ -860,7 +886,7 @@ function retainedRegionManifest(
     rowId: null,
     sectionId: descriptor.surfaceId,
     surfaceId: descriptor.surfaceId,
-    textLikeSnapshots: [],
+    domControlTextures: [],
     themeGeneration: descriptor.sourceVersion,
   };
 }

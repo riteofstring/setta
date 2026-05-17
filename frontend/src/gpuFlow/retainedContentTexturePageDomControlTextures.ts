@@ -7,25 +7,25 @@ import {
   getRetainedContentTextureResourceRegion,
   type RetainedContentTextureResources,
 } from "./retainedContentTextureResources";
+import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
-export type RetainedContentTexturePageTextLikeSnapshot = {
-  readonly rectCss: GpuRect;
-  readonly rowId: string;
-  readonly sourceId: string;
-  readonly sourceKey: string;
-};
+export type RetainedContentTexturePageDomControlTexture =
+  GpuRetainedDomControlTextureDescriptor;
 
-type RetainedContentTexturePageTextLikeSnapshotSurface = {
-  readonly textLikeSnapshots?:
-    | readonly RetainedContentTexturePageTextLikeSnapshot[]
+type RetainedContentTexturePageDomControlTextureSurface = {
+  readonly domControlTextures?:
+    | readonly RetainedContentTexturePageDomControlTexture[]
     | undefined;
 };
 
-export const EMPTY_TEXT_LIKE_SNAPSHOT_ELEMENTS = new Map<string, HTMLElement>();
+export const EMPTY_DOM_CONTROL_TEXTURE_ELEMENTS = new Map<
+  string,
+  HTMLElement
+>();
 
-export function areRetainedContentTexturePageTextLikeSnapshotsReady({
+export function areRetainedContentTexturePageDomControlTexturesReady({
   descriptor,
   elementBySourceId,
   surface,
@@ -33,20 +33,21 @@ export function areRetainedContentTexturePageTextLikeSnapshotsReady({
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly surface:
-    | RetainedContentTexturePageTextLikeSnapshotSurface
+    | RetainedContentTexturePageDomControlTextureSurface
     | undefined;
 }): boolean {
-  const snapshots = resolveRetainedContentTexturePageTextLikeSnapshots({
-    descriptor,
-    surface,
-  });
-  if (snapshots.length === 0) {
+  const domControlTextures =
+    resolveRetainedContentTexturePageDomControlTextures({
+      descriptor,
+      surface,
+    });
+  if (domControlTextures.length === 0) {
     return true;
   }
-  return snapshots.every((snapshot) =>
-    isTextLikeSnapshotElementCurrent(
-      elementBySourceId.get(snapshot.sourceId),
-      snapshot,
+  return domControlTextures.every((texture) =>
+    isDomControlTextureElementCurrent(
+      elementBySourceId.get(texture.sourceId),
+      texture,
     ),
   );
 }
@@ -59,12 +60,12 @@ export function isRetainedContentTexturePageSnapshotExactDescriptorReady({
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly surface:
-    | RetainedContentTexturePageTextLikeSnapshotSurface
+    | RetainedContentTexturePageDomControlTextureSurface
     | undefined;
 }): boolean {
   return (
     descriptor.visualEpochKind !== "snapshot-exact" ||
-    areRetainedContentTexturePageTextLikeSnapshotsReady({
+    areRetainedContentTexturePageDomControlTexturesReady({
       descriptor,
       elementBySourceId,
       surface,
@@ -72,36 +73,36 @@ export function isRetainedContentTexturePageSnapshotExactDescriptorReady({
   );
 }
 
-export function uploadRetainedContentTexturePageTextLikeSnapshots({
+export function uploadRetainedContentTexturePageDomControlTextures({
   descriptor,
   elementBySourceId,
   queue,
   resource,
-  snapshots,
+  domControlTextures,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly elementBySourceId: ReadonlyMap<string, HTMLElement>;
   readonly queue: GPUQueue;
   readonly resource: RetainedContentTextureResources;
-  readonly snapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
+  readonly domControlTextures: readonly RetainedContentTexturePageDomControlTexture[];
 }): boolean {
-  if (snapshots.length === 0) {
+  if (domControlTextures.length === 0) {
     return true;
   }
   const elementUploadQueue = queue as GpuQueueWithElementUpload;
   if (typeof elementUploadQueue.copyElementImageToTexture !== "function") {
     throw new Error(
-      "Setta retained content page upload requires GPUQueue.copyElementImageToTexture for row text snapshots.",
+      "Setta retained content page upload requires GPUQueue.copyElementImageToTexture for retained DOM controls.",
     );
   }
-  for (const snapshot of snapshots) {
+  for (const texture of domControlTextures) {
     if (
-      !uploadRetainedContentTexturePageTextLikeSnapshot({
+      !uploadRetainedContentTexturePageDomControlTexture({
         descriptor,
-        element: elementBySourceId.get(snapshot.sourceId),
+        element: elementBySourceId.get(texture.sourceId),
         queue: elementUploadQueue,
         resource,
-        snapshot,
+        texture,
       })
     ) {
       return false;
@@ -110,33 +111,33 @@ export function uploadRetainedContentTexturePageTextLikeSnapshots({
   return true;
 }
 
-function uploadRetainedContentTexturePageTextLikeSnapshot({
+function uploadRetainedContentTexturePageDomControlTexture({
   descriptor,
   element,
   queue,
   resource,
-  snapshot,
+  texture,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly element: HTMLElement | undefined;
   readonly queue: GpuQueueWithElementUpload;
   readonly resource: RetainedContentTextureResources;
-  readonly snapshot: RetainedContentTexturePageTextLikeSnapshot;
+  readonly texture: RetainedContentTexturePageDomControlTexture;
 }): boolean {
-  if (!isTextLikeSnapshotElementCurrent(element, snapshot)) {
+  if (!isDomControlTextureElementCurrent(element, texture)) {
     throw new Error(
-      `Retained text-like row snapshot ${snapshot.sourceId} is not mounted or current for page upload.`,
+      `Retained DOM control ${texture.sourceId} is not mounted or current for page upload.`,
     );
   }
-  const overlap = intersectRects(snapshot.rectCss, descriptor.sourceRectCss);
+  const overlap = intersectRects(texture.rectCss, descriptor.sourceRectCss);
   if (!overlap) {
     return true;
   }
-  const copy = resolveTextLikeSnapshotPageCopy({
+  const copy = resolveDomControlTexturePageCopy({
     descriptor,
     overlap,
     resource,
-    snapshot,
+    texture,
   });
   if (copy.pixelWidth <= 0 || copy.pixelHeight <= 0) {
     return true;
@@ -157,7 +158,7 @@ function uploadRetainedContentTexturePageTextLikeSnapshot({
     );
   } catch (error: unknown) {
     if (isMissingElementPaintRecordError(error)) {
-      requestTextLikeSnapshotPaint(element);
+      requestDomControlTexturePaint(element);
       return false;
     }
     throw error;
@@ -165,20 +166,20 @@ function uploadRetainedContentTexturePageTextLikeSnapshot({
   return true;
 }
 
-export function resolveRetainedContentTexturePageTextLikeSnapshots({
+export function resolveRetainedContentTexturePageDomControlTextures({
   descriptor,
   surface,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly surface:
-    | RetainedContentTexturePageTextLikeSnapshotSurface
+    | RetainedContentTexturePageDomControlTextureSurface
     | undefined;
-}): readonly RetainedContentTexturePageTextLikeSnapshot[] {
-  if (!surface?.textLikeSnapshots?.length) {
+}): readonly RetainedContentTexturePageDomControlTexture[] {
+  if (!surface?.domControlTextures?.length) {
     return [];
   }
-  return surface.textLikeSnapshots.filter((snapshot) =>
-    rectsIntersect(snapshot.rectCss, descriptor.sourceRectCss),
+  return surface.domControlTextures.filter((texture) =>
+    rectsIntersect(texture.rectCss, descriptor.sourceRectCss),
   );
 }
 
@@ -205,25 +206,23 @@ function intersectRects(left: GpuRect, right: GpuRect): GpuRect | null {
   return width > 0 && height > 0 ? { height, width, x, y } : null;
 }
 
-function isTextLikeSnapshotElementCurrent(
+function isDomControlTextureElementCurrent(
   element: HTMLElement | undefined,
-  snapshot: RetainedContentTexturePageTextLikeSnapshot,
+  texture: RetainedContentTexturePageDomControlTexture,
 ): element is HTMLElement {
   return (
     element !== undefined &&
-    element.dataset.gpuFlowRetainedTextLikeRowSnapshotSourceKey ===
-      snapshot.sourceKey &&
-    element.dataset.gpuFlowRetainedTextLikeRowSnapshotReadyKey ===
-      snapshot.sourceKey
+    element.dataset.gpuFlowRetainedDomControlSourceKey === texture.sourceKey &&
+    element.dataset.gpuFlowRetainedDomControlReadyKey === texture.sourceKey
   );
 }
 
-function requestTextLikeSnapshotPaint(element: HTMLElement) {
-  const canvas = resolveTextLikeSnapshotPaintCanvas(element);
+function requestDomControlTexturePaint(element: HTMLElement) {
+  const canvas = resolveDomControlTexturePaintCanvas(element);
   canvas?.requestPaint?.();
 }
 
-function resolveTextLikeSnapshotPaintCanvas(
+function resolveDomControlTexturePaintCanvas(
   element: HTMLElement,
 ): Partial<HtmlInCanvasCanvas> | null {
   return (
@@ -234,16 +233,16 @@ function resolveTextLikeSnapshotPaintCanvas(
   );
 }
 
-function resolveTextLikeSnapshotPageCopy({
+function resolveDomControlTexturePageCopy({
   descriptor,
   overlap,
   resource,
-  snapshot,
+  texture,
 }: {
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly overlap: GpuRect;
   readonly resource: RetainedContentTextureResources;
-  readonly snapshot: RetainedContentTexturePageTextLikeSnapshot;
+  readonly texture: RetainedContentTexturePageDomControlTexture;
 }): {
   readonly destinationX: number;
   readonly destinationY: number;
@@ -254,8 +253,8 @@ function resolveTextLikeSnapshotPageCopy({
   readonly sourceX: number;
   readonly sourceY: number;
 } {
-  const sourceX = Math.max(0, Math.floor(overlap.x - snapshot.rectCss.x));
-  const sourceY = Math.max(0, Math.floor(overlap.y - snapshot.rectCss.y));
+  const sourceX = Math.max(0, Math.floor(overlap.x - texture.rectCss.x));
+  const sourceY = Math.max(0, Math.floor(overlap.y - texture.rectCss.y));
   const sourceWidth = Math.max(1, Math.ceil(overlap.width));
   const sourceHeight = Math.max(1, Math.ceil(overlap.height));
   const textureRegion = getRetainedContentTextureResourceRegion(resource);

@@ -71,8 +71,8 @@ describe("getGpuRetainedContentTexturePageFrameSurfaces", () => {
     const activeSurface = activeFrame.descriptors.contentPageSurfaces[0];
 
     expect(inactiveSurface?.sourceKey).toBe(activeSurface?.sourceKey);
-    expect(inactiveSurface?.textLikeSnapshots).toHaveLength(1);
-    expect(activeSurface?.textLikeSnapshots).toHaveLength(0);
+    expect(inactiveSurface?.domControlTextures).toHaveLength(1);
+    expect(activeSurface?.domControlTextures).toHaveLength(0);
     expect(segmentVersion(inactiveSurface, "row-a")).not.toBe(
       segmentVersion(activeSurface, "row-a"),
     );
@@ -206,6 +206,7 @@ function textLikePageSurface({
             editorKind: "text",
             kind: "text-like",
             policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
+            renderOwner: "dom-owned",
             rendererFamily: "text-like",
           },
           controlKind: "text-like",

@@ -353,6 +353,7 @@ function preparedFrame({
     trueHoleRectsCss,
     trueHoleRectCount: trueHoleRectsCss.length,
     visibleRegionTargets: visibleTargets,
+    visualEpochs: [],
   };
   return createRetainedDisplayFrameInput({
     pageFrame,

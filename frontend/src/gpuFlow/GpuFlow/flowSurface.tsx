@@ -140,7 +140,7 @@ export function GpuFlow({
   retainedContentScroll,
   renderDomIsland,
   renderNode,
-  renderRetainedTextLikeRowSnapshot,
+  renderRetainedDomControl,
   selection,
   selectionDrag,
   scene,
@@ -215,7 +215,7 @@ export function GpuFlow({
   const retainedContentFrameCacheRef =
     useRef<GpuFlowRetainedContentFrameCache | null>(null);
   const retainedDisplayFrameRef = useRef<RetainedDisplayFrame | null>(null);
-  const retainedTextLikeRowSnapshotElementByIdRef = useRef(
+  const retainedDomControlElementByIdRef = useRef(
     new Map<string, HTMLElement>(),
   );
   const [retainedContentSwitchAnimations] = useState(() =>
@@ -275,17 +275,17 @@ export function GpuFlow({
     htmlSurfaceOverlays,
     nodeDragPreviewSourceElement,
     nodeResizeOverlaySourceElement,
-    retainedTextLikeRowSnapshotSourceElement,
+    retainedDomControlSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
     edgeScene,
     layoutStore,
-    retainedTextLikeRowSnapshotElementByIdRef,
+    retainedDomControlElementByIdRef,
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     nodes,
     primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
-    renderRetainedTextLikeRowSnapshot,
+    renderRetainedDomControl,
     retainedRuntimeFrame: sourceRetainedRuntimeFrame,
     surfaceRef,
     textureManagerRef,
@@ -403,7 +403,7 @@ export function GpuFlow({
       nodes,
       nodeTextureMemoryBudgetBytes,
       retainedContentPageManagerRef,
-      retainedTextLikeRowSnapshotElementByIdRef,
+      retainedDomControlElementByIdRef,
       scene,
       sourceInteractionProjector,
       surfaceRef,
@@ -621,7 +621,7 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       retainedContentSwitchAnimations.clear();
-      retainedTextLikeRowSnapshotElementByIdRef.current.clear();
+      retainedDomControlElementByIdRef.current.clear();
       destroyNodeLayerResources(
         textureManagerRef,
         htmlSurfaceRendererRef,
@@ -877,7 +877,7 @@ export function GpuFlow({
         retainedContentFrameCacheRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
         retainedDisplayFrameRef,
-        retainedTextLikeRowSnapshotElementByIdRef,
+        retainedDomControlElementByIdRef,
         retainedContentSwitchAnimations,
         runtime,
         surfaceRef,
@@ -973,7 +973,7 @@ export function GpuFlow({
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
-            {retainedTextLikeRowSnapshotSourceElement}
+            {retainedDomControlSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer
             renderDomIsland={renderDomIsland}

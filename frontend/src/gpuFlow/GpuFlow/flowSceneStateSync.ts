@@ -47,7 +47,7 @@ export function syncGpuFlowNodeLayerSceneState({
   nodes,
   nodeTextureMemoryBudgetBytes,
   retainedContentPageManagerRef,
-  retainedTextLikeRowSnapshotElementByIdRef,
+  retainedDomControlElementByIdRef,
   scene,
   sourceInteractionProjector,
   surfaceRef,
@@ -81,7 +81,7 @@ export function syncGpuFlowNodeLayerSceneState({
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
-  readonly retainedTextLikeRowSnapshotElementByIdRef: MutableRefObject<
+  readonly retainedDomControlElementByIdRef: MutableRefObject<
     Map<string, HTMLElement>
   >;
   readonly scene: GpuFlowScene | undefined;
@@ -147,7 +147,7 @@ export function syncGpuFlowNodeLayerSceneState({
     })
   ) {
     visibleNodeIdsRef.current = new Set();
-    retainedTextLikeRowSnapshotElementByIdRef.current.clear();
+    retainedDomControlElementByIdRef.current.clear();
     clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
     transformOnlyPaintNodeIdsRef.current.clear();
     sourceInteractionProjector.destroy();

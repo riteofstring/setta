@@ -5,9 +5,9 @@ import {
   type RetainedFidelityMetadata,
   type RetainedRegionCompatibility,
   type RetainedRegionContentSegment,
+  type RetainedRegionDomControlTexture,
   type RetainedRegionManifest,
   type RetainedRegionTarget,
-  type RetainedRegionTextLikeSnapshot,
 } from "./retainedCommittedCoverageStore";
 import type { RetainedVisualEpochKind } from "./retainedVisualEpochs";
 import type { GpuRect } from "./viewportMath";
@@ -89,7 +89,9 @@ type RetainedCommittedPageForCompatibility = RetainedCommittedPageLifecycle & {
 
 type RetainedPageLifecycleDescriptor = {
   readonly contentVersion: number;
-  readonly contentSegments?: readonly RetainedRegionContentSegment[];
+  readonly contentSegments?:
+    | readonly RetainedRegionContentSegment[]
+    | undefined;
   readonly devicePixelRatioBucket: number;
   readonly lodLevel: number;
   readonly lodScale: number;
@@ -101,10 +103,14 @@ type RetainedPageLifecycleDescriptor = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?: readonly RetainedRegionTextLikeSnapshot[];
+  readonly domControlTextures?:
+    | readonly RetainedRegionDomControlTexture[]
+    | undefined;
   readonly tileColumn: number;
   readonly tileRow: number;
-  readonly visualEpochKind?: Exclude<RetainedVisualEpochKind, "active-dom">;
+  readonly visualEpochKind?:
+    | Exclude<RetainedVisualEpochKind, "active-dom">
+    | undefined;
   readonly viewportZoomBucket: number;
 };
 
@@ -201,8 +207,8 @@ function createRetainedRegionManifest(
     rowId: null,
     sectionId: descriptor.surfaceId,
     surfaceId: descriptor.surfaceId,
-    textLikeSnapshots: freezeTextLikeSnapshots(
-      descriptor.textLikeSnapshots ?? [],
+    domControlTextures: freezeDomControlTextures(
+      descriptor.domControlTextures ?? [],
     ),
     themeGeneration: descriptor.sourceVersion,
     visualEpochKind: descriptor.visualEpochKind ?? "base",
@@ -404,9 +410,9 @@ function freezeContentSegments(
   );
 }
 
-function freezeTextLikeSnapshots(
-  snapshots: readonly RetainedRegionTextLikeSnapshot[],
-): readonly RetainedRegionTextLikeSnapshot[] {
+function freezeDomControlTextures(
+  snapshots: readonly RetainedRegionDomControlTexture[],
+): readonly RetainedRegionDomControlTexture[] {
   return Object.freeze(
     snapshots.map((snapshot) =>
       Object.freeze({

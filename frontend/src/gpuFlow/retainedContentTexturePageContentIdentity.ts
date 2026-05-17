@@ -1,20 +1,20 @@
 import type {
   RetainedRegionContentSegment,
-  RetainedRegionTextLikeSnapshot,
+  RetainedRegionDomControlTexture,
 } from "./retainedCommittedCoverageStore";
 import { rectsIntersect } from "./retainedContentTexturePageManagerHelpers";
 import type {
   RetainedContentTexturePageContentSegment,
   RetainedContentTexturePageFrameSurface,
 } from "./retainedContentTexturePageManagerTypes";
-import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
+import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTexturePageDescriptor } from "./retainedTexturePages";
 import type { GpuRect } from "./viewportMath";
 
 type PageContentIdentity = {
   readonly contentSegments: readonly RetainedRegionContentSegment[];
   readonly contentVersion: number;
-  readonly textLikeSnapshots: readonly RetainedRegionTextLikeSnapshot[];
+  readonly domControlTextures: readonly RetainedRegionDomControlTexture[];
 };
 
 type PageContentVersionSignature = Omit<
@@ -42,8 +42,8 @@ export class RetainedTexturePageContentIdentityResolver {
     readonly surface: RetainedContentTexturePageFrameSurface;
   }): readonly RetainedTexturePageDescriptor[] {
     const segments = surface.contentSegments ?? [];
-    const textLikeSnapshots = surface.textLikeSnapshots ?? [];
-    if (segments.length === 0 && textLikeSnapshots.length === 0) {
+    const domControlTextures = surface.domControlTextures ?? [];
+    if (segments.length === 0 && domControlTextures.length === 0) {
       return descriptors;
     }
     return descriptors.map((descriptor) => {
@@ -51,13 +51,13 @@ export class RetainedTexturePageContentIdentityResolver {
         descriptor,
         segments,
         surfaceContentVersion: surface.contentVersion,
-        textLikeSnapshots,
+        domControlTextures: domControlTextures,
       });
       return {
         ...descriptor,
         contentSegments: identity.contentSegments,
         contentVersion: identity.contentVersion,
-        textLikeSnapshots: identity.textLikeSnapshots,
+        domControlTextures: identity.domControlTextures,
       };
     });
   }
@@ -66,12 +66,12 @@ export class RetainedTexturePageContentIdentityResolver {
     descriptor,
     segments,
     surfaceContentVersion,
-    textLikeSnapshots,
+    domControlTextures,
   }: {
     readonly descriptor: RetainedTexturePageDescriptor;
     readonly segments: readonly RetainedContentTexturePageContentSegment[];
     readonly surfaceContentVersion: number;
-    readonly textLikeSnapshots: readonly RetainedContentTexturePageTextLikeSnapshot[];
+    readonly domControlTextures: readonly GpuRetainedDomControlTextureDescriptor[];
   }): PageContentIdentity {
     const contentSegments = segments
       .filter((segment) =>
@@ -83,26 +83,26 @@ export class RetainedTexturePageContentIdentityResolver {
         rectCss: segment.rectCss,
       }))
       .sort((left, right) => left.id.localeCompare(right.id));
-    const snapshots = textLikeSnapshots
-      .filter((snapshot) =>
-        rectsIntersect(snapshot.rectCss, descriptor.sourceRectCss),
+    const textureDescriptors = domControlTextures
+      .filter((texture) =>
+        rectsIntersect(texture.rectCss, descriptor.sourceRectCss),
       )
-      .map((snapshot) => ({
-        rectCss: snapshot.rectCss,
-        rowId: snapshot.rowId,
-        sourceId: snapshot.sourceId,
-        sourceKey: snapshot.sourceKey,
+      .map((texture) => ({
+        rectCss: texture.rectCss,
+        rowId: texture.rowId,
+        sourceId: texture.sourceId,
+        sourceKey: texture.sourceKey,
       }))
       .sort(
         (left, right) =>
           left.sourceId.localeCompare(right.sourceId) ||
           left.rowId.localeCompare(right.rowId),
       );
-    if (contentSegments.length === 0 && snapshots.length === 0) {
+    if (contentSegments.length === 0 && textureDescriptors.length === 0) {
       return {
         contentSegments: [],
         contentVersion: surfaceContentVersion,
-        textLikeSnapshots: [],
+        domControlTextures: [],
       };
     }
     return {
@@ -111,9 +111,9 @@ export class RetainedTexturePageContentIdentityResolver {
         contentSegments,
         sourceRectCss: descriptor.sourceRectCss,
         surfaceContentVersion,
-        textLikeSnapshots: snapshots,
+        domControlTextures: textureDescriptors,
       }),
-      textLikeSnapshots: snapshots,
+      domControlTextures: textureDescriptors,
     };
   }
 

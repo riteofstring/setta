@@ -563,6 +563,7 @@ function createGpuRetainedContentRowState(
       "controlFocused",
     ),
     disabled: getGpuRetainedContentRowStateFlag(inputState, "disabled"),
+    domControlActivation: inputState?.domControlActivation ?? null,
     dragging:
       dragging || getGpuRetainedContentRowStateFlag(inputState, "dragging"),
     error:
@@ -591,7 +592,7 @@ function createGpuRetainedContentRowState(
 
 function getGpuRetainedContentRowStateFlag(
   inputState: Partial<GpuRetainedContentRowState> | undefined,
-  key: keyof GpuRetainedContentRowState,
+  key: Exclude<keyof GpuRetainedContentRowState, "domControlActivation">,
 ): boolean {
   return Boolean(inputState?.[key]);
 }

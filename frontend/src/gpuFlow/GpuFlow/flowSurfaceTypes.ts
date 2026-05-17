@@ -31,7 +31,7 @@ import type {
   GpuFlowRetainedContentScrollOptions,
   GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
-import type { GpuRetainedTextLikeRowSnapshotRenderer } from "./retainedTextLikeRowSnapshotSources";
+import type { GpuRetainedDomControlRenderer } from "./retainedDomControlSources";
 import type { GpuFlowSelectionDragOptions } from "./selectionDragLayer";
 
 export type GpuFlowProps = Pick<
@@ -106,9 +106,7 @@ export type GpuFlowProps = Pick<
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
-  renderRetainedTextLikeRowSnapshot?:
-    | GpuRetainedTextLikeRowSnapshotRenderer
-    | undefined;
+  renderRetainedDomControl?: GpuRetainedDomControlRenderer | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
   viewport?: GpuViewportInput | undefined;
   viewportStore?: GpuFlowViewportStoreApi | undefined;

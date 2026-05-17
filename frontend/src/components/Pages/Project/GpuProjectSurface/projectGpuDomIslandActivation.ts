@@ -1,3 +1,4 @@
+import type { GpuRetainedDomControlActivation } from "gpuFlow/retainedDomControlScene";
 import type { GpuDomIsland } from "gpuFlow/scene";
 import { useLayoutEffect, useRef, type MutableRefObject } from "react";
 
@@ -22,6 +23,10 @@ const PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES = new Set([
   "switch",
 ]);
 
+type ProjectGpuDomActivation =
+  | GpuDomIsland["activation"]
+  | GpuRetainedDomControlActivation;
+
 export function useProjectGpuDomIslandActivation<
   RootElement extends HTMLElement,
 >({
@@ -31,7 +36,7 @@ export function useProjectGpuDomIslandActivation<
   rootRef,
   sectionId,
 }: {
-  readonly activation?: GpuDomIsland["activation"] | undefined;
+  readonly activation?: ProjectGpuDomActivation | undefined;
   readonly clickActivationTarget: boolean;
   readonly paramInfoId: string;
   readonly rootRef: MutableRefObject<RootElement | null>;
@@ -63,7 +68,7 @@ function activateProjectGpuDomIsland({
   consumedActivationKeyRef,
   root,
 }: {
-  readonly activation?: GpuDomIsland["activation"] | undefined;
+  readonly activation?: ProjectGpuDomActivation | undefined;
   readonly clickActivationTarget: boolean;
   readonly consumedActivationKeyRef: MutableRefObject<string | null>;
   readonly root: HTMLElement | null;
@@ -93,7 +98,7 @@ function replayProjectGpuDomIslandActivation({
   clickActivationTarget,
   target,
 }: {
-  readonly activation: NonNullable<GpuDomIsland["activation"]>;
+  readonly activation: NonNullable<ProjectGpuDomActivation>;
   readonly clickActivationTarget: boolean;
   readonly target: HTMLElement | null;
 }) {
@@ -114,7 +119,7 @@ function replayProjectGpuDomIslandActivation({
 
 function getProjectGpuDomIslandActivationTarget(
   root: HTMLElement,
-  activation: GpuDomIsland["activation"] | undefined,
+  activation: ProjectGpuDomActivation | undefined,
 ): HTMLElement | null {
   const pointedElement = getProjectGpuDomIslandPointedElement(root, activation);
   const pointedTarget = getProjectGpuDomIslandPointedActivationTarget(
@@ -168,7 +173,7 @@ function getProjectGpuDomIslandFallbackActivationTargetForState({
   pointedElement,
   root,
 }: {
-  readonly activation: GpuDomIsland["activation"] | undefined;
+  readonly activation: ProjectGpuDomActivation | undefined;
   readonly pointedElement: Element | null;
   readonly root: HTMLElement;
 }): HTMLElement | null {
@@ -186,9 +191,9 @@ function getProjectGpuDomIslandFallbackActivationTargetForState({
 
 function getProjectGpuDomIslandPointedElement(
   root: HTMLElement,
-  activation: GpuDomIsland["activation"] | undefined,
+  activation: ProjectGpuDomActivation | undefined,
 ): Element | null {
-  if (!activation) {
+  if (!activation || activation.kind === "keyboard") {
     return null;
   }
   const elementFromPoint = root.ownerDocument.elementFromPoint;
@@ -285,21 +290,24 @@ function getProjectGpuDomIslandFallbackEditorActivationTarget(
 }
 
 function getProjectGpuDomIslandActivationKey(
-  activation: NonNullable<GpuDomIsland["activation"]>,
+  activation: NonNullable<ProjectGpuDomActivation>,
 ): string {
   return `${activation.kind}:${activation.clientPoint.x}:${activation.clientPoint.y}`;
 }
 
 function dispatchProjectGpuDomIslandActivationTarget(
   target: HTMLElement,
-  activation: NonNullable<GpuDomIsland["activation"]>,
+  activation: NonNullable<ProjectGpuDomActivation>,
 ): boolean {
+  if (activation.kind === "keyboard") {
+    return false;
+  }
   return dispatchProjectGpuDomIslandMouseActivationTarget(target, activation);
 }
 
 function dispatchProjectGpuDomIslandMouseActivationTarget(
   target: HTMLElement,
-  activation: NonNullable<GpuDomIsland["activation"]>,
+  activation: NonNullable<ProjectGpuDomActivation>,
 ): boolean {
   if (!shouldMouseActivateProjectGpuDomIslandTarget(target)) {
     return false;

@@ -83,6 +83,7 @@ import type {
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { projectGpuResizePreviewSceneMatchesCommittedScene } from "./projectGpuResizePreviewSceneMatch";
 import { isProjectRetainedContentClickPoint } from "./projectGpuRetainedContentClickGuard";
+import { renderProjectGpuRetainedDomControl } from "./projectGpuRetainedDomControlRenderer";
 import {
   useProjectGpuRetainedParamCanvasControlKeyboard,
   useProjectGpuRetainedParamCanvasControlWheel,
@@ -99,7 +100,6 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
-import { renderProjectGpuRetainedTextLikeRowSnapshot } from "./projectGpuRetainedTextLikeRowSnapshotRenderer";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import {
   getProjectSurfaceClientDimensions,
@@ -650,9 +650,7 @@ function ProjectGpuFlowLayer({
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
-      renderRetainedTextLikeRowSnapshot={
-        renderProjectGpuRetainedTextLikeRowSnapshot
-      }
+      renderRetainedDomControl={renderProjectGpuRetainedDomControl}
       retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}

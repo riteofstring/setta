@@ -6,8 +6,8 @@ import type {
 import type { RetainedFidelityState } from "./retainedContentLifecycle";
 import type { GpuRetainedContentScene } from "./retainedContentScene";
 import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
-import type { RetainedContentTexturePageTextLikeSnapshot } from "./retainedContentTexturePageTextLikeSnapshots";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
+import type { GpuRetainedDomControlTextureDescriptor } from "./retainedDomControlScene";
 import type { RetainedTextureBudget } from "./retainedTextureBudget";
 import type {
   RetainedTexturePageCacheSnapshot,
@@ -31,7 +31,9 @@ import type { GpuRect } from "./viewportMath";
 
 export type RetainedContentTexturePageFrameSurface = {
   readonly contentBoundsCss: GpuRect;
-  readonly contentSegments?: readonly RetainedContentTexturePageContentSegment[];
+  readonly contentSegments?:
+    | readonly RetainedContentTexturePageContentSegment[]
+    | undefined;
   readonly contentVersion: number;
   readonly layout: RetainedTexturePageSurfaceLayout;
   readonly rasterScene: GpuRetainedContentScene;
@@ -39,7 +41,9 @@ export type RetainedContentTexturePageFrameSurface = {
   readonly sourceVersion: number;
   readonly sourceWindowCss: GpuRect;
   readonly surfaceId: string;
-  readonly textLikeSnapshots?: readonly RetainedContentTexturePageTextLikeSnapshot[];
+  readonly domControlTextures?:
+    | readonly GpuRetainedDomControlTextureDescriptor[]
+    | undefined;
   readonly visibleSourceRectCss: GpuRect;
 };
 
@@ -121,7 +125,7 @@ export type RetainedContentTexturePageMaintenanceInput = {
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly switchAnimations?: GpuRetainedContentSwitchAnimationStore;
-  readonly textLikeSnapshotElementById?: ReadonlyMap<string, HTMLElement>;
+  readonly domControlElementById?: ReadonlyMap<string, HTMLElement>;
   readonly viewportInteractionActive?: boolean | undefined;
 };
 

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDeferred,
+  createDomControlTextureElement,
   createFrameSurface,
   createManagerFixture,
-  createTextLikeSnapshotElement,
   renderFrame,
 } from "./retainedContentTexturePageManager.testSupport";
 
@@ -762,7 +762,7 @@ describe("RetainedContentTexturePageManager", () => {
     ]);
   });
 
-  it("uploads current row-owned text-like snapshots into retained content pages", () => {
+  it("uploads current row-owned DOM-control textures into retained content pages", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -771,9 +771,9 @@ describe("RetainedContentTexturePageManager", () => {
       },
       maxPagePixelSize: 100,
     });
-    const snapshotElement = createTextLikeSnapshotElement("snapshot-key");
+    const snapshotElement = createDomControlTextureElement("snapshot-key");
     const surface = createFrameSurface({
-      textLikeSnapshots: [
+      domControlTextures: [
         {
           rectCss: { height: 20, width: 40, x: 10, y: 12 },
           rowId: "row-a",
@@ -787,7 +787,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -799,7 +799,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -826,7 +826,7 @@ describe("RetainedContentTexturePageManager", () => {
     );
   });
 
-  it("reuploads a committed page when row-owned text-like snapshots become part of its content", () => {
+  it("reuploads a committed page when row-owned DOM-control textures become part of its content", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -836,7 +836,7 @@ describe("RetainedContentTexturePageManager", () => {
       maxPagePixelSize: 100,
     });
     const surface = createFrameSurface();
-    const snapshotElement = createTextLikeSnapshotElement("snapshot-key");
+    const snapshotElement = createDomControlTextureElement("snapshot-key");
 
     renderFrame(fixture.manager, {
       devicePixelRatio: 1,
@@ -847,7 +847,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyElementImageToTexture).not.toHaveBeenCalled();
 
     const snapshotSurface = createFrameSurface({
-      textLikeSnapshots: [
+      domControlTextures: [
         {
           rectCss: { height: 20, width: 40, x: 10, y: 12 },
           rowId: "row-a",
@@ -860,7 +860,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [snapshotSurface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -888,7 +888,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 3,
       surfaces: [snapshotSurface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
     expect(committedExact.visualEpochs.map((epoch) => epoch.kind)).toEqual([
@@ -896,7 +896,7 @@ describe("RetainedContentTexturePageManager", () => {
     ]);
   });
 
-  it("keeps text-like snapshot pages queued when Chromium has not cached a paint record yet", () => {
+  it("keeps DOM-control texture pages queued when Chromium has not cached a paint record yet", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,
@@ -906,12 +906,12 @@ describe("RetainedContentTexturePageManager", () => {
       maxPagePixelSize: 100,
     });
     const requestPaint = vi.fn();
-    const snapshotElement = createTextLikeSnapshotElement(
+    const snapshotElement = createDomControlTextureElement(
       "snapshot-key",
       requestPaint,
     );
     const surface = createFrameSurface({
-      textLikeSnapshots: [
+      domControlTextures: [
         {
           rectCss: { height: 20, width: 40, x: 10, y: 12 },
           rowId: "row-a",
@@ -931,7 +931,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -948,7 +948,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -964,7 +964,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 3,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map([["snapshot-a", snapshotElement]]),
+      domControlElementById: new Map([["snapshot-a", snapshotElement]]),
       viewportZoomBucket: 1,
     });
 
@@ -984,7 +984,7 @@ describe("RetainedContentTexturePageManager", () => {
       maxPagePixelSize: 100,
     });
     const surface = createFrameSurface({
-      textLikeSnapshots: [
+      domControlTextures: [
         {
           rectCss: { height: 20, width: 40, x: 10, y: 12 },
           rowId: "row-a",
@@ -998,7 +998,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 1,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map(),
+      domControlElementById: new Map(),
       viewportZoomBucket: 1,
     });
     expect(baseResult.uploadCount).toBe(1);
@@ -1009,7 +1009,7 @@ describe("RetainedContentTexturePageManager", () => {
         devicePixelRatio: 1,
         frame,
         surfaces: [surface],
-        textLikeSnapshotElementById: new Map(),
+        domControlElementById: new Map(),
         viewportZoomBucket: 1,
       });
     }
@@ -1026,7 +1026,7 @@ describe("RetainedContentTexturePageManager", () => {
       devicePixelRatio: 1,
       frame: 32,
       surfaces: [surface],
-      textLikeSnapshotElementById: new Map(),
+      domControlElementById: new Map(),
       viewportZoomBucket: 1,
     });
     expect(followUp.targetDescriptorCount).toBe(1);

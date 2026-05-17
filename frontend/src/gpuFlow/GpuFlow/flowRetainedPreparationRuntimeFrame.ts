@@ -2,8 +2,8 @@ import type { RetainedContentTexturePagePreparedFrame } from "../retainedContent
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuRect } from "../viewportMath";
 
-const RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT = 24;
-const RETAINED_PREPARATION_SNAPSHOT_SOURCE_LIMIT = 48;
+const RETAINED_PREPARATION_DOM_CONTROL_DESCRIPTOR_LIMIT = 24;
+const RETAINED_PREPARATION_DOM_CONTROL_SOURCE_LIMIT = 48;
 
 export function createGpuFlowRetainedPreparationRuntimeFrame({
   preparedFrame,
@@ -12,7 +12,7 @@ export function createGpuFlowRetainedPreparationRuntimeFrame({
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): GpuRetainedRuntimeFrame {
-  const sources = retainedRuntimeFrame.descriptors.textLikeRowSnapshotSources;
+  const sources = retainedRuntimeFrame.descriptors.domControlSources;
   if (
     !shouldFilterRetainedPreparationSnapshotSources({
       preparedFrame,
@@ -25,10 +25,10 @@ export function createGpuFlowRetainedPreparationRuntimeFrame({
     preparedFrame,
     sources,
   });
-  const textLikeRowSnapshotSources = sources.filter((source) =>
+  const domControlSources = sources.filter((source) =>
     selectedSourceIds.has(source.sourceId),
   );
-  if (textLikeRowSnapshotSources.length === sources.length) {
+  if (domControlSources.length === sources.length) {
     return retainedRuntimeFrame;
   }
   const contentPageSurfaces =
@@ -41,11 +41,11 @@ export function createGpuFlowRetainedPreparationRuntimeFrame({
     descriptors: Object.freeze({
       ...retainedRuntimeFrame.descriptors,
       contentPageSurfaces,
-      textLikeRowSnapshotSources: Object.freeze(textLikeRowSnapshotSources),
+      domControlSources: Object.freeze(domControlSources),
     }),
     diagnostics: Object.freeze({
       ...retainedRuntimeFrame.diagnostics,
-      textLikeSnapshotSourceCount: textLikeRowSnapshotSources.length,
+      domControlSourceCount: domControlSources.length,
     }),
   });
 }
@@ -60,20 +60,20 @@ function filterRetainedPreparationContentPageSurfacesBySnapshotSources({
   let changed = false;
   const contentPageSurfaces =
     retainedRuntimeFrame.descriptors.contentPageSurfaces.map((surface) => {
-      const textLikeSnapshots = surface.textLikeSnapshots ?? [];
-      if (textLikeSnapshots.length === 0) {
+      const domControlTextures = surface.domControlTextures ?? [];
+      if (domControlTextures.length === 0) {
         return surface;
       }
-      const filteredTextLikeSnapshots = textLikeSnapshots.filter((snapshot) =>
-        selectedSourceIds.has(snapshot.sourceId),
+      const filteredDomControlTextures = domControlTextures.filter((texture) =>
+        selectedSourceIds.has(texture.sourceId),
       );
-      if (filteredTextLikeSnapshots.length === textLikeSnapshots.length) {
+      if (filteredDomControlTextures.length === domControlTextures.length) {
         return surface;
       }
       changed = true;
       return Object.freeze({
         ...surface,
-        textLikeSnapshots: Object.freeze(filteredTextLikeSnapshots),
+        domControlTextures: Object.freeze(filteredDomControlTextures),
       });
     });
   return changed
@@ -91,7 +91,7 @@ function shouldFilterRetainedPreparationSnapshotSources({
   return (
     (preparedFrame.refinementDescriptors.length > 0 ||
       preparedFrame.trueHoleRectCount > 0) &&
-    sourceCount > RETAINED_PREPARATION_SNAPSHOT_SOURCE_LIMIT
+    sourceCount > RETAINED_PREPARATION_DOM_CONTROL_SOURCE_LIMIT
   );
 }
 
@@ -100,7 +100,7 @@ function collectRetainedPreparationSnapshotSourceIds({
   sources,
 }: {
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly sources: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"];
+  readonly sources: GpuRetainedRuntimeFrame["descriptors"]["domControlSources"];
 }): Set<string> {
   const selectedSourceIds = new Set<string>();
   const sourcesBySurfaceId =
@@ -120,7 +120,7 @@ function collectRetainedPreparationSnapshotSourceIds({
     });
     if (
       matchedDescriptor &&
-      selectedSourceIds.size >= RETAINED_PREPARATION_SNAPSHOT_SOURCE_LIMIT
+      selectedSourceIds.size >= RETAINED_PREPARATION_DOM_CONTROL_SOURCE_LIMIT
     ) {
       break;
     }
@@ -137,13 +137,13 @@ function collectRetainedPreparationVisibleSourceIds({
   readonly selectedSourceIds: Set<string>;
   readonly sourcesBySurfaceId: Map<
     string,
-    GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"]
+    GpuRetainedRuntimeFrame["descriptors"]["domControlSources"]
   >;
 }) {
   for (const target of preparedFrame.visibleRegionTargets) {
     const sources = sourcesBySurfaceId.get(target.manifest.surfaceId) ?? [];
     for (const source of sources) {
-      if (!rectsIntersect(source.targetRectCss, target.contentRect)) {
+      if (!rectsIntersect(source.textureRectCssPx, target.contentRect)) {
         continue;
       }
       selectedSourceIds.add(source.sourceId);
@@ -152,14 +152,11 @@ function collectRetainedPreparationVisibleSourceIds({
 }
 
 function groupRetainedPreparationSnapshotSourcesBySurface(
-  sources: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"],
-): Map<
-  string,
-  GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"]
-> {
+  sources: GpuRetainedRuntimeFrame["descriptors"]["domControlSources"],
+): Map<string, GpuRetainedRuntimeFrame["descriptors"]["domControlSources"]> {
   const sourcesBySurfaceId = new Map<
     string,
-    GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"][number][]
+    GpuRetainedRuntimeFrame["descriptors"]["domControlSources"][number][]
   >();
   for (const source of sources) {
     const surfaceSources = sourcesBySurfaceId.get(source.surfaceId) ?? [];
@@ -177,11 +174,11 @@ function selectRetainedPreparationSnapshotDescriptors({
   const descriptors = prepareRetainedPreparationSnapshotDescriptorCandidates({
     preparedFrame,
   });
-  if (descriptors.length <= RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT) {
+  if (descriptors.length <= RETAINED_PREPARATION_DOM_CONTROL_DESCRIPTOR_LIMIT) {
     return descriptors.map((candidate) => candidate.descriptor);
   }
   return descriptors
-    .slice(0, RETAINED_PREPARATION_SNAPSHOT_DESCRIPTOR_LIMIT)
+    .slice(0, RETAINED_PREPARATION_DOM_CONTROL_DESCRIPTOR_LIMIT)
     .map((candidate) => candidate.descriptor);
 }
 
@@ -269,7 +266,7 @@ function collectRetainedPreparationDescriptorSourceIds({
 }: {
   readonly descriptor: RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number];
   readonly selectedSourceIds: Set<string>;
-  readonly sources: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"];
+  readonly sources: GpuRetainedRuntimeFrame["descriptors"]["domControlSources"];
 }): boolean {
   let matchedDescriptor = false;
   for (const source of sources) {
@@ -283,12 +280,12 @@ function collectRetainedPreparationDescriptorSourceIds({
 }
 
 function isRetainedPreparationSnapshotSourceForDescriptor(
-  source: GpuRetainedRuntimeFrame["descriptors"]["textLikeRowSnapshotSources"][number],
+  source: GpuRetainedRuntimeFrame["descriptors"]["domControlSources"][number],
   descriptor: RetainedContentTexturePagePreparedFrame["refinementDescriptors"][number],
 ): boolean {
   return (
     source.surfaceId === descriptor.surfaceId &&
-    rectsIntersect(source.targetRectCss, descriptor.sourceRectCss)
+    rectsIntersect(source.textureRectCssPx, descriptor.sourceRectCss)
   );
 }
 

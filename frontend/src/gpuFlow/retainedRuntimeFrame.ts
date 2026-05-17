@@ -1,5 +1,4 @@
-import type { GpuRetainedTextLikeRowSnapshotSource } from "./GpuFlow/retainedTextLikeRowSnapshotSources";
-import { getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces } from "./GpuFlow/retainedTextLikeRowSnapshotSources";
+import { getGpuRetainedDomControlSourcesFromSourceSurfaces } from "./GpuFlow/retainedDomControlSources";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "./GpuRetainedContentPageFrameSurfaces";
 import { getGpuRetainedContentScrollbarVisualsFromSourceSurfaces } from "./GpuRetainedContentScrollbarVisuals";
 import {
@@ -17,6 +16,7 @@ import { createGpuRetainedContentSampledSceneForSurface } from "./retainedConten
 import type { GpuRetainedContentScrollOffsetMap } from "./retainedContentScroll";
 import type { GpuRetainedContentScrollbarVisualState } from "./retainedContentScrollbar";
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
+import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
 import type { GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
@@ -36,13 +36,13 @@ type GpuRetainedRuntimeFrameDescriptors = {
   readonly htmlSurfaceNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly nativeDomIslands: readonly GpuDomIsland[];
   readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
-  readonly textLikeRowSnapshotSources: readonly GpuRetainedTextLikeRowSnapshotSource[];
+  readonly domControlSources: readonly GpuRetainedDomControlSourceDescriptor[];
 };
 
 type GpuRetainedRuntimeFrameDiagnostics = {
   readonly activeNativeIslandCount: number;
+  readonly domControlSourceCount: number;
   readonly sourceSurfaceCount: number;
-  readonly textLikeSnapshotSourceCount: number;
   readonly visibleRetainedSectionIds: readonly string[];
 };
 
@@ -84,14 +84,16 @@ export function createGpuRetainedRuntimeFrame({
       viewportZoomBucket,
     }),
   );
-  const textLikeRowSnapshotSources = freezeArray(
-    getGpuRetainedTextLikeRowSnapshotSourcesFromSourceSurfaces(sourceSurfaces),
+  const domControlSources = freezeArray(
+    getGpuRetainedDomControlSourcesFromSourceSurfaces(sourceSurfaces, {
+      viewport,
+    }),
   );
   const contentPageSurfaces = freezeArray(
     getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces(
       sourceSurfaces,
       {
-        textLikeRowSnapshotSources,
+        domControlSources,
         viewportZoomBucket,
       },
     ),
@@ -139,12 +141,12 @@ export function createGpuRetainedRuntimeFrame({
       htmlSurfaceNativeVisuals,
       nativeDomIslands,
       sourceSurfaces,
-      textLikeRowSnapshotSources,
+      domControlSources,
     }),
     diagnostics: Object.freeze({
       activeNativeIslandCount: nativeDomIslands.length,
+      domControlSourceCount: domControlSources.length,
       sourceSurfaceCount: sourceSurfaces.length,
-      textLikeSnapshotSourceCount: textLikeRowSnapshotSources.length,
       visibleRetainedSectionIds: freezeArray(
         sourceSurfaces.map((surface) => surface.ownerSectionId),
       ),

@@ -172,6 +172,7 @@ function rowState(
   return {
     controlFocused: false,
     disabled: false,
+    domControlActivation: null,
     dragging: false,
     error: false,
     focused: false,
