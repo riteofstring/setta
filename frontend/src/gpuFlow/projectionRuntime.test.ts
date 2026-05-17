@@ -77,6 +77,38 @@ describe("GPU Flow projection runtime", () => {
     expect(decision.debt.motion).toBe(true);
   });
 
+  it("keeps selected lane debt queued when no visible frame published", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const decision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+
+    expect(decision.lane).toBe("motion");
+    expect(decision.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+
+    const completion = scheduler.completeFrame(decision, {
+      published: false,
+    });
+
+    expect(completion.published).toBe(false);
+    expect(completion.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: true,
+    });
+    expect(getGpuFlowVisiblePublicationDebtReason(completion.debt)).toBe(
+      "retained-scroll",
+    );
+  });
+
   it("captures immutable live projection samples", () => {
     const sampler = createGpuFlowLiveProjectionSampler();
     const retainedState = createGpuRetainedContentRuntimeState();

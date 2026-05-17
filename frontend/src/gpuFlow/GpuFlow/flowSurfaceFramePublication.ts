@@ -131,21 +131,24 @@ export function renderGpuFlowSurfaceFrame({
       viewportStore,
     },
   );
-  renderGpuFlowSurfaceContentPublicationFrame({
-    ...input,
-    deferResolutionUpdates,
-    event,
-    liveProjectionSample,
-    nodeLayerRef,
-    publicationDecision,
-    renderedProjectionOnlyFrame,
-    retainedContentRuntimeState,
-    runtime,
-    viewportFrame,
-    viewportStore,
-  });
+  const renderedContentPublicationFrame =
+    renderGpuFlowSurfaceContentPublicationFrame({
+      ...input,
+      deferResolutionUpdates,
+      event,
+      liveProjectionSample,
+      nodeLayerRef,
+      publicationDecision,
+      renderedProjectionOnlyFrame,
+      retainedContentRuntimeState,
+      runtime,
+      viewportFrame,
+      viewportStore,
+    });
   completeGpuFlowSurfacePublicationFrame({
     publicationDecision,
+    renderedVisibleFrame:
+      renderedProjectionOnlyFrame || renderedContentPublicationFrame,
     surfaceRef: input.surfaceRef,
     visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
   });
@@ -270,14 +273,14 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly renderedProjectionOnlyFrame: boolean;
   readonly viewportFrame: boolean;
-}) {
+}): boolean {
   if (
     !shouldPublishGpuFlowContentFrame(
       publicationDecision,
       renderedProjectionOnlyFrame,
     )
   ) {
-    return;
+    return false;
   }
   const visibleProjectionState = renderGpuFlowNodeLayerFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
@@ -348,7 +351,9 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   });
   if (visibleProjectionState) {
     input.visibleProjectionStateRef.current = visibleProjectionState;
+    return true;
   }
+  return false;
 }
 
 function shouldPublishGpuFlowContentFrame(
@@ -366,17 +371,24 @@ function getGpuFlowContentPublicationLane(
 
 function completeGpuFlowSurfacePublicationFrame({
   publicationDecision,
+  renderedVisibleFrame,
   surfaceRef,
   visiblePublicationSchedulerRef,
 }: {
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly renderedVisibleFrame: boolean;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
   readonly visiblePublicationSchedulerRef: RenderGpuFlowSurfaceFrameInput["visiblePublicationSchedulerRef"];
 }) {
-  visiblePublicationSchedulerRef.current.completeFrame(publicationDecision);
-  if (hasGpuFlowVisiblePublicationDebt(publicationDecision)) {
+  const completion = visiblePublicationSchedulerRef.current.completeFrame(
+    publicationDecision,
+    {
+      published: renderedVisibleFrame,
+    },
+  );
+  if (hasGpuFlowVisiblePublicationDebt(completion.debt)) {
     surfaceRef.current?.requestFrame(
-      getGpuFlowVisiblePublicationDebtReason(publicationDecision),
+      getGpuFlowVisiblePublicationDebtReason(completion.debt),
     );
   }
 }
