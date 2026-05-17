@@ -335,6 +335,35 @@ If 120 fps-class performance is genuinely impossible after the refactor, the fal
 
 ## Execution Plan
 
+### Do Not Start Runtime Code Until Baseline Is Captured
+
+Before changing runtime code, capture the current failure and performance baseline.
+
+Required baseline notes:
+
+- the fail-first command output for the new or strengthened observed-behavior tests
+- the current large-scene cadence lane, p95/p99/max frame intervals, slow-frame ratio, and long tasks
+- the current mounted DOM-control count during the large-scene scenarios
+- screenshots or frame captures for the known blanking, drift, or wheel-ownership failure
+- the current visible-frame ids and retained scroll revisions as diagnostics only, not as the primary pass/fail signal
+
+Do not move this baseline step after implementation. Before/after evidence is only useful if the "before" side was captured before the ownership boundary changes.
+
+### Implementation Order Guardrail
+
+Work in this order:
+
+1. Commit-frame contract and tests.
+2. Visible-output routing to the committed frame.
+3. DOM-control surface actor generations.
+4. DOM actor runtime.
+5. Passive/active text presentation unification.
+6. Wheel ownership arbiter.
+7. Scroll and clip coherence.
+8. Deletion of the old correctness path.
+
+Do not build a richer DOM-control runtime before the committed-frame contract is the visible-output source. That would risk creating another overlay beside the compositor instead of moving ownership into the compositor.
+
 ### 1. Create Red Observed-Behavior Tests
 
 Before changing runtime code, create or strengthen Playwright tests that fail on the current implementation and capture the exact issue.
@@ -349,21 +378,27 @@ The tests must assert observed behavior, not implementation details. Debug APIs 
 
 Required red tests:
 
-1. Wheel pan ownership persists across projected controls.
+1. Prepared/published divergence does not split visible layers.
+   - Force or observe a case where retained canvas publication holds a previous frame or publishes a cold placeholder while a prepared retained runtime frame is newer.
+   - Assert DOM controls, row labels, dividers, scrollbars, hit targets, and debug-visible geometry remain visually coherent.
+   - Assert no DOM control advances to a new section scroll sample while retained canvas structure is held from an older sample.
+   - Attach committed frame ids, source frame ids, published frame ids, and scroll revisions as diagnostics only. The pass/fail signal must remain visible behavior.
+
+2. Wheel pan ownership persists across projected controls.
    - Start pan-on-scroll on the canvas.
    - Move the pointer into a retained section/control column during the same wheel burst.
    - Assert viewport position keeps changing at the expected rate.
    - Assert retained section scroll does not activate until viewport pan ownership is idle.
    - Measure rAF frame intervals during the gesture.
 
-2. Retained section scroll keeps DOM controls visually synchronized.
+3. Retained section scroll keeps DOM controls visually synchronized.
    - Open All Settings or the section sizing policy retained surface.
    - Scroll the retained section.
    - Capture frames during the scroll.
    - Assert DOM value ink, row labels, separators, and control rects move together within a small pixel tolerance.
    - Assert no focused or passive control remains screen-fixed while its row moves.
 
-3. Text input activation does not flash or blank surrounding content.
+4. Text input activation does not flash or blank surrounding content.
    - Capture the row and surrounding section before click.
    - Click a visible text-like control.
    - Capture the next several animation frames.
@@ -371,18 +406,18 @@ Required red tests:
    - Assert value ink remains visible until the active editor is visible.
    - Measure click-to-focus frame cadence and long tasks.
 
-4. Passive and active visual extents match.
+5. Passive and active visual extents match.
    - Compare inactive and active value/underline extents for the same control.
    - Assert the right edge, left edge, and height remain within tolerance.
    - Use pixel or ink bounds rather than renderer names.
 
-5. Focused controls follow pan, zoom, and retained section scroll.
+6. Focused controls follow pan, zoom, and retained section scroll.
    - Activate a text-like control.
    - Pan, zoom, and scroll the retained section while focused.
    - Assert active editor bounding rect tracks the row/control rect.
    - Assert focus remains on the editor while it remains visible or is explicitly blurred before unmount.
 
-6. Large-scene interaction remains within frame budget.
+7. Large-scene interaction remains within frame budget.
    - Use a large complex scene similar to the Settings project's All Settings page.
    - Measure viewport pan, viewport zoom, retained-hover zoom, retained section scroll, scroll-then-zoom, and focused-input pan/zoom/scroll.
    - Assert p95/p99/slow-frame ratio against the measured cadence lane, with strict 120 fps-class thresholds where the environment supports them.
@@ -402,6 +437,18 @@ Expected write area:
 
 This step should make frame ids, actor ids, scroll samples, clip-chain revisions, hit-test generations, and completeness explicit.
 
+The committed-frame invariant must be explicit and test-covered. For any visible committed frame, these values come from the same committed surface frame or all remain held from the previous coherent committed frame:
+
+- canvas retained frame id
+- projected DOM-control committed frame id
+- DOM island committed frame id
+- hit-test generation id
+- debug snapshot frame id
+- retained scroll revision and offsets
+- clip-chain revision
+
+Prepared retained frames may have different ids and revisions, but they are not visible-output ids.
+
 ### 3. Move Visible Output To The Committed Boundary
 
 Refactor `frontend/src/gpuFlow/GpuFlow/flowFrame.tsx` and `frontend/src/gpuFlow/GpuFlow/flowSurface.tsx`.
@@ -414,6 +461,8 @@ Requirements:
 - Hit testing and debug snapshots expose the same committed frame id.
 - `sourceRetainedRuntimeFrame` cannot drive visible DOM when it differs from the published retained frame.
 - Prepared retained frames can build work, but not visible DOM output.
+
+`sourceRetainedRuntimeFrame` may continue to exist only for preparation and source-work scheduling. It must not feed visible DOM controls, visible DOM islands, hit testing, or debug snapshots. Acceptance requires a targeted grep review showing that visible-output call sites no longer consume `sourceRetainedRuntimeFrame` or preparation-frame descriptors.
 
 ### 4. Promote DOM Controls To Surface Actors
 
@@ -468,6 +517,13 @@ Expected write area:
 
 Update unit tests that currently encode target-by-target `.nopan` behavior when that behavior conflicts with burst ownership.
 
+Delete or rewrite tests that assert `.nopan` wins over an already-owned viewport pan-on-scroll burst. The new expected behavior is:
+
+- `.nopan` can prevent the first wheel event from becoming viewport pan ownership when no owner is active.
+- once viewport pan owns the burst, projected `.nopan` controls cannot interrupt that burst.
+- retained section scroll and focused editor scroll can own a burst only when the arbiter selects them on the first eligible event.
+- ownership changes are observable in gesture diagnostics.
+
 ### 8. Make Scroll And Clip Coherence Transactional
 
 Tie retained section scroll offsets, DOM actor projection, clip chains, and retained page display to the same committed frame.
@@ -493,7 +549,28 @@ Remove or rewrite:
 
 Keep diagnostics for visible actors, projection, coherent display commits, and frame cadence.
 
-### 10. Re-Measure Performance
+Acceptance requires a targeted grep review for deleted correctness paths:
+
+- no visible rendering path depends on retained DOM-control texture uploads for text-like control correctness
+- no source-count readiness filter blocks or blesses visible text-like controls
+- no active text-like control is reparented to a different visible coordinate system on activation
+- no test for text-like controls has texture upload counts, source descriptor counts, queue calls, or retained publication state names as its primary pass condition
+
+### 10. Update Architecture Reference
+
+Update `docs/reference/html-in-canvas-architecture.md` after the code lands.
+
+The reference must describe the new committed surface actor architecture:
+
+- projected DOM-control actors are the correctness path for visible text-like retained controls
+- retained GPU pages reserve structural control rects but do not own text-like value pixels, caret, selection, or IME visuals
+- committed surface frames drive canvas content, projected DOM controls, DOM islands, hit testing, debug snapshots, and retained scroll samples
+- prepared retained frames can schedule work but cannot independently drive visible DOM
+- retained DOM-control texture/snapshot correctness paths are removed
+
+Do not leave stale architecture text that says passive retained DOM controls are copied into retained DOM-control texture slots as the normal correctness path.
+
+### 11. Re-Measure Performance
 
 Measure before and after on the same large retained settings scene.
 
@@ -522,7 +599,7 @@ Record:
 
 Add `perf/` reports only when trace-backed fallback budgets or before/after records are needed.
 
-### 11. Final Verification
+### 12. Final Verification
 
 Run targeted tests first, then the full GPU Flow-related suite. This is a release gate for the refactor, not a suggested checklist.
 
@@ -552,10 +629,13 @@ If a broad command must be sharded, document every shard and run all shards. Do 
 - Passive and active text-like control extents match within visual tolerance.
 - Focused controls follow pan, zoom, and retained section scroll.
 - DOM controls and retained GPU pages are sampled from one committed display frame.
+- Canvas retained frame id, DOM-control committed frame id, DOM island committed frame id, hit-test generation id, debug snapshot frame id, retained scroll revision, and clip-chain revision are coherent for visible output.
 - Visible nonempty DOM controls are display-frame completeness requirements.
 - Mounted DOM actor count scales with viewport plus overscan, not total settings size.
 - Pan/zoom projection does not require React rerendering or large retained texture uploads per frame.
 - The old retained DOM-control texture correctness path is removed.
+- `sourceRetainedRuntimeFrame` does not drive visible DOM controls, visible DOM islands, hit testing, or debug snapshots.
+- `docs/reference/html-in-canvas-architecture.md` describes the committed surface actor path and no longer documents retained DOM-control texture slots as the normal text-like correctness path.
 - The full GPU Flow-related verification suite is clean, or every non-clean result has evidence showing it is unrelated to GPU Flow.
 
 ## Explicit Non-Goals
