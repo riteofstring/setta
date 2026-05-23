@@ -21,11 +21,11 @@ import {
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
 import {
-  createGpuFlowVisiblePublicationContentDecisionKernel,
   type GpuFlowCommittedSurfacePublicationFramePlan,
   type GpuFlowCommittedSurfacePublicationFramePlanResult,
   type GpuFlowRetainedDisplayOutcomeFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlan,
+  type GpuFlowVisiblePublicationContentDecisionKernel,
 } from "./visibleFramePublicationKernelContentDecisions";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -92,9 +92,6 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   retainedRuntimeFrame: null,
   visibleProjectionState: null,
 } satisfies Omit<GpuFlowContentPublicationFrameResult, "rendered">);
-
-const visiblePublicationContentDecisionKernel =
-  createGpuFlowVisiblePublicationContentDecisionKernel();
 
 export type GpuFlowCommittedSurfacePublicationCandidate =
   | {
@@ -166,11 +163,6 @@ export type GpuFlowPreparedCommittedSurfacePublicationFramePlan = {
   readonly publicationPreparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
 };
 
-export type GpuFlowBlockedCommittedSurfacePublicationAbort = {
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
-  readonly preservePreparationSnapshot: boolean;
-};
-
 export type GpuFlowRetainedDisplayPublicationPreparer = (
   input: GpuFlowRetainedDisplayPublicationInput,
 ) => GpuFlowRetainedDisplayPublicationResult;
@@ -223,6 +215,7 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
   RetainedContext,
   Result,
 > = {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferBrowserVisualRetry: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
@@ -242,6 +235,8 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
     readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
     readonly committedSurfacePublicationPreparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
     readonly context: RetainedContext;
+    readonly createContentPublicationFrameResultForVisibleProjectionState: GpuFlowContentPublicationFrameResultForVisibleProjectionStatePreparer;
+    readonly createVisibleProjectionStateForRetainedPublication: GpuFlowRetainedPublicationVisibleProjectionStatePreparer;
     readonly preparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
     readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
       GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
@@ -282,8 +277,23 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner = <
     >,
     | "prepareCommittedSurfacePublicationFramePlan"
     | "prepareRetainedDisplayPublicationFramePlan"
+    | "contentDecisionKernel"
   >,
 ) => GpuFlowContentPublicationFrameResult | Result;
+
+export type GpuFlowRetainedPublicationVisibleProjectionStatePreparer = (input: {
+  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly publishedRetainedFrame: RetainedDisplayFrame;
+}) => GpuFlowVisibleProjectionState;
+
+export type GpuFlowContentPublicationFrameResultForVisibleProjectionStatePreparer =
+  (input: {
+    readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+    readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+    readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+    readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+    readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+  }) => GpuFlowContentPublicationFrameResult;
 
 function applyGpuFlowRetainedDisplayPublicationContentStage<Result>({
   contentStage,
@@ -322,11 +332,13 @@ function applyGpuFlowCommittedSurfacePublicationContentStage<Result>({
 }
 
 function runGpuFlowRetainedDisplayPublicationContentStage<Result>({
+  contentDecisionKernel,
   deferResolutionUpdates,
   onPublished,
   preparation,
   previousVisibleProjectionState,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly onPublished: (
     publishedOutcomeFrame: Extract<
@@ -339,6 +351,7 @@ function runGpuFlowRetainedDisplayPublicationContentStage<Result>({
 }): GpuFlowContentPublicationFrameResult | Result {
   return applyGpuFlowRetainedDisplayPublicationContentStage({
     contentStage: createGpuFlowRetainedDisplayPublicationContentStage({
+      contentDecisionKernel,
       deferResolutionUpdates,
       preparation,
       previousVisibleProjectionState,
@@ -348,12 +361,14 @@ function runGpuFlowRetainedDisplayPublicationContentStage<Result>({
 }
 
 function runGpuFlowCommittedSurfacePublicationContentStage<Result>({
+  contentDecisionKernel,
   deferResolutionUpdates,
   onPublished,
   preparation,
   previousVisibleProjectionState,
   retainedDisplayFollowUpFrameReason,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly onPublished: (
     committedSurfacePublication: Extract<
@@ -367,6 +382,7 @@ function runGpuFlowCommittedSurfacePublicationContentStage<Result>({
 }): GpuFlowContentPublicationFrameResult | Result {
   return applyGpuFlowCommittedSurfacePublicationContentStage({
     contentStage: createGpuFlowCommittedSurfacePublicationContentStage({
+      contentDecisionKernel,
       deferResolutionUpdates,
       preparation,
       previousVisibleProjectionState,
@@ -429,6 +445,7 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
   RetainedContext,
   Result,
 >({
+  contentDecisionKernel,
   deferBrowserVisualRetry,
   deferResolutionUpdates,
   frameReasons,
@@ -453,6 +470,7 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
   const retainedDisplayFollowUpFrameReason =
     retainedDisplayPublicationPreparation.followUpFrameReason;
   return runGpuFlowRetainedDisplayPublicationContentStage({
+    contentDecisionKernel,
     deferResolutionUpdates,
     onPublished: (publishedRetainedDisplayOutcomeFrame) => {
       const retainedDisplayContent = onRetainedDisplayPublished({
@@ -487,12 +505,41 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
         retainedDisplayPublicationPreparation,
       });
       return runGpuFlowCommittedSurfacePublicationContentStage({
+        contentDecisionKernel,
         deferResolutionUpdates,
         onPublished: (committedSurfacePublication) =>
           onCommittedSurfacePublished({
             committedSurfacePublication,
             committedSurfacePublicationPreparation,
             context: retainedDisplayContent.context,
+            createContentPublicationFrameResultForVisibleProjectionState: (
+              input,
+            ) =>
+              createGpuFlowContentPublicationFrameResultForVisibleProjectionState(
+                {
+                  ...input,
+                  contentDecisionKernel,
+                  deferResolutionUpdates,
+                  previousVisibleProjectionState,
+                  retainedDisplayFollowUpFrameReason,
+                },
+              ),
+            createVisibleProjectionStateForRetainedPublication: (input) =>
+              contentDecisionKernel.createVisibleProjectionStateForRetainedPublication(
+                {
+                  committedGpuNativeVisuals:
+                    retainedDisplayContent.committedGpuNativeVisuals,
+                  frameReasons,
+                  heldPreviousProjectionState: previousVisibleProjectionState,
+                  liveProjectionSample,
+                  publicationLane,
+                  publishedCommittedSurfaceFrame:
+                    input.publishedCommittedSurfaceFrame,
+                  publishedRetainedFrame: input.publishedRetainedFrame,
+                  retainedDisplayOutcomeKind:
+                    publishedRetainedDisplayOutcomeFrame.outcomeKind,
+                },
+              ),
             preparedCommittedSurfaceFrame:
               committedSurfacePreparation.preparedCommittedSurfaceFrame,
             publishedRetainedDisplayOutcomeFrame,
@@ -511,15 +558,18 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
 }
 
 export function createGpuFlowRetainedCommittedSurfacePublicationContentStageRunner({
+  contentDecisionKernel,
   prepareCommittedSurfacePublicationFramePlan,
   prepareRetainedDisplayPublicationFramePlan,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
   readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
 }): GpuFlowRetainedCommittedSurfacePublicationContentStageRunner {
   return (input) =>
     runGpuFlowRetainedCommittedSurfacePublicationContentStage({
       ...input,
+      contentDecisionKernel,
       prepareCommittedSurfacePublicationFramePlan,
       prepareRetainedDisplayPublicationFramePlan,
     });
@@ -534,42 +584,13 @@ export function createGpuFlowContentPublicationFrameResult(
   };
 }
 
-export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
-  blockedPreparedCommittedSurfaceFrame,
-  blockedPreservePreparationSnapshot,
-  committedSurfaceFrame,
-  heldPreparedCommittedSurfaceFrame,
-  selectedVisibleProjectionState,
-}: {
-  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly blockedPreservePreparationSnapshot: boolean;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowBlockedCommittedSurfacePublicationAbort {
-  if (blockedPreparedCommittedSurfaceFrame) {
-    return Object.freeze({
-      frame: blockedPreparedCommittedSurfaceFrame,
-      preservePreparationSnapshot: blockedPreservePreparationSnapshot,
-    });
-  }
-  if (selectedVisibleProjectionState?.transaction.kind !== "held-previous") {
-    return Object.freeze({
-      frame: null,
-      preservePreparationSnapshot: false,
-    });
-  }
-  return Object.freeze({
-    frame: heldPreparedCommittedSurfaceFrame ?? committedSurfaceFrame,
-    preservePreparationSnapshot: heldPreparedCommittedSurfaceFrame !== null,
-  });
-}
-
 function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation({
+  contentDecisionKernel,
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -578,6 +599,7 @@ function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublication
     return null;
   }
   return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+    contentDecisionKernel,
     deferResolutionUpdates,
     nodeLayerFrameResult: preparation.nodeLayerFrameResult,
     nodeLayerFrameStatePublication: null,
@@ -589,10 +611,12 @@ function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublication
 }
 
 function createGpuFlowRetainedDisplayPublicationContentStage({
+  contentDecisionKernel,
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -600,6 +624,7 @@ function createGpuFlowRetainedDisplayPublicationContentStage({
   const frameResult =
     createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation(
       {
+        contentDecisionKernel,
         deferResolutionUpdates,
         preparation,
         previousVisibleProjectionState,
@@ -635,11 +660,13 @@ function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
 }
 
 function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation({
+  contentDecisionKernel,
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
   retainedDisplayFollowUpFrameReason,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -649,6 +676,7 @@ function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicatio
     return null;
   }
   return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+    contentDecisionKernel,
     deferResolutionUpdates,
     nodeLayerFrameResult: preparation.nodeLayerFrameResult,
     nodeLayerFrameStatePublication: null,
@@ -660,11 +688,13 @@ function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicatio
 }
 
 function createGpuFlowCommittedSurfacePublicationContentStage({
+  contentDecisionKernel,
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
   retainedDisplayFollowUpFrameReason,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -673,6 +703,7 @@ function createGpuFlowCommittedSurfacePublicationContentStage({
   const frameResult =
     createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation(
       {
+        contentDecisionKernel,
         deferResolutionUpdates,
         preparation,
         previousVisibleProjectionState,
@@ -691,7 +722,45 @@ function createGpuFlowCommittedSurfacePublicationContentStage({
   };
 }
 
-export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+function createGpuFlowContentPublicationFrameResultForVisibleProjectionState({
+  committedSurfacePublication,
+  contentDecisionKernel,
+  deferResolutionUpdates,
+  nodeLayerFrameStatePublication,
+  previousVisibleProjectionState,
+  retainedDisplayFollowUpFrameReason,
+  retainedDisplayFrame,
+  retainedRuntimeFrame,
+  visibleProjectionState,
+}: {
+  readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
+  readonly deferResolutionUpdates: boolean;
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+}): GpuFlowContentPublicationFrameResult {
+  return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+    contentDecisionKernel,
+    deferResolutionUpdates,
+    nodeLayerFrameResult:
+      createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
+        visibleProjectionState,
+        { committedSurfacePublication },
+      ),
+    nodeLayerFrameStatePublication,
+    previousVisibleProjectionState,
+    retainedDisplayFollowUpFrameReason,
+    retainedDisplayFrame,
+    retainedRuntimeFrame,
+  });
+}
+
+function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+  contentDecisionKernel,
   deferResolutionUpdates,
   nodeLayerFrameResult,
   nodeLayerFrameStatePublication,
@@ -700,6 +769,7 @@ export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
   retainedDisplayFrame,
   retainedRuntimeFrame,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly deferResolutionUpdates: boolean;
   readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
@@ -711,7 +781,7 @@ export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
   const committedSurfacePublication =
     nodeLayerFrameResult.committedSurfacePublication;
   const blockedPublicationCandidate =
-    visiblePublicationContentDecisionKernel.selectContentPublicationBlockedCandidateForFrameResult(
+    contentDecisionKernel.selectContentPublicationBlockedCandidateForFrameResult(
       {
         nodeLayerFrameResult,
         previousVisibleProjectionState,
@@ -814,25 +884,23 @@ function createGpuFlowNotVisibleContentPublicationFrameResult({
 }
 
 export function createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
-  prepareCommittedSurfacePublicationCandidate = visiblePublicationContentDecisionKernel.prepareCommittedSurfacePublicationCandidate,
+  contentDecisionKernel,
+  prepareCommittedSurfacePublicationCandidate = contentDecisionKernel.prepareCommittedSurfacePublicationCandidate,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly prepareCommittedSurfacePublicationCandidate?: GpuFlowCommittedSurfacePublicationCandidatePreparer;
-} = {}): GpuFlowCommittedSurfacePublicationFramePlanPreparer {
+}): GpuFlowCommittedSurfacePublicationFramePlanPreparer {
   return (input) => {
     const candidate = prepareCommittedSurfacePublicationCandidate(input);
     const framePlan =
-      visiblePublicationContentDecisionKernel.selectCommittedSurfacePublicationFramePlan(
-        {
-          candidate,
-          publishedCommittedSurfaceFrame: input.publishedCommittedSurfaceFrame,
-        },
-      );
+      contentDecisionKernel.selectCommittedSurfacePublicationFramePlan({
+        candidate,
+        publishedCommittedSurfaceFrame: input.publishedCommittedSurfaceFrame,
+      });
     const framePlanResult =
-      visiblePublicationContentDecisionKernel.resolveCommittedSurfacePublicationFramePlanResult(
-        {
-          framePlan,
-        },
-      );
+      contentDecisionKernel.resolveCommittedSurfacePublicationFramePlanResult({
+        framePlan,
+      });
     return Object.freeze({
       candidate,
       committedSurfacePublication: framePlanResult.committedSurfacePublication,
@@ -872,27 +940,25 @@ function resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult({
 }
 
 export function createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+  contentDecisionKernel,
   previousVisibleProjectionState,
   prepareRetainedDisplayPublicationCandidate,
 }: {
+  readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly prepareRetainedDisplayPublicationCandidate: GpuFlowRetainedDisplayPublicationPreparer;
 }): GpuFlowRetainedDisplayPublicationFramePlanPreparer {
   return (input) => {
     const publication = prepareRetainedDisplayPublicationCandidate(input);
     const framePlan =
-      visiblePublicationContentDecisionKernel.selectRetainedDisplayPublicationFramePlan(
-        {
-          previousVisibleProjectionState,
-          retainedDisplayOutcome: publication.retainedDisplayOutcome,
-        },
-      );
+      contentDecisionKernel.selectRetainedDisplayPublicationFramePlan({
+        previousVisibleProjectionState,
+        retainedDisplayOutcome: publication.retainedDisplayOutcome,
+      });
     const framePlanResult =
-      visiblePublicationContentDecisionKernel.resolveRetainedDisplayPublicationFramePlanResult(
-        {
-          framePlan,
-        },
-      );
+      contentDecisionKernel.resolveRetainedDisplayPublicationFramePlanResult({
+        framePlan,
+      });
     return Object.freeze({
       followUpFrameReason:
         framePlanResult.publishedOutcomeFrame === null

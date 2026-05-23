@@ -69,7 +69,6 @@ import {
   reportGpuFlowNodeLayerFramePerformance,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
-import { createGpuFlowNodeLayerFrameVisibleProjectionStateResult } from "./flowFrameResult";
 import {
   combineGpuFlowHtmlSurfaceNativeVisuals,
   createGpuFlowRetainedContentNativeVisualSignature,
@@ -100,12 +99,10 @@ import {
   EMPTY_GPU_NODE_LAYOUTS,
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
-import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
 import {
   createGpuFlowContentPublicationFrameResult,
-  createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
@@ -680,9 +677,9 @@ export function renderGpuFlowNodeLayerFrame({
     onCommittedSurfacePublished: ({
       committedSurfacePublication,
       context,
+      createContentPublicationFrameResultForVisibleProjectionState,
+      createVisibleProjectionStateForRetainedPublication,
       preparedCommittedSurfaceFrame,
-      publishedRetainedDisplayOutcomeFrame,
-      retainedDisplayFollowUpFrameReason,
       retainedDisplayPublication,
     }) => {
       markGpuFlowRetainedContentFrameFreshnessDirty({
@@ -769,16 +766,9 @@ export function renderGpuFlowNodeLayerFrame({
         budgetExhausted: layerResult.budgetExhausted,
       };
       const visibleProjectionState =
-        createGpuFlowVisibleProjectionStateForRetainedPublication({
-          committedGpuNativeVisuals: context.committedGpuNativeVisuals,
-          frameReasons,
-          heldPreviousProjectionState,
-          liveProjectionSample,
-          publicationLane,
+        createVisibleProjectionStateForRetainedPublication({
           publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
           publishedRetainedFrame: context.publishedRetainedFrame,
-          retainedDisplayOutcomeKind:
-            publishedRetainedDisplayOutcomeFrame.outcomeKind,
         });
       reportGpuFlowNodeLayerFramePerformance({
         callbacksRef,
@@ -834,19 +824,12 @@ export function renderGpuFlowNodeLayerFrame({
           viewportFrame,
           visibleNodeIdsRef,
         };
-      const nodeLayerFrameResult =
-        createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
-          visibleProjectionState,
-          { committedSurfacePublication },
-        );
-      return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
-        deferResolutionUpdates,
-        nodeLayerFrameResult,
+      return createContentPublicationFrameResultForVisibleProjectionState({
+        committedSurfacePublication,
         nodeLayerFrameStatePublication,
-        previousVisibleProjectionState: heldPreviousProjectionState,
-        retainedDisplayFollowUpFrameReason,
         retainedDisplayFrame: context.publishedRetainedFrame,
         retainedRuntimeFrame: context.publishedRetainedRuntimeFrame,
+        visibleProjectionState,
       });
     },
     onRetainedDisplayPublished: ({ publishedRetainedDisplayOutcomeFrame }) => {

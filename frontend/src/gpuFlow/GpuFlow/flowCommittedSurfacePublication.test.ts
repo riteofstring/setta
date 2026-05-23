@@ -20,10 +20,14 @@ import {
   type GpuFlowCommittedSurfacePublicationCandidateInput,
   type GpuFlowCommittedSurfacePublicationEffect,
 } from "./visibleFramePublicationContentPlan";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 const prepareCommittedSurfacePublicationFramePlanForTest =
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer();
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+    contentDecisionKernel:
+      createGpuFlowVisiblePublicationContentDecisionKernel(),
+  });
 
 describe("GPU Flow committed surface publication effect executor", () => {
   afterEach(() => {

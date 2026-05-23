@@ -146,6 +146,9 @@ type GpuFlowContentPublicationBlockedCandidateSelector = (input: {
 }) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
 
 export type GpuFlowVisiblePublicationContentDecisionKernel = {
+  readonly createVisibleProjectionStateForRetainedPublication: (
+    input: GpuFlowRetainedPublicationVisibleProjectionStateInput,
+  ) => GpuFlowVisibleProjectionState;
   readonly prepareCommittedSurfacePublicationCandidate: (
     input: GpuFlowCommittedSurfacePublicationCandidateInput,
   ) => GpuFlowCommittedSurfacePublicationCandidate;
@@ -157,6 +160,19 @@ export type GpuFlowVisiblePublicationContentDecisionKernel = {
     readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   }) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly selectRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanSelector;
+};
+
+type GpuFlowRetainedPublicationVisibleProjectionStateInput = Pick<
+  GpuFlowCommittedSurfacePublicationCandidateInput,
+  | "committedGpuNativeVisuals"
+  | "frameReasons"
+  | "heldPreviousProjectionState"
+  | "liveProjectionSample"
+  | "publicationLane"
+  | "publishedCommittedSurfaceFrame"
+  | "publishedRetainedFrame"
+> & {
+  readonly retainedDisplayOutcomeKind: string;
 };
 
 function prepareGpuFlowCommittedSurfacePublicationCandidate({
@@ -226,6 +242,8 @@ function prepareGpuFlowCommittedSurfacePublicationCandidate({
 
 export function createGpuFlowVisiblePublicationContentDecisionKernel(): GpuFlowVisiblePublicationContentDecisionKernel {
   return {
+    createVisibleProjectionStateForRetainedPublication:
+      createGpuFlowVisibleProjectionStateForRetainedPublication,
     prepareCommittedSurfacePublicationCandidate:
       prepareGpuFlowCommittedSurfacePublicationCandidate,
     resolveCommittedSurfacePublicationFramePlanResult:

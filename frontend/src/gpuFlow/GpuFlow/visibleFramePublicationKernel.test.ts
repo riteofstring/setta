@@ -17,6 +17,7 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFramePublicationContentPlan";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
@@ -27,7 +28,10 @@ import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFra
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();
 const prepareCommittedSurfacePublicationFramePlanForTest =
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer();
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+    contentDecisionKernel:
+      createGpuFlowVisiblePublicationContentDecisionKernel(),
+  });
 
 describe("GPU Flow visible publication transaction kernel", () => {
   it("prepares motion and content candidate sets inside the kernel before completion", () => {

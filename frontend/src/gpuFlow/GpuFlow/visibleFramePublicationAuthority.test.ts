@@ -593,7 +593,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(flowFrameSource).not.toContain(
       "onRetainedDisplayFollowUpFrameNeeded",
     );
-    expect(flowFrameSource).toContain("retainedDisplayFollowUpFrameReason");
+    expect(flowFrameSource).not.toContain("retainedDisplayFollowUpFrameReason");
     expect(completionStart).toBeGreaterThanOrEqual(0);
     expect(completionSource).not.toContain(
       "retainedDisplayFollowUpFrameReason",
