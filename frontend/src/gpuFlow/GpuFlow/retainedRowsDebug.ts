@@ -1,10 +1,12 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type GpuFlowCommittedSurfaceDebugEntry,
+  type GpuFlowCommittedSurfaceTextActorProofDebugEntry,
   type GpuFlowRetainedRowDebugEntry,
   type GpuFlowVisualSurfaceDebugEntry,
   type MutableGpuFlowInteractionDiagnostics,
@@ -62,6 +64,7 @@ export function useGpuFlowDebugGlobals<
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
+  requestFrame,
   retainedContentRuntimeState,
   viewportStore,
 }: {
@@ -74,6 +77,7 @@ export function useGpuFlowDebugGlobals<
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<TNodeLayer>;
+  readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
@@ -130,6 +134,9 @@ export function useGpuFlowDebugGlobals<
         retainedContentRuntimeState,
         scene: nodeLayerRef.current.scene,
       });
+    const requestDebugFrame = (reason: GpuFrameReason = "manual") => {
+      requestFrame?.(reason);
+    };
     const getVisualSurfaces = () =>
       createGpuFlowVisualSurfacesDebugSnapshot({
         container: containerRef.current,
@@ -139,6 +146,7 @@ export function useGpuFlowDebugGlobals<
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ = getRetainedRowCount;
+    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ = requestDebugFrame;
     window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ = setViewport;
     window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
     return () => {
@@ -153,6 +161,9 @@ export function useGpuFlowDebugGlobals<
         getRetainedRowCount
       ) {
         delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__;
+      }
+      if (window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ === requestDebugFrame) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ === setViewport) {
         delete window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
@@ -171,6 +182,7 @@ export function useGpuFlowDebugGlobals<
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
+    requestFrame,
     retainedContentRuntimeState,
     viewportStore,
   ]);
@@ -270,8 +282,58 @@ function toCommittedSurfaceDebugEntry(
     retainedScrollRevision: frame.coherence.retainedScrollRevision,
     retainedPageActorCount: frame.diagnostics.retainedPageActorCount,
     sceneRevision: frame.sceneRevision,
+    textActorProofs: frame.actorGenerations
+      .filter((actor) => actor.textCoverageProof)
+      .map(toCommittedSurfaceTextActorProofDebugEntry),
     visibleNonemptyDomControlCount:
       frame.displayCompleteness.visibleNonemptyDomControlCount,
+  };
+}
+
+function toCommittedSurfaceTextActorProofDebugEntry(
+  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+): GpuFlowCommittedSurfaceTextActorProofDebugEntry {
+  const browserProof = toCommittedSurfaceBrowserVisualProofDebugEntry(actor);
+  return {
+    active: actor.active,
+    actorId: actor.actorId,
+    actualInteraction: browserProof.actualInteraction,
+    actualVisual: browserProof.actualVisual,
+    canonicalActorId: actor.canonicalActorId,
+    controlId: actor.controlId,
+    focusIdentity: actor.focusIdentity,
+    ownerSurfaceId: actor.ownerSurfaceId,
+    projectionCoverage: actor.textCoverageProof?.projectionCoverage ?? null,
+    requiredInteraction: browserProof.requiredInteraction,
+    requiredVisual: browserProof.requiredVisual,
+    rowId: actor.rowId,
+    visualProof: browserProof.actualVisual,
+  };
+}
+
+function toCommittedSurfaceBrowserVisualProofDebugEntry(
+  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+): Pick<
+  GpuFlowCommittedSurfaceTextActorProofDebugEntry,
+  | "actualInteraction"
+  | "actualVisual"
+  | "requiredInteraction"
+  | "requiredVisual"
+> {
+  const proof = actor.browserVisual?.proof;
+  if (!proof) {
+    return {
+      actualInteraction: null,
+      actualVisual: null,
+      requiredInteraction: null,
+      requiredVisual: null,
+    };
+  }
+  return {
+    actualInteraction: proof.actualInteraction,
+    actualVisual: proof.actualVisual,
+    requiredInteraction: proof.requiredInteraction,
+    requiredVisual: proof.requiredVisual,
   };
 }
 

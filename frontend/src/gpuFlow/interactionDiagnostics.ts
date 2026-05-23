@@ -1,3 +1,4 @@
+import type { GpuFrameReason } from "./gpuRenderer";
 import type { GpuRetainedContentInteractionHit } from "./interactions/retainedContentInteraction";
 import type { GpuRetainedContentHitTarget } from "./retainedContentHitTest";
 import type {
@@ -149,7 +150,24 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly retainedScrollRevision: number;
   readonly retainedPageActorCount: number;
   readonly sceneRevision: number;
+  readonly textActorProofs: readonly GpuFlowCommittedSurfaceTextActorProofDebugEntry[];
   readonly visibleNonemptyDomControlCount: number;
+};
+
+export type GpuFlowCommittedSurfaceTextActorProofDebugEntry = {
+  readonly active: boolean;
+  readonly actorId: string;
+  readonly actualInteraction: string | null;
+  readonly actualVisual: string | null;
+  readonly canonicalActorId: string;
+  readonly controlId: string | null;
+  readonly focusIdentity: string | null;
+  readonly ownerSurfaceId: string;
+  readonly projectionCoverage: string | null;
+  readonly requiredInteraction: string | null;
+  readonly requiredVisual: string | null;
+  readonly rowId: string | null;
+  readonly visualProof: string | null;
 };
 
 export type GpuFlowRetainedRowDebugEntry = {
@@ -523,6 +541,9 @@ declare global {
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?: (() => number) | undefined;
+    __SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?:
+      | ((reason?: GpuFrameReason) => void)
+      | undefined;
     __SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__?:
       | ((viewport: GpuViewportInput) => void)
       | undefined;

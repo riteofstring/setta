@@ -12,7 +12,6 @@ import type {
   RetainedRowDebugEntry,
 } from "./settings-retained-visual-analysis";
 
-const RETAINED_SURFACE_SCROLL_RESET_STEPS = 80;
 const RETAINED_SURFACE_SCROLL_SEARCH_STEPS = 200;
 const SECTION_SIZING_SURFACE_ID =
   "settings-section__sectionSizingPolicy" + SETTINGS_PARAM_CONTENT_SUFFIX;
@@ -47,6 +46,18 @@ type NativeCompositionState = {
   readonly lastCompositionData: string | null;
   readonly rowControlRect: Rect;
   readonly rowId: string;
+};
+
+type CommittedTextActorProof = {
+  readonly active: boolean;
+  readonly actorId: string;
+  readonly actualInteraction: string | null;
+  readonly actualVisual: string | null;
+  readonly projectionCoverage: string | null;
+  readonly requiredInteraction: string | null;
+  readonly requiredVisual: string | null;
+  readonly rowId: string | null;
+  readonly visualProof: string | null;
 };
 
 const TARGET_TEXT_LIKE_ROW: TextLikeNativeSemanticsTarget = {
@@ -189,10 +200,14 @@ test("typing before and after retained motion stays in the same active editor", 
     expectedText: "motion-before-after",
     rowId: row.rowId,
   });
+  const committedProof = await waitForCommittedActiveEditorTextProof(page, {
+    rowId: row.rowId,
+  });
   const details = JSON.stringify(
     {
       caretAfterMotion,
       caretBeforeMotion,
+      committedProof,
       row,
       target,
       typedAfter,
@@ -205,6 +220,19 @@ test("typing before and after retained motion stays in the same active editor", 
   expect(typedBefore.activeEditorId, details).toContain(row.rowId);
   expect(typedAfter.activeEditorId, details).toBe(typedBefore.activeEditorId);
   expect(typedAfter.text, details).toContain("motion-before-after");
+  expect(committedProof.active, details).toBe(true);
+  expect(committedProof.requiredVisual, details).toBe("browser-visual");
+  expect(committedProof.requiredInteraction, details).toBe(
+    "active-editor-live",
+  );
+  expect(committedProof.actualInteraction, details).toBe("active-editor-live");
+  expect(
+    ["exact-live-host", "same-live-host-compatible-projection"].includes(
+      committedProof.actualVisual ?? "",
+    ),
+    details,
+  ).toBe(true);
+  expect(committedProof.projectionCoverage, details).toBe("exact-live-dom");
   expectNativeTextStateAlignedToRow(caretAfterMotion, details);
 });
 
@@ -319,11 +347,16 @@ async function openNativeTextLikeRow(page: Page): Promise<{
 }> {
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, TARGET_TEXT_LIKE_ROW.surfaceId);
-  await scrollRetainedSurfaceToTop(page, TARGET_TEXT_LIKE_ROW.surfaceId);
-  const row = await scrollRetainedSurfaceUntilTargetRowVisible(
-    page,
-    TARGET_TEXT_LIKE_ROW,
-  );
+  const row =
+    (await resolveVisibleTargetRow(page, TARGET_TEXT_LIKE_ROW)) ??
+    (await resolveVisibleNativeTextLikeRow(
+      page,
+      TARGET_TEXT_LIKE_ROW.surfaceId,
+    )) ??
+    (await scrollRetainedSurfaceUntilTargetRowVisible(
+      page,
+      TARGET_TEXT_LIKE_ROW,
+    ));
   if (!row.controlClientPoint || !row.controlClientRect) {
     throw new Error(`Missing retained control geometry for ${row.rowId}.`);
   }
@@ -551,19 +584,6 @@ function rectIntersectsRect(left: Rect, right: Rect): boolean {
   );
 }
 
-async function scrollRetainedSurfaceToTop(
-  page: Page,
-  surfaceId: string,
-): Promise<void> {
-  const point = await resolveRetainedSurfaceWheelPoint(page, surfaceId);
-  await page.mouse.move(point.x, point.y);
-  for (let index = 0; index < RETAINED_SURFACE_SCROLL_RESET_STEPS; index += 1) {
-    await page.mouse.wheel(0, -240);
-  }
-  await waitForAnimationFrame(page);
-  await waitForAnimationFrame(page);
-}
-
 async function scrollRetainedSurfaceUntilTargetRowVisible(
   page: Page,
   target: TextLikeNativeSemanticsTarget,
@@ -631,6 +651,42 @@ async function resolveVisibleTargetRow(
       );
     }
   }, target);
+}
+
+async function resolveVisibleNativeTextLikeRow(
+  page: Page,
+  surfaceId: string,
+): Promise<RetainedRowDebugEntry | null> {
+  return await page.evaluate((surfaceId) => {
+    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
+      .filter(
+        (row): row is RetainedRowDebugEntry =>
+          row.surfaceId === surfaceId &&
+          row.controlKind === "text-like" &&
+          row.controlClientPoint !== null &&
+          row.controlClientRect !== null &&
+          row.controlClientRect.width > 8 &&
+          row.controlClientRect.height > 8 &&
+          rectIntersectsViewport(row.controlClientRect),
+      )
+      .sort(
+        (left, right) =>
+          (left.controlClientRect?.y ?? 0) - (right.controlClientRect?.y ?? 0),
+      );
+    return rows[0] ?? null;
+
+    function rectIntersectsViewport(rect: Rect | null): boolean {
+      if (!rect) {
+        return false;
+      }
+      return (
+        rect.x + rect.width > 0 &&
+        rect.y + rect.height > 0 &&
+        rect.x < window.innerWidth &&
+        rect.y < window.innerHeight
+      );
+    }
+  }, surfaceId);
 }
 
 async function resolveRetainedSurfaceWheelPoint(
@@ -925,6 +981,58 @@ async function readActiveNativeTextValue(page: Page): Promise<{
       text: activeEditor?.querySelector(".cm-content")?.textContent ?? null,
     };
   });
+}
+
+async function waitForCommittedActiveEditorTextProof(
+  page: Page,
+  { rowId }: { readonly rowId: string },
+): Promise<CommittedTextActorProof> {
+  const deadline = Date.now() + 5_000;
+  let latestProof: CommittedTextActorProof | null = null;
+  while (Date.now() < deadline) {
+    latestProof = await readCommittedTextActorProof(page, rowId);
+    if (isActiveEditorCommittedTextProof(latestProof)) {
+      return latestProof;
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(
+    `Committed text actor proof did not become active-editor capable. ${JSON.stringify(
+      { latestProof, rowId },
+      null,
+      2,
+    )}`,
+  );
+}
+
+async function readCommittedTextActorProof(
+  page: Page,
+  rowId: string,
+): Promise<CommittedTextActorProof | null> {
+  return await page.evaluate((rowId) => {
+    const proofs =
+      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().committedSurfaceFrame
+        ?.textActorProofs ?? [];
+    return (
+      proofs.find((proof) => proof.rowId === rowId && proof.active) ??
+      proofs.find((proof) => proof.rowId === rowId) ??
+      null
+    );
+  }, rowId);
+}
+
+function isActiveEditorCommittedTextProof(
+  proof: CommittedTextActorProof | null,
+): proof is CommittedTextActorProof {
+  return Boolean(
+    proof?.active &&
+      proof.requiredVisual === "browser-visual" &&
+      proof.requiredInteraction === "active-editor-live" &&
+      proof.actualInteraction === "active-editor-live" &&
+      (proof.actualVisual === "exact-live-host" ||
+        proof.actualVisual === "same-live-host-compatible-projection") &&
+      proof.projectionCoverage === "exact-live-dom",
+  );
 }
 
 function isExpectedNativeTextSelectionState(

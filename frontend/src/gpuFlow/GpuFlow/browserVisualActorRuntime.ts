@@ -87,6 +87,24 @@ type GpuFlowBrowserVisualActorProjectionInput = {
   readonly viewport?: GpuViewportInput | undefined;
 };
 
+type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
+  | "blocked-awaiting-live-host"
+  | "blocked-awaiting-snapshot";
+
+type GpuFlowBrowserVisualFaultInjection = {
+  readonly domControlReadiness?:
+    | GpuFlowBrowserVisualFaultInjectedDomControlReadiness
+    | undefined;
+  readonly withholdAllDomControls?: boolean | undefined;
+  readonly withholdDomControlActorIds?: readonly string[] | undefined;
+};
+
+type GpuFlowBrowserVisualFaultInjectionWindow = Window & {
+  readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?:
+    | GpuFlowBrowserVisualFaultInjection
+    | unknown;
+};
+
 export type GpuFlowBrowserVisualActorCandidate = {
   readonly id: string;
   readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
@@ -155,6 +173,191 @@ function createBlockedDomControlReadiness(
     return BLOCKED_AWAITING_SNAPSHOT_READINESS;
   }
   return BLOCKED_AWAITING_LIVE_HOST_READINESS;
+}
+
+function createGpuFlowBrowserVisualFaultInjectedDomControlReadiness(
+  control: GpuRetainedDomControlSourceDescriptor,
+): BrowserVisualActorRepresentationReadiness | null {
+  const faultInjection = readGpuFlowBrowserVisualFaultInjection();
+  if (!faultInjection) {
+    return null;
+  }
+  const actorIds = faultInjection.withholdDomControlActorIds ?? [];
+  if (
+    faultInjection.withholdAllDomControls !== true &&
+    !actorIds.includes(control.sourceId)
+  ) {
+    return null;
+  }
+  const readiness: GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
+    faultInjection.domControlReadiness ??
+    (control.visualPolicy === "snapshot"
+      ? "blocked-awaiting-snapshot"
+      : "blocked-awaiting-live-host");
+  switch (readiness) {
+    case "blocked-awaiting-live-host":
+      return BLOCKED_AWAITING_LIVE_HOST_READINESS;
+    case "blocked-awaiting-snapshot":
+      return BLOCKED_AWAITING_SNAPSHOT_READINESS;
+  }
+}
+
+function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFaultInjection | null {
+  if (!isGpuFlowBrowserVisualFaultInjectionEnabled()) {
+    return null;
+  }
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const faultInjection = (window as GpuFlowBrowserVisualFaultInjectionWindow)
+    .__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__;
+  if (faultInjection === undefined) {
+    return null;
+  }
+  if (!isGpuFlowBrowserVisualFaultInjectionObject(faultInjection)) {
+    throw new Error(
+      "GPU Flow browser visual fault injection must be an object.",
+    );
+  }
+  const {
+    domControlReadiness,
+    withholdAllDomControls,
+    withholdDomControlActorIds,
+  } = faultInjection;
+  assertGpuFlowBrowserVisualFaultInjectionDomControlReadiness(
+    domControlReadiness,
+  );
+  assertGpuFlowBrowserVisualFaultInjectionWithholdAllDomControls(
+    withholdAllDomControls,
+  );
+  assertGpuFlowBrowserVisualFaultInjectionActorIds(withholdDomControlActorIds);
+  return {
+    domControlReadiness,
+    withholdAllDomControls,
+    withholdDomControlActorIds,
+  };
+}
+
+function isGpuFlowBrowserVisualFaultInjectionObject(
+  faultInjection: unknown,
+): faultInjection is GpuFlowBrowserVisualFaultInjection {
+  return (
+    faultInjection !== null &&
+    typeof faultInjection === "object" &&
+    !Array.isArray(faultInjection)
+  );
+}
+
+function assertGpuFlowBrowserVisualFaultInjectionDomControlReadiness(
+  readiness: GpuFlowBrowserVisualFaultInjection["domControlReadiness"],
+): void {
+  if (
+    readiness !== undefined &&
+    readiness !== "blocked-awaiting-live-host" &&
+    readiness !== "blocked-awaiting-snapshot"
+  ) {
+    throw new Error(
+      "GPU Flow browser visual fault injection has an invalid DOM-control readiness.",
+    );
+  }
+}
+
+function assertGpuFlowBrowserVisualFaultInjectionWithholdAllDomControls(
+  withholdAllDomControls: GpuFlowBrowserVisualFaultInjection["withholdAllDomControls"],
+): void {
+  if (
+    withholdAllDomControls !== undefined &&
+    typeof withholdAllDomControls !== "boolean"
+  ) {
+    throw new Error(
+      "GPU Flow browser visual fault injection withholdAllDomControls must be a boolean.",
+    );
+  }
+}
+
+function assertGpuFlowBrowserVisualFaultInjectionActorIds(
+  withholdDomControlActorIds: GpuFlowBrowserVisualFaultInjection["withholdDomControlActorIds"],
+): void {
+  const hasInvalidActorIds =
+    withholdDomControlActorIds !== undefined &&
+    (!Array.isArray(withholdDomControlActorIds) ||
+      withholdDomControlActorIds.some(
+        (actorId) => typeof actorId !== "string",
+      ));
+  if (hasInvalidActorIds) {
+    throw new Error(
+      "GPU Flow browser visual fault injection withholdDomControlActorIds must be a string array.",
+    );
+  }
+}
+
+function createGpuFlowDomControlHostReadinessMatches(
+  host: GpuFlowDomControlPlaneMountedHost | null,
+  control: GpuRetainedDomControlSourceDescriptor | null,
+): GpuFlowDomControlHostReadinessDiagnostics["matches"] {
+  return {
+    snapshotCacheKeyRevision: domControlHostPropertyMatches(
+      host,
+      control,
+      "snapshotCacheKeyRevision",
+    ),
+    sourceKey: domControlHostPropertyMatches(host, control, "sourceKey"),
+    textCoverageRevision: domControlHostPropertyMatches(
+      host,
+      control,
+      "textCoverageRevision",
+    ),
+    valueStyleRevision: domControlHostPropertyMatches(
+      host,
+      control,
+      "valueStyleRevision",
+    ),
+  };
+}
+
+function domControlHostPropertyMatches(
+  host: GpuFlowDomControlPlaneMountedHost | null,
+  control: GpuRetainedDomControlSourceDescriptor | null,
+  property:
+    | "snapshotCacheKeyRevision"
+    | "sourceKey"
+    | "textCoverageRevision"
+    | "valueStyleRevision",
+): boolean {
+  return Boolean(
+    host && control && host.control[property] === control[property],
+  );
+}
+
+function isGpuFlowDomControlHostReadyForDescriptor({
+  control,
+  elementConnected,
+  host,
+  matches,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor | null;
+  readonly elementConnected: boolean;
+  readonly host: GpuFlowDomControlPlaneMountedHost | null;
+  readonly matches: GpuFlowDomControlHostReadinessDiagnostics["matches"];
+}): boolean {
+  if (!host || !control || !elementConnected) {
+    return false;
+  }
+  if (host.control.sourceId !== control.sourceId) {
+    return false;
+  }
+  return (
+    matches.sourceKey &&
+    matches.textCoverageRevision &&
+    matches.valueStyleRevision
+  );
+}
+
+function isGpuFlowBrowserVisualFaultInjectionEnabled(): boolean {
+  return (
+    import.meta.env.DEV ||
+    (typeof process !== "undefined" && process.env.NODE_ENV === "test")
+  );
 }
 
 function resolveGpuFlowBrowserVisualActorProjectionViewport({
@@ -925,6 +1128,22 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
     readonly control: GpuRetainedDomControlSourceDescriptor;
   }): BrowserVisualActorRepresentationReadiness {
+    return (
+      createGpuFlowBrowserVisualFaultInjectedDomControlReadiness(control) ??
+      this.createDomControlReadinessWithoutFaultInjection({
+        assignment,
+        control,
+      })
+    );
+  }
+
+  private createDomControlReadinessWithoutFaultInjection({
+    assignment,
+    control,
+  }: {
+    readonly assignment: GpuFlowDomControlProjectionAssignment | undefined;
+    readonly control: GpuRetainedDomControlSourceDescriptor;
+  }): BrowserVisualActorRepresentationReadiness {
     if (!assignment) {
       return createBlockedDomControlReadiness(control);
     }
@@ -1038,40 +1257,17 @@ export class GpuFlowBrowserVisualActorRuntime {
     control: GpuRetainedDomControlSourceDescriptor | null,
   ): GpuFlowDomControlHostReadinessDiagnostics {
     const host = control ? this.getDomControlReadinessHost(control) : null;
-    const matches = {
-      snapshotCacheKeyRevision: Boolean(
-        host &&
-          control &&
-          host.control.snapshotCacheKeyRevision ===
-            control.snapshotCacheKeyRevision,
-      ),
-      sourceKey: Boolean(
-        host && control && host.control.sourceKey === control.sourceKey,
-      ),
-      textCoverageRevision: Boolean(
-        host &&
-          control &&
-          host.control.textCoverageRevision === control.textCoverageRevision,
-      ),
-      valueStyleRevision: Boolean(
-        host &&
-          control &&
-          host.control.valueStyleRevision === control.valueStyleRevision,
-      ),
-    };
+    const matches = createGpuFlowDomControlHostReadinessMatches(host, control);
     const elementConnected = Boolean(host?.element.isConnected);
     // Geometry and clip revisions are applied by the commit-token projection;
     // snapshot cache keys are texture-only; requiring either here would deadlock
     // already-mounted live hosts before commit.
-    const ready = Boolean(
-      host &&
-        control &&
-        elementConnected &&
-        host.control.sourceId === control.sourceId &&
-        matches.sourceKey &&
-        matches.textCoverageRevision &&
-        matches.valueStyleRevision,
-    );
+    const ready = isGpuFlowDomControlHostReadyForDescriptor({
+      control,
+      elementConnected,
+      host,
+      matches,
+    });
     return Object.freeze({
       elementConnected,
       hasHost: Boolean(host),

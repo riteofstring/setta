@@ -394,6 +394,7 @@ export function GpuFlow({
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
+    requestFrame: requestSurfaceFrame,
     retainedContentRuntimeState: activeRetainedContentRuntimeState,
     viewportStore,
   });

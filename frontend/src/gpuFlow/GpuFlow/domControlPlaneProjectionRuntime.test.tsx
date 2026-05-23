@@ -47,6 +47,11 @@ describe("GPU flow DOM control projection runtime", () => {
     }
     delete (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
       .__SETTA_CHROME_REPRO_ACTIVE__;
+    delete (
+      window as Window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__;
     document.body.replaceChildren();
   });
 
@@ -989,12 +994,14 @@ describe("GPU flow DOM control projection runtime", () => {
     if (!targetedControl) {
       throw new Error("Expected a targeted snapshot control.");
     }
-    const targetedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
-      retainedDisplayFrame: retainedDisplayFrame({
-        id: 2,
-        retainedRuntimeFrame: runtimeFrame,
-      }),
-    });
+    const targetedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame(
+      {
+        retainedDisplayFrame: retainedDisplayFrame({
+          id: 2,
+          retainedRuntimeFrame: runtimeFrame,
+        }),
+      },
+    );
     stageBrowserVisualCandidate({
       actorId: targetedControl.sourceId,
       browserVisualRuntime,
@@ -1005,9 +1012,7 @@ describe("GPU flow DOM control projection runtime", () => {
       browserVisualRuntime
         .getPreparationSnapshot()
         .domControls.snapshotControls.map((control) => control.sourceId),
-    ).toEqual(
-      expect.arrayContaining([targetedControl.sourceId]),
-    );
+    ).toEqual(expect.arrayContaining([targetedControl.sourceId]));
 
     for (const control of snapshotControls) {
       const surfaceId = control.snapshotSurfaceId;
@@ -1210,6 +1215,78 @@ describe("GPU flow DOM control projection runtime", () => {
         resourceGenerationId: expect.any(String),
       }),
     ]);
+  });
+
+  it("withholds targeted DOM-control readiness through the dev/test browser-visual fault hook", () => {
+    const control = domControl({
+      index: 0,
+      value: "snapshot visual value",
+      visualPolicy: "blocked-awaiting-browser-visual",
+    });
+    const runtimeFrame = retainedRuntimeFrame([control]);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 3_000,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const committedTextureBySurfaceId = new Map<
+      string,
+      CommittedHtmlSurfaceTextureSnapshot
+    >();
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlSnapshotTextureManager({
+      getCommittedSurfaceTexture: (surfaceId) =>
+        committedTextureBySurfaceId.get(surfaceId),
+    });
+    const snapshotSurfaceId =
+      getGpuRetainedDomControlSnapshotSurfaceId(control);
+    const snapshotElement = document.body.appendChild(
+      document.createElement("div"),
+    );
+    browserVisualRuntime.setDomControlSnapshotElement({
+      element: snapshotElement,
+      surfaceId: snapshotSurfaceId,
+    });
+    committedTextureBySurfaceId.set(
+      snapshotSurfaceId,
+      committedSnapshotTexture({
+        textureContentKey: control.snapshotCacheKeyRevision,
+      }),
+    );
+    const readyCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 1,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+    expect(domControlCoverageState(readyCandidate, control)).toBe(
+      "exact-snapshot-ready",
+    );
+
+    (
+      window as Window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
+      domControlReadiness: "blocked-awaiting-snapshot",
+      withholdDomControlActorIds: [control.sourceId],
+    };
+    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+
+    expect(domControlCoverageState(blockedCandidate, control)).toBe(
+      "blocked-awaiting-snapshot",
+    );
   });
 });
 
