@@ -272,5 +272,7 @@ export function applyVisibleGpuFlowDomControlHostPresentation({
     element.removeAttribute("aria-hidden");
   }
   element.style.removeProperty("opacity");
+  element.style.removeProperty("pointer-events");
+  element.style.removeProperty("transform");
   element.style.removeProperty("visibility");
 }

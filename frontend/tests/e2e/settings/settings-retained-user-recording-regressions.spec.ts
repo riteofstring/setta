@@ -481,7 +481,8 @@ function resolveTransitionMaxFrameBudgetMs({
   readonly cadence: PageRafCadence;
   readonly highRefresh: boolean;
 }): number {
-  const strictBudgetMs = MAX_FRAME_GAP_MS + resolveMaxFrameTimerJitterMs(cadence);
+  const strictBudgetMs =
+    MAX_FRAME_GAP_MS + resolveMaxFrameTimerJitterMs(cadence);
   if (highRefresh) {
     return strictBudgetMs;
   }
@@ -533,9 +534,7 @@ async function readDomControlDiagnostics(page: Page): Promise<unknown> {
 async function readDomSourceDiagnostics(page: Page): Promise<unknown> {
   return await page.evaluate(() => {
     const sources = [
-      ...document.querySelectorAll<HTMLElement>(
-        ".setta-gpu-flow__html-source",
-      ),
+      ...document.querySelectorAll<HTMLElement>(".setta-gpu-flow__html-source"),
     ];
     return {
       count: sources.length,
@@ -679,14 +678,17 @@ async function captureChromeReproParitySample({
         readonly rowId: string | null;
       }[],
     ) {
-      const coverageCounts = countBy(proofs, (proof) =>
-        proof.projectionCoverage ?? "none",
+      const coverageCounts = countBy(
+        proofs,
+        (proof) => proof.projectionCoverage ?? "none",
       );
-      const actualVisualCounts = countBy(proofs, (proof) =>
-        proof.actualVisual ?? "none",
+      const actualVisualCounts = countBy(
+        proofs,
+        (proof) => proof.actualVisual ?? "none",
       );
-      const requiredVisualCounts = countBy(proofs, (proof) =>
-        proof.requiredVisual ?? "none",
+      const requiredVisualCounts = countBy(
+        proofs,
+        (proof) => proof.requiredVisual ?? "none",
       );
       return {
         actualVisualCounts,
@@ -787,7 +789,9 @@ function summarizeChromeReproPerformanceSnapshot(
       viewport: frame.viewport,
     })),
     recentSurfaceFrames: snapshot.performanceMeasures
-      .filter((measure) => measure.name.startsWith("setta.gpuFlow.surface-frame"))
+      .filter((measure) =>
+        measure.name.startsWith("setta.gpuFlow.surface-frame"),
+      )
       .slice(-16)
       .map((measure) => ({
         detail: measure.detail,
@@ -822,60 +826,19 @@ async function waitForRetainedCompositorVisibleDomPublication(
 ): Promise<void> {
   try {
     await expect
-      .poll(
-        () =>
-          page.evaluate(() => {
-            const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-            const committed = snapshot?.committedSurfaceFrame;
-            return {
-              publishabilityKind: committed?.publishabilityKind ?? null,
-              viewportMatches:
-                committed && snapshot?.viewport.transform
-                  ? viewportsMatch(
-                      committed.viewportSample,
-                      snapshot.viewport.transform,
-                    )
-                  : false,
-              visibleNonemptyDomControlCount:
-                committed?.visibleNonemptyDomControlCount ?? 0,
-            };
-
-            function viewportsMatch(
-              left: { readonly x: number; readonly y: number; readonly zoom: number },
-              right: {
-                readonly x: number;
-                readonly y: number;
-                readonly zoom: number;
-              },
-            ): boolean {
-              return (
-                Math.abs(left.x - right.x) <= 0.001 &&
-                Math.abs(left.y - right.y) <= 0.001 &&
-                Math.abs(left.zoom - right.zoom) <= 0.001
-              );
-            }
-          }),
-        { timeout: 10_000 },
-      )
+      .poll(() => readRetainedCompositorVisiblePublicationState(page), {
+        timeout: 10_000,
+      })
       .toEqual(
         expect.objectContaining({
+          hasVisibleNonemptyDomControls: true,
           publishabilityKind: "publishable",
-          viewportMatches: true,
-          visibleNonemptyDomControlCount: expect.any(Number),
+          visibleEpochCoherent: true,
         }),
       );
-    await expect
-      .poll(
-        () =>
-          page.evaluate(
-            () =>
-              window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.()
-                .committedSurfaceFrame?.visibleNonemptyDomControlCount ?? 0,
-          ),
-        { timeout: 10_000 },
-      )
-      .toBeGreaterThan(0);
   } catch (error) {
+    const visiblePublication =
+      await readRetainedCompositorVisiblePublicationState(page);
     const details = await page.evaluate(() => {
       const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
       const committed = snapshot?.committedSurfaceFrame ?? null;
@@ -944,8 +907,98 @@ async function waitForRetainedCompositorVisibleDomPublication(
         viewport: snapshot?.viewport.transform ?? null,
       };
     });
-    throw new Error(JSON.stringify(details, null, 2), { cause: error });
+    throw new Error(
+      JSON.stringify({ ...details, visiblePublication }, null, 2),
+      { cause: error },
+    );
   }
+}
+
+async function readRetainedCompositorVisiblePublicationState(page: Page) {
+  return await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLElement>(
+      ".setta-gpu-flow__canvas",
+    );
+    const domControlPlane = document.querySelector<HTMLElement>(
+      "[data-gpu-flow-dom-control-plane='true']",
+    );
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const committed = snapshot?.committedSurfaceFrame ?? null;
+    const visibleDomControlIdentities = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-gpu-flow-dom-control='true']",
+      ),
+    ].map((host) => ({
+      actorId: host.dataset.gpuFlowDomControlId ?? null,
+      contentFrameId: host.dataset.gpuFlowContentFrameId ?? null,
+      presentationId: host.dataset.gpuFlowPresentationId ?? null,
+    }));
+    const surfaceContentFrameIds = [
+      canvas?.dataset.gpuFlowContentFrameId ?? null,
+      domControlPlane?.dataset.gpuFlowContentFrameId ?? null,
+      committed?.contentFrameId ?? null,
+    ];
+    const surfacePresentationIds = [
+      canvas?.dataset.gpuFlowPresentationId ?? null,
+      domControlPlane?.dataset.gpuFlowPresentationId ?? null,
+      committed?.presentationId ?? null,
+    ];
+    const surfacesHaveContentFrameIds =
+      surfaceContentFrameIds.every(isNonemptyString);
+    const surfacesHavePresentationIds =
+      surfacePresentationIds.every(isNonemptyString);
+    const surfaceContentFrameId = surfacesHaveContentFrameIds
+      ? surfaceContentFrameIds[0]
+      : null;
+    const surfacePresentationId = surfacesHavePresentationIds
+      ? surfacePresentationIds[0]
+      : null;
+    const surfaceContentFrameCoherent =
+      surfacesHaveContentFrameIds && new Set(surfaceContentFrameIds).size === 1;
+    const surfacePresentationCoherent =
+      surfacesHavePresentationIds && new Set(surfacePresentationIds).size === 1;
+    const visibleHostEpochCoherent =
+      visibleDomControlIdentities.length > 0 &&
+      surfaceContentFrameId !== null &&
+      surfacePresentationId !== null &&
+      visibleDomControlIdentities.every(
+        (host) =>
+          host.contentFrameId === surfaceContentFrameId &&
+          host.presentationId === surfacePresentationId,
+      );
+    const visibleNonemptyDomControlCount =
+      committed?.visibleNonemptyDomControlCount ?? 0;
+    const visibleEpochCoherent =
+      surfaceContentFrameCoherent &&
+      surfacePresentationCoherent &&
+      visibleHostEpochCoherent;
+
+    return {
+      canvasContentFrameId: canvas?.dataset.gpuFlowContentFrameId ?? null,
+      canvasPresentationId: canvas?.dataset.gpuFlowPresentationId ?? null,
+      committedContentFrameId: committed?.contentFrameId ?? null,
+      committedPresentationId: committed?.presentationId ?? null,
+      committedViewportSample: committed?.viewportSample ?? null,
+      currentViewport: snapshot?.viewport.transform ?? null,
+      domControlPlaneContentFrameId:
+        domControlPlane?.dataset.gpuFlowContentFrameId ?? null,
+      domControlPlanePresentationId:
+        domControlPlane?.dataset.gpuFlowPresentationId ?? null,
+      hasVisibleNonemptyDomControls: visibleNonemptyDomControlCount > 0,
+      publishabilityKind: committed?.publishabilityKind ?? null,
+      surfaceContentFrameCoherent,
+      surfacePresentationCoherent,
+      visibleDomControlIdentities,
+      visibleEpochCoherent,
+      visibleHostEpochCoherent,
+      visibleHostCount: visibleDomControlIdentities.length,
+      visibleNonemptyDomControlCount,
+    };
+
+    function isNonemptyString(value: string | null): value is string {
+      return value !== null && value.length > 0;
+    }
+  });
 }
 
 async function resolveCanvasClip(page: Page): Promise<Rect> {
@@ -1010,9 +1063,7 @@ async function installLongAnimationFrameProbe(page: Page): Promise<void> {
     win.__settaRetainedSettingsLongAnimationFrameObserver__?.disconnect();
     if (
       typeof PerformanceObserver !== "function" ||
-      !PerformanceObserver.supportedEntryTypes.includes(
-        "long-animation-frame",
-      )
+      !PerformanceObserver.supportedEntryTypes.includes("long-animation-frame")
     ) {
       return;
     }

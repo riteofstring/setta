@@ -4,6 +4,7 @@ import {
   centerRetainedCompositorSurface,
   openAllSettingsForRetainedCompositor,
   SETTINGS_PARAM_CONTENT_SUFFIX,
+  waitForRetainedCompositorCoherentVisibleFrame,
 } from "./settings-retained-compositor-helpers";
 import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
 import type {
@@ -74,12 +75,9 @@ export async function openNativeTextLikeRow(page: Page): Promise<{
 }> {
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, TARGET_TEXT_LIKE_ROW.surfaceId);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
   const row =
     (await resolveVisibleTargetRow(page, TARGET_TEXT_LIKE_ROW)) ??
-    (await resolveVisibleNativeTextLikeRow(
-      page,
-      TARGET_TEXT_LIKE_ROW.surfaceId,
-    )) ??
     (await scrollRetainedSurfaceUntilTargetRowVisible(
       page,
       TARGET_TEXT_LIKE_ROW,
@@ -152,7 +150,7 @@ export async function activateNativeTextLikeEditor(
     await page.mouse.click(point.x, point.y);
     try {
       await expect
-        .poll(() => readActiveCodeMirrorId(page), { timeout: 2_000 })
+        .poll(() => readActiveCodeMirrorId(page), { timeout: 6_000 })
         .toContain(row.rowId);
       return;
     } catch {

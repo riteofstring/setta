@@ -14,6 +14,7 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
+import { applyVisibleGpuFlowDomControlHostPresentation } from "./browserVisualActorRuntimeState";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
   committedSurfaceFrame,
@@ -52,6 +53,31 @@ describe("GPU flow DOM control projection runtime", () => {
       }
     ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__;
     document.body.replaceChildren();
+  });
+
+  it("clears preparation-only inert styles when promoting a host to visible", () => {
+    const control = domControl({ active: true, index: 0 });
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control]),
+    });
+    const element = document.createElement("div");
+    element.style.opacity = "0";
+    element.style.pointerEvents = "none";
+    element.style.transform = "translate3d(-100000px, -100000px, 0)";
+    element.style.visibility = "hidden";
+
+    applyVisibleGpuFlowDomControlHostPresentation({
+      control,
+      element,
+      token: publicationToken(frame),
+    });
+
+    expect(element.dataset.gpuFlowDomControl).toBe("true");
+    expect(element.style.opacity).toBe("");
+    expect(element.style.pointerEvents).toBe("");
+    expect(element.style.transform).toBe("");
+    expect(element.style.visibility).toBe("");
   });
 
   it("requires a committed publication token before visible host registration", () => {
