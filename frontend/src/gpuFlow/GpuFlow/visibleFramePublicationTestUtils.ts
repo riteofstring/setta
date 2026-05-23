@@ -36,7 +36,7 @@ export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     transaction: {
       kind: "content-publication",
     },
-  } as GpuFlowVisibleProjectionState;
+  } as unknown as GpuFlowVisibleProjectionState;
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
       rendered: true,
@@ -64,6 +64,7 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
 }): GpuFlowHoldPreviousToken {
   const visibleProjectionState = {
     committedFrame: {
+      actorGenerations: [],
       displayFrameId: committedFrameId,
     },
     heldPreviousProjection: {
@@ -80,7 +81,7 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       kind: "held-previous",
       sample: projectionSample,
     },
-  } as GpuFlowVisibleProjectionState;
+  } as unknown as GpuFlowVisibleProjectionState;
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
       rendered: true,

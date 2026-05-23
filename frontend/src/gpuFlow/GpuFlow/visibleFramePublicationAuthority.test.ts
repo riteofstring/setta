@@ -4,60 +4,53 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const GPU_FLOW_ROOT = fileURLToPath(new URL("../", import.meta.url));
-const TOKEN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationTokens.ts", import.meta.url),
+const modulePath = (path: string): string =>
+  fileURLToPath(new URL(path, import.meta.url));
+const GPU_FLOW_ROOT = modulePath("../");
+const TOKEN_MODULE_PATH = modulePath("./visibleFramePublicationTokens.ts");
+const AUTHORITY_MODULE_PATH = modulePath(
+  "./visibleFramePublicationAuthority.ts",
 );
-const AUTHORITY_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationAuthority.ts", import.meta.url),
+const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
+const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
+  "./visibleFramePublicationKernelPresentation.ts",
 );
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+const CONTENT_PLAN_MODULE_PATH = modulePath(
+  "./visibleFramePublicationContentPlan.ts",
 );
-const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
+const COMMITTED_SURFACE_AUTHORITY_MODULE_PATH = modulePath(
+  "./visibleFramePublicationCommittedSurfaceAuthority.ts",
 );
-const COMMITTED_SURFACE_AUTHORITY_MODULE_PATH = fileURLToPath(new URL("./visibleFramePublicationCommittedSurfaceAuthority.ts", import.meta.url));
-const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = fileURLToPath(new URL("./visibleFramePublicationProjectionTransactionAuthority.ts", import.meta.url));
-const KERNEL_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
+const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = modulePath(
+  "./visibleFramePublicationProjectionTransactionAuthority.ts",
 );
-const CHROME_REPRO_MODULE_PATH = fileURLToPath(
-  new URL("./flowVisiblePublicationOutcomeChromeRepro.ts", import.meta.url),
+const KERNEL_COMPLETION_MODULE_PATH = modulePath(
+  "./visibleFramePublicationCompletion.ts",
 );
-const BROWSER_VISUAL_RUNTIME_MODULE_PATH = fileURLToPath(
-  new URL("./browserVisualActorRuntime.ts", import.meta.url),
+const CHROME_REPRO_MODULE_PATH = modulePath(
+  "./flowVisiblePublicationOutcomeChromeRepro.ts",
 );
-const DOM_CONTROL_PLANE_MODULE_PATH = fileURLToPath(
-  new URL("./domControlPlane.tsx", import.meta.url),
+const BROWSER_VISUAL_RUNTIME_MODULE_PATH = modulePath(
+  "./browserVisualActorRuntime.ts",
 );
-const DOM_ISLAND_LAYER_MODULE_PATH = fileURLToPath(
-  new URL("./domIslandLayer.tsx", import.meta.url),
+const DOM_CONTROL_PLANE_MODULE_PATH = modulePath("./domControlPlane.tsx");
+const DOM_ISLAND_LAYER_MODULE_PATH = modulePath("./domIslandLayer.tsx");
+const SURFACE_TEXTURE_RELEASE_AUTHORITY_MODULE_PATH = modulePath(
+  "../surfaceTextureReleaseAuthority.ts",
 );
-const SURFACE_TEXTURE_RELEASE_AUTHORITY_MODULE_PATH = fileURLToPath(
-  new URL("../surfaceTextureReleaseAuthority.ts", import.meta.url),
+const COMMITTED_SURFACE_PUBLICATION_MODULE_PATH = modulePath(
+  "./flowCommittedSurfacePublication.ts",
 );
-const COMMITTED_SURFACE_PUBLICATION_MODULE_PATH = fileURLToPath(
-  new URL("./flowCommittedSurfacePublication.ts", import.meta.url),
+const COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH = modulePath(
+  "./flowCommittedSurfacePublicationCandidateHandling.ts",
 );
-const COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH =
-  fileURLToPath(
-    new URL(
-      "./flowCommittedSurfacePublicationCandidateHandling.ts",
-      import.meta.url,
-    ),
-  );
-const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
-  new URL("./flowProjectionFrame.tsx", import.meta.url),
+const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
+const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
+const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
+  "./flowSurfaceFramePublication.ts",
 );
-const FLOW_FRAME_MODULE_PATH = fileURLToPath(
-  new URL("./flowFrame.tsx", import.meta.url),
-);
-const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfaceFramePublication.ts", import.meta.url),
-);
-const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfacePublicationCompletion.ts", import.meta.url),
+const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = modulePath(
+  "./flowSurfacePublicationCompletion.ts",
 );
 const TOKEN_CONSTRUCTOR_NAMES = [
   "createGpuFlowBlockedPublicationToken",
@@ -75,9 +68,11 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 ] as const;
 const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
+  "GpuFlow/visibleFramePublicationKernelPresentation.ts",
 ]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
+  "GpuFlow/visibleFramePublicationKernelPresentation.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",
@@ -1140,15 +1135,14 @@ function extractNamedImports({
 function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
+    KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
     PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH,
-    fileURLToPath(new URL("./visibleFramePublicationContentAuthority.ts", import.meta.url)),
-    fileURLToPath(new URL("./visibleFramePublicationRetainedDisplayAuthority.ts", import.meta.url)),
-    fileURLToPath(
-      new URL("./visibleFramePublicationOracle.ts", import.meta.url),
-    ),
+    modulePath("./visibleFramePublicationContentAuthority.ts"),
+    modulePath("./visibleFramePublicationRetainedDisplayAuthority.ts"),
+    modulePath("./visibleFramePublicationOracle.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");

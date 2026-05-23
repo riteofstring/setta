@@ -401,23 +401,22 @@ describe("GPU Flow visible publication transaction kernel", () => {
       throw new Error("Expected first retained projection decision to hold.");
     }
 
-    const secondDecision =
-      selectRetainedProjectionPublicationDecisionForTest({
-        hasActiveRetainedDomControl: false,
-        heldPreviousProjectionState: {
-          ...visibleProjectionState({
-            kind: "held-previous",
-            sample: firstDecision.transaction.sample,
-          }),
-          heldPreviousProjection: firstDecision.heldPreviousProjection,
-          transaction: firstDecision.transaction,
-        },
-        projectionSchedulerKnobs: knobs,
-        requestedProjectionCoverageMissing: true,
-        requestedTransaction: retainedProjectionTransaction({
-          sample: liveProjectionSample({ id: 70, timestamp: 620 }),
+    const secondDecision = selectRetainedProjectionPublicationDecisionForTest({
+      hasActiveRetainedDomControl: false,
+      heldPreviousProjectionState: {
+        ...visibleProjectionState({
+          kind: "held-previous",
+          sample: firstDecision.transaction.sample,
         }),
-      });
+        heldPreviousProjection: firstDecision.heldPreviousProjection,
+        transaction: firstDecision.transaction,
+      },
+      projectionSchedulerKnobs: knobs,
+      requestedProjectionCoverageMissing: true,
+      requestedTransaction: retainedProjectionTransaction({
+        sample: liveProjectionSample({ id: 70, timestamp: 620 }),
+      }),
+    });
 
     expect(secondDecision.kind).toBe("blocked");
     expect(secondDecision.blockedReason).toBe("held-previous-budget-exceeded");
@@ -620,6 +619,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
       previousVisibleProjectionState.committedFrame.displayFrameId,
     );
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
+    const heldState = result.heldPreviousVisibleProjectionState;
+    expect(heldState?.transaction.kind).toBe("held-previous");
+    expect(heldState?.heldPreviousProjection?.reason).toBe("no-visible-frame");
     expect(result.completion.debt.motion).toBe(true);
   });
 
@@ -751,9 +753,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
       "held-previous",
     );
     expect(candidate.visibleProjectionState.sample.id).toBe(sample.id);
-    expect(
-      candidate.visibleProjectionState.committedFrame.displayFrameId,
-    ).toBe(previousVisibleProjectionState.committedFrame.displayFrameId);
+    expect(candidate.visibleProjectionState.committedFrame.displayFrameId).toBe(
+      previousVisibleProjectionState.committedFrame.displayFrameId,
+    );
 
     const completion = runPreparedCandidateKernel({
       contentFrame: testPublicationCandidate({

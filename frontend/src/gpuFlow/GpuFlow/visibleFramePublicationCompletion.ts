@@ -41,6 +41,7 @@ export type GpuFlowVisiblePublicationOutcome =
 
 export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
 };
@@ -61,10 +62,9 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const token = createGpuFlowVisiblePublicationOutcomeTokenPayload(outcome);
-  const commitOracleReport =
-    createGpuFlowVisiblePublicationCommitOracleReport(
-      transactionOracle?.commitOracle ?? null,
-    );
+  const commitOracleReport = createGpuFlowVisiblePublicationCommitOracleReport(
+    transactionOracle?.commitOracle ?? null,
+  );
   const transactionOracleReport =
     createGpuFlowVisiblePublicationTransactionOracleReport(transactionOracle);
   return {
@@ -174,7 +174,9 @@ function selectGpuFlowVisiblePresentationProofReport({
       "GPU Flow visible publication report requires transaction-oracle DOM/canvas presentation proof evidence for commit outcomes.",
     );
   }
-  if (presentationProof.projectionSampleId !== outcome.token.projectionSampleId) {
+  if (
+    presentationProof.projectionSampleId !== outcome.token.projectionSampleId
+  ) {
     throw new Error(
       "GPU Flow visible publication report requires presentation proof evidence for the committed outcome sample.",
     );

@@ -14,7 +14,9 @@ import {
   prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
 } from "./visibleFramePublicationContentPreparation";
 import {
-  createGpuFlowCommittedSurfacePublicationContentStep,
+  applyGpuFlowCommittedSurfacePublicationContentStage,
+  applyGpuFlowRetainedDisplayPublicationContentStage,
+  createGpuFlowCommittedSurfacePublicationContentStage,
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
   createGpuFlowRetainedDisplayPublicationContentStage,
@@ -213,14 +215,43 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).toContain(
       "createGpuFlowRetainedDisplayPublicationContentStage",
     );
+    expect(flowFrameSource).toContain(
+      "applyGpuFlowRetainedDisplayPublicationContentStage",
+    );
+    expect(flowFrameSource).not.toContain("retainedDisplayContentStage.kind");
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayContentStage.blockedFrameResult",
+    );
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayContentStage.publishedOutcomeFrame",
+    );
     expect(flowFrameSource).not.toContain(
       "retainedDisplayContentStep.frameResult",
     );
     expect(flowFrameSource).not.toContain(
       "retainedDisplayContentStep.publishedOutcomeFrame",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "createGpuFlowCommittedSurfacePublicationContentStep",
+    );
+    expect(flowFrameSource).toContain(
+      "createGpuFlowCommittedSurfacePublicationContentStage",
+    );
+    expect(flowFrameSource).toContain(
+      "applyGpuFlowCommittedSurfacePublicationContentStage",
+    );
+    expect(flowFrameSource).not.toContain("committedSurfaceContentStage.kind");
+    expect(flowFrameSource).not.toContain(
+      "committedSurfaceContentStage.blockedFrameResult",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfaceContentStage.committedSurfacePublication",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfaceContentStep.frameResult",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfaceContentStep.committedSurfacePublication",
     );
     expect(flowFrameSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationContentResolution",
@@ -571,6 +602,14 @@ describe("GPU Flow visible publication content plans", () => {
         retainedDisplayFollowUpFrameReason: null,
       }),
     );
+    expect(
+      applyGpuFlowRetainedDisplayPublicationContentStage({
+        contentStage,
+        onPublished: () => {
+          throw new Error("Blocked stages must not publish.");
+        },
+      }),
+    ).toBe(contentStage.blockedFrameResult);
   });
 
   it("converts committed-surface publication preparation results outside flowFrame", () => {
@@ -605,19 +644,18 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareCommittedSurfacePublicationFramePlan>[0],
     );
 
-    const contentStep = createGpuFlowCommittedSurfacePublicationContentStep({
+    const contentStage = createGpuFlowCommittedSurfacePublicationContentStage({
       deferResolutionUpdates: false,
       preparation,
       previousVisibleProjectionState: null,
       retainedDisplayFollowUpFrameReason: "texture-upload",
     });
 
-    expect(contentStep.frameResult).not.toBeNull();
-    if (contentStep.frameResult === null) {
+    expect(contentStage.kind).toBe("blocked");
+    if (contentStage.kind !== "blocked") {
       throw new Error("Expected committed-surface candidate frame result.");
     }
-    expect(contentStep.committedSurfacePublication).toBeNull();
-    expect(contentStep.frameResult).toEqual(
+    expect(contentStage.blockedFrameResult).toEqual(
       expect.objectContaining({
         blockedErrorMessage: "blocked surface",
         blockedPreparedCommittedSurfaceFrame: candidateFrame,
@@ -627,6 +665,14 @@ describe("GPU Flow visible publication content plans", () => {
         retainedDisplayFollowUpFrameReason: "texture-upload",
       }),
     );
+    expect(
+      applyGpuFlowCommittedSurfacePublicationContentStage({
+        contentStage,
+        onPublished: () => {
+          throw new Error("Blocked stages must not publish.");
+        },
+      }),
+    ).toBe(contentStage.blockedFrameResult);
     expect(preparation.shouldPrepareHtmlSurfaceOverlayTextures).toBe(true);
   });
 

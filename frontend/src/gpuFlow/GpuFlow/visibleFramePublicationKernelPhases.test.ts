@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
+const KERNEL_PRESENTATION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationKernelPresentation.ts", import.meta.url),
+);
 const COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
 );
@@ -14,8 +17,12 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication kernel phases", () => {
-  it("runs sample, prepare, prove, decide, and publish phases inside the kernel", () => {
+  it("runs sample, prepare, prove, decide, prove-presentation, and publish phases inside the kernel", () => {
     const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const presentationSource = readFileSync(
+      KERNEL_PRESENTATION_MODULE_PATH,
+      "utf8",
+    );
     const runStart = source.indexOf(
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
@@ -32,6 +39,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "proveGpuFlowVisibleFramePublicationCandidateSet({",
       "decideGpuFlowVisibleFramePublicationOutcome({",
+      "proveGpuFlowVisibleFramePublicationPresentation(",
       "publishGpuFlowVisibleFramePublicationOutcome({",
     ]);
     expect(source).toContain(
@@ -52,6 +60,10 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
     );
+    expect(presentationSource).toContain(
+      "export function proveGpuFlowVisibleFramePublicationPresentation",
+    );
+    expect(presentationSource).toContain("createGpuFlowPresentableCommit({");
     expect(source).toContain(
       "function publishGpuFlowVisibleFramePublicationOutcome",
     );
@@ -76,6 +88,9 @@ describe("GPU Flow visible publication kernel phases", () => {
       "proveGpuFlowVisibleFramePublicationCandidateSet",
     );
     expect(source).not.toContain(
+      "proveGpuFlowVisibleFramePublicationPresentation",
+    );
+    expect(source).not.toContain(
       "completeGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).not.toContain(
@@ -93,7 +108,10 @@ describe("GPU Flow visible publication kernel phases", () => {
   });
 
   it("keeps visible outcome token minting in the kernel", () => {
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelSource =
+      readFileSync(KERNEL_MODULE_PATH, "utf8") +
+      "\n" +
+      readFileSync(KERNEL_PRESENTATION_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const visibleTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
