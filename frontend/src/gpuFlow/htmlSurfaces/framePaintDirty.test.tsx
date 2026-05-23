@@ -83,6 +83,30 @@ describe("HTML surface frame paint dirty helpers", () => {
     expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 
+  it("treats paint events without changed elements as painting registered sources", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const manager = {
+      markSurfaceTextureDirty: vi.fn(() => true),
+      markSurfacesPainted: vi.fn(),
+    };
+
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
+      changedElements: [],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfacesPainted).toHaveBeenCalledWith(
+      expect.any(Object),
+    );
+    expect([...manager.markSurfacesPainted.mock.calls[0]![0]]).toEqual([
+      "node-a",
+    ]);
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+  });
+
   it("uses the narrow ancestor fallback only for a single registered node subtree", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const wrapper = document.createElement("div");

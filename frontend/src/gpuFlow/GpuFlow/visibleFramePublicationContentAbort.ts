@@ -25,6 +25,12 @@ export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
       preservePreparationSnapshot: blockedPreservePreparationSnapshot,
     });
   }
+  if (heldPreparedCommittedSurfaceFrame) {
+    return Object.freeze({
+      frame: heldPreparedCommittedSurfaceFrame,
+      preservePreparationSnapshot: true,
+    });
+  }
   if (selectedVisibleProjectionState?.transaction.kind !== "held-previous") {
     return Object.freeze({
       frame: null,
@@ -32,7 +38,7 @@ export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
     });
   }
   return Object.freeze({
-    frame: heldPreparedCommittedSurfaceFrame ?? committedSurfaceFrame,
-    preservePreparationSnapshot: heldPreparedCommittedSurfaceFrame !== null,
+    frame: committedSurfaceFrame,
+    preservePreparationSnapshot: false,
   });
 }

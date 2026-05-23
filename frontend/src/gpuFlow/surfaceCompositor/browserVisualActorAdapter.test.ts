@@ -81,6 +81,34 @@ describe("browser visual actor adapter", () => {
     expect(fragment.exactCoverage).toEqual([]);
   });
 
+  it("requires coverage for runtime-projected outside-viewport DOM controls", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        projectionVisibility: "outside-viewport",
+        value: "hello",
+        visualPolicy: "outside-viewport",
+      }),
+      {
+        representationReadiness: {
+          coverageState: "blocked-awaiting-live-host",
+          projectionCoverageRequired: true,
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageExemption: null,
+        coverageRequired: { reason: "value-text", required: true },
+        coverageState: "blocked-awaiting-live-host",
+        visibilityReason: "visible",
+      }),
+    );
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
+    expect(fragment.trueHoleRects).toEqual([actor.flowRect]);
+  });
+
   it("lets runtime projection exempt stale viewport-visible DOM controls", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({ value: "hello" }),

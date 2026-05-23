@@ -20,6 +20,7 @@ import {
   openAllSettingsForRetainedCompositor,
   recordRetainedCompositorPerfSample,
   resolveRetainedCompositorTarget,
+  type RetainedCompositorViewportSample,
 } from "./settings-retained-compositor-helpers";
 import {
   measurePageRafCadence,
@@ -195,11 +196,15 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
 test("Chrome repro capture flag does not change retained Settings visible publication", async ({
   page,
 }, testInfo) => {
+  await installGpuFlowPerformanceProbe(page);
   const normal = await captureChromeReproParitySample({
     label: "normal",
     page,
     testInfo,
   });
+  const parityViewport = requireRetainedCompositorViewportSample(
+    normal.viewport,
+  );
   await page.addInitScript(() => {
     (
       window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean }
@@ -209,6 +214,7 @@ test("Chrome repro capture flag does not change retained Settings visible public
     label: "recorder",
     page,
     testInfo,
+    viewport: parityViewport,
   });
   const visualSimilarity = await compareScreenshotSimilarity(page, {
     actual: recorder.screenshot,
@@ -264,6 +270,14 @@ test("Chrome repro capture flag does not change retained Settings visible public
     recorder.committed?.visibleNonemptyDomControlCount ?? 0,
     details,
   ).toBeGreaterThan(0);
+  expect(
+    normal.committed?.projectedVisibleNonemptyDomControlCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    recorder.committed?.projectedVisibleNonemptyDomControlCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
   expect(visualSimilarity.changedPixelRatio, details).toBeLessThanOrEqual(
     MAX_CHROME_REPRO_PARITY_CHANGED_PIXEL_RATIO,
   );
@@ -273,14 +287,6 @@ test("Chrome repro capture flag does not change retained Settings visible public
   expect(visualSimilarity.p95Delta, details).toBeLessThanOrEqual(
     MAX_CHROME_REPRO_PARITY_P95_DELTA,
   );
-  expect(
-    recorder.diagnostics?.visibleControlRectCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
-  expect(
-    normal.diagnostics?.visibleControlRectCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
   expect(recorder.diagnostics?.committedFrameId ?? 0, details).toBeGreaterThan(
     0,
   );
@@ -501,14 +507,21 @@ async function captureChromeReproParitySample({
   label,
   page,
   testInfo,
+  viewport,
 }: {
   readonly label: string;
   readonly page: Page;
   readonly testInfo: TestInfo;
+  readonly viewport?: RetainedCompositorViewportSample | undefined;
 }) {
   const runtimeHealth = capturePageRuntimeHealth(page);
   await openAllSettingsForRetainedCompositor(page);
-  await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
+  await resetGpuFlowPerformanceProbe(page);
+  if (viewport) {
+    await setRetainedCompositorViewport(page, viewport);
+  } else {
+    await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
+  }
   await waitForRetainedCompositorVisibleDomPublication(page);
   await waitForAnimationFrame(page);
   const target = await resolveRetainedCompositorTarget(
@@ -537,17 +550,41 @@ async function captureChromeReproParitySample({
           };
         }
       ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null;
+    const starvationReports =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: readonly {
+            readonly actorId: string;
+          }[];
+        }
+      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? [];
+    const lastStarvationReport =
+      starvationReports[starvationReports.length - 1] ?? null;
+    const preparationDiagnostics =
+      (
+        window as typeof window & {
+          __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
+            actorId?: string | null,
+          ) => unknown;
+        }
+      ).__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
+        lastStarvationReport?.actorId ?? null,
+      ) ?? null;
     return {
       chromeReproActive:
         (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
           .__SETTA_CHROME_REPRO_ACTIVE__ === true,
       committed: committed
         ? {
+            displayCompletenessStatus: committed.displayCompletenessStatus,
             domControlActorCount: committed.domControlActorCount,
             projectedVisibleNonemptyDomControlCount:
               committed.projectedVisibleNonemptyDomControlCount,
             publishabilityKind: committed.publishabilityKind,
             publishabilityReason: committed.publishabilityReason,
+            textActorProofSummary: summarizeTextActorProofs(
+              committed.textActorProofs,
+            ),
             textActorBlockedAwaitingBrowserVisualCount:
               committed.projectionHorizon
                 .textActorBlockedAwaitingBrowserVisualCount,
@@ -557,18 +594,125 @@ async function captureChromeReproParitySample({
               committed.projectionHorizon.textActorTrueHoleCount,
             visibleNonemptyDomControlCount:
               committed.visibleNonemptyDomControlCount,
+            viewportSample: committed.viewportSample,
           }
         : null,
       diagnostics,
+      preparationDiagnostics,
+      snapshotSourceDiagnostics:
+        (
+          window as typeof window & {
+            __settaGpuFlowDomControlSnapshotSourceDiagnostics?: () => unknown;
+          }
+        ).__settaGpuFlowDomControlSnapshotSourceDiagnostics?.() ?? null,
+      snapshotSourceParents: [
+        ...document.querySelectorAll<HTMLElement>(
+          "[data-gpu-flow-dom-control-snapshot-source='true']",
+        ),
+      ]
+        .slice(0, 12)
+        .map((element) => ({
+          parentDataGpuFlowSurface:
+            element.parentElement?.getAttribute("data-gpu-flow-surface") ??
+            null,
+          parentTagName: element.parentElement?.tagName ?? null,
+          sourceId: element.getAttribute("data-gpu-flow-source-id"),
+          tagName: element.tagName,
+        })),
+      starvationReports: starvationReports.slice(-8),
+      viewport: snapshot?.viewport.transform ?? null,
     };
+
+    function summarizeTextActorProofs(
+      proofs: readonly {
+        readonly actualVisual: string | null;
+        readonly projectionCoverage: string | null;
+        readonly requiredVisual: string | null;
+        readonly rowId: string | null;
+      }[],
+    ) {
+      const coverageCounts = countBy(proofs, (proof) =>
+        proof.projectionCoverage ?? "none",
+      );
+      const actualVisualCounts = countBy(proofs, (proof) =>
+        proof.actualVisual ?? "none",
+      );
+      const requiredVisualCounts = countBy(proofs, (proof) =>
+        proof.requiredVisual ?? "none",
+      );
+      return {
+        actualVisualCounts,
+        coverageCounts,
+        firstExactRows: proofs
+          .filter(
+            (proof) =>
+              proof.projectionCoverage === "exact-live-dom" ||
+              proof.projectionCoverage === "exact-snapshot",
+          )
+          .slice(0, 12)
+          .map((proof) => proof.rowId),
+        firstVisibleRequiredRows: proofs
+          .filter((proof) => proof.requiredVisual === "visible")
+          .slice(0, 12)
+          .map((proof) => proof.rowId),
+        proofCount: proofs.length,
+        requiredVisualCounts,
+      };
+    }
+
+    function countBy<T>(
+      values: readonly T[],
+      getKey: (value: T) => string,
+    ): Record<string, number> {
+      const counts: Record<string, number> = {};
+      for (const value of values) {
+        const key = getKey(value);
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+      return counts;
+    }
   });
+  const performanceSnapshot = await readGpuFlowPerformanceSnapshot(page);
   const runtimeHealthSnapshot = runtimeHealth.stop();
   return {
     ...runtime,
+    performance: summarizeChromeReproPerformanceSnapshot(performanceSnapshot),
     placeholderStats,
     runtimeHealth: runtimeHealthSnapshot,
     screenshot,
   };
+}
+
+async function setRetainedCompositorViewport(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+): Promise<void> {
+  await page.evaluate((nextViewport) => {
+    const setViewport = window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
+    if (!setViewport) {
+      throw new Error("Missing retained compositor viewport setter.");
+    }
+    setViewport(nextViewport);
+    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
+    window.settaGpuFlowZoom = nextViewport.zoom;
+  }, viewport);
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
+}
+
+function requireRetainedCompositorViewportSample(
+  value: unknown,
+): RetainedCompositorViewportSample {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    typeof (value as { readonly x?: unknown }).x !== "number" ||
+    typeof (value as { readonly y?: unknown }).y !== "number" ||
+    typeof (value as { readonly zoom?: unknown }).zoom !== "number"
+  ) {
+    throw new Error("Missing retained compositor viewport sample.");
+  }
+  return value as RetainedCompositorViewportSample;
 }
 
 function summarizeChromeReproParitySample(
@@ -576,6 +720,32 @@ function summarizeChromeReproParitySample(
 ) {
   const { screenshot: _screenshot, ...summary } = sample;
   return summary;
+}
+
+function summarizeChromeReproPerformanceSnapshot(
+  snapshot: Awaited<ReturnType<typeof readGpuFlowPerformanceSnapshot>>,
+) {
+  return {
+    frameCount: snapshot.frameCount,
+    recentNodeLayerFrames: snapshot.nodeLayerFrames.slice(-16).map((frame) => ({
+      frameMode: frame.phaseDiagnostics.frameMode,
+      frameReasons: frame.frameReasons,
+      lane: frame.projectionDiagnostics.lane,
+      retainedDisplayTransactionMs:
+        frame.phaseDiagnostics.retainedDisplayTransactionMs,
+      retainedRuntimeFrameMs: frame.phaseDiagnostics.retainedRuntimeFrameMs,
+      sampleId: frame.projectionDiagnostics.sampleId,
+      transactionKind: frame.projectionDiagnostics.transactionKind,
+      viewport: frame.viewport,
+    })),
+    recentSurfaceFrames: snapshot.performanceMeasures
+      .filter((measure) => measure.name.startsWith("setta.gpuFlow.surface-frame"))
+      .slice(-16)
+      .map((measure) => ({
+        detail: measure.detail,
+        durationMs: measure.durationMs,
+      })),
+  };
 }
 
 async function waitForRetainedCompositorNonblankClip(
@@ -602,37 +772,132 @@ async function waitForRetainedCompositorNonblankClip(
 async function waitForRetainedCompositorVisibleDomPublication(
   page: Page,
 ): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const committed =
-            window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().committedSurfaceFrame;
-          return {
-            publishabilityKind: committed?.publishabilityKind ?? null,
-            visibleNonemptyDomControlCount:
-              committed?.visibleNonemptyDomControlCount ?? 0,
-          };
+  try {
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+            const committed = snapshot?.committedSurfaceFrame;
+            return {
+              publishabilityKind: committed?.publishabilityKind ?? null,
+              viewportMatches:
+                committed && snapshot?.viewport.transform
+                  ? viewportsMatch(
+                      committed.viewportSample,
+                      snapshot.viewport.transform,
+                    )
+                  : false,
+              visibleNonemptyDomControlCount:
+                committed?.visibleNonemptyDomControlCount ?? 0,
+            };
+
+            function viewportsMatch(
+              left: { readonly x: number; readonly y: number; readonly zoom: number },
+              right: {
+                readonly x: number;
+                readonly y: number;
+                readonly zoom: number;
+              },
+            ): boolean {
+              return (
+                Math.abs(left.x - right.x) <= 0.001 &&
+                Math.abs(left.y - right.y) <= 0.001 &&
+                Math.abs(left.zoom - right.zoom) <= 0.001
+              );
+            }
+          }),
+        { timeout: 10_000 },
+      )
+      .toEqual(
+        expect.objectContaining({
+          publishabilityKind: "publishable",
+          viewportMatches: true,
+          visibleNonemptyDomControlCount: expect.any(Number),
         }),
-      { timeout: 10_000 },
-    )
-    .toEqual(
-      expect.objectContaining({
-        publishabilityKind: "publishable",
-        visibleNonemptyDomControlCount: expect.any(Number),
-      }),
-    );
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () =>
-            window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().committedSurfaceFrame
-              ?.visibleNonemptyDomControlCount ?? 0,
-        ),
-      { timeout: 10_000 },
-    )
-    .toBeGreaterThan(0);
+      );
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () =>
+              window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.()
+                .committedSurfaceFrame?.visibleNonemptyDomControlCount ?? 0,
+          ),
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(0);
+  } catch (error) {
+    const details = await page.evaluate(() => {
+      const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+      const committed = snapshot?.committedSurfaceFrame ?? null;
+      const starvationReports =
+        (
+          window as typeof window & {
+            readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: readonly unknown[];
+          }
+        ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? [];
+      const lastStarvationReport =
+        (starvationReports[starvationReports.length - 1] as
+          | { readonly actorId?: string }
+          | undefined) ?? null;
+      return {
+        committed: committed
+          ? {
+              displayCompletenessStatus: committed.displayCompletenessStatus,
+              domControlActorCount: committed.domControlActorCount,
+              projectedVisibleNonemptyDomControlCount:
+                committed.projectedVisibleNonemptyDomControlCount,
+              publishabilityKind: committed.publishabilityKind,
+              publishabilityReason: committed.publishabilityReason,
+              textActorBlockedAwaitingBrowserVisualCount:
+                committed.projectionHorizon
+                  .textActorBlockedAwaitingBrowserVisualCount,
+              textActorExactCoverageCount:
+                committed.projectionHorizon.textActorExactCoverageCount,
+              textActorTrueHoleCount:
+                committed.projectionHorizon.textActorTrueHoleCount,
+              visibleNonemptyDomControlCount:
+                committed.visibleNonemptyDomControlCount,
+              viewportSample: committed.viewportSample,
+            }
+          : null,
+        preparationDiagnostics:
+          (
+            window as typeof window & {
+              __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
+                actorId?: string | null,
+              ) => unknown;
+            }
+          ).__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
+            lastStarvationReport?.actorId ?? null,
+          ) ?? null,
+        snapshotSourceDiagnostics:
+          (
+            window as typeof window & {
+              __settaGpuFlowDomControlSnapshotSourceDiagnostics?: () => unknown;
+            }
+          ).__settaGpuFlowDomControlSnapshotSourceDiagnostics?.() ?? null,
+        snapshotSourceParents: [
+          ...document.querySelectorAll<HTMLElement>(
+            "[data-gpu-flow-dom-control-snapshot-source='true']",
+          ),
+        ]
+          .slice(0, 12)
+          .map((element) => ({
+            parentDataGpuFlowSurface:
+              element.parentElement?.getAttribute("data-gpu-flow-surface") ??
+              null,
+            parentTagName: element.parentElement?.tagName ?? null,
+            sourceId: element.getAttribute("data-gpu-flow-source-id"),
+            tagName: element.tagName,
+          })),
+        starvationReports: starvationReports.slice(-8),
+        viewport: snapshot?.viewport.transform ?? null,
+      };
+    });
+    throw new Error(JSON.stringify(details, null, 2), { cause: error });
+  }
 }
 
 async function resolveCanvasClip(page: Page): Promise<Rect> {

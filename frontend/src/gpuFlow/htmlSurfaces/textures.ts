@@ -1,8 +1,4 @@
-import {
-  DirtyNodeQueue,
-  type DirtyNodeMark,
-  type DirtyNodeState,
-} from "../dirtyTracking";
+import { DirtyNodeQueue, type DirtyNodeState } from "../dirtyTracking";
 import type { GpuFlowRuntime } from "../gpuDevice";
 import type {
   GpuQueueWithElementUpload,
@@ -18,6 +14,10 @@ import {
   type TextureResolution,
 } from "../textureResolution";
 import {
+  markHtmlSurfaceTextureDirty,
+  type MarkHtmlSurfaceTextureDirtyInput,
+} from "./textureDirtyRegistration";
+import {
   dirtyTextureTileSummary,
   type HtmlSurfaceDirtyRect,
 } from "./textureDirtyTiles";
@@ -29,7 +29,6 @@ import {
   isResolutionOnlyDirtySurface,
   normalizeSurfaceIdSet,
   normalizeTextureBudgetBytes,
-  resolveDirtyFlags,
   shouldDeferDirtySurfaceUpload,
   shouldStopUploadLoop,
 } from "./textureManagerHelpers";
@@ -46,7 +45,6 @@ import {
   destroyTextureRecord,
   destroyTextureTiles,
   estimateDirtySurfaceUploadBytes,
-  markExistingSurfaceTextureRecordDirty,
   toDirtySurfaceState,
   toSurfaceTextureMemoryRecord,
   toSurfaceTextureResolutionDiagnostic,
@@ -100,6 +98,7 @@ type RegisterHtmlSurfaceTextureInput = {
   readonly cssHeight: number;
   readonly cssWidth: number;
   readonly deferResolution?: boolean | undefined;
+  readonly deferUploadUntilPaint?: boolean | undefined;
   readonly devicePixelRatio: number;
   readonly element: Element;
   readonly frame?: number | undefined;
@@ -108,15 +107,6 @@ type RegisterHtmlSurfaceTextureInput = {
   readonly textureContentKey?: string | undefined;
   readonly textureSourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly zoom: number;
-};
-type MarkHtmlSurfaceTextureDirtyInput = Pick<
-  DirtyNodeMark,
-  "content" | "frame" | "priority" | "reason" | "resolution"
-> & {
-  readonly deferUploadUntilPaint?: boolean | undefined;
-  readonly requestPaint?: boolean | undefined;
-  readonly sourceRect?: HtmlSurfaceDirtyRect | undefined;
-  readonly surfaceId: string;
 };
 export type UploadDirtyHtmlSurfaceTexturesOptions = {
   readonly deferPassiveUploads?: boolean | undefined;
@@ -280,28 +270,14 @@ export class HtmlSurfaceTextureManager {
   }
 
   markSurfaceTextureDirty(input: MarkHtmlSurfaceTextureDirtyInput): boolean {
-    const dirtyFlags = resolveDirtyFlags(input);
     const record = this.records.get(input.surfaceId);
-    const shouldQueueDirtySurface = record
-      ? markExistingSurfaceTextureRecordDirty(record, dirtyFlags, input)
-      : true;
-
-    if (shouldQueueDirtySurface) {
-      this.paintDeferral.markDirty(input);
-      this.dirtyQueue.markDirty({
-        content: dirtyFlags.content,
-        frame: input.frame,
-        nodeId: input.surfaceId,
-        priority: input.priority ?? record?.committed.priority,
-        reason: input.reason,
-        resolution: dirtyFlags.resolution,
-        ...(input.sourceRect ? { sourceRect: input.sourceRect } : {}),
-      });
-    }
-    if (shouldQueueDirtySurface && input.requestPaint !== false) {
-      this.canvas?.requestPaint();
-    }
-    return shouldQueueDirtySurface;
+    return markHtmlSurfaceTextureDirty({
+      canvas: this.canvas,
+      dirtyQueue: this.dirtyQueue,
+      input,
+      paintDeferral: this.paintDeferral,
+      record,
+    });
   }
 
   markSurfacesPainted(surfaceIds: Iterable<string>) {
@@ -381,6 +357,7 @@ export class HtmlSurfaceTextureManager {
       input.deferResolution && committed.priority !== "interactive";
     this.markSurfaceTextureDirty({
       content: true,
+      deferUploadUntilPaint: input.deferUploadUntilPaint,
       frame: input.frame,
       priority: committed.priority,
       reason: "first-visible",
@@ -421,6 +398,7 @@ export class HtmlSurfaceTextureManager {
     if (updateKind === "resolution") {
       preparePendingResolutionTextureUpdate(existing, input, resolution);
       this.markSurfaceTextureDirty({
+        deferUploadUntilPaint: input.deferUploadUntilPaint,
         frame: input.frame,
         priority: existing.committed.priority,
         reason: "resolution",
@@ -440,6 +418,7 @@ export class HtmlSurfaceTextureManager {
       preparePendingContentTextureUpdate(existing, input);
       this.markSurfaceTextureDirty({
         content: true,
+        deferUploadUntilPaint: input.deferUploadUntilPaint,
         frame: input.frame,
         priority: existing.committed.priority,
         reason: "scroll",

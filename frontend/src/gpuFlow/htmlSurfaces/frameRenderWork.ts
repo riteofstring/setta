@@ -18,6 +18,7 @@ import type {
   RenderHtmlSurfacesInput,
   RenderHtmlSurfacesResult,
 } from "./renderer";
+import { HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE } from "./sourceDom";
 import { resolveVisibleNodeTexturePriority } from "./sourceTransforms";
 import {
   createHtmlSurfaceTextureUploadWorkSummary,
@@ -289,10 +290,16 @@ function registerVisibleGpuNodeTextures({
       missingElementNodeIds.push(quad.nodeId);
       continue;
     }
+    const deferUploadUntilPaint = shouldDeferHtmlSurfaceUploadUntilPaint({
+      element,
+      surfaceId: quad.nodeId,
+      textureManager,
+    });
     textureManager.registerSurfaceTexture({
       cssHeight: quad.textureCssHeight ?? quad.height,
       cssWidth: quad.textureCssWidth ?? quad.width,
       ...(deferResolutionUpdates ? { deferResolution: true } : {}),
+      ...(deferUploadUntilPaint ? { deferUploadUntilPaint: true } : {}),
       devicePixelRatio,
       element,
       frame,
@@ -311,6 +318,28 @@ function registerVisibleGpuNodeTextures({
     });
   }
   return missingElementNodeIds;
+}
+
+function shouldDeferHtmlSurfaceUploadUntilPaint({
+  element,
+  surfaceId,
+  textureManager,
+}: {
+  readonly element: Element;
+  readonly surfaceId: string;
+  readonly textureManager: Pick<GpuNodeTextureController, "getCommittedSurfaceTexture">;
+}): boolean {
+  if (!isCaptureOnlyHtmlSurfaceSource(element)) {
+    return false;
+  }
+  const texture = textureManager.getCommittedSurfaceTexture(surfaceId);
+  return !texture || texture.lastUploadFrame < 0;
+}
+
+function isCaptureOnlyHtmlSurfaceSource(element: Element): boolean {
+  return (
+    element.getAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE) === "true"
+  );
 }
 
 function uploadGpuNodeTextures({

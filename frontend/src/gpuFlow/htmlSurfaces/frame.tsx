@@ -734,6 +734,10 @@ export function markHtmlSurfaceFramePaintDirty({
   ignoreDirectNodeIds,
   textureManager,
 }: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
+  if (!changedElements || changedElements.length === 0) {
+    textureManager.markSurfacesPainted(elementByNodeId.keys());
+    return [];
+  }
   const { dirtySurfaceIds, dirtySurfaceInvalidations, paintedSurfaceIds } =
     resolveHtmlSurfacePaintInvalidation({
       changedElements,

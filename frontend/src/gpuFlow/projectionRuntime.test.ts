@@ -497,6 +497,67 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.debt.motion).toBe(false);
   });
 
+  it("uses the content probe knob for inactive motion with requeued motion debt", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler({
+      knobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 2,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+    });
+    for (let index = 0; index < 2; index += 1) {
+      const motion = scheduler.selectFrame({
+        hasCommittedContentFrame: true,
+        rawReasons: ["retained-scroll", "manual"],
+        sample: liveSample(index + 1),
+        timestamp: index + 1,
+        viewportInteractionActive: true,
+      });
+      expect(motion.lane).toBe("motion");
+      completeCommittedFrame(scheduler, motion);
+    }
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: false,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt.motion).toBe(true);
+  });
+
+  it("prioritizes inactive explicit content debt over queued motion debt", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    expect(motion.lane).toBe("motion");
+    completeHeldFrame(scheduler, motion);
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt.motion).toBe(true);
+  });
+
   it("keeps content debt deferred while viewport interaction remains active", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {

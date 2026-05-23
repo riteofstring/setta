@@ -88,12 +88,13 @@ export function useGpuFlowCommittedSurfaceFrameState({
     (
       nextRetainedDisplayFrame: RetainedDisplayFrame,
       options?:
-        | {
-            readonly gpuNativeVisuals:
-              | readonly HtmlSurfaceSolidRoundedRectVisual[]
-              | undefined;
-          }
-        | undefined,
+          | {
+              readonly gpuNativeVisuals:
+                | readonly HtmlSurfaceSolidRoundedRectVisual[]
+                | undefined;
+              readonly viewport?: GpuViewportInput | undefined;
+            }
+          | undefined,
     ): GpuFlowCommittedSurfaceFrame => {
       const previousCommittedSurfaceFrame =
         committedSurfaceRuntimeRef.current.getCommittedContentFrame();
@@ -104,6 +105,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
       const browserVisualCandidate =
         browserVisualRuntime.prepareCommittedSurfaceFrame({
           retainedDisplayFrame: nextRetainedDisplayFrame,
+          viewport: options?.viewport,
         });
       pendingBrowserVisualCandidateByFrameIdRef.current.set(
         nextRetainedDisplayFrame.id,

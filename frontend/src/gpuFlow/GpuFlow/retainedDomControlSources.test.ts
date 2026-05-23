@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import { createDomControlActors } from "../committedSurfaceTextActor";
@@ -11,7 +11,11 @@ import {
 } from "../retainedContentScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
-import { getGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
+import {
+  getGpuRetainedDomControlSnapshotSurfaceLayouts,
+  projectGpuRetainedDomControlSnapshotSurfaceLayouts,
+  registerGpuFlowRetainedDomControlSnapshotSourceTexture,
+} from "./retainedDomControlSnapshotSources";
 import {
   getGpuRetainedDomControlSnapshotSurfaceId,
   getGpuRetainedDomControlSources,
@@ -269,6 +273,132 @@ describe("getGpuRetainedDomControlSources", () => {
         y: (firstSnapshotLayout?.y ?? 0) + 4,
       }),
     );
+  });
+
+  it("projects generated snapshot layouts for browser visual fallback controls", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 4,
+      scene: scene({ rowCount: 20, surfaceHeight: 20 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 600, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const liveSource = runtimeFrame.descriptors.domControlSources.find(
+      (source) =>
+        source.visualPolicy === "live-dom" && source.snapshotSurfaceId === null,
+    );
+    if (!liveSource) {
+      throw new Error("Expected a live DOM control source.");
+    }
+
+    expect(
+      projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+        controls: [liveSource],
+        getRetainedScrollOffset: undefined,
+        overlays: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+        controls: [liveSource],
+        getRetainedScrollOffset: undefined,
+        overlays: undefined,
+        snapshotSourceIds: new Set([liveSource.sourceId]),
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        actorKind: "dom-control",
+        layer: "page",
+        surfaceId: getGpuRetainedDomControlSnapshotSurfaceId(liveSource),
+        textureContentKey: liveSource.snapshotCacheKeyRevision,
+      }),
+    ]);
+  });
+
+  it("preserves staged snapshot overlays during browser visual preparation", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 4,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1,
+    });
+    const snapshotSources = runtimeFrame.descriptors.domControlSources.filter(
+      (source) => source.visualPolicy === "snapshot",
+    );
+    const stagedSource = snapshotSources[0];
+    const candidateSource = snapshotSources[1];
+    if (!stagedSource || !candidateSource) {
+      throw new Error("Expected at least two snapshot-backed DOM controls.");
+    }
+    const stagedOverlay =
+      getGpuRetainedDomControlSnapshotSurfaceLayouts([stagedSource])[0];
+    if (!stagedOverlay) {
+      throw new Error("Expected a staged snapshot overlay.");
+    }
+
+    expect(
+      projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+        controls: [candidateSource],
+        getRetainedScrollOffset: undefined,
+        overlays: [stagedOverlay],
+      })?.map((overlay) => overlay.surfaceId),
+    ).toEqual([candidateSource.snapshotSurfaceId]);
+    expect(
+      projectGpuRetainedDomControlSnapshotSurfaceLayouts({
+        controls: [candidateSource],
+        getRetainedScrollOffset: undefined,
+        overlays: [stagedOverlay],
+        preserveUnmatchedSnapshotOverlays: true,
+      })?.map((overlay) => overlay.surfaceId),
+    ).toEqual([stagedSource.snapshotSurfaceId, candidateSource.snapshotSurfaceId]);
+  });
+
+  it("registers staged snapshot textures with the source cache key", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 2,
+      frameId: 4,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1.5],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1.5,
+    });
+    const snapshotSource = runtimeFrame.descriptors.domControlSources.find(
+      (source) => source.visualPolicy === "snapshot",
+    );
+    if (!snapshotSource?.snapshotSurfaceId) {
+      throw new Error("Expected a snapshot-backed DOM control source.");
+    }
+    const element = document.createElement("div");
+    const textureManager = {
+      registerSurfaceTexture: vi.fn(),
+    };
+
+    registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+      element,
+      source: snapshotSource,
+      surfaceId: snapshotSource.snapshotSurfaceId,
+      textureManager,
+    });
+
+    expect(textureManager.registerSurfaceTexture).toHaveBeenCalledWith({
+      cssHeight: snapshotSource.sourceRectCssPx.height,
+      cssWidth: snapshotSource.sourceRectCssPx.width,
+      deferUploadUntilPaint: true,
+      devicePixelRatio: 2,
+      element,
+      surfaceId: snapshotSource.snapshotSurfaceId,
+      textureContentKey: snapshotSource.snapshotCacheKeyRevision,
+      zoom: 1.5,
+    });
   });
 
   it("recreates DOM-control snapshot texture content when a snapshot-backed value changes", () => {

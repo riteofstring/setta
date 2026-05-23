@@ -186,6 +186,37 @@ describe("GPU flow DOM control plane", () => {
     expect(mountedRowIds).not.toContain("row-60");
   });
 
+  it("preserves live DOM policy priority before opportunistic snapshot promotion", () => {
+    const controls = [
+      domControl({ index: 0, visualPolicy: "snapshot" }),
+      ...Array.from({ length: 24 }, (_, index) =>
+        domControl({ index: index + 1, visualPolicy: "live-dom" }),
+      ),
+      ...Array.from({ length: 75 }, (_, index) =>
+        domControl({ index: index + 100, visualPolicy: "outside-viewport" }),
+      ),
+    ];
+
+    const assignments = resolveGpuFlowDomControlPlaneProjectionAssignments({
+      controls,
+      getRetainedScrollOffset: undefined,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 700, width: 400 },
+    });
+    const liveAssignments = assignments.filter(
+      (assignment) => assignment.control.visualPolicy === "live-dom",
+    );
+
+    expect(liveAssignments).toHaveLength(24);
+    expect(
+      liveAssignments.every((assignment) => assignment.coverageState === "live"),
+    ).toBe(true);
+    expect(assignmentForRow(assignments, "row-0")).toMatchObject({
+      coverageState: "snapshot",
+      reason: "snapshot-promoted",
+    });
+  });
+
   it("keeps small-scene live DOM controls mounted across projection-only viewport moves", () => {
     const controls = Array.from({ length: 4 }, (_, index) =>
       domControl({ index: index * 50 }),

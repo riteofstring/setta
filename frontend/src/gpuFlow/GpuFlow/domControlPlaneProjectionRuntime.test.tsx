@@ -1130,7 +1130,6 @@ describe("GPU flow DOM control projection runtime", () => {
       }),
     ]);
   });
-
 });
 
 function renderMountedRowIds({

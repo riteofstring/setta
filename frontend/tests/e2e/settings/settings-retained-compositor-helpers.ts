@@ -331,6 +331,7 @@ export async function centerRetainedCompositorSurface(
       y: paneRect.height * 0.48 - flowCenter.y * zoom,
       zoom,
     });
+    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
     window.settaGpuFlowZoom = zoom;
 
     function getRetainedRows(): readonly RetainedRowDebugEntry[] {

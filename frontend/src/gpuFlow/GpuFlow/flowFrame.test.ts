@@ -3,10 +3,14 @@
 import { describe, expect, it } from "vitest";
 
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuContentSurface } from "../scene";
 import type { GpuRect } from "../viewportMath";
 import {
+  getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls,
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
+  shouldReuseGpuFlowDeferredRetainedContentPublicationFrame,
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   syncGpuFlowNodeInteractionState,
@@ -184,7 +188,88 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not skip deferred content publication across viewport samples", () => {
+    const cachedFrame = retainedFrameCache({});
+
+    expect(
+      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+        cachedFrame,
+        sceneRevision: 7,
+        targetViewport: [0, 0, 1],
+        targetZoomBucket: 1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+        cachedFrame,
+        sceneRevision: 7,
+        targetViewport: [40, 0, 1],
+        targetZoomBucket: 1,
+      }),
+    ).toBe(false);
+  });
+
+  it("uses prepared retained controls for browser visual snapshot overlay layout", () => {
+    const staleControl = retainedDomControl("control", "stale-key");
+    const preparedControl = retainedDomControl("control", "prepared-key");
+
+    expect(
+      getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+        controls: [staleControl],
+        preparedCommittedSurfaceFrame: committedSurfaceFrame({
+          controls: [preparedControl],
+          coverageState: "blocked-awaiting-snapshot",
+        }),
+      }),
+    ).toEqual([preparedControl]);
+    expect(
+      getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+        controls: [staleControl],
+        preparedCommittedSurfaceFrame: committedSurfaceFrame({
+          controls: [preparedControl],
+          coverageState: "live-host-ready",
+        }),
+      }),
+    ).toEqual([staleControl]);
+  });
 });
+
+function retainedDomControl(
+  sourceId: string,
+  snapshotCacheKeyRevision: string,
+): GpuRetainedDomControlSourceDescriptor {
+  return {
+    snapshotCacheKeyRevision,
+    sourceId,
+  } as GpuRetainedDomControlSourceDescriptor;
+}
+
+function committedSurfaceFrame({
+  controls,
+  coverageState,
+}: {
+  readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
+  readonly coverageState:
+    | "blocked-awaiting-snapshot"
+    | "exact-snapshot-ready"
+    | "live-host-ready";
+}): GpuFlowCommittedSurfaceFrame {
+  return {
+    actorGenerations: [
+      {
+        actorId: "control",
+        browserVisual: { coverageState },
+        kind: "dom-control",
+      } as GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+    ],
+    retainedRuntimeFrame: {
+      descriptors: {
+        domControlSources: controls,
+      },
+    },
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
 
 function retainedFrameCache({
   contentSurfaces = [],

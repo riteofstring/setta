@@ -272,6 +272,8 @@ export function resolveGpuFlowDomControlPlaneProjectionAssignments({
     .filter((candidate) => candidate.readableAtViewport)
     .sort(
       (left, right) =>
+        getGpuFlowDomControlPlaneMountPolicyRank(left.control) -
+          getGpuFlowDomControlPlaneMountPolicyRank(right.control) ||
         left.distanceToViewportCenter - right.distanceToViewportCenter ||
         compareGpuFlowDomControlPlaneControls(left.control, right.control),
     )
@@ -345,6 +347,22 @@ function isDomControlMountEligible(
     control.visualPolicy === "snapshot" ||
     control.visualPolicy === "outside-viewport"
   );
+}
+
+function getGpuFlowDomControlPlaneMountPolicyRank(
+  control: GpuRetainedDomControlSourceDescriptor,
+): number {
+  switch (control.visualPolicy) {
+    case "live-dom":
+      return 0;
+    case "snapshot":
+      return 1;
+    case "outside-viewport":
+      return 2;
+    case "blocked-awaiting-browser-visual":
+    case "clipped-empty":
+      return 3;
+  }
 }
 
 function createGpuFlowDomControlProjectionAssignment({

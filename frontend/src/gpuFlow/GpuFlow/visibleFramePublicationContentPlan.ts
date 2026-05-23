@@ -8,6 +8,7 @@ import type {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
 import {
   createGpuFlowNodeLayerFrameNotRenderedResult,
@@ -154,6 +155,7 @@ export type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer = (
         readonly gpuNativeVisuals:
           | readonly HtmlSurfaceSolidRoundedRectVisual[]
           | undefined;
+        readonly viewport?: GpuViewportInput | undefined;
       }
     | undefined,
 ) => GpuFlowCommittedSurfaceFrame | void;
@@ -424,6 +426,7 @@ function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
     publishedRetainedFrame,
     {
       gpuNativeVisuals: committedGpuNativeVisuals,
+      viewport: liveProjectionSample.viewport,
     },
   );
   return Object.freeze({

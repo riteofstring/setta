@@ -1,20 +1,55 @@
 import type { DirtyNodeMark, DirtyNodeState } from "../dirtyTracking";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "./textures";
 
+type ErrorRecord = {
+  readonly message: string;
+  readonly name: string;
+};
+
 export function compareSurfaceIds(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
 export function isMissingElementPaintRecordError(error: unknown): boolean {
+  const record = toErrorRecord(error);
   return (
-    error instanceof DOMException &&
-    error.name === "InvalidStateError" &&
-    error.message.includes("No cached paint record for element")
+    isNoCachedPaintRecordError(record) ||
+    isLayoutSubtreePaintRecordError(record)
   );
 }
 
 export function getNow(): number {
   return globalThis.performance.now();
+}
+
+function toErrorRecord(error: unknown): ErrorRecord {
+  const record =
+    error && typeof error === "object"
+      ? (error as { readonly message?: unknown; readonly name?: unknown })
+      : null;
+  return {
+    message: typeof record?.message === "string" ? record.message : "",
+    name: typeof record?.name === "string" ? record.name : "",
+  };
+}
+
+function isNoCachedPaintRecordError(record: ErrorRecord): boolean {
+  return (
+    record.name === "InvalidStateError" &&
+    record.message.includes("No cached paint record for element")
+  );
+}
+
+function isLayoutSubtreePaintRecordError(record: ErrorRecord): boolean {
+  return (
+    isChromiumPaintRecordErrorName(record.name) &&
+    record.message.includes("copyElementImageToTexture") &&
+    record.message.includes("Only immediate children of the <canvas> element")
+  );
+}
+
+function isChromiumPaintRecordErrorName(name: string): boolean {
+  return name === "InvalidStateError" || name === "TypeError";
 }
 
 const DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES = 384 * 1024 * 1024;
@@ -75,6 +110,43 @@ export function resolveDirtyFlags(
     content: input.content ?? (input.resolution === undefined ? true : false),
     resolution: input.resolution ?? false,
   };
+}
+
+export function shouldUpdatePaintDeferralForDirtySurface({
+  committedDirtyContent,
+  committedDirtyResolution,
+  deferUploadUntilPaint,
+  dirtyFlags,
+  shouldQueueDirtySurface,
+}: {
+  readonly committedDirtyContent?: boolean | undefined;
+  readonly committedDirtyResolution?: boolean | undefined;
+  readonly deferUploadUntilPaint?: boolean | undefined;
+  readonly dirtyFlags: ReturnType<typeof resolveDirtyFlags>;
+  readonly shouldQueueDirtySurface: boolean;
+}): boolean {
+  return (
+    deferUploadUntilPaint === true &&
+    (dirtyFlags.content || dirtyFlags.resolution) &&
+    (shouldQueueDirtySurface ||
+      committedDirtyContent === true ||
+      committedDirtyResolution === true)
+  );
+}
+
+export function shouldRequestSurfaceTexturePaint({
+  requestPaint,
+  shouldQueueDirtySurface,
+  shouldUpdatePaintDeferral,
+}: {
+  readonly requestPaint?: boolean | undefined;
+  readonly shouldQueueDirtySurface: boolean;
+  readonly shouldUpdatePaintDeferral: boolean;
+}): boolean {
+  return (
+    requestPaint !== false &&
+    (shouldQueueDirtySurface || shouldUpdatePaintDeferral)
+  );
 }
 
 export function isResolutionOnlyDirtySurface(

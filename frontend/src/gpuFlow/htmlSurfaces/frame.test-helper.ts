@@ -173,6 +173,32 @@ export function createFrameTextureManager() {
       };
     }),
     getCommittedSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    getMemorySnapshot: vi.fn(
+      ({
+        visibleSurfaceIds,
+      }: Pick<EvictSurfaceTexturesInput, "visibleSurfaceIds"> = {}) => {
+        const visibleIds = new Set(visibleSurfaceIds ?? []);
+        let allocatedBytes = 0;
+        let largestTextureBytes = 0;
+        let visibleBytes = 0;
+        let visibleTextureCount = 0;
+        for (const record of records.values()) {
+          allocatedBytes += record.textureBytes;
+          largestTextureBytes = Math.max(largestTextureBytes, record.textureBytes);
+          if (visibleIds.has(record.surfaceId)) {
+            visibleBytes += record.textureBytes;
+            visibleTextureCount += 1;
+          }
+        }
+        return {
+          allocatedBytes,
+          largestTextureBytes,
+          textureCount: records.size,
+          visibleBytes,
+          visibleTextureCount,
+        };
+      },
+    ),
     getSurfaceTextureLifecycleDiagnostics: vi.fn(
       (
         surfaceIds?: Iterable<string>,

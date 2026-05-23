@@ -27,6 +27,7 @@ import type {
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import {
   flowToScreenPosition,
+  normalizeGpuViewport,
   type GpuPoint,
   type GpuRect,
   type GpuViewportInput,
@@ -287,6 +288,20 @@ function toCommittedSurfaceDebugEntry(
       .map(toCommittedSurfaceTextActorProofDebugEntry),
     visibleNonemptyDomControlCount:
       frame.displayCompleteness.visibleNonemptyDomControlCount,
+    viewportSample: flowViewportInputToDebugEntry(frame.viewportSample),
+  };
+}
+
+function flowViewportInputToDebugEntry(viewport: GpuViewportInput): {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+} {
+  const normalizedViewport = normalizeGpuViewport(viewport);
+  return {
+    x: normalizedViewport.x,
+    y: normalizedViewport.y,
+    zoom: normalizedViewport.zoom,
   };
 }
 

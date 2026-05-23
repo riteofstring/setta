@@ -626,6 +626,14 @@ describe("GPU Flow visible publication content plans", () => {
         heldPreparedCommittedSurfaceFrame: heldPreparedFrame,
         selectedVisibleProjectionState: visibleProjectionState("held-previous"),
       });
+    const blockedProofHeldCandidateAbort =
+      resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+        blockedPreparedCommittedSurfaceFrame: null,
+        blockedPreservePreparationSnapshot: false,
+        committedSurfaceFrame: committedFrame,
+        heldPreparedCommittedSurfaceFrame: heldPreparedFrame,
+        selectedVisibleProjectionState: null,
+      });
     const completionSource = readFileSync(
       SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
       "utf8",
@@ -636,6 +644,10 @@ describe("GPU Flow visible publication content plans", () => {
       preservePreparationSnapshot: true,
     });
     expect(heldPreviousBlockedAbort).toEqual({
+      frame: heldPreparedFrame,
+      preservePreparationSnapshot: true,
+    });
+    expect(blockedProofHeldCandidateAbort).toEqual({
       frame: heldPreparedFrame,
       preservePreparationSnapshot: true,
     });

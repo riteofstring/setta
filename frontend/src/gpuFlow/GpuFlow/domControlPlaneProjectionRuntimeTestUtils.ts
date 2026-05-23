@@ -303,12 +303,16 @@ export function committedSnapshotTexture(
 export function domControl({
   active = false,
   index,
+  projectionVisibility = "viewport-visible",
   snapshotSurfaceId = null,
   value = "",
   visualPolicy = "live-dom",
 }: {
   readonly active?: boolean | undefined;
   readonly index: number;
+  readonly projectionVisibility?:
+    | GpuRetainedDomControlSourceDescriptor["projectionVisibility"]
+    | undefined;
   readonly snapshotSurfaceId?: string | null | undefined;
   readonly value?: string | undefined;
   readonly visualPolicy?:
@@ -362,7 +366,7 @@ export function domControl({
     linePolicy: "single-line",
     maxVisibleLines: 1,
     minVisibleLines: 1,
-    projectionVisibility: "viewport-visible",
+    projectionVisibility,
     rendererFamily: "text-like",
     role: "text-like",
     rowId: `row-${index}`,

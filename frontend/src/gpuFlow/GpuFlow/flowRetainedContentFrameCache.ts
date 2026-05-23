@@ -72,6 +72,28 @@ export function shouldReuseGpuFlowRetainedRuntimeFrameForSample({
   );
 }
 
+export function shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+  cachedFrame,
+  sceneRevision,
+  targetViewport,
+  targetZoomBucket,
+}: {
+  readonly cachedFrame: GpuFlowRetainedContentFrameCache;
+  readonly sceneRevision: number;
+  readonly targetViewport: GpuViewportInput;
+  readonly targetZoomBucket: number;
+}): boolean {
+  return (
+    cachedFrame.sceneRevision === sceneRevision &&
+    cachedFrame.viewportZoomBucket === targetZoomBucket &&
+    shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+      cachedFrame,
+      nativeVisualSignature: cachedFrame.nativeVisualSignature,
+      viewport: targetViewport,
+    })
+  );
+}
+
 function retainedFrameViewportSizeMatches(
   cachedFrame: GpuFlowRetainedContentFrameCache,
   viewportSize: { readonly height: number; readonly width: number } | undefined,

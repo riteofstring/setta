@@ -40,6 +40,7 @@ const noop = () => {};
 type GpuRetainedDomControlSnapshotSourceDiagnostic = {
   readonly expectedTextureContentKey: string;
   readonly inPreparation: boolean;
+  readonly lifecycle: unknown;
   readonly sourceId: string;
   readonly surfaceId: string;
   readonly texture: {
@@ -174,12 +175,17 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     view.__settaGpuFlowDomControlSnapshotSourceDiagnostics = () =>
       snapshotSources.map((source) => {
         const surfaceId = getGpuRetainedDomControlSnapshotSourceId(source);
+        const textureManager = textureManagerRef.current;
         const texture =
-          textureManagerRef.current?.getCommittedSurfaceTexture(surfaceId) ??
-          null;
+          textureManager?.getCommittedSurfaceTexture(surfaceId) ?? null;
+        const lifecycle =
+          textureManager?.getSurfaceTextureLifecycleDiagnostics([surfaceId])?.[
+            0
+          ] ?? null;
         return {
           expectedTextureContentKey: source.snapshotCacheKeyRevision,
           inPreparation: preparationSnapshotSourceIds?.has(surfaceId) === true,
+          lifecycle,
           sourceId: source.sourceId,
           surfaceId,
           texture: texture
@@ -224,6 +230,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
         });
         return;
       }
+      element.setAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE, "true");
       nodeElementByIdRef.current.set(surfaceId, element);
       registerGpuFlowRetainedDomControlSnapshotTextureManager({
         committedSurfaceRuntime,
@@ -248,9 +255,20 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     ],
   );
   const handleSnapshotDraw = useCallback(
-    (surfaceId: string) => {
-      textureManagerRef.current?.markSurfaceTextureDirty({
+    (surfaceId: string, source: GpuRetainedDomControlSourceDescriptor) => {
+      const textureManager = textureManagerRef.current;
+      const element = nodeElementByIdRef.current.get(surfaceId);
+      if (textureManager && element) {
+        registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+          element,
+          source,
+          surfaceId,
+          textureManager,
+        });
+      }
+      textureManager?.markSurfaceTextureDirty({
         content: true,
+        deferUploadUntilPaint: true,
         reason: "content",
         requestPaint: false,
         surfaceId,
@@ -265,6 +283,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     [
       browserVisualTextureManager,
       committedSurfaceRuntime,
+      nodeElementByIdRef,
       surfaceRef,
       textureManagerRef,
     ],
@@ -326,6 +345,29 @@ function registerGpuFlowRetainedDomControlSnapshotElement({
   });
 }
 
+export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+  element,
+  source,
+  surfaceId,
+  textureManager,
+}: {
+  readonly element: Element;
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly surfaceId: string;
+  readonly textureManager: Pick<HtmlSurfaceTextureManager, "registerSurfaceTexture">;
+}): void {
+  textureManager.registerSurfaceTexture({
+    cssHeight: source.sourceRectCssPx.height,
+    cssWidth: source.sourceRectCssPx.width,
+    deferUploadUntilPaint: true,
+    devicePixelRatio: source.snapshotCacheKey.devicePixelRatioBucket,
+    element,
+    surfaceId,
+    textureContentKey: source.snapshotCacheKeyRevision,
+    zoom: source.snapshotCacheKey.zoomBucket,
+  });
+}
+
 function registerGpuFlowRetainedDomControlSnapshotTextureManager({
   committedSurfaceRuntime,
   textureManager,
@@ -363,17 +405,23 @@ export function projectGpuRetainedDomControlSnapshotSurfaceLayouts({
   controls,
   getRetainedScrollOffset,
   overlays,
+  preserveUnmatchedSnapshotOverlays = false,
+  snapshotSourceIds,
 }: {
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
   readonly getRetainedScrollOffset:
     | ((surfaceId: string) => { readonly x: number; readonly y: number } | null)
     | undefined;
   readonly overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined;
+  readonly preserveUnmatchedSnapshotOverlays?: boolean | undefined;
+  readonly snapshotSourceIds?: ReadonlySet<string> | undefined;
 }): readonly GpuHtmlSurfaceOverlayLayout[] | undefined {
   const snapshotLayouts = getGpuRetainedDomControlSnapshotSurfaceLayouts(
-    controls.filter(
-      (control) =>
-        control.visualPolicy === "snapshot" && control.snapshotSurfaceId,
+    controls.filter((control) =>
+      isGpuRetainedDomControlSnapshotLayoutControl({
+        control,
+        snapshotSourceIds,
+      }),
     ),
     {
       getRetainedScrollOffset,
@@ -389,7 +437,10 @@ export function projectGpuRetainedDomControlSnapshotSurfaceLayouts({
   const projectedOverlays = (overlays ?? []).flatMap((overlay) => {
     const snapshotLayout = snapshotLayoutBySurfaceId.get(overlay.surfaceId);
     if (!snapshotLayout) {
-      return isGpuRetainedDomControlSnapshotOverlay(overlay) ? [] : [overlay];
+      return !preserveUnmatchedSnapshotOverlays &&
+        isGpuRetainedDomControlSnapshotOverlay(overlay)
+        ? []
+        : [overlay];
     }
     includedSurfaceIds.add(snapshotLayout.surfaceId);
     return [snapshotLayout];
@@ -400,6 +451,20 @@ export function projectGpuRetainedDomControlSnapshotSurfaceLayouts({
     }
   }
   return projectedOverlays;
+}
+
+function isGpuRetainedDomControlSnapshotLayoutControl({
+  control,
+  snapshotSourceIds,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly snapshotSourceIds: ReadonlySet<string> | undefined;
+}): boolean {
+  return (
+    (control.visualPolicy === "snapshot" &&
+      control.snapshotSurfaceId !== undefined) ||
+    snapshotSourceIds?.has(control.sourceId) === true
+  );
 }
 
 function isGpuRetainedDomControlSnapshotOverlay(
@@ -420,7 +485,12 @@ function GpuRetainedDomControlSnapshotSourceLayer({
   renderControl,
   sources,
 }: {
-  readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+  readonly onSnapshotDraw?:
+    | ((
+        surfaceId: string,
+        source: GpuRetainedDomControlSourceDescriptor,
+      ) => void)
+    | undefined;
   readonly onSnapshotElementChange?:
     | ((surfaceId: string, element: HTMLElement | null) => void)
     | undefined;
@@ -463,13 +533,18 @@ function GpuRetainedDomControlSnapshotSource({
   renderControl,
   source,
 }: {
-  readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+  readonly onSnapshotDraw?:
+    | ((
+        surfaceId: string,
+        source: GpuRetainedDomControlSourceDescriptor,
+      ) => void)
+    | undefined;
   readonly renderControl: GpuFlowDomControlRenderer;
   readonly source: GpuRetainedDomControlSourceDescriptor;
 }) {
   const surfaceId = getGpuRetainedDomControlSnapshotSourceId(source);
   useLayoutEffect(() => {
-    onSnapshotDraw?.(surfaceId);
+    onSnapshotDraw?.(surfaceId, source);
   }, [onSnapshotDraw, source.snapshotCacheKeyRevision, surfaceId]);
   return (
     <div
@@ -499,12 +574,22 @@ const MemoizedGpuRetainedDomControlSnapshotSource = memo(
 
 function areGpuRetainedDomControlSnapshotSourcePropsEqual(
   previous: {
-    readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+    readonly onSnapshotDraw?:
+      | ((
+          surfaceId: string,
+          source: GpuRetainedDomControlSourceDescriptor,
+        ) => void)
+      | undefined;
     readonly renderControl: GpuFlowDomControlRenderer;
     readonly source: GpuRetainedDomControlSourceDescriptor;
   },
   next: {
-    readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+    readonly onSnapshotDraw?:
+      | ((
+          surfaceId: string,
+          source: GpuRetainedDomControlSourceDescriptor,
+        ) => void)
+      | undefined;
     readonly renderControl: GpuFlowDomControlRenderer;
     readonly source: GpuRetainedDomControlSourceDescriptor;
   },

@@ -573,6 +573,56 @@ describe("GPU Flow committed surface frame", () => {
       ]),
     );
   });
+
+  it("keeps runtime-projected outside-viewport DOM controls in the visible actor manifest", () => {
+    const retainedRuntimeFrame = withDomControlVisualPolicy(
+      createRuntimeFrame({ frameId: 19 }),
+      "outside-viewport",
+      "outside-viewport",
+    );
+    const control = retainedRuntimeFrame.descriptors.domControlSources[0]!;
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      browserVisualReadiness: {
+        domControlReadinessByActorId: new Map([
+          [
+            control.sourceId,
+            {
+              coverageState: "live-host-ready",
+              projectionCoverageRequired: true,
+              resourceHandles: [
+                { id: control.sourceId, kind: "source" as const },
+              ],
+            },
+          ],
+        ]),
+        domIslandReadinessByActorId: new Map(),
+      },
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 19,
+        retainedRuntimeFrame,
+      }),
+    });
+
+    const actor = frame.actorGenerations.find(
+      (candidate) => candidate.actorId === control.sourceId,
+    );
+    expect(actor).toEqual(
+      expect.objectContaining({
+        browserVisual: expect.objectContaining({
+          coverageRequired: { reason: "value-text", required: true },
+          coverageState: "live-host-ready",
+          visibilityReason: "visible",
+        }),
+        visibleNonempty: true,
+      }),
+    );
+    expect(frame.displayCompleteness.visibleNonemptyDomControlCount).toBe(1);
+    expect(frame.browserVisualSurfaceFragment.exactCoverage).toEqual([
+      expect.objectContaining({
+        surfaceId: `dom-control:${control.sourceId}`,
+      }),
+    ]);
+  });
 });
 
 function createCompatiblePreviousCommittedSurfaceFrame({
@@ -636,6 +686,8 @@ function createCompatiblePreviousCommittedSurfaceFrame({
 
 type GpuFlowCommittedSurfaceActor =
   GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+type GpuFlowCommittedSurfaceDomControlSource =
+  GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
 
 function findCommittedDomControlActor(
   frame: GpuFlowCommittedSurfaceFrame,
@@ -846,7 +898,8 @@ function createBlockedRuntimeFrame({ frameId }: { readonly frameId: number }) {
 
 function withDomControlVisualPolicy(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
-  visualPolicy: GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number]["visualPolicy"],
+  visualPolicy: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"],
+  projectionVisibility: GpuFlowCommittedSurfaceDomControlSource["projectionVisibility"] = "viewport-visible",
 ): ReturnType<typeof createRuntimeFrame> {
   return {
     ...retainedRuntimeFrame,
@@ -855,7 +908,7 @@ function withDomControlVisualPolicy(
       domControlSources: retainedRuntimeFrame.descriptors.domControlSources.map(
         (control) => ({
           ...control,
-          projectionVisibility: "viewport-visible" as const,
+          projectionVisibility,
           snapshotSurfaceId: null,
           visualPolicy,
         }),

@@ -152,6 +152,11 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly sceneRevision: number;
   readonly textActorProofs: readonly GpuFlowCommittedSurfaceTextActorProofDebugEntry[];
   readonly visibleNonemptyDomControlCount: number;
+  readonly viewportSample: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
 };
 
 export type GpuFlowCommittedSurfaceTextActorProofDebugEntry = {

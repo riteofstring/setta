@@ -103,15 +103,28 @@ export function createGpuFlowVisiblePublicationScheduler({
   let lastMotionAtMs: number | null = null;
   let consecutiveMotionFrames = 0;
 
-  function currentState(
-    timestamp: DOMHighResTimeStamp,
-    viewportInteractionActive: boolean,
-  ): GpuFlowProjectionSchedulerState {
+  function currentState({
+    rawReasons,
+    timestamp,
+    viewportInteractionActive,
+  }: {
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
+    readonly viewportInteractionActive: boolean;
+  }): GpuFlowProjectionSchedulerState {
+    if (
+      shouldPublishGpuFlowProjectionContentDebtNow({
+        rawReasons,
+        viewportInteractionActive,
+      })
+    ) {
+      return "content-catchup";
+    }
+    if (shouldProbeGpuFlowProjectionContentDebt(viewportInteractionActive)) {
+      return "content-catchup";
+    }
     if (hasActiveGpuFlowProjectionMotion(viewportInteractionActive)) {
       return "motion-active";
-    }
-    if (shouldProbeGpuFlowProjectionContentDebt()) {
-      return "content-catchup";
     }
     if (isGpuFlowProjectionMotionSettling(timestamp)) {
       return "motion-settling";
@@ -122,13 +135,30 @@ export function createGpuFlowVisiblePublicationScheduler({
     });
   }
 
-  function shouldProbeGpuFlowProjectionContentDebt(): boolean {
+  function shouldProbeGpuFlowProjectionContentDebt(
+    viewportInteractionActive: boolean,
+  ): boolean {
     return (
       contentDebt &&
-      !motionDebt &&
+      !viewportInteractionActive &&
       schedulerKnobs.maxContentInterleaveMs > 0 &&
       consecutiveMotionFrames >=
         schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe
+    );
+  }
+
+  function shouldPublishGpuFlowProjectionContentDebtNow({
+    rawReasons,
+    viewportInteractionActive,
+  }: {
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly viewportInteractionActive: boolean;
+  }): boolean {
+    return (
+      contentDebt &&
+      !viewportInteractionActive &&
+      schedulerKnobs.maxContentInterleaveMs > 0 &&
+      rawReasons.some(isGpuFlowContentFrameReason)
     );
   }
 
@@ -210,7 +240,11 @@ export function createGpuFlowVisiblePublicationScheduler({
       if (rawReasons.some(isGpuFlowMaintenanceFrameReason)) {
         maintenanceDebt = true;
       }
-      const schedulerState = currentState(timestamp, viewportInteractionActive);
+      const schedulerState = currentState({
+        rawReasons,
+        timestamp,
+        viewportInteractionActive,
+      });
       const lane = selectVisiblePublicationLane({
         contentDebt,
         hasCommittedContentFrame,
