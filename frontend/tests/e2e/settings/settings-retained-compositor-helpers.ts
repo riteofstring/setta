@@ -218,7 +218,8 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
             '[data-gpu-flow-dom-control-snapshot-source="true"]',
           ),
         ].find(
-          (element) => element.dataset.gpuFlowDomControlId === lastBlockedActorId,
+          (element) =>
+            element.dataset.gpuFlowDomControlId === lastBlockedActorId,
         ) ?? null
       : null;
     const browserVisualPreparationDiagnostics =
@@ -273,8 +274,7 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
               lastBlockedSnapshotSourceElement.dataset.gpuFlowSourceId ?? null,
           }
         : null,
-      lastBlockedBrowserVisualPreparation:
-        browserVisualPreparationDiagnostics,
+      lastBlockedBrowserVisualPreparation: browserVisualPreparationDiagnostics,
       preparationControlCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control-preparation="true"]',
       ).length,
@@ -490,8 +490,8 @@ export async function measureRetainedCompositorGesture(
   }
   const sample = await stopGestureFrameSampler(page);
   return {
-    eventSpacing: summarizeIntervals(eventSpacingMs),
-    frame: summarizeIntervals(sample.intervalsMs),
+    eventSpacing: summarizeRetainedCompositorIntervals(eventSpacingMs),
+    frame: summarizeRetainedCompositorIntervals(sample.intervalsMs),
     longTasks: {
       count: sample.longTasks.length,
       entries: sample.longTasks,
@@ -749,10 +749,7 @@ export function resolveRetainedCompositorCadenceBudget({
     ),
     maxFrameBudgetMs: cappedMaxFrameBudgetMs,
     p95FrameBudgetMs: cappedFrameBudgetMs,
-    p99FrameBudgetMs: Math.max(
-      CAPPED_P99_FRAME_BUDGET_MS,
-      cappedFrameBudgetMs,
-    ),
+    p99FrameBudgetMs: Math.max(CAPPED_P99_FRAME_BUDGET_MS, cappedFrameBudgetMs),
     slowFrameRatioBudget: 1,
   };
 }
@@ -1009,7 +1006,7 @@ export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
   });
 }
 
-function summarizeIntervals(
+export function summarizeRetainedCompositorIntervals(
   values: readonly number[],
 ): RetainedCompositorIntervalStats {
   const sorted = [...values].sort((left, right) => left - right);
@@ -1024,6 +1021,18 @@ function summarizeIntervals(
         ? 0
         : values.filter((interval) => interval > 16.7).length / values.length,
   };
+}
+
+export async function startRetainedCompositorGestureFrameSampler(
+  page: Page,
+): Promise<void> {
+  await startGestureFrameSampler(page);
+}
+
+export async function stopRetainedCompositorGestureFrameSampler(
+  page: Page,
+): Promise<RetainedCompositorFrameSample> {
+  return await stopGestureFrameSampler(page);
 }
 
 async function startGestureFrameSampler(page: Page): Promise<void> {

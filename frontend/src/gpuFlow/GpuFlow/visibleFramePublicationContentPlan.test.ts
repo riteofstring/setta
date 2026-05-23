@@ -10,6 +10,10 @@ import type {
   RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
 import {
+  prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate,
+  prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
+} from "./visibleFramePublicationContentPreparation";
+import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   resolveGpuFlowCommittedSurfacePublicationContentResolution,
@@ -30,6 +34,9 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 );
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
+);
+const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationContentPreparation.ts", import.meta.url),
 );
 
 describe("GPU Flow visible publication content plans", () => {
@@ -98,6 +105,10 @@ describe("GPU Flow visible publication content plans", () => {
   it("keeps retained and committed publication plan selection out of flowFrame", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const contentPreparationSource = readFileSync(
+      CONTENT_PREPARATION_MODULE_PATH,
+      "utf8",
+    );
 
     expect(flowFrameSource).not.toContain(
       "retainedDisplayPublicationFramePlanResult.blockedPublicationCandidate",
@@ -153,6 +164,22 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain(
       "requireGpuFlowRetainedDisplayPublishedOutcomeFrame",
     );
+    expect(contentPlanSource).not.toMatch(
+      /export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation/,
+    );
+    expect(contentPlanSource).not.toMatch(
+      /export function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation/,
+    );
+    expect(contentPlanSource).not.toMatch(
+      /export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame/,
+    );
+    expect(flowFrameSource).not.toContain("onRetainedDisplayFrame?.");
+    expect(flowFrameSource).not.toContain(
+      "committedSurfacePublicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures",
+    );
+    expect(flowFrameSource).not.toContain(
+      "function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate",
+    );
     expect(flowFrameSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationContentResolution",
     );
@@ -186,6 +213,12 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).toContain("nodeLayerFrameResult:");
     expect(contentPlanSource).toContain(
       "publishedOutcomeFrame: framePlanResult.publishedOutcomeFrame",
+    );
+    expect(contentPreparationSource).toContain(
+      "prepareCommittedSurfaceFrame?.(",
+    );
+    expect(contentPreparationSource).toContain(
+      "shouldPrepareHtmlSurfaceOverlayTextures",
     );
   });
 
@@ -368,6 +401,100 @@ describe("GPU Flow visible publication content plans", () => {
       }),
     );
     expect(preparation.shouldPrepareHtmlSurfaceOverlayTextures).toBe(true);
+  });
+
+  it("prepares committed-surface frame plans from retained display outside flowFrame", () => {
+    const preparedCommittedSurfaceFrame = committedSurfaceFrame();
+    const publishedRetainedFrame = {
+      id: 11,
+    } as RetainedDisplayFrame;
+    const prepared =
+      prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
+        committedGpuNativeVisuals: undefined,
+        deferBrowserVisualRetry: true,
+        frameReasons: ["texture-upload"],
+        heldPreviousProjectionState: null,
+        liveProjectionSample: {
+          id: 17,
+          timestamp: 24,
+        } as Parameters<
+          typeof prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay
+        >[0]["liveProjectionSample"],
+        prepareCommittedSurfaceFrame: (frame, options) => {
+          expect(frame).toBe(publishedRetainedFrame);
+          expect(options).toEqual({ gpuNativeVisuals: undefined });
+          return preparedCommittedSurfaceFrame;
+        },
+        prepareCommittedSurfacePublicationFramePlan: (input) => {
+          expect(input.publishedCommittedSurfaceFrame).toBe(
+            preparedCommittedSurfaceFrame,
+          );
+          expect(input.publishedRetainedFrame).toBe(publishedRetainedFrame);
+          expect(input.deferBrowserVisualRetry).toBe(true);
+          return {
+            candidate: { effect: { kind: "publish" }, kind: "publish" },
+            committedSurfacePublication: {
+              blockedSurfacePublication: null,
+              committedSurfaceFrame: preparedCommittedSurfaceFrame,
+              committedSurfacePublicationEffect: { kind: "publish" },
+              heldPreparedCommittedSurfaceFrame: null,
+            },
+            framePlan: {
+              blockedPublicationCandidate: null,
+              committedSurfacePublication: {
+                blockedSurfacePublication: null,
+                committedSurfaceFrame: preparedCommittedSurfaceFrame,
+                committedSurfacePublicationEffect: { kind: "publish" },
+                heldPreparedCommittedSurfaceFrame: null,
+              },
+              kind: "publish",
+              visibleProjectionState: null,
+            },
+            framePlanResult: {
+              blockedPublicationCandidate: null,
+              committedSurfacePublication: {
+                blockedSurfacePublication: null,
+                committedSurfaceFrame: preparedCommittedSurfaceFrame,
+                committedSurfacePublicationEffect: { kind: "publish" },
+                heldPreparedCommittedSurfaceFrame: null,
+              },
+              visibleProjectionState: null,
+            },
+            nodeLayerFrameResult: null,
+            shouldPrepareHtmlSurfaceOverlayTextures: false,
+          };
+        },
+        publicationLane: "content",
+        publishedRetainedFrame,
+      });
+
+    expect(prepared.preparedCommittedSurfaceFrame).toBe(
+      preparedCommittedSurfaceFrame,
+    );
+    expect(
+      prepared.publicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures,
+    ).toBe(false);
+  });
+
+  it("gates committed-surface overlay texture preparation outside flowFrame", () => {
+    const preparedInputs: number[] = [];
+
+    prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+      input: 1,
+      prepareOverlayTextures: (input) => preparedInputs.push(input),
+      publicationPreparation: {
+        shouldPrepareHtmlSurfaceOverlayTextures: false,
+      },
+    });
+    prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+      input: 2,
+      prepareOverlayTextures: (input) => preparedInputs.push(input),
+      publicationPreparation: {
+        shouldPrepareHtmlSurfaceOverlayTextures: true,
+      },
+    });
+
+    expect(preparedInputs).toEqual([2]);
   });
 
   it("keeps content publication frame-result derivation out of the surface frame", () => {

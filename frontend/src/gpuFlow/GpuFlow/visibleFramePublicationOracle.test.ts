@@ -105,7 +105,9 @@ describe("GPU Flow visible publication transaction oracle", () => {
 
   it("reports authoritative per-actor visual and interaction proof entries", () => {
     const sample = liveProjectionSample({ id: 45, timestamp: 450 });
-    const actor = retainedDomControlActor();
+    const actor = retainedDomControlActor({
+      actualInteractionProof: "active-editor-live",
+    });
     const oracle = createGpuFlowVisiblePublicationCommitOracle({
       committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
       publicationDecision: publicationDecision(sample),
@@ -114,7 +116,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.actorProofs).toEqual([
       expect.objectContaining({
         actorId: "control-a",
-        actualInteractionProof: "blocked",
+        actualInteractionProof: "active-editor-live",
         actualVisualProof: "compatible-previous",
         canonicalActorId: actor.canonicalActorId,
         contentGenerationId: "content-a",
@@ -122,8 +124,8 @@ describe("GPU Flow visible publication transaction oracle", () => {
         ownerSurfaceId: "surface-a",
         projectionGenerationId: "layout-a",
         projectionSampleId: sample.id,
-        proofState: "blocked",
-        remainingDebt: ["exact-browser-visual", "active-editor"],
+        proofState: "compatible-previous",
+        remainingDebt: ["exact-browser-visual"],
         requiredInteractionRepresentation: "active-editor-live",
         requiredVisualRepresentation: "browser-visual",
         sampledVisualEvidence: "compatible-previous",
@@ -134,13 +136,27 @@ describe("GPU Flow visible publication transaction oracle", () => {
         actorId: "control-a",
         canonicalActorId: actor.canonicalActorId,
         ownerFamily: "text-like-dom-control",
-        remainingDebt: ["exact-browser-visual", "active-editor"],
+        remainingDebt: ["exact-browser-visual"],
       },
     ]);
     expect(oracle.actorProofDigest).toContain("text-like-dom-control");
     expect(oracle.browserActorProofs.actualVisual).toEqual({
       "compatible-previous": 1,
     });
+  });
+
+  it("rejects blocked actor proofs as commit candidates", () => {
+    const sample = liveProjectionSample({ id: 50, timestamp: 500 });
+    const actor = retainedDomControlActor();
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle cannot commit blocked actor proofs: control-a:compatible-previous:blocked.",
+    );
   });
 
   it.each(["exact-live-host", "same-live-host-compatible-projection"] as const)(
@@ -304,7 +320,9 @@ describe("GPU Flow visible publication transaction oracle", () => {
       transactionOracle.blockedPublicationCandidate,
     );
     expect(prepared.blockedProof).toBe(transactionOracle.blockedProof);
-    expect(prepared.presentableCommit).toBe(transactionOracle.presentableCommit);
+    expect(prepared.presentableCommit).toBe(
+      transactionOracle.presentableCommit,
+    );
     expect(prepared.renderedVisibleFrame).toBe(
       transactionOracle.renderedVisibleFrame,
     );

@@ -105,6 +105,10 @@ import {
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import {
+  prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate,
+  prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
+} from "./visibleFramePublicationContentPreparation";
+import {
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
   resolveGpuFlowCommittedSurfacePublicationContentResolution,
@@ -680,18 +684,26 @@ export function renderGpuFlowNodeLayerFrame({
     retainedRuntimeNativeVisuals,
     switchAnimationNativeVisuals,
   );
-  const finishCommittedPublishMeasure = startFrameMeasure(
+  const finishCommittedPreparationMeasure = startFrameMeasure(
     "committed-surface-frame-publication",
     frame,
     { retainedDisplayFrameId: publishedRetainedFrame.id },
   );
-  const publishedCommittedSurfaceFrame = onRetainedDisplayFrame?.(
-    publishedRetainedFrame,
-    {
-      gpuNativeVisuals: committedGpuNativeVisuals,
-    },
-  );
-  committedContentPublishMs += finishCommittedPublishMeasure();
+  const committedSurfacePreparation =
+    prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
+      committedGpuNativeVisuals,
+      deferBrowserVisualRetry,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      prepareCommittedSurfaceFrame: onRetainedDisplayFrame,
+      prepareCommittedSurfacePublicationFramePlan,
+      publicationLane,
+      publishedRetainedFrame,
+    });
+  const preparedCommittedSurfaceFrame =
+    committedSurfacePreparation.preparedCommittedSurfaceFrame;
+  committedContentPublishMs += finishCommittedPreparationMeasure();
   const retainedDiagnosticsStart = performance.now();
   postGpuFlowRetainedDisplayFrameChromeReproEvent({
     frame,
@@ -707,19 +719,10 @@ export function renderGpuFlowNodeLayerFrame({
   });
   diagnosticsMs += performance.now() - retainedDiagnosticsStart;
   const committedSurfacePublicationPreparation =
-    prepareCommittedSurfacePublicationFramePlan({
-      committedGpuNativeVisuals,
-      deferBrowserVisualRetry,
-      frameReasons,
-      heldPreviousProjectionState,
-      liveProjectionSample,
-      publicationLane,
-      publishedCommittedSurfaceFrame,
-      publishedRetainedFrame,
-    });
+    committedSurfacePreparation.publicationPreparation;
   const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
     runtimeScrollOffsets.get(surfaceId) ?? null;
-  prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate({
+  prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
     input: {
       canvasSize,
       deferResolutionUpdates,
@@ -731,8 +734,8 @@ export function renderGpuFlowNodeLayerFrame({
       uploadBudget: layer.uploadBudget,
       viewport: liveProjectionSample.viewport,
     },
-    shouldPrepare:
-      committedSurfacePublicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures,
+    prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
+    publicationPreparation: committedSurfacePublicationPreparation,
   });
   const committedSurfaceContentResolution =
     resolveGpuFlowCommittedSurfacePublicationContentResolution({
@@ -784,7 +787,7 @@ export function renderGpuFlowNodeLayerFrame({
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
     protectedTextureSurfaceIds:
       getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds(
-        publishedCommittedSurfaceFrame,
+        preparedCommittedSurfaceFrame,
       ),
     renderer: resources.htmlSurfaceRenderer,
     textureManager: resources.textureManager,
@@ -831,7 +834,7 @@ export function renderGpuFlowNodeLayerFrame({
       heldPreviousProjectionState,
       liveProjectionSample,
       publicationLane,
-      publishedCommittedSurfaceFrame,
+      publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
       publishedRetainedFrame,
       retainedDisplayOutcomeKind:
         publishedRetainedDisplayOutcomeFrame.outcomeKind,
@@ -927,19 +930,6 @@ function notifyGpuFlowRetainedRuntimeFrame(
   frame: GpuRetainedRuntimeFrame,
 ) {
   callback?.(frame);
-}
-
-function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate({
-  input,
-  shouldPrepare,
-}: {
-  readonly input: Parameters<typeof prepareHtmlSurfaceOverlayTextures>[0];
-  readonly shouldPrepare: boolean;
-}) {
-  if (!shouldPrepare) {
-    return;
-  }
-  prepareHtmlSurfaceOverlayTextures(input);
 }
 
 function isGpuFlowFrameDarkMode(canvas: HTMLCanvasElement): boolean {

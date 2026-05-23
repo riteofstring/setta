@@ -154,6 +154,7 @@ export function createGpuFlowVisiblePublicationCommitOracle({
     committedFrame,
     projectionSampleId: publicationDecision.sample.id,
   });
+  assertGpuFlowVisiblePublicationCommitActorProofs(actorProofs);
   const browserActorProofs =
     createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(
       committedFrame,
@@ -636,6 +637,28 @@ function createGpuFlowVisiblePublicationRemainingActorDebt(
           remainingDebt: proof.remainingDebt,
         }),
       ),
+  );
+}
+
+function assertGpuFlowVisiblePublicationCommitActorProofs(
+  actorProofs: readonly GpuFlowVisiblePublicationActorProof[],
+): void {
+  const blockedProofs = actorProofs.filter(
+    (proof) => proof.proofState === "blocked",
+  );
+  if (blockedProofs.length === 0) {
+    return;
+  }
+  throw new Error(
+    `GPU Flow visible publication oracle cannot commit blocked actor proofs: ${blockedProofs
+      .map((proof) =>
+        [
+          proof.actorId,
+          proof.actualVisualProof,
+          proof.actualInteractionProof,
+        ].join(":"),
+      )
+      .join(", ")}.`,
   );
 }
 

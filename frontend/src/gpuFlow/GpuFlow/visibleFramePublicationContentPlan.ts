@@ -422,7 +422,7 @@ export function createGpuFlowContentPublicationFrameResult(
   };
 }
 
-export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation({
+function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation({
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
@@ -486,7 +486,7 @@ export function resolveGpuFlowRetainedDisplayPublicationContentResolution({
   };
 }
 
-export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
+function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
   preparation,
 }: {
   readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
@@ -501,7 +501,7 @@ export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
   return preparation.publishedOutcomeFrame;
 }
 
-export function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation({
+function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation({
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,

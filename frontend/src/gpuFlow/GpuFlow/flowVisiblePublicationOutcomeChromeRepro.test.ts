@@ -55,8 +55,8 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             actorId: "actor-b",
             browserVisual: {
               proof: {
-                actualInteraction: "blocked",
-                actualVisual: "blocked",
+                actualInteraction: "active-editor-live",
+                actualVisual: "exact-live-host",
                 requiredInteraction: "active-editor-live",
                 requiredVisual: "browser-visual",
               },
@@ -145,14 +145,13 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             "text-like-dom-control": 2,
           },
           actualInteraction: {
-            blocked: 1,
+            "active-editor-live": 1,
             "inactive-visual-only": 1,
             "live-hit-compatible": 1,
           },
           actualVisual: {
-            blocked: 1,
             "compatible-previous": 1,
-            "exact-live-host": 1,
+            "exact-live-host": 2,
           },
           requiredInteraction: {
             "active-editor-live": 1,
@@ -203,12 +202,6 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             canonicalActorId: "canonical-text-a",
             ownerFamily: "text-like-dom-control",
             remainingDebt: ["exact-browser-visual"],
-          },
-          {
-            actorId: "actor-b",
-            canonicalActorId: "canonical-text-b",
-            ownerFamily: "text-like-dom-control",
-            remainingDebt: ["browser-visual", "active-editor"],
           },
         ],
         transactionId: "transaction-a",
