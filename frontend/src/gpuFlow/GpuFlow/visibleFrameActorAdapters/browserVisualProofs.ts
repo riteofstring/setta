@@ -129,7 +129,7 @@ export function assertGpuFlowVisiblePublicationCommitActorProofs(
   );
   if (blockedProofs.length > 0) {
     throw new Error(
-      `GPU Flow visible publication oracle cannot commit blocked actor proofs: ${blockedProofs
+      `GPU Flow visible publication proof cannot commit blocked actor proofs: ${blockedProofs
         .map((proof) =>
           [
             proof.actorId,
@@ -149,7 +149,7 @@ export function assertGpuFlowVisiblePublicationCommitActorProofs(
     return;
   }
   throw new Error(
-    `GPU Flow visible publication oracle cannot commit actor proofs with mismatched browser visual representation: ${representationMismatches.join(
+    `GPU Flow visible publication proof cannot commit actor proofs with mismatched browser visual representation: ${representationMismatches.join(
       ", ",
     )}.`,
   );

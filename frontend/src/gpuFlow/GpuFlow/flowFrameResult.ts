@@ -5,21 +5,18 @@ import type {
   GpuFlowCommittedSurfaceCandidateAction,
 } from "./visibleFrameActorAdapters/committedSurfaceCandidateAction";
 import type {
-  GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFrameContentPlan";
 
 export type GpuFlowNodeLayerCommittedSurfacePublicationResult = {
   readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfaceCandidate | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
 };
 
 const EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION = Object.freeze({
   blockedSurfacePublication: null,
   committedSurfaceFrame: null,
-  committedSurfacePublicationEffect: null,
   heldPreparedCommittedSurfaceFrame: null,
 } satisfies GpuFlowNodeLayerCommittedSurfacePublicationResult);
 
@@ -49,10 +46,8 @@ type GpuFlowNodeLayerFrameResultOptions = {
 
 export function createGpuFlowNodeLayerCommittedSurfacePublicationResult({
   action,
-  effect,
 }: {
   readonly action: GpuFlowCommittedSurfaceCandidateAction;
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
 }): GpuFlowNodeLayerCommittedSurfacePublicationResult {
   switch (action.kind) {
     case "blocked-candidate":
@@ -64,7 +59,6 @@ export function createGpuFlowNodeLayerCommittedSurfacePublicationResult({
       return {
         ...EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
         committedSurfaceFrame: action.committedSurfaceFrame,
-        committedSurfacePublicationEffect: effect,
       };
   }
 }

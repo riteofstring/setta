@@ -24,7 +24,6 @@ import {
 import type {
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
-  GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "../visibleFrameContentPlan";
 import type { GpuFlowRetainedProjectionFrame } from "../visibleFrameProjectionCoverage";
@@ -160,7 +159,7 @@ export type GpuFlowRetainedProjectionPublicationCandidateSelector = (input: {
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }) => GpuFlowRetainedProjectionPublicationCandidate;
 
-export type GpuFlowVisiblePublicationCandidateOracle =
+export type GpuFlowVisiblePublicationCandidateDecisionKernel =
   GpuFlowVisiblePublicationContentDecisionKernel & {
     readonly createRetainedProjectionBlockedPublicationCandidate: typeof createGpuFlowRetainedProjectionBlockedPublicationCandidate;
     readonly createRetainedProjectionPublicationCandidateSelector: (input: {
@@ -236,7 +235,6 @@ export function prepareGpuFlowCommittedSurfacePublicationCandidate({
     });
   if (publicationReadiness.kind === "publish") {
     return {
-      effect: { kind: "publish" },
       kind: "publish",
     };
   }
@@ -266,7 +264,7 @@ export function createGpuFlowVisiblePublicationContentDecisionKernel(): GpuFlowV
   return createGpuFlowVisiblePublicationContentDecisionKernelMethods();
 }
 
-export function createGpuFlowVisiblePublicationCandidateOracle(): GpuFlowVisiblePublicationCandidateOracle {
+export function createGpuFlowVisiblePublicationCandidateDecisionKernel(): GpuFlowVisiblePublicationCandidateDecisionKernel {
   return Object.freeze({
     ...createGpuFlowVisiblePublicationContentDecisionKernelMethods(),
     createRetainedProjectionBlockedPublicationCandidate:
@@ -319,7 +317,6 @@ function selectGpuFlowCommittedSurfacePublicationFramePlan({
   });
   const result = resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
     action,
-    effect: candidate.kind === "publish" ? candidate.effect : null,
   });
   if (action.kind !== "publish") {
     return {
@@ -373,15 +370,12 @@ function resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
 
 function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
   action,
-  effect,
 }: {
   readonly action: GpuFlowCommittedSurfaceCandidateAction;
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
 }): GpuFlowCommittedSurfacePublicationActionFrameResult {
   const committedSurfacePublication =
     createGpuFlowNodeLayerCommittedSurfacePublicationResult({
       action,
-      effect,
     });
   if (action.kind === "publish") {
     return {

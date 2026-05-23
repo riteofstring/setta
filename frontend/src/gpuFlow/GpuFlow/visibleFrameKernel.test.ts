@@ -24,12 +24,12 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameKernel";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
-import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFrameTransactionProofs";
+import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-const createGpuFlowVisiblePublicationCommitOracleFromFactory =
-  createGpuFlowVisiblePublicationCommitOracleFactory();
-const createGpuFlowVisiblePublicationCommitOracle = ({
+const createGpuFlowVisiblePublicationCommitProofFromFactory =
+  createGpuFlowVisiblePublicationCommitProofFactory();
+const createGpuFlowVisiblePublicationCommitProof = ({
   committedFrame,
   publicationDecision,
 }: {
@@ -37,7 +37,7 @@ const createGpuFlowVisiblePublicationCommitOracle = ({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
-  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+  return createGpuFlowVisiblePublicationCommitProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
@@ -147,10 +147,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.preparedFrame.visibleProjectionState).toBe(
       contentVisibleState,
     );
-    expect(result.preparedFrame.transactionOracle.visibleProjectionSource).toBe(
+    expect(result.preparedFrame.transactionProof.visibleProjectionSource).toBe(
       "content-publication",
     );
-    expect(result.preparedFrame.transactionOracle.commitOracle).toEqual(
+    expect(result.preparedFrame.transactionProof.commitProof).toEqual(
       expect.objectContaining({
         actorProofDigest: "[]",
         debtProof: { content: true, maintenance: false, motion: false },
@@ -361,7 +361,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     }
   });
 
-  it("uses one commit oracle for compatible-previous proof reports and debt", () => {
+  it("uses one commit proof for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const publicationDecision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -371,19 +371,19 @@ describe("GPU Flow visible publication transaction kernel", () => {
       viewportInteractionActive: false,
     });
 
-    const oracle = createGpuFlowVisiblePublicationCommitOracle({
+    const proof = createGpuFlowVisiblePublicationCommitProof({
       committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
       publicationDecision,
     });
 
     expect(publicationDecision.lane).toBe("content");
-    expect(oracle.hasCompatiblePreviousCoverage).toBe(true);
-    expect(oracle.debtProof).toEqual({
+    expect(proof.hasCompatiblePreviousCoverage).toBe(true);
+    expect(proof.debtProof).toEqual({
       content: false,
       maintenance: false,
       motion: false,
     });
-    expect(oracle.remainingActorDebt).toEqual([
+    expect(proof.remainingActorDebt).toEqual([
       {
         actorId: "actor-a",
         canonicalActorId: "canonical-text-a",
@@ -391,14 +391,14 @@ describe("GPU Flow visible publication transaction kernel", () => {
         remainingDebt: ["exact-browser-visual"],
       },
     ]);
-    expect(oracle.browserActorProofs).toEqual(
+    expect(proof.browserActorProofs).toEqual(
       expect.objectContaining({
         actorCount: 1,
         actualInteraction: { "inactive-visual-only": 1 },
         actualVisual: { "compatible-previous": 1 },
       }),
     );
-    expect(oracle.compatiblePreviousProofs).toEqual(
+    expect(proof.compatiblePreviousProofs).toEqual(
       expect.objectContaining({
         actorCount: 1,
         maxObservedProofAgeFrames: 1,
@@ -406,7 +406,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         overBudgetActorIds: [],
       }),
     );
-    expect(oracle.coverage).toEqual(
+    expect(proof.coverage).toEqual(
       expect.objectContaining({
         compatibleCoverageCount: 1,
         exactCoverageCount: 0,
@@ -469,10 +469,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
       expect(result.outcome.kind).toBe("blocked");
       expect(publishedOutcome).toBe("blocked");
-      expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
+      expect(result.preparedFrame.transactionProof.blockedSource).toBe(
         blockedSource,
       );
-      expect(result.preparedFrame.transactionOracle.commitOracle).toBeNull();
+      expect(result.preparedFrame.transactionProof.commitProof).toBeNull();
       if (result.outcome.kind !== "blocked") {
         throw new Error("Expected compatible previous proof block.");
       }
@@ -509,7 +509,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
       scheduler,
     });
 
-    expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
+    expect(result.preparedFrame.transactionProof.blockedSource).toBe(
       "compatible-previous-proof",
     );
     expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe("held");

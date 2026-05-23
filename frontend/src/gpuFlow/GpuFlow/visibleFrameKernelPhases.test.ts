@@ -86,7 +86,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedFrameSelector[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionOracleFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionProofFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
@@ -118,7 +118,7 @@ describe("GPU Flow visible publication kernel phases", () => {
     const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
 
     expect(source).not.toContain(
-      "createGpuFlowVisibleFramePublicationTransactionOracle(",
+      "createGpuFlowVisibleFramePublicationTransactionProof(",
     );
     expect(source).not.toContain(
       "proveGpuFlowVisibleFramePublicationCandidateSet",
@@ -201,7 +201,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       );
     }
     expect(presentationProofSource).toContain(
-      "commitAuthorityProof: commitOracle.commitAuthorityProof",
+      "commitAuthorityProof: commitProof.commitAuthorityProof",
     );
     expect(presentationProofSource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",

@@ -274,7 +274,7 @@ export function assertGpuFlowVisiblePublicationResourcesProtected(
     return;
   }
   throw new Error(
-    `GPU Flow visible publication oracle requires protected resources for all actor proofs: ${report.missingResourceKeys.join(
+    `GPU Flow visible publication proof requires protected resources for all actor proofs: ${report.missingResourceKeys.join(
       ", ",
     )}.`,
   );

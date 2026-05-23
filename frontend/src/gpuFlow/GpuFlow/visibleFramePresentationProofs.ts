@@ -25,7 +25,7 @@ import {
   type GpuFlowBlockedPublicationToken,
 } from "./visibleFramePresentationTokens";
 import type {
-  GpuFlowVisibleFramePublicationTransactionOracle,
+  GpuFlowVisibleFramePublicationTransactionProof,
   GpuFlowVisiblePublicationBlockedProof,
 } from "./visibleFrameTransactionProofs";
 import {
@@ -83,7 +83,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   publicationDecision,
   previousVisibleProjectionState,
   scheduler,
-  transactionOracle,
+  transactionProof,
 }: {
   readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly forceImmediatePublicationDebtFrame: boolean;
@@ -91,7 +91,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly scheduler: GpuFlowVisibleFramePublicationPresentationScheduler;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const schedulerKnobs = scheduler.getKnobs();
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
@@ -103,7 +103,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
     publicationDecision,
     previousVisibleProjectionState,
     schedulerKnobs,
-    transactionOracle,
+    transactionProof,
   });
   return Object.freeze({
     coldStartShellPublication:
@@ -129,7 +129,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
         outcome,
         previousVisibleProjectionState,
         publicationDecision,
-        renderedVisibleFrame: transactionOracle.renderedVisibleFrame,
+        renderedVisibleFrame: transactionProof.renderedVisibleFrame,
         schedulerKnobs,
       }),
     outcome,
@@ -437,15 +437,15 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   publicationDecision,
   previousVisibleProjectionState,
   schedulerKnobs,
-  transactionOracle,
+  transactionProof,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): GpuFlowVisiblePublicationOutcome {
-  const visibleFrameEngineOutcome = transactionOracle.visibleFrameEngineOutcome;
+  const visibleFrameEngineOutcome = transactionProof.visibleFrameEngineOutcome;
   if (!visibleFrameEngineOutcome) {
     throw new Error(
       "GPU Flow visible publication completion requires a visible frame engine outcome.",
@@ -456,14 +456,14 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
     case "projected":
       return createGpuFlowVisiblePublicationCompletionCommitOutcome({
         publicationDecision,
-        transactionOracle,
+        transactionProof,
       });
     case "held":
       return createGpuFlowVisiblePublicationCompletionHeldEngineOutcome({
         publicationDecision,
         previousVisibleProjectionState,
         schedulerKnobs,
-        transactionOracle,
+        transactionProof,
       });
     case "blocked-cold-start":
       if (blockedPublicationToken !== null) {
@@ -483,7 +483,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
         publicationDecision,
         previousVisibleProjectionState,
         schedulerKnobs,
-        transactionOracle,
+        transactionProof,
       });
   }
 }
@@ -492,17 +492,17 @@ function createGpuFlowVisiblePublicationCompletionHeldEngineOutcome({
   publicationDecision,
   previousVisibleProjectionState,
   schedulerKnobs,
-  transactionOracle,
+  transactionProof,
 }: {
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): Extract<
   GpuFlowVisiblePublicationOutcome,
   { readonly kind: "blocked" | "hold-previous" }
 > {
-  const visibleProjectionState = transactionOracle.visibleProjectionState;
+  const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState?.transaction.kind === "held-previous") {
     return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
       blockedPublicationToken: null,
@@ -522,18 +522,18 @@ function createGpuFlowVisiblePublicationCompletionAbortedEngineOutcome({
   publicationDecision,
   previousVisibleProjectionState,
   schedulerKnobs,
-  transactionOracle,
+  transactionProof,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): Extract<
   GpuFlowVisiblePublicationOutcome,
   { readonly kind: "blocked" | "hold-previous" }
 > {
-  const visibleProjectionState = transactionOracle.visibleProjectionState;
+  const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState?.transaction.kind === "held-previous") {
     return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
       blockedPublicationToken,
@@ -547,7 +547,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedEngineOutcome({
       token: blockedPublicationToken,
     };
   }
-  const engineOutcome = transactionOracle.visibleFrameEngineOutcome;
+  const engineOutcome = transactionProof.visibleFrameEngineOutcome;
   if (engineOutcome?.kind === "aborted") {
     return {
       kind: "blocked",
@@ -575,17 +575,17 @@ function createGpuFlowVisiblePublicationCompletionAbortedEngineOutcome({
 
 function createGpuFlowVisiblePublicationCompletionCommitOutcome({
   publicationDecision,
-  transactionOracle,
+  transactionProof,
 }: {
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): Extract<GpuFlowVisiblePublicationOutcome, { readonly kind: "commit" }> {
-  if (!transactionOracle.renderedVisibleFrame) {
+  if (!transactionProof.renderedVisibleFrame) {
     throw new Error(
       "GPU Flow visible publication completion cannot commit without a rendered engine outcome.",
     );
   }
-  const visibleProjectionState = transactionOracle.visibleProjectionState;
+  const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState === null) {
     throw new Error(
       "GPU Flow visible publication completion cannot commit a rendered frame without visible projection state.",
@@ -596,20 +596,20 @@ function createGpuFlowVisiblePublicationCompletionCommitOutcome({
       "GPU Flow visible publication completion cannot commit a held-previous engine outcome.",
     );
   }
-  const commitOracle = transactionOracle.commitOracle;
-  if (commitOracle === null) {
+  const commitProof = transactionProof.commitProof;
+  if (commitProof === null) {
     throw new Error(
-      "GPU Flow committed publication completion requires the transaction oracle commit proof.",
+      "GPU Flow committed publication completion requires the transaction proof commit proof.",
     );
   }
   return {
-    debtProof: commitOracle.debtProof,
+    debtProof: commitProof.debtProof,
     kind: "commit",
     token: createGpuFlowVisiblePublicationCompletionCommitToken({
-      commitAuthorityProof: commitOracle.commitAuthorityProof,
+      commitAuthorityProof: commitProof.commitAuthorityProof,
       presentationIdentity:
         createGpuFlowVisibleFramePublicationPresentationIdentity({
-          transactionOracle,
+          transactionProof,
         }),
       publicationDecision,
       visibleProjectionState,
@@ -618,11 +618,11 @@ function createGpuFlowVisiblePublicationCompletionCommitOutcome({
 }
 
 function createGpuFlowVisibleFramePublicationPresentationIdentity({
-  transactionOracle,
+  transactionProof,
 }: {
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): GpuFlowVisibleFramePresentationIdentity {
-  const visibleFrameEngineOutcome = transactionOracle.visibleFrameEngineOutcome;
+  const visibleFrameEngineOutcome = transactionProof.visibleFrameEngineOutcome;
   if (
     visibleFrameEngineOutcome?.kind !== "presented" &&
     visibleFrameEngineOutcome?.kind !== "projected"

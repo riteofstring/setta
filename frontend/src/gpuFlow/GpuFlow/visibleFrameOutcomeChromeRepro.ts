@@ -9,7 +9,7 @@ import type {
 } from "../projectionRuntime";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
-  type GpuFlowVisibleFramePublicationTransactionOracle,
+  type GpuFlowVisibleFramePublicationTransactionProof,
   type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameKernel";
@@ -22,14 +22,14 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   outcome,
   previousCommittedFrameId,
   publicationDecision,
-  transactionOracle,
+  transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationSchedulerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle | null;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): void {
   if (!isChromeReproActive()) {
@@ -42,7 +42,7 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
       outcome,
       previousCommittedFrameId,
       publicationDecision,
-      transactionOracle,
+      transactionProof,
       visibleProjectionState,
     }),
   );
@@ -53,14 +53,14 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   outcome,
   previousCommittedFrameId,
   publicationDecision,
-  transactionOracle,
+  transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationSchedulerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle | null;
+  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   return createGpuFlowVisiblePublicationTransactionReport({
@@ -68,7 +68,7 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
     outcome,
     previousCommittedFrameId,
     publicationDecision,
-    transactionOracle,
+    transactionProof,
     visibleProjectionState,
   });
 }

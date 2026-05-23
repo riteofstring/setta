@@ -34,7 +34,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
     });
   });
 
-  it("derives required and protected resources from one transaction oracle surface", () => {
+  it("derives required and protected resources from one transaction proof surface", () => {
     const actorTexture = resourceHandle("texture", "actor-texture");
     const previousSource = resourceHandle("source", "previous-source");
     const exactPage = resourceHandle("page", "exact-page");
@@ -100,7 +100,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
     ).toThrow(/requires protected resources.*source:source-a/);
   });
 
-  it("creates stable resource protection digests for oracle commit proofs", () => {
+  it("creates stable resource protection digests for proof commit proofs", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
       committedSurfaceFrame({
         actorResourceHandles: [resourceHandle("source", "source-b")],

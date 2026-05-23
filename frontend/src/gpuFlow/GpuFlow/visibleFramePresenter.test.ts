@@ -297,7 +297,6 @@ function heldPreviousPublicationTransaction({
         blockedPreparedCommittedSurfaceFrame: null,
         blockedPreservePreparationSnapshot: false,
         committedSurfaceFrame: null,
-        committedSurfacePublicationEffect: null,
         heldPreparedCommittedSurfaceFrame: null,
         nodeLayerFrameStatePublication: null,
         retainedDisplayFrame: null,
@@ -306,7 +305,7 @@ function heldPreviousPublicationTransaction({
       motionProjectionFrame: {
         nodeLayerFrameStatePublication: null,
       },
-      transactionOracle: null,
+      transactionProof: null,
       visibleProjectionState: heldState,
     },
     previousCommittedFrameId,
@@ -373,7 +372,6 @@ function committedPublicationTransaction({
         blockedPreparedCommittedSurfaceFrame: null,
         blockedPreservePreparationSnapshot: false,
         committedSurfaceFrame: committedFrame,
-        committedSurfacePublicationEffect: null,
         heldPreparedCommittedSurfaceFrame: null,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: null,
@@ -382,7 +380,7 @@ function committedPublicationTransaction({
       motionProjectionFrame: {
         nodeLayerFrameStatePublication: null,
       },
-      transactionOracle: null,
+      transactionProof: null,
       visibleProjectionState: selectedState,
     },
     previousCommittedFrameId: null,

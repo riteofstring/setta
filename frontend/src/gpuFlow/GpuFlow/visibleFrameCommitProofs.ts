@@ -141,7 +141,7 @@ export function assertGpuFlowCommitAuthorityProofMatchesFrame({
     commitAuthorityProof.resourceProtectionDigest !== resourceProtectionDigest
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction oracle resource protection proof for the selected frame.",
+      "GPU Flow commit publication authority requires the transaction proof resource protection proof for the selected frame.",
     );
   }
   if (
@@ -156,7 +156,7 @@ export function assertGpuFlowCommitAuthorityProofMatchesFrame({
       })
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction oracle presentable commit proof for the selected frame.",
+      "GPU Flow commit publication authority requires the transaction proof presentable commit proof for the selected frame.",
     );
   }
 }
@@ -199,7 +199,7 @@ export function assertGpuFlowCommitPresentationPairProof({
     )
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction oracle DOM/canvas presentation pair proof for the selected frame and projection sample.",
+      "GPU Flow commit publication authority requires the transaction proof DOM/canvas presentation pair proof for the selected frame and projection sample.",
     );
   }
 }

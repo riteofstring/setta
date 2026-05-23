@@ -10,29 +10,33 @@ import type {
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
+import type {
+  GpuFlowVisibleFrameEngineOutcome,
+  GpuFlowVisibleFramePreparedFrame,
+} from "./visibleFrameEngine";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 import {
-  createGpuFlowVisiblePublicationCommitOracleFactory,
-  type GpuFlowVisibleFramePublicationTransactionOracle,
-  type GpuFlowVisiblePublicationCommitOracle,
+  createGpuFlowVisiblePublicationCommitProofFactory,
+  type GpuFlowVisibleFramePublicationTransactionProof,
+  type GpuFlowVisiblePublicationCommitProof,
 } from "./visibleFrameTransactionProofs";
 
-const createGpuFlowVisiblePublicationCommitOracleFromFactory =
-  createGpuFlowVisiblePublicationCommitOracleFactory();
-const createGpuFlowVisiblePublicationCommitOracle = ({
+const createGpuFlowVisiblePublicationCommitProofFromFactory =
+  createGpuFlowVisiblePublicationCommitProofFactory();
+const createGpuFlowVisiblePublicationCommitProof = ({
   committedFrame,
   publicationDecision,
 }: {
   readonly committedFrame: Parameters<
-    typeof createGpuFlowVisiblePublicationCommitOracleFromFactory
+    typeof createGpuFlowVisiblePublicationCommitProofFromFactory
   >[0]["committedFrame"];
   readonly publicationDecision: Parameters<
-    typeof createGpuFlowVisiblePublicationCommitOracleFromFactory
+    typeof createGpuFlowVisiblePublicationCommitProofFromFactory
   >[0]["publicationDecision"];
 }) => {
   const projectionTransactionId = "transaction-a";
-  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+  return createGpuFlowVisiblePublicationCommitProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
@@ -181,7 +185,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         kind: "content-publication",
       },
     } as unknown as GpuFlowVisibleProjectionState;
-    const commitOracle = createGpuFlowVisiblePublicationCommitOracle({
+    const commitProof = createGpuFlowVisiblePublicationCommitProof({
       committedFrame: visibleProjectionState.committedFrame,
       publicationDecision: publicationDecision(sample),
     });
@@ -198,7 +202,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         }),
         previousCommittedFrameId: 6,
         publicationDecision: publicationDecision(sample),
-        transactionOracle: transactionOracle({ commitOracle }),
+        transactionProof: transactionProof({ commitProof }),
         visibleProjectionState,
       }),
     ).toEqual(
@@ -304,12 +308,16 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           requiredResourceKeys: ["source:source-a"],
         },
         transactionId: "transaction-a",
-        transactionOracle: {
+        transactionProof: {
           blockedProof: null,
           blockedSource: null,
-          hasCommitOracle: true,
+          hasCommitProof: true,
           hasPresentableCommit: true,
           renderedVisibleFrame: true,
+          visibleFrameEngineOutcome: {
+            decidingProof: null,
+            kind: "presented",
+          },
           visibleProjectionSource: "content-publication",
         },
         visibleTransaction: {
@@ -352,17 +360,22 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
   });
 });
 
-function transactionOracle({
-  commitOracle,
+function transactionProof({
+  commitProof,
 }: {
-  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle;
-}): GpuFlowVisibleFramePublicationTransactionOracle {
+  readonly commitProof: GpuFlowVisiblePublicationCommitProof;
+}): GpuFlowVisibleFramePublicationTransactionProof {
   return {
     blockedPublicationCandidate: null,
     blockedProof: null,
     blockedSource: null,
-    commitOracle,
+    commitProof,
     renderedVisibleFrame: true,
+    visibleFrameEngineOutcome: {
+      decidingProof: null,
+      kind: "presented",
+    } as GpuFlowVisibleFrameEngineOutcome,
+    visibleFrameEnginePreparedFrame: {} as GpuFlowVisibleFramePreparedFrame,
     visibleProjectionSource: "content-publication",
     visibleProjectionState: {} as GpuFlowVisibleProjectionState,
   };

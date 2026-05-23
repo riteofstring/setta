@@ -24,12 +24,12 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameKernel";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
-import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFrameTransactionProofs";
+import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-const createGpuFlowVisiblePublicationCommitOracleFromFactory =
-  createGpuFlowVisiblePublicationCommitOracleFactory();
-const createGpuFlowVisiblePublicationCommitOracle = ({
+const createGpuFlowVisiblePublicationCommitProofFromFactory =
+  createGpuFlowVisiblePublicationCommitProofFactory();
+const createGpuFlowVisiblePublicationCommitProof = ({
   committedFrame,
   publicationDecision,
 }: {
@@ -37,7 +37,7 @@ const createGpuFlowVisiblePublicationCommitOracle = ({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
-  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+  return createGpuFlowVisiblePublicationCommitProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:

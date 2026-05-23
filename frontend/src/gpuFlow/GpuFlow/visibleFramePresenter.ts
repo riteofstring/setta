@@ -29,7 +29,6 @@ import {
 } from "./visibleFrameDiagnostics";
 import type {
   GpuFlowCommittedSurfaceBlockedCandidateRetry,
-  GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFramePublicationKernelResult,
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtFrameRequest,
@@ -202,7 +201,6 @@ function presentGpuFlowVisibleFramePublicationFrame({
         blockedPreparedCommittedSurfaceFrameRetry,
         blockedPreservePreparationSnapshot,
         committedSurfaceFrame,
-        committedSurfacePublicationEffect,
         heldPreparedCommittedSurfaceFrame,
         nodeLayerFrameStatePublication: contentNodeLayerFrameStatePublication,
         retainedDisplayFrame,
@@ -229,7 +227,6 @@ function presentGpuFlowVisibleFramePublicationFrame({
       abortPreparedCommittedSurfaceFrame,
       callbacksRef,
       committedSurfaceFrame,
-      committedSurfacePublicationEffect,
       commitPreparedCommittedSurfaceFrame,
       blockedErrorMessage,
       blockedPreparedCommittedSurfaceFrame,
@@ -278,7 +275,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
     outcome,
     publicationDecision,
     previousCommittedFrameId: publicationTransaction.previousCommittedFrameId,
-    transactionOracle: publicationTransaction.preparedFrame.transactionOracle,
+    transactionProof: publicationTransaction.preparedFrame.transactionProof,
     visibleProjectionState:
       selectedVisibleProjectionState ?? heldPreviousVisibleProjectionState,
   });
@@ -508,7 +505,6 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   blockedPreservePreparationSnapshot,
   callbacksRef,
   committedSurfaceFrame,
-  committedSurfacePublicationEffect,
   commitPreparedCommittedSurfaceFrame,
   heldPreparedCommittedSurfaceFrame,
   heldPreviousVisibleProjectionState,
@@ -531,7 +527,6 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
   readonly blockedErrorMessage: string | null;
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -560,7 +555,6 @@ function publishGpuFlowSurfaceVisibleProjectionState({
       publishGpuFlowCommittedSurfaceVisibleProjectionState({
         callbacksRef,
         committedSurfaceFrame,
-        committedSurfacePublicationEffect,
         commitPreparedCommittedSurfaceFrame,
         nodeLayerFrameStatePublication,
         outcome,
@@ -637,7 +631,6 @@ function publishGpuFlowSurfaceVisibleProjectionState({
 function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   callbacksRef,
   committedSurfaceFrame,
-  committedSurfacePublicationEffect,
   commitPreparedCommittedSurfaceFrame,
   nodeLayerFrameStatePublication,
   outcome,
@@ -657,7 +650,6 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
 }: {
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly outcome: Extract<

@@ -38,7 +38,7 @@ const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameKernel.ts", import.meta.url),
 );
-const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
+const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
     import.meta.url,
@@ -54,7 +54,7 @@ const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
 function readGpuFlowVisiblePublicationKernelSource(): string {
-  return [KERNEL_MODULE_PATH, KERNEL_CANDIDATE_ORACLE_MODULE_PATH]
+  return [KERNEL_MODULE_PATH, CONTENT_DECISION_KERNEL_MODULE_PATH]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");
 }
@@ -146,7 +146,6 @@ describe("GPU Flow visible publication content plans", () => {
       createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
         contentDecisionKernel,
         prepareCommittedSurfacePublicationCandidate: () => ({
-          effect: { kind: "publish" },
           kind: "publish",
         }),
       });
@@ -224,8 +223,8 @@ describe("GPU Flow visible publication content plans", () => {
   it("keeps content publication selector factories off the kernel public surface", () => {
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const candidateOracleSource = readFileSync(
-      KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
+    const candidateDecisionKernelSource = readFileSync(
+      CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
     );
 
@@ -242,7 +241,7 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowRetainedDisplayPublicationFramePlanSelector();",
     );
     expect(kernelModuleSource).toContain(
-      "createGpuFlowVisiblePublicationCandidateOracle",
+      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowVisiblePublicationContentDecisionKernel",
@@ -253,10 +252,10 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "const visiblePublicationContentDecisionKernel",
     );
-    expect(candidateOracleSource).toContain(
+    expect(candidateDecisionKernelSource).toContain(
       "export function createGpuFlowVisiblePublicationContentDecisionKernel",
     );
-    expect(candidateOracleSource).not.toMatch(
+    expect(candidateDecisionKernelSource).not.toMatch(
       /export function createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|CommittedSurfacePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
     );
   });
@@ -889,7 +888,6 @@ describe("GPU Flow visible publication content plans", () => {
     const committedSurfacePublication = {
       blockedSurfacePublication: null,
       committedSurfaceFrame: preparedCommittedSurfaceFrame,
-      committedSurfacePublicationEffect: { kind: "publish" },
       heldPreparedCommittedSurfaceFrame: null,
     } as const;
     const prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer =
@@ -919,7 +917,7 @@ describe("GPU Flow visible publication content plans", () => {
         );
         expect(input.publishedRetainedFrame).toBe(publishedRetainedFrame);
         return {
-          candidate: { effect: { kind: "publish" }, kind: "publish" },
+          candidate: { kind: "publish" },
           committedSurfacePublication,
           framePlan: {
             blockedPublicationCandidate: null,

@@ -7,7 +7,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
 const KERNEL_MODULE_PATH = modulePath("./visibleFrameKernel.ts");
-const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
+const CONTENT_DECISION_KERNEL_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
 const CONTENT_PLAN_MODULE_PATH = modulePath("./visibleFrameContentPlan.ts");
@@ -162,7 +162,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowVisibleFramePublicationTransactionOracleFactory",
+      "createGpuFlowVisibleFramePublicationTransactionProofFactory",
     );
     expect(kernelSource).toContain("blockedSource");
     expect(kernelSource).toContain("visibleProjectionSource");
@@ -1030,7 +1030,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
 function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
-    KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
+    CONTENT_DECISION_KERNEL_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
     modulePath("./visibleFrameTransactionProofs.ts"),
@@ -1040,7 +1040,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
 }
 
 function readCommittedSurfaceAuthorityCandidateSource(): string {
-  const source = readFileSync(KERNEL_CANDIDATE_ORACLE_MODULE_PATH, "utf8");
+  const source = readFileSync(CONTENT_DECISION_KERNEL_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
     "function prepareGpuFlowCommittedSurfacePublicationCandidate",
   );

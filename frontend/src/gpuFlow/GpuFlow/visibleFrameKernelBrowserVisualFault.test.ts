@@ -82,7 +82,7 @@ describe("GPU Flow visible publication browser visual fault injection", () => {
     expect(result.completeSchedulerFrame().completion.debt.maintenance).toBe(
       true,
     );
-    expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
+    expect(result.preparedFrame.transactionProof.blockedSource).toBe(
       "browser-visual-proof",
     );
     expect(result.preparedFrame.renderedVisibleFrame).toBe(false);

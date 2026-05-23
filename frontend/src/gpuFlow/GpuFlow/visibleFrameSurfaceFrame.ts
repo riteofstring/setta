@@ -284,9 +284,8 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.contentVisibleTransaction =
           contentPublicationFrame.visibleProjectionState?.transaction.kind ??
           null;
-        frameMeasureDetail.contentPublicationEffect =
-          contentPublicationFrame.committedSurfacePublicationEffect?.kind ??
-          null;
+        frameMeasureDetail.contentCommittedSurfacePublished =
+          contentPublicationFrame.committedSurfaceFrame !== null;
         frameMeasureDetail.contentBlocked =
           contentPublicationFrame.blockedPublicationCandidate !== null;
         frameMeasureDetail.contentForceImmediateDebtFrame =

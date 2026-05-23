@@ -30,7 +30,7 @@ const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameKernel.ts", import.meta.url),
 );
-const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
+const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
     import.meta.url,
@@ -134,19 +134,19 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
-  it("keeps retained projection transaction candidates in the kernel-owned oracle and out of render planning", () => {
+  it("keeps retained projection transaction candidates in the kernel-owned proof and out of render planning", () => {
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
     );
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const candidateOracleSource = readFileSync(
-      KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
+    const candidateDecisionKernelSource = readFileSync(
+      CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
     );
     const kernelAuthoritySource = [
       kernelModuleSource,
-      candidateOracleSource,
+      candidateDecisionKernelSource,
     ].join("\n");
 
     expect(projectionPlanSource).not.toContain(
@@ -161,7 +161,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     expect(kernelAuthoritySource).toContain(
       "GpuFlowRetainedProjectionPublicationCandidate",
     );
-    expect(candidateOracleSource).toContain(
+    expect(candidateDecisionKernelSource).toContain(
       "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
@@ -177,7 +177,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
       "export function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).toContain(
-      "createGpuFlowVisiblePublicationCandidateOracle",
+      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedProjectionPublicationCandidateSelector",
@@ -188,19 +188,19 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     expect(kernelModuleSource).not.toContain(
       "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
-    expect(candidateOracleSource).not.toContain(
+    expect(candidateDecisionKernelSource).not.toContain(
       "export function createGpuFlowProjectionFrameTransactionSelector",
     );
-    expect(candidateOracleSource).not.toContain(
+    expect(candidateDecisionKernelSource).not.toContain(
       "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
-    expect(candidateOracleSource).toContain(
+    expect(candidateDecisionKernelSource).toContain(
       "function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
-    expect(candidateOracleSource).toContain(
+    expect(candidateDecisionKernelSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });

@@ -118,7 +118,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         moduleName: "visibleFrameTransactionProofs",
         names: [
           "createGpuFlowVisiblePublicationCommitDebtProof",
-          "createGpuFlowVisiblePublicationCommitOracleFactory",
+          "createGpuFlowVisiblePublicationCommitProofFactory",
         ],
       },
     ];

@@ -1,4 +1,4 @@
-// Adapts transaction oracle state into the visible frame engine's proof model.
+// Adapts transaction proof state into the visible frame engine's proof model.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type {
   GpuFlowVisibleProjectionState,

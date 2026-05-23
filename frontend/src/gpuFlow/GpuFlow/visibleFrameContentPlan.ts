@@ -37,10 +37,6 @@ import type {
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePresentationProofs";
 
-export type GpuFlowCommittedSurfacePublicationEffect = {
-  readonly kind: "publish";
-};
-
 export type GpuFlowCommittedSurfaceBlockedCandidateRetry = {
   readonly deferRetry: boolean;
   readonly timestamp: number;
@@ -58,7 +54,6 @@ export type GpuFlowContentPublicationFrameResult = {
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
@@ -83,7 +78,6 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   blockedPreservePreparationSnapshot: false,
   blockedPublicationCandidate: null,
   committedSurfaceFrame: null,
-  committedSurfacePublicationEffect: null,
   forceImmediatePublicationDebtFrame: false,
   heldPreparedCommittedSurfaceFrame: null,
   nodeLayerFrameStatePublication: null,
@@ -96,7 +90,6 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
 
 export type GpuFlowCommittedSurfacePublicationCandidate =
   | {
-      readonly effect: GpuFlowCommittedSurfacePublicationEffect;
       readonly kind: "publish";
     }
   | {
@@ -825,8 +818,6 @@ function createGpuFlowVisibleContentPublicationFrameResult({
   return createGpuFlowContentPublicationFrameResult({
     blockedPublicationCandidate,
     committedSurfaceFrame: committedSurfacePublication.committedSurfaceFrame,
-    committedSurfacePublicationEffect:
-      committedSurfacePublication.committedSurfacePublicationEffect,
     forceImmediatePublicationDebtFrame: heldPrevious && !deferResolutionUpdates,
     heldPreparedCommittedSurfaceFrame:
       committedSurfacePublication.heldPreparedCommittedSurfaceFrame,
@@ -870,8 +861,6 @@ function createGpuFlowNotVisibleContentPublicationFrameResult({
       blockedSurfacePublication?.preservePreparationSnapshot ?? false,
     blockedPublicationCandidate,
     committedSurfaceFrame: committedSurfacePublication.committedSurfaceFrame,
-    committedSurfacePublicationEffect:
-      committedSurfacePublication.committedSurfacePublicationEffect,
     heldPreparedCommittedSurfaceFrame:
       committedSurfacePublication.heldPreparedCommittedSurfaceFrame,
     nodeLayerFrameStatePublication,

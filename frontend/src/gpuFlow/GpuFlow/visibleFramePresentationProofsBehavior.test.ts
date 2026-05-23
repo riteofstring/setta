@@ -171,7 +171,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     expect(token.proofDigest.length).toBeLessThan(120);
   });
 
-  it("rejects commit token issuance without the oracle proof digest for the selected frame", async () => {
+  it("rejects commit token issuance without the proof proof digest for the selected frame", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -195,10 +195,10 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         frame,
         projectionSample,
       }),
-    ).toThrow(/transaction oracle presentable commit proof/);
+    ).toThrow(/transaction proof presentable commit proof/);
   });
 
-  it("rejects commit token issuance without the oracle DOM/canvas pair proof for the projection sample", async () => {
+  it("rejects commit token issuance without the proof DOM/canvas pair proof for the projection sample", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -228,7 +228,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
-  it("rejects commit token issuance without the oracle resource protection proof", async () => {
+  it("rejects commit token issuance without the proof resource protection proof", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -408,7 +408,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
-      transactionOracle: {
+      transactionProof: {
         renderedVisibleFrame: false,
         visibleFrameEngineOutcome: {
           debt: {
@@ -430,7 +430,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         visibleProjectionState: null,
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["transactionOracle"],
+      >[0]["transactionProof"],
     });
 
     expect(completion.outcome.kind).toBe("blocked");
@@ -491,7 +491,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
-      transactionOracle: {
+      transactionProof: {
         renderedVisibleFrame: false,
         visibleFrameEngineOutcome: {
           debt: {
@@ -513,7 +513,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         visibleProjectionState: null,
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["transactionOracle"],
+      >[0]["transactionProof"],
     });
 
     expect(completion.outcome.kind).toBe("blocked");
@@ -578,8 +578,8 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
     >[0]["scheduler"],
-    transactionOracle: {
-      commitOracle: {
+    transactionProof: {
+      commitProof: {
         commitAuthorityProof,
         debtProof: {
           content: true,
@@ -616,7 +616,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       },
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
-    >[0]["transactionOracle"],
+    >[0]["transactionProof"],
   });
 }
 
