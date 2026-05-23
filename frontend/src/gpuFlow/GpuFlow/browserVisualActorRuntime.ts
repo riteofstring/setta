@@ -1,11 +1,9 @@
-import {
-  createGpuFlowCommittedSurfaceDomPresentationEvidence,
-  type GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  type GpuFlowCommittedSurfaceDomPresentationEvidence,
+import type {
+  GpuFlowCommittedSurfaceBrowserVisualReadiness,
+  GpuFlowCommittedSurfaceDomPresentationEvidence,
 } from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuDomIsland } from "../scene";
@@ -28,7 +26,6 @@ import {
   createGpuFlowBrowserVisualDomControlReadinessByActorId,
   createGpuFlowBrowserVisualDomIslandReadinessByActorId,
   describeGpuFlowDomControlHostReadiness,
-  isGpuFlowDomControlSnapshotReady,
   withGpuFlowFocusedDomControlPins,
   type GpuFlowDomControlHostReadinessDiagnostics,
   type GpuFlowDomControlReadinessContext,
@@ -52,6 +49,17 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import {
+  EMPTY_DOM_ISLANDS,
+  applyVisibleGpuFlowDomControlHostPresentation,
+  createEmptyBrowserVisualActorRuntimeSnapshot,
+  createGpuFlowBrowserVisualCandidatePresentationEvidence,
+  resolveGpuFlowDomControlLiveHostPreparationStage,
+  resolveGpuFlowDomControlSnapshotPreparationPool,
+  resolveGpuFlowDomControlSnapshotPreparationStage,
+  withGpuFlowBrowserVisualSnapshotPublicationToken,
+  type GpuFlowDomControlSnapshotTextureManager,
+} from "./browserVisualActorRuntimeState";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
   readonly committedFrameId: number;
@@ -92,13 +100,6 @@ export type GpuFlowBrowserVisualActorCandidate = {
   readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
 };
-
-const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
-  Object.freeze([]);
-const EMPTY_DOM_ISLANDS: readonly GpuDomIsland[] = Object.freeze([]);
-const GPU_FLOW_BROWSER_VISUAL_LIVE_PREPARATION_BATCH_SIZE = 4;
-const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE = 64;
-const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE = 4;
 
 const browserVisualActorRuntimeByCommittedSurfaceRuntime = new WeakMap<
   GpuFlowCommittedSurfaceRuntime,
@@ -167,10 +168,8 @@ export class GpuFlowBrowserVisualActorRuntime {
     HTMLElement
   >();
   private readonly composingDomControlIds = new Set<string>();
-  private domControlSnapshotTextureManager: Pick<
-    HtmlSurfaceTextureManager,
-    "getCommittedSurfaceTexture"
-  > | null = null;
+  private domControlSnapshotTextureManager: GpuFlowDomControlSnapshotTextureManager | null =
+    null;
   private readonly domIslandElementById = new Map<string, HTMLElement>();
   private readonly domIslandRegistrationCommittedFrameIdById = new Map<
     string,
@@ -506,10 +505,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }
 
   setDomControlSnapshotTextureManager(
-    textureManager: Pick<
-      HtmlSurfaceTextureManager,
-      "getCommittedSurfaceTexture"
-    > | null,
+    textureManager: GpuFlowDomControlSnapshotTextureManager | null,
   ): void {
     this.domControlSnapshotTextureManager = textureManager;
   }
@@ -716,8 +712,13 @@ export class GpuFlowBrowserVisualActorRuntime {
       }),
     });
     const promotedControls = this.projectionManager.promote(assignments);
-    const snapshotControls =
-      this.resolveDomControlSnapshotPreparationPool(assignments);
+    const snapshotControls = resolveGpuFlowDomControlSnapshotPreparationPool({
+      assignments,
+      domControlSnapshotElementBySurfaceId:
+        this.domControlSnapshotElementBySurfaceId,
+      domControlSnapshotTextureManager:
+        this.domControlSnapshotTextureManager,
+    });
     const mountedControls = mergeGpuFlowDomControlProjectedControls({
       controlById,
       currentControls: this.snapshot.domControls.mountedControls,
@@ -742,12 +743,18 @@ export class GpuFlowBrowserVisualActorRuntime {
   }): void {
     const preparedDomControls = preparedSnapshot.domControls;
     const preparedMountedControls =
-      this.resolveDomControlLiveHostPreparationStage({
+      resolveGpuFlowDomControlLiveHostPreparationStage({
+        isDomControlHostReady: (control) =>
+          this.isDomControlHostReady(control),
         preparedDomControls,
         token,
       });
     const preparedSnapshotControls =
-      this.resolveDomControlSnapshotPreparationStage({
+      resolveGpuFlowDomControlSnapshotPreparationStage({
+        domControlSnapshotElementBySurfaceId:
+          this.domControlSnapshotElementBySurfaceId,
+        domControlSnapshotTextureManager:
+          this.domControlSnapshotTextureManager,
         preparedDomControls,
         token,
       });
@@ -910,72 +917,6 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
   }
 
-  private resolveDomControlLiveHostPreparationStage({
-    preparedDomControls,
-    token,
-  }: {
-    readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
-  }): readonly GpuRetainedDomControlSourceDescriptor[] {
-    const requestedActorIds = getGpuFlowBrowserVisualRepairActorIds(token);
-    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    for (const control of preparedDomControls.mountedControls) {
-      if (this.isDomControlHostReady(control)) {
-        readyControls.push(control);
-        continue;
-      }
-      if (requestedActorIds && !requestedActorIds.has(control.sourceId)) {
-        continue;
-      }
-      pendingControls.push(control);
-    }
-    return Object.freeze([
-      ...readyControls,
-      ...pendingControls.slice(
-        0,
-        GPU_FLOW_BROWSER_VISUAL_LIVE_PREPARATION_BATCH_SIZE,
-      ),
-    ]);
-  }
-
-  private resolveDomControlSnapshotPreparationStage({
-    preparedDomControls,
-    token,
-  }: {
-    readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
-  }): readonly GpuRetainedDomControlSourceDescriptor[] {
-    const requestedActorIds = getGpuFlowBrowserVisualRepairActorIds(token);
-    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    for (const control of preparedDomControls.snapshotControls) {
-      if (
-        isGpuFlowDomControlSnapshotReady({
-          control,
-          domControlSnapshotElementBySurfaceId:
-            this.domControlSnapshotElementBySurfaceId,
-          domControlSnapshotTextureManager:
-            this.domControlSnapshotTextureManager,
-        })
-      ) {
-        readyControls.push(control);
-        continue;
-      }
-      if (requestedActorIds && !requestedActorIds.has(control.sourceId)) {
-        continue;
-      }
-      pendingControls.push(control);
-    }
-    return Object.freeze([
-      ...readyControls,
-      ...pendingControls.slice(
-        0,
-        GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE,
-      ),
-    ]);
-  }
-
   private assertBrowserVisualHostRegistrationToken({
     committedFrameId,
     presentation,
@@ -998,38 +939,6 @@ export class GpuFlowBrowserVisualActorRuntime {
         committedFrameId ?? this.snapshot.frameIds.committedFrameId,
       token,
     });
-  }
-
-  private resolveDomControlSnapshotPreparationPool(
-    assignments: readonly GpuFlowDomControlProjectionAssignment[],
-  ): readonly GpuRetainedDomControlSourceDescriptor[] {
-    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
-    for (const assignment of assignments) {
-      if (!isDomControlSnapshotPreparationAssignment(assignment)) {
-        continue;
-      }
-      if (
-        isGpuFlowDomControlSnapshotReady({
-          control: assignment.control,
-          domControlSnapshotElementBySurfaceId:
-            this.domControlSnapshotElementBySurfaceId,
-          domControlSnapshotTextureManager:
-            this.domControlSnapshotTextureManager,
-        })
-      ) {
-        readyControls.push(assignment.control);
-      } else {
-        pendingControls.push(assignment.control);
-      }
-    }
-    return Object.freeze([
-      ...readyControls,
-      ...pendingControls.slice(
-        0,
-        GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE,
-      ),
-    ]);
   }
 
   private isDomControlHostReady(
@@ -1086,130 +995,4 @@ export class GpuFlowBrowserVisualActorRuntime {
       visibleDomControlHostById: this.visibleDomControlHostById,
     };
   }
-}
-
-function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
-  const frameIds = Object.freeze({
-    committedFrameId: 0,
-    runtimeFrameId: 0,
-  });
-  return Object.freeze({
-    domControls: Object.freeze({
-      assignments: Object.freeze([]),
-      controlById: new Map(),
-      controls: EMPTY_DOM_CONTROL_DESCRIPTORS,
-      mountedControls: EMPTY_DOM_CONTROL_DESCRIPTORS,
-      snapshotControls: EMPTY_DOM_CONTROL_DESCRIPTORS,
-      sourceRevision: "",
-    }),
-    domIslands: Object.freeze({
-      islands: EMPTY_DOM_ISLANDS,
-    }),
-    frameIds,
-    publicationToken: null,
-  });
-}
-
-function withGpuFlowBrowserVisualSnapshotPublicationToken({
-  snapshot,
-  token,
-}: {
-  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-  readonly token: GpuFlowCommitPublicationToken;
-}): GpuFlowBrowserVisualActorRuntimeSnapshot {
-  return Object.freeze({
-    ...snapshot,
-    publicationToken: token,
-  });
-}
-
-function createGpuFlowBrowserVisualCandidatePresentationEvidence({
-  candidateId,
-  frameIds,
-  readiness,
-  snapshot,
-}: {
-  readonly candidateId: string;
-  readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
-  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-}): GpuFlowCommittedSurfaceDomPresentationEvidence {
-  return createGpuFlowCommittedSurfaceDomPresentationEvidence({
-    browserVisualCandidateId: candidateId,
-    committedFrameId: frameIds.committedFrameId,
-    domControlMountedCount: snapshot.domControls.mountedControls.length,
-    domControlSnapshotCount: snapshot.domControls.snapshotControls.length,
-    domIslandCount: snapshot.domIslands.islands.length,
-    exposable: isGpuFlowBrowserVisualReadinessExposable(readiness),
-    runtimeFrameId: frameIds.runtimeFrameId,
-    source: "browser-visual-runtime-candidate",
-    staged: true,
-  });
-}
-
-function isGpuFlowBrowserVisualReadinessExposable(
-  readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness,
-): boolean {
-  return [
-    ...readiness.domControlReadinessByActorId.values(),
-    ...readiness.domIslandReadinessByActorId.values(),
-  ].every(
-    (entry) =>
-      entry.coverageState !== "blocked-awaiting-live-host" &&
-      entry.coverageState !== "blocked-awaiting-snapshot",
-  );
-}
-
-function applyVisibleGpuFlowDomControlHostPresentation({
-  control,
-  element,
-}: {
-  readonly control: GpuRetainedDomControlSourceDescriptor;
-  readonly element: HTMLElement;
-}): void {
-  element.dataset.gpuFlowDomControl = "true";
-  delete element.dataset.gpuFlowDomControlPreparation;
-  element.dataset.gpuFlowDomControlId = control.sourceId;
-  element.dataset.gpuFlowDomControlFocusable = control.visualSemantics.focusable
-    ? "true"
-    : "false";
-  element.dataset.gpuFlowDomControlPointerSemantics =
-    control.visualSemantics.pointer;
-  element.dataset.gpuFlowDomControlRowId = control.rowId;
-  element.dataset.gpuFlowDomControlSelectable =
-    control.visualSemantics.selectable;
-  element.dataset.gpuFlowDomControlSectionId = control.sectionId;
-  element.dataset.gpuFlowDomControlSurfaceId = control.surfaceId;
-  element.dataset.gpuFlowDomControlActive = control.active ? "true" : "false";
-  if (control.visualSemantics.accessibility === "visual-only-aria-hidden") {
-    element.setAttribute("aria-hidden", "true");
-  } else {
-    element.removeAttribute("aria-hidden");
-  }
-  element.style.removeProperty("opacity");
-  element.style.removeProperty("visibility");
-}
-
-function isDomControlSnapshotPreparationAssignment(
-  assignment: GpuFlowDomControlProjectionAssignment,
-): boolean {
-  return (
-    assignment.coverageState === "snapshot" ||
-    assignment.coverageState === "blocked-awaiting-browser-visual" ||
-    (assignment.coverageState === "blocked-awaiting-live-host" &&
-      assignment.reason === "live-host-overflow" &&
-      !assignment.control.active)
-  );
-}
-
-function getGpuFlowBrowserVisualRepairActorIds(
-  token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
-): ReadonlySet<string> | null {
-  if (!("blockedReasons" in token)) {
-    return null;
-  }
-  const actorIds = token.blockedReasons.flatMap((reason) =>
-    reason.actorId === null ? [] : [reason.actorId],
-  );
-  return actorIds.length > 0 ? new Set(actorIds) : null;
 }
