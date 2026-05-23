@@ -718,19 +718,20 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
 function shouldBlockGpuFlowVisiblePublicationProofImmediately(
   proof: GpuFlowVisiblePublicationBlockedProof | null,
 ): boolean {
-  switch (proof?.source) {
-    case "actor-proof":
-    case "browser-visual-proof":
-    case "compatible-previous-proof":
-    case "resource-protection":
-      return true;
-    case "content-publication":
-    case "motion-projection":
-    case "presentation-pair":
-    case undefined:
-      return false;
+  if (!proof) {
+    return false;
   }
+  return GPU_FLOW_IMMEDIATE_BLOCKED_PROOF_SOURCES.has(proof.source);
 }
+
+const GPU_FLOW_IMMEDIATE_BLOCKED_PROOF_SOURCES: ReadonlySet<
+  GpuFlowVisiblePublicationBlockedProof["source"]
+> = new Set([
+  "actor-proof",
+  "browser-visual-proof",
+  "compatible-previous-proof",
+  "resource-protection",
+]);
 
 function createGpuFlowVisiblePublicationCompletionHoldOutcome({
   publicationDecision,
@@ -1028,14 +1029,11 @@ function assertGpuFlowCommitPresentationPairProof({
 }): void {
   const expected = frame.presentationProof;
   if (
-    presentationPairProof.projectionSampleId !== projectionSampleId ||
-    presentationPairProof.batchId !== expected.batchId ||
-    presentationPairProof.actorManifestDigest !==
-      expected.actorManifestDigest ||
-    presentationPairProof.browserVisualFragmentDigest !==
-      expected.browserVisualFragmentDigest ||
-    presentationPairProof.surfaceTransactionDigest !==
-      expected.surfaceTransactionDigest ||
+    !isGpuFlowCommitPresentationPairProofHeaderValid({
+      expected,
+      presentationPairProof,
+      projectionSampleId,
+    }) ||
     !areGpuFlowDomPresentationGenerationEvidenceEqual(
       presentationPairProof.domGenerationEvidence,
       expected.domGenerationEvidence,
@@ -1059,6 +1057,26 @@ function assertGpuFlowCommitPresentationPairProof({
       "GPU Flow commit publication authority requires the transaction oracle DOM/canvas presentation pair proof for the selected frame and projection sample.",
     );
   }
+}
+
+function isGpuFlowCommitPresentationPairProofHeaderValid({
+  expected,
+  presentationPairProof,
+  projectionSampleId,
+}: {
+  readonly expected: GpuFlowCommittedSurfaceFrame["presentationProof"];
+  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+  readonly projectionSampleId: GpuFlowProjectionSampleId;
+}): boolean {
+  return (
+    presentationPairProof.projectionSampleId === projectionSampleId &&
+    presentationPairProof.batchId === expected.batchId &&
+    presentationPairProof.actorManifestDigest === expected.actorManifestDigest &&
+    presentationPairProof.browserVisualFragmentDigest ===
+      expected.browserVisualFragmentDigest &&
+    presentationPairProof.surfaceTransactionDigest ===
+      expected.surfaceTransactionDigest
+  );
 }
 
 function areGpuFlowDomPresentationGenerationEvidenceEqual(

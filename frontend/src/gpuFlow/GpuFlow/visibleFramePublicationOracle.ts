@@ -22,9 +22,10 @@ import {
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
-import type {
-  GpuFlowVisiblePublicationCanvasPresentationEvidence,
-  GpuFlowVisiblePublicationPresentationEvidence,
+import {
+  createGpuFlowVisiblePublicationPresentationBlockedReasons,
+  type GpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePublicationPresentationEvidence";
 
 export type GpuFlowVisiblePublicationCommitDebtProof = {
@@ -587,86 +588,6 @@ function createGpuFlowVisibleFramePublicationOraclePresentationBlockedProof({
     }),
     source: "presentation-pair",
   });
-}
-
-function createGpuFlowVisiblePublicationPresentationBlockedReasons({
-  presentationEvidence,
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): readonly GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number][] {
-  const committedFrame = visibleProjectionState.committedFrame;
-  const domEvidence = committedFrame.presentationProof.domGenerationEvidence;
-  const reasons: GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number][] =
-    [];
-  if (!domEvidence.staged) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "dom-generation-not-staged",
-    });
-  }
-  if (!domEvidence.exposable) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "dom-generation-not-exposable",
-    });
-  }
-  if (domEvidence.committedFrameId !== committedFrame.displayFrameId) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "dom-generation-frame-mismatch",
-    });
-  }
-  const canvasEvidence = presentationEvidence?.canvasGenerationEvidence;
-  if (!canvasEvidence) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "canvas-generation-not-prepared",
-    });
-    return Object.freeze(reasons);
-  }
-  if (canvasEvidence.committedFrameId !== committedFrame.displayFrameId) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "canvas-generation-frame-mismatch",
-    });
-  }
-  if (canvasEvidence.projectionSampleId !== publicationDecision.sample.id) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "canvas-generation-sample-mismatch",
-    });
-  }
-  if (
-    canvasEvidence.projectionTransactionId !==
-    visibleProjectionState.transaction.id
-  ) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "canvas-generation-transaction-mismatch",
-    });
-  }
-  if (
-    canvasEvidence.presentationBatchId !==
-    committedFrame.presentationProof.batchId
-  ) {
-    reasons.push({
-      actorId: null,
-      family: "presentation-pair",
-      reason: "canvas-generation-batch-mismatch",
-    });
-  }
-  return Object.freeze(reasons);
 }
 
 function createGpuFlowVisibleFramePublicationOracleResourceBlockedProof({
