@@ -29,8 +29,8 @@ import {
 } from "./visibleFramePublicationCommittedSurfaceAuthority";
 import { createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector } from "./visibleFramePublicationContentAuthority";
 import {
-  resolveGpuFlowRetainedDisplayPublicationFramePlanResult as resolveRetainedDisplayFramePlanResultByPublicationAuthority,
-  selectGpuFlowRetainedDisplayPublicationFramePlan as selectRetainedDisplayFramePlanByPublicationAuthority,
+  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
+  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   type GpuFlowRetainedDisplayOutcomeFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlan,
   type GpuFlowRetainedDisplayPublicationFramePlanSelector,
@@ -100,6 +100,11 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   retainedRuntimeFrame: null,
   visibleProjectionState: null,
 } satisfies Omit<GpuFlowContentPublicationFrameResult, "rendered">);
+
+const selectRetainedDisplayFramePlanByPublicationAuthority =
+  createGpuFlowRetainedDisplayPublicationFramePlanSelector();
+const resolveRetainedDisplayFramePlanResultByPublicationAuthority =
+  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver();
 
 export type GpuFlowCommittedSurfacePublicationCandidate =
   | {

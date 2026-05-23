@@ -6,7 +6,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { createGpuFlowVisibleFrameHoldPreviousToken } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFramePublicationTestUtils";
 import {
   recordGpuFlowHeldPreviousVisibleProjectionState,
   recordGpuFlowNoFrameHeldPreviousVisibleProjectionState,
@@ -28,7 +28,7 @@ describe("GPU Flow visible projection state publication", () => {
     const visibleProjectionPublicationStateRef = { current: committedState };
 
     recordGpuFlowHeldPreviousVisibleProjectionState({
-      token: createGpuFlowVisibleFrameHoldPreviousToken({
+      token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
         committedFrameId: 7,
         holdAgeFrames: 1,
         holdAgeMs: 16,
@@ -63,7 +63,7 @@ describe("GPU Flow visible projection state publication", () => {
       previousVisibleProjectionState: committedState,
       publicationDecision,
       schedulerKnobs: DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-      token: createGpuFlowVisibleFrameHoldPreviousToken({
+      token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
         committedFrameId: 7,
         holdAgeFrames: 1,
         holdAgeMs: 0,

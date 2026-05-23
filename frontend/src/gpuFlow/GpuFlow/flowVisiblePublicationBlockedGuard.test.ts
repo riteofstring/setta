@@ -12,9 +12,9 @@ import {
 import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationToken,
-  createGpuFlowVisibleFrameHoldPreviousToken,
-} from "./visibleFramePublicationKernel";
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+} from "./visibleFramePublicationTestUtils";
 
 describe("GPU Flow blocked visible publication guard", () => {
   it("fails loudly when repeated blocked outcomes exceed the frame budget", () => {
@@ -97,7 +97,7 @@ function blockedOutcome(
 ): GpuFlowVisiblePublicationCompletionOutcome {
   return {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationToken({
+    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         {
           actorId: null,
@@ -117,7 +117,7 @@ function holdOutcome(
 ): GpuFlowVisiblePublicationCompletionOutcome {
   return {
     kind: "hold-previous",
-    token: createGpuFlowVisibleFrameHoldPreviousToken({
+    token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 7,
       holdAgeFrames: 1,
       holdAgeMs: 0,

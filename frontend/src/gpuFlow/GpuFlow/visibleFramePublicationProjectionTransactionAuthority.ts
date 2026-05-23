@@ -52,11 +52,43 @@ export type GpuFlowProjectionFrameTransactionSelector = (input: {
   readonly resolveHeldRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;
 }) => GpuFlowProjectionFrameTransaction;
 
+export type GpuFlowRetainedProjectionPublicationDecisionSelector = (input: {
+  readonly hasActiveRetainedDomControl: boolean;
+  readonly projectionSchedulerKnobs?:
+    | GpuFlowProjectionSchedulerKnobs
+    | undefined;
+  readonly requestedProjectionCoverageMissing: boolean;
+  readonly requestedTransaction: GpuFlowProjectionTransaction;
+}) => GpuFlowRetainedProjectionPublicationTransactionDecision;
+
 export function createGpuFlowProjectionFrameTransactionSelector(): GpuFlowProjectionFrameTransactionSelector {
   return selectGpuFlowProjectionFrameTransactionFromPublicationDecision;
 }
 
-export function decideGpuFlowRetainedProjectionPublicationTransaction({
+export function createGpuFlowRetainedProjectionPublicationDecisionSelector({
+  previousVisibleProjectionState,
+  rawReasons,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly rawReasons: readonly GpuFrameReason[];
+}): GpuFlowRetainedProjectionPublicationDecisionSelector {
+  return ({
+    hasActiveRetainedDomControl,
+    projectionSchedulerKnobs,
+    requestedProjectionCoverageMissing,
+    requestedTransaction,
+  }) =>
+    decideGpuFlowRetainedProjectionPublicationTransaction({
+      frameReasons: rawReasons,
+      hasActiveRetainedDomControl,
+      heldPreviousProjectionState: previousVisibleProjectionState,
+      projectionSchedulerKnobs,
+      requestedProjectionCoverageMissing,
+      requestedTransaction,
+    });
+}
+
+function decideGpuFlowRetainedProjectionPublicationTransaction({
   frameReasons,
   hasActiveRetainedDomControl,
   heldPreviousProjectionState,
@@ -156,7 +188,7 @@ export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
   });
 }
 
-export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
+function selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
   publicationDecision,
   requestedRetainedProjectionFrame,
   resolveHeldRetainedProjectionFrame,

@@ -1,12 +1,26 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type {
-  GpuFlowLiveProjectionSample,
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
+import {
+  createGpuFlowVisiblePublicationScheduler,
+  type GpuFlowLiveProjectionSample,
+  type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { createGpuFlowVisiblePublicationCompletionCommitToken } from "./visibleFramePublicationCompletion";
-import { createGpuFlowVisibleFramePublicationTransactionOracle } from "./visibleFramePublicationOracle";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+import {
+  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFramePublicationSample,
+} from "./visibleFramePublicationKernel";
+import type {
+  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedVisibleReason,
+  GpuFlowCommitPublicationToken,
+  GpuFlowHoldPreviousToken,
+} from "./visibleFramePublicationTokens";
+
+type GpuFlowVisibleFramePublicationTestCandidate = {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly rendered: boolean;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+};
 
 export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
   frame,
@@ -15,10 +29,6 @@ export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowCommitPublicationToken {
-  const publicationDecision = {
-    lane: "content",
-    sample: projectionSample,
-  } as GpuFlowVisiblePublicationDecision;
   const visibleProjectionState = {
     committedFrame: frame,
     heldPreviousProjection: null,
@@ -27,22 +37,145 @@ export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
       kind: "content-publication",
     },
   } as GpuFlowVisibleProjectionState;
-  const transactionOracle =
-    createGpuFlowVisibleFramePublicationTransactionOracle({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: null,
-        visibleProjectionState,
-      },
-      motionProjectionFrame: {
-        blockedPublicationCandidate: null,
-        visibleProjectionState: null,
-      },
-      publicationDecision,
-    });
-
-  return createGpuFlowVisiblePublicationCompletionCommitToken({
-    presentableCommit: transactionOracle.presentableCommit,
-    publicationDecision,
-    visibleProjectionState,
+  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+      rendered: true,
+      visibleProjectionState,
+    }),
+    projectionSample,
   });
+
+  if (result.outcome.kind !== "commit") {
+    throw new Error("Expected GPU Flow test token kernel to commit.");
+  }
+  return result.outcome.token;
+}
+
+export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
+  committedFrameId,
+  holdAgeFrames,
+  holdAgeMs,
+  projectionSample,
+}: {
+  readonly committedFrameId: number;
+  readonly holdAgeFrames: number;
+  readonly holdAgeMs: number;
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}): GpuFlowHoldPreviousToken {
+  const visibleProjectionState = {
+    committedFrame: {
+      displayFrameId: committedFrameId,
+    },
+    heldPreviousProjection: {
+      committedFrameId,
+      consecutiveFrameCount: holdAgeFrames,
+      heldDurationMs: holdAgeMs,
+      maxHeldPreviousFramesExceeded: false,
+      maxHeldPreviousMsExceeded: false,
+      requestedProjectionSampleId: projectionSample.id,
+    },
+    sample: projectionSample,
+    transaction: {
+      committedFrameId,
+      kind: "held-previous",
+      sample: projectionSample,
+    },
+  } as GpuFlowVisibleProjectionState;
+  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+      rendered: true,
+      visibleProjectionState,
+    }),
+    projectionSample,
+  });
+
+  if (result.outcome.kind !== "hold-previous") {
+    throw new Error("Expected GPU Flow test token kernel to hold previous.");
+  }
+  return result.outcome.token;
+}
+
+export function createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+  blockedReasons,
+  frozenFrameId,
+  projectionSample,
+}: {
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}): GpuFlowBlockedPublicationToken {
+  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+      blockedPublicationCandidate: {
+        blockedReasons,
+        frozenFrameId,
+      },
+    }),
+    projectionSample,
+  });
+
+  if (result.outcome.kind !== "blocked") {
+    throw new Error("Expected GPU Flow test token kernel to block.");
+  }
+  return result.outcome.token;
+}
+
+function runGpuFlowVisibleFramePublicationTestTokenKernel({
+  contentFrame = createGpuFlowVisibleFramePublicationTestCandidate(),
+  projectionSample,
+}: {
+  readonly contentFrame?: GpuFlowVisibleFramePublicationTestCandidate;
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}) {
+  return runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    GpuFlowVisibleFramePublicationTestCandidate,
+    GpuFlowVisibleFramePublicationTestCandidate
+  >({
+    prepareContentPublicationFrame: () => contentFrame,
+    prepareMotionProjectionFrame: () => ({
+      frame: createGpuFlowVisibleFramePublicationTestCandidate(),
+      kind: "not-rendered",
+    }),
+    publish: () => {},
+    sampleVisibleFramePublication: () =>
+      createGpuFlowVisibleFramePublicationTestSample({ projectionSample }),
+    scheduler: createGpuFlowVisiblePublicationScheduler(),
+  });
+}
+
+function createGpuFlowVisibleFramePublicationTestCandidate({
+  blockedPublicationCandidate = null,
+  rendered = false,
+  visibleProjectionState = null,
+}: Partial<GpuFlowVisibleFramePublicationTestCandidate> = {}): GpuFlowVisibleFramePublicationTestCandidate {
+  return {
+    blockedPublicationCandidate,
+    rendered,
+    visibleProjectionState,
+  };
+}
+
+function createGpuFlowVisibleFramePublicationTestSample({
+  projectionSample,
+}: {
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}): GpuFlowVisibleFramePublicationSample {
+  return {
+    hasCommittedContentFrame: true,
+    previousVisibleProjectionState: null,
+    rawReasons: ["manual"],
+    runtimeViewportFrame: false,
+    sample: projectionSample,
+    timestamp: getGpuFlowTestProjectionSampleTimestamp(projectionSample),
+    viewportInteractionActive: false,
+  };
+}
+
+function getGpuFlowTestProjectionSampleTimestamp(
+  projectionSample: GpuFlowLiveProjectionSample,
+): number {
+  return (
+    (projectionSample as GpuFlowLiveProjectionSample & { timestamp?: number })
+      .timestamp ?? projectionSample.id
+  );
 }

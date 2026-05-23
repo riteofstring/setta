@@ -7,10 +7,10 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationToken,
-  createGpuFlowVisibleFrameHoldPreviousToken,
-} from "./GpuFlow/visibleFramePublicationKernel";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFramePublicationTestUtils";
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+} from "./GpuFlow/visibleFramePublicationTestUtils";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -133,7 +133,7 @@ describe("GPU Flow projection runtime", () => {
 
     const completion = scheduler.completeFrame(decision, {
       kind: "hold-previous",
-      token: createGpuFlowVisibleFrameHoldPreviousToken({
+      token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
         committedFrameId: 41,
         holdAgeFrames: 1,
         holdAgeMs: 0,
@@ -161,7 +161,7 @@ describe("GPU Flow projection runtime", () => {
 
     const completion = scheduler.completeFrame(decision, {
       kind: "blocked",
-      token: createGpuFlowVisibleFrameBlockedPublicationToken({
+      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
         blockedReasons: [
           { actorId: "actor-a", family: "dom-control", reason: "pending" },
         ],
@@ -278,7 +278,7 @@ describe("GPU Flow projection runtime", () => {
     expect(() =>
       scheduler.completeFrame(decision, {
         kind: "blocked",
-        token: createGpuFlowVisibleFrameBlockedPublicationToken({
+        token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
           blockedReasons: [
             { actorId: "actor-a", family: "dom-control", reason: "pending" },
           ],
@@ -719,7 +719,7 @@ describe("GPU Flow projection runtime", () => {
       setProjectionDebugAttributes(
         element,
         heldState.debugState,
-        createGpuFlowVisibleFrameHoldPreviousToken({
+        createGpuFlowVisibleFrameHoldPreviousTokenForTest({
           committedFrameId: heldState.committedFrame.displayFrameId,
           holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
           holdAgeMs: heldPreviousProjection.heldDurationMs,
@@ -806,7 +806,7 @@ function completeHeldFrame(
 ) {
   return scheduler.completeFrame(decision, {
     kind: "hold-previous",
-    token: createGpuFlowVisibleFrameHoldPreviousToken({
+    token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 41,
       holdAgeFrames: 1,
       holdAgeMs: 0,
@@ -821,7 +821,7 @@ function completeBlockedFrame(
 ) {
   return scheduler.completeFrame(decision, {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationToken({
+    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         { actorId: null, family: "visible-transaction", reason: "blocked" },
       ],

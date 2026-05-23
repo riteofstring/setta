@@ -7,8 +7,8 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  completeGpuFlowVisibleFramePublicationTransaction,
-  type GpuFlowVisibleFramePublicationTransactionOracle,
+  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication completion", () => {
@@ -21,22 +21,26 @@ describe("GPU Flow visible publication completion", () => {
       },
     });
     const sample = liveProjectionSample({ id: 8, timestamp: 8 });
-    const publicationDecision = scheduler.selectFrame({
-      hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll"],
-      sample,
-      timestamp: sample.timestamp,
-      viewportInteractionActive: true,
-    });
+    const rawReasons = ["retained-scroll"] as const;
 
-    const result = completeGpuFlowVisibleFramePublicationTransaction({
-      blockedPublicationToken: null,
-      publicationDecision,
-      previousVisibleProjectionState: previousHeldVisibleProjectionState(),
+    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
+      prepareMotionProjectionFrame: () => ({
+        frame: noVisiblePublicationCandidate(),
+        kind: "not-rendered",
+      }),
+      publish: () => {},
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          previousVisibleProjectionState: previousHeldVisibleProjectionState(),
+          rawReasons,
+          sample,
+          viewportInteractionActive: true,
+        }),
       scheduler,
-      transactionOracle: transactionOracle(),
     });
 
+    expect(result.publicationDecision.rawReasons).toEqual(rawReasons);
     expect(result.outcome.kind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected no-frame held-previous over budget to block.");
@@ -53,16 +57,31 @@ describe("GPU Flow visible publication completion", () => {
   });
 });
 
-function transactionOracle(): GpuFlowVisibleFramePublicationTransactionOracle {
+function noVisiblePublicationCandidate() {
   return {
     blockedPublicationCandidate: null,
-    blockedProof: null,
-    blockedSource: null,
-    commitOracle: null,
-    presentableCommit: null,
-    renderedVisibleFrame: false,
-    visibleProjectionSource: null,
+    rendered: false,
     visibleProjectionState: null,
+  };
+}
+
+function visibleFramePublicationSample({
+  previousVisibleProjectionState = null,
+  rawReasons = ["manual"],
+  sample,
+  timestamp = sample.timestamp,
+  viewportInteractionActive = false,
+}: Partial<Omit<GpuFlowVisibleFramePublicationSample, "sample">> & {
+  readonly sample: GpuFlowLiveProjectionSample;
+}): GpuFlowVisibleFramePublicationSample {
+  return {
+    hasCommittedContentFrame: true,
+    previousVisibleProjectionState,
+    rawReasons,
+    runtimeViewportFrame: false,
+    sample,
+    timestamp,
+    viewportInteractionActive,
   };
 }
 

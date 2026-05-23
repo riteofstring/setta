@@ -20,9 +20,9 @@ import {
   resolveGpuFlowRetainedProjectionFrame,
 } from "./flowProjectionFrame";
 import {
-  decideGpuFlowRetainedProjectionPublicationTransaction,
+  createGpuFlowProjectionFrameTransactionSelector,
+  createGpuFlowRetainedProjectionPublicationDecisionSelector,
   hasActiveGpuFlowRetainedDomControlPublicationProof,
-  selectGpuFlowProjectionFrameTransactionFromPublicationDecision,
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowMotionProjectionFrameWork,
@@ -351,20 +351,22 @@ function resolveGpuFlowProjectionFrameTransaction({
       retainedDisplayFrame,
       transaction: requestedTransaction,
     });
-  const publicationDecision =
-    decideGpuFlowRetainedProjectionPublicationTransaction({
-      frameReasons,
+  const selectProjectionPublicationDecision =
+    createGpuFlowRetainedProjectionPublicationDecisionSelector({
+      previousVisibleProjectionState: heldPreviousProjectionState,
+      rawReasons: frameReasons,
+    });
+  const publicationDecision = selectProjectionPublicationDecision({
       hasActiveRetainedDomControl:
         hasActiveGpuFlowRetainedDomControlPublicationProof(
           retainedDisplayFrame,
         ),
-      heldPreviousProjectionState,
       projectionSchedulerKnobs,
       requestedProjectionCoverageMissing:
         requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
       requestedTransaction,
     });
-  return selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
+  return createGpuFlowProjectionFrameTransactionSelector()({
     publicationDecision,
     requestedRetainedProjectionFrame,
     resolveHeldRetainedProjectionFrame: ({ transaction }) =>

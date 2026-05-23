@@ -49,6 +49,11 @@ export type GpuFlowRetainedDisplayPublicationFramePlanSelector = (input: {
   readonly retainedDisplayOutcome: GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
 }) => GpuFlowRetainedDisplayPublicationFramePlan;
 
+export type GpuFlowRetainedDisplayPublicationFramePlanResultResolver =
+  (input: {
+    readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
+  }) => GpuFlowRetainedDisplayOutcomeFrameResult;
+
 export function createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver(): GpuFlowRetainedDisplayPublicationOutcomeFrameResolver {
   return resolveGpuFlowRetainedDisplayPublicationOutcomeFrame;
 }
@@ -57,11 +62,15 @@ export function createGpuFlowRetainedDisplayOutcomeFrameResultResolver(): GpuFlo
   return resolveGpuFlowRetainedDisplayOutcomeFrameResult;
 }
 
+export function createGpuFlowRetainedDisplayPublicationFramePlanResultResolver(): GpuFlowRetainedDisplayPublicationFramePlanResultResolver {
+  return resolveGpuFlowRetainedDisplayPublicationFramePlanResult;
+}
+
 export function createGpuFlowRetainedDisplayPublicationFramePlanSelector(): GpuFlowRetainedDisplayPublicationFramePlanSelector {
   return selectGpuFlowRetainedDisplayPublicationFramePlan;
 }
 
-export function selectGpuFlowRetainedDisplayPublicationFramePlan({
+function selectGpuFlowRetainedDisplayPublicationFramePlan({
   previousVisibleProjectionState,
   retainedDisplayOutcome,
 }: {
@@ -87,7 +96,7 @@ export function selectGpuFlowRetainedDisplayPublicationFramePlan({
   };
 }
 
-export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
+function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   framePlan,
 }: {
   readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
@@ -104,7 +113,7 @@ export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   };
 }
 
-export function resolveGpuFlowRetainedDisplayOutcomeFrameResult({
+function resolveGpuFlowRetainedDisplayOutcomeFrameResult({
   outcomeFrame,
   previousVisibleProjectionState,
 }: {

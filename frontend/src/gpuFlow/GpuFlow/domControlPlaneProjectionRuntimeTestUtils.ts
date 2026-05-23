@@ -26,9 +26,9 @@ import {
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationToken,
-} from "./visibleFramePublicationKernel";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+} from "./visibleFramePublicationTestUtils";
 
 export function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,
@@ -150,7 +150,7 @@ export function stageBrowserVisualCandidate({
 }): void {
   browserVisualRuntime.stagePreparedBrowserVisualActors({
     candidate,
-    token: createGpuFlowVisibleFrameBlockedPublicationToken({
+    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         {
           actorId,

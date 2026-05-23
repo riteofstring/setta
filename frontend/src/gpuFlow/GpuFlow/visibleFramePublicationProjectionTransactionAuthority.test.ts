@@ -10,7 +10,7 @@ import type {
 } from "../projectionRuntime";
 import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import {
-  selectGpuFlowProjectionFrameTransactionFromPublicationDecision,
+  createGpuFlowProjectionFrameTransactionSelector,
   type GpuFlowRetainedProjectionPublicationTransactionDecision,
 } from "./visibleFramePublicationProjectionTransactionAuthority";
 
@@ -40,10 +40,12 @@ describe("GPU Flow visible publication projection transaction authority", () => 
       id: "projection:11:held",
       kind: "held-previous",
     });
+    const selectProjectionFrameTransaction =
+      createGpuFlowProjectionFrameTransactionSelector();
     let resolvedHeldTransaction: GpuFlowProjectionTransaction | null = null;
 
     expect(
-      selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
+      selectProjectionFrameTransaction({
         publicationDecision: publicationDecision({
           kind: "project-requested",
           transaction: requestedTransaction,
@@ -62,7 +64,7 @@ describe("GPU Flow visible publication projection transaction authority", () => 
 
     const heldPreviousProjection = heldProjection();
     expect(
-      selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
+      selectProjectionFrameTransaction({
         publicationDecision: publicationDecision({
           heldPreviousProjection,
           kind: "held-previous",
@@ -86,7 +88,7 @@ describe("GPU Flow visible publication projection transaction authority", () => 
     expect(resolvedHeldTransaction).toBe(heldTransaction);
 
     expect(
-      selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
+      selectProjectionFrameTransaction({
         publicationDecision: publicationDecision({
           blockedReason: "held-previous-budget-exceeded",
           heldPreviousProjection,
@@ -130,6 +132,12 @@ describe("GPU Flow visible publication projection transaction authority", () => 
     );
     expect(transactionAuthoritySource).toContain(
       "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+    );
+    expect(transactionAuthoritySource).not.toContain(
+      "export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+    );
+    expect(transactionAuthoritySource).not.toContain(
+      "export function decideGpuFlowRetainedProjectionPublicationTransaction",
     );
     expect(transactionAuthoritySource).toContain(
       "createGpuFlowProjectionFrameTransactionSelector",

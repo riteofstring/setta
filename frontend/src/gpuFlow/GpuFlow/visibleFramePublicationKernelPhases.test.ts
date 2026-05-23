@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
+const COMPLETION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
+);
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),
 );
@@ -53,6 +56,12 @@ describe("GPU Flow visible publication kernel phases", () => {
       "function publishGpuFlowVisibleFramePublicationOutcome",
     );
     expect(source).not.toContain(
+      "export function completeGpuFlowVisibleFramePublicationTransaction",
+    );
+    expect(source).not.toContain(
+      "export function createGpuFlowVisiblePublicationCompletionOutcome",
+    );
+    expect(source).not.toContain(
       "export function selectGpuFlowVisibleFramePublicationTransaction",
     );
   });
@@ -81,6 +90,36 @@ describe("GPU Flow visible publication kernel phases", () => {
       "visiblePublicationSchedulerRef.current.getKnobs",
     );
     expect(source).not.toMatch(/\.(?:selectFrame|completeFrame)\s*\(/);
+  });
+
+  it("keeps visible outcome token minting in the kernel", () => {
+    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
+    const visibleTokenConstructors = [
+      "createGpuFlowBlockedPublicationToken",
+      "createGpuFlowCommitPublicationToken",
+      "createGpuFlowHoldPreviousToken",
+    ] as const;
+
+    for (const constructorName of visibleTokenConstructors) {
+      expect(kernelSource).toContain(constructorName);
+      expect(completionSource).not.toContain(constructorName);
+    }
+    expect(kernelSource).toContain(
+      "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowVisibleFrameBlockedPublicationToken",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowVisibleFrameHoldPreviousToken",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowVisiblePublicationCompletionCommitToken",
+    );
+    expect(kernelSource).not.toContain(
+      "visibleFramePublicationBlockedProofToken",
+    );
   });
 });
 

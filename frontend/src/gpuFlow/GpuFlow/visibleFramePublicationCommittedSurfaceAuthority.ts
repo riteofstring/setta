@@ -40,7 +40,7 @@ type OptionalGpuFlowBrowserVisualTextCoverageProof =
   | null
   | undefined;
 
-export type GpuFlowCommittedSurfacePublicationTransactionDecision =
+type GpuFlowCommittedSurfacePublicationTransactionDecision =
   | {
       readonly kind: "publish";
     }
@@ -53,7 +53,7 @@ export type GpuFlowCommittedSurfacePublicationTransactionDecision =
       readonly kind: "held-previous";
     };
 
-export type GpuFlowCommittedSurfaceHeldPreviousPublicationTransaction = {
+type GpuFlowCommittedSurfaceHeldPreviousPublicationTransaction = {
   readonly kind: "held-previous";
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 };
@@ -98,7 +98,7 @@ export type GpuFlowCommittedSurfacePublicationFramePlanSelector = (input: {
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
 }) => GpuFlowCommittedSurfacePublicationFramePlan;
 
-export function decideGpuFlowCommittedSurfacePublicationTransaction({
+function decideGpuFlowCommittedSurfacePublicationTransaction({
   heldPreviousProjectionState,
   publishedCommittedSurfaceFrame,
 }: {
@@ -216,7 +216,7 @@ export function prepareGpuFlowCommittedSurfacePublicationCandidate({
   };
 }
 
-export function createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({
+function createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({
   committedGpuNativeVisuals,
   frameReasons,
   heldPreviousProjectionState,

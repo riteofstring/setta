@@ -7,9 +7,9 @@ import {
 } from "../committedSurfaceFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFramePublicationAuthority";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationToken,
-} from "../GpuFlow/visibleFramePublicationKernel";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "../GpuFlow/visibleFramePublicationTestUtils";
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+} from "../GpuFlow/visibleFramePublicationTestUtils";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   releaseGpuFlowRejectedCandidateSurfaceTexture,
@@ -334,7 +334,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       frame: committedSurfaceFrame(4),
       projectionSample: projectionSample(9),
     });
-    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationToken({
+    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         {
           actorId: "candidate-a",
@@ -382,7 +382,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationToken({
+    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         {
           actorId: "candidate",

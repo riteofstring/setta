@@ -6,8 +6,8 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
-import { createGpuFlowVisibleFrameHoldPreviousToken } from "./visibleFramePublicationKernel";
 import type { GpuFlowVisiblePublicationOutcome } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFramePublicationTestUtils";
 
 describe("GPU Flow visible publication outcome guard", () => {
   it("rejects multiple outcomes for the same surface and projection sample", () => {
@@ -71,7 +71,7 @@ function publicationDecision(
 function holdOutcome(sampleId: number): GpuFlowVisiblePublicationOutcome {
   return {
     kind: "hold-previous",
-    token: createGpuFlowVisibleFrameHoldPreviousToken({
+    token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 7,
       holdAgeFrames: 1,
       holdAgeMs: 0,

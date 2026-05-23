@@ -6,14 +6,10 @@ import {
 } from "../committedSurfaceFrame";
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
-import {
-  createGpuFlowVisiblePublicationCompletionCommitToken,
-} from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication authority behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
@@ -29,22 +25,6 @@ describe("GPU Flow visible publication authority behavior", () => {
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/publishable committed surface frame/);
-  });
-
-  it("requires completion to consume a transaction presentable-commit proof", () => {
-    const frame = committedSurfaceFrame();
-    const projectionSample = liveProjectionSample();
-
-    expect(() =>
-      createGpuFlowVisiblePublicationCompletionCommitToken({
-        presentableCommit: null,
-        publicationDecision: { sample: projectionSample },
-        visibleProjectionState: {
-          committedFrame: frame,
-          sample: projectionSample,
-        } as GpuFlowVisibleProjectionState,
-      }),
-    ).toThrow(/presentable commit proof from the transaction kernel/);
   });
 
   it("rejects commit authority for incoherent DOM/canvas presentation pairs", () => {

@@ -1,16 +1,12 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisiblePublicationScheduler,
-  type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import {
-  createGpuFlowBlockedPublicationToken,
-  createGpuFlowCommitPublicationToken,
   createGpuFlowCommittedSurfaceResetToken,
   createGpuFlowCommittedSurfaceStartupToken,
-  createGpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisiblePublicationCommitOracleReport,
@@ -21,12 +17,10 @@ import {
 } from "./visibleFramePublicationOracle";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowBlockedVisibleReason,
   GpuFlowCommitPublicationToken,
   GpuFlowCommittedSurfaceResetToken,
   GpuFlowCommittedSurfaceStartupToken,
   GpuFlowHoldPreviousToken,
-  GpuFlowPresentableCommit,
 } from "./visibleFramePublicationTokens";
 
 type GpuFlowVisiblePublicationScheduler = ReturnType<
@@ -68,76 +62,6 @@ export function createGpuFlowCommittedSurfaceStartupPublicationToken({
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): GpuFlowCommittedSurfaceStartupToken {
   return createGpuFlowCommittedSurfaceStartupToken({ frame });
-}
-
-export function createGpuFlowVisibleFrameHoldPreviousToken({
-  committedFrameId,
-  holdAgeFrames,
-  holdAgeMs,
-  projectionSample,
-}: {
-  readonly committedFrameId: number;
-  readonly holdAgeFrames: number;
-  readonly holdAgeMs: number;
-  readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowHoldPreviousToken {
-  return createGpuFlowHoldPreviousToken({
-    committedFrameId,
-    holdAgeFrames,
-    holdAgeMs,
-    projectionSample,
-  });
-}
-
-export function createGpuFlowVisibleFrameBlockedPublicationToken({
-  blockedReasons,
-  frozenFrameId,
-  projectionSample,
-}: {
-  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
-  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
-  readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowBlockedPublicationToken {
-  return createGpuFlowBlockedPublicationToken({
-    blockedReasons,
-    frozenFrameId,
-    projectionSample,
-  });
-}
-
-export function createGpuFlowVisiblePublicationCompletionCommitToken({
-  presentableCommit,
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly presentableCommit: GpuFlowPresentableCommit | null;
-  readonly publicationDecision: {
-    readonly sample: GpuFlowLiveProjectionSample;
-  };
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): GpuFlowCommitPublicationToken {
-  if (visibleProjectionState.sample.id !== publicationDecision.sample.id) {
-    throw new Error(
-      "GPU Flow committed publication completion requires visible projection state for the selected sample.",
-    );
-  }
-  if (presentableCommit === null) {
-    throw new Error(
-      "GPU Flow committed publication completion requires a presentable commit proof from the transaction kernel.",
-    );
-  }
-  if (
-    presentableCommit.committedFrameId !==
-      visibleProjectionState.committedFrame.displayFrameId ||
-    presentableCommit.projectionSampleId !== publicationDecision.sample.id
-  ) {
-    throw new Error(
-      "GPU Flow committed publication completion requires a presentable commit proof for the selected visible frame and projection sample.",
-    );
-  }
-  return createGpuFlowCommitPublicationToken({
-    presentableCommit,
-  });
 }
 
 export function createGpuFlowVisiblePublicationTransactionReport({

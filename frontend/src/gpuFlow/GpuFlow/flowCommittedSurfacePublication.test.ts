@@ -17,7 +17,7 @@ import {
 } from "./visibleFramePublicationAuthority";
 import { prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationCommittedSurfaceAuthority";
 import type { GpuFlowCommittedSurfacePublicationEffect } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowVisibleFrameBlockedPublicationToken } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 describe("GPU Flow committed surface publication effect executor", () => {
   afterEach(() => {
@@ -146,7 +146,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
 
   it("records cold-start shell blocked publication without a committed candidate frame", () => {
     const canvas = document.createElement("canvas");
-    const token = createGpuFlowVisibleFrameBlockedPublicationToken({
+    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [
         {
           actorId: null,
@@ -158,7 +158,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
       projectionSample: {
         id: 9,
       } as Parameters<
-        typeof createGpuFlowVisibleFrameBlockedPublicationToken
+        typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
       >[0]["projectionSample"],
     });
 
@@ -278,7 +278,7 @@ function applyPublicationEffect(
 }
 
 function blockedPublicationToken() {
-  return createGpuFlowVisibleFrameBlockedPublicationToken({
+  return createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
     blockedReasons: [
       {
         actorId: "actor-a",
@@ -290,7 +290,7 @@ function blockedPublicationToken() {
     projectionSample: {
       id: 1,
     } as Parameters<
-      typeof createGpuFlowVisibleFrameBlockedPublicationToken
+      typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
     >[0]["projectionSample"],
   });
 }

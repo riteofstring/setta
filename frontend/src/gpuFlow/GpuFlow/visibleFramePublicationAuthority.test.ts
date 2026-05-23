@@ -367,11 +367,11 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(surfaceFrameSource).not.toContain(
       "resolveGpuFlowProjectionFrameTransactionFromPublicationDecision",
     );
-    expect(kernelSource).toContain(
-      "decideGpuFlowRetainedProjectionPublicationTransaction",
+    expect(kernelSource).not.toContain(
+      "export function decideGpuFlowRetainedProjectionPublicationTransaction",
     );
-    expect(kernelSource).toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+    expect(kernelSource).not.toContain(
+      "export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
     );
     expect(kernelSource).toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain("holdPreviousToken");
@@ -562,7 +562,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "selectGpuFlowRetainedDisplayFollowUpFrameReason",
     );
     expect(kernelSource).toContain(
-      "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
+      "createGpuFlowRetainedDisplayOutcomeFrameResultResolver",
     );
     expect(kernelSource).not.toContain(
       "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
