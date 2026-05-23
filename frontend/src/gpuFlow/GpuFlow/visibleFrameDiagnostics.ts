@@ -84,7 +84,7 @@ const browserVisualRetryFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS =
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2;
 
-export function applyGpuFlowCommittedSurfacePublicationEffect(application: {
+export function recordGpuFlowVisibleFramePresented(application: {
   readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -107,7 +107,7 @@ export function applyGpuFlowCommittedSurfacePublicationEffect(application: {
   });
 }
 
-export function applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect(application: {
+export function recordGpuFlowVisibleFrameHeld(application: {
   readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -129,7 +129,7 @@ export function applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect(applic
   });
 }
 
-export function applyGpuFlowBlockedCommittedSurfacePublicationEffect(application: {
+export function recordGpuFlowVisibleFrameBlocked(application: {
   readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;

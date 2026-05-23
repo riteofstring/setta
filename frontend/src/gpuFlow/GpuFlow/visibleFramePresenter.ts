@@ -11,12 +11,6 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import {
-  applyGpuFlowBlockedCommittedSurfacePublicationEffect,
-  applyGpuFlowCommittedSurfacePublicationEffect,
-  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect,
-  recordGpuFlowBlockedVisiblePublication,
-} from "./flowCommittedSurfacePublication";
-import {
   publishGpuFlowNodeLayerFrameState,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
@@ -32,6 +26,12 @@ import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayPr
 import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
 import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./flowVisiblePublicationOutcomeChromeRepro";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
+import {
+  recordGpuFlowBlockedVisiblePublication,
+  recordGpuFlowVisibleFrameBlocked,
+  recordGpuFlowVisibleFrameHeld,
+  recordGpuFlowVisibleFramePresented,
+} from "./visibleFrameDiagnostics";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFramePublicationKernelResult,
@@ -683,7 +683,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     retainedDisplayFrameRef,
     token: outcome.token,
   });
-  applyGpuFlowCommittedSurfacePublicationEffect({
+  recordGpuFlowVisibleFramePresented({
     effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,
@@ -747,7 +747,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
   readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
 }): void {
-  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect({
+  recordGpuFlowVisibleFrameHeld({
     effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,
@@ -856,7 +856,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
       },
     );
   }
-  applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+  recordGpuFlowVisibleFrameBlocked({
     effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,

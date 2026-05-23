@@ -8,10 +8,10 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
-  applyGpuFlowBlockedCommittedSurfacePublicationEffect,
-  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect,
   recordGpuFlowBlockedVisiblePublication,
-} from "./flowCommittedSurfacePublication";
+  recordGpuFlowVisibleFrameBlocked,
+  recordGpuFlowVisibleFrameHeld,
+} from "./visibleFrameDiagnostics";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
@@ -121,14 +121,14 @@ describe("GPU Flow committed surface publication effect executor", () => {
     const canvas = document.createElement("canvas");
 
     expect(() =>
-      applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+      recordGpuFlowVisibleFrameBlocked({
         effect: result.effect,
         runtimeCanvas: canvas,
         surfaceRef: {
           current: { requestFrame: vi.fn() } as unknown as GpuSurfaceHandle,
         },
         token: {} as Parameters<
-          typeof applyGpuFlowBlockedCommittedSurfacePublicationEffect
+          typeof recordGpuFlowVisibleFrameBlocked
         >[0]["token"],
       }),
     ).toThrow(/blocked publication token/);
@@ -138,7 +138,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
-    applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+    recordGpuFlowVisibleFrameBlocked({
       effect: {
         candidateFrame: blockedCommittedSurfaceFrame(),
         deferRetry: false,
@@ -165,7 +165,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
     const heldCanvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
-    applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+    recordGpuFlowVisibleFrameBlocked({
       effect: { kind: "publish" },
       runtimeCanvas: blockedCanvas,
       surfaceRef: {
@@ -173,7 +173,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
       },
       token: blockedPublicationToken(),
     });
-    applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect({
+    recordGpuFlowVisibleFrameHeld({
       effect: { kind: "publish" },
       runtimeCanvas: heldCanvas,
       surfaceRef: {
@@ -394,7 +394,7 @@ function applyPublicationEffect(
     readonly requestFrame: (reason: GpuFrameReason) => void;
   },
 ): void {
-  applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+  recordGpuFlowVisibleFrameBlocked({
     effect,
     runtimeCanvas: canvas,
     surfaceRef: {

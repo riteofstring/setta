@@ -37,8 +37,8 @@ const RETAINED_DOM_CONTROL_SNAPSHOT_SOURCES_MODULE_PATH = modulePath(
 const SURFACE_TEXTURE_RELEASE_AUTHORITY_MODULE_PATH = modulePath(
   "../surfaceTextureReleaseAuthority.ts",
 );
-const COMMITTED_SURFACE_PUBLICATION_MODULE_PATH = modulePath(
-  "./flowCommittedSurfacePublication.ts",
+const VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH = modulePath(
+  "./visibleFrameDiagnostics.ts",
 );
 const COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH = modulePath(
   "./flowCommittedSurfacePublicationCandidateHandling.ts",
@@ -311,19 +311,19 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("keeps committed-surface nonpublishable candidate preparation inside the kernel", () => {
-    const committedSurfaceSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
+    const visibleFrameDiagnosticsSource = readFileSync(
+      VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
     );
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
 
-    expect(committedSurfaceSource).not.toContain(
+    expect(visibleFrameDiagnosticsSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
     );
-    expect(committedSurfaceSource).not.toContain(
+    expect(visibleFrameDiagnosticsSource).not.toContain(
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
     );
-    expect(committedSurfaceSource).not.toContain(
+    expect(visibleFrameDiagnosticsSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(kernelSource).not.toContain(
@@ -406,8 +406,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("keeps committed-surface publication candidates tokenless until completion", () => {
-    const committedSurfaceSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
+    const visibleFrameDiagnosticsSource = readFileSync(
+      VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
     );
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
@@ -429,11 +429,11 @@ describe("GPU Flow visible publication authority boundaries", () => {
       publishBranchStart,
       publishBranchEnd,
     );
-    const effectApplierStart = committedSurfaceSource.indexOf(
-      "export function applyGpuFlowCommittedSurfacePublicationEffect",
+    const effectApplierStart = visibleFrameDiagnosticsSource.indexOf(
+      "export function recordGpuFlowVisibleFramePresented",
     );
 
-    expect(committedSurfaceSource).not.toContain(
+    expect(visibleFrameDiagnosticsSource).not.toContain(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(flowFrameSource).not.toContain(
@@ -487,15 +487,15 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
-  it("keeps committed-surface repair effects behind visible publication completion", () => {
-    const committedSurfaceSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
+  it("keeps committed-surface repair diagnostics behind the visible frame presenter", () => {
+    const visibleFrameDiagnosticsSource = readFileSync(
+      VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
-    const effectApplierStart = committedSurfaceSource.indexOf(
-      "export function applyGpuFlowCommittedSurfacePublicationEffect",
+    const effectApplierStart = visibleFrameDiagnosticsSource.indexOf(
+      "export function recordGpuFlowVisibleFramePresented",
     );
 
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
@@ -508,9 +508,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(candidateSource).not.toContain(
       "clearGpuFlowBrowserVisualStarvationDebt",
     );
-    expect(surfaceFrameSource).toContain(
-      "applyGpuFlowCommittedSurfacePublicationEffect",
-    );
+    expect(surfaceFrameSource).toContain("recordGpuFlowVisibleFramePresented");
     expect(surfaceFrameSource).toContain("token: outcome.token");
   });
 
@@ -611,8 +609,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("keeps held-previous committed-surface candidates tokenless until completion", () => {
-    const committedSurfaceSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
+    const visibleFrameDiagnosticsSource = readFileSync(
+      VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
     );
     const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
@@ -621,8 +619,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "utf8",
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const effectApplierStart = committedSurfaceSource.indexOf(
-      "export function applyGpuFlowCommittedSurfacePublicationEffect",
+    const effectApplierStart = visibleFrameDiagnosticsSource.indexOf(
+      "export function recordGpuFlowVisibleFramePresented",
     );
 
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
