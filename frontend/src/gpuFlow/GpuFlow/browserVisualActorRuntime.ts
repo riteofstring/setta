@@ -21,6 +21,9 @@ import {
   parkDomControlElement,
   publishGpuFlowBrowserVisualDomIslandHostPresentation,
   resolveGpuFlowBrowserVisualActorFrameIds,
+  resolveGpuFlowBrowserVisualActorProjectionViewport,
+  stampGpuFlowVisibleDomControlHostPresentationIdentity,
+  stampGpuFlowVisibleDomIslandHostPresentationIdentity,
   syncGpuFlowBrowserVisualDomIslandLayerStyles,
 } from "./browserVisualActorRuntimeHelpers";
 import {
@@ -130,27 +133,6 @@ export function getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
     runtime,
   );
   return runtime;
-}
-
-function resolveGpuFlowBrowserVisualActorProjectionViewport({
-  committedFrameId,
-  projectionInput,
-}: {
-  readonly committedFrameId: number;
-  readonly projectionInput:
-    | GpuFlowBrowserVisualActorProjectionInput
-    | undefined;
-}): GpuViewportInput | undefined {
-  if (!projectionInput) {
-    throw new Error(
-      "GPU Flow current browser visual projection requires a commit publication token.",
-    );
-  }
-  assertGpuFlowCommitPublicationTokenForFrameId({
-    committedFrameId,
-    token: projectionInput.token,
-  });
-  return projectionInput.viewport;
 }
 
 export class GpuFlowBrowserVisualActorRuntime {
@@ -594,8 +576,13 @@ export class GpuFlowBrowserVisualActorRuntime {
       committedFrameId: this.snapshot.frameIds.committedFrameId,
       projectionInput,
     });
+    this.publishBrowserVisualPresentationIdentity(projectionInput.token);
     const projectableHostByControlId =
       this.createProjectableDomControlHostMap();
+    stampGpuFlowVisibleDomControlHostPresentationIdentity({
+      hostByControlId: this.visibleDomControlHostById,
+      token: projectionInput.token,
+    });
     this.parkUnprojectedDomControlHosts(projectableHostByControlId);
     const projectionViewport =
       viewport ??
@@ -670,6 +657,12 @@ export class GpuFlowBrowserVisualActorRuntime {
       committedFrameId: this.snapshot.frameIds.committedFrameId,
       projectionInput,
     });
+    this.publishBrowserVisualPresentationIdentity(projectionInput.token);
+    stampGpuFlowVisibleDomIslandHostPresentationIdentity({
+      elementById: this.domIslandElementById,
+      registeredIslandIds: this.domIslandRegistrationCommittedFrameIdById.keys(),
+      token: projectionInput.token,
+    });
     syncGpuFlowBrowserVisualDomIslandLayerStyles({
       elementById: this.domIslandElementById,
       islands: this.snapshot.domIslands.islands,
@@ -679,6 +672,20 @@ export class GpuFlowBrowserVisualActorRuntime {
         width: viewportStore.getState().width,
       },
     });
+  }
+
+  private publishBrowserVisualPresentationIdentity(
+    token: GpuFlowCommitPublicationToken,
+  ): void {
+    if (this.snapshot.publicationToken === token) {
+      return;
+    }
+    this.snapshot = withGpuFlowBrowserVisualSnapshotPublicationToken({
+      snapshot: this.snapshot,
+      token,
+    });
+    this.snapshotPublicationToken = token;
+    this.scheduleSnapshotEmit();
   }
 
   private resolveDomControlProjection({

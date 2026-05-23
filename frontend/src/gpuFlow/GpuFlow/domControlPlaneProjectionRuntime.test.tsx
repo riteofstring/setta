@@ -30,7 +30,10 @@ import {
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+} from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 let root: Root | null = null;
@@ -166,6 +169,66 @@ describe("GPU flow DOM control projection runtime", () => {
         control.sourceId,
       ).ready,
     ).toBe(true);
+  });
+
+  it("updates visible DOM-control host presentation identity during motion projection", () => {
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 120,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const control = domControl({ index: 0 });
+    const element = document.body.appendChild(document.createElement("div"));
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlElement({
+      control,
+      element,
+      presentation: "preparation",
+    });
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
+    });
+    const token = publicationToken(frame);
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: frame.displayFrameId,
+        retainedRuntimeFrame: frame.retainedRuntimeFrame,
+      }),
+    });
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate,
+      token,
+    });
+
+    const projectionToken =
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+        frame,
+        projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
+      });
+    browserVisualRuntime.projectDomControls({
+      token: projectionToken,
+      viewport: [12, 8, 1],
+    });
+
+    expect(element.dataset.gpuFlowContentFrameId).toBe(
+      String(projectionToken.contentFrameId),
+    );
+    expect(element.dataset.gpuFlowPresentationId).toBe(
+      String(projectionToken.presentationId),
+    );
+    expect(element.dataset.gpuFlowPresentationId).not.toBe(
+      String(token.presentationId),
+    );
+    expect(browserVisualRuntime.getSnapshot().publicationToken).toBe(
+      projectionToken,
+    );
   });
 
   it("keeps focused DOM-control hosts focused across frame metadata updates", () => {

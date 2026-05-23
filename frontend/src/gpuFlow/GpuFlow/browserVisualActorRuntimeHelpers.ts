@@ -18,7 +18,10 @@ import {
   clearGpuFlowVisibleFrameIdentityAttributes,
   setGpuFlowVisibleFrameIdentityAttributes,
 } from "./visibleFrameIdentityAttributes";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import {
+  assertGpuFlowCommitPublicationTokenForFrameId,
+  type GpuFlowCommitPublicationToken,
+} from "./visibleFramePresentationProofs";
 
 const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxReadableMountedControls +
@@ -36,6 +39,30 @@ export function resolveGpuFlowBrowserVisualActorFrameIds({
     committedFrameId: committedFrameId ?? runtimeFrameId,
     runtimeFrameId,
   });
+}
+
+export function resolveGpuFlowBrowserVisualActorProjectionViewport({
+  committedFrameId,
+  projectionInput,
+}: {
+  readonly committedFrameId: number;
+  readonly projectionInput:
+    | {
+        readonly token: GpuFlowCommitPublicationToken;
+        readonly viewport?: GpuViewportInput | undefined;
+      }
+    | undefined;
+}): GpuViewportInput | undefined {
+  if (!projectionInput) {
+    throw new Error(
+      "GPU Flow current browser visual projection requires a commit publication token.",
+    );
+  }
+  assertGpuFlowCommitPublicationTokenForFrameId({
+    committedFrameId,
+    token: projectionInput.token,
+  });
+  return projectionInput.viewport;
 }
 
 export function createGpuFlowDomControlProjectionSourceRevision({
@@ -247,6 +274,39 @@ export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
       clearGpuFlowVisibleFrameIdentityAttributes(element);
     }
     registrationCommittedFrameIdById.delete(islandId);
+  }
+}
+
+export function stampGpuFlowVisibleDomControlHostPresentationIdentity({
+  hostByControlId,
+  token,
+}: {
+  readonly hostByControlId: ReadonlyMap<
+    string,
+    { readonly element: HTMLElement }
+  >;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  for (const host of hostByControlId.values()) {
+    setGpuFlowVisibleFrameIdentityAttributes(host.element, token);
+  }
+}
+
+export function stampGpuFlowVisibleDomIslandHostPresentationIdentity({
+  elementById,
+  registeredIslandIds,
+  token,
+}: {
+  readonly elementById: ReadonlyMap<string, HTMLElement>;
+  readonly registeredIslandIds: Iterable<string>;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  for (const islandId of registeredIslandIds) {
+    const element = elementById.get(islandId);
+    if (!element) {
+      continue;
+    }
+    setGpuFlowVisibleFrameIdentityAttributes(element, token);
   }
 }
 

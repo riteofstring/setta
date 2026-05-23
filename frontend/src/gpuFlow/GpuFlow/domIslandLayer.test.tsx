@@ -90,6 +90,22 @@ describe("GPU Flow DOM island layer", () => {
       )?.dataset.gpuFlowDomIslandCommittedFrameId,
     ).toBe("2");
     expectDomIslandPresentationIdentity(nextToken);
+
+    const projectionToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedSurfaceRuntime.getCommittedContentFrame(),
+      projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
+    });
+    await act(async () => {
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      ).projectDomIslands({
+        token: projectionToken,
+        viewport: [16, 0, 1],
+      });
+      await nextMicrotask();
+    });
+
+    expectDomIslandPresentationIdentity(projectionToken);
   });
 });
 

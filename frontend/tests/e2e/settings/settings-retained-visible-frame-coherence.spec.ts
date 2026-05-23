@@ -75,15 +75,28 @@ type ColdStartShellFrame = {
 type VisibleFrameIdentity = {
   readonly blockedEventCount: number;
   readonly canvasCommittedFrameId: number | null;
+  readonly canvasContentFrameId: string | null;
   readonly canvasHeldPreviousFrameCount: number | null;
+  readonly canvasPresentationId: string | null;
   readonly canvasProjectionTransactionId: string | null;
   readonly canvasProjectionTransactionKind: string | null;
   readonly committedSurfaceFrameId: number | null;
+  readonly debugSnapshotContentFrameId: string | null;
   readonly debugSnapshotFrameId: number | null;
+  readonly debugSnapshotPresentationId: string | null;
   readonly domControlPlaneCommittedFrameId: number | null;
+  readonly domControlPlaneContentFrameId: string | null;
   readonly domControlPlaneFrameId: number | null;
+  readonly domControlPlanePresentationId: string | null;
   readonly hitGenerationId: string | null;
   readonly visibleDomControlActorIds: readonly string[];
+  readonly visibleDomControlIdentities: readonly VisibleFrameHostIdentity[];
+};
+
+type VisibleFrameHostIdentity = {
+  readonly actorId: string | null;
+  readonly contentFrameId: string | null;
+  readonly presentationId: string | null;
 };
 
 type SettingsProjectStatePayload = {
@@ -322,6 +335,7 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   expect(repairedIdentity.committedSurfaceFrameId, details).toBe(
     repairedIdentity.canvasCommittedFrameId,
   );
+  expectVisibleFrameEpochCoherent(repairedIdentity, details);
   expect(
     repairedIdentity.visibleDomControlActorIds.length,
     details,
@@ -459,6 +473,7 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
   expect(afterIdentity.debugSnapshotFrameId, details).toBe(
     blockedFrozenFrameId,
   );
+  expectVisibleFrameEpochCoherent(afterIdentity, details);
   expect(afterIdentity.hitGenerationId, details).toBeTruthy();
   expect(
     afterIdentity.visibleDomControlActorIds.length,
@@ -502,6 +517,34 @@ function expectBlockedEventRetainsSchedulerDebt(
     event.publicationLane === "motion"
   ) {
     expect(remainingDebt[event.publicationLane], details).toBe(true);
+  }
+}
+
+function expectVisibleFrameEpochCoherent(
+  identity: VisibleFrameIdentity,
+  details: string,
+): void {
+  const surfaceContentFrameIds = [
+    identity.canvasContentFrameId,
+    identity.domControlPlaneContentFrameId,
+    identity.debugSnapshotContentFrameId,
+  ].filter((value): value is string => Boolean(value));
+  const surfacePresentationIds = [
+    identity.canvasPresentationId,
+    identity.domControlPlanePresentationId,
+    identity.debugSnapshotPresentationId,
+  ].filter((value): value is string => Boolean(value));
+
+  expect(surfaceContentFrameIds.length, details).toBeGreaterThan(0);
+  expect(surfacePresentationIds.length, details).toBeGreaterThan(0);
+  expect(new Set(surfaceContentFrameIds).size, details).toBe(1);
+  expect(new Set(surfacePresentationIds).size, details).toBe(1);
+
+  const [contentFrameId] = surfaceContentFrameIds;
+  const [presentationId] = surfacePresentationIds;
+  for (const hostIdentity of identity.visibleDomControlIdentities) {
+    expect(hostIdentity.contentFrameId, details).toBe(contentFrameId);
+    expect(hostIdentity.presentationId, details).toBe(presentationId);
   }
 }
 
@@ -870,31 +913,55 @@ async function readVisibleFrameIdentity(
       .map((host) => host.dataset.gpuFlowDomControlId)
       .filter((actorId): actorId is string => Boolean(actorId))
       .sort((left, right) => left.localeCompare(right));
+    const visibleDomControlIdentities = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-gpu-flow-dom-control='true']",
+      ),
+    ]
+      .map((host) => ({
+        actorId: host.dataset.gpuFlowDomControlId ?? null,
+        contentFrameId: host.dataset.gpuFlowContentFrameId ?? null,
+        presentationId: host.dataset.gpuFlowPresentationId ?? null,
+      }))
+      .sort((left, right) =>
+        (left.actorId ?? "").localeCompare(right.actorId ?? ""),
+      );
     return {
       blockedEventCount: blockedEvents.length,
       canvasCommittedFrameId: parseOptionalNumber(
         canvas?.dataset.gpuFlowCommittedFrameId,
       ),
+      canvasContentFrameId: canvas?.dataset.gpuFlowContentFrameId ?? null,
       canvasHeldPreviousFrameCount: parseOptionalNumber(
         canvas?.dataset.gpuFlowHeldPreviousFrameCount,
       ),
+      canvasPresentationId: canvas?.dataset.gpuFlowPresentationId ?? null,
       canvasProjectionTransactionId:
         canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
       canvasProjectionTransactionKind:
         canvas?.dataset.gpuFlowProjectionTransactionKind ?? null,
       committedSurfaceFrameId:
         debugSnapshot?.committedSurfaceFrame?.displayFrameId ?? null,
+      debugSnapshotContentFrameId:
+        debugSnapshot?.committedSurfaceFrame?.contentFrameId ?? null,
       debugSnapshotFrameId:
         debugSnapshot?.committedSurfaceFrame?.debugSnapshotFrameId ?? null,
+      debugSnapshotPresentationId:
+        debugSnapshot?.committedSurfaceFrame?.presentationId ?? null,
       domControlPlaneCommittedFrameId: parseOptionalNumber(
         domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
       ),
+      domControlPlaneContentFrameId:
+        domControlPlane?.dataset.gpuFlowContentFrameId ?? null,
       domControlPlaneFrameId: parseOptionalNumber(
         domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId,
       ),
+      domControlPlanePresentationId:
+        domControlPlane?.dataset.gpuFlowPresentationId ?? null,
       hitGenerationId:
         debugSnapshot?.committedSurfaceFrame?.hitGenerationId ?? null,
       visibleDomControlActorIds,
+      visibleDomControlIdentities,
     };
 
     function parseOptionalNumber(value: string | undefined): number | null {
