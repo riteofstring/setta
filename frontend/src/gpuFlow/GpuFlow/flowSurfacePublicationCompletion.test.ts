@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createGpuFlowCommittedSurfacePresentationProof,
@@ -47,7 +47,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
-      runtimeCanvas: {} as HTMLCanvasElement,
+      runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
       viewportRuntime: {
         applyOverlayTransforms: () => {
@@ -101,7 +101,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
-      runtimeCanvas: {} as HTMLCanvasElement,
+      runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
       viewportRuntime: {
         applyOverlayTransforms: () => {
@@ -128,6 +128,91 @@ describe("GPU Flow surface publication completion", () => {
       ),
     ).toThrow(/commit failed before visible publication/);
     expect(schedulerCompletionCount).toBe(0);
+  });
+
+  it("submits prepared canvas work only during committed publication", () => {
+    const committedFrame = committedSurfaceFrame({ displayFrameId: 21 });
+    const selectedState = visibleProjectionState({
+      displayFrameId: committedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 21,
+    });
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedFrame,
+      projectionSample: selectedState.sample,
+    });
+    const submitCanvas = vi.fn();
+    const publisher = createGpuFlowSurfacePublicationPublisher({
+      abortPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface abort.");
+      },
+      callbacksRef: {
+        current: {
+          framePerformanceReporter: undefined,
+          onNodeLayerFrame: () => {},
+        },
+      },
+      commitPreparedCommittedSurfaceFrame: () => true,
+      projectCommittedBrowserVisualActors: () => {},
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: { current: null },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {},
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<
+      typeof createGpuFlowSurfacePublicationPublisher
+    >[0]);
+
+    publisher(
+      committedPublicationTransaction({
+        committedFrame,
+        nodeLayerFrameStatePublication: {
+          callbacksRef: {
+            current: {
+              framePerformanceReporter: undefined,
+              onNodeLayerFrame: () => {},
+            },
+          },
+          layerResult: {
+            budgetExhausted: false,
+            canvasSubmission: { submit: submitCanvas },
+            domTransformParkedNodeIds: [],
+            domTransformUpdatedNodeIds: [],
+            visibleNodeIds: [],
+            visualScene: {
+              effectSurfaces: [],
+              flatSurfaces: [],
+              lateFlatSurfaces: [],
+              meshSurfaces: [],
+              solidRoundedRectSurfaces: [],
+              tiledFlatSurfaces: [],
+            },
+          },
+          nodeInteractionRef: { current: null },
+          nodeLayerRef: { current: {} },
+          retainedRuntimeFrame: {},
+          retainedTexturePageFollowUpFrame: false,
+          surfaceRef: { current: null },
+          switchAnimationFollowUpFrame: false,
+          transformOnlyPaintNodeIdsRef: { current: new Set() },
+          viewport: [0, 0, 1],
+          viewportFrame: false,
+          visibleNodeIdsRef: { current: new Set() },
+        },
+        onCompleteSchedulerFrame: () => {},
+        selectedState,
+        token,
+      }),
+    );
+
+    expect(submitCanvas).toHaveBeenCalledOnce();
   });
 });
 
@@ -190,11 +275,13 @@ function heldPreviousPublicationTransaction({
 
 function committedPublicationTransaction({
   committedFrame,
+  nodeLayerFrameStatePublication = null,
   onCompleteSchedulerFrame,
   selectedState,
   token,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly nodeLayerFrameStatePublication?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
   readonly selectedState: GpuFlowVisibleProjectionState;
   readonly token: ReturnType<
@@ -239,7 +326,7 @@ function committedPublicationTransaction({
         committedSurfaceFrame: committedFrame,
         committedSurfacePublicationEffect: null,
         heldPreparedCommittedSurfaceFrame: null,
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePublication,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
       },
@@ -269,14 +356,19 @@ function visibleProjectionState({
   readonly sampleId: number;
 }): GpuFlowVisibleProjectionState {
   return {
-    committedFrame: {
-      coherence: {
-        hitGenerationId: `hit:${displayFrameId}`,
-      },
-      displayFrameId,
-    },
+    committedFrame: committedSurfaceFrame({ displayFrameId }),
     debugState: {
+      committedFrameId: displayFrameId,
+      gestureOwner: "idle",
+      heldPreviousDurationMs: 0,
+      heldPreviousFrameCount: 0,
+      heldPreviousOverBudget: false,
+      heldPreviousReason: null,
+      heldPreviousRequestedSampleId: null,
+      lane: "content",
+      projectionSampleId: sampleId,
       projectionTransactionId: `projection:${displayFrameId}:${sampleId}`,
+      transactionKind: kind,
     },
     sample: liveProjectionSample({
       id: sampleId,
@@ -332,6 +424,13 @@ function committedSurfaceFrame({
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
+function testCanvas(): HTMLCanvasElement {
+  return {
+    closest: () => null,
+    dataset: {},
+  } as unknown as HTMLCanvasElement;
+}
+
 function liveProjectionSample({
   id,
   timestamp,
@@ -339,5 +438,10 @@ function liveProjectionSample({
   readonly id: number;
   readonly timestamp: number;
 }): GpuFlowLiveProjectionSample {
-  return { id, timestamp } as GpuFlowLiveProjectionSample;
+  return {
+    id,
+    retainedScrollOffsets: new Map(),
+    timestamp,
+    viewport: [0, 0, 1],
+  } as GpuFlowLiveProjectionSample;
 }
