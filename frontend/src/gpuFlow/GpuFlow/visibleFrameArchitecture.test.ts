@@ -10,7 +10,9 @@ const GPU_FLOW_ROOT = modulePath("../");
 
 // Removal milestone: docs/plans/gpu-flow-coherent-visible-frame-engine-plan.md step 3.
 const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
+  "./browserVisualFaultInjectionPublication",
   "./flowCommittedSurfacePublication",
+  "./flowColdStartShellFramePublication",
   "./flowSurfacePublicationCompletion",
   "./visibleFramePublicationAuthority",
   "./visibleFramePublicationActorOracle",

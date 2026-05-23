@@ -87,7 +87,7 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
-import { assertGpuFlowColdStartShellPublicationToken } from "./flowColdStartShellFramePublication";
+import { assertGpuFlowColdStartShellToken } from "./visibleFrameColdStartShell";
 
 export function GpuFlow({
   children,
@@ -218,7 +218,7 @@ export function GpuFlow({
       typeof renderGpuFlowSurfaceFrame
     >[0]["publishColdStartShellFrame"]
   >((publication) => {
-    assertGpuFlowColdStartShellPublicationToken({
+    assertGpuFlowColdStartShellToken({
       token: publication.token,
     });
     const nextColdStartShellFrame = publication.frame;

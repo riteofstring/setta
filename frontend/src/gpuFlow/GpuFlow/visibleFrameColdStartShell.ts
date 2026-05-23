@@ -7,7 +7,7 @@ import {
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
 
-export function assertGpuFlowColdStartShellPublicationToken({
+export function assertGpuFlowColdStartShellToken({
   token,
 }: {
   readonly token:

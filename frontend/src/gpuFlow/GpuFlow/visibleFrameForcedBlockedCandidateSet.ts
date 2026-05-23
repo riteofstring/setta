@@ -2,7 +2,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandidate } from "./browserVisualFaultInjectionPublication";
+import { createGpuFlowBrowserVisualFaultInjectedBlockedCandidate } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } from "./visibleFrameContentPlan";
 import type {
   GpuFlowMotionProjectionFramePreparation,
@@ -66,7 +66,7 @@ export function prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet<
   MotionProjectionFrame
 > | null {
   const forcedBlockedPublicationCandidate =
-    createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandidate({
+    createGpuFlowBrowserVisualFaultInjectedBlockedCandidate({
       previousVisibleProjectionState,
     });
   if (!forcedBlockedPublicationCandidate) {

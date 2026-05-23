@@ -1,7 +1,7 @@
-import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
-import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
+import type { GpuFlowVisibleProjectionState } from "../../projectionRuntime";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "../visibleFrameContentPlan";
+import type { GpuFlowBlockedVisibleReason } from "../visibleFramePresentationProofs";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../visibleFrameTypes";
 
 type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
   | "blocked-awaiting-live-host"
@@ -21,7 +21,7 @@ type GpuFlowBrowserVisualFaultInjectionWindow = Window & {
     | unknown;
 };
 
-export function createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandidate({
+export function createGpuFlowBrowserVisualFaultInjectedBlockedCandidate({
   previousVisibleProjectionState,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;

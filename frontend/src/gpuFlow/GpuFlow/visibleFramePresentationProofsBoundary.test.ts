@@ -1221,7 +1221,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const flowSurfaceSource =
       readFileSync(join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"), "utf8") +
       readFileSync(
-        join(GPU_FLOW_ROOT, "GpuFlow/flowColdStartShellFramePublication.ts"),
+        join(GPU_FLOW_ROOT, "GpuFlow/visibleFrameColdStartShell.ts"),
         "utf8",
       );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
@@ -1238,7 +1238,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(flowSurfaceSource).not.toContain("void publication.token");
     expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
     expect(flowSurfaceSource).toContain(
-      "assertGpuFlowColdStartShellPublicationToken",
+      "assertGpuFlowColdStartShellToken",
     );
     expect(flowSurfaceSource).toContain(
       "assertGpuFlowBlockedPublicationTokenBrand",
