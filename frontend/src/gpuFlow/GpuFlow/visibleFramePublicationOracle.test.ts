@@ -15,7 +15,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory } from "./visibleFramePublicationKernel";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationPreparedFrameSelector,
@@ -33,8 +33,6 @@ const createGpuFlowVisibleFramePublicationTransactionOracle =
   createGpuFlowVisibleFramePublicationTransactionOracleFactory();
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();
-const createGpuFlowRetainedProjectionBlockedPublicationCandidate =
-  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory();
 const selectGpuFlowVisibleFramePublicationPreparedFrame =
   createGpuFlowVisibleFramePublicationPreparedFrameSelector();
 const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =

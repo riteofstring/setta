@@ -95,7 +95,7 @@ describe("GPU Flow visible publication projection plans", () => {
       'projectionFrameRenderPlan.kind === "blocked"',
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(kernelSource).toContain("projectionFrameTransaction.blockedReason");
     expect(projectionPlanSource).toContain(

@@ -12,6 +12,7 @@ const AUTHORITY_MODULE_PATH = modulePath(
   "./visibleFramePublicationAuthority.ts",
 );
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
+const KERNEL_CONTENT_DECISION_MODULE_PATH = modulePath("./visibleFramePublicationKernelContentDecisions.ts");
 const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
   "./visibleFramePublicationKernelPresentation.ts",
 );
@@ -294,12 +295,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
-  it("keeps committed-surface held-previous transaction assembly inside publication authority", () => {
+  it("keeps committed-surface held-previous transaction assembly inside the kernel", () => {
     const committedSurfaceSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const committedSurfaceAuthoritySource = readFileSync(
       COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
       "utf8",
@@ -314,14 +315,17 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
-    expect(kernelModuleSource).not.toContain(
+    expect(kernelSource).toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
     );
-    expect(kernelModuleSource).not.toContain(
+    expect(kernelSource).toContain(
       "decideGpuFlowCommittedSurfacePublicationTransaction",
     );
-    expect(committedSurfaceAuthoritySource).toContain(
+    expect(committedSurfaceAuthoritySource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
+    );
+    expect(committedSurfaceAuthoritySource).not.toContain(
+      "decideGpuFlowCommittedSurfacePublicationTransaction",
     );
   });
 
@@ -390,7 +394,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).toContain("blockedSource");
     expect(kernelSource).toContain("visibleProjectionSource");
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });
 
@@ -506,7 +510,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
   it("reports retained cold-start coverage blocks as kernel candidates", () => {
     const source = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
       "runRetainedCommittedSurfacePublicationContentStage",
@@ -551,13 +554,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).toContain(
       "createGpuFlowRetainedDisplayPublicationFramePlanPreparer",
     );
-    expect(kernelModuleSource).not.toContain(
+    expect(kernelSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(kernelSource).toContain(
       "selectGpuFlowRetainedDisplayFollowUpFrameReason",
     );
-    expect(kernelModuleSource).not.toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowRetainedDisplayOutcomeFrameResultResolver",
     );
     expect(kernelSource).not.toContain(
@@ -567,10 +570,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowContentPublicationBlockedCandidateSelector",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
   });
 
@@ -1138,6 +1141,7 @@ function extractNamedImports({
 function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
+    KERNEL_CONTENT_DECISION_MODULE_PATH,
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
@@ -1152,7 +1156,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
 }
 
 function readCommittedSurfaceAuthorityCandidateSource(): string {
-  const source = readFileSync(COMMITTED_SURFACE_AUTHORITY_MODULE_PATH, "utf8");
+  const source = readFileSync(KERNEL_CONTENT_DECISION_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
     "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
   );

@@ -30,7 +30,6 @@ import {
 import { createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector } from "./visibleFramePublicationContentAuthority";
 import {
   createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
-  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   type GpuFlowRetainedDisplayOutcomeFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlan,
   type GpuFlowRetainedDisplayPublicationFramePlanSelector,
@@ -105,8 +104,6 @@ const selectCommittedSurfaceFramePlanByPublicationAuthority =
   createGpuFlowCommittedSurfacePublicationFramePlanSelector();
 const resolveCommittedSurfaceFramePlanResultByPublicationAuthority =
   createGpuFlowCommittedSurfacePublicationFramePlanResultResolver();
-const selectRetainedDisplayFramePlanByPublicationAuthority =
-  createGpuFlowRetainedDisplayPublicationFramePlanSelector();
 const resolveRetainedDisplayFramePlanResultByPublicationAuthority =
   createGpuFlowRetainedDisplayPublicationFramePlanResultResolver();
 
@@ -884,11 +881,11 @@ export function resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResul
 export function createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
   previousVisibleProjectionState,
   prepareRetainedDisplayPublicationCandidate,
-  selectRetainedDisplayPublicationFramePlan = selectRetainedDisplayFramePlanByPublicationAuthority,
+  selectRetainedDisplayPublicationFramePlan,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly prepareRetainedDisplayPublicationCandidate: GpuFlowRetainedDisplayPublicationPreparer;
-  readonly selectRetainedDisplayPublicationFramePlan?: GpuFlowRetainedDisplayPublicationFramePlanSelector;
+  readonly selectRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanSelector;
 }): GpuFlowRetainedDisplayPublicationFramePlanPreparer {
   return (input) => {
     const publication = prepareRetainedDisplayPublicationCandidate(input);

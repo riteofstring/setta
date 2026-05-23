@@ -3,10 +3,6 @@ import {
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory } from "./visibleFramePublicationProjectionTransactionAuthority";
-
-const createRetainedProjectionBlockedPublicationCandidate =
-  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory();
 
 type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
@@ -72,53 +68,6 @@ export function createGpuFlowRetainedDisplayPublicationFramePlanResultResolver()
   return resolveGpuFlowRetainedDisplayPublicationFramePlanResult;
 }
 
-export function createGpuFlowRetainedDisplayPublicationFramePlanSelector(): GpuFlowRetainedDisplayPublicationFramePlanSelector {
-  return selectGpuFlowRetainedDisplayPublicationFramePlan;
-}
-
-function selectGpuFlowRetainedDisplayPublicationFramePlan({
-  previousVisibleProjectionState,
-  retainedDisplayOutcome,
-}: {
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly retainedDisplayOutcome: GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
-}): GpuFlowRetainedDisplayPublicationFramePlan {
-  const outcomeFrame = resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
-    retainedDisplayOutcome,
-  );
-  const result = resolveGpuFlowRetainedDisplayOutcomeFrameResult({
-    outcomeFrame,
-    previousVisibleProjectionState,
-  });
-  if (result.blockedPublicationCandidate) {
-    return {
-      blockedPublicationCandidate: result.blockedPublicationCandidate,
-      kind: "blocked" as const,
-    };
-  }
-  return {
-    kind: "published" as const,
-    publishedOutcomeFrame: result.publishedOutcomeFrame,
-  };
-}
-
-function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
-  outcome: GpuFlowRetainedDisplayPublicationOutcome,
-): GpuFlowRetainedDisplayPublicationOutcomeFrame {
-  if (outcome.kind === "block-cold-first-coverage") {
-    return {
-      kind: "blocked",
-      reason: outcome.reason,
-    };
-  }
-  return {
-    frame: outcome.frame,
-    kind: "published",
-    outcome,
-    outcomeKind: outcome.kind,
-  };
-}
-
 function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   framePlan,
 }: {
@@ -133,28 +82,5 @@ function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   return {
     blockedPublicationCandidate: null,
     publishedOutcomeFrame: framePlan.publishedOutcomeFrame,
-  };
-}
-
-function resolveGpuFlowRetainedDisplayOutcomeFrameResult({
-  outcomeFrame,
-  previousVisibleProjectionState,
-}: {
-  readonly outcomeFrame: GpuFlowRetainedDisplayPublicationOutcomeFrame;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowRetainedDisplayOutcomeFrameResult {
-  if (outcomeFrame.kind !== "blocked") {
-    return {
-      blockedPublicationCandidate: null,
-      publishedOutcomeFrame: outcomeFrame,
-    };
-  }
-  return {
-    blockedPublicationCandidate:
-      createRetainedProjectionBlockedPublicationCandidate({
-        blockedReason: outcomeFrame.reason,
-        heldPreviousProjectionState: previousVisibleProjectionState,
-      }),
-    publishedOutcomeFrame: null,
   };
 }
