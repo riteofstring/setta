@@ -13,7 +13,7 @@ const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
 );
 const COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
+  new URL("./visibleFrameOutcomeReport.ts", import.meta.url),
 );
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),

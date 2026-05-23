@@ -24,7 +24,7 @@ import type {
   GpuFlowVisiblePublicationOutcome,
   GpuFlowVisiblePublicationSchedulerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
-} from "./visibleFramePublicationCompletion";
+} from "./visibleFrameOutcomeReport";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceProtectionDigest,

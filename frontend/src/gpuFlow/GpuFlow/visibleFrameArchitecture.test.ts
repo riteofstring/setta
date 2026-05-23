@@ -15,6 +15,7 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationAuthority",
   "./visibleFramePublicationOracle",
   "./visibleFramePublicationCandidateOracle",
+  "./visibleFramePublicationCompletion",
 ] as const;
 
 describe("GPU Flow visible frame architecture", () => {

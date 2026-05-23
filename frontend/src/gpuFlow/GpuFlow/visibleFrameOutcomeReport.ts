@@ -1,3 +1,4 @@
+// Builds outcome reports and scheduler completion records after a frame is proved.
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowVisiblePublicationScheduler,

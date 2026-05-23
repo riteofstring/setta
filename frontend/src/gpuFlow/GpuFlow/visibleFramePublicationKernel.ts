@@ -15,7 +15,7 @@ import {
   type GpuFlowRetainedProjectionPublicationCandidateSelector,
   type GpuFlowVisiblePublicationCandidateOracle,
 } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFramePublicationCompletion";
+import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
@@ -47,14 +47,14 @@ import {
   type GpuFlowVisiblePublicationBlockedProof,
 } from "./visibleFrameTransactionProofs";
 
-export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
+export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFrameOutcomeReport";
 export type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
   GpuFlowVisiblePublicationSchedulerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
-} from "./visibleFramePublicationCompletion";
+} from "./visibleFrameOutcomeReport";
 export { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";
 export type { GpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";
 export { createGpuFlowContentPublicationFrameResult } from "./visibleFramePublicationContentPlan";

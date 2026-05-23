@@ -19,7 +19,7 @@ const CONTENT_PLAN_MODULE_PATH = modulePath(
   "./visibleFramePublicationContentPlan.ts",
 );
 const KERNEL_COMPLETION_MODULE_PATH = modulePath(
-  "./visibleFramePublicationCompletion.ts",
+  "./visibleFrameOutcomeReport.ts",
 );
 const CHROME_REPRO_MODULE_PATH = modulePath(
   "./flowVisiblePublicationOutcomeChromeRepro.ts",

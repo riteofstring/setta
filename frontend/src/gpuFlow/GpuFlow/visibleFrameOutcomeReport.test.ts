@@ -12,7 +12,7 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
 
-describe("GPU Flow visible publication completion", () => {
+describe("GPU Flow visible frame outcome report", () => {
   it("blocks no-frame held-previous outcomes after the kernel hold budget", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
