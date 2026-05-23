@@ -9,7 +9,6 @@ import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -17,7 +16,6 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import {
-  createGpuFlowRetainedProjectionPublicationDecisionSelector,
   prepareGpuFlowCommittedSurfacePublicationCandidate,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
@@ -345,133 +343,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
       expect(result.outcome.token.blockedReasons).toEqual([reason]);
     },
   );
-
-  it("holds retained projection coverage misses inside the kernel while within budget", () => {
-    const requestedTransaction = retainedProjectionTransaction({
-      sample: liveProjectionSample({ id: 60, timestamp: 600 }),
-    });
-    const decision = selectRetainedProjectionPublicationDecisionForTest({
-      hasActiveRetainedDomControl: false,
-      heldPreviousProjectionState: visibleProjectionState({
-        kind: "motion-projection",
-        sample: liveProjectionSample({ id: 59, timestamp: 584 }),
-      }),
-      requestedProjectionCoverageMissing: true,
-      requestedTransaction,
-    });
-
-    expect(decision.kind).toBe("held-previous");
-    expect(decision.blockedReason).toBeNull();
-    expect(decision.transaction.kind).toBe("held-previous");
-    expect(decision.transaction.committedFrameId).toBe(7);
-    expect(decision.transaction.sample.id).toBe(60);
-    expect(decision.heldPreviousProjection).toEqual(
-      expect.objectContaining({
-        consecutiveFrameCount: 1,
-        projectionSampleId: 60,
-        reason: "retained-projection-coverage-missing",
-        requestedProjectionSampleId: 60,
-      }),
-    );
-  });
-
-  it("blocks retained projection held-previous after the kernel budget is exceeded", () => {
-    const knobs = {
-      maxConsecutiveMotionFramesBeforeContentProbe: 6,
-      maxContentInterleaveMs: 2,
-      maxHeldPreviousFrames: 1,
-      maxHeldPreviousMs: 5,
-      maxMaintenanceInterleaveMs: 1,
-      motionSettleWindowMs: 120,
-    };
-    const firstDecision = selectRetainedProjectionPublicationDecisionForTest({
-      hasActiveRetainedDomControl: false,
-      heldPreviousProjectionState: visibleProjectionState({
-        kind: "motion-projection",
-        sample: liveProjectionSample({ id: 61, timestamp: 610 }),
-      }),
-      projectionSchedulerKnobs: knobs,
-      requestedProjectionCoverageMissing: true,
-      requestedTransaction: retainedProjectionTransaction({
-        sample: liveProjectionSample({ id: 62, timestamp: 612 }),
-      }),
-    });
-    if (firstDecision.kind !== "held-previous") {
-      throw new Error("Expected first retained projection decision to hold.");
-    }
-
-    const secondDecision = selectRetainedProjectionPublicationDecisionForTest({
-      hasActiveRetainedDomControl: false,
-      heldPreviousProjectionState: {
-        ...visibleProjectionState({
-          kind: "held-previous",
-          sample: firstDecision.transaction.sample,
-        }),
-        heldPreviousProjection: firstDecision.heldPreviousProjection,
-        transaction: firstDecision.transaction,
-      },
-      projectionSchedulerKnobs: knobs,
-      requestedProjectionCoverageMissing: true,
-      requestedTransaction: retainedProjectionTransaction({
-        sample: liveProjectionSample({ id: 70, timestamp: 620 }),
-      }),
-    });
-
-    expect(secondDecision.kind).toBe("blocked");
-    expect(secondDecision.blockedReason).toBe("held-previous-budget-exceeded");
-    expect(secondDecision.transaction.kind).toBe("motion-projection");
-    expect(secondDecision.transaction.sample.id).toBe(70);
-    expect(secondDecision.heldPreviousProjection).toEqual(
-      expect.objectContaining({
-        consecutiveFrameCount: 2,
-        heldDurationMs: 8,
-        maxHeldPreviousFramesExceeded: true,
-        maxHeldPreviousMsExceeded: true,
-      }),
-    );
-  });
-
-  it("projects requested retained coverage after the hold budget when an active DOM control is waiting", () => {
-    const requestedTransaction = retainedProjectionTransaction({
-      sample: liveProjectionSample({ id: 72, timestamp: 720 }),
-    });
-    const previousVisibleProjectionState = visibleProjectionState({
-      kind: "held-previous",
-      sample: liveProjectionSample({ id: 71, timestamp: 704 }),
-    });
-    if (!previousVisibleProjectionState.heldPreviousProjection) {
-      throw new Error("Expected held-previous projection diagnostics.");
-    }
-
-    const decision = selectRetainedProjectionPublicationDecisionForTest({
-      hasActiveRetainedDomControl: true,
-      heldPreviousProjectionState: {
-        ...previousVisibleProjectionState,
-        heldPreviousProjection: {
-          ...previousVisibleProjectionState.heldPreviousProjection,
-          consecutiveFrameCount: 2,
-          heldDurationMs: 128,
-          maxHeldPreviousFramesExceeded: true,
-          maxHeldPreviousMsExceeded: true,
-        },
-      },
-      projectionSchedulerKnobs: {
-        maxConsecutiveMotionFramesBeforeContentProbe: 6,
-        maxContentInterleaveMs: 2,
-        maxHeldPreviousFrames: 1,
-        maxHeldPreviousMs: 5,
-        maxMaintenanceInterleaveMs: 1,
-        motionSettleWindowMs: 120,
-      },
-      requestedProjectionCoverageMissing: true,
-      requestedTransaction,
-    });
-
-    expect(decision.kind).toBe("project-requested");
-    expect(decision.blockedReason).toBeNull();
-    expect(decision.heldPreviousProjection).toBeNull();
-    expect(decision.transaction).toBe(requestedTransaction);
-  });
 
   it("keeps selected content debt queued for blocked transactions", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
@@ -1041,34 +912,6 @@ function retainedProjectionTransaction({
     lane: "motion",
     rawReasons: ["retained-scroll"],
     sample,
-  });
-}
-
-function selectRetainedProjectionPublicationDecisionForTest({
-  hasActiveRetainedDomControl,
-  heldPreviousProjectionState,
-  projectionSchedulerKnobs,
-  requestedProjectionCoverageMissing,
-  requestedTransaction,
-}: {
-  readonly hasActiveRetainedDomControl: boolean;
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly projectionSchedulerKnobs?:
-    | GpuFlowProjectionSchedulerKnobs
-    | undefined;
-  readonly requestedProjectionCoverageMissing: boolean;
-  readonly requestedTransaction: ReturnType<
-    typeof retainedProjectionTransaction
-  >;
-}) {
-  return createGpuFlowRetainedProjectionPublicationDecisionSelector({
-    previousVisibleProjectionState: heldPreviousProjectionState,
-    rawReasons: ["retained-scroll"],
-  })({
-    hasActiveRetainedDomControl,
-    projectionSchedulerKnobs,
-    requestedProjectionCoverageMissing,
-    requestedTransaction,
   });
 }
 

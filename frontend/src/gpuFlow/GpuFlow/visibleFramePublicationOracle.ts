@@ -157,19 +157,6 @@ export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory = <
   MotionProjectionFrame
 >;
 
-export function createGpuFlowVisiblePublicationCommitDebtProof({
-  committedFrame,
-  publicationDecision,
-}: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}): GpuFlowVisiblePublicationCommitDebtProof {
-  return createGpuFlowVisiblePublicationCommitOracle({
-    committedFrame,
-    publicationDecision,
-  }).debtProof;
-}
-
 export function createGpuFlowVisiblePublicationCommitOracleFactory(): GpuFlowVisiblePublicationCommitOracleFactory {
   return createGpuFlowVisiblePublicationCommitOracle;
 }

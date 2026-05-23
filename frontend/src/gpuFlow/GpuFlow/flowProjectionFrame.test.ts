@@ -5,6 +5,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
+  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
@@ -17,13 +18,30 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   assertGpuFlowMotionProjectionFrameWork,
-  createGpuFlowProjectionFrameTransactionSelector,
   createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
-  createGpuFlowRetainedProjectionPublicationDecisionSelector,
   hasActiveGpuFlowRetainedDomControlPublicationProof,
   isGpuFlowRetainedProjectionSurfaceCovered,
   resolveGpuFlowRetainedProjectionFrame,
+  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowProjectionFrameRenderablePlan,
+  type GpuFlowRetainedProjectionFrame,
+  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+
+type TestProjectionPublicationFrame = {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly visibleProjectionState: null;
+};
+
+type TestProjectionFrameTransaction = {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedReason: string | null;
+  readonly heldPreviousProjection: GpuFlowProjectionFrameRenderablePlan["heldPreviousProjection"] | null;
+  readonly outcomeKind: string;
+  readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
+  readonly transaction: GpuFlowProjectionTransaction;
+};
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {
@@ -248,14 +266,14 @@ describe("GPU flow projection frame coverage", () => {
     expect(secondHeld.blockedReason).toBe("held-previous-budget-exceeded");
     expect(secondHeld.transaction.kind).toBe("motion-projection");
     expect(secondHeld.transaction.sample.id).toBe(10);
-    expect(secondHeld.heldPreviousProjection).toEqual(
-      expect.objectContaining({
-        consecutiveFrameCount: 2,
-        heldDurationMs: 8,
-        maxHeldPreviousFramesExceeded: true,
-        maxHeldPreviousMsExceeded: true,
-      }),
-    );
+    expect(secondHeld.blockedPublicationCandidate?.blockedReasons).toEqual([
+      {
+        actorId: null,
+        family: "retained-projection",
+        reason: "held-previous-budget-exceeded",
+      },
+    ]);
+    expect(secondHeld.outcomeKind).toBe("blocked");
   });
 
   it("publishes the requested projection after the held-previous budget when an active DOM control is waiting", () => {
@@ -342,36 +360,119 @@ function resolveGpuFlowProjectionFrameTransaction({
   readonly projectionSchedulerKnobs?: GpuFlowProjectionSchedulerKnobs;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
-}) {
+}): TestProjectionFrameTransaction {
   const requestedRetainedProjectionFrame =
     resolveGpuFlowRetainedProjectionFrame({
       layer,
       retainedDisplayFrame,
       transaction: requestedTransaction,
     });
-  const selectProjectionPublicationDecision =
-    createGpuFlowRetainedProjectionPublicationDecisionSelector({
-      previousVisibleProjectionState: heldPreviousProjectionState,
-      rawReasons: frameReasons,
-    });
-  const publicationDecision = selectProjectionPublicationDecision({
-    hasActiveRetainedDomControl:
-      hasActiveGpuFlowRetainedDomControlPublicationProof(retainedDisplayFrame),
-    projectionSchedulerKnobs,
-    requestedProjectionCoverageMissing:
-      requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-    requestedTransaction,
+  const scheduler = createGpuFlowVisiblePublicationScheduler({
+    knobs: projectionSchedulerKnobs,
   });
-  return createGpuFlowProjectionFrameTransactionSelector()({
-    publicationDecision,
-    requestedRetainedProjectionFrame,
-    resolveHeldRetainedProjectionFrame: ({ transaction }) =>
-      resolveGpuFlowRetainedProjectionFrame({
-        layer,
-        retainedDisplayFrame,
-        transaction,
-      }),
+  const selection: {
+    blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+    renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
+  } = {
+    blockedPublicationCandidate: null,
+    renderPlan: null,
+  };
+  const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    TestProjectionPublicationFrame,
+    TestProjectionPublicationFrame
+  >({
+    prepareContentPublicationFrame: () => testProjectionPublicationFrame(),
+    prepareMotionProjectionFrame: () => ({
+      createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
+        return testProjectionPublicationFrame({
+          blockedPublicationCandidate,
+        });
+      },
+      hasActiveRetainedDomControl:
+        hasActiveGpuFlowRetainedDomControlPublicationProof(retainedDisplayFrame),
+      kind: "render",
+      requestedProjectionCoverageMissing:
+        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
+      requestedProjectionFrame: requestedRetainedProjectionFrame,
+      requestedTransaction,
+      resolveHeldRetainedProjectionFrame: ({ transaction }) =>
+        resolveGpuFlowRetainedProjectionFrame({
+          layer,
+          retainedDisplayFrame,
+          transaction,
+        }),
+      renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
+        selection.renderPlan = projectionFrameRenderPlan;
+        return testProjectionPublicationFrame();
+      },
+    }),
+    publish: (transaction) => {
+      selection.blockedPublicationCandidate =
+        transaction.preparedFrame.motionProjectionFrame
+          .blockedPublicationCandidate;
+    },
+    sampleVisibleFramePublication: () =>
+      visibleFramePublicationSample({
+        frameReasons,
+        previousVisibleProjectionState: heldPreviousProjectionState,
+        sample: requestedTransaction.sample,
+    }),
+    scheduler,
   });
+  const renderPlan = selection.renderPlan;
+  if (renderPlan) {
+    return {
+      blockedPublicationCandidate: null,
+      blockedReason: null,
+      heldPreviousProjection: renderPlan.heldPreviousProjection,
+      outcomeKind: result.outcome.kind,
+      retainedProjectionFrame: renderPlan.retainedProjectionFrame,
+      transaction: renderPlan.transaction,
+    };
+  }
+  return {
+    blockedPublicationCandidate: selection.blockedPublicationCandidate,
+    blockedReason:
+      selection.blockedPublicationCandidate?.blockedReasons[0]?.reason ?? null,
+    heldPreviousProjection: null,
+    outcomeKind: result.outcome.kind,
+    retainedProjectionFrame: requestedRetainedProjectionFrame,
+    transaction: requestedTransaction,
+  };
+}
+
+function testProjectionPublicationFrame({
+  blockedPublicationCandidate = null,
+}: {
+  readonly blockedPublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
+} = {}): TestProjectionPublicationFrame {
+  return {
+    blockedPublicationCandidate,
+    visibleProjectionState: null,
+  };
+}
+
+function visibleFramePublicationSample({
+  frameReasons,
+  previousVisibleProjectionState,
+  sample,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly sample: GpuFlowLiveProjectionSample;
+}): GpuFlowVisibleFramePublicationSample {
+  return {
+    hasCommittedContentFrame: true,
+    previousVisibleProjectionState,
+    rawReasons: frameReasons,
+    runtimeViewportFrame: false,
+    sample,
+    timestamp: sample.timestamp,
+    viewportInteractionActive: frameReasons.includes("viewport"),
+  };
 }
 
 function retainedSurface(

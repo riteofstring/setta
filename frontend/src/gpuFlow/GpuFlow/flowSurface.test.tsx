@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
 import {
@@ -12,7 +9,6 @@ import {
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
 import {
@@ -28,7 +24,6 @@ import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
   shouldDeferGpuFlowResolutionUpdates,
 } from "./visibleFramePublicationKernel";
-import { createGpuFlowVisiblePublicationCommitDebtProof } from "./visibleFramePublicationOracle";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
@@ -311,35 +306,6 @@ describe("GpuFlow", () => {
     expect(shiftedScrollKey).not.toBe(firstKey);
   });
 
-  it("keeps exact content debt queued for compatible-previous committed coverage", () => {
-    const publicationDecision = visiblePublicationDecision({ lane: "content" });
-
-    expect(
-      createGpuFlowVisiblePublicationCommitDebtProof({
-        committedFrame: committedSurfaceFrameForDebtProof({
-          compatiblePreviousActorIds: ["actor-a"],
-        }),
-        publicationDecision,
-      }),
-    ).toEqual({
-      content: false,
-      maintenance: false,
-      motion: false,
-    });
-    expect(
-      createGpuFlowVisiblePublicationCommitDebtProof({
-        committedFrame: committedSurfaceFrameForDebtProof({
-          compatiblePreviousActorIds: [],
-        }),
-        publicationDecision,
-      }),
-    ).toEqual({
-      content: true,
-      maintenance: false,
-      motion: false,
-    });
-  });
-
   it("prefers subscribed layout store geometry over matching scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [
@@ -574,70 +540,6 @@ function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
 const overlayProjectionCommittedFrame = {
   displayFrameId: 17,
 } as GpuFlowCommittedSurfaceFrame;
-
-function committedSurfaceFrameForDebtProof({
-  compatiblePreviousActorIds,
-}: {
-  readonly compatiblePreviousActorIds: readonly string[];
-}): GpuFlowCommittedSurfaceFrame {
-  const displayFrameId = 19;
-  const coherence = {
-    canvasRetainedFrameId: displayFrameId,
-    clipChainRevision: "clip",
-    debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
-    hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
-    retainedScrollRevision: 0,
-  };
-  return {
-    actorGenerations: [],
-    coherence,
-    displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
-      coherence,
-      displayFrameId,
-    }),
-    publishability: {
-      blockingActorIds: [],
-      kind: "publishable",
-    },
-    projectionHorizon: {
-      textActorCoverage: {
-        blockedAwaitingBrowserVisualActorIds: [],
-        blockedAwaitingLiveHostActorIds: [],
-        compatiblePreviousActorIds,
-        exactLiveDomActorIds: [],
-        exactSnapshotActorIds: [],
-        trueHoleActorIds: [],
-      },
-    },
-    surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
-}
-
-function visiblePublicationDecision({
-  lane,
-}: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
-}): GpuFlowVisiblePublicationDecision {
-  return {
-    debt: {
-      content: lane !== "content",
-      maintenance: lane !== "maintenance",
-      motion: lane !== "motion",
-    },
-    lane,
-    rawReasons: [],
-    sample: liveProjectionSampleForOverlayKey({
-      retainedScrollOffsets: new Map(),
-      retainedScrollRevision: 0,
-    }),
-    schedulerState: "content-catchup",
-  };
-}
 
 function visibleProjectionStateForOverlayKey({
   retainedScrollOffsets,

@@ -173,7 +173,7 @@ type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
 >;
 
-export type GpuFlowRetainedProjectionPublicationTransactionDecision =
+type GpuFlowRetainedProjectionPublicationTransactionDecision =
   | {
       readonly blockedReason: null;
       readonly heldPreviousProjection: null;
@@ -204,13 +204,13 @@ export type GpuFlowRetainedProjectionFrameResolver = (input: {
   readonly transaction: GpuFlowProjectionTransaction;
 }) => GpuFlowRetainedProjectionFrame;
 
-export type GpuFlowProjectionFrameTransactionSelector = (input: {
+type GpuFlowProjectionFrameTransactionSelector = (input: {
   readonly publicationDecision: GpuFlowRetainedProjectionPublicationTransactionDecision;
   readonly requestedRetainedProjectionFrame: GpuFlowRetainedProjectionFrame;
   readonly resolveHeldRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;
 }) => GpuFlowProjectionFrameTransaction;
 
-export type GpuFlowRetainedProjectionPublicationDecisionSelector = (input: {
+type GpuFlowRetainedProjectionPublicationDecisionSelector = (input: {
   readonly hasActiveRetainedDomControl: boolean;
   readonly projectionSchedulerKnobs?:
     | GpuFlowProjectionSchedulerKnobs
@@ -219,7 +219,7 @@ export type GpuFlowRetainedProjectionPublicationDecisionSelector = (input: {
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }) => GpuFlowRetainedProjectionPublicationTransactionDecision;
 
-export function createGpuFlowProjectionFrameTransactionSelector(): GpuFlowProjectionFrameTransactionSelector {
+function createGpuFlowProjectionFrameTransactionSelector(): GpuFlowProjectionFrameTransactionSelector {
   return selectGpuFlowProjectionFrameTransactionFromPublicationDecision;
 }
 
@@ -231,7 +231,7 @@ export function hasActiveGpuFlowRetainedDomControlPublicationProof(
   );
 }
 
-export function createGpuFlowRetainedProjectionPublicationDecisionSelector({
+function createGpuFlowRetainedProjectionPublicationDecisionSelector({
   previousVisibleProjectionState,
   rawReasons,
 }: {

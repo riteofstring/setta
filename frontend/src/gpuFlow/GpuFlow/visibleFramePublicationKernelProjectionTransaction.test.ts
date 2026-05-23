@@ -3,16 +3,28 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type {
   GpuFlowHeldPreviousProjection,
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransaction,
+  GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  createGpuFlowProjectionFrameTransactionSelector,
+  createGpuFlowVisiblePublicationScheduler,
+} from "../projectionRuntime";
+import {
+  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowRetainedProjectionFrame,
-  type GpuFlowRetainedProjectionPublicationTransactionDecision,
+  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+
+type TestProjectionPublicationFrame = {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly visibleProjectionState: null;
+};
 
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
@@ -37,72 +49,84 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
       id: "projection:11:held",
       kind: "held-previous",
     });
-    const selectProjectionFrameTransaction =
-      createGpuFlowProjectionFrameTransactionSelector();
-    let resolvedHeldTransaction: GpuFlowProjectionTransaction | null = null;
 
-    expect(
-      selectProjectionFrameTransaction({
-        publicationDecision: publicationDecision({
-          kind: "project-requested",
-          transaction: requestedTransaction,
-        }),
-        requestedRetainedProjectionFrame: requestedFrame,
-        resolveHeldRetainedProjectionFrame: () => {
-          throw new Error("project-requested must not resolve held frame");
-        },
-      }),
-    ).toEqual({
-      blockedReason: null,
+    const requestedSelection = selectProjectionFrameTransactionThroughKernel({
+      previousVisibleProjectionState: null,
+      requestedProjectionCoverageMissing: false,
+      requestedProjectionFrame: requestedFrame,
+      requestedTransaction,
+      resolveHeldRetainedProjectionFrame: () => {
+        throw new Error("project-requested must not resolve held frame");
+      },
+    });
+    expect(requestedSelection.blockedPublicationCandidate).toBeNull();
+    expect(requestedSelection.renderPlan).toEqual({
       heldPreviousProjection: null,
+      kind: "render",
       retainedProjectionFrame: requestedFrame,
       transaction: requestedTransaction,
     });
 
-    const heldPreviousProjection = heldProjection();
-    expect(
-      selectProjectionFrameTransaction({
-        publicationDecision: publicationDecision({
-          heldPreviousProjection,
-          kind: "held-previous",
-          transaction: heldTransaction,
-        }),
-        requestedRetainedProjectionFrame: requestedFrame,
-        resolveHeldRetainedProjectionFrame: ({ transaction }) => {
-          resolvedHeldTransaction = transaction;
-          return heldFrame;
-        },
+    const heldSelection = selectProjectionFrameTransactionThroughKernel({
+      previousVisibleProjectionState: visibleProjectionState({
+        transaction: heldTransaction,
       }),
-    ).toEqual({
-      blockedReason: null,
-      heldPreviousProjection,
+      requestedProjectionCoverageMissing: true,
+      requestedProjectionFrame: requestedFrame,
+      requestedTransaction,
+      resolveHeldRetainedProjectionFrame: () => heldFrame,
+    });
+    expect(heldSelection.blockedPublicationCandidate).toBeNull();
+    expect(heldSelection.resolvedHeldTransaction).toBe(
+      heldSelection.renderPlan?.transaction,
+    );
+    expect(heldSelection.renderPlan).toEqual({
+      heldPreviousProjection: expect.objectContaining({
+        committedFrameId: 11,
+        consecutiveFrameCount: 1,
+        projectionSampleId: requestedTransaction.sample.id,
+        reason: "retained-projection-coverage-missing",
+        requestedProjectionSampleId: requestedTransaction.sample.id,
+      }),
+      kind: "render",
       retainedProjectionFrame: {
         ...heldFrame,
         needsRetainedPageMaintenance: true,
       },
-      transaction: heldTransaction,
-    });
-    expect(resolvedHeldTransaction).toBe(heldTransaction);
-
-    expect(
-      selectProjectionFrameTransaction({
-        publicationDecision: publicationDecision({
-          blockedReason: "held-previous-budget-exceeded",
-          heldPreviousProjection,
-          kind: "blocked",
-          transaction: requestedTransaction,
-        }),
-        requestedRetainedProjectionFrame: requestedFrame,
-        resolveHeldRetainedProjectionFrame: () => {
-          throw new Error("blocked must not resolve held frame");
-        },
+      transaction: expect.objectContaining({
+        committedFrameId: 11,
+        kind: "held-previous",
+        sample: requestedTransaction.sample,
       }),
-    ).toEqual({
-      blockedReason: "held-previous-budget-exceeded",
-      heldPreviousProjection,
-      retainedProjectionFrame: requestedFrame,
-      transaction: requestedTransaction,
     });
+
+    const blockedSelection = selectProjectionFrameTransactionThroughKernel({
+      previousVisibleProjectionState: visibleProjectionState({
+        heldPreviousProjection: {
+          ...heldProjection(),
+          consecutiveFrameCount: 6,
+        },
+        transaction: heldTransaction,
+      }),
+      requestedProjectionCoverageMissing: true,
+      requestedProjectionFrame: requestedFrame,
+      requestedTransaction,
+      resolveHeldRetainedProjectionFrame: () => {
+        throw new Error("blocked must not resolve held frame");
+      },
+    });
+    expect(blockedSelection.renderPlan).toBeNull();
+    expect(blockedSelection.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "held-previous-budget-exceeded",
+        },
+      ],
+      frozenFrameId: 11,
+    });
+    expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
   it("keeps retained projection transaction decisions in the kernel and out of render planning", () => {
@@ -134,10 +158,13 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
       "export function decideGpuFlowRetainedProjectionPublicationTransaction",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowProjectionFrameTransactionSelector",
-    );
-    expect(kernelSource).toContain(
       "createGpuFlowRetainedProjectionPublicationDecisionSelector",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowProjectionFrameTransactionSelector",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowRetainedProjectionPublicationDecisionSelector",
     );
     expect(kernelSource).toContain(
       "function decideGpuFlowRetainedProjectionPublicationTransaction",
@@ -148,44 +175,6 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
   });
 });
 
-function publicationDecision({
-  blockedReason,
-  heldPreviousProjection,
-  kind,
-  transaction,
-}: {
-  readonly blockedReason?: string | undefined;
-  readonly heldPreviousProjection?:
-    | GpuFlowHeldPreviousProjection
-    | null
-    | undefined;
-  readonly kind: GpuFlowRetainedProjectionPublicationTransactionDecision["kind"];
-  readonly transaction: GpuFlowProjectionTransaction;
-}): GpuFlowRetainedProjectionPublicationTransactionDecision {
-  if (kind === "project-requested") {
-    return {
-      blockedReason: null,
-      heldPreviousProjection: null,
-      kind,
-      transaction,
-    };
-  }
-  if (kind === "blocked") {
-    return {
-      blockedReason: blockedReason ?? "held-previous-budget-exceeded",
-      heldPreviousProjection: heldPreviousProjection ?? heldProjection(),
-      kind,
-      transaction,
-    };
-  }
-  return {
-    blockedReason: null,
-    heldPreviousProjection: heldPreviousProjection ?? heldProjection(),
-    kind,
-    transaction,
-  };
-}
-
 function projectionFrame({
   needsRetainedPageMaintenance = false,
 }: {
@@ -195,6 +184,152 @@ function projectionFrame({
     flatSurfaces: [],
     missingCoverageSurfaceIds: new Set(),
     needsRetainedPageMaintenance,
+  };
+}
+
+function selectProjectionFrameTransactionThroughKernel({
+  previousVisibleProjectionState,
+  requestedProjectionCoverageMissing,
+  requestedProjectionFrame,
+  requestedTransaction,
+  resolveHeldRetainedProjectionFrame,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly requestedProjectionCoverageMissing: boolean;
+  readonly requestedProjectionFrame: GpuFlowRetainedProjectionFrame;
+  readonly requestedTransaction: GpuFlowProjectionTransaction;
+  readonly resolveHeldRetainedProjectionFrame: (input: {
+    readonly transaction: GpuFlowProjectionTransaction;
+  }) => GpuFlowRetainedProjectionFrame;
+}): {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly outcomeKind: string;
+  readonly renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
+  readonly resolvedHeldTransaction: GpuFlowProjectionTransaction | null;
+} {
+  const scheduler = createGpuFlowVisiblePublicationScheduler();
+  const selection: {
+    blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+    renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
+  } = {
+    blockedPublicationCandidate: null,
+    renderPlan: null,
+  };
+  let resolvedHeldTransaction: GpuFlowProjectionTransaction | null = null;
+  const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    TestProjectionPublicationFrame,
+    TestProjectionPublicationFrame
+  >({
+    prepareContentPublicationFrame: () => testProjectionPublicationFrame(),
+    prepareMotionProjectionFrame: () => ({
+      createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
+        return testProjectionPublicationFrame({
+          blockedPublicationCandidate,
+        });
+      },
+      hasActiveRetainedDomControl: false,
+      kind: "render",
+      requestedProjectionCoverageMissing,
+      requestedProjectionFrame,
+      requestedTransaction,
+      resolveHeldRetainedProjectionFrame: ({ transaction }) => {
+        resolvedHeldTransaction = transaction;
+        return resolveHeldRetainedProjectionFrame({ transaction });
+      },
+      renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
+        selection.renderPlan = projectionFrameRenderPlan;
+        return testProjectionPublicationFrame();
+      },
+    }),
+    publish: (transaction) => {
+      selection.blockedPublicationCandidate =
+        transaction.preparedFrame.motionProjectionFrame
+          .blockedPublicationCandidate;
+    },
+    sampleVisibleFramePublication: () =>
+      visibleFramePublicationSample({
+        previousVisibleProjectionState,
+        sample: requestedTransaction.sample,
+      }),
+    scheduler,
+  });
+  return {
+    blockedPublicationCandidate: selection.blockedPublicationCandidate,
+    outcomeKind: result.outcome.kind,
+    renderPlan: selection.renderPlan,
+    resolvedHeldTransaction,
+  };
+}
+
+function testProjectionPublicationFrame({
+  blockedPublicationCandidate = null,
+}: {
+  readonly blockedPublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
+} = {}): TestProjectionPublicationFrame {
+  return {
+    blockedPublicationCandidate,
+    visibleProjectionState: null,
+  };
+}
+
+function visibleFramePublicationSample({
+  previousVisibleProjectionState,
+  sample,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly sample: GpuFlowLiveProjectionSample;
+}): GpuFlowVisibleFramePublicationSample {
+  return {
+    hasCommittedContentFrame: true,
+    previousVisibleProjectionState,
+    rawReasons: ["retained-scroll"],
+    runtimeViewportFrame: false,
+    sample,
+    timestamp: sample.timestamp,
+    viewportInteractionActive: false,
+  };
+}
+
+function visibleProjectionState({
+  heldPreviousProjection = null,
+  transaction,
+}: {
+  readonly heldPreviousProjection?: GpuFlowHeldPreviousProjection | null;
+  readonly transaction: GpuFlowProjectionTransaction;
+}): GpuFlowVisibleProjectionState {
+  const heldDebugState = heldPreviousProjection ?? {
+    consecutiveFrameCount: 0,
+    heldDurationMs: 0,
+    reason: null,
+    requestedProjectionSampleId: null,
+  };
+  return {
+    committedFrame: {
+      coherence: {
+        hitGenerationId: "hit:11",
+      },
+      displayFrameId: 11,
+    } as GpuFlowCommittedSurfaceFrame,
+    debugState: {
+      committedFrameId: 11,
+      gestureOwner: "idle",
+      heldPreviousDurationMs: heldDebugState.heldDurationMs,
+      heldPreviousFrameCount: heldDebugState.consecutiveFrameCount,
+      heldPreviousOverBudget: false,
+      heldPreviousReason: heldDebugState.reason,
+      heldPreviousRequestedSampleId:
+        heldDebugState.requestedProjectionSampleId,
+      lane: "motion",
+      projectionSampleId: transaction.sample.id,
+      projectionTransactionId: transaction.id,
+      transactionKind: transaction.kind,
+    },
+    heldPreviousProjection,
+    sample: transaction.sample,
+    transaction,
   };
 }
 

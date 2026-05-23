@@ -110,6 +110,9 @@ describe("GPU Flow visible publication transaction oracle", () => {
       "export function createGpuFlowVisiblePublicationCommitOracle(",
     );
     expect(oracleSource).not.toContain(
+      "export function createGpuFlowVisiblePublicationCommitDebtProof(",
+    );
+    expect(oracleSource).not.toContain(
       "export function selectGpuFlowVisibleFramePublicationPreparedFrame(",
     );
     expect(oracleSource).not.toContain(
@@ -236,6 +239,36 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.presentationProof.canvasGeneration.presentationBatchId).toBe(
       oracle.presentationProof.batchId,
     );
+  });
+
+  it("keeps exact content debt queued for compatible-previous committed coverage", () => {
+    const sample = liveProjectionSample({ id: 46, timestamp: 460 });
+    const publicationDecisionWithContentDebt = publicationDecision(sample);
+
+    expect(
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({
+          compatiblePreviousActorIds: ["actor-a"],
+        }),
+        publicationDecision: publicationDecisionWithContentDebt,
+      }).debtProof,
+    ).toEqual({
+      content: false,
+      maintenance: false,
+      motion: false,
+    });
+    expect(
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({
+          compatiblePreviousActorIds: [],
+        }),
+        publicationDecision: publicationDecisionWithContentDebt,
+      }).debtProof,
+    ).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
   });
 
   it("rejects blocked actor proofs as commit candidates", () => {
@@ -859,8 +892,10 @@ function visibleProjectionState({
 
 function committedSurfaceFrame({
   actorGenerations = [],
+  compatiblePreviousActorIds = [],
 }: {
   readonly actorGenerations?: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly compatiblePreviousActorIds?: readonly string[] | undefined;
 } = {}): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
@@ -887,7 +922,7 @@ function committedSurfaceFrame({
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],
         blockedAwaitingLiveHostActorIds: [],
-        compatiblePreviousActorIds: [],
+        compatiblePreviousActorIds,
         exactLiveDomActorIds: [],
         exactSnapshotActorIds: [],
         trueHoleActorIds: [],
