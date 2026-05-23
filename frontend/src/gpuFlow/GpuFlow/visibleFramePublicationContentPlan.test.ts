@@ -35,6 +35,21 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
 );
+const CONTENT_AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationContentAuthority.ts", import.meta.url),
+);
+const COMMITTED_SURFACE_AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL(
+    "./visibleFramePublicationCommittedSurfaceAuthority.ts",
+    import.meta.url,
+  ),
+);
+const RETAINED_DISPLAY_AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL(
+    "./visibleFramePublicationRetainedDisplayAuthority.ts",
+    import.meta.url,
+  ),
+);
 const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPreparation.ts", import.meta.url),
 );
@@ -105,6 +120,14 @@ describe("GPU Flow visible publication content plans", () => {
   it("keeps retained and committed publication plan selection out of flowFrame", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const committedSurfaceAuthoritySource = readFileSync(
+      COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
+    const retainedDisplayAuthoritySource = readFileSync(
+      RETAINED_DISPLAY_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
     const contentPreparationSource = readFileSync(
       CONTENT_PREPARATION_MODULE_PATH,
       "utf8",
@@ -192,23 +215,50 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).toContain(
       "prepareCommittedSurfacePublicationFramePlan",
     );
-    expect(contentPlanSource).toContain(
-      "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
+    expect(contentPlanSource).not.toContain(
+      "export function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
-    expect(contentPlanSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    expect(contentPlanSource).not.toContain(
+      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
-    expect(contentPlanSource).toContain(
-      "resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
+    expect(contentPlanSource).not.toContain(
+      "export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
     );
-    expect(contentPlanSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+    expect(contentPlanSource).not.toContain(
+      "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
+    );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
+    );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "selectGpuFlowRetainedDisplayPublicationFramePlan",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "selectGpuFlowCommittedSurfacePublicationFramePlan",
+    );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+    );
+    expect(contentPlanSource).not.toContain(
+      "decideGpuFlowCommittedSurfacePublicationTransaction",
+    );
+    expect(contentPlanSource).not.toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+    );
+    expect(contentPlanSource).not.toContain(
+      "shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair",
     );
     expect(contentPlanSource).toContain("nodeLayerFrameResult:");
     expect(contentPlanSource).toContain(
@@ -219,6 +269,108 @@ describe("GPU Flow visible publication content plans", () => {
     );
     expect(contentPreparationSource).toContain(
       "shouldPrepareHtmlSurfaceOverlayTextures",
+    );
+  });
+
+  it("keeps committed-surface transaction candidate selection in publication authority", () => {
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const committedSurfaceAuthoritySource = readFileSync(
+      COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(contentPlanSource).not.toContain(
+      "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(contentPlanSource).not.toContain(
+      "decideGpuFlowCommittedSurfacePublicationTransaction",
+    );
+    expect(contentPlanSource).not.toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "decideGpuFlowCommittedSurfacePublicationTransaction",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+    );
+  });
+
+  it("keeps committed-surface frame-plan selection in publication authority", () => {
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const committedSurfaceAuthoritySource = readFileSync(
+      COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(contentPlanSource).not.toContain(
+      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+    );
+    expect(contentPlanSource).not.toContain(
+      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    );
+    expect(contentPlanSource).not.toContain(
+      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "selectGpuFlowCommittedSurfacePublicationFramePlan",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    );
+    expect(committedSurfaceAuthoritySource).toContain(
+      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+    );
+  });
+
+  it("keeps retained-display outcome selection in publication authority", () => {
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const retainedDisplayAuthoritySource = readFileSync(
+      RETAINED_DISPLAY_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(contentPlanSource).not.toContain(
+      "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
+    );
+    expect(contentPlanSource).not.toContain(
+      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(contentPlanSource).not.toContain(
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+    );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "selectGpuFlowRetainedDisplayPublicationFramePlan",
+    );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(retainedDisplayAuthoritySource).toContain(
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+    );
+  });
+
+  it("keeps content blocked-candidate selection in publication authority", () => {
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const contentAuthoritySource = readFileSync(
+      CONTENT_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(contentPlanSource).not.toContain(
+      "export function selectGpuFlowContentPublicationBlockedCandidate",
+    );
+    expect(contentPlanSource).not.toContain(
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+    );
+    expect(contentAuthoritySource).toContain(
+      "selectGpuFlowContentPublicationBlockedCandidate",
+    );
+    expect(contentAuthoritySource).toContain(
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
   });
 
