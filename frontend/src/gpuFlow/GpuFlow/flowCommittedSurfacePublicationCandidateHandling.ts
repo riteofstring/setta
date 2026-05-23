@@ -1,10 +1,6 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationKernel";
-
-type GpuFlowCommittedSurfacePublicationCandidate = ReturnType<
-  typeof prepareGpuFlowCommittedSurfacePublicationCandidate
->;
+import type { GpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationContentPlan";
 
 export type GpuFlowBlockedCommittedSurfacePublication = Extract<
   GpuFlowCommittedSurfacePublicationCandidate,

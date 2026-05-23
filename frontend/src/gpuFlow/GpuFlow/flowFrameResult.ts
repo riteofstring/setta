@@ -4,7 +4,7 @@ import type {
   GpuFlowBlockedCommittedSurfacePublication,
   GpuFlowCommittedSurfacePublicationCandidateAction,
 } from "./flowCommittedSurfacePublicationCandidateHandling";
-import type { GpuFlowCommittedSurfacePublicationEffect } from "./visibleFramePublicationKernel";
+import type { GpuFlowCommittedSurfacePublicationEffect } from "./visibleFramePublicationContentPlan";
 
 export type GpuFlowNodeLayerCommittedSurfacePublicationResult = {
   readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfacePublication | null;

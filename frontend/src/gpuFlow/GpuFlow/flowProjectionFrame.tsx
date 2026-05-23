@@ -52,7 +52,10 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import type { GpuFlowProjectionFrameTransaction } from "./visibleFramePublicationKernel";
+import type {
+  GpuFlowProjectionFrameRenderPlanSelector,
+  GpuFlowProjectionFrameTransaction,
+} from "./visibleFramePublicationKernel";
 
 export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -91,6 +94,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeInteractionRef,
   nodeLayerRef,
   projectionFrameTransaction,
+  selectProjectionFrameRenderPlan,
   requestedProjectionTransaction,
   heldPreviousProjectionState,
   htmlSurfaceRendererRef,
@@ -116,6 +120,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
+  readonly selectProjectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlanSelector;
   readonly requestedProjectionTransaction: GpuFlowProjectionTransaction;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
@@ -162,15 +167,19 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       transactionId: requestedProjectionTransaction.id,
     },
   );
-  if (projectionFrameTransaction.blockedReason) {
+  const projectionFrameRenderPlan = selectProjectionFrameRenderPlan({
+    projectionFrameTransaction,
+  });
+  if (projectionFrameRenderPlan.kind === "blocked") {
     finishProjectionResolveMeasure();
     return {
-      blockedProjectionReason: projectionFrameTransaction.blockedReason,
+      blockedProjectionReason:
+        projectionFrameRenderPlan.blockedProjectionReason,
       rendered: false,
     };
   }
   const { heldPreviousProjection, retainedProjectionFrame, transaction } =
-    projectionFrameTransaction;
+    projectionFrameRenderPlan;
   const projectionViewport = transaction.sample.viewport;
   const projectionRetainedRuntimeFrame =
     resolveGpuFlowProjectionRetainedRuntimeFrame({

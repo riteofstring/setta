@@ -177,32 +177,28 @@ describe("GPU Flow visible publication transaction kernel", () => {
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
       hasCommittedContentFrame: true,
       prepareContentPublicationFrame: ({
-        resolveCommittedSurfacePublicationCandidateAction,
-        resolveRetainedDisplayPublicationOutcomeFrame,
+        selectCommittedSurfacePublicationFramePlan,
         selectContentPublicationBlockedCandidate,
+        selectRetainedDisplayPublicationFramePlan,
       }) => {
-        const action = resolveCommittedSurfacePublicationCandidateAction({
+        const committedPlan = selectCommittedSurfacePublicationFramePlan({
           candidate: {
             effect: { kind: "publish" },
             kind: "publish",
           },
           publishedCommittedSurfaceFrame: committedFrame,
         });
-        if (action.kind !== "publish") {
-          throw new Error("Expected committed-surface publish action.");
-        }
-        const retainedOutcome = resolveRetainedDisplayPublicationOutcomeFrame({
-          kind: "block-cold-first-coverage",
-          reason: "coverage-missing",
+        expect(committedPlan.kind).toBe("publish");
+        const retainedPlan = selectRetainedDisplayPublicationFramePlan({
+          retainedDisplayOutcome: {
+            kind: "block-cold-first-coverage",
+            reason: "coverage-missing",
+          },
         });
         const blockedCandidate = selectContentPublicationBlockedCandidate({
           retainedProjectionBlockedReason: "coverage-missing",
         });
-        expect(action.committedSurfaceFrame).toBe(committedFrame);
-        expect(retainedOutcome).toEqual({
-          kind: "blocked",
-          reason: "coverage-missing",
-        });
+        expect(retainedPlan.kind).toBe("blocked");
         expect(blockedCandidate).toEqual({
           blockedReasons: [
             {

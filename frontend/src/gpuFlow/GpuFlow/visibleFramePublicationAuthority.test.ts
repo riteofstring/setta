@@ -410,6 +410,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const publishBranchStart = kernelSource.indexOf(
       'if (transactionDecision.kind === "publish")',
     );
@@ -424,14 +425,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateStart = kernelSource.indexOf(
+    const candidateStart = kernelModuleSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    const candidateEnd = kernelSource.indexOf(
-      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
-      candidateStart,
-    );
-    const candidateSource = kernelSource.slice(candidateStart, candidateEnd);
+    const candidateSource = kernelModuleSource.slice(candidateStart);
 
     expect(committedSurfaceSource).not.toContain(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
@@ -472,7 +469,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
     expect(candidateStart).toBeGreaterThanOrEqual(0);
-    expect(candidateEnd).toBeGreaterThan(candidateStart);
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toMatch(/\bGpuFlowCommitPublicationToken\b/);
     expect(publishBranchStart).toBeGreaterThanOrEqual(0);
@@ -491,22 +487,17 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const candidateStart = kernelSource.indexOf(
+    const candidateStart = kernelModuleSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
-    );
-    const candidateEnd = kernelSource.indexOf(
-      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
-      candidateStart,
     );
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateSource = kernelSource.slice(candidateStart, candidateEnd);
+    const candidateSource = kernelModuleSource.slice(candidateStart);
 
     expect(candidateStart).toBeGreaterThanOrEqual(0);
-    expect(candidateEnd).toBeGreaterThan(candidateStart);
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toContain(
       "requestGpuFlowBrowserVisualRetryFrame",
@@ -528,16 +519,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      "resolveRetainedDisplayOutcomeFrameResult",
+      "selectRetainedDisplayPublicationFramePlan",
     );
-    const branchEnd = source.indexOf(
-      "notifyRetainedDisplayFollowUpFrameNeeded",
-      branchStart,
-    );
-    const branchSource = source.slice(branchStart, branchEnd);
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
-    expect(branchEnd).toBeGreaterThan(branchStart);
     expect(source).not.toContain("block-cold-first-coverage");
     expect(source).not.toContain(
       'retainedDisplayOutcomeFrame.kind === "blocked"',
@@ -553,13 +538,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(source).not.toContain("onRetainedProjectionPublicationBlocked");
-    expect(branchSource).not.toContain(
-      "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
-    );
-    expect(branchSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
-    );
-    expect(branchSource).not.toContain("requestFrame");
     expect(surfaceFrameSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
@@ -574,7 +552,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver",
+      "createGpuFlowRetainedDisplayPublicationFramePlanSelector",
     );
     expect(kernelSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
@@ -626,7 +604,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const candidateHandlingSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
       "utf8",
@@ -635,17 +613,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateStart = kernelSource.indexOf(
+    const candidateStart = kernelModuleSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    const candidateEnd = kernelSource.indexOf(
-      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
-      candidateStart,
-    );
-    const candidateSource = kernelSource.slice(candidateStart, candidateEnd);
+    const candidateSource = kernelModuleSource.slice(candidateStart);
 
     expect(candidateStart).toBeGreaterThanOrEqual(0);
-    expect(candidateEnd).toBeGreaterThan(candidateStart);
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toContain("GpuFlowHoldPreviousToken");
     expect(candidateSource).not.toMatch(
@@ -1156,6 +1129,12 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_MODULE_PATH,
     KERNEL_CANDIDATES_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
+    fileURLToPath(
+      new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
+    ),
+    fileURLToPath(
+      new URL("./visibleFramePublicationOracle.ts", import.meta.url),
+    ),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");

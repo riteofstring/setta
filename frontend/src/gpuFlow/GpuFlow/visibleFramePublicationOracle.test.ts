@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,13 +12,44 @@ import type {
   GpuFlowProjectionTransactionKind,
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
 import {
-  createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   createGpuFlowVisibleFramePublicationTransactionOracle,
   selectGpuFlowVisibleFramePublicationPreparedFrame,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFramePublicationOracle";
+
+const KERNEL_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+);
+const ORACLE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationOracle.ts", import.meta.url),
+);
 
 describe("GPU Flow visible publication transaction oracle", () => {
+  it("keeps candidate-set oracle assembly out of the kernel wrapper", () => {
+    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const oracleSource = readFileSync(ORACLE_MODULE_PATH, "utf8");
+
+    expect(kernelSource).not.toContain(
+      "createGpuFlowVisibleFramePublicationOracleBlockedSource",
+    );
+    expect(kernelSource).not.toContain(
+      "createGpuFlowVisibleFramePublicationOracleProjectionSource",
+    );
+    expect(kernelSource).not.toContain(
+      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
+    );
+    expect(oracleSource).toContain(
+      "createGpuFlowVisibleFramePublicationOracleBlockedSource",
+    );
+    expect(oracleSource).toContain(
+      "createGpuFlowVisibleFramePublicationOracleProjectionSource",
+    );
+    expect(oracleSource).toContain(
+      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
+    );
+  });
+
   it("records content and motion proof sources", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
